@@ -55,7 +55,7 @@ public class SubPixelParticlesStayVisibleTests
             new PixelSize(256, 144),
             1f,
             2f,
-            TimeSpan.FromSeconds(1));
+            MediaTime.FromSeconds(1));
         return SceneRenderHarness.SumAlpha(bitmap);
     }
 }

@@ -20,7 +20,7 @@ public sealed class ValidationPayloadSerializationTests
     public void Validation_payload_for_a_replaced_effect_is_serializable()
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape
         {
             Name = "Filtered rect",
@@ -69,7 +69,7 @@ public sealed class ValidationPayloadSerializationTests
     public void Validation_payload_for_an_inserted_media_reference_is_serializable()
     {
         Scene scene = TestWorkspace.CreateScene();
-        TestWorkspace.AddElement(scene, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         string mediaPath = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "image.png");
         File.WriteAllBytes(mediaPath, []);
         using var session = new AgentToolkitTestSession(scene);

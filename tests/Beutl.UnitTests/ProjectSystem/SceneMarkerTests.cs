@@ -11,7 +11,7 @@ public class SceneMarkerTests
     {
         var marker = new SceneMarker();
 
-        Assert.That(marker.Time, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(marker.Time, Is.EqualTo(MediaTime.Zero));
         Assert.That(marker.Color, Is.EqualTo(Colors.Yellow));
         Assert.That(marker.Note, Is.EqualTo(string.Empty));
         Assert.That(marker.Name, Is.EqualTo(string.Empty));
@@ -21,12 +21,12 @@ public class SceneMarkerTests
     public void ParameterizedConstructor_AssignsValues()
     {
         var marker = new SceneMarker(
-            TimeSpan.FromSeconds(2),
+            MediaTime.FromSeconds(2),
             name: "intro",
             color: Colors.Red,
             note: "first marker");
 
-        Assert.That(marker.Time, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(marker.Time, Is.EqualTo(MediaTime.FromSeconds(2)));
         Assert.That(marker.Name, Is.EqualTo("intro"));
         Assert.That(marker.Color, Is.EqualTo(Colors.Red));
         Assert.That(marker.Note, Is.EqualTo("first marker"));
@@ -35,7 +35,7 @@ public class SceneMarkerTests
     [Test]
     public void ParameterizedConstructor_NullsBecomeDefaults()
     {
-        var marker = new SceneMarker(TimeSpan.FromSeconds(1));
+        var marker = new SceneMarker(MediaTime.FromSeconds(1));
 
         Assert.That(marker.Name, Is.EqualTo(string.Empty));
         Assert.That(marker.Color, Is.EqualTo(Colors.Yellow));
@@ -45,17 +45,17 @@ public class SceneMarkerTests
     [Test]
     public void Time_NegativeValueIsClampedToZero()
     {
-        var marker = new SceneMarker { Time = TimeSpan.FromSeconds(-1) };
+        var marker = new SceneMarker { Time = MediaTime.FromSeconds(-1) };
 
-        Assert.That(marker.Time, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(marker.Time, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
     public void Time_PositiveValueIsAssigned()
     {
-        var marker = new SceneMarker { Time = TimeSpan.FromSeconds(3.5) };
+        var marker = new SceneMarker { Time = MediaTime.FromSeconds(3.5) };
 
-        Assert.That(marker.Time, Is.EqualTo(TimeSpan.FromSeconds(3.5)));
+        Assert.That(marker.Time, Is.EqualTo(MediaTime.FromSeconds(3.5)));
     }
 
     [Test]
@@ -88,7 +88,7 @@ public class SceneMarkerTests
         var captured = new List<string?>();
         marker.PropertyChanged += (_, e) => captured.Add(e.PropertyName);
 
-        marker.Time = TimeSpan.FromSeconds(1);
+        marker.Time = MediaTime.FromSeconds(1);
 
         Assert.That(captured, Does.Contain(nameof(SceneMarker.Time)));
     }

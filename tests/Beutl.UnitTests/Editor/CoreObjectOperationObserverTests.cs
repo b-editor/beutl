@@ -301,7 +301,7 @@ public class CoreObjectOperationObserverTests
         var keyFrame = new KeyFrame<float>
         {
             Value = 1.0f,
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f)
         };
 
@@ -322,7 +322,7 @@ public class CoreObjectOperationObserverTests
         var keyFrame = new KeyFrame<float>
         {
             Value = 1.0f,
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Easing = new LinearEasing()
         };
 
@@ -349,7 +349,7 @@ public class CoreObjectOperationObserverTests
         var keyFrame = new KeyFrame<float>
         {
             Value = 1.0f,
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Easing = oldSplineEasing
         };
 

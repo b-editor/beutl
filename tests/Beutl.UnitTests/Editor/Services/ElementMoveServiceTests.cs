@@ -18,7 +18,7 @@ public class ElementMoveServiceTests
     [SetUp]
     public void Setup()
     {
-        _harness = new SceneHistoryHarness("beutl_move", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(30));
+        _harness = new SceneHistoryHarness("beutl_move", start: MediaTime.Zero, duration: MediaTime.FromSeconds(30));
         _scene = _harness.Scene;
         _history = _harness.History;
         _duplicateService = new ElementDuplicateService(_history);
@@ -31,7 +31,7 @@ public class ElementMoveServiceTests
         _harness.Dispose();
     }
 
-    private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
+    private Element AddElement(MediaTime start, MediaTime length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
     [Test]
@@ -49,10 +49,10 @@ public class ElementMoveServiceTests
     [Test]
     public void Move_ZeroDelta_ReturnsNone_NoCommit()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
 
-        ElementMoveOutcome outcome = _service.Move(_scene, [element], TimeSpan.Zero, 0);
+        ElementMoveOutcome outcome = _service.Move(_scene, [element], MediaTime.Zero, 0);
 
         Assert.Multiple(() =>
         {
@@ -64,16 +64,16 @@ public class ElementMoveServiceTests
     [Test]
     public void Move_NonZeroDelta_AppliesAndCommitsOnce()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
-        TimeSpan originalStart = element.Start;
+        MediaTime originalStart = element.Start;
 
-        ElementMoveOutcome outcome = _service.Move(_scene, [element], TimeSpan.FromSeconds(2), 1);
+        ElementMoveOutcome outcome = _service.Move(_scene, [element], MediaTime.FromSeconds(2), 1);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.Moved));
-            Assert.That(element.Start, Is.EqualTo(originalStart + TimeSpan.FromSeconds(2)));
+            Assert.That(element.Start, Is.EqualTo(originalStart + MediaTime.FromSeconds(2)));
             Assert.That(element.ZIndex, Is.EqualTo(1));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -82,17 +82,17 @@ public class ElementMoveServiceTests
     [Test]
     public void Move_MultipleElements_OneHistoryEntry()
     {
-        Element e1 = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0);
-        Element e2 = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), 1);
+        Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
+        Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2), 1);
         int before = _history.UndoCount;
 
-        ElementMoveOutcome outcome = _service.Move(_scene, [e1, e2], TimeSpan.FromSeconds(1), 0);
+        ElementMoveOutcome outcome = _service.Move(_scene, [e1, e2], MediaTime.FromSeconds(1), 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.Moved));
-            Assert.That(e1.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(e2.Start, Is.EqualTo(TimeSpan.FromSeconds(6)));
+            Assert.That(e1.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(e2.Start, Is.EqualTo(MediaTime.FromSeconds(6)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -101,10 +101,10 @@ public class ElementMoveServiceTests
     public void DuplicateOrMove_OverlappingSources_ReturnsOverlap_NoCommit()
     {
         // Duplicating with zero delta lands the copy on top of self.
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
 
-        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [element], TimeSpan.Zero, 0);
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [element], MediaTime.Zero, 0);
 
         Assert.Multiple(() =>
         {
@@ -118,7 +118,7 @@ public class ElementMoveServiceTests
     {
         int before = _history.UndoCount;
 
-        ElementMoveOutcome outcome = _service.Move(_scene, [], TimeSpan.FromSeconds(2), 0);
+        ElementMoveOutcome outcome = _service.Move(_scene, [], MediaTime.FromSeconds(2), 0);
 
         Assert.Multiple(() =>
         {
@@ -130,25 +130,25 @@ public class ElementMoveServiceTests
     [Test]
     public void Move_NullArguments_Throw()
     {
-        Element placeholder = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element placeholder = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         Assert.Multiple(() =>
         {
-            Assert.Throws<ArgumentNullException>(() => _service.Move(null!, [placeholder], TimeSpan.Zero, 0));
-            Assert.Throws<ArgumentNullException>(() => _service.Move(_scene, null!, TimeSpan.Zero, 0));
-            Assert.Throws<ArgumentNullException>(() => _service.DuplicateOrMove(null!, [placeholder], TimeSpan.Zero, 0));
-            Assert.Throws<ArgumentNullException>(() => _service.DuplicateOrMove(_scene, null!, TimeSpan.Zero, 0));
+            Assert.Throws<ArgumentNullException>(() => _service.Move(null!, [placeholder], MediaTime.Zero, 0));
+            Assert.Throws<ArgumentNullException>(() => _service.Move(_scene, null!, MediaTime.Zero, 0));
+            Assert.Throws<ArgumentNullException>(() => _service.DuplicateOrMove(null!, [placeholder], MediaTime.Zero, 0));
+            Assert.Throws<ArgumentNullException>(() => _service.DuplicateOrMove(_scene, null!, MediaTime.Zero, 0));
         });
     }
 
     [Test]
     public void Move_OntoLockedDestinationLayer_IsRefused()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 0);
         _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
         int before = _history.UndoCount;
 
-        ElementMoveOutcome outcome = _service.Move(_scene, [element], TimeSpan.Zero, 2);
+        ElementMoveOutcome outcome = _service.Move(_scene, [element], MediaTime.Zero, 2);
 
         Assert.Multiple(() =>
         {
@@ -161,12 +161,12 @@ public class ElementMoveServiceTests
     [Test]
     public void DuplicateOrMove_OntoLockedDestinationLayer_IsRefused()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 0);
         _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
         int beforeChildren = _scene.Children.Count;
         int before = _history.UndoCount;
 
-        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [element], TimeSpan.Zero, 2);
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [element], MediaTime.Zero, 2);
 
         Assert.Multiple(() =>
         {
@@ -179,33 +179,33 @@ public class ElementMoveServiceTests
     [Test]
     public void Move_LockedSourceElement_IsFiltered()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
-        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element free = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
 
-        ElementMoveOutcome outcome = _service.Move(_scene, [locked, free], TimeSpan.FromSeconds(1), 0);
+        ElementMoveOutcome outcome = _service.Move(_scene, [locked, free], MediaTime.FromSeconds(1), 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.Moved));
-            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(free.Start, Is.EqualTo(TimeSpan.FromSeconds(6)));
+            Assert.That(locked.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(free.Start, Is.EqualTo(MediaTime.FromSeconds(6)));
         });
     }
 
     [Test]
     public void Move_AllSourcesLocked_ReturnsNone_NoCommit()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
         int before = _history.UndoCount;
 
-        ElementMoveOutcome outcome = _service.Move(_scene, [locked], TimeSpan.FromSeconds(1), 0);
+        ElementMoveOutcome outcome = _service.Move(_scene, [locked], MediaTime.FromSeconds(1), 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.None));
-            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(locked.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -213,12 +213,12 @@ public class ElementMoveServiceTests
     [Test]
     public void DuplicateOrMove_AllSourcesLocked_ReturnsNone_NoCommit()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
         int beforeChildren = _scene.Children.Count;
         int before = _history.UndoCount;
 
-        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [locked], TimeSpan.FromSeconds(10), 0);
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [locked], MediaTime.FromSeconds(10), 0);
 
         Assert.Multiple(() =>
         {
@@ -231,18 +231,18 @@ public class ElementMoveServiceTests
     [Test]
     public void DuplicateOrMove_LockedSource_IsExcludedFromDuplicate()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
-        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element free = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         int beforeChildren = _scene.Children.Count;
 
-        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [locked, free], TimeSpan.FromSeconds(10), 0);
+        ElementMoveOutcome outcome = _service.DuplicateOrMove(_scene, [locked, free], MediaTime.FromSeconds(10), 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome, Is.EqualTo(ElementMoveOutcome.Duplicated));
             Assert.That(_scene.Children.Count, Is.EqualTo(beforeChildren + 1));
-            Assert.That(locked.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(locked.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
 }

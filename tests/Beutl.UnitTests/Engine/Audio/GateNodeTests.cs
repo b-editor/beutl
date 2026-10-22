@@ -64,7 +64,7 @@ public class GateNodeTests
         var node = CreateNode();
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25)));
 
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
@@ -85,7 +85,7 @@ public class GateNodeTests
         var node = CreateNode();
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5)));
 
         float inputPeakDb = PeakDb(input, 0);
         float outputPeakDb = PeakDb(output, sampleCount / 2);
@@ -101,7 +101,7 @@ public class GateNodeTests
         var node = CreateNode(range: -60f);
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5)));
 
         float inputPeakDb = PeakDb(input, 0);
         float outputPeakDb = PeakDb(output, sampleCount / 2);
@@ -120,7 +120,7 @@ public class GateNodeTests
         var node = CreateNode(threshold: -40f, attack: attackMs, hold: 0f, release: 100f, range: -100f);
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1.0)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(1.0)));
 
         int probeIdx = stepAt + (int)(attackMs * 0.001f * SampleRate);
         float gainLinear = MathF.Abs(output.GetChannelData(0)[probeIdx] / 0.9f);
@@ -141,11 +141,11 @@ public class GateNodeTests
 
         var holdNode = CreateNode(hold: 500f, release: 50f);
         holdNode.AddInput(new BufferReplayNode(input));
-        using var holdOut = holdNode.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(total / (double)SampleRate)));
+        using var holdOut = holdNode.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(total / (double)SampleRate)));
 
         var noHoldNode = CreateNode(hold: 0f, release: 50f);
         noHoldNode.AddInput(new BufferReplayNode(input));
-        using var noHoldOut = noHoldNode.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(total / (double)SampleRate)));
+        using var noHoldOut = noHoldNode.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(total / (double)SampleRate)));
 
         int probeWidth = SampleRate / 25;
         float holdTailDb = PeakDb(holdOut, total - probeWidth, probeWidth);
@@ -163,20 +163,20 @@ public class GateNodeTests
 
         var node = CreateNode();
         node.AddInput(new BufferReplayNode(loud));
-        var ctx1 = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(chunkSamples / (double)SampleRate));
+        var ctx1 = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(chunkSamples / (double)SampleRate));
         using var firstOutput = node.Process(ctx1);
 
         node.ClearInputs();
         using var loud2 = CreateConstantBuffer(0.9f, chunkSamples);
         node.AddInput(new BufferReplayNode(loud2));
-        var ctxSeek = CreateContext(TimeSpan.FromSeconds(5.0), TimeSpan.FromSeconds(chunkSamples / (double)SampleRate));
+        var ctxSeek = CreateContext(MediaTime.FromSeconds(5.0), MediaTime.FromSeconds(chunkSamples / (double)SampleRate));
         using var seekedOutput = node.Process(ctxSeek);
 
         var nodeFresh = CreateNode();
         using var loud3 = CreateConstantBuffer(0.9f, chunkSamples);
         nodeFresh.AddInput(new BufferReplayNode(loud3));
         using var freshOutput = nodeFresh.Process(
-            CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(chunkSamples / (double)SampleRate)));
+            CreateContext(MediaTime.Zero, MediaTime.FromSeconds(chunkSamples / (double)SampleRate)));
 
         float seekedFirst = MathF.Abs(seekedOutput.GetChannelData(0)[0]);
         float freshFirst = MathF.Abs(freshOutput.GetChannelData(0)[0]);
@@ -191,7 +191,7 @@ public class GateNodeTests
 
         var node = CreateNode();
         node.AddInput(new BufferReplayNode(loud));
-        var ctx48 = CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(chunkSamples / (double)SampleRate));
+        var ctx48 = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(chunkSamples / (double)SampleRate));
         using var firstOutput = node.Process(ctx48);
 
         node.ClearInputs();
@@ -199,7 +199,7 @@ public class GateNodeTests
         using var loud44 = CreateConstantBuffer(0.9f, altSampleRate / 10, 2, altSampleRate);
         node.AddInput(new BufferReplayNode(loud44));
         var ctx44 = new AudioProcessContext(
-            new TimeRange(TimeSpan.FromSeconds(chunkSamples / (double)SampleRate), TimeSpan.FromSeconds(0.1)),
+            new TimeRange(MediaTime.FromSeconds(chunkSamples / (double)SampleRate), MediaTime.FromSeconds(0.1)),
             altSampleRate,
             new AnimationSampler(),
             null);
@@ -209,7 +209,7 @@ public class GateNodeTests
         using var freshInput = CreateConstantBuffer(0.9f, altSampleRate / 10, 2, altSampleRate);
         nodeFresh.AddInput(new BufferReplayNode(freshInput));
         var ctxFresh = new AudioProcessContext(
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(0.1)),
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(0.1)),
             altSampleRate,
             new AnimationSampler(),
             null);
@@ -224,8 +224,8 @@ public class GateNodeTests
     public void Reset_ClearsGateState()
     {
         const int chunkSamples = SampleRate / 10;
-        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
-        var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
+        var chunkDuration = MediaTime.FromSeconds(chunkSamples / (double)SampleRate);
+        var ctx1 = CreateContext(MediaTime.Zero, chunkDuration);
         var ctx2 = CreateContext(chunkDuration, chunkDuration);
 
         var node = CreateNode();
@@ -256,10 +256,10 @@ public class GateNodeTests
         using var input = CreateConstantBuffer(0.01f, sampleCount); // ≈-40 dB
 
         var node = CreateNode(threshold: -60f, hold: 0f, release: 20f);
-        node.Threshold.SetKeyFrameAnimation(Ramp(-60f, -20f, TimeSpan.FromSeconds(0.5)));
+        node.Threshold.SetKeyFrameAnimation(Ramp(-60f, -20f, MediaTime.FromSeconds(0.5)));
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5)));
 
         int lastQuarterStart = sampleCount * 3 / 4;
         float earlyPeakDb = PeakDb(output, sampleCount / 8, sampleCount / 8);
@@ -273,17 +273,17 @@ public class GateNodeTests
     {
         const int loudSamples = SampleRate / 4;
         const int sampleCount = SampleRate / 2;
-        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        var duration = MediaTime.FromSeconds(sampleCount / (double)SampleRate);
         using var input = MakeTwoPhaseBuffer(0.9f, 0.003f, loudSamples, sampleCount);
 
         var staticNode = CreateNode(threshold: -40f, attack: 2f, hold: 5f, release: 30f, range: -50f);
         staticNode.AddInput(new BufferReplayNode(input));
-        using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
+        using var staticOut = staticNode.Process(CreateContext(MediaTime.Zero, duration));
 
         var animatedNode = CreateNode(attack: 2f, hold: 5f, release: 30f, range: -50f);
         animatedNode.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, duration));
         animatedNode.AddInput(new BufferReplayNode(input));
-        using var animatedOut = animatedNode.Process(CreateContext(TimeSpan.Zero, duration));
+        using var animatedOut = animatedNode.Process(CreateContext(MediaTime.Zero, duration));
 
         for (int ch = 0; ch < staticOut.ChannelCount; ch++)
         {
@@ -310,7 +310,7 @@ public class GateNodeTests
 
         var node = CreateNode();
         node.AddInput(new BufferReplayNode(input));
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25)));
 
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
@@ -333,7 +333,7 @@ public class GateNodeTests
 
         var node = CreateNode();
         node.AddInput(new BufferReplayNode(input));
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25)));
 
         Assert.That(output.GetChannelData(0)[0], Is.EqualTo(0f));
         Assert.That(output.GetChannelData(1)[0], Is.EqualTo(0f));
@@ -369,10 +369,10 @@ public class GateNodeTests
             AnimatedParam.Range => node.Range,
             _ => throw new ArgumentOutOfRangeException(nameof(param))
         };
-        target.SetKeyFrameAnimation(Ramp(float.NaN, float.NaN, TimeSpan.FromSeconds(0.25)));
+        target.SetKeyFrameAnimation(Ramp(float.NaN, float.NaN, MediaTime.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25)));
 
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
@@ -396,12 +396,12 @@ public class GateNodeTests
         using var loud = CreateConstantBuffer(0.9f, sampleCount, channels: 1);
         var loudNode = CreateNode();
         loudNode.AddInput(new BufferReplayNode(loud));
-        using var loudOut = loudNode.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+        using var loudOut = loudNode.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5)));
 
         using var quiet = CreateConstantBuffer(0.003f, sampleCount, channels: 1);
         var quietNode = CreateNode();
         quietNode.AddInput(new BufferReplayNode(quiet));
-        using var quietOut = quietNode.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+        using var quietOut = quietNode.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5)));
 
         Assert.That(loudOut.ChannelCount, Is.EqualTo(1));
         Assert.That(PeakDb(loudOut, sampleCount / 2), Is.EqualTo(PeakDb(loud, 0)).Within(1f));
@@ -416,10 +416,10 @@ public class GateNodeTests
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
         var node = CreateNode(attack: 5f);
-        node.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+        node.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
 
         var data = output.GetChannelData(0);
         for (int boundary = chunkSize; boundary < sampleCount; boundary += chunkSize)
@@ -440,7 +440,7 @@ public class GateNodeTests
         var node = CreateNode(range: 0f);
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
 
         for (int ch = 0; ch < input.ChannelCount; ch++)
         {
@@ -462,7 +462,7 @@ public class GateNodeTests
         var node = CreateNode();
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
 
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
@@ -491,7 +491,7 @@ public class GateNodeTests
         const int sampleCount = SampleRate / 2;
         const float quiet = 0.003f; // ≈-50 dB, below the -40 dB threshold
         const int holdSamples = (int)(10f * 0.001f * SampleRate);
-        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        var duration = MediaTime.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateBuffer(channels, sampleCount, (_, _) => quiet);
         for (int i = 0; i < corruptSamples; i++)
         {
@@ -504,7 +504,7 @@ public class GateNodeTests
             node.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, duration));
         }
         node.AddInput(new BufferReplayNode(input));
-        using var output = node.Process(CreateContext(TimeSpan.Zero, duration));
+        using var output = node.Process(CreateContext(MediaTime.Zero, duration));
 
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
@@ -532,7 +532,7 @@ public class GateNodeTests
         var node = CreateNode(threshold: -100f, attack: 50f, hold: 0f, release: 100f, range: -60f);
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
 
         int probeWidth = SampleRate / 1000;
         float onsetPeakDb = PeakDb(output, silenceSamples, probeWidth);
@@ -550,7 +550,7 @@ public class GateNodeTests
         var node = CreateNode(threshold: -30f, attack: 100f, hold: 0f, release: 100f, range: rangeDb);
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
 
         float firstGainDb = 20f * MathF.Log10(MathF.Abs(output.GetChannelData(0)[0]) / amplitude);
         Assert.That(firstGainDb, Is.EqualTo(rangeDb).Within(2f),
@@ -564,9 +564,9 @@ public class GateNodeTests
     public void Process_OneTickBoundaryRounding_DoesNotResetGate(long tickOffset)
     {
         const int chunkSamples = SampleRate / 10;
-        var chunkDuration = TimeSpan.FromSeconds(chunkSamples / (double)SampleRate);
-        var ctx1 = CreateContext(TimeSpan.Zero, chunkDuration);
-        var ctx2 = CreateContext(chunkDuration + TimeSpan.FromTicks(tickOffset), chunkDuration);
+        var chunkDuration = MediaTime.FromSeconds(chunkSamples / (double)SampleRate);
+        var ctx1 = CreateContext(MediaTime.Zero, chunkDuration);
+        var ctx2 = CreateContext(chunkDuration + MediaTime.FromTimeSpan(TimeSpan.FromTicks(tickOffset)), chunkDuration);
 
         var node = CreateNode();
         using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
@@ -599,7 +599,7 @@ public class GateNodeTests
         var node = CreateNode(threshold: -40f, attack: 0.1f, hold: holdMs, release: 1f, range: -60f);
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(sampleCount / (double)SampleRate)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
 
         var data = output.GetChannelData(0);
         float heldGain = MathF.Abs(data[loudSamples]) / 0.003f;
@@ -620,7 +620,7 @@ public class GateNodeTests
         var node = CreateNode(threshold: float.NaN, attack: float.NaN, hold: float.NaN, release: float.NaN, range: float.NaN);
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25)));
 
         for (int ch = 0; ch < output.ChannelCount; ch++)
         {
@@ -649,7 +649,7 @@ public class GateNodeTests
 
         var node = CreateNode();
         node.AddInput(new BufferReplayNode(input));
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.5)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5)));
 
         Assert.That(output.ChannelCount, Is.EqualTo(channels));
 
@@ -672,19 +672,19 @@ public class GateNodeTests
         const int loudSamples = SampleRate / 4;
         const int sampleCount = SampleRate / 2;
         const int channels = 4;
-        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        var duration = MediaTime.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateBuffer(
             channels, sampleCount,
             (ch, i) => ch == 2 ? (i < loudSamples ? 0.9f : 0.003f) : 0.0002f * (ch + 1));
 
         var staticNode = CreateNode(threshold: -40f, attack: 2f, hold: 5f, release: 30f, range: -50f);
         staticNode.AddInput(new BufferReplayNode(input));
-        using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
+        using var staticOut = staticNode.Process(CreateContext(MediaTime.Zero, duration));
 
         var animatedNode = CreateNode(attack: 2f, hold: 5f, release: 30f, range: -50f);
         animatedNode.Threshold.SetKeyFrameAnimation(Ramp(-40f, -40f, duration));
         animatedNode.AddInput(new BufferReplayNode(input));
-        using var animatedOut = animatedNode.Process(CreateContext(TimeSpan.Zero, duration));
+        using var animatedOut = animatedNode.Process(CreateContext(MediaTime.Zero, duration));
 
         Assert.That(animatedOut.ChannelCount, Is.EqualTo(channels));
         for (int ch = 0; ch < channels; ch++)
@@ -706,10 +706,10 @@ public class GateNodeTests
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
         var node = CreateNode();
-        node.Attack.SetKeyFrameAnimation(Ramp(1e9f, 1e9f, TimeSpan.FromSeconds(0.25)));
+        node.Attack.SetKeyFrameAnimation(Ramp(1e9f, 1e9f, MediaTime.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
-        using var output = node.Process(CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(0.25)));
+        using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25)));
 
         Assert.That(node.ClampWarnings, Is.EqualTo(1),
             "An out-of-range animated Attack must warn exactly once for the whole chunk.");
@@ -722,18 +722,18 @@ public class GateNodeTests
         const int sampleCount = SampleRate / 4;
         const float amplitude = 0.1f; // ≈-20 dB, well above the -40 dB threshold
         const float thresholdLinear = 0.01f; // the -40 dB threshold in linear terms
-        var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
+        var duration = MediaTime.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateSineBuffer(amplitude, 50f, sampleCount, channels: 1);
 
         var fastNode = CreateNode(threshold: -40f, attack: 0.1f, hold: MinHoldMs, release: MinReleaseMs, range: -60f);
         fastNode.AddInput(new BufferReplayNode(input));
-        using var fastOut = fastNode.Process(CreateContext(TimeSpan.Zero, duration));
+        using var fastOut = fastNode.Process(CreateContext(MediaTime.Zero, duration));
 
         var defaultNode = CreateNode(
             threshold: DefaultThresholdDb, attack: DefaultAttackMs, hold: DefaultHoldMs,
             release: DefaultReleaseMs, range: DefaultRangeDb);
         defaultNode.AddInput(new BufferReplayNode(input));
-        using var defaultOut = defaultNode.Process(CreateContext(TimeSpan.Zero, duration));
+        using var defaultOut = defaultNode.Process(CreateContext(MediaTime.Zero, duration));
 
         int steadyStart = sampleCount / 2;
         float fastMinGain = MinGainWhereInputIsAudible(input, fastOut, steadyStart, thresholdLinear);

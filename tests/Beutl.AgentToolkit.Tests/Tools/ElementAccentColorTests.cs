@@ -90,7 +90,7 @@ public sealed class ElementAccentColorTests
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(scene.Children.Single().AccentColor, Is.EqualTo(color));
         });
     }
@@ -116,7 +116,7 @@ public sealed class ElementAccentColorTests
 
     private static JsonObject CreateElementJson(EngineObject content)
     {
-        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Length = MediaTime.FromSeconds(1) };
         element.AddObject(content);
         JsonObject json = CoreSerializer.SerializeToJsonObject(element);
         CollectionReconciler.RemoveIds(json);

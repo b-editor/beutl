@@ -193,7 +193,7 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_tick", duration: Seconds(10));
         Cut cut = AddCut(harness);
-        cut.Outgoing.Length = Seconds(2) + TimeSpan.FromTicks(1);
+        cut.Outgoing.Length = Seconds(2) + MediaTime.FromTimeSpan(TimeSpan.FromTicks(1));
         cut.Incoming.EnterTransition = Transition(1);
         using var compositor = new SceneCompositor(harness.Scene);
 
@@ -209,11 +209,11 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_gap", duration: Seconds(10));
         Cut cut = AddCut(harness);
-        cut.Outgoing.Length = Seconds(2) - TimeSpan.FromTicks(1);
+        cut.Outgoing.Length = Seconds(2) - MediaTime.FromTimeSpan(TimeSpan.FromTicks(1));
         cut.Incoming.EnterTransition = Transition(1);
         using var compositor = new SceneCompositor(harness.Scene);
 
-        CompositionFrame frame = compositor.EvaluateGraphics(Seconds(2) - TimeSpan.FromTicks(1));
+        CompositionFrame frame = compositor.EvaluateGraphics(Seconds(2) - MediaTime.FromTimeSpan(TimeSpan.FromTicks(1)));
 
         Assert.That(SinglePresenter(frame).From.Select(r => r.GetOriginal()), Is.EqualTo(new Drawable[] { cut.OutgoingShape }));
     }
@@ -225,7 +225,7 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_handed_over", duration: Seconds(10));
         var outgoingShape = new RectShape();
-        Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(5));
+        Element outgoing = harness.AddElement(MediaTime.Zero, Seconds(5));
         outgoing.Objects.Add(outgoingShape);
         var incomingShape = new EllipseShape();
         Element incoming = harness.AddElement(Seconds(2), Seconds(4));
@@ -290,7 +290,7 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_reciprocal", duration: Seconds(30));
         var aShape = new RectShape();
-        Element a = harness.AddElement(TimeSpan.Zero, Seconds(10));
+        Element a = harness.AddElement(MediaTime.Zero, Seconds(10));
         a.Objects.Add(aShape);
         Element b = harness.AddElement(Seconds(5), Seconds(15));
         b.Objects.Add(new EllipseShape());
@@ -317,12 +317,12 @@ public class ElementTransitionCompositionTests
     public void BothSidesOfATransition_ReachTheLayerTheirPortalsDraw()
     {
         using var harness = new SceneHistoryHarness("beutl_transition_portals", duration: Seconds(10));
-        Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(2));
+        Element outgoing = harness.AddElement(MediaTime.Zero, Seconds(2));
         outgoing.Objects.Add(new PortalObject { Count = { Value = 1 } });
         Element incoming = harness.AddElement(Seconds(2), Seconds(2));
         incoming.Objects.Add(new PortalObject { Count = { Value = 1 } });
         var providerShape = new RectShape();
-        Element provider = harness.AddElement(TimeSpan.Zero, Seconds(4), zIndex: 1);
+        Element provider = harness.AddElement(MediaTime.Zero, Seconds(4), zIndex: 1);
         provider.Objects.Add(providerShape);
         incoming.EnterTransition = Transition(1);
         using var compositor = new SceneCompositor(harness.Scene);
@@ -343,19 +343,19 @@ public class ElementTransitionCompositionTests
     public void ALayerAPortalDrawsIntoATransition_PlaysOnAtTheFramesTime()
     {
         using var harness = new SceneHistoryHarness("beutl_transition_portal_time", duration: Seconds(10));
-        Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(2));
+        Element outgoing = harness.AddElement(MediaTime.Zero, Seconds(2));
         outgoing.Objects.Add(new PortalObject { Count = { Value = 1 } });
         Element incoming = harness.AddElement(Seconds(2), Seconds(2));
         incoming.Objects.Add(new PortalObject { Count = { Value = 1 } });
-        Element provider = harness.AddElement(TimeSpan.Zero, Seconds(4), zIndex: 1);
+        Element provider = harness.AddElement(MediaTime.Zero, Seconds(4), zIndex: 1);
         provider.Objects.Add(CreateVideo());
         outgoing.ExitTransition = Transition(0.5);
         incoming.EnterTransition = Transition(0.5);
         using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
 
         ClipTransitionPresenter.Resource presenter = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
-        double fromPosition = presenter.From.OfType<SourceVideo.Resource>().Single().RequestedPosition.TotalSeconds;
-        double toPosition = presenter.To.OfType<SourceVideo.Resource>().Single().RequestedPosition.TotalSeconds;
+        double fromPosition = presenter.From.OfType<SourceVideo.Resource>().Single().RequestedPosition.ToSeconds();
+        double toPosition = presenter.To.OfType<SourceVideo.Resource>().Single().RequestedPosition.ToSeconds();
 
         Assert.Multiple(() =>
         {
@@ -368,7 +368,7 @@ public class ElementTransitionCompositionTests
     public void EachSide_HoldsItsEdgeFrameOutsideItsOwnRange()
     {
         using var harness = new SceneHistoryHarness("beutl_transition_hold", duration: Seconds(10));
-        Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(2));
+        Element outgoing = harness.AddElement(MediaTime.Zero, Seconds(2));
         outgoing.Objects.Add(CreateVideo());
         Element incoming = harness.AddElement(Seconds(2), Seconds(2));
         incoming.Objects.Add(CreateVideo());
@@ -377,11 +377,11 @@ public class ElementTransitionCompositionTests
         using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
 
         ClipTransitionPresenter.Resource early = SinglePresenter(compositor.EvaluateGraphics(Seconds(1.75)));
-        double outgoingEarly = ((SourceVideo.Resource)early.From.Single()).RequestedPosition.TotalSeconds;
-        double incomingEarly = ((SourceVideo.Resource)early.To.Single()).RequestedPosition.TotalSeconds;
+        double outgoingEarly = ((SourceVideo.Resource)early.From.Single()).RequestedPosition.ToSeconds();
+        double incomingEarly = ((SourceVideo.Resource)early.To.Single()).RequestedPosition.ToSeconds();
         ClipTransitionPresenter.Resource late = SinglePresenter(compositor.EvaluateGraphics(Seconds(2.25)));
-        double outgoingLate = ((SourceVideo.Resource)late.From.Single()).RequestedPosition.TotalSeconds;
-        double incomingLate = ((SourceVideo.Resource)late.To.Single()).RequestedPosition.TotalSeconds;
+        double outgoingLate = ((SourceVideo.Resource)late.From.Single()).RequestedPosition.ToSeconds();
+        double incomingLate = ((SourceVideo.Resource)late.To.Single()).RequestedPosition.ToSeconds();
 
         Assert.Multiple(() =>
         {
@@ -458,7 +458,7 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_added_later", duration: Seconds(10));
         Cut cut = AddCut(harness);
-        cut.Outgoing.Length = Seconds(2) + TimeSpan.FromTicks(1);
+        cut.Outgoing.Length = Seconds(2) + MediaTime.FromTimeSpan(TimeSpan.FromTicks(1));
         using var compositor = new SceneCompositor(harness.Scene);
         int before = compositor.EvaluateGraphics(Seconds(2)).Objects.Length;
 
@@ -605,8 +605,8 @@ public class ElementTransitionCompositionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(held, Is.EqualTo(TimeRange.FromRange(TimeSpan.Zero, Seconds(1))));
-            Assert.That(ElementTransitions.GetBoundaryAtStart(cut.Outgoing)?.Region, Is.EqualTo(TimeRange.FromRange(TimeSpan.Zero, Seconds(1.5))));
+            Assert.That(held, Is.EqualTo(TimeRange.FromRange(MediaTime.Zero, Seconds(1))));
+            Assert.That(ElementTransitions.GetBoundaryAtStart(cut.Outgoing)?.Region, Is.EqualTo(TimeRange.FromRange(MediaTime.Zero, Seconds(1.5))));
             Assert.That(args?.AffectedRange, Has.Some.Matches<TimeRange>(r => r.Start <= Seconds(1) && r.End >= Seconds(1.5)));
         });
     }
@@ -616,7 +616,7 @@ public class ElementTransitionCompositionTests
     public void ATransitionOfNoLength_DoesNotHoldTheOtherEndToTheMiddle()
     {
         using var harness = new SceneHistoryHarness("beutl_transition_zero_length", duration: Seconds(20));
-        Element element = harness.AddElement(TimeSpan.Zero, Seconds(10));
+        Element element = harness.AddElement(MediaTime.Zero, Seconds(10));
         element.Objects.Add(new RectShape());
         element.EnterTransition = Transition(0);
         element.ExitTransition = Transition(8);
@@ -740,7 +740,7 @@ public class ElementTransitionCompositionTests
         harness.History.Commit("edit");
 
         harness.History.Undo();
-        TimeSpan durationAfterFirstUndo = transition.Duration.Value;
+        MediaTime durationAfterFirstUndo = transition.Duration.Value;
         harness.History.Undo();
         ClipTransition? afterSecondUndo = cut.Incoming.EnterTransition;
         harness.History.Redo();
@@ -759,7 +759,7 @@ public class ElementTransitionCompositionTests
     private static Cut AddCut(SceneHistoryHarness harness)
     {
         var outgoingShape = new RectShape();
-        Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(2));
+        Element outgoing = harness.AddElement(MediaTime.Zero, Seconds(2));
         outgoing.Objects.Add(outgoingShape);
 
         var incomingShape = new EllipseShape();
@@ -786,7 +786,7 @@ public class ElementTransitionCompositionTests
 
     private static object?[] Originals(CompositionFrame frame) => [.. frame.Objects.Select(r => r.GetOriginal())];
 
-    private static TimeSpan Seconds(double seconds) => TimeSpan.FromSeconds(seconds);
+    private static MediaTime Seconds(double seconds) => MediaTime.FromSeconds(seconds);
 
     private sealed class ConstantExpression<T>(T value) : IExpression<T>
     {

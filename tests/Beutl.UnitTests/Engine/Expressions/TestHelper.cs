@@ -5,10 +5,10 @@ namespace Beutl.UnitTests.Engine.Expressions;
 
 public static class TestHelper
 {
-    public static ExpressionContext CreateExpressionContext(TimeSpan time)
+    public static ExpressionContext CreateExpressionContext(MediaTime time)
         => CreateExpressionContext(time, Property.CreateExpression(0.0));
 
-    public static ExpressionContext CreateExpressionContext(TimeSpan time, IProperty property)
+    public static ExpressionContext CreateExpressionContext(MediaTime time, IProperty property)
     {
         var root = new TestCoreObject();
         var propertyLookup = new PropertyLookup(root);

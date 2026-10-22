@@ -16,7 +16,7 @@ public class ElementNudgeServiceTests
     [SetUp]
     public void Setup()
     {
-        _harness = new SceneHistoryHarness("beutl_nudge", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(60));
+        _harness = new SceneHistoryHarness("beutl_nudge", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _scene = _harness.Scene;
         _history = _harness.History;
         _service = new ElementNudgeService(_history);
@@ -30,7 +30,7 @@ public class ElementNudgeServiceTests
     }
 
     // Committed, so the counts below see only the nudge's own entry.
-    private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
+    private Element AddElement(MediaTime start, MediaTime length, int zIndex = 0)
     {
         Element element = _harness.AddElement(start, length, zIndex);
         _history.Commit();
@@ -46,8 +46,8 @@ public class ElementNudgeServiceTests
     [Test]
     public void Nudge_ShiftsAndFlushCommitsOnce()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        TimeSpan originalStart = element.Start;
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        MediaTime originalStart = element.Start;
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 1);
@@ -65,7 +65,7 @@ public class ElementNudgeServiceTests
     [Test]
     public void Nudge_MultipleBeforeFlush_CommitsOnce()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 1);
@@ -79,8 +79,8 @@ public class ElementNudgeServiceTests
     [Test]
     public void Nudge_ZeroFrames_NoChange()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        TimeSpan originalStart = element.Start;
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        MediaTime originalStart = element.Start;
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 0);
@@ -96,26 +96,27 @@ public class ElementNudgeServiceTests
     public void Nudge_PullsAnchorOntoGrid_BeforeShifting()
     {
         // Off-grid start (1.555s): the first nudge rounds it to the 30fps grid, then adds 1 frame.
-        Element element = AddElement(TimeSpan.FromMilliseconds(1555), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1.555), MediaTime.FromSeconds(2));
 
         _service.Nudge(_scene, [element], 1);
 
         Assert.That(
             element.Start,
-            Is.EqualTo(TimeSpan.FromMilliseconds(1555).RoundToRate(30) + 1.ToTimeSpan(30)));
+            Is.EqualTo(MediaTime.FromSeconds(1.555).RoundToFrame(new Rational(30), MidpointRounding.AwayFromZero)
+                + MediaTime.FromFrames(1, new Rational(30))));
     }
 
     [Test]
     public void Nudge_NegativePastZero_DoesNothing()
     {
-        Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], -5);
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -133,8 +134,8 @@ public class ElementNudgeServiceTests
     [Test]
     public void Nudge_KeepsItsOwnEntry_ApartFromAnEditMadeDuringTheWindow()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element other = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), zIndex: 1);
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element other = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2), zIndex: 1);
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 1);
@@ -152,8 +153,8 @@ public class ElementNudgeServiceTests
     [Test]
     public void Nudge_WaitsOutAnotherOpenEditSession()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        TimeSpan originalStart = element.Start;
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        MediaTime originalStart = element.Start;
         using EditSession session = _history.BeginEdit("Drag");
 
         _service.Nudge(_scene, [element], 1);
@@ -168,12 +169,12 @@ public class ElementNudgeServiceTests
     [Test]
     public void Nudge_ThenAMoveCommittedInTheWindow_UndoesInOrder()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        TimeSpan original = element.Start;
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        MediaTime original = element.Start;
 
         _service.Nudge(_scene, [element], 1);
-        TimeSpan nudged = element.Start;
-        element.Start = TimeSpan.FromSeconds(5);
+        MediaTime nudged = element.Start;
+        element.Start = MediaTime.FromSeconds(5);
         _history.Commit("Move");
         _service.Flush();
 
@@ -186,9 +187,9 @@ public class ElementNudgeServiceTests
     [Test]
     public void Undo_DuringTheNudgeWindow_RevertsTheNudgeBeforeAQueuedEditRuns()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        Element other = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2), zIndex: 1);
-        TimeSpan original = element.Start;
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
+        Element other = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2), zIndex: 1);
+        MediaTime original = element.Start;
         using IDisposable flush = _history.BeforeMutation.Subscribe(_ => _service.Flush());
 
         _service.Nudge(_scene, [element], 1);
@@ -207,7 +208,7 @@ public class ElementNudgeServiceTests
     [Test]
     public void Nudge_ThatThrows_StillClosesItsSession()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         static void Throw(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
             => throw new InvalidOperationException("move failed");
         element.PropertyChanged += Throw;
@@ -222,7 +223,7 @@ public class ElementNudgeServiceTests
     [Test]
     public void Dispose_FlushesPendingCommit()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 1);

@@ -106,7 +106,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
     [Test]
     public void APluginAuthoredVisualizer_ReadsTheSampleCacheAndPaints()
     {
-        var currentTime = TimeSpan.FromSeconds(0.5);
+        var currentTime = MediaTime.FromSeconds(0.5);
         var bounds = new Rect(0, 0, 8, 8);
         var drawable = new PluginVisualizerDrawable
         {
@@ -128,7 +128,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
 
         using Bitmap bitmap = target.Snapshot();
 
-        TimeSpan expectedWindow = TimeSpan.FromSeconds(
+        MediaTime expectedWindow = MediaTime.FromSeconds(
             (double)PluginVisualizerDrawable.WindowSampleCount / ToneDecoderInfo.SampleRate);
 
         using (Assert.EnterMultipleScope())
@@ -155,12 +155,12 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         var drawable = new PluginVisualizerDrawable();
         using var resource = (PluginVisualizerDrawable.Resource)drawable.ToResource(CompositionContext.Default);
 
-        (TimeSpan start, TimeSpan duration) = resource.SampleWindow(TimeSpan.FromSeconds(2));
+        (MediaTime start, MediaTime duration) = resource.SampleWindow(MediaTime.FromSeconds(2));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(duration, Is.EqualTo(TimeSpan.FromSeconds(
+            Assert.That(start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(duration, Is.EqualTo(MediaTime.FromSeconds(
                 (double)PluginVisualizerDrawable.WindowSampleCount / ToneDecoderInfo.SampleRate)));
         }
     }
@@ -173,7 +173,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         {
             Source = { Value = soundSource },
             // Sound.Compose clips to TimeRange, so the range has to cover the sample window.
-            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)),
         };
     }
 
@@ -325,19 +325,19 @@ public sealed partial class PluginVisualizerDrawable : AudioVisualizerDrawable
 
         public int ObservedComposerSampleRate { get; private set; }
 
-        public TimeSpan ObservedStart { get; private set; }
+        public MediaTime ObservedStart { get; private set; }
 
-        public TimeSpan ObservedDuration { get; private set; }
+        public MediaTime ObservedDuration { get; private set; }
 
         public float ObservedPeak { get; private set; }
 
         public void Draw(ImmediateCanvas canvas, Rect bounds) => RenderForeground(canvas, bounds);
 
-        public (TimeSpan Start, TimeSpan Duration) SampleWindow(TimeSpan currentTime)
+        public (MediaTime Start, MediaTime Duration) SampleWindow(MediaTime currentTime)
             => ComputeSampleWindow(currentTime);
 
-        protected override (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime)
-            => (currentTime, TimeSpan.FromSeconds((double)WindowSampleCount / ComposerSampleRate));
+        protected override (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime)
+            => (currentTime, MediaTime.FromSeconds((double)WindowSampleCount / ComposerSampleRate));
 
         protected override void RenderForeground(ImmediateCanvas canvas, Rect bounds)
         {

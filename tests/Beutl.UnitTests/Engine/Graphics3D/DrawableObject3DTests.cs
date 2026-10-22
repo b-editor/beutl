@@ -35,7 +35,7 @@ public class DrawableObject3DTests
             var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(basePath, "test.scene")) };
             var element = new Element
             {
-                Length = TimeSpan.FromSeconds(1),
+                Length = MediaTime.FromSeconds(1),
                 Uri = new Uri(Path.Combine(basePath, "element.layer"))
             };
             var rect = CreateRect(0, 0);
@@ -47,7 +47,7 @@ public class DrawableObject3DTests
             scene.Children.Add(element);
             using var compositor = new SceneCompositor(scene);
 
-            CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+            CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
 
             // Element.AddObject puts a portal in front of each flow operator; it draws nothing.
             Assert.That(

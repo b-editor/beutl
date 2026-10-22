@@ -25,7 +25,7 @@ public class UpdateShutdownTests
         bool launched = false;
         try
         {
-            scene.Duration = TimeSpan.FromSeconds(73);
+            scene.Duration = MediaTime.FromSeconds(73);
             using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
                    {
                        if (step == StorageWriteStep.Replace && path == scene.Uri!.LocalPath)
@@ -41,7 +41,7 @@ public class UpdateShutdownTests
                 Assert.That(main.ProjectService.CurrentProject.Value is not null, Is.EqualTo(openProject));
                 Assert.That(main.EditorService.TabItems, Does.Contain(tab));
                 Assert.That(((EditViewModel)tab.Context.Value).IsDisposingOrDisposed, Is.False);
-                Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.EqualTo(TimeSpan.FromSeconds(30)));
+                Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.EqualTo(MediaTime.FromSeconds(30)));
             });
         }
         finally { await DisposeShellAsync(main); }
@@ -52,9 +52,9 @@ public class UpdateShutdownTests
     {
         var (main, scene) = await CreateShellAsync();
         Uri uri = scene.Uri!;
-        scene.Duration = TimeSpan.FromSeconds(73);
+        scene.Duration = MediaTime.FromSeconds(73);
         int launches = 0;
-        TimeSpan savedAtLaunch = default;
+        MediaTime savedAtLaunch = default;
         try
         {
             Assert.That(await main.TryDisposeForUpdateAsync(() =>
@@ -68,7 +68,7 @@ public class UpdateShutdownTests
             await main.WaitForDisposalAsync();
             Assert.That(await main.TryDisposeForUpdateAsync(() => { launches++; return true; }), Is.False);
             Assert.That(launches, Is.EqualTo(1));
-            Assert.That(savedAtLaunch, Is.EqualTo(TimeSpan.FromSeconds(73)));
+            Assert.That(savedAtLaunch, Is.EqualTo(MediaTime.FromSeconds(73)));
         }
         finally { await DisposeShellAsync(main); }
     }
@@ -126,7 +126,7 @@ public class UpdateShutdownTests
         var (main, scene) = await CreateShellAsync();
         Scene activeScene = await OpenProjectAroundAsync(main, scene);
         Project opened = main.ProjectService.CurrentProject.Value!;
-        activeScene.Duration = TimeSpan.FromSeconds(73);
+        activeScene.Duration = MediaTime.FromSeconds(73);
         try
         {
             if (throws)
@@ -142,8 +142,8 @@ public class UpdateShutdownTests
             Assert.That(main.ProjectService.CurrentProject.Value, Is.SameAs(opened));
             Assert.That(main.EditorService.SelectedTabItem.Value?.Context.Value.Object, Is.SameAs(activeScene));
             Assert.That(((EditViewModel)main.EditorService.SelectedTabItem.Value!.Context.Value).IsDisposingOrDisposed, Is.False);
-            Assert.That(activeScene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(activeScene.Uri!).Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+            Assert.That(activeScene.Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(activeScene.Uri!).Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
             Assert.That(await main.TryDisposeForUpdateAsync(() => true).WaitAsync(TimeSpan.FromSeconds(20)), Is.True);
             await main.WaitForDisposalAsync().WaitAsync(TimeSpan.FromSeconds(20));
             Assert.That(main.ProjectService.CurrentProject.Value, Is.Null);
@@ -161,7 +161,7 @@ public class UpdateShutdownTests
         var scene = new Scene
         {
             Uri = new Uri(Path.Combine(directory, "main.scene")),
-            Duration = TimeSpan.FromSeconds(30),
+            Duration = MediaTime.FromSeconds(30),
         };
         CoreSerializer.StoreToUri(scene, scene.Uri);
         main.EditorService.ActivateTabItem(scene);

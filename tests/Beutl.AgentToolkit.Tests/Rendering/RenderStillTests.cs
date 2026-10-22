@@ -34,7 +34,7 @@ public sealed class RenderStillTests
         Scene scene = CreateScene(dir, CreateDrawable(drawable, dir));
 
         var renderer = new StillRenderer();
-        RenderStillResponse result = await renderer.RenderAsync(scene, TimeSpan.Zero, output, 1, CancellationToken.None);
+        RenderStillResponse result = await renderer.RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -60,12 +60,12 @@ public sealed class RenderStillTests
         string output = Path.Combine(dir, "empty.png");
         var scene = new Scene(160, 90, "empty")
         {
-            Duration = TimeSpan.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
 
         var renderer = new StillRenderer();
-        RenderStillResponse result = await renderer.RenderAsync(scene, TimeSpan.Zero, output, 1, CancellationToken.None);
+        RenderStillResponse result = await renderer.RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -84,7 +84,7 @@ public sealed class RenderStillTests
         Scene scene = CreateConfinedChangingScene(dir);
 
         var renderer = new StillRenderer();
-        RenderStillResponse result = await renderer.RenderAsync(scene, TimeSpan.FromSeconds(0.5), output, 1, CancellationToken.None);
+        RenderStillResponse result = await renderer.RenderAsync(scene, MediaTime.FromSeconds(0.5), output, 1, CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -107,7 +107,7 @@ public sealed class RenderStillTests
         var renderer = new StillRenderer();
         if (TestGpu.IsAvailable)
         {
-            RenderStillResponse result = await renderer.RenderAsync(scene, TimeSpan.Zero, output, 1, CancellationToken.None);
+            RenderStillResponse result = await renderer.RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None);
 
             Assert.Multiple(() =>
             {
@@ -120,7 +120,7 @@ public sealed class RenderStillTests
         else
         {
             await Assert.ThrowsAsync<RenderingUnavailableException>(async () =>
-                await renderer.RenderAsync(scene, TimeSpan.Zero, output, 1, CancellationToken.None));
+                await renderer.RenderAsync(scene, MediaTime.Zero, output, 1, CancellationToken.None));
         }
     }
 
@@ -129,7 +129,7 @@ public sealed class RenderStillTests
     {
         string staticDir = TestWorkspace.CreateDirectory();
         Scene staticScene = CreateScene(staticDir, new RectShape());
-        staticScene.Duration = TimeSpan.FromSeconds(3);
+        staticScene.Duration = MediaTime.FromSeconds(3);
 
         string changingDir = TestWorkspace.CreateDirectory();
         Scene changingScene = CreateChangingScene(changingDir);
@@ -137,14 +137,14 @@ public sealed class RenderStillTests
         var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
         FrameDifferenceResponse staticResult = await analyzer.AnalyzeAsync(
             staticScene,
-            [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
+            [MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(2.5)],
             1,
             48,
             24,
             CancellationToken.None);
         FrameDifferenceResponse changingResult = await analyzer.AnalyzeAsync(
             changingScene,
-            [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
+            [MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(2.5)],
             1,
             48,
             24,
@@ -166,7 +166,7 @@ public sealed class RenderStillTests
         var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
         FrameDifferenceResponse result = await analyzer.AnalyzeAsync(
             confinedScene,
-            [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
+            [MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(2.5)],
             1,
             48,
             24,
@@ -186,17 +186,17 @@ public sealed class RenderStillTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(160, 90, "dark-steps")
         {
-            Duration = TimeSpan.FromSeconds(3),
+            Duration = MediaTime.FromSeconds(3),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
-        AddColorRectElement(scene, dir, "16.belm", TimeSpan.Zero, TimeSpan.FromSeconds(1), 160, 90, Color.FromRgb(16, 16, 16));
-        AddColorRectElement(scene, dir, "20.belm", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 160, 90, Color.FromRgb(20, 20, 20));
-        AddColorRectElement(scene, dir, "64.belm", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 160, 90, Color.FromRgb(64, 64, 64));
+        AddColorRectElement(scene, dir, "16.belm", MediaTime.Zero, MediaTime.FromSeconds(1), 160, 90, Color.FromRgb(16, 16, 16));
+        AddColorRectElement(scene, dir, "20.belm", MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), 160, 90, Color.FromRgb(20, 20, 20));
+        AddColorRectElement(scene, dir, "64.belm", MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), 160, 90, Color.FromRgb(64, 64, 64));
 
         var analyzer = new FrameDifferenceAnalyzer(new StillRenderer());
         FrameDifferenceResponse result = await analyzer.AnalyzeAsync(
             scene,
-            [TimeSpan.FromSeconds(0.5), TimeSpan.FromSeconds(1.5), TimeSpan.FromSeconds(2.5)],
+            [MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(1.5), MediaTime.FromSeconds(2.5)],
             1,
             48,
             24,
@@ -221,7 +221,7 @@ public sealed class RenderStillTests
         string withoutTextPath = Path.Combine(dir, "without-text.png");
         var scene = new Scene(640, 360, "example")
         {
-            Duration = TimeSpan.FromSeconds(8),
+            Duration = MediaTime.FromSeconds(8),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         using var session = new AgentToolkitTestSession(scene);
@@ -241,10 +241,10 @@ public sealed class RenderStillTests
             .Single(item => item.Text.Value == "Beutl motion");
 
         var renderer = new StillRenderer();
-        await renderer.RenderAsync(scene, TimeSpan.FromSeconds(2), withTextPath, 1, CancellationToken.None);
+        await renderer.RenderAsync(scene, MediaTime.FromSeconds(2), withTextPath, 1, CancellationToken.None);
 
         title.Text.Value = string.Empty;
-        await renderer.RenderAsync(scene, TimeSpan.FromSeconds(2), withoutTextPath, 1, CancellationToken.None);
+        await renderer.RenderAsync(scene, MediaTime.FromSeconds(2), withoutTextPath, 1, CancellationToken.None);
 
         Assert.Multiple(() =>
         {
@@ -259,7 +259,7 @@ public sealed class RenderStillTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(160, 90, "text-owner")
         {
-            Duration = TimeSpan.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var text = new TextBlock
@@ -272,7 +272,7 @@ public sealed class RenderStillTests
         var element = new Element
         {
             Name = "owner",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             ZIndex = 7,
             Uri = new Uri(Path.Combine(dir, "owner.belm"))
         };
@@ -281,7 +281,7 @@ public sealed class RenderStillTests
 
         var renderer = new StillRenderer();
         using RenderedFrameAnalysis frame = await renderer.RenderFrameAnalysisAsync(
-            scene, TimeSpan.Zero, 1f, CancellationToken.None);
+            scene, MediaTime.Zero, 1f, CancellationToken.None);
 
         RenderedTextBounds bound = frame.TextBounds.Single();
         Assert.Multiple(() =>
@@ -312,12 +312,12 @@ public sealed class RenderStillTests
     {
         var scene = new Scene(160, 90, "still")
         {
-            Duration = TimeSpan.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
         element.AddObject(drawable);
@@ -329,12 +329,12 @@ public sealed class RenderStillTests
     {
         var scene = new Scene(160, 90, "motion-check")
         {
-            Duration = TimeSpan.FromSeconds(3),
+            Duration = MediaTime.FromSeconds(3),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
-        AddColorRectElement(scene, dir, "red.belm", TimeSpan.Zero, TimeSpan.FromSeconds(1), 160, 90, Colors.Red);
-        AddColorRectElement(scene, dir, "blue.belm", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 160, 90, Colors.Blue);
-        AddColorRectElement(scene, dir, "green.belm", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 160, 90, Colors.Lime);
+        AddColorRectElement(scene, dir, "red.belm", MediaTime.Zero, MediaTime.FromSeconds(1), 160, 90, Colors.Red);
+        AddColorRectElement(scene, dir, "blue.belm", MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), 160, 90, Colors.Blue);
+        AddColorRectElement(scene, dir, "green.belm", MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), 160, 90, Colors.Lime);
         return scene;
     }
 
@@ -342,13 +342,13 @@ public sealed class RenderStillTests
     {
         var scene = new Scene(160, 90, "confined-motion")
         {
-            Duration = TimeSpan.FromSeconds(3),
+            Duration = MediaTime.FromSeconds(3),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
 
-        AddColorRectElement(scene, dir, "red.belm", TimeSpan.Zero, TimeSpan.FromSeconds(1), 40, 30, Colors.Red, -50, -30);
-        AddColorRectElement(scene, dir, "blue.belm", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 40, 30, Colors.Blue, -50, -30);
-        AddColorRectElement(scene, dir, "green.belm", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 40, 30, Colors.Lime, -50, -30);
+        AddColorRectElement(scene, dir, "red.belm", MediaTime.Zero, MediaTime.FromSeconds(1), 40, 30, Colors.Red, -50, -30);
+        AddColorRectElement(scene, dir, "blue.belm", MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), 40, 30, Colors.Blue, -50, -30);
+        AddColorRectElement(scene, dir, "green.belm", MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), 40, 30, Colors.Lime, -50, -30);
         return scene;
     }
 
@@ -356,8 +356,8 @@ public sealed class RenderStillTests
         Scene scene,
         string dir,
         string fileName,
-        TimeSpan start,
-        TimeSpan length,
+        MediaTime start,
+        MediaTime length,
         float width,
         float height,
         Color color,

@@ -50,7 +50,7 @@ public sealed class DuplicateIdReportTests
 
     private static Element AddElement(Scene scene, Guid? id = null)
     {
-        var element = new Element { Start = TimeSpan.FromSeconds(scene.Children.Count), Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Start = MediaTime.FromSeconds(scene.Children.Count), Length = MediaTime.FromSeconds(1) };
         if (id is { } given)
             element.Id = given;
         string file = $"{Guid.NewGuid():N}.belm";

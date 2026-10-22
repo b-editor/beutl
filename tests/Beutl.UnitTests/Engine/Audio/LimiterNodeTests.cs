@@ -26,8 +26,8 @@ public class LimiterNodeTests
     private static int LookaheadSamples(int sampleRate = SampleRate, float lookaheadMs = LookaheadMs)
         => (int)(lookaheadMs / 1000f * sampleRate);
 
-    private static AudioProcessContext CreateContext(int sampleCount, int sampleRate = SampleRate, TimeSpan? start = null)
-        => AudioTestContexts.Seconds(start ?? TimeSpan.Zero, sampleCount, sampleRate);
+    private static AudioProcessContext CreateContext(int sampleCount, int sampleRate = SampleRate, MediaTime? start = null)
+        => AudioTestContexts.Seconds(start ?? MediaTime.Zero, sampleCount, sampleRate);
 
     private static LimiterNode CreateNode(
         float thresholdDb = DefaultThresholdDb,
@@ -225,7 +225,7 @@ public class LimiterNodeTests
         using var node = CreateNode();
         node.AddInput(new BufferReplayNode(hotInput));
 
-        var firstCtx = CreateContext(firstSampleCount, start: TimeSpan.Zero);
+        var firstCtx = CreateContext(firstSampleCount, start: MediaTime.Zero);
         using (var _ = node.Process(firstCtx)) { }
 
         // Replace input with silence and jump the time range so it is NOT contiguous.
@@ -233,7 +233,7 @@ public class LimiterNodeTests
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new BufferReplayNode(silence));
 
-        var secondCtx = CreateContext(firstSampleCount, start: TimeSpan.FromSeconds(10));
+        var secondCtx = CreateContext(firstSampleCount, start: MediaTime.FromSeconds(10));
         using var secondOut = node.Process(secondCtx);
 
         // After reset, no audio from the previous segment should bleed into the first
@@ -263,10 +263,10 @@ public class LimiterNodeTests
         using var node = CreateNode(releaseMs: 5000f);
         node.AddInput(new BufferReplayNode(hotInput));
 
-        var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
+        var firstCtx = CreateContext(chunkSamples, start: MediaTime.Zero);
         using (var _ = node.Process(firstCtx)) { }
 
-        var secondStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration + TimeSpan.FromTicks(offsetTicks);
+        var secondStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration + MediaTime.FromTimeSpan(TimeSpan.FromTicks(offsetTicks));
         using var silence = CreateBuffer(2, chunkSamples, (_, _) => 0f);
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new BufferReplayNode(silence));
@@ -293,7 +293,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
         node.AddInput(new BufferReplayNode(stereoIn));
 
-        using (var _ = node.Process(CreateContext(sampleCount, start: TimeSpan.Zero))) { }
+        using (var _ = node.Process(CreateContext(sampleCount, start: MediaTime.Zero))) { }
 
         // Switch to mono input — buffers must be re-initialized for the new channel count.
         using var monoIn = CreateBuffer(1, sampleCount,
@@ -301,7 +301,7 @@ public class LimiterNodeTests
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new BufferReplayNode(monoIn));
 
-        using var monoOut = node.Process(CreateContext(sampleCount, start: TimeSpan.FromSeconds(1)));
+        using var monoOut = node.Process(CreateContext(sampleCount, start: MediaTime.FromSeconds(1)));
 
         Assert.That(monoOut.ChannelCount, Is.EqualTo(1));
         int lookaheadSamples = LookaheadSamples();
@@ -356,7 +356,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / 48000),
             sampleRate: 48000);
         node.AddInput(new BufferReplayNode(input48));
-        using (var _ = node.Process(CreateContext(4800, sampleRate: 48000, start: TimeSpan.Zero))) { }
+        using (var _ = node.Process(CreateContext(4800, sampleRate: 48000, start: MediaTime.Zero))) { }
 
         // Switch to a higher sample rate: MaxLookaheadSampleCapacity must grow to fit MaxLookaheadMs at
         // the new rate, or reads at the maximum lookahead would silently return zero.
@@ -366,7 +366,7 @@ public class LimiterNodeTests
             sampleRate: 96000);
         node.AddInput(new BufferReplayNode(input96));
 
-        using var output = node.Process(CreateContext(9600, sampleRate: 96000, start: TimeSpan.FromSeconds(5)));
+        using var output = node.Process(CreateContext(9600, sampleRate: 96000, start: MediaTime.FromSeconds(5)));
 
         Assert.That(output.SampleRate, Is.EqualTo(96000));
         int lookaheadSamples = LookaheadSamples(96000, MaxLookaheadMs);
@@ -634,7 +634,7 @@ public class LimiterNodeTests
         animation.KeyFrames.Add(new KeyFrame<float>
         {
             Value = value,
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
         });
         prop.SetKeyFrameAnimation(animation);
         return prop;
@@ -675,7 +675,7 @@ public class LimiterNodeTests
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
 
         using var node = CreateNode(thresholdDb: thresholdDb);
-        node.Threshold.SetKeyFrameAnimation(Ramp(thresholdDb, thresholdDb, TimeSpan.FromSeconds((double)sampleCount / SampleRate)));
+        node.Threshold.SetKeyFrameAnimation(Ramp(thresholdDb, thresholdDb, MediaTime.FromSeconds((double)sampleCount / SampleRate)));
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(sampleCount));
@@ -700,7 +700,7 @@ public class LimiterNodeTests
         // Threshold ramps from 0 dB at t=0 to -20 dB at t=duration. The output ceiling must
         // follow the curve — early samples allowed near 1.0, late samples capped near 0.1.
         const int sampleCount = SampleRate; // 1 second
-        var duration = TimeSpan.FromSeconds(1);
+        var duration = MediaTime.FromSeconds(1);
 
         using var input = CreateBuffer(1, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
@@ -795,7 +795,7 @@ public class LimiterNodeTests
         using var node = CreateNode(thresholdDb: thresholdDb, releaseMs: 5000f, lookaheadMs: 0f);
         node.AddInput(new BufferReplayNode(hotInput));
 
-        var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
+        var firstCtx = CreateContext(chunkSamples, start: MediaTime.Zero);
         using var firstOut = node.Process(firstCtx);
         var firstData = firstOut.GetChannelData(0);
 
@@ -1044,7 +1044,7 @@ public class LimiterNodeTests
         using var node = CreateNode(releaseMs: 5000f);
         node.AddInput(new BufferReplayNode(hotInput));
 
-        var firstCtx = CreateContext(chunkSamples, start: TimeSpan.Zero);
+        var firstCtx = CreateContext(chunkSamples, start: MediaTime.Zero);
         using (var _ = node.Process(firstCtx)) { }
 
         var emptyStart = firstCtx.TimeRange.Start + firstCtx.TimeRange.Duration;
@@ -1077,13 +1077,13 @@ public class LimiterNodeTests
 
         using var node = CreateNode();
         node.AddInput(new BufferReplayNode(hotInput));
-        using (var _ = node.Process(CreateContext(chunkSamples, start: TimeSpan.Zero))) { }
+        using (var _ = node.Process(CreateContext(chunkSamples, start: MediaTime.Zero))) { }
 
         // Empty chunk at a position that is NOT contiguous with the first chunk.
         using var emptyInput = new AudioBuffer(SampleRate, 2, 0);
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new BufferReplayNode(emptyInput));
-        using (var _ = node.Process(CreateContext(0, start: TimeSpan.FromSeconds(10)))) { }
+        using (var _ = node.Process(CreateContext(0, start: MediaTime.FromSeconds(10)))) { }
 
         // Resume with silence at the empty chunk's position. Since the empty chunk didn't update
         // _lastTimeRangeEnd, this Start (10s) differs from the previous non-empty end (≈0.021s),
@@ -1092,7 +1092,7 @@ public class LimiterNodeTests
         node.RemoveInput(node.Inputs[0]);
         node.AddInput(new BufferReplayNode(silence));
 
-        using var resumeOut = node.Process(CreateContext(chunkSamples, start: TimeSpan.FromSeconds(10)));
+        using var resumeOut = node.Process(CreateContext(chunkSamples, start: MediaTime.FromSeconds(10)));
 
         for (int ch = 0; ch < 2; ch++)
         {
@@ -1136,7 +1136,7 @@ public class LimiterNodeTests
         // t=0 each outer call, which the single-chunk test would miss.
         const int chunkCount = 4;
         const int chunkSamples = SampleRate / chunkCount; // 0.25s each, 1s total ramp
-        var totalDuration = TimeSpan.FromSeconds(1);
+        var totalDuration = MediaTime.FromSeconds(1);
 
         using var node = CreateNode(thresholdDb: 0f, releaseMs: 1f);
         node.Threshold.SetKeyFrameAnimation(Ramp(0f, -20f, totalDuration));
@@ -1154,7 +1154,7 @@ public class LimiterNodeTests
                 node.RemoveInput(node.Inputs[0]);
             node.AddInput(new BufferReplayNode(input));
 
-            var chunkStart = TimeSpan.FromTicks(totalDuration.Ticks * c / chunkCount);
+            var chunkStart = new MediaTime(totalDuration.Flicks * c / chunkCount);
             using var output = node.Process(CreateContext(chunkSamples, start: chunkStart));
             var data = output.GetChannelData(0);
 
@@ -1193,7 +1193,7 @@ public class LimiterNodeTests
         // refactor moving Reset() into ProcessStatic would bypass it for animated properties and
         // leak the previous segment's audio across seeks.
         const int firstSampleCount = 1024;
-        var duration = TimeSpan.FromSeconds((double)firstSampleCount / SampleRate);
+        var duration = MediaTime.FromSeconds((double)firstSampleCount / SampleRate);
 
         using var hotInput = CreateBuffer(2, firstSampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
@@ -1202,7 +1202,7 @@ public class LimiterNodeTests
         node.Threshold.SetKeyFrameAnimation(Ramp(-1f, -1f, duration));
         node.AddInput(new BufferReplayNode(hotInput));
 
-        var firstCtx = CreateContext(firstSampleCount, start: TimeSpan.Zero);
+        var firstCtx = CreateContext(firstSampleCount, start: MediaTime.Zero);
         using (var _ = node.Process(firstCtx)) { }
 
         using var silence = CreateBuffer(2, firstSampleCount, (_, _) => 0f);
@@ -1210,7 +1210,7 @@ public class LimiterNodeTests
         node.AddInput(new BufferReplayNode(silence));
 
         // Jump ten seconds — must be detected as a discontinuity even on the animated path.
-        var secondCtx = CreateContext(firstSampleCount, start: TimeSpan.FromSeconds(10));
+        var secondCtx = CreateContext(firstSampleCount, start: MediaTime.FromSeconds(10));
         using var secondOut = node.Process(secondCtx);
 
         for (int ch = 0; ch < 2; ch++)
@@ -1306,7 +1306,7 @@ public class LimiterNodeTests
         using var node = CreateNode(thresholdDb: thresholdDb, lookaheadMs: 0f);
 
         int[] channelSequence = [2, 1, 2];
-        TimeSpan start = TimeSpan.Zero;
+        MediaTime start = MediaTime.Zero;
         foreach (int channels in channelSequence)
         {
             using var input = CreateBuffer(channels, chunkSamples,
@@ -1341,7 +1341,7 @@ public class LimiterNodeTests
         const int sampleCount = 8192;
         const float thresholdDb = -1f;
         float thresholdLin = MathF.Pow(10f, thresholdDb / 20f);
-        var duration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var duration = MediaTime.FromSeconds((double)sampleCount / SampleRate);
 
         using var input = CreateBuffer(2, sampleCount,
             (_, i) => 2.0f * MathF.Sin(2f * MathF.PI * 440f * i / SampleRate));
@@ -1453,11 +1453,11 @@ public class LimiterNodeTests
     // Step animation: holds `first` for the whole [0, boundary) range and switches to `second` from
     // `boundary` onward. Used to drive the animated/scan path with a per-chunk-constant lookahead so it
     // can serve as an independent oracle for the static deque path across a lookahead change.
-    private static KeyFrameAnimation<float> CreateAnimatedStep(float first, float second, TimeSpan boundary)
+    private static KeyFrameAnimation<float> CreateAnimatedStep(float first, float second, MediaTime boundary)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = TimeSpan.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = boundary - TimeSpan.FromTicks(1) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = MediaTime.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = boundary - MediaTime.FromTimeSpan(TimeSpan.FromTicks(1)) });
         animation.KeyFrames.Add(new KeyFrame<float> { Value = second, KeyTime = boundary });
         return animation;
     }
@@ -1482,7 +1482,7 @@ public class LimiterNodeTests
             return (1.4f * tone + spike) * (ch == 0 ? 1.0f : 0.8f);
         }
 
-        var dur1 = TimeSpan.FromSeconds((double)chunkSamples / SampleRate);
+        var dur1 = MediaTime.FromSeconds((double)chunkSamples / SampleRate);
 
         // Deque node: chunk 1 @ lookA (builds deque for A), chunk 2 @ lookB (rebuild for B).
         using var dequeNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
@@ -1496,8 +1496,8 @@ public class LimiterNodeTests
         {
             dequeNode.AddInput(new BufferReplayNode(inDeque1));
             scanNode.AddInput(new BufferReplayNode(inScan1));
-            using var _d = dequeNode.Process(CreateContext(chunkSamples, start: TimeSpan.Zero));
-            using var _s = scanNode.Process(CreateContext(chunkSamples, start: TimeSpan.Zero));
+            using var _d = dequeNode.Process(CreateContext(chunkSamples, start: MediaTime.Zero));
+            using var _s = scanNode.Process(CreateContext(chunkSamples, start: MediaTime.Zero));
         }
 
         // Switch the deque node's static lookahead to B; the scan node steps to B automatically.
@@ -1612,7 +1612,7 @@ public class LimiterNodeTests
             return (1.4f * tone + spike) * (ch == 0 ? 1.0f : 0.8f);
         }
 
-        var dur1 = TimeSpan.FromSeconds((double)chunk1 / SampleRate);
+        var dur1 = MediaTime.FromSeconds((double)chunk1 / SampleRate);
 
         using var dequeNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
         using var scanNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookA);
@@ -1624,8 +1624,8 @@ public class LimiterNodeTests
         {
             dequeNode.AddInput(new BufferReplayNode(inDeque1));
             scanNode.AddInput(new BufferReplayNode(inScan1));
-            using var _d = dequeNode.Process(CreateContext(chunk1, start: TimeSpan.Zero));
-            using var _s = scanNode.Process(CreateContext(chunk1, start: TimeSpan.Zero));
+            using var _d = dequeNode.Process(CreateContext(chunk1, start: MediaTime.Zero));
+            using var _s = scanNode.Process(CreateContext(chunk1, start: MediaTime.Zero));
         }
 
         // Switch the deque node's static lookahead to the large window; the rebuild must clamp to the
@@ -1678,9 +1678,9 @@ public class LimiterNodeTests
         using var reference = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookMs);
 
         var constantAnim = new KeyFrameAnimation<float>();
-        constantAnim.KeyFrames.Add(new KeyFrame<float> { Value = lookMs, KeyTime = TimeSpan.Zero });
+        constantAnim.KeyFrames.Add(new KeyFrame<float> { Value = lookMs, KeyTime = MediaTime.Zero });
 
-        TimeSpan start = TimeSpan.Zero;
+        MediaTime start = MediaTime.Zero;
         for (int c = 0; c < 3; c++)
         {
             // Middle chunk runs the animated path on `node`, forcing _dequeLookahead = -1.
@@ -1745,9 +1745,9 @@ public class LimiterNodeTests
 
         using var staticNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
         using var animatedNode = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookaheadMs);
-        animatedNode.Lookahead.SetKeyFrameAnimation(Ramp(lookaheadMs, lookaheadMs, TimeSpan.FromSeconds((double)total / SampleRate)));
+        animatedNode.Lookahead.SetKeyFrameAnimation(Ramp(lookaheadMs, lookaheadMs, MediaTime.FromSeconds((double)total / SampleRate)));
 
-        TimeSpan start = TimeSpan.Zero;
+        MediaTime start = MediaTime.Zero;
         for (int c = 0; c < chunks; c++)
         {
             int baseIndex = c * chunkSamples;
@@ -1788,7 +1788,7 @@ public class LimiterNodeTests
         // were ignored, it would match one of them.
         const int sampleCount = 8192;
         const float thresholdDb = -3f;
-        var duration = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var duration = MediaTime.FromSeconds((double)sampleCount / SampleRate);
 
         static float Gen(int ch, int i)
         {
@@ -1847,11 +1847,11 @@ public class LimiterNodeTests
         using (var mono = CreateBuffer(1, sampleCount, (_, _) => 0f))
         {
             node.AddInput(new BufferReplayNode(mono));
-            using var _ = node.Process(CreateContext(sampleCount, start: TimeSpan.Zero));
+            using var _ = node.Process(CreateContext(sampleCount, start: MediaTime.Zero));
         }
 
         // Chunk 2: grow to stereo (contiguous) with an impulse at index 0 on both channels.
-        var dur = TimeSpan.FromSeconds((double)sampleCount / SampleRate);
+        var dur = MediaTime.FromSeconds((double)sampleCount / SampleRate);
         using var stereo = CreateBuffer(2, sampleCount, (_, i) => i == 0 ? 0.5f : 0f);
         node.ClearInputs();
         node.AddInput(new BufferReplayNode(stereo));

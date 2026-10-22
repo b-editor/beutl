@@ -165,7 +165,7 @@ public class PathEditorInteractionTests
             {
                 var animation = new KeyFrameAnimation<BtlPoint>();
                 animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = source.Value });
-                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.FromSeconds(1), Value = new(100, 180) });
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = MediaTime.FromSeconds(1), Value = new(100, 180) });
                 source.SetKeyFrameAnimation(animation);
             }
         }
@@ -563,8 +563,8 @@ public class PathEditorInteractionTests
             else
             {
                 var animation = new KeyFrameAnimation<bool>();
-                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.Zero, Value = false });
-                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(1), Value = true });
+                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.Zero, Value = false });
+                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(1), Value = true });
                 figure.IsClosed.SetKeyFrameAnimation(animation);
             }
         }
@@ -930,8 +930,8 @@ public class PathEditorInteractionTests
     public async Task Animated_nudge_changes_the_current_keyframe_and_undo_restores_it()
     {
         using var editor = await Fixture.Create();
-        var first = new KeyFrame<BtlPoint> { KeyTime = TimeSpan.Zero, Value = new(80, 100) };
-        var second = new KeyFrame<BtlPoint> { KeyTime = TimeSpan.FromSeconds(1), Value = new(110, 130) };
+        var first = new KeyFrame<BtlPoint> { KeyTime = MediaTime.Zero, Value = new(80, 100) };
+        var second = new KeyFrame<BtlPoint> { KeyTime = MediaTime.FromSeconds(1), Value = new(110, 130) };
         var animation = new KeyFrameAnimation<BtlPoint> { UseGlobalClock = true };
         animation.KeyFrames.Add(first);
         animation.KeyFrames.Add(second);
@@ -961,7 +961,7 @@ public class PathEditorInteractionTests
         singleKey.KeyFrames.Add(new KeyFrame<BtlPoint>
         {
             Value = new(571.368f, -123.206566f),
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Easing = new SplineEasing(0, 0, 1, 1)
         });
         third.ControlPoint2.SetKeyFrameAnimation(singleKey);
@@ -995,7 +995,7 @@ public class PathEditorInteractionTests
         if (index == 2) Assert.That(original.ControlPoint2.GetKeyFrameAnimation(), Is.SameAs(animation));
         Assert.That(key.Id, Is.EqualTo(keyId));
         Assert.That(key.Easing, Is.SameAs(easing));
-        Assert.That(key.KeyTime, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(key.KeyTime, Is.EqualTo(MediaTime.Zero));
         var animatedProperties = figure.Segments.SelectMany(s => PathEditorHelper.GetControlPointProperties(s).Append(s.GetEndPoint()))
             .Select(p => p.GetKeyFrameAnimation()).OfType<KeyFrameAnimation<BtlPoint>>().ToArray();
         Assert.That(animatedProperties.Select(a => a.Id).Distinct().Count(), Is.EqualTo(animatedProperties.Length));
@@ -1018,7 +1018,7 @@ public class PathEditorInteractionTests
         }
         foreach (var time in new[] { -1, 0, 1, 5 })
         {
-            context = new CompositionContext(TimeSpan.FromSeconds(time));
+            context = new CompositionContext(MediaTime.FromSeconds(time));
             for (int i = 0; i <= 100; i++)
             {
                 float t = i / 100f;
@@ -1056,8 +1056,8 @@ public class PathEditorInteractionTests
     {
         using var editor = await Fixture.Create();
         var animation = new KeyFrameAnimation<BtlPoint>();
-        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.Zero, Value = new(180, 100) });
-        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.FromSeconds(1), Value = new(200, 120) });
+        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = MediaTime.Zero, Value = new(180, 100) });
+        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = MediaTime.FromSeconds(1), Value = new(200, 120) });
         using (editor.Editor.HistoryManager.SuppressRecording())
             editor.Figure.Segments[1].GetEndPoint().SetKeyFrameAnimation(animation);
         editor.Key(Key.P);
@@ -1094,7 +1094,7 @@ public class PathEditorInteractionTests
     {
         using var editor = await Fixture.Create();
         Element element = editor.Editor.Scene.Children.Single();
-        TimeSpan start = element.Start;
+        MediaTime start = element.Start;
         Point from = pen ? new(350, 220) : new(80, 100);
         if (pen) editor.Key(Key.P);
 
@@ -1161,7 +1161,7 @@ public class PathEditorInteractionTests
         editor.Drag(new(130, 100), new(130, 145));
         var segment = editor.Figure.Segments[1];
         Assert.That(segment, Is.TypeOf<CubicBezierSegment>());
-        var middle = PathEditingOperations.Evaluate(new BtlPoint(80, 100), segment, .5f, new CompositionContext(TimeSpan.Zero));
+        var middle = PathEditingOperations.Evaluate(new BtlPoint(80, 100), segment, .5f, new CompositionContext(MediaTime.Zero));
         Assert.That(middle.Y, Is.EqualTo(145).Within(.1));
         Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
         editor.Editor.HistoryManager.Undo();
@@ -1354,7 +1354,7 @@ public class PathEditorInteractionTests
 
         void Check(PathSegment anchor, params Beutl.IProperty<BtlPoint>[] expected)
         {
-            var actual = PathPointProperties.Get(figure, anchor, new CompositionContext(TimeSpan.Zero));
+            var actual = PathPointProperties.Get(figure, anchor, new CompositionContext(MediaTime.Zero));
             Assert.That(actual.Select(p => p.Property), Is.EqualTo(expected));
         }
     }
@@ -1369,7 +1369,7 @@ public class PathEditorInteractionTests
             : new QuadraticBezierSegment(new(30, 50), new(90, 10));
         figure.Segments.Add(segment);
         figure.IsClosed.Value = true;
-        var properties = PathPointProperties.Get(figure, segment, new CompositionContext(TimeSpan.Zero));
+        var properties = PathPointProperties.Get(figure, segment, new CompositionContext(MediaTime.Zero));
         Assert.That(properties.Select(p => p.Property), Is.EqualTo(new[]
         {
             segment.GetEndPoint(), PathEditorHelper.GetControlPointProperties(segment).Single()
@@ -1439,10 +1439,10 @@ public class PathEditorInteractionTests
         var anchor = (CubicBezierSegment)editor.Figure.Segments[0];
         var next = (CubicBezierSegment)editor.Figure.Segments[1];
         BtlPoint point = anchor.EndPoint.Value;
-        var context = new CompositionContext(TimeSpan.Zero);
+        var context = new CompositionContext(MediaTime.Zero);
         var animation = new KeyFrameAnimation<BtlPoint>();
-        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = TimeSpan.Zero, Value = point });
-        var later = new KeyFrame<BtlPoint> { KeyTime = TimeSpan.FromSeconds(1), Value = new(220, -70) };
+        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = MediaTime.Zero, Value = point });
+        var later = new KeyFrame<BtlPoint> { KeyTime = MediaTime.FromSeconds(1), Value = new(220, -70) };
         animation.KeyFrames.Add(later);
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
@@ -1741,7 +1741,7 @@ public class PathEditorInteractionTests
         figure.Segments.Add(new LineSegment(0, 0));
         var cubic = PathEditingOperations.Cubic(new(30, 100), new(70, -20), new(100, 60));
         figure.Segments.Add(cubic);
-        var context = new CompositionContext(TimeSpan.Zero);
+        var context = new CompositionContext(MediaTime.Zero);
         BtlPoint[] expected = Enumerable.Range(0, 101).Select(i => PathEditingOperations.Evaluate(default, cubic, i / 100f, context)).ToArray();
         var inserted = PathEditingOperations.Split(figure, 1, .4f, context)!;
         for (int i = 0; i <= 100; i++)
@@ -1780,7 +1780,7 @@ public class PathEditorInteractionTests
             var geometry = new PathGeometry();
             geometry.Figures.Add(figure);
             var shape = new GeometryShape { Data = { Value = geometry } };
-            var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
+            var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(10) };
             element.AddObject(shape);
             scene.Children.Add(element);
             editor.HistoryManager.Commit();

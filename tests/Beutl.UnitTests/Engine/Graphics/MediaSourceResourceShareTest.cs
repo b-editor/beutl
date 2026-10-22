@@ -56,7 +56,7 @@ public class MediaSourceResourceShareTest
         }
     }
 
-    private static CompositionContext EncodeContext() => new(TimeSpan.Zero) { DisableResourceShare = true };
+    private static CompositionContext EncodeContext() => new(MediaTime.Zero) { DisableResourceShare = true };
 
     [TestCaseSource(nameof(MediaKinds))]
     public void SharedByDefault_ReusesTheSharedObject(SharedMedia media)
@@ -138,7 +138,7 @@ public class MediaSourceResourceShareTest
 
         Assert.That(resource.MediaReader, Is.Null,
             "音声トラックのないメディアは MediaReader を保持してはならない (#2183)");
-        Assert.That(resource.Duration, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(resource.Duration, Is.EqualTo(MediaTime.Zero));
         Assert.That(resource.SampleRate, Is.Zero);
         Assert.That(resource.NumChannels, Is.Zero);
     }

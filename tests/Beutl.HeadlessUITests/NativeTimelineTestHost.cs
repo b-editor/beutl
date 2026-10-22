@@ -54,7 +54,7 @@ internal static partial class NativeTimelineTestHost
         int exitCode = 1;
         try
         {
-            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("native-scroll", duration: TimeSpan.FromSeconds(30));
+            (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("native-scroll", duration: MediaTime.FromSeconds(30));
             TimelineTabViewModel model = editor.FindToolTab<TimelineTabViewModel>()!;
             view = new TimelineTabView { DataContext = model }; // Use the production detector.
             window = new Window

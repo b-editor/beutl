@@ -7349,8 +7349,8 @@ public class VersionControlRestoreTests
     private static async Task AddRectangleAsync(IElementAdder adder, int layer)
     {
         ElementAddResult result = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(1),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(1),
             Layer: layer,
             Source: new ElementSource.EngineObject(() => new RectShape()))],
             CancellationToken.None);

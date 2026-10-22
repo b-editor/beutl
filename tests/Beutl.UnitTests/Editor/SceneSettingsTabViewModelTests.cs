@@ -28,12 +28,12 @@ public class SceneSettingsTabViewModelTests
         await previewPlayer.PauseStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
         var latestFrameSize = new PixelSize(1280, 720);
-        TimeSpan latestStart = TimeSpan.FromSeconds(3);
-        TimeSpan latestDuration = TimeSpan.FromSeconds(12);
+        MediaTime latestStart = MediaTime.FromSeconds(3);
+        MediaTime latestDuration = MediaTime.FromSeconds(12);
         viewModel.Width.Value = latestFrameSize.Width;
         viewModel.Height.Value = latestFrameSize.Height;
-        viewModel.StartInput.Value = latestStart.ToString();
-        viewModel.DurationInput.Value = latestDuration.ToString();
+        viewModel.StartInput.Value = latestStart.ToTimeSpan().ToString();
+        viewModel.DurationInput.Value = latestDuration.ToTimeSpan().ToString();
 
         previewPlayer.CompletePause();
         await applyTask.WaitAsync(TimeSpan.FromSeconds(5));
@@ -106,8 +106,8 @@ public class SceneSettingsTabViewModelTests
     {
         var scene = new Scene(640, 480, string.Empty)
         {
-            Start = TimeSpan.FromSeconds(1),
-            Duration = TimeSpan.FromSeconds(5),
+            Start = MediaTime.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(5),
         };
         sceneSettingsService = new CaptureSceneSettingsService();
         previewPlayer = new BlockingPreviewPlayer(isPlaying);
@@ -181,15 +181,15 @@ public class SceneSettingsTabViewModelTests
 
         public PixelSize FrameSize { get; private set; }
 
-        public TimeSpan Start { get; private set; }
+        public MediaTime Start { get; private set; }
 
-        public TimeSpan Duration { get; private set; }
+        public MediaTime Duration { get; private set; }
 
         public bool Apply(
             Scene scene,
             PixelSize frameSize,
-            TimeSpan start,
-            TimeSpan duration)
+            MediaTime start,
+            MediaTime duration)
         {
             CallCount++;
             FrameSize = frameSize;

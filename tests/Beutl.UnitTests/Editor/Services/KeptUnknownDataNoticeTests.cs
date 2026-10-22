@@ -88,7 +88,7 @@ public class KeptUnknownDataNoticeTests
         string sceneDirectory = Path.Combine(_root, "Scene");
         var scene = new Scene(64, 64, "Scene") { Uri = new Uri(Path.Combine(sceneDirectory, "Scene.scene")) };
         string elementPath = Path.Combine(sceneDirectory, "element.belm");
-        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(elementPath) };
         element.AddObject(new RectShape());
         scene.Children.Add(element);
         var project = new Project { Uri = new Uri(Path.Combine(_root, "project.bep")) };

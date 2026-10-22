@@ -138,15 +138,15 @@ public class TransitionRenderTests
         Bgra8888 Render(double progress) => VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var scene = new Scene(Width, Height, string.Empty);
-            var background = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(3), ZIndex = 0 };
+            var background = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(3), ZIndex = 0 };
             background.Objects.Add(CreateRect(s_red));
             scene.Children.Add(background);
 
             var backdrop = new SourceBackdrop { Clear = { Value = true } };
             backdrop.FilterEffect.Value = new Invert();
-            var adjustment = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2), ZIndex = 1 };
+            var adjustment = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2), ZIndex = 1 };
             adjustment.Objects.Add(backdrop);
-            adjustment.EnterTransition = new CrossDissolveTransition { Duration = { Value = TimeSpan.FromSeconds(1) } };
+            adjustment.EnterTransition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
             scene.Children.Add(adjustment);
 
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
@@ -376,7 +376,7 @@ public class TransitionRenderTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var scene = new Scene(Width, Height, string.Empty);
-            var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+            var outgoing = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(1) };
             outgoing.Objects.Add(CreateRect(s_red));
             scene.Children.Add(outgoing);
 
@@ -386,9 +386,9 @@ public class TransitionRenderTests
             var effect = new TransformEffect();
             effect.Transform.Value = new RotationTransform(10);
             ((FilterEffectGroup)fillsTheFrame.FilterEffect.Value!).Children.Add(effect);
-            var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+            var incoming = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2) };
             incoming.Objects.Add(fillsTheFrame);
-            incoming.EnterTransition = new SplitTransition { Duration = { Value = TimeSpan.FromSeconds(1) } };
+            incoming.EnterTransition = new SplitTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
             scene.Children.Add(incoming);
 
             using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
@@ -452,8 +452,8 @@ public class TransitionRenderTests
     }
 
     // The transition is the incoming clip's one-second enter transition, which starts at one second.
-    private static TimeSpan TimeAt(double progress)
-        => TimeSpan.FromSeconds(1 + progress) - (progress >= 1 ? TimeSpan.FromTicks(1) : TimeSpan.Zero);
+    private static MediaTime TimeAt(double progress)
+        => MediaTime.FromSeconds(1 + progress) - (progress >= 1 ? MediaTime.FromTimeSpan(TimeSpan.FromTicks(1)) : MediaTime.Zero);
 
     private static (Scene Scene, RectShape Incoming) CreateScene(
         ClipTransition transition, bool withOutgoing, RectShape? outgoing = null)
@@ -461,15 +461,15 @@ public class TransitionRenderTests
         var scene = new Scene(Width, Height, string.Empty);
         if (withOutgoing)
         {
-            var outgoingElement = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+            var outgoingElement = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(1) };
             outgoingElement.Objects.Add(outgoing ?? CreateRect(s_red));
             scene.Children.Add(outgoingElement);
         }
 
         RectShape incoming = CreateRect(s_blue);
-        var incomingElement = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+        var incomingElement = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2) };
         incomingElement.Objects.Add(incoming);
-        transition.Duration.Value = TimeSpan.FromSeconds(1);
+        transition.Duration.Value = MediaTime.FromSeconds(1);
         incomingElement.EnterTransition = transition;
         scene.Children.Add(incomingElement);
         return (scene, incoming);
@@ -481,7 +481,7 @@ public class TransitionRenderTests
     {
         var scene = new Scene(Width, Height, string.Empty);
         RectShape outgoingShape = CreateRect(s_red);
-        var outgoing = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(1) };
+        var outgoing = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(1) };
         outgoing.Objects.Add(outgoingShape);
         scene.Children.Add(outgoing);
 
@@ -491,11 +491,11 @@ public class TransitionRenderTests
         corner.Height.Value = 8;
         corner.AlignmentX.Value = AlignmentX.Right;
         corner.AlignmentY.Value = AlignmentY.Top;
-        var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
+        var incoming = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2) };
         if (leftHalf is not null)
             incoming.Objects.Add(leftHalf);
         incoming.Objects.Add(corner);
-        transition.Duration.Value = TimeSpan.FromSeconds(1);
+        transition.Duration.Value = MediaTime.FromSeconds(1);
         incoming.EnterTransition = transition;
         scene.Children.Add(incoming);
         return (scene, outgoingShape, leftHalf, corner);

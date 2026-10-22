@@ -940,8 +940,8 @@ public sealed partial class AiDialogWorkflowTests
         UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
         await viewModel.Transcribe.ExecuteAsync();
@@ -1023,8 +1023,8 @@ public sealed partial class AiDialogWorkflowTests
     public async Task SceneMixTranscription_TakesItsRangeFromTheSceneItself()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-scene-range");
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.Zero;
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.Zero;
         await using var api = new ApiScope(new StubHandler(request => request.RequestUri?.AbsolutePath switch
         {
             "/api/v3/user/entitlements" => JsonResponse(HttpStatusCode.OK, EntitlementsJson()),
@@ -1038,7 +1038,7 @@ public sealed partial class AiDialogWorkflowTests
         Assert.That(viewModel.CanTranscribeInput.Value, Is.False,
             "A scene with no duration has nothing to transcribe.");
 
-        editor.Scene.Duration = TimeSpan.FromSeconds(3);
+        editor.Scene.Duration = MediaTime.FromSeconds(3);
         HeadlessTestHelpers.Settle();
 
         Assert.That(viewModel.CanTranscribeInput.Value, Is.True,
@@ -1078,12 +1078,12 @@ public sealed partial class AiDialogWorkflowTests
                 new float[sampleCount],
                 16_000,
                 1,
-                start));
+                MediaTime.FromTimeSpan(start)));
         };
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromSeconds(12);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(12);
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
         await viewModel.Transcribe.ExecuteAsync();
@@ -1131,15 +1131,15 @@ public sealed partial class AiDialogWorkflowTests
                         if (sceneMix && editElement)
                             editor!.Scene.AddChild(new Element
                             {
-                                Length = TimeSpan.FromMilliseconds(150),
+                                Length = MediaTime.FromSeconds(0.15),
                                 Uri = new Uri(Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "changed.belm")),
                             });
                         else if (sceneMix)
-                            editor!.Scene.Duration = TimeSpan.FromMilliseconds(200);
+                            editor!.Scene.Duration = MediaTime.FromSeconds(0.2);
                         else
                             dialog!.SelectedAudioSource.Value = new AudioSourceItem(
-                                "Changed", path, TimeSpan.FromMilliseconds(150),
-                                elementLength: TimeSpan.FromMilliseconds(100));
+                                "Changed", path, MediaTime.FromSeconds(0.15),
+                                elementLength: MediaTime.FromSeconds(0.1));
                     });
                 return CreateTranscriptionResponse("changed-audio");
             }
@@ -1151,9 +1151,9 @@ public sealed partial class AiDialogWorkflowTests
         UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value);
         if (sceneMix)
-            editor!.Scene.Duration = TimeSpan.FromMilliseconds(150);
+            editor!.Scene.Duration = MediaTime.FromSeconds(0.15);
         else
-            viewModel.SelectedAudioSource.Value = new AudioSourceItem("Original", path, TimeSpan.FromMilliseconds(150));
+            viewModel.SelectedAudioSource.Value = new AudioSourceItem("Original", path, MediaTime.FromSeconds(0.15));
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
         await viewModel.Transcribe.ExecuteAsync();
         Assert.That(requests, Is.EqualTo(1));
@@ -1182,7 +1182,7 @@ public sealed partial class AiDialogWorkflowTests
         using var dialog = CreateSubtitleDialog(clients, editor);
         UseSilentSceneMix(dialog, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value && dialog.SelectedAudioSource.Value?.IsSceneMix == true);
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         await WaitUntilAsync(() => dialog.CanTranscribe.Value);
         await dialog.Transcribe.ExecuteAsync();
         Assert.That(dialog.Error.Value, Is.Null);
@@ -1216,7 +1216,7 @@ public sealed partial class AiDialogWorkflowTests
         using var dialog = CreateSubtitleDialog(clients, editor);
         UseSilentSceneMix(dialog, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => dialog.Usage.HasSnapshot.Value && dialog.SelectedAudioSource.Value?.IsSceneMix == true);
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(50);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.05);
         await WaitUntilAsync(() => dialog.CanTranscribe.Value);
         await dialog.Transcribe.ExecuteAsync();
         Assert.That(dialog.Error.Value, Is.Null, "The dedicated rejected-result banner must not be paired with a generic error.");
@@ -2285,9 +2285,9 @@ public sealed partial class AiDialogWorkflowTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(polls, Is.EqualTo(4));
-            Assert.That(delays, Does.Contain(TimeSpan.FromMilliseconds(10)));
-            Assert.That(delays, Does.Contain(TimeSpan.FromMilliseconds(20)));
-            Assert.That(delays, Does.Contain(TimeSpan.FromMilliseconds(25)));
+            Assert.That(delays, Does.Contain(TimeSpan.FromSeconds(0.01)));
+            Assert.That(delays, Does.Contain(TimeSpan.FromSeconds(0.02)));
+            Assert.That(delays, Does.Contain(TimeSpan.FromSeconds(0.025)));
             Assert.That(resultPath, Does.EndWith(".webm"));
             Assert.That(File.Exists(resultPath), Is.True);
             if (!OperatingSystem.IsWindows())
@@ -4019,7 +4019,7 @@ public sealed partial class AiDialogWorkflowTests
             var originalSource = new AudioSourceItem(
                 "Source audio",
                 sourcePath,
-                TimeSpan.FromSeconds(1));
+                MediaTime.FromSeconds(1));
             viewModel.SelectedAudioSource.Value = originalSource;
             await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
@@ -4028,7 +4028,7 @@ public sealed partial class AiDialogWorkflowTests
             viewModel.SelectedAudioSource.Value = new AudioSourceItem(
                 "Other audio",
                 Path.Combine(BeutlHomeIsolation.CurrentHome!, "other.wav"),
-                TimeSpan.FromSeconds(1));
+                MediaTime.FromSeconds(1));
             viewModel.ResultSegments.Value =
             [
                 new AiTranscriptionSegment { Start = 0, End = 1, Text = "user edit" },
@@ -4104,16 +4104,16 @@ public sealed partial class AiDialogWorkflowTests
         var originalWindow = new AudioSourceItem(
             "Source",
             sourcePath,
-            TimeSpan.FromSeconds(2),
-            elementLength: TimeSpan.FromSeconds(1),
-            sourceOffset: TimeSpan.Zero,
+            MediaTime.FromSeconds(2),
+            elementLength: MediaTime.FromSeconds(1),
+            sourceOffset: MediaTime.Zero,
             elementId: elementId);
         var shiftedWindow = new AudioSourceItem(
             "Source",
             sourcePath,
-            TimeSpan.FromSeconds(2),
-            elementLength: TimeSpan.FromSeconds(1),
-            sourceOffset: TimeSpan.FromSeconds(1),
+            MediaTime.FromSeconds(2),
+            elementLength: MediaTime.FromSeconds(1),
+            sourceOffset: MediaTime.FromSeconds(1),
             elementId: elementId);
 
         try
@@ -4173,7 +4173,7 @@ public sealed partial class AiDialogWorkflowTests
         BeutlApiApplication clients = api.Clients;
         try
         {
-            var source = new AudioSourceItem("Source", sourcePath, TimeSpan.FromSeconds(1));
+            var source = new AudioSourceItem("Source", sourcePath, MediaTime.FromSeconds(1));
             await using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
             {
                 await WaitUntilAsync(() => first.Usage.HasSnapshot.Value);
@@ -4238,8 +4238,8 @@ public sealed partial class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         }));
         BeutlApiApplication clients = api.Clients;
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
 
         await using (var firstDialog = CreateSubtitleDialog(
                    clients,
@@ -4257,7 +4257,7 @@ public sealed partial class AiDialogWorkflowTests
 
             firstDialog.SelectedSourceLanguage.Value = firstDialog.SourceLanguages
                 .First(option => option.Code == "ja");
-            editor.Scene.Duration = TimeSpan.FromMilliseconds(50);
+            editor.Scene.Duration = MediaTime.FromSeconds(0.05);
             firstDialog.RefreshAvailability();
             await WaitUntilAsync(() => firstDialog.CanTranscribe.Value);
             await firstDialog.Transcribe.ExecuteAsync();
@@ -4278,7 +4278,7 @@ public sealed partial class AiDialogWorkflowTests
                 storedSession!.Read().Entry!.Draft.SceneTranscriptionResume!;
             using (Assert.EnterMultipleScope())
             {
-                Assert.That(resume.Duration, Is.EqualTo(TimeSpan.FromMilliseconds(100)));
+                Assert.That(resume.Duration, Is.EqualTo(TimeSpan.FromSeconds(0.1)));
                 Assert.That(resume.RangeStart, Is.EqualTo(TimeSpan.Zero));
                 Assert.That(resume.ChunkCount, Is.EqualTo(1));
                 Assert.That(resume.Language, Is.Null);
@@ -4286,7 +4286,7 @@ public sealed partial class AiDialogWorkflowTests
             }
         }
 
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         await using var restoredDialog = CreateSubtitleDialog(
             clients,
             editor,
@@ -4354,8 +4354,8 @@ public sealed partial class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         }));
         BeutlApiApplication clients = api.Clients;
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(200);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(0.2);
 
         await using (var firstDialog = CreateSubtitleDialog(
                          clients,
@@ -4420,8 +4420,8 @@ public sealed partial class AiDialogWorkflowTests
             return JsonResponse(HttpStatusCode.NotFound, "{}");
         }));
         BeutlApiApplication clients = api.Clients;
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
 
         await using (var first = CreateSubtitleDialog(clients, editor, draftStore, scopes))
         {
@@ -4497,8 +4497,8 @@ public sealed partial class AiDialogWorkflowTests
         UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
         await viewModel.Transcribe.ExecuteAsync();
@@ -4568,8 +4568,8 @@ public sealed partial class AiDialogWorkflowTests
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true
             && viewModel.TranscriptionModelPicker.Options.Count == 2);
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         var originalSegments = new[]
         {
             new AiTranscriptionSegment { Start = 0, End = 0.04, Text = "existing caption" },
@@ -4619,10 +4619,10 @@ public sealed partial class AiDialogWorkflowTests
 
         // A partial resume belongs only to the exact source/range/language
         // tuple. Changing the scene's own range must price a first chunk for it.
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(40);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.04);
         viewModel.RefreshAvailability();
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         viewModel.RefreshAvailability();
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
@@ -4672,8 +4672,8 @@ public sealed partial class AiDialogWorkflowTests
         long before = viewModel.SceneAudioRevision;
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!,
                 $"scene-revision-{Guid.NewGuid():N}.belm")),
@@ -4709,8 +4709,8 @@ public sealed partial class AiDialogWorkflowTests
         var element = new Element
         {
             Name = "Voice",
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!,
                 $"live-audio-{Guid.NewGuid():N}.belm")),
@@ -4729,11 +4729,11 @@ public sealed partial class AiDialogWorkflowTests
                 new AiTranscriptionSegment { Start = 0, End = 1, Text = "Paid transcript" },
             ];
 
-            sound.OffsetPosition.Value = TimeSpan.FromSeconds(1);
+            sound.OffsetPosition.Value = MediaTime.FromSeconds(1);
             await WaitUntilAsync(() =>
                 viewModel.SelectedAudioSource.Value is { } current
                 && current.ElementId == element.Id
-                && current.SourceOffset == TimeSpan.FromSeconds(1));
+                && current.SourceOffset == MediaTime.FromSeconds(1));
 
             Assert.That(viewModel.SelectedAudioSource.Value?.ElementId, Is.EqualTo(element.Id));
 
@@ -4778,9 +4778,9 @@ public sealed partial class AiDialogWorkflowTests
             viewModel.SelectedAudioSource.Value = new AudioSourceItem(
                 "Trimmed source",
                 sourcePath,
-                TimeSpan.FromSeconds(10),
-                elementLength: TimeSpan.FromSeconds(2),
-                sourceOffset: TimeSpan.FromSeconds(1));
+                MediaTime.FromSeconds(10),
+                elementLength: MediaTime.FromSeconds(2),
+                sourceOffset: MediaTime.FromSeconds(1));
             await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
             await viewModel.Transcribe.ExecuteAsync();
@@ -4838,8 +4838,8 @@ public sealed partial class AiDialogWorkflowTests
         UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         var originalSegments = new[]
         {
             new AiTranscriptionSegment { Start = 0, End = 0.04, Text = "existing caption" },
@@ -4903,8 +4903,8 @@ public sealed partial class AiDialogWorkflowTests
         UseSilentSceneMix(viewModel, TimeSpan.FromMilliseconds(50));
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         viewModel.ResultSegments.Value =
         [
             new AiTranscriptionSegment { Start = 0, End = 0.04, Text = "existing caption" },
@@ -4913,7 +4913,7 @@ public sealed partial class AiDialogWorkflowTests
 
         Task operation = viewModel.Transcribe.ExecuteAsync();
         await secondRequestStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(80);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.08);
         viewModel.Cues[0].Text = "user edit while transcribing";
         releaseSecondRequest.TrySetResult();
         await operation;
@@ -4926,7 +4926,7 @@ public sealed partial class AiDialogWorkflowTests
             Assert.That(viewModel.HasPartialResult.Value, Is.True);
         });
 
-        editor.Scene.Duration = TimeSpan.FromMilliseconds(100);
+        editor.Scene.Duration = MediaTime.FromSeconds(0.1);
         viewModel.RefreshAvailability();
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
         await viewModel.Transcribe.ExecuteAsync();
@@ -5006,7 +5006,7 @@ public sealed partial class AiDialogWorkflowTests
         {
             preparationStarted.TrySetResult();
             await releasePreparation.Task.WaitAsync(cancellationToken);
-            return new AudioFrameSnapshot(new float[16_000], 16_000, 1, start);
+            return new AudioFrameSnapshot(new float[16_000], 16_000, 1, MediaTime.FromTimeSpan(start));
         };
         var view = new AiSubtitleView { DataContext = viewModel };
         var window = new Window { Content = view, Width = 340, Height = 900 };
@@ -5018,8 +5018,8 @@ public sealed partial class AiDialogWorkflowTests
             HeadlessTestHelpers.Render();
             await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
                 && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-            editor.Scene.Start = TimeSpan.Zero;
-            editor.Scene.Duration = TimeSpan.FromSeconds(1);
+            editor.Scene.Start = MediaTime.Zero;
+            editor.Scene.Duration = MediaTime.FromSeconds(1);
             await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
             transcription = viewModel.Transcribe.ExecuteAsync();
@@ -5099,12 +5099,12 @@ public sealed partial class AiDialogWorkflowTests
                 new float[sampleCount],
                 16_000,
                 1,
-                start));
+                MediaTime.FromTimeSpan(start)));
         };
         await WaitUntilAsync(() => viewModel.Usage.HasSnapshot.Value
             && viewModel.SelectedAudioSource.Value?.IsSceneMix == true);
-        editor.Scene.Start = TimeSpan.Zero;
-        editor.Scene.Duration = TimeSpan.FromSeconds(60);
+        editor.Scene.Start = MediaTime.Zero;
+        editor.Scene.Duration = MediaTime.FromSeconds(60);
         await WaitUntilAsync(() => viewModel.CanTranscribe.Value);
 
         await viewModel.Transcribe.ExecuteAsync();
@@ -5146,7 +5146,7 @@ public sealed partial class AiDialogWorkflowTests
                 new float[sampleCount],
                 16_000,
                 1,
-                start));
+                MediaTime.FromTimeSpan(start)));
         };
     }
 

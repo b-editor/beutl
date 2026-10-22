@@ -30,7 +30,7 @@ public class TimelineRangeSelectionTests
 
         Point rulerPoint = session.Ruler.TranslatePoint(new Point(15, 10), session.Window)!.Value;
         Point contentPoint = session.Timeline.TranslatePoint(
-            new Point(TimeSpan.FromSeconds(1.5).TimeToPixel(1), session.Model.CalculateLayerTop(3) - 10),
+            new Point(MediaTime.FromSeconds(1.5).TimeToPixel(1), session.Model.CalculateLayerTop(3) - 10),
             session.Window)!.Value;
 
         session.Drag(reverse ? contentPoint : rulerPoint, reverse ? rulerPoint : contentPoint, [0, 2]);
@@ -100,14 +100,14 @@ public class TimelineRangeSelectionTests
         {
             TimelineTestHost host = await TimelineTestHost.CreateAsync(
                 "timeline-selection",
-                TimeSpan.FromSeconds(5),
+                MediaTime.FromSeconds(5),
                 [Clip(0.2, 0), Clip(0.2, 2), Clip(0.2, 3), Clip(0.2, 6), Clip(2, 0)]);
             host.Model.Options.Value = host.Model.Options.Value with { MaxLayerCount = 20 };
             HeadlessTestHelpers.Render();
             return new TimelineSession(host);
 
-            static ElementDescription Clip(double start, int layer) => new(TimeSpan.FromSeconds(start),
-                TimeSpan.FromSeconds(1.2), layer, new ElementSource.EngineObject(() => new RectShape()));
+            static ElementDescription Clip(double start, int layer) => new(MediaTime.FromSeconds(start),
+                MediaTime.FromSeconds(1.2), layer, new ElementSource.EngineObject(() => new RectShape()));
         }
 
         public Point ToWindow(Point point) => Timeline.TranslatePoint(point, Window)!.Value;

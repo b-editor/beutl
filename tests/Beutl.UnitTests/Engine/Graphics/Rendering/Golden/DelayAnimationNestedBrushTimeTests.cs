@@ -17,7 +17,7 @@ public class DelayAnimationNestedBrushTimeTests
 {
     private static readonly PixelSize Frame = new(200, 200);
 
-    private static readonly TimeSpan CompositionTime = TimeSpan.FromSeconds(1);
+    private static readonly MediaTime CompositionTime = MediaTime.FromSeconds(1);
 
     // The right tile is delayed by a full second against a brush whose colour animates red -> blue over
     // that second, so it must paint the red the brush had then, not the parent's blue snapshot.
@@ -131,7 +131,7 @@ public class DelayAnimationNestedBrushTimeTests
     {
         var fill = new SolidColorBrush();
         var animation = new KeyFrameAnimation<Color>();
-        animation.KeyFrames.Add(new KeyFrame<Color> { Value = Colors.Red, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<Color> { Value = Colors.Red, KeyTime = MediaTime.Zero });
         animation.KeyFrames.Add(new KeyFrame<Color> { Value = Colors.Blue, KeyTime = CompositionTime });
         fill.Color.SetKeyFrameAnimation(animation);
 
@@ -164,8 +164,8 @@ public class DelayAnimationNestedBrushTimeTests
         {
             var brightness = new Brightness();
             var animation = new KeyFrameAnimation<float>();
-            animation.KeyFrames.Add(new KeyFrame<float> { Value = 40f, KeyTime = TimeSpan.Zero });
-            animation.KeyFrames.Add(new KeyFrame<float> { Value = 220f, KeyTime = TimeSpan.FromSeconds(2) });
+            animation.KeyFrames.Add(new KeyFrame<float> { Value = 40f, KeyTime = MediaTime.Zero });
+            animation.KeyFrames.Add(new KeyFrame<float> { Value = 220f, KeyTime = MediaTime.FromSeconds(2) });
             brightness.Amount.SetKeyFrameAnimation(animation);
 
             var delay = new DelayAnimationEffect();

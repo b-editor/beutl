@@ -154,7 +154,7 @@ public sealed class AgentHostInstanceTests
         string directory = CreateDirectory("beutl-instance-tests-");
         try
         {
-            await using AgentServerHarness server = await AgentServerHarness.StartAsync(directory, TimeSpan.FromMilliseconds(100));
+            await using AgentServerHarness server = await AgentServerHarness.StartAsync(directory, TimeSpan.FromSeconds(0.1));
             using var changes = new SemaphoreSlim(0);
             await using IAsyncDisposable subscription = server.Client.RegisterNotificationHandler(
                 NotificationMethods.ToolListChangedNotification, (_, _) =>

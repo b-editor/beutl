@@ -271,7 +271,7 @@ public sealed class ApplyEditLockTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
             Assert.That(scene.IsLayerLocked(LockedLayer), Is.True);
         });
     }
@@ -377,8 +377,8 @@ public sealed class ApplyEditLockTests
         locked.ExitTransition = new WipeTransition();
         var text = new TextBlock { Name = "Caption", Text = { Value = "Hello" } };
         var opacity = new KeyFrameAnimation<float>();
-        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() }, out _);
-        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new SineEaseOut() }, out _);
+        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0, Easing = new LinearEasing() }, out _);
+        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100, Easing = new SineEaseOut() }, out _);
         text.Opacity.SetKeyFrameAnimation(opacity);
         locked.AddObject(text);
         var group = new TransformGroup();
@@ -756,8 +756,8 @@ public sealed class ApplyEditLockTests
         var element = new Element
         {
             Name = name,
-            Start = TimeSpan.FromSeconds(scene.Children.Count * 3),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(scene.Children.Count * 3),
+            Length = MediaTime.FromSeconds(2),
             ZIndex = zIndex,
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, $"{Guid.NewGuid():N}.belm"))
         };

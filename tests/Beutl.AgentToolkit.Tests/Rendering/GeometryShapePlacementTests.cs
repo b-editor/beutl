@@ -21,8 +21,8 @@ public sealed class GeometryShapePlacementTests
         var scene = new Scene(320, 180, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
 
@@ -43,7 +43,7 @@ public sealed class GeometryShapePlacementTests
         var renderer = new StillRenderer();
         RenderStillResponse response = await renderer.RenderAsync(
             scene,
-            TimeSpan.FromSeconds(1),
+            MediaTime.FromSeconds(1),
             Path.Combine(dir, "placement.png"),
             renderScale: 1,
             CancellationToken.None);

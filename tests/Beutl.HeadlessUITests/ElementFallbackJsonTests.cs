@@ -26,7 +26,7 @@ public class ElementFallbackJsonTests
         };
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(BeutlHomeIsolation.CurrentHome!, $"fallback-json-{Guid.NewGuid():N}.belm")),
         };
         element.AddObject(fallback);

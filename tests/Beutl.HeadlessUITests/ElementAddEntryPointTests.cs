@@ -51,8 +51,8 @@ public class ElementAddEntryPointTests
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
         var description = new ElementDescription(
-            TimeSpan.FromSeconds(3),
-            TimeSpan.FromSeconds(2),
+            MediaTime.FromSeconds(3),
+            MediaTime.FromSeconds(2),
             4,
             new ElementSource.EngineObject(() => new RectShape()));
 
@@ -89,8 +89,8 @@ public class ElementAddEntryPointTests
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
 
         await timeline.AddElement.ExecuteAsync(new ElementDescription(
-            TimeSpan.Zero,
-            TimeSpan.FromSeconds(2),
+            MediaTime.Zero,
+            MediaTime.FromSeconds(2),
             2,
             new ElementSource.EngineObject(() => new RectShape())));
         HeadlessTestHelpers.Settle();
@@ -118,8 +118,8 @@ public class ElementAddEntryPointTests
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
 
         await timeline.AddElement.ExecuteAsync(new ElementDescription(
-            TimeSpan.Zero,
-            TimeSpan.FromSeconds(2),
+            MediaTime.Zero,
+            MediaTime.FromSeconds(2),
             0,
             new ElementSource.EngineObject(
                 static () => throw new InvalidOperationException("Injected element factory failure."))));
@@ -177,7 +177,7 @@ public class ElementAddEntryPointTests
             {
                 Assert.That(args.Handled, Is.True);
                 Assert.That(created.Start, Is.EqualTo(timeline.ClickedFrame));
-                Assert.That(created.Length, Is.EqualTo(TimeSpan.FromSeconds(7)));
+                Assert.That(created.Length, Is.EqualTo(MediaTime.FromSeconds(7)));
                 Assert.That(created.ZIndex, Is.EqualTo(expectedLayer));
                 Assert.That(created.Name, Is.EqualTo("Dropped template"));
                 Assert.That(created.Objects.OfType<RectShape>().Count(), Is.EqualTo(1));
@@ -203,7 +203,7 @@ public class ElementAddEntryPointTests
         (EditViewModel editor, TimelineTabViewModel timeline) =
             await OpenEditorForNewScene("player-file-drop");
         string imagePath = CreatePngFile(editor, "dropped-image.png");
-        editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(4);
+        editor.Player.CurrentFrame.Value = MediaTime.FromSeconds(4);
         editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(
             editor.Scene.FrameSize.Width,
             editor.Scene.FrameSize.Height));
@@ -245,8 +245,8 @@ public class ElementAddEntryPointTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(args.Handled, Is.True);
-                Assert.That(created.Start, Is.EqualTo(TimeSpan.FromSeconds(4)));
-                Assert.That(created.Length, Is.EqualTo(TimeSpan.FromSeconds(5)));
+                Assert.That(created.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
+                Assert.That(created.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
                 Assert.That(created.ZIndex, Is.Zero);
                 Assert.That(created.Objects.OfType<SourceImage>().Count(), Is.EqualTo(1));
                 Assert.That(scrolls, Has.Count.EqualTo(1));
@@ -279,7 +279,7 @@ public class ElementAddEntryPointTests
             Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!,
             "unsupported.drop-test");
         await File.WriteAllTextAsync(unsupportedPath, "unsupported");
-        editor.Player.CurrentFrame.Value = TimeSpan.Zero;
+        editor.Player.CurrentFrame.Value = MediaTime.Zero;
         editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(
             editor.Scene.FrameSize.Width,
             editor.Scene.FrameSize.Height));
@@ -461,7 +461,7 @@ public class ElementAddEntryPointTests
         await using var registration = PackageSourceHandlers.Register(editor.ExtensionProvider, new LayeredFileSourceHandler(false), ElementSourceHandlerRegistrationMode.Replace);
         var source = new CloudStorageView { DataContext = scope.ViewModel };
         Control target = playerTarget ? new PlayerView { DataContext = editor.Player } : new TimelineTabView { DataContext = timeline };
-        editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(4);
+        editor.Player.CurrentFrame.Value = MediaTime.FromSeconds(4);
         if (target is PlayerView player)
         {
             editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height));
@@ -486,11 +486,11 @@ public class ElementAddEntryPointTests
             AvaPoint start = list.ContainerFromIndex(1)!.TranslatePoint(new AvaPoint(20, 20), window)!.Value;
             Control surface = target is PlayerView preview ? preview.image : target.FindControl<Panel>("TimelinePanel")!;
             AvaPoint end = surface.TranslatePoint(new AvaPoint(80, 5), window)!.Value;
-            TimeSpan droppedFrame = default;
+            MediaTime droppedFrame = default;
             void CaptureDropPosition()
             {
                 droppedFrame = playerTarget ? editor.Player.CurrentFrame.Value : timeline.ClickedFrame;
-                timeline.ClickedFrame = editor.Player.CurrentFrame.Value = TimeSpan.FromSeconds(99);
+                timeline.ClickedFrame = editor.Player.CurrentFrame.Value = MediaTime.FromSeconds(99);
             }
             source.DragStarter = (_, data) =>
             {
@@ -539,8 +539,8 @@ public class ElementAddEntryPointTests
     public async Task PlayerDropContainsEditorLifecycleCancellation()
     {
         var description = new ElementDescription(
-            TimeSpan.Zero,
-            TimeSpan.FromSeconds(1),
+            MediaTime.Zero,
+            MediaTime.FromSeconds(1),
             0,
             new ElementSource.EngineObject(() => new RectShape()));
 
@@ -568,8 +568,8 @@ public class ElementAddEntryPointTests
         await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler, ElementSourceHandlerRegistrationMode.Replace);
         var view = new PlayerView();
         var description = new ElementDescription(
-            TimeSpan.Zero,
-            TimeSpan.FromSeconds(1),
+            MediaTime.Zero,
+            MediaTime.FromSeconds(1),
             0,
             new ElementSource.File("pending.png"));
 
@@ -591,8 +591,8 @@ public class ElementAddEntryPointTests
     {
         var source = new Element
         {
-            Start = TimeSpan.FromSeconds(20),
-            Length = TimeSpan.FromSeconds(7),
+            Start = MediaTime.FromSeconds(20),
+            Length = MediaTime.FromSeconds(7),
             ZIndex = 8,
             Name = "Dropped template",
         };

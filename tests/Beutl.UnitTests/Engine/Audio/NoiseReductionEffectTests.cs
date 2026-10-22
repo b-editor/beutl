@@ -224,7 +224,7 @@ public class NoiseReductionEffectTests
 
         // 313 ticks are 1.5 samples at 48 kHz; upstream nodes truncate this start to sample 1.
         var context = new AudioProcessContext(
-            new TimeRange(TimeSpan.FromTicks(313), AudioProcessContext.GetDurationForSampleCount(4800, SampleRate)),
+            new TimeRange(MediaTime.FromTimeSpan(TimeSpan.FromTicks(313)), AudioProcessContext.GetDurationForSampleCount(4800, SampleRate)),
             SampleRate, new AnimationSampler(), null);
         using AudioBuffer output = node.Process(context);
         using AudioBuffer expected = new SignalSource(s_signal).Process(context);
@@ -355,10 +355,10 @@ public class NoiseReductionEffectTests
     {
         NoiseReductionNode reused = CreateNode(new SignalSource(s_signal));
         NoiseReductionNode fresh = CreateNode(new SignalSource(s_signal));
-        TimeSpan longEnd = TimeSpan.FromSeconds(2);
+        MediaTime longEnd = MediaTime.FromSeconds(2);
 
         // Processing up to one second reads a frame ahead, past this earlier end.
-        TimeSpan shortEnd = AudioProcessContext.GetDurationForSampleCount(SampleRate + 400, SampleRate);
+        MediaTime shortEnd = AudioProcessContext.GetDurationForSampleCount(SampleRate + 400, SampleRate);
 
         using (reused.Process(Context(0, SampleRate, longEnd))) { }
         using AudioBuffer actual = reused.Process(Context(SampleRate, SampleRate / 2, shortEnd));
@@ -373,8 +373,8 @@ public class NoiseReductionEffectTests
     public void ExtendingTheTerminal_PlaysTheNewlyExposedAudio()
     {
         NoiseReductionNode reused = CreateNode(new SignalSource(s_signal), reduction: 0);
-        TimeSpan shortEnd = TimeSpan.FromSeconds(1);
-        TimeSpan longEnd = TimeSpan.FromSeconds(2);
+        MediaTime shortEnd = MediaTime.FromSeconds(1);
+        MediaTime longEnd = MediaTime.FromSeconds(2);
 
         using (reused.Process(Context(0, SampleRate, shortEnd))) { }
         using AudioBuffer extended = reused.Process(Context(SampleRate, SampleRate / 2, longEnd));
@@ -416,9 +416,9 @@ public class NoiseReductionEffectTests
     {
         var effect = new NoiseReductionEffect();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 0, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.5), Value = 24, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 0, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1.5), Value = 24, Easing = new LinearEasing() });
         effect.Reduction.SetKeyFrameAnimation(animation);
         using var context = new AudioContext(SampleRate, 2);
         var node = (NoiseReductionNode)effect.CreateNode(context, new SignalSource(s_noise));
@@ -440,8 +440,8 @@ public class NoiseReductionEffectTests
         effect.Smoothing.Value = 80;
         effect.Adaptation.Value = 4;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 6 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 30 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 6 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 30 });
         effect.Reduction.SetKeyFrameAnimation(animation);
         var group = new AudioEffectGroup();
         group.Children.Add(effect);
@@ -454,7 +454,7 @@ public class NoiseReductionEffectTests
         Assert.That(restoredEffect.Sensitivity.Value, Is.EqualTo(6));
         Assert.That(restoredEffect.Smoothing.Value, Is.EqualTo(80));
         Assert.That(restoredEffect.Adaptation.Value, Is.EqualTo(4));
-        Assert.That(restoredEffect.Reduction.GetKeyFrameAnimation()!.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(30));
+        Assert.That(restoredEffect.Reduction.GetKeyFrameAnimation()!.Interpolate(MediaTime.FromSeconds(1)), Is.EqualTo(30));
     }
 
     [TestCase(0f)]
@@ -487,7 +487,7 @@ public class NoiseReductionEffectTests
     {
         var sound = new SourceSound
         {
-            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(4)),
+            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(4)),
             Source = { Value = source },
         };
         if (effect != null)
@@ -495,7 +495,7 @@ public class NoiseReductionEffectTests
 
         using var resource = sound.ToResource(CompositionContext.Default);
         using var composer = new Composer { SampleRate = SampleRate };
-        var range = new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        var range = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),
             range, default, new CompositionEligibility([sound]));
         using AudioBuffer? output = composer.Compose(range, frame);
@@ -507,7 +507,7 @@ public class NoiseReductionEffectTests
         using var context = new AudioContext(SampleRate, 2);
         context.AddNode(source);
         AudioNode reduced = new NoiseReductionEffect().CreateNode(context, source);
-        ClipNode clip = context.CreateClipNode(TimeSpan.Zero, AudioProcessContext.GetDurationForSampleCount(duration, SampleRate));
+        ClipNode clip = context.CreateClipNode(MediaTime.Zero, AudioProcessContext.GetDurationForSampleCount(duration, SampleRate));
         context.Connect(reduced, clip);
         using AudioBuffer output = clip.Process(Context(0, window));
         return output.GetChannelData(0).ToArray();
@@ -526,7 +526,7 @@ public class NoiseReductionEffectTests
         AudioNode node = limiter.CreateNode(context, source);
         if (includeEffect)
             node = effect.CreateNode(context, node);
-        ClipNode clip = context.CreateClipNode(TimeSpan.Zero, AudioProcessContext.GetDurationForSampleCount(duration, SampleRate));
+        ClipNode clip = context.CreateClipNode(MediaTime.Zero, AudioProcessContext.GetDurationForSampleCount(duration, SampleRate));
         context.Connect(node, clip);
         using AudioBuffer output = clip.Process(Context(0, duration + 960));
         return output.GetChannelData(0).ToArray();
@@ -576,7 +576,7 @@ public class NoiseReductionEffectTests
     private static float[] Subtract(float[] first, float[] second)
         => first.Zip(second, (a, b) => a - b).ToArray();
 
-    private static AudioProcessContext Context(int start, int count, TimeSpan? end = null, int sampleRate = SampleRate)
+    private static AudioProcessContext Context(int start, int count, MediaTime? end = null, int sampleRate = SampleRate)
         => AudioTestContexts.AtSample(start, count, sampleRate, end);
 
     // Plays a fixed buffer on both channels at absolute sample positions and silence elsewhere.
@@ -590,7 +590,7 @@ public class NoiseReductionEffectTests
 
         public override AudioBuffer Process(AudioProcessContext context)
         {
-            long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, context.SampleRate);
+            long start = context.TimeRange.Start.ToSamples(context.SampleRate, MidpointRounding.ToZero);
             int count = context.GetSampleCount();
             LastReadEnd = Math.Max(LastReadEnd, start + count);
             Starts.Add(start);

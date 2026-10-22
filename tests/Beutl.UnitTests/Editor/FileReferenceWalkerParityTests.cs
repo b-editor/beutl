@@ -74,7 +74,7 @@ public class FileReferenceWalkerParityTests
             case Place.KeyFrameValue:
                 var video = new SourceVideo();
                 var animation = new KeyFrameAnimation<VideoSource?>();
-                animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.FromSeconds(1), Value = Open<VideoSource>(uri) });
+                animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(1), Value = Open<VideoSource>(uri) });
                 video.Source.SetKeyFrameAnimation(animation);
                 element = ElementWith(video);
                 break;
@@ -117,7 +117,7 @@ public class FileReferenceWalkerParityTests
     {
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(_projectDir, $"{Guid.NewGuid():N}.belm")),
         };
         element.AddObject(obj);

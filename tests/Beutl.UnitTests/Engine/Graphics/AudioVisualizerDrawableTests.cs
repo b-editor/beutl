@@ -28,7 +28,7 @@ public class AudioVisualizerDrawableTests
                 : new LineWaveformShape { Thickness = { Value = 40 } };
             drawable.Gain.Value = 100;
             AttachSyntheticSource(drawable);
-            using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.FromSeconds(0.5)));
+            using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.FromSeconds(0.5)));
             using Bitmap bitmap = GoldenImageHarness.RenderAtScale(resource, new PixelSize(400, 200), 1);
             bool hasOutset = false;
             for (int y = 40; y < 60; y++)
@@ -46,7 +46,7 @@ public class AudioVisualizerDrawableTests
         {
             var drawable = CreateSpectrum();
             AttachSyntheticSource(drawable);
-            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(TimeSpan.FromSeconds(0.5)));
+            using var resource = (AudioSpectrumDrawable.Resource)drawable.ToResource(new CompositionContext(MediaTime.FromSeconds(0.5)));
             Assert.That(resource.CachedSampleLength, Is.GreaterThan(0));
             typeof(AudioSpectrumDrawable.Resource).GetField("_smoothedMagnitudes",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
@@ -171,7 +171,7 @@ public class AudioVisualizerDrawableTests
         {
             Source = { Value = soundSource },
             // Sound.Compose clips to TimeRange, so a non-zero range covering the sample window is required.
-            TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
+            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)),
         };
         drawable.Source.Value = sound;
     }
@@ -180,7 +180,7 @@ public class AudioVisualizerDrawableTests
     // render would skip the fill path and the test would be vacuous), then rasterizes at the given scale.
     private static Bitmap RenderWithSamples(AudioVisualizerDrawable drawable, PixelSize frame, float scale)
     {
-        var ctx = new CompositionContext(TimeSpan.FromSeconds(0.5));
+        var ctx = new CompositionContext(MediaTime.FromSeconds(0.5));
         using Drawable.Resource resource = drawable.ToResource(ctx);
         var visResource = (AudioVisualizerDrawable.Resource)resource;
         Assert.That(visResource.CachedSampleLength, Is.GreaterThan(0),

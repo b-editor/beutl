@@ -104,5 +104,5 @@ public sealed class EditorSelectionTests
 
     private static Task<(EditViewModel Editor, TimelineTabViewModel Timeline)> OpenAsync(string name, int count)
         => TimelineTestHost.OpenTimelineAsync(name, [.. Enumerable.Range(0, count).Select(layer => new ElementDescription(
-            TimeSpan.Zero, TimeSpan.FromSeconds(1), layer, new ElementSource.EngineObject(() => new RectShape())))]);
+            MediaTime.Zero, MediaTime.FromSeconds(1), layer, new ElementSource.EngineObject(() => new RectShape())))]);
 }

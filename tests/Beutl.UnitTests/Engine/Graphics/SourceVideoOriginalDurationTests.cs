@@ -11,7 +11,7 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public class SourceVideoOriginalDurationTests
 {
-    private static readonly TimeSpan MediaDuration = TimeSpan.FromSeconds(2);
+    private static readonly MediaTime MediaDuration = MediaTime.FromSeconds(2);
 
     [OneTimeSetUp]
     public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
@@ -31,10 +31,10 @@ public class SourceVideoOriginalDurationTests
     public void TryGetOriginalDuration_OffsetInsideMedia_ReturnsRemainingDuration()
     {
         SourceVideo video = CreateSourceVideo();
-        video.OffsetPosition.Value = TimeSpan.FromSeconds(0.5);
+        video.OffsetPosition.Value = MediaTime.FromSeconds(0.5);
 
-        Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.True);
-        Assert.That(duration, Is.EqualTo(MediaDuration - TimeSpan.FromSeconds(0.5)));
+        Assert.That(video.TryGetOriginalDuration(out MediaTime duration), Is.True);
+        Assert.That(duration, Is.EqualTo(MediaDuration - MediaTime.FromSeconds(0.5)));
     }
 
     [TestCase(0.0, TestName = "TryGetOriginalDuration_OffsetAtMediaEnd_ReturnsFalse")]
@@ -42,9 +42,9 @@ public class SourceVideoOriginalDurationTests
     public void TryGetOriginalDuration_OffsetAtOrPastMediaEnd_ReturnsFalse(double secondsPastEnd)
     {
         SourceVideo video = CreateSourceVideo();
-        video.OffsetPosition.Value = MediaDuration + TimeSpan.FromSeconds(secondsPastEnd);
+        video.OffsetPosition.Value = MediaDuration + MediaTime.FromSeconds(secondsPastEnd);
 
-        Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.False);
-        Assert.That(duration, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.TryGetOriginalDuration(out MediaTime duration), Is.False);
+        Assert.That(duration, Is.EqualTo(MediaTime.Zero));
     }
 }

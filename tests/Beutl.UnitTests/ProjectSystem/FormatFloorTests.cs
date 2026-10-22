@@ -433,7 +433,7 @@ public class FormatFloorTests
         SetVersionFields(_projectPath, OlderAppVersion, OlderMinAppVersion);
         Project project = LoadProject();
         Scene scene = (Scene)project.Items.Single();
-        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Length = MediaTime.FromSeconds(1) };
         Uri uri = ElementFileNaming.GetUri(scene.Uri!, element.Id);
         JsonObject before = Read(_projectPath);
 

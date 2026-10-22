@@ -39,7 +39,7 @@ public sealed class AbandonedRecordedSubtreeTests
         emitter.ParticleSize.Value = 0;
         emitter.SizeRandom.Value = 0;
         using var resource = (ParticleEmitter.Resource)emitter.ToResource(
-            new CompositionContext(TimeSpan.FromSeconds(1)));
+            new CompositionContext(MediaTime.FromSeconds(1)));
 
         Assert.That(resource.GetAliveParticles().Length, Is.GreaterThanOrEqualTo(1),
             "precondition: the emitter must still hold alive particles, only sized to zero");

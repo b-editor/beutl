@@ -69,7 +69,7 @@ public class GraphEditorTangentTests
         {
             graph.Window.MouseMove(rightEdge + new Vector(distance, 0), RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render(3);
-            Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+            Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
             Assert.That(graph.Second.Value, Is.EqualTo(300));
             AssertCoupling(mode, speed, Outgoing(graph, graph.Second), originalCp2, Incoming(graph, graph.Second));
             Assert.That(easing.X1, Is.EqualTo(x1), "Kf1's outgoing handle must stay unchanged.");
@@ -82,11 +82,11 @@ public class GraphEditorTangentTests
         }
         graph.Window.MouseUp(rightEdge + new Vector(30, 0), MouseButton.Left);
         HeadlessTestHelpers.Render(3);
-        Assert.That(kf3.KeyTime.TotalSeconds, Is.EqualTo(2.8333333).Within(0.00001));
+        Assert.That(kf3.KeyTime.ToSeconds(), Is.EqualTo(2.8333333).Within(0.00001));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
-        Assert.That(kf3.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(kf3.KeyTime, Is.EqualTo(MediaTime.FromSeconds(2.5)));
         Assert.That(((SplineEasing)graph.Second.Easing).X2, Is.EqualTo(x2));
         Assert.That(((SplineEasing)graph.Second.Easing).Y2, Is.EqualTo(y2));
     }
@@ -117,8 +117,8 @@ public class GraphEditorTangentTests
         AssertCoupling(mode, speed, Incoming(graph, next), rightOutside, Outgoing(graph, next));
         AssertPoint(Outgoing(graph, graph.First), firstFar, "The unselected starting key's handle must not move.");
         AssertPoint(Incoming(graph, last), lastFar, "The unselected ending key's handle must not move.");
-        Assert.That(middle.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
-        Assert.That(next.KeyTime.TotalSeconds, Is.EqualTo(2.8333333).Within(0.00001));
+        Assert.That(middle.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(next.KeyTime.ToSeconds(), Is.EqualTo(2.8333333).Within(0.00001));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
         AssertPoint(Incoming(graph, middle), leftOutside, "Undo must restore the incoming handle.");
@@ -232,7 +232,7 @@ public class GraphEditorTangentTests
         AssertDraggedHandle(incoming, to);
         AssertPoint(Outgoing(graph, graph.First), farLeft, "The previous key's handle must not change.");
         AssertPoint(Incoming(graph, right.Model), farRight, "The next key's handle must not change.");
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
         Assert.That(graph.Second.Value, Is.EqualTo(300));
         graph.Window.MouseUp(to, MouseButton.Left, modifiers);
         var after = SplineCoordinates(graph);
@@ -317,8 +317,8 @@ public class GraphEditorTangentTests
         var spline = (SplineEasing)graph.Second.Easing;
         Assert.That(incoming ? spline.X2 : spline.X1,
             Is.EqualTo(incoming ? (speed ? 0.999 : 1) : (speed ? 0.001 : 0)).Within(0.00001));
-        Assert.That(graph.First.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(1.5)));
+        Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
     }
 
     private static Point HandlePosition(GraphScope graph, GraphEditorKeyFrameViewModel item, bool incoming, bool speed)
@@ -436,13 +436,13 @@ public class GraphEditorTangentTests
         graph.Second.Value = 300;
         graph.Animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(2.5),
+            KeyTime = MediaTime.FromSeconds(2.5),
             Value = 450,
             Easing = new SplineEasing(0.2f, 0.1f, 0.7f, 0.8f)
         });
         graph.Animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.FromSeconds(4.5),
+            KeyTime = MediaTime.FromSeconds(4.5),
             Value = 750,
             Easing = new SplineEasing(0.2f, 0.2f, 0.8f, 0.9f)
         });

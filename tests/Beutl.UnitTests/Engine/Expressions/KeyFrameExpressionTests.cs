@@ -25,15 +25,15 @@ public class KeyFrameExpressionTests
     [TestCase(true, new[] { 0.25, 0.5, 5.5 }, new[] { 25f, 50, 100 })]
     public void KeyFrames_GiveTheAnimatedValueAtEachTime(bool useGlobalClock, double[] seconds, float[] expected)
     {
-        var owner = new AnimationSamplerTestRoot { TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2)) };
+        var owner = new AnimationSamplerTestRoot { TimeRange = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2)) };
         var property = Make();
         property.SetOwnerObject(owner);
-        var keyFrames = TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1), useGlobalClock);
+        var keyFrames = TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1), useGlobalClock);
         property.SetKeyFrameAnimation(keyFrames);
 
-        float[] values = seconds.Select(s => property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(s)))).ToArray();
+        float[] values = seconds.Select(s => property.Evaluate(new CompositionContext(MediaTime.FromSeconds(s)))).ToArray();
         float[] evaluated = seconds.Select(s => ((IExpression<float>)keyFrames).Evaluate(
-            TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(s)))).ToArray();
+            TestHelper.CreateExpressionContext(MediaTime.FromSeconds(s)))).ToArray();
 
         using (Assert.EnterMultipleScope())
         {
@@ -48,9 +48,9 @@ public class KeyFrameExpressionTests
     public void UserExpression_WinsOverKeyFramesAndGivesThemBackWhenRemoved()
     {
         var property = Make();
-        var keyFrames = TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1));
+        var keyFrames = TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1));
         property.SetKeyFrameAnimation(keyFrames);
-        var context = new CompositionContext(TimeSpan.FromSeconds(0.5));
+        var context = new CompositionContext(MediaTime.FromSeconds(0.5));
 
         property.Expression = Expression.Create<float>("42");
 
@@ -78,13 +78,13 @@ public class KeyFrameExpressionTests
     {
         var property = Make();
         property.Expression = Expression.Create<float>("42");
-        var keyFrames = TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1));
+        var keyFrames = TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1));
 
         property.SetKeyFrameAnimation(keyFrames);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(0.5))), Is.EqualTo(42f));
+            Assert.That(property.Evaluate(new CompositionContext(MediaTime.FromSeconds(0.5))), Is.EqualTo(42f));
             Assert.That(property.Expression!.ExpressionString, Is.EqualTo("42"));
             Assert.That(property.Expression.Replaced, Is.SameAs(keyFrames));
         }
@@ -103,10 +103,10 @@ public class KeyFrameExpressionTests
     public void FailingExpression_FallsBackToTheKeyFrames()
     {
         var property = Make();
-        property.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1)));
+        property.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1)));
         property.Expression = Expression.Create<float>("1 +");
 
-        float value = property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(0.5)));
+        float value = property.Evaluate(new CompositionContext(MediaTime.FromSeconds(0.5)));
 
         using (Assert.EnterMultipleScope())
         {
@@ -122,7 +122,7 @@ public class KeyFrameExpressionTests
         var expression = new ConstantExpression(3);
         property.Expression = expression;
 
-        Assert.Throws<InvalidOperationException>(() => property.SetKeyFrameAnimation(TestAnimations.Linear(0f, 1f, TimeSpan.FromSeconds(1))));
+        Assert.Throws<InvalidOperationException>(() => property.SetKeyFrameAnimation(TestAnimations.Linear(0f, 1f, MediaTime.FromSeconds(1))));
         using (Assert.EnterMultipleScope())
         {
             Assert.That(property.Expression, Is.SameAs(expression));
@@ -134,9 +134,9 @@ public class KeyFrameExpressionTests
     public void KeyFrames_AreEvaluatedWithoutAnExpressionContext()
     {
         var property = Make();
-        var keyFrames = TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1));
+        var keyFrames = TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1));
         property.SetKeyFrameAnimation(keyFrames);
-        var context = new CompositionContext(TimeSpan.FromSeconds(0.5));
+        var context = new CompositionContext(MediaTime.FromSeconds(0.5));
         property.Evaluate(context);
         keyFrames.GetAnimatedValue(context.Time);
 
@@ -157,7 +157,7 @@ public class KeyFrameExpressionTests
     public void ObjectWithExpressionAndKeyFrames_SavesTheSameJsonAfterLoading()
     {
         var shape = new RectShape();
-        shape.Width.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1)));
+        shape.Width.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1)));
         shape.Width.Expression = Expression.Create<float>("42");
         JsonObject saved = CoreSerializer.SerializeToJsonObject(shape);
 

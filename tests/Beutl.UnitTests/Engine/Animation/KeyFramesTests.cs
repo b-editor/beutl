@@ -9,24 +9,24 @@ public class KeyFramesTests
     public void Changing_key_time_to_an_existing_time_keeps_the_collection_sorted()
     {
         var animation = new KeyFrameAnimation<float>();
-        var first = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 10 };
-        var middle = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 200 };
-        var last = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(3), Value = 30 };
+        var first = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 10 };
+        var middle = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = 200 };
+        var last = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(3), Value = 30 };
         animation.KeyFrames.Add(first, out _);
         animation.KeyFrames.Add(middle, out _);
         animation.KeyFrames.Add(last, out _);
 
         first.KeyTime = last.KeyTime;
         Assert.That(animation.KeyFrames.Select(key => key.KeyTime), Is.Ordered);
-        last.KeyTime = TimeSpan.FromSeconds(1);
+        last.KeyTime = MediaTime.FromSeconds(1);
         Assert.That(animation.KeyFrames, Is.EqualTo(new[] { last, middle, first }));
-        Assert.That(animation.Interpolate(TimeSpan.FromSeconds(2)), Is.EqualTo(200));
+        Assert.That(animation.Interpolate(MediaTime.FromSeconds(2)), Is.EqualTo(200));
 
-        last.KeyTime = TimeSpan.FromSeconds(3);
+        last.KeyTime = MediaTime.FromSeconds(3);
         Assert.That(animation.KeyFrames.Select(key => key.KeyTime), Is.Ordered);
-        first.KeyTime = TimeSpan.FromSeconds(1);
+        first.KeyTime = MediaTime.FromSeconds(1);
         Assert.That(animation.KeyFrames, Is.EqualTo(new[] { first, middle, last }));
-        Assert.That(animation.Interpolate(TimeSpan.FromSeconds(2)), Is.EqualTo(200));
+        Assert.That(animation.Interpolate(MediaTime.FromSeconds(2)), Is.EqualTo(200));
     }
 
     [Test]
@@ -34,11 +34,11 @@ public class KeyFramesTests
     {
         var keyFrames = new KeyFrames();
         var keyFrame1 = new Mock<IKeyFrame>();
-        keyFrame1.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(1));
+        keyFrame1.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(1));
         var keyFrame2 = new Mock<IKeyFrame>();
-        keyFrame2.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(3));
+        keyFrame2.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(3));
         var keyFrame3 = new Mock<IKeyFrame>();
-        keyFrame3.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(2));
+        keyFrame3.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(2));
 
         keyFrames.Add(keyFrame1.Object, out int index1);
         keyFrames.Add(keyFrame2.Object, out int index2);
@@ -57,19 +57,19 @@ public class KeyFramesTests
     {
         var keyFrames = new KeyFrames();
         var keyFrame1 = new Mock<IKeyFrame>();
-        keyFrame1.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(1));
+        keyFrame1.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(1));
         var keyFrame2 = new Mock<IKeyFrame>();
-        keyFrame2.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(3));
+        keyFrame2.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(3));
         var keyFrame3 = new Mock<IKeyFrame>();
-        keyFrame3.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(5));
+        keyFrame3.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(5));
         keyFrames.Add(keyFrame1.Object, out _);
         keyFrames.Add(keyFrame2.Object, out _);
         keyFrames.Add(keyFrame3.Object, out _);
 
-        Assert.That(keyFrames.IndexAt(TimeSpan.FromSeconds(0.5)), Is.EqualTo(0));
-        Assert.That(keyFrames.IndexAt(TimeSpan.FromSeconds(2)), Is.EqualTo(1));
-        Assert.That(keyFrames.IndexAt(TimeSpan.FromSeconds(4)), Is.EqualTo(2));
-        Assert.That(keyFrames.IndexAt(TimeSpan.FromSeconds(5)), Is.EqualTo(2));
+        Assert.That(keyFrames.IndexAt(MediaTime.FromSeconds(0.5)), Is.EqualTo(0));
+        Assert.That(keyFrames.IndexAt(MediaTime.FromSeconds(2)), Is.EqualTo(1));
+        Assert.That(keyFrames.IndexAt(MediaTime.FromSeconds(4)), Is.EqualTo(2));
+        Assert.That(keyFrames.IndexAt(MediaTime.FromSeconds(5)), Is.EqualTo(2));
     }
 
     [Test]
@@ -77,19 +77,19 @@ public class KeyFramesTests
     {
         var keyFrames = new KeyFrames();
         var keyFrame1 = new Mock<IKeyFrame>();
-        keyFrame1.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(1));
+        keyFrame1.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(1));
         var keyFrame2 = new Mock<IKeyFrame>();
-        keyFrame2.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(3));
+        keyFrame2.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(3));
         var keyFrame3 = new Mock<IKeyFrame>();
-        keyFrame3.Setup(k => k.KeyTime).Returns(TimeSpan.FromSeconds(5));
+        keyFrame3.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(5));
         keyFrames.Add(keyFrame1.Object, out _);
         keyFrames.Add(keyFrame2.Object, out _);
         keyFrames.Add(keyFrame3.Object, out _);
 
-        Assert.That(keyFrames.IndexAtOrCount(TimeSpan.FromSeconds(0.5)), Is.EqualTo(0));
-        Assert.That(keyFrames.IndexAtOrCount(TimeSpan.FromSeconds(2)), Is.EqualTo(1));
-        Assert.That(keyFrames.IndexAtOrCount(TimeSpan.FromSeconds(4)), Is.EqualTo(2));
-        Assert.That(keyFrames.IndexAtOrCount(TimeSpan.FromSeconds(5)), Is.EqualTo(2));
-        Assert.That(keyFrames.IndexAtOrCount(TimeSpan.FromSeconds(6)), Is.EqualTo(3));
+        Assert.That(keyFrames.IndexAtOrCount(MediaTime.FromSeconds(0.5)), Is.EqualTo(0));
+        Assert.That(keyFrames.IndexAtOrCount(MediaTime.FromSeconds(2)), Is.EqualTo(1));
+        Assert.That(keyFrames.IndexAtOrCount(MediaTime.FromSeconds(4)), Is.EqualTo(2));
+        Assert.That(keyFrames.IndexAtOrCount(MediaTime.FromSeconds(5)), Is.EqualTo(2));
+        Assert.That(keyFrames.IndexAtOrCount(MediaTime.FromSeconds(6)), Is.EqualTo(3));
     }
 }

@@ -31,8 +31,8 @@ public partial class PropertyConversionGoldenTests
         var element = new Element
         {
             Name = "golden",
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(2),
             ZIndex = 3,
         };
         element.AddObject(new RectShape { IsEnabled = false });
@@ -55,8 +55,8 @@ public partial class PropertyConversionGoldenTests
     {
         var scene = new Scene(1280, 720, "golden")
         {
-            Start = TimeSpan.FromSeconds(1),
-            Duration = TimeSpan.FromSeconds(30),
+            Start = MediaTime.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(30),
             Uri = new Uri("file:///golden/scene/golden.scene"),
         };
         // Fixed Ids, as a group writes its members in the order of their hashes.
@@ -67,7 +67,7 @@ public partial class PropertyConversionGoldenTests
         {
             Id = new Guid("00000000-0000-0000-0000-0000000000f2"),
             Name = "second",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri("file:///golden/scene/second.belm"),
         };
         scene.Children.Add(first);
@@ -83,7 +83,7 @@ public partial class PropertyConversionGoldenTests
             IsSolo = true,
             Name = "layer",
         });
-        scene.Markers.Add(new SceneMarker { Time = TimeSpan.FromSeconds(3), Color = Colors.Green, Note = "note" });
+        scene.Markers.Add(new SceneMarker { Time = MediaTime.FromSeconds(3), Color = Colors.Green, Note = "note" });
 
         AssertGolden(CoreSerializer.SerializeToJsonObject(scene), "scene");
         AssertGolden(
@@ -153,8 +153,8 @@ public partial class PropertyConversionGoldenTests
         var element = new Element
         {
             Name = "golden",
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(4),
             ZIndex = 2,
             AccentColor = Colors.Red,
             IsEnabled = false,
@@ -164,12 +164,12 @@ public partial class PropertyConversionGoldenTests
         };
         var shape = new RectShape();
         var width = new KeyFrameAnimation<float>();
-        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 10, Easing = new LinearEasing() });
-        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 20, Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f) });
-        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 30, Easing = new SineEaseIn() });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 10, Easing = new LinearEasing() });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 20, Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f) });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = 30, Easing = new SineEaseIn() });
         shape.Width.SetKeyFrameAnimation(width);
         var height = new KeyFrameAnimation<float> { UseGlobalClock = true };
-        height.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 40 });
+        height.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 40 });
         shape.Height.SetKeyFrameAnimation(height);
         element.AddObject(shape);
         return element;

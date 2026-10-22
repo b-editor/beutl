@@ -9,14 +9,14 @@ public class AudioProcessContextTests
     [Test]
     public void GetSampleCount_Static_IntegerSeconds_NoCeiling()
     {
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         Assert.That(AudioProcessContext.GetSampleCount(range, 44100), Is.EqualTo(44100));
     }
 
     [Test]
     public void GetSampleCount_Static_ZeroDuration_ReturnsZero()
     {
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.Zero);
+        var range = new TimeRange(MediaTime.Zero, MediaTime.Zero);
         Assert.That(AudioProcessContext.GetSampleCount(range, 44100), Is.EqualTo(0));
     }
 
@@ -27,7 +27,7 @@ public class AudioProcessContextTests
         // +1 した 227 ticks は 1 サンプル相当 (226.7575) をわずかに (0.2425 ticks) 超える。
         // この duration は truncation だと 1 サンプル、Ceiling だと 2 サンプルになり、両者の差を確実に踏ませる。
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / 44100; // 226 (true boundary is ~226.7575)
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor + 1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromTimeSpan(TimeSpan.FromTicks(oneSampleTicksFloor + 1)));
 
         var ceiled = AudioProcessContext.GetSampleCount(range, 44100);
 
@@ -37,7 +37,7 @@ public class AudioProcessContextTests
     [Test]
     public void GetSampleCount_Static_MatchesInstanceMethod()
     {
-        var range = new TimeRange(TimeSpan.FromSeconds(0.5), TimeSpan.FromMilliseconds(123.456));
+        var range = new TimeRange(MediaTime.FromSeconds(0.5), MediaTime.FromSeconds(0.123456));
         const int sampleRate = 48000;
 
         var instance = new AudioProcessContext(range, sampleRate, new AnimationSampler(), null);
@@ -49,7 +49,7 @@ public class AudioProcessContextTests
     [Test]
     public void GetSampleCount_Static_DifferentSampleRates()
     {
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2));
 
         Assert.That(AudioProcessContext.GetSampleCount(range, 44100), Is.EqualTo(88200));
         Assert.That(AudioProcessContext.GetSampleCount(range, 48000), Is.EqualTo(96000));
@@ -61,7 +61,7 @@ public class AudioProcessContextTests
         // 1 tick (100 ns) は 0 ではない最小の duration。Composer の silence fallback が
         // 「サンプルが必要なら最低 1 サンプル確保する」という不変条件に依存しているため、
         // 微小な正 duration がゼロにならないことを直接ピン留めする。
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromTimeSpan(TimeSpan.FromTicks(1)));
 
         Assert.That(AudioProcessContext.GetSampleCount(range, 44100), Is.EqualTo(1));
     }
@@ -73,7 +73,7 @@ public class AudioProcessContextTests
         // Ceiling でも 1 サンプル止まり。境界の "下側" を踏むことで Ceiling が
         // 過剰サンプル化していないことを補強する (FractionalDuration テストの裏側)。
         var oneSampleTicksFloor = TimeSpan.TicksPerSecond / 44100; // 226
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromTicks(oneSampleTicksFloor));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromTimeSpan(TimeSpan.FromTicks(oneSampleTicksFloor)));
 
         Assert.That(AudioProcessContext.GetSampleCount(range, 44100), Is.EqualTo(1));
     }
@@ -86,10 +86,10 @@ public class AudioProcessContextTests
     [TestCase(4096, 48000)]
     public void GetDurationForSampleCount_RoundTripsToTheExactSampleCount(int sampleCount, int sampleRate)
     {
-        TimeSpan duration = AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate);
+        MediaTime duration = AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate);
 
         Assert.That(
-            AudioProcessContext.GetSampleCount(new TimeRange(TimeSpan.Zero, duration), sampleRate),
+            AudioProcessContext.GetSampleCount(new TimeRange(MediaTime.Zero, duration), sampleRate),
             Is.EqualTo(sampleCount));
     }
 
@@ -98,7 +98,7 @@ public class AudioProcessContextTests
     {
         Assert.That(
             AudioProcessContext.GetDurationForSampleCount(0, 44100),
-            Is.EqualTo(TimeSpan.Zero));
+            Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
@@ -134,7 +134,7 @@ public class AudioProcessContextTests
     [TestCase(int.MinValue)]
     public void GetSampleCount_Static_NonPositiveSampleRate_Throws(int sampleRate)
     {
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
 
         var ex = Assert.Throws<ArgumentOutOfRangeException>(
             () => AudioProcessContext.GetSampleCount(range, sampleRate));
@@ -145,7 +145,7 @@ public class AudioProcessContextTests
     public void GetSampleCount_Static_OverflowsInt32_Throws()
     {
         // The double-to-int conversion overflows, so a length past Int32 must throw (e.g. ~14 h at 48 kHz).
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromHours(14));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(50400));
 
         var ex = Assert.Throws<ArgumentOutOfRangeException>(
             () => AudioProcessContext.GetSampleCount(range, 48000));
@@ -156,7 +156,7 @@ public class AudioProcessContextTests
     public void GetSampleCount_Static_NegativeDuration_Throws()
     {
         // TimeRange allows a negative Duration, so reject it here before it becomes an AudioBuffer exception.
-        var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(-1));
+        var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(-1));
 
         var ex = Assert.Throws<ArgumentOutOfRangeException>(
             () => AudioProcessContext.GetSampleCount(range, 44100));
@@ -171,9 +171,9 @@ public class AudioProcessContextTests
     public void ContinuesFrom_ToleratesOneTickOfBoundaryRounding(long tickOffset, bool expected)
     {
         // The tolerance prevents stateful nodes from treating rounding artifacts as seeks.
-        var previousEnd = TimeSpan.FromSeconds(1);
+        var previousEnd = MediaTime.FromSeconds(1);
         var context = new AudioProcessContext(
-            new TimeRange(previousEnd + TimeSpan.FromTicks(tickOffset), TimeSpan.FromSeconds(0.1)),
+            new TimeRange(previousEnd + MediaTime.FromTimeSpan(TimeSpan.FromTicks(tickOffset)), MediaTime.FromSeconds(0.1)),
             48000, new AnimationSampler(), null);
 
         Assert.That(context.ContinuesFrom(previousEnd), Is.EqualTo(expected));
@@ -183,9 +183,9 @@ public class AudioProcessContextTests
     public void ContinuesFrom_Seek_IsNotContiguous()
     {
         var context = new AudioProcessContext(
-            new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(0.1)),
+            new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(0.1)),
             48000, new AnimationSampler(), null);
 
-        Assert.That(context.ContinuesFrom(TimeSpan.FromSeconds(1)), Is.False);
+        Assert.That(context.ContinuesFrom(MediaTime.FromSeconds(1)), Is.False);
     }
 }

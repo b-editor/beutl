@@ -28,7 +28,7 @@ internal static class RendererTestSupport
         => new(
             [.. drawables.Select(static drawable =>
                 (EngineObject.Resource)drawable.ToResource(CompositionContext.Default))],
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
             size,
             null);
 

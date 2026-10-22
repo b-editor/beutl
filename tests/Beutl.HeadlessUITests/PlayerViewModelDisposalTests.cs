@@ -25,7 +25,7 @@ public class PlayerViewModelDisposalTests
 
         // A delayed audio task may still call this after disposal.
         using var audio = new AudioBuffer(44100, 2, 64);
-        Assert.DoesNotThrow(() => player.PublishAudioSnapshot(audio, TimeSpan.Zero));
+        Assert.DoesNotThrow(() => player.PublishAudioSnapshot(audio, MediaTime.Zero));
 
         bool completed = false;
         ((IPreviewPlayer)player).AudioFramePushed.Subscribe(_ => { }, () => completed = true);
@@ -41,7 +41,7 @@ public class PlayerViewModelDisposalTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("player-timer-dispose");
         PlayerViewModel player = editor.Player;
-        await TestShell.AddElementAsync(editor, () => new RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(4));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
 
         var frameApplied = new TaskCompletionSource<bool>(
@@ -60,7 +60,7 @@ public class PlayerViewModelDisposalTests
             try
             {
                 await HeadlessTestHelpers.WaitUntilAsync(
-                    () => clock.CurrentTime.Value > TimeSpan.Zero, TimeSpan.FromSeconds(5), pump: false);
+                    () => clock.CurrentTime.Value > MediaTime.Zero, TimeSpan.FromSeconds(5), pump: false);
             }
             catch (TimeoutException)
             {

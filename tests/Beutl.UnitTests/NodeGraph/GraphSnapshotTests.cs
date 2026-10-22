@@ -179,14 +179,14 @@ public sealed class GraphSnapshotTests
         var node = new ContextCaptureNode();
         model.Nodes.Add(node);
         using var snapshot = new GraphSnapshot();
-        var firstContext = new CompositionContext(TimeSpan.Zero)
+        var firstContext = new CompositionContext(MediaTime.Zero)
         {
             DisableResourceShare = false,
             PreferProxy = true,
             PreferredProxyPreset = ProxyPreset.Half,
             TargetDomain = new Rect(0, 0, 1920, 1080),
         };
-        var secondContext = new CompositionContext(TimeSpan.FromSeconds(1))
+        var secondContext = new CompositionContext(MediaTime.FromSeconds(1))
         {
             DisableResourceShare = true,
             PreferProxy = false,

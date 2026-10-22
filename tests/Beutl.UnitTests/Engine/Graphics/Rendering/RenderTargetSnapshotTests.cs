@@ -220,7 +220,7 @@ public class RenderTargetSnapshotTests
     {
         public PixelSize FrameSize => new(content.Width, content.Height);
 
-        public TimeSpan Time => default;
+        public MediaTime Time => default;
 
         public bool IsDisposed => false;
 

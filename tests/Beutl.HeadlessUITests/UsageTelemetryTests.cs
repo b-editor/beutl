@@ -278,7 +278,7 @@ public sealed class UsageTelemetryTests
         video.Source.Value = new VideoSource();
         var sound = new Beutl.Audio.SourceSound();
         sound.Source.Value = new SoundSource();
-        var element = new Element { Length = TimeSpan.FromSeconds(5) };
+        var element = new Element { Length = MediaTime.FromSeconds(5) };
         element.Objects.Add(video);
         element.Objects.Add(sound);
         scene.Children.Add(element);
@@ -288,8 +288,8 @@ public sealed class UsageTelemetryTests
         using var tracked = new TrackedHistory(scene);
         tracked.Tracker.ActivateTool(new object(), "Timeline");
 
-        if (property == nameof(Element.Start)) element.Start = TimeSpan.FromSeconds(1);
-        else element.Length = TimeSpan.FromSeconds(10);
+        if (property == nameof(Element.Start)) element.Start = MediaTime.FromSeconds(1);
+        else element.Length = MediaTime.FromSeconds(10);
         tracked.History.Commit();
         _usage.Flush();
 

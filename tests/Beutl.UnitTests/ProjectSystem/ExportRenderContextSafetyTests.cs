@@ -41,7 +41,7 @@ public sealed class ExportRenderContextSafetyTests
         DecoderRegistry.ProxyResolver = new ProxyResolver(scope.Store);
         using var compositor = CreateExportCompositor(scope, scope.OriginalPath);
 
-        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+        CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
         var resource = (SourceVideo.Resource)frame.Objects.Single();
 
         Assert.Multiple(() =>
@@ -83,7 +83,7 @@ public sealed class ExportRenderContextSafetyTests
 
         using var compositor = CreateExportCompositor(scope, missingOriginalPath);
 
-        CompositionFrame frame = compositor.EvaluateGraphics(TimeSpan.Zero);
+        CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.Zero);
         var resource = (SourceVideo.Resource)frame.Objects.Single();
 
         Assert.Multiple(() =>
@@ -103,8 +103,8 @@ public sealed class ExportRenderContextSafetyTests
         drawable.Source.Value = media;
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             IsEnabled = true,
             Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
         };

@@ -19,8 +19,8 @@ public class SceneSettingsServiceTests
     {
         _scene = new Scene(640, 480, string.Empty)
         {
-            Start = TimeSpan.FromSeconds(1),
-            Duration = TimeSpan.FromSeconds(5),
+            Start = MediaTime.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(5),
         };
         _harness = new HistoryHarness(_scene);
         _history = _harness.History;
@@ -57,8 +57,8 @@ public class SceneSettingsServiceTests
     public void Apply_OnlyFrameSizeChanged_AppliesAndCommitsOnce()
     {
         int before = _history.UndoCount;
-        TimeSpan keepStart = _scene.Start;
-        TimeSpan keepDuration = _scene.Duration;
+        MediaTime keepStart = _scene.Start;
+        MediaTime keepDuration = _scene.Duration;
         var newSize = new PixelSize(1920, 1080);
 
         bool changed = _service.Apply(_scene, newSize, keepStart, keepDuration);
@@ -78,8 +78,8 @@ public class SceneSettingsServiceTests
     {
         int before = _history.UndoCount;
         var newSize = new PixelSize(1280, 720);
-        var newStart = TimeSpan.FromSeconds(3);
-        var newDuration = TimeSpan.FromSeconds(10);
+        var newStart = MediaTime.FromSeconds(3);
+        var newDuration = MediaTime.FromSeconds(10);
 
         bool changed = _service.Apply(_scene, newSize, newStart, newDuration);
 
@@ -98,14 +98,14 @@ public class SceneSettingsServiceTests
     public void Apply_AfterUndo_RestoresAllFields()
     {
         PixelSize originalSize = _scene.FrameSize;
-        TimeSpan originalStart = _scene.Start;
-        TimeSpan originalDuration = _scene.Duration;
+        MediaTime originalStart = _scene.Start;
+        MediaTime originalDuration = _scene.Duration;
 
         _service.Apply(
             _scene,
             new PixelSize(1280, 720),
-            TimeSpan.FromSeconds(3),
-            TimeSpan.FromSeconds(10));
+            MediaTime.FromSeconds(3),
+            MediaTime.FromSeconds(10));
         _history.Undo();
 
         Assert.Multiple(() =>

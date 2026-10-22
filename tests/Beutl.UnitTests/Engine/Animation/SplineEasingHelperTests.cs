@@ -46,8 +46,8 @@ public class SplineEasingHelperTests
     public void Remove_NonNumberType_FallsBackToRemoveAt()
     {
         var animation = new KeyFrameAnimation<bool>();
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(0), Value = false });
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(1), Value = true });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(0), Value = false });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(1), Value = true });
 
         SplineEasingHelper.Remove(animation, 1);
 
@@ -58,12 +58,12 @@ public class SplineEasingHelperTests
     public void Move_NonNumberType_OnlyAdjustsKeyTime()
     {
         var animation = new KeyFrameAnimation<bool>();
-        var kf = new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(1), Value = true };
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = TimeSpan.FromSeconds(0), Value = false });
+        var kf = new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(1), Value = true };
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(0), Value = false });
         animation.KeyFrames.Add(kf);
 
-        SplineEasingHelper.Move(animation, kf, TimeSpan.FromSeconds(2));
+        SplineEasingHelper.Move(animation, kf, MediaTime.FromSeconds(2));
 
-        Assert.That(kf.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(kf.KeyTime, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 }

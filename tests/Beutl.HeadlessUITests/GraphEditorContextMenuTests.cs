@@ -174,7 +174,7 @@ public class GraphEditorContextMenuTests
         HeadlessTestHelpers.Render();
         Assert.Multiple(() =>
         {
-            Assert.That(graph.Second.KeyTime, Is.EqualTo(TimeSpan.FromSeconds(alt ? 1.5 : 1.4)));
+            Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(alt ? 1.5 : 1.4)));
             Assert.That(graph.Second.Value, Is.EqualTo(alt ? 500 : 470).Within(0.001));
             Assert.That(graph.View.ControlPointMoveState, Is.Null);
             Assert.That(graph.View.KeyTimeMoveState, Is.Null);
@@ -199,14 +199,14 @@ public class GraphEditorContextMenuTests
         public FAMenuFlyout BackgroundMenu => (FAMenuFlyout)View.FindControl<Panel>("graphPanel")!.ContextFlyout!;
 
         public static async Task<GraphScope> CreateAsync(
-            bool light = false, bool separateHandles = false, bool selectAll = true, TimeSpan elementStart = default)
+            bool light = false, bool separateHandles = false, bool selectAll = true, MediaTime elementStart = default)
         {
             (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("graph-context");
             var animation = new KeyFrameAnimation<float>();
-            var first = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.5), Value = 100 };
+            var first = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.5), Value = 100 };
             var second = new KeyFrame<float>
             {
-                KeyTime = TimeSpan.FromSeconds(1.5),
+                KeyTime = MediaTime.FromSeconds(1.5),
                 Value = 500,
                 Easing = separateHandles ? new SplineEasing(0.25f, 0.25f, 0.75f, 0.75f) : new SplineEasing(0, 0, 1, 1)
             };
@@ -214,7 +214,7 @@ public class GraphEditorContextMenuTests
             animation.KeyFrames.Add(second);
             var shape = new RectShape();
             shape.Width.SetKeyFrameAnimation(animation);
-            await TestShell.AddElementAsync(editor, () => shape, elementStart, TimeSpan.FromSeconds(2));
+            await TestShell.AddElementAsync(editor, () => shape, elementStart, MediaTime.FromSeconds(2));
             var model = new GraphEditorViewModel(editor, animation, scene.Children.Single());
             model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
             if (selectAll) model.SelectedView.Value!.SetSelection(animation.KeyFrames);

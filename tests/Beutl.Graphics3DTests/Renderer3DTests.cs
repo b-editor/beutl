@@ -78,7 +78,7 @@ public class Renderer3DTests
         {
             using var renderer = new Renderer3D(_context);
             renderer.Initialize(64, 64);
-            var composition = new CompositionContext(TimeSpan.Zero);
+            var composition = new CompositionContext(MediaTime.Zero);
             using PerspectiveCamera.Resource cameraResource = CreateCamera(composition);
             var objects = new List<Object3D.Resource>();
             try
@@ -162,7 +162,7 @@ public class Renderer3DTests
         {
             using var renderer = new Renderer3D(_context);
             renderer.Initialize(64, 64);
-            var composition = new CompositionContext(TimeSpan.Zero);
+            var composition = new CompositionContext(MediaTime.Zero);
             using PerspectiveCamera.Resource cameraResource = CreateCamera(composition);
             Material3D material = CreateMaterial(kind);
             var objects = new List<Object3D.Resource>();
@@ -221,7 +221,7 @@ public class Renderer3DTests
             {
                 renderer.Initialize(Width, Height);
 
-                var renderContext = new CompositionContext(TimeSpan.Zero);
+                var renderContext = new CompositionContext(MediaTime.Zero);
 
                 var camera = new PerspectiveCamera();
                 camera.Position.Value = new Vector3(0, 0, 12);
@@ -493,7 +493,7 @@ public class Renderer3DTests
             {
                 renderer.Initialize(Width, Height);
 
-                var renderContext = new CompositionContext(TimeSpan.Zero);
+                var renderContext = new CompositionContext(MediaTime.Zero);
 
                 var camera = new PerspectiveCamera();
                 camera.Position.Value = new Vector3(8, 6, 8);

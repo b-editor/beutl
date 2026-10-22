@@ -483,7 +483,7 @@ public class GraphicsContext2DTests
         videoSource.ReadFrom(new Uri(videoPath));
         using var videoResource = videoSource.ToResource(CompositionContext.Default);
 
-        context.DrawVideoSource(videoResource, TimeSpan.Zero, Brushes.Resource.White, null);
+        context.DrawVideoSource(videoResource, 0, Brushes.Resource.White, null);
 
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<VideoSourceRenderNode>());

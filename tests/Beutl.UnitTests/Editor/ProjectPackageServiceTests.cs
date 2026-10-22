@@ -765,7 +765,7 @@ public class ProjectPackageServiceTests
         byte[] imageBytes = File.ReadAllBytes(asset);
         var image = new SourceImage();
         image.Source.Value = source;
-        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        var element = new Element { Length = MediaTime.FromSeconds(1) };
         element.Objects.Add(image);
         CoreSerializer.StoreToUri(element, new Uri(Path.Combine(_projectDir, "image.belm")));
         Scene scene = project.Items.OfType<Scene>().Single();

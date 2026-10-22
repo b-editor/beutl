@@ -152,7 +152,7 @@ public class OutputFileSafetyTests
         {
             Uri = new Uri(Path.Combine(directory, "main.scene")),
             FrameSize = new PixelSize(64, 64),
-            Duration = TimeSpan.FromMilliseconds(100),
+            Duration = MediaTime.FromSeconds(0.1),
         };
         CoreSerializer.StoreToUri(scene, scene.Uri);
         TestShell.Editor.ActivateTabItem(scene);

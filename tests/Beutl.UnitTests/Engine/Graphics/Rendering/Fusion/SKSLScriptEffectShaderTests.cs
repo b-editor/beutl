@@ -223,7 +223,7 @@ public sealed class SKSLScriptEffectShaderTests
             },
         };
         using FilterEffect.Resource resource = effect.ToResource(
-            new CompositionContext(TimeSpan.FromSeconds(2)));
+            new CompositionContext(MediaTime.FromSeconds(2)));
         using var node = new FilterEffectRenderNode(resource);
         node.AddChild(new RectangleRenderNode(s_bounds, Brushes.Resource.White, null));
         var request = new RenderRequest(new RenderRequestOptions(
@@ -251,7 +251,7 @@ public sealed class SKSLScriptEffectShaderTests
             bool versionBumped = false;
             resource.Reconcile(
                 effect,
-                new CompositionContext(TimeSpan.FromSeconds(6)),
+                new CompositionContext(MediaTime.FromSeconds(6)),
                 ref versionBumped);
 
             using var targetRegistry = new RenderTargetPool(new CpuRenderTargetFactory());

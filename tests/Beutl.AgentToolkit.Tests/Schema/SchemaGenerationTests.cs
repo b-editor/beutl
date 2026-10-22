@@ -212,7 +212,7 @@ public sealed class SchemaGenerationTests
     public void Camera_rig_push_in_example_applies_through_merge_patch_and_reconciler()
     {
         Scene scene = TestWorkspace.CreateScene("camera-nested");
-        scene.Duration = TimeSpan.FromSeconds(8);
+        scene.Duration = MediaTime.FromSeconds(8);
         using var session = new AgentToolkitTestSession(scene);
 
         DeclarativeExample example = new SchemaGenerator()
@@ -243,7 +243,7 @@ public sealed class SchemaGenerationTests
     public void Camera_rig_portal_example_applies_through_merge_patch_and_reconciler()
     {
         Scene scene = TestWorkspace.CreateScene("camera-portal");
-        scene.Duration = TimeSpan.FromSeconds(8);
+        scene.Duration = MediaTime.FromSeconds(8);
         using var session = new AgentToolkitTestSession(scene);
 
         DeclarativeExample example = new SchemaGenerator()

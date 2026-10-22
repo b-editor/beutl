@@ -513,8 +513,8 @@ public sealed class GenerativeGraphRunnerTests
         rect.Fill.Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red);
         var element = new Beutl.ProjectSystem.Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(10),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(10),
             Uri = new Uri(Path.Combine(_directory, "rect.layer")),
         };
         element.AddObject(rect);
@@ -527,7 +527,7 @@ public sealed class GenerativeGraphRunnerTests
         model.Nodes.AddRange([scene, edit]);
         model.Connect(edit.Source, scene.Output);
         var executor = new FakeExecutor(_directory);
-        var runner = new GenerativeGraphRunner(executor, new InlineHost { CurrentTime = TimeSpan.FromSeconds(1) });
+        var runner = new GenerativeGraphRunner(executor, new InlineHost { CurrentTime = MediaTime.FromSeconds(1) });
 
         await runner.RunAsync(model, null, force: false, CancellationToken.None);
         Assert.That(((AiImageEditNodeRequest)executor.Requests.Single()).Image.EncodedPng, Is.Not.Empty,
@@ -812,7 +812,7 @@ public sealed class GenerativeGraphRunnerTests
 
         public HistoryManager? History { get; init; }
 
-        public TimeSpan CurrentTime { get; set; } = TimeSpan.Zero;
+        public MediaTime CurrentTime { get; set; } = MediaTime.Zero;
 
         public Task<T> InvokeOnRenderThreadAsync<T>(Func<T> func) => Task.FromResult(func());
 

@@ -82,6 +82,6 @@ public sealed partial class AiDialogWorkflowTests
         };
         await vm.AddToScene.ExecuteAsync();
         Assert.That(imported, Is.Not.Null);
-        Assert.That(imported!.Length, Is.EqualTo(TimeSpan.FromSeconds(expectedSeconds)));
+        Assert.That(imported!.Length, Is.EqualTo(MediaTime.FromSeconds(expectedSeconds)));
     }
 }

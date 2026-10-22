@@ -17,13 +17,13 @@ public sealed class HistoryToolsTests
         Scene scene = CreateSceneWithElement(out Element element);
         (AgentToolkitTestSession session, EditTools edits, HistoryTools history) = CreateTools(scene);
         using AgentToolkitTestSession ownedSession = session;
-        TimeSpan original = element.Start;
+        MediaTime original = element.Start;
 
         ToolResult<ApplyEditResponse> apply = edits.ApplyEdit(
-            patch: StartPatch(element, TimeSpan.FromSeconds(7)),
+            patch: StartPatch(element, MediaTime.FromSeconds(7)),
             schemaVersion: SchemaVersion.Current);
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-        Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
+        Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(7)));
 
         ToolResult<HistoryStateResponse> undo = await history.Undo();
         Assert.Multiple(() =>
@@ -39,7 +39,7 @@ public sealed class HistoryToolsTests
         {
             Assert.That(redo.IsSuccess, Is.True, redo.Error?.Message);
             Assert.That(redo.Value!.Applied, Has.Count.EqualTo(1));
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(7)));
         });
     }
 
@@ -49,12 +49,12 @@ public sealed class HistoryToolsTests
         Scene scene = CreateSceneWithElement(out Element element);
         (AgentToolkitTestSession session, EditTools edits, HistoryTools history) = CreateTools(scene);
         using AgentToolkitTestSession ownedSession = session;
-        TimeSpan original = element.Start;
+        MediaTime original = element.Start;
 
         foreach (int seconds in new[] { 4, 5, 6 })
         {
             ToolResult<ApplyEditResponse> apply = edits.ApplyEdit(
-                patch: StartPatch(element, TimeSpan.FromSeconds(seconds)),
+                patch: StartPatch(element, MediaTime.FromSeconds(seconds)),
                 schemaVersion: SchemaVersion.Current);
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
         }
@@ -99,7 +99,7 @@ public sealed class HistoryToolsTests
         (AgentToolkitTestSession session, EditTools edits, HistoryTools history) = CreateTools(scene);
         using AgentToolkitTestSession ownedSession = session;
 
-        edits.ApplyEdit(patch: StartPatch(element, TimeSpan.FromSeconds(9)), schemaVersion: SchemaVersion.Current);
+        edits.ApplyEdit(patch: StartPatch(element, MediaTime.FromSeconds(9)), schemaVersion: SchemaVersion.Current);
 
         ToolResult<HistoryStateResponse> state = await history.ReadHistory();
 
@@ -110,7 +110,7 @@ public sealed class HistoryToolsTests
             Assert.That(state.Value.CanUndo, Is.True);
             Assert.That(state.Value.UndoCount, Is.EqualTo(1));
             Assert.That(state.Value.NextUndo, Is.Not.Null);
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(9)));
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(9)));
         });
     }
 
@@ -121,9 +121,9 @@ public sealed class HistoryToolsTests
         (AgentToolkitTestSession session, EditTools edits, HistoryTools history) = CreateTools(scene);
         using AgentToolkitTestSession ownedSession = session;
 
-        edits.ApplyEdit(patch: StartPatch(element, TimeSpan.FromSeconds(4)), schemaVersion: SchemaVersion.Current);
+        edits.ApplyEdit(patch: StartPatch(element, MediaTime.FromSeconds(4)), schemaVersion: SchemaVersion.Current);
         await history.Undo();
-        edits.ApplyEdit(patch: StartPatch(element, TimeSpan.FromSeconds(5)), schemaVersion: SchemaVersion.Current);
+        edits.ApplyEdit(patch: StartPatch(element, MediaTime.FromSeconds(5)), schemaVersion: SchemaVersion.Current);
 
         ToolResult<HistoryStateResponse> redo = await history.Redo();
 
@@ -132,7 +132,7 @@ public sealed class HistoryToolsTests
             Assert.That(redo.IsSuccess, Is.True, redo.Error?.Message);
             Assert.That(redo.Value!.Applied, Is.Empty);
             Assert.That(redo.Value.Message, Does.Contain("Nothing to redo"));
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
+            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
     }
 
@@ -147,7 +147,7 @@ public sealed class HistoryToolsTests
         var history = new HistoryTools(manager);
 
         edits.ApplyEdit(
-            patch: StartPatch(element, TimeSpan.FromSeconds(4)),
+            patch: StartPatch(element, MediaTime.FromSeconds(4)),
             schemaVersion: SchemaVersion.Current);
         if (redo)
         {
@@ -156,7 +156,7 @@ public sealed class HistoryToolsTests
 
         int dispatchesBeforeMove = session.InvokeCount;
         session.AfterNextInvoke = () => session.History.ExecuteInTransaction(
-            () => element.Length = TimeSpan.FromSeconds(3),
+            () => element.Length = MediaTime.FromSeconds(3),
             "Human edit after history move");
 
         ToolResult<HistoryStateResponse> move = redo ? await history.Redo() : await history.Undo();
@@ -176,7 +176,7 @@ public sealed class HistoryToolsTests
             // The hook proves a later editor transaction really did land after the returned
             // point-in-time snapshot; it must not leak into the history response.
             Assert.That(session.History.UndoCount, Is.EqualTo(redo ? 2 : 1));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -189,7 +189,7 @@ public sealed class HistoryToolsTests
         AgentSessionManager manager = CreateLiveManager(binding);
         var history = new HistoryTools(manager);
         recording.History.ExecuteInTransaction(
-            () => element.Start = TimeSpan.FromSeconds(7),
+            () => element.Start = MediaTime.FromSeconds(7),
             "edit before live undo");
         binding.IsPlaying = true;
 
@@ -202,7 +202,7 @@ public sealed class HistoryToolsTests
             Assert.That(binding.PauseCount, Is.EqualTo(1));
             Assert.That(binding.GuardedInvocationCount, Is.EqualTo(1));
             Assert.That(binding.HistoryMutatedWhilePlaying, Is.False);
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
 
@@ -213,7 +213,7 @@ public sealed class HistoryToolsTests
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new PlaybackSensitiveLiveBinding(scene, recording.History);
         var history = new HistoryTools(CreateLiveManager(binding));
-        recording.History.ExecuteInTransaction(() => element.Start = TimeSpan.FromSeconds(7), "edit before the gesture");
+        recording.History.ExecuteInTransaction(() => element.Start = MediaTime.FromSeconds(7), "edit before the gesture");
         using EditSession gesture = recording.History.BeginEdit("Drag");
 
         ToolResult<HistoryStateResponse> undo = await history.Undo();
@@ -221,7 +221,7 @@ public sealed class HistoryToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(undo.Error?.Code, Is.EqualTo(ErrorCode.UserEditing));
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(7)));
         });
     }
 
@@ -233,7 +233,7 @@ public sealed class HistoryToolsTests
         var binding = new PlaybackSensitiveLiveBinding(scene, recording.History) { IsPlaying = true };
         AgentSessionManager manager = CreateLiveManager(binding);
         var history = new HistoryTools(manager);
-        element.Start = TimeSpan.FromSeconds(7);
+        element.Start = MediaTime.FromSeconds(7);
         Assert.That(recording.History.HasPendingOperations, Is.True);
 
         ToolResult<HistoryStateResponse> state = await history.ReadHistory();
@@ -274,8 +274,8 @@ public sealed class HistoryToolsTests
         using RecordingPipeline recording = RecordingPipeline.Create(scene);
         var binding = new PlaybackSensitiveLiveBinding(scene, recording.History) { IsPlaying = true };
         AgentSessionManager manager = CreateLiveManager(binding);
-        recording.History.ExecuteInTransaction(() => element.Start = TimeSpan.FromSeconds(2), "first");
-        recording.History.ExecuteInTransaction(() => element.Start = TimeSpan.FromSeconds(3), "second");
+        recording.History.ExecuteInTransaction(() => element.Start = MediaTime.FromSeconds(2), "first");
+        recording.History.ExecuteInTransaction(() => element.Start = MediaTime.FromSeconds(3), "second");
 
         ToolResult<HistoryStateResponse> undo = await new HistoryTools(manager).Undo(steps: 2);
 
@@ -285,7 +285,7 @@ public sealed class HistoryToolsTests
             Assert.That(undo.Value!.Applied, Has.Count.EqualTo(2));
             Assert.That(binding.GuardedInvocationCount, Is.EqualTo(1));
             Assert.That(binding.PauseCount, Is.EqualTo(1));
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
 
@@ -296,14 +296,14 @@ public sealed class HistoryToolsTests
         return (session, new EditTools(manager), new HistoryTools(manager));
     }
 
-    private static JsonObject StartPatch(Element element, TimeSpan start)
+    private static JsonObject StartPatch(Element element, MediaTime start)
     {
         return new JsonObject
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
                 [nameof(CoreObject.Id)] = element.Id.ToString(),
-                [nameof(Element.Start)] = start.ToString("c")
+                [nameof(Element.Start)] = start.ToTimeSpan().ToString("c")
             })
         };
     }
@@ -314,8 +314,8 @@ public sealed class HistoryToolsTests
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         element = new Element
         {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
         scene.Children.Add(element);

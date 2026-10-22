@@ -50,7 +50,7 @@ internal sealed class RampInputNode(int sampleRate) : AudioNode
         var buffer = new AudioBuffer(sampleRate, 2, count);
         Span<float> left = buffer.GetChannelData(0);
         Span<float> right = buffer.GetChannelData(1);
-        long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
+        long startIndex = context.TimeRange.Start.ToSamples(sampleRate, MidpointRounding.ToZero);
         RequestedRanges.Add((startIndex, count));
         for (int i = 0; i < count; i++)
         {
@@ -72,7 +72,7 @@ internal sealed class AbsoluteSineNode(int sampleRate) : AudioNode
     {
         int count = context.GetSampleCount();
         var buffer = new AudioBuffer(sampleRate, 2, count);
-        long startIndex = AudioMath.TimeToSampleIndex(context.TimeRange.Start, sampleRate);
+        long startIndex = context.TimeRange.Start.ToSamples(sampleRate, MidpointRounding.ToZero);
         for (int ch = 0; ch < 2; ch++)
         {
             var data = buffer.GetChannelData(ch);
@@ -183,10 +183,10 @@ internal static class AudioTestBuffers
 internal static class AudioTestAnimations
 {
     /// <summary>A two-keyframe linear animation from <paramref name="from"/> at zero to <paramref name="to"/> at <paramref name="end"/>.</summary>
-    public static KeyFrameAnimation<float> Ramp(float from, float to, TimeSpan end)
+    public static KeyFrameAnimation<float> Ramp(float from, float to, MediaTime end)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = from, KeyTime = TimeSpan.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = from, KeyTime = MediaTime.Zero });
         animation.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = to, KeyTime = end });
         return animation;
     }
@@ -253,7 +253,7 @@ internal static class AudioTestProperties
     {
         var property = Property.CreateAnimatable(from);
         property.SetAttributes(name, []);
-        property.SetKeyFrameAnimation(AudioTestAnimations.Ramp(from, to, TimeSpan.FromSeconds(seconds)));
+        property.SetKeyFrameAnimation(AudioTestAnimations.Ramp(from, to, MediaTime.FromSeconds(seconds)));
         return property;
     }
 }
@@ -271,23 +271,23 @@ internal sealed class UnknownRangeEasing : Easing
 internal static class AudioTestContexts
 {
     public static AudioProcessContext CreateContext(
-        TimeSpan start, TimeSpan duration, int sampleRate = AudioTestBuffers.DefaultSampleRate)
+        MediaTime start, MediaTime duration, int sampleRate = AudioTestBuffers.DefaultSampleRate)
         => new(new TimeRange(start, duration), sampleRate, new AnimationSampler(), null);
 
     /// <summary>Lasts exactly <paramref name="count"/> samples.</summary>
-    public static AudioProcessContext Exact(TimeSpan start, int count, int sampleRate)
+    public static AudioProcessContext Exact(MediaTime start, int count, int sampleRate)
         => CreateContext(start, ExactDuration(count, sampleRate), sampleRate);
 
-    public static TimeSpan ExactDuration(int count, int sampleRate)
+    public static MediaTime ExactDuration(int count, int sampleRate)
         => AudioProcessContext.GetDurationForSampleCount(count, sampleRate);
 
     /// <summary>
     /// Starts at the tick rounded up from sample <paramref name="startSample"/> and lasts exactly
     /// <paramref name="count"/> samples.
     /// </summary>
-    public static AudioProcessContext AtSample(int startSample, int count, int sampleRate, TimeSpan? end = null)
+    public static AudioProcessContext AtSample(int startSample, int count, int sampleRate, MediaTime? end = null)
         => new(new TimeRange(
-                TimeSpan.FromTicks((long)Math.Ceiling(startSample * (double)TimeSpan.TicksPerSecond / sampleRate)),
+                MediaTime.FromTimeSpan(TimeSpan.FromTicks((long)Math.Ceiling(startSample * (double)TimeSpan.TicksPerSecond / sampleRate))),
                 ExactDuration(count, sampleRate)),
             sampleRate, new AnimationSampler(), null)
         {
@@ -295,8 +295,8 @@ internal static class AudioTestContexts
         };
 
     /// <summary>Lasts <c>count / sampleRate</c> seconds.</summary>
-    public static AudioProcessContext Seconds(TimeSpan start, int count, int sampleRate)
-        => CreateContext(start, TimeSpan.FromSeconds((double)count / sampleRate), sampleRate);
+    public static AudioProcessContext Seconds(MediaTime start, int count, int sampleRate)
+        => CreateContext(start, MediaTime.FromSeconds((double)count / sampleRate), sampleRate);
 }
 
 internal static class AudioTestWaves

@@ -24,7 +24,7 @@ public class PreviewRenderTests
             Width = { Value = 200 },
             Height = { Value = 150 },
             Fill = { Value = new SolidColorBrush(Colors.Red) }
-        }, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        }, MediaTime.Zero, MediaTime.FromSeconds(2));
         return editor.Scene;
     }
 
@@ -39,7 +39,7 @@ public class PreviewRenderTests
         Bitmap snapshot = RenderThread.Dispatcher.Invoke(() =>
         {
             using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
-            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(TimeSpan.Zero);
+            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(MediaTime.Zero);
             renderer.Render(frame);
             return renderer.Snapshot();
         });
@@ -64,7 +64,7 @@ public class PreviewRenderTests
         Bitmap snapshot = RenderThread.Dispatcher.Invoke(() =>
         {
             SceneRenderer renderer = editor.Renderer.Value;
-            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(TimeSpan.Zero);
+            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(MediaTime.Zero);
             renderer.Render(frame);
             return renderer.Snapshot();
         });
