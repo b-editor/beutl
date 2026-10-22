@@ -135,7 +135,7 @@ public partial class PlayerView
             if (_scene3D == null)
                 return;
 
-            var sceneResource = FindScene3DResource();
+            var sceneResource = RenderThread.Dispatcher.Invoke(() => FindScene3DResource(), RenderThreadWait);
             if (sceneResource?.Renderer == null)
                 return;
 
@@ -691,15 +691,17 @@ public partial class PlayerView
         // Where the object is drawn, including the groups it is nested in; its Position alone is local.
         private Vector3 GetWorldPosition(Object3D obj)
         {
-            Scene3D.Resource? sceneResource = _scene3D != null ? FindScene3DResource() : null;
-            Vector3? position = sceneResource == null
+            Vector3? position = _scene3D == null
                 ? null
                 : RenderThread.Dispatcher.Invoke(() =>
                 {
-                    Object3D.Resource? target = FindObjectResource(sceneResource.Objects, obj.Id);
-                    return target == null
-                        ? (Vector3?)null
-                        : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
+                    if (FindScene3DResource() is not { } sceneResource
+                        || FindObjectResource(sceneResource.Objects, obj.Id) is not { } target)
+                    {
+                        return (Vector3?)null;
+                    }
+
+                    return Renderer3D.GetWorldPosition(sceneResource.Objects, target);
                 }, RenderThreadWait);
 
             return position ?? obj.Position.Evaluate(CompositionContext);
@@ -708,12 +710,11 @@ public partial class PlayerView
         // Converts a world-space direction into the space of the groups the object is nested in.
         private Vector3 ToParentSpace(Object3D obj, Vector3 worldDelta)
         {
-            Scene3D.Resource? sceneResource = _scene3D != null ? FindScene3DResource() : null;
-            if (sceneResource == null)
+            if (_scene3D == null)
                 return worldDelta;
 
             Matrix4x4 parent = RenderThread.Dispatcher.Invoke(() =>
-                FindObjectResource(sceneResource.Objects, obj.Id) is { } target
+                FindScene3DResource() is { } sceneResource && FindObjectResource(sceneResource.Objects, obj.Id) is { } target
                     ? Renderer3D.GetParentWorldMatrix(sceneResource.Objects, target)
                     : Matrix4x4.Identity, RenderThreadWait);
 
