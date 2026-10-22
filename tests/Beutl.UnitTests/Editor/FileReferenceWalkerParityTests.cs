@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Transitions;
 using Beutl.IO;
@@ -16,7 +17,7 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class FileReferenceWalkerParityTests
 {
-    public enum Place { Property, KeyFrameValue, NodePort, Transition, ReferencedScene }
+    public enum Place { Property, KeyFrameValue, NodePort, NodePortKeyFrame, Transition, ReferencedScene }
 
     public enum Walker { ExternalResourceCollector, MissingMediaFileUris, SerializedGraphTraversal }
 
@@ -42,9 +43,6 @@ public class FileReferenceWalkerParityTests
     [Test]
     public void EveryWalkerFindsTheFileInEachPlace([Values] Walker walker, [Values] Place place)
     {
-        if (place == Place.NodePort && walker == Walker.SerializedGraphTraversal)
-            Assert.Ignore("This walker does not read node-port values: #3277.");
-
         Scene scene = CreateScene("main.scene");
         Uri expected = AddFileIn(scene, place);
 
@@ -84,6 +82,15 @@ public class FileReferenceWalkerParityTests
                 var graph = new NodeGraphDrawable();
                 graph.Model.Value!.Nodes.Add(node);
                 element = ElementWith(graph);
+                break;
+            case Place.NodePortKeyFrame:
+                var animatedNode = new VideoSourceNode();
+                var portAnimation = new KeyFrameAnimation<VideoSource?>();
+                portAnimation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(1), Value = Open<VideoSource>(uri) });
+                ((IAnimatablePropertyAdapter)animatedNode.Source.Property!).Animation = portAnimation;
+                var animatedGraph = new NodeGraphDrawable();
+                animatedGraph.Model.Value!.Nodes.Add(animatedNode);
+                element = ElementWith(animatedGraph);
                 break;
             case Place.Transition:
                 var transition = new ImageMaskTransition();
