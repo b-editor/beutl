@@ -11,7 +11,7 @@ public interface IKeyFrame : ICoreObject, INotifyEdited, IHierarchical
 {
     event EventHandler? KeyTimeChanged;
 
-    TimeSpan KeyTime { get; set; }
+    MediaTime KeyTime { get; set; }
 
     object? Value { get; set; }
 

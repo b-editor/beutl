@@ -263,7 +263,7 @@ public class Renderer : IRenderer
         }
     }
 
-    public TimeSpan Time { get; internal set; }
+    public MediaTime Time { get; internal set; }
 
     public PixelSize FrameSize { get; }
 

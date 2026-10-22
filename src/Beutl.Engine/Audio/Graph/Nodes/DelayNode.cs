@@ -10,7 +10,7 @@ public sealed class DelayNode : AudioNode
     private CircularBuffer<float>[]? _delayLines;
     private int _maxDelaySamples;
     private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeEnd;
+    private MediaTime? _lastTimeRangeEnd;
 
     public required IProperty<float> DelayTime { get; init; }
 

@@ -8,7 +8,7 @@ public sealed class EqualizerNode : AudioNode
     // Filters per band and per channel [bandIndex][channelIndex]
     private BiQuadFilter[][]? _filters;
     private int _lastChannelCount;
-    private TimeSpan? _lastTimeRangeEnd;
+    private MediaTime? _lastTimeRangeEnd;
     private readonly IReadOnlyList<EqualizerBand> _bands = null!;
 
     public required IReadOnlyList<EqualizerBand> Bands

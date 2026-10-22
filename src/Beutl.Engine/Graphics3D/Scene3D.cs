@@ -124,7 +124,7 @@ public partial class Scene3D : Drawable, IFlowOperator
 
         internal Renderer3D? Renderer { get; set; }
 
-        public TimeSpan Time { get; set; } = TimeSpan.Zero;
+        public MediaTime Time { get; set; } = MediaTime.Zero;
 
         public bool DisableResourceShare { get; set; }
 

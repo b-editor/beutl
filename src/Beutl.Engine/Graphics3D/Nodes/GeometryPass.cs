@@ -59,7 +59,7 @@ public sealed class GeometryPass : GraphicsNode3D
     protected override void OnInitialize(int width, int height)
     {
         CreateGBuffer(width, height);
-        _defaultMaterialResource = _defaultMaterial.ToResource(new CompositionContext(TimeSpan.Zero));
+        _defaultMaterialResource = _defaultMaterial.ToResource(new CompositionContext(MediaTime.Zero));
     }
 
     protected override void OnResize(int width, int height)

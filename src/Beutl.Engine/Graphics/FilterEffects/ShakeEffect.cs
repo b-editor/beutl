@@ -104,7 +104,7 @@ public partial class ShakeEffect : FilterEffect
             ResourceReconciler.ReconcileValue(this, context, ((ShakeEffect)obj).Speed, ref _speed, ref versionBumped);
 
             float oldTime = _time;
-            _time = (float)(context.Time - obj.TimeRange.Start).TotalSeconds;
+            _time = (float)(context.Time - obj.TimeRange.Start).ToSeconds();
             // ReSharper disable once CompareOfFloatsByEqualityOperator
             if (!versionBumped && oldTime != _time)
             {

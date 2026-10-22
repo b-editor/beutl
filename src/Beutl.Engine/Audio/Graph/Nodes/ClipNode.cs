@@ -6,21 +6,21 @@ namespace Beutl.Audio.Graph.Nodes;
 public class ClipNode : AudioNode
 {
     // Flush from the clip-local end of the last processed window, including parent-trimmed clips.
-    private TimeSpan? _lastProcessedLocalEnd;
+    private MediaTime? _lastProcessedLocalEnd;
 
     internal bool InlineDrainAttempted { get; private set; }
 
     internal int InlinePaddingSamples { get; private set; }
 
-    public TimeSpan Start { get; set; } = TimeSpan.Zero;
+    public MediaTime Start { get; set; } = MediaTime.Zero;
 
-    public TimeSpan Duration { get; set; } = TimeSpan.Zero;
+    public MediaTime Duration { get; set; } = MediaTime.Zero;
 
     internal override double? GetFiniteSourceEndSample(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
-        double start = Start.TotalSeconds * sampleRate;
-        double end = start + Duration.TotalSeconds * sampleRate;
+        double start = Start.ToSeconds() * sampleRate;
+        double end = start + Duration.ToSeconds() * sampleRate;
         int latency = GetMaxInputLatency(sampleRate, drain: false);
         if (latency == int.MaxValue)
             return null;
@@ -50,7 +50,7 @@ public class ClipNode : AudioNode
                 context.GetSampleCount()));
         }
 
-        TimeSpan padBefore = newRange.Start - context.TimeRange.Start;
+        MediaTime padBefore = newRange.Start - context.TimeRange.Start;
 
         var clippedContext = new AudioProcessContext(
             newRange.SubtractStart(Start),
@@ -59,7 +59,7 @@ public class ClipNode : AudioNode
             context.OriginalTimeRange)
         {
             ProcessEndTime = context.ProcessEndTime is { } parentEnd
-                ? TimeSpan.FromTicks(Math.Min(Duration.Ticks, (parentEnd - Start).Ticks))
+                ? (parentEnd - Start < Duration ? parentEnd - Start : Duration)
                 : Duration
         };
         _lastProcessedLocalEnd = newRange.End - Start;
@@ -73,7 +73,7 @@ public class ClipNode : AudioNode
             // padBefore (truncated) and buffer.SampleCount (from Math.Ceiling) can each drift by ±1,
             // so clamp the copy to newBuffer's capacity; the overflow is out-of-range padding.
             // padBefore is clip-relative and bounded by the clip duration, so it cannot overflow int.
-            int offset = (int)(padBefore.TotalSeconds * context.SampleRate);
+            int offset = (int)padBefore.ToSamples(context.SampleRate, MidpointRounding.ToZero);
             int copyCount = Math.Min(buffer.SampleCount, newBuffer.SampleCount - offset);
             if (copyCount > 0)
             {

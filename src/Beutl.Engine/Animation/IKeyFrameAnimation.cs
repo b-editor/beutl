@@ -12,11 +12,11 @@ public interface IKeyFrameAnimation : IExpression, ICoreObject, INotifyEdited, I
 
     Type ValueType { get; }
 
-    TimeSpan Duration { get; }
+    MediaTime Duration { get; }
 
     IValidator? Validator { get; set; }
 
     (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe);
 
-    (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(TimeSpan timeSpan);
+    (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(MediaTime timeSpan);
 }

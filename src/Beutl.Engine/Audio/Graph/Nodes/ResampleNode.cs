@@ -10,7 +10,7 @@ public sealed class ResampleNode : AudioNode
     private int _sourceSampleRate = 44100;
     private ResampleSampleProvider? _resampleProvider;
     private int _lastSampleRate;
-    private TimeSpan? _lastTimeRangeEnd;
+    private MediaTime? _lastTimeRangeEnd;
     private long? _sourceSampleCursor;
     private bool _streamingStateResetPending;
 
@@ -116,10 +116,10 @@ public sealed class ResampleNode : AudioNode
         }
 
         sourceStart = _sourceSampleCursor
-            ?? AudioMath.TimeToSampleIndex(context.TimeRange.Start, SourceSampleRate);
+            ?? context.TimeRange.Start.ToSamples(SourceSampleRate, MidpointRounding.ToZero);
 
-        // Same-rate input passes through unchanged, so read exactly the requested block. A block
-        // addressed by sample index can end a tick past its last sample; rounding that end up would
+        // Same-rate input passes through unchanged, so read exactly the requested block. A block whose
+        // times were read from a file can end just past its last sample; rounding that end up would
         // pull one extra sample and skip it on the next contiguous read.
         long sourceEnd = SourceSampleRate == context.SampleRate
             ? sourceStart + context.GetSampleCount()
@@ -133,12 +133,8 @@ public sealed class ResampleNode : AudioNode
         }
 
         int sampleCount = (int)sourceCount;
-        // Keep the truncating TimeToSampleIndex conversion above the requested boundary even when
-        // TimeSpan.TotalSeconds rounds an exact sample position infinitesimally below its integer.
-        long startTicks = checked((long)Math.Ceiling(
-            sourceStart * (double)TimeSpan.TicksPerSecond / SourceSampleRate) + 1);
-        TimeSpan start = TimeSpan.FromTicks(startTicks);
-        TimeSpan duration = AudioProcessContext.GetDurationForSampleCount(sampleCount, SourceSampleRate);
+        var start = MediaTime.FromSamples(sourceStart, SourceSampleRate);
+        MediaTime duration = AudioProcessContext.GetDurationForSampleCount(sampleCount, SourceSampleRate);
         return new AudioProcessContext(
             new TimeRange(start, duration),
             SourceSampleRate,
@@ -149,11 +145,8 @@ public sealed class ResampleNode : AudioNode
         };
     }
 
-    private static long CeilingSampleIndex(TimeSpan time, int sampleRate)
-    {
-        double samples = time.TotalSeconds * sampleRate;
-        return (long)Math.Ceiling(samples);
-    }
+    private static long CeilingSampleIndex(MediaTime time, int sampleRate)
+        => time.ToSamples(sampleRate, MidpointRounding.ToPositiveInfinity);
 
     private void ResetStreamingState()
     {

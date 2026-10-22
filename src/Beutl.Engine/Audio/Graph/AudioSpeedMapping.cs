@@ -17,7 +17,7 @@ internal sealed class AudioSpeedMapping : IDisposable
     private double _finiteEndValue;
 
     private readonly record struct FiniteEndKey(KeyFrameAnimation<float> Animation, int Version, int SampleRate,
-        double InputEnd, TimeSpan OwnerStart, bool GlobalClock);
+        double InputEnd, MediaTime OwnerStart, bool GlobalClock);
 
     public AudioSpeedMapping(Func<float, float>? normalize = null, double? minimumSpeedFallback = null)
     {
@@ -44,16 +44,16 @@ internal sealed class AudioSpeedMapping : IDisposable
     public void AcknowledgeChanges() => IsInvalidated = false;
     private float Normalize(float percent) => _normalize?.Invoke(percent) ?? percent;
 
-    public TimeSpan MapOutputTimeToSource(TimeSpan time)
+    public MediaTime MapOutputTimeToSource(MediaTime time)
     {
         if (Speed?.GetKeyFrameAnimation() is not { } animation)
         {
             float percent = Speed?.Value ?? 100f;
             double factor = Normalize(percent) / 100d;
-            return TimeSpan.FromSeconds(time.TotalSeconds * factor);
+            return MediaTime.FromSeconds(time.ToSeconds() * factor);
         }
 
-        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? TimeSpan.Zero;
+        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? MediaTime.Zero;
         return animation.UseGlobalClock
             ? _integrator.Integrate(time + ownerStart, animation) - _integrator.Integrate(ownerStart, animation)
             : _integrator.Integrate(time, animation);
@@ -69,23 +69,23 @@ internal sealed class AudioSpeedMapping : IDisposable
             return end / minimumSpeed;
 
         Configure(sampleRate);
-        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? TimeSpan.Zero;
+        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? MediaTime.Zero;
         var key = new FiniteEndKey(animation, _integrator.CacheVersion, sampleRate, end,
             ownerStart, animation.UseGlobalClock);
         if (_finiteEndKey == key)
             return _finiteEndValue;
-        TimeSpan origin = animation.UseGlobalClock
+        MediaTime origin = animation.UseGlobalClock
             ? _integrator.Integrate(ownerStart, animation)
-            : TimeSpan.Zero;
+            : MediaTime.Zero;
         double low = 0;
         double high = end / minimumSpeed;
         for (int i = 0; i < 64 && high - low > 1e-4; i++)
         {
             double middle = (low + high) / 2;
-            var time = TimeSpan.FromSeconds(middle / sampleRate);
+            var time = MediaTime.FromSeconds(middle / sampleRate);
             if (animation.UseGlobalClock)
                 time += ownerStart;
-            double mapped = (_integrator.Integrate(time, animation) - origin).TotalSeconds * sampleRate;
+            double mapped = (_integrator.Integrate(time, animation) - origin).ToSeconds() * sampleRate;
             if (mapped < end)
                 low = middle;
             else
@@ -196,17 +196,13 @@ internal sealed class AudioSpeedMapping : IDisposable
         }
 
         var animation = Speed!.GetKeyFrameAnimation()!;
-        var ownerStart = (Speed!.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? TimeSpan.Zero;
-        Int128 samplePosition = (Int128)context.TimeRange.Start.Ticks * context.SampleRate;
-        long startInSamples = roundSampleClock
-            ? checked((long)((samplePosition + (samplePosition < 0
-                ? -TimeSpan.TicksPerSecond / 2
-                : TimeSpan.TicksPerSecond / 2)) / TimeSpan.TicksPerSecond))
-            : AudioMath.TimeToSampleIndex(context.TimeRange.Start, context.SampleRate);
+        var ownerStart = (Speed!.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? MediaTime.Zero;
+        long startInSamples = context.TimeRange.Start.ToSamples(
+            context.SampleRate, roundSampleClock ? MidpointRounding.AwayFromZero : MidpointRounding.ToZero);
         for (int i = 0; i < speeds.Length; i++)
         {
             float percent = animation.GetAnimatedValue(
-                ownerStart + TimeSpan.FromSeconds((startInSamples + i) / (double)context.SampleRate));
+                ownerStart + MediaTime.FromSamples(startInSamples + i, context.SampleRate));
             speeds[i] = Normalize(percent) / 100d;
         }
         if (!draining && speeds.Length > 0)
