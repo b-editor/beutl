@@ -293,11 +293,14 @@ internal sealed partial class SceneRecovery
     // found.
     internal static bool HoldsRecoveryBlocker(object? content)
     {
-        return SerializedGraphTraversal.Visit(
-            content,
-            "$",
-            static (value, _) => value is KeyFrame { HasLossyEasing: true }
-                                 || (value is EngineObject obj && IsRecoveryBlockerObject(obj)));
+        return SerializedGraphTraversal.Visit(content, "$", static (value, _) => IsRecoveryBlocker(value));
+    }
+
+    // One of the values HoldsRecoveryBlocker looks for. Some are marked by identity, which a copy does not keep.
+    internal static bool IsRecoveryBlocker(object value)
+    {
+        return value is KeyFrame { HasLossyEasing: true }
+               || (value is EngineObject obj && IsRecoveryBlockerObject(obj));
     }
 
     private static bool IsRecoveryBlockerObject(EngineObject obj)
@@ -306,7 +309,7 @@ internal sealed partial class SceneRecovery
                || (obj is FallbackEngineObject fallback && s_unreadableElementData.TryGetValue(fallback, out _));
     }
 
-    private static bool HoldsUnresolvedRecoveryBlocker(Element element)
+    internal static bool HoldsUnresolvedRecoveryBlocker(Element element)
     {
         return HoldsRecoveryBlocker(element)
                || HasUnresolvedSerializedRecoveryBlocker(element);
