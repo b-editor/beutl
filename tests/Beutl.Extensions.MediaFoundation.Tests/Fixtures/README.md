@@ -23,6 +23,23 @@ ffmpeg -y \
 
 The content is generated test signal (no third-party assets), so it carries no extra licensing.
 
+## `late-audio.mp4`
+
+A 2.5-second H.264 + AAC clip (16×16, 10 fps, 8000 Hz mono) whose audio starts
+0.37 s after the container start (delayed 0.5 s, less the AAC priming frame).
+Its tone changes from 440 to 880 Hz at 1.5 s. `FFmpegReaderAudioOriginTests` in
+Beutl.FFmpegWorker.Tests links it, with `marker-bframes.mp4` and
+`marker-bframes-no-edit.mp4`.
+
+Regenerate with ffmpeg:
+
+```sh
+ffmpeg -y -f lavfi -i "color=red:s=16x16:r=10:d=2.5" -itsoffset 0.5 \
+  -f lavfi -i "aevalsrc=0.3*sin(2*PI*440*(1+gte(t\,1))*t):s=8000:d=2" \
+  -c:v libx264 -pix_fmt yuv420p -bf 0 -g 10 \
+  -c:a aac -b:a 32k -ac 1 -movflags +faststart late-audio.mp4
+```
+
 ## `marker-bframes.mp4` and `marker-bframes-no-edit.mp4`
 
 Four-second H.264 + AAC synchronization fixtures (64×64, 10 fps, 48000 Hz stereo).
