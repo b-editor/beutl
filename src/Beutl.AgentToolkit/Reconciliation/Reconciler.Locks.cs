@@ -2,9 +2,13 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Reconciliation;
 
@@ -37,6 +41,9 @@ public sealed partial class Reconciler
                            ?? FindChangedLockedElement(session, scene, sandbox, lockedElements, currentDocument)
                            ?? FindUnrepairedProtectedElement(session, scene, sandbox, protectedElements, currentDocument)
                            ?? FindRegroupedLockedElement(scene, sandbox, lockedElements)
+                           ?? FindChangedTransitionAtLockedElement(scene, sandbox, lockedElements)
+                           ?? FindElementPlacedOverLockedElement(scene, sandbox, lockedElements)
+                           ?? FindRestackedLockedElement(scene, sandbox, lockedElements)
                            ?? FindUnlockedLayer(scene, sandbox, lockedLayers)
                            ?? FindElementPlacedOnLockedLayer(scene, sandbox);
         if (error is not null)
@@ -115,6 +122,112 @@ public sealed partial class Reconciler
         }
 
         return null;
+    }
+
+    // The transition that decides how a locked element blends at each edge stays, also when the element across sets it.
+    private static ToolError? FindChangedTransitionAtLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+    {
+        foreach (Element locked in lockedElements)
+        {
+            if (sandbox.Children.FirstOrDefault(child => child.Id == locked.Id) is not { } applied)
+            {
+                continue;
+            }
+
+            foreach (ElementEdge edge in (ElementEdge[])[ElementEdge.Start, ElementEdge.End])
+            {
+                ClipTransition? before = ElementTransitionEdits.GetDecidingTransition(locked, edge);
+                ClipTransition? after = ElementTransitionEdits.GetDecidingTransition(applied, edge);
+                if ((before is null && after is null)
+                    || (before is not null && after is not null
+                        && JsonNode.DeepEquals(SerializeTransition(scene, before), SerializeTransition(sandbox, after))))
+                {
+                    continue;
+                }
+
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(locked)} is locked, so the transition at its {(edge == ElementEdge.Start ? "start" : "end")} cannot change, also when the element next to it sets it.",
+                    ElementTarget(locked),
+                    $"Keep the transitions and the timing of the elements next to it as they are, or ask the user to unlock the element in the timeline. {LockHint}");
+            }
+        }
+
+        return null;
+    }
+
+    private static JsonObject SerializeTransition(Scene scene, ClipTransition transition)
+        => CoreSerializer.SerializeToJsonObject(transition, DocumentAdapter.CreateOptions(scene));
+
+    // No element comes to overlap a locked element on its layer, as in placement; one that already did may stay.
+    private static ToolError? FindElementPlacedOverLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+    {
+        foreach (Element locked in lockedElements)
+        {
+            foreach (Element placed in sandbox.Children)
+            {
+                if (placed.Id == locked.Id
+                    || !Overlaps(placed, locked)
+                    || (scene.Children.FirstOrDefault(child => child.Id == placed.Id) is { } before && Overlaps(before, locked)))
+                {
+                    continue;
+                }
+
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(placed)} would overlap locked element {DescribeElement(locked)} on layer {locked.ZIndex}.",
+                    ElementTarget(placed),
+                    $"Place it at another time or on another layer, or ask the user to unlock the locked element in the timeline. {LockHint}");
+            }
+        }
+
+        return null;
+    }
+
+    // Elements on one layer draw in Elements order, so one that overlaps a locked element keeps its side of it.
+    private static ToolError? FindRestackedLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+    {
+        foreach (Element locked in lockedElements)
+        {
+            int lockedBefore = scene.Children.IndexOf(locked);
+            int lockedAfter = IndexOfId(sandbox.Children, locked.Id);
+            foreach (Element other in scene.Children)
+            {
+                int otherAfter = IndexOfId(sandbox.Children, other.Id);
+                if (other == locked
+                    || otherAfter < 0
+                    || !Overlaps(other, locked)
+                    || !Overlaps(sandbox.Children[otherAfter], locked)
+                    || (scene.Children.IndexOf(other) > lockedBefore) == (otherAfter > lockedAfter))
+                {
+                    continue;
+                }
+
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(other)} overlaps locked element {DescribeElement(locked)} on layer {locked.ZIndex}, so their order in Elements, which decides the one drawn on top, cannot change.",
+                    ElementTarget(other),
+                    $"Keep both elements in their order in Elements, or ask the user to unlock the locked element in the timeline. {LockHint}");
+            }
+        }
+
+        return null;
+    }
+
+    private static bool Overlaps(Element element, Element other)
+        => element.ZIndex == other.ZIndex && element.Range.Intersects(other.Range);
+
+    private static int IndexOfId(IList<Element> elements, Guid id)
+    {
+        for (int i = 0; i < elements.Count; i++)
+        {
+            if (elements[i].Id == id)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private static Dictionary<Guid, int> CountIds(IEnumerable<Element> elements)
