@@ -23,6 +23,34 @@ public class ColorEditorTests
         host.Require<Button>("PART_ColorPickerButton");
     }
 
+    // The settings template puts the button in OptionsDisplayItem.ActionButton, where nothing has a templated parent.
+    [AvaloniaTest]
+    public void Settings_style_shows_the_color_and_disables_the_picker_when_read_only()
+    {
+        AssertSettingsStyle(new ColorEditor { Value = Avalonia.Media.Colors.Red }, editor => editor.PreviewBrush);
+        AssertSettingsStyle(
+            new GradingColorEditor { Value = new GradingColor(0.2f, 0.6f, 0.9f) },
+            editor => editor.PreviewBrush);
+    }
+
+    private static void AssertSettingsStyle<TEditor>(TEditor editor, Func<TEditor, Avalonia.Media.IBrush> previewBrush)
+        where TEditor : PropertyEditor
+    {
+        editor.Header = "Color";
+        editor.EditorStyle = PropertyEditorStyle.Settings;
+        using var host = new EditorTestHost<TEditor>(editor);
+        Button button = host.Require<Button>("PART_ColorPickerButton");
+        Border swatch = ((Grid)button.Content!).Children.OfType<Border>().Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(swatch.Background, Is.SameAs(previewBrush(editor)));
+            Assert.That(button.IsEnabled, Is.True);
+        });
+
+        editor.IsReadOnly = true;
+        Assert.That(button.IsEnabled, Is.False);
+    }
+
     // Without live preview, the confirmation reports the value from when the picker opened as the old value.
     // The flyout is confirmed directly, since it does not open deterministically headless.
     [AvaloniaTest]
