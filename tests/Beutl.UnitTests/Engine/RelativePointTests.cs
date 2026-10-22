@@ -194,4 +194,17 @@ public class RelativePointTests
         Assert.That(RelativePoint.TryParse("10,20", CultureInfo.InvariantCulture, out RelativePoint result), Is.True);
         Assert.That(result, Is.EqualTo(new RelativePoint(10, 20, RelativeUnit.Absolute)));
     }
+
+    [Test]
+    public void Parse_ThroughIParsable_ParsesBothUnits()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(ParseAs<RelativePoint>("50%, 25%"), Is.EqualTo(new RelativePoint(0.5f, 0.25f, RelativeUnit.Relative)));
+            Assert.That(ParseAs<RelativePoint>("3,4"), Is.EqualTo(new RelativePoint(3, 4, RelativeUnit.Absolute)));
+            Assert.Throws<FormatException>(() => ParseAs<RelativePoint>("50%, 25"));
+        });
+    }
+
+    private static T ParseAs<T>(string s) where T : IParsable<T> => T.Parse(s, CultureInfo.InvariantCulture);
 }

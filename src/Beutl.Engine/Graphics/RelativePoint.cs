@@ -114,7 +114,7 @@ public readonly struct RelativePoint(Point point, RelativeUnit unit)
 
     public static RelativePoint Parse(string s, IFormatProvider? provider)
     {
-        return Parse(s, provider);
+        return Parse(s.AsSpan(), provider);
     }
 
     public static bool TryParse([NotNullWhen(true)] string? s, IFormatProvider? provider, out RelativePoint result)
