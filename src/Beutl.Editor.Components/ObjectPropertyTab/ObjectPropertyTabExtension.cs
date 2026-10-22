@@ -18,7 +18,7 @@ public sealed class ObjectPropertyTabExtension : ToolTabExtension
 
     public override string Name => "Property editor";
 
-    public override string DisplayName => "Property editor";
+    public override string DisplayName => Strings.Properties;
 
     // Left out of the tool pickers: property editors open this tool on an object, so a picked tab would only sit
     // empty.

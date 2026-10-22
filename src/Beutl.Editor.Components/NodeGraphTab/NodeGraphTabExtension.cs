@@ -16,7 +16,7 @@ public sealed class NodeGraphTabExtension : ToolTabExtension
 
     public override string Name => "NodeGraphTab";
 
-    public override string DisplayName => "NodeGraph";
+    public override string DisplayName => Strings.NodeGraph;
 
     public override string? Header => Strings.NodeGraph;
 
