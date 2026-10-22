@@ -17,7 +17,7 @@ public class OutputPort<T> : NodePort<T>, IOutputPort
     }
 
     [NotAutoSerialized]
-    public IProperty<CoreList<Reference<Connection>>> ConnectionsProperty { get; } = new ValueOnlyProperty<CoreList<Reference<Connection>>>([]) { AffectsRender = false };
+    public IProperty<CoreList<Reference<Connection>>> ConnectionsProperty { get; } = new ValueOnlyProperty<CoreList<Reference<Connection>>>([]) { AffectsRender = false, KeepsList = true };
 
     public CoreList<Reference<Connection>> Connections
     {

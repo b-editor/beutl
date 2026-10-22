@@ -25,7 +25,7 @@ public sealed class Project : Hierarchical
 
     // Serialize and Deserialize write and read the items and variables themselves.
     [NotAutoSerialized]
-    public IProperty<HierarchicalList<ProjectItem>> ItemsProperty { get; } = new ValueOnlyProperty<HierarchicalList<ProjectItem>>(null!);
+    public IProperty<HierarchicalList<ProjectItem>> ItemsProperty { get; } = new ValueOnlyProperty<HierarchicalList<ProjectItem>>(null!) { KeepsList = true };
 
     [NotAutoSerialized]
     public IProperty<Dictionary<string, string>> VariablesProperty { get; } = new ValueOnlyProperty<Dictionary<string, string>>(null!);

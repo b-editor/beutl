@@ -71,7 +71,7 @@ public class Element : Hierarchical, INotifyEdited
 
     // Serialize and Deserialize write and read the objects and transitions themselves.
     [NotAutoSerialized]
-    public IProperty<ICoreList<EngineObject>> ObjectsProperty { get; } = new ValueOnlyProperty<ICoreList<EngineObject>>(null!);
+    public IProperty<ICoreList<EngineObject>> ObjectsProperty { get; } = new ValueOnlyProperty<ICoreList<EngineObject>>(null!) { KeepsList = true };
 
     [NotAutoSerialized]
     [Display(Name = nameof(Strings.EnterTransition), ResourceType = typeof(Strings))]

@@ -1,4 +1,7 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Collections;
+using Beutl.Engine;
+using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -8,6 +11,32 @@ namespace Beutl.UnitTests.ProjectSystem;
 public class SceneTests
 {
     private string _tempDirectory = null!;
+
+    // As the CoreProperty setters did, setting a kept list replaces its items, so what is saved is what is shown.
+    [Test]
+    public void SettingAKeptListReplacesItsItems()
+    {
+        var element = new Element();
+        ICoreList<EngineObject> objects = element.Objects;
+        var shape = new RectShape();
+        var scene = new Scene();
+        CoreList<TimelineLayer> layers = scene.Layers;
+        var layer = new TimelineLayer();
+
+        element.ObjectsProperty.Value = new HierarchicalList<EngineObject> { shape };
+        scene.LayersProperty.Value = [layer];
+        JsonObject json = CoreSerializer.SerializeToJsonObject(element);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(element.ObjectsProperty.Value, Is.SameAs(objects));
+            Assert.That(element.Objects, Is.EqualTo(new EngineObject[] { shape }));
+            Assert.That(json["Objects"]!.AsArray().Select(item => Guid.Parse(item!["Id"]!.GetValue<string>())),
+                Is.EqualTo(new[] { shape.Id }));
+            Assert.That(scene.LayersProperty.Value, Is.SameAs(layers));
+            Assert.That(scene.Layers, Is.EqualTo(new[] { layer }));
+        }
+    }
 
     [TestCase(false)]
     [TestCase(true)]
