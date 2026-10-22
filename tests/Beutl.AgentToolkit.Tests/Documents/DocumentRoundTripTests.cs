@@ -6,7 +6,11 @@ using Beutl.Animation;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
+using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Validation;
 
 namespace Beutl.AgentToolkit.Tests.Documents;
@@ -124,6 +128,47 @@ public class DocumentRoundTripTests
             Assert.That(root.Value, Is.EqualTo(3));
             Assert.That(reread.ContainsKey("FutureField"), Is.False);
         });
+    }
+
+    [Test]
+    public void Write_of_a_group_nodes_own_document_keeps_its_inner_graph()
+    {
+        var group = new GroupNode();
+        GraphGroup inner = group.Group;
+        inner.Nodes.Add(new RectGeometryNode());
+        var adapter = new DocumentAdapter();
+
+        // GroupNode saves Group as node-tree, so a document without "Group" does not ask to clear it.
+        adapter.Write(group, adapter.Read(group));
+
+        Assert.That(group.Group, Is.SameAs(inner));
+        Assert.That(inner.Nodes, Has.Count.EqualTo(1));
+        Assert.DoesNotThrow(() => adapter.Read(group));
+    }
+
+    [Test]
+    public void Write_of_its_own_document_keeps_the_values_an_engine_object_manages()
+    {
+        Type[] types = [.. new[] { typeof(EngineObject).Assembly, typeof(GraphNode).Assembly }
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => type is { IsAbstract: false, ContainsGenericParameters: false }
+                && type.IsAssignableTo(typeof(EngineObject))
+                && !type.IsAssignableTo(typeof(IFallback))
+                && type.GetConstructor(Type.EmptyTypes) != null)];
+        var adapter = new DocumentAdapter();
+        var lost = new List<string>();
+
+        foreach (Type type in types)
+        {
+            var obj = (EngineObject)Activator.CreateInstance(type)!;
+            IProperty[] held = [.. obj.Properties.Where(property => property.Value is not (null or string))];
+
+            adapter.Write(obj, adapter.Read(obj));
+
+            lost.AddRange(held.Where(property => property.Value is null).Select(property => $"{type.Name}.{property.Name}"));
+        }
+
+        Assert.That(lost, Is.Empty);
     }
 
     private sealed class ContextValidatedEngineObject : EngineObject
