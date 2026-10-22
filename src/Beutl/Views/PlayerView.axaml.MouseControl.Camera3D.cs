@@ -40,6 +40,8 @@ public partial class PlayerView
         private KeyFrameState<Vector3>? _objectScaleKeyFrame;
         private GizmoMode _currentGizmoMode;
         private GizmoAxis _selectedGizmoAxis;
+        // Frame to render pixels for the drag in progress, found at its first move.
+        private Matrix? _frameToScene;
 
         private const float RotationSpeed = 0.005f;
         // World units are pixels: 10 px per movement tick, 30 px per wheel notch.
@@ -128,6 +130,7 @@ public partial class PlayerView
         {
             _leftPressed = true;
             _selectedGizmoAxis = GizmoAxis.None;
+            _frameToScene = null;
 
             if (_scene3D == null)
                 return;
@@ -289,7 +292,7 @@ public partial class PlayerView
                     case GizmoMode.Translate:
                         try
                         {
-                            TranslateSelectedObject(_selectedObject, delta, right, cameraUp);
+                            TranslateSelectedObject(_selectedObject, ToRenderDelta(_lastPosition, position), right, cameraUp);
                         }
                         catch (TimeoutException ex)
                         {
@@ -320,14 +323,14 @@ public partial class PlayerView
             }
         }
 
-        private void TranslateSelectedObject(Object3D selectedObject, AvaPoint delta, Vector3 right, Vector3 cameraUp)
+        private void TranslateSelectedObject(Object3D selectedObject, AvaPoint renderDelta, Vector3 right, Vector3 cameraUp)
         {
             Vector3 movement;
 
             if (_selectedGizmoAxis != GizmoAxis.None)
             {
-                var screenMovement = (right * (float)delta.X + cameraUp * -(float)delta.Y) *
-                                     GetWorldUnitsPerViewPixel(selectedObject);
+                var screenMovement = (right * (float)renderDelta.X + cameraUp * -(float)renderDelta.Y) *
+                                     GetWorldUnitsPerRenderPixel(selectedObject);
 
                 if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
                 {
@@ -359,8 +362,8 @@ public partial class PlayerView
             }
             else
             {
-                movement = (right * (float)delta.X + cameraUp * -(float)delta.Y)
-                           * GetWorldUnitsPerViewPixel(selectedObject);
+                movement = (right * (float)renderDelta.X + cameraUp * -(float)renderDelta.Y)
+                           * GetWorldUnitsPerRenderPixel(selectedObject);
             }
 
             // The movement is in world space; Position is in the parent group's space.
@@ -475,6 +478,7 @@ public partial class PlayerView
             _objectRotationKeyFrame = null;
             _objectScaleKeyFrame = null;
             _selectedGizmoAxis = GizmoAxis.None;
+            _frameToScene = null;
             _positionKeyFrame = null;
             _targetKeyFrame = null;
             StopMovementTimer();
@@ -638,24 +642,38 @@ public partial class PlayerView
             ProcessMovement();
         }
 
-        // The world distance one pixel of the preview covers at the object's depth, so a drag moves the
-        // object with the pointer.
-        private float GetWorldUnitsPerViewPixel(Object3D obj)
+        // The pointer's move in the scene's render pixels, through the preview's fit and the scene's 2D transform.
+        private AvaPoint ToRenderDelta(AvaPoint from, AvaPoint to)
+        {
+            double frameScale = Image.Bounds.Size.Width / EditViewModel.Scene.FrameSize.Width;
+            if (!(frameScale > 0) || _scene3D is not { } scene3D)
+                return default;
+
+            Matrix frameToScene = _frameToScene ??= RenderThread.Dispatcher.Invoke(() => GetFrameToScene(scene3D), RenderThreadWait);
+            Point start = frameToScene.Transform(new Point((float)(from.X / frameScale), (float)(from.Y / frameScale)));
+            Point end = frameToScene.Transform(new Point((float)(to.X / frameScale), (float)(to.Y / frameScale)));
+            return new AvaPoint(end.X - start.X, end.Y - start.Y);
+        }
+
+        // The inverse of the matrix the scene is drawn with; identity when the renderer has none for it.
+        private Matrix GetFrameToScene(Scene3D scene3D)
+        {
+            SceneRenderer renderer = EditViewModel.Renderer.Value;
+            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(Clock.CurrentTime.Value));
+            return renderer.GetLocalBoundary(scene3D) is { } drawn && drawn.Transform.TryInvert(out Matrix inverse)
+                ? inverse
+                : Matrix.Identity;
+        }
+
+        // The world distance one render pixel covers at the object's depth.
+        private float GetWorldUnitsPerRenderPixel(Object3D obj)
         {
             if (_camera == null || _scene3D == null)
                 return 1f;
 
-            double viewHeight = Image.Bounds.Height;
-            if (viewHeight <= 0)
-                return 1f;
-
-            Scene scene = EditViewModel.Scene;
-            float sceneHeight = scene.FrameSize.Height;
             float renderHeight = _scene3D.RenderHeight.Evaluate(CompositionContext);
             float renderWidth = _scene3D.RenderWidth.Evaluate(CompositionContext);
-            // The 3D render is drawn at its own size into the scene, which the preview then fits to the view.
-            double renderPixelsPerViewPixel = sceneHeight / viewHeight;
-            float worldPerRenderPixel = _camera switch
+            return _camera switch
             {
                 PerspectiveCamera perspective => 2
                     * GizmoHitTester.GetViewDepth(
@@ -668,8 +686,6 @@ public partial class PlayerView
                 OrthographicCamera orthographic => orthographic.Width.Evaluate(CompositionContext) / renderWidth,
                 _ => 1f,
             };
-
-            return (float)(worldPerRenderPixel * renderPixelsPerViewPixel);
         }
 
         // Where the object is drawn, including the groups it is nested in; its Position alone is local.
