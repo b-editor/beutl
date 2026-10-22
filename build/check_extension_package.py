@@ -46,7 +46,7 @@ public sealed partial class Dim : FilterEffect
         ScanProperties<Dim>();
     }
 
-    public IProperty<float> Amount { get; } = Property.CreateAnimatable(50f);
+    public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(50f);
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
