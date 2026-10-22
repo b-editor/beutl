@@ -66,6 +66,8 @@
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Handlers\VideoRingBuffer.cs" Link="Linked\VideoRingBuffer.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Handlers\ColorSpaceIpcHelper.cs" Link="Linked\ColorSpaceIpcHelper.cs" />
     <None Include="..\Beutl.FFmpegIpc.Tests\Fixtures\mf-unsupported.flv" Link="Fixtures\mf-unsupported.flv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\late-video.mp4" Link="Fixtures\late-video.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\marker-bframes-no-edit.mp4" Link="Fixtures\marker-bframes-no-edit.mp4" CopyToOutputDirectory="PreserveNewest" />
     <Compile Include="..\Beutl.FFmpegIpc.Tests\TestWav.cs" Link="Linked\TestWav.cs" />
   </ItemGroup>
 

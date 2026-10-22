@@ -6,6 +6,9 @@ public class AnimatedImageDecoderInfo : IDecoderInfo
 
     public MediaReader? Open(string file, MediaOptions options)
     {
+        if (!options.StreamsToLoad.HasFlag(MediaMode.Video))
+            return null;
+
         try
         {
             return new AnimatedImageReader(file);

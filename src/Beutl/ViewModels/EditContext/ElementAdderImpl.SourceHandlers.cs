@@ -144,7 +144,8 @@ internal sealed partial class ElementAdderImpl
     {
         try
         {
-            using var reader = MediaReader.Open(filePath, new MediaOptions(MediaMode.Audio));
+            // Both streams, so a video without audio still opens and reports no audio.
+            using var reader = MediaReader.Open(filePath, new MediaOptions(MediaMode.AudioVideo));
             return reader.HasAudio;
         }
         catch (Exception ex)

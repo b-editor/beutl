@@ -207,6 +207,18 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
             // the batch as ordinary per-file failures.
             throw CreateUnavailableException(ex);
         }
+        catch (UnsupportedMediaException) when (OpensAsAudio(sourcePath))
+        {
+            // No decoder opens a file for a stream it lacks, so an audio-only source is skipped here.
+            throw new ProxyGenerationSkippedException("Source has no video stream.");
+        }
+    }
+
+    private static bool OpensAsAudio(string sourcePath)
+    {
+        using MediaReader? reader = DecoderRegistry.OpenMediaFile(
+            sourcePath, new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true });
+        return reader != null;
     }
 
     private static int MakeEven(double value)
