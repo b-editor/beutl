@@ -1,5 +1,8 @@
-﻿using Beutl.Graphics.Backend;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
+using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -78,6 +81,37 @@ public class GraphicsContextResourceTests
                 Assert.That(nestedReleaseCount, Is.EqualTo(1));
             });
         });
+    }
+
+    // Skia's queued work can still draw into a released texture. Metal keeps a texture alive for its queued work.
+    [Test]
+    public void ReleasingATextureOfAnotherContext_WaitsForSkiaFirst()
+    {
+        IGraphicsContext shared = VulkanTestEnvironment.EnsureAvailable();
+
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            using IGraphicsContext other = GraphicsContextFactory.CreateContext();
+            var flushes = new List<ImmediateCanvasFlushKind>();
+            using (ImmediateCanvas.ObserveFlushes(flushes.Add))
+            {
+                DrawAndRelease(shared);
+                Assert.That(flushes, Is.Empty, "The shared context's canvases and reclaim queue already wait.");
+                DrawAndRelease(other);
+            }
+
+            Assert.That(flushes, other is CompositeContext
+                ? Is.Empty
+                : Is.EqualTo(new[] { ImmediateCanvasFlushKind.TextureRelease }));
+        });
+
+        static void DrawAndRelease(IGraphicsContext context)
+        {
+            ITexture2D texture = context.CreateTexture2D(8, 8, TextureFormat.BGRA8Unorm);
+            using (SKSurface surface = texture.CreateSkiaSurface())
+                surface.Canvas.Clear(SKColors.CornflowerBlue);
+            texture.Dispose();
+        }
     }
 
     [Test]

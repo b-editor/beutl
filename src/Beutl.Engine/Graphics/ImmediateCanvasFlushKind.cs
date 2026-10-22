@@ -9,4 +9,6 @@ internal enum ImmediateCanvasFlushKind : byte
     PrepareForSampling,
     // Submit only; the consumer is ordered in the same Skia context.
     PrepareForSamplingSubmit,
+    // Submit and wait before a texture of a context other than the shared one is released.
+    TextureRelease,
 }

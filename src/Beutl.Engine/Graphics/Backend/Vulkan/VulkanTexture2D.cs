@@ -362,6 +362,13 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         if (_disposed) return;
         _disposed = true;
 
+        // Only the shared context's canvases and reclaim queue wait for Skia's queued work before a texture goes.
+        if (_context.SkiaContextOrNull is { } skia && !ReferenceEquals(GraphicsContextFactory.SharedContext, _context))
+        {
+            skia.Flush(true, true);
+            ImmediateCanvas.RecordFlush(ImmediateCanvasFlushKind.TextureRelease);
+        }
+
         _skiaBackendTexture?.Dispose();
         _skiaBackendTexture = null;
 
