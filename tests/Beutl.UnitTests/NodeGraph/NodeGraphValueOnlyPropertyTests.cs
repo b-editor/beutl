@@ -63,6 +63,28 @@ public class NodeGraphValueOnlyPropertyTests
         }
     }
 
+    // A port keeps the connection list it watches, so moving a connection after another list was set changes the topology.
+    [Test]
+    public void SettingAPortsConnectionsKeepsTheListItWatches()
+    {
+        var port = new ListInputPort<float>();
+        CoreList<Reference<Connection>> connections = port.Connections;
+        Guid first = Guid.NewGuid();
+        Guid second = Guid.NewGuid();
+        int changes = 0;
+
+        port.ConnectionsProperty.Value = [new Reference<Connection>(first), new Reference<Connection>(second)];
+        port.TopologyChanged += (_, _) => changes++;
+        port.MoveConnection(0, 1);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(port.ConnectionsProperty.Value, Is.SameAs(connections));
+            Assert.That(connections.Select(reference => reference.Id), Is.EqualTo(new[] { second, first }));
+            Assert.That(changes, Is.Positive);
+        }
+    }
+
     // Position and IsExpanded are not drawn, so, as their CoreProperty forms, they edit nothing; the history still records them.
     [Test]
     public void MovingAndFoldingANodeEditNeitherTheGraphNorTheScene()

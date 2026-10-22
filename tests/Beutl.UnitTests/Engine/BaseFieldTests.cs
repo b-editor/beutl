@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Collections;
 using Beutl.Engine;
 using Beutl.Serialization;
 
@@ -22,6 +23,18 @@ public class BaseFieldTests
         public IProperty<int> ShownProperty { get; } = Property.CreateValue(0);
     }
 
+    [SuppressResourceClassGeneration]
+    private sealed class ListOwner : EngineObject
+    {
+        public ListOwner()
+        {
+            ScanProperties<ListOwner>();
+            HideProperty(NumbersProperty);
+        }
+
+        public IProperty<CoreList<int>> NumbersProperty { get; } = Property.CreateValue<CoreList<int>>([]);
+    }
+
     [Test]
     public void ABaseField_IsSavedBeforeTheCoreObjectMembers_AndReadBack()
     {
@@ -40,6 +53,19 @@ public class BaseFieldTests
             Assert.That(restored.CountProperty.Value, Is.EqualTo(3));
             Assert.That(restored.ShownProperty.Value, Is.EqualTo(4));
         }
+    }
+
+    // Only a list that its owner keeps and reads itself is skipped when reading; another hidden list is read back.
+    [Test]
+    public void AHiddenListThatItsOwnerDoesNotRead_IsReadBack()
+    {
+        var owner = new ListOwner();
+        owner.NumbersProperty.Value = [1, 2];
+
+        JsonObject json = CoreSerializer.SerializeToJsonObject(owner);
+        var restored = (ListOwner)CoreSerializer.DeserializeFromJsonObject(json, typeof(ListOwner));
+
+        Assert.That(restored.NumbersProperty.Value, Is.EqualTo(new[] { 1, 2 }));
     }
 
     [Test]
