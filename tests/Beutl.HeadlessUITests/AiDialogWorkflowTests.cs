@@ -1974,6 +1974,37 @@ public sealed partial class AiDialogWorkflowTests
         }
     }
 
+    // A new image gets the mode any new file gets there, as a saved video does.
+    [Test]
+    public void AtomicImageSave_CreatesANewFileWithTheDefaultMode()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Ignore("Unix permissions are not available on Windows.");
+            return;
+        }
+
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-ai-save-new-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        string destinationPath = Path.Combine(directory, "new.png");
+        string referencePath = Path.Combine(directory, "reference.bin");
+        try
+        {
+            File.WriteAllBytes(referencePath, [0]);
+
+            AiAtomicFileWriter.Write(
+                destinationPath,
+                stream => stream.Write([1, 2, 3]),
+                CancellationToken.None);
+
+            Assert.That(File.GetUnixFileMode(destinationPath), Is.EqualTo(File.GetUnixFileMode(referencePath)));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [AvaloniaTest]
     public async Task VideoGeneration_PollsResultAndDisposeRemovesPreviewFile()
     {
