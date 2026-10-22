@@ -28,6 +28,9 @@ public record CoreSerializerOptions
     /// knows. Populating with this off leaves the members an object kept before alone.
     /// </remarks>
     internal bool? KeepUnknownMembers { get; init; }
+
+    // Embeds a copy, which holds each file-backed object itself but keeps referencing a project item's file.
+    internal bool? EmbedsCopy { get; init; }
 }
 
 public static partial class CoreSerializer
@@ -39,17 +42,24 @@ public static partial class CoreSerializer
 
     /// <summary>
     /// Serializes a file-backed object into the node that references it, or returns
-    /// <see langword="null"/> when this thread is already embedding it.
+    /// <see langword="null"/> when this thread is already embedding it or a copy references its file.
     /// </summary>
     /// <remarks>
     /// A reference cycle through file-backed objects would otherwise recurse until the stack overflows,
     /// so the back edge keeps its URI, as it does in a real save.
     /// </remarks>
-    internal static JsonObject? SerializeEmbeddedReference(CoreObject value, Uri serializedUri)
+    internal static JsonObject? SerializeEmbeddedReference(
+        CoreObject value, Uri serializedUri, ICoreSerializationContext parent)
     {
         if (t_activeEmbeds?.Contains(value) == true)
         {
             return null;
+        }
+
+        // A copy that kept the Uri would be saved over the original's file (#3288).
+        if (parent is JsonSerializationContext { EmbedsCopy: true })
+        {
+            return value is ProjectItem ? null : SerializeToJsonObject(value);
         }
 
         JsonObject node = SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = value.Uri });

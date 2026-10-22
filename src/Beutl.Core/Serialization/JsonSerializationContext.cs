@@ -96,6 +96,8 @@ public partial class JsonSerializationContext(
 
     public Uri? BaseUri => options?.BaseUri ?? Parent?.BaseUri;
 
+    internal bool EmbedsCopy => options?.EmbedsCopy ?? (Parent as JsonSerializationContext)?.EmbedsCopy ?? false;
+
     public Type OwnerType { get; } = ownerType;
 
     [MemberNotNullWhen(false, nameof(Parent))]

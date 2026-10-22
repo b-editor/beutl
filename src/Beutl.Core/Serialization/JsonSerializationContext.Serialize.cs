@@ -152,7 +152,7 @@ public partial class JsonSerializationContext
         Uri serializedUri = UriHelper.ToSerializedUri(value.Uri!, parent.BaseUri);
 
         if (parent.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects)
-            && CoreSerializer.SerializeEmbeddedReference(value, serializedUri) is { } node)
+            && CoreSerializer.SerializeEmbeddedReference(value, serializedUri, parent) is { } node)
         {
             return node;
         }

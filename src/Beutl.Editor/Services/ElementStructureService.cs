@@ -223,9 +223,10 @@ public sealed class ElementStructureService : IElementStructureService
 
     private static void ShiftLocalKeyFrames(Element element, TimeSpan delta)
     {
-        foreach (IKeyFrameAnimation anim in new ObjectSearcher(element, o => o is IKeyFrameAnimation { UseGlobalClock: false })
-                     .SearchAll()
-                     .OfType<IKeyFrameAnimation>())
+        // A scene the element draws keeps its own time.
+        foreach (IKeyFrameAnimation anim in ChildObjects.Walk(element, static obj => obj is ProjectItem)
+                     .OfType<IKeyFrameAnimation>()
+                     .Where(anim => !anim.UseGlobalClock))
         {
             foreach (IKeyFrame keyframe in anim.KeyFrames)
             {
