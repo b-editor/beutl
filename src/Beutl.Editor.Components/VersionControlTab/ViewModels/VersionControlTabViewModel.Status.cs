@@ -458,6 +458,8 @@ internal partial class VersionControlTabViewModel
         IsTracked.Value = _service?.Repository is not null;
         IsConflicted.Value = status.HasConflicts;
         IsDetachedHead.Value = status.IsDetachedHead;
+        // The service forgets a removed lock without an event, so each status reads it again.
+        ShowRecoverableLock(_lockRecoveryService?.RecoverableLock);
         // A detached HEAD blocks the same writes as a conflict: there is no branch to record a
         // snapshot on until one is checked out outside Beutl.
         HasBlockingGuidance.Value = IsUnavailable.Value || status.HasConflicts || status.IsDetachedHead;
