@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Api.Services;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.OutputTab.ViewModels;
@@ -84,18 +85,17 @@ public partial class OutputTabView : UserControl
     {
         public Control? Build(object? param)
         {
-            if (param is OutputProfileItem item
-                && item.Context.Extension.TryCreateControl(
-                    item.EditorContext,
-                    item.Context,
-                    item,
-                    out Control? control))
-            {
-                control.DataContext = item.Context;
-                return control;
-            }
+            if (param is not OutputProfileItem item)
+                return null;
 
-            return null;
+            var extension = item.Context.Extension;
+            Control? control = ExtensionGuard.Call(extension, () => extension.TryCreateControl(
+                item.EditorContext,
+                item.Context,
+                item,
+                out Control? created) ? created : null);
+            control?.DataContext = item.Context;
+            return control;
         }
 
         public bool Match(object? data)

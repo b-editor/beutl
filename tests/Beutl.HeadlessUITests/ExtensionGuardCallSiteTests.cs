@@ -7,7 +7,9 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Components.OutputTab.ViewModels;
+using Beutl.Editor.Components.OutputTab.Views;
 using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
@@ -175,19 +177,86 @@ public sealed class ExtensionGuardCallSiteTests
         }
     }
 
-    private sealed class ThrowingOutput : OutputExtension
+    [AvaloniaTest]
+    public async Task An_output_profile_whose_control_throws_shows_no_control_and_its_package_is_turned_off()
     {
+        EditViewModel editor = (await TestShell.OpenNewSceneAsync("throwing-output-control", 320, 180)).Editor;
+        using var model = new OutputTabViewModel(editor);
+        OutputProfileItem? first = model.SelectedItem.Value;
+        var extension = new ThrowingOutput(throwOnContext: false);
+        ExtensionGuard.SetPackage(extension, "Throwing.Package");
+        using var notifications = new NotificationCapture();
+        var view = new OutputTabView { DataContext = model };
+        var window = new Window { Content = view, Width = 640, Height = 480 };
+        try
+        {
+            window.Show();
+            model.AddItem(extension);
+            OutputProfileItem added = model.SelectedItem.Value!;
+            HeadlessTestHelpers.Render();
+            model.SelectedItem.Value = first;
+            HeadlessTestHelpers.Render();
+            model.SelectedItem.Value = added;
+            HeadlessTestHelpers.Render();
+
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(view.FindControl<ContentControl>("contentControl")!.Presenter?.Child, Is.Null);
+                Assert.That(extension.ControlCalls, Is.EqualTo(1));
+                Assert.That(notifications.Single().Title, Is.EqualTo(string.Format(ExtensionsStrings.ExtensionFailed, "Throwing output")));
+            }
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    private sealed class ThrowingOutput(bool throwOnContext = true) : OutputExtension
+    {
+        public int ControlCalls { get; private set; }
+
         public override string DisplayName => "Throwing output";
 
         public override bool TryCreateControl(
             IEditorContext editorContext, IOutputContext context, IOutputExecutionController execution,
             [NotNullWhen(true)] out Control? control)
-            => throw new InvalidOperationException("control");
+        {
+            ControlCalls++;
+            throw new InvalidOperationException("control");
+        }
 
         public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IOutputContext? context)
-            => throw new InvalidOperationException("context");
+        {
+            if (throwOnContext)
+                throw new InvalidOperationException("context");
+
+            context = new OutputContext(editorContext.Object, this);
+            return true;
+        }
 
         public override bool IsSupported(Type type) => true;
+    }
+
+    private sealed class OutputContext(CoreObject value, OutputExtension extension) : IOutputContext
+    {
+        public OutputExtension Extension => extension;
+
+        public CoreObject Object => value;
+
+        public IReactiveProperty<string> Name { get; } = new ReactivePropertySlim<string>("");
+
+        public Task RunAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public void ReadFromJson(JsonObject json)
+        {
+        }
+
+        public void WriteToJson(JsonObject json)
+        {
+        }
+
+        public void Dispose() => Name.Dispose();
     }
 
     private sealed class ThrowingToolTab : ToolTabExtension

@@ -2,9 +2,9 @@
 
 Extensions build against the `Beutl.Extensibility.Sdk` release that matches the Beutl version they target.
 
-When a factory (`TryCreateContent`, `TryCreateContext`, `TryCreateEditor`, `RegisterEditors` and the functions it
-registers, `GetIcon`) or a command of an extension from a package throws, Beutl logs it with the package name, shows
-one notice and turns the extension off until it restarts.
+When a factory (`TryCreateContent`, `TryCreateContext`, `TryCreateControl`, `TryCreateEditor`, `RegisterEditors` and
+the functions it registers, `GetIcon`) or a command of an extension from a package throws, Beutl logs it with the
+package name, shows one notice and turns the extension off until it restarts.
 
 ## Guides
 
