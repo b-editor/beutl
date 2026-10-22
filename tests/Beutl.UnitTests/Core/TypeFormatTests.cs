@@ -73,6 +73,21 @@ public class TypeFormatTests
         });
     }
 
+    // The decoder moved from Beutl.Extensions.FFmpeg to Beutl.Extensions.FFmpeg.Core and kept its namespace.
+    [Test]
+    public void ToType_FFmpegDecoderNameFromBeforeItsMove_ResolvesThroughItsFormerName()
+    {
+        Type decoder = typeof(FFmpegDecoderInfo);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(TypeFormat.ToType("[Beutl.Extensions.FFmpeg].Decoding:FFmpegDecoderInfo"), Is.EqualTo(decoder));
+            Assert.That(
+                TypeFormat.ToString(decoder),
+                Is.EqualTo("[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Decoding:FFmpegDecoderInfo"));
+        });
+    }
+
     private static void AssertRoundTrip(Type type)
     {
         string formatted = TypeFormat.ToString(type);

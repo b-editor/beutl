@@ -17,18 +17,18 @@ public class ExtensionConfigFormerNameTests
     [TearDown]
     public void TearDown() => Directory.Delete(_directory, recursive: true);
 
-    // Beutl 1.x built FFmpeg in as Beutl.Embedding.FFmpeg, so the decoder priority it saved names the FFmpeg decoder
-    // that way.
-    [Test]
-    public void A_decoder_priority_saved_by_1_x_resolves_to_the_FFmpeg_decoder()
+    // Beutl 1.x built FFmpeg in as Beutl.Embedding.FFmpeg, and later versions kept the decoder in Beutl.Extensions.FFmpeg
+    // until it moved to Beutl.Extensions.FFmpeg.Core, so a saved decoder priority names it either way.
+    [TestCase("[Beutl.Embedding.FFmpeg].Decoding:FFmpegDecoderInfo")]
+    [TestCase("[Beutl.Extensions.FFmpeg].Decoding:FFmpegDecoderInfo")]
+    public void A_decoder_priority_saved_under_a_former_name_resolves_to_the_FFmpeg_decoder(string saved)
     {
-        // Loads the FFmpeg extension's assembly, as the app does before it orders the decoders.
+        // Loads the FFmpeg decoder's assembly, as the app does before it orders the decoders.
         Type decoder = typeof(FFmpegDecoderInfo);
-        const string SavedBy1x = "[Beutl.Embedding.FFmpeg].Decoding:FFmpegDecoderInfo";
         string path = Path.Combine(_directory, "settings.json");
         File.WriteAllText(path, new JsonObject
         {
-            ["Extension"] = new JsonObject { ["DecoderPriority"] = new JsonArray(SavedBy1x) },
+            ["Extension"] = new JsonObject { ["DecoderPriority"] = new JsonArray(saved) },
         }.ToJsonString());
         var config = (GlobalConfiguration)Activator.CreateInstance(typeof(GlobalConfiguration), nonPublic: true)!;
 
@@ -38,7 +38,7 @@ public class ExtensionConfigFormerNameTests
         Assert.Multiple(() =>
         {
             Assert.That(priority.Type, Is.EqualTo(decoder));
-            Assert.That(priority.FormattedTypeName, Is.EqualTo(SavedBy1x), "The setting keeps the name it was saved under.");
+            Assert.That(priority.FormattedTypeName, Is.EqualTo(saved), "The setting keeps the name it was saved under.");
         });
     }
 }

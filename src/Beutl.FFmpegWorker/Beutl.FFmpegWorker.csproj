@@ -29,10 +29,10 @@
     <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegEncodingSettings.cs" Link="Linked\FFmpegEncodingSettings.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegVideoEncoderSettings.cs" Link="Linked\FFmpegVideoEncoderSettings.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Encoding\FFmpegAudioEncoderSettings.cs" Link="Linked\FFmpegAudioEncoderSettings.cs" />
-    <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
-    <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
-    <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
-    <Compile Include="..\Beutl.Extensions.FFmpeg\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
+    <Compile Include="..\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
     <Compile Include="..\Beutl.Extensions.FFmpeg\FFmpegNativeRid.cs" Link="Linked\FFmpegNativeRid.cs" />
   </ItemGroup>
 
