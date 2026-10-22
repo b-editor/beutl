@@ -719,6 +719,88 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // Saving would not write an edit that leaves an element that could not be fully loaded unrepaired.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Apply_edit_rejects_an_edit_that_leaves_a_protected_element_unrepaired(bool unreadable)
+    {
+        Element element = CreateProtectedElement(out Scene scene, unreadable);
+        string name = element.Name;
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: ElementPatch(element, new JsonObject { [nameof(CoreObject.Name)] = "Renamed" }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain($"{element.Id}").And.Contain("could not be fully loaded"));
+            Assert.That(element.Name, Is.EqualTo(name));
+        });
+    }
+
+    [TestCase("repair", false)]
+    [TestCase("repair", true)]
+    [TestCase("delete", false)]
+    public void Apply_edit_accepts_repairing_or_deleting_a_protected_element(string edit, bool unreadable)
+    {
+        Element element = CreateProtectedElement(out Scene scene, unreadable);
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+        JsonObject members = edit == "delete"
+            ? new JsonObject { ["$delete"] = true }
+            : new JsonObject
+            {
+                [nameof(Element.Objects)] = new JsonArray(
+                    new JsonObject { ["Id"] = element.Objects.Single().Id.ToString(), ["$delete"] = true }),
+            };
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: ElementPatch(element, members), schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            if (edit == "delete")
+            {
+                Assert.That(scene.Children, Is.Empty);
+            }
+            else
+            {
+                Assert.That(element.Objects, Is.Empty);
+                Assert.That(element.IsRecoveryProtected, Is.False, "The repair completes, so later edits are saved.");
+            }
+        });
+    }
+
+    // Protects the element with a keyframe easing from a missing assembly, or with an unreadable file, and reopens it.
+    private static Element CreateProtectedElement(out Scene scene, bool unreadable = false)
+    {
+        Scene created = TestWorkspace.CreateScene();
+        AddElement(created, "Protected", zIndex: 0).AddObject(new RectShape());
+        CoreSerializer.StoreToUri(created, created.Uri!);
+        string elementPath = created.Children.Single().Uri!.LocalPath;
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 32 });
+        var shape = new RectShape();
+        shape.Width.SetKeyFrameAnimation(animation);
+        JsonObject animationJson = CoreSerializer.SerializeToJsonObject(shape)["Animations"]![nameof(RectShape.Width)]!
+            .DeepClone().AsObject();
+        animationJson[nameof(IKeyFrameAnimation.KeyFrames)]![0]![nameof(KeyFrame.Easing)] = "[Missing.Assembly]Missing.Namespace:MissingEasing";
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        JsonObject shapeJson = json[nameof(Element.Objects)]![0]!.AsObject();
+        (shapeJson["Animations"] ??= new JsonObject())[nameof(RectShape.Width)] = animationJson;
+        File.WriteAllText(elementPath, unreadable ? """{"Objects":[""" : json.ToJsonString());
+
+        scene = CoreSerializer.RestoreFromUri<Scene>(created.Uri!);
+        Element element = scene.Children.Single();
+        Assert.That(element.IsRecoveryProtected, Is.True);
+        return element;
+    }
+
     private static JsonObject AsMcpArgument(JsonObject json)
     {
         return JsonNode.Parse(json.ToJsonString(), s_mcpArguments)!.AsObject();

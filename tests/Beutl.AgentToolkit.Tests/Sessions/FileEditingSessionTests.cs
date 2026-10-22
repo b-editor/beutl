@@ -63,7 +63,7 @@ public sealed class FileEditingSessionTests
         desired["Elements"]![0]!["Name"] = "Unrelated edit";
         GetFrame(desired["Elements"]![0]!)["Value"] = 20;
         var unrelated = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
-        Assert.That(unrelated.IsSuccess, Is.True, unrelated.Error?.Message);
+        Assert.That(unrelated.IsSuccess, Is.False, "Saving would not write an edit that leaves the element unrepaired.");
         recovered.Save(skipConflictCheck: true);
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
 

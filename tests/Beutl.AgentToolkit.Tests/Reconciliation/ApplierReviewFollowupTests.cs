@@ -106,10 +106,12 @@ public sealed class ApplierReviewFollowupTests
                 schemaVersion: SchemaVersion.Current);
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
 
+            // Saving would not write the rename, so it is refused instead of reported as applied (#2968).
             Assert.Multiple(() =>
             {
-                Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-                Assert.That(recoveredElement.Name, Is.EqualTo("Changed"));
+                Assert.That(apply.IsSuccess, Is.False);
+                Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+                Assert.That(recoveredElement.Name, Is.EqualTo("Recovered"));
                 Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
             });
         }
