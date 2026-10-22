@@ -15,6 +15,7 @@ public class CompatibleNodeFinderTests
 {
     [TestCase(typeof(float), typeof(double), true)]
     [TestCase(typeof(float), typeof(Point), true)]
+    [TestCase(typeof(float), typeof(MediaTime), true)]
     [TestCase(typeof(RenderNode), typeof(Drawable), true)]
     [TestCase(typeof(Matrix), typeof(Transform), true)]
     [TestCase(typeof(object), typeof(float), true)]
