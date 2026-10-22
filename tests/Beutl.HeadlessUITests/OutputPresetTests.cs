@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
+using Beutl.Configuration;
 using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
@@ -7,6 +8,7 @@ using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 
@@ -147,6 +149,43 @@ public sealed class OutputPresetTests
             Assert.That(controller.VideoSettings.KeyframeRate, Is.EqualTo(120), "two seconds at 60 fps");
             Assert.That(controller.AudioSettings.SampleRate, Is.EqualTo(48000));
         });
+    }
+
+    // A start that matched the saved presets by name records it, so a preset saved later under a platform preset's
+    // name stays the user's own on the next start.
+    [Test]
+    public void Names_are_matched_once_so_a_later_user_preset_keeps_its_name_and_no_key()
+    {
+        string file = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"output-presets-{Guid.NewGuid():N}.json");
+        bool matched = Preferences.Default.Get(OutputPresetService.PlatformPresetNamesMatchedKey, false);
+        try
+        {
+            SavePresetWithoutKey(file);
+            Preferences.Default.Set(OutputPresetService.PlatformPresetNamesMatchedKey, false);
+            OutputPresetItem firstStart = new OutputPresetService(file).Items[0];
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstStart.PresetKey, Is.EqualTo("Platform.YouTube_1080p60"), "the first start still matches by name");
+                Assert.That(Preferences.Default.Get(OutputPresetService.PlatformPresetNamesMatchedKey, false), Is.True);
+            });
+
+            SavePresetWithoutKey(file);
+            Assert.That(new OutputPresetService(file).Items[0].PresetKey, Is.Null);
+        }
+        finally
+        {
+            Preferences.Default.Set(OutputPresetService.PlatformPresetNamesMatchedKey, matched);
+            File.Delete(file);
+        }
+
+        static void SavePresetWithoutKey(string file)
+        {
+            var item = new OutputPresetItem(
+                SceneOutputExtension.Instance,
+                CreatePreset(new PixelSize(1920, 1080), new Rational(60, 1), keyframeRate: 120, 48000),
+                Beutl.Language.Strings.Preset_YouTube_1080p60);
+            new JsonArray(OutputPresetItem.ToJson(item)).JsonSave(file);
+        }
     }
 
     private static async Task<EditViewModel> OpenEditor()

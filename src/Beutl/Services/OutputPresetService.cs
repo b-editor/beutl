@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Configuration;
 using Beutl.Editor.Components.OutputTab;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.FFmpegIpc;
@@ -15,17 +16,27 @@ namespace Beutl.Services;
 
 public sealed class OutputPresetService : IOutputPresetStore
 {
+    // Set once the saved presets were matched to the platform presets by name, which only those saved before PresetKey need.
+    internal const string PlatformPresetNamesMatchedKey = "OutputPresetService.PlatformPresetNamesMatched";
+
     public static readonly OutputPresetService Instance = new();
     private readonly CoreList<OutputPresetItem> _items = [];
 
-    private readonly string _filePath = Path.Combine(
-        BeutlEnvironment.GetHomeDirectoryPath(), "output-presets.json");
+    private readonly string _filePath;
 
     private readonly ILogger _logger = Log.CreateLogger<OutputPresetService>();
     private bool _isRestored;
+    private bool _matchesPlatformPresetNames;
 
     private OutputPresetService()
+        : this(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "output-presets.json"))
     {
+    }
+
+    // Tests restore a presets file of their own.
+    internal OutputPresetService(string filePath)
+    {
+        _filePath = filePath;
         RestoreItems();
     }
 
@@ -212,6 +223,7 @@ public sealed class OutputPresetService : IOutputPresetStore
 
     private void AddPlatformPresets()
     {
+        _matchesPlatformPresetNames = !Preferences.Default.Get(PlatformPresetNamesMatchedKey, false);
         bool changed = false;
 
         changed |= AddH264Preset(
@@ -311,7 +323,13 @@ public sealed class OutputPresetService : IOutputPresetStore
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An exception has occurred while saving output presets after platform preset migration.");
+                return;
             }
+        }
+
+        if (_isRestored)
+        {
+            Preferences.Default.Set(PlatformPresetNamesMatchedKey, true);
         }
     }
 
@@ -330,10 +348,11 @@ public sealed class OutputPresetService : IOutputPresetStore
     {
         // 既知のプラットフォームプリセットは PresetKey で照合し、ロケール変更で
         // ローカライズ名が変わっても重複追加されないようにする。PresetKey 未対応の
-        // 保存データから復元したアイテムは PresetKey が null なので、名前一致で
-        // 後方互換照合した上でキーをバックフィルする。
+        // 保存データから復元したアイテムは PresetKey が null なので、最初の一度だけ
+        // 名前一致で後方互換照合した上でキーをバックフィルする。
         OutputPresetItem? existing = _items.FirstOrDefault(
-            i => i.PresetKey == presetKey || (i.PresetKey == null && i.Name.Value == name));
+            i => i.PresetKey == presetKey
+                 || (_matchesPlatformPresetNames && i.PresetKey == null && i.Name.Value == name));
 
         if (existing != null)
         {
