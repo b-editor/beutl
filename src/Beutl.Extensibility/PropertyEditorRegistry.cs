@@ -17,7 +17,7 @@ public sealed class PropertyEditorRegistry
 
     internal IReadOnlyList<PropertyEditorRegistration> Registrations => _registrations;
 
-    // An editor with the standard look for TValue properties, whose control edits TEdit values.
+    // An editor with the standard look for properties whose value type is exactly TValue; its control edits TEdit values.
     public void RegisterValue<TValue, TEdit>(
         Func<IPropertyAdapter<TValue>, IValueEditorContext<TEdit>> createContext,
         Func<IValueEditorControl<TEdit>> createControl,
@@ -39,12 +39,12 @@ public sealed class PropertyEditorRegistry
             },
             IsStandard = true,
             HasListItemControl = options?.CreateListItemControl is not null,
-            IsPanelOnly = options?.PanelOnly == true,
             Owner = Owner,
         });
     }
 
-    // An editor with its own context and control for TValue properties.
+    // An editor with its own context and control for properties whose value type is exactly TValue, in the panel and
+    // where options gives it a control; elsewhere the next editor takes the property.
     public void Register<TValue, TContext>(
         Func<IPropertyAdapter<TValue>, TContext> createContext,
         Func<TContext, Control> createControl,
@@ -61,12 +61,12 @@ public sealed class PropertyEditorRegistry
             CreateContext = properties => properties[0] is IPropertyAdapter<TValue> property ? createContext(property) : null,
             CreateControl = (context, surface) => CreateSurfaceControl(options, context, surface) ?? createControl((TContext)context),
             HasListItemControl = options?.CreateListItemControl is not null,
-            IsPanelOnly = options?.PanelOnly == true,
+            ShowsOn = surface => HasControl(options, surface),
             Owner = Owner,
         });
     }
 
-    // An editor for several properties together; match picks them from the properties not yet taken.
+    // An editor for several properties together, in the panel; match picks them from the properties not yet taken.
     public void RegisterGroup<TContext>(
         Func<IReadOnlyList<IPropertyAdapter>, IReadOnlyList<IPropertyAdapter>> match,
         Func<IReadOnlyList<IPropertyAdapter>, TContext> createContext,
@@ -82,6 +82,7 @@ public sealed class PropertyEditorRegistry
             Match = match,
             CreateContext = properties => createContext(properties),
             CreateControl = (context, _) => createControl((TContext)context),
+            ShowsOn = surface => surface == PropertyEditorSurface.Panel,
             Owner = Owner,
         });
     }
@@ -116,6 +117,18 @@ public sealed class PropertyEditorRegistry
             }
 
             return [];
+        };
+    }
+
+    // The panel, and a node, a list or a settings page that options gives a control for.
+    private static bool HasControl(PropertyEditorOptions? options, PropertyEditorSurface surface)
+    {
+        return surface switch
+        {
+            PropertyEditorSurface.Node => options?.CreateNodeControl is not null,
+            PropertyEditorSurface.ListItem => options?.CreateListItemControl is not null,
+            PropertyEditorSurface.Settings => options?.CreateSettingsControl is not null,
+            _ => true,
         };
     }
 

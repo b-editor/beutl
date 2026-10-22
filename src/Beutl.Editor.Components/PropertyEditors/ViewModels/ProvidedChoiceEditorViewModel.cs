@@ -45,7 +45,7 @@ public sealed class ProvidedChoiceEditorViewModel<T, TProvider> : PropertyEditor
     protected override T? FromEdit(int edit)
     {
         object? value = 0 <= edit && edit < _originalChoices.Count ? _originalChoices[edit] : null;
-        return (T?)value ?? default;
+        return value is T choice ? choice : default;
     }
 
     public override void ConfirmEdit(int oldValue, int newValue)

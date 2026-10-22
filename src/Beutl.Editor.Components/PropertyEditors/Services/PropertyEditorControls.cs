@@ -52,13 +52,14 @@ internal sealed class PropertyEditorControls : IPropertyEditorHost
         PropertyEditorRegistration? registration = PropertyEditorResolver.RegistrationOf(context) ?? FindFor(context, surface);
         if (registration is null) return false;
 
-        control = ExtensionGuard.Call(registration.Owner, () => registration.CreateControl(context, surface));
-        if (control is null) return false;
+        Control? created = ExtensionGuard.Call(registration.Owner, () => registration.CreateControl(context, surface));
+        if (created is null) return false;
 
+        // Preparing runs the context's Accept and the control's Connect, which are extension code too.
         control = registration.IsStandard
-            ? Prepare(context, control, registration, surface)
-            : FitListItem(control, surface);
-        return true;
+            ? ExtensionGuard.Call(registration.Owner, () => Prepare(context, created, registration, surface))
+            : FitListItem(created, surface);
+        return control != null;
     }
 
     public bool TryCreateDefault(IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context)

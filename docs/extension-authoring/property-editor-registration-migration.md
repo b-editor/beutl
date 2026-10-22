@@ -9,9 +9,9 @@ compatibility shims, so extensions must update their sources and rebuild.
 | Before | After |
 | --- | --- |
 | `override MatchProperty(properties)` | `PropertyEditorOptions.Match`, or the value type of the registration |
-| `override TryCreateContext(...)`, `TryCreateContextForNode`, `TryCreateContextForSettings`, `TryCreateContextForListItem` | the `createContext` of the registration; every place uses it |
+| `override TryCreateContext(...)`, `TryCreateContextForNode`, `TryCreateContextForSettings`, `TryCreateContextForListItem` | the `createContext` of the registration, for every place the editor shows |
 | `override TryCreateControl(...)` | the `createControl` of the registration |
-| `override TryCreateControlForNode`, `TryCreateControlForListItem`, `TryCreateControlForSettings` | `PropertyEditorOptions.CreateNodeControl`, `CreateListItemControl`, `CreateSettingsControl` |
+| `override TryCreateControlForNode`, `TryCreateControlForListItem`, `TryCreateControlForSettings` | `PropertyEditorOptions.CreateNodeControl`, `CreateListItemControl`, `CreateSettingsControl`; without them, a `Register` editor does not show there |
 | `base.TryCreateContext` and `base.TryCreateControl` to wrap the built-in editor | `registry.TryCreateDefault(property, out context)` and `registry.TryCreateControl(context, out control)` |
 | `context.Extension.TryCreateControl(context, out control)` for a context from `IPropertyEditorFactory` | `registry.TryCreateControl(context, out control)` with the registry the extension kept |
 | `IPropertyEditorFactory.MatchProperty(properties)` followed by `TryCreateContextForNode` or `TryCreateContextForListItem` | `IPropertyEditorFactory.CreateNodeEditor(property)` and `CreateListItemEditor(property)` |
@@ -28,7 +28,7 @@ public sealed class MyPropertyEditorExtension : PropertyEditorExtension
 
     protected override void RegisterEditors(PropertyEditorRegistry registry)
     {
-        // Every property whose value is a MyLyrics.
+        // Every property whose value type is MyLyrics.
         registry.Register<MyLyrics, LyricsContext>(p => new LyricsContext(p), c => new LyricsSummary(c));
 
         // Only the properties Match accepts.
@@ -50,26 +50,34 @@ public sealed class MyPropertyEditorExtension : PropertyEditorExtension
 registrations belong to the extension and go away when its package unloads.
 
 - `Register<TValue, TContext>` takes an editor with its own context and control.
-  Without `Match`, it takes every property whose value is a `TValue`.
+  Without `Match`, it takes every property whose value type is exactly
+  `TValue`; with it, those of them that `Match` accepts.
 - `RegisterGroup<TContext>` takes an editor of several properties.
 - `RegisterValue<TValue, TEdit>` takes an editor with the standard look; see
   below.
-- `PropertyEditorOptions.CreateNodeControl`, `CreateListItemControl` and
-  `CreateSettingsControl` give the editor another control in a node of the node
-  graph, in a list and on a settings page. Without them the editor's control is
-  used there too; before, those places showed the built-in editor unless the
-  extension overrode their methods. A list shows a control that is not an
-  `IListItemEditor` in its item host, with the reorder handle and the delete
-  button.
+- An editor of `Register` shows in the property panel. It shows in a node of the
+  node graph, in a list or on a settings page only when
+  `PropertyEditorOptions.CreateNodeControl`, `CreateListItemControl` or
+  `CreateSettingsControl` gives it a control there; elsewhere the next
+  registration, such as the built-in editor, takes the property, as it did when
+  an extension did not override the methods for those places. An editor of
+  `RegisterGroup` shows in the panel only, and one of `RegisterValue` shows
+  everywhere, with the panel's control unless the options give another. A list
+  shows a control that is not an `IListItemEditor` in its item host, with the
+  reorder handle and the delete button.
 
 Beutl chooses each property's editor in this order: a registration whose `Match`
 accepts the property or a group, `[ChoicesProvider]`, the exact value type, the
-nearest base class, interfaces, and the `CoreObject` editor. Within each step a
-package loaded later goes first, so an extension can replace a built-in editor;
-within one package, the registration made first goes first. A `createContext` that returns `null` passes the property on to the next
-registration. In the property panel, editors that match particular properties
-come first and the others follow the order of the properties; an editor chosen
-by its value type is no longer moved to the top.
+nearest base class, interfaces, and the `CoreObject` editor. The base class and
+interface steps serve Beutl's built-in editors; a registration of an extension
+takes only properties whose value type is exactly its `TValue`. Within each step
+a package loaded later goes first, so an extension can replace a built-in
+editor; within one package, the registration made first goes first. A
+`createContext` that returns `null` passes the property on to the next
+registration, which may be another one of the same extension. In the property
+panel, editors that match particular properties come first and the others follow
+the order of the properties; an editor chosen by its value type is no longer
+moved to the top.
 
 ## Editors with the standard look
 

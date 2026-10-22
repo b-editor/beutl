@@ -25,7 +25,7 @@ namespace Beutl.Editor.PropertyEditors;
 public abstract class PropertyEditorViewModel : IPropertyEditorContext, IServiceProvider
 {
     protected readonly ILogger Logger;
-    private readonly Subject<TimeSpan> _currentTime;
+    private readonly BehaviorSubject<TimeSpan> _currentTime;
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     protected CompositeDisposable Disposables = [];
     private IDisposable? _currentFrameRevoker;
@@ -57,9 +57,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
             .Subscribe(value => HoverInfo.Value = value)
             .DisposeWith(Disposables);
 
-        // Complete during disposal so stale clock writes are ignored.
-        _currentTime = new Subject<TimeSpan>();
-        CurrentTime = _currentTime.Publish(TimeSpan.Zero).RefCount();
+        // Keeps the clock's last time for a value subscribed after Accept; completes during disposal so stale clock
+        // writes are ignored.
+        _currentTime = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        CurrentTime = _currentTime.AsObservable();
 
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
             ? anm.ObserveAnimation.Select(x => x != null)

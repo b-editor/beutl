@@ -339,8 +339,10 @@ public partial class NodePortView : UserControl
                 control1.DataContext = obj.PropertyEditorContext;
             }
 
+            // Without a control, as when the extension's code failed, the port shows its label.
             _editor = control1;
-            Grid.SetColumn(_editor!, 1);
+            if (_editor != null)
+                Grid.SetColumn(_editor, 1);
         }
 
         if (obj.Model != null)

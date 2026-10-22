@@ -17,8 +17,10 @@ internal static class PropertyEditorResolver
         PropertyEditorSurface surface,
         Action<IPropertyEditorContext> add)
     {
+        // The properties each Match editor made no context for, which go on to the next candidates.
+        var declined = new Dictionary<PropertyEditorRegistration, HashSet<IPropertyAdapter>>();
         while (adapters.Count > 0
-               && (TakeMatched(adapters, extensions, surface, add) || TakeFirst(adapters, extensions, surface, add)))
+               && (TakeMatched(adapters, extensions, surface, declined, add) || TakeFirst(adapters, extensions, surface, add)))
         {
         }
     }
@@ -94,6 +96,7 @@ internal static class PropertyEditorResolver
         IList<IPropertyAdapter> adapters,
         IReadOnlyList<PropertyEditorExtension> extensions,
         PropertyEditorSurface surface,
+        Dictionary<PropertyEditorRegistration, HashSet<IPropertyAdapter>> declined,
         Action<IPropertyEditorContext> add)
     {
         IPropertyAdapter[] remaining = [.. adapters];
@@ -106,7 +109,12 @@ internal static class PropertyEditorResolver
             {
                 if (registration.Tier != PropertyEditorTier.Match || !Applies(registration, surface)) continue;
 
-                IPropertyAdapter[] taken = ExtensionGuard.Call(extension, () => registration.Match!(remaining).ToArray()) ?? [];
+                IPropertyAdapter[] offered = declined.TryGetValue(registration, out HashSet<IPropertyAdapter>? turnedDown)
+                    ? [.. remaining.Where(adapter => !turnedDown.Contains(adapter))]
+                    : remaining;
+                // Match is extension code; only the properties it was offered count, so CreateContexts always ends.
+                IPropertyAdapter[] matched = ExtensionGuard.Call(extension, () => registration.Match!(offered).ToArray()) ?? [];
+                IPropertyAdapter[] taken = [.. matched.Where(adapter => Array.IndexOf(offered, adapter) >= 0)];
                 if (taken.Length == 0) continue;
 
                 int first = taken.Min(adapter => Array.IndexOf(remaining, adapter));
@@ -116,8 +124,20 @@ internal static class PropertyEditorResolver
 
             if (best is { } chosen)
             {
-                if (Create(chosen.Registration, chosen.Taken) is { } context) add(context);
-                Remove(adapters, chosen.Taken);
+                if (Create(chosen.Registration, chosen.Taken) is { } context)
+                {
+                    add(context);
+                    Remove(adapters, chosen.Taken);
+                }
+                else if (declined.TryGetValue(chosen.Registration, out HashSet<IPropertyAdapter>? turnedDown))
+                {
+                    turnedDown.UnionWith(chosen.Taken);
+                }
+                else
+                {
+                    declined.Add(chosen.Registration, [.. chosen.Taken]);
+                }
+
                 return true;
             }
         }
@@ -170,7 +190,7 @@ internal static class PropertyEditorResolver
 
     private static bool Applies(PropertyEditorRegistration registration, PropertyEditorSurface surface)
         => (surface == PropertyEditorSurface.ListItem || !registration.IsListItemOnly)
-           && (surface == PropertyEditorSurface.Panel || !registration.IsPanelOnly);
+           && (registration.ShowsOn?.Invoke(surface) ?? true);
 
     // Later-loaded extensions first; each one's registrations in the order it made them.
     private static IEnumerable<PropertyEditorRegistration> Ordered(

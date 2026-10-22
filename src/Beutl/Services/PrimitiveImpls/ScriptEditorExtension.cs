@@ -9,13 +9,13 @@ public sealed class ScriptEditorExtension : PropertyEditorExtension
 {
     public static new readonly ScriptEditorExtension Instance = new();
 
-    // Only the panel shows the script editor; a node shows the built-in multiline string editor.
+    // Without a node control, a node shows the built-in multiline string editor.
     protected internal override void RegisterEditors(PropertyEditorRegistry registry)
     {
         registry.Register<string?, ScriptEditorViewModel>(
             p => new ScriptEditorViewModel(p),
             _ => new ScriptEditor(),
-            new PropertyEditorOptions { Match = IsScriptProperty, PanelOnly = true });
+            new PropertyEditorOptions { Match = IsScriptProperty });
     }
 
     private static bool IsScriptProperty(IPropertyAdapter p)
