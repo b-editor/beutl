@@ -695,6 +695,7 @@ internal sealed partial class GitCliVersionControlService :
         try
         {
             ThrowIfDisposed();
+            ForgetRemovedRecoverableLock();
             return await (runOnThreadPool ? Task.Run(operation, cancellationToken) : operation())
                 .ConfigureAwait(false);
         }

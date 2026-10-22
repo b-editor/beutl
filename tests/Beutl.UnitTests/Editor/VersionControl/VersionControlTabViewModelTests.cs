@@ -1440,6 +1440,36 @@ public class VersionControlTabViewModelTests
         });
     }
 
+    [Test]
+    public async Task Stale_lock_guidance_hides_on_the_status_after_the_service_forgets_the_lock()
+    {
+        var lockInfo = new RepositoryLockInfo(
+            Path.Combine(Path.GetTempPath(), "index.lock"),
+            DateTimeOffset.UtcNow - TimeSpan.FromMinutes(11));
+        Mock<IProjectVersionControlService> service = CreateServiceMock();
+        Mock<IRepositoryLockRecoveryService> recovery
+            = service.As<IRepositoryLockRecoveryService>();
+        using VersionControlTabViewModel viewModel = await CreateViewModelWithRecoverableLockAsync(
+            service,
+            recovery,
+            lockInfo,
+            offeredAfterBinding: false);
+        Assert.That(viewModel.HasRecoverableLock.Value, Is.True);
+
+        recovery.SetupGet(x => x.RecoverableLock).Returns((RepositoryLockInfo?)null);
+        service.Raise(
+            x => x.StatusChanged += null,
+            service.Object,
+            new WorkspaceStatus("main", 0, 0, [], false) { NotificationSequence = 1 });
+        await viewModel.Initialization;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.HasRecoverableLock.Value, Is.False);
+            Assert.That(viewModel.StaleLockGuidance.Value, Is.Empty);
+        });
+    }
+
     private static async Task<VersionControlTabViewModel> CreateViewModelWithRecoverableLockAsync(
         Mock<IProjectVersionControlService> service,
         Mock<IRepositoryLockRecoveryService> recovery,

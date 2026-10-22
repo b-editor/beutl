@@ -202,6 +202,18 @@ internal sealed partial class GitCliVersionControlService
         return true;
     }
 
+    // The user removes the lock by hand, and the watcher ignores lock files, so each operation looks again.
+    private void ForgetRemovedRecoverableLock()
+    {
+        if (RecoverableLock is not null
+            && _runner is { } runner
+            && Repository is { } repository
+            && runner.GetRecoverableRepositoryLock(repository) is null)
+        {
+            RecoverableLock = null;
+        }
+    }
+
     private void NotifyRecoverableLockAvailable(RepositoryLockInfo lockInfo)
     {
         if (IsDisposed
