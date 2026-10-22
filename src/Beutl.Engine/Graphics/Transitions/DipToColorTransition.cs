@@ -19,7 +19,7 @@ public sealed partial class DipToColorTransition : ClipTransition
     }
 
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Color> Color { get; } = Property.CreateWithExpression(Colors.Black);
+    public IExpressionProperty<Color> Color { get; } = Property.CreateExpression(Colors.Black);
 
     public new partial class Resource
     {

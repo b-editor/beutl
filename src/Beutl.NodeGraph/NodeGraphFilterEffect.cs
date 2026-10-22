@@ -21,7 +21,7 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
         Model.Value = new GraphModel();
     }
 
-    public IExpressionProperty<GraphModel?> Model { get; } = Property.CreateWithExpression<GraphModel?>();
+    public IExpressionProperty<GraphModel?> Model { get; } = Property.CreateExpression<GraphModel?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

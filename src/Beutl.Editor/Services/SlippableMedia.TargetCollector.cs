@@ -217,8 +217,8 @@ internal static partial class SlippableMedia
             {
                 // These unattached properties only carry a rejected constraint;
                 // IsSupported prevents them from ever becoming an offset write.
-                _targets.Add(new Target(Property.CreateWithExpression<TimeSpan>(), null,
-                    new MediaTimeMapping(_element, node.Object, Property.CreateWithExpression(100f), [], 60), _element.Length));
+                _targets.Add(new Target(Property.CreateExpression<TimeSpan>(), null,
+                    new MediaTimeMapping(_element, node.Object, Property.CreateExpression(100f), [], 60), _element.Length));
                 return;
             }
             CollectFrom(node.Object, node.Inputs, node.FlowResolved, referenced, portalInput: node.PortalInput);

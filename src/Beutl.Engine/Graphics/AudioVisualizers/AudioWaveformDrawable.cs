@@ -27,11 +27,11 @@ public sealed partial class AudioWaveformDrawable : AudioVisualizerDrawable
     }
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Shape), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<WaveformShape?> Shape { get; } = Property.CreateWithExpression<WaveformShape?>();
+    public IExpressionProperty<WaveformShape?> Shape { get; } = Property.CreateExpression<WaveformShape?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_BarCount), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 10000)]
-    public IExpressionProperty<int> BarCount { get; } = Property.CreateWithExpression(256);
+    public IExpressionProperty<int> BarCount { get; } = Property.CreateExpression(256);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_WindowSeconds), ResourceType = typeof(GraphicsStrings))]
     [Range(0.01f, 3600f)]

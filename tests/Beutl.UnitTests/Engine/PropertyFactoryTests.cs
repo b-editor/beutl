@@ -17,7 +17,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_ReturnsSimpleProperty_NotAnimatable()
     {
-        IExpressionProperty<double> property = Property.CreateWithExpression(1.5);
+        IExpressionProperty<double> property = Property.CreateExpression(1.5);
 
         Assert.That(property, Is.InstanceOf<SimpleProperty<double>>());
         Assert.That(property.IsAnimatable, Is.False);
@@ -29,7 +29,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_WithDefaultedGeneric_UsesTypeDefault()
     {
-        IExpressionProperty<int> property = Property.CreateWithExpression<int>();
+        IExpressionProperty<int> property = Property.CreateExpression<int>();
 
         Assert.That(property.DefaultValue, Is.EqualTo(0));
         Assert.That(property.Value, Is.EqualTo(0));
@@ -38,7 +38,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_WithValidationAttributes_AppliesValidatorOnSet()
     {
-        IExpressionProperty<int> property = Property.CreateWithExpression(0, new RangeAttribute(0, 10));
+        IExpressionProperty<int> property = Property.CreateExpression(0, new RangeAttribute(0, 10));
         property.SetAttributes("Test", []);
 
         property.Value = 100;
@@ -49,7 +49,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_WithoutValidationAttributes_HasNoValidator()
     {
-        var property = (SimpleProperty<int>)Property.CreateWithExpression(5);
+        var property = (SimpleProperty<int>)Property.CreateExpression(5);
 
         Assert.That(property.HasValidator, Is.False);
     }
@@ -57,7 +57,7 @@ public class PropertyFactoryTests
     [Test]
     public void Create_WithEmptyValidationAttributesParams_HasNoValidator()
     {
-        var property = (SimpleProperty<int>)Property.CreateWithExpression(5, new ValidationAttribute[0]);
+        var property = (SimpleProperty<int>)Property.CreateExpression(5, new ValidationAttribute[0]);
 
         Assert.That(property.HasValidator, Is.False);
     }
@@ -127,7 +127,7 @@ public class PropertyFactoryTests
     [Test]
     public void GetLocalizedName_ReturnsDisplayNameWhenAttributeSet()
     {
-        IExpressionProperty<int> property = Property.CreateWithExpression(0);
+        IExpressionProperty<int> property = Property.CreateExpression(0);
         property.SetAttributes(
             "RawName",
             new Attribute[] { new DisplayAttribute { Name = "Friendly" } });
@@ -138,7 +138,7 @@ public class PropertyFactoryTests
     [Test]
     public void GetLocalizedName_FallsBackToPropertyName()
     {
-        IExpressionProperty<int> property = Property.CreateWithExpression(0);
+        IExpressionProperty<int> property = Property.CreateExpression(0);
         property.SetAttributes("RawName", []);
 
         Assert.That(Property.GetLocalizedName(property), Is.EqualTo("RawName"));

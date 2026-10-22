@@ -17,7 +17,7 @@ public sealed partial class SplitTransition : ClipTransition
     }
 
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Orientation), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<ClipTransitionOrientation> Orientation { get; } = Property.CreateWithExpression(ClipTransitionOrientation.Horizontal);
+    public IExpressionProperty<ClipTransitionOrientation> Orientation { get; } = Property.CreateExpression(ClipTransitionOrientation.Horizontal);
 
     public new partial class Resource
     {

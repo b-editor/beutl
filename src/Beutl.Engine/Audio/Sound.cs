@@ -24,7 +24,7 @@ public abstract partial class Sound : EngineObject
 
     [Display(Name = nameof(AudioStrings.Sound_OffsetPosition), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.CreateWithExpression<TimeSpan>();
+    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.CreateExpression<TimeSpan>();
 
     [Range(0, float.MaxValue)]
     [Display(Name = nameof(AudioStrings.Sound_Gain), ResourceType = typeof(AudioStrings))]
@@ -37,7 +37,7 @@ public abstract partial class Sound : EngineObject
     public IExpressionProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(AudioStrings.AudioEffect), ResourceType = typeof(AudioStrings))]
-    public IExpressionProperty<AudioEffect?> Effect { get; } = Property.CreateWithExpression<AudioEffect?>();
+    public IExpressionProperty<AudioEffect?> Effect { get; } = Property.CreateExpression<AudioEffect?>();
 
     public virtual void Compose(AudioContext context, Resource resource)
     {

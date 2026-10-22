@@ -19,7 +19,7 @@ public sealed partial class DotsWaveformShape : WaveformShape
     public IExpressionProperty<float> DotRadius { get; } = Property.CreateAnimatable(2f);
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_DotMode), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<DotsWaveformMode> Mode { get; } = Property.CreateWithExpression(DotsWaveformMode.MinMax);
+    public IExpressionProperty<DotsWaveformMode> Mode { get; } = Property.CreateExpression(DotsWaveformMode.MinMax);
 
     public new partial class Resource
     {

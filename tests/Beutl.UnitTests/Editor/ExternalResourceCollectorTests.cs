@@ -356,7 +356,7 @@ public class ExternalResourceCollectorTests
             FontFamily.Value = fontFamily;
         }
 
-        public IExpressionProperty<FontFamily?> FontFamily { get; } = Property.CreateWithExpression<FontFamily?>();
+        public IExpressionProperty<FontFamily?> FontFamily { get; } = Property.CreateExpression<FontFamily?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -368,7 +368,7 @@ public class ExternalResourceCollectorTests
             Nested.Value = nested;
         }
 
-        public IExpressionProperty<IHierarchical?> Nested { get; } = Property.CreateWithExpression<IHierarchical?>();
+        public IExpressionProperty<IHierarchical?> Nested { get; } = Property.CreateExpression<IHierarchical?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -380,6 +380,6 @@ public class ExternalResourceCollectorTests
             StringValue.Value = value;
         }
 
-        public IExpressionProperty<string?> StringValue { get; } = Property.CreateWithExpression<string?>();
+        public IExpressionProperty<string?> StringValue { get; } = Property.CreateExpression<string?>();
     }
 }
