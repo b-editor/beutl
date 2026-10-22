@@ -10,7 +10,7 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl.Engine;
 
 public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
-    : IProperty<T>, IExpressionChainHost
+    : IProperty<T>, IExpressionChainHost, IChildObjectSource
 {
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
@@ -94,6 +94,9 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     }
 
     void IExpressionChainHost.SetExpressionChain(IExpression? chain) => Expression = (IExpression<T>?)chain;
+
+    IEnumerable<object?> IChildObjectSource.GetChildObjects()
+        => ChildObjects.MayHoldObjects(typeof(T)) ? [_currentValue] : [];
 
     void IExpressionChainHost.SetKeyFrames(IKeyFrameAnimation? keyFrames)
     {

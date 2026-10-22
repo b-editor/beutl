@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using Beutl.Editor.Infrastructure;
 using Beutl.Editor.Operations;
 using Beutl.Serialization;
 
@@ -8,17 +9,14 @@ internal static class OperationObserverHelpers
 {
     public static HashSet<string>? GetTrackedChildNames(HashSet<string>? propertyPathsToTrack, string propertyPath)
     {
-        return propertyPathsToTrack?.Where(i => i.Contains(propertyPath))
-            .Select(i => i.Substring(propertyPath.Length).TrimStart('.').Split('.').First())
-            .Where(i => !string.IsNullOrEmpty(i))
+        return propertyPathsToTrack?.Select(path => PropertyPathHelper.ChildName(path, propertyPath))
+            .OfType<string>()
             .ToHashSet();
     }
 
     public static string AppendPath(string propertyPath, string name)
     {
-        return string.IsNullOrEmpty(propertyPath)
-            ? name
-            : $"{propertyPath}.{name}";
+        return PropertyPathHelper.Append(propertyPath, name);
     }
 
     public static IOperationObserver CreateCollectionObserver(

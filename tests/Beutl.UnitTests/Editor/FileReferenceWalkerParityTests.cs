@@ -42,7 +42,7 @@ public class FileReferenceWalkerParityTests
     [Test]
     public void EveryWalkerFindsTheFileInEachPlace([Values] Walker walker, [Values] Place place)
     {
-        if (place == Place.NodePort && walker != Walker.ExternalResourceCollector)
+        if (place == Place.NodePort && walker == Walker.SerializedGraphTraversal)
             Assert.Ignore("This walker does not read node-port values: #3277.");
 
         Scene scene = CreateScene("main.scene");

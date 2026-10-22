@@ -9,7 +9,7 @@ using Reactive.Bindings;
 
 namespace Beutl.NodeGraph;
 
-public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
+public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChildObjectSource
 {
     private readonly ReactivePropertySlim<T?> _rxProperty = new();
     private KeyFrameAnimation<T>? _animation;
@@ -28,6 +28,9 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>
         Name = name;
         ObserveAnimation = new AnimationObservable(this);
     }
+
+    IEnumerable<object?> IChildObjectSource.GetChildObjects()
+        => ChildObjects.MayHoldObjects(typeof(T)) ? [_rxProperty.Value, _animation] : [_animation];
 
     private sealed class AnimationObservable(NodePropertyAdapter<T> adapter) : LightweightObservableBase<KeyFrameAnimation<T>?>
     {

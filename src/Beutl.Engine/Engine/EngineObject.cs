@@ -15,7 +15,7 @@ namespace Beutl.Engine;
 public sealed partial class FallbackEngineObject : EngineObject, IFallback;
 
 [FallbackType(typeof(FallbackEngineObject))]
-public class EngineObject : Hierarchical, INotifyEdited
+public class EngineObject : Hierarchical, INotifyEdited, IChildObjectSource
 {
     // CoreProperty rather than IProperty: these change only through edits and are not evaluated per frame.
     public static readonly CoreProperty<bool> IsTimeAnchorProperty;
@@ -61,6 +61,9 @@ public class EngineObject : Hierarchical, INotifyEdited
     }
 
     public virtual IReadOnlyList<IProperty> Properties => _properties;
+
+    // ChildObjects goes on from each property to its value and keyframes.
+    IEnumerable<object?> IChildObjectSource.GetChildObjects() => Properties;
 
     [NotAutoSerialized]
     public bool IsTimeAnchor

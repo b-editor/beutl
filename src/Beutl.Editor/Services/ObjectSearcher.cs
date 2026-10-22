@@ -1,10 +1,6 @@
-﻿using System.Collections;
-using Beutl.Animation;
-using Beutl.Engine;
-using Beutl.Extensibility;
+﻿namespace Beutl.Editor.Services;
 
-namespace Beutl.Editor.Services;
-
+// Searches below an object along ChildObjects, which reaches IProperty members, keyframes and node-port values.
 public class ObjectSearcher
 {
     private readonly HashSet<object> _hashSet = new(ReferenceEqualityComparer.Instance);
@@ -27,26 +23,19 @@ public class ObjectSearcher
 
     public object? Search()
     {
-        return SearchRecursive(_obj);
+        return ChildObjects.Unwrap(_obj) is { } root ? SearchRecursive(root) : null;
     }
 
     public IReadOnlyList<object> SearchAll()
     {
         var list = new List<object>();
-        SearchAllRecursive(_obj, list);
+        if (ChildObjects.Unwrap(_obj) is { } root)
+            SearchAllRecursive(root, list);
         return list;
     }
 
     private object? SearchRecursive(object obj)
     {
-        if (obj is IOptional optional)
-        {
-            obj = optional.ToObject().GetValueOrDefault()!;
-            // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
-            if (obj == null)
-                return null;
-        }
-
         if (!obj.GetType().IsValueType && !_hashSet.Add(obj))
             return null;
 
@@ -56,75 +45,10 @@ public class ObjectSearcher
         try
         {
             _stack?.Push(obj);
-
-            switch (obj)
+            foreach (object child in ChildObjects.Of(obj))
             {
-                case string:
-                    break;
-
-                case CoreObject coreObject:
-                    foreach (CoreProperty? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                                 .Where(x => (!x.PropertyType.IsValueType
-                                              || x.PropertyType.IsAssignableTo(typeof(IOptional)))
-                                             && x.Id != Hierarchical.HierarchicalParentProperty.Id))
-                    {
-                        object? value = coreObject.GetValue(item);
-                        if (value != null
-                            && SearchRecursive(value) is { } result)
-                        {
-                            return result;
-                        }
-                    }
-
-                    if (coreObject is EngineObject engineObject)
-                    {
-                        foreach (IProperty property in engineObject.Properties)
-                        {
-                            if ((!property.ValueType.IsValueType
-                                 || property.ValueType.IsAssignableTo(typeof(IOptional)))
-                                && property.CurrentValue is { } value
-                                && SearchRecursive(value) is { } result)
-                            {
-                                return result;
-                            }
-                            if (property.GetKeyFrameAnimation() is { } animation
-                                && SearchRecursive(animation) is { } animationResult)
-                                return animationResult;
-                        }
-                    }
-
-                    break;
-
-                case IEnumerable enm:
-                    {
-                        foreach (object? item in enm)
-                        {
-                            if (item != null
-                                && SearchRecursive(item) is { } result)
-                            {
-                                return result;
-                            }
-                        }
-                    }
-                    break;
-
-                case IPropertyAdapter property:
-                    {
-                        if ((!property.PropertyType.IsValueType
-                             || property.PropertyType.IsAssignableTo(typeof(IOptional)))
-                            && property.GetValue() is { } value
-                            && SearchRecursive(value) is { } result1)
-                        {
-                            return result1;
-                        }
-
-                        if (property is IAnimatablePropertyAdapter { Animation: { } animation }
-                            && SearchRecursive(animation) is { } result2)
-                        {
-                            return result2;
-                        }
-                    }
-                    break;
+                if (SearchRecursive(child) is { } result)
+                    return result;
             }
 
             return null;
@@ -137,12 +61,6 @@ public class ObjectSearcher
 
     private void SearchAllRecursive(object obj, List<object> list)
     {
-        if (obj is IOptional optional)
-        {
-            obj = optional.ToObject().GetValueOrDefault()!;
-            if (obj == null) return;
-        }
-
         if (!obj.GetType().IsValueType && !_hashSet.Add(obj))
             return;
 
@@ -152,61 +70,8 @@ public class ObjectSearcher
         try
         {
             _stack?.Push(obj);
-
-            switch (obj)
-            {
-                case string:
-                    break;
-
-                case CoreObject coreObject:
-                    foreach (object? item in PropertyRegistry.GetRegistered(coreObject.GetType())
-                                 .Where(x => (!x.PropertyType.IsValueType || x.PropertyType.IsAssignableTo(typeof(IOptional))) &&
-                                             x != Hierarchical.HierarchicalParentProperty)
-                                 .Select(coreObject.GetValue)
-                                 .Where(x => x != null))
-                    {
-                        SearchAllRecursive(item!, list);
-                    }
-
-                    if (coreObject is EngineObject engineObject)
-                    {
-                        foreach (IProperty property in engineObject.Properties)
-                        {
-                            if ((!property.ValueType.IsValueType || property.ValueType.IsAssignableTo(typeof(IOptional)))
-                                && property.CurrentValue is { } value)
-                                SearchAllRecursive(value, list);
-                            if (property.GetKeyFrameAnimation() is { } animation)
-                                SearchAllRecursive(animation, list);
-                        }
-                    }
-
-                    break;
-
-                case IEnumerable enm:
-                    {
-                        foreach (object? item in enm)
-                        {
-                            if (item != null)
-                                SearchAllRecursive(item, list);
-                        }
-                    }
-                    break;
-
-                case IPropertyAdapter property:
-                    {
-                        if ((!property.PropertyType.IsValueType || property.PropertyType.IsAssignableTo(typeof(IOptional)))
-                            && property.GetValue() is { } value)
-                        {
-                            SearchAllRecursive(value, list);
-                        }
-
-                        if (property is IAnimatablePropertyAdapter { Animation: { } animation })
-                        {
-                            SearchAllRecursive(animation, list);
-                        }
-                    }
-                    break;
-            }
+            foreach (object child in ChildObjects.Of(obj))
+                SearchAllRecursive(child, list);
         }
         finally
         {

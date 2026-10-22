@@ -6,7 +6,7 @@ using Beutl.Extensibility;
 
 namespace Beutl.PropertyAdapters;
 
-public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
+public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
 {
     private readonly Lazy<Attribute[]> _attributes;
     private readonly Lazy<DisplayAttribute?> _displayAttribute;
@@ -23,6 +23,8 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>
     public EngineObject Object { get; }
 
     public IProperty<T> Property { get; }
+
+    IEnumerable<object?> IChildObjectSource.GetChildObjects() => [Property];
 
     [field: AllowNull, MaybeNull] public Type ImplementedType => field ??= Object.GetType();
 

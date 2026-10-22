@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Editor.Infrastructure;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.NodeGraph;
@@ -22,19 +23,14 @@ public sealed class UpdateNodeMemberOperation(
 
     private void UpdateValue(object? value)
     {
-        if (PropertyPath.Contains('.'))
+        switch (PropertyPathHelper.Parse(PropertyPath).Slot)
         {
-            string[] parts = PropertyPath.Split('.');
-
-            switch (parts[^1])
-            {
-                case "Animation" when NodeMember.Property is IAnimatablePropertyAdapter animatablePropertyAdapter:
-                    animatablePropertyAdapter.Animation = value as IKeyFrameAnimation;
-                    return;
-                case "Expression" when NodeMember.Property is IExpressionPropertyAdapter expressiblePropertyAdapter:
-                    expressiblePropertyAdapter.Expression = value as IExpression;
-                    return;
-            }
+            case PropertyPathSlot.Animation when NodeMember.Property is IAnimatablePropertyAdapter animatablePropertyAdapter:
+                animatablePropertyAdapter.Animation = value as IKeyFrameAnimation;
+                return;
+            case PropertyPathSlot.Expression when NodeMember.Property is IExpressionPropertyAdapter expressiblePropertyAdapter:
+                expressiblePropertyAdapter.Expression = value as IExpression;
+                return;
         }
 
         NodeMember.Property?.SetValue(value);
@@ -52,7 +48,7 @@ public sealed class UpdateNodeMemberOperation(
 
     // Mirrors the property adapters: animations and expressions are replaced by reference, values by
     // equality.
-    public bool IsNoop => PropertyPath.Split('.')[^1] is "Animation" or "Expression"
+    public bool IsNoop => PropertyPathHelper.Parse(PropertyPath).Slot is not PropertyPathSlot.Value
         ? ReferenceEquals(NewValue, OldValue)
         : Equals(NewValue, OldValue);
 

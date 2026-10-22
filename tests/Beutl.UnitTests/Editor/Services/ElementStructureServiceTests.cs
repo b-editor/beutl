@@ -1,7 +1,11 @@
-﻿using Beutl.Editor;
+﻿using Beutl.Animation;
+using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.Graphics.Transitions;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.NodeGraph;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
@@ -186,6 +190,26 @@ public class ElementStructureServiceTests
             Assert.That(added[0].Uri, Is.EqualTo(ElementFileNaming.GetUri(_scene.Uri!, added[0].Id)));
             Assert.That(File.Exists(added[0].Uri!.LocalPath), Is.False);
         });
+    }
+
+    [Test]
+    public void Split_ShiftsTheLocalKeyFramesOfNodePortsToo()
+    {
+        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
+        var graph = new GraphModel();
+        var drawable = new NodeGraphDrawable { Model = { CurrentValue = graph } };
+        var port = NodeGraphTestHelpers.Source(graph, 0f, "Amount");
+        ((IAnimatablePropertyAdapter)port.Property!).Animation = TestAnimations.Linear(0f, 1f, TimeSpan.FromSeconds(4));
+        element.AddObject(drawable);
+        _history.Commit("Add element");
+        Element[] childrenBefore = [.. _scene.Children];
+
+        _service.Split(_scene, [element], TimeSpan.FromSeconds(3));
+        Element back = _scene.Children.Except(childrenBefore).Single();
+        var keyFrames = (IKeyFrameAnimation)new ObjectSearcher(back, v => v is IKeyFrameAnimation).Search()!;
+
+        Assert.That(keyFrames.KeyFrames.Select(k => k.KeyTime),
+            Is.EqualTo(new[] { TimeSpan.FromSeconds(-2), TimeSpan.FromSeconds(2) }));
     }
 
     [Test]
