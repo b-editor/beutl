@@ -34,6 +34,18 @@ public class FallbackRenderTests
     public void AFallbackPathSegment_AddsNothingToThePath()
         => AssertSameFrame(Triangle(withFallback: false), Triangle(withFallback: true));
 
+    // Without a start point, an open figure starts where its first segment ends and a closed one where its last ends.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AFallbackPathSegment_WhereAFigureTakesItsStart_LeavesTheStartToTheOtherSegments(bool closed)
+        => AssertSameFrame(PathShape(Figure(closed, withFallback: false)), PathShape(Figure(closed, withFallback: true)));
+
+    [Test]
+    public void AFallbackPathSegment_DoesNotJoinItsFigureToTheOneBefore()
+        => AssertSameFrame(
+            PathShape(Corner(), Figure(closed: false, withFallback: false)),
+            PathShape(Corner(), Figure(closed: false, withFallback: true)));
+
     private static RectShape Square(Transform? transform)
     {
         var shape = new RectShape();
@@ -55,6 +67,40 @@ public class FallbackRenderTests
         figure.Segments.Add(new LineSegment(16, 28));
         var geometry = new PathGeometry();
         geometry.Figures.Add(figure);
+        var shape = new GeometryShape();
+        shape.Data.Value = geometry;
+        shape.Fill.Value = Brushes.White;
+        return shape;
+    }
+
+    // A triangle without a start point, with the fallback where the figure takes its start from.
+    private static PathFigure Figure(bool closed, bool withFallback)
+    {
+        var figure = new PathFigure();
+        figure.IsClosed.Value = closed;
+        figure.Segments.Add(new LineSegment(4, 4));
+        figure.Segments.Add(new LineSegment(28, 4));
+        figure.Segments.Add(new LineSegment(16, 28));
+        if (withFallback)
+            figure.Segments.Insert(closed ? figure.Segments.Count : 0, new FallbackPathSegment());
+        return figure;
+    }
+
+    // An open corner whose end the next figure would continue from if it did not start on its own.
+    private static PathFigure Corner()
+    {
+        var figure = new PathFigure();
+        figure.Segments.Add(new LineSegment(1, 1));
+        figure.Segments.Add(new LineSegment(3, 1));
+        figure.Segments.Add(new LineSegment(1, 6));
+        return figure;
+    }
+
+    private static GeometryShape PathShape(params PathFigure[] figures)
+    {
+        var geometry = new PathGeometry();
+        foreach (PathFigure figure in figures)
+            geometry.Figures.Add(figure);
         var shape = new GeometryShape();
         shape.Data.Value = geometry;
         shape.Fill.Value = Brushes.White;
