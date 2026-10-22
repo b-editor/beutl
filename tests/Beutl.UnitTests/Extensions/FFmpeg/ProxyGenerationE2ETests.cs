@@ -84,7 +84,8 @@ public sealed class ProxyGenerationE2ETests
         Assert.That(store.Enumerate(), Is.Empty);
     }
 
-    // Decoders open no reader for a file without any requested stream, so asking for video alone would fail this file.
+    // Decoders open no reader for a file without any requested stream: the open asks for video, then an audio
+    // probe tells a missing video stream from an unreadable file.
     [Test]
     public async Task GenerateAsync_AudioOnlySourceOfADecoderThatOpensOnlyRequestedStreams_IsSkipped()
     {
@@ -100,6 +101,7 @@ public sealed class ProxyGenerationE2ETests
 
             await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
                 async () => await generator.GenerateAsync(job));
+            Assert.That(decoder.Requested, Is.EqualTo(new[] { MediaMode.Video, MediaMode.Audio }));
         }
         finally
         {
@@ -553,10 +555,15 @@ public sealed class ProxyGenerationE2ETests
     {
         public string Name => "Audio-only test decoder";
 
+        public List<MediaMode> Requested { get; } = [];
+
         public MediaReader? Open(string file, MediaOptions options)
-            => options.StreamsToLoad.HasFlag(MediaMode.Audio)
+        {
+            Requested.Add(options.StreamsToLoad);
+            return options.StreamsToLoad.HasFlag(MediaMode.Audio)
                 ? new TestDecoderInfo().Open(TestMediaHelper.CreateTestAudioFile(), options)
                 : null;
+        }
 
         public IEnumerable<string> VideoExtensions() => [];
 

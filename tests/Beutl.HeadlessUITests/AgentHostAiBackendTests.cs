@@ -269,20 +269,29 @@ public sealed class AgentHostAiBackendTests
         }
     }
 
-    // Decoders open no reader for a file without any requested stream, so asking for audio alone would hide the reason.
+    // Transcription opens the audio alone, and a file that then opens only as video is refused for its missing audio.
     [Test]
     public async Task AFileWithoutAudioIsRefusedForItsMissingAudio()
     {
         string path = WriteSource("silent-video" + Extension);
-        var decoder = new StubDecoder(options => options.StreamsToLoad.HasFlag(MediaMode.Video)
-            ? new StubAudioReader(48_000, 48_000) { Audio = false }
-            : null);
+        var requested = new List<MediaMode>();
+        var decoder = new StubDecoder(options =>
+        {
+            requested.Add(options.StreamsToLoad);
+            return options.StreamsToLoad.HasFlag(MediaMode.Video)
+                ? new StubAudioReader(48_000, 48_000) { Audio = false }
+                : null;
+        });
         DecoderRegistry.Register(decoder);
         try
         {
             AgentAiException? refused = await CatchAsync(CreateBackend(transcription: new StubTranscription()), path);
 
-            Assert.That(refused?.Message, Is.EqualTo("The file has no audio to transcribe."));
+            Assert.Multiple(() =>
+            {
+                Assert.That(refused?.Message, Is.EqualTo("The file has no audio to transcribe."));
+                Assert.That(requested, Is.EqualTo(new[] { MediaMode.Audio, MediaMode.Video }));
+            });
         }
         finally
         {

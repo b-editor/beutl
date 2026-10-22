@@ -77,6 +77,32 @@ public sealed partial class AiSubtitleDialogViewModel
             operationLifetime);
     }
 
+    // Audio alone: an FFmpeg reader that also decodes video starts its audio after the first frame.
+    // A file that opens only as video gets the no-audio message.
+    private async Task<MediaReader> OpenSourceAudioAsync(string filePath)
+    {
+        try
+        {
+            return await Task.Run(
+                () => MediaReader.Open(
+                    filePath,
+                    new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
+                RequestToken);
+        }
+        catch (UnsupportedMediaException)
+        {
+            bool opensAsVideo = await Task.Run(() =>
+            {
+                using MediaReader? video = DecoderRegistry.OpenMediaFile(
+                    filePath, new MediaOptions(MediaMode.Video) { IsBackground = true });
+                return video != null;
+            }, RequestToken);
+            if (opensAsVideo)
+                throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+            throw;
+        }
+    }
+
     private async Task TranscribeSourceFileAsync(
         AudioSourceItem source,
         string filePath,
@@ -89,12 +115,7 @@ public sealed partial class AiSubtitleDialogViewModel
         // Opening and decoding are the editor's own work, not the server's, and
         // both run for as long as the audio is: off the UI thread, or the window
         // stops answering for the length of the file.
-        // Both streams, so a file without audio still opens and gets the no-audio message.
-        using MediaReader reader = await Task.Run(
-            () => MediaReader.Open(
-                filePath,
-                new MediaOptions(MediaMode.AudioVideo) { PreferProxy = false, IsBackground = true }),
-            RequestToken);
+        using MediaReader reader = await OpenSourceAudioAsync(filePath);
         if (!reader.HasAudio)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
 

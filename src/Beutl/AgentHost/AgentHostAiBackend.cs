@@ -94,14 +94,23 @@ internal sealed class AgentHostAiBackend(
         MediaReader opened;
         try
         {
-            // Both streams, so a file without audio still opens and gets the no-audio reason.
+            // Audio alone: an FFmpeg reader that also decodes video starts its audio after the first frame.
             opened = await Task.Run(
-                () => MediaReader.Open(path, new MediaOptions(MediaMode.AudioVideo) { PreferProxy = false, IsBackground = true }),
+                () => MediaReader.Open(path, new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (UnsupportedMediaException)
         {
-            throw new AgentAiException(Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported, "The file could not be decoded as audio or video.");
+            // A file that opens only as video has no audio to transcribe.
+            bool opensAsVideo = await Task.Run(() =>
+            {
+                using MediaReader? video = DecoderRegistry.OpenMediaFile(
+                    path, new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
+                return video != null;
+            }, cancellationToken).ConfigureAwait(false);
+            throw new AgentAiException(
+                Beutl.AgentToolkit.Common.ErrorCode.MediaUnsupported,
+                opensAsVideo ? "The file has no audio to transcribe." : "The file could not be decoded as audio or video.");
         }
 
         using MediaReader reader = opened;
