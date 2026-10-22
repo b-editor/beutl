@@ -23,20 +23,22 @@ public sealed class OutputPresetService : IOutputPresetStore
     private readonly CoreList<OutputPresetItem> _items = [];
 
     private readonly string _filePath;
+    private readonly IPreferences _preferences;
 
     private readonly ILogger _logger = Log.CreateLogger<OutputPresetService>();
     private bool _isRestored;
     private bool _matchesPlatformPresetNames;
 
     private OutputPresetService()
-        : this(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "output-presets.json"))
+        : this(Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "output-presets.json"), Preferences.Default)
     {
     }
 
-    // Tests restore a presets file of their own.
-    internal OutputPresetService(string filePath)
+    // Tests restore presets and preferences of their own.
+    internal OutputPresetService(string filePath, IPreferences preferences)
     {
         _filePath = filePath;
+        _preferences = preferences;
         RestoreItems();
     }
 
@@ -223,7 +225,7 @@ public sealed class OutputPresetService : IOutputPresetStore
 
     private void AddPlatformPresets()
     {
-        _matchesPlatformPresetNames = !Preferences.Default.Get(PlatformPresetNamesMatchedKey, false);
+        _matchesPlatformPresetNames = !_preferences.Get(PlatformPresetNamesMatchedKey, false);
         bool changed = false;
 
         changed |= AddH264Preset(
@@ -327,9 +329,17 @@ public sealed class OutputPresetService : IOutputPresetStore
             }
         }
 
-        if (_isRestored)
+        if (_isRestored && _matchesPlatformPresetNames)
         {
-            Preferences.Default.Set(PlatformPresetNamesMatchedKey, true);
+            try
+            {
+                _preferences.Set(PlatformPresetNamesMatchedKey, true);
+            }
+            catch (Exception ex)
+            {
+                // Failing here only means the next start matches the names again.
+                _logger.LogError(ex, "An exception has occurred while recording that the platform preset names were matched.");
+            }
         }
     }
 
