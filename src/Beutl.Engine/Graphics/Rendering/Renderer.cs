@@ -859,6 +859,7 @@ public class Renderer : IRenderer
 
     public DrawableRenderNode? FindRenderNode(Drawable drawable)
     {
+        _dispatcher.VerifyAccess();
         if (_nodeCache.TryGetValue(drawable, out Entry? entry))
         {
             return entry.Node;

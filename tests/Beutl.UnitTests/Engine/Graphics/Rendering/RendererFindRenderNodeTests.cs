@@ -56,6 +56,21 @@ public class RendererFindRenderNodeTests
         });
     }
 
+    // The render thread changes the node tree while it draws a frame.
+    [Test]
+    public void FindRenderNode_RefusesCallersOffTheRenderThread()
+    {
+        Renderer renderer = RenderThread.Dispatcher.Invoke(() => CreateCpuRenderer(Width, Height));
+        try
+        {
+            Assert.Throws<InvalidOperationException>(() => renderer.FindRenderNode(CreateRect()));
+        }
+        finally
+        {
+            RenderThread.Dispatcher.Invoke(renderer.Dispose);
+        }
+    }
+
     private static RectShape CreateRect()
     {
         var rect = new RectShape();
