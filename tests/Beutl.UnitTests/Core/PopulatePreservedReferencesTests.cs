@@ -1,6 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Nodes;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Core;
@@ -10,80 +8,52 @@ public class PopulatePreservedReferencesTests
 {
     public sealed class Node : CoreObject
     {
-        public static readonly CoreProperty<Node?> ChildProperty =
-            ConfigureProperty<Node?, Node>(nameof(Child)).Register();
+        public Node()
+        {
+            ScanProperties<Node>();
+        }
+
+        public IProperty<Node?> ChildProperty { get; } = new ValueOnlyProperty<Node?>(null);
 
         public Node? Child
         {
-            get => GetValue(ChildProperty);
-            set => SetValue(ChildProperty, value);
-        }
-    }
-
-    public sealed record NodeContainer(Node Node);
-
-    public sealed class NodeContainerConverter : JsonConverter<NodeContainer>
-    {
-        public override NodeContainer Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            JsonObject json = JsonNode.Parse(ref reader)!.AsObject();
-            return new NodeContainer((Node)CoreSerializer.DeserializeFromJsonObject(json["Node"]!.AsObject(), typeof(Node)));
-        }
-
-        public override void Write(Utf8JsonWriter writer, NodeContainer value, JsonSerializerOptions options)
-        {
-            writer.WriteStartObject();
-            writer.WritePropertyName("Node");
-            CoreSerializer.SerializeToJsonObject(value.Node).WriteTo(writer);
-            writer.WriteEndObject();
+            get => ChildProperty.Value;
+            set => ChildProperty.Value = value;
         }
     }
 
     // No hierarchy is available as a fallback: references must resolve from the population context.
     private sealed class Owner : CoreObject
     {
-        public static readonly CoreProperty<Reference<Node>> TargetProperty =
-            ConfigureProperty<Reference<Node>, Owner>(nameof(Target)).Register();
-
-        public static readonly CoreProperty<Node?> RegisteredProperty =
-            ConfigureProperty<Node?, Owner>(nameof(Registered)).Register();
-
-        public static readonly CoreProperty<List<Node>> CollectionProperty =
-            ConfigureProperty<List<Node>, Owner>(nameof(Collection)).Register();
-
-        public static readonly CoreProperty<NodeContainer> ConvertedProperty =
-            ConfigureProperty<NodeContainer, Owner>(nameof(Converted)).Register();
-
         public Owner()
         {
+            ScanProperties<Owner>();
             Registered = CreateNode();
             Collection = [CreateNode()];
-            Converted = new NodeContainer(CreateNode());
         }
+
+        public IProperty<Reference<Node>> TargetProperty { get; } = new ValueOnlyProperty<Reference<Node>>(default);
+
+        public IProperty<Node?> RegisteredProperty { get; } = new ValueOnlyProperty<Node?>(null);
+
+        public IProperty<List<Node>> CollectionProperty { get; } = new ValueOnlyProperty<List<Node>>(null!);
 
         public Reference<Node> Target
         {
-            get => GetValue(TargetProperty);
-            set => SetValue(TargetProperty, value);
+            get => TargetProperty.Value;
+            set => TargetProperty.Value = value;
         }
 
         public Node? Registered
         {
-            get => GetValue(RegisteredProperty);
-            set => SetValue(RegisteredProperty, value);
+            get => RegisteredProperty.Value;
+            set => RegisteredProperty.Value = value;
         }
 
         public List<Node> Collection
         {
-            get => GetValue(CollectionProperty)!;
-            set => SetValue(CollectionProperty, value);
-        }
-
-        [JsonConverter(typeof(NodeContainerConverter))]
-        public NodeContainer Converted
-        {
-            get => GetValue(ConvertedProperty)!;
-            set => SetValue(ConvertedProperty, value);
+            get => CollectionProperty.Value;
+            set => CollectionProperty.Value = value;
         }
 
         public Node? Custom { get; set; } = CreateNode();
@@ -110,7 +80,6 @@ public class PopulatePreservedReferencesTests
         {
             nameof(Registered) => Registered!,
             nameof(Collection) => Collection[0],
-            nameof(Converted) => Converted.Node,
             nameof(Custom) => Custom!,
             nameof(Rebuilt) => Rebuilt[0],
             _ => throw new ArgumentOutOfRangeException(nameof(member))
@@ -125,8 +94,6 @@ public class PopulatePreservedReferencesTests
     [TestCase(nameof(Owner.Registered), true)]
     [TestCase(nameof(Owner.Collection), false)]
     [TestCase(nameof(Owner.Collection), true)]
-    [TestCase(nameof(Owner.Converted), false)]
-    [TestCase(nameof(Owner.Converted), true)]
     public void Populate_resolves_changed_references_into_preserved_graphs(string member, bool nested)
     {
         var owner = new Owner();

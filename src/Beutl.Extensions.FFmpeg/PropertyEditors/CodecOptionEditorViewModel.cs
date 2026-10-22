@@ -38,10 +38,10 @@ internal abstract class CodecOptionEditorViewModel<TValue, TItem, TSettings> : I
         _logger = logger;
         _optionsName = optionsName;
 
-        // Resolve the encoder settings from the CorePropertyAdapter.
-        if (property is CorePropertyAdapter<TValue> cpa)
+        // Resolve the encoder settings from the property's adapter.
+        if (property is EnginePropertyAdapter<TValue> adapter)
         {
-            _settings = cpa.Object as TSettings;
+            _settings = adapter.Object as TSettings;
         }
     }
 
@@ -54,12 +54,12 @@ internal abstract class CodecOptionEditorViewModel<TValue, TItem, TSettings> : I
     public abstract void Accept(IPropertyEditorContextVisitor visitor);
 
     // Called at the end of the derived constructor, once the derived state exists.
-    protected void Initialize(CoreProperty<CodecRecord> codecProperty)
+    protected void Initialize(Func<TSettings, IProperty<CodecRecord>> codecProperty)
     {
         if (_settings != null)
         {
             // Watch for codec changes.
-            _settings.GetObservable(codecProperty)
+            codecProperty(_settings).GetObservable()
                 .Subscribe(_ => RequestUpdate())
                 .DisposeWith(Disposables);
         }

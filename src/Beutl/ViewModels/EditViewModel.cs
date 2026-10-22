@@ -111,7 +111,7 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables)!;
 
         Player = new PlayerViewModel(this);
-        GlobalConfiguration.Instance.EditorConfig.GetObservable(EditorConfig.PreviewSourceModeProperty)
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceModeProperty.GetObservable()
             .Skip(1)
             .Subscribe(_ =>
             {
@@ -121,7 +121,7 @@ public sealed partial class EditViewModel
                 Player.QueuePreviewRender();
             })
             .DisposeWith(_disposables);
-        GlobalConfiguration.Instance.ProxyStoreConfig.GetObservable(ProxyStoreConfig.DefaultPresetProperty)
+        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPresetProperty.GetObservable()
             .Skip(1)
             .Subscribe(_ =>
             {
@@ -197,7 +197,7 @@ public sealed partial class EditViewModel
     private static IObservable<long> CreateFrameCacheMaxSize()
     {
         return GlobalConfiguration.Instance.EditorConfig
-            .GetObservable(EditorConfig.FrameCacheMaxSizeProperty)
+            .FrameCacheMaxSizeProperty.GetObservable()
             .Select(v => (long)(v * 1024 * 1024));
     }
 

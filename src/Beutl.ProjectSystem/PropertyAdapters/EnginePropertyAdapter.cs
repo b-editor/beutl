@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
-using Beutl.Collections;
 using Beutl.Extensibility;
 
 namespace Beutl.PropertyAdapters;
@@ -41,8 +40,8 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
 
     public string? Description => _displayAttribute.Value?.GetDescription();
 
-    // A list its object keeps as a base field is changed item by item, never replaced, like Element.Objects was.
-    public bool IsReadOnly => Property is not IListProperty && Property.Value is ICoreList && Object.IsBaseField(Property);
+    // A list its object keeps is changed item by item, never replaced, like Element.Objects was.
+    public bool IsReadOnly => Property is IValueOnlyProperty { KeepsList: true };
 
     IProperty IPropertyAdapter.GetEngineProperty() => Property;
 

@@ -8,19 +8,17 @@ namespace Beutl.Configuration;
 [DroppedMembers("ShowTutorialsOnStartup")]
 public sealed class TutorialConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<CoreList<string>> CompletedTutorialIdsProperty;
-
-    static TutorialConfig()
+    public TutorialConfig()
     {
-        CompletedTutorialIdsProperty = ConfigureProperty<CoreList<string>, TutorialConfig>(nameof(CompletedTutorialIds))
-            .DefaultValue([])
-            .Register();
+        ScanProperties<TutorialConfig>();
     }
+
+    public IProperty<CoreList<string>> CompletedTutorialIdsProperty { get; } = new ValueOnlyProperty<CoreList<string>>([]);
 
     public CoreList<string> CompletedTutorialIds
     {
-        get => GetValue(CompletedTutorialIdsProperty);
-        set => SetValue(CompletedTutorialIdsProperty, value);
+        get => CompletedTutorialIdsProperty.Value;
+        set => CompletedTutorialIdsProperty.Value = value;
     }
 
     public void MarkCompleted(string tutorialId)

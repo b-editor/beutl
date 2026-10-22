@@ -17,44 +17,36 @@ public sealed class ProxyStoreConfig : ConfigurationBase
     public const int DefaultPresetValue = 2;
     public static string DefaultStoreRootPath => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "proxies");
 
-    public static readonly CoreProperty<string> StoreRootPathProperty;
-    public static readonly CoreProperty<long> MaxTotalBytesProperty;
-    public static readonly CoreProperty<int> DefaultPresetProperty;
-
-    static ProxyStoreConfig()
+    public ProxyStoreConfig()
     {
-        StoreRootPathProperty = ConfigureProperty<string, ProxyStoreConfig>(nameof(StoreRootPath))
-            .DefaultValue(DefaultStoreRootPath)
-            .Register();
-
-        MaxTotalBytesProperty = ConfigureProperty<long, ProxyStoreConfig>(nameof(MaxTotalBytes))
-            .DefaultValue(DefaultTotalBytes)
-            .Register();
-
-        DefaultPresetProperty = ConfigureProperty<int, ProxyStoreConfig>(nameof(DefaultPreset))
-            .DefaultValue(DefaultPresetValue)
-            .Register();
+        ScanProperties<ProxyStoreConfig>();
     }
+
+    public IProperty<string> StoreRootPathProperty { get; } = new ValueOnlyProperty<string>(DefaultStoreRootPath);
+
+    [Range(MinTotalBytes, MaxTotalBytesLimit)]
+    public IProperty<long> MaxTotalBytesProperty { get; } = new ValueOnlyProperty<long>(DefaultTotalBytes);
+
+    [Range(MinPreset, MaxPreset)]
+    public IProperty<int> DefaultPresetProperty { get; } = new ValueOnlyProperty<int>(DefaultPresetValue);
 
     public string StoreRootPath
     {
         // NormalizeStoreRootPath returns an absolute path; a second GetFullPath could throw for a malformed value.
-        get => NormalizeStoreRootPath(GetValue(StoreRootPathProperty));
-        set => SetValue(StoreRootPathProperty, NormalizeStoreRootPath(value));
+        get => NormalizeStoreRootPath(StoreRootPathProperty.Value);
+        set => StoreRootPathProperty.Value = NormalizeStoreRootPath(value);
     }
 
-    [Range(MinTotalBytes, MaxTotalBytesLimit)]
     public long MaxTotalBytes
     {
-        get => Math.Clamp(GetValue(MaxTotalBytesProperty), MinTotalBytes, MaxTotalBytesLimit);
-        set => SetValue(MaxTotalBytesProperty, Math.Clamp(value, MinTotalBytes, MaxTotalBytesLimit));
+        get => Math.Clamp(MaxTotalBytesProperty.Value, MinTotalBytes, MaxTotalBytesLimit);
+        set => MaxTotalBytesProperty.Value = Math.Clamp(value, MinTotalBytes, MaxTotalBytesLimit);
     }
 
-    [Range(MinPreset, MaxPreset)]
     public int DefaultPreset
     {
-        get => Math.Clamp(GetValue(DefaultPresetProperty), MinPreset, MaxPreset);
-        set => SetValue(DefaultPresetProperty, Math.Clamp(value, MinPreset, MaxPreset));
+        get => Math.Clamp(DefaultPresetProperty.Value, MinPreset, MaxPreset);
+        set => DefaultPresetProperty.Value = Math.Clamp(value, MinPreset, MaxPreset);
     }
 
     // gib comes from a free-form TextBox and may be huge, NaN, or infinite; clamp in GiB

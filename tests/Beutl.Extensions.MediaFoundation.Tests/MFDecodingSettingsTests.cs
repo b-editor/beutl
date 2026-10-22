@@ -16,9 +16,9 @@ public class MFDecodingSettingsTests
         });
     }
 
-    // Guards the AffectsConfig re-registration: PackageManager only persists extension settings from
-    // the ConfigurationChanged event, so without AffectsConfig these live settings would apply only
-    // in memory and reset on reload. Dropping the AffectsConfig call must fail these tests.
+    // Guards OnChanged from each setting's ValueChanged: PackageManager only persists extension settings from
+    // the ConfigurationChanged event, so without it these live settings would apply only in memory and
+    // reset on reload. Dropping the OnChanged calls must fail these tests.
     [TestCase(nameof(MFDecodingSettings.ThresholdFrameCount))]
     [TestCase(nameof(MFDecodingSettings.MaxVideoBufferSize))]
     public void ChangingASetting_RaisesConfigurationChanged(string setting)

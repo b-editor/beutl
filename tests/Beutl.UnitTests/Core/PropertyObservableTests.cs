@@ -1,6 +1,6 @@
 ﻿namespace Beutl.UnitTests.Core;
 
-// GetObservable on an IProperty, which takes over from GetObservable(CoreProperty) for the converted members.
+// GetObservable on an IProperty.
 [TestFixture]
 public class PropertyObservableTests
 {

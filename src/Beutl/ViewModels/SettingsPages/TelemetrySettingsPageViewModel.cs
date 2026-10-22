@@ -14,22 +14,22 @@ public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
     {
         _config = GlobalConfiguration.Instance.TelemetryConfig;
 
-        Beutl_Application = _config.GetObservable(TelemetryConfig.Beutl_ApplicationProperty)
+        Beutl_Application = _config.Beutl_ApplicationProperty.GetObservable()
             .Select(v => v == true)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Beutl_PackageManagement = _config.GetObservable(TelemetryConfig.Beutl_PackageManagementProperty)
+        Beutl_PackageManagement = _config.Beutl_PackageManagementProperty.GetObservable()
             .Select(v => v == true)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Beutl_Api_Client = _config.GetObservable(TelemetryConfig.Beutl_Api_ClientProperty)
+        Beutl_Api_Client = _config.Beutl_Api_ClientProperty.GetObservable()
             .Select(v => v == true)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Beutl_Logging = _config.GetObservable(TelemetryConfig.Beutl_LoggingProperty)
+        Beutl_Logging = _config.Beutl_LoggingProperty.GetObservable()
             .Select(v => v == true)
             .ToReactiveProperty()
             .DisposeWith(_disposables);

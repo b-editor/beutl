@@ -37,7 +37,7 @@ public class NoMigrationRegressionTests
         var json = CoreSerializer.SerializeToJsonObject(dilate);
         string s1 = json.ToJsonString();
 
-        // Scale machinery has no serialized CoreProperty, so none of it leaks into the JSON.
+        // Scale machinery has no serialized property, so none of it leaks into the JSON.
         Assert.That(s1, Does.Not.Contain("WorkingScale"));
         Assert.That(s1, Does.Not.Contain("EffectiveScale"));
         Assert.That(s1, Does.Not.Contain("OutputScale"));

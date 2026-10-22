@@ -73,23 +73,17 @@ public sealed class PropertiesEditorViewModel : IDisposable, IJsonSerializable, 
         AddContexts(props);
     }
 
-    // An object without panels shows each property it registers, where its CoreProperty fields were, then those
-    // fields, then Id and Name.
+    // An object without panels shows each property it registers, then Id and Name.
     private void InitializeCoreObject(ICoreObject obj)
     {
         if (obj is not CoreObject coreObject)
-        {
-            AddContexts(CoreObjectPropertyEditorBuilder.CreateAdapters(obj, null));
             return;
-        }
 
         List<IPropertyAdapter> props = [.. coreObject.Properties.Where(p => !coreObject.IsOwnField(p)).Select(CreateAdapter)];
-        props.AddRange(CoreObjectPropertyEditorBuilder.CreateAdapters(obj, null));
         props.AddRange(coreObject.Properties.Where(coreObject.IsOwnField).Select(CreateAdapter));
         AddContexts(props);
 
-        IPropertyAdapter CreateAdapter(IProperty property) => (IPropertyAdapter)Activator.CreateInstance(
-            typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, coreObject)!;
+        IPropertyAdapter CreateAdapter(IProperty property) => CoreObjectPropertyEditorBuilder.CreateAdapter(property, coreObject);
     }
 
     private void AddContexts(List<IPropertyAdapter> props)

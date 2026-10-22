@@ -9,34 +9,30 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 
 public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
 {
-    public static readonly CoreProperty<CodecRecord> CodecProperty;
-    public static readonly CoreProperty<AudioFormat> FormatProperty;
-
-    static FFmpegAudioEncoderSettings()
+    public FFmpegAudioEncoderSettings()
     {
-        CodecProperty = ConfigureProperty<CodecRecord, FFmpegAudioEncoderSettings>(nameof(Codec))
-            .DefaultValue(CodecRecord.Default)
-            .Register();
-
-        FormatProperty = ConfigureProperty<AudioFormat, FFmpegAudioEncoderSettings>(nameof(Format))
-            .DefaultValue(AudioFormat.Fltp)
-            .Register();
+        ScanProperties<FFmpegAudioEncoderSettings>();
     }
+
+    // Serialize and Deserialize write and read the codec by its name.
+    [ChoicesProvider(typeof(AudioCodecChoicesProvider))]
+    [NotAutoSerialized]
+    public IProperty<CodecRecord> CodecProperty { get; } = new ValueOnlyProperty<CodecRecord>(CodecRecord.Default);
+
+    public IProperty<AudioFormat> FormatProperty { get; } = new ValueOnlyProperty<AudioFormat>(AudioFormat.Fltp);
 
     public string? OutputFile { get; set; }
 
-    [ChoicesProvider(typeof(AudioCodecChoicesProvider))]
-    [NotAutoSerialized]
     public CodecRecord Codec
     {
-        get => GetValue(CodecProperty);
-        set => SetValue(CodecProperty, value);
+        get => CodecProperty.Value;
+        set => CodecProperty.Value = value;
     }
 
     public AudioFormat Format
     {
-        get => GetValue(FormatProperty);
-        set => SetValue(FormatProperty, value);
+        get => FormatProperty.Value;
+        set => FormatProperty.Value = value;
     }
 
     public override void Deserialize(ICoreSerializationContext context)

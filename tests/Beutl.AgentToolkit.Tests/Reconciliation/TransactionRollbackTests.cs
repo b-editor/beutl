@@ -31,32 +31,30 @@ public sealed class TransactionRollbackTests
 
     private sealed class ThrowingCoreObject : CoreObject
     {
-        public static readonly CoreProperty<int> FirstProperty;
-        public static readonly CoreProperty<int> ThrowingProperty;
-
-        private int _first;
-
-        static ThrowingCoreObject()
+        public ThrowingCoreObject()
         {
-            FirstProperty = ConfigureProperty<int, ThrowingCoreObject>(nameof(First))
-                .Accessor(o => o.First, (o, v) => o.First = v)
-                .Register();
-
-            ThrowingProperty = ConfigureProperty<int, ThrowingCoreObject>(nameof(Throwing))
-                .Accessor(o => o.Throwing, (o, v) => o.Throwing = v)
-                .Register();
+            ScanProperties<ThrowingCoreObject>();
+            ThrowingProperty.ValueChanged += (_, e) =>
+            {
+                if (e.NewValue != 0)
+                    throw new InvalidOperationException("Injected patch failure.");
+            };
         }
+
+        public IProperty<int> FirstProperty { get; } = new ValueOnlyProperty<int>(0);
+
+        public IProperty<int> ThrowingProperty { get; } = new ValueOnlyProperty<int>(0);
 
         public int First
         {
-            get => _first;
-            set => SetAndRaise(FirstProperty, ref _first, value);
+            get => FirstProperty.Value;
+            set => FirstProperty.Value = value;
         }
 
         public int Throwing
         {
-            get => 0;
-            set => throw new InvalidOperationException("Injected patch failure.");
+            get => ThrowingProperty.Value;
+            set => ThrowingProperty.Value = value;
         }
     }
 }

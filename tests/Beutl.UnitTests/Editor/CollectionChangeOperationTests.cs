@@ -57,14 +57,12 @@ public class CollectionChangeOperationTests
 
     private sealed class TestValueListOwner : CoreObject
     {
-        private static readonly CoreProperty<CoreList<EqualValue>> s_itemsProperty =
-            ConfigureProperty<CoreList<EqualValue>, TestValueListOwner>(nameof(Items))
-                .Accessor(owner => owner.Items, (owner, value) => owner.Items = value).Register();
-        private CoreList<EqualValue> _items = [];
+        public TestValueListOwner() => ScanProperties<TestValueListOwner>();
+        public IProperty<CoreList<EqualValue>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<EqualValue>>([]);
         public CoreList<EqualValue> Items
         {
-            get => _items;
-            set => SetAndRaise(s_itemsProperty, ref _items, value);
+            get => ItemsProperty.Value;
+            set => ItemsProperty.Value = value;
         }
     }
 
@@ -670,7 +668,7 @@ public class CollectionChangeOperationTests
 
     public delegate (CoreObject Owner, string PropertyPath, IList<string> List) CreateListOwner(string[] items);
 
-    // CollectionChangeOperation reaches the list in three ways: a CoreList in a CoreProperty, a
+    // CollectionChangeOperation reaches the list in three ways: a CoreList in a value-only property, a
     // ListProperty of an EngineObject, and the NodePropertyAdapter of a DefaultNodeMember.
     private static IEnumerable<TestCaseData> ListOwners()
     {
@@ -703,41 +701,33 @@ public class CollectionChangeOperationTests
 
     private class TestCoreObjectWithList : CoreObject
     {
-        public static readonly CoreProperty<CoreList<string>> ItemsProperty;
-
-        private CoreList<string> _items = [];
-
-        static TestCoreObjectWithList()
+        public TestCoreObjectWithList()
         {
-            ItemsProperty = ConfigureProperty<CoreList<string>, TestCoreObjectWithList>(nameof(Items))
-                .Accessor(o => o.Items, (o, v) => o.Items = v)
-                .Register();
+            ScanProperties<TestCoreObjectWithList>();
         }
+
+        public IProperty<CoreList<string>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<string>>([]);
 
         public CoreList<string> Items
         {
-            get => _items;
-            set => SetAndRaise(ItemsProperty, ref _items, value);
+            get => ItemsProperty.Value;
+            set => ItemsProperty.Value = value;
         }
     }
 
     private class TestCoreObjectWithScalarProperty : CoreObject
     {
-        public static readonly CoreProperty<string> TitleProperty;
-
-        private string _title = "";
-
-        static TestCoreObjectWithScalarProperty()
+        public TestCoreObjectWithScalarProperty()
         {
-            TitleProperty = ConfigureProperty<string, TestCoreObjectWithScalarProperty>(nameof(Title))
-                .Accessor(o => o.Title, (o, v) => o.Title = v)
-                .Register();
+            ScanProperties<TestCoreObjectWithScalarProperty>();
         }
+
+        public IProperty<string> TitleProperty { get; } = new ValueOnlyProperty<string>("");
 
         public string Title
         {
-            get => _title;
-            set => SetAndRaise(TitleProperty, ref _title, value);
+            get => TitleProperty.Value;
+            set => TitleProperty.Value = value;
         }
     }
 

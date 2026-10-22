@@ -8,32 +8,27 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 
 public sealed class FFmpegEncodingSettings : ExtensionSettings
 {
-    public static readonly CoreProperty<int> ThreadCountProperty;
-    public static readonly CoreProperty<AccelerationOptions> AccelerationProperty;
-
-    static FFmpegEncodingSettings()
+    public FFmpegEncodingSettings()
     {
-        ThreadCountProperty = ConfigureProperty<int, FFmpegEncodingSettings>(nameof(ThreadCount))
-            .DefaultValue(-1)
-            .Register();
-
-        AccelerationProperty = ConfigureProperty<AccelerationOptions, FFmpegEncodingSettings>(nameof(Acceleration))
-            .DefaultValue(AccelerationOptions.Software)
-            .Register();
-
-        AffectsConfig<FFmpegEncodingSettings>(ThreadCountProperty, AccelerationProperty);
+        ScanProperties<FFmpegEncodingSettings>();
+        ThreadCountProperty.ValueChanged += (_, _) => OnChanged();
+        AccelerationProperty.ValueChanged += (_, _) => OnChanged();
     }
+
+    public IProperty<int> ThreadCountProperty { get; } = new ValueOnlyProperty<int>(-1);
+
+    public IProperty<AccelerationOptions> AccelerationProperty { get; } = new ValueOnlyProperty<AccelerationOptions>(AccelerationOptions.Software);
 
     public int ThreadCount
     {
-        get => GetValue(ThreadCountProperty);
-        set => SetValue(ThreadCountProperty, value);
+        get => ThreadCountProperty.Value;
+        set => ThreadCountProperty.Value = value;
     }
 
     public AccelerationOptions Acceleration
     {
-        get => GetValue(AccelerationProperty);
-        set => SetValue(AccelerationProperty, value);
+        get => AccelerationProperty.Value;
+        set => AccelerationProperty.Value = value;
     }
 
     public enum AccelerationOptions

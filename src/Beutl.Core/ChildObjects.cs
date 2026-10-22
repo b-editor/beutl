@@ -3,7 +3,7 @@ using Beutl.Serialization;
 
 namespace Beutl;
 
-// Names the objects a type holds outside its registered CoreProperties, such as its IProperty members.
+// Names the objects a type holds, such as its IProperty members.
 internal interface IChildObjectSource
 {
     IEnumerable<object?> GetChildObjects();
@@ -18,16 +18,8 @@ internal static class ChildObjects
         {
             case string:
                 yield break;
-            case CoreObject coreObject:
-                foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
-                {
-                    if (MayHoldObjects(property.PropertyType)
-                        && Unwrap(coreObject.GetValue(property)) is { } value)
-                    {
-                        yield return value;
-                    }
-                }
-
+            case CoreObject:
+                // An object is walked through its properties below, never as a list.
                 break;
             case IEnumerable items when ItemsMayHoldObjects(items):
                 foreach (object? item in items)

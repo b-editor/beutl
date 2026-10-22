@@ -148,32 +148,18 @@ public class PopulateUnchangedValuesTests
 
     private sealed class RegisteredCollectionOwner : CoreObject
     {
-        public static readonly CoreProperty<List<int>> ValuesProperty =
-            ConfigureProperty<List<int>, RegisteredCollectionOwner>(nameof(Values)).Register();
+        public RegisteredCollectionOwner()
+        {
+            ScanProperties<RegisteredCollectionOwner>();
+            Values = [1, 2];
+        }
 
-        public static readonly CoreProperty<List<int>> CopiedValuesProperty =
-            ConfigureProperty<List<int>, RegisteredCollectionOwner>(nameof(CopiedValues))
-                .Accessor(owner => owner.CopiedValues, (owner, value) => owner.CopiedValues = value)
-                .Register();
-
-        private readonly List<int> _copiedValues = [3, 4];
-
-        public RegisteredCollectionOwner() => Values = [1, 2];
+        public IProperty<List<int>> ValuesProperty { get; } = new ValueOnlyProperty<List<int>>(null!);
 
         public List<int> Values
         {
-            get => GetValue(ValuesProperty)!;
-            set => SetValue(ValuesProperty, value);
-        }
-
-        public List<int> CopiedValues
-        {
-            get => _copiedValues;
-            set
-            {
-                _copiedValues.Clear();
-                _copiedValues.AddRange(value);
-            }
+            get => ValuesProperty.Value;
+            set => ValuesProperty.Value = value;
         }
     }
 
@@ -193,7 +179,6 @@ public class PopulateUnchangedValuesTests
         {
             Assert.That(owner.Values, Is.SameAs(original));
             Assert.That(owner.Values, Is.EqualTo(new[] { 1, 2 }));
-            Assert.That(owner.CopiedValues, Is.EqualTo(new[] { 3, 4 }));
         });
     }
 

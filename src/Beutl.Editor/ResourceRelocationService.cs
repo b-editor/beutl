@@ -180,10 +180,7 @@ public class ResourceRelocationService
         if (FindObject(project, id) is not { } obj) return null;
         if (propertyName == nameof(INodeMember.Property) && obj is INodeMember { Property: { } adapter })
             return adapter.GetValue() as IFileSource;
-        if (obj.Properties.FirstOrDefault(p => p.Name == propertyName)?.Value is IFileSource source)
-            return source;
-        var property = PropertyRegistry.FindRegistered(obj, propertyName);
-        return property == null ? null : obj.GetValue(property) as IFileSource;
+        return obj.Properties.FirstOrDefault(p => p.Name == propertyName)?.Value as IFileSource;
     }
 
     private static CoreObject? FindObject(Project project, Guid id)

@@ -10,12 +10,12 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 public class ValidationEvaluatorTests
 {
     [Test]
-    public void EvaluateCoreProperty_ReportsCoercionAndRejection()
+    public void EvaluateValueOnlyProperty_ReportsCoercionAndRejection()
     {
         var target = new RangedCoreObject();
 
-        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target, RangedCoreObject.AmountProperty, 50, options: null);
-        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target, RangedCoreObject.AmountProperty, "bad", options: null);
+        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target.AmountProperty, 50, options: null);
+        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target.AmountProperty, "bad", options: null);
 
         Assert.Multiple(() =>
         {
@@ -98,16 +98,18 @@ public class ValidationEvaluatorTests
 
     private sealed class RangedCoreObject : CoreObject
     {
-        public static readonly CoreProperty<int> AmountProperty =
-            ConfigureProperty<int, RangedCoreObject>(nameof(Amount))
-                .DefaultValue(0)
-                .Register();
+        public RangedCoreObject()
+        {
+            ScanProperties<RangedCoreObject>();
+        }
 
         [System.ComponentModel.DataAnnotations.Range(0, 10)]
+        public IProperty<int> AmountProperty { get; } = new ValueOnlyProperty<int>(0);
+
         public int Amount
         {
-            get => GetValue(AmountProperty);
-            set => SetValue(AmountProperty, value);
+            get => AmountProperty.Value;
+            set => AmountProperty.Value = value;
         }
     }
 

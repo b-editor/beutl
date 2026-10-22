@@ -156,22 +156,6 @@ internal sealed partial class SceneRecovery(Scene scene)
                 field.SetValueEvenIfEqual(migratedFieldValue);
             }
         }
-
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(coreObject.GetType()))
-        {
-            if (!property.GetMetadata<CorePropertyMetadata>(coreObject.GetType()).ShouldSerialize)
-            {
-                continue;
-            }
-
-            object? currentValue = coreObject.GetValue(property);
-            object? migratedValue = rewriter.Rewrite(currentValue);
-            if (RecoveredReferenceRewriter.HasReferenceRewrite(currentValue, migratedValue)
-                && property is not IStaticProperty { CanWrite: false })
-            {
-                coreObject.ReplaceValue(property, migratedValue);
-            }
-        }
     }
 
     private static void MigrateEnginePropertyReferences(

@@ -5,44 +5,43 @@ namespace Beutl.Media.Encoding;
 
 public class AudioEncoderSettings : MediaEncoderSettings
 {
-    public static readonly CoreProperty<int> SampleRateProperty;
-    public static readonly CoreProperty<int> ChannelsProperty;
-    public static readonly CoreProperty<int> BitrateProperty;
-
-    static AudioEncoderSettings()
+    public AudioEncoderSettings()
+        : this(128_000)
     {
-        SampleRateProperty = ConfigureProperty<int, AudioEncoderSettings>(nameof(SampleRate))
-            .DefaultValue(44100)
-            .Register();
+    }
 
-        ChannelsProperty = ConfigureProperty<int, AudioEncoderSettings>(nameof(Channels))
-            .DefaultValue(2)
-            .Register();
-
-        BitrateProperty = ConfigureProperty<int, AudioEncoderSettings>(nameof(Bitrate))
-            .DefaultValue(128_000)
-            .Register();
+    // A derived type passes its own default for the bit rate.
+    protected AudioEncoderSettings(int defaultBitrate)
+    {
+        BitrateProperty = new ValueOnlyProperty<int>(defaultBitrate);
+        ScanProperties<AudioEncoderSettings>();
     }
 
     [Display(Name = nameof(Strings.SampleRate), Description = nameof(Strings.SampleRate_Tip), ResourceType = typeof(Strings), Order = int.MinValue)]
-    public int SampleRate
-    {
-        get => GetValue(SampleRateProperty);
-        set => SetValue(SampleRateProperty, value);
-    }
+    public IProperty<int> SampleRateProperty { get; } = new ValueOnlyProperty<int>(44100);
 
     [Display(Name = nameof(Strings.Channels), Description = nameof(Strings.Channels_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 1)]
-    public int Channels
-    {
-        get => GetValue(ChannelsProperty);
-        set => SetValue(ChannelsProperty, value);
-    }
+    public IProperty<int> ChannelsProperty { get; } = new ValueOnlyProperty<int>(2);
 
     [Display(Name = nameof(Strings.Bitrate), Description = nameof(Strings.Bitrate_Tip), ResourceType = typeof(Strings), Order = int.MinValue + 2)]
+    public IProperty<int> BitrateProperty { get; }
+
+    public int SampleRate
+    {
+        get => SampleRateProperty.Value;
+        set => SampleRateProperty.Value = value;
+    }
+
+    public int Channels
+    {
+        get => ChannelsProperty.Value;
+        set => ChannelsProperty.Value = value;
+    }
+
     public int Bitrate
     {
-        get => GetValue(BitrateProperty);
-        set => SetValue(BitrateProperty, value);
+        get => BitrateProperty.Value;
+        set => BitrateProperty.Value = value;
     }
 }
 

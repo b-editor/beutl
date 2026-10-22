@@ -53,11 +53,6 @@ internal static class EnumJsonValueNormalizer
             return normalized;
         }
 
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(actualType))
-        {
-            NormalizeObjectProperty(normalized, property.Name, property.PropertyType);
-        }
-
         if (typeof(CoreObject).IsAssignableFrom(actualType)
             && actualType.GetConstructor(Type.EmptyTypes) is not null
             && Activator.CreateInstance(actualType) is CoreObject coreObject)

@@ -1,0 +1,110 @@
+{
+  "View": {
+    "UICulture": "ja-JP",
+    "IsWindowMaximized": true,
+    "UseCustomAccentColor": true,
+    "CustomAccentColor": "#FF112233",
+    "ShowExactBoundaries": true,
+    "LastOpenedProjectFile": "/golden/p.bproj",
+    "Theme": "beutl.dark.border",
+    "RecentFiles": [
+      "/golden/a.belm"
+    ],
+    "RecentProjects": [
+      "/golden/p.bproj"
+    ],
+    "PinnedToolTabs": [
+      "Golden.Tab"
+    ],
+    "WindowPosition": {
+      "X": 10,
+      "Y": 20
+    },
+    "WindowSize": {
+      "Width": 800,
+      "Height": 600
+    },
+    "$type": "[Beutl.Configuration]:ViewConfig"
+  },
+  "Telemetry": {
+    "Beutl_Logging": true,
+    "Beutl_Application": false,
+    "Beutl_PackageManagement": null,
+    "Beutl_Api_Client": null,
+    "$type": "[Beutl.Configuration]:TelemetryConfig"
+  },
+  "Editor": {
+    "LastMediaDirectory": "/golden/media",
+    "AutoAdjustSceneDuration": false,
+    "EnablePointerLockInProperty": true,
+    "IsFrameCacheEnabled": false,
+    "FrameCacheMaxSize": 512,
+    "FrameCacheScale": 0,
+    "FrameCacheColorType": 0,
+    "IsNodeCacheEnabled": false,
+    "NodeCacheMaxPixels": 1000000,
+    "NodeCacheMinPixels": 1,
+    "SwapTimelineScrollDirection": false,
+    "ClampResizeToOriginalLength": true,
+    "IsTimelineSnapEnabled": true,
+    "IsRippleEnabled": false,
+    "TimelineAutoScrollMode": 1,
+    "ToneMappingMode": 2,
+    "ToneMappingExposure": 0.5,
+    "UseHdrPreview": false,
+    "IsOnionSkinEnabled": false,
+    "OnionSkinPrevCount": 2,
+    "OnionSkinNextCount": 0,
+    "OnionSkinPrevOpacity": 0.25,
+    "OnionSkinNextOpacity": 0.35,
+    "PreviewSourceMode": 1,
+    "LibraryTabDisplayModes": {
+      "Search": 0,
+      "Easings": 0,
+      "Library": 0,
+      "Nodes": 1
+    },
+    "$type": "[Beutl.Configuration]:EditorConfig"
+  },
+  "Graphics": {
+    "SelectedGpuName": "Golden GPU",
+    "$type": "[Beutl.Configuration]:GraphicsConfig"
+  },
+  "Tutorial": {
+    "CompletedTutorialIds": [
+      "golden"
+    ],
+    "$type": "[Beutl.Configuration]:TutorialConfig"
+  },
+  "AiAgent": {
+    "AgentId": "golden",
+    "InstallScope": "user",
+    "ProjectRoot": "/golden",
+    "SkillsDirectory": "",
+    "SubagentsDirectory": "",
+    "InstallSkills": true,
+    "InstallSubagents": false,
+    "InstallMcp": true,
+    "McpConfigFileName": "",
+    "McpServersPropertyName": "",
+    "StdioCommand": "",
+    "StdioArguments": "",
+    "FollowLiveMcpEdits": true,
+    "$type": "[Beutl.Configuration]:AiAgentConfig"
+  },
+  "ProxyStore": {
+    "StoreRootPath": "/golden/proxies",
+    "MaxTotalBytes": 5368709120,
+    "DefaultPreset": 1,
+    "$type": "[Beutl.Configuration]:ProxyStoreConfig"
+  },
+  "VersionControl": {
+    "EnableForNewProjects": false,
+    "AutoCommitOnSave": true,
+    "AutoCommitOnClose": true,
+    "GitExecutablePath": "/golden/git",
+    "UseLfsWhenAvailable": true,
+    "LargeMediaWarningThresholdMb": 10,
+    "$type": "[Beutl.Configuration]:VersionControlConfig"
+  }
+}

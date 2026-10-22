@@ -29,7 +29,7 @@ internal sealed class AudioFormatEditorViewModel
         : base(property, extension, FFmpegOptionsCaches.AudioFormats, s_logger, "audio formats")
     {
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(Disposables);
-        Initialize(FFmpegAudioEncoderSettings.CodecProperty);
+        Initialize(settings => settings.CodecProperty);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

@@ -1,4 +1,5 @@
-﻿using System.Reactive;
+﻿using System.ComponentModel;
+using System.Reactive;
 using System.Reflection;
 using System.Text.Json;
 using Beutl.Logging;
@@ -16,24 +17,16 @@ public abstract class ConfigurationBase : CoreObject
 
     private static ILogger Logger => Log.GetLoggerOnceConfigured(ref s_logger, typeof(ConfigurationBase));
 
-    protected static void AffectsConfig<T>(params CoreProperty[] properties)
-        where T : ConfigurationBase
-    {
-        foreach (CoreProperty? item in properties)
-        {
-            item.Changed.Subscribe(e =>
-            {
-                if (e.Sender is T s)
-                {
-                    s.OnChanged();
-                }
-            });
-        }
-    }
-
     protected void OnChanged()
     {
         ConfigurationChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    // A setting raises PropertyChanged under its name.
+    internal override void OnPropertyValueChanged(IProperty property)
+    {
+        if (!IsOwnField(property))
+            OnPropertyChanged(new PropertyChangedEventArgs(property.Name));
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -47,19 +40,19 @@ public abstract class ConfigurationBase : CoreObject
     // others are still read. Settings hold no references, which CoreObject.Deserialize would resolve.
     public override void Deserialize(ICoreSerializationContext context)
     {
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(GetType()))
+        foreach (IProperty property in RegisteredProperties)
         {
+            if (IsOwnField(property) || !IsAutoSerialized(property))
+                continue;
+
             try
             {
-                Optional<object?> value = property.RouteDeserialize(context);
-                if (!value.HasValue)
-                    continue;
-
+                string name = FormerPersistedNames.ResolveMemberKey(context, property.Name, property.GetAttributes());
                 // A JSON null reads as default(T) without an error, which would leave, say, UICulture null.
-                if (IsJsonNull(context, property.GetReadName(context)) && !AcceptsNull(property))
+                if (IsJsonNull(context, name) && !AcceptsNull(property.ValueType, property.Name))
                     throw new JsonException($"{property.Name} cannot be null.");
 
-                SetValue(property, value.Value);
+                property.DeserializeValue(context);
             }
             catch (Exception ex)
             {
@@ -75,13 +68,13 @@ public abstract class ConfigurationBase : CoreObject
            && json.Contains(name)
            && json.GetNode(name) is null;
 
-    private bool AcceptsNull(CoreProperty property)
+    private bool AcceptsNull(Type valueType, string name)
     {
-        if (property.PropertyType.IsValueType)
-            return Nullable.GetUnderlyingType(property.PropertyType) is not null;
+        if (valueType.IsValueType)
+            return Nullable.GetUnderlyingType(valueType) is not null;
 
         // The property's own annotation; one without a CLR property, or without annotations, takes null.
-        PropertyInfo? clrProperty = GetType().GetProperty(property.Name);
+        PropertyInfo? clrProperty = GetType().GetProperty(name);
         return clrProperty is null
                || new NullabilityInfoContext().Create(clrProperty).WriteState != NullabilityState.NotNull;
     }

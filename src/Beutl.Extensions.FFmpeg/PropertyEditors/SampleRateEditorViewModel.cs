@@ -27,7 +27,7 @@ internal sealed class SampleRateEditorViewModel
         : base(property, extension, FFmpegOptionsCaches.SampleRates, s_logger, "sample rates")
     {
         _text = new ReactivePropertySlim<string>(property.GetValue().ToString()).DisposeWith(Disposables);
-        Initialize(FFmpegAudioEncoderSettings.CodecProperty);
+        Initialize(settings => settings.CodecProperty);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

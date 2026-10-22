@@ -277,21 +277,6 @@ internal sealed partial class DeclarativeDocumentApplier
                 field.Value = fieldValue;
             }
         }
-
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
-        {
-            if (excluded.Contains(property.Name)
-                || !IsSerializedProperty(target, property)
-                || !desired.TryGetPropertyValue(property.Name, out JsonNode? valueNode))
-            {
-                continue;
-            }
-
-            object? value = valueNode is null
-                ? null
-                : EnumJsonValueNormalizer.Deserialize(valueNode, property.PropertyType, CreateOptions(target));
-            target.SetValue(property, value);
-        }
     }
 
     private static void NormalizeRegisteredPropertyValues(CoreObject target, JsonObject payload)
@@ -299,11 +284,6 @@ internal sealed partial class DeclarativeDocumentApplier
         foreach (IProperty field in target.Properties.Where(target.IsBaseField))
         {
             NormalizePropertyValue(payload, field.Name, field.ValueType);
-        }
-
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
-        {
-            NormalizePropertyValue(payload, property.Name, property.PropertyType);
         }
     }
 
@@ -315,7 +295,7 @@ internal sealed partial class DeclarativeDocumentApplier
         }
     }
 
-    // The base fields saved with target, which the passes over CoreProperty fields also take.
+    // The base fields saved with target.
     private static IEnumerable<IProperty> SavedBaseFields(CoreObject target)
         => target.Properties.Where(property => target.IsBaseField(property) && CoreObject.IsAutoSerialized(property));
 
@@ -360,27 +340,8 @@ internal sealed partial class DeclarativeDocumentApplier
         JsonObject desired,
         JsonObject serializedPayload)
     {
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(target.GetType()))
-        {
-            // Getter-only properties (e.g. Element.Objects) reject SetValue, and identity lists
-            // (Objects/KeyFrames) are cleared by their specialized handlers, never by nulling.
-            // Non-serialized properties (e.g. Hierarchical.HierarchicalParent) never appear in a
-            // document, so their absence carries no clear intent; nulling HierarchicalParent would
-            // silently detach the subtree from the hierarchy root.
-            if (property.PropertyType.IsValueType
-                || property.PropertyType == typeof(string)
-                || typeof(ICoreList).IsAssignableFrom(property.PropertyType)
-                || property is IStaticProperty { CanWrite: false }
-                || !IsSerializedProperty(target, property)
-                || desired.ContainsKey(property.Name)
-                || serializedPayload.ContainsKey(property.Name))
-            {
-                continue;
-            }
-
-            target.SetValue(property, null);
-        }
-
+        // Lists (e.g. Element.Objects, KeyFrames) are cleared by their specialized handlers, never by nulling, and an
+        // unsaved field never appears in a document, so its absence carries no intent.
         foreach (IProperty field in SavedBaseFields(target))
         {
             if (field.ValueType.IsValueType
@@ -394,11 +355,6 @@ internal sealed partial class DeclarativeDocumentApplier
 
             field.Value = null;
         }
-    }
-
-    private static bool IsSerializedProperty(CoreObject target, CoreProperty property)
-    {
-        return property.GetMetadata<CorePropertyMetadata>(target.GetType()).ShouldSerialize;
     }
 
     private static void ClearAbsentObjectProperties(

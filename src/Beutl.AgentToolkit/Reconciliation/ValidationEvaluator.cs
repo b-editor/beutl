@@ -63,21 +63,6 @@ public static class ValidationEvaluator
     internal const string EngineObjectValueHint = "Use a concrete '$type' discriminator returned by get_schema for this EngineObject value and only the returned PascalCase property names.";
 
     public static ValidationOutcome Evaluate(
-        ICoreObject target, CoreProperty property, object? value, CoreSerializerOptions? options)
-    {
-        ArgumentNullException.ThrowIfNull(target);
-        ArgumentNullException.ThrowIfNull(property);
-
-        if (!IsAssignableValue(property.PropertyType, value))
-        {
-            return RejectUnassignable(property.PropertyType, value, options);
-        }
-
-        IValidator? validator = property.GetMetadata<ICorePropertyMetadata>(target.GetType()).GetValidator();
-        return EvaluateValidator(validator, new ValidationContext(target, property), value, options, out _);
-    }
-
-    public static ValidationOutcome Evaluate(
         IProperty property, object? value, CoreSerializerOptions? options)
     {
         return Evaluate(property, value, options, out _);

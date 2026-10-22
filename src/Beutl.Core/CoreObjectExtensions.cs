@@ -1,28 +1,8 @@
-﻿using System.ComponentModel;
-
-using Beutl.Reactive;
-
-namespace Beutl;
+﻿namespace Beutl;
 
 public static class CoreObjectExtensions
 {
-    public static IObservable<CorePropertyChangedEventArgs<T>> GetPropertyChangedObservable<T>(this ICoreObject obj, CoreProperty<T> property)
-    {
-        ArgumentNullException.ThrowIfNull(obj);
-        ArgumentNullException.ThrowIfNull(property);
-
-        return new CorePropertyChangedObservable<T>(obj, property);
-    }
-
-    public static IObservable<T> GetObservable<T>(this ICoreObject obj, CoreProperty<T> property)
-    {
-        ArgumentNullException.ThrowIfNull(obj);
-        ArgumentNullException.ThrowIfNull(property);
-
-        return new CoreObjectSubject<T>(obj, property);
-    }
-
-    // The property's value now and then each new one, as GetObservable gives a CoreProperty's.
+    // The property's value now and then each new one.
     public static IObservable<T> GetObservable<T>(this IProperty<T> property)
     {
         ArgumentNullException.ThrowIfNull(property);
@@ -69,27 +49,5 @@ public static class CoreObjectExtensions
         }
 
         return null;
-    }
-
-    private sealed class CorePropertyChangedObservable<T>(ICoreObject o, CoreProperty<T> property)
-        : LightweightObservableBase<CorePropertyChangedEventArgs<T>>
-    {
-        private void Object_PropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (e is CorePropertyChangedEventArgs<T> a && a.Property == property)
-            {
-                PublishNext(a);
-            }
-        }
-
-        protected override void Deinitialize()
-        {
-            o.PropertyChanged -= Object_PropertyChanged;
-        }
-
-        protected override void Initialize()
-        {
-            o.PropertyChanged += Object_PropertyChanged;
-        }
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Beutl;
 
-// The value of a property on subscription and then each new value, as CoreObjectSubject gives a CoreProperty's.
+// The value of a property on subscription and then each new value.
 internal sealed class PropertyValueObservable<T>(IProperty<T> property) : LightweightObservableBase<T>
 {
     protected override void Initialize() => property.ValueChanged += OnValueChanged;

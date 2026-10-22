@@ -250,31 +250,6 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
     internal override bool IsBaseField(IProperty property)
         => base.IsBaseField(property) && _displayProperties?.Contains(property) == false;
 
-    protected static void AffectsRender<T>(params CoreProperty[] properties)
-        where T : EngineObject
-    {
-        foreach (CoreProperty item in properties)
-        {
-            item.Changed.Subscribe(e =>
-            {
-                if (e.Sender is T s)
-                {
-                    s.RaiseEdited();
-
-                    if (e.OldValue is INotifyEdited oldAffectsRender)
-                    {
-                        oldAffectsRender.Edited -= s.OnPropertyEdited;
-                    }
-
-                    if (e.NewValue is INotifyEdited newAffectsRender)
-                    {
-                        newAffectsRender.Edited += s.OnPropertyEdited;
-                    }
-                }
-            });
-        }
-    }
-
     protected override void RegisterProperty(IProperty property, int index)
     {
         bool added = !RegisteredProperties.Contains(property);

@@ -47,20 +47,16 @@ public class NodeMemberOperationObserverTests
 
     private sealed class TestCoreObject : CoreObject
     {
-        public static readonly CoreProperty<string?> NameValueProperty;
-        private string? _nameValue;
-
-        static TestCoreObject()
+        public TestCoreObject()
         {
-            NameValueProperty = ConfigureProperty<string?, TestCoreObject>(nameof(NameValue))
-                .Accessor(o => o.NameValue, (o, v) => o.NameValue = v)
-                .Register();
+            ScanProperties<TestCoreObject>();
         }
 
+        public IProperty<string?> NameValueProperty { get; } = new ValueOnlyProperty<string?>(null);
         public string? NameValue
         {
-            get => _nameValue;
-            set => SetAndRaise(NameValueProperty, ref _nameValue, value);
+            get => NameValueProperty.Value;
+            set => NameValueProperty.Value = value;
         }
     }
 

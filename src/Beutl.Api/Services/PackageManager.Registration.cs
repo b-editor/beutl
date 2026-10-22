@@ -195,15 +195,6 @@ public sealed partial class PackageManager
             return;
         }
 
-        if (HasRegisteredProperties(pendingRollback.LoadContext))
-        {
-            _logger.LogWarning(
-                "Package {PackageName} registered properties before registration rollback; "
-                + "the extensions and load context remain quarantined until restart.",
-                pendingRollback.Package.Name);
-            return;
-        }
-
         var rollbackList = pendingRollback.Extensions.ToList();
         RollbackLoadedExtensions(rollbackList);
         if (pendingRollback.LoadContext is not null)
@@ -321,11 +312,6 @@ public sealed partial class PackageManager
             _logger.LogError(ex, "Failed to clean up settings while rolling back extension {ExtensionName}.", extension.GetType().Name);
         }
     }
-
-    // Unloading drops the package's CoreProperty registrations, and objects that still use them would save without them.
-    private static bool HasRegisteredProperties(PluginLoadContext? loadContext)
-        => loadContext is not null
-           && PropertyRegistry.HasRegistrationsFor([.. loadContext.Assemblies.SelectMany(GetLoadableTypes)]);
 
     private void TryUnloadLoadContext(LocalPackage package, PluginLoadContext loadContext)
     {

@@ -119,8 +119,8 @@ public class UnknownMemberTests
     }
 
     // What a property reads under a former name (FormerPersistedNameAttribute) is not unknown: its value, animation
-    // and expression, and a CoreProperty value, are written under the current names only, and reading them keeps no
-    // data this build does not know.
+    // and expression, and a value-only property's value, are written under the current names only, and reading them
+    // keeps no data this build does not know.
     [Test]
     public void MembersReadUnderAFormerName_AreNotKeptAsUnknown()
     {
@@ -369,17 +369,17 @@ public class UnknownMemberTests
 
     private sealed class PlainObject : CoreObject
     {
-        public static readonly CoreProperty<int> ValueProperty;
-
-        static PlainObject()
+        public PlainObject()
         {
-            ValueProperty = ConfigureProperty<int, PlainObject>(nameof(Value)).Register();
+            ScanProperties<PlainObject>();
         }
+
+        public IProperty<int> ValueProperty { get; } = new ValueOnlyProperty<int>(default);
 
         public int Value
         {
-            get => GetValue(ValueProperty);
-            set => SetValue(ValueProperty, value);
+            get => ValueProperty.Value;
+            set => ValueProperty.Value = value;
         }
     }
 
@@ -401,31 +401,25 @@ public class UnknownMemberTests
         public IProperty<int> Count { get; } = Property.CreateValue(1);
     }
 
-    // An engine object whose properties were renamed: an IProperty and a CoreProperty, each with a former name.
+    // An engine object whose properties were renamed: an animatable one and a value-only one, each with a former name.
     [SuppressResourceClassGeneration]
     private sealed class RenamedHolder : EngineObject
     {
         public const string FormerAmount = "FormerAmount";
         public const string FormerTitle = "FormerTitle";
 
-        public static readonly CoreProperty<string?> TitleProperty;
-
-        static RenamedHolder()
-        {
-            TitleProperty = ConfigureProperty<string?, RenamedHolder>(nameof(Title))
-                .FormerPersistedName(FormerTitle)
-                .Register();
-        }
-
         public RenamedHolder() => ScanProperties<RenamedHolder>();
 
         [FormerPersistedName(FormerAmount)]
         public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(1f);
 
+        [FormerPersistedName(FormerTitle)]
+        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
+
         public string? Title
         {
-            get => GetValue(TitleProperty);
-            set => SetValue(TitleProperty, value);
+            get => TitleProperty.Value;
+            set => TitleProperty.Value = value;
         }
     }
 

@@ -991,7 +991,8 @@ public class CollectionOperationObserverTests
         var list = new CoreList<TestItemCoreObject> { item };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-        var propertyPathsToTrack = new HashSet<string> { "Items.Title" };
+        // A value-only property's value is its CurrentValue slot.
+        var propertyPathsToTrack = new HashSet<string> { "Items.Title.CurrentValue" };
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator, propertyPathsToTrack);
@@ -1011,7 +1012,7 @@ public class CollectionOperationObserverTests
         var list = new CoreList<TestItemCoreObject>();
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
-        var propertyPathsToTrack = new HashSet<string> { "Items.Title" };
+        var propertyPathsToTrack = new HashSet<string> { "Items.Title.CurrentValue" };
 
         using var operationObserver = new CollectionOperationObserver<TestItemCoreObject>(
             testObserver, list, owner, "Items", _sequenceGenerator, propertyPathsToTrack);
@@ -1034,53 +1035,41 @@ public class CollectionOperationObserverTests
 
     private class TestOwnerCoreObject : CoreObject
     {
-        public static readonly CoreProperty<CoreList<TestItemCoreObject>> ItemsProperty;
-
-        private CoreList<TestItemCoreObject> _items = new();
-
-        static TestOwnerCoreObject()
+        public TestOwnerCoreObject()
         {
-            ItemsProperty = ConfigureProperty<CoreList<TestItemCoreObject>, TestOwnerCoreObject>(nameof(Items))
-                .Accessor(o => o.Items, (o, v) => o.Items = v)
-                .Register();
+            ScanProperties<TestOwnerCoreObject>();
         }
+
+        public IProperty<CoreList<TestItemCoreObject>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<TestItemCoreObject>>([]);
 
         public CoreList<TestItemCoreObject> Items
         {
-            get => _items;
-            set => SetAndRaise(ItemsProperty, ref _items, value);
+            get => ItemsProperty.Value;
+            set => ItemsProperty.Value = value;
         }
     }
 
     private class TestItemCoreObject : CoreObject
     {
-        public static readonly CoreProperty<string?> TitleProperty;
-        public static readonly CoreProperty<int> ValueProperty;
-
-        private string? _title;
-        private int _value;
-
-        static TestItemCoreObject()
+        public TestItemCoreObject()
         {
-            TitleProperty = ConfigureProperty<string?, TestItemCoreObject>(nameof(Title))
-                .Accessor(o => o.Title, (o, v) => o.Title = v)
-                .Register();
-
-            ValueProperty = ConfigureProperty<int, TestItemCoreObject>(nameof(Value))
-                .Accessor(o => o.Value, (o, v) => o.Value = v)
-                .Register();
+            ScanProperties<TestItemCoreObject>();
         }
+
+        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+        public IProperty<int> ValueProperty { get; } = new ValueOnlyProperty<int>(default);
 
         public string? Title
         {
-            get => _title;
-            set => SetAndRaise(TitleProperty, ref _title, value);
+            get => TitleProperty.Value;
+            set => TitleProperty.Value = value;
         }
 
         public int Value
         {
-            get => _value;
-            set => SetAndRaise(ValueProperty, ref _value, value);
+            get => ValueProperty.Value;
+            set => ValueProperty.Value = value;
         }
     }
 

@@ -132,7 +132,7 @@ public partial class PlayerView : UserControl
             SubscribeImageBounds();
         }
 
-        _imageConfigSubscription = config.GetObservable(EditorConfig.UseHdrPreviewProperty)
+        _imageConfigSubscription = config.UseHdrPreviewProperty.GetObservable()
             .Skip(1)
             .Subscribe(useHdr => Dispatcher.UIThread.InvokeAsync(() => SwapImageControl(useHdr)));
     }

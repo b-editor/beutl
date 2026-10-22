@@ -30,14 +30,14 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
     private bool _disposed;
 
     public EncoderOptionsEditorViewModel(
-        CorePropertyAdapter<CoreList<AdditionalOption>> property, PropertyEditorExtension extension)
+        EnginePropertyAdapter<CoreList<AdditionalOption>> property, PropertyEditorExtension extension)
     {
         _property = property;
         _settings = (FFmpegVideoEncoderSettings)property.Object;
         Extension = extension;
         _subscriptions.Add(property.GetObservable().Subscribe(ObserveList));
-        _subscriptions.Add(_settings.GetObservable(FFmpegVideoEncoderSettings.CodecProperty).Subscribe(_ => RequestUpdate()));
-        _subscriptions.Add(_settings.GetObservable(FFmpegVideoEncoderSettings.FormatProperty).Subscribe(_ => RequestUpdate()));
+        _subscriptions.Add(_settings.CodecProperty.GetObservable().Subscribe(_ => RequestUpdate()));
+        _subscriptions.Add(_settings.FormatProperty.GetObservable().Subscribe(_ => RequestUpdate()));
     }
 
     public PropertyEditorExtension Extension { get; }

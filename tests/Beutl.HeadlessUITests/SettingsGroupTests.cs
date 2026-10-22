@@ -217,13 +217,14 @@ public class SettingsGroupTests
 
     public sealed class SampleSettings : ExtensionSettings
     {
-        public static readonly CoreProperty<string> GeneralProperty = ConfigureProperty<string, SampleSettings>(nameof(General)).DefaultValue("initial").Register();
-        public static readonly CoreProperty<string> FirstPathProperty = ConfigureProperty<string, SampleSettings>(nameof(FirstPath)).DefaultValue("first").Register();
-        public static readonly CoreProperty<string> SecondPathProperty = ConfigureProperty<string, SampleSettings>(nameof(SecondPath)).DefaultValue("second").Register();
-        public string General { get => GetValue(GeneralProperty); set => SetValue(GeneralProperty, value); }
+        public SampleSettings() => ScanProperties<SampleSettings>();
+        public IProperty<string> GeneralProperty { get; } = new ValueOnlyProperty<string>("initial");
         [Display(GroupName = "Paths")]
-        public string FirstPath { get => GetValue(FirstPathProperty); set => SetValue(FirstPathProperty, value); }
+        public IProperty<string> FirstPathProperty { get; } = new ValueOnlyProperty<string>("first");
         [Display(GroupName = "Paths")]
-        public string SecondPath { get => GetValue(SecondPathProperty); set => SetValue(SecondPathProperty, value); }
+        public IProperty<string> SecondPathProperty { get; } = new ValueOnlyProperty<string>("second");
+        public string General { get => GeneralProperty.Value; set => GeneralProperty.Value = value; }
+        public string FirstPath { get => FirstPathProperty.Value; set => FirstPathProperty.Value = value; }
+        public string SecondPath { get => SecondPathProperty.Value; set => SecondPathProperty.Value = value; }
     }
 }

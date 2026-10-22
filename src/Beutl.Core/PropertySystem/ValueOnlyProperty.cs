@@ -43,8 +43,8 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     // Adjusts each value before it is validated, like KeyFrame<T>.Value with its animation's validator.
     internal Func<IProperty<T>, T, T>? Coerce { get; init; }
 
-    // True for a list its owner keeps, like GraphModel.Nodes: setting another list replaces the kept list's items,
-    // and the owner reads the saved items into it.
+    // True for a list its owner keeps, like Element.Objects: setting another list replaces its items, a panel cannot
+    // replace it, and the owner reads the saved items into it.
     internal bool KeepsList { get; init; }
 
     bool IValueOnlyProperty.KeepsList => KeepsList;
@@ -72,6 +72,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
             IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
+            _owner?.OnPropertyValueChanged(this);
             if (AffectsRender)
                 Edited?.Invoke(this, EventArgs.Empty);
             if (OwnsValue)
@@ -146,11 +147,13 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
         if (_validator == null)
             return value;
 
-        var context = new ValidationContext(this, null);
-        if (_validator.TryCoerce(context, ref value!))
-            return value;
+        // An error names the property, and the owner keeps it by that name.
+        var context = new ValidationContext(this, this);
+        string? error = _validator.TryCoerce(context, ref value!) ? null : _validator.Validate(context, value);
+        if (_owner != null && _name != null)
+            _owner.SetPropertyError(_name, error);
 
-        return _validator.Validate(context, value) == null ? value : DefaultValue;
+        return error == null ? value : DefaultValue;
     }
 
     public void DeserializeValue(ICoreSerializationContext context)

@@ -1,7 +1,5 @@
 ﻿using System.Collections.Immutable;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Text.Json.Serialization;
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Schema;
 using Beutl.AgentToolkit.Tests.Helpers;
@@ -217,21 +215,18 @@ public sealed class ApplyEditHistoryScopeTests
     // Custom members can be assigned unconditionally by Deserialize, just like clip transitions.
     private sealed class CustomSerializedTransformElement : Element
     {
-        public static readonly CoreProperty<Transform?> CustomTransformProperty;
-        private Transform? _customTransform;
-
-        static CustomSerializedTransformElement()
+        public CustomSerializedTransformElement()
         {
-            CustomTransformProperty = ConfigureProperty<Transform?, CustomSerializedTransformElement>(nameof(CustomTransform))
-                .Accessor(o => o.CustomTransform, (o, v) => o.CustomTransform = v)
-                .Register();
+            ScanProperties<CustomSerializedTransformElement>();
         }
 
         [NotAutoSerialized]
+        public IProperty<Transform?> CustomTransformProperty { get; } = new ValueOnlyProperty<Transform?>(null);
+
         public Transform? CustomTransform
         {
-            get => _customTransform;
-            set => SetAndRaise(CustomTransformProperty, ref _customTransform, value);
+            get => CustomTransformProperty.Value;
+            set => CustomTransformProperty.Value = value;
         }
 
         public override void Serialize(ICoreSerializationContext context)
@@ -394,39 +389,20 @@ public sealed class ApplyEditHistoryScopeTests
 
     public sealed record Dimensions(int Width, int Height);
 
-    public sealed class DimensionsJsonConverter : JsonConverter<Dimensions>
-    {
-        public override Dimensions Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            JsonObject obj = JsonNode.Parse(ref reader)!.AsObject();
-            return new Dimensions(obj["W"]!.GetValue<int>(), obj["H"]!.GetValue<int>());
-        }
-
-        public override void Write(Utf8JsonWriter writer, Dimensions value, JsonSerializerOptions options)
-        {
-            writer.WriteStartObject();
-            writer.WriteNumber("W", value.Width);
-            writer.WriteNumber("H", value.Height);
-            writer.WriteEndObject();
-        }
-    }
-
-    // CoreProperty.RouteDeserialize reads a converter-backed property even when its key is absent.
+    // A registered property an edit does not name keeps its value.
     private sealed class ConvertedPropertyElement : Element
     {
-        public static readonly CoreProperty<Dimensions?> DimensionsProperty;
-
-        static ConvertedPropertyElement()
+        public ConvertedPropertyElement()
         {
-            DimensionsProperty = ConfigureProperty<Dimensions?, ConvertedPropertyElement>(nameof(Dimensions))
-                .Register();
+            ScanProperties<ConvertedPropertyElement>();
         }
 
-        [JsonConverter(typeof(DimensionsJsonConverter))]
+        public IProperty<Dimensions?> DimensionsProperty { get; } = new ValueOnlyProperty<Dimensions?>(null);
+
         public Dimensions? Dimensions
         {
-            get => GetValue(DimensionsProperty);
-            set => SetValue(DimensionsProperty, value);
+            get => DimensionsProperty.Value;
+            set => DimensionsProperty.Value = value;
         }
     }
 

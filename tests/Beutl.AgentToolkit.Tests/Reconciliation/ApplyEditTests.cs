@@ -21,19 +21,17 @@ public sealed class ApplyEditTests
 {
     private sealed class RegisteredTransformElement : Element
     {
-        public static readonly CoreProperty<Transform?> PluginTransformProperty;
-
-        static RegisteredTransformElement()
+        public RegisteredTransformElement()
         {
-            PluginTransformProperty = ConfigureProperty<Transform?, RegisteredTransformElement>(
-                    nameof(PluginTransform))
-                .Register();
+            ScanProperties<RegisteredTransformElement>();
         }
+
+        public IProperty<Transform?> PluginTransformProperty { get; } = new ValueOnlyProperty<Transform?>(null);
 
         public Transform? PluginTransform
         {
-            get => GetValue(PluginTransformProperty);
-            set => SetValue(PluginTransformProperty, value);
+            get => PluginTransformProperty.Value;
+            set => PluginTransformProperty.Value = value;
         }
     }
 

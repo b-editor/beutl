@@ -34,7 +34,7 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
             })
             .DisposeWith(_disposables);
 
-        _config.GetObservable(ViewConfig.ThemeProperty)
+        _config.ThemeProperty.GetObservable()
             .Subscribe(id =>
             {
                 if (ThemeRegistry.Resolve(id) is { } descriptor
@@ -48,7 +48,7 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
         // The combo box matches items by CultureInfo equality, so a stored es-MX has to be mapped
         // onto the neutral "es" entry or the box renders with nothing selected. Skip(1) keeps that
         // display-only mapping from being written back as if the user had chosen it.
-        SelectedLanguage = _config.GetObservable(ViewConfig.UICultureProperty)
+        SelectedLanguage = _config.UICultureProperty.GetObservable()
             .Select(x => LocalizeService.Instance.ResolveSupportedCulture(x) ?? x)
             .ToReactiveProperty()
             .DisposeWith(_disposables)!;

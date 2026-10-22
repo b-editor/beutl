@@ -351,11 +351,6 @@ public sealed partial class Reconciler
     private static HashSet<string> CreateAllowedEngineObjectPropertyNames(Type type)
     {
         var allowed = new HashSet<string>(s_metadataPropertyNames, StringComparer.Ordinal);
-        foreach (CoreProperty property in PropertyRegistry.GetRegistered(type))
-        {
-            allowed.Add(property.Name);
-        }
-
         if (Activator.CreateInstance(type) is EngineObject engineObject)
         {
             foreach (IProperty property in engineObject.Properties)

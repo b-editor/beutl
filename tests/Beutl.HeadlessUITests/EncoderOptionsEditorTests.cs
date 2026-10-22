@@ -299,7 +299,7 @@ public sealed class EncoderOptionsEditorTests
         ];
         await PrimeSchema(settings, schema);
         var extension = new FFmpegEncoderSpecializedPropertyExtension();
-        var adapter = new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings);
+        var adapter = new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.OptionsProperty, settings);
         Assert.That(extension.TryCreateContext([adapter], out var context), Is.True);
         using var model = (EncoderOptionsEditorViewModel)context!;
         Assert.That(extension.TryCreateControl(model, out var control), Is.True);
@@ -365,7 +365,7 @@ public sealed class EncoderOptionsEditorTests
             CacheKey(settings, format), () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
 
     private static EncoderOptionsEditorViewModel CreateModel(FFmpegVideoEncoderSettings settings)
-        => new(new CorePropertyAdapter<CoreList<AdditionalOption>>(FFmpegVideoEncoderSettings.OptionsProperty, settings),
+        => new(new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.OptionsProperty, settings),
             new FFmpegEncoderSpecializedPropertyExtension());
 
     private static ToggleButton ShowAdvanced(Control view)

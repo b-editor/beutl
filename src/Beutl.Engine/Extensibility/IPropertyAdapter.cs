@@ -19,27 +19,9 @@ public interface IPropertyAdapter
 
     object? GetDefaultValue();
 
-    CoreProperty? GetCoreProperty() => null;
-
     IProperty? GetEngineProperty() => null;
 
-    Attribute[] GetAttributes()
-    {
-        var coreProperty = GetCoreProperty();
-        if (coreProperty != null)
-        {
-            var metadata = coreProperty.GetMetadata<CorePropertyMetadata>(ImplementedType);
-            return metadata.Attributes;
-        }
-
-        var engineProperty = GetEngineProperty();
-        if (engineProperty != null)
-        {
-            return engineProperty.GetAttributes() ?? [];
-        }
-
-        return [];
-    }
+    Attribute[] GetAttributes() => GetEngineProperty()?.GetAttributes() ?? [];
 
     void SetValue(object? value);
 

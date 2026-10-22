@@ -26,11 +26,9 @@ namespace Beutl.Serialization;
 /// </para>
 /// <para>
 /// On a property, <see cref="Name"/> is the member key the value was saved under. A value found only under a former
-/// key loads into the property. This applies to <see cref="CoreProperty"/> properties, where
-/// <see cref="CorePropertyBuilder{T, TOwner}.FormerPersistedName(string)"/> adds one at registration, and to the
-/// <c>IProperty</c> properties of engine objects, together with their animations and expressions. A type that
-/// reads a member itself in <see cref="ICoreSerializable.Deserialize(ICoreSerializationContext)"/> handles that
-/// member's former key there.
+/// key loads into the property. This applies to the <c>IProperty</c> properties of every object, together with the
+/// animations and expressions of engine objects. A type that reads a member itself in
+/// <see cref="ICoreSerializable.Deserialize(ICoreSerializationContext)"/> handles that member's former key there.
 /// </para>
 /// <para>
 /// The attribute may be given once for each former name. A derived type does not inherit the former names of its

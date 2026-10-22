@@ -22,7 +22,7 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
         _services = new PropertyEditorHostServices(
             new HistoryManager(sequenceGenerator), extensionProvider);
 
-        InitializeCoreObject(extension.Settings!, (_, m) => m.Browsable, extensionProvider);
+        InitializeCoreObject(extension.Settings!, extensionProvider);
 
         NavigateParent.Subscribe(async () =>
         {
@@ -46,9 +46,9 @@ public sealed class AnExtensionSettingsPageViewModel : PageContext, IPropertyEdi
     {
     }
 
-    private void InitializeCoreObject(ExtensionSettings obj, Func<CoreProperty, CorePropertyMetadata, bool>? predicate, ExtensionProvider extensionProvider)
+    private void InitializeCoreObject(ExtensionSettings obj, ExtensionProvider extensionProvider)
     {
-        List<IPropertyAdapter> props = CoreObjectPropertyEditorBuilder.CreateAdapters(obj, predicate);
+        List<IPropertyAdapter> props = CoreObjectPropertyEditorBuilder.CreateSettingsAdapters(obj);
 
         var tempItems = new List<IPropertyEditorContext?>(props.Count);
         CoreObjectPropertyEditorBuilder.CreateContexts(props, extensionProvider, context =>

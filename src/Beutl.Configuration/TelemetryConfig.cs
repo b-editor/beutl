@@ -4,52 +4,41 @@ namespace Beutl.Configuration;
 
 public sealed class TelemetryConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<bool?> Beutl_LoggingProperty;
-    public static readonly CoreProperty<bool?> Beutl_ApplicationProperty;
-    public static readonly CoreProperty<bool?> Beutl_PackageManagementProperty;
-    public static readonly CoreProperty<bool?> Beutl_Api_ClientProperty;
-
-    static TelemetryConfig()
+    public TelemetryConfig()
     {
-        Beutl_LoggingProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Logging))
-            .DefaultValue(null)
-            .Register();
-
-        Beutl_ApplicationProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Application))
-            .DefaultValue(null)
-            .Register();
-
-        Beutl_PackageManagementProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_PackageManagement))
-            .DefaultValue(null)
-            .Register();
-
-        Beutl_Api_ClientProperty = ConfigureProperty<bool?, TelemetryConfig>(nameof(Beutl_Api_Client))
-            .DefaultValue(null)
-            .Register();
+        ScanProperties<TelemetryConfig>();
     }
+
+    public IProperty<bool?> Beutl_LoggingProperty { get; } = new ValueOnlyProperty<bool?>(null);
+
+    public IProperty<bool?> Beutl_ApplicationProperty { get; } = new ValueOnlyProperty<bool?>(null);
+
+    public IProperty<bool?> Beutl_PackageManagementProperty { get; } = new ValueOnlyProperty<bool?>(null);
+
+    public IProperty<bool?> Beutl_Api_ClientProperty { get; } = new ValueOnlyProperty<bool?>(null);
 
     public bool? Beutl_Logging
     {
-        get => GetValue(Beutl_LoggingProperty);
-        set => SetValue(Beutl_LoggingProperty, value);
+        get => Beutl_LoggingProperty.Value;
+        set => Beutl_LoggingProperty.Value = value;
     }
 
     public bool? Beutl_Application
     {
-        get => GetValue(Beutl_ApplicationProperty);
-        set => SetValue(Beutl_ApplicationProperty, value);
+        get => Beutl_ApplicationProperty.Value;
+        set => Beutl_ApplicationProperty.Value = value;
     }
 
     public bool? Beutl_PackageManagement
     {
-        get => GetValue(Beutl_PackageManagementProperty);
-        set => SetValue(Beutl_PackageManagementProperty, value);
+        get => Beutl_PackageManagementProperty.Value;
+        set => Beutl_PackageManagementProperty.Value = value;
     }
 
     public bool? Beutl_Api_Client
     {
-        get => GetValue(Beutl_Api_ClientProperty);
-        set => SetValue(Beutl_Api_ClientProperty, value);
+        get => Beutl_Api_ClientProperty.Value;
+        set => Beutl_Api_ClientProperty.Value = value;
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

@@ -92,16 +92,16 @@ public abstract partial class CoreObject : IChildObjectSource
 
     /// <summary>Whether <paramref name="property"/> is saved with this object.</summary>
     /// <remarks>
-    /// <see cref="NotAutoSerializedAttribute"/> means here what it means on a <see cref="CoreProperty"/>: the value
-    /// is state outside the document, such as an editor's, so it is neither written nor read back.
+    /// <see cref="NotAutoSerializedAttribute"/> marks state outside the document, such as an editor's, so the value
+    /// is neither written nor read back.
     /// </remarks>
     internal static bool IsAutoSerialized(IProperty property)
         => property.GetAttributes()?.Any(static attribute => attribute is NotAutoSerializedAttribute) != true;
 
-    // A base field stands for a CoreProperty field; an object without panels has each value-only property as one.
+    // A base field is saved before Id and Name; an object without panels has each value-only property as one.
     internal virtual bool IsBaseField(IProperty property) => property is not (IExpressionProperty or IListProperty);
 
-    // Id and Name, which come after the CoreProperty fields when saved and shown, as their CoreProperty fields did.
+    // Id and Name, which come after the base fields when saved and shown.
     internal bool IsOwnField(IProperty property) => property == IdProperty || property == NameProperty;
 
     private void RegisterOwnField(IProperty property, string name)

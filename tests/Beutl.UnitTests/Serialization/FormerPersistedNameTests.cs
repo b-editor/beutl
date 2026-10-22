@@ -289,30 +289,27 @@ public class FormerPersistedNameTests
 
     private sealed class RenamedSettings : CoreObject
     {
-        public static readonly CoreProperty<string?> TitleProperty;
-        public static readonly CoreProperty<int> CountProperty;
-
-        static RenamedSettings()
+        public RenamedSettings()
         {
-            TitleProperty = ConfigureProperty<string?, RenamedSettings>(nameof(Title))
-                .FormerPersistedName("FormerTitle")
-                .Register();
-
-            CountProperty = ConfigureProperty<int, RenamedSettings>(nameof(Count))
-                .Register();
+            ScanProperties<RenamedSettings>();
         }
+
+        [FormerPersistedName("FormerTitle")]
+        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+        [FormerPersistedName("FormerCount")]
+        public IProperty<int> CountProperty { get; } = new ValueOnlyProperty<int>(0);
 
         public string? Title
         {
-            get => GetValue(TitleProperty);
-            set => SetValue(TitleProperty, value);
+            get => TitleProperty.Value;
+            set => TitleProperty.Value = value;
         }
 
-        [FormerPersistedName("FormerCount")]
         public int Count
         {
-            get => GetValue(CountProperty);
-            set => SetValue(CountProperty, value);
+            get => CountProperty.Value;
+            set => CountProperty.Value = value;
         }
     }
 }

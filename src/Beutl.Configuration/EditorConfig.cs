@@ -49,292 +49,219 @@ public enum UIToneMappingOperator
 
 public sealed class EditorConfig : ConfigurationBase
 {
-    public static readonly CoreProperty<bool> AutoAdjustSceneDurationProperty;
-    public static readonly CoreProperty<bool> EnablePointerLockInPropertyProperty;
-    public static readonly CoreProperty<bool> IsFrameCacheEnabledProperty;
-    public static readonly CoreProperty<double> FrameCacheMaxSizeProperty;
-    public static readonly CoreProperty<FrameCacheConfigScale> FrameCacheScaleProperty;
-    public static readonly CoreProperty<FrameCacheConfigColorType> FrameCacheColorTypeProperty;
-    public static readonly CoreProperty<bool> IsNodeCacheEnabledProperty;
-    public static readonly CoreProperty<int> NodeCacheMaxPixelsProperty;
-    public static readonly CoreProperty<int> NodeCacheMinPixelsProperty;
-    public static readonly CoreProperty<bool> SwapTimelineScrollDirectionProperty;
-    public static readonly CoreProperty<bool> ClampResizeToOriginalLengthProperty;
-    public static readonly CoreProperty<bool> IsTimelineSnapEnabledProperty;
-    public static readonly CoreProperty<bool> IsRippleEnabledProperty;
-    public static readonly CoreProperty<TimelineAutoScrollMode> TimelineAutoScrollModeProperty;
-    public static readonly CoreProperty<UIToneMappingOperator> ToneMappingModeProperty;
-    public static readonly CoreProperty<float> ToneMappingExposureProperty;
-    public static readonly CoreProperty<bool> UseHdrPreviewProperty;
-    public static readonly CoreProperty<bool> IsOnionSkinEnabledProperty;
-    public static readonly CoreProperty<int> OnionSkinPrevCountProperty;
-    public static readonly CoreProperty<int> OnionSkinNextCountProperty;
-    public static readonly CoreProperty<float> OnionSkinPrevOpacityProperty;
-    public static readonly CoreProperty<float> OnionSkinNextOpacityProperty;
-    public static readonly CoreProperty<PreviewSourceMode> PreviewSourceModeProperty;
-    public static readonly CoreProperty<string?> LastMediaDirectoryProperty;
-
-    static EditorConfig()
-    {
-        LastMediaDirectoryProperty = ConfigureProperty<string?, EditorConfig>(nameof(LastMediaDirectory)).Register();
-        AutoAdjustSceneDurationProperty = ConfigureProperty<bool, EditorConfig>(nameof(AutoAdjustSceneDuration))
-            .DefaultValue(true)
-            .Register();
-
-        EnablePointerLockInPropertyProperty = ConfigureProperty<bool, EditorConfig>(nameof(EnablePointerLockInProperty))
-            .DefaultValue(true)
-            .Register();
-
-        IsFrameCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsFrameCacheEnabled))
-            .DefaultValue(false)
-            .Register();
-
-        // The memory the GC may use: the physical memory, or a container's or job's limit when one is set.
-        ulong memSize = (ulong)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
-        double memSizeInMG = memSize / (1024d * 1024d);
-
-        FrameCacheMaxSizeProperty = ConfigureProperty<double, EditorConfig>(nameof(FrameCacheMaxSize))
-            .DefaultValue(memSizeInMG / 2)
-            .Register();
-
-        FrameCacheScaleProperty = ConfigureProperty<FrameCacheConfigScale, EditorConfig>(nameof(FrameCacheScale))
-            .DefaultValue(FrameCacheConfigScale.FitToPreviewer)
-            .Register();
-
-        FrameCacheColorTypeProperty = ConfigureProperty<FrameCacheConfigColorType, EditorConfig>(nameof(FrameCacheColorType))
-            .DefaultValue(FrameCacheConfigColorType.RGBA)
-            .Register();
-
-        IsNodeCacheEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsNodeCacheEnabled))
-            .DefaultValue(false)
-            .Register();
-
-        NodeCacheMaxPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMaxPixels))
-            .DefaultValue(1000 * 1000)
-            .Register();
-
-        NodeCacheMinPixelsProperty = ConfigureProperty<int, EditorConfig>(nameof(NodeCacheMinPixels))
-            .DefaultValue(1)
-            .Register();
-
-        SwapTimelineScrollDirectionProperty = ConfigureProperty<bool, EditorConfig>(nameof(SwapTimelineScrollDirection))
-            .DefaultValue(false)
-            .Register();
-
-        ClampResizeToOriginalLengthProperty = ConfigureProperty<bool, EditorConfig>(nameof(ClampResizeToOriginalLength))
-            .DefaultValue(true)
-            .Register();
-
-        IsTimelineSnapEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsTimelineSnapEnabled))
-            .DefaultValue(true)
-            .Register();
-
-        IsRippleEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsRippleEnabled))
-            .DefaultValue(false)
-            .Register();
-
-        TimelineAutoScrollModeProperty = ConfigureProperty<TimelineAutoScrollMode, EditorConfig>(nameof(TimelineAutoScrollMode))
-            .DefaultValue(TimelineAutoScrollMode.PageScroll)
-            .Register();
-
-        ToneMappingModeProperty = ConfigureProperty<UIToneMappingOperator, EditorConfig>(nameof(ToneMappingMode))
-            .DefaultValue(UIToneMappingOperator.None)
-            .Register();
-
-        ToneMappingExposureProperty = ConfigureProperty<float, EditorConfig>(nameof(ToneMappingExposure))
-            .DefaultValue(0f)
-            .Register();
-
-        UseHdrPreviewProperty = ConfigureProperty<bool, EditorConfig>(nameof(UseHdrPreview))
-            .DefaultValue(false)
-            .Register();
-
-        IsOnionSkinEnabledProperty = ConfigureProperty<bool, EditorConfig>(nameof(IsOnionSkinEnabled))
-            .DefaultValue(false)
-            .Register();
-
-        OnionSkinPrevCountProperty = ConfigureProperty<int, EditorConfig>(nameof(OnionSkinPrevCount))
-            .DefaultValue(1)
-            .Register();
-
-        OnionSkinNextCountProperty = ConfigureProperty<int, EditorConfig>(nameof(OnionSkinNextCount))
-            .DefaultValue(0)
-            .Register();
-
-        OnionSkinPrevOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinPrevOpacity))
-            .DefaultValue(0.35f)
-            .Register();
-
-        OnionSkinNextOpacityProperty = ConfigureProperty<float, EditorConfig>(nameof(OnionSkinNextOpacity))
-            .DefaultValue(0.35f)
-            .Register();
-
-        PreviewSourceModeProperty = ConfigureProperty<PreviewSourceMode, EditorConfig>(nameof(PreviewSourceMode))
-            .DefaultValue(PreviewSourceMode.PreferProxy)
-            .Register();
-    }
+    // The memory the GC may use: the physical memory, or a container's or job's limit when one is set. Half of it.
+    private static readonly double s_defaultFrameCacheMaxSize = (ulong)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024d * 1024d) / 2;
 
     public EditorConfig()
     {
+        ScanProperties<EditorConfig>();
         LibraryTabDisplayModes.CollectionChanged += (_, _) => OnChanged();
     }
 
+    public IProperty<string?> LastMediaDirectoryProperty { get; } = new ValueOnlyProperty<string?>(null);
+
+    public IProperty<bool> AutoAdjustSceneDurationProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<bool> EnablePointerLockInPropertyProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    [Display(Name = nameof(SettingsStrings.EnableFrameCache), ResourceType = typeof(SettingsStrings))]
+    public IProperty<bool> IsFrameCacheEnabledProperty { get; } = new ValueOnlyProperty<bool>(false);
+
+    [Range(0.0, double.MaxValue)]
+    [Display(Name = nameof(SettingsStrings.FrameCacheMaxSize), ResourceType = typeof(SettingsStrings))]
+    public IProperty<double> FrameCacheMaxSizeProperty { get; } = new ValueOnlyProperty<double>(s_defaultFrameCacheMaxSize);
+
+    [Display(Name = nameof(SettingsStrings.FrameCacheScale), ResourceType = typeof(SettingsStrings))]
+    public IProperty<FrameCacheConfigScale> FrameCacheScaleProperty { get; } = new ValueOnlyProperty<FrameCacheConfigScale>(FrameCacheConfigScale.FitToPreviewer);
+
+    [Display(Name = nameof(SettingsStrings.FrameCacheColorType), ResourceType = typeof(SettingsStrings))]
+    public IProperty<FrameCacheConfigColorType> FrameCacheColorTypeProperty { get; } = new ValueOnlyProperty<FrameCacheConfigColorType>(FrameCacheConfigColorType.RGBA);
+
+    [Display(Name = nameof(SettingsStrings.EnableNodeCache), ResourceType = typeof(SettingsStrings))]
+    public IProperty<bool> IsNodeCacheEnabledProperty { get; } = new ValueOnlyProperty<bool>(false);
+
+    [Range(1, int.MaxValue)]
+    [Display(Name = nameof(SettingsStrings.NodeCacheMaxPixels), ResourceType = typeof(SettingsStrings))]
+    public IProperty<int> NodeCacheMaxPixelsProperty { get; } = new ValueOnlyProperty<int>(1000 * 1000);
+
+    [Range(1, int.MaxValue)]
+    [Display(Name = nameof(SettingsStrings.NodeCacheMinPixels), ResourceType = typeof(SettingsStrings))]
+    public IProperty<int> NodeCacheMinPixelsProperty { get; } = new ValueOnlyProperty<int>(1);
+
+    public IProperty<bool> SwapTimelineScrollDirectionProperty { get; } = new ValueOnlyProperty<bool>(false);
+
+    public IProperty<bool> ClampResizeToOriginalLengthProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<bool> IsTimelineSnapEnabledProperty { get; } = new ValueOnlyProperty<bool>(true);
+
+    public IProperty<bool> IsRippleEnabledProperty { get; } = new ValueOnlyProperty<bool>(false);
+
+    public IProperty<TimelineAutoScrollMode> TimelineAutoScrollModeProperty { get; } = new ValueOnlyProperty<TimelineAutoScrollMode>(TimelineAutoScrollMode.PageScroll);
+
+    public IProperty<UIToneMappingOperator> ToneMappingModeProperty { get; } = new ValueOnlyProperty<UIToneMappingOperator>(UIToneMappingOperator.None);
+
+    public IProperty<float> ToneMappingExposureProperty { get; } = new ValueOnlyProperty<float>(0f);
+
+    public IProperty<bool> UseHdrPreviewProperty { get; } = new ValueOnlyProperty<bool>(false);
+
+    [Display(Name = nameof(Strings.OnionSkin), ResourceType = typeof(Strings))]
+    public IProperty<bool> IsOnionSkinEnabledProperty { get; } = new ValueOnlyProperty<bool>(false);
+
+    [Range(0, 10)]
+    [Display(Name = nameof(Strings.OnionSkinPrevCount), ResourceType = typeof(Strings))]
+    public IProperty<int> OnionSkinPrevCountProperty { get; } = new ValueOnlyProperty<int>(1);
+
+    [Range(0, 10)]
+    [Display(Name = nameof(Strings.OnionSkinNextCount), ResourceType = typeof(Strings))]
+    public IProperty<int> OnionSkinNextCountProperty { get; } = new ValueOnlyProperty<int>(0);
+
+    [Range(0.0, 1.0)]
+    [Display(Name = nameof(Strings.OnionSkinPrevOpacity), ResourceType = typeof(Strings))]
+    public IProperty<float> OnionSkinPrevOpacityProperty { get; } = new ValueOnlyProperty<float>(0.35f);
+
+    [Range(0.0, 1.0)]
+    [Display(Name = nameof(Strings.OnionSkinNextOpacity), ResourceType = typeof(Strings))]
+    public IProperty<float> OnionSkinNextOpacityProperty { get; } = new ValueOnlyProperty<float>(0.35f);
+
+    [Display(Name = nameof(Strings.PreviewSource), ResourceType = typeof(Strings))]
+    public IProperty<PreviewSourceMode> PreviewSourceModeProperty { get; } = new ValueOnlyProperty<PreviewSourceMode>(PreviewSourceMode.PreferProxy);
+
     public bool AutoAdjustSceneDuration
     {
-        get => GetValue(AutoAdjustSceneDurationProperty);
-        set => SetValue(AutoAdjustSceneDurationProperty, value);
+        get => AutoAdjustSceneDurationProperty.Value;
+        set => AutoAdjustSceneDurationProperty.Value = value;
     }
 
     public bool EnablePointerLockInProperty
     {
-        get => GetValue(EnablePointerLockInPropertyProperty);
-        set => SetValue(EnablePointerLockInPropertyProperty, value);
+        get => EnablePointerLockInPropertyProperty.Value;
+        set => EnablePointerLockInPropertyProperty.Value = value;
     }
 
-    [Display(Name = nameof(SettingsStrings.EnableFrameCache), ResourceType = typeof(SettingsStrings))]
     public bool IsFrameCacheEnabled
     {
-        get => GetValue(IsFrameCacheEnabledProperty);
-        set => SetValue(IsFrameCacheEnabledProperty, value);
+        get => IsFrameCacheEnabledProperty.Value;
+        set => IsFrameCacheEnabledProperty.Value = value;
     }
 
-    [Range(0.0, double.MaxValue)]
-    [Display(Name = nameof(SettingsStrings.FrameCacheMaxSize), ResourceType = typeof(SettingsStrings))]
     public double FrameCacheMaxSize
     {
-        get => GetValue(FrameCacheMaxSizeProperty);
-        set => SetValue(FrameCacheMaxSizeProperty, value);
+        get => FrameCacheMaxSizeProperty.Value;
+        set => FrameCacheMaxSizeProperty.Value = value;
     }
 
-    [Display(Name = nameof(SettingsStrings.FrameCacheScale), ResourceType = typeof(SettingsStrings))]
     public FrameCacheConfigScale FrameCacheScale
     {
-        get => GetValue(FrameCacheScaleProperty);
-        set => SetValue(FrameCacheScaleProperty, value);
+        get => FrameCacheScaleProperty.Value;
+        set => FrameCacheScaleProperty.Value = value;
     }
 
-    [Display(Name = nameof(SettingsStrings.FrameCacheColorType), ResourceType = typeof(SettingsStrings))]
     public FrameCacheConfigColorType FrameCacheColorType
     {
-        get => GetValue(FrameCacheColorTypeProperty);
-        set => SetValue(FrameCacheColorTypeProperty, value);
+        get => FrameCacheColorTypeProperty.Value;
+        set => FrameCacheColorTypeProperty.Value = value;
     }
 
-    [Display(Name = nameof(SettingsStrings.EnableNodeCache), ResourceType = typeof(SettingsStrings))]
     public bool IsNodeCacheEnabled
     {
-        get => GetValue(IsNodeCacheEnabledProperty);
-        set => SetValue(IsNodeCacheEnabledProperty, value);
+        get => IsNodeCacheEnabledProperty.Value;
+        set => IsNodeCacheEnabledProperty.Value = value;
     }
 
-    [Range(1, int.MaxValue)]
-    [Display(Name = nameof(SettingsStrings.NodeCacheMaxPixels), ResourceType = typeof(SettingsStrings))]
     public int NodeCacheMaxPixels
     {
-        get => GetValue(NodeCacheMaxPixelsProperty);
-        set => SetValue(NodeCacheMaxPixelsProperty, value);
+        get => NodeCacheMaxPixelsProperty.Value;
+        set => NodeCacheMaxPixelsProperty.Value = value;
     }
 
-    [Range(1, int.MaxValue)]
-    [Display(Name = nameof(SettingsStrings.NodeCacheMinPixels), ResourceType = typeof(SettingsStrings))]
     public int NodeCacheMinPixels
     {
-        get => GetValue(NodeCacheMinPixelsProperty);
-        set => SetValue(NodeCacheMinPixelsProperty, value);
+        get => NodeCacheMinPixelsProperty.Value;
+        set => NodeCacheMinPixelsProperty.Value = value;
     }
 
     public bool SwapTimelineScrollDirection
     {
-        get => GetValue(SwapTimelineScrollDirectionProperty);
-        set => SetValue(SwapTimelineScrollDirectionProperty, value);
+        get => SwapTimelineScrollDirectionProperty.Value;
+        set => SwapTimelineScrollDirectionProperty.Value = value;
     }
 
     public bool ClampResizeToOriginalLength
     {
-        get => GetValue(ClampResizeToOriginalLengthProperty);
-        set => SetValue(ClampResizeToOriginalLengthProperty, value);
+        get => ClampResizeToOriginalLengthProperty.Value;
+        set => ClampResizeToOriginalLengthProperty.Value = value;
     }
 
     public bool IsTimelineSnapEnabled
     {
-        get => GetValue(IsTimelineSnapEnabledProperty);
-        set => SetValue(IsTimelineSnapEnabledProperty, value);
+        get => IsTimelineSnapEnabledProperty.Value;
+        set => IsTimelineSnapEnabledProperty.Value = value;
     }
 
     public bool IsRippleEnabled
     {
-        get => GetValue(IsRippleEnabledProperty);
-        set => SetValue(IsRippleEnabledProperty, value);
+        get => IsRippleEnabledProperty.Value;
+        set => IsRippleEnabledProperty.Value = value;
     }
 
     public TimelineAutoScrollMode TimelineAutoScrollMode
     {
-        get => GetValue(TimelineAutoScrollModeProperty);
-        set => SetValue(TimelineAutoScrollModeProperty, value);
+        get => TimelineAutoScrollModeProperty.Value;
+        set => TimelineAutoScrollModeProperty.Value = value;
     }
 
     public UIToneMappingOperator ToneMappingMode
     {
-        get => GetValue(ToneMappingModeProperty);
-        set => SetValue(ToneMappingModeProperty, value);
+        get => ToneMappingModeProperty.Value;
+        set => ToneMappingModeProperty.Value = value;
     }
 
     public float ToneMappingExposure
     {
-        get => GetValue(ToneMappingExposureProperty);
-        set => SetValue(ToneMappingExposureProperty, value);
+        get => ToneMappingExposureProperty.Value;
+        set => ToneMappingExposureProperty.Value = value;
     }
 
     public bool UseHdrPreview
     {
-        get => GetValue(UseHdrPreviewProperty);
-        set => SetValue(UseHdrPreviewProperty, value);
+        get => UseHdrPreviewProperty.Value;
+        set => UseHdrPreviewProperty.Value = value;
     }
 
-    [Display(Name = nameof(Strings.OnionSkin), ResourceType = typeof(Strings))]
     public bool IsOnionSkinEnabled
     {
-        get => GetValue(IsOnionSkinEnabledProperty);
-        set => SetValue(IsOnionSkinEnabledProperty, value);
+        get => IsOnionSkinEnabledProperty.Value;
+        set => IsOnionSkinEnabledProperty.Value = value;
     }
 
-    [Range(0, 10)]
-    [Display(Name = nameof(Strings.OnionSkinPrevCount), ResourceType = typeof(Strings))]
     public int OnionSkinPrevCount
     {
-        get => GetValue(OnionSkinPrevCountProperty);
-        set => SetValue(OnionSkinPrevCountProperty, value);
+        get => OnionSkinPrevCountProperty.Value;
+        set => OnionSkinPrevCountProperty.Value = value;
     }
 
-    [Range(0, 10)]
-    [Display(Name = nameof(Strings.OnionSkinNextCount), ResourceType = typeof(Strings))]
     public int OnionSkinNextCount
     {
-        get => GetValue(OnionSkinNextCountProperty);
-        set => SetValue(OnionSkinNextCountProperty, value);
+        get => OnionSkinNextCountProperty.Value;
+        set => OnionSkinNextCountProperty.Value = value;
     }
 
-    [Range(0.0, 1.0)]
-    [Display(Name = nameof(Strings.OnionSkinPrevOpacity), ResourceType = typeof(Strings))]
     public float OnionSkinPrevOpacity
     {
-        get => GetValue(OnionSkinPrevOpacityProperty);
-        set => SetValue(OnionSkinPrevOpacityProperty, value);
+        get => OnionSkinPrevOpacityProperty.Value;
+        set => OnionSkinPrevOpacityProperty.Value = value;
     }
 
-    [Range(0.0, 1.0)]
-    [Display(Name = nameof(Strings.OnionSkinNextOpacity), ResourceType = typeof(Strings))]
     public float OnionSkinNextOpacity
     {
-        get => GetValue(OnionSkinNextOpacityProperty);
-        set => SetValue(OnionSkinNextOpacityProperty, value);
+        get => OnionSkinNextOpacityProperty.Value;
+        set => OnionSkinNextOpacityProperty.Value = value;
     }
 
-    [Display(Name = nameof(Strings.PreviewSource), ResourceType = typeof(Strings))]
     public PreviewSourceMode PreviewSourceMode
     {
-        get => GetValue(PreviewSourceModeProperty);
-        set => SetValue(PreviewSourceModeProperty, value);
+        get => PreviewSourceModeProperty.Value;
+        set => PreviewSourceModeProperty.Value = value;
     }
 
     /// <summary>Sets <see cref="PreviewSourceMode"/> from a <c>ComboBox.SelectedIndex</c>.</summary>
@@ -355,8 +282,8 @@ public sealed class EditorConfig : ConfigurationBase
 
     public string? LastMediaDirectory
     {
-        get => GetValue(LastMediaDirectoryProperty);
-        set => SetValue(LastMediaDirectoryProperty, value);
+        get => LastMediaDirectoryProperty.Value;
+        set => LastMediaDirectoryProperty.Value = value;
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

@@ -29,7 +29,7 @@ internal sealed class PixelFormatEditorViewModel
         : base(property, extension, FFmpegOptionsCaches.PixelFormats, s_logger, "pixel formats")
     {
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(Disposables);
-        Initialize(FFmpegVideoEncoderSettings.CodecProperty);
+        Initialize(settings => settings.CodecProperty);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)

@@ -87,26 +87,6 @@ public sealed class ExternalResourceCollector
         {
             _fileSources.Add((obj.Id, "Uri", obj.Uri));
         }
-
-        var props = PropertyRegistry.GetRegistered(obj.GetType());
-        foreach (var prop in props)
-        {
-            if (prop.PropertyType.IsValueType) continue;
-            object? value = obj.GetValue(prop);
-            switch (value)
-            {
-                case IFileSource fileSource:
-                    if (RequiresRelocation(fileSource, projectDirectory))
-                    {
-                        _fileSources.Add((obj.Id, prop.Name, fileSource.Uri));
-                    }
-
-                    break;
-                case FontFamily fontFamily:
-                    _fontFamilies.Add(fontFamily);
-                    break;
-            }
-        }
     }
 
     private void CollectFromProperties(CoreObject obj, string projectDirectory)

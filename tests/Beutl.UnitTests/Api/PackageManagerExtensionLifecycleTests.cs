@@ -1,15 +1,9 @@
 ﻿using System.Collections.Specialized;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
-using Beutl.Serialization;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.Emit;
 
 namespace Beutl.UnitTests.Api;
 
@@ -418,96 +412,6 @@ public class PackageManagerExtensionLifecycleTests
     }
 
     [Test]
-    public async Task Unload_KeepsAPackageWhosePropertyAnOpenSceneUses()
-    {
-        PackageManager manager = CreatePackageManager(out _, out _);
-        var package = new LocalPackage { Name = "PropertyPackage" };
-        var loadContext = new HostSharingLoadContext();
-        Assembly assembly = LoadPropertyPackage(loadContext);
-        try
-        {
-            manager.LoadExtensionsAndRegister(
-                activity: null,
-                package,
-                [assembly],
-                loadContext,
-                [typeof(SuccessfulViewExtension)]);
-            Type type = assembly.GetType("PackageObject")!;
-            var label = (CoreProperty<string>)type.GetField("LabelProperty")!.GetValue(null)!;
-            var packageObject = (EngineObject)Activator.CreateInstance(type)!;
-            packageObject.SetValue(label, "kept");
-            var element = new Element();
-            element.AddObject(packageObject);
-            var scene = new Scene(640, 480, "open");
-            scene.Children.Add(element);
-
-            bool unloaded = await manager.Unload(package);
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(unloaded, Is.False);
-                Assert.That(SuccessfulViewExtension.UnloadCount, Is.Zero);
-                Assert.That(manager.LoadedPackage, Does.Contain(package));
-                Assert.That(PropertyRegistry.FindRegistered(type, "Label"), Is.SameAs(label));
-                Assert.That(
-                    CoreSerializer.SerializeToJsonObject(element)["Objects"]![0]!["Label"]!.GetValue<string>(),
-                    Is.EqualTo("kept"));
-            }
-        }
-        finally
-        {
-            TypeUnloadNotifier.NotifyUnloading(assembly.GetTypes());
-            loadContext.Unload();
-        }
-    }
-
-    [Test]
-    public async Task LoadExtensionsAndRegister_QuarantinesAPackageWithRegisteredPropertiesOnRollback()
-    {
-        PackageManager manager = CreatePackageManager(out _, out ExtensionProvider provider);
-        var package = new LocalPackage { Name = "PropertyRollback" };
-        var loadContext = new HostSharingLoadContext();
-        Assembly assembly = LoadPropertyPackage(loadContext);
-        Type type = assembly.GetType("PackageObject")!;
-        RuntimeHelpers.RunClassConstructor(type.TypeHandle);
-        provider.AllExtensions.CollectionChanged += (_, args) =>
-        {
-            if (args.Action == NotifyCollectionChangedAction.Add)
-                throw new InvalidOperationException("observer failure");
-        };
-        try
-        {
-            Assert.Throws<ExtensionRegistrationNotificationException>(() =>
-                manager.LoadExtensionsAndRegister(
-                    activity: null,
-                    package,
-                    [assembly],
-                    loadContext,
-                    [typeof(SuccessfulViewExtension)]));
-            await Task.Delay(100);
-
-            using (Assert.EnterMultipleScope())
-            {
-                Assert.That(SuccessfulViewExtension.UnloadCount, Is.Zero);
-                Assert.That(PropertyRegistry.FindRegistered(type, "Label"), Is.Not.Null);
-                Assert.That(
-                    () => manager.LoadExtensionsAndRegister(
-                        activity: null,
-                        package,
-                        assemblies: [],
-                        loadContext: null,
-                        [typeof(SuccessfulViewExtension)]),
-                    Throws.InvalidOperationException.With.Message.Contains("quarantined"));
-            }
-        }
-        finally
-        {
-            TypeUnloadNotifier.NotifyUnloading(assembly.GetTypes());
-            loadContext.Unload();
-        }
-    }
-
-    [Test]
     public async Task Unload_QuarantinesPackageWithoutCallingUnload_WhenRegistrationDrainFails()
     {
         PackageManager manager = CreatePackageManager(
@@ -540,41 +444,6 @@ public class PackageManagerExtensionLifecycleTests
 
         Assert.That(await manager.Unload(package), Is.False);
         Assert.That(FaultedDrainMcpToolExtension.UnloadCount, Is.Zero);
-    }
-
-    // Unit tests have no Beutl.dll for the app's resolver to read, so this context shares every host assembly as it does.
-    private sealed class HostSharingLoadContext() : PluginLoadContext(AppContext.BaseDirectory)
-    {
-        protected override Assembly? Load(AssemblyName name) => null;
-    }
-
-    // A package whose engine object registers a CoreProperty.
-    private static Assembly LoadPropertyPackage(PluginLoadContext loadContext)
-    {
-        using var stream = new MemoryStream();
-        EmitResult result = CSharpCompilation.Create(
-                "PropertyPackage" + Guid.NewGuid().ToString("N"),
-                [CSharpSyntaxTree.ParseText("""
-                    public sealed class PackageObject : Beutl.Engine.EngineObject
-                    {
-                        public static readonly Beutl.CoreProperty<string> LabelProperty =
-                            ConfigureProperty<string, PackageObject>(nameof(Label)).DefaultValue("").Register();
-
-                        public string Label
-                        {
-                            get => GetValue(LabelProperty);
-                            set => SetValue(LabelProperty, value);
-                        }
-                    }
-                    """)],
-                ((string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!)
-                    .Split(Path.PathSeparator)
-                    .Select(path => MetadataReference.CreateFromFile(path)),
-                new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary))
-            .Emit(stream);
-        Assert.That(result.Success, Is.True, () => string.Join(Environment.NewLine, result.Diagnostics));
-        stream.Position = 0;
-        return loadContext.LoadFromStream(stream);
     }
 
     private static Element MaterializePackageGraph(IElementSourceHandlerRegistry handlers)

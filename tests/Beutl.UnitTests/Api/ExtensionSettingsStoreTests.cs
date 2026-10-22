@@ -57,13 +57,17 @@ public class ExtensionSettingsStoreTests
 
     private sealed class CountSettings : ExtensionSettings
     {
-        public static readonly CoreProperty<int> CountProperty =
-            ConfigureProperty<int, CountSettings>(nameof(Count)).Register();
+        public CountSettings()
+        {
+            ScanProperties<CountSettings>();
+        }
+
+        public IProperty<int> CountProperty { get; } = new ValueOnlyProperty<int>(default);
 
         public int Count
         {
-            get => GetValue(CountProperty);
-            set => SetValue(CountProperty, value);
+            get => CountProperty.Value;
+            set => CountProperty.Value = value;
         }
     }
 }

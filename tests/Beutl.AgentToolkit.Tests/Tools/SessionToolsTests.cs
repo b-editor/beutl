@@ -23,19 +23,17 @@ public sealed class SessionToolsTests
 {
     private sealed class RegisteredOptionalTransformElement : Element
     {
-        public static readonly CoreProperty<Optional<Transform>> PluginTransformProperty;
-
-        static RegisteredOptionalTransformElement()
+        public RegisteredOptionalTransformElement()
         {
-            PluginTransformProperty = ConfigureProperty<Optional<Transform>, RegisteredOptionalTransformElement>(
-                    nameof(PluginTransform))
-                .Register();
+            ScanProperties<RegisteredOptionalTransformElement>();
         }
+
+        public IProperty<Optional<Transform>> PluginTransformProperty { get; } = new ValueOnlyProperty<Optional<Transform>>(default);
 
         public Optional<Transform> PluginTransform
         {
-            get => GetValue(PluginTransformProperty);
-            set => SetValue(PluginTransformProperty, value);
+            get => PluginTransformProperty.Value;
+            set => PluginTransformProperty.Value = value;
         }
     }
 

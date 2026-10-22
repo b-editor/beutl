@@ -1,0 +1,68 @@
+{
+  "Video": {
+    "Format": -1,
+    "ColorPrimaries": 1,
+    "ColorTrc": 2,
+    "ColorSpace": 2,
+    "ColorRange": 1,
+    "Options": [
+      {
+        "Value": "medium",
+        "Id": "00000000-0000-0000-0000-000000000001",
+        "Name": "preset"
+      },
+      {
+        "Value": "22",
+        "Id": "00000000-0000-0000-0000-000000000002",
+        "Name": "crf"
+      },
+      {
+        "Value": "high",
+        "Id": "00000000-0000-0000-0000-000000000003",
+        "Name": "profile"
+      },
+      {
+        "Value": "4.0",
+        "Id": "00000000-0000-0000-0000-000000000004",
+        "Name": "level"
+      },
+      {
+        "Value": "film",
+        "Id": "00000000-0000-0000-0000-000000000005",
+        "Name": "tune"
+      }
+    ],
+    "SourceSize": "1920, 1080",
+    "DestinationSize": "1280, 720",
+    "FrameRate": "24",
+    "Bitrate": 8000000,
+    "KeyframeRate": 48,
+    "CodecOptions": null,
+    "Id": "00000000-0000-0000-0000-000000000006",
+    "Name": "",
+    "Codec": "Default",
+    "$type": "[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegVideoEncoderSettings"
+  },
+  "Audio": {
+    "Format": 8,
+    "SampleRate": 48000,
+    "Channels": 1,
+    "Bitrate": 192000,
+    "CodecOptions": null,
+    "Id": "00000000-0000-0000-0000-000000000007",
+    "Name": "",
+    "Codec": "Default",
+    "$type": "[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegAudioEncoderSettings"
+  },
+  "Encoding": {
+    "ThreadCount": 4,
+    "Acceleration": 1,
+    "$type": "[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegEncodingSettings"
+  },
+  "Decoding": {
+    "ThreadCount": 2,
+    "Acceleration": 1,
+    "ForceSrgbGamma": false,
+    "$type": "[Beutl.Extensions.FFmpeg].Decoding:FFmpegDecodingSettings"
+  }
+}

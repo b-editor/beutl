@@ -11,15 +11,17 @@ public class EasingProjectSerializationTests
     [SuppressResourceClassGeneration]
     public sealed class EasingElement : Beutl.ProjectSystem.Element
     {
-        public static readonly CoreProperty<Easing> EasingProperty =
-            ConfigureProperty<Easing, EasingElement>(nameof(Easing))
-                .DefaultValue(new LinearEasing())
-                .Register();
+        public EasingElement()
+        {
+            ScanProperties<EasingElement>();
+        }
+
+        public IProperty<Easing> EasingProperty { get; } = new ValueOnlyProperty<Easing>(new LinearEasing());
 
         public Easing Easing
         {
-            get => GetValue(EasingProperty);
-            set => SetValue(EasingProperty, value);
+            get => EasingProperty.Value;
+            set => EasingProperty.Value = value;
         }
     }
 

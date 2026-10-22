@@ -259,7 +259,7 @@ internal sealed partial class DeclarativeDocumentApplier
     {
         foreach (string name in members.Select(pair => pair.Key))
         {
-            // A base field stands for a CoreProperty field, which takes neither.
+            // A base field holds only a value and takes neither.
             IProperty? property = target.Properties.FirstOrDefault(
                 item => item.Name == name && !target.IsBaseField(item));
             if (property is null)

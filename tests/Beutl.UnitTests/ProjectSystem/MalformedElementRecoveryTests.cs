@@ -221,31 +221,41 @@ public sealed class MalformedElementRecoveryTests
 
     public sealed class PluginScene : Scene
     {
-        public static readonly CoreProperty<StorageWrapper?> WrappedOwnedProperty =
-            ConfigureProperty<StorageWrapper?, PluginScene>(nameof(WrappedOwned)).Register();
+        public PluginScene()
+        {
+            ScanProperties<PluginScene>();
+        }
+
+        public IProperty<StorageWrapper?> WrappedOwnedProperty { get; } = new ValueOnlyProperty<StorageWrapper?>(null);
+
+        public IProperty<CoreObject?> OwnedProperty { get; } = new ValueOnlyProperty<CoreObject?>(null);
+
         public StorageWrapper? WrappedOwned
         {
-            get => GetValue(WrappedOwnedProperty);
-            set => SetValue(WrappedOwnedProperty, value);
+            get => WrappedOwnedProperty.Value;
+            set => WrappedOwnedProperty.Value = value;
         }
-        public static readonly CoreProperty<CoreObject?> OwnedProperty =
-            ConfigureProperty<CoreObject?, PluginScene>(nameof(Owned)).Register();
 
         public CoreObject? Owned
         {
-            get => GetValue(OwnedProperty);
-            set => SetValue(OwnedProperty, value);
+            get => OwnedProperty.Value;
+            set => OwnedProperty.Value = value;
         }
     }
 
     public sealed class PluginLayer : TimelineLayer
     {
-        public static readonly CoreProperty<StorageWrapper?> WrappedOwnedProperty =
-            ConfigureProperty<StorageWrapper?, PluginLayer>(nameof(WrappedOwned)).Register();
+        public PluginLayer()
+        {
+            ScanProperties<PluginLayer>();
+        }
+
+        public IProperty<StorageWrapper?> WrappedOwnedProperty { get; } = new ValueOnlyProperty<StorageWrapper?>(null);
+
         public StorageWrapper? WrappedOwned
         {
-            get => GetValue(WrappedOwnedProperty);
-            set => SetValue(WrappedOwnedProperty, value);
+            get => WrappedOwnedProperty.Value;
+            set => WrappedOwnedProperty.Value = value;
         }
     }
 
@@ -422,65 +432,57 @@ public sealed class MalformedElementRecoveryTests
 
     public sealed class RegisteredRecoveryElement : Element
     {
-        public static readonly CoreProperty<Transform?> PluginTransformProperty;
-        public static readonly CoreProperty<Reference<Element>> PluginTargetProperty;
-
-        static RegisteredRecoveryElement()
+        public RegisteredRecoveryElement()
         {
-            PluginTransformProperty = ConfigureProperty<Transform?, RegisteredRecoveryElement>(
-                    nameof(PluginTransform))
-                .Register();
-            PluginTargetProperty = ConfigureProperty<Reference<Element>, RegisteredRecoveryElement>(
-                    nameof(PluginTarget))
-                .Register();
+            ScanProperties<RegisteredRecoveryElement>();
         }
+
+        public IProperty<Transform?> PluginTransformProperty { get; } = new ValueOnlyProperty<Transform?>(null);
+
+        public IProperty<Reference<Element>> PluginTargetProperty { get; } = new ValueOnlyProperty<Reference<Element>>(default);
 
         public Transform? PluginTransform
         {
-            get => GetValue(PluginTransformProperty);
-            set => SetValue(PluginTransformProperty, value);
+            get => PluginTransformProperty.Value;
+            set => PluginTransformProperty.Value = value;
         }
 
         public Reference<Element> PluginTarget
         {
-            get => GetValue(PluginTargetProperty);
-            set => SetValue(PluginTargetProperty, value);
+            get => PluginTargetProperty.Value;
+            set => PluginTargetProperty.Value = value;
         }
     }
 
     public sealed class RegisteredOptionalRecoveryElement : Element
     {
-        public static readonly CoreProperty<Optional<Transform>> PluginTransformProperty;
-
-        static RegisteredOptionalRecoveryElement()
+        public RegisteredOptionalRecoveryElement()
         {
-            PluginTransformProperty = ConfigureProperty<Optional<Transform>, RegisteredOptionalRecoveryElement>(
-                    nameof(PluginTransform))
-                .Register();
+            ScanProperties<RegisteredOptionalRecoveryElement>();
         }
+
+        public IProperty<Optional<Transform>> PluginTransformProperty { get; } = new ValueOnlyProperty<Optional<Transform>>(default);
 
         public Optional<Transform> PluginTransform
         {
-            get => GetValue(PluginTransformProperty);
-            set => SetValue(PluginTransformProperty, value);
+            get => PluginTransformProperty.Value;
+            set => PluginTransformProperty.Value = value;
         }
     }
 
     public sealed class RegisteredRecoveryScene : Scene
     {
-        public static readonly CoreProperty<Reference<Element>> PluginTargetProperty;
-
-        static RegisteredRecoveryScene()
+        public RegisteredRecoveryScene()
         {
-            PluginTargetProperty = ConfigureProperty<Reference<Element>, RegisteredRecoveryScene>(
-                    nameof(PluginTarget))
-                .Register();
+            ScanProperties<RegisteredRecoveryScene>();
         }
+
+        public IProperty<Reference<Element>> PluginTargetProperty { get; } = new ValueOnlyProperty<Reference<Element>>(default);
 
         public Reference<Element> PluginTarget
         {
-            get => GetValue(PluginTargetProperty);
-            set => SetValue(PluginTargetProperty, value);
+            get => PluginTargetProperty.Value;
+            set => PluginTargetProperty.Value = value;
         }
     }
 
@@ -1982,7 +1984,7 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void Restore_RegisteredCorePropertyFallbackAdoptsSerializedId()
+    public void Restore_RegisteredPropertyFallbackAdoptsSerializedId()
     {
         string scenePath = Path.Combine(_root, "registered.scene");
         string elementPath = Path.Combine(_root, "registered.belm");
@@ -2018,7 +2020,7 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
-    public void Restore_RegisteredCorePropertyFallbackCollisionIsRemappedStably()
+    public void Restore_RegisteredPropertyFallbackCollisionIsRemappedStably()
     {
         string scenePath = Path.Combine(_root, "registered-collision.scene");
         string healthyPath = Path.Combine(_root, "healthy.belm");

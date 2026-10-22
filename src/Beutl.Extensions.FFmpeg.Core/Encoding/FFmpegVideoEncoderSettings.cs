@@ -1,4 +1,5 @@
-﻿using Beutl.Collections;
+﻿using System.ComponentModel;
+using Beutl.Collections;
 using Beutl.FFmpegIpc;
 using Beutl.Media.Encoding;
 using Beutl.Serialization;
@@ -11,29 +12,25 @@ namespace Beutl.Extensions.FFmpeg.Encoding;
 
 public sealed class AdditionalOption : CoreObject
 {
-    public static readonly CoreProperty<string> ValueProperty;
-
-    static AdditionalOption()
-    {
-        ValueProperty = ConfigureProperty<string, AdditionalOption>(nameof(Value))
-            .DefaultValue("")
-            .Register();
-    }
-
     public AdditionalOption()
     {
+        ScanProperties<AdditionalOption>();
+        ValueProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
     }
 
     public AdditionalOption(string name, string value)
+        : this()
     {
         Name = name;
         Value = value;
     }
 
+    public IProperty<string> ValueProperty { get; } = new ValueOnlyProperty<string>("");
+
     public string Value
     {
-        get => GetValue(ValueProperty);
-        set => SetValue(ValueProperty, value);
+        get => ValueProperty.Value;
+        set => ValueProperty.Value = value;
     }
 
     public override void Deserialize(ICoreSerializationContext context)
@@ -48,46 +45,9 @@ public sealed class AdditionalOption : CoreObject
 
 public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
 {
-    public static readonly CoreProperty<int> FormatProperty;
-    public static readonly CoreProperty<CodecRecord> CodecProperty;
-    public static readonly CoreProperty<FFColorPrimaries> ColorPrimariesProperty;
-    public static readonly CoreProperty<FFColorTransfer> ColorTrcProperty;
-    public static readonly CoreProperty<FFColorSpace> ColorSpaceProperty;
-    public static readonly CoreProperty<FFColorRange> ColorRangeProperty;
-    public static readonly CoreProperty<CoreList<AdditionalOption>> OptionsProperty;
-
-    static FFmpegVideoEncoderSettings()
-    {
-        FormatProperty = ConfigureProperty<int, FFmpegVideoEncoderSettings>(nameof(Format))
-            .DefaultValue(FFPixelFormat.None)
-            .Register();
-
-        CodecProperty = ConfigureProperty<CodecRecord, FFmpegVideoEncoderSettings>(nameof(Codec))
-            .DefaultValue(CodecRecord.Default)
-            .Register();
-
-        ColorPrimariesProperty = ConfigureProperty<FFColorPrimaries, FFmpegVideoEncoderSettings>(nameof(ColorPrimaries))
-            .DefaultValue(FFColorPrimaries.UNSPECIFIED)
-            .Register();
-
-        ColorTrcProperty = ConfigureProperty<FFColorTransfer, FFmpegVideoEncoderSettings>(nameof(ColorTrc))
-            .DefaultValue(FFColorTransfer.UNSPECIFIED)
-            .Register();
-
-        ColorSpaceProperty = ConfigureProperty<FFColorSpace, FFmpegVideoEncoderSettings>(nameof(ColorSpace))
-            .DefaultValue(FFColorSpace.UNSPECIFIED)
-            .Register();
-
-        ColorRangeProperty = ConfigureProperty<FFColorRange, FFmpegVideoEncoderSettings>(nameof(ColorRange))
-            .DefaultValue(FFColorRange.UNSPECIFIED)
-            .Register();
-
-        OptionsProperty = ConfigureProperty<CoreList<AdditionalOption>, FFmpegVideoEncoderSettings>(nameof(Options))
-            .Register();
-    }
-
     public FFmpegVideoEncoderSettings()
     {
+        ScanProperties<FFmpegVideoEncoderSettings>();
         Options =
         [
             new("preset", "medium"),
@@ -97,50 +57,65 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         ];
     }
 
+    public IProperty<int> FormatProperty { get; } = new ValueOnlyProperty<int>(FFPixelFormat.None);
+
+    // Serialize and Deserialize write and read the codec by its name.
+    [NotAutoSerialized]
+    [ChoicesProvider(typeof(VideoCodecChoicesProvider))]
+    public IProperty<CodecRecord> CodecProperty { get; } = new ValueOnlyProperty<CodecRecord>(CodecRecord.Default);
+
+    public IProperty<FFColorPrimaries> ColorPrimariesProperty { get; } = new ValueOnlyProperty<FFColorPrimaries>(FFColorPrimaries.UNSPECIFIED);
+
+    public IProperty<FFColorTransfer> ColorTrcProperty { get; } = new ValueOnlyProperty<FFColorTransfer>(FFColorTransfer.UNSPECIFIED);
+
+    public IProperty<FFColorSpace> ColorSpaceProperty { get; } = new ValueOnlyProperty<FFColorSpace>(FFColorSpace.UNSPECIFIED);
+
+    public IProperty<FFColorRange> ColorRangeProperty { get; } = new ValueOnlyProperty<FFColorRange>(FFColorRange.UNSPECIFIED);
+
+    public IProperty<CoreList<AdditionalOption>> OptionsProperty { get; } = new ValueOnlyProperty<CoreList<AdditionalOption>>(null!);
+
     public string? OutputFile { get; set; }
 
     public int Format
     {
-        get => GetValue(FormatProperty);
-        set => SetValue(FormatProperty, value);
+        get => FormatProperty.Value;
+        set => FormatProperty.Value = value;
     }
 
-    [NotAutoSerialized]
-    [ChoicesProvider(typeof(VideoCodecChoicesProvider))]
     public CodecRecord Codec
     {
-        get => GetValue(CodecProperty);
-        set => SetValue(CodecProperty, value);
+        get => CodecProperty.Value;
+        set => CodecProperty.Value = value;
     }
 
     public FFColorPrimaries ColorPrimaries
     {
-        get => GetValue(ColorPrimariesProperty);
-        set => SetValue(ColorPrimariesProperty, value);
+        get => ColorPrimariesProperty.Value;
+        set => ColorPrimariesProperty.Value = value;
     }
 
     public FFColorTransfer ColorTrc
     {
-        get => GetValue(ColorTrcProperty);
-        set => SetValue(ColorTrcProperty, value);
+        get => ColorTrcProperty.Value;
+        set => ColorTrcProperty.Value = value;
     }
 
     public FFColorSpace ColorSpace
     {
-        get => GetValue(ColorSpaceProperty);
-        set => SetValue(ColorSpaceProperty, value);
+        get => ColorSpaceProperty.Value;
+        set => ColorSpaceProperty.Value = value;
     }
 
     public FFColorRange ColorRange
     {
-        get => GetValue(ColorRangeProperty);
-        set => SetValue(ColorRangeProperty, value);
+        get => ColorRangeProperty.Value;
+        set => ColorRangeProperty.Value = value;
     }
 
     public CoreList<AdditionalOption> Options
     {
-        get => GetValue(OptionsProperty);
-        set => SetValue(OptionsProperty, value);
+        get => OptionsProperty.Value;
+        set => OptionsProperty.Value = value;
     }
 
     public override void Deserialize(ICoreSerializationContext context)

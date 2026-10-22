@@ -57,11 +57,11 @@ internal sealed class ThemeService : IDisposable
         // which flashes another theme (#2134). Its later load registers the same instance: no re-apply.
         DarkBorderThemeExtension.Instance.Load();
 
-        _themeSubscription = _viewConfig.GetObservable(ViewConfig.ThemeProperty)
+        _themeSubscription = _viewConfig.ThemeProperty.GetObservable()
             .Subscribe(_ => ScheduleApply());
-        _useCustomAccentSubscription = _viewConfig.GetObservable(ViewConfig.UseCustomAccentColorProperty)
+        _useCustomAccentSubscription = _viewConfig.UseCustomAccentColorProperty.GetObservable()
             .Subscribe(_ => ScheduleApply());
-        _customAccentColorSubscription = _viewConfig.GetObservable(ViewConfig.CustomAccentColorProperty)
+        _customAccentColorSubscription = _viewConfig.CustomAccentColorProperty.GetObservable()
             .Subscribe(_ => ScheduleApply());
         ThemeRegistry.Changed += OnThemeRegistryChanged;
 
