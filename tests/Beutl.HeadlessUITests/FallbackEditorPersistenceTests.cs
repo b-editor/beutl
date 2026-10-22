@@ -40,9 +40,9 @@ public sealed class FallbackEditorPersistenceTests
 
         public IExpressionProperty<Brush?> BrushValue { get; } = Property.CreateAnimatable<Brush?>();
 
-        public IExpressionProperty<Pen?> PenValue { get; } = Property.CreateWithExpression<Pen?>();
+        public IExpressionProperty<Pen?> PenValue { get; } = Property.CreateExpression<Pen?>();
 
-        public IExpressionProperty<TextureSource?> TextureValue { get; } = Property.CreateWithExpression<TextureSource?>();
+        public IExpressionProperty<TextureSource?> TextureValue { get; } = Property.CreateExpression<TextureSource?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -50,9 +50,9 @@ public sealed class FallbackEditorPersistenceTests
     {
         public NullableRecoveryHolder() => ScanProperties<NullableRecoveryHolder>();
 
-        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateWithExpression<DisplacementMapTransform?>();
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateExpression<DisplacementMapTransform?>();
 
-        public IExpressionProperty<float> Amount { get; } = Property.CreateWithExpression<float>();
+        public IExpressionProperty<float> Amount { get; } = Property.CreateExpression<float>();
 
         public override void Deserialize(ICoreSerializationContext context)
         {

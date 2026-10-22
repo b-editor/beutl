@@ -35,7 +35,7 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FftSize), ResourceType = typeof(GraphicsStrings))]
     [Range(64, 16384)]
-    public IExpressionProperty<int> FftSize { get; } = Property.CreateWithExpression(512);
+    public IExpressionProperty<int> FftSize { get; } = Property.CreateExpression(512);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FloorDb), ResourceType = typeof(GraphicsStrings))]
     [Range(-200f, 0f)]
@@ -43,10 +43,10 @@ public sealed partial class AudioSpectrogramDrawable : AudioVisualizerDrawable
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_TimeColumns), ResourceType = typeof(GraphicsStrings))]
     [Range(2, 2048)]
-    public IExpressionProperty<int> TimeColumns { get; } = Property.CreateWithExpression(256);
+    public IExpressionProperty<int> TimeColumns { get; } = Property.CreateExpression(256);
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_FrequencyScale), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FrequencyScale> FrequencyScale { get; } = Property.CreateWithExpression(AudioVisualizers.FrequencyScale.Logarithmic);
+    public IExpressionProperty<FrequencyScale> FrequencyScale { get; } = Property.CreateExpression(AudioVisualizers.FrequencyScale.Logarithmic);
 
     public new partial class Resource
     {

@@ -240,7 +240,7 @@ public class PropertyLookupTests
 
     private ExpressionContext CreateContext(PropertyLookup lookup, TimeSpan time)
     {
-        var property = Property.CreateWithExpression(0.0);
+        var property = Property.CreateExpression(0.0);
         return new ExpressionContext(time, property, lookup);
     }
 }

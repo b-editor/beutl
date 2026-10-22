@@ -97,6 +97,6 @@ public class CollectionJsonConverterSerializationTests
     {
         public PointListHolder() => ScanProperties<PointListHolder>();
 
-        public IExpressionProperty<PointList?> Points { get; } = Property.CreateWithExpression<PointList?>();
+        public IExpressionProperty<PointList?> Points { get; } = Property.CreateExpression<PointList?>();
     }
 }
