@@ -8,11 +8,7 @@ internal interface IPropertyEditorHost
 {
     bool TryCreateControl(IPropertyEditorContext context, PropertyEditorSurface surface, [NotNullWhen(true)] out Control? control);
 
-    bool TryCreateDefault(
-        PropertyEditorExtension caller,
-        IPropertyAdapter property,
-        [NotNullWhen(true)] out IPropertyEditorContext? context,
-        [NotNullWhen(true)] out Control? control);
+    bool TryCreateDefault(IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context);
 }
 
 internal static class PropertyEditorHost

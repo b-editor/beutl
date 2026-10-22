@@ -156,6 +156,7 @@ public sealed class App : Application
     internal static void RegisterProcessServices(Func<ContextCommandManager?> commands, Action? alongside = null)
     {
         PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
+        PropertyEditorControls.Install();
         NotificationService.Handler = new NotificationServiceHandler();
         TutorialService.Current = new TutorialServiceHandler();
         AppHelper.GetContextCommandManager = commands;

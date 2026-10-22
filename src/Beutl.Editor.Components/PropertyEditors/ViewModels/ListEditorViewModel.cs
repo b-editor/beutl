@@ -100,11 +100,7 @@ public sealed class ListItemEditorViewModel<TItem> : IDisposable, IListItemEdito
         Parent = parent;
         ItemAccessor = itemAccessor;
 
-        var tmp = new IPropertyAdapter[] { itemAccessor };
-        (_, PropertyEditorExtension? ext) = factory.MatchProperty(tmp);
-        if (ext != null
-            && ExtensionGuard.Call(ext, () => ext.TryCreateContextForListItem(itemAccessor, out IPropertyEditorContext? created) ? created : null)
-                is { } context)
+        if (factory.CreateListItemEditor(itemAccessor) is { } context)
         {
             Context = context;
         }

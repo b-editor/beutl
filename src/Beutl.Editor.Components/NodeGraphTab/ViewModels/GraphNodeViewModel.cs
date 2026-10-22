@@ -230,10 +230,9 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
 
     private void InitItems()
     {
-        var atmp = new IPropertyAdapter[1];
         foreach (INodeMember item in GraphNode.Items)
         {
-            Items.Add(CreateNodeMemberViewModel(atmp, item));
+            Items.Add(CreateNodeMemberViewModel(item));
         }
 
         GraphNode.Items.CollectionChanged += OnItemsCollectionChanged;
@@ -243,10 +242,9 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
     {
         void Add(int index, IList items)
         {
-            var atmp = new IPropertyAdapter[1];
             foreach (INodeMember item in items)
             {
-                Items.Insert(index++, CreateNodeMemberViewModel(atmp, item));
+                Items.Insert(index++, CreateNodeMemberViewModel(item));
             }
         }
 
@@ -287,17 +285,10 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
         }
     }
 
-    private NodeMemberViewModel CreateNodeMemberViewModel(IPropertyAdapter[] atmp, INodeMember item)
+    private NodeMemberViewModel CreateNodeMemberViewModel(INodeMember item)
     {
         IPropertyEditorFactory factory = EditorContext.GetRequiredService<IPropertyEditorFactory>();
-        IPropertyEditorContext? context = null;
-        if (item.Property is { } aproperty)
-        {
-            atmp[0] = aproperty;
-            (_, PropertyEditorExtension? ext) = factory.MatchProperty(atmp);
-            if (ext != null)
-                context = ExtensionGuard.Call(ext, () => ext.TryCreateContextForNode(atmp, out IPropertyEditorContext? created) ? created : null);
-        }
+        IPropertyEditorContext? context = item.Property is { } aproperty ? factory.CreateNodeEditor(aproperty) : null;
 
         context?.Accept(this);
         return CreateNodeMemberViewModelCore(item, context);

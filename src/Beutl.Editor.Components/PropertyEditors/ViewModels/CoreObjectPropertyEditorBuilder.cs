@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Api.Services;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.PropertyEditors;
 using Beutl.PropertyAdapters;
 using DynamicData;
@@ -26,59 +27,20 @@ internal static class CoreObjectPropertyEditorBuilder
         => (IPropertyAdapter)Activator.CreateInstance(
             typeof(EnginePropertyAdapter<>).MakeGenericType(property.ValueType), property, obj)!;
 
-    public static (IPropertyAdapter[]? Properties, PropertyEditorExtension? Extension) MatchProperty(
-        IReadOnlyList<IPropertyAdapter> properties, ExtensionProvider extensionProvider)
-    {
-        ArgumentNullException.ThrowIfNull(extensionProvider);
-
-        PropertyEditorExtension[] items = extensionProvider.GetExtensions<PropertyEditorExtension>();
-        for (int i = items.Length - 1; i >= 0; i--)
-        {
-            PropertyEditorExtension item = items[i];
-            IPropertyAdapter[] array = ExtensionGuard.Call(item, () => item.MatchProperty(properties).ToArray()) ?? [];
-            if (array.Length > 0)
-            {
-                return (array, item);
-            }
-        }
-
-        return default;
-    }
-
-    // Hands add the editor an extension makes for each group of adapters it takes, in the order the
-    // extensions match them, and removes the adapters taken from adapters.
-    public static void CreateContexts<TList>(
-        TList adapters,
+    // Hands add the editor's context for each group of adapters an editor takes, and removes the adapters taken.
+    public static void CreateContexts(
+        IList<IPropertyAdapter> adapters,
         ExtensionProvider extensionProvider,
         Action<IPropertyEditorContext> add,
         bool forSettings = false)
-        where TList : IList<IPropertyAdapter>, IReadOnlyList<IPropertyAdapter>
     {
-        IPropertyAdapter[]? foundItems;
-        PropertyEditorExtension? extension;
+        ArgumentNullException.ThrowIfNull(extensionProvider);
 
-        do
-        {
-            (foundItems, extension) = MatchProperty(adapters, extensionProvider);
-            if (foundItems != null && extension != null)
-            {
-                PropertyEditorExtension owner = extension;
-                IPropertyAdapter[] items = foundItems;
-                IPropertyEditorContext? context = ExtensionGuard.Call(owner, () =>
-                {
-                    IPropertyEditorContext? created;
-                    return (forSettings
-                        ? owner.TryCreateContextForSettings(items, out created)
-                        : owner.TryCreateContext(items, out created)) ? created : null;
-                });
-                if (context != null)
-                {
-                    add(context);
-                }
-
-                adapters.RemoveMany(foundItems);
-            }
-        } while (foundItems != null && extension != null);
+        PropertyEditorResolver.CreateContexts(
+            adapters,
+            extensionProvider.GetExtensions<PropertyEditorExtension>(),
+            forSettings ? PropertyEditorSurface.Settings : PropertyEditorSurface.Panel,
+            add);
     }
 
     // Replaces the members of each named display group with one group context at the first member's place.

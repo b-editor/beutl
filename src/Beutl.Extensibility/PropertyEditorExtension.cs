@@ -48,20 +48,12 @@ public class PropertyEditorExtension : Extension
     {
     }
 
-    internal PropertyEditorRegistry Registry
+    internal PropertyEditorRegistry Registry => LazyInitializer.EnsureInitialized(ref _registry, () =>
     {
-        get
-        {
-            if (_registry is null)
-            {
-                var registry = new PropertyEditorRegistry(this);
-                RegisterEditors(registry);
-                _registry = registry;
-            }
-
-            return _registry;
-        }
-    }
+        var registry = new PropertyEditorRegistry(this);
+        RegisterEditors(registry);
+        return registry;
+    });
 
     public virtual IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
     {

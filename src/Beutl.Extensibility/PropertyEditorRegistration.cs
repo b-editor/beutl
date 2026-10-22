@@ -5,7 +5,7 @@ namespace Beutl.Extensibility;
 // One editor an extension registered; the host chooses among them by Tier, then by value type.
 internal sealed class PropertyEditorRegistration
 {
-    // The value type the editor takes, or null for a group.
+    // The value type the editor takes, a class or an interface, which may be open generic; null for the other tiers.
     public Type? ValueType { get; init; }
 
     public PropertyEditorTier Tier { get; init; } = PropertyEditorTier.Type;
@@ -18,8 +18,14 @@ internal sealed class PropertyEditorRegistration
 
     public required Func<IPropertyEditorContext, PropertyEditorSurface, Control?> CreateControl { get; init; }
 
-    // A value editor with the standard look: the host adds the menu and binds the header.
-    public bool IsValueEditor { get; init; }
+    // Connects a value editor's control to its context, once the host has set the control up.
+    public Action<IPropertyEditorContext, Control>? Connect { get; init; }
+
+    // Set for RegisterValue and the built-in editors: the host binds the header, adds the menu and fits the surface.
+    public bool IsStandard { get; init; }
+
+    // A list item looks at these first: a built-in editor used only in lists, or one with its own list item control.
+    public bool HasListItemControl { get; init; }
 
     // Set for a built-in editor used only in lists, such as a path segment's.
     public bool IsListItemOnly { get; init; }

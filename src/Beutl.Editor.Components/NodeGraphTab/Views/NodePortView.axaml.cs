@@ -328,8 +328,7 @@ public partial class NodePortView : UserControl
         }
         else if (obj.PropertyEditorContext is { } propContext)
         {
-            PropertyEditorExtension extension = obj.PropertyEditorContext.Extension;
-            extension.TryCreateControlForNode(obj.PropertyEditorContext, out Control? control1);
+            PropertyEditorHost.TryCreateControl(propContext, PropertyEditorSurface.Node, out Control? control1);
             if (control1 is PropertyEditor pe)
             {
                 pe.EditorStyle = PropertyEditorStyle.Compact;

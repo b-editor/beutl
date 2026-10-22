@@ -28,11 +28,10 @@ public partial class ListItemEditor : UserControl
         {
             if (value is IPropertyEditorContext viewModel)
             {
-                if (viewModel.Extension.TryCreateControlForListItem(viewModel, out IListItemEditor? control))
+                if (PropertyEditorHost.TryCreateControl(viewModel, PropertyEditorSurface.ListItem, out Control? control)
+                    && control is IListItemEditor)
                 {
-                    if (control is StyledElement s)
-                        s.DataContext = viewModel;
-
+                    control.DataContext = viewModel;
                     return control;
                 }
                 else

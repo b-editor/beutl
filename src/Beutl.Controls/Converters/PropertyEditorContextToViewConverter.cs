@@ -17,7 +17,7 @@ public sealed class PropertyEditorContextToViewConverter(bool hideMenu) : IValue
     {
         if (value is IPropertyEditorContext viewModel)
         {
-            if (viewModel.Extension.TryCreateControl(viewModel, out var control))
+            if (PropertyEditorHost.TryCreateControl(viewModel, PropertyEditorSurface.Panel, out var control))
             {
                 if (hideMenu && control is PropertyEditor pe)
                 {

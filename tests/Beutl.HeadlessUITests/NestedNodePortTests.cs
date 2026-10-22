@@ -516,7 +516,7 @@ public class NestedNodePortTests
         foreach (string name in new[] { "FontFamily", "Size", "Spacing", "Text" })
         {
             var context = nodeVm.Items.Single(item => item.Model!.Name == name).PropertyEditorContext!;
-            Assert.That(context.Extension.TryCreateControlForNode(context, out Control? control), Is.True);
+            Assert.That(PropertyEditorHost.TryCreateControl(context, PropertyEditorSurface.Node, out Control? control), Is.True);
             var baselineEditor = (PropertyEditor)control!;
             baselineEditor.EditorStyle = PropertyEditorStyle.Compact;
             baselineEditor.DataContext = context;

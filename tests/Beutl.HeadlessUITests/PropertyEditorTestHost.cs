@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Beutl.Editor;
+using Beutl.Editor.Components.PropertyEditors.Services;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Observers;
 using Beutl.Editor.PropertyEditors;
@@ -13,37 +14,19 @@ public enum EditorSurface { Property, Node, Settings, ListItem }
 // Shared setup for the property editor tests.
 internal static class PropertyEditorTestHost
 {
-    // Creates the editor the way the surface does.
+    // Creates the built-in editor the way the surface does.
     public static (PropertyEditorViewModel Vm, Control Control) CreateControl(IPropertyAdapter adapter, EditorSurface surface = EditorSurface.Property)
     {
-        PropertyEditorExtension extension = PropertyEditorExtension.Instance;
-        Assert.That(extension.MatchProperty([adapter]), Is.EqualTo(new[] { adapter }));
-        IPropertyEditorContext? context;
-        Control? control;
-        bool createdContext = surface switch
+        PropertyEditorSurface place = surface switch
         {
-            EditorSurface.Node => extension.TryCreateContextForNode([adapter], out context),
-            EditorSurface.Settings => extension.TryCreateContextForSettings([adapter], out context),
-            EditorSurface.ListItem => extension.TryCreateContextForListItem(adapter, out context),
-            _ => extension.TryCreateContext([adapter], out context)
+            EditorSurface.Node => PropertyEditorSurface.Node,
+            EditorSurface.Settings => PropertyEditorSurface.Settings,
+            EditorSurface.ListItem => PropertyEditorSurface.ListItem,
+            _ => PropertyEditorSurface.Panel
         };
-        Assert.That(createdContext, Is.True);
-        bool createdControl;
-        if (surface == EditorSurface.ListItem)
-        {
-            createdControl = extension.TryCreateControlForListItem(context!, out var listControl);
-            control = listControl as Control;
-        }
-        else
-        {
-            createdControl = surface switch
-            {
-                EditorSurface.Node => extension.TryCreateControlForNode(context!, out control),
-                EditorSurface.Settings => extension.TryCreateControlForSettings(context!, out control),
-                _ => extension.TryCreateControl(context!, out control)
-            };
-        }
-        Assert.That(createdControl, Is.True);
+        IPropertyEditorContext? context = PropertyEditorResolver.CreateContext(adapter, [PropertyEditorExtension.Instance], place);
+        Assert.That(context, Is.Not.Null);
+        Assert.That(PropertyEditorHost.TryCreateControl(context!, place, out Control? control), Is.True);
         control!.DataContext = context;
         return ((PropertyEditorViewModel)context!, control);
     }

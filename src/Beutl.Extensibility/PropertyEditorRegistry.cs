@@ -31,15 +31,14 @@ public sealed class PropertyEditorRegistry
             Tier = options?.Match is null ? PropertyEditorTier.Type : PropertyEditorTier.Match,
             Match = MatchFirst<TValue>(options?.Match),
             CreateContext = properties => properties[0] is IPropertyAdapter<TValue> property ? createContext(property) : null,
-            CreateControl = (context, surface) =>
+            CreateControl = (context, surface) => CreateSurfaceControl(options, context, surface) ?? (Control)createControl(),
+            Connect = static (context, control) =>
             {
-                Control control = CreateSurfaceControl(options, context, surface) ?? (Control)createControl();
                 if (control is IValueEditorControl<TEdit> valueControl && context is IValueEditorContext<TEdit> valueContext)
                     valueControl.Connect(valueContext);
-
-                return control;
             },
-            IsValueEditor = true,
+            IsStandard = true,
+            HasListItemControl = options?.CreateListItemControl is not null,
             Owner = Owner,
         });
     }
@@ -60,6 +59,7 @@ public sealed class PropertyEditorRegistry
             Match = MatchFirst<TValue>(options?.Match),
             CreateContext = properties => properties[0] is IPropertyAdapter<TValue> property ? createContext(property) : null,
             CreateControl = (context, surface) => CreateSurfaceControl(options, context, surface) ?? createControl((TContext)context),
+            HasListItemControl = options?.CreateListItemControl is not null,
             Owner = Owner,
         });
     }
@@ -84,19 +84,19 @@ public sealed class PropertyEditorRegistry
         });
     }
 
-    // The editor the host makes for property without this extension's editors, for an editor that wraps it.
-    public bool TryCreateDefault(
-        IPropertyAdapter property,
-        [NotNullWhen(true)] out IPropertyEditorContext? context,
-        [NotNullWhen(true)] out Control? control)
+    // The built-in editor of property, for an editor that wraps it; TryCreateControl makes its control.
+    public bool TryCreateDefault(IPropertyAdapter property, [NotNullWhen(true)] out IPropertyEditorContext? context)
     {
         if (PropertyEditorHost.Current is { } host)
-            return host.TryCreateDefault(Owner, property, out context, out control);
+            return host.TryCreateDefault(property, out context);
 
         context = null;
-        control = null;
         return false;
     }
+
+    // A new control for context, as the property panel shows it; each call makes another.
+    public bool TryCreateControl(IPropertyEditorContext context, [NotNullWhen(true)] out Control? control)
+        => PropertyEditorHost.TryCreateControl(context, PropertyEditorSurface.Panel, out control);
 
     internal void Add(PropertyEditorRegistration registration) => _registrations.Add(registration);
 
