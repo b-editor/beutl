@@ -25,7 +25,10 @@ using Beutl.Language;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
+using Beutl.ViewModels.Dock;
 using Beutl.Views;
+using Dock.Model.Core;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Avalonia.Fluent;
 using static Beutl.HeadlessUITests.GitTestSupport;
@@ -298,11 +301,12 @@ public class VersionControlTabViewTests
     {
         await using RealGitScope git = await RealGitScope.StartAsync();
         var window = new Window { Width = 900, Height = 700 };
-        // The tab runs the window's EnableVersionControl command, which a recorder stands in for.
+        // The tab runs the main window's EnableVersionControl command, which a recorder stands in for.
         Func<ContextCommandManager?>? previousManager = AppHelper.GetContextCommandManager;
         var manager = new ContextCommandManager(new ContextCommandSettingsStore(new JsonObject(), persist: false));
         manager.Register(new EnableVersionControlExtension());
         AppHelper.GetContextCommandManager = () => manager;
+        AppHelper.OverrideTopLevel = window;
         try
         {
             Project project = await git.CreateProjectAsync(
@@ -768,6 +772,67 @@ public class VersionControlTabViewTests
         finally
         {
             AppHelper.GetContextCommandManager = previousManager;
+            AppHelper.OverrideTopLevel = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Enable_button_of_a_floating_tab_runs_the_main_window_command()
+    {
+        await using RealGitScope git = await RealGitScope.StartAsync();
+        var recorder = new EnableRecorder();
+        var window = new Window { Width = 1200, Height = 720, DataContext = recorder };
+        Func<ContextCommandManager?>? previousManager = AppHelper.GetContextCommandManager;
+        var manager = new ContextCommandManager(new ContextCommandSettingsStore(new JsonObject(), persist: false));
+        manager.Register(new EnableVersionControlExtension());
+        AppHelper.GetContextCommandManager = () => manager;
+        AppHelper.OverrideTopLevel = window;
+        IHostWindow? floatingHost = null;
+        try
+        {
+            Project project = await git.CreateProjectAsync(
+                "version-control-tab-floating",
+                "untracked",
+                initialize: false);
+            TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
+            HeadlessTestHelpers.Settle();
+            var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+            window.Content = new EditView { DataContext = editor };
+            window.Show();
+            HeadlessTestHelpers.Render();
+
+            Assert.That(
+                VersionControlTabExtension.Instance.TryCreateContext(editor, out IToolContext? context),
+                Is.True);
+            var viewModel = (VersionControlTabViewModel)context!;
+            Assert.That(editor.OpenToolTab(viewModel), Is.True);
+            BeutlDockFactory factory = editor.DockHost.Factory;
+            BeutlToolDockable dockable = factory.EnumerateTools()
+                .Single(tool => ReferenceEquals(tool.ToolContext, viewModel));
+            factory.SplitToWindow((IDock)dockable.Owner!, dockable, 20, 20, 500, 400, null);
+            HeadlessTestHelpers.Render(2);
+            floatingHost = factory.FindRoot(dockable, _ => true)!.Window!.Host;
+            await viewModel.Initialization;
+            HeadlessTestHelpers.Render();
+
+            VersionControlTabView view = ((Window)floatingHost!).GetVisualDescendants()
+                .OfType<VersionControlTabView>()
+                .Single();
+            Button enableButton = view.FindControl<Button>("EnableVersionControlButton")!;
+            Assert.That(enableButton.IsEffectivelyVisible, Is.True);
+            enableButton.Command!.Execute(null);
+            await Task.Yield();
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(recorder.Runs, Is.EqualTo(1));
+        }
+        finally
+        {
+            AppHelper.GetContextCommandManager = previousManager;
+            AppHelper.OverrideTopLevel = null;
+            floatingHost?.Exit();
+            HeadlessTestHelpers.Settle();
             window.Close();
         }
     }
