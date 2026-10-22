@@ -122,8 +122,35 @@ internal static class SerializedGraphTraversal
             }
         }
 
+        if (VisitPortValues(coreObject, $"{path}/Setter", visited, visitor))
+        {
+            return true;
+        }
+
         return coreObject is IHierarchical hierarchical
                && VisitItems(hierarchical.HierarchicalChildren, $"{path}/HierarchicalChildren", visited, visitor);
+    }
+
+    // A node member keeps its port's value and keyframes in an adapter rather than in a property.
+    private static bool VisitPortValues(
+        CoreObject coreObject,
+        string path,
+        ISet<object> visited,
+        Func<object, string, bool> visitor)
+    {
+        foreach (object? child in ((IChildObjectSource)coreObject).GetChildObjects())
+        {
+            if (child is IProperty || child is not IChildObjectSource adapter)
+                continue;
+
+            foreach (object? value in adapter.GetChildObjects())
+            {
+                if (value is not IProperty && VisitCore(value, path, visited, visitor))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool VisitEngineProperties(
