@@ -65,8 +65,10 @@ public sealed partial class SceneSettingsTabExtension
             Value = TimeText.Format(shown),
             Validate = SceneSettingsTabViewModel.DurationValidator
         });
+        // A time under two ticks snaps to frame zero, which is no duration, as the scene settings tab refuses it.
         if (input is not null
-            && TimeText.TryParse(input, shown, SceneTimeRangeService.GetFrameRate(scene), out MediaTime duration))
+            && TimeText.TryParse(input, shown, SceneTimeRangeService.GetFrameRate(scene), out MediaTime duration)
+            && duration > MediaTime.Zero)
             await ApplyAsync(editorContext, scene, interaction.CancellationToken, duration: duration);
     }
 

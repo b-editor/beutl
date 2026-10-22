@@ -495,11 +495,14 @@ public class PaletteCommandTests
 
         await RunAsync(settings, Execution("sceneSettings.changeSceneStart", editor, new ScriptedInteraction().Input(options => options.Value)));
         await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input(typed)));
+        MediaTime typedDuration = scene.Duration;
+        await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input("00:00:00.0000001")));
 
         Assert.Multiple(() =>
         {
             Assert.That(scene.Start, Is.EqualTo(MediaTime.FromFrames(1, rate)));
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromFrames(600, rate)));
+            Assert.That(typedDuration, Is.EqualTo(MediaTime.FromFrames(600, rate)));
+            Assert.That(scene.Duration, Is.EqualTo(typedDuration), "a tick snaps to frame zero, which is no duration");
         });
     }
 
