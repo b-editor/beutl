@@ -337,6 +337,8 @@ public sealed partial class ProjectService
     {
         if (_app.Project is { } project)
         {
+            // Every close path ends here, while the project is still whole.
+            DuplicateIds.Report(project, "close");
             _app.Project = null;
             Interlocked.Exchange(ref _projectNoticeDismissal, null)?.Cancel();
             Media.FontManager.Instance.ClearProjectFonts(project);

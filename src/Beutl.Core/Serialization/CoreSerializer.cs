@@ -430,6 +430,11 @@ public static partial class CoreSerializer
         {
             PopulateFromJsonObjectCore(obj, type, json, options);
         }
+
+        if (obj is Project project)
+        {
+            DuplicateIds.Report(project, "load");
+        }
     }
 
     private static void AddLegacyTypeDiscriminator(JsonObject json, Type type)
