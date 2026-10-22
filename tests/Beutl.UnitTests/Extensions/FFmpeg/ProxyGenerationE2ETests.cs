@@ -84,6 +84,29 @@ public sealed class ProxyGenerationE2ETests
         Assert.That(store.Enumerate(), Is.Empty);
     }
 
+    // Decoders open no reader for a file without any requested stream, so asking for video alone would fail this file.
+    [Test]
+    public async Task GenerateAsync_AudioOnlySourceOfADecoderThatOpensOnlyRequestedStreams_IsSkipped()
+    {
+        var decoder = new AudioOnlyDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            string root = ProxyTestScope.CreateRoot();
+            var generator = new FFmpegProxyGenerator(new ProxyStore(root));
+            string source = Path.Combine(root, "sound.audioonly");
+            File.WriteAllBytes(source, [1, 2, 3, 4]);
+            var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
+
+            await Assert.ThrowsAsync<ProxyGenerationSkippedException>(
+                async () => await generator.GenerateAsync(job));
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
     [Test]
     public async Task GenerateAsync_AlwaysStillImageSource_IsSkippedBeforeOpeningReader()
     {
@@ -523,5 +546,20 @@ public sealed class ProxyGenerationE2ETests
             DateTime.UtcNow,
             DateTime.UtcNow,
             null);
+    }
+
+    // An audio-only file: the test audio reader when audio is requested, no reader otherwise.
+    private sealed class AudioOnlyDecoderInfo : IDecoderInfo
+    {
+        public string Name => "Audio-only test decoder";
+
+        public MediaReader? Open(string file, MediaOptions options)
+            => options.StreamsToLoad.HasFlag(MediaMode.Audio)
+                ? new TestDecoderInfo().Open(TestMediaHelper.CreateTestAudioFile(), options)
+                : null;
+
+        public IEnumerable<string> VideoExtensions() => [];
+
+        public IEnumerable<string> AudioExtensions() => [".audioonly"];
     }
 }

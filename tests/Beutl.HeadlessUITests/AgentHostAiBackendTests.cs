@@ -269,6 +269,27 @@ public sealed class AgentHostAiBackendTests
         }
     }
 
+    // Decoders open no reader for a file without any requested stream, so asking for audio alone would hide the reason.
+    [Test]
+    public async Task AFileWithoutAudioIsRefusedForItsMissingAudio()
+    {
+        string path = WriteSource("silent-video" + Extension);
+        var decoder = new StubDecoder(options => options.StreamsToLoad.HasFlag(MediaMode.Video)
+            ? new StubAudioReader(48_000, 48_000) { Audio = false }
+            : null);
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            AgentAiException? refused = await CatchAsync(CreateBackend(transcription: new StubTranscription()), path);
+
+            Assert.That(refused?.Message, Is.EqualTo("The file has no audio to transcribe."));
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
     private static async Task<AgentAiException?> CatchAsync(AgentHostAiBackend backend, string path)
     {
         try
@@ -412,15 +433,20 @@ public sealed class AgentHostAiBackendTests
         public void Report(string value) => Values.Add(value);
     }
 
-    private sealed class StubDecoder(Func<MediaReader> open) : IDecoderInfo
+    private sealed class StubDecoder(Func<MediaOptions, MediaReader?> open) : IDecoderInfo
     {
+        public StubDecoder(Func<MediaReader> open)
+            : this(_ => open())
+        {
+        }
+
         public string Name => "Agent transcription test decoder";
 
         public IEnumerable<string> VideoExtensions() => [];
 
         public IEnumerable<string> AudioExtensions() => [Extension];
 
-        public MediaReader Open(string file, MediaOptions options) => open();
+        public MediaReader? Open(string file, MediaOptions options) => open(options);
     }
 
     private sealed class StubAudioReader(int sampleRate, long totalSamples) : MediaReader

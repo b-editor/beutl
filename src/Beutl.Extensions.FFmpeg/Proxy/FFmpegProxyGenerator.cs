@@ -192,9 +192,10 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
     {
         try
         {
+            // Both streams, so an audio-only source still opens and is skipped for having no video.
             return MediaReader.Open(
                 sourcePath,
-                new MediaOptions(MediaMode.Video) { PreferProxy = false, IsBackground = true });
+                new MediaOptions(MediaMode.AudioVideo) { PreferProxy = false, IsBackground = true });
         }
         catch (FFmpegLibrariesNotFoundException ex)
         {

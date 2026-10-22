@@ -89,10 +89,11 @@ public sealed partial class AiSubtitleDialogViewModel
         // Opening and decoding are the editor's own work, not the server's, and
         // both run for as long as the audio is: off the UI thread, or the window
         // stops answering for the length of the file.
+        // Both streams, so a file without audio still opens and gets the no-audio message.
         using MediaReader reader = await Task.Run(
             () => MediaReader.Open(
                 filePath,
-                new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
+                new MediaOptions(MediaMode.AudioVideo) { PreferProxy = false, IsBackground = true }),
             RequestToken);
         if (!reader.HasAudio)
             throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);

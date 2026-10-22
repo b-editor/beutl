@@ -46,19 +46,11 @@ public sealed class AVFReader : MediaReader
         HasVideo = hasVideo != 0;
         HasAudio = hasAudio != 0;
 
-        // Fail construction when the caller explicitly asked for a stream that the file does
-        // not contain. Callers (SoundSource, VideoSource) dereference VideoInfo/AudioInfo
-        // immediately after a successful Open, so leaving these null would produce an NRE
-        // on video-only or audio-only inputs.
-        if (wantsVideo && !HasVideo)
+        // Like the other decoders, open the requested streams the file has, and fail only when it has none of them.
+        if (!HasVideo && !HasAudio)
         {
             _handle.Dispose();
-            throw new InvalidOperationException($"No video track found in '{file}'.");
-        }
-        if (wantsAudio && !HasAudio)
-        {
-            _handle.Dispose();
-            throw new InvalidOperationException($"No audio track found in '{file}'.");
+            throw new InvalidOperationException($"No requested track found in '{file}'.");
         }
 
         if (HasVideo)

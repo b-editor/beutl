@@ -94,8 +94,9 @@ internal sealed class AgentHostAiBackend(
         MediaReader opened;
         try
         {
+            // Both streams, so a file without audio still opens and gets the no-audio reason.
             opened = await Task.Run(
-                () => MediaReader.Open(path, new MediaOptions(MediaMode.Audio) { PreferProxy = false, IsBackground = true }),
+                () => MediaReader.Open(path, new MediaOptions(MediaMode.AudioVideo) { PreferProxy = false, IsBackground = true }),
                 cancellationToken).ConfigureAwait(false);
         }
         catch (UnsupportedMediaException)
