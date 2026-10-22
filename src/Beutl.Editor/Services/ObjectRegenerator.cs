@@ -203,20 +203,11 @@ public static class ObjectRegenerator
             set => _items.Replace(value);
         }
 
-        // Items keeps its list, as its CoreProperty accessor did: the saved items replace its items.
+        // Items keeps its list, as its CoreProperty accessor did.
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            if (context is JsonSerializationContext json
-                && json.TryGetPreservedValue(nameof(Items), typeof(CoreList<T>), out _, allowCollections: true))
-            {
-                return;
-            }
-
-            if (context.Contains(nameof(Items)) && context.GetValue<CoreList<T>>(nameof(Items)) is { } items)
-            {
-                _items.Replace(items);
-            }
+            KeptListReader.ReadInto<CoreList<T>, T>(context, nameof(Items), _items);
         }
     }
 }

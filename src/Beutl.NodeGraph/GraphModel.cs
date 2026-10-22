@@ -87,25 +87,9 @@ public partial class GraphModel : EngineObject
     public override void Deserialize(ICoreSerializationContext context)
     {
         // The lists keep their instances, as the CoreProperty accessors did, and are read first, where those were.
-        ReadInto(context, NodesProperty.Name, _nodes);
-        ReadInto(context, AllConnectionsProperty.Name, _allConnections);
+        KeptListReader.ReadInto<HierarchicalList<GraphNode>, GraphNode>(context, NodesProperty.Name, _nodes);
+        KeptListReader.ReadInto<HierarchicalList<Connection>, Connection>(context, AllConnectionsProperty.Name, _allConnections);
         base.Deserialize(context);
-    }
-
-    // Reads the list the way a CoreProperty read one: an unchanged list a populate preserved is left as it is.
-    private static void ReadInto<T>(ICoreSerializationContext context, string name, HierarchicalList<T> list)
-        where T : IHierarchical
-    {
-        if (context is JsonSerializationContext json
-            && json.TryGetPreservedValue(name, typeof(HierarchicalList<T>), out _, allowCollections: true))
-        {
-            return;
-        }
-
-        if (context.Contains(name) && context.GetValue<HierarchicalList<T>>(name) is { } items)
-        {
-            list.Replace(items);
-        }
     }
 
     public Connection Connect(IInputPort inputNodePort, IOutputPort outputNodePort)
