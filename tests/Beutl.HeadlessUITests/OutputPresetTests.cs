@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Avalonia.Headless.NUnit;
+using Beutl.Configuration;
 using Beutl.Editor.Components.OutputTab;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
@@ -7,6 +8,7 @@ using Beutl.Media;
 using Beutl.Media.Encoding;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.Tools;
 
@@ -149,6 +151,84 @@ public sealed class OutputPresetTests
         });
     }
 
+    // A start that matched the saved presets by name records it, so a preset saved later under a platform preset's
+    // name stays the user's own on the next start.
+    [Test]
+    public void Names_are_matched_once_so_a_later_user_preset_keeps_its_name_and_no_key()
+    {
+        string file = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"output-presets-{Guid.NewGuid():N}.json");
+        var preferences = new TestPreferences();
+        try
+        {
+            SavePresetWithoutKey(file);
+            OutputPresetItem firstStart = new OutputPresetService(file, preferences).Items[0];
+            Assert.Multiple(() =>
+            {
+                Assert.That(firstStart.PresetKey, Is.EqualTo("Platform.YouTube_1080p60"), "the first start still matches by name");
+                Assert.That(preferences.Matched, Is.True);
+            });
+
+            SavePresetWithoutKey(file);
+            Assert.That(new OutputPresetService(file, preferences).Items[0].PresetKey, Is.Null);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    // Every start reads the record, so one after it was written leaves the preferences file alone.
+    [Test]
+    public void A_start_after_the_names_were_matched_writes_no_preference()
+    {
+        string file = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"output-presets-{Guid.NewGuid():N}.json");
+        var preferences = new TestPreferences { Matched = true };
+        try
+        {
+            SavePresetWithoutKey(file);
+            _ = new OutputPresetService(file, preferences);
+
+            Assert.That(preferences.Writes, Is.Zero);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    // A record that cannot be written only means the next start matches the names again, so the presets still load.
+    [Test]
+    public void A_record_that_cannot_be_written_still_restores_the_presets()
+    {
+        string file = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"output-presets-{Guid.NewGuid():N}.json");
+        var preferences = new TestPreferences { FailsToWrite = true };
+        try
+        {
+            SavePresetWithoutKey(file);
+            OutputPresetService? service = null;
+
+            Assert.DoesNotThrow(() => service = new OutputPresetService(file, preferences));
+            Assert.Multiple(() =>
+            {
+                Assert.That(preferences.Writes, Is.EqualTo(1), "the record was tried");
+                Assert.That(service!.Items[0].PresetKey, Is.EqualTo("Platform.YouTube_1080p60"));
+            });
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    private static void SavePresetWithoutKey(string file)
+    {
+        var item = new OutputPresetItem(
+            SceneOutputExtension.Instance,
+            CreatePreset(new PixelSize(1920, 1080), new Rational(60, 1), keyframeRate: 120, 48000),
+            Beutl.Language.Strings.Preset_YouTube_1080p60);
+        new JsonArray(OutputPresetItem.ToJson(item)).JsonSave(file);
+    }
+
     private static async Task<EditViewModel> OpenEditor()
         => (await TestShell.OpenNewSceneAsync("output-presets", s_sceneSize.Width, s_sceneSize.Height)).Editor;
 
@@ -177,5 +257,24 @@ public sealed class OutputPresetTests
             [nameof(OutputViewModel.VideoSettings)] = EncoderSettingsJson.Serialize(video),
             [nameof(OutputViewModel.AudioSettings)] = EncoderSettingsJson.Serialize(audio)
         };
+    }
+
+    private sealed class TestPreferences : IPreferences
+    {
+        public bool Matched { get; set; }
+
+        public bool FailsToWrite { get; init; }
+
+        public int Writes { get; private set; }
+
+        public void Set<T>(string key, T value)
+        {
+            Writes++;
+            if (FailsToWrite) throw new IOException("The preferences file cannot be written.");
+            if (key == OutputPresetService.PlatformPresetNamesMatchedKey && value is bool matched) Matched = matched;
+        }
+
+        public T Get<T>(string key, T defaultValue)
+            => key == OutputPresetService.PlatformPresetNamesMatchedKey && Matched is T matched ? matched : defaultValue;
     }
 }
