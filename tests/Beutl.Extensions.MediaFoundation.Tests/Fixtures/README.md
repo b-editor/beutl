@@ -30,10 +30,10 @@ The picture changes from red to blue at 1 s. The tone changes from 440 to 880 Hz
 at the same point, then to 1320 and 1760 Hz at 2 and 3 s. Both files expose a
 200 ms first video PTS through Media Foundation. The ordinary MP4 has an edit
 list that removes the video composition offset; the second file has no edit
-list and needs the audio seek to add that offset. `MFAudioVideoSyncTests` checks
-decoded picture/audio content, backward seeks, duration, and normalized EOF
-in both Audio and AudioVideo modes. Tests use the committed fixtures and do
-not require ffmpeg on the Windows runner.
+list, so the content of both its streams starts 0.2 s after the container
+start. `MFAudioVideoSyncTests` checks decoded picture/audio content, backward
+seeks, duration, and EOF in both Audio and AudioVideo modes. Tests use the
+committed fixtures and do not require ffmpeg on the Windows runner.
 `AVFReaderSeekTests` in Beutl.Extensions.AVFoundation.Tests links `marker-bframes.mp4`.
 
 Regenerate with ffmpeg:
