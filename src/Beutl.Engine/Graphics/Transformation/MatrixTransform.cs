@@ -15,7 +15,7 @@ public sealed partial class MatrixTransform : Transform
 
     public MatrixTransform(Matrix matrix) : this()
     {
-        Matrix.CurrentValue = matrix;
+        Matrix.Value = matrix;
     }
 
     [Display(Name = nameof(GraphicsStrings.MatrixTransform_Matrix), ResourceType = typeof(GraphicsStrings))]

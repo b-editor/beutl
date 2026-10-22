@@ -47,12 +47,12 @@ public sealed class SkiaColorFilterChainTests
     private static Bitmap Render(FilterEffect? effect)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 180;
-        shape.Height.CurrentValue = 180;
-        shape.Fill.CurrentValue = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80));
-        shape.FilterEffect.CurrentValue = effect;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 180;
+        shape.Height.Value = 180;
+        shape.Fill.Value = new SolidColorBrush(Color.FromArgb(255, 80, 80, 80));
+        shape.FilterEffect.Value = effect;
 
         using Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
         return GoldenImageHarness.RenderAtScale(resource, s_frame, 1f);

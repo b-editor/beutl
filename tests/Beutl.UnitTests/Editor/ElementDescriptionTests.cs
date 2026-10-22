@@ -24,13 +24,13 @@ public sealed class ElementDescriptionTests
             TimeSpan.FromSeconds(5),
             0,
             new ElementSource.EngineObject(
-                () => new SourceBackdrop { Clear = { CurrentValue = true } }));
+                () => new SourceBackdrop { Clear = { Value = true } }));
 
         var source = (ElementSource.EngineObject)description.Source;
         EngineObject produced = source.Factory();
 
         Assert.That(produced, Is.TypeOf<SourceBackdrop>());
-        Assert.That(((SourceBackdrop)produced).Clear.CurrentValue, Is.True);
+        Assert.That(((SourceBackdrop)produced).Clear.Value, Is.True);
     }
 
     [Test]

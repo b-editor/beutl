@@ -117,7 +117,7 @@ public sealed class ExternalResourceCollector
     {
         foreach (IProperty property in obj.Properties)
         {
-            switch (property.CurrentValue)
+            switch (property.Value)
             {
                 case IFileSource fileSource:
                     if (RequiresRelocation(fileSource, projectDirectory))

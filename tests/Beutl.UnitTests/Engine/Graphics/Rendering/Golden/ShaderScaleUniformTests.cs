@@ -31,7 +31,7 @@ public class ShaderScaleUniformTests
     private static FilterEffect MakeSkslUvEffect()
     {
         var e = new SKSLScriptEffect();
-        e.Script.CurrentValue = SkslUvScript;
+        e.Script.Value = SkslUvScript;
         return e;
     }
 
@@ -87,7 +87,7 @@ public class ShaderScaleUniformTests
     private static FilterEffect MakeSkslDiscEffect()
     {
         var e = new SKSLScriptEffect();
-        e.Script.CurrentValue = SkslDiscScript;
+        e.Script.Value = SkslDiscScript;
         return e;
     }
 
@@ -139,7 +139,7 @@ public class ShaderScaleUniformTests
     private static FilterEffect MakeGlslBorderEffect()
     {
         var e = new GLSLScriptEffect();
-        e.FragmentShader.CurrentValue = GlslDevicePxBorder;
+        e.FragmentShader.Value = GlslDevicePxBorder;
         return e;
     }
 
@@ -215,7 +215,7 @@ public class ShaderScaleUniformTests
     private static FilterEffect MakeGlslScaleDiscEffect()
     {
         var e = new GLSLScriptEffect();
-        e.FragmentShader.CurrentValue = GlslScaleDisc;
+        e.FragmentShader.Value = GlslScaleDisc;
         return e;
     }
 

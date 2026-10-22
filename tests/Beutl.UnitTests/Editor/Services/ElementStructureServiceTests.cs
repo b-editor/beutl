@@ -197,7 +197,7 @@ public class ElementStructureServiceTests
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
         var graph = new GraphModel();
-        var drawable = new NodeGraphDrawable { Model = { CurrentValue = graph } };
+        var drawable = new NodeGraphDrawable { Model = { Value = graph } };
         var port = NodeGraphTestHelpers.Source(graph, 0f, "Amount");
         ((IAnimatablePropertyAdapter)port.Property!).Animation = TestAnimations.Linear(0f, 1f, TimeSpan.FromSeconds(4));
         element.AddObject(drawable);
@@ -217,7 +217,7 @@ public class ElementStructureServiceTests
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(4));
         var enter = new CrossDissolveTransition();
-        var exit = new WipeTransition { Direction = { CurrentValue = ClipTransitionDirection.TopToBottom } };
+        var exit = new WipeTransition { Direction = { Value = ClipTransitionDirection.TopToBottom } };
         element.EnterTransition = enter;
         element.ExitTransition = exit;
         _history.Commit("Add element");
@@ -232,7 +232,7 @@ public class ElementStructureServiceTests
             Assert.That(element.ExitTransition, Is.Null);
             Assert.That(back.EnterTransition, Is.Null);
             Assert.That(back.ExitTransition, Is.TypeOf<WipeTransition>(), "the back half keeps the clip's end");
-            Assert.That((back.ExitTransition as WipeTransition)?.Direction.CurrentValue, Is.EqualTo(ClipTransitionDirection.TopToBottom));
+            Assert.That((back.ExitTransition as WipeTransition)?.Direction.Value, Is.EqualTo(ClipTransitionDirection.TopToBottom));
         });
     }
 

@@ -19,18 +19,18 @@ public class Perspective3DScaleProbeTests
     {
         // A gradient fill makes foreshortening visible; a flat color would hide it.
         var brush = new LinearGradientBrush();
-        brush.StartPoint.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Relative);
-        brush.EndPoint.CurrentValue = new RelativePoint(1, 1, RelativeUnit.Relative);
+        brush.StartPoint.Value = new RelativePoint(0, 0, RelativeUnit.Relative);
+        brush.EndPoint.Value = new RelativePoint(1, 1, RelativeUnit.Relative);
         brush.GradientStops.Add(new GradientStop(Colors.White, 0));
         brush.GradientStops.Add(new GradientStop(Colors.Black, 1));
 
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 160;
-        shape.Height.CurrentValue = 160;
-        shape.Fill.CurrentValue = brush;
-        shape.Transform.CurrentValue = new Rotation3DTransform(0f, 55f, 0f, 0f, 0f, 0f) { Depth = { CurrentValue = 400f } };
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 160;
+        shape.Height.Value = 160;
+        shape.Fill.Value = brush;
+        shape.Transform.Value = new Rotation3DTransform(0f, 55f, 0f, 0f, 0f, 0f) { Depth = { Value = 400f } };
         return shape.ToResource(CompositionContext.Default);
     }
 

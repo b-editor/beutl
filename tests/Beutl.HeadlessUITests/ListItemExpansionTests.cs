@@ -43,12 +43,12 @@ public class ListItemExpansionTests
     [TestCase(760, true)]
     public async Task List_headers_keep_original_expansion_without_checked_grip_background(int width, bool light)
     {
-        var blur = new Blur { Sigma = { CurrentValue = new Beutl.Graphics.Size(8, 8) } };
+        var blur = new Blur { Sigma = { Value = new Beutl.Graphics.Size(8, 8) } };
         var shadow = new DropShadow
         {
-            Position = { CurrentValue = new Beutl.Graphics.Point(12, 12) },
-            Sigma = { CurrentValue = new Beutl.Graphics.Size(16, 16) },
-            Color = { CurrentValue = Beutl.Media.Color.FromArgb(160, 20, 30, 60) }
+            Position = { Value = new Beutl.Graphics.Point(12, 12) },
+            Sigma = { Value = new Beutl.Graphics.Size(16, 16) },
+            Color = { Value = Beutl.Media.Color.FromArgb(160, 20, 30, 60) }
         };
         var effects = new FilterEffectGroup { Children = { blur, shadow } };
         var transforms = new TransformGroup
@@ -57,11 +57,11 @@ public class ListItemExpansionTests
         };
         var card = new RoundedRectShape
         {
-            Width = { CurrentValue = 640 },
-            Height = { CurrentValue = 220 },
-            Fill = { CurrentValue = new Beutl.Media.SolidColorBrush(Beutl.Media.Color.FromRgb(255, 158, 68)) },
-            Transform = { CurrentValue = transforms },
-            FilterEffect = { CurrentValue = effects }
+            Width = { Value = 640 },
+            Height = { Value = 220 },
+            Fill = { Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Color.FromRgb(255, 158, 68)) },
+            Transform = { Value = transforms },
+            FilterEffect = { Value = effects }
         };
         var element = new Element
         {

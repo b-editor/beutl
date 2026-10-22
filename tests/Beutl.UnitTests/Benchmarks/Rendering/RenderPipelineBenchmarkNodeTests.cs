@@ -101,7 +101,7 @@ public sealed class RenderPipelineBenchmarkNodeTests
             new Rect(12, 10, 40, 28),
             Brushes.Resource.White,
             null);
-        var prefixEffect = new Blur { Sigma = { CurrentValue = new Size(3, 3) } };
+        var prefixEffect = new Blur { Sigma = { Value = new Size(3, 3) } };
         using FilterEffect.Resource prefixResource = prefixEffect.ToResource(CompositionContext.Default);
         var prefix = new FilterEffectRenderNode(prefixResource);
         prefix.AddChild(source);

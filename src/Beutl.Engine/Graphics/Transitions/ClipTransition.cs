@@ -51,10 +51,10 @@ public abstract partial class ClipTransition : EngineObject
     // frame, so the duration takes no expression.
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Duration), ResourceType = typeof(GraphicsStrings))]
     [Range(typeof(TimeSpan), "00:00:00", "01:00:00", ParseLimitsInInvariantCulture = true)]
-    public new IProperty<TimeSpan> Duration { get; } = Property.CreateWithoutExpression(DefaultDuration);
+    public new IProperty<TimeSpan> Duration { get; } = Property.CreateValue(DefaultDuration);
 
     [Display(Name = nameof(GraphicsStrings.ClipTransition_Easing), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Easing> Easing { get; } = Property.Create<Easing>(new LinearEasing());
+    public IExpressionProperty<Easing> Easing { get; } = Property.CreateExpression<Easing>(new LinearEasing());
 
     public partial class Resource
     {
@@ -101,7 +101,7 @@ public abstract partial class ClipTransition : EngineObject
             public void Update(Resource owner, Media.Color color, CompositionContext context)
             {
                 _brush ??= new SolidColorBrush();
-                _brush.Color.CurrentValue = color;
+                _brush.Color.Value = color;
                 owner.Reconcile(_brush, ref _fill, context);
             }
 

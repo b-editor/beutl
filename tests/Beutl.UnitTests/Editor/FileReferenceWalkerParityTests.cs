@@ -68,7 +68,7 @@ public class FileReferenceWalkerParityTests
         {
             case Place.Property:
                 var image = new SourceImage();
-                image.Source.CurrentValue = Open<ImageSource>(uri);
+                image.Source.Value = Open<ImageSource>(uri);
                 element = ElementWith(image);
                 break;
             case Place.KeyFrameValue:
@@ -82,22 +82,22 @@ public class FileReferenceWalkerParityTests
                 var node = new VideoSourceNode();
                 node.Source.Property!.SetValue(Open<VideoSource>(uri));
                 var graph = new NodeGraphDrawable();
-                graph.Model.CurrentValue!.Nodes.Add(node);
+                graph.Model.Value!.Nodes.Add(node);
                 element = ElementWith(graph);
                 break;
             case Place.Transition:
                 var transition = new ImageMaskTransition();
-                transition.Mask.CurrentValue = Open<ImageSource>(uri);
+                transition.Mask.Value = Open<ImageSource>(uri);
                 element = ElementWith(new SourceImage());
                 element.EnterTransition = transition;
                 break;
             default:
                 Scene referenced = CreateScene("referenced.scene");
                 var nested = new SourceVideo();
-                nested.Source.CurrentValue = Open<VideoSource>(uri);
+                nested.Source.Value = Open<VideoSource>(uri);
                 referenced.Children.Add(ElementWith(nested));
                 var drawable = new SceneDrawable();
-                drawable.ReferencedScene.CurrentValue = referenced;
+                drawable.ReferencedScene.Value = referenced;
                 element = ElementWith(drawable);
                 break;
         }
@@ -133,5 +133,5 @@ internal sealed partial class ImageMaskTransition : ClipTransition
 {
     public ImageMaskTransition() => ScanProperties<ImageMaskTransition>();
 
-    public IExpressionProperty<ImageSource?> Mask { get; } = Property.Create<ImageSource?>();
+    public IExpressionProperty<ImageSource?> Mask { get; } = Property.CreateExpression<ImageSource?>();
 }

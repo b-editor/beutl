@@ -20,7 +20,7 @@ public sealed partial class FilledEnvelopeWaveformShape : WaveformShape
 
     // true なら max(|min|, |max|) の ±絶対値 を用いて完全上下対称の形状になる
     [Display(Name = nameof(GraphicsStrings.WaveformShape_Symmetric), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<bool> Symmetric { get; } = Property.Create(false);
+    public IExpressionProperty<bool> Symmetric { get; } = Property.CreateExpression(false);
 
     public new partial class Resource
     {

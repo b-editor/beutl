@@ -229,7 +229,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
     {
         if (figure.HierarchicalParent is not PathGeometry pathGeometry
             || pathGeometry.HierarchicalParent is not EngineObject owner
-            || owner.Properties.FirstOrDefault(p => ReferenceEquals(p.CurrentValue, pathGeometry)) is not { } property
+            || owner.Properties.FirstOrDefault(p => ReferenceEquals(p.Value, pathGeometry)) is not { } property
             || pathGeometry.FindHierarchicalParent<Element>() is not { } element)
         {
             return false;

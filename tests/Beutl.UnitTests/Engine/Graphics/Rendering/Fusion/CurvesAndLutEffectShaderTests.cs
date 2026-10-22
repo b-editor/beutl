@@ -25,7 +25,7 @@ public sealed class CurvesAndLutEffectShaderTests
         const string cube = "LUT_1D_SIZE 3\n0 0 0\n0.5 0.5 0.5\n1 1 1\n";
         source.ReadFrom(new Uri("data:text/plain;base64," + Convert.ToBase64String(Encoding.ASCII.GetBytes(cube))));
         using Brush.Resource fill = new SolidColorBrush(new Color(255, 128, 64, 192)).ToResource(CompositionContext.Default);
-        var effect = new LutEffect { Source = { CurrentValue = source } };
+        var effect = new LutEffect { Source = { Value = source } };
         SKColor control = Render(new LutEffect(), fill: fill);
         SKColor actual = Render(effect, fill: fill);
         Assert.Multiple(() =>
@@ -40,7 +40,7 @@ public sealed class CurvesAndLutEffectShaderTests
     public void Curves_RecordsTypedResourcesAndFusesUnderEveryCapabilityProfile()
     {
         var effect = new Curves();
-        CurveMap masterCurve = effect.MasterCurve.CurrentValue;
+        CurveMap masterCurve = effect.MasterCurve.Value;
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         var context = new FilterEffectContext(s_bounds);
         RenderResource[] tokens = [];
@@ -96,7 +96,7 @@ public sealed class CurvesAndLutEffectShaderTests
         CubeSource source = CreateRedToCyanLutSource(dimension);
         var effect = new LutEffect
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         var lutResource = (LutEffect.Resource)resource;
@@ -158,7 +158,7 @@ public sealed class CurvesAndLutEffectShaderTests
         {
             MasterCurve =
             {
-                CurrentValue = new CurveMap(
+                Value = new CurveMap(
                     [new CurveControlPoint(0, 1), new CurveControlPoint(1, 0)]),
             },
         };
@@ -174,7 +174,7 @@ public sealed class CurvesAndLutEffectShaderTests
     {
         var effect = new LutEffect
         {
-            Source = { CurrentValue = CreateRedToCyanLutSource(dimension) },
+            Source = { Value = CreateRedToCyanLutSource(dimension) },
         };
 
         SKColor color = Render(effect, expectedShaderStages: 1);
@@ -188,7 +188,7 @@ public sealed class CurvesAndLutEffectShaderTests
     {
         var effect = new LutEffect
         {
-            Source = { CurrentValue = CreateRedToCyanLutSource(dimension) },
+            Source = { Value = CreateRedToCyanLutSource(dimension) },
         };
         using var effectResource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
         CubeFile cube = effectResource.Source!.Cube!;
@@ -222,7 +222,7 @@ public sealed class CurvesAndLutEffectShaderTests
     {
         var effect = new LutEffect
         {
-            Source = { CurrentValue = CreateRedToCyanLutSource(dimension) },
+            Source = { Value = CreateRedToCyanLutSource(dimension) },
         };
         var effectResource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
         CubeFile cube = effectResource.Source!.Cube!;
@@ -322,7 +322,7 @@ public sealed class CurvesAndLutEffectShaderTests
                 {
                     MasterCurve =
                     {
-                        CurrentValue = new CurveMap(
+                        Value = new CurveMap(
                             [new CurveControlPoint(0, 1), new CurveControlPoint(1, 0)]),
                     },
                 }))
@@ -332,7 +332,7 @@ public sealed class CurvesAndLutEffectShaderTests
                 {
                     Source =
                     {
-                        CurrentValue = CreateRedToCyanLutSource(CubeFileDimension.OneDimension),
+                        Value = CreateRedToCyanLutSource(CubeFileDimension.OneDimension),
                     },
                 }))
             .SetName("LutEffect1D_DirectCompatibilityResourceLifecycle");
@@ -341,7 +341,7 @@ public sealed class CurvesAndLutEffectShaderTests
                 {
                     Source =
                     {
-                        CurrentValue = CreateRedToCyanLutSource(CubeFileDimension.ThreeDimension),
+                        Value = CreateRedToCyanLutSource(CubeFileDimension.ThreeDimension),
                     },
                 }))
             .SetName("LutEffect3D_DirectCompatibilityResourceLifecycle");
@@ -360,7 +360,7 @@ public sealed class CurvesAndLutEffectShaderTests
     {
         var effect = new LutEffect
         {
-            Source = { CurrentValue = CreateRedToCyanLutSource(dimension) },
+            Source = { Value = CreateRedToCyanLutSource(dimension) },
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);

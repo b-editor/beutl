@@ -23,7 +23,7 @@ public class SourceVideoOriginalDurationTests
         var source = new VideoSource();
         source.ReadFrom(new Uri(path));
         var video = new SourceVideo();
-        video.Source.CurrentValue = source;
+        video.Source.Value = source;
         return video;
     }
 
@@ -31,7 +31,7 @@ public class SourceVideoOriginalDurationTests
     public void TryGetOriginalDuration_OffsetInsideMedia_ReturnsRemainingDuration()
     {
         SourceVideo video = CreateSourceVideo();
-        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(0.5);
+        video.OffsetPosition.Value = TimeSpan.FromSeconds(0.5);
 
         Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.True);
         Assert.That(duration, Is.EqualTo(MediaDuration - TimeSpan.FromSeconds(0.5)));
@@ -42,7 +42,7 @@ public class SourceVideoOriginalDurationTests
     public void TryGetOriginalDuration_OffsetAtOrPastMediaEnd_ReturnsFalse(double secondsPastEnd)
     {
         SourceVideo video = CreateSourceVideo();
-        video.OffsetPosition.CurrentValue = MediaDuration + TimeSpan.FromSeconds(secondsPastEnd);
+        video.OffsetPosition.Value = MediaDuration + TimeSpan.FromSeconds(secondsPastEnd);
 
         Assert.That(video.TryGetOriginalDuration(out TimeSpan duration), Is.False);
         Assert.That(duration, Is.EqualTo(TimeSpan.Zero));

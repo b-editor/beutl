@@ -12,11 +12,11 @@ public sealed partial class PathFollowEffect : FilterEffect
     public PathFollowEffect()
     {
         ScanProperties<PathFollowEffect>();
-        Geometry.CurrentValue = new PathGeometry();
+        Geometry.Value = new PathGeometry();
     }
 
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Geometry), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Geometry?> Geometry { get; } = Property.Create<Geometry?>();
+    public IExpressionProperty<Geometry?> Geometry { get; } = Property.CreateExpression<Geometry?>();
 
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_Progress), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Progress { get; } = Property.CreateAnimatable(0f);

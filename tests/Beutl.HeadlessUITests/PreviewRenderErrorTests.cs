@@ -416,7 +416,7 @@ internal sealed partial class BlockingPreviewFaultDrawable : PreviewFaultDrawabl
     public void Arm()
     {
         _armed = true;
-        Opacity.CurrentValue = 99f;
+        Opacity.Value = 99f;
     }
 
     public void ReleaseRender() => _releaseRender.TrySetResult(true);

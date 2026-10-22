@@ -52,16 +52,16 @@ public class ListProperty<T> : IListProperty<T>
 
     public ICoreList<T> DefaultValue => null!;
 
-    public ICoreList<T> CurrentValue
+    public ICoreList<T> Value
     {
         get => _items;
         set => _items.Replace(value);
     }
 
-    public void ReplaceCurrentValue(ICoreList<T> value)
+    public void SetValueEvenIfEqual(ICoreList<T> value)
         => _items.Replace(value);
 
-    public bool HasLocalValue => true;
+    public bool IsValueSet => true;
 
     public event EventHandler<PropertyValueChangedEventArgs<ICoreList<T>>>? ValueChanged
     {
@@ -73,7 +73,7 @@ public class ListProperty<T> : IListProperty<T>
 
     public void operator <<=(ICoreList<T> value)
     {
-        CurrentValue = value;
+        Value = value;
     }
 
     private void OnChildEdited(object? sender, EventArgs e)
@@ -120,12 +120,12 @@ public class ListProperty<T> : IListProperty<T>
         if (!context.Contains(name)) return;
         T[]? list = context.GetValue<T[]>(name);
         if (list == null) return;
-        CurrentValue.Replace(list);
+        Value.Replace(list);
     }
 
     public void SerializeValue(ICoreSerializationContext context)
     {
-        context.SetValue(Name, CurrentValue);
+        context.SetValue(Name, Value);
     }
 
     public CoreObject? GetOwnerObject()

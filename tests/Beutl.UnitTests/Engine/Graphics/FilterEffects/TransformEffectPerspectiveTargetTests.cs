@@ -93,8 +93,8 @@ public sealed class TransformEffectPerspectiveTargetTests
 
         var effect = new TransformEffect
         {
-            ApplyToTarget = { CurrentValue = true },
-            Transform = { CurrentValue = Rotation3D(rotationY, centerX) },
+            ApplyToTarget = { Value = true },
+            Transform = { Value = Rotation3D(rotationY, centerX) },
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);

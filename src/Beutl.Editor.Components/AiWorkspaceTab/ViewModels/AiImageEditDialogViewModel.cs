@@ -398,7 +398,7 @@ internal sealed partial class AiImageEditDialogViewModel : IDisposable, IAsyncDi
 
         return element.Objects
             .OfType<SourceImage>()
-            .Select(source => source.Source.CurrentValue)
+            .Select(source => source.Source.Value)
             .Where(source => source is { HasUri: true } && source.Uri.IsFile)
             .Select(source => source!.Uri.LocalPath)
             .FirstOrDefault(File.Exists);

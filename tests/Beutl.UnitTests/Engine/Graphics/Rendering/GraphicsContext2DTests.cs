@@ -507,8 +507,8 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var geometry = new EllipseGeometry();
-        geometry.Width.CurrentValue = 100;
-        geometry.Height.CurrentValue = 100;
+        geometry.Width.Value = 100;
+        geometry.Height.Value = 100;
         var resource = geometry.ToResource(CompositionContext.Default);
 
         context.DrawGeometry(resource, Brushes.Resource.White, null);
@@ -635,8 +635,8 @@ public class GraphicsContext2DTests
         var node = new ContainerRenderNode();
         var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var geometry = new EllipseGeometry();
-        geometry.Width.CurrentValue = 100;
-        geometry.Height.CurrentValue = 100;
+        geometry.Width.Value = 100;
+        geometry.Height.Value = 100;
         var resource = geometry.ToResource(CompositionContext.Default);
 
         context.PushClip(resource).Dispose();

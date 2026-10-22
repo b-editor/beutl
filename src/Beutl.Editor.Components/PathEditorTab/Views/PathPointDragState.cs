@@ -24,7 +24,7 @@ public sealed class PathPointDragState
         Target = target;
         OldPreviousValue = previous?.Value ?? default;
         OldNextValue = next?.Value ?? default;
-        OldValue = property.CurrentValue;
+        OldValue = property.Value;
         Animation = property.GetKeyFrameAnimation() as KeyFrameAnimation<BtlPoint>;
     }
 
@@ -49,13 +49,13 @@ public sealed class PathPointDragState
     public BtlPoint GetInterpolatedValue(TimeSpan currentTime)
     {
         var ctx = new CompositionContext(currentTime);
-        return Property.GetValue(ctx);
+        return Property.Evaluate(ctx);
     }
 
     public void MoveFromStart(BtlVector delta)
     {
         if (Previous == null && Next == null)
-            Property.CurrentValue = PathEditorHelper.Round(OldValue + delta);
+            Property.Value = PathEditorHelper.Round(OldValue + delta);
         else
         {
             if (Previous != null) Previous.Value = OldPreviousValue + delta;
@@ -67,10 +67,10 @@ public sealed class PathPointDragState
     {
         if (Previous == null && Next == null)
         {
-            BtlPoint p = Property.CurrentValue + delta;
+            BtlPoint p = Property.Value + delta;
             p = PathEditorHelper.Round(p);
 
-            Property.CurrentValue = p;
+            Property.Value = p;
         }
         else
         {

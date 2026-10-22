@@ -362,11 +362,11 @@ public sealed class PixelSortSpecializationTests
         bool ascending)
     {
         var effect = new PixelSortEffect();
-        effect.Direction.CurrentValue = direction;
-        effect.SortKey.CurrentValue = sortKey;
-        effect.ThresholdMin.CurrentValue = 0;
-        effect.ThresholdMax.CurrentValue = 100;
-        effect.Ascending.CurrentValue = ascending;
+        effect.Direction.Value = direction;
+        effect.SortKey.Value = sortKey;
+        effect.ThresholdMin.Value = 0;
+        effect.ThresholdMax.Value = 100;
+        effect.Ascending.Value = ascending;
 
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);

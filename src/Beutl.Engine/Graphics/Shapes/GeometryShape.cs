@@ -11,11 +11,11 @@ public sealed partial class GeometryShape : Shape
     public GeometryShape()
     {
         ScanProperties<GeometryShape>();
-        Data.CurrentValue = new PathGeometry();
+        Data.Value = new PathGeometry();
     }
 
     [Display(Name = nameof(GraphicsStrings.GeometryShape_Data), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Geometry?> Data { get; } = Property.Create<Geometry?>();
+    public IExpressionProperty<Geometry?> Data { get; } = Property.CreateExpression<Geometry?>();
 
     public partial class Resource
     {

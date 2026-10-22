@@ -79,9 +79,9 @@ public class NoTargetTransformOffsetInputTests
     private static TransformEffect MakeNoTargetTransform()
     {
         var effect = new TransformEffect();
-        effect.Transform.CurrentValue = MakeEffectTransformGroup();
-        effect.TransformOrigin.CurrentValue = RelativePoint.Center;
-        effect.ApplyToTarget.CurrentValue = false;
+        effect.Transform.Value = MakeEffectTransformGroup();
+        effect.TransformOrigin.Value = RelativePoint.Center;
+        effect.ApplyToTarget.Value = false;
         return effect;
     }
 
@@ -89,10 +89,10 @@ public class NoTargetTransformOffsetInputTests
     {
         var group = new TransformGroup();
         var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = EffectRotation;
+        rotation.Rotation.Value = EffectRotation;
         var scale = new ScaleTransform();
-        scale.ScaleX.CurrentValue = EffectScaleX;
-        scale.ScaleY.CurrentValue = EffectScaleY;
+        scale.ScaleX.Value = EffectScaleX;
+        scale.ScaleY.Value = EffectScaleY;
         group.Children.Add(rotation);
         group.Children.Add(scale);
         return group;
@@ -103,11 +103,11 @@ public class NoTargetTransformOffsetInputTests
         var group = new DrawableGroup();
         group.Children.Add(MakeChild(s_firstChild, Colors.White));
         group.Children.Add(MakeChild(s_secondChild, Colors.Aqua));
-        group.TransformOrigin.CurrentValue = RelativePoint.Center;
+        group.TransformOrigin.Value = RelativePoint.Center;
         if (filterEffect != null)
-            group.FilterEffect.CurrentValue = filterEffect;
+            group.FilterEffect.Value = filterEffect;
         if (groupTransform != null)
-            group.Transform.CurrentValue = groupTransform;
+            group.Transform.Value = groupTransform;
 
         return GoldenImageHarness.RenderAtScale(
             group.ToResource(CompositionContext.Default), s_frame, 1f, clearColor: Colors.Transparent);
@@ -116,16 +116,16 @@ public class NoTargetTransformOffsetInputTests
     private static RectShape MakeChild(Rect placement, Color fill)
     {
         var translate = new TranslateTransform();
-        translate.X.CurrentValue = placement.X;
-        translate.Y.CurrentValue = placement.Y;
+        translate.X.Value = placement.X;
+        translate.Y.Value = placement.Y;
 
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Left;
-        shape.AlignmentY.CurrentValue = AlignmentY.Top;
-        shape.Width.CurrentValue = placement.Width;
-        shape.Height.CurrentValue = placement.Height;
-        shape.Fill.CurrentValue = new SolidColorBrush(fill);
-        shape.Transform.CurrentValue = translate;
+        shape.AlignmentX.Value = AlignmentX.Left;
+        shape.AlignmentY.Value = AlignmentY.Top;
+        shape.Width.Value = placement.Width;
+        shape.Height.Value = placement.Height;
+        shape.Fill.Value = new SolidColorBrush(fill);
+        shape.Transform.Value = translate;
         return shape;
     }
 

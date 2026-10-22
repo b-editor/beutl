@@ -18,7 +18,7 @@ public sealed partial class DrawableTextureSource : TextureSource
     }
 
     [Display(Name = nameof(GraphicsStrings.Drawable), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Drawable?> Drawable { get; } = Property.Create<Drawable?>(null);
+    public IExpressionProperty<Drawable?> Drawable { get; } = Property.CreateExpression<Drawable?>(null);
 
     [Display(Name = nameof(GraphicsStrings.DrawableTextureSource_TextureWidth), ResourceType = typeof(GraphicsStrings))]
     [Range(1, 8192)]

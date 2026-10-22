@@ -16,10 +16,10 @@ public sealed partial class NodeGraphDrawable : Drawable
     {
         ScanProperties<NodeGraphDrawable>();
         HideProperties(Transform, AlignmentX, AlignmentY, TransformOrigin, FilterEffect, BlendMode, Opacity);
-        Model.CurrentValue = new GraphModel();
+        Model.Value = new GraphModel();
     }
 
-    public IExpressionProperty<GraphModel?> Model { get; } = Property.Create<GraphModel?>();
+    public IExpressionProperty<GraphModel?> Model { get; } = Property.CreateExpression<GraphModel?>();
 
     public override Resource ToResource(CompositionContext context)
     {
@@ -60,10 +60,10 @@ public sealed partial class NodeGraphDrawable : Drawable
             OutputRenderNode.Clear();
             if (obj is NodeGraphDrawable drawable)
             {
-                if (_model != drawable.Model.CurrentValue)
+                if (_model != drawable.Model.Value)
                 {
                     _model?.TopologyChanged -= OnModelTopologyChanged;
-                    _model = drawable.Model.CurrentValue;
+                    _model = drawable.Model.Value;
                     _model?.TopologyChanged += OnModelTopologyChanged;
                     _snapshot.MarkDirty();
                 }

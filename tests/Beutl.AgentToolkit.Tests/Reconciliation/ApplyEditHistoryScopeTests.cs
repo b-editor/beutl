@@ -36,8 +36,8 @@ public sealed class ApplyEditHistoryScopeTests
     [TestCase(true)]
     public void Apply_edit_keeps_unchanged_pen_dash_array(bool rename)
     {
-        var pen = new Pen { Name = "original", DashArray = { CurrentValue = [2, 3] } };
-        CoreList<float>? original = pen.DashArray.CurrentValue;
+        var pen = new Pen { Name = "original", DashArray = { Value = [2, 3] } };
+        CoreList<float>? original = pen.DashArray.Value;
         int changed = 0;
         pen.DashArray.ValueChanged += (_, _) => changed++;
         using var session = new AgentToolkitTestSession(pen);
@@ -54,7 +54,7 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(rename
                 ? new[] { $"{pen.Id}:Name original -> updated" }
                 : Array.Empty<string>()));
-            Assert.That(pen.DashArray.CurrentValue, Is.SameAs(original));
+            Assert.That(pen.DashArray.Value, Is.SameAs(original));
             Assert.That(changed, Is.Zero);
         });
 
@@ -64,7 +64,7 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(pen.Name, Is.EqualTo("original"));
             Assert.That(session.History.Redo(), Is.True);
             Assert.That(pen.Name, Is.EqualTo("updated"));
-            Assert.That(pen.DashArray.CurrentValue, Is.SameAs(original));
+            Assert.That(pen.DashArray.Value, Is.SameAs(original));
             Assert.That(changed, Is.Zero);
         }
     }
@@ -76,11 +76,11 @@ public sealed class ApplyEditHistoryScopeTests
         var mesh = new ModelMesh
         {
             Name = "original",
-            Vertices = { CurrentValue = [new Vertex3D()] },
-            Indices = { CurrentValue = [0] }
+            Vertices = { Value = [new Vertex3D()] },
+            Indices = { Value = [0] }
         };
-        ImmutableArray<Vertex3D> vertices = mesh.Vertices.CurrentValue;
-        ImmutableArray<uint> indices = mesh.Indices.CurrentValue;
+        ImmutableArray<Vertex3D> vertices = mesh.Vertices.Value;
+        ImmutableArray<uint> indices = mesh.Indices.Value;
         int changed = 0;
         mesh.Vertices.ValueChanged += (_, _) => changed++;
         mesh.Indices.ValueChanged += (_, _) => changed++;
@@ -98,8 +98,8 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(rename
                 ? new[] { $"{mesh.Id}:Name original -> updated" }
                 : Array.Empty<string>()));
-            Assert.That(mesh.Vertices.CurrentValue == vertices, Is.True);
-            Assert.That(mesh.Indices.CurrentValue == indices, Is.True);
+            Assert.That(mesh.Vertices.Value == vertices, Is.True);
+            Assert.That(mesh.Indices.Value == indices, Is.True);
             Assert.That(changed, Is.Zero);
         });
 
@@ -109,8 +109,8 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(mesh.Name, Is.EqualTo("original"));
             Assert.That(session.History.Redo(), Is.True);
             Assert.That(mesh.Name, Is.EqualTo("updated"));
-            Assert.That(mesh.Vertices.CurrentValue == vertices, Is.True);
-            Assert.That(mesh.Indices.CurrentValue == indices, Is.True);
+            Assert.That(mesh.Vertices.Value == vertices, Is.True);
+            Assert.That(mesh.Indices.Value == indices, Is.True);
             Assert.That(changed, Is.Zero);
         }
     }
@@ -118,15 +118,15 @@ public sealed class ApplyEditHistoryScopeTests
     [Test]
     public void Apply_edit_still_replaces_changed_pen_dash_array()
     {
-        var pen = new Pen { DashArray = { CurrentValue = [2, 3] } };
-        CoreList<float>? original = pen.DashArray.CurrentValue;
+        var pen = new Pen { DashArray = { Value = [2, 3] } };
+        CoreList<float>? original = pen.DashArray.Value;
         using var session = new AgentToolkitTestSession(pen);
         EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: new JsonObject { [nameof(Pen.DashArray)] = new JsonArray(4, 5) },
             schemaVersion: SchemaVersion.Current);
-        CoreList<float>? applied = pen.DashArray.CurrentValue;
+        CoreList<float>? applied = pen.DashArray.Value;
 
         Assert.Multiple(() =>
         {
@@ -138,9 +138,9 @@ public sealed class ApplyEditHistoryScopeTests
         });
 
         Assert.That(session.History.Undo(), Is.True);
-        Assert.That(pen.DashArray.CurrentValue, Is.SameAs(original));
+        Assert.That(pen.DashArray.Value, Is.SameAs(original));
         Assert.That(session.History.Redo(), Is.True);
-        Assert.That(pen.DashArray.CurrentValue, Is.SameAs(applied));
+        Assert.That(pen.DashArray.Value, Is.SameAs(applied));
     }
 
     [Test]
@@ -163,7 +163,7 @@ public sealed class ApplyEditHistoryScopeTests
         Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(new[] { $"{secondRect.Id}:Width 100 -> 200" }));
 
         bool undone = session.History.Undo();
-        float undoneWidth = secondRect.Width.CurrentValue;
+        float undoneWidth = secondRect.Width.Value;
         bool redone = session.History.Redo();
 
         Assert.Multiple(() =>
@@ -171,7 +171,7 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(undone, Is.True);
             Assert.That(undoneWidth, Is.EqualTo(100f));
             Assert.That(redone, Is.True);
-            Assert.That(secondRect.Width.CurrentValue, Is.EqualTo(200f));
+            Assert.That(secondRect.Width.Value, Is.EqualTo(200f));
             AssertSameNested(firstRect, firstNested);
             AssertSameNested(secondRect, secondNested);
         });
@@ -185,8 +185,8 @@ public sealed class ApplyEditHistoryScopeTests
         RectShape secondRect = AddRectElement(scene, "second", TimeSpan.FromSeconds(2), zIndex: 1);
         Element second = scene.Children[1];
         object?[] firstNested = CaptureNested(firstRect);
-        Transform? secondTransform = secondRect.Transform.CurrentValue;
-        FilterEffect? secondFilterEffect = secondRect.FilterEffect.CurrentValue;
+        Transform? secondTransform = secondRect.Transform.Value;
+        FilterEffect? secondFilterEffect = secondRect.FilterEffect.Value;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -205,11 +205,11 @@ public sealed class ApplyEditHistoryScopeTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(((SolidColorBrush)secondRect.Fill.CurrentValue!).Color.CurrentValue, Is.EqualTo(Colors.Blue));
+            Assert.That(((SolidColorBrush)secondRect.Fill.Value!).Color.Value, Is.EqualTo(Colors.Blue));
             Assert.That(operations, Has.Length.EqualTo(1));
             Assert.That(operations[0], Does.StartWith($"{secondRect.Id}:Fill "));
-            Assert.That(secondRect.Transform.CurrentValue, Is.SameAs(secondTransform));
-            Assert.That(secondRect.FilterEffect.CurrentValue, Is.SameAs(secondFilterEffect));
+            Assert.That(secondRect.Transform.Value, Is.SameAs(secondTransform));
+            Assert.That(secondRect.FilterEffect.Value, Is.SameAs(secondFilterEffect));
             AssertSameNested(firstRect, firstNested);
         });
     }
@@ -289,9 +289,9 @@ public sealed class ApplyEditHistoryScopeTests
         if (editAnotherElement)
         {
             Assert.That(session.History.Undo(), Is.True);
-            Assert.That(otherRect.Width.CurrentValue, Is.EqualTo(100f));
+            Assert.That(otherRect.Width.Value, Is.EqualTo(100f));
             Assert.That(session.History.Redo(), Is.True);
-            Assert.That(otherRect.Width.CurrentValue, Is.EqualTo(200f));
+            Assert.That(otherRect.Width.Value, Is.EqualTo(200f));
             Assert.Multiple(() =>
             {
                 Assert.That(element.CustomTransform, Is.SameAs(transform));
@@ -454,7 +454,7 @@ public sealed class ApplyEditHistoryScopeTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(rect.Width.CurrentValue, Is.EqualTo(200f));
+            Assert.That(rect.Width.Value, Is.EqualTo(200f));
             Assert.That(element.Dimensions, Is.SameAs(dimensions));
             Assert.That(DescribeOperations(session.History.PeekUndo()),
                 Is.EqualTo(new[] { $"{rect.Id}:Width 100 -> 200" }));
@@ -547,10 +547,10 @@ public sealed class ApplyEditHistoryScopeTests
     {
         return
         [
-            rect.Fill.CurrentValue,
-            rect.Pen.CurrentValue,
-            rect.Transform.CurrentValue,
-            rect.FilterEffect.CurrentValue
+            rect.Fill.Value,
+            rect.Pen.Value,
+            rect.Transform.Value,
+            rect.FilterEffect.Value
         ];
     }
 
@@ -643,7 +643,7 @@ public sealed class ApplyEditHistoryScopeTests
                 }
                 else
                 {
-                    slot.CurrentValue = obj;
+                    slot.Value = obj;
                 }
 
                 return Wrap(host, types);
@@ -683,18 +683,18 @@ public sealed class ApplyEditHistoryScopeTests
         var rect = new RectShape
         {
             Name = $"{name} rect",
-            Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
-            Pen = { CurrentValue = new Pen { Brush = { CurrentValue = new SolidColorBrush(Colors.Red) } } },
+            Fill = { Value = new SolidColorBrush(Colors.White) },
+            Pen = { Value = new Pen { Brush = { Value = new SolidColorBrush(Colors.Red) } } },
             Transform =
             {
-                CurrentValue = new TransformGroup
+                Value = new TransformGroup
                 {
                     Children = { new TranslateTransform(10, 20) }
                 }
             },
             FilterEffect =
             {
-                CurrentValue = new FilterEffectGroup
+                Value = new FilterEffectGroup
                 {
                     Children = { new Blur() }
                 }

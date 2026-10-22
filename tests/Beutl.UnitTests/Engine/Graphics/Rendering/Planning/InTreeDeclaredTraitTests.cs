@@ -135,8 +135,8 @@ public sealed class InTreeDeclaredTraitTests
         using var geometryClip = new GeometryClipRenderNode(
             new RectGeometry
             {
-                Width = { CurrentValue = s_domain.Width },
-                Height = { CurrentValue = s_domain.Height },
+                Width = { Value = s_domain.Width },
+                Height = { Value = s_domain.Height },
             }.ToResource(CompositionContext.Default),
             ClipOperation.Intersect);
         geometryClip.AddChild(NewRectangleNode());

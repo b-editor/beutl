@@ -277,11 +277,11 @@ public class ImmediateCanvasDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var shape = new RectShape();
-            shape.Width.CurrentValue = 10;
-            shape.Height.CurrentValue = 10;
-            shape.AlignmentX.CurrentValue = AlignmentX.Center;
-            shape.AlignmentY.CurrentValue = AlignmentY.Center;
-            shape.Fill.CurrentValue = Brushes.White;
+            shape.Width.Value = 10;
+            shape.Height.Value = 10;
+            shape.AlignmentX.Value = AlignmentX.Center;
+            shape.AlignmentY.Value = AlignmentY.Center;
+            shape.Fill.Value = Brushes.White;
             using Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
 
             using var target = RenderTarget.Create(100, 100)!; // device = ceil(50 logical x 2)

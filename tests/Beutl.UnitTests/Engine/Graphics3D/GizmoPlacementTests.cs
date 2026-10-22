@@ -28,9 +28,9 @@ public class GizmoPlacementTests
     public void WorldPosition_IncludesTheGroupsATargetIsNestedIn()
     {
         var child = new Cube3D();
-        child.Position.CurrentValue = new Vector3(10, 20, 30);
+        child.Position.Value = new Vector3(10, 20, 30);
         var group = new Group3D();
-        group.Position.CurrentValue = new Vector3(100, 0, 0);
+        group.Position.Value = new Vector3(100, 0, 0);
         group.Children.Add(child);
         using var groupResource = (Group3D.Resource)group.ToResource(CompositionContext.Default);
         Object3D.Resource childResource = groupResource.GetChildResources().Single();
@@ -45,10 +45,10 @@ public class GizmoPlacementTests
     public void WorldOrientation_IncludesTheGroupsRotation()
     {
         var child = new Cube3D();
-        child.Rotation.CurrentValue = new Vector3(0, 30, 0);
+        child.Rotation.Value = new Vector3(0, 30, 0);
         var group = new Group3D();
-        group.Rotation.CurrentValue = new Vector3(0, 45, 0);
-        group.Scale.CurrentValue = new Vector3(2);
+        group.Rotation.Value = new Vector3(0, 45, 0);
+        group.Scale.Value = new Vector3(2);
         group.Children.Add(child);
         using var groupResource = (Group3D.Resource)group.ToResource(CompositionContext.Default);
         Object3D.Resource childResource = groupResource.GetChildResources().Single();
@@ -69,11 +69,11 @@ public class GizmoPlacementTests
     {
         var child = new Cube3D();
         var inner = new Group3D();
-        inner.Rotation.CurrentValue = new Vector3(0, 0, 40);
+        inner.Rotation.Value = new Vector3(0, 0, 40);
         inner.Children.Add(child);
         var outer = new Group3D();
-        outer.Rotation.CurrentValue = new Vector3(0, 30, 0);
-        outer.Scale.CurrentValue = new Vector3(2, 1, 1);
+        outer.Rotation.Value = new Vector3(0, 30, 0);
+        outer.Scale.Value = new Vector3(2, 1, 1);
         outer.Children.Add(inner);
         using var outerResource = (Group3D.Resource)outer.ToResource(CompositionContext.Default);
         Object3D.Resource childResource = outerResource.GetChildResources().Single().GetChildResources().Single();
@@ -92,7 +92,7 @@ public class GizmoPlacementTests
     {
         var child = new Cube3D();
         var group = new Group3D();
-        group.Scale.CurrentValue = new Vector3(2);
+        group.Scale.Value = new Vector3(2);
         group.Children.Add(child);
         using var groupResource = (Group3D.Resource)group.ToResource(CompositionContext.Default);
         Object3D.Resource childResource = groupResource.GetChildResources().Single();

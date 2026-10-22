@@ -20,7 +20,7 @@ public class MissingDiscriminatorTests
     public void EnginePropertyValueWithoutType_IsReadAsTheDeclaredType()
     {
         var holder = new LeafHolder();
-        holder.Leaf.CurrentValue = CreateLeaf(3);
+        holder.Leaf.Value = CreateLeaf(3);
         JsonObject json = CoreSerializer.SerializeToJsonObject(holder);
         RemoveType(json[nameof(LeafHolder.Leaf)]!.AsObject());
         using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
@@ -28,9 +28,9 @@ public class MissingDiscriminatorTests
         object restored = CoreSerializer.DeserializeFromJsonObject(json, typeof(LeafHolder));
 
         Assert.That(restored, Is.TypeOf<LeafHolder>());
-        UnsealedLeaf? leaf = ((LeafHolder)restored).Leaf.CurrentValue;
+        UnsealedLeaf? leaf = ((LeafHolder)restored).Leaf.Value;
         Assert.That(leaf, Is.TypeOf<UnsealedLeaf>());
-        Assert.That(leaf!.Width.CurrentValue, Is.EqualTo(3));
+        Assert.That(leaf!.Width.Value, Is.EqualTo(3));
         Assert.That(incidents.Count, Is.Zero);
     }
 
@@ -45,7 +45,7 @@ public class MissingDiscriminatorTests
         var restored = (CoreHolder)CoreSerializer.DeserializeFromJsonObject(json, typeof(CoreHolder));
 
         Assert.That(restored.Leaf, Is.TypeOf<UnsealedLeaf>());
-        Assert.That(restored.Leaf!.Width.CurrentValue, Is.EqualTo(3));
+        Assert.That(restored.Leaf!.Width.Value, Is.EqualTo(3));
     }
 
     // A file read through CoreSerializer.RestoreFromUri.
@@ -62,7 +62,7 @@ public class MissingDiscriminatorTests
             object restored = CoreSerializer.RestoreFromUri(UriHelper.CreateFromPath(path), typeof(UnsealedLeaf));
 
             Assert.That(restored, Is.TypeOf<UnsealedLeaf>());
-            Assert.That(((UnsealedLeaf)restored).Width.CurrentValue, Is.EqualTo(3));
+            Assert.That(((UnsealedLeaf)restored).Width.Value, Is.EqualTo(3));
         }
         finally
         {
@@ -80,7 +80,7 @@ public class MissingDiscriminatorTests
 
         Assert.That(pasted, Is.True);
         Assert.That(leaf, Is.TypeOf<UnsealedLeaf>());
-        Assert.That(leaf!.Width.CurrentValue, Is.EqualTo(3));
+        Assert.That(leaf!.Width.Value, Is.EqualTo(3));
     }
 
     // The engine property's Optional<T> is a sealed wrapper whose node carries its value's $type, so this also
@@ -89,7 +89,7 @@ public class MissingDiscriminatorTests
     public void PresentType_StillSelectsTheSubtype()
     {
         var engineHolder = new LeafHolder();
-        engineHolder.Leaf.CurrentValue = new DerivedLeaf();
+        engineHolder.Leaf.Value = new DerivedLeaf();
         var contextHolder = new CoreHolder { Leaf = new DerivedLeaf() };
 
         var restoredEngineHolder = (LeafHolder)CoreSerializer.DeserializeFromJsonObject(
@@ -97,7 +97,7 @@ public class MissingDiscriminatorTests
         var restoredContextHolder = (CoreHolder)CoreSerializer.DeserializeFromJsonObject(
             CoreSerializer.SerializeToJsonObject(contextHolder), typeof(CoreHolder));
 
-        Assert.That(restoredEngineHolder.Leaf.CurrentValue, Is.TypeOf<DerivedLeaf>());
+        Assert.That(restoredEngineHolder.Leaf.Value, Is.TypeOf<DerivedLeaf>());
         Assert.That(restoredContextHolder.Leaf, Is.TypeOf<DerivedLeaf>());
     }
 
@@ -155,7 +155,7 @@ public class MissingDiscriminatorTests
     private static UnsealedLeaf CreateLeaf(float width)
     {
         var leaf = new UnsealedLeaf();
-        leaf.Width.CurrentValue = width;
+        leaf.Width.Value = width;
         return leaf;
     }
 
@@ -172,7 +172,7 @@ public class MissingDiscriminatorTests
     {
         public UnsealedLeaf() => ScanProperties<UnsealedLeaf>();
 
-        public IExpressionProperty<float> Width { get; } = Property.Create(1f);
+        public IExpressionProperty<float> Width { get; } = Property.CreateExpression(1f);
     }
 
     [SuppressResourceClassGeneration]
@@ -186,7 +186,7 @@ public class MissingDiscriminatorTests
     {
         public LeafHolder() => ScanProperties<LeafHolder>();
 
-        public IExpressionProperty<UnsealedLeaf?> Leaf { get; } = Property.Create<UnsealedLeaf?>();
+        public IExpressionProperty<UnsealedLeaf?> Leaf { get; } = Property.CreateExpression<UnsealedLeaf?>();
     }
 
     private sealed class CoreHolder : CoreObject

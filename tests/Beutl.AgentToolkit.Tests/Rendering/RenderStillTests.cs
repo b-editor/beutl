@@ -238,12 +238,12 @@ public sealed class RenderStillTests
         TextBlock title = scene.Children
             .SelectMany(element => element.Objects)
             .OfType<TextBlock>()
-            .Single(item => item.Text.CurrentValue == "Beutl motion");
+            .Single(item => item.Text.Value == "Beutl motion");
 
         var renderer = new StillRenderer();
         await renderer.RenderAsync(scene, TimeSpan.FromSeconds(2), withTextPath, 1, CancellationToken.None);
 
-        title.Text.CurrentValue = string.Empty;
+        title.Text.Value = string.Empty;
         await renderer.RenderAsync(scene, TimeSpan.FromSeconds(2), withoutTextPath, 1, CancellationToken.None);
 
         Assert.Multiple(() =>
@@ -265,9 +265,9 @@ public sealed class RenderStillTests
         var text = new TextBlock
         {
             Name = "headline",
-            Text = { CurrentValue = "HELLO" },
-            Size = { CurrentValue = 48 },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+            Text = { Value = "HELLO" },
+            Size = { Value = 48 },
+            Fill = { Value = new SolidColorBrush(Colors.White) }
         };
         var element = new Element
         {
@@ -372,14 +372,14 @@ public sealed class RenderStillTests
         };
         var rect = new RectShape
         {
-            Width = { CurrentValue = width },
-            Height = { CurrentValue = height },
-            Fill = { CurrentValue = new SolidColorBrush(color) }
+            Width = { Value = width },
+            Height = { Value = height },
+            Fill = { Value = new SolidColorBrush(color) }
         };
 
         if (translateX != 0 || translateY != 0)
         {
-            rect.Transform.CurrentValue = new TransformGroup
+            rect.Transform.Value = new TransformGroup
             {
                 Children = { new TranslateTransform(translateX, translateY) }
             };
@@ -394,14 +394,14 @@ public sealed class RenderStillTests
         return drawable switch
         {
             CpuSafeDrawable.Shape => new RectShape(),
-            CpuSafeDrawable.Text => new TextBlock { Text = { CurrentValue = "Agent" } },
+            CpuSafeDrawable.Text => new TextBlock { Text = { Value = "Agent" } },
             CpuSafeDrawable.UnscaledBitmap => CreateSourceImage(dir),
-            CpuSafeDrawable.SkslRuntimeShader => new RectShape { FilterEffect = { CurrentValue = new SKSLScriptEffect() } },
+            CpuSafeDrawable.SkslRuntimeShader => new RectShape { FilterEffect = { Value = new SKSLScriptEffect() } },
             CpuSafeDrawable.Particle => new ParticleEmitter
             {
-                MaxParticles = { CurrentValue = 4 },
-                EmissionRate = { CurrentValue = 4 },
-                ParticleDrawable = { CurrentValue = new EllipseShape() }
+                MaxParticles = { Value = 4 },
+                EmissionRate = { Value = 4 },
+                ParticleDrawable = { Value = new EllipseShape() }
             },
             _ => throw new ArgumentOutOfRangeException(nameof(drawable), drawable, null)
         };
@@ -417,7 +417,7 @@ public sealed class RenderStillTests
 
         var source = new ImageSource();
         source.ReadFrom(new Uri(path));
-        return new SourceImage { Source = { CurrentValue = source } };
+        return new SourceImage { Source = { Value = source } };
     }
 
     private static int CountDifferingPixels(string firstPath, string secondPath)

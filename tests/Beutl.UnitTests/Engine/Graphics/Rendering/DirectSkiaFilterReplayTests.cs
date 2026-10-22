@@ -238,7 +238,7 @@ public sealed class DirectSkiaFilterReplayTests
             cacheOptions: RenderCacheOptions.Enabled);
 
         using RenderNodeRasterization cold = renderer.Rasterize();
-        blur.Sigma.CurrentValue = new Size(4, 4);
+        blur.Sigma.Value = new Size(4, 4);
         bool versionBumped = false;
         resource.Reconcile(blur, CompositionContext.Default, ref versionBumped);
         Assert.That(tail.Update(resource), Is.True);
@@ -294,7 +294,7 @@ public sealed class DirectSkiaFilterReplayTests
             prefixSigma: 3,
             tailSigma: 1);
 
-        tailEffect.Sigma.CurrentValue = new Size(4, 4);
+        tailEffect.Sigma.Value = new Size(4, 4);
         bool versionBumped = false;
         tailResource.Reconcile(tailEffect, CompositionContext.Default, ref versionBumped);
         Assert.That(tail.Update(tailResource), Is.True);
@@ -734,7 +734,7 @@ public sealed class DirectSkiaFilterReplayTests
     private static Blur CreateBlur(float sigma)
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(sigma, sigma);
+        blur.Sigma.Value = new Size(sigma, sigma);
         return blur;
     }
 

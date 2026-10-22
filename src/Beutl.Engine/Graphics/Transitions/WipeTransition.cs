@@ -19,7 +19,7 @@ public sealed partial class WipeTransition : ClipTransition
     }
 
     [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<ClipTransitionDirection> Direction { get; } = Property.Create(ClipTransitionDirection.LeftToRight);
+    public IExpressionProperty<ClipTransitionDirection> Direction { get; } = Property.CreateExpression(ClipTransitionDirection.LeftToRight);
 
     public new partial class Resource
     {
@@ -42,9 +42,9 @@ public sealed partial class WipeTransition : ClipTransition
                 _brush.GradientStops.Add(new GradientStop(Color.FromArgb(0, 255, 255, 255), 1));
             }
 
-            _brush.StartPoint.CurrentValue = new RelativePoint(
+            _brush.StartPoint.Value = new RelativePoint(
                 0.5f - direction.X / 2, 0.5f - direction.Y / 2, RelativeUnit.Relative);
-            _brush.EndPoint.CurrentValue = new RelativePoint(
+            _brush.EndPoint.Value = new RelativePoint(
                 0.5f + direction.X / 2, 0.5f + direction.Y / 2, RelativeUnit.Relative);
             Reconcile(_brush, ref _mask, context);
         }

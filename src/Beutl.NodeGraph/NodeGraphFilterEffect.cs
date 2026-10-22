@@ -18,10 +18,10 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
     public NodeGraphFilterEffect()
     {
         ScanProperties<NodeGraphFilterEffect>();
-        Model.CurrentValue = new GraphModel();
+        Model.Value = new GraphModel();
     }
 
-    public IExpressionProperty<GraphModel?> Model { get; } = Property.Create<GraphModel?>();
+    public IExpressionProperty<GraphModel?> Model { get; } = Property.CreateExpression<GraphModel?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
@@ -76,10 +76,10 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
             if (obj is NodeGraphFilterEffect filterEffect)
             {
-                if (Model != filterEffect.Model.CurrentValue)
+                if (Model != filterEffect.Model.Value)
                 {
                     Model?.TopologyChanged -= OnModelTopologyChanged;
-                    Model = filterEffect.Model.CurrentValue;
+                    Model = filterEffect.Model.Value;
                     Model?.TopologyChanged += OnModelTopologyChanged;
                     Snapshot.MarkDirty();
                 }

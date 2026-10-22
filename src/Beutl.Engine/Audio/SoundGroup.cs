@@ -72,9 +72,9 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         context.Connect(currentNode, gainNode);
         currentNode = gainNode;
 
-        if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
+        if (Effect.Value != null && Effect.Value.IsEnabled)
         {
-            currentNode = Effect.CurrentValue.CreateNode(context, currentNode);
+            currentNode = Effect.Value.CreateNode(context, currentNode);
         }
 
         // ClipNodeを作成（EffectがローカルTimeRangeを前提としているため）

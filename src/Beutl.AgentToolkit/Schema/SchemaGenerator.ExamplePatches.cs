@@ -142,7 +142,7 @@ public sealed partial class SchemaGenerator
             Name = name,
             Transform =
             {
-                CurrentValue = new TransformGroup
+                Value = new TransformGroup
                 {
                     Children =
                     {
@@ -176,16 +176,16 @@ public sealed partial class SchemaGenerator
         rig.Children.Add(new RectShape
         {
             Name = "[role:text-backing] Shot 1 title plate",
-            Width = { CurrentValue = 760 },
-            Height = { CurrentValue = 240 },
-            Fill = { CurrentValue = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
+            Width = { Value = 760 },
+            Height = { Value = 240 },
+            Fill = { Value = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
         });
         rig.Children.Add(new TextBlock
         {
             Name = "Shot 1 hero title",
-            Text = { CurrentValue = "Camera move" },
-            Size = { CurrentValue = 96 },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+            Text = { Value = "Camera move" },
+            Size = { Value = 96 },
+            Fill = { Value = new SolidColorBrush(Colors.White) }
         });
 
         Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, s_exampleElementLength, rig);
@@ -205,7 +205,7 @@ public sealed partial class SchemaGenerator
     {
         DrawableGroup rig = CreateCameraRigGroup("[role:camera-rig] Shot 2 camera");
         Element rigElement = CreateElement("[role:camera-rig] Shot 2 rig", zIndex: 10, s_exampleElementLength, rig);
-        ((PortalObject)rigElement.Objects[0]).Count.CurrentValue = 2;
+        ((PortalObject)rigElement.Objects[0]).Count.Value = 2;
 
         Element plateElement = CreateElement(
             "[role:text-backing] Shot 2 title plate",
@@ -214,9 +214,9 @@ public sealed partial class SchemaGenerator
             new RectShape
             {
                 Name = "[role:text-backing] Shot 2 title plate",
-                Width = { CurrentValue = 760 },
-                Height = { CurrentValue = 240 },
-                Fill = { CurrentValue = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
+                Width = { Value = 760 },
+                Height = { Value = 240 },
+                Fill = { Value = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
             });
 
         Element titleElement = CreateElement(
@@ -226,9 +226,9 @@ public sealed partial class SchemaGenerator
             new TextBlock
             {
                 Name = "Shot 2 hero title",
-                Text = { CurrentValue = "Camera move" },
-                Size = { CurrentValue = 96 },
-                Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+                Text = { Value = "Camera move" },
+                Size = { Value = 96 },
+                Fill = { Value = new SolidColorBrush(Colors.White) }
             });
 
         JsonObject rigJson = SerializeWithoutIds(rigElement);

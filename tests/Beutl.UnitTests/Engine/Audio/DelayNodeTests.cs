@@ -37,7 +37,7 @@ public class DelayNodeTests
     public void Process_AnimatableParamsWithoutAnimation_MatchesNonAnimatableStatic()
     {
         float[][] animatable = Render(Animatable);
-        float[][] simple = Render(v => Property.Create(v));
+        float[][] simple = Render(v => Property.CreateExpression(v));
 
         Assert.Multiple(() =>
         {
@@ -51,7 +51,7 @@ public class DelayNodeTests
 
     private static DelayNode CreateNode(AudioNode? input, Func<float, IProperty<float>>? makeProperty = null)
     {
-        makeProperty ??= v => Property.Create(v);
+        makeProperty ??= v => Property.CreateExpression(v);
         var node = new DelayNode
         {
             DelayTime = makeProperty(200f),

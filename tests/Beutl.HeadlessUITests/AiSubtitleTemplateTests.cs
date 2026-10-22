@@ -37,7 +37,7 @@ public class AiSubtitleTemplateTests
 {
     private static TranslateTransform GetTranslate(TextBlock textBlock)
     {
-        return textBlock.Transform.CurrentValue switch
+        return textBlock.Transform.Value switch
         {
             TranslateTransform translate => translate,
             TransformGroup group => group.Children.OfType<TranslateTransform>().Single(),
@@ -359,18 +359,18 @@ public class AiSubtitleTemplateTests
                     cue,
                     () => new TextBlock
                     {
-                        Text = { CurrentValue = cue.Text },
-                        Size = { CurrentValue = 96 },
-                        Fill = { CurrentValue = new SolidColorBrush(primaryColor) },
+                        Text = { Value = cue.Text },
+                        Size = { Value = 96 },
+                        Fill = { Value = new SolidColorBrush(primaryColor) },
                     },
                     position: new Beutl.Graphics.Point(-140, context.DefaultPosition.Y)),
                 context.CreateDescription(
                     cue,
                     () => new RectShape
                     {
-                        Width = { CurrentValue = 80 },
-                        Height = { CurrentValue = 60 },
-                        Fill = { CurrentValue = new SolidColorBrush(Colors.Blue) },
+                        Width = { Value = 80 },
+                        Height = { Value = 60 },
+                        Fill = { Value = new SolidColorBrush(Colors.Blue) },
                     },
                     position: new Beutl.Graphics.Point(140, context.DefaultPosition.Y)),
             ];
@@ -688,17 +688,17 @@ public class AiSubtitleTemplateTests
                 Is.EqualTo(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2) }));
             Assert.That(elements.Select(element => element.Length),
                 Is.EqualTo(new[] { TimeSpan.FromSeconds(1.25), TimeSpan.FromSeconds(0.5) }));
-            Assert.That(subtitles.Select(subtitle => subtitle.Text.CurrentValue),
+            Assert.That(subtitles.Select(subtitle => subtitle.Text.Value),
                 Is.EqualTo(new[] { "First", "Second" }));
             Assert.That(subtitles.Select(subtitle => subtitle.Id).Distinct().Count(), Is.EqualTo(2));
-            Assert.That(subtitles.All(subtitle => subtitle.Size.CurrentValue == 48), Is.True);
+            Assert.That(subtitles.All(subtitle => subtitle.Size.Value == 48), Is.True);
             Assert.That(subtitles.All(subtitle =>
-                subtitle.FontFamily.CurrentValue?.Name == CaptionPresentationDefaults.FontFamilyName), Is.True);
+                subtitle.FontFamily.Value?.Name == CaptionPresentationDefaults.FontFamilyName), Is.True);
             Assert.That(subtitles.All(subtitle =>
             {
                 TranslateTransform translate = GetTranslate(subtitle);
-                return translate.X.CurrentValue == 0
-                       && Math.Abs(translate.Y.CurrentValue - expectedY) < 0.001f;
+                return translate.X.Value == 0
+                       && Math.Abs(translate.Y.Value - expectedY) < 0.001f;
             }), Is.True);
         }
     }
@@ -709,10 +709,10 @@ public class AiSubtitleTemplateTests
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-saved-template");
         var source = new TextBlock
         {
-            Text = { CurrentValue = "Placeholder" },
-            Size = { CurrentValue = 72 },
-            FontWeight = { CurrentValue = FontWeight.Bold },
-            Transform = { CurrentValue = new TranslateTransform(45, 60) },
+            Text = { Value = "Placeholder" },
+            Size = { Value = 72 },
+            FontWeight = { Value = FontWeight.Bold },
+            Transform = { Value = new TranslateTransform(45, 60) },
         };
         ObjectTemplateItem item = ObjectTemplateItem.CreateFromInstance(source, "Saved subtitle");
         CaptionTemplate saved = TextBlockCaptionTemplateAdapter.TryCreate(item)!;
@@ -744,11 +744,11 @@ public class AiSubtitleTemplateTests
         {
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(subtitle.Text.CurrentValue, Is.EqualTo("Generated text"));
-            Assert.That(subtitle.Size.CurrentValue, Is.EqualTo(72));
-            Assert.That(subtitle.FontWeight.CurrentValue, Is.EqualTo(FontWeight.Bold));
-            Assert.That(translate.X.CurrentValue, Is.EqualTo(45));
-            Assert.That(translate.Y.CurrentValue, Is.EqualTo(60));
+            Assert.That(subtitle.Text.Value, Is.EqualTo("Generated text"));
+            Assert.That(subtitle.Size.Value, Is.EqualTo(72));
+            Assert.That(subtitle.FontWeight.Value, Is.EqualTo(FontWeight.Bold));
+            Assert.That(translate.X.Value, Is.EqualTo(45));
+            Assert.That(translate.Y.Value, Is.EqualTo(60));
             Assert.That(subtitle.Id, Is.Not.EqualTo(source.Id));
         }
     }

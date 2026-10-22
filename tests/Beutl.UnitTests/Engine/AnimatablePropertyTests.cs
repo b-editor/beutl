@@ -24,8 +24,8 @@ public class AnimatablePropertyTests
 
         Assert.That(property.IsAnimatable, Is.True);
         Assert.That(property.DefaultValue, Is.EqualTo(7));
-        Assert.That(property.CurrentValue, Is.EqualTo(7));
-        Assert.That(property.HasLocalValue, Is.False);
+        Assert.That(property.Value, Is.EqualTo(7));
+        Assert.That(property.IsValueSet, Is.False);
         Assert.That(property.HasExpression, Is.False);
         Assert.That(property.GetKeyFrameAnimation(), Is.Null);
     }
@@ -80,7 +80,7 @@ public class AnimatablePropertyTests
         var property = Make(0);
         property.SetKeyFrameAnimation(TestAnimations.Linear(0, 100, TimeSpan.FromSeconds(1.0)));
 
-        var midpoint = property.GetValue(new CompositionContext(TimeSpan.FromSeconds(0.5)));
+        var midpoint = property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(0.5)));
 
         Assert.That(midpoint, Is.InRange(40, 60));
     }
@@ -102,7 +102,7 @@ public class AnimatablePropertyTests
         var root = new TestHierarchicalRoot();
         ((IModifiableHierarchical)root).AddChild(element);
 
-        int midpoint = property.GetValue(new CompositionContext(TimeSpan.FromSeconds(5.5)));
+        int midpoint = property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(5.5)));
 
         Assert.That(midpoint, Is.EqualTo(50));
     }
@@ -125,7 +125,7 @@ public class AnimatablePropertyTests
 
         property <<= 99;
 
-        Assert.That(property.CurrentValue, Is.EqualTo(99));
+        Assert.That(property.Value, Is.EqualTo(99));
     }
 
 }

@@ -134,7 +134,7 @@ public class EditorWorkflowTests
                 Source: new ElementSource.EngineObject(() =>
                 {
                     var drawable = new SourceImage();
-                    drawable.Source.CurrentValue = source;
+                    drawable.Source.Value = source;
                     return drawable;
                 }))],
                 CancellationToken.None);

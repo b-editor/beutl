@@ -32,9 +32,9 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = "Seeded gradient field",
-                    Width = { CurrentValue = context.Metadata.Width },
-                    Height = { CurrentValue = context.Metadata.Height },
-                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) }
+                    Width = { Value = context.Metadata.Width },
+                    Height = { Value = context.Metadata.Height },
+                    Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) }
                 })
         ];
 
@@ -51,12 +51,12 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = $"Seeded ribbon {i + 1}",
-                    Width = { CurrentValue = 1060 + context.Random.Range(-120, 180) },
-                    Height = { CurrentValue = 58 + context.Random.Range(0, 34) },
-                    Fill = { CurrentValue = CreateLinearGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
+                    Width = { Value = 1060 + context.Random.Range(-120, 180) },
+                    Height = { Value = 58 + context.Random.Range(0, 34) },
+                    Fill = { Value = CreateLinearGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -67,7 +67,7 @@ public sealed partial class CompositionTemplateCatalog
                     },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -93,13 +93,13 @@ public sealed partial class CompositionTemplateCatalog
             new TextBlock
             {
                 Name = "Seeded title",
-                Text = { CurrentValue = title },
-                Size = { CurrentValue = 104 + context.Random.Range(-10, 8) },
-                Spacing = { CurrentValue = 8 + context.Random.Range(0, 8) },
-                Fill = { CurrentValue = new SolidColorBrush(Color.Parse(palette.Foreground)) },
+                Text = { Value = title },
+                Size = { Value = 104 + context.Random.Range(-10, 8) },
+                Spacing = { Value = 8 + context.Random.Range(0, 8) },
+                Fill = { Value = new SolidColorBrush(Color.Parse(palette.Foreground)) },
                 Transform =
                 {
-                    CurrentValue = new TransformGroup
+                    Value = new TransformGroup
                     {
                         Children =
                         {
@@ -109,7 +109,7 @@ public sealed partial class CompositionTemplateCatalog
                 },
                 FilterEffect =
                 {
-                    CurrentValue = new FilterEffectGroup
+                    Value = new FilterEffectGroup
                     {
                         Children =
                         {
@@ -148,9 +148,9 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = "Instrument gradient field",
-                    Width = { CurrentValue = context.Metadata.Width },
-                    Height = { CurrentValue = context.Metadata.Height },
-                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) }
+                    Width = { Value = context.Metadata.Width },
+                    Height = { Value = context.Metadata.Height },
+                    Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) }
                 })
         ];
 
@@ -243,13 +243,13 @@ public sealed partial class CompositionTemplateCatalog
                 new EllipseShape
                 {
                     Name = $"Seeded orbit ring {i + 1}",
-                    Width = { CurrentValue = size },
-                    Height = { CurrentValue = size },
-                    Fill = { CurrentValue = null },
-                    Pen = { CurrentValue = CreatePen(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, 3 + i) },
+                    Width = { Value = size },
+                    Height = { Value = size },
+                    Fill = { Value = null },
+                    Pen = { Value = CreatePen(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, 3 + i) },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -260,7 +260,7 @@ public sealed partial class CompositionTemplateCatalog
                     },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -295,12 +295,12 @@ public sealed partial class CompositionTemplateCatalog
             new RectShape
             {
                 Name = "Seeded scan sweep",
-                Width = { CurrentValue = layout.SweepWidth },
-                Height = { CurrentValue = 9 },
-                Fill = { CurrentValue = CreateLinearGradient("#0036f0ff", palette.Accent) },
+                Width = { Value = layout.SweepWidth },
+                Height = { Value = 9 },
+                Fill = { Value = CreateLinearGradient("#0036f0ff", palette.Accent) },
                 Transform =
                 {
-                    CurrentValue = new TransformGroup
+                    Value = new TransformGroup
                     {
                         Children =
                         {
@@ -311,7 +311,7 @@ public sealed partial class CompositionTemplateCatalog
                 },
                 FilterEffect =
                 {
-                    CurrentValue = new FilterEffectGroup
+                    Value = new FilterEffectGroup
                     {
                         Children =
                         {
@@ -350,12 +350,12 @@ public sealed partial class CompositionTemplateCatalog
                 new EllipseShape
                 {
                     Name = $"Seeded signal node {i + 1}",
-                    Width = { CurrentValue = 48 + context.Random.Range(0, 38) },
-                    Height = { CurrentValue = 48 + context.Random.Range(0, 38) },
-                    Fill = { CurrentValue = CreateLinearGradient(palette.SecondaryAccent, palette.Accent) },
+                    Width = { Value = 48 + context.Random.Range(0, 38) },
+                    Height = { Value = 48 + context.Random.Range(0, 38) },
+                    Fill = { Value = CreateLinearGradient(palette.SecondaryAccent, palette.Accent) },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -365,7 +365,7 @@ public sealed partial class CompositionTemplateCatalog
                     },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -403,12 +403,12 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = "Editorial gradient field",
-                    Width = { CurrentValue = context.Metadata.Width },
-                    Height = { CurrentValue = context.Metadata.Height },
-                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
+                    Width = { Value = context.Metadata.Width },
+                    Height = { Value = context.Metadata.Height },
+                    Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -428,13 +428,13 @@ public sealed partial class CompositionTemplateCatalog
             new RoundedRectShape
             {
                 Name = "Seeded editorial panel",
-                Width = { CurrentValue = 700 + context.Random.Range(-70, 110) },
-                Height = { CurrentValue = 580 + context.Random.Range(-60, 80) },
-                CornerRadius = { CurrentValue = new CornerRadius(48 + context.Random.Range(-12, 14)) },
-                Fill = { CurrentValue = CreateLinearGradient("#eeffffff", palette.SecondaryAccent) },
+                Width = { Value = 700 + context.Random.Range(-70, 110) },
+                Height = { Value = 580 + context.Random.Range(-60, 80) },
+                CornerRadius = { Value = new CornerRadius(48 + context.Random.Range(-12, 14)) },
+                Fill = { Value = CreateLinearGradient("#eeffffff", palette.SecondaryAccent) },
                 Transform =
                 {
-                    CurrentValue = new TransformGroup
+                    Value = new TransformGroup
                     {
                         Children =
                         {
@@ -444,7 +444,7 @@ public sealed partial class CompositionTemplateCatalog
                 },
                 FilterEffect =
                 {
-                    CurrentValue = new FilterEffectGroup
+                    Value = new FilterEffectGroup
                     {
                         Children =
                         {
@@ -474,12 +474,12 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = $"Seeded editorial block {i + 1}",
-                    Width = { CurrentValue = i % 2 == 0 ? 610 + context.Random.Range(-60, 90) : 82 + context.Random.Range(-12, 24) },
-                    Height = { CurrentValue = i % 2 == 0 ? 86 + context.Random.Range(-10, 24) : 420 + context.Random.Range(-60, 90) },
-                    Fill = { CurrentValue = CreateLinearGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
+                    Width = { Value = i % 2 == 0 ? 610 + context.Random.Range(-60, 90) : 82 + context.Random.Range(-12, 24) },
+                    Height = { Value = i % 2 == 0 ? 86 + context.Random.Range(-10, 24) : 420 + context.Random.Range(-60, 90) },
+                    Fill = { Value = CreateLinearGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -489,7 +489,7 @@ public sealed partial class CompositionTemplateCatalog
                     },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -530,12 +530,12 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = "Soft liquid field",
-                    Width = { CurrentValue = context.Metadata.Width },
-                    Height = { CurrentValue = context.Metadata.Height },
-                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
+                    Width = { Value = context.Metadata.Width },
+                    Height = { Value = context.Metadata.Height },
+                    Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -562,12 +562,12 @@ public sealed partial class CompositionTemplateCatalog
                 new EllipseShape
                 {
                     Name = $"Seeded liquid blob {i + 1}",
-                    Width = { CurrentValue = size },
-                    Height = { CurrentValue = size * context.Random.Range(0.62f, 1.18f) },
-                    Fill = { CurrentValue = CreateRadialGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, "#00111111") },
+                    Width = { Value = size },
+                    Height = { Value = size * context.Random.Range(0.62f, 1.18f) },
+                    Fill = { Value = CreateRadialGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, "#00111111") },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -578,7 +578,7 @@ public sealed partial class CompositionTemplateCatalog
                     },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -624,12 +624,12 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = "Editorial dashboard field",
-                    Width = { CurrentValue = context.Metadata.Width },
-                    Height = { CurrentValue = context.Metadata.Height },
-                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
+                    Width = { Value = context.Metadata.Width },
+                    Height = { Value = context.Metadata.Height },
+                    Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -651,12 +651,12 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = $"Metric rule {i + 1}",
-                    Width = { CurrentValue = 1380 },
-                    Height = { CurrentValue = 2 },
-                    Fill = { CurrentValue = new SolidColorBrush(Color.Parse(i % 2 == 0 ? "#33ffffff" : "#2243e7ff")) },
+                    Width = { Value = 1380 },
+                    Height = { Value = 2 },
+                    Fill = { Value = new SolidColorBrush(Color.Parse(i % 2 == 0 ? "#33ffffff" : "#2243e7ff")) },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -681,13 +681,13 @@ public sealed partial class CompositionTemplateCatalog
                 new RoundedRectShape
                 {
                     Name = $"Seeded metric bar {i + 1}",
-                    Width = { CurrentValue = 46 + context.Random.Range(-8, 16) },
-                    Height = { CurrentValue = 20 },
-                    CornerRadius = { CurrentValue = new CornerRadius(18) },
-                    Fill = { CurrentValue = CreateLinearGradient(i % 3 == 0 ? palette.Accent : palette.SecondaryAccent, i % 3 == 0 ? palette.SecondaryAccent : palette.Accent) },
+                    Width = { Value = 46 + context.Random.Range(-8, 16) },
+                    Height = { Value = 20 },
+                    CornerRadius = { Value = new CornerRadius(18) },
+                    Fill = { Value = CreateLinearGradient(i % 3 == 0 ? palette.Accent : palette.SecondaryAccent, i % 3 == 0 ? palette.SecondaryAccent : palette.Accent) },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -697,7 +697,7 @@ public sealed partial class CompositionTemplateCatalog
                     },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -742,12 +742,12 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = "Chromatic cutout field",
-                    Width = { CurrentValue = context.Metadata.Width },
-                    Height = { CurrentValue = context.Metadata.Height },
-                    Fill = { CurrentValue = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
+                    Width = { Value = context.Metadata.Width },
+                    Height = { Value = context.Metadata.Height },
+                    Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -774,12 +774,12 @@ public sealed partial class CompositionTemplateCatalog
                 new RectShape
                 {
                     Name = $"Seeded glitch slice {i + 1}",
-                    Width = { CurrentValue = width },
-                    Height = { CurrentValue = height },
-                    Fill = { CurrentValue = CreateLinearGradient(i % 2 == 0 ? palette.Accent : "#eeffffff", i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
+                    Width = { Value = width },
+                    Height = { Value = height },
+                    Fill = { Value = CreateLinearGradient(i % 2 == 0 ? palette.Accent : "#eeffffff", i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -790,7 +790,7 @@ public sealed partial class CompositionTemplateCatalog
                     },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -816,13 +816,13 @@ public sealed partial class CompositionTemplateCatalog
             new TextBlock
             {
                 Name = "Hard cut title",
-                Text = { CurrentValue = title },
-                Size = { CurrentValue = 112 + context.Random.Range(-12, 10) },
-                Spacing = { CurrentValue = 2 },
-                Fill = { CurrentValue = new SolidColorBrush(Color.Parse(palette.Foreground)) },
+                Text = { Value = title },
+                Size = { Value = 112 + context.Random.Range(-12, 10) },
+                Spacing = { Value = 2 },
+                Fill = { Value = new SolidColorBrush(Color.Parse(palette.Foreground)) },
                 Transform =
                 {
-                    CurrentValue = new TransformGroup
+                    Value = new TransformGroup
                     {
                         Children =
                         {
@@ -832,7 +832,7 @@ public sealed partial class CompositionTemplateCatalog
                 },
                 FilterEffect =
                 {
-                    CurrentValue = new FilterEffectGroup
+                    Value = new FilterEffectGroup
                     {
                         Children =
                         {
@@ -866,12 +866,12 @@ public sealed partial class CompositionTemplateCatalog
                 new EllipseShape
                 {
                     Name = $"Deterministic noise dot {i + 1}",
-                    Width = { CurrentValue = size },
-                    Height = { CurrentValue = size },
-                    Fill = { CurrentValue = new SolidColorBrush(Color.Parse(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent)) },
+                    Width = { Value = size },
+                    Height = { Value = size },
+                    Fill = { Value = new SolidColorBrush(Color.Parse(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent)) },
                     Transform =
                     {
-                        CurrentValue = new TransformGroup
+                        Value = new TransformGroup
                         {
                             Children =
                             {
@@ -881,7 +881,7 @@ public sealed partial class CompositionTemplateCatalog
                     },
                     FilterEffect =
                     {
-                        CurrentValue = new FilterEffectGroup
+                        Value = new FilterEffectGroup
                         {
                             Children =
                             {
@@ -937,13 +937,13 @@ public sealed partial class CompositionTemplateCatalog
             new TextBlock
             {
                 Name = objectName,
-                Text = { CurrentValue = text },
-                Size = { CurrentValue = size },
-                Spacing = { CurrentValue = spacing },
-                Fill = { CurrentValue = new SolidColorBrush(Color.Parse(color)) },
+                Text = { Value = text },
+                Size = { Value = size },
+                Spacing = { Value = spacing },
+                Fill = { Value = new SolidColorBrush(Color.Parse(color)) },
                 Transform =
                 {
-                    CurrentValue = new TransformGroup
+                    Value = new TransformGroup
                     {
                         Children =
                         {
@@ -953,7 +953,7 @@ public sealed partial class CompositionTemplateCatalog
                 },
                 FilterEffect =
                 {
-                    CurrentValue = new FilterEffectGroup
+                    Value = new FilterEffectGroup
                     {
                         Children =
                         {
@@ -973,9 +973,9 @@ public sealed partial class CompositionTemplateCatalog
     {
         return new RadialGradientBrush
         {
-            Center = { CurrentValue = RelativePoint.Center },
-            GradientOrigin = { CurrentValue = RelativePoint.Center },
-            Radius = { CurrentValue = 72 },
+            Center = { Value = RelativePoint.Center },
+            GradientOrigin = { Value = RelativePoint.Center },
+            Radius = { Value = 72 },
             GradientStops =
             {
                 new GradientStop(Color.Parse(innerColor), 0),

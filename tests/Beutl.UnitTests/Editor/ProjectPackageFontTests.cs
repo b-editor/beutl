@@ -27,8 +27,8 @@ public class ProjectPackageFontTests
                 source.CopyTo(destination);
             string projectRoot = Directory.CreateDirectory(Path.Combine(root, "sender")).FullName;
             var text = new TextBlock();
-            text.FontFamily.CurrentValue = new FontFamily("Beutl Test Variable");
-            text.Text.CurrentValue = "IIII";
+            text.FontFamily.Value = new FontFamily("Beutl Test Variable");
+            text.Text.Value = "IIII";
             var element = new Element { Length = TimeSpan.FromSeconds(1) };
             element.Objects.Add(text);
             CoreSerializer.StoreToUri(element, new Uri(Path.Combine(projectRoot, "text.belm")));

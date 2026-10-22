@@ -12,11 +12,11 @@ public sealed partial class BlendEffect : FilterEffect
     public BlendEffect()
     {
         ScanProperties<BlendEffect>();
-        Brush.CurrentValue = new SolidColorBrush(Colors.White);
+        Brush.Value = new SolidColorBrush(Colors.White);
     }
 
     [Display(Name = nameof(GraphicsStrings.Brush), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Brush?> Brush { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Brush { get; } = Property.CreateExpression<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.BlendEffect_BlendMode), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcIn);
@@ -33,7 +33,7 @@ public sealed partial class BlendEffect : FilterEffect
         if (context.Contains("Color"))
         {
             Color color = context.GetValue<Color>("Color");
-            Brush.CurrentValue = new SolidColorBrush(color);
+            Brush.Value = new SolidColorBrush(color);
         }
     }
 }

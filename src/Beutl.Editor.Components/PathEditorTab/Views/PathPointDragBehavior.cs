@@ -193,7 +193,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             && GetAnchor(viewModel, figure, segment, AssociatedObject.Tag) is { } snapAnchor)
         {
             var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-            BtlPoint origin = snapAnchor.GetEndPoint().GetValue(new CompositionContext(clock.CurrentTime.Value));
+            BtlPoint origin = snapAnchor.GetEndPoint().Evaluate(new CompositionContext(clock.CurrentTime.Value));
             Point initial = parent.Matrix.Invert().Transform(_startThumbPosition / parent.Scale);
             BtlPoint desired = new((float)initial.X + delta.X, (float)initial.Y + delta.Y);
             BtlPoint snapped = PathEditingOperations.SnapAngle(origin, desired);
@@ -272,7 +272,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                         }
 
                         var ctx = new CompositionContext(keyTime);
-                        keyframe.Value = Mirror(anchor.GetEndPoint().GetValue(ctx),
+                        keyframe.Value = Mirror(anchor.GetEndPoint().Evaluate(ctx),
                             _dragState!.GetInterpolatedValue(keyTime), keyframe.Value, viewModel.Symmetry.Value);
                     }
 
@@ -287,10 +287,10 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                 {
                     var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
                     TimeSpan time = clock.CurrentTime.Value;
-                    BtlPoint newValue = Mirror(anchor.GetEndPoint().GetValue(new CompositionContext(time)),
+                    BtlPoint newValue = Mirror(anchor.GetEndPoint().Evaluate(new CompositionContext(time)),
                         _dragState!.GetInterpolatedValue(time), c.GetInterpolatedValue(time), viewModel.Symmetry.Value);
 
-                    c.Property.CurrentValue = newValue;
+                    c.Property.Value = newValue;
                     UpdateThumbPosition(c.Thumb, newValue);
                 }
             }
@@ -477,7 +477,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     internal static bool IsClosed(IPathEditorContext context, PathFigure figure)
     {
         var clock = context.EditorContext.GetRequiredService<IEditorClock>();
-        return figure.IsClosed.GetValue(new CompositionContext(clock.CurrentTime.Value));
+        return figure.IsClosed.Evaluate(new CompositionContext(clock.CurrentTime.Value));
     }
 
     internal static PathPointDragState CreateThumbDragState(

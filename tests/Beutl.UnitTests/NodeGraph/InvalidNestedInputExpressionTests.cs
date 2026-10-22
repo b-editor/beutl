@@ -66,7 +66,7 @@ public class InvalidNestedInputExpressionTests
                 Assert.That(firstConnection.Status, Is.EqualTo(ConnectionStatus.Error));
                 Assert.That(secondConnection.Status, Is.EqualTo(ConnectionStatus.Error));
                 Assert.That(shared.Opacity.Expression, Is.SameAs(shared.Opacity.GetKeyFrameAnimation()));
-                Assert.That(shared.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(animated ? 55f : 35f));
+                Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(animated ? 55f : 35f));
                 Assert.That(resource.Opacity, Is.EqualTo(animated ? 55f : 35f));
                 Assert.That(recordedExpressions, Is.Empty, "Derived expression changes must not be recorded.");
             });
@@ -82,8 +82,8 @@ public class InvalidNestedInputExpressionTests
         Evaluate(graph);
         Assert.That(firstConnection.Status, Is.EqualTo(ConnectionStatus.Success));
         Assert.That(secondConnection.Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(shared.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(12f));
-        Assert.That(separate.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(90f));
+        Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(12f));
+        Assert.That(separate.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(90f));
         Assert.That(recordedExpressions, Is.Empty);
 
         Assert.That(history.History.Redo(), Is.True);
@@ -91,7 +91,7 @@ public class InvalidNestedInputExpressionTests
         otherGraph.Disconnect(secondConnection);
         Evaluate(graph);
         Assert.That(firstConnection.Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(shared.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(12f));
+        Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(12f));
     }
 
     [Test]
@@ -100,7 +100,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         var connection = graph.Connect(Find(node, brush.Opacity), Source(graph, 12f, "Opacity"));
         var expression = Expression.Create<float>("73");
@@ -111,7 +111,7 @@ public class InvalidNestedInputExpressionTests
 
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Error));
         Assert.That(brush.Opacity.Expression, Is.SameAs(expression));
-        Assert.That(brush.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(73f));
+        Assert.That(brush.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(73f));
     }
 
     [Test]
@@ -120,7 +120,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         IOutputPort source = Source(graph, 12f, "Opacity");
         using var history = new HistoryHarness(graph);
@@ -146,7 +146,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         brush.Opacity.Expression = Expression.Create<float>("73");
         INestedInputPort port = Find(node, brush.Opacity);
@@ -157,7 +157,7 @@ public class InvalidNestedInputExpressionTests
         Evaluate(restored);
         var restoredPort = (INestedInputPort)restored.FindNodePort(port.Id)!;
         var restoredOpacity = (IExpressionProperty<float>)restoredPort.Property!.GetEngineProperty()!;
-        Assert.That(restoredOpacity.GetValue(CompositionContext.Default), Is.EqualTo(12f), "the reloaded connection drives the property");
+        Assert.That(restoredOpacity.Evaluate(CompositionContext.Default), Is.EqualTo(12f), "the reloaded connection drives the property");
 
         restored.Disconnect(restored.AllConnections.Single());
 

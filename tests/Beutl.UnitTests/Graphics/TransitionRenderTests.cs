@@ -113,7 +113,7 @@ public class TransitionRenderTests
     {
         ClipTransition dip = white
             ? new DipToWhiteTransition()
-            : new DipToColorTransition { Color = { CurrentValue = Color.FromArgb(255, 0, 255, 0) } };
+            : new DipToColorTransition { Color = { Value = Color.FromArgb(255, 0, 255, 0) } };
 
         Bgra8888 middle = RenderCenter(dip, progress: 0.5);
         Bgra8888 early = RenderCenter(dip, progress: 0.2);
@@ -142,11 +142,11 @@ public class TransitionRenderTests
             background.Objects.Add(CreateRect(s_red));
             scene.Children.Add(background);
 
-            var backdrop = new SourceBackdrop { Clear = { CurrentValue = true } };
-            backdrop.FilterEffect.CurrentValue = new Invert();
+            var backdrop = new SourceBackdrop { Clear = { Value = true } };
+            backdrop.FilterEffect.Value = new Invert();
             var adjustment = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2), ZIndex = 1 };
             adjustment.Objects.Add(backdrop);
-            adjustment.EnterTransition = new CrossDissolveTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            adjustment.EnterTransition = new CrossDissolveTransition { Duration = { Value = TimeSpan.FromSeconds(1) } };
             scene.Children.Add(adjustment);
 
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
@@ -217,8 +217,8 @@ public class TransitionRenderTests
         static RectShape Square()
         {
             RectShape square = CreateRect(s_red);
-            square.Width.CurrentValue = 16;
-            square.Height.CurrentValue = 16;
+            square.Width.Value = 16;
+            square.Height.Value = 16;
             return square;
         }
 
@@ -259,7 +259,7 @@ public class TransitionRenderTests
     [TestCase(ClipTransitionOrientation.Vertical)]
     public void Split_OpensABandThroughTheCentre(ClipTransitionOrientation orientation)
     {
-        using Bitmap bitmap = Render(new SplitTransition { Orientation = { CurrentValue = orientation } }, progress: 0.5);
+        using Bitmap bitmap = Render(new SplitTransition { Orientation = { Value = orientation } }, progress: 0.5);
         bool horizontal = orientation == ClipTransitionOrientation.Horizontal;
 
         Assert.Multiple(() =>
@@ -381,14 +381,14 @@ public class TransitionRenderTests
             scene.Children.Add(outgoing);
 
             RectShape fillsTheFrame = CreateRect(s_blue);
-            fillsTheFrame.Width.CurrentValue = 16;
-            fillsTheFrame.Height.CurrentValue = 8;
+            fillsTheFrame.Width.Value = 16;
+            fillsTheFrame.Height.Value = 8;
             var effect = new TransformEffect();
-            effect.Transform.CurrentValue = new RotationTransform(10);
-            ((FilterEffectGroup)fillsTheFrame.FilterEffect.CurrentValue!).Children.Add(effect);
+            effect.Transform.Value = new RotationTransform(10);
+            ((FilterEffectGroup)fillsTheFrame.FilterEffect.Value!).Children.Add(effect);
             var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
             incoming.Objects.Add(fillsTheFrame);
-            incoming.EnterTransition = new SplitTransition { Duration = { CurrentValue = TimeSpan.FromSeconds(1) } };
+            incoming.EnterTransition = new SplitTransition { Duration = { Value = TimeSpan.FromSeconds(1) } };
             scene.Children.Add(incoming);
 
             using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
@@ -411,9 +411,9 @@ public class TransitionRenderTests
 
     private static ClipTransition CreateDirectional(Type type, ClipTransitionDirection direction)
     {
-        if (type == typeof(PushTransition)) return new PushTransition { Direction = { CurrentValue = direction } };
-        if (type == typeof(SlideTransition)) return new SlideTransition { Direction = { CurrentValue = direction } };
-        return new WipeTransition { Direction = { CurrentValue = direction } };
+        if (type == typeof(PushTransition)) return new PushTransition { Direction = { Value = direction } };
+        if (type == typeof(SlideTransition)) return new SlideTransition { Direction = { Value = direction } };
+        return new WipeTransition { Direction = { Value = direction } };
     }
 
     private static Bgra8888 Pixel(Bitmap bitmap, int x, int y) => bitmap.GetRow<Bgra8888>(y)[x];
@@ -421,8 +421,8 @@ public class TransitionRenderTests
     private static RectShape CreateLeftHalf(Color color)
     {
         RectShape shape = CreateRect(color);
-        shape.Width.CurrentValue = Width / 2;
-        shape.AlignmentX.CurrentValue = AlignmentX.Left;
+        shape.Width.Value = Width / 2;
+        shape.AlignmentX.Value = AlignmentX.Left;
         return shape;
     }
 
@@ -469,7 +469,7 @@ public class TransitionRenderTests
         RectShape incoming = CreateRect(s_blue);
         var incomingElement = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
         incomingElement.Objects.Add(incoming);
-        transition.Duration.CurrentValue = TimeSpan.FromSeconds(1);
+        transition.Duration.Value = TimeSpan.FromSeconds(1);
         incomingElement.EnterTransition = transition;
         scene.Children.Add(incomingElement);
         return (scene, incoming);
@@ -487,15 +487,15 @@ public class TransitionRenderTests
 
         RectShape? leftHalf = withLeftHalf ? CreateLeftHalf(s_blue) : null;
         RectShape corner = CreateRect(s_blue);
-        corner.Width.CurrentValue = 8;
-        corner.Height.CurrentValue = 8;
-        corner.AlignmentX.CurrentValue = AlignmentX.Right;
-        corner.AlignmentY.CurrentValue = AlignmentY.Top;
+        corner.Width.Value = 8;
+        corner.Height.Value = 8;
+        corner.AlignmentX.Value = AlignmentX.Right;
+        corner.AlignmentY.Value = AlignmentY.Top;
         var incoming = new Element { Start = TimeSpan.FromSeconds(1), Length = TimeSpan.FromSeconds(2) };
         if (leftHalf is not null)
             incoming.Objects.Add(leftHalf);
         incoming.Objects.Add(corner);
-        transition.Duration.CurrentValue = TimeSpan.FromSeconds(1);
+        transition.Duration.Value = TimeSpan.FromSeconds(1);
         incoming.EnterTransition = transition;
         scene.Children.Add(incoming);
         return (scene, outgoingShape, leftHalf, corner);
@@ -504,9 +504,9 @@ public class TransitionRenderTests
     private static RectShape CreateRect(Color color)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = Width;
-        shape.Height.CurrentValue = Height;
-        shape.Fill.CurrentValue = new SolidColorBrush(color);
+        shape.Width.Value = Width;
+        shape.Height.Value = Height;
+        shape.Fill.Value = new SolidColorBrush(color);
         return shape;
     }
 }

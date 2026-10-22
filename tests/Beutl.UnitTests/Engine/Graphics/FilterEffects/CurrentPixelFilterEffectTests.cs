@@ -16,33 +16,33 @@ public sealed class CurrentPixelFilterEffectTests
     public void MigratedEffects_RecordCurrentPixelStagesWithPreservedUniforms()
     {
         var invert = new Invert();
-        invert.Amount.CurrentValue = 25;
-        invert.ExcludeAlphaChannel.CurrentValue = false;
+        invert.Amount.Value = 25;
+        invert.ExcludeAlphaChannel.Value = false;
         ShaderDescription invertShader = Record(invert);
         AssertFloatUniform(invertShader, "amount", 0.25f);
         AssertIntegerUniform(invertShader, "excludeAlpha", 0);
 
         var gamma = new Gamma();
-        gamma.Amount.CurrentValue = 250;
-        gamma.Strength.CurrentValue = 40;
+        gamma.Amount.Value = 250;
+        gamma.Strength.Value = 40;
         ShaderDescription gammaShader = Record(gamma);
         AssertFloatUniform(gammaShader, "gamma", 2.5f);
         AssertFloatUniform(gammaShader, "strength", 0.4f);
 
         var threshold = new Threshold();
-        threshold.Value.CurrentValue = 33;
-        threshold.Smoothness.CurrentValue = 7;
-        threshold.Strength.CurrentValue = 60;
+        threshold.Value.Value = 33;
+        threshold.Smoothness.Value = 7;
+        threshold.Strength.Value = 60;
         ShaderDescription thresholdShader = Record(threshold);
         AssertFloatUniform(thresholdShader, "threshold", 0.33f);
         AssertFloatUniform(thresholdShader, "smoothness", 0.07f);
         AssertFloatUniform(thresholdShader, "strength", 0.6f);
 
         var negaposi = new Negaposi();
-        negaposi.Red.CurrentValue = 255;
-        negaposi.Green.CurrentValue = 128;
-        negaposi.Blue.CurrentValue = 0;
-        negaposi.Strength.CurrentValue = 75;
+        negaposi.Red.Value = 255;
+        negaposi.Green.Value = 128;
+        negaposi.Blue.Value = 0;
+        negaposi.Strength.Value = 75;
         ShaderDescription negaposiShader = Record(negaposi);
         AssertFloatUniform(
             negaposiShader,
@@ -53,11 +53,11 @@ public sealed class CurrentPixelFilterEffectTests
         AssertFloatUniform(negaposiShader, "strength", 0.75f);
 
         var colorKey = new ColorKey();
-        colorKey.Color.CurrentValue = new Color(128, 64, 128, 255);
-        colorKey.Range.CurrentValue = 20;
-        colorKey.Boundary.CurrentValue = 3;
+        colorKey.Color.Value = new Color(128, 64, 128, 255);
+        colorKey.Range.Value = 20;
+        colorKey.Boundary.Value = 3;
         ShaderDescription colorKeyShader = Record(colorKey);
-        Vector4 linearKeyColor = colorKey.Color.CurrentValue.ToLinear();
+        Vector4 linearKeyColor = colorKey.Color.Value.ToLinear();
         AssertFloatUniform(
             colorKeyShader,
             "keyColor",
@@ -66,10 +66,10 @@ public sealed class CurrentPixelFilterEffectTests
         AssertFloatUniform(colorKeyShader, "boundary", 0.03f);
 
         var chromaKey = new ChromaKey();
-        chromaKey.Color.CurrentValue = new Color(128, 64, 128, 255);
-        chromaKey.HueRange.CurrentValue = 90;
-        chromaKey.SaturationRange.CurrentValue = 25;
-        chromaKey.Boundary.CurrentValue = 4;
+        chromaKey.Color.Value = new Color(128, 64, 128, 255);
+        chromaKey.HueRange.Value = 90;
+        chromaKey.SaturationRange.Value = 25;
+        chromaKey.Boundary.Value = 4;
         ShaderDescription chromaKeyShader = Record(chromaKey);
         AssertFloatUniform(
             chromaKeyShader,
@@ -80,23 +80,23 @@ public sealed class CurrentPixelFilterEffectTests
         AssertFloatUniform(chromaKeyShader, "boundary", 0.04f);
 
         var grading = new ColorGrading();
-        grading.Exposure.CurrentValue = 1.5f;
-        grading.Contrast.CurrentValue = 25;
-        grading.ContrastPivot.CurrentValue = 0.25f;
-        grading.Saturation.CurrentValue = 15;
-        grading.Vibrance.CurrentValue = -20;
-        grading.Hue.CurrentValue = 45;
-        grading.Temperature.CurrentValue = 30;
-        grading.Tint.CurrentValue = -35;
-        grading.LowRange.CurrentValue = 80;
-        grading.HighRange.CurrentValue = 20;
-        grading.Shadows.CurrentValue = new GradingColor(0.1f, 0.2f, 0.3f);
-        grading.Midtones.CurrentValue = new GradingColor(0.4f, 0.5f, 0.6f);
-        grading.Highlights.CurrentValue = new GradingColor(0.7f, 0.8f, 0.9f);
-        grading.Lift.CurrentValue = new GradingColor(-0.1f, 0, 0.1f);
-        grading.Gamma.CurrentValue = new GradingColor(-1, 0.5f, 2);
-        grading.Gain.CurrentValue = new GradingColor(-1, 0.5f, 2);
-        grading.Offset.CurrentValue = new GradingColor(-0.2f, 0, 0.2f);
+        grading.Exposure.Value = 1.5f;
+        grading.Contrast.Value = 25;
+        grading.ContrastPivot.Value = 0.25f;
+        grading.Saturation.Value = 15;
+        grading.Vibrance.Value = -20;
+        grading.Hue.Value = 45;
+        grading.Temperature.Value = 30;
+        grading.Tint.Value = -35;
+        grading.LowRange.Value = 80;
+        grading.HighRange.Value = 20;
+        grading.Shadows.Value = new GradingColor(0.1f, 0.2f, 0.3f);
+        grading.Midtones.Value = new GradingColor(0.4f, 0.5f, 0.6f);
+        grading.Highlights.Value = new GradingColor(0.7f, 0.8f, 0.9f);
+        grading.Lift.Value = new GradingColor(-0.1f, 0, 0.1f);
+        grading.Gamma.Value = new GradingColor(-1, 0.5f, 2);
+        grading.Gain.Value = new GradingColor(-1, 0.5f, 2);
+        grading.Offset.Value = new GradingColor(-0.2f, 0, 0.2f);
         ShaderDescription gradingShader = Record(grading);
         AssertFloatUniform(gradingShader, "exposure", 1.5f);
         AssertFloatUniform(gradingShader, "contrast", 0.25f);
@@ -131,19 +131,19 @@ public sealed class CurrentPixelFilterEffectTests
     {
         var firstColorKey = new ColorKey
         {
-            Color = { CurrentValue = new Color(32, 64, 128, 255) },
+            Color = { Value = new Color(32, 64, 128, 255) },
         };
         var secondColorKey = new ColorKey
         {
-            Color = { CurrentValue = new Color(224, 64, 128, 255) },
+            Color = { Value = new Color(224, 64, 128, 255) },
         };
         var firstChromaKey = new ChromaKey
         {
-            Color = { CurrentValue = new Color(32, 64, 128, 255) },
+            Color = { Value = new Color(32, 64, 128, 255) },
         };
         var secondChromaKey = new ChromaKey
         {
-            Color = { CurrentValue = new Color(224, 64, 128, 255) },
+            Color = { Value = new Color(224, 64, 128, 255) },
         };
 
         Assert.Multiple(() =>
@@ -198,24 +198,24 @@ public sealed class CurrentPixelFilterEffectTests
     public void MigratedIdentityConfigurations_PreservePremultipliedLinearPixels()
     {
         var invert = new Invert();
-        invert.Amount.CurrentValue = 0;
+        invert.Amount.Value = 0;
 
         var gamma = new Gamma();
-        gamma.Strength.CurrentValue = 0;
+        gamma.Strength.Value = 0;
 
         var negaposi = new Negaposi();
-        negaposi.Strength.CurrentValue = 0;
+        negaposi.Strength.Value = 0;
 
         var colorKey = new ColorKey();
-        colorKey.Color.CurrentValue = Colors.Black;
-        colorKey.Range.CurrentValue = 5;
-        colorKey.Boundary.CurrentValue = 2;
+        colorKey.Color.Value = Colors.Black;
+        colorKey.Range.Value = 5;
+        colorKey.Boundary.Value = 2;
 
         var chromaKey = new ChromaKey();
-        chromaKey.Color.CurrentValue = Colors.Lime;
-        chromaKey.HueRange.CurrentValue = 1;
-        chromaKey.SaturationRange.CurrentValue = 1;
-        chromaKey.Boundary.CurrentValue = 1;
+        chromaKey.Color.Value = Colors.Lime;
+        chromaKey.HueRange.Value = 1;
+        chromaKey.SaturationRange.Value = 1;
+        chromaKey.Boundary.Value = 1;
 
         FilterEffect[] effects = [invert, gamma, negaposi, colorKey, chromaKey, new ColorGrading()];
         foreach (FilterEffect effect in effects)
@@ -233,7 +233,7 @@ public sealed class CurrentPixelFilterEffectTests
     public void Threshold_ZeroStrength_PreservesEffectItemPremultipliedLumaSemantics()
     {
         var threshold = new Threshold();
-        threshold.Strength.CurrentValue = 0;
+        threshold.Strength.Value = 0;
 
         (float[] before, float[] after) = Render(threshold, new SKColor(230, 40, 20, 180));
         float luma = before[0] * 0.2126f + before[1] * 0.7152f + before[2] * 0.0722f;
@@ -252,8 +252,8 @@ public sealed class CurrentPixelFilterEffectTests
         const float amount = 0.35f;
         var effect = new Invert
         {
-            Amount = { CurrentValue = amount * 100 },
-            ExcludeAlphaChannel = { CurrentValue = excludeAlpha },
+            Amount = { Value = amount * 100 },
+            ExcludeAlphaChannel = { Value = excludeAlpha },
         };
 
         (float[] before, float[] after) = Render(effect, new SKColor(190, 72, 28, 164));
@@ -277,8 +277,8 @@ public sealed class CurrentPixelFilterEffectTests
         const float strength = 0.65f;
         var effect = new Gamma
         {
-            Amount = { CurrentValue = gamma * 100 },
-            Strength = { CurrentValue = strength * 100 },
+            Amount = { Value = gamma * 100 },
+            Strength = { Value = strength * 100 },
         };
 
         (float[] before, float[] after) = Render(effect, new SKColor(190, 72, 28, 164));
@@ -300,10 +300,10 @@ public sealed class CurrentPixelFilterEffectTests
         const float strength = 0.6f;
         var effect = new Negaposi
         {
-            Red = { CurrentValue = 224 },
-            Green = { CurrentValue = 160 },
-            Blue = { CurrentValue = 96 },
-            Strength = { CurrentValue = strength * 100 },
+            Red = { Value = 224 },
+            Green = { Value = 160 },
+            Blue = { Value = 96 },
+            Strength = { Value = strength * 100 },
         };
 
         (float[] before, float[] after) = Render(effect, new SKColor(190, 72, 28, 164));
@@ -333,9 +333,9 @@ public sealed class CurrentPixelFilterEffectTests
         const float strength = 0.7f;
         var effect = new Threshold
         {
-            Value = { CurrentValue = threshold * 100 },
-            Smoothness = { CurrentValue = smoothness * 100 },
-            Strength = { CurrentValue = strength * 100 },
+            Value = { Value = threshold * 100 },
+            Smoothness = { Value = smoothness * 100 },
+            Strength = { Value = strength * 100 },
         };
 
         (float[] before, float[] after) = Render(effect, new SKColor(190, 72, 28, 164));
@@ -358,8 +358,8 @@ public sealed class CurrentPixelFilterEffectTests
     {
         var effect = new Threshold
         {
-            Value = { CurrentValue = value },
-            Smoothness = { CurrentValue = 0 },
+            Value = { Value = value },
+            Smoothness = { Value = 0 },
         };
 
         (float[] before, float[] after) = Render(effect, input);
@@ -392,8 +392,8 @@ public sealed class CurrentPixelFilterEffectTests
     {
         var effect = new Threshold
         {
-            Value = { CurrentValue = 0 },
-            Smoothness = { CurrentValue = smoothness },
+            Value = { Value = 0 },
+            Smoothness = { Value = smoothness },
         };
 
         // A fully transparent premultiplied pixel carries luma 0, which is exactly this threshold.
@@ -415,32 +415,32 @@ public sealed class CurrentPixelFilterEffectTests
         [
             new ColorKey
             {
-                Color = { CurrentValue = matchingColor },
-                Range = { CurrentValue = 5 },
-                Boundary = { CurrentValue = 2 },
+                Color = { Value = matchingColor },
+                Range = { Value = 5 },
+                Boundary = { Value = 2 },
             },
             new ChromaKey
             {
-                Color = { CurrentValue = matchingColor },
-                HueRange = { CurrentValue = 5 },
-                SaturationRange = { CurrentValue = 5 },
-                Boundary = { CurrentValue = 2 },
+                Color = { Value = matchingColor },
+                HueRange = { Value = 5 },
+                SaturationRange = { Value = 5 },
+                Boundary = { Value = 2 },
             },
         ];
         FilterEffect[] nonMatching =
         [
             new ColorKey
             {
-                Color = { CurrentValue = Colors.Black },
-                Range = { CurrentValue = 5 },
-                Boundary = { CurrentValue = 2 },
+                Color = { Value = Colors.Black },
+                Range = { Value = 5 },
+                Boundary = { Value = 2 },
             },
             new ChromaKey
             {
-                Color = { CurrentValue = Colors.Black },
-                HueRange = { CurrentValue = 5 },
-                SaturationRange = { CurrentValue = 5 },
-                Boundary = { CurrentValue = 2 },
+                Color = { Value = Colors.Black },
+                HueRange = { Value = 5 },
+                SaturationRange = { Value = 5 },
+                Boundary = { Value = 2 },
             },
         ];
 
@@ -462,7 +462,7 @@ public sealed class CurrentPixelFilterEffectTests
     {
         var effect = new ColorGrading
         {
-            Exposure = { CurrentValue = 1 },
+            Exposure = { Value = 1 },
         };
 
         (float[] before, float[] after) = Render(effect, new SKColor(40, 20, 10, 180));

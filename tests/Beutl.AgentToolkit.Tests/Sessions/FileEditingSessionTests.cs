@@ -21,7 +21,7 @@ public sealed class FileEditingSessionTests
     public sealed class WrappedKeyFrameHolder : EngineObject
     {
         public WrappedKeyFrameHolder() => ScanProperties<WrappedKeyFrameHolder>();
-        public IExpressionProperty<List<KeyFrameWrapper>> Frames { get; } = Property.Create<List<KeyFrameWrapper>>();
+        public IExpressionProperty<List<KeyFrameWrapper>> Frames { get; } = Property.CreateExpression<List<KeyFrameWrapper>>();
     }
 
     [TestCase("\"[Missing.Plugin]Missing.Namespace:MissingEasing\"", false)]
@@ -44,7 +44,7 @@ public sealed class FileEditingSessionTests
         shape.Width.SetKeyFrameAnimation(animation);
         var element = new Element { Uri = new Uri(elementPath), Length = TimeSpan.FromSeconds(1) };
         var holder = new WrappedKeyFrameHolder();
-        holder.Frames.CurrentValue = [new KeyFrameWrapper(new KeyFrame<float> { Value = 10 })];
+        holder.Frames.Value = [new KeyFrameWrapper(new KeyFrame<float> { Value = 10 })];
         element.AddObject(wrapped ? holder : shape);
         session.Scene.Children.Add(element);
         session.Save(skipConflictCheck: true);
@@ -75,7 +75,7 @@ public sealed class FileEditingSessionTests
         Assert.That(File.ReadAllBytes(elementPath), Is.Not.EqualTo(originalBytes));
         EngineObject reopened = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Objects.Single();
         IKeyFrame reopenedFrame = wrapped
-            ? (KeyFrame<float>)((WrappedKeyFrameHolder)reopened).Frames.CurrentValue!.Single().Frame
+            ? (KeyFrame<float>)((WrappedKeyFrameHolder)reopened).Frames.Value!.Single().Frame
             : ((KeyFrameAnimation<float>)((RectShape)reopened).Width.GetKeyFrameAnimation()!).KeyFrames.Single();
         Assert.That(reopenedFrame.Easing, Is.TypeOf<LinearEasing>());
         Assert.That(recovered.History.Undo(), Is.True);

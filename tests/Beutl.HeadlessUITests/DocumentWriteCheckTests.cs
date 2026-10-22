@@ -31,7 +31,7 @@ public class DocumentWriteCheckTests
             {
                 element.Name = "off";
                 element.IsEnabled = false;
-                shape.Opacity.CurrentValue = 50;
+                shape.Opacity.Value = 50;
                 element.Objects.Add(new RectShape());
                 new Element().Name = "detached";
             });

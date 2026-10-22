@@ -134,7 +134,7 @@ internal static class SerializedGraphTraversal
     {
         foreach (IProperty property in engineObject.Properties)
         {
-            if (VisitCore(property.CurrentValue, $"{path}/{property.Name}", visited, visitor))
+            if (VisitCore(property.Value, $"{path}/{property.Name}", visited, visitor))
             {
                 return true;
             }

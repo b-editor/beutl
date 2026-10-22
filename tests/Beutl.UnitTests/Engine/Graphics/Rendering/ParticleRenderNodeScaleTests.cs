@@ -26,15 +26,15 @@ public class ParticleRenderNodeScaleTests
     private static ParticleEmitter.Resource BuildResourceWithLargeParticleDrawable()
     {
         var particle = new RectShape();
-        particle.Width.CurrentValue = 4000;
-        particle.Height.CurrentValue = 10;
-        particle.Fill.CurrentValue = Brushes.White;
+        particle.Width.Value = 4000;
+        particle.Height.Value = 10;
+        particle.Fill.Value = Brushes.White;
 
         var emitter = new ParticleEmitter();
-        emitter.ParticleDrawable.CurrentValue = particle;
-        emitter.MaxParticles.CurrentValue = 1;
-        emitter.Speed.CurrentValue = 0;
-        emitter.Gravity.CurrentValue = 0;
+        emitter.ParticleDrawable.Value = particle;
+        emitter.MaxParticles.Value = 1;
+        emitter.Speed.Value = 0;
+        emitter.Gravity.Value = 0;
 
         var ctx = new CompositionContext(TimeSpan.FromSeconds(1.0));
         return (ParticleEmitter.Resource)emitter.ToResource(ctx);
@@ -43,17 +43,17 @@ public class ParticleRenderNodeScaleTests
     private static ParticleEmitter.Resource BuildResourceWithGroupedParticleDrawable()
     {
         var particle = new RectShape();
-        particle.Width.CurrentValue = 20;
-        particle.Height.CurrentValue = 12;
-        particle.Fill.CurrentValue = Brushes.White;
+        particle.Width.Value = 20;
+        particle.Height.Value = 12;
+        particle.Fill.Value = Brushes.White;
         var group = new DrawableGroup();
         group.Children.Add(particle);
 
         var emitter = new ParticleEmitter();
-        emitter.ParticleDrawable.CurrentValue = group;
-        emitter.MaxParticles.CurrentValue = 1;
-        emitter.Speed.CurrentValue = 0;
-        emitter.Gravity.CurrentValue = 0;
+        emitter.ParticleDrawable.Value = group;
+        emitter.MaxParticles.Value = 1;
+        emitter.Speed.Value = 0;
+        emitter.Gravity.Value = 0;
         return (ParticleEmitter.Resource)emitter.ToResource(
             new CompositionContext(TimeSpan.FromSeconds(1)));
     }

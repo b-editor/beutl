@@ -119,7 +119,7 @@ internal sealed partial class PathEditorInteraction
         if (_coordinateStates == null)
         {
             var points = _view.GetSelectedAnchors().Select(PathEditorHelper.GetProperty)
-                .Where(p => p != null).Select(p => p!.GetValue(Composition)).ToArray();
+                .Where(p => p != null).Select(p => p!.Evaluate(Composition)).ToArray();
             if (points.Length == 0) return;
             CommitNudge();
             Context.EditorContext.GetRequiredService<HistoryManager>().Commit();

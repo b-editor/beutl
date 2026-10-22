@@ -90,10 +90,10 @@ public sealed class DelayNode : AudioNode
 
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
-        float delayTime = DelayTime.CurrentValue;
-        float feedback = Feedback.CurrentValue / 100f;
-        float dryMix = DryMix.CurrentValue / 100f;
-        float wetMix = WetMix.CurrentValue / 100f;
+        float delayTime = DelayTime.Value;
+        float feedback = Feedback.Value / 100f;
+        float dryMix = DryMix.Value / 100f;
+        float wetMix = WetMix.Value / 100f;
 
         int delaySamples = (int)(delayTime / 1000f * context.SampleRate);
         delaySamples = System.Math.Clamp(delaySamples, 0, _maxDelaySamples - 1);

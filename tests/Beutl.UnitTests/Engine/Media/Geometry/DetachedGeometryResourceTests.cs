@@ -15,8 +15,8 @@ public sealed class DetachedGeometryResourceTests
     {
         using var pen = new Pen
         {
-            Brush = { CurrentValue = Brushes.Black },
-            Thickness = { CurrentValue = 4 },
+            Brush = { Value = Brushes.Black },
+            Thickness = { Value = 4 },
         }.ToResource(CompositionContext.Default);
 
         using (Assert.EnterMultipleScope())
@@ -61,7 +61,7 @@ public sealed class DetachedGeometryResourceTests
         var geometry = new PathGeometry();
         geometry.Figures.Add(new PathFigure
         {
-            StartPoint = { CurrentValue = new Point(0, 0) },
+            StartPoint = { Value = new Point(0, 0) },
             Segments = { new LineSegment(new Point(10, 0)) },
         });
         using PathGeometry.Resource resource =

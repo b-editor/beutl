@@ -21,7 +21,7 @@ public class TimeStretchDrainTests
         var source = context.AddNode(new StepSource(24000));
         AudioNode limiter = CreateLimiter(context, source);
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 50;
+        effect.Speed.Value = 50;
         AudioNode stretched = effect.CreateNode(context, limiter);
         var clip = context.AddNode(new ClipNode { Duration = TimeSpan.FromSeconds(1) });
         clip.AddInput(stretched);
@@ -49,7 +49,7 @@ public class TimeStretchDrainTests
         mixer.AddInput(clip);
         mixer.SetBranchEndTime(clip, TimeSpan.FromSeconds(1));
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 50;
+        effect.Speed.Value = 50;
         AudioNode stretched = effect.CreateNode(context, mixer);
 
         using AudioBuffer output = stretched.Process(Context(0, SampleRate * 2 + 1920));
@@ -69,7 +69,7 @@ public class TimeStretchDrainTests
         {
             TimeRange = new TimeRange(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(2))
         };
-        effect.Speed.CurrentValue = speed;
+        effect.Speed.Value = speed;
         if (animated)
         {
             var animation = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
@@ -109,7 +109,7 @@ public class TimeStretchDrainTests
     public void ClipExtension_WhileFinalOutputIsBufferedReanchorsToCurrentTime()
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 50;
+        effect.Speed.Value = 50;
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new StepSource(240));
         AudioNode stretched = effect.CreateNode(context, source);
@@ -145,7 +145,7 @@ public class TimeStretchDrainTests
     public void ClipRemoval_ResumesAFlushedStretcherWithoutAFiniteBoundary()
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 50;
+        effect.Speed.Value = 50;
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new StepSource(24000));
         AudioNode stretched = effect.CreateNode(context, source);
@@ -170,7 +170,7 @@ public class TimeStretchDrainTests
     public void ClipExtension_AfterPartialDrainResumesLiveReads()
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 50;
+        effect.Speed.Value = 50;
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new StepSource(24000));
         AudioNode limiter = CreateLimiter(context, source, 10);
@@ -208,7 +208,7 @@ public class TimeStretchDrainTests
     public void ClipShortening_DiscardsPostTrimLookahead(int oldClipFrames)
     {
         var effect = new TimeStretchEffect();
-        effect.Speed.CurrentValue = 50;
+        effect.Speed.Value = 50;
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new StepSource(600));
         AudioNode stretched = effect.CreateNode(context, source);
@@ -244,8 +244,8 @@ public class TimeStretchDrainTests
     private static AudioNode CreateLimiter(AudioContext context, AudioNode source, float lookahead = 1)
     {
         var effect = new LimiterEffect();
-        effect.Lookahead.CurrentValue = lookahead;
-        effect.Threshold.CurrentValue = 0;
+        effect.Lookahead.Value = lookahead;
+        effect.Threshold.Value = 0;
         return effect.CreateNode(context, source);
     }
 

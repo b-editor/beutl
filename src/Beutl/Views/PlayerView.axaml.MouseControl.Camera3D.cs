@@ -141,8 +141,8 @@ public partial class PlayerView
             var scaledPos = _lastPosition / scaleX;
             var screenPoint = new Point((float)scaledPos.X, (float)scaledPos.Y);
 
-            var currentGizmoTarget = _scene3D.GizmoTarget.CurrentValue;
-            var currentGizmoMode = _scene3D.GizmoMode.CurrentValue;
+            var currentGizmoTarget = _scene3D.GizmoTarget.Value;
+            var currentGizmoMode = _scene3D.GizmoMode.Value;
 
             if (currentGizmoTarget.HasValue && currentGizmoMode != GizmoMode.None)
             {
@@ -187,17 +187,17 @@ public partial class PlayerView
 
                 if (_selectedObject != null)
                 {
-                    _scene3D.GizmoTarget.CurrentValue = _selectedObject.Id;
+                    _scene3D.GizmoTarget.Value = _selectedObject.Id;
 
                     _currentGizmoMode = ViewModel.SelectedGizmoMode.Value;
-                    _scene3D.GizmoMode.CurrentValue = _currentGizmoMode;
+                    _scene3D.GizmoMode.Value = _currentGizmoMode;
 
                     CaptureObjectKeyFrames(_selectedObject);
                 }
             }
             else
             {
-                _scene3D.GizmoTarget.CurrentValue = null;
+                _scene3D.GizmoTarget.Value = null;
                 _selectedObject = null;
             }
 
@@ -254,8 +254,8 @@ public partial class PlayerView
             if (_camera != null)
             {
                 // カメラの方向からYawとPitchを計算する（+Yが下向きなので、Pitchが増えると下を向く）
-                var position = _camera.Position.GetValue(CompositionContext);
-                var target = _camera.Target.GetValue(CompositionContext);
+                var position = _camera.Position.Evaluate(CompositionContext);
+                var target = _camera.Target.Evaluate(CompositionContext);
                 var forward = Vector3.Normalize(target - position);
 
                 _yaw = MathF.Atan2(forward.X, forward.Z);
@@ -277,10 +277,10 @@ public partial class PlayerView
 
             if (_leftPressed && _selectedObject != null && _camera != null)
             {
-                var cameraPosition = _camera.Position.GetValue(CompositionContext);
-                var cameraTarget = _camera.Target.GetValue(CompositionContext);
+                var cameraPosition = _camera.Position.Evaluate(CompositionContext);
+                var cameraTarget = _camera.Target.Evaluate(CompositionContext);
                 var forward = Vector3.Normalize(cameraTarget - cameraPosition);
-                var up = _camera.Up.GetValue(CompositionContext);
+                var up = _camera.Up.Evaluate(CompositionContext);
                 var right = Vector3.Normalize(Vector3.Cross(forward, up));
                 var cameraUp = Vector3.Normalize(Vector3.Cross(right, forward));
 
@@ -367,7 +367,7 @@ public partial class PlayerView
             movement = ToParentSpace(selectedObject, movement);
             if (!SetKeyFrameValue(_objectPositionKeyFrame, movement))
             {
-                selectedObject.Position.CurrentValue += movement;
+                selectedObject.Position.Value += movement;
             }
         }
 
@@ -397,14 +397,14 @@ public partial class PlayerView
 
             if (!SetKeyFrameValue(_objectRotationKeyFrame, rotation))
             {
-                selectedObject.Rotation.CurrentValue += rotation;
+                selectedObject.Rotation.Value += rotation;
             }
         }
 
         private void ScaleSelectedObject(Object3D selectedObject, AvaPoint delta)
         {
             float scaleFactor = 1.0f + (float)delta.Y * ObjectScaleSpeed;
-            var currentScale = selectedObject.Scale.CurrentValue;
+            var currentScale = selectedObject.Scale.Value;
             Vector3 scaleDelta;
 
             if (_selectedGizmoAxis is GizmoAxis.X or GizmoAxis.Y or GizmoAxis.Z)
@@ -425,7 +425,7 @@ public partial class PlayerView
 
             if (!SetKeyFrameValue(_objectScaleKeyFrame, scaleDelta))
             {
-                selectedObject.Scale.CurrentValue = currentScale + scaleDelta;
+                selectedObject.Scale.Value = currentScale + scaleDelta;
             }
         }
 
@@ -444,15 +444,15 @@ public partial class PlayerView
             );
 
             // カメラのターゲットを、注視点までの距離を保ったまま更新する
-            var cameraPosition = camera.Position.GetValue(CompositionContext);
-            var currentTarget = camera.Target.GetValue(CompositionContext);
+            var cameraPosition = camera.Position.Evaluate(CompositionContext);
+            var currentTarget = camera.Target.Evaluate(CompositionContext);
             float targetDistance = MathF.Max(Vector3.Distance(cameraPosition, currentTarget), 1f);
             var newTarget = cameraPosition + forward * targetDistance;
             var targetDelta = newTarget - currentTarget;
 
             if (!SetKeyFrameValue(_targetKeyFrame, targetDelta))
             {
-                camera.Target.CurrentValue = newTarget;
+                camera.Target.Value = newTarget;
             }
         }
 
@@ -505,8 +505,8 @@ public partial class PlayerView
             var posKeyFrame = FindKeyFramePairOrNull(_camera.Position);
             var targetKeyFrame = FindKeyFramePairOrNull(_camera.Target);
 
-            var position = _camera.Position.GetValue(CompositionContext);
-            var target = _camera.Target.GetValue(CompositionContext);
+            var position = _camera.Position.Evaluate(CompositionContext);
+            var target = _camera.Target.Evaluate(CompositionContext);
             // A camera on its target has no direction to move along.
             if (target == position) return;
             var forward = Vector3.Normalize(target - position);
@@ -516,12 +516,12 @@ public partial class PlayerView
 
             if (!SetKeyFrameValue(posKeyFrame, movement))
             {
-                _camera.Position.CurrentValue = position + movement;
+                _camera.Position.Value = position + movement;
             }
 
             if (!SetKeyFrameValue(targetKeyFrame, movement))
             {
-                _camera.Target.CurrentValue = target + movement;
+                _camera.Target.Value = target + movement;
             }
 
             EditViewModel.HistoryManager.Commit(CommandNames.TransformElement);
@@ -555,10 +555,10 @@ public partial class PlayerView
             if (_camera == null)
                 return;
 
-            var position = _camera.Position.GetValue(CompositionContext);
-            var target = _camera.Target.GetValue(CompositionContext);
+            var position = _camera.Position.Evaluate(CompositionContext);
+            var target = _camera.Target.Evaluate(CompositionContext);
             var forward = Vector3.Normalize(target - position);
-            var up = _camera.Up.GetValue(CompositionContext);
+            var up = _camera.Up.Evaluate(CompositionContext);
             var right = Vector3.Normalize(Vector3.Cross(forward, up));
 
             var movement = Vector3.Zero;
@@ -592,12 +592,12 @@ public partial class PlayerView
             {
                 if (!SetKeyFrameValue(_positionKeyFrame, movement))
                 {
-                    _camera.Position.CurrentValue = position + movement;
+                    _camera.Position.Value = position + movement;
                 }
 
                 if (!SetKeyFrameValue(_targetKeyFrame, movement))
                 {
-                    _camera.Target.CurrentValue = target + movement;
+                    _camera.Target.Value = target + movement;
                 }
             }
         }
@@ -651,21 +651,21 @@ public partial class PlayerView
 
             Scene scene = EditViewModel.Scene;
             float sceneHeight = scene.FrameSize.Height;
-            float renderHeight = _scene3D.RenderHeight.GetValue(CompositionContext);
-            float renderWidth = _scene3D.RenderWidth.GetValue(CompositionContext);
+            float renderHeight = _scene3D.RenderHeight.Evaluate(CompositionContext);
+            float renderWidth = _scene3D.RenderWidth.Evaluate(CompositionContext);
             // The 3D render is drawn at its own size into the scene, which the preview then fits to the view.
             double renderPixelsPerViewPixel = sceneHeight / viewHeight;
             float worldPerRenderPixel = _camera switch
             {
                 PerspectiveCamera perspective => 2
                     * GizmoHitTester.GetViewDepth(
-                        _camera.Position.GetValue(CompositionContext),
-                        _camera.Target.GetValue(CompositionContext),
-                        _camera.NearPlane.GetValue(CompositionContext),
+                        _camera.Position.Evaluate(CompositionContext),
+                        _camera.Target.Evaluate(CompositionContext),
+                        _camera.NearPlane.Evaluate(CompositionContext),
                         GetWorldPosition(obj))
-                    * MathF.Tan(perspective.FieldOfView.GetValue(CompositionContext) * MathF.PI / 360f)
+                    * MathF.Tan(perspective.FieldOfView.Evaluate(CompositionContext) * MathF.PI / 360f)
                     / renderHeight,
-                OrthographicCamera orthographic => orthographic.Width.GetValue(CompositionContext) / renderWidth,
+                OrthographicCamera orthographic => orthographic.Width.Evaluate(CompositionContext) / renderWidth,
                 _ => 1f,
             };
 
@@ -686,7 +686,7 @@ public partial class PlayerView
                         : Renderer3D.GetWorldPosition(sceneResource.Objects, target);
                 }, RenderThreadWait);
 
-            return position ?? obj.Position.GetValue(CompositionContext);
+            return position ?? obj.Position.Evaluate(CompositionContext);
         }
 
         // Converts a world-space direction into the space of the groups the object is nested in.
@@ -736,7 +736,7 @@ public partial class PlayerView
                 if (scene3DObj != null)
                 {
                     _scene3D = scene3DObj;
-                    _camera = _scene3D.Camera.CurrentValue;
+                    _camera = _scene3D.Camera.Value;
                     return;
                 }
             }
@@ -778,7 +778,7 @@ public partial class PlayerView
             if (drawable is Scene3D scene3D)
             {
                 _scene3D = scene3D;
-                _camera = scene3D.Camera.CurrentValue;
+                _camera = scene3D.Camera.Value;
             }
         }
 

@@ -88,8 +88,8 @@ public sealed class ThresholdDegenerateBandTests
     private static Threshold Effect(float value, float smoothness, float strength)
         => new()
         {
-            Value = { CurrentValue = value },
-            Smoothness = { CurrentValue = smoothness },
-            Strength = { CurrentValue = strength },
+            Value = { Value = value },
+            Smoothness = { Value = smoothness },
+            Strength = { Value = strength },
         };
 }

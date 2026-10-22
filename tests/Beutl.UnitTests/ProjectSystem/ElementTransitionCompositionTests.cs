@@ -89,7 +89,7 @@ public class ElementTransitionCompositionTests
         {
             Assert.That(fromIncoming, Is.EqualTo(TimeRange.FromRange(Seconds(1.75), Seconds(2.5))));
             Assert.That(fromOutgoing, Is.EqualTo(fromIncoming), "both elements see the same previewed span");
-            Assert.That(enter.Duration.CurrentValue, Is.EqualTo(Seconds(0.25)));
+            Assert.That(enter.Duration.Value, Is.EqualTo(Seconds(0.25)));
         });
     }
 
@@ -98,8 +98,8 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_decides", duration: Seconds(10));
         Cut cut = AddCut(harness);
-        ClipTransition exit = new WipeTransition { Duration = { CurrentValue = Seconds(0.5) } };
-        ClipTransition enter = new FadeTransition { Duration = { CurrentValue = Seconds(0.5) } };
+        ClipTransition exit = new WipeTransition { Duration = { Value = Seconds(0.5) } };
+        ClipTransition enter = new FadeTransition { Duration = { Value = Seconds(0.5) } };
         cut.Outgoing.ExitTransition = exit;
         cut.Incoming.EnterTransition = enter;
         using var compositor = new SceneCompositor(harness.Scene);
@@ -318,9 +318,9 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_portals", duration: Seconds(10));
         Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(2));
-        outgoing.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        outgoing.Objects.Add(new PortalObject { Count = { Value = 1 } });
         Element incoming = harness.AddElement(Seconds(2), Seconds(2));
-        incoming.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        incoming.Objects.Add(new PortalObject { Count = { Value = 1 } });
         var providerShape = new RectShape();
         Element provider = harness.AddElement(TimeSpan.Zero, Seconds(4), zIndex: 1);
         provider.Objects.Add(providerShape);
@@ -344,9 +344,9 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_portal_time", duration: Seconds(10));
         Element outgoing = harness.AddElement(TimeSpan.Zero, Seconds(2));
-        outgoing.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        outgoing.Objects.Add(new PortalObject { Count = { Value = 1 } });
         Element incoming = harness.AddElement(Seconds(2), Seconds(2));
-        incoming.Objects.Add(new PortalObject { Count = { CurrentValue = 1 } });
+        incoming.Objects.Add(new PortalObject { Count = { Value = 1 } });
         Element provider = harness.AddElement(TimeSpan.Zero, Seconds(4), zIndex: 1);
         provider.Objects.Add(CreateVideo());
         outgoing.ExitTransition = Transition(0.5);
@@ -426,7 +426,7 @@ public class ElementTransitionCompositionTests
         using var harness = new SceneHistoryHarness("beutl_transition_easing", duration: Seconds(10));
         Cut cut = AddCut(harness);
         ClipTransition transition = Transition(1);
-        transition.Easing.CurrentValue = new CubicEaseIn();
+        transition.Easing.Value = new CubicEaseIn();
         cut.Incoming.EnterTransition = transition;
         using var compositor = new SceneCompositor(harness.Scene);
 
@@ -497,7 +497,7 @@ public class ElementTransitionCompositionTests
         int unchanged = presenter.Version;
         SinglePresenter(compositor.EvaluateGraphics(Seconds(2.5)));
         int progressed = presenter.Version;
-        cut.IncomingShape.Width.CurrentValue = 42;
+        cut.IncomingShape.Width.Value = 42;
         SinglePresenter(compositor.EvaluateGraphics(Seconds(2.5)));
         int edited = presenter.Version;
 
@@ -560,10 +560,10 @@ public class ElementTransitionCompositionTests
 
         cut.Incoming.ExitTransition = transition;
         int afterAssign = edits;
-        transition.Duration.CurrentValue = Seconds(0.5);
+        transition.Duration.Value = Seconds(0.5);
         int afterEdit = edits;
         cut.Incoming.ExitTransition = null;
-        transition.Duration.CurrentValue = Seconds(0.25);
+        transition.Duration.Value = Seconds(0.25);
 
         Assert.Multiple(() =>
         {
@@ -659,14 +659,14 @@ public class ElementTransitionCompositionTests
         var element = new Element { Start = Seconds(1), Length = Seconds(3) };
         element.EnterTransition = new WipeTransition
         {
-            Duration = { CurrentValue = Seconds(0.75) },
-            Direction = { CurrentValue = ClipTransitionDirection.BottomToTop },
-            Easing = { CurrentValue = new SplineEasing(0.25f, 0.1f, 0.4f, 1f) },
+            Duration = { Value = Seconds(0.75) },
+            Direction = { Value = ClipTransitionDirection.BottomToTop },
+            Easing = { Value = new SplineEasing(0.25f, 0.1f, 0.4f, 1f) },
         };
         element.ExitTransition = new DipToColorTransition
         {
-            Duration = { CurrentValue = Seconds(0.3) },
-            Color = { CurrentValue = Colors.Red },
+            Duration = { Value = Seconds(0.3) },
+            Color = { Value = Colors.Red },
         };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(element);
@@ -675,16 +675,16 @@ public class ElementTransitionCompositionTests
         Assert.Multiple(() =>
         {
             Assert.That(restored.EnterTransition, Is.TypeOf<WipeTransition>());
-            Assert.That(restored.EnterTransition?.Duration.CurrentValue, Is.EqualTo(Seconds(0.75)));
-            Assert.That((restored.EnterTransition as WipeTransition)?.Direction.CurrentValue, Is.EqualTo(ClipTransitionDirection.BottomToTop));
-            Assert.That(restored.EnterTransition?.Easing.CurrentValue, Is.TypeOf<SplineEasing>());
+            Assert.That(restored.EnterTransition?.Duration.Value, Is.EqualTo(Seconds(0.75)));
+            Assert.That((restored.EnterTransition as WipeTransition)?.Direction.Value, Is.EqualTo(ClipTransitionDirection.BottomToTop));
+            Assert.That(restored.EnterTransition?.Easing.Value, Is.TypeOf<SplineEasing>());
             Assert.That(
-                restored.EnterTransition?.Easing.CurrentValue is SplineEasing { X1: 0.25f, Y1: 0.1f, X2: 0.4f, Y2: 1f },
+                restored.EnterTransition?.Easing.Value is SplineEasing { X1: 0.25f, Y1: 0.1f, X2: 0.4f, Y2: 1f },
                 Is.True,
                 "the spline's control points survive the round trip");
             Assert.That(restored.ExitTransition, Is.TypeOf<DipToColorTransition>());
-            Assert.That(restored.ExitTransition?.Duration.CurrentValue, Is.EqualTo(Seconds(0.3)));
-            Assert.That((restored.ExitTransition as DipToColorTransition)?.Color.CurrentValue, Is.EqualTo(Colors.Red));
+            Assert.That(restored.ExitTransition?.Duration.Value, Is.EqualTo(Seconds(0.3)));
+            Assert.That((restored.ExitTransition as DipToColorTransition)?.Color.Value, Is.EqualTo(Colors.Red));
             Assert.That(restored.EnterTransition?.HierarchicalParent, Is.SameAs(restored));
         });
     }
@@ -696,7 +696,7 @@ public class ElementTransitionCompositionTests
     {
         using var harness = new SceneHistoryHarness("beutl_transition_fallback", duration: Seconds(10));
         Cut cut = AddCut(harness);
-        cut.Incoming.EnterTransition = new WipeTransition { Duration = { CurrentValue = Seconds(0.75) } };
+        cut.Incoming.EnterTransition = new WipeTransition { Duration = { Value = Seconds(0.75) } };
         string saved = CoreSerializer.SerializeToJsonObject(cut.Incoming).ToJsonString();
         var json = (JsonObject)JsonNode.Parse(saved.Replace(nameof(WipeTransition), "VanishedTransition"))!;
 
@@ -709,7 +709,7 @@ public class ElementTransitionCompositionTests
         Assert.Multiple(() =>
         {
             Assert.That(restored.EnterTransition, Is.TypeOf<FallbackClipTransition>());
-            Assert.That(restored.EnterTransition?.Duration.CurrentValue, Is.EqualTo(Seconds(0.75)));
+            Assert.That(restored.EnterTransition?.Duration.Value, Is.EqualTo(Seconds(0.75)));
             Assert.That(presenter.TransitionResource?.GetOriginal(), Is.SameAs(restored.EnterTransition));
             Assert.That(CoreSerializer.SerializeToJsonObject(restored).ToJsonString(), Does.Contain("VanishedTransition"));
         });
@@ -736,11 +736,11 @@ public class ElementTransitionCompositionTests
 
         cut.Incoming.EnterTransition = transition;
         harness.History.Commit("add");
-        transition.Duration.CurrentValue = Seconds(2);
+        transition.Duration.Value = Seconds(2);
         harness.History.Commit("edit");
 
         harness.History.Undo();
-        TimeSpan durationAfterFirstUndo = transition.Duration.CurrentValue;
+        TimeSpan durationAfterFirstUndo = transition.Duration.Value;
         harness.History.Undo();
         ClipTransition? afterSecondUndo = cut.Incoming.EnterTransition;
         harness.History.Redo();
@@ -769,13 +769,13 @@ public class ElementTransitionCompositionTests
     }
 
     private static ClipTransition Transition(double seconds)
-        => new CrossDissolveTransition { Duration = { CurrentValue = Seconds(seconds) } };
+        => new CrossDissolveTransition { Duration = { Value = Seconds(seconds) } };
 
     private static SourceVideo CreateVideo()
     {
         var source = new VideoSource();
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
-        return new SourceVideo { Source = { CurrentValue = source } };
+        return new SourceVideo { Source = { Value = source } };
     }
 
     private static ClipTransitionPresenter.Resource SinglePresenter(CompositionFrame frame)

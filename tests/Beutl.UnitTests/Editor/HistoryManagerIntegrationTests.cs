@@ -432,8 +432,8 @@ public class HistoryManagerIntegrationTests
         var model = new TestEngineModel();
         using var harness = new HistoryHarness(model);
 
-        model.Value.CurrentValue = 5f;
-        model.Value.CurrentValue = 0f;
+        model.Value.Value = 5f;
+        model.Value.Value = 0f;
 
         Assert.That(harness.History.HasPendingOperations, Is.False);
     }

@@ -291,7 +291,7 @@ public class KeyFrameNavigationHelperTests
         var drawable = new NodeGraphDrawable();
         element.AddObject(drawable);
 
-        GraphModel model = drawable.Model.CurrentValue!;
+        GraphModel model = drawable.Model.Value!;
         var node = new KeyFrameNavTestGraphNode { TimeRange = nodeTimeRange };
         model.Nodes.Add(node);
 

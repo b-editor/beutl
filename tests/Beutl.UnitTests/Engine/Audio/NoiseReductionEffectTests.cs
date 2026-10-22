@@ -65,7 +65,7 @@ public class NoiseReductionEffectTests
     public void GraphUpdate_RefetchesAudioReadAheadOfTheOutput()
     {
         var effect = new NoiseReductionEffect();
-        effect.Reduction.CurrentValue = 0;
+        effect.Reduction.Value = 0;
         var source = new SignalSource(s_signal);
         using var context = new AudioContext(SampleRate, 2);
         AudioNode node = effect.CreateNode(context, source);
@@ -116,7 +116,7 @@ public class NoiseReductionEffectTests
         long readEnd = source.LastReadEnd;
         int requests = source.Starts.Count;
 
-        effect.Reduction.CurrentValue = 6;
+        effect.Reduction.Value = 6;
         context.BeginUpdate(context.Nodes.ToArray());
         AudioNode reused = effect.CreateNode(context, source);
         context.EndUpdate();
@@ -131,10 +131,10 @@ public class NoiseReductionEffectTests
     {
         var effect = new NoiseReductionEffect();
 
-        Assert.That(effect.Reduction.CurrentValue, Is.EqualTo(DefaultReductionDb));
-        Assert.That(effect.Sensitivity.CurrentValue, Is.EqualTo(DefaultSensitivityDb));
-        Assert.That(effect.Smoothing.CurrentValue, Is.EqualTo(DefaultSmoothing));
-        Assert.That(effect.Adaptation.CurrentValue, Is.EqualTo(DefaultAdaptationSeconds));
+        Assert.That(effect.Reduction.Value, Is.EqualTo(DefaultReductionDb));
+        Assert.That(effect.Sensitivity.Value, Is.EqualTo(DefaultSensitivityDb));
+        Assert.That(effect.Smoothing.Value, Is.EqualTo(DefaultSmoothing));
+        Assert.That(effect.Adaptation.Value, Is.EqualTo(DefaultAdaptationSeconds));
     }
 
     [Test]
@@ -297,8 +297,8 @@ public class NoiseReductionEffectTests
     {
         var source = new SignalSource(s_signal);
         var limiter = new LimiterEffect();
-        limiter.Lookahead.CurrentValue = 10;
-        limiter.Threshold.CurrentValue = 0;
+        limiter.Lookahead.Value = 10;
+        limiter.Threshold.Value = 0;
         using var context = new AudioContext(SampleRate, 2);
         context.AddNode(source);
         AudioNode limited = limiter.CreateNode(context, source);
@@ -435,10 +435,10 @@ public class NoiseReductionEffectTests
     public void Serialization_PreservesTheEffectAndItsKeyframes()
     {
         var effect = new NoiseReductionEffect();
-        effect.Reduction.CurrentValue = 18;
-        effect.Sensitivity.CurrentValue = 6;
-        effect.Smoothing.CurrentValue = 80;
-        effect.Adaptation.CurrentValue = 4;
+        effect.Reduction.Value = 18;
+        effect.Sensitivity.Value = 6;
+        effect.Smoothing.Value = 80;
+        effect.Adaptation.Value = 4;
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 6 });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 30 });
@@ -450,10 +450,10 @@ public class NoiseReductionEffectTests
         var restored = (AudioEffectGroup)CoreSerializer.DeserializeFromJsonObject(json, typeof(AudioEffectGroup));
 
         var restoredEffect = (NoiseReductionEffect)restored.Children.Single();
-        Assert.That(restoredEffect.Reduction.CurrentValue, Is.EqualTo(18));
-        Assert.That(restoredEffect.Sensitivity.CurrentValue, Is.EqualTo(6));
-        Assert.That(restoredEffect.Smoothing.CurrentValue, Is.EqualTo(80));
-        Assert.That(restoredEffect.Adaptation.CurrentValue, Is.EqualTo(4));
+        Assert.That(restoredEffect.Reduction.Value, Is.EqualTo(18));
+        Assert.That(restoredEffect.Sensitivity.Value, Is.EqualTo(6));
+        Assert.That(restoredEffect.Smoothing.Value, Is.EqualTo(80));
+        Assert.That(restoredEffect.Adaptation.Value, Is.EqualTo(4));
         Assert.That(restoredEffect.Reduction.GetKeyFrameAnimation()!.Interpolate(TimeSpan.FromSeconds(1)), Is.EqualTo(30));
     }
 
@@ -464,7 +464,7 @@ public class NoiseReductionEffectTests
         WithTemporaryWave(SampleRate, SampleRate * 4, i => (s_signal[i], s_signal[i]), source =>
         {
             var effect = new NoiseReductionEffect();
-            effect.Reduction.CurrentValue = reduction;
+            effect.Reduction.Value = reduction;
             float[] processed = ComposeSound(source, effect);
             float[] original = ComposeSound(source, null);
 
@@ -488,10 +488,10 @@ public class NoiseReductionEffectTests
         var sound = new SourceSound
         {
             TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(4)),
-            Source = { CurrentValue = source },
+            Source = { Value = source },
         };
         if (effect != null)
-            sound.Effect.CurrentValue = effect;
+            sound.Effect.Value = effect;
 
         using var resource = sound.ToResource(CompositionContext.Default);
         using var composer = new Composer { SampleRate = SampleRate };
@@ -517,10 +517,10 @@ public class NoiseReductionEffectTests
     {
         var source = new SignalSource(s_signal);
         var limiter = new LimiterEffect();
-        limiter.Lookahead.CurrentValue = 10;
-        limiter.Threshold.CurrentValue = -12;
+        limiter.Lookahead.Value = 10;
+        limiter.Threshold.Value = -12;
         var effect = new NoiseReductionEffect();
-        effect.Reduction.CurrentValue = 0;
+        effect.Reduction.Value = 0;
         using var context = new AudioContext(SampleRate, 2);
         context.AddNode(source);
         AudioNode node = limiter.CreateNode(context, source);
@@ -536,17 +536,17 @@ public class NoiseReductionEffectTests
     {
         var source = new SignalSource(s_signal);
         var delay = new DelayEffect();
-        delay.DelayTime.CurrentValue = 1000;
-        delay.Feedback.CurrentValue = 0;
-        delay.DryMix.CurrentValue = 100;
-        delay.WetMix.CurrentValue = 100;
+        delay.DelayTime.Value = 1000;
+        delay.Feedback.Value = 0;
+        delay.DryMix.Value = 100;
+        delay.WetMix.Value = 100;
 
         // A 0 dB ceiling leaves the limiter transparent, so its tail is exactly the held samples.
         var limiter = new LimiterEffect();
-        limiter.Lookahead.CurrentValue = 10;
-        limiter.Threshold.CurrentValue = 0;
+        limiter.Lookahead.Value = 10;
+        limiter.Threshold.Value = 0;
         var effect = new NoiseReductionEffect();
-        effect.Reduction.CurrentValue = 0;
+        effect.Reduction.Value = 0;
         using var context = new AudioContext(SampleRate, 2);
         context.AddNode(source);
         AudioNode node = limiter.CreateNode(context, delay.CreateNode(context, source));
@@ -561,7 +561,7 @@ public class NoiseReductionEffectTests
     private static NoiseReductionNode CreateNode(AudioNode source, float reduction = DefaultReductionDb)
     {
         var effect = new NoiseReductionEffect();
-        effect.Reduction.CurrentValue = reduction;
+        effect.Reduction.Value = reduction;
         var node = new NoiseReductionNode
         {
             Reduction = effect.Reduction,

@@ -56,11 +56,11 @@ public sealed class MFEncoderSettingsTests
                 {
                     var source = new VideoSource();
                     source.ReadFrom(new Uri(missingPath));
-                    return new Beutl.Graphics.SourceVideo { Source = { CurrentValue = source } };
+                    return new Beutl.Graphics.SourceVideo { Source = { Value = source } };
                 }
                 var sound = new SoundSource();
                 sound.ReadFrom(new Uri(missingPath));
-                return new SourceSound { Source = { CurrentValue = sound } };
+                return new SourceSound { Source = { Value = sound } };
             }, TimeSpan.Zero, editor.Scene.Duration);
         }
 

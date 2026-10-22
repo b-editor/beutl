@@ -18,18 +18,18 @@ public class CustomEffectSupersampleTests
     private static Drawable.Resource MakeMosaicShape()
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 150;
-        shape.Height.CurrentValue = 60;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 150;
+        shape.Height.Value = 60;
+        shape.Fill.Value = Brushes.White;
         var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = 24f;
-        shape.Transform.CurrentValue = rotation;
+        rotation.Rotation.Value = 24f;
+        shape.Transform.Value = rotation;
         var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(14, 14);
-        shape.FilterEffect.CurrentValue = mosaic;
+        mosaic.TileSize.Value = new Size(14, 14);
+        shape.FilterEffect.Value = mosaic;
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -37,8 +37,8 @@ public class CustomEffectSupersampleTests
     {
         var gradient = new LinearGradientBrush
         {
-            StartPoint = { CurrentValue = new RelativePoint(0, 0, RelativeUnit.Relative) },
-            EndPoint = { CurrentValue = new RelativePoint(1, 1, RelativeUnit.Relative) },
+            StartPoint = { Value = new RelativePoint(0, 0, RelativeUnit.Relative) },
+            EndPoint = { Value = new RelativePoint(1, 1, RelativeUnit.Relative) },
         };
         for (int index = 0; index <= 10; index++)
         {
@@ -49,15 +49,15 @@ public class CustomEffectSupersampleTests
 
         var shape = new RectShape
         {
-            AlignmentX = { CurrentValue = AlignmentX.Center },
-            AlignmentY = { CurrentValue = AlignmentY.Center },
-            Width = { CurrentValue = 180 },
-            Height = { CurrentValue = 160 },
-            Fill = { CurrentValue = gradient },
+            AlignmentX = { Value = AlignmentX.Center },
+            AlignmentY = { Value = AlignmentY.Center },
+            Width = { Value = 180 },
+            Height = { Value = 160 },
+            Fill = { Value = gradient },
         };
-        shape.FilterEffect.CurrentValue = new MosaicEffect
+        shape.FilterEffect.Value = new MosaicEffect
         {
-            TileSize = { CurrentValue = new Size(14, 14) },
+            TileSize = { Value = new Size(14, 14) },
         };
         return shape.ToResource(CompositionContext.Default);
     }
@@ -141,38 +141,38 @@ public class CustomEffectSupersampleTests
     private static Drawable.Resource MakeDisplacedShape(DisplacementMapTransform transform)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 150;
-        shape.Height.CurrentValue = 40;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 150;
+        shape.Height.Value = 40;
+        shape.Fill.Value = Brushes.White;
         var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = 21f;
-        shape.Transform.CurrentValue = rotation;
+        rotation.Rotation.Value = 21f;
+        shape.Transform.Value = rotation;
 
         var effect = new DisplacementMapEffect();          // default DisplacementMap = RadialGradientBrush (spatially varying)
-        effect.Transform.CurrentValue = transform;
-        shape.FilterEffect.CurrentValue = effect;
+        effect.Transform.Value = transform;
+        shape.FilterEffect.Value = effect;
         return shape.ToResource(CompositionContext.Default);
     }
 
     private static DisplacementMapScaleTransform MakeScaleTransform()
     {
         var t = new DisplacementMapScaleTransform();
-        t.ScaleX.CurrentValue = 160f;
-        t.ScaleY.CurrentValue = 70f;
-        t.CenterX.CurrentValue = 35f;   // device-space pivot -> × w
-        t.CenterY.CurrentValue = 20f;
+        t.ScaleX.Value = 160f;
+        t.ScaleY.Value = 70f;
+        t.CenterX.Value = 35f;   // device-space pivot -> × w
+        t.CenterY.Value = 20f;
         return t;
     }
 
     private static DisplacementMapRotationTransform MakeRotationTransform()
     {
         var t = new DisplacementMapRotationTransform();
-        t.Rotation.CurrentValue = 35f;
-        t.CenterX.CurrentValue = 35f;   // device-space pivot -> × w
-        t.CenterY.CurrentValue = 20f;
+        t.Rotation.Value = 35f;
+        t.CenterX.Value = 35f;   // device-space pivot -> × w
+        t.CenterY.Value = 20f;
         return t;
     }
 
@@ -242,8 +242,8 @@ public class CustomEffectSupersampleTests
         yield return new TestCaseData((Func<DisplacementMapTransform>)(() =>
             new DisplacementMapTranslateTransform
             {
-                X = { CurrentValue = 40 },
-                Y = { CurrentValue = 40 },
+                X = { Value = 40 },
+                Y = { Value = 40 },
             })).SetArgDisplayNames("Translate");
         yield return new TestCaseData((Func<DisplacementMapTransform>)MakeScaleTransform)
             .SetArgDisplayNames("Scale");

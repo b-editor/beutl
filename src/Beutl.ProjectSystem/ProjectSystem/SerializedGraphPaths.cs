@@ -100,7 +100,7 @@ internal static class SerializedGraphPaths
         foreach (IProperty property in engineObject.Properties)
         {
             SerializedGraphPath propertyPath = AppendSerializedGraphPath(path, "property", property.Name);
-            CollectSerializedGraphObjectPaths(property.CurrentValue, propertyPath, visited, objects);
+            CollectSerializedGraphObjectPaths(property.Value, propertyPath, visited, objects);
             if (property.GetKeyFrameAnimation() is { } animation)
             {
                 SerializedGraphPath keyFramesPath = AppendSerializedGraphPath(

@@ -57,7 +57,7 @@ public sealed class FileSourceEditorTests
         vm.Accept(ServiceVisitor.For(history.History));
         Confirm(editor, CreateFile("image.psd"));
         Assert.That(history.History.UndoCount, Is.EqualTo(1), "One confirmation must be handled once, including in lists.");
-        Assert.That(holder.Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(editor.Value!.FullName));
+        Assert.That(holder.Source.Value!.Uri.LocalPath, Is.EqualTo(editor.Value!.FullName));
     }
 
     [AvaloniaTest]
@@ -75,7 +75,7 @@ public sealed class FileSourceEditorTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(holder.PlainSource.CurrentValue!.Uri.LocalPath, Is.EqualTo(path));
+            Assert.That(holder.PlainSource.Value!.Uri.LocalPath, Is.EqualTo(path));
             Assert.That(editor.Value!.FullName, Is.EqualTo(path));
             Assert.That(editor.OpenOptions.FileTypeFilter, Is.Null.Or.Empty);
         });
@@ -101,8 +101,8 @@ public sealed class FileSourceEditorTests
 
         Confirm(editor, path);
 
-        Assert.That(holder.Source.CurrentValue, Is.Not.Null);
-        Uri uri = holder.Source.CurrentValue!.Uri;
+        Assert.That(holder.Source.Value, Is.Not.Null);
+        Uri uri = holder.Source.Value!.Uri;
         Assert.Multiple(() =>
         {
             Assert.That(uri.IsFile, Is.True);
@@ -262,27 +262,27 @@ public sealed class FileSourceEditorTests
         string secondPath = CreateFile("second.psb");
 
         Confirm(editor, firstPath);
-        TestMediaSource first = holder.Source.CurrentValue!;
+        TestMediaSource first = holder.Source.Value!;
         Assert.That(history.History.Undo(), Is.True);
-        Assert.That(holder.Source.CurrentValue, Is.Null);
+        Assert.That(holder.Source.Value, Is.Null);
         Assert.That(editor.Value, Is.Null);
         Assert.That(history.History.Redo(), Is.True);
-        Assert.That(holder.Source.CurrentValue, Is.SameAs(first));
+        Assert.That(holder.Source.Value, Is.SameAs(first));
         Assert.That(editor.Value!.FullName, Is.EqualTo(firstPath));
 
         Confirm(editor, secondPath);
-        TestMediaSource second = holder.Source.CurrentValue!;
+        TestMediaSource second = holder.Source.Value!;
         Assert.That(second, Is.Not.SameAs(first));
         Assert.That(first.Uri.LocalPath, Is.EqualTo(firstPath));
         Assert.That(history.History.Undo(), Is.True);
-        Assert.That(holder.Source.CurrentValue, Is.SameAs(first));
+        Assert.That(holder.Source.Value, Is.SameAs(first));
         Assert.That(history.History.Redo(), Is.True);
-        Assert.That(holder.Source.CurrentValue, Is.SameAs(second));
+        Assert.That(holder.Source.Value, Is.SameAs(second));
 
         Confirm(editor, null);
-        Assert.That(holder.Source.CurrentValue, Is.Null);
+        Assert.That(holder.Source.Value, Is.Null);
         Assert.That(history.History.Undo(), Is.True);
-        Assert.That(holder.Source.CurrentValue, Is.SameAs(second));
+        Assert.That(holder.Source.Value, Is.SameAs(second));
         Assert.That(editor.Value!.FullName, Is.EqualTo(secondPath));
         Assert.That(history.History.Redo(), Is.True);
         Assert.That(editor.Value, Is.Null);
@@ -294,7 +294,7 @@ public sealed class FileSourceEditorTests
         var holder = new FilePropertyHolder();
         var staticSource = new TestMediaSource();
         staticSource.ReadFrom(new Uri(CreateFile("static.psd")));
-        holder.Source.CurrentValue = staticSource;
+        holder.Source.Value = staticSource;
         var keyframe = new KeyFrame<TestMediaSource?> { Value = staticSource };
         var animation = new KeyFrameAnimation<TestMediaSource?>();
         animation.KeyFrames.Add(keyframe);
@@ -309,7 +309,7 @@ public sealed class FileSourceEditorTests
 
         Confirm((StorageFileEditor)control, path);
 
-        Assert.That(holder.Source.CurrentValue, Is.SameAs(staticSource));
+        Assert.That(holder.Source.Value, Is.SameAs(staticSource));
         Assert.That(keyframe.Value!.Uri.LocalPath, Is.EqualTo(path));
         Assert.That(history.History.Undo(), Is.True);
         Assert.That(keyframe.Value, Is.SameAs(staticSource));
@@ -324,7 +324,7 @@ public sealed class FileSourceEditorTests
         var original = new TestMediaSource();
         string originalPath = CreateFile("original.psd");
         original.ReadFrom(new Uri(originalPath));
-        holder.Source.CurrentValue = original;
+        holder.Source.Value = original;
         var (vm, control) = CreateControl(new EnginePropertyAdapter<TestMediaSource?>(holder.Source, holder));
         using var _ = vm;
         using var history = new HistoryScope(holder);
@@ -332,14 +332,14 @@ public sealed class FileSourceEditorTests
         var editor = (StorageFileEditor)control;
         using var notifications = new NotificationCapture();
         Assert.DoesNotThrow(() => Confirm(editor, CreateFile("invalid.psd", "invalid")));
-        Assert.That(holder.Source.CurrentValue, Is.SameAs(original));
+        Assert.That(holder.Source.Value, Is.SameAs(original));
         Assert.That(editor.Value!.FullName, Is.EqualTo(originalPath));
         Assert.That(history.History.UndoCount, Is.Zero);
         Assert.That(notifications.All, Has.Count.EqualTo(1));
 
         string valid = CreateFile("valid.psd");
         Confirm(editor, valid);
-        Assert.That(holder.Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(valid));
+        Assert.That(holder.Source.Value!.Uri.LocalPath, Is.EqualTo(valid));
         Assert.That(history.History.UndoCount, Is.EqualTo(1));
     }
 
@@ -347,7 +347,7 @@ public sealed class FileSourceEditorTests
     public void Uninitialized_sources_display_an_empty_path_and_abstract_sources_keep_the_object_editor()
     {
         var holder = new FilePropertyHolder();
-        holder.Source.CurrentValue = new TestMediaSource();
+        holder.Source.Value = new TestMediaSource();
         var (vm, control) = CreateControl(new EnginePropertyAdapter<TestMediaSource?>(holder.Source, holder));
         using var _ = vm;
         Assert.That(((StorageFileEditor)control).Value, Is.Null);
@@ -372,13 +372,13 @@ public sealed class FileSourceEditorTests
         string path = CreateFile("locked.psd");
 
         Confirm(editor, path);
-        Assert.That(holder.Source.CurrentValue, Is.Null);
+        Assert.That(holder.Source.Value, Is.Null);
         Assert.That(editor.Value, Is.Null);
         Assert.That(history.History.UndoCount, Is.Zero);
         element.IsLocked = false;
         vm.Dispose();
         Assert.DoesNotThrow(() => Confirm(editor, path));
-        Assert.That(holder.Source.CurrentValue, Is.Null);
+        Assert.That(holder.Source.Value, Is.Null);
     }
 
     [AvaloniaTest]
@@ -398,7 +398,7 @@ public sealed class FileSourceEditorTests
         Assert.That(JsonNode.Parse(File.ReadAllText(uri.LocalPath))![nameof(FilePropertyHolder.Source)]!
             .GetValue<string>(), Is.EqualTo("asset.psd"));
         var restored = CoreSerializer.RestoreFromUri<FilePropertyHolder>(uri);
-        Assert.That(restored.Source.CurrentValue!.Uri.LocalPath, Is.EqualTo(path));
+        Assert.That(restored.Source.Value!.Uri.LocalPath, Is.EqualTo(path));
     }
 
     private string CreateFile(string name, string contents = "valid")
@@ -423,18 +423,18 @@ public sealed class FileSourceEditorTests
         [FileFilter("Photoshop documents", "*.psd", "*.psb")]
         public IExpressionProperty<TestMediaSource?> Source { get; } = Property.CreateAnimatable<TestMediaSource?>();
 
-        public IExpressionProperty<TestFileSource?> PlainSource { get; } = Property.Create<TestFileSource?>();
+        public IExpressionProperty<TestFileSource?> PlainSource { get; } = Property.CreateExpression<TestFileSource?>();
 
         [FileFilter("Subtitles", "*.srt", MimeTypes = new[] { "application/x-subrip" })]
         [FileFilter("Text files", "*.txt", AppleUniformTypeIdentifiers = new[] { "public.plain-text" })]
-        public IExpressionProperty<FileInfo?> File { get; } = Property.Create<FileInfo?>();
+        public IExpressionProperty<FileInfo?> File { get; } = Property.CreateExpression<FileInfo?>();
 
         [FileFilter("PNG images", "*.png")]
-        public IExpressionProperty<ImageSource?> Image { get; } = Property.Create<ImageSource?>();
+        public IExpressionProperty<ImageSource?> Image { get; } = Property.CreateExpression<ImageSource?>();
 
-        public IExpressionProperty<CubeSource?> Cube { get; } = Property.Create<CubeSource?>();
+        public IExpressionProperty<CubeSource?> Cube { get; } = Property.CreateExpression<CubeSource?>();
 
-        public IExpressionProperty<MediaSource?> AbstractSource { get; } = Property.Create<MediaSource?>();
+        public IExpressionProperty<MediaSource?> AbstractSource { get; } = Property.CreateExpression<MediaSource?>();
 
         [FileFilter("Photoshop documents", "*.psd", "*.psb")]
         public IListProperty<TestMediaSource?> Sources { get; } = Property.CreateList<TestMediaSource?>();

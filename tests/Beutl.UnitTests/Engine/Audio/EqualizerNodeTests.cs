@@ -19,9 +19,9 @@ public class EqualizerNodeTests
     private static EqualizerNode CreateNode()
     {
         var band = new EqualizerBand();
-        band.Frequency.CurrentValue = 1000f;
-        band.Gain.CurrentValue = 12f;
-        band.Q.CurrentValue = 1f;
+        band.Frequency.Value = 1000f;
+        band.Gain.Value = 12f;
+        band.Q.Value = 1f;
         return new EqualizerNode { Bands = [band] };
     }
 

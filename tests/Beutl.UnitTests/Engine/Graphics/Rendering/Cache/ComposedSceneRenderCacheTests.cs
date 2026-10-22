@@ -83,12 +83,12 @@ public sealed class ComposedSceneRenderCacheTests
         {
             var text = new TextBlock
             {
-                FontFamily = { CurrentValue = FontFamily.Default },
-                Size = { CurrentValue = 72 },
-                Fill = { CurrentValue = Brushes.White },
-                Text = { CurrentValue = "ab" },
-                AlignmentX = { CurrentValue = AlignmentX.Left },
-                AlignmentY = { CurrentValue = AlignmentY.Top },
+                FontFamily = { Value = FontFamily.Default },
+                Size = { Value = 72 },
+                Fill = { Value = Brushes.White },
+                Text = { Value = "ab" },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
             };
             using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
 
@@ -115,11 +115,11 @@ public sealed class ComposedSceneRenderCacheTests
         {
             var text = new TextBlock
             {
-                FontFamily = { CurrentValue = FontFamily.Default },
-                Size = { CurrentValue = 72 },
-                Fill = { CurrentValue = Brushes.White },
-                Text = { CurrentValue = "ab" },
-                Transform = { CurrentValue = new TranslateTransform(0, 0) },
+                FontFamily = { Value = FontFamily.Default },
+                Size = { Value = 72 },
+                Fill = { Value = Brushes.White },
+                Text = { Value = "ab" },
+                Transform = { Value = new TranslateTransform(0, 0) },
             };
             using Drawable.Resource resource = text.ToResource(CompositionContext.Default);
 
@@ -138,16 +138,16 @@ public sealed class ComposedSceneRenderCacheTests
             var group = new DrawableGroup();
             group.Children.Add(new RectShape
             {
-                Width = { CurrentValue = 160 },
-                Height = { CurrentValue = 160 },
-                Fill = { CurrentValue = Brushes.White },
+                Width = { Value = 160 },
+                Height = { Value = 160 },
+                Fill = { Value = Brushes.White },
             });
             group.Children.Add(new EllipseShape
             {
-                Width = { CurrentValue = 90 },
-                Height = { CurrentValue = 90 },
-                Fill = { CurrentValue = Brushes.White },
-                BlendMode = { CurrentValue = blendMode },
+                Width = { Value = 90 },
+                Height = { Value = 90 },
+                Fill = { Value = Brushes.White },
+                BlendMode = { Value = blendMode },
             });
             using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
 
@@ -164,9 +164,9 @@ public sealed class ComposedSceneRenderCacheTests
             var group = new DrawableGroup();
             group.Children.Add(new RectShape
             {
-                Width = { CurrentValue = 160 },
-                Height = { CurrentValue = 160 },
-                Fill = { CurrentValue = Brushes.White },
+                Width = { Value = 160 },
+                Height = { Value = 160 },
+                Fill = { Value = Brushes.White },
             });
             using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
 
@@ -182,9 +182,9 @@ public sealed class ComposedSceneRenderCacheTests
             var group = new DrawableGroup();
             group.Children.Add(new RectShape
             {
-                Width = { CurrentValue = 160 },
-                Height = { CurrentValue = 160 },
-                Fill = { CurrentValue = Brushes.White },
+                Width = { Value = 160 },
+                Height = { Value = 160 },
+                Fill = { Value = Brushes.White },
             });
             using Drawable.Resource resource = group.ToResource(CompositionContext.Default);
             using var root = new DrawableRenderNode(resource);
@@ -227,9 +227,9 @@ public sealed class ComposedSceneRenderCacheTests
         {
             var ellipse = new EllipseShape
             {
-                Width = { CurrentValue = 91 },
-                Height = { CurrentValue = 73 },
-                Fill = { CurrentValue = Brushes.White },
+                Width = { Value = 91 },
+                Height = { Value = 73 },
+                Fill = { Value = Brushes.White },
             };
             using Drawable.Resource resource = ellipse.ToResource(CompositionContext.Default);
 
@@ -290,28 +290,28 @@ public sealed class ComposedSceneRenderCacheTests
         Drawable content = rectangularContent
             ? new RectShape
             {
-                Width = { CurrentValue = width },
-                Height = { CurrentValue = height },
-                Fill = { CurrentValue = Brushes.White },
+                Width = { Value = width },
+                Height = { Value = height },
+                Fill = { Value = Brushes.White },
             }
             : new EllipseShape
             {
-                Width = { CurrentValue = width },
-                Height = { CurrentValue = height },
-                Fill = { CurrentValue = Brushes.White },
+                Width = { Value = width },
+                Height = { Value = height },
+                Fill = { Value = Brushes.White },
             };
         var brush = new DrawableBrush(content)
         {
-            Stretch = { CurrentValue = Stretch.Fill },
-            TileMode = { CurrentValue = TileMode.None },
-            DestinationRect = { CurrentValue = RelativeRect.Fill },
+            Stretch = { Value = Stretch.Fill },
+            TileMode = { Value = TileMode.None },
+            DestinationRect = { Value = RelativeRect.Fill },
         };
         var host = new RectShape
         {
-            Width = { CurrentValue = width },
-            Height = { CurrentValue = height },
-            Fill = { CurrentValue = brush },
-            Transform = { CurrentValue = new TranslateTransform(translation, translation) },
+            Width = { Value = width },
+            Height = { Value = height },
+            Fill = { Value = brush },
+            Transform = { Value = new TranslateTransform(translation, translation) },
         };
         return host.ToResource(CompositionContext.Default);
     }

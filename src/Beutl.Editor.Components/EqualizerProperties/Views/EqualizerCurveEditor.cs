@@ -215,12 +215,12 @@ public sealed class EqualizerCurveEditor : Control
                 ? FrequencyFromX(point.X)
                 : vm.GetEffectiveValue(band.Frequency, CurrentTime);
 
-            if (!onlyHorizontal && EqualizerBandItemViewModel.IsGainUsed(band.FilterType.CurrentValue)
+            if (!onlyHorizontal && EqualizerBandItemViewModel.IsGainUsed(band.FilterType.Value)
                 && vm.CanEditProperty(band.Gain, CurrentTime))
             {
                 float targetCompositeDb = GainFromY(point.Y);
                 float othersContribution = CalculateResponseDb(effectiveFreq, _draggingIndex);
-                float responseRatio = GainToResponseRatioAtF0(band.FilterType.CurrentValue);
+                float responseRatio = GainToResponseRatioAtF0(band.FilterType.Value);
                 float newGain = Math.Clamp((targetCompositeDb - othersContribution) / responseRatio, MinGain, MaxGain);
                 float oldGain = vm.GetEffectiveValue(band.Gain, CurrentTime);
                 if (!AreEqual(oldGain, newGain))
@@ -515,7 +515,7 @@ public sealed class EqualizerCurveEditor : Control
         float q = Math.Max(vm.GetEffectiveValue(band.Q, CurrentTime), MinQ);
         float gain = vm.GetEffectiveValue(band.Gain, CurrentTime);
         return BiQuadFilter.CalculateResponseDb(
-            band.FilterType.CurrentValue, f0, q, gain, EffectiveSampleRate, frequency);
+            band.FilterType.Value, f0, q, gain, EffectiveSampleRate, frequency);
     }
 
     private static float GainToResponseRatioAtF0(BiQuadFilterType type) => type switch

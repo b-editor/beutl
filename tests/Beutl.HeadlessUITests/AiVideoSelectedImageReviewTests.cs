@@ -27,7 +27,7 @@ public sealed partial class AiDialogWorkflowTests
         var imageSource = new ImageSource();
         imageSource.ReadFrom(new Uri(imagePath));
         var image = new SourceImage();
-        image.Source.CurrentValue = imageSource;
+        image.Source.Value = imageSource;
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var added = await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
             new ElementSource.EngineObject(() => image))], CancellationToken.None);

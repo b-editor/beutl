@@ -25,26 +25,26 @@ public static partial class ProxySourceEnumerator
             // Connected nested inputs override this exact property, including its base, animation,
             // and object subtree. The upstream node contributes the effective sources instead.
             if (walkContext?.ConnectedNodeInputs?.Contains(property) == true) continue;
-            // IProperty.GetValue evaluates an expression ahead of the animation/current value, so a
+            // IExpressionProperty.Evaluate evaluates an expression ahead of the animation/current value, so a
             // reference-expression pointing at a file source is what the render opens. Resolve it (no
             // evaluation — just id/path lookup) and report its sources. StringExpressions are arbitrary
             // C# and are not evaluated here.
             foreach (IFileSource source in EnumerateExpressionFileSources(obj, (property as IExpressionProperty)?.Expression, localRange, skipDisabledElements, visitedValues, sceneWindow, walkContext: walkContext))
                 yield return source;
 
-            // When an expression is present, GetValue takes the expression branch and never samples the
+            // When an expression is present, Evaluate takes the expression branch and never samples the
             // base value or the animation, so in a windowed pass (which mirrors what the render opens)
             // they must not block export. Without a window (proxy/badge scan) keep them, since an
             // unresolvable expression is not something the scanner can follow.
             bool expressionOverrides = localRange is not null && HasActiveExpression(property, walkContext);
 
             // A property animated by >=1 keyframe is sampled from its animation, never its base
-            // CurrentValue, so when range-filtering to a render window the base must not block export —
+            // Value, so when range-filtering to a render window the base must not block export —
             // its file is never opened. Without a window (proxy/badge scan) keep the base too.
             bool baseOverridden = localRange is not null && (expressionOverrides || AnimationSuppliesValue(property.GetKeyFrameAnimation()));
             if (!baseOverridden)
             {
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues, walkContext))
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.Value, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
 
@@ -227,7 +227,7 @@ public static partial class ProxySourceEnumerator
             bool targetBaseOverridden = localRange is not null && (targetExpressionOverrides || AnimationSuppliesValue(property.GetKeyFrameAnimation()));
             if (!targetBaseOverridden)
             {
-                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.CurrentValue, localRange, skipDisabledElements, visitedValues, walkContext))
+                foreach (IFileSource source in EnumeratePropertyValueFileSources(property.Value, localRange, skipDisabledElements, visitedValues, walkContext))
                     yield return source;
             }
 
@@ -260,7 +260,7 @@ public static partial class ProxySourceEnumerator
            && animation.KeyFrames.All(k => k.Value is not null);
 
     // An expression replaces the base value, so resolve a reference expression as the evaluator does (an
-    // unresolvable one yields DefaultValue); only an expression this walk cannot evaluate uses CurrentValue.
+    // unresolvable one yields DefaultValue); only an expression this walk cannot evaluate uses Value.
     private static T? ResolveExpressionValue<T>(EngineObject owner, IProperty property, HashSet<IProperty>? visited = null,
         ObjectWalkContext? walkContext = null)
         where T : class
@@ -269,7 +269,7 @@ public static partial class ProxySourceEnumerator
         // A user-constructed reference chain (Target.Expression -> Target) can cycle; the engine's own
         // evaluation is cycle-guarded by ExpressionContext, breaking the cycle to DefaultValue (null for
         // a reference type). This reference walk is outside that guard, so track visited properties and
-        // return DefaultValue on re-entry — never CurrentValue, which the render never opens.
+        // return DefaultValue on re-entry — never Value, which the render never opens.
         visited ??= new HashSet<IProperty>(ReferenceEqualityComparer.Instance);
         if (!visited.Add(property))
             return property.DefaultValue as T;
@@ -301,11 +301,11 @@ public static partial class ProxySourceEnumerator
             }
 
             // Reference present but unresolvable (missing id/path, or a non-EngineObject on the path):
-            // the evaluator returns DefaultValue, so a stale CurrentValue must not leak into preflight.
+            // the evaluator returns DefaultValue, so a stale Value must not leak into preflight.
             return property.DefaultValue as T;
         }
 
-        return property.CurrentValue as T;
+        return property.Value as T;
     }
 
     private static IEnumerable<IFileSource> EnumerateAnimatedFileSources(

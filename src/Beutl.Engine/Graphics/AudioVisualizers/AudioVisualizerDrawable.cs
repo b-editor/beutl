@@ -15,12 +15,12 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     public AudioVisualizerDrawable()
     {
         ScanProperties<AudioVisualizerDrawable>();
-        Fill.CurrentValue = new SolidColorBrush(Colors.White);
+        Fill.Value = new SolidColorBrush(Colors.White);
     }
 
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     [SuppressResourceClassGeneration]
-    public IExpressionProperty<Sound?> Source { get; } = Property.Create<Sound?>();
+    public IExpressionProperty<Sound?> Source { get; } = Property.CreateExpression<Sound?>();
 
     [Display(Name = nameof(GraphicsStrings.Width), ResourceType = typeof(GraphicsStrings))]
     [Range(1, float.MaxValue)]
@@ -31,7 +31,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     public IExpressionProperty<float> Height { get; } = Property.CreateAnimatable(120f);
 
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Fill { get; } = Property.CreateExpression<Brush?>();
 
     [Display(Name = nameof(GraphicsStrings.AudioVisualizer_Gain), ResourceType = typeof(GraphicsStrings))]
     [Range(0.01f, 1000f)]

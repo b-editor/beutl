@@ -18,22 +18,22 @@ public class DelayAnimationScaleTests
     private static RectShape BaseShape()
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 150;
-        shape.Height.CurrentValue = 60;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 150;
+        shape.Height.Value = 60;
+        shape.Fill.Value = Brushes.White;
         var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = 24f;
-        shape.Transform.CurrentValue = rotation;
+        rotation.Rotation.Value = 24f;
+        shape.Transform.Value = rotation;
         return shape;
     }
 
     private static MosaicEffect MakeMosaic()
     {
         var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(14, 14);
+        mosaic.TileSize.Value = new Size(14, 14);
         return mosaic;
     }
 
@@ -41,7 +41,7 @@ public class DelayAnimationScaleTests
     private static Drawable.Resource MakeDirectMosaic()
     {
         var shape = BaseShape();
-        shape.FilterEffect.CurrentValue = MakeMosaic();
+        shape.FilterEffect.Value = MakeMosaic();
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -50,9 +50,9 @@ public class DelayAnimationScaleTests
     {
         var shape = BaseShape();
         var delay = new DelayAnimationEffect();
-        delay.Delay.CurrentValue = 0f;
-        delay.Effect.CurrentValue = MakeMosaic();
-        shape.FilterEffect.CurrentValue = delay;
+        delay.Delay.Value = 0f;
+        delay.Effect.Value = MakeMosaic();
+        shape.FilterEffect.Value = delay;
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -61,13 +61,13 @@ public class DelayAnimationScaleTests
     {
         var shape = BaseShape();
         var shadow = new DropShadow();
-        shadow.Position.CurrentValue = new Point(14, 14);
-        shadow.Sigma.CurrentValue = new Size(8, 8);
-        shadow.Color.CurrentValue = Colors.Black;
+        shadow.Position.Value = new Point(14, 14);
+        shadow.Sigma.Value = new Size(8, 8);
+        shadow.Color.Value = Colors.Black;
         var delay = new DelayAnimationEffect();
-        delay.Delay.CurrentValue = 0f;
-        delay.Effect.CurrentValue = shadow;
-        shape.FilterEffect.CurrentValue = delay;
+        delay.Delay.Value = 0f;
+        delay.Effect.Value = shadow;
+        shape.FilterEffect.Value = delay;
         return shape.ToResource(CompositionContext.Default);
     }
 

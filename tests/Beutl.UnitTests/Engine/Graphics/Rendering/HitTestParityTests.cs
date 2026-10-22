@@ -53,9 +53,9 @@ public class HitTestParityTests
         var corner = new Point(2, 2);
         var painting = new Threshold
         {
-            Value = { CurrentValue = 0 },
-            Smoothness = { CurrentValue = 50 },
-            Strength = { CurrentValue = 100 },
+            Value = { Value = 0 },
+            Smoothness = { Value = 50 },
+            Strength = { Value = 100 },
         };
 
         Assert.Multiple(() =>
@@ -85,7 +85,7 @@ public class HitTestParityTests
     {
         var effect = new SKSLScriptEffect
         {
-            Script = { CurrentValue = script },
+            Script = { Value = script },
         };
 
         Assert.That(FilteredShapeHarness.HitTest(s_filteredEllipse, effect, new Point(2, 2)), Is.True);

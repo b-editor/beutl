@@ -485,7 +485,7 @@ public class CoreObjectOperationObserverTests
         var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
 
         operationObserver.Dispose();
-        engineObj.FloatValue.CurrentValue = 50f;
+        engineObj.FloatValue.Value = 50f;
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -499,8 +499,8 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, engineObj, _sequenceGenerator);
 
-        engineObj.FloatValue.CurrentValue = 25f;
-        engineObj.FloatValue.CurrentValue = 75f;
+        engineObj.FloatValue.Value = 25f;
+        engineObj.FloatValue.Value = 75f;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(2));
     }
@@ -516,7 +516,7 @@ public class CoreObjectOperationObserverTests
 
         using (PublishingSuppression.Enter())
         {
-            engineObj.FloatValue.CurrentValue = 50f;
+            engineObj.FloatValue.Value = 50f;
         }
 
         Assert.That(receivedOperations, Is.Empty);
@@ -535,7 +535,7 @@ public class CoreObjectOperationObserverTests
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, engineObj, _sequenceGenerator, "", propertyPathsToTrack);
 
-        engineObj.FloatValue.CurrentValue = 50f;
+        engineObj.FloatValue.Value = 50f;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }

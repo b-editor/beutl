@@ -238,7 +238,7 @@ public class LinuxDefaultFontTests
             Assert.That(manager.DefaultTypeface.FontFamily.Name, Is.EqualTo(expectedName));
             Assert.That(FontFamily.Default, Is.SameAs(manager.DefaultTypeface.FontFamily));
             Assert.That(manager.IsRegistered(FontFamily.Default), Is.True);
-            Assert.That(text.FontFamily.CurrentValue, Is.SameAs(FontFamily.Default));
+            Assert.That(text.FontFamily.Value, Is.SameAs(FontFamily.Default));
             Assert.That(formatted.Font, Is.SameAs(FontFamily.Default));
             int count = File.Exists(calls) ? File.ReadAllLines(calls).Length : 0;
             Assert.That(count, Is.EqualTo(expected == "fallback" ? 0 : 1));

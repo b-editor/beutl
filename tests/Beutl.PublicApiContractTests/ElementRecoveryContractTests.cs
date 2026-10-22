@@ -29,7 +29,7 @@ public class ElementRecoveryContractTests
         var element = new Element { Uri = new Uri(Path.Combine(root, "element.belm")), Length = TimeSpan.FromSeconds(1) };
         string transformPath = Path.Combine(root, "nested", "transform.json");
         var shape = new RectShape();
-        shape.Transform.CurrentValue = new RotationTransform { Uri = new Uri(transformPath) };
+        shape.Transform.Value = new RotationTransform { Uri = new Uri(transformPath) };
         element.AddObject(shape);
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, scene.Uri);
@@ -40,7 +40,7 @@ public class ElementRecoveryContractTests
         Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
         Element recovered = recoveredScene.Children.Single();
         var recoveredShape = (RectShape)recovered.Objects.Single();
-        Transform? fallback = recoveredShape.Transform.CurrentValue;
+        Transform? fallback = recoveredShape.Transform.Value;
         var sequence = new OperationSequenceGenerator();
         using var history = new HistoryManager(sequence);
         using var observer = new CoreObjectOperationObserver(null, recoveredScene, sequence);
@@ -54,7 +54,7 @@ public class ElementRecoveryContractTests
 
         string destinationRoot = rehome ? Path.Combine(root, "copy") : root;
         string copiedTransform = Path.Combine(destinationRoot, "nested", "transform.json");
-        recoveredShape.Transform.CurrentValue = new RotationTransform
+        recoveredShape.Transform.Value = new RotationTransform
         {
             Uri = retainUri ? new Uri(copiedTransform) : null,
         };
@@ -63,7 +63,7 @@ public class ElementRecoveryContractTests
         CoreSerializer.StoreToUri(recovered, copyUri);
         JsonNode? savedReference = ReadJson(copyUri.LocalPath)[nameof(Element.Objects)]![0]![nameof(RectShape.Transform)];
         Transform? savedTransform = ((RectShape)CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.Single())
-            .Transform.CurrentValue;
+            .Transform.Value;
         Assert.Multiple(() =>
         {
             Assert.That(savedTransform, Is.TypeOf<RotationTransform>());
@@ -81,15 +81,15 @@ public class ElementRecoveryContractTests
         });
 
         Assert.That(history.Undo(), Is.True);
-        Assert.That(recoveredShape.Transform.CurrentValue, Is.SameAs(fallback));
+        Assert.That(recoveredShape.Transform.Value, Is.SameAs(fallback));
         CoreSerializer.StoreToUri(recovered, copyUri);
         var reopened = (RectShape)CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.Single();
         Assert.Multiple(() =>
         {
             // The fallback writes the JSON it was read from back to its own file; only the formatting may differ.
             Assert.That(JsonNode.DeepEquals(ReadJson(transformPath), JsonNode.Parse(originalTransform)), Is.True);
-            Assert.That(reopened.Transform.CurrentValue, Is.InstanceOf<FallbackTransform>());
-            Assert.That(reopened.Transform.CurrentValue!.Uri, Is.EqualTo(new Uri(transformPath)));
+            Assert.That(reopened.Transform.Value, Is.InstanceOf<FallbackTransform>());
+            Assert.That(reopened.Transform.Value!.Uri, Is.EqualTo(new Uri(transformPath)));
         });
     }
 

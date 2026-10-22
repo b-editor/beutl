@@ -24,14 +24,14 @@ public sealed class ModelImportTests
     {
         var source = new ModelSource();
         source.ReadFrom(new Uri(ModelTestFiles.WriteGltf(_root, embeddedTexture: true, binary: binary)));
-        var model = new Model3D(); model.Source.CurrentValue = source;
+        var model = new Model3D(); model.Source.Value = source;
         var saved = new Uri(Path.Combine(_root, "saved.json"));
         CoreSerializer.StoreToUri(model, saved);
 
         Model3D restored = CoreSerializer.RestoreFromUri<Model3D>(saved);
-        var material = (PBRMaterial)restored.Children.Single().Material.CurrentValue!;
-        Assert.That(material.AlbedoMap.CurrentValue, Is.TypeOf<ImageTextureSource>());
-        ImageSource image = ((ImageTextureSource)material.AlbedoMap.CurrentValue!).Source.CurrentValue!;
+        var material = (PBRMaterial)restored.Children.Single().Material.Value!;
+        Assert.That(material.AlbedoMap.Value, Is.TypeOf<ImageTextureSource>());
+        ImageSource image = ((ImageTextureSource)material.AlbedoMap.Value!).Source.Value!;
         Assert.That(image.Uri.Scheme, Is.EqualTo("data"));
         using var stream = UriHelper.ResolveStream(image.Uri);
         using var bitmap = Bitmap.FromStream(stream);
@@ -102,10 +102,10 @@ public sealed class ModelImportTests
         Assert.That(source.MaterialCount, Is.EqualTo(1));
 
         var model = new Model3D();
-        model.Source.CurrentValue = source;
+        model.Source.Value = source;
 
         Assert.That(model.Children, Has.Count.EqualTo(2));
-        Assert.That(model.Children.All(child => child.Material.CurrentValue is PBRMaterial), Is.True);
+        Assert.That(model.Children.All(child => child.Material.Value is PBRMaterial), Is.True);
     }
 
     [Test]
@@ -137,12 +137,12 @@ public sealed class ModelImportTests
         source.ReadFrom(new Uri(path));
 
         var model = new Model3D();
-        model.Source.CurrentValue = source;
+        model.Source.Value = source;
 
         Assert.That(model.Children, Has.Count.EqualTo(2));
-        Assert.That(((PBRMaterial)model.Children[0].Material.CurrentValue!).Albedo.CurrentValue,
+        Assert.That(((PBRMaterial)model.Children[0].Material.Value!).Albedo.Value,
             Is.EqualTo(Color.FromRgb(0, 255, 0)));
-        Assert.That(((PBRMaterial)model.Children[1].Material.CurrentValue!).Albedo.CurrentValue,
+        Assert.That(((PBRMaterial)model.Children[1].Material.Value!).Albedo.Value,
             Is.EqualTo(Color.FromRgb(255, 0, 0)));
     }
 
@@ -198,18 +198,18 @@ public sealed class ModelImportTests
         var source = new ModelSource();
         source.ReadFrom(new Uri(ModelTestFiles.WriteGltf(_root, nodes: [new { mesh = 0, translation = new[] { 5f, 0f, 0f } }], normals: true)));
         var model = new Model3D();
-        model.Source.CurrentValue = source;
+        model.Source.Value = source;
         var uri = new Uri(Path.Combine(_root, "model.json"));
         CoreSerializer.StoreToUri(model, uri);
 
         Model3D restored = CoreSerializer.RestoreFromUri<Model3D>(uri);
 
         var child = (MeshObject3D)restored.Children.Single();
-        var mesh = (ModelMesh)child.Mesh.CurrentValue!;
-        Assert.That(mesh.Vertices.CurrentValue.Select(vertex => vertex.Position.X),
+        var mesh = (ModelMesh)child.Mesh.Value!;
+        Assert.That(mesh.Vertices.Value.Select(vertex => vertex.Position.X),
             Is.EquivalentTo(new[] { 5f, 6f, 5f }));
-        Assert.That(child.Position.CurrentValue, Is.EqualTo(Vector3.Zero));
-        Assert.That(child.Scale.CurrentValue, Is.EqualTo(Vector3.One));
+        Assert.That(child.Position.Value, Is.EqualTo(Vector3.Zero));
+        Assert.That(child.Scale.Value, Is.EqualTo(Vector3.One));
     }
 
     private static void AssertVertices(MeshData mesh, Vector3[] expected)

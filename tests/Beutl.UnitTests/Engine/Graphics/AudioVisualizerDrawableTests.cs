@@ -23,10 +23,10 @@ public class AudioVisualizerDrawableTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var drawable = CreateWaveform();
-            drawable.Shape.CurrentValue = dots
-                ? new DotsWaveformShape { DotRadius = { CurrentValue = 20 } }
-                : new LineWaveformShape { Thickness = { CurrentValue = 40 } };
-            drawable.Gain.CurrentValue = 100;
+            drawable.Shape.Value = dots
+                ? new DotsWaveformShape { DotRadius = { Value = 20 } }
+                : new LineWaveformShape { Thickness = { Value = 40 } };
+            drawable.Gain.Value = 100;
             AttachSyntheticSource(drawable);
             using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.FromSeconds(0.5)));
             using Bitmap bitmap = GoldenImageHarness.RenderAtScale(resource, new PixelSize(400, 200), 1);
@@ -61,23 +61,23 @@ public class AudioVisualizerDrawableTests
     public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
     private static AudioWaveformDrawable CreateWaveform() => new()
     {
-        Width = { CurrentValue = 320f },
-        Height = { CurrentValue = 80f },
-        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+        Width = { Value = 320f },
+        Height = { Value = 80f },
+        Fill = { Value = new SolidColorBrush(Colors.White) }
     };
 
     private static AudioSpectrumDrawable CreateSpectrum() => new()
     {
-        Width = { CurrentValue = 320f },
-        Height = { CurrentValue = 80f },
-        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+        Width = { Value = 320f },
+        Height = { Value = 80f },
+        Fill = { Value = new SolidColorBrush(Colors.White) }
     };
 
     private static AudioSpectrogramDrawable CreateSpectrogram() => new()
     {
-        Width = { CurrentValue = 320f },
-        Height = { CurrentValue = 80f },
-        Fill = { CurrentValue = new SolidColorBrush(Colors.White) }
+        Width = { Value = 320f },
+        Height = { Value = 80f },
+        Fill = { Value = new SolidColorBrush(Colors.White) }
     };
 
     private static void RenderOnce(Drawable drawable, float outputScale = 1f)
@@ -106,7 +106,7 @@ public class AudioVisualizerDrawableTests
         [Values(0.5f, 1f, 2f)] float outputScale)
     {
         var drawable = CreateWaveform();
-        drawable.Shape.CurrentValue = factory();
+        drawable.Shape.Value = factory();
         Assert.DoesNotThrow(() => RenderOnce(drawable, outputScale));
     }
 
@@ -114,14 +114,14 @@ public class AudioVisualizerDrawableTests
     [
         () => new MinMaxBarWaveformShape(),
         () => new LineWaveformShape(),
-        () => new LineWaveformShape { Mirrored = { CurrentValue = true } },
+        () => new LineWaveformShape { Mirrored = { Value = true } },
         () => new FilledMirrorWaveformShape(),
         () => new FilledEnvelopeWaveformShape(),
-        () => new FilledEnvelopeWaveformShape { Symmetric = { CurrentValue = true } },
+        () => new FilledEnvelopeWaveformShape { Symmetric = { Value = true } },
         () => new BlockWaveformShape(),
-        () => new BlockWaveformShape { Mirrored = { CurrentValue = true } },
+        () => new BlockWaveformShape { Mirrored = { Value = true } },
         () => new DotsWaveformShape(),
-        () => new DotsWaveformShape { Mode = { CurrentValue = DotsWaveformMode.Center } },
+        () => new DotsWaveformShape { Mode = { Value = DotsWaveformMode.Center } },
         () => new RadialWaveformShape(),
     ];
 
@@ -131,7 +131,7 @@ public class AudioVisualizerDrawableTests
     public void Spectrum_FrequencyScale_DoesNotThrow(FrequencyScale scale)
     {
         var drawable = CreateSpectrum();
-        drawable.FrequencyScale.CurrentValue = scale;
+        drawable.FrequencyScale.Value = scale;
         Assert.DoesNotThrow(() => RenderOnce(drawable));
     }
 
@@ -141,7 +141,7 @@ public class AudioVisualizerDrawableTests
     public void Spectrogram_FrequencyScale_DoesNotThrow(FrequencyScale scale)
     {
         var drawable = CreateSpectrogram();
-        drawable.FrequencyScale.CurrentValue = scale;
+        drawable.FrequencyScale.Value = scale;
         Assert.DoesNotThrow(() => RenderOnce(drawable));
     }
 
@@ -169,11 +169,11 @@ public class AudioVisualizerDrawableTests
         soundSource.ReadFrom(new Uri(path));
         var sound = new SourceSound
         {
-            Source = { CurrentValue = soundSource },
+            Source = { Value = soundSource },
             // Sound.Compose clips to TimeRange, so a non-zero range covering the sample window is required.
             TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
         };
-        drawable.Source.CurrentValue = sound;
+        drawable.Source.Value = sound;
     }
 
     // Builds the resource at a time inside the source window, asserts the sample cache is non-empty (else the
@@ -197,7 +197,7 @@ public class AudioVisualizerDrawableTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var drawable = CreateWaveform();
-            drawable.Shape.CurrentValue = factory();
+            drawable.Shape.Value = factory();
             AttachSyntheticSource(drawable);
             Assert.DoesNotThrow(() => RenderWithSamples(drawable, new PixelSize(320, 80), 0.5f).Dispose());
             Assert.DoesNotThrow(() => RenderWithSamples(drawable, new PixelSize(320, 80), 2f).Dispose());
@@ -243,22 +243,22 @@ public class AudioVisualizerDrawableTests
         {
             var drawable = new AudioWaveformDrawable
             {
-                Width = { CurrentValue = 240f },
-                Height = { CurrentValue = 120f },
-                Fill = { CurrentValue = new SolidColorBrush(Colors.White) },
-                Shape = { CurrentValue = new MinMaxBarWaveformShape() },
-                BarCount = { CurrentValue = 64 },
-                WindowSeconds = { CurrentValue = 0.1f },
+                Width = { Value = 240f },
+                Height = { Value = 120f },
+                Fill = { Value = new SolidColorBrush(Colors.White) },
+                Shape = { Value = new MinMaxBarWaveformShape() },
+                BarCount = { Value = 64 },
+                WindowSeconds = { Value = 0.1f },
             };
             AttachSyntheticSource(drawable);
 
-            drawable.Transform.CurrentValue = new ScaleTransform(transformPercent, transformPercent);
+            drawable.Transform.Value = new ScaleTransform(transformPercent, transformPercent);
             var transformedFrame = new PixelSize(
                 (int)(400 / outputScale),
                 (int)(225 / outputScale));
             using Bitmap transformed = RenderWithSamples(drawable, transformedFrame, outputScale);
 
-            drawable.Transform.CurrentValue = new ScaleTransform(100f, 100f);
+            drawable.Transform.Value = new ScaleTransform(100f, 100f);
             using Bitmap reference = RenderWithSamples(drawable, new PixelSize(320, 180), 1.25f);
 
             GoldenImageHarness.AssertByteIdentical(reference, transformed);

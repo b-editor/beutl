@@ -30,7 +30,7 @@ public class SourceVideoSpeedTest
         _videoSource.ReadFrom(new Uri(videoPath));
 
         _sourceVideo = new SourceVideo();
-        _sourceVideo.Source.CurrentValue = _videoSource;
+        _sourceVideo.Source.Value = _videoSource;
         _sourceVideo.TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(10));
     }
 
@@ -49,7 +49,7 @@ public class SourceVideoSpeedTest
     [TestCase(50f, 2.0, 1.0, TestName = "CalculateVideoTime_WithStaticSpeed50_ShouldReturnHalfTime")]
     public void CalculateVideoTime_WithStaticSpeed(float speed, double seconds, double expectedSeconds)
     {
-        _sourceVideo!.Speed.CurrentValue = speed;
+        _sourceVideo!.Speed.Value = speed;
 
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.FromSeconds(seconds));
 
@@ -158,7 +158,7 @@ public class SourceVideoSpeedTest
     [Test]
     public void CalculateOriginalTime_WithStaticSpeed_ShouldCalculateCorrectly()
     {
-        _sourceVideo!.Speed.CurrentValue = 200f;
+        _sourceVideo!.Speed.Value = 200f;
         SourceVideo.Resource resource = EvaluateAt(TimeSpan.Zero);
 
         var originalTime = _sourceVideo.CalculateOriginalTime(resource);

@@ -286,7 +286,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         }
 
         var sourceImage = new SourceImage();
-        sourceImage.Source.CurrentValue = ImageSource.Open(imageFile);
+        sourceImage.Source.Value = ImageSource.Open(imageFile);
         var newElement = new Element
         {
             Start = clickedFrame,

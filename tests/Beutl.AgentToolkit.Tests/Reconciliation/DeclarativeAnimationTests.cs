@@ -57,7 +57,7 @@ public sealed class DeclarativeAnimationTests
         Assert.Multiple(() =>
         {
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
-            Assert.That(createdText.Text.CurrentValue, Is.EqualTo("Animated"));
+            Assert.That(createdText.Text.Value, Is.EqualTo("Animated"));
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
             Assert.That(((KeyFrame<float>)animation.KeyFrames[1]).Value, Is.EqualTo(100f));
         });
@@ -374,7 +374,7 @@ public sealed class DeclarativeAnimationTests
         Element element = ((FileEditingSession)source.CurrentSession!).Scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
         var animation = (KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!;
-        float actual = rect.Opacity.GetValue(new CompositionContext(TimeSpan.FromSeconds(5.5)));
+        float actual = rect.Opacity.Evaluate(new CompositionContext(TimeSpan.FromSeconds(5.5)));
 
         Assert.Multiple(() =>
         {
@@ -434,7 +434,7 @@ public sealed class DeclarativeAnimationTests
         Scene scene = ((FileEditingSession)source.CurrentSession!).Scene;
         Element element = scene.Children.Single();
         var rect = (RectShape)element.Objects.Single();
-        var transform = (TransformGroup)rect.Transform.CurrentValue!;
+        var transform = (TransformGroup)rect.Transform.Value!;
         var translate = (TranslateTransform)transform.Children.Single();
         string outputPath = Path.Combine(workspace, "nested-local-keyframes.png");
         var renderer = new StillRenderer();
@@ -445,8 +445,8 @@ public sealed class DeclarativeAnimationTests
             outputPath,
             renderScale: 1,
             CancellationToken.None);
-        float opacity = rect.Opacity.GetValue(new CompositionContext(TimeSpan.FromSeconds(2.5)));
-        float translateY = translate.Y.GetValue(new CompositionContext(TimeSpan.FromSeconds(2.5)));
+        float opacity = rect.Opacity.Evaluate(new CompositionContext(TimeSpan.FromSeconds(2.5)));
+        float translateY = translate.Y.Evaluate(new CompositionContext(TimeSpan.FromSeconds(2.5)));
 
         Assert.Multiple(() =>
         {
@@ -516,7 +516,7 @@ public sealed class DeclarativeAnimationTests
     {
         Scene scene = TestWorkspace.CreateScene();
         element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
-        text = new TextBlock { Text = { CurrentValue = "Launch" } };
+        text = new TextBlock { Text = { Value = "Launch" } };
         element.AddObject(text);
         return scene;
     }

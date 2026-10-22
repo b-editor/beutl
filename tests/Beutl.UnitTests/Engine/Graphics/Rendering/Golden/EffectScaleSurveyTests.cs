@@ -20,30 +20,30 @@ public class EffectScaleSurveyTests
         yield return new TestCaseData("DropShadow", (Func<FilterEffect>)(() =>
         {
             var e = new DropShadow();
-            e.Position.CurrentValue = new Point(12, 12);
-            e.Sigma.CurrentValue = new Size(6, 6);
-            e.Color.CurrentValue = Colors.Black;
+            e.Position.Value = new Point(12, 12);
+            e.Sigma.Value = new Size(6, 6);
+            e.Color.Value = Colors.Black;
             return e;
         }));
         yield return new TestCaseData("InnerShadow", (Func<FilterEffect>)(() =>
         {
             var e = new InnerShadow();
-            e.Position.CurrentValue = new Point(6, 6);
-            e.Sigma.CurrentValue = new Size(6, 6);
-            e.Color.CurrentValue = Colors.Black;
+            e.Position.Value = new Point(6, 6);
+            e.Sigma.Value = new Size(6, 6);
+            e.Color.Value = Colors.Black;
             return e;
         }));
         yield return new TestCaseData("Brightness", (Func<FilterEffect>)(() =>
         {
-            var e = new Brightness(); e.Amount.CurrentValue = 50f; return e;
+            var e = new Brightness(); e.Amount.Value = 50f; return e;
         }));
         yield return new TestCaseData("Dilate", (Func<FilterEffect>)(() =>
         {
-            var e = new Dilate(); e.RadiusX.CurrentValue = 3f; e.RadiusY.CurrentValue = 3f; return e;
+            var e = new Dilate(); e.RadiusX.Value = 3f; e.RadiusY.Value = 3f; return e;
         }));
         yield return new TestCaseData("Mosaic", (Func<FilterEffect>)(() =>
         {
-            var e = new MosaicEffect(); e.TileSize.CurrentValue = new Size(12, 12); return e;
+            var e = new MosaicEffect(); e.TileSize.Value = new Size(12, 12); return e;
         }));
     }
 
@@ -56,13 +56,13 @@ public class EffectScaleSurveyTests
             Drawable.Resource Make()
             {
                 var shape = new EllipseShape();
-                shape.AlignmentX.CurrentValue = AlignmentX.Center;
-                shape.AlignmentY.CurrentValue = AlignmentY.Center;
-                shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-                shape.Width.CurrentValue = 150;
-                shape.Height.CurrentValue = 110;
-                shape.Fill.CurrentValue = Brushes.White;
-                shape.FilterEffect.CurrentValue = makeEffect();
+                shape.AlignmentX.Value = AlignmentX.Center;
+                shape.AlignmentY.Value = AlignmentY.Center;
+                shape.TransformOrigin.Value = RelativePoint.Center;
+                shape.Width.Value = 150;
+                shape.Height.Value = 110;
+                shape.Fill.Value = Brushes.White;
+                shape.FilterEffect.Value = makeEffect();
                 return shape.ToResource(CompositionContext.Default);
             }
 

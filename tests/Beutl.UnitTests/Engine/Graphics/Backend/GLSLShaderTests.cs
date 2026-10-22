@@ -176,7 +176,7 @@ public class GLSLShaderTests
         {
             var effect = new CSharpScriptEffect
             {
-                Script = { CurrentValue = """"
+                Script = { Value = """"
                     const string fragment = """
                         #version 450
                         layout(location=0) out vec4 color;

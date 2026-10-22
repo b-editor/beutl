@@ -41,7 +41,7 @@ public class UnknownTypeElementTests
         string elementPath = Path.Combine(_root, "element.belm");
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri, Duration = TimeSpan.FromSeconds(10) };
         var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
-        element.AddObject(new RectShape { Width = { CurrentValue = 10 } });
+        element.AddObject(new RectShape { Width = { Value = 10 } });
         element.AddObject(new RectShape());
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, sceneUri);
@@ -62,7 +62,7 @@ public class UnknownTypeElementTests
         resize.Resize(restored,
             [new ElementResizeRequest(restoredElement, TimeSpan.FromSeconds(2), restoredElement.Length, restoredElement.ZIndex)],
             ripple: false);
-        shape.Width.CurrentValue = 20;
+        shape.Width.Value = 20;
         harness.History.Commit("Edit around the unavailable object");
         CoreSerializer.StoreToUri(restored, sceneUri);
 
@@ -78,7 +78,7 @@ public class UnknownTypeElementTests
             Assert.That(restoredElement.SuppressedStorageSource, Is.Null);
             Assert.That(ElementEditability.IsEditable(restoredElement), Is.True);
             Assert.That(reopened.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(((RectShape)reopened.Objects[0]).Width.CurrentValue, Is.EqualTo(20));
+            Assert.That(((RectShape)reopened.Objects[0]).Width.Value, Is.EqualTo(20));
             Assert.That(JsonNode.DeepEquals(savedObjects[1], unavailableJson), Is.True,
                 "The rest of the object whose type is missing is saved as it was read.");
             Assert.That(JsonNode.DeepEquals(saved["FutureClip"], json["FutureClip"]), Is.True);

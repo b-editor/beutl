@@ -39,7 +39,7 @@ public sealed class EasingEditorTests
         var editor = (EasingEditor)control;
         Assert.Multiple(() =>
         {
-            Assert.That(editor.Value, Is.SameAs(holder.Curve.CurrentValue));
+            Assert.That(editor.Value, Is.SameAs(holder.Curve.Value));
             Assert.That(editor.Items!.Select(item => item.Type),
                 Does.Contain(typeof(LinearEasing)).And.Contain(typeof(SplineEasing)).And.Contain(typeof(BounceEaseInOut)));
         });
@@ -100,7 +100,7 @@ public sealed class EasingEditorTests
     public void Choosing_an_easing_writes_a_new_instance_as_one_history_entry()
     {
         var holder = new EasingHolder();
-        Easing original = holder.Curve.CurrentValue;
+        Easing original = holder.Curve.Value;
         using var scope = new CurveEditorScope(holder, holder.Curve, height: 320);
         EasingEditor editor = scope.Editor;
         Window window = scope.Window;
@@ -117,8 +117,8 @@ public sealed class EasingEditorTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(holder.Curve.CurrentValue, Is.TypeOf<BackEaseOut>());
-                Assert.That(holder.Curve.CurrentValue, Is.Not.SameAs(back.Preview),
+                Assert.That(holder.Curve.Value, Is.TypeOf<BackEaseOut>());
+                Assert.That(holder.Curve.Value, Is.Not.SameAs(back.Preview),
                     "The item preview must not be shared with the property.");
                 Assert.That(scope.History.UndoCount, Is.EqualTo(1));
             });
@@ -127,7 +127,7 @@ public sealed class EasingEditorTests
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
+                Assert.That(holder.Curve.Value, Is.SameAs(original));
                 Assert.That(SelectedType(comboBox), Is.EqualTo(typeof(LinearEasing)));
                 Assert.That(scope.History.UndoCount, Is.EqualTo(0), "Following an undo must not record an edit.");
                 Assert.That(scope.History.RedoCount, Is.EqualTo(1));
@@ -148,7 +148,7 @@ public sealed class EasingEditorTests
     {
         var holder = new EasingHolder();
         var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
-        holder.Curve.CurrentValue = original;
+        holder.Curve.Value = original;
         using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
         EasingEditor editor = scope.Editor;
         Window window = scope.Window;
@@ -163,7 +163,7 @@ public sealed class EasingEditorTests
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(ToWindow(window, curve, 0.4, 0.3));
 
-            var dragging = (SplineEasing)holder.Curve.CurrentValue;
+            var dragging = (SplineEasing)holder.Curve.Value;
             Assert.Multiple(() =>
             {
                 Assert.That(dragging, Is.Not.SameAs(original));
@@ -178,7 +178,7 @@ public sealed class EasingEditorTests
             window.MouseUp(end, MouseButton.Left);
             HeadlessTestHelpers.Settle();
 
-            var edited = (SplineEasing)holder.Curve.CurrentValue;
+            var edited = (SplineEasing)holder.Curve.Value;
             Assert.Multiple(() =>
             {
                 Assert.That(edited.X1, Is.EqualTo(0.5).Within(0.01));
@@ -192,12 +192,12 @@ public sealed class EasingEditorTests
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
+                Assert.That(holder.Curve.Value, Is.SameAs(original));
                 Assert.That(curve.Easing, Is.SameAs(original));
                 Assert.That(original.X1, Is.EqualTo(0.25f));
             });
             Assert.That(scope.History.Redo(), Is.True);
-            Assert.That(holder.Curve.CurrentValue, Is.SameAs(edited));
+            Assert.That(holder.Curve.Value, Is.SameAs(edited));
         }
         finally
         {
@@ -209,7 +209,7 @@ public sealed class EasingEditorTests
     public void Rejected_drag_steps_keep_showing_the_property_value()
     {
         var holder = new EasingHolder();
-        Easing original = holder.Bounded.CurrentValue;
+        Easing original = holder.Bounded.Value;
         using var scope = new CurveEditorScope(holder, holder.Bounded, height: 400);
         EasingEditor editor = scope.Editor;
         Window window = scope.Window;
@@ -226,7 +226,7 @@ public sealed class EasingEditorTests
             window.MouseMove(ToWindow(window, curve, 0.25, 1.4));
             Assert.Multiple(() =>
             {
-                Assert.That(holder.Bounded.CurrentValue, Is.SameAs(original));
+                Assert.That(holder.Bounded.Value, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
                 Assert.That(curve.Easing, Is.SameAs(original));
             });
@@ -237,8 +237,8 @@ public sealed class EasingEditorTests
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
-                Assert.That(((SplineEasing)holder.Bounded.CurrentValue).Y1, Is.EqualTo(0.6).Within(0.01));
-                Assert.That(curve.Easing, Is.SameAs(holder.Bounded.CurrentValue));
+                Assert.That(((SplineEasing)holder.Bounded.Value).Y1, Is.EqualTo(0.6).Within(0.01));
+                Assert.That(curve.Easing, Is.SameAs(holder.Bounded.Value));
                 Assert.That(scope.History.UndoCount, Is.EqualTo(1));
             });
         }
@@ -341,7 +341,7 @@ public sealed class EasingEditorTests
     {
         var holder = new EasingHolder();
         var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
-        holder.Curve.CurrentValue = original;
+        holder.Curve.Value = original;
         using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
         EasingEditor editor = scope.Editor;
         Window window = scope.Window;
@@ -355,14 +355,14 @@ public sealed class EasingEditorTests
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
             window.MouseMove(ToWindow(window, curve, 0.6, 0.6));
-            Assert.That(holder.Curve.CurrentValue, Is.Not.SameAs(original));
+            Assert.That(holder.Curve.Value, Is.Not.SameAs(original));
             window.MouseMove(press);
             window.MouseUp(press, MouseButton.Left);
             HeadlessTestHelpers.Settle();
 
             Assert.Multiple(() =>
             {
-                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
+                Assert.That(holder.Curve.Value, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
                 Assert.That(scope.History.UndoCount, Is.Zero);
                 Assert.That(scope.History.HasPendingOperations, Is.False);
@@ -383,7 +383,7 @@ public sealed class EasingEditorTests
     {
         var holder = new EasingHolder();
         var original = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
-        holder.Curve.CurrentValue = original;
+        holder.Curve.Value = original;
         using var scope = new CurveEditorScope(holder, holder.Curve, height: 400);
         EasingEditor editor = scope.Editor;
         Window window = scope.Window;
@@ -394,10 +394,10 @@ public sealed class EasingEditorTests
             Point press = ToWindow(window, curve, 0.25, 0.1);
             TimelineTestHost.WaitForHitTest(window, curve, press);
             // Another feature's edit that has not been committed yet, like a timeline nudge.
-            Easing previous = holder.Spline.CurrentValue;
-            holder.Spline.CurrentValue = new SplineEasing(0.5f, 0.5f, 0.5f, 0.5f);
+            Easing previous = holder.Spline.Value;
+            holder.Spline.Value = new SplineEasing(0.5f, 0.5f, 0.5f, 0.5f);
             Assert.That(scope.History.HasPendingOperations, Is.True);
-            Easing nudged = holder.Spline.CurrentValue;
+            Easing nudged = holder.Spline.Value;
 
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
@@ -408,10 +408,10 @@ public sealed class EasingEditorTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(holder.Spline.CurrentValue, Is.SameAs(nudged), "The other edit must survive.");
+                Assert.That(holder.Spline.Value, Is.SameAs(nudged), "The other edit must survive.");
                 Assert.That(scope.History.HasPendingOperations, Is.True, "The drag must not commit the other edit early.");
                 Assert.That(scope.History.UndoCount, Is.Zero);
-                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
+                Assert.That(holder.Curve.Value, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
             });
 
@@ -420,8 +420,8 @@ public sealed class EasingEditorTests
             Assert.That(scope.History.Undo(), Is.True);
             Assert.Multiple(() =>
             {
-                Assert.That(holder.Spline.CurrentValue, Is.SameAs(previous));
-                Assert.That(holder.Curve.CurrentValue, Is.SameAs(original));
+                Assert.That(holder.Spline.Value, Is.SameAs(previous));
+                Assert.That(holder.Curve.Value, Is.SameAs(original));
             });
         }
         finally
@@ -434,7 +434,7 @@ public sealed class EasingEditorTests
     public void A_rejected_easing_choice_keeps_showing_the_property_value()
     {
         var holder = new EasingHolder();
-        Easing original = holder.Bounded.CurrentValue;
+        Easing original = holder.Bounded.Value;
         using var scope = new CurveEditorScope(holder, holder.Bounded, height: 320);
         EasingEditor editor = scope.Editor;
         Window window = scope.Window;
@@ -449,7 +449,7 @@ public sealed class EasingEditorTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(holder.Bounded.CurrentValue, Is.SameAs(original));
+                Assert.That(holder.Bounded.Value, Is.SameAs(original));
                 Assert.That(editor.Value, Is.SameAs(original));
                 Assert.That(SelectedType(comboBox), Is.EqualTo(typeof(SplineEasing)));
             });
@@ -719,13 +719,13 @@ public sealed class EasingEditorTests
     {
         public EasingHolder() => ScanProperties<EasingHolder>();
 
-        public IExpressionProperty<Easing> Curve { get; } = Property.Create<Easing>(new LinearEasing());
+        public IExpressionProperty<Easing> Curve { get; } = Property.CreateExpression<Easing>(new LinearEasing());
 
-        public IExpressionProperty<SplineEasing> Spline { get; } = Property.Create(new SplineEasing());
+        public IExpressionProperty<SplineEasing> Spline { get; } = Property.CreateExpression(new SplineEasing());
 
         // ScanProperties builds the validator from the property's attributes.
         [NoOvershoot]
-        public IExpressionProperty<Easing> Bounded { get; } = Property.Create<Easing>(new SplineEasing(0.25f, 0.1f, 0.25f, 1f));
+        public IExpressionProperty<Easing> Bounded { get; } = Property.CreateExpression<Easing>(new SplineEasing(0.25f, 0.1f, 0.25f, 1f));
     }
 
     public sealed class NoOvershootAttribute : ValidationAttribute

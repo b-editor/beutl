@@ -127,11 +127,11 @@ public sealed class GateNode : DynamicsNode
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(Threshold.CurrentValue, Threshold.DefaultValue, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Attack = Sanitize(Attack.CurrentValue, Attack.DefaultValue, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Hold = Sanitize(Hold.CurrentValue, Hold.DefaultValue, DefaultHoldMs, MinHoldMs, MaxHoldMs, nameof(Hold)),
-            Release = Sanitize(Release.CurrentValue, Release.DefaultValue, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Range = Sanitize(Range.CurrentValue, Range.DefaultValue, DefaultRangeDb, MinRangeDb, MaxRangeDb, nameof(Range)),
+            Threshold = Sanitize(Threshold.Value, Threshold.DefaultValue, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Attack = Sanitize(Attack.Value, Attack.DefaultValue, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Hold = Sanitize(Hold.Value, Hold.DefaultValue, DefaultHoldMs, MinHoldMs, MaxHoldMs, nameof(Hold)),
+            Release = Sanitize(Release.Value, Release.DefaultValue, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Range = Sanitize(Range.Value, Range.DefaultValue, DefaultRangeDb, MinRangeDb, MaxRangeDb, nameof(Range)),
         };
     }
 

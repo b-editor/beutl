@@ -21,9 +21,9 @@ public sealed class DegradedPreviewCachePurityTests
     public void ARequestOnADeliveryCanvas_FailsRatherThanDroppingContent()
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = (float)s_bounds.Width;
-        shape.Height.CurrentValue = (float)s_bounds.Height;
-        shape.Fill.CurrentValue = CreateDrawableBrush();
+        shape.Width.Value = (float)s_bounds.Width;
+        shape.Height.Value = (float)s_bounds.Height;
+        shape.Fill.Value = CreateDrawableBrush();
         using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_bounds.Size))
@@ -54,9 +54,9 @@ public sealed class DegradedPreviewCachePurityTests
     public void APreviewWhoseBrushDroppedItsIntermediate_PublishesNothingToTheNodeCache()
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = (float)s_bounds.Width;
-        shape.Height.CurrentValue = (float)s_bounds.Height;
-        shape.Fill.CurrentValue = CreateDrawableBrush();
+        shape.Width.Value = (float)s_bounds.Width;
+        shape.Height.Value = (float)s_bounds.Height;
+        shape.Fill.Value = CreateDrawableBrush();
         using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_bounds.Size))
@@ -87,9 +87,9 @@ public sealed class DegradedPreviewCachePurityTests
     public void APreviewThatDroppedAnAllocation_CommitsNoBackdropSnapshot()
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = (float)s_bounds.Width;
-        shape.Height.CurrentValue = (float)s_bounds.Height;
-        shape.Fill.CurrentValue = CreateDrawableBrush();
+        shape.Width.Value = (float)s_bounds.Width;
+        shape.Height.Value = (float)s_bounds.Height;
+        shape.Fill.Value = CreateDrawableBrush();
         using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
         using var brushRoot = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(brushRoot, s_bounds.Size))
@@ -172,9 +172,9 @@ public sealed class DegradedPreviewCachePurityTests
     private static BackdropSinkProbeNode RenderTileBrushFrame(IRenderTargetFactory factory)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = 16;
-        shape.Height.CurrentValue = 12;
-        shape.Fill.CurrentValue = CreateTileBrush();
+        shape.Width.Value = 16;
+        shape.Height.Value = 12;
+        shape.Fill.Value = CreateTileBrush();
         using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
         using var brushRoot = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(brushRoot, s_bounds.Size))
@@ -198,9 +198,9 @@ public sealed class DegradedPreviewCachePurityTests
         var source = new ImageSource();
         source.ReadFrom(TestMediaHelper.CreateTestImageUri(4, 4));
         var brush = new ImageBrush(source);
-        brush.Stretch.CurrentValue = Stretch.Fill;
-        brush.TileMode.CurrentValue = TileMode.None;
-        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        brush.Stretch.Value = Stretch.Fill;
+        brush.TileMode.Value = TileMode.None;
+        brush.DestinationRect.Value = RelativeRect.Fill;
         return brush;
     }
 
@@ -254,9 +254,9 @@ public sealed class DegradedPreviewCachePurityTests
     private static RenderNode CreateBrushRoot(out Drawable.Resource resource)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = (float)s_bounds.Width;
-        shape.Height.CurrentValue = (float)s_bounds.Height;
-        shape.Fill.CurrentValue = CreateDrawableBrush();
+        shape.Width.Value = (float)s_bounds.Width;
+        shape.Height.Value = (float)s_bounds.Height;
+        shape.Fill.Value = CreateDrawableBrush();
         resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
         var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_bounds.Size))
@@ -292,11 +292,11 @@ public sealed class DegradedPreviewCachePurityTests
     private static Brush CreateDrawableBrush()
     {
         var content = new EllipseShape();
-        content.Width.CurrentValue = 12;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = 12;
+        content.Height.Value = 12;
+        content.Fill.Value = Brushes.White;
         var brush = new DrawableBrush(content);
-        brush.Stretch.CurrentValue = Stretch.Fill;
+        brush.Stretch.Value = Stretch.Fill;
         return brush;
     }
 

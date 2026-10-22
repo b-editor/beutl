@@ -24,7 +24,7 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
 
     [Display(Name = nameof(GraphicsStrings.Script), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
-    public IExpressionProperty<string> Script { get; } = Property.Create(GetDefaultScript());
+    public IExpressionProperty<string> Script { get; } = Property.CreateExpression(GetDefaultScript());
 
     private static string GetDefaultScript()
     {

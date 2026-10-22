@@ -17,9 +17,9 @@ public sealed class DetachedMeshResourceTests
         using var detached = new CubeMesh.Resource { Width = 2, Height = 3, Depth = 4 };
         using Mesh.Resource attached = new CubeMesh
         {
-            Width = { CurrentValue = 2 },
-            Height = { CurrentValue = 3 },
-            Depth = { CurrentValue = 4 },
+            Width = { Value = 2 },
+            Height = { Value = 3 },
+            Depth = { Value = 4 },
         }.ToResource(CompositionContext.Default);
 
         using (Assert.EnterMultipleScope())

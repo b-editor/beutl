@@ -14,7 +14,7 @@ internal sealed partial class PathEditorInteraction
 {
     private void PressPen(PointerPressedEventArgs e, PathFigure figure, Thumb? thumb, Point point)
     {
-        BtlPoint explicitStart = figure.StartPoint.GetValue(Composition);
+        BtlPoint explicitStart = figure.StartPoint.Evaluate(Composition);
         if (_penEnd != null && figure.Segments.Count > 0 && !explicitStart.IsInvalid
             && !PathPointDragBehavior.IsClosed(Context!, figure)
             && ((Vector)(point - Screen(explicitStart))).SquaredLength <= HitRadius * HitRadius)
@@ -62,11 +62,11 @@ internal sealed partial class PathEditorInteraction
             // closing edge must be appended, never written over segment 0.
             if (_outgoing is { } outgoing)
             {
-                BtlPoint last = figure.Segments[^1].GetEndPoint().GetValue(Composition);
+                BtlPoint last = figure.Segments[^1].GetEndPoint().Evaluate(Composition);
                 figure.Segments.Add(PathEditingOperations.Cubic(outgoing,
                     PathEditingOperations.Lerp(last, explicitStart, 2f / 3), explicitStart));
             }
-            figure.IsClosed.CurrentValue = true;
+            figure.IsClosed.Value = true;
         });
         Tool = PathEditorTool.Move;
     }
@@ -80,18 +80,18 @@ internal sealed partial class PathEditorInteraction
             {
                 // The first segment is the closing edge for implicit-start
                 // figures. Keep its identity and any untouched handle data.
-                if (_outgoing is { } outgoing) closing.ControlPoint1.CurrentValue = outgoing;
-                if (_firstIncoming is { } incoming) closing.ControlPoint2.CurrentValue = incoming;
+                if (_outgoing is { } outgoing) closing.ControlPoint1.Value = outgoing;
+                if (_firstIncoming is { } incoming) closing.ControlPoint2.Value = incoming;
             }
             else if (figure.Segments[0] is LineSegment && (_firstIncoming != null || _outgoing != null))
             {
-                BtlPoint last = figure.Segments[^1].GetEndPoint().GetValue(Composition);
-                BtlPoint first = endpoint.GetEndPoint().GetValue(Composition);
+                BtlPoint last = figure.Segments[^1].GetEndPoint().Evaluate(Composition);
+                BtlPoint first = endpoint.GetEndPoint().Evaluate(Composition);
                 figure.Segments[0] = PathEditingOperations.Cubic(
                     _outgoing ?? PathEditingOperations.Lerp(last, first, 1f / 3),
                     _firstIncoming ?? PathEditingOperations.Lerp(last, first, 2f / 3), first);
             }
-            figure.IsClosed.CurrentValue = true;
+            figure.IsClosed.Value = true;
         });
         Tool = PathEditorTool.Move;
     }
@@ -105,7 +105,7 @@ internal sealed partial class PathEditorInteraction
         if (!PathEditingOperations.IsStatic(startProperty)) return;
         _penPoint = local;
         if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && figure.Segments.Count > 0)
-            _penPoint = PathEditingOperations.SnapAngle(figure.Segments[^1].GetEndPoint().GetValue(Composition), local);
+            _penPoint = PathEditingOperations.SnapAngle(figure.Segments[^1].GetEndPoint().Evaluate(Composition), local);
         _penSegment = null;
         _start = point;
         BeginGestureEntry();
@@ -119,7 +119,7 @@ internal sealed partial class PathEditorInteraction
         else
         {
             BtlPoint previous = figure.Segments.Count == 0
-                ? explicitStart : figure.Segments[^1].GetEndPoint().GetValue(Composition);
+                ? explicitStart : figure.Segments[^1].GetEndPoint().Evaluate(Composition);
             _penSegment = PathEditingOperations.Cubic(_outgoing ?? PathEditingOperations.Lerp(previous, _penPoint, 1f / 3),
                 PathEditingOperations.Lerp(previous, _penPoint, 2f / 3), _penPoint);
             _penEnd = _penSegment;

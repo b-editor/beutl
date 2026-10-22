@@ -58,7 +58,7 @@ public class FiniteSourceEndTests
     public void Limiter_IncludesItsHeldSamplesAndDelayKeepsItsEchoTailUnbounded()
     {
         var effect = new LimiterEffect();
-        effect.Lookahead.CurrentValue = 10;
+        effect.Lookahead.Value = 10;
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new FiniteSource(1));
         AudioNode limited = effect.CreateNode(context, source);
@@ -126,7 +126,7 @@ public class FiniteSourceEndTests
     public void TrimmedClip_FiniteEndIncludesHeldLatency()
     {
         var limiterEffect = new LimiterEffect();
-        limiterEffect.Lookahead.CurrentValue = 10;
+        limiterEffect.Lookahead.Value = 10;
         using var context = new AudioContext(SampleRate, 2);
         var source = context.AddNode(new FiniteSource(2));
         AudioNode limiter = limiterEffect.CreateNode(context, source);

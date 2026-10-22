@@ -38,7 +38,7 @@ public class FilterEffectRenderNodeTest
     [Test]
     public void Measure_ShouldApplyFilterEffectBounds()
     {
-        var effect = new Blur() { Sigma = { CurrentValue = new(10, 10) } };
+        var effect = new Blur() { Sigma = { Value = new(10, 10) } };
         var resource = effect.ToResource(CompositionContext.Default);
         using var node = CreateNode(resource);
         using var renderer = CreateRenderer(node);
@@ -90,7 +90,7 @@ public class FilterEffectRenderNodeTest
         var effect = new Blur();
         var resource = effect.ToResource(CompositionContext.Default);
         var node = new FilterEffectRenderNode(resource);
-        effect.Sigma.CurrentValue = new(10, 10);
+        effect.Sigma.Value = new(10, 10);
         var versionBumped = false;
         resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
 

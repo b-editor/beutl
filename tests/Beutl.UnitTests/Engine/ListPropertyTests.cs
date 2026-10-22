@@ -21,7 +21,7 @@ public class ListPropertyTests
         var property = Make<int>();
 
         Assert.That(property, Is.Not.InstanceOf<IExpressionProperty>());
-        Assert.That(property.HasLocalValue, Is.True);
+        Assert.That(property.IsValueSet, Is.True);
         Assert.That(property.HasValidator, Is.False);
         Assert.That(property.GetValidator(), Is.Null);
         Assert.That(property.ElementType, Is.EqualTo(typeof(int)));
@@ -59,23 +59,23 @@ public class ListPropertyTests
     public void Replace_KeepsSameInstance()
     {
         var property = Make<int>();
-        var originalRef = property.CurrentValue;
+        var originalRef = property.Value;
         property.AddRange([1, 2, 3]);
 
         property.Replace([10, 20]);
 
-        Assert.That(property.CurrentValue, Is.SameAs(originalRef));
+        Assert.That(property.Value, Is.SameAs(originalRef));
         Assert.That(property, Is.EqualTo(new[] { 10, 20 }));
     }
 
     [Test]
-    public void ReplaceCurrentValue_ThroughBaseContract_ReplacesContents()
+    public void SetValueEvenIfEqual_ThroughBaseContract_ReplacesContents()
     {
         var property = Make<int>();
         property.AddRange([1, 2, 3]);
         IProperty baseProperty = property;
 
-        baseProperty.ReplaceCurrentValue(new CoreList<int>([4, 5]));
+        baseProperty.SetValueEvenIfEqual(new CoreList<int>([4, 5]));
 
         Assert.That(property, Is.EqualTo(new[] { 4, 5 }));
     }
@@ -119,7 +119,7 @@ public class ListPropertyTests
 
         var value = CompositionContext.Default.Get(property);
 
-        Assert.That(value, Is.SameAs(property.CurrentValue));
+        Assert.That(value, Is.SameAs(property.Value));
     }
 
     [Test]

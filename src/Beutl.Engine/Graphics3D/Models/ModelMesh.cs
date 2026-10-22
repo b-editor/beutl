@@ -39,10 +39,10 @@ public sealed partial class ModelMesh : Mesh
     }
 
     [Display(Name = nameof(GraphicsStrings.ModelMesh_Vertices), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<ImmutableArray<Vertex3D>> Vertices { get; } = Property.Create<ImmutableArray<Vertex3D>>([]);
+    public IExpressionProperty<ImmutableArray<Vertex3D>> Vertices { get; } = Property.CreateExpression<ImmutableArray<Vertex3D>>([]);
 
     [Display(Name = nameof(GraphicsStrings.ModelMesh_Indices), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<ImmutableArray<uint>> Indices { get; } = Property.Create<ImmutableArray<uint>>([]);
+    public IExpressionProperty<ImmutableArray<uint>> Indices { get; } = Property.CreateExpression<ImmutableArray<uint>>([]);
 
     public partial class Resource
     {

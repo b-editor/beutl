@@ -17,7 +17,7 @@ public sealed class CurvePresenterViewModel : IDisposable
         _property = property;
         _history = history;
 
-        Points = new ObservableCollection<CurveControlPoint>(_property.CurrentValue.Points);
+        Points = new ObservableCollection<CurveControlPoint>(_property.Value.Points);
         Points.CollectionChanged += OnCollectionChanged;
         _property.ValueChanged += OnPropertyChanged;
     }
@@ -43,7 +43,7 @@ public sealed class CurvePresenterViewModel : IDisposable
             var map = new CurveMap(Points);
             using (Drag?.Enter())
             {
-                _property.CurrentValue = map;
+                _property.Value = map;
             }
         }
         finally
@@ -61,7 +61,7 @@ public sealed class CurvePresenterViewModel : IDisposable
         try
         {
             Points.Clear();
-            foreach (var point in _property.CurrentValue.Points)
+            foreach (var point in _property.Value.Points)
             {
                 Points.Add(point);
             }

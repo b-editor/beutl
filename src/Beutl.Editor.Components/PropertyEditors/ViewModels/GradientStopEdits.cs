@@ -46,8 +46,8 @@ internal static class GradientStopEdits
         if (!Contains(list, oldIndex) || !Contains(list, newIndex)) return;
 
         GradientStop obj = list[oldIndex];
-        obj.Offset.CurrentValue = (float)stop.Offset;
-        obj.Color.CurrentValue = stop.Color.ToBtlColor();
+        obj.Offset.Value = (float)stop.Offset;
+        obj.Color.Value = stop.Color.ToBtlColor();
         if (newIndex != oldIndex)
             list.Move(oldIndex, newIndex);
 

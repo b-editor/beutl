@@ -131,12 +131,12 @@ public class PreviewFrameOrderIndependenceTests
             using var media = new SceneMedia(preferProxy: false, withEffect: false);
 
             var shape = new RectShape();
-            shape.Width.CurrentValue = SquareWidth;
-            shape.Height.CurrentValue = SquareHeight;
-            shape.Fill.CurrentValue = new SolidColorBrush(Colors.White);
+            shape.Width.Value = SquareWidth;
+            shape.Height.Value = SquareHeight;
+            shape.Fill.Value = new SolidColorBrush(Colors.White);
 
             var glass = new SourceBackdrop();
-            glass.Clear.CurrentValue = true;
+            glass.Clear.Value = true;
 
             var group = new DrawableGroup();
             group.Children.Add(shape);
@@ -213,9 +213,9 @@ public class PreviewFrameOrderIndependenceTests
             };
 
             var backdrop = new RectShape();
-            backdrop.Width.CurrentValue = 160;
-            backdrop.Height.CurrentValue = 120;
-            backdrop.Fill.CurrentValue = new SolidColorBrush(Colors.DarkSlateBlue);
+            backdrop.Width.Value = 160;
+            backdrop.Height.Value = 120;
+            backdrop.Fill.Value = new SolidColorBrush(Colors.DarkSlateBlue);
             scene.Children.Add(NewElement(backdrop, TimeSpan.Zero, TimeSpan.FromSeconds(4), zIndex: 0));
 
             scene.Children.Add(NewElement(
@@ -226,11 +226,11 @@ public class PreviewFrameOrderIndependenceTests
                 for (int i = 0; i < 2; i++)
                 {
                     var glass = new SourceBackdrop();
-                    glass.Opacity.CurrentValue = 70f;
-                    glass.Clear.CurrentValue = i == 0;
+                    glass.Opacity.Value = 70f;
+                    glass.Clear.Value = i == 0;
                     if (i == 1)
                     {
-                        glass.FilterEffect.CurrentValue = new MosaicEffect();
+                        glass.FilterEffect.Value = new MosaicEffect();
                     }
 
                     scene.Children.Add(NewElement(
@@ -246,7 +246,7 @@ public class PreviewFrameOrderIndependenceTests
             }
 
             var overlay = NewClip(new PixelSize(80, 60));
-            overlay.Opacity.CurrentValue = 60f;
+            overlay.Opacity.Value = 60f;
             scene.Children.Add(NewElement(
                 overlay, TimeSpan.FromSeconds(5d / Rate), TimeSpan.FromSeconds(6d / Rate), zIndex: 2));
 
@@ -265,10 +265,10 @@ public class PreviewFrameOrderIndependenceTests
             var media = new VideoSource();
             media.ReadFrom(new Uri(originalPath));
             var drawable = new SourceVideo();
-            drawable.Source.CurrentValue = media;
+            drawable.Source.Value = media;
             if (_withEffect)
             {
-                drawable.FilterEffect.CurrentValue = new MosaicEffect();
+                drawable.FilterEffect.Value = new MosaicEffect();
             }
 
             return drawable;

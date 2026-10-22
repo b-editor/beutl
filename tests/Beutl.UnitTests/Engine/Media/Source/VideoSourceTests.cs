@@ -135,7 +135,7 @@ public class VideoSourceTests
     public void SceneWithAudioOnlyVideoClip_ComposesWithoutReopeningTheReader(bool disableResourceShare)
     {
         var video = new SourceVideo();
-        video.Source.CurrentValue = CreateSource();
+        video.Source.Value = CreateSource();
         var element = new Element
         {
             Start = TimeSpan.Zero,

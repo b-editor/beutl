@@ -68,10 +68,10 @@ public class SceneDrawableBoundsTests
     {
         var rect = new RectShape
         {
-            Width = { CurrentValue = size },
-            Height = { CurrentValue = size },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
+            Width = { Value = size },
+            Height = { Value = size },
+            AlignmentX = { Value = AlignmentX.Left },
+            AlignmentY = { Value = AlignmentY.Top },
         };
         SceneDrawableTestHelpers.AddElement(scene, basePath, rect);
     }
@@ -79,7 +79,7 @@ public class SceneDrawableBoundsTests
     private static RenderNodeMeasurement MeasureNestedScene(Scene inner)
     {
         var drawable = new SceneDrawable();
-        drawable.ReferencedScene.CurrentValue = inner;
+        drawable.ReferencedScene.Value = inner;
 
         using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
         using var root = new DrawableRenderNode(resource);

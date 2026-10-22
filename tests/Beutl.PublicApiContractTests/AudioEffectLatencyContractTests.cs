@@ -17,7 +17,7 @@ public sealed class AudioEffectLatencyContractTests
         var nested = new AudioEffectGroup();
         nested.Children.Add(mapping);
         var limiter = new LimiterEffect();
-        limiter.Lookahead.CurrentValue = 10f;
+        limiter.Lookahead.Value = 10f;
         var group = new AudioEffectGroup();
         group.Children.Add(mappingFirst ? nested : limiter);
         group.Children.Add(mappingFirst ? limiter : nested);

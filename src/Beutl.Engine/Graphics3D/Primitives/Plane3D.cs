@@ -52,10 +52,10 @@ public sealed partial class Plane3D : Object3D
 
         partial void PostReconcile(Plane3D obj, CompositionContext context)
         {
-            _mesh.Width.CurrentValue = Math.Max(Width, 0.001f);
-            _mesh.Height.CurrentValue = Math.Max(Height, 0.001f);
-            _mesh.WidthSegments.CurrentValue = Math.Max(WidthSegments, 1);
-            _mesh.HeightSegments.CurrentValue = Math.Max(HeightSegments, 1);
+            _mesh.Width.Value = Math.Max(Width, 0.001f);
+            _mesh.Height.Value = Math.Max(Height, 0.001f);
+            _mesh.WidthSegments.Value = Math.Max(WidthSegments, 1);
+            _mesh.HeightSegments.Value = Math.Max(HeightSegments, 1);
 
             bool changed = false;
             ResourceReconciler.ReconcileResource(

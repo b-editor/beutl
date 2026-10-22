@@ -22,7 +22,7 @@ public sealed class SKSLScriptEffectShaderTests
         {
             Script =
             {
-                CurrentValue =
+                Value =
                     """
                     uniform shader src;
                     uniform float progress;
@@ -69,7 +69,7 @@ public sealed class SKSLScriptEffectShaderTests
         {
             Script =
             {
-                CurrentValue =
+                Value =
                     """
                     half4 apply(half4 color) {
                         return half4(color.rgb * 0.5, color.a);
@@ -80,7 +80,7 @@ public sealed class SKSLScriptEffectShaderTests
 
         using CompiledRenderRequest compiled = Compile(
             script,
-            new Invert { Amount = { CurrentValue = 25f } });
+            new Invert { Amount = { Value = 25f } });
 
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
         Assert.Multiple(() =>
@@ -125,7 +125,7 @@ public sealed class SKSLScriptEffectShaderTests
     {
         var effect = new SKSLScriptEffect
         {
-            Script = { CurrentValue = script },
+            Script = { Value = script },
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
@@ -147,7 +147,7 @@ public sealed class SKSLScriptEffectShaderTests
         {
             Script =
             {
-                CurrentValue =
+                Value =
                     """
                     uniform shader src;
                     uniform float width;
@@ -204,7 +204,7 @@ public sealed class SKSLScriptEffectShaderTests
             TimeRange = TimeRange.FromSeconds(8),
             Script =
             {
-                CurrentValue =
+                Value =
                     """
                     uniform shader src;
                     uniform float progress;
@@ -291,7 +291,7 @@ public sealed class SKSLScriptEffectShaderTests
         {
             Script =
             {
-                CurrentValue =
+                Value =
                     """
                     half4 main(float2 fragCoord) {
                         return half4(1.0, 0.0, 0.0, 1.0);

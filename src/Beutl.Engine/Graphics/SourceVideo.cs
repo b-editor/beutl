@@ -18,7 +18,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     }
 
     [Display(Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
+    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.CreateExpression<TimeSpan>();
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
@@ -32,16 +32,16 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
 
     public bool HasOriginalDuration()
     {
-        return Source.CurrentValue != null;
+        return Source.Value != null;
     }
 
     public bool TryGetOriginalDuration(out TimeSpan timeSpan)
     {
         using var resource = ToResource(CompositionContext.Default);
         var ts = CalculateOriginalTime((Resource)resource);
-        if (ts.HasValue && ts.Value - OffsetPosition.CurrentValue > TimeSpan.Zero)
+        if (ts.HasValue && ts.Value - OffsetPosition.Value > TimeSpan.Zero)
         {
-            timeSpan = ts.Value - OffsetPosition.CurrentValue;
+            timeSpan = ts.Value - OffsetPosition.Value;
             return true;
         }
         else
@@ -55,7 +55,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
     {
         if (backward)
         {
-            OffsetPosition.CurrentValue += startDelta;
+            OffsetPosition.Value += startDelta;
         }
     }
 
@@ -73,7 +73,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         // スピードのアニメーションまたはキーフレームが 1 つもない場合は、単純に逆変換する
         if (anm is not KeyFrameAnimation<float> keyFrameAnimation || keyFrameAnimation.KeyFrames.Count == 0)
         {
-            return TimeSpan.FromTicks((long)(duration.Ticks / (Speed.CurrentValue / 100.0)));
+            return TimeSpan.FromTicks((long)(duration.Ticks / (Speed.Value / 100.0)));
         }
 
         // 二分探索で、CalculateVideoTime(t) == duration となる t を求める

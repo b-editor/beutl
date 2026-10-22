@@ -531,7 +531,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     {
         FilterEffect.Resource prefixResource = new Blur
         {
-            Sigma = { CurrentValue = new Size(3, 3) },
+            Sigma = { Value = new Size(3, 3) },
         }.ToResource(CompositionContext.Default);
         sceneResources.Add(prefixResource);
         FilterEffectRenderNode prefix = prefixResource.CreateRenderNode();
@@ -574,7 +574,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     {
         var group = new FilterEffectGroup();
         for (int index = 0; index < scene.SemanticStageCount; index++)
-            group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(2 + index, 2 + index) } });
+            group.Children.Add(new Blur { Sigma = { Value = new Size(2 + index, 2 + index) } });
 
         FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
         sceneResources.Add(resource);
@@ -591,7 +591,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
         RenderNode current = CreateSource(scene, s_targetDomain);
         for (int index = 0; index < scene.SemanticStageCount; index++)
         {
-            var blur = new Blur { Sigma = { CurrentValue = new Size(2 + index, 2 + index) } };
+            var blur = new Blur { Sigma = { Value = new Size(2 + index, 2 + index) } };
             FilterEffect.Resource resource = blur.ToResource(CompositionContext.Default);
             sceneResources.Add(resource);
             FilterEffectRenderNode node = resource.CreateRenderNode();
@@ -619,10 +619,10 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     {
         var group = new FilterEffectGroup();
         if (mixed)
-            group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(3, 3) } });
+            group.Children.Add(new Blur { Sigma = { Value = new Size(3, 3) } });
         group.Children.Add(new LayerEffect());
         if (mixed)
-            group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(4, 4) } });
+            group.Children.Add(new Blur { Sigma = { Value = new Size(4, 4) } });
         return group;
     }
 
@@ -632,7 +632,7 @@ internal sealed class RenderPipelineBenchmarkSession : IDisposable
     private static Blur CreateMixedSpatialEffect()
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(3, 3);
+        blur.Sigma.Value = new Size(3, 3);
         return blur;
     }
 
@@ -911,7 +911,7 @@ internal sealed class BenchmarkAnimatedBlurNode(
             return;
 
         _sigma = sigma;
-        effect.Sigma.CurrentValue = new Size(sigma, sigma);
+        effect.Sigma.Value = new Size(sigma, sigma);
         bool versionBumped = false;
         resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
         if (!node.Update(resource))

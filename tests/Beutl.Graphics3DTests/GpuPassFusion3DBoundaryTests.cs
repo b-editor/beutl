@@ -33,13 +33,13 @@ public sealed class GpuPassFusion3DBoundaryTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             var drawable = new RectShape();
-            drawable.Width.CurrentValue = 11;
-            drawable.Height.CurrentValue = 7;
-            drawable.Fill.CurrentValue = Brushes.Red;
+            drawable.Width.Value = 11;
+            drawable.Height.Value = 7;
+            drawable.Fill.Value = Brushes.Red;
             var texture = new DrawableTextureSource();
-            texture.Drawable.CurrentValue = drawable;
-            texture.TextureWidth.CurrentValue = 11;
-            texture.TextureHeight.CurrentValue = 7;
+            texture.Drawable.Value = drawable;
+            texture.TextureWidth.Value = 11;
+            texture.TextureHeight.Value = 7;
             using var resource = CreateSceneResource(CreateMaterial(MaterialTextureDependency.BasicDiffuseMap, texture));
             using var root = new TransformRenderNode(Matrix.CreateScale(scale, scale), TransformOperator.Prepend);
             var sceneNode = new Scene3DRenderNode(resource);
@@ -73,9 +73,9 @@ public sealed class GpuPassFusion3DBoundaryTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             var scene = new Scene3D();
-            scene.RenderWidth.CurrentValue = 32;
-            scene.RenderHeight.CurrentValue = 24;
-            scene.BackgroundColor.CurrentValue = new Color(255, 32, 64, 96);
+            scene.RenderWidth.Value = 32;
+            scene.RenderHeight.Value = 24;
+            scene.BackgroundColor.Value = new Color(255, 32, 64, 96);
             using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
             using var sceneNode = new Scene3DRenderNode(resource);
             using var root = new DownstreamShaderNode(sceneNode);
@@ -118,7 +118,7 @@ public sealed class GpuPassFusion3DBoundaryTests
             using RenderNodeRasterization rasterization = renderer.Rasterize();
             Bitmap bitmap = rasterization.Bitmap
                 ?? throw new AssertionException("The 3D-to-2D hand-off must publish a bitmap.");
-            Vector4 expectedBackground = scene.BackgroundColor.CurrentValue.ToLinearPremultiplied();
+            Vector4 expectedBackground = scene.BackgroundColor.Value.ToLinearPremultiplied();
             Vector4 actualCenter = ReadLinearPixel(bitmap, 16, 12);
 
             Assert.Multiple(() =>
@@ -159,8 +159,8 @@ public sealed class GpuPassFusion3DBoundaryTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             var scene = new Scene3D();
-            scene.RenderWidth.CurrentValue = 32;
-            scene.RenderHeight.CurrentValue = 24;
+            scene.RenderWidth.Value = 32;
+            scene.RenderHeight.Value = 24;
             using var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
             using var sceneNode = new Scene3DRenderNode(resource);
             Renderer3D? firstRenderer;
@@ -212,13 +212,13 @@ public sealed class GpuPassFusion3DBoundaryTests
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             var drawable = new RectShape();
-            drawable.Width.CurrentValue = 12;
-            drawable.Height.CurrentValue = 8;
-            drawable.Fill.CurrentValue = new SolidColorBrush(new Color(255, 192, 0, 0));
+            drawable.Width.Value = 12;
+            drawable.Height.Value = 8;
+            drawable.Fill.Value = new SolidColorBrush(new Color(255, 192, 0, 0));
             var texture = new DrawableTextureSource();
-            texture.Drawable.CurrentValue = drawable;
-            texture.TextureWidth.CurrentValue = 12;
-            texture.TextureHeight.CurrentValue = 8;
+            texture.Drawable.Value = drawable;
+            texture.TextureWidth.Value = 12;
+            texture.TextureHeight.Value = 8;
             Material3D material = CreateMaterial(dependency, texture);
             using var resource = CreateSceneResource(material);
             using var sceneNode = new Scene3DRenderNode(resource);
@@ -264,20 +264,20 @@ public sealed class GpuPassFusion3DBoundaryTests
     private static Scene3D.Resource CreateSceneResource(Material3D material)
     {
         var cube = new Cube3D();
-        cube.Material.CurrentValue = material;
+        cube.Material.Value = material;
         var light = new DirectionalLight3D();
-        light.Direction.CurrentValue = new Vector3(0, 0, 1);
-        light.Intensity.CurrentValue = 1;
+        light.Direction.Value = new Vector3(0, 0, 1);
+        light.Intensity.Value = 1;
         light.IsEnabled = true;
 
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 48;
-        scene.RenderHeight.CurrentValue = 36;
-        scene.BackgroundColor.CurrentValue = Colors.Black;
-        scene.AmbientColor.CurrentValue = Colors.White;
+        scene.RenderWidth.Value = 48;
+        scene.RenderHeight.Value = 36;
+        scene.BackgroundColor.Value = Colors.Black;
+        scene.AmbientColor.Value = Colors.White;
         // Full white ambient saturates the clamped output, hiding every additive/specular
         // contribution and zeroing the emissive/normal/metallic-roughness RGB differences.
-        scene.AmbientIntensity.CurrentValue = 0.2f;
+        scene.AmbientIntensity.Value = 0.2f;
         var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
         resource.Objects.Add((Object3D.Resource)cube.ToResource(CompositionContext.Default));
         resource.Lights.Add((Light3D.Resource)light.ToResource(CompositionContext.Default));
@@ -338,39 +338,39 @@ public sealed class GpuPassFusion3DBoundaryTests
         if (dependency == MaterialTextureDependency.BasicDiffuseMap)
         {
             var material = new BasicMaterial();
-            material.DiffuseMap.CurrentValue = texture;
+            material.DiffuseMap.Value = texture;
             return material;
         }
 
         if (dependency == MaterialTextureDependency.TransparentColorMap)
         {
             var material = new TransparentMaterial();
-            material.ColorMap.CurrentValue = texture;
+            material.ColorMap.Value = texture;
             return material;
         }
 
         var pbrMaterial = new PBRMaterial();
         if (dependency == MaterialTextureDependency.PbrEmissiveMap)
-            pbrMaterial.Emissive.CurrentValue = Colors.White;
+            pbrMaterial.Emissive.Value = Colors.White;
         switch (dependency)
         {
             case MaterialTextureDependency.PbrAlbedoMap:
-                pbrMaterial.AlbedoMap.CurrentValue = texture;
+                pbrMaterial.AlbedoMap.Value = texture;
                 break;
             case MaterialTextureDependency.PbrNormalMap:
-                pbrMaterial.NormalMap.CurrentValue = texture;
+                pbrMaterial.NormalMap.Value = texture;
                 break;
             case MaterialTextureDependency.PbrMetallicRoughnessMap:
                 // The map multiplies the base factors, so zero bases would make it unobservable.
-                pbrMaterial.Metallic.CurrentValue = 1f;
-                pbrMaterial.Roughness.CurrentValue = 1f;
-                pbrMaterial.MetallicRoughnessMap.CurrentValue = texture;
+                pbrMaterial.Metallic.Value = 1f;
+                pbrMaterial.Roughness.Value = 1f;
+                pbrMaterial.MetallicRoughnessMap.Value = texture;
                 break;
             case MaterialTextureDependency.PbrEmissiveMap:
-                pbrMaterial.EmissiveMap.CurrentValue = texture;
+                pbrMaterial.EmissiveMap.Value = texture;
                 break;
             case MaterialTextureDependency.PbrAOMap:
-                pbrMaterial.AOMap.CurrentValue = texture;
+                pbrMaterial.AOMap.Value = texture;
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(dependency), dependency, null);

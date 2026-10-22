@@ -20,15 +20,15 @@ public class ExportSupersampleTests
     {
         // A thin rotated rectangle has long near-diagonal edges that alias badly at 1:1.
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 150;
-        shape.Height.CurrentValue = 18;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 150;
+        shape.Height.Value = 18;
+        shape.Fill.Value = Brushes.White;
         var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = 27f;
-        shape.Transform.CurrentValue = rotation;
+        rotation.Rotation.Value = 27f;
+        shape.Transform.Value = rotation;
         return shape.ToResource(CompositionContext.Default);
     }
 

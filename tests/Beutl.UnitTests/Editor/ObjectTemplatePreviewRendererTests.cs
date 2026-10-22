@@ -106,7 +106,7 @@ public class ObjectTemplatePreviewRendererTests
     {
         RectShape owner = CreateRedRect();
         var effect = new FilterEffectGroup();
-        owner.FilterEffect.CurrentValue = effect;
+        owner.FilterEffect.Value = effect;
 
         byte[]? png = await ObjectTemplatePreviewRenderer.RenderPngAsync(effect);
 
@@ -129,7 +129,7 @@ public class ObjectTemplatePreviewRendererTests
     {
         RectShape owner = CreateRedRect();
         var effect = new FilterEffectGroup();
-        owner.FilterEffect.CurrentValue = effect;
+        owner.FilterEffect.Value = effect;
         var brush = new SolidColorBrush(Colors.Lime);
 
         await ObjectTemplatePreviewRenderer.RenderPngAsync(effect);
@@ -190,11 +190,11 @@ public class ObjectTemplatePreviewRendererTests
     private static NodeGraphDrawable BuildMeasureNodeGraphDrawable()
     {
         var drawable = new NodeGraphDrawable();
-        GraphModel model = drawable.Model.CurrentValue!;
+        GraphModel model = drawable.Model.Value!;
 
         var geometryNode = new RectGeometryNode();
-        geometryNode.Object.Width.CurrentValue = 100;
-        geometryNode.Object.Height.CurrentValue = 100;
+        geometryNode.Object.Width.Value = 100;
+        geometryNode.Object.Height.Value = 100;
         var shapeNode = new GeometryShapeNode();
         SetUnconnectedInput(shapeNode.Fill, new SolidColorBrush(Colors.Red));
         var shakeNode = new FilterEffectNode<ShakeEffect>();
@@ -225,9 +225,9 @@ public class ObjectTemplatePreviewRendererTests
     {
         return new RectShape
         {
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 100 },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
+            Width = { Value = 100 },
+            Height = { Value = 100 },
+            Fill = { Value = new SolidColorBrush(Colors.Red) }
         };
     }
 

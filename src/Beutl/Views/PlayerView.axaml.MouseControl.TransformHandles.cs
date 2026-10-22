@@ -48,7 +48,7 @@ public partial class PlayerView
             public required TranslateTransform Translate { get; init; }
             public required ScaleTransform Scale { get; init; }
             public required RotationTransform Rotation { get; init; }
-            // Identifier used to detect undo/redo replacement via reference equality with drawable.Transform.CurrentValue.
+            // Identifier used to detect undo/redo replacement via reference equality with drawable.Transform.Value.
             public required TransformGroup Group { get; init; }
             // null = non-invertible (HandleTranslate will abort).
             public BtlMatrix? InvPostMatrixOfT { get; init; }
@@ -113,7 +113,7 @@ public partial class PlayerView
         private static (float prev, float next) CaptureStartValues(KeyFrameState<float>? kf, float fallback)
             => KeyFrameDeltaHelper.CaptureStartValues(kf?.Previous, kf?.Next, fallback);
 
-        // Writes to surrounding keyframes when present, otherwise to CurrentValue. The two write paths
+        // Writes to surrounding keyframes when present, otherwise to Value. The two write paths
         // are intentionally mutually exclusive so a single drag does not double-write the same axis.
         private static void WriteScalar(
             IProperty<float> property,
@@ -123,7 +123,7 @@ public partial class PlayerView
             float newValue)
         {
             if (!ApplyDelta(kf, kfStart, delta))
-                property.CurrentValue = newValue;
+                property.Value = newValue;
         }
 
         public void OnPressed(PointerPressedEventArgs e)
@@ -170,7 +170,7 @@ public partial class PlayerView
                 PivotLocal: pivotLocal,
                 PivotImage: pivotImage,
                 StartImagePos: startImagePos,
-                PressTransform: drawable.Transform.CurrentValue,
+                PressTransform: drawable.Transform.Value,
                 HasDrawingMatrix: true);
 
             _ensured = null;
@@ -282,7 +282,7 @@ public partial class PlayerView
                 PivotLocal: default,
                 PivotImage: default,
                 StartImagePos: imagePos,
-                PressTransform: drawable.Transform.CurrentValue,
+                PressTransform: drawable.Transform.Value,
                 HasDrawingMatrix: hasDrawing);
             _ensured = null;
 
@@ -321,12 +321,12 @@ public partial class PlayerView
             // Snapshot before Ensure mutates the document — a non-finite value here aborts the drag so
             // we don't leave a structural mutation that the user can't fix via undo. Fallbacks must match
             // the property defaults of the R/S/T inserted by Ensure (T=0, S=100, R=0).
-            var (probeR, probeS, probeT) = CanonicalTransformLayout.FindCanonicalTransforms(_press.Drawable.Transform.GetValue(ctx));
-            float startTransX = probeT?.X.GetValue(ctx) ?? 0f;
-            float startTransY = probeT?.Y.GetValue(ctx) ?? 0f;
-            float startScaleX = probeS?.ScaleX.GetValue(ctx) ?? 100f;
-            float startScaleY = probeS?.ScaleY.GetValue(ctx) ?? 100f;
-            float startRotation = probeR?.Rotation.GetValue(ctx) ?? 0f;
+            var (probeR, probeS, probeT) = CanonicalTransformLayout.FindCanonicalTransforms(_press.Drawable.Transform.Evaluate(ctx));
+            float startTransX = probeT?.X.Evaluate(ctx) ?? 0f;
+            float startTransY = probeT?.Y.Evaluate(ctx) ?? 0f;
+            float startScaleX = probeS?.ScaleX.Evaluate(ctx) ?? 100f;
+            float startScaleY = probeS?.ScaleY.Evaluate(ctx) ?? 100f;
+            float startRotation = probeR?.Rotation.Evaluate(ctx) ?? 0f;
 
             if (!float.IsFinite(startTransX) || !float.IsFinite(startTransY)
                 || !float.IsFinite(startScaleX) || !float.IsFinite(startScaleY)
@@ -406,14 +406,14 @@ public partial class PlayerView
             // against the wrong instance — abort the drag instead. After Ensure, PressTransform may
             // legitimately differ, so the post-Ensure guard below watches _ensured.Group instead.
             if (_ensured == null
-                && !ReferenceEquals(_press.Drawable.Transform.CurrentValue, _press.PressTransform))
+                && !ReferenceEquals(_press.Drawable.Transform.Value, _press.PressTransform))
             {
                 AbortDrag(
                     "OnMoved: drawable Transform replaced before first move (Drawable={DrawableType}, Kind={Kind}, oldGroup={OldGroupType}, newGroup={NewGroupType}); aborting drag.",
                     _press.Drawable.GetType().Name,
                     Kind,
                     _press.PressTransform?.GetType().Name ?? "null",
-                    _press.Drawable.Transform.CurrentValue?.GetType().Name ?? "null");
+                    _press.Drawable.Transform.Value?.GetType().Name ?? "null");
                 return;
             }
 
@@ -423,14 +423,14 @@ public partial class PlayerView
             // If undo/redo replaces the TransformGroup mid-drag, _ensured.Group is now detached and
             // writes would be silently dropped. Undoing a child keyframe value keeps the group ref,
             // so this only catches whole-Transform replacements.
-            if (!ReferenceEquals(_press.Drawable.Transform.CurrentValue, _ensured.Group))
+            if (!ReferenceEquals(_press.Drawable.Transform.Value, _ensured.Group))
             {
                 AbortDrag(
                     "OnMoved: drawable Transform replaced mid-drag (Drawable={DrawableType}, Kind={Kind}, ensuredGroup={EnsuredGroupType}, current={CurrentType}); aborting drag.",
                     _press.Drawable.GetType().Name,
                     Kind,
                     _ensured.Group.GetType().Name,
-                    _press.Drawable.Transform.CurrentValue?.GetType().Name ?? "null");
+                    _press.Drawable.Transform.Value?.GetType().Name ?? "null");
                 return;
             }
 
@@ -680,8 +680,8 @@ public partial class PlayerView
             float dx = ((ex * afterTranslate.M22) - (ey * afterTranslate.M21)) / det;
             float dy = ((ey * afterTranslate.M11) - (ex * afterTranslate.M12)) / det;
 
-            return (ensured.Translate.X.GetValue(ctx) + dx - ensured.StartTransX,
-                ensured.Translate.Y.GetValue(ctx) + dy - ensured.StartTransY);
+            return (ensured.Translate.X.Evaluate(ctx) + dx - ensured.StartTransX,
+                ensured.Translate.Y.Evaluate(ctx) + dy - ensured.StartTransY);
         }
 
         // The enabled transforms the group applies after the given one, which are the ones before it in the list.
@@ -750,7 +750,7 @@ public partial class PlayerView
             // _ensured.Group is detached — discard the pending commit. Click-only sessions skip this
             // since Ensure never ran.
             if (_ensured != null
-                && !ReferenceEquals(_press.Drawable.Transform.CurrentValue, _ensured.Group))
+                && !ReferenceEquals(_press.Drawable.Transform.Value, _ensured.Group))
             {
                 _logger.LogWarning(
                     "OnReleased: drawable Transform replaced before release (Drawable={DrawableType}, Kind={Kind}); discarding pending commit.",

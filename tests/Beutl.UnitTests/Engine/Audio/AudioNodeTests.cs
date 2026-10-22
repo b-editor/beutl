@@ -437,7 +437,7 @@ public class AudioNodeTests
         const int sampleCount = 64;
 
         using var input = new MonoValueNode();
-        using var gain = new GainNode { Gain = Property.Create(50f) };
+        using var gain = new GainNode { Gain = Property.CreateExpression(50f) };
         gain.AddInput(input);
 
         using var processed = gain.Process(Exact(TimeSpan.Zero, sampleCount, sampleRate));

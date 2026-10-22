@@ -44,17 +44,17 @@ public sealed class BackdropDecoratorTransformTests
         scene.Children.Add(CreateRectangle(130, 95, Colors.Navy));
 
         var backdrop = new SourceBackdrop();
-        backdrop.FilterEffect.CurrentValue = new Invert();
+        backdrop.FilterEffect.Value = new Invert();
         if (decorateBackdrop)
         {
             var decorator = new DrawableDecorator();
             decorator.Children.Add(backdrop);
-            decorator.Transform.CurrentValue = new RotationTransform(24);
+            decorator.Transform.Value = new RotationTransform(24);
             scene.Children.Add(decorator);
         }
         else
         {
-            backdrop.Transform.CurrentValue = new RotationTransform(24);
+            backdrop.Transform.Value = new RotationTransform(24);
             scene.Children.Add(backdrop);
         }
 
@@ -64,9 +64,9 @@ public sealed class BackdropDecoratorTransformTests
     private static RectShape CreateRectangle(float width, float height, Color color)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = width;
-        shape.Height.CurrentValue = height;
-        shape.Fill.CurrentValue = new SolidColorBrush(color);
+        shape.Width.Value = width;
+        shape.Height.Value = height;
+        shape.Fill.Value = new SolidColorBrush(color);
         return shape;
     }
 }

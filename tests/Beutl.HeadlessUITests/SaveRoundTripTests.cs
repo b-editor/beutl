@@ -42,7 +42,7 @@ public class SaveRoundTripTests
             Length: TimeSpan.FromSeconds(3),
             Layer: 2,
             Source: new ElementSource.EngineObject(
-                () => new RectShape { Width = { CurrentValue = 321 } }),
+                () => new RectShape { Width = { Value = 321 } }),
             Name: "RoundTripRect")],
             CancellationToken.None);
         HeadlessTestHelpers.Settle();
@@ -70,7 +70,7 @@ public class SaveRoundTripTests
         Assert.That(reopenedElement.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
 
         RectShape reopenedRect = reopenedElement.Objects.OfType<RectShape>().Single();
-        Assert.That(reopenedRect.Width.CurrentValue, Is.EqualTo(321));
+        Assert.That(reopenedRect.Width.Value, Is.EqualTo(321));
     }
 
     [AvaloniaTest]

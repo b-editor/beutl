@@ -14,7 +14,7 @@ public class PenHelperTests
     public void GetBounds_WithPositiveOffset_ExpandsBounds()
     {
         var rect = new Rect(0, 0, 100, 100);
-        var pen = new Pen { Thickness = { CurrentValue = 0 }, Offset = { CurrentValue = 10 } };
+        var pen = new Pen { Thickness = { Value = 0 }, Offset = { Value = 10 } };
         var penResource = pen.ToResource(CompositionContext.Default);
 
         var result = PenHelper.GetBounds(rect, penResource);
@@ -29,8 +29,8 @@ public class PenHelperTests
         var rect = new Rect(0, 0, 100, 100);
         var pen = new Pen
         {
-            Thickness = { CurrentValue = 0 },
-            Offset = { CurrentValue = offset }
+            Thickness = { Value = 0 },
+            Offset = { Value = offset }
         };
         var penResource = pen.ToResource(CompositionContext.Default);
 
@@ -51,7 +51,7 @@ public class PenHelperTests
     {
         using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 100, 100));
 
-        var pen = new Pen { Offset = { CurrentValue = 0 } };
+        var pen = new Pen { Offset = { Value = 0 } };
         var penResource = pen.ToResource(CompositionContext.Default);
         var bounds = new Rect(0, 0, 100, 100);
 
@@ -65,7 +65,7 @@ public class PenHelperTests
     {
         using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 100, 100));
 
-        var pen = new Pen { Offset = { CurrentValue = 10 } };
+        var pen = new Pen { Offset = { Value = 10 } };
         var penResource = pen.ToResource(CompositionContext.Default);
         var bounds = new Rect(0, 0, 100, 100);
 
@@ -84,7 +84,7 @@ public class PenHelperTests
         // Use a large rectangle so there is room to deflate
         using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 200, 200));
 
-        var pen = new Pen { Offset = { CurrentValue = -10 } };
+        var pen = new Pen { Offset = { Value = -10 } };
         var penResource = pen.ToResource(CompositionContext.Default);
         var bounds = new Rect(0, 0, 200, 200);
 
@@ -103,8 +103,8 @@ public class PenHelperTests
         using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 100, 100));
         var bounds = new Rect(0, 0, 100, 100);
 
-        var penNoOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = 0 } };
-        var penWithOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = 10 } };
+        var penNoOffset = new Pen { Thickness = { Value = 4 }, Offset = { Value = 0 } };
+        var penWithOffset = new Pen { Thickness = { Value = 4 }, Offset = { Value = 10 } };
         var resourceNoOffset = penNoOffset.ToResource(CompositionContext.Default);
         var resourceWithOffset = penWithOffset.ToResource(CompositionContext.Default);
 
@@ -122,8 +122,8 @@ public class PenHelperTests
         using SKPath fillPath = CreateRectPath(SKRect.Create(0, 0, 200, 200));
         var bounds = new Rect(0, 0, 200, 200);
 
-        var penNoOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = 0 } };
-        var penWithOffset = new Pen { Thickness = { CurrentValue = 4 }, Offset = { CurrentValue = -10 } };
+        var penNoOffset = new Pen { Thickness = { Value = 4 }, Offset = { Value = 0 } };
+        var penWithOffset = new Pen { Thickness = { Value = 4 }, Offset = { Value = -10 } };
         var resourceNoOffset = penNoOffset.ToResource(CompositionContext.Default);
         var resourceWithOffset = penWithOffset.ToResource(CompositionContext.Default);
 

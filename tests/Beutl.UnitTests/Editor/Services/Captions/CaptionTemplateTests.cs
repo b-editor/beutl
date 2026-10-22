@@ -38,11 +38,11 @@ public class CaptionTemplateTests
             Assert.That(description.Layer, Is.EqualTo(3));
             Assert.That(description.Name, Is.EqualTo("Caption"));
             Assert.That(description.Position, Is.EqualTo(new Point(0, 240)));
-            Assert.That(text.Text.CurrentValue, Is.EqualTo("Hello"));
-            Assert.That(text.Size.CurrentValue, Is.EqualTo(48));
-            Assert.That(text.FontFamily.CurrentValue?.Name, Is.EqualTo("Noto Sans JP"));
-            Assert.That(text.AlignmentX.CurrentValue, Is.EqualTo(AlignmentX.Center));
-            Assert.That(text.AlignmentY.CurrentValue, Is.EqualTo(AlignmentY.Center));
+            Assert.That(text.Text.Value, Is.EqualTo("Hello"));
+            Assert.That(text.Size.Value, Is.EqualTo(48));
+            Assert.That(text.FontFamily.Value?.Name, Is.EqualTo("Noto Sans JP"));
+            Assert.That(text.AlignmentX.Value, Is.EqualTo(AlignmentX.Center));
+            Assert.That(text.AlignmentY.Value, Is.EqualTo(AlignmentY.Center));
         }
     }
 
@@ -51,19 +51,19 @@ public class CaptionTemplateTests
     {
         var source = new TextBlock
         {
-            Text = { CurrentValue = "Placeholder" },
-            Size = { CurrentValue = 72 },
-            FontWeight = { CurrentValue = FontWeight.Bold },
+            Text = { Value = "Placeholder" },
+            Size = { Value = 72 },
+            FontWeight = { Value = FontWeight.Bold },
             Pen =
             {
-                CurrentValue = new Pen
+                Value = new Pen
                 {
-                    Brush = { CurrentValue = Brushes.Black },
-                    Thickness = { CurrentValue = 4 },
+                    Brush = { Value = Brushes.Black },
+                    Thickness = { Value = 4 },
                 }
             },
-            Transform = { CurrentValue = new TranslateTransform(120, 300) },
-            FilterEffect = { CurrentValue = new Blur { Sigma = { CurrentValue = new Size(2, 3) } } },
+            Transform = { Value = new TranslateTransform(120, 300) },
+            FilterEffect = { Value = new Blur { Sigma = { Value = new Size(2, 3) } } },
         };
         source.Opacity.SetKeyFrameAnimation(new KeyFrameAnimation<float>());
         source.Text.Expression = Expression.Create<string?>("\"Expression text\"");
@@ -84,17 +84,17 @@ public class CaptionTemplateTests
         {
             Assert.That(template.Descriptor.Name, Is.EqualTo("Outlined caption"));
             Assert.That(firstDescription.Position, Is.Null);
-            Assert.That(first.Text.CurrentValue, Is.EqualTo("First"));
-            Assert.That(second.Text.CurrentValue, Is.EqualTo("Second"));
+            Assert.That(first.Text.Value, Is.EqualTo("First"));
+            Assert.That(second.Text.Value, Is.EqualTo("Second"));
             Assert.That(first.Text.Expression, Is.Null);
-            Assert.That(first.Size.CurrentValue, Is.EqualTo(72));
-            Assert.That(first.FontWeight.CurrentValue, Is.EqualTo(FontWeight.Bold));
-            Assert.That(first.Pen.CurrentValue?.Thickness.CurrentValue, Is.EqualTo(4));
-            Assert.That(first.Transform.CurrentValue, Is.TypeOf<TranslateTransform>());
-            Assert.That(((TranslateTransform)first.Transform.CurrentValue!).X.CurrentValue, Is.EqualTo(120));
-            Assert.That(((TranslateTransform)first.Transform.CurrentValue!).Y.CurrentValue, Is.EqualTo(300));
-            Assert.That(first.FilterEffect.CurrentValue, Is.TypeOf<Blur>());
-            Assert.That(((Blur)first.FilterEffect.CurrentValue!).Sigma.CurrentValue, Is.EqualTo(new Size(2, 3)));
+            Assert.That(first.Size.Value, Is.EqualTo(72));
+            Assert.That(first.FontWeight.Value, Is.EqualTo(FontWeight.Bold));
+            Assert.That(first.Pen.Value?.Thickness.Value, Is.EqualTo(4));
+            Assert.That(first.Transform.Value, Is.TypeOf<TranslateTransform>());
+            Assert.That(((TranslateTransform)first.Transform.Value!).X.Value, Is.EqualTo(120));
+            Assert.That(((TranslateTransform)first.Transform.Value!).Y.Value, Is.EqualTo(300));
+            Assert.That(first.FilterEffect.Value, Is.TypeOf<Blur>());
+            Assert.That(((Blur)first.FilterEffect.Value!).Sigma.Value, Is.EqualTo(new Size(2, 3)));
             Assert.That(first.Opacity.GetKeyFrameAnimation(), Is.Not.Null);
             Assert.That(first.Id, Is.Not.EqualTo(source.Id));
             Assert.That(second.Id, Is.Not.EqualTo(first.Id));
@@ -133,7 +133,7 @@ public class CaptionTemplateTests
             Assert.That(descriptions[0].Position, Is.EqualTo(new Point(20, 30)));
             Assert.That(descriptions[1].Position, Is.EqualTo(context.DefaultPosition));
             Assert.That(
-                descriptions.Select(item => CreateTextBlock(item).Text.CurrentValue),
+                descriptions.Select(item => CreateTextBlock(item).Text.Value),
                 Is.EqualTo(new[] { "Hello", "Hello translation" }));
         });
     }
@@ -204,11 +204,11 @@ public class CaptionTemplateTests
             [
                 context.CreateDescription(
                     cue,
-                    () => new TextBlock { Text = { CurrentValue = cue.Text } },
+                    () => new TextBlock { Text = { Value = cue.Text } },
                     position: new Point(20, 30)),
                 context.CreateDescription(
                     cue,
-                    () => new TextBlock { Text = { CurrentValue = cue.Text + " translation" } },
+                    () => new TextBlock { Text = { Value = cue.Text + " translation" } },
                     layerOffset: 1),
             ];
         }

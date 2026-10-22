@@ -23,7 +23,7 @@ public class ExpressionContextTests
     {
         // Arrange
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
-        var newProperty = Property.Create(0.0);
+        var newProperty = Property.CreateExpression(0.0);
 
         // Act
         context.CurrentProperty = newProperty;
@@ -37,7 +37,7 @@ public class ExpressionContextTests
     {
         // Arrange
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
-        var property = Property.Create(0.0);
+        var property = Property.CreateExpression(0.0);
 
         // Act
         bool result = context.IsEvaluating(property);
@@ -50,8 +50,8 @@ public class ExpressionContextTests
     public void EvaluationStack_ShouldTrackMultipleProperties()
     {
         // Arrange
-        var property1 = Property.Create(0.0);
-        var property2 = Property.Create(0.0);
+        var property1 = Property.CreateExpression(0.0);
+        var property2 = Property.CreateExpression(0.0);
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero);
 
         // Act

@@ -97,7 +97,7 @@ public sealed partial class TimelineTabView
             s_defaultElementLength,
             ViewModel.CalculateClickedLayer(),
             new ElementSource.EngineObject(
-                () => new Beutl.Graphics.SourceBackdrop { Clear = { CurrentValue = true } }),
+                () => new Beutl.Graphics.SourceBackdrop { Clear = { Value = true } }),
             Name: Strings.AdjustmentLayer));
     }
 

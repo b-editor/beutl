@@ -77,25 +77,25 @@ internal sealed partial class PathEditorInteraction
     private bool IsOutsideControlHull(PathFigure figure, int i, Point point, BtlPoint start, CompositionContext context)
     {
         if (i < figure.Segments.Count && figure.Segments[i] is not Beutl.Media.ArcSegment
-            && (figure.Segments[i] is not ConicSegment conic || conic.Weight.GetValue(context) >= 0))
+            && (figure.Segments[i] is not ConicSegment conic || conic.Weight.Evaluate(context) >= 0))
         {
             // Non-negative rational curves and Beziers stay inside their control hull.
             // Bound it in screen coordinates before doing any adaptive subdivision.
             Point first = Screen(start);
             double left = first.X, right = first.X, top = first.Y, bottom = first.Y;
             var segment = figure.Segments[i];
-            Include(segment.GetEndPoint().GetValue(context));
+            Include(segment.GetEndPoint().Evaluate(context));
             switch (segment)
             {
                 case CubicBezierSegment cubic:
-                    Include(cubic.ControlPoint1.GetValue(context));
-                    Include(cubic.ControlPoint2.GetValue(context));
+                    Include(cubic.ControlPoint1.Evaluate(context));
+                    Include(cubic.ControlPoint2.Evaluate(context));
                     break;
                 case Beutl.Media.QuadraticBezierSegment quadratic:
-                    Include(quadratic.ControlPoint.GetValue(context));
+                    Include(quadratic.ControlPoint.Evaluate(context));
                     break;
                 case ConicSegment rational:
-                    Include(rational.ControlPoint.GetValue(context));
+                    Include(rational.ControlPoint.Evaluate(context));
                     break;
             }
             if (point.X < left - HitRadius || point.X > right + HitRadius || point.Y < top - HitRadius || point.Y > bottom + HitRadius) return true;

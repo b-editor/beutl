@@ -250,7 +250,7 @@ public sealed class BackdropOrderingTests
     private static FilterEffectRenderNode CreateFilterScope()
     {
         var effect = new MosaicEffect();
-        effect.TileSize.CurrentValue = new Size(8, 8);
+        effect.TileSize.Value = new Size(8, 8);
         return new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
     }
 

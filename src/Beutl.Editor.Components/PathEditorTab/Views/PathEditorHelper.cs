@@ -25,7 +25,7 @@ public static class PathEditorHelper
         foreach (Thumb thumb in canvas.Children.OfType<Thumb>())
         {
             if (GetProperty(thumb) is { } property)
-                SetCanvasPosition(thumb, view.Matrix.Transform(property.GetValue(context).ToAvaPoint()) * view.Scale);
+                SetCanvasPosition(thumb, view.Matrix.Transform(property.Evaluate(context).ToAvaPoint()) * view.Scale);
         }
     }
 
@@ -105,7 +105,7 @@ public static class PathEditorHelper
             if (index > 0)
             {
                 PathSegment lastOp = figure.Segments[index - 1];
-                lastPoint = lastOp.GetEndPoint().GetValue(new CompositionContext(clock.CurrentTime.Value));
+                lastPoint = lastOp.GetEndPoint().Evaluate(new CompositionContext(clock.CurrentTime.Value));
             }
 
             BtlPoint point = (click / scale).ToBtlPoint();
@@ -222,37 +222,37 @@ public static class PathEditorHelper
     {
         return tag switch
         {
-            "Arc" => new ArcSegment() { Point = { CurrentValue = point } },
+            "Arc" => new ArcSegment() { Point = { Value = point } },
             "Conic" => new ConicSegment()
             {
-                EndPoint = { CurrentValue = point },
+                EndPoint = { Value = point },
                 ControlPoint =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.5f),
+                    Value = new(float.Lerp(point.X, lastPoint.X, 0.5f),
                         float.Lerp(point.Y, lastPoint.Y, 0.5f))
                 }
             },
             "Cubic" => new CubicBezierSegment()
             {
-                EndPoint = { CurrentValue = point },
+                EndPoint = { Value = point },
                 ControlPoint1 =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.66f),
+                    Value = new(float.Lerp(point.X, lastPoint.X, 0.66f),
                         float.Lerp(point.Y, lastPoint.Y, 0.66f))
                 },
                 ControlPoint2 =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.33f),
+                    Value = new(float.Lerp(point.X, lastPoint.X, 0.33f),
                         float.Lerp(point.Y, lastPoint.Y, 0.33f))
                 },
             },
-            "Line" => new LineSegment() { Point = { CurrentValue = point } },
+            "Line" => new LineSegment() { Point = { Value = point } },
             "Quad" => new QuadraticBezierSegment()
             {
-                EndPoint = { CurrentValue = point },
+                EndPoint = { Value = point },
                 ControlPoint =
                 {
-                    CurrentValue = new(float.Lerp(point.X, lastPoint.X, 0.5f),
+                    Value = new(float.Lerp(point.X, lastPoint.X, 0.5f),
                         float.Lerp(point.Y, lastPoint.Y, 0.5f))
                 }
             },

@@ -140,7 +140,7 @@ public sealed class LutEffectTextureTests
 
     private static SKColor[] Render(CubeSource source, RenderIntent intent, IRenderTargetFactory? factory = null)
     {
-        var effect = new LutEffect { Source = { CurrentValue = source } };
+        var effect = new LutEffect { Source = { Value = source } };
         Brush.Resource[] fills = s_colors
             .Select(color => new SolidColorBrush(color).ToResource(CompositionContext.Default)).ToArray();
         try

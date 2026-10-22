@@ -43,6 +43,6 @@ public class CompositionContext(TimeSpan time) : EvaluationContext(time)
     {
         if (property == null)
             throw new ArgumentNullException(nameof(property));
-        return property is IExpressionProperty<T> expressionProperty ? expressionProperty.GetValue(this) : property.CurrentValue;
+        return property is IExpressionProperty<T> expressionProperty ? expressionProperty.Evaluate(this) : property.Value;
     }
 }

@@ -23,19 +23,19 @@ public class PropertyExpressionTests
     {
         IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(0) : new SimpleProperty<float>(0);
         property.SetAttributes("Opacity", []);
-        property.CurrentValue = 75;
+        property.Value = 75;
         property.Expression = new StringExpression<float>(source);
 
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero, property);
         int edits = 0;
         property.Edited += (_, _) => edits++;
 
-        Assert.That(property.GetValue(context), Is.EqualTo(75));
+        Assert.That(property.Evaluate(context), Is.EqualTo(75));
         Assert.Multiple(() =>
         {
             Assert.That(property.ExpressionError, Is.Not.Empty);
             Assert.That(context.IsEvaluating(property), Is.False);
-            Assert.That(property.CurrentValue, Is.EqualTo(75));
+            Assert.That(property.Value, Is.EqualTo(75));
             Assert.That(edits, Is.Zero, "Evaluation diagnostics must not enter undo history.");
         });
         property.Expression = null;
@@ -55,16 +55,16 @@ public class PropertyExpressionTests
         property.Expression = new StringExpression<float>("10 / (int)Time");
         var failingContext = new CompositionContext(TimeSpan.Zero);
 
-        Assert.That(property.GetValue(failingContext), Is.EqualTo(7));
-        Assert.That(property.GetValue(failingContext), Is.EqualTo(7));
-        Assert.That(property.GetValue(new CompositionContext(TimeSpan.FromSeconds(2))), Is.EqualTo(5));
+        Assert.That(property.Evaluate(failingContext), Is.EqualTo(7));
+        Assert.That(property.Evaluate(failingContext), Is.EqualTo(7));
+        Assert.That(property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(2))), Is.EqualTo(5));
         Assert.That(property.ExpressionError, Is.Null);
-        Assert.That(property.GetValue(failingContext), Is.EqualTo(7));
+        Assert.That(property.Evaluate(failingContext), Is.EqualTo(7));
         Assert.That(logs.Entries, Has.Count.EqualTo(1));
 
         property.Expression = new StringExpression<float>("20 / (int)Time");
         Assert.That(property.ExpressionError, Is.Null);
-        Assert.That(property.GetValue(failingContext), Is.EqualTo(7));
+        Assert.That(property.Evaluate(failingContext), Is.EqualTo(7));
         Assert.That(logs.Entries, Has.Count.EqualTo(2));
     }
 
@@ -89,21 +89,21 @@ public class PropertyExpressionTests
                 throw new TimeoutException("The pending evaluation was not released.");
             return oldFailure ? throw new ExpressionException("Old failure") : 42;
         });
-        Task<float> pending = Task.Run(() => property.GetValue(new CompositionContext(TimeSpan.Zero)));
+        Task<float> pending = Task.Run(() => property.Evaluate(new CompositionContext(TimeSpan.Zero)));
         try
         {
             Assert.That(started.Wait(TimeSpan.FromSeconds(10)), Is.True);
             property.Expression = new TestExpression(() => throw new ExpressionException("New failure"));
             if (!oldFailure)
             {
-                Assert.That(property.GetValue(new CompositionContext(TimeSpan.Zero)), Is.EqualTo(7));
+                Assert.That(property.Evaluate(new CompositionContext(TimeSpan.Zero)), Is.EqualTo(7));
                 Assert.That(property.ExpressionError, Is.EqualTo("New failure"));
             }
 
             release.Set();
             Assert.That(await pending.WaitAsync(TimeSpan.FromSeconds(10)), Is.EqualTo(oldFailure ? 7 : 42));
             Assert.That(property.ExpressionError, Is.EqualTo(oldFailure ? null : "New failure"));
-            Assert.That(property.GetValue(new CompositionContext(TimeSpan.Zero)), Is.EqualTo(7));
+            Assert.That(property.Evaluate(new CompositionContext(TimeSpan.Zero)), Is.EqualTo(7));
             Assert.That(property.ExpressionError, Is.EqualTo("New failure"));
             Assert.That(logs.Entries.Count(entry => entry.Exception?.Message == "New failure"), Is.EqualTo(1));
         }
@@ -126,7 +126,7 @@ public class PropertyExpressionTests
         property.Expression = new TestExpression(() => throw new ExpressionException("Evaluation failed"));
         var context = TestHelper.CreateExpressionContext(TimeSpan.Zero, property);
 
-        Assert.That(property.GetValue(context), Is.EqualTo(7));
+        Assert.That(property.Evaluate(context), Is.EqualTo(7));
         Assert.Multiple(() =>
         {
             Assert.That(property.ExpressionError, Is.EqualTo("Evaluation failed"));
@@ -143,7 +143,7 @@ public class PropertyExpressionTests
         property.SetKeyFrameAnimation(animation);
         property.Expression = new StringExpression<float>("throw new InvalidOperationException();");
 
-        Assert.That(property.GetValue(new CompositionContext(TimeSpan.FromSeconds(1))), Is.EqualTo(50));
+        Assert.That(property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(1))), Is.EqualTo(50));
         Assert.That(property.GetKeyFrameAnimation(), Is.SameAs(animation));
     }
 
@@ -152,7 +152,7 @@ public class PropertyExpressionTests
     {
         var scene = new Scene { Duration = TimeSpan.FromSeconds(2) };
         var shape = new RectShape();
-        shape.Opacity.CurrentValue = 75;
+        shape.Opacity.Value = 75;
         shape.Opacity.Expression = new StringExpression<float>("\"abc\"");
         var element = new Element { Length = scene.Duration };
         element.Objects.Add(shape);

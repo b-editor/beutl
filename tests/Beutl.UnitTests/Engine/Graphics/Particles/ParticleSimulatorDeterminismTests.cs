@@ -78,7 +78,7 @@ public sealed class ParticleSimulatorDeterminismTests
         {
             var transform = new TranslateTransform();
             transform.X.SetKeyFrameAnimation(CreateAnimation(0, 200));
-            emitter.Transform.CurrentValue = transform;
+            emitter.Transform.Value = transform;
         }
 
         using var sequential = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
@@ -108,19 +108,19 @@ public sealed class ParticleSimulatorDeterminismTests
     {
         var emitter = CreateSyntheticEmitter();
         var transform = new TranslateTransform();
-        emitter.Transform.CurrentValue = transform;
+        emitter.Transform.Value = transform;
         var context = new CompositionContext(TimeSpan.FromSeconds(1));
         using var resource = emitter.ToResource(context);
         var before = resource.GetAliveParticles().ToArray();
         int version = resource.Version;
 
         if (changeTransform)
-            transform.X.CurrentValue = 100;
+            transform.X.Value = 100;
         else
-            emitter.Opacity.CurrentValue = 50;
+            emitter.Opacity.Value = 50;
 
-        emitter.EmissionRate.CurrentValue = 90;
-        emitter.Gravity.CurrentValue = 60;
+        emitter.EmissionRate.Value = 90;
+        emitter.Gravity.Value = 60;
         bool versionBumped = false;
         resource.Reconcile(emitter, context, ref versionBumped);
         using var cold = emitter.ToResource(context);
@@ -207,34 +207,34 @@ public sealed class ParticleSimulatorDeterminismTests
         bool near = preset == ParticlePreset.Near;
         return new ParticleEmitter
         {
-            Seed = { CurrentValue = near ? 9203 : 4711 },
-            EmitterShape = { CurrentValue = EmitterShape.Box },
-            EmitterWidth = { CurrentValue = near ? 2200 : 2400 },
-            EmitterHeight = { CurrentValue = near ? 1200 : 1300 },
-            MaxParticles = { CurrentValue = near ? 600 : 420 },
-            EmissionRate = { CurrentValue = near ? 44 : 20 },
-            Lifetime = { CurrentValue = near ? 6 : 9 },
-            LifetimeRandom = { CurrentValue = near ? 3 : 4 },
-            Speed = { CurrentValue = near ? 34 : 16 },
-            SpeedRandom = { CurrentValue = near ? 22 : 10 },
-            Direction = { CurrentValue = near ? 176 : 178 },
-            Spread = { CurrentValue = near ? 16 : 22 },
-            Gravity = { CurrentValue = near ? -4 : 0 },
-            AirResistance = { CurrentValue = near ? 0.1f : 0.2f },
-            TurbulenceStrength = { CurrentValue = near ? 14 : 6 },
-            TurbulenceScale = { CurrentValue = near ? 0.0026f : 0.0016f },
-            TurbulenceSpeed = { CurrentValue = near ? 0.4f : 0.25f },
-            ParticleSize = { CurrentValue = near ? 2.2f : 9 },
-            SizeRandom = { CurrentValue = near ? 2.4f : 5 },
+            Seed = { Value = near ? 9203 : 4711 },
+            EmitterShape = { Value = EmitterShape.Box },
+            EmitterWidth = { Value = near ? 2200 : 2400 },
+            EmitterHeight = { Value = near ? 1200 : 1300 },
+            MaxParticles = { Value = near ? 600 : 420 },
+            EmissionRate = { Value = near ? 44 : 20 },
+            Lifetime = { Value = near ? 6 : 9 },
+            LifetimeRandom = { Value = near ? 3 : 4 },
+            Speed = { Value = near ? 34 : 16 },
+            SpeedRandom = { Value = near ? 22 : 10 },
+            Direction = { Value = near ? 176 : 178 },
+            Spread = { Value = near ? 16 : 22 },
+            Gravity = { Value = near ? -4 : 0 },
+            AirResistance = { Value = near ? 0.1f : 0.2f },
+            TurbulenceStrength = { Value = near ? 14 : 6 },
+            TurbulenceScale = { Value = near ? 0.0026f : 0.0016f },
+            TurbulenceSpeed = { Value = near ? 0.4f : 0.25f },
+            ParticleSize = { Value = near ? 2.2f : 9 },
+            SizeRandom = { Value = near ? 2.4f : 5 },
             ParticleColor =
             {
-                CurrentValue = near
+                Value = near
                     ? new Color(255, 178, 193, 210)
                     : new Color(255, 132, 161, 194),
             },
-            ParticleOpacity = { CurrentValue = 9 },
-            EndSizeMultiplier = { CurrentValue = near ? 0.6f : 1.2f },
-            EndOpacityMultiplier = { CurrentValue = 0 },
+            ParticleOpacity = { Value = 9 },
+            EndSizeMultiplier = { Value = near ? 0.6f : 1.2f },
+            EndOpacityMultiplier = { Value = 0 },
         };
     }
 
@@ -242,33 +242,33 @@ public sealed class ParticleSimulatorDeterminismTests
     {
         return new ParticleEmitter
         {
-            Seed = { CurrentValue = 12345 },
-            EmitterShape = { CurrentValue = EmitterShape.Box },
-            EmitterWidth = { CurrentValue = 320 },
-            EmitterHeight = { CurrentValue = 180 },
-            MaxParticles = { CurrentValue = 64 },
-            EmissionRate = { CurrentValue = 120 },
-            Lifetime = { CurrentValue = 2 },
-            LifetimeRandom = { CurrentValue = 1 },
-            Speed = { CurrentValue = 48 },
-            SpeedRandom = { CurrentValue = 18 },
-            Direction = { CurrentValue = 90 },
-            Spread = { CurrentValue = 70 },
-            Gravity = { CurrentValue = 12 },
-            AirResistance = { CurrentValue = 0.08f },
-            TurbulenceStrength = { CurrentValue = 16 },
-            TurbulenceScale = { CurrentValue = 0.01f },
-            TurbulenceSpeed = { CurrentValue = 0.5f },
-            ParticleSize = { CurrentValue = 4 },
-            SizeRandom = { CurrentValue = 2 },
-            ParticleColor = { CurrentValue = Colors.White },
-            ParticleOpacity = { CurrentValue = 100 },
-            InitialRotationRandom = { CurrentValue = 180 },
-            AngularVelocity = { CurrentValue = 24 },
-            EndSizeMultiplier = { CurrentValue = 0.25f },
-            EndOpacityMultiplier = { CurrentValue = 0 },
-            EndColor = { CurrentValue = Colors.Transparent },
-            UseEndColor = { CurrentValue = true },
+            Seed = { Value = 12345 },
+            EmitterShape = { Value = EmitterShape.Box },
+            EmitterWidth = { Value = 320 },
+            EmitterHeight = { Value = 180 },
+            MaxParticles = { Value = 64 },
+            EmissionRate = { Value = 120 },
+            Lifetime = { Value = 2 },
+            LifetimeRandom = { Value = 1 },
+            Speed = { Value = 48 },
+            SpeedRandom = { Value = 18 },
+            Direction = { Value = 90 },
+            Spread = { Value = 70 },
+            Gravity = { Value = 12 },
+            AirResistance = { Value = 0.08f },
+            TurbulenceStrength = { Value = 16 },
+            TurbulenceScale = { Value = 0.01f },
+            TurbulenceSpeed = { Value = 0.5f },
+            ParticleSize = { Value = 4 },
+            SizeRandom = { Value = 2 },
+            ParticleColor = { Value = Colors.White },
+            ParticleOpacity = { Value = 100 },
+            InitialRotationRandom = { Value = 180 },
+            AngularVelocity = { Value = 24 },
+            EndSizeMultiplier = { Value = 0.25f },
+            EndOpacityMultiplier = { Value = 0 },
+            EndColor = { Value = Colors.Transparent },
+            UseEndColor = { Value = true },
         };
     }
 

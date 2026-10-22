@@ -64,15 +64,15 @@ public sealed class CurrentPixelQuantizationTests
     {
         var shape = new RectShape
         {
-            Width = { CurrentValue = s_frame.Width },
-            Height = { CurrentValue = s_frame.Height },
-            Fill = { CurrentValue = new SolidColorBrush(new Color(255, 51, 51, 51)) },
-            AlignmentX = { CurrentValue = AlignmentX.Center },
-            AlignmentY = { CurrentValue = AlignmentY.Center },
+            Width = { Value = s_frame.Width },
+            Height = { Value = s_frame.Height },
+            Fill = { Value = new SolidColorBrush(new Color(255, 51, 51, 51)) },
+            AlignmentX = { Value = AlignmentX.Center },
+            AlignmentY = { Value = AlignmentY.Center },
         };
         if (invertCount < 0)
         {
-            shape.FilterEffect.CurrentValue = new IdentityTypedShaderEffect();
+            shape.FilterEffect.Value = new IdentityTypedShaderEffect();
         }
         else if (invertCount > 0)
         {
@@ -81,11 +81,11 @@ public sealed class CurrentPixelQuantizationTests
             {
                 group.Children.Add(new Invert
                 {
-                    Amount = { CurrentValue = 100 },
+                    Amount = { Value = 100 },
                 });
             }
 
-            shape.FilterEffect.CurrentValue = group;
+            shape.FilterEffect.Value = group;
         }
 
         return shape.ToResource(CompositionContext.Default);

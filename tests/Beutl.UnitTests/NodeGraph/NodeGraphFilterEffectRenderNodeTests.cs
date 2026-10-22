@@ -29,7 +29,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     private static NodeGraphFilterEffect.Resource BuildGraphResource()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
 
         var inputNode = new FilterEffectInputNode();
         var probeNode = new FilterEffectNode<ScaleProbeEffect>();
@@ -86,7 +86,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void SingleConsumer_DoesNotRasterizeTheGraphInputIntoALayer()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var input = new FilterEffectInputNode();
         var output = new OutputNode();
         model.Nodes.Add(input);
@@ -108,7 +108,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void NonValueInput_CanFeedTwoSeparateBranches()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var input = new FilterEffectInputNode();
         model.Nodes.Add(input);
         foreach (int ignored in new[] { 0, 1 })
@@ -291,7 +291,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Preview_ZeroOrOneInputThatProducesNoValue_ClearsDuringExecution()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         using var emptyRenderNode = new EmptyZeroOrOneRenderNode(new Rect(0, 0, 16, 12));
         var emptyNode = new FixedRenderNodeGraphNode(emptyRenderNode);
@@ -410,7 +410,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Preview_MixedMultipleOutputs_AreCompositedBeforeDeferredReadback()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var mixedNode = new MixedPreviewGraphNode();
         var previewNode = new PreviewNode();
@@ -450,7 +450,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void DuplicateOutputRoots_NormalizeSharedNonValueSubtreeBeforePublication()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var mixedNode = new MixedPreviewGraphNode();
         var firstOutput = new OutputNode();
@@ -550,7 +550,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void PreviewOnlyInputFacade_RendersFrameAndPreview()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var input = new FilterEffectInputNode();
         var preview = new PreviewNode();
         model.Nodes.Add(input);
@@ -580,7 +580,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void PreviewOnlySourceNode_RendersFrameAndPreview()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var input = new FilterEffectInputNode();
         using var previewSource = new CountingOpaqueSourceRenderNode(new Rect(8, 6, 18, 14));
         var sourceNode = new FixedRenderNodeGraphNode(previewSource);
@@ -612,7 +612,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Preview_WithSymbolicInputBounds_RendersTheOwningTargetDomain()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var previewNode = new PreviewNode();
         var outputNode = new OutputNode();
@@ -649,7 +649,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void Preview_FullTargetClearUsesTheResolvedTargetExtent()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         using var clearRenderNode = new ClearRenderNode(Colors.CornflowerBlue);
         var clearNode = new FixedRenderNodeGraphNode(clearRenderNode);
@@ -695,7 +695,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         bool preview)
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var outputNode = new OutputNode();
         model.Nodes.Add(inputNode);
@@ -748,7 +748,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void DuplicateOutputRoots_WithSymbolicBounds_NormalizeAgainstTheOwningTargetDomain()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var firstOutput = new OutputNode();
         var secondOutput = new OutputNode();
@@ -781,7 +781,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void SymbolicInputBounds_WithoutARequestTargetDomain_FailWithAnActionableMessage(bool preview)
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var outputNode = new OutputNode();
         model.Nodes.Add(inputNode);
@@ -820,7 +820,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     {
         var bounds = new Rect(3, 5, 24, 18);
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var measureNode = new MeasureNode();
         var captureNode = new MeasureCaptureNode();
@@ -854,7 +854,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void SharedRenderNodeCycle_IsRejectedByBoundGraphRecorder()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var cycle = new ContainerRenderNode();
         cycle.AddChild(cycle);
@@ -887,7 +887,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void PreviewCommands_ReuseSharedDefinitionWithoutPersistentRuntimeIdentities()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var firstPreview = new PreviewNode();
         var secondPreview = new PreviewNode();
@@ -1109,7 +1109,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void SharedNonValueSubtree_ThrowsAtSecondNodeGraphConsumer()
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var sharedNode = new SharedNonValueSubtreeGraphNode();
         var outputNode = new OutputNode();
@@ -1130,7 +1130,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     private static UtilityGraph BuildUtilityGraph(bool connectPreview)
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var inputNode = new FilterEffectInputNode();
         var shared = new CountingPassThroughGraphNode();
         var measure = new MeasureNode();
@@ -1164,7 +1164,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     private static NodeGraphFilterEffect.Resource BuildFanOutGraph(Matrix? transform, int outputCount)
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var input = new FilterEffectInputNode();
         model.Nodes.Add(input);
         IOutputPort branchOutput = input.Output;
@@ -1193,14 +1193,14 @@ public class NodeGraphFilterEffectRenderNodeTests
         bool includeBrightness)
     {
         var effect = new NodeGraphFilterEffect();
-        GraphModel model = effect.Model.CurrentValue!;
+        GraphModel model = effect.Model.Value!;
         var input = new FilterEffectInputNode();
         model.Nodes.Add(input);
 
         if (includeBlur)
         {
             var blur = new FilterEffectNode<Blur>();
-            blur.Object.Sigma.CurrentValue = new Size(4, 4);
+            blur.Object.Sigma.Value = new Size(4, 4);
             var output = new OutputNode();
             model.Nodes.Add(blur);
             model.Nodes.Add(output);
@@ -1211,7 +1211,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         if (includeBrightness)
         {
             var brightness = new FilterEffectNode<Brightness>();
-            brightness.Object.Amount.CurrentValue = 140f;
+            brightness.Object.Amount.Value = 140f;
             var output = new OutputNode();
             model.Nodes.Add(brightness);
             model.Nodes.Add(output);

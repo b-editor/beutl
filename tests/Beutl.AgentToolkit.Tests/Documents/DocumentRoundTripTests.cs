@@ -16,7 +16,7 @@ public class DocumentRoundTripTests
     [Test]
     public void Write_with_a_present_non_object_animations_map_is_rejected_without_clearing_animations()
     {
-        var text = new TextBlock { Text = { CurrentValue = "Title" } };
+        var text = new TextBlock { Text = { Value = "Title" } };
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);

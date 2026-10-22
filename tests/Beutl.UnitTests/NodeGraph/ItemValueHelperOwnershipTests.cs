@@ -30,8 +30,8 @@ public sealed class ItemValueHelperOwnershipTests
         {
             Assert.That(value.Value, Is.Not.SameAs(borrowed));
             Assert.That(value.Value!.HierarchicalParent, Is.SameAs(consumer));
-            Assert.That(((MatrixTransform)value.Value).Matrix.CurrentValue, Is.EqualTo(replacement));
-            Assert.That(borrowed.Matrix.CurrentValue, Is.EqualTo(Matrix.CreateTranslation(1, 2)));
+            Assert.That(((MatrixTransform)value.Value).Matrix.Value, Is.EqualTo(replacement));
+            Assert.That(borrowed.Matrix.Value, Is.EqualTo(Matrix.CreateTranslation(1, 2)));
             Assert.That(borrowed.HierarchicalParent, Is.SameAs(owner));
         });
     }
@@ -90,7 +90,7 @@ public sealed class ItemValueHelperOwnershipTests
         Assert.Multiple(() =>
         {
             Assert.That(value.Value, Is.SameAs(created));
-            Assert.That(((MatrixTransform)created).Matrix.CurrentValue, Is.EqualTo(replacement));
+            Assert.That(((MatrixTransform)created).Matrix.Value, Is.EqualTo(replacement));
             Assert.That(((IHierarchical)hierarchy).HierarchicalChildren, Is.EqualTo(new[] { created }));
         });
     }

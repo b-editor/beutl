@@ -26,17 +26,17 @@ public class Tier1ParameterScaleProbeTests
             Drawable.Resource Make()
             {
                 var brush = new PerlinNoiseBrush();
-                brush.BaseFrequencyX.CurrentValue = 1.5f; // 0.015 cycles/unit after the /100 — far from Nyquist at 1x
-                brush.BaseFrequencyY.CurrentValue = 1.5f;
-                brush.Octaves.CurrentValue = 2;
-                brush.Seed.CurrentValue = 1f;
+                brush.BaseFrequencyX.Value = 1.5f; // 0.015 cycles/unit after the /100 — far from Nyquist at 1x
+                brush.BaseFrequencyY.Value = 1.5f;
+                brush.Octaves.Value = 2;
+                brush.Seed.Value = 1f;
 
                 var shape = new RectShape();
-                shape.AlignmentX.CurrentValue = AlignmentX.Center;
-                shape.AlignmentY.CurrentValue = AlignmentY.Center;
-                shape.Width.CurrentValue = 180;
-                shape.Height.CurrentValue = 180;
-                shape.Fill.CurrentValue = brush;
+                shape.AlignmentX.Value = AlignmentX.Center;
+                shape.AlignmentY.Value = AlignmentY.Center;
+                shape.Width.Value = 180;
+                shape.Height.Value = 180;
+                shape.Fill.Value = brush;
                 return shape.ToResource(CompositionContext.Default);
             }
 
@@ -62,17 +62,17 @@ public class Tier1ParameterScaleProbeTests
             Drawable.Resource Make()
             {
                 var brush = new PerlinNoiseBrush();
-                brush.BaseFrequencyX.CurrentValue = 20f; // 0.20 cycles/unit after the /100 in CreatePerlinNoiseShader
-                brush.BaseFrequencyY.CurrentValue = 20f;
-                brush.Octaves.CurrentValue = 3;
-                brush.Seed.CurrentValue = 1f;
+                brush.BaseFrequencyX.Value = 20f; // 0.20 cycles/unit after the /100 in CreatePerlinNoiseShader
+                brush.BaseFrequencyY.Value = 20f;
+                brush.Octaves.Value = 3;
+                brush.Seed.Value = 1f;
 
                 var shape = new RectShape();
-                shape.AlignmentX.CurrentValue = AlignmentX.Center;
-                shape.AlignmentY.CurrentValue = AlignmentY.Center;
-                shape.Width.CurrentValue = 180;
-                shape.Height.CurrentValue = 180;
-                shape.Fill.CurrentValue = brush;
+                shape.AlignmentX.Value = AlignmentX.Center;
+                shape.AlignmentY.Value = AlignmentY.Center;
+                shape.Width.Value = 180;
+                shape.Height.Value = 180;
+                shape.Fill.Value = brush;
                 return shape.ToResource(CompositionContext.Default);
             }
 
@@ -97,15 +97,15 @@ public class Tier1ParameterScaleProbeTests
         {
             // One shared resource rendered at both scales, so the random per-instance shake offset is identical.
             var shape = new RectShape();
-            shape.AlignmentX.CurrentValue = AlignmentX.Center;
-            shape.AlignmentY.CurrentValue = AlignmentY.Center;
-            shape.Width.CurrentValue = 120;
-            shape.Height.CurrentValue = 120;
-            shape.Fill.CurrentValue = Brushes.White;
+            shape.AlignmentX.Value = AlignmentX.Center;
+            shape.AlignmentY.Value = AlignmentY.Center;
+            shape.Width.Value = 120;
+            shape.Height.Value = 120;
+            shape.Fill.Value = Brushes.White;
             var shake = new Beutl.Graphics.Effects.ShakeEffect();
-            shake.StrengthX.CurrentValue = 30f;
-            shake.StrengthY.CurrentValue = 30f;
-            shape.FilterEffect.CurrentValue = shake;
+            shake.StrengthX.Value = 30f;
+            shake.StrengthY.Value = 30f;
+            shape.FilterEffect.Value = shake;
             Drawable.Resource res = shape.ToResource(CompositionContext.Default);
 
             using Bitmap full = GoldenImageHarness.RenderAtScale(res, Frame, 1f);

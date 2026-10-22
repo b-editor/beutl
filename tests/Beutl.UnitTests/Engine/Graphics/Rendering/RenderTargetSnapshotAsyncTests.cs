@@ -233,9 +233,9 @@ public class RenderTargetSnapshotAsyncTests
             var renderer = new Renderer(64, 48, RenderIntent.Preview);
             var shape = new RectShape
             {
-                Width = { CurrentValue = 32 },
-                Height = { CurrentValue = 24 },
-                Fill = { CurrentValue = Brushes.White },
+                Width = { Value = 32 },
+                Height = { Value = 24 },
+                Fill = { Value = Brushes.White },
             };
             renderer.Render(RendererTestSupport.CreateFrame(new(64, 48), shape));
 

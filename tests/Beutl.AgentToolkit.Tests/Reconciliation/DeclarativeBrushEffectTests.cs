@@ -36,8 +36,8 @@ public sealed class DeclarativeBrushEffectTests
             patch: createPatch,
             schemaVersion: SchemaVersion.Current);
 
-        var fill = (LinearGradientBrush)rect.Fill.CurrentValue!;
-        var effects = (FilterEffectGroup)rect.FilterEffect.CurrentValue!;
+        var fill = (LinearGradientBrush)rect.Fill.Value!;
+        var effects = (FilterEffectGroup)rect.FilterEffect.Value!;
         var firstStop = fill.GradientStops[0];
         var blur = (Blur)effects.Children[0]!;
 
@@ -71,8 +71,8 @@ public sealed class DeclarativeBrushEffectTests
             patch: updatePatch,
             schemaVersion: SchemaVersion.Current);
 
-        fill = (LinearGradientBrush)rect.Fill.CurrentValue!;
-        effects = (FilterEffectGroup)rect.FilterEffect.CurrentValue!;
+        fill = (LinearGradientBrush)rect.Fill.Value!;
+        effects = (FilterEffectGroup)rect.FilterEffect.Value!;
         firstStop = fill.GradientStops.Single(stop => stop.Id == firstStop.Id);
         blur = (Blur)effects.Children.Single(child => child.Id == blur.Id)!;
 
@@ -84,22 +84,22 @@ public sealed class DeclarativeBrushEffectTests
             Assert.That(effects.Children, Has.Count.EqualTo(2));
             Assert.That(effects.Children[1], Is.InstanceOf<Brightness>());
             Assert.That(updateApply.IsSuccess, Is.True, updateApply.Error?.Message);
-            Assert.That(firstStop.Offset.CurrentValue, Is.EqualTo(0.2f));
-            Assert.That(firstStop.Color.CurrentValue, Is.EqualTo(Color.FromRgb(0x33, 0x66, 0xff)));
-            Assert.That(blur.Sigma.CurrentValue, Is.EqualTo(new Size(12, 12)));
+            Assert.That(firstStop.Offset.Value, Is.EqualTo(0.2f));
+            Assert.That(firstStop.Color.Value, Is.EqualTo(Color.FromRgb(0x33, 0x66, 0xff)));
+            Assert.That(blur.Sigma.Value, Is.EqualTo(new Size(12, 12)));
         });
 
         session.History.Undo();
 
-        blur = (Blur)((FilterEffectGroup)rect.FilterEffect.CurrentValue!).Children[0]!;
-        Assert.That(blur.Sigma.CurrentValue, Is.EqualTo(new Size(8, 8)));
+        blur = (Blur)((FilterEffectGroup)rect.FilterEffect.Value!).Children[0]!;
+        Assert.That(blur.Sigma.Value, Is.EqualTo(new Size(8, 8)));
     }
 
     [Test]
     public void Desired_document_absent_typed_property_clears_existing_value()
     {
         Scene scene = CreateSceneWithRect(out Element element, out RectShape rect);
-        rect.FilterEffect.CurrentValue = CreateEffectChain();
+        rect.FilterEffect.Value = CreateEffectChain();
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -113,7 +113,7 @@ public sealed class DeclarativeBrushEffectTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Valid, Is.True);
-            Assert.That(rect.FilterEffect.CurrentValue, Is.Null);
+            Assert.That(rect.FilterEffect.Value, Is.Null);
         });
     }
 
@@ -173,9 +173,9 @@ public sealed class DeclarativeBrushEffectTests
     private static FilterEffectGroup CreateEffectChain()
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(8, 8);
+        blur.Sigma.Value = new Size(8, 8);
         var brightness = new Brightness();
-        brightness.Amount.CurrentValue = 115;
+        brightness.Amount.Value = 115;
 
         return new FilterEffectGroup
         {
@@ -206,8 +206,8 @@ public sealed class DeclarativeBrushEffectTests
         element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         rect = new RectShape
         {
-            Width = { CurrentValue = 640 },
-            Height = { CurrentValue = 360 }
+            Width = { Value = 640 },
+            Height = { Value = 360 }
         };
         element.AddObject(rect);
         return scene;

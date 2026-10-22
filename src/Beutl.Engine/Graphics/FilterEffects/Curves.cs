@@ -91,31 +91,31 @@ public sealed partial class Curves : FilterEffect
     }
 
     [Display(Name = nameof(GraphicsStrings.Curves_MasterCurve), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> MasterCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
+    public IExpressionProperty<CurveMap> MasterCurve { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
     [Display(Name = nameof(GraphicsStrings.Curves_RedCurve), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> RedCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
+    public IExpressionProperty<CurveMap> RedCurve { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
     [Display(Name = nameof(GraphicsStrings.Curves_GreenCurve), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> GreenCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
+    public IExpressionProperty<CurveMap> GreenCurve { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
     [Display(Name = nameof(GraphicsStrings.Curves_BlueCurve), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> BlueCurve { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
+    public IExpressionProperty<CurveMap> BlueCurve { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0), new CurveControlPoint(1, 1)]));
 
     [Display(Name = nameof(GraphicsStrings.Curves_HueVsHue), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> HueVsHue { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    public IExpressionProperty<CurveMap> HueVsHue { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
     [Display(Name = nameof(GraphicsStrings.Curves_HueVsSaturation), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> HueVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    public IExpressionProperty<CurveMap> HueVsSaturation { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
     [Display(Name = nameof(GraphicsStrings.Curves_HueVsLuminance), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> HueVsLuminance { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    public IExpressionProperty<CurveMap> HueVsLuminance { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
     [Display(Name = nameof(GraphicsStrings.Curves_LuminanceVsSaturation), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> LuminanceVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    public IExpressionProperty<CurveMap> LuminanceVsSaturation { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
     [Display(Name = nameof(GraphicsStrings.Curves_SaturationVsSaturation), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<CurveMap> SaturationVsSaturation { get; } = Property.Create(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
+    public IExpressionProperty<CurveMap> SaturationVsSaturation { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

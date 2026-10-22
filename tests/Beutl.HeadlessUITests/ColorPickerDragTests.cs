@@ -113,7 +113,7 @@ public sealed class ColorPickerDragTests
         DragEnd end)
     {
         var brush = new SolidColorBrush(Colors.Red);
-        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);
         var playing = new ReactivePropertySlim<bool>(false);
         var player = new Mock<IPreviewPlayer>();
@@ -141,7 +141,7 @@ public sealed class ColorPickerDragTests
             window.MouseDown(At(0.3, 0.3), MouseButton.Left);
             window.MouseMove(At(0.6, 0.6), RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render();
-            Color reached = brush.Color.CurrentValue;
+            Color reached = brush.Color.Value;
             Assert.That(reached, Is.Not.EqualTo(Colors.Red));
             Assert.That(history.History.IsEditing, Is.True, "The drag must hold an edit session.");
 
@@ -175,8 +175,8 @@ public sealed class ColorPickerDragTests
             Color shown = Color.FromArgb(picked.A, picked.R, picked.G, picked.B);
             Assert.Multiple(() =>
             {
-                Assert.That(brush.Color.CurrentValue, Is.EqualTo(kept ? reached : Colors.Red));
-                Assert.That(shown, Is.EqualTo(brush.Color.CurrentValue), "The picker shows the brush's color.");
+                Assert.That(brush.Color.Value, Is.EqualTo(kept ? reached : Colors.Red));
+                Assert.That(shown, Is.EqualTo(brush.Color.Value), "The picker shows the brush's color.");
                 Assert.That(history.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
                 Assert.That(history.History.IsEditing, Is.False);
             });
@@ -196,7 +196,7 @@ public sealed class ColorPickerDragTests
         animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = TimeSpan.Zero, Value = Colors.Blue });
         animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = TimeSpan.FromSeconds(1), Value = Colors.Lime });
         brush.Color.SetKeyFrameAnimation(animation);
-        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);
         var time = new ReactivePropertySlim<TimeSpan>(TimeSpan.Zero);
         var clock = new Mock<IEditorClock>();
@@ -223,7 +223,7 @@ public sealed class ColorPickerDragTests
             history.History.Commit();
             Assert.Multiple(() =>
             {
-                Assert.That(brush.Color.CurrentValue, Is.EqualTo(Colors.Red));
+                Assert.That(brush.Color.Value, Is.EqualTo(Colors.Red));
                 Assert.That(history.History.UndoCount, Is.EqualTo(0), "Following the playhead records nothing.");
             });
         }
@@ -265,7 +265,7 @@ public sealed class ColorPickerDragTests
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(start + new Vector(40, 0), RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render();
-            GradingColor reached = effect.Shadows.CurrentValue;
+            GradingColor reached = effect.Shadows.Value;
             Assert.That(reached, Is.Not.EqualTo(GradingColor.Zero));
             Assert.That(history.History.IsEditing, Is.True, "The drag must hold an edit session.");
 
@@ -296,7 +296,7 @@ public sealed class ColorPickerDragTests
             bool kept = end is DragEnd.CaptureLoss or DragEnd.Playback;
             Assert.Multiple(() =>
             {
-                Assert.That(effect.Shadows.CurrentValue, Is.EqualTo(kept ? reached : GradingColor.Zero));
+                Assert.That(effect.Shadows.Value, Is.EqualTo(kept ? reached : GradingColor.Zero));
                 Assert.That(history.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
                 Assert.That(history.History.IsEditing, Is.False);
             });

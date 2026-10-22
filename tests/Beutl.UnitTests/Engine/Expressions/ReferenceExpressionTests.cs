@@ -133,7 +133,7 @@ public class ReferenceExpressionTests
         var objectId = target.Id;
         var expression = new ReferenceExpression<TestEngineObject>(objectId);
         var propertyLookup = new PropertyLookup(root);
-        var context = new ExpressionContext(TimeSpan.Zero, Property.Create(0.0), propertyLookup);
+        var context = new ExpressionContext(TimeSpan.Zero, Property.CreateExpression(0.0), propertyLookup);
 
         // Act
         var result = expression.Evaluate(context);
@@ -148,12 +148,12 @@ public class ReferenceExpressionTests
         // Arrange
         var root = new TestEngineObject();
         var target = new TestEngineObject();
-        target.Value.CurrentValue = 42.0;
+        target.Value.Value = 42.0;
         root.AddChild(target);
         var objectId = target.Id;
         var expression = new ReferenceExpression<double>(objectId, "Value");
         var propertyLookup = new PropertyLookup(root);
-        var context = new ExpressionContext(TimeSpan.Zero, Property.Create(0.0), propertyLookup);
+        var context = new ExpressionContext(TimeSpan.Zero, Property.CreateExpression(0.0), propertyLookup);
 
         // Act
         var result = expression.Evaluate(context);
@@ -172,7 +172,7 @@ public class ReferenceExpressionTests
         var objectId = target.Id;
         var expression = new ReferenceExpression<double>(objectId, "NonExistentProperty");
         var propertyLookup = new PropertyLookup(root);
-        var context = new ExpressionContext(TimeSpan.Zero, Property.Create(0.0), propertyLookup);
+        var context = new ExpressionContext(TimeSpan.Zero, Property.CreateExpression(0.0), propertyLookup);
 
         // Act
         var result = expression.Evaluate(context);
@@ -192,7 +192,7 @@ public class ReferenceExpressionTests
         // Try to get TestEngineObject as string
         var expression = new ReferenceExpression<string>(objectId);
         var propertyLookup = new PropertyLookup(root);
-        var context = new ExpressionContext(TimeSpan.Zero, Property.Create(0.0), propertyLookup);
+        var context = new ExpressionContext(TimeSpan.Zero, Property.CreateExpression(0.0), propertyLookup);
 
         // Act
         var result = expression.Evaluate(context);

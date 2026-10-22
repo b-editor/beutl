@@ -72,7 +72,7 @@ public sealed class DrawableGroupPublishedBoundsTests
     private static Drawable.Resource CreateClippedGroup()
     {
         var group = new DrawableGroup();
-        group.FilterEffect.CurrentValue = CreateClipping();
+        group.FilterEffect.Value = CreateClipping();
         group.Children.Add(CreateGradientRectangle(200, 120));
         group.Children.Add(CreateRectangle(60, 60, Brushes.White));
         return group.ToResource(CompositionContext.Default);
@@ -81,9 +81,9 @@ public sealed class DrawableGroupPublishedBoundsTests
     private static Drawable.Resource CreateIndividuallyClippedChildren()
     {
         RectShape large = CreateGradientRectangle(200, 120);
-        large.FilterEffect.CurrentValue = CreateClipping();
+        large.FilterEffect.Value = CreateClipping();
         RectShape small = CreateRectangle(60, 60, Brushes.White);
-        small.FilterEffect.CurrentValue = CreateClipping();
+        small.FilterEffect.Value = CreateClipping();
 
         var group = new DrawableGroup();
         group.Children.Add(large);
@@ -94,10 +94,10 @@ public sealed class DrawableGroupPublishedBoundsTests
     private static Clipping CreateClipping()
     {
         var clipping = new Clipping();
-        clipping.Left.CurrentValue = 60;
-        clipping.Top.CurrentValue = 40;
-        clipping.Right.CurrentValue = 60;
-        clipping.Bottom.CurrentValue = 40;
+        clipping.Left.Value = 60;
+        clipping.Top.Value = 40;
+        clipping.Right.Value = 60;
+        clipping.Bottom.Value = 40;
         return clipping;
     }
 
@@ -117,10 +117,10 @@ public sealed class DrawableGroupPublishedBoundsTests
         }
 
         var brush = new DrawableBrush();
-        brush.Drawable.CurrentValue = brushContent;
-        brush.Stretch.CurrentValue = Stretch.Fill;
-        brush.TileMode.CurrentValue = TileMode.None;
-        brush.DestinationRect.CurrentValue = RelativeRect.Fill;
+        brush.Drawable.Value = brushContent;
+        brush.Stretch.Value = Stretch.Fill;
+        brush.TileMode.Value = TileMode.None;
+        brush.DestinationRect.Value = RelativeRect.Fill;
 
         return CreateRectangle(180, 120, brush).ToResource(CompositionContext.Default);
     }
@@ -136,9 +136,9 @@ public sealed class DrawableGroupPublishedBoundsTests
     private static RectShape CreateRectangle(float width, float height, Brush fill)
     {
         var rectangle = new RectShape();
-        rectangle.Width.CurrentValue = width;
-        rectangle.Height.CurrentValue = height;
-        rectangle.Fill.CurrentValue = fill;
+        rectangle.Width.Value = width;
+        rectangle.Height.Value = height;
+        rectangle.Fill.Value = fill;
         return rectangle;
     }
 

@@ -35,7 +35,7 @@ public class EditorSwitchMenuTests
             editor.Scene.Children.Add(new Element
             {
                 Uri = new Uri(Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "image.belm")),
-                Objects = { new Beutl.Graphics.SourceImage { Source = { CurrentValue = imageSource } } }
+                Objects = { new Beutl.Graphics.SourceImage { Source = { Value = imageSource } } }
             });
         editor.CaptureMediaFingerprints = async (scene, token) =>
         {

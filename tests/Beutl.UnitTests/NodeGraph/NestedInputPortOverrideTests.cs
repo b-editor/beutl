@@ -46,7 +46,7 @@ public class NestedInputPortOverrideTests
         Assert.That(node.CanConnectInput(port), Is.True);
         Evaluate(graph);
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(scenario.Connected.GetValue(CompositionContext.Default), Is.EqualTo(42f));
+        Assert.That(scenario.Connected.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
 
         Assert.That(history.History.Redo(), Is.True);
         Assert.That(node.CanConnectInput(port), Is.False);
@@ -72,7 +72,7 @@ public class NestedInputPortOverrideTests
         else
         {
             var factory = new FactoryNode<Pen>();
-            factory.Object.Brush.CurrentValue = brush;
+            factory.Object.Brush.Value = brush;
             brush.Opacity.Expression = new ConstantExpression<float>(25f);
             node = factory;
             connected = brush.Opacity;
@@ -92,8 +92,8 @@ public class NestedInputPortOverrideTests
         if (intermediate)
         {
             var factory = new FactoryNode<AnimatedPenHolder>();
-            var container = factory.Object.Value.CurrentValue;
-            container.Pen.CurrentValue = pen;
+            var container = factory.Object.Value.Value;
+            container.Pen.Value = pen;
             return new Scenario(factory, Find(factory, container.Pen), pen.Thickness,
                 enabled => container.Pen.SetKeyFrameAnimation(enabled ? animation : null));
         }
@@ -115,7 +115,7 @@ public class NestedInputPortOverrideTests
             var shape = new GeometryShapeNode();
             var pen = new Pen();
             property = pen.Brush;
-            property.CurrentValue = brush;
+            property.Value = brush;
             shape.Pen.Property!.SetValue(pen);
             node = shape;
         }
@@ -123,7 +123,7 @@ public class NestedInputPortOverrideTests
         {
             var factory = new FactoryNode<Pen>();
             property = factory.Object.Brush;
-            property.CurrentValue = brush;
+            property.Value = brush;
             node = factory;
         }
 
@@ -137,7 +137,7 @@ public sealed partial class AnimatedPenHolder : EngineObject
 {
     public AnimatedPenHolder() => ScanProperties<AnimatedPenHolder>();
 
-    public IExpressionProperty<AnimatedPenContainer> Value { get; } = Property.Create(new AnimatedPenContainer());
+    public IExpressionProperty<AnimatedPenContainer> Value { get; } = Property.CreateExpression(new AnimatedPenContainer());
 }
 
 public sealed partial class AnimatedPenContainer : EngineObject

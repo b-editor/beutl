@@ -140,7 +140,7 @@ public sealed class ReferencedSceneApplyTests
             {
                 Assert.That(ex!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
                 Assert.That(ex.Error.Message, Does.Contain(expectedMessage));
-                Assert.That(drawable.ReferencedScene.CurrentValue, Is.Null);
+                Assert.That(drawable.ReferencedScene.Value, Is.Null);
                 Assert.That(drawable.ReferencedScene.Expression, Is.Null);
             });
         }
@@ -168,7 +168,7 @@ public sealed class ReferencedSceneApplyTests
                 Assert.That(ExpressionObjectId(drawable), Is.EqualTo(child.Id));
                 // The reference resolves through the expression, so the child scene keeps its own
                 // parent and is never adopted into the referencing drawable's subtree.
-                Assert.That(drawable.ReferencedScene.CurrentValue, Is.Null);
+                Assert.That(drawable.ReferencedScene.Value, Is.Null);
                 Assert.That(((IHierarchical)child).HierarchicalParent, Is.SameAs(childParentBefore));
                 Assert.That(((IHierarchical)drawable).HierarchicalChildren, Does.Not.Contain(child));
             });

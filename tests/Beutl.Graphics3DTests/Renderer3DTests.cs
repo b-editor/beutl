@@ -86,9 +86,9 @@ public class Renderer3DTests
                 for (int i = 0; i < meshes; i++)
                 {
                     var sphere = new Sphere3D();
-                    sphere.Position.CurrentValue = new Vector3(i - (meshes - 1) / 2f, 0, 0);
-                    sphere.Radius.CurrentValue = 0.3f;
-                    sphere.Material.CurrentValue = createMaterial();
+                    sphere.Position.Value = new Vector3(i - (meshes - 1) / 2f, 0, 0);
+                    sphere.Radius.Value = 0.3f;
+                    sphere.Material.Value = createMaterial();
                     objects.Add((Object3D.Resource)sphere.ToResource(composition));
                 }
 
@@ -122,8 +122,8 @@ public class Renderer3DTests
     private static PerspectiveCamera.Resource CreateCamera(CompositionContext composition)
     {
         var camera = new PerspectiveCamera();
-        camera.Position.CurrentValue = new Vector3(0, 0, 4);
-        camera.Target.CurrentValue = Vector3.Zero;
+        camera.Position.Value = new Vector3(0, 0, 4);
+        camera.Target.Value = Vector3.Zero;
         return (PerspectiveCamera.Resource)camera.ToResource(composition);
     }
 
@@ -167,15 +167,15 @@ public class Renderer3DTests
             Material3D material = CreateMaterial(kind);
             var objects = new List<Object3D.Resource>();
             var group = new Group3D();
-            group.Position.CurrentValue = new Vector3(1, 0, 0);
+            group.Position.Value = new Vector3(1, 0, 0);
             try
             {
                 for (int i = 0; i < 2; i++)
                 {
                     var sphere = new Sphere3D();
-                    sphere.Position.CurrentValue = new Vector3((i == 0 ? -0.75f : 0.75f) - (grouped ? 1 : 0), 0, 0);
-                    sphere.Radius.CurrentValue = 0.4f;
-                    sphere.Material.CurrentValue = shared ? material : CreateMaterial(kind);
+                    sphere.Position.Value = new Vector3((i == 0 ? -0.75f : 0.75f) - (grouped ? 1 : 0), 0, 0);
+                    sphere.Radius.Value = 0.4f;
+                    sphere.Material.Value = shared ? material : CreateMaterial(kind);
                     if (grouped) group.Children.Add(sphere);
                     else objects.Add((Object3D.Resource)sphere.ToResource(composition));
                 }
@@ -224,12 +224,12 @@ public class Renderer3DTests
                 var renderContext = new CompositionContext(TimeSpan.Zero);
 
                 var camera = new PerspectiveCamera();
-                camera.Position.CurrentValue = new Vector3(0, 0, 12);
-                camera.Target.CurrentValue = new Vector3(0, 0, 0);
-                camera.Up.CurrentValue = Vector3.UnitY;
-                camera.FieldOfView.CurrentValue = 45f;
-                camera.NearPlane.CurrentValue = 0.1f;
-                camera.FarPlane.CurrentValue = 100f;
+                camera.Position.Value = new Vector3(0, 0, 12);
+                camera.Target.Value = new Vector3(0, 0, 0);
+                camera.Up.Value = Vector3.UnitY;
+                camera.FieldOfView.Value = 45f;
+                camera.NearPlane.Value = 0.1f;
+                camera.FarPlane.Value = 100f;
                 var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(renderContext);
                 sceneResources.Add(cameraResource);
 
@@ -248,17 +248,17 @@ public class Renderer3DTests
                         float metallic = varyMaterials ? (float)x / (gridSizeX - 1) : 0.5f;
 
                         var sphere = new Sphere3D();
-                        sphere.Position.CurrentValue = new Vector3(offsetX + x * spacing, offsetY + y * spacing, 0);
-                        sphere.Radius.CurrentValue = sphereRadius;
-                        sphere.Segments.CurrentValue = 32;
-                        sphere.Rings.CurrentValue = 16;
+                        sphere.Position.Value = new Vector3(offsetX + x * spacing, offsetY + y * spacing, 0);
+                        sphere.Radius.Value = sphereRadius;
+                        sphere.Segments.Value = 32;
+                        sphere.Rings.Value = 16;
 
                         var material = new PBRMaterial();
-                        material.Albedo.CurrentValue = new Color(255, 255, 200, 50);
-                        material.Metallic.CurrentValue = metallic;
-                        material.Roughness.CurrentValue = roughness;
-                        material.AmbientOcclusion.CurrentValue = 1.0f;
-                        sphere.Material.CurrentValue = material;
+                        material.Albedo.Value = new Color(255, 255, 200, 50);
+                        material.Metallic.Value = metallic;
+                        material.Roughness.Value = roughness;
+                        material.AmbientOcclusion.Value = 1.0f;
+                        sphere.Material.Value = material;
 
                         objects.Add((Sphere3D.Resource)sphere.ToResource(renderContext));
                     }
@@ -294,20 +294,20 @@ public class Renderer3DTests
             if (point)
             {
                 var light = new PointLight3D();
-                light.Position.CurrentValue = new Vector3(0, 3, 2);
-                light.Intensity.CurrentValue = 15;
-                light.Range.CurrentValue = 15;
-                light.CastsShadow.CurrentValue = true;
+                light.Position.Value = new Vector3(0, 3, 2);
+                light.Intensity.Value = 15;
+                light.Range.Value = 15;
+                light.CastsShadow.Value = true;
                 lights.Add(light);
             }
             else
             {
                 var light = new DirectionalLight3D();
-                light.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -2, -1));
-                light.Intensity.CurrentValue = 2;
-                light.CastsShadow.CurrentValue = true;
-                light.ShadowDistance.CurrentValue = 30;
-                light.ShadowMapSize.CurrentValue = 15;
+                light.Direction.Value = Vector3.Normalize(new Vector3(-1, -2, -1));
+                light.Intensity.Value = 2;
+                light.CastsShadow.Value = true;
+                light.ShadowDistance.Value = 30;
+                light.ShadowMapSize.Value = 15;
                 lights.Add(light);
             }
         }
@@ -326,16 +326,16 @@ public class Renderer3DTests
         void Configure(List<Light3D> lights)
         {
             var light = new DirectionalLight3D();
-            light.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -2, -1));
-            light.Color.CurrentValue = Colors.White;
-            light.Intensity.CurrentValue = 2.0f;
+            light.Direction.Value = Vector3.Normalize(new Vector3(-1, -2, -1));
+            light.Color.Value = Colors.White;
+            light.Intensity.Value = 2.0f;
             light.IsEnabled = true;
-            light.CastsShadow.CurrentValue = true;
-            light.ShadowBias.CurrentValue = 0.005f;
-            light.ShadowNormalBias.CurrentValue = 0.02f;
-            light.ShadowStrength.CurrentValue = 1.0f;
-            light.ShadowDistance.CurrentValue = 30f;
-            light.ShadowMapSize.CurrentValue = 15f;
+            light.CastsShadow.Value = true;
+            light.ShadowBias.Value = 0.005f;
+            light.ShadowNormalBias.Value = 0.02f;
+            light.ShadowStrength.Value = 1.0f;
+            light.ShadowDistance.Value = 30f;
+            light.ShadowMapSize.Value = 15f;
             lights.Add(light);
         }
 
@@ -354,22 +354,22 @@ public class Renderer3DTests
         void Configure(List<Light3D> lights)
         {
             var pointLight = new PointLight3D();
-            pointLight.Position.CurrentValue = new Vector3(0, 3, 2);
-            pointLight.Color.CurrentValue = new Color(255, 255, 240, 200);
-            pointLight.Intensity.CurrentValue = 15f;
-            pointLight.Range.CurrentValue = 15f;
+            pointLight.Position.Value = new Vector3(0, 3, 2);
+            pointLight.Color.Value = new Color(255, 255, 240, 200);
+            pointLight.Intensity.Value = 15f;
+            pointLight.Range.Value = 15f;
             pointLight.IsEnabled = true;
-            pointLight.CastsShadow.CurrentValue = true;
-            pointLight.ShadowBias.CurrentValue = 0.01f;
-            pointLight.ShadowStrength.CurrentValue = 0.9f;
+            pointLight.CastsShadow.Value = true;
+            pointLight.ShadowBias.Value = 0.01f;
+            pointLight.ShadowStrength.Value = 0.9f;
             lights.Add(pointLight);
 
             var ambientFill = new DirectionalLight3D();
-            ambientFill.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, -1, 0));
-            ambientFill.Color.CurrentValue = new Color(255, 100, 120, 150);
-            ambientFill.Intensity.CurrentValue = 0.3f;
+            ambientFill.Direction.Value = Vector3.Normalize(new Vector3(0, -1, 0));
+            ambientFill.Color.Value = new Color(255, 100, 120, 150);
+            ambientFill.Intensity.Value = 0.3f;
             ambientFill.IsEnabled = true;
-            ambientFill.CastsShadow.CurrentValue = false;
+            ambientFill.CastsShadow.Value = false;
             lights.Add(ambientFill);
         }
 
@@ -386,25 +386,25 @@ public class Renderer3DTests
         void Configure(List<Light3D> lights)
         {
             var spotLight = new SpotLight3D();
-            spotLight.Position.CurrentValue = new Vector3(0, 6, 0);
-            spotLight.Direction.CurrentValue = new Vector3(0, -1, 0);
-            spotLight.Color.CurrentValue = new Color(255, 255, 255, 220);
-            spotLight.Intensity.CurrentValue = 30f;
-            spotLight.Range.CurrentValue = 15f;
-            spotLight.InnerConeAngle.CurrentValue = 25f;
-            spotLight.OuterConeAngle.CurrentValue = 50f;
+            spotLight.Position.Value = new Vector3(0, 6, 0);
+            spotLight.Direction.Value = new Vector3(0, -1, 0);
+            spotLight.Color.Value = new Color(255, 255, 255, 220);
+            spotLight.Intensity.Value = 30f;
+            spotLight.Range.Value = 15f;
+            spotLight.InnerConeAngle.Value = 25f;
+            spotLight.OuterConeAngle.Value = 50f;
             spotLight.IsEnabled = true;
-            spotLight.CastsShadow.CurrentValue = true;
-            spotLight.ShadowBias.CurrentValue = 0.005f;
-            spotLight.ShadowStrength.CurrentValue = 0.95f;
+            spotLight.CastsShadow.Value = true;
+            spotLight.ShadowBias.Value = 0.005f;
+            spotLight.ShadowStrength.Value = 0.95f;
             lights.Add(spotLight);
 
             var ambientFill = new DirectionalLight3D();
-            ambientFill.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, -1, 0));
-            ambientFill.Color.CurrentValue = new Color(255, 100, 120, 150);
-            ambientFill.Intensity.CurrentValue = 0.3f;
+            ambientFill.Direction.Value = Vector3.Normalize(new Vector3(0, -1, 0));
+            ambientFill.Color.Value = new Color(255, 100, 120, 150);
+            ambientFill.Intensity.Value = 0.3f;
             ambientFill.IsEnabled = true;
-            ambientFill.CastsShadow.CurrentValue = false;
+            ambientFill.CastsShadow.Value = false;
             lights.Add(ambientFill);
         }
 
@@ -421,25 +421,25 @@ public class Renderer3DTests
         void Configure(List<Light3D> lights)
         {
             var mainLight = new DirectionalLight3D();
-            mainLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -1.5f, -0.5f));
-            mainLight.Color.CurrentValue = new Color(255, 255, 250, 230);
-            mainLight.Intensity.CurrentValue = 1.8f;
+            mainLight.Direction.Value = Vector3.Normalize(new Vector3(-1, -1.5f, -0.5f));
+            mainLight.Color.Value = new Color(255, 255, 250, 230);
+            mainLight.Intensity.Value = 1.8f;
             mainLight.IsEnabled = true;
-            mainLight.CastsShadow.CurrentValue = true;
-            mainLight.ShadowStrength.CurrentValue = 0.7f;
+            mainLight.CastsShadow.Value = true;
+            mainLight.ShadowStrength.Value = 0.7f;
             lights.Add(mainLight);
 
             var secondarySpot = new SpotLight3D();
-            secondarySpot.Position.CurrentValue = new Vector3(-3, 4, 3);
-            secondarySpot.Direction.CurrentValue = Vector3.Normalize(new Vector3(0.3f, -1, -0.3f));
-            secondarySpot.Color.CurrentValue = new Color(255, 200, 230, 255);
-            secondarySpot.Intensity.CurrentValue = 12f;
-            secondarySpot.Range.CurrentValue = 15f;
-            secondarySpot.InnerConeAngle.CurrentValue = 20f;
-            secondarySpot.OuterConeAngle.CurrentValue = 40f;
+            secondarySpot.Position.Value = new Vector3(-3, 4, 3);
+            secondarySpot.Direction.Value = Vector3.Normalize(new Vector3(0.3f, -1, -0.3f));
+            secondarySpot.Color.Value = new Color(255, 200, 230, 255);
+            secondarySpot.Intensity.Value = 12f;
+            secondarySpot.Range.Value = 15f;
+            secondarySpot.InnerConeAngle.Value = 20f;
+            secondarySpot.OuterConeAngle.Value = 40f;
             secondarySpot.IsEnabled = true;
-            secondarySpot.CastsShadow.CurrentValue = true;
-            secondarySpot.ShadowStrength.CurrentValue = 0.6f;
+            secondarySpot.CastsShadow.Value = true;
+            secondarySpot.ShadowStrength.Value = 0.6f;
             lights.Add(secondarySpot);
         }
 
@@ -453,21 +453,21 @@ public class Renderer3DTests
     private static List<Light3D.Resource> BuildThreePointLights(CompositionContext renderContext)
     {
         var keyLight = new DirectionalLight3D();
-        keyLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -1, -1));
-        keyLight.Color.CurrentValue = Colors.White;
-        keyLight.Intensity.CurrentValue = 2.5f;
+        keyLight.Direction.Value = Vector3.Normalize(new Vector3(-1, -1, -1));
+        keyLight.Color.Value = Colors.White;
+        keyLight.Intensity.Value = 2.5f;
         keyLight.IsEnabled = true;
 
         var fillLight = new DirectionalLight3D();
-        fillLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0.8f, -0.3f, -0.5f));
-        fillLight.Color.CurrentValue = new Color(255, 220, 200, 255);
-        fillLight.Intensity.CurrentValue = 1.0f;
+        fillLight.Direction.Value = Vector3.Normalize(new Vector3(0.8f, -0.3f, -0.5f));
+        fillLight.Color.Value = new Color(255, 220, 200, 255);
+        fillLight.Intensity.Value = 1.0f;
         fillLight.IsEnabled = true;
 
         var rimLight = new DirectionalLight3D();
-        rimLight.Direction.CurrentValue = Vector3.Normalize(new Vector3(0, 0, 1));
-        rimLight.Color.CurrentValue = new Color(255, 180, 200, 255);
-        rimLight.Intensity.CurrentValue = 0.6f;
+        rimLight.Direction.Value = Vector3.Normalize(new Vector3(0, 0, 1));
+        rimLight.Color.Value = new Color(255, 180, 200, 255);
+        rimLight.Intensity.Value = 0.6f;
         rimLight.IsEnabled = true;
 
         return new List<Light3D.Resource>
@@ -496,26 +496,26 @@ public class Renderer3DTests
                 var renderContext = new CompositionContext(TimeSpan.Zero);
 
                 var camera = new PerspectiveCamera();
-                camera.Position.CurrentValue = new Vector3(8, 6, 8);
-                camera.Target.CurrentValue = new Vector3(0, 0, 0);
-                camera.Up.CurrentValue = Vector3.UnitY;
-                camera.FieldOfView.CurrentValue = 50f;
-                camera.NearPlane.CurrentValue = 0.1f;
-                camera.FarPlane.CurrentValue = 100f;
+                camera.Position.Value = new Vector3(8, 6, 8);
+                camera.Target.Value = new Vector3(0, 0, 0);
+                camera.Up.Value = Vector3.UnitY;
+                camera.FieldOfView.Value = 50f;
+                camera.NearPlane.Value = 0.1f;
+                camera.FarPlane.Value = 100f;
                 var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(renderContext);
                 sceneResources.Add(cameraResource);
 
                 var ground = new Cube3D();
-                ground.Width.CurrentValue = 20f;
-                ground.Height.CurrentValue = 0.1f;
-                ground.Depth.CurrentValue = 20f;
-                ground.Position.CurrentValue = new Vector3(0, -1.05f, 0);
-                ground.ReceiveShadows.CurrentValue = true;
+                ground.Width.Value = 20f;
+                ground.Height.Value = 0.1f;
+                ground.Depth.Value = 20f;
+                ground.Position.Value = new Vector3(0, -1.05f, 0);
+                ground.ReceiveShadows.Value = true;
                 var groundMaterial = new PBRMaterial();
-                groundMaterial.Albedo.CurrentValue = new Color(255, 180, 180, 180);
-                groundMaterial.Roughness.CurrentValue = 0.8f;
-                groundMaterial.Metallic.CurrentValue = 0.0f;
-                ground.Material.CurrentValue = groundMaterial;
+                groundMaterial.Albedo.Value = new Color(255, 180, 180, 180);
+                groundMaterial.Roughness.Value = 0.8f;
+                groundMaterial.Metallic.Value = 0.0f;
+                ground.Material.Value = groundMaterial;
                 objects.Add((Cube3D.Resource)ground.ToResource(renderContext));
 
                 objects.Add(CreateShadowSphere(renderContext, new Vector3(0, 0.5f, 0), 1.0f, new Color(255, 220, 80, 80), 0.3f, 0.1f));
@@ -527,7 +527,7 @@ public class Renderer3DTests
                     foreach (Object3D.Resource obj in objects)
                     {
                         Object3D original = obj.RequireOriginal();
-                        original.ReceiveShadows.CurrentValue = false;
+                        original.ReceiveShadows.Value = false;
                         bool versionBumped = false;
                         obj.Reconcile(original, renderContext, ref versionBumped);
                     }
@@ -535,7 +535,7 @@ public class Renderer3DTests
                 if (parentCastShadows is { } parentCasts)
                 {
                     var group = new Group3D();
-                    group.CastShadows.CurrentValue = parentCasts;
+                    group.CastShadows.Value = parentCasts;
                     foreach (Object3D.Resource obj in objects)
                     {
                         group.Children.Add(obj.RequireOriginal());
@@ -552,7 +552,7 @@ public class Renderer3DTests
                     // two frames; that diff is what gates that shadows actually darken the receiver.
                     foreach (Light3D light in lightModels)
                     {
-                        light.CastsShadow.CurrentValue = false;
+                        light.CastsShadow.Value = false;
                     }
                 }
                 var lights = lightModels
@@ -582,17 +582,17 @@ public class Renderer3DTests
         CompositionContext renderContext, Vector3 position, float radius, Color albedo, float roughness, float metallic)
     {
         var sphere = new Sphere3D();
-        sphere.Position.CurrentValue = position;
-        sphere.Radius.CurrentValue = radius;
-        sphere.Segments.CurrentValue = 32;
-        sphere.Rings.CurrentValue = 16;
-        sphere.CastShadows.CurrentValue = true;
+        sphere.Position.Value = position;
+        sphere.Radius.Value = radius;
+        sphere.Segments.Value = 32;
+        sphere.Rings.Value = 16;
+        sphere.CastShadows.Value = true;
 
         var material = new PBRMaterial();
-        material.Albedo.CurrentValue = albedo;
-        material.Roughness.CurrentValue = roughness;
-        material.Metallic.CurrentValue = metallic;
-        sphere.Material.CurrentValue = material;
+        material.Albedo.Value = albedo;
+        material.Roughness.Value = roughness;
+        material.Metallic.Value = metallic;
+        sphere.Material.Value = material;
 
         return (Sphere3D.Resource)sphere.ToResource(renderContext);
     }

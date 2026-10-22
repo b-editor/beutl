@@ -269,7 +269,7 @@ public class ColorTests
     public void ToBrushExtension_CreatesBrush()
     {
         var brush = Color.Parse("Red").ToBrush();
-        Assert.That(brush.Color.CurrentValue, Is.EqualTo(Color.Parse("Red")));
+        Assert.That(brush.Color.Value, Is.EqualTo(Color.Parse("Red")));
     }
 
     [Test]

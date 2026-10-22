@@ -125,13 +125,13 @@ public sealed class SourceBackdropOpacityTests
         if (setup is { } backdropSetup)
         {
             var backdrop = new SourceBackdrop();
-            backdrop.FilterEffect.CurrentValue = new Invert();
-            backdrop.Clear.CurrentValue = backdropSetup.Clear;
-            backdrop.Opacity.CurrentValue = backdropSetup.Opacity;
+            backdrop.FilterEffect.Value = new Invert();
+            backdrop.Clear.Value = backdropSetup.Clear;
+            backdrop.Opacity.Value = backdropSetup.Opacity;
             if (backdropSetup.GroupOpacity is { } groupOpacity)
             {
                 var group = new DrawableGroup();
-                group.Opacity.CurrentValue = groupOpacity;
+                group.Opacity.Value = groupOpacity;
                 group.Children.Add(backdrop);
                 scene.Children.Add(group);
             }
@@ -147,9 +147,9 @@ public sealed class SourceBackdropOpacityTests
     private static RectShape CreateRectangle(float width, float height, Color color)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = width;
-        shape.Height.CurrentValue = height;
-        shape.Fill.CurrentValue = new SolidColorBrush(color);
+        shape.Width.Value = width;
+        shape.Height.Value = height;
+        shape.Fill.Value = new SolidColorBrush(color);
         return shape;
     }
 }

@@ -23,12 +23,12 @@ public sealed partial class Rotation3DTransform : Transform
         float centerY,
         float centerZ) : this()
     {
-        RotationX.CurrentValue = rotationX;
-        RotationY.CurrentValue = rotationY;
-        RotationZ.CurrentValue = rotationZ;
-        CenterX.CurrentValue = centerX;
-        CenterY.CurrentValue = centerY;
-        CenterZ.CurrentValue = centerZ;
+        RotationX.Value = rotationX;
+        RotationY.Value = rotationY;
+        RotationZ.Value = rotationZ;
+        CenterX.Value = centerX;
+        CenterY.Value = centerY;
+        CenterZ.Value = centerZ;
     }
 
     [Display(Name = nameof(GraphicsStrings.Rotation3DTransform_RotationX), ResourceType = typeof(GraphicsStrings))]

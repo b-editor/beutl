@@ -16,7 +16,7 @@ public class GainNodeTests
     private static AudioProcessContext CreateContext() =>
         AudioTestContexts.CreateContext(TimeSpan.Zero, TimeSpan.FromSeconds(1), SampleRate);
 
-    // Animatable Gain with no animation assigned must use the static CurrentValue, not the
+    // Animatable Gain with no animation assigned must use the static Value, not the
     // per-sample path.
     [Test]
     public void Process_AnimatableGainWithoutAnimation_AppliesCurrentValue()
@@ -73,7 +73,7 @@ public class GainNodeTests
         Span<float> data = result.GetChannelData(0);
         for (int i = 0; i < data.Length; i++)
         {
-            float expected = gain.GetValue(new CompositionContext(TimeSpan.FromSeconds(i / (double)SampleRate))) / 100f;
+            float expected = gain.Evaluate(new CompositionContext(TimeSpan.FromSeconds(i / (double)SampleRate))) / 100f;
             Assert.That(data[i], Is.EqualTo(expected).Within(1e-6f), $"sample {i}");
         }
     }

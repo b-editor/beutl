@@ -224,8 +224,8 @@ internal sealed partial class PathEditorInteraction
             || Context?.PathFigure.Value is not { Segments.Count: > 0 } figure
             || !figure.Segments.Contains(_penEnd)) return;
         var context = Composition;
-        BtlPoint start = figure.StartPoint.GetValue(context);
-        if (start.IsInvalid || figure.IsClosed.GetValue(context) || !CanCloseExplicitPath(figure)) return;
+        BtlPoint start = figure.StartPoint.Evaluate(context);
+        if (start.IsInvalid || figure.IsClosed.Evaluate(context) || !CanCloseExplicitPath(figure)) return;
         Point point = Screen(start);
         Canvas.SetLeft(_explicitStart, point.X - 4);
         Canvas.SetTop(_explicitStart, point.Y - 4);
@@ -322,8 +322,8 @@ internal sealed partial class PathEditorInteraction
         else if (_bending != null && TryLocal(position, out BtlPoint curvePoint))
         {
             var offset = (curvePoint - _penPoint) / (3 * _bendParameter * (1 - _bendParameter));
-            _bending.ControlPoint1.CurrentValue = _bendControl1 + offset;
-            _bending.ControlPoint2.CurrentValue = _bendControl2 + offset;
+            _bending.ControlPoint1.Value = _bendControl1 + offset;
+            _bending.ControlPoint2.Value = _bendControl2 + offset;
             _view.Refresh();
         }
         else if (_adding && TryLocal(position, out BtlPoint local))
@@ -333,7 +333,7 @@ internal sealed partial class PathEditorInteraction
                 if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) local = PathEditingOperations.SnapAngle(_penPoint, local);
                 _outgoing = local;
                 if (_penSegment != null)
-                    _penSegment.ControlPoint2.CurrentValue = new(2 * _penPoint.X - local.X, 2 * _penPoint.Y - local.Y);
+                    _penSegment.ControlPoint2.Value = new(2 * _penPoint.X - local.X, 2 * _penPoint.Y - local.Y);
                 else if (Context?.PathFigure.Value?.Segments.Count == 1)
                     _firstIncoming = new(2 * _penPoint.X - local.X, 2 * _penPoint.Y - local.Y);
                 _view.Refresh();
@@ -360,7 +360,7 @@ internal sealed partial class PathEditorInteraction
         _preview.IsVisible = Tool == PathEditorTool.Pen && _penEnd != null;
         if (_preview.IsVisible)
         {
-            _preview.StartPoint = Screen(_penEnd!.GetEndPoint().GetValue(Composition));
+            _preview.StartPoint = Screen(_penEnd!.GetEndPoint().Evaluate(Composition));
             _preview.EndPoint = position;
         }
     }

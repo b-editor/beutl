@@ -15,7 +15,7 @@ public sealed partial class LineSegment : PathSegment
 
     public LineSegment(Point point) : this()
     {
-        Point.CurrentValue = point;
+        Point.Value = point;
     }
 
     public LineSegment(float x, float y)

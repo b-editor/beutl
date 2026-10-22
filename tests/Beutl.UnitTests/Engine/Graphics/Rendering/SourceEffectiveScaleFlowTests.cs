@@ -26,7 +26,7 @@ public class SourceEffectiveScaleFlowTests
     private static FilterEffectRenderNode MosaicNode()
     {
         var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(10, 10);
+        mosaic.TileSize.Value = new Size(10, 10);
         return new FilterEffectRenderNode(mosaic.ToResource(CompositionContext.Default));
     }
 
@@ -326,9 +326,9 @@ public class SourceEffectiveScaleFlowTests
     {
         var group = new FilterEffectGroup();
         var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(10, 10);
+        mosaic.TileSize.Value = new Size(10, 10);
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(3, 3);
+        blur.Sigma.Value = new Size(3, 3);
         group.Children.Add(mosaic);
         group.Children.Add(blur);
 
@@ -347,11 +347,11 @@ public class SourceEffectiveScaleFlowTests
     public void StrokeEffect_OverBudgetBounds_ClampsWorkingScaleBelowNominal_DoesNotThrow()
     {
         var pen = new Pen();
-        pen.Thickness.CurrentValue = 8;
-        pen.Brush.CurrentValue = Brushes.Red;
+        pen.Thickness.Value = 8;
+        pen.Brush.Value = Brushes.Red;
         var stroke = new StrokeEffect();
-        stroke.Pen.CurrentValue = pen;
-        stroke.Offset.CurrentValue = new Point(20000, 0);
+        stroke.Pen.Value = pen;
+        stroke.Offset.Value = new Point(20000, 0);
 
         RenderNodeMeasurement measurement = default;
         Assert.DoesNotThrow(() => measurement = ScaleRecordingTestHelper.MeasureThrough(
@@ -1838,7 +1838,7 @@ public class SourceEffectiveScaleFlowTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var mosaic = new MosaicEffect();
-            mosaic.TileSize.CurrentValue = new Size(10, 10);
+            mosaic.TileSize.Value = new Size(10, 10);
             using var pipeline = ScaleRecordingTestHelper.Pipeline(
                 ScaleRecordingTestHelper.Source(EffectiveScale.At(1)),
                 new OversampleMosaicRenderNode(mosaic.ToResource(CompositionContext.Default)));

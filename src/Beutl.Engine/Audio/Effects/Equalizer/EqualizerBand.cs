@@ -16,7 +16,7 @@ public sealed partial class EqualizerBand : EngineObject
     }
 
     [Display(Name = nameof(AudioStrings.Equalizer_FilterType), ResourceType = typeof(AudioStrings))]
-    public IExpressionProperty<BiQuadFilterType> FilterType { get; } = Property.Create(BiQuadFilterType.Peak);
+    public IExpressionProperty<BiQuadFilterType> FilterType { get; } = Property.CreateExpression(BiQuadFilterType.Peak);
 
     /// <summary>
     /// Center frequency in Hz.

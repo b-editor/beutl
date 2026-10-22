@@ -637,7 +637,7 @@ public class CompressorNodeTests
     public void Process_AnimatedNonFiniteValue_FallsBackWithoutMutingOutput(AnimatedParam param)
     {
         // A NaN/Infinity keyframe on any animated parameter must not reach the sanitizer (which
-        // would mute the whole chunk); each must fall back to its static CurrentValue. Every
+        // would mute the whole chunk); each must fall back to its static Value. Every
         // parameter is tested so a missing SafeParameter call on any one is caught.
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
@@ -789,7 +789,7 @@ public class CompressorNodeTests
         using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
 
         // Animated path forced on via a constant Threshold animation; the other parameters stay
-        // unanimated, so AnimationSampler fills each with the same CurrentValue static reads.
+        // unanimated, so AnimationSampler fills each with the same Value static reads.
 
         var animatedNode = CreateNode(knee: 6f, makeup: 3f);
         animatedNode.Threshold.SetKeyFrameAnimation(Ramp(-20f, -20f, duration));
@@ -843,8 +843,8 @@ public class CompressorNodeTests
     public void Process_ExpressionBackedParameter_RoutesToStaticPathAndIgnoresExpression()
     {
         // hasAnimation keys solely on Animation != null, so an expression-backed property routes to
-        // ProcessStatic and reads CurrentValue without evaluating the expression. Output must equal
-        // a fully-static node with the same CurrentValue. Update this test once expressions are evaluated
+        // ProcessStatic and reads Value without evaluating the expression. Output must equal
+        // a fully-static node with the same Value. Update this test once expressions are evaluated
         // per sample (FIXME(expression) in EqualizerEffect.cs).
         const int sampleCount = SampleRate / 2;
         var duration = TimeSpan.FromSeconds(sampleCount / (double)SampleRate);
@@ -854,7 +854,7 @@ public class CompressorNodeTests
         staticNode.AddInput(new BufferReplayNode(input));
         using var staticOut = staticNode.Process(CreateContext(TimeSpan.Zero, duration));
 
-        // CurrentValue stays -20; the expression evaluates to -40 (which would compress harder).
+        // Value stays -20; the expression evaluates to -40 (which would compress harder).
         // Because the static path ignores the expression, -40 must NOT take effect.
         var exprNode = CreateNode();
         var threshold = (IExpressionProperty<float>)exprNode.Threshold;

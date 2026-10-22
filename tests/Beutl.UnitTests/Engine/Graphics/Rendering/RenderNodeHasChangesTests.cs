@@ -66,8 +66,8 @@ public class RenderNodeHasChangesTests
     private static NoOpUpdateCase GeometryCase()
     {
         var geometry = new EllipseGeometry();
-        geometry.Width.CurrentValue = 100;
-        geometry.Height.CurrentValue = 100;
+        geometry.Width.Value = 100;
+        geometry.Height.Value = 100;
         var resource = (Geometry.Resource)geometry.ToResource(CompositionContext.Default);
         var fill = Brushes.Resource.White;
         var node = new GeometryRenderNode(resource, fill, null);
@@ -115,8 +115,8 @@ public class RenderNodeHasChangesTests
     private static NoOpUpdateCase Scene3DCase()
     {
         var scene = new Scene3D();
-        scene.RenderWidth.CurrentValue = 32;
-        scene.RenderHeight.CurrentValue = 32;
+        scene.RenderWidth.Value = 32;
+        scene.RenderHeight.Value = 32;
         var resource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
         var node = new Scene3DRenderNode(resource);
         return new NoOpUpdateCase(node, () => node.Update(resource));

@@ -82,44 +82,44 @@ public class TransformEffectFrameAnchorTests
         var shape = MakeContentShape();
         var split = new SplitEffect
         {
-            HorizontalDivisions = { CurrentValue = 2 },
-            VerticalDivisions = { CurrentValue = 2 },
-            HorizontalSpacing = { CurrentValue = 10f },
-            VerticalSpacing = { CurrentValue = 10f },
+            HorizontalDivisions = { Value = 2 },
+            VerticalDivisions = { Value = 2 },
+            HorizontalSpacing = { Value = 10f },
+            VerticalSpacing = { Value = 10f },
         };
         var group = new FilterEffectGroup();
         group.Children.Add(split);
         group.Children.Add(MakeNoTargetRotation());
-        shape.FilterEffect.CurrentValue = group;
+        shape.FilterEffect.Value = group;
         return shape.ToResource(CompositionContext.Default);
     }
 
     private static RectShape MakeContentShape()
         => new()
         {
-            AlignmentX = { CurrentValue = AlignmentX.Center },
-            AlignmentY = { CurrentValue = AlignmentY.Center },
-            Width = { CurrentValue = ContentWidth },
-            Height = { CurrentValue = ContentHeight },
-            Fill = { CurrentValue = Brushes.OrangeRed },
+            AlignmentX = { Value = AlignmentX.Center },
+            AlignmentY = { Value = AlignmentY.Center },
+            Width = { Value = ContentWidth },
+            Height = { Value = ContentHeight },
+            Fill = { Value = Brushes.OrangeRed },
         };
 
     private static TransformEffect MakeNoTargetRotation()
         => new()
         {
-            ApplyToTarget = { CurrentValue = false },
-            TransformOrigin = { CurrentValue = RelativePoint.Center },
-            Transform = { CurrentValue = new RotationTransform(25f) },
+            ApplyToTarget = { Value = false },
+            TransformOrigin = { Value = RelativePoint.Center },
+            Transform = { Value = new RotationTransform(25f) },
         };
 
     private static Drawable.Resource MakeBlurTransformBrightnessChain(float sigmaX, float sigmaY)
     {
         var shape = MakeContentShape();
         var group = new FilterEffectGroup();
-        group.Children.Add(new Blur { Sigma = { CurrentValue = new Size(sigmaX, sigmaY) } });
+        group.Children.Add(new Blur { Sigma = { Value = new Size(sigmaX, sigmaY) } });
         group.Children.Add(MakeNoTargetRotation());
-        group.Children.Add(new Brightness { Amount = { CurrentValue = 150f } });
-        shape.FilterEffect.CurrentValue = group;
+        group.Children.Add(new Brightness { Amount = { Value = 150f } });
+        shape.FilterEffect.Value = group;
         return shape.ToResource(CompositionContext.Default);
     }
 

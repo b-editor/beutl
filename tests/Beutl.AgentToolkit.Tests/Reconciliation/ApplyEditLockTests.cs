@@ -375,14 +375,14 @@ public sealed class ApplyEditLockTests
         Element locked = AddElement(scene, "Title", zIndex: 0);
         locked.EnterTransition = new CrossDissolveTransition();
         locked.ExitTransition = new WipeTransition();
-        var text = new TextBlock { Name = "Caption", Text = { CurrentValue = "Hello" } };
+        var text = new TextBlock { Name = "Caption", Text = { Value = "Hello" } };
         var opacity = new KeyFrameAnimation<float>();
         opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0, Easing = new LinearEasing() }, out _);
         opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100, Easing = new SineEaseOut() }, out _);
         text.Opacity.SetKeyFrameAnimation(opacity);
         locked.AddObject(text);
         var group = new TransformGroup();
-        group.Children.Add(new RotationTransform { Rotation = { CurrentValue = 15 } });
+        group.Children.Add(new RotationTransform { Rotation = { Value = 15 } });
         group.Children.Add((Transform)CoreSerializer.DeserializeFromJsonObject(
             new JsonObject
             {
@@ -393,9 +393,9 @@ public sealed class ApplyEditLockTests
         locked.AddObject(new RectShape
         {
             Name = "Box",
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Orange) },
-            Transform = { CurrentValue = group },
-            FilterEffect = { CurrentValue = new Blur { Sigma = { CurrentValue = new Size(4, 4) } } },
+            Fill = { Value = new SolidColorBrush(Colors.Orange) },
+            Transform = { Value = group },
+            FilterEffect = { Value = new Blur { Sigma = { Value = new Size(4, 4) } } },
         });
         locked.IsLocked = true;
         Element other = AddElement(scene, "Other", zIndex: 1);
@@ -491,7 +491,7 @@ public sealed class ApplyEditLockTests
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         var rect = new RectShape { Name = "Box" };
-        rect.FilterEffect.CurrentValue = new LumaColor();
+        rect.FilterEffect.Value = new LumaColor();
         element.AddObject(rect);
         element.IsLocked = true;
         using var session = new AgentToolkitTestSession(scene);
@@ -507,7 +507,7 @@ public sealed class ApplyEditLockTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Message, Does.Contain($"({element.Id}) is locked"));
-            Assert.That(rect.FilterEffect.CurrentValue, Is.InstanceOf<LumaColor>());
+            Assert.That(rect.FilterEffect.Value, Is.InstanceOf<LumaColor>());
         });
     }
 

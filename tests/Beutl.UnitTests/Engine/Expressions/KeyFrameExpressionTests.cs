@@ -31,7 +31,7 @@ public class KeyFrameExpressionTests
         var keyFrames = TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1), useGlobalClock);
         property.SetKeyFrameAnimation(keyFrames);
 
-        float[] values = seconds.Select(s => property.GetValue(new CompositionContext(TimeSpan.FromSeconds(s)))).ToArray();
+        float[] values = seconds.Select(s => property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(s)))).ToArray();
         float[] evaluated = seconds.Select(s => ((IExpression<float>)keyFrames).Evaluate(
             TestHelper.CreateExpressionContext(TimeSpan.FromSeconds(s)))).ToArray();
 
@@ -56,7 +56,7 @@ public class KeyFrameExpressionTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(property.GetValue(context), Is.EqualTo(42f));
+            Assert.That(property.Evaluate(context), Is.EqualTo(42f));
             Assert.That(property.HasExpression, Is.True);
             Assert.That(property.Expression!.ExpressionString, Is.EqualTo("42"));
             Assert.That(property.Expression.Replaced, Is.SameAs(keyFrames));
@@ -69,7 +69,7 @@ public class KeyFrameExpressionTests
         {
             Assert.That(property.Expression, Is.SameAs(keyFrames));
             Assert.That(property.HasExpression, Is.False);
-            Assert.That(property.GetValue(context), Is.EqualTo(50f).Within(1e-4f));
+            Assert.That(property.Evaluate(context), Is.EqualTo(50f).Within(1e-4f));
         }
     }
 
@@ -84,7 +84,7 @@ public class KeyFrameExpressionTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(property.GetValue(new CompositionContext(TimeSpan.FromSeconds(0.5))), Is.EqualTo(42f));
+            Assert.That(property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(0.5))), Is.EqualTo(42f));
             Assert.That(property.Expression!.ExpressionString, Is.EqualTo("42"));
             Assert.That(property.Expression.Replaced, Is.SameAs(keyFrames));
         }
@@ -106,7 +106,7 @@ public class KeyFrameExpressionTests
         property.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1)));
         property.Expression = Expression.Create<float>("1 +");
 
-        float value = property.GetValue(new CompositionContext(TimeSpan.FromSeconds(0.5)));
+        float value = property.Evaluate(new CompositionContext(TimeSpan.FromSeconds(0.5)));
 
         using (Assert.EnterMultipleScope())
         {
@@ -137,7 +137,7 @@ public class KeyFrameExpressionTests
         var keyFrames = TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1));
         property.SetKeyFrameAnimation(keyFrames);
         var context = new CompositionContext(TimeSpan.FromSeconds(0.5));
-        property.GetValue(context);
+        property.Evaluate(context);
         keyFrames.GetAnimatedValue(context.Time);
 
         long start = GC.GetAllocatedBytesForCurrentThread();
@@ -146,7 +146,7 @@ public class KeyFrameExpressionTests
         long interpolation = GC.GetAllocatedBytesForCurrentThread() - start;
         start = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < 100; i++)
-            property.GetValue(context);
+            property.Evaluate(context);
         long evaluation = GC.GetAllocatedBytesForCurrentThread() - start;
 
         // Unoptimized code boxes values inside the interpolation; the property must add nothing to it.

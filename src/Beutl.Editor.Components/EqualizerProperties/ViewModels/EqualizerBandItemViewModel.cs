@@ -37,14 +37,14 @@ public sealed class EqualizerBandItemViewModel : IDisposable
 
         Label = band.Frequency.SubscribeCurrentValueChange()
             .Select(FormatFrequencyLabel)
-            .ToReadOnlyReactivePropertySlim(FormatFrequencyLabel(band.Frequency.CurrentValue))!
+            .ToReadOnlyReactivePropertySlim(FormatFrequencyLabel(band.Frequency.Value))!
             .AddTo(_disposables);
 
         // BiQuadFilter ignores gainDb for LowPass/HighPass/BandPass/Notch, so showing the gain
         // editor for those types would just produce misleading no-op history entries.
         IsGainVisible = band.FilterType.SubscribeCurrentValueChange()
             .Select(IsGainUsed)
-            .ToReadOnlyReactivePropertySlim(IsGainUsed(band.FilterType.CurrentValue))!
+            .ToReadOnlyReactivePropertySlim(IsGainUsed(band.FilterType.Value))!
             .AddTo(_disposables);
     }
 
@@ -89,8 +89,8 @@ public sealed class EqualizerBandItemViewModel : IDisposable
         if (GetEditingKeyFrame(property, globalTime) is { } kf)
             return kf.Value;
         if (property is IExpressionProperty<float> { HasExpression: true } expressionProperty)
-            return expressionProperty.GetValue(new CompositionContext(globalTime));
-        return property.CurrentValue;
+            return expressionProperty.Evaluate(new CompositionContext(globalTime));
+        return property.Value;
     }
 
     public void SetPropertyValue(IProperty<float> property, TimeSpan globalTime, float value)
@@ -98,7 +98,7 @@ public sealed class EqualizerBandItemViewModel : IDisposable
         if (GetEditingKeyFrame(property, globalTime) is { } kf)
             kf.Value = value;
         else
-            property.CurrentValue = value;
+            property.Value = value;
     }
 
     public bool CanEditProperty(IProperty<float> property, TimeSpan globalTime)

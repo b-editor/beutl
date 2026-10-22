@@ -56,8 +56,8 @@ public class OverriddenAliasInputTests
             (acceptedParent, rejectedParent) = (rejectedParent, acceptedParent);
         var shared = new SolidColorBrush(Colors.White, 35f);
         var separate = new SolidColorBrush(Colors.White, 65f);
-        acceptedParent.CurrentValue = shared;
-        rejectedParent.CurrentValue = separate;
+        acceptedParent.Value = shared;
+        rejectedParent.Value = separate;
         var acceptedPort = Find(acceptedNode, shared.Opacity);
         var rejectedPort = Find(rejectedNode, separate.Opacity);
         var accepted = acceptedGraph.Connect(acceptedPort, Source(acceptedGraph, 12f, "Opacity"));
@@ -73,7 +73,7 @@ public class OverriddenAliasInputTests
             animation.KeyFrames.Add(new KeyFrame<Brush?> { Value = replacement });
             rejectedParent.SetKeyFrameAnimation(animation);
         }
-        rejectedParent.CurrentValue = shared;
+        rejectedParent.Value = shared;
         history.History.Commit("Override and share brush");
 
         void CheckSingleWriter()
@@ -89,7 +89,7 @@ public class OverriddenAliasInputTests
                 Assert.That(rejected.Status, Is.EqualTo(ConnectionStatus.Error));
                 Assert.That(acceptedPort.Connection.Value, Is.SameAs(accepted));
                 Assert.That(rejectedPort.Connection.Value, Is.SameAs(rejected));
-                Assert.That(shared.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(12f));
+                Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(12f));
                 Assert.That(resource.Opacity, Is.EqualTo(12f));
             });
         }
@@ -99,7 +99,7 @@ public class OverriddenAliasInputTests
         Evaluate(graph);
         Assert.That(accepted.Status, Is.EqualTo(ConnectionStatus.Success));
         Assert.That(rejected.Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(separate.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(90f));
+        Assert.That(separate.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(90f));
         Assert.That(history.History.Redo(), Is.True);
         CheckSingleWriter();
 
@@ -111,7 +111,7 @@ public class OverriddenAliasInputTests
         Evaluate(graph);
         Assert.That(accepted.Status, Is.EqualTo(ConnectionStatus.Error));
         Assert.That(rejected.Status, Is.EqualTo(ConnectionStatus.Error));
-        Assert.That(shared.Opacity.GetValue(CompositionContext.Default), Is.EqualTo(35f));
+        Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(35f));
         Assert.That(history.History.Undo(), Is.True);
         CheckSingleWriter();
     }

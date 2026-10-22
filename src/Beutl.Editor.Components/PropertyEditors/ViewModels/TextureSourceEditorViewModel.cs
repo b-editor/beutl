@@ -33,7 +33,7 @@ public sealed class TextureSourceEditorViewModel : BaseEditorViewModel
             .DisposeWith(Disposables);
 
         DrawableName = Value.Select(v => v as DrawableTextureSource)
-            .Select(x => x?.Drawable.CurrentValue?.GetType())
+            .Select(x => x?.Drawable.Value?.GetType())
             .Select(GetDrawableDisplayName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);

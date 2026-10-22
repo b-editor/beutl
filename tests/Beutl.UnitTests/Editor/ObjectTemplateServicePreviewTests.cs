@@ -52,9 +52,9 @@ public class ObjectTemplateServicePreviewTests
     {
         var shape = new RectShape
         {
-            Width = { CurrentValue = 100 },
-            Height = { CurrentValue = 100 },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) }
+            Width = { Value = 100 },
+            Height = { Value = 100 },
+            Fill = { Value = new SolidColorBrush(Colors.Red) }
         };
 
         ObjectTemplateItem? item = await ObjectTemplateService.Instance

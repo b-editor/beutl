@@ -84,7 +84,7 @@ public class PropertyLookupTests
     {
         // Arrange
         var root = new TestEngineObject();
-        root.Value.CurrentValue = 42.0;
+        root.Value.Value = 42.0;
         var lookup = new PropertyLookup(root);
         var context = CreateContext(lookup);
 
@@ -118,7 +118,7 @@ public class PropertyLookupTests
         // Arrange - Create a root with a child EngineObject
         var root = new TestEngineObject();
         var child = new TestEngineObject();
-        child.Value.CurrentValue = 42.0;
+        child.Value.Value = 42.0;
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
@@ -138,7 +138,7 @@ public class PropertyLookupTests
         // Arrange - Create a root with a child EngineObject
         var root = new TestEngineObject();
         var child = new TestEngineObject();
-        child.Value.CurrentValue = 99.5;
+        child.Value.Value = 99.5;
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
@@ -158,7 +158,7 @@ public class PropertyLookupTests
         // Arrange - Create a root with a child EngineObject
         var root = new TestEngineObject();
         var child = new TestEngineObject();
-        child.Value.CurrentValue = 123.0;
+        child.Value.Value = 123.0;
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
@@ -178,7 +178,7 @@ public class PropertyLookupTests
         // Arrange - Create a root with a child EngineObject
         var root = new TestEngineObject();
         var child = new TestEngineObject();
-        child.Value.CurrentValue = 42.0;
+        child.Value.Value = 42.0;
         root.AddChild(child);
 
         var lookup = new PropertyLookup(root);
@@ -197,7 +197,7 @@ public class PropertyLookupTests
     {
         // Arrange - Use the root object directly (includeSelf = true in FindById)
         var root = new TestEngineObject();
-        root.Value.CurrentValue = 77.7;
+        root.Value.Value = 77.7;
 
         var lookup = new PropertyLookup(root);
         var context = CreateContext(lookup, TimeSpan.Zero);
@@ -217,7 +217,7 @@ public class PropertyLookupTests
         var root = new TestEngineObject();
         var child = new TestEngineObject();
         var grandchild = new TestEngineObject();
-        grandchild.Value.CurrentValue = 999.0;
+        grandchild.Value.Value = 999.0;
 
         root.AddChild(child);
         child.AddChild(grandchild);
@@ -240,7 +240,7 @@ public class PropertyLookupTests
 
     private ExpressionContext CreateContext(PropertyLookup lookup, TimeSpan time)
     {
-        var property = Property.Create(0.0);
+        var property = Property.CreateExpression(0.0);
         return new ExpressionContext(time, property, lookup);
     }
 }

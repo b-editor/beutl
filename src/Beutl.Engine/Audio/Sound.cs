@@ -17,14 +17,14 @@ public abstract partial class Sound : EngineObject
     public Sound()
     {
         ScanProperties<Sound>();
-        Effect.CurrentValue = new AudioEffectGroup();
+        Effect.Value = new AudioEffectGroup();
     }
 
     public override CompositionTarget GetCompositionTarget() => CompositionTarget.Audio;
 
     [Display(Name = nameof(AudioStrings.Sound_OffsetPosition), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.Create<TimeSpan>();
+    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.CreateExpression<TimeSpan>();
 
     [Range(0, float.MaxValue)]
     [Display(Name = nameof(AudioStrings.Sound_Gain), ResourceType = typeof(AudioStrings))]
@@ -37,7 +37,7 @@ public abstract partial class Sound : EngineObject
     public IExpressionProperty<float> Speed { get; } = Property.CreateAnimatable(100f);
 
     [Display(Name = nameof(AudioStrings.AudioEffect), ResourceType = typeof(AudioStrings))]
-    public IExpressionProperty<AudioEffect?> Effect { get; } = Property.Create<AudioEffect?>();
+    public IExpressionProperty<AudioEffect?> Effect { get; } = Property.CreateExpression<AudioEffect?>();
 
     public virtual void Compose(AudioContext context, Resource resource)
     {
@@ -56,7 +56,7 @@ public abstract partial class Sound : EngineObject
 
         var sourceNode = context.CreateSourceNode(soundSource);
 
-        var shiftNode = context.CreateShiftNode(OffsetPosition.CurrentValue);
+        var shiftNode = context.CreateShiftNode(OffsetPosition.Value);
         context.Connect(sourceNode, shiftNode);
 
         var resampleNode = context.CreateResampleNode(soundSource.SampleRate);
@@ -70,9 +70,9 @@ public abstract partial class Sound : EngineObject
 
         AudioNode currentNode = gainNode;
 
-        if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
+        if (Effect.Value != null && Effect.Value.IsEnabled)
         {
-            currentNode = Effect.CurrentValue.CreateNode(context, currentNode);
+            currentNode = Effect.Value.CreateNode(context, currentNode);
         }
 
         var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);

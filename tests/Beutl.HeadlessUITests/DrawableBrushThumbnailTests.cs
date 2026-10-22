@@ -35,8 +35,8 @@ public class DrawableBrushThumbnailTests
             uint initialPixel = SamplePixel(first, 20, 12);
             Assert.That(imageBrush.Stretch, Is.EqualTo(AvaStretch.Uniform));
 
-            scope.DrawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
-            scope.DrawableBrush.Stretch.CurrentValue = Stretch.None;
+            scope.DrawableBrush.Drawable.Value = CreateRectangle(72, 36, Colors.Blue);
+            scope.DrawableBrush.Stretch.Value = Stretch.None;
             UpdateResource(scope.Resource, scope.DrawableBrush);
             scope.Handler.Update();
 
@@ -103,7 +103,7 @@ public class DrawableBrushThumbnailTests
             scope.Handler.Update();
             await staleDrawable.RenderEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            scope.DrawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
+            scope.DrawableBrush.Drawable.Value = CreateRectangle(72, 36, Colors.Blue);
             UpdateResource(scope.Resource, scope.DrawableBrush);
             scope.Handler.Update();
             staleDrawable.ReleaseRender();
@@ -135,7 +135,7 @@ public class DrawableBrushThumbnailTests
             DispatchPriority.Low,
             CancellationToken.None);
 
-        scope.DrawableBrush.Drawable.CurrentValue = CreateRectangle(72, 36, Colors.Blue);
+        scope.DrawableBrush.Drawable.Value = CreateRectangle(72, 36, Colors.Blue);
         UpdateResource(scope.Resource, scope.DrawableBrush);
         scope.Handler.Update();
 
@@ -245,9 +245,9 @@ public class DrawableBrushThumbnailTests
     {
         return new RectShape
         {
-            Width = { CurrentValue = width },
-            Height = { CurrentValue = height },
-            Fill = { CurrentValue = new SolidColorBrush(color) },
+            Width = { Value = width },
+            Height = { Value = height },
+            Fill = { Value = new SolidColorBrush(color) },
         };
     }
 
@@ -282,7 +282,7 @@ public class DrawableBrushThumbnailTests
         {
             DrawableBrush = new DrawableBrush(drawable);
             if (stretch is { } value)
-                DrawableBrush.Stretch.CurrentValue = value;
+                DrawableBrush.Stretch.Value = value;
             Resource = (DrawableBrush.Resource)DrawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
             ImageBrush = imageBrush ?? new AvaImageBrush();
             Handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(Resource, ImageBrush, RenderThread.Dispatcher);

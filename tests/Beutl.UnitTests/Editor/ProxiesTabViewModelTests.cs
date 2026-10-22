@@ -254,7 +254,7 @@ public sealed class ProxiesTabViewModelTests
         AddSourceVideo(childScene, root, sourcePath);
         Scene parentScene = CreateScene(root, "parent.scene");
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.CurrentValue = childScene;
+        sceneDrawable.ReferencedScene.Value = childScene;
         AddObject(parentScene, root, sceneDrawable);
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(parentScene, store));
@@ -447,7 +447,7 @@ public sealed class ProxiesTabViewModelTests
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         Scene scene = CreateScene(root, "animated.scene");
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = CreateVideoSource(firstPath);
+        drawable.Source.Value = CreateVideoSource(firstPath);
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {
@@ -1291,7 +1291,7 @@ public sealed class ProxiesTabViewModelTests
         var node = new VideoSourceNode();
         node.Source.Property!.SetValue(CreateVideoSource(sourcePath));
         var drawable = new NodeGraphDrawable();
-        drawable.Model.CurrentValue!.Nodes.Add(node);
+        drawable.Model.Value!.Nodes.Add(node);
         AddObject(scene, root, drawable);
         return CreateContext(scene, store);
     }
@@ -1320,7 +1320,7 @@ public sealed class ProxiesTabViewModelTests
     private static Element AddSourceVideo(Scene scene, string root, string sourcePath)
     {
         var drawable = new SourceVideo();
-        drawable.Source.CurrentValue = CreateVideoSource(sourcePath);
+        drawable.Source.Value = CreateVideoSource(sourcePath);
         return AddObject(scene, root, drawable);
     }
 

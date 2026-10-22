@@ -30,7 +30,7 @@ public static class EngineObjectHelper
                 h => property.ValueChanged += h,
                 h => property.ValueChanged -= h)
             .Select(s => s.EventArgs.NewValue)
-            .Publish(property.CurrentValue).RefCount();
+            .Publish(property.Value).RefCount();
     }
 
     public static IObservable<T> SubscribeEngineProperty<T>(

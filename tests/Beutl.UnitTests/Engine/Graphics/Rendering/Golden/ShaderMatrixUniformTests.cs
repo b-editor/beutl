@@ -198,8 +198,8 @@ public class ShaderMatrixUniformTests
         {
             _geometry = new RectGeometry
             {
-                Width = { CurrentValue = 96 },
-                Height = { CurrentValue = 96 },
+                Width = { Value = 96 },
+                Height = { Value = 96 },
             };
             _geometryResource = _geometry.ToResource(CompositionContext.Default);
             _fillResource = new SolidColorBrush(new Color(255, 220, 120, 40))

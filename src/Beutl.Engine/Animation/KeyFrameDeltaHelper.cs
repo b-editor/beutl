@@ -8,7 +8,7 @@ internal static class KeyFrameDeltaHelper
 {
     /// <summary>
     /// Returns false when both surrounding keyframes are null (= no keyframe animation, the caller should
-    /// fall back to writing CurrentValue directly).
+    /// fall back to writing Value directly).
     /// </summary>
     public static bool ApplyDelta<T>(
         KeyFrame<T>? previous,

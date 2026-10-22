@@ -32,10 +32,10 @@ public class DrawableTimeControllerFlowTests
         {
             "group" => new DrawableGroup(),
             "decorator" => new DrawableDecorator(),
-            _ => new DrawableTimeController { Speed = { CurrentValue = 200 } }
+            _ => new DrawableTimeController { Speed = { Value = 200 } }
         };
         element.Objects.Add(preceding);
-        var controller = new DrawableTimeController { OffsetPosition = { CurrentValue = Seconds(1) } };
+        var controller = new DrawableTimeController { OffsetPosition = { Value = Seconds(1) } };
         element.Objects.Add(controller);
         using var compositor = new SceneCompositor(harness.Scene) { DisableResourceShare = disableShare, ForceOriginalSource = true };
 
@@ -64,7 +64,7 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(first);
         element.Objects.Add(second);
         element.Objects.Add(new DrawableGroup());
-        var controller = new DrawableTimeController { IsEnabled = false, OffsetPosition = { CurrentValue = Seconds(1) } };
+        var controller = new DrawableTimeController { IsEnabled = false, OffsetPosition = { Value = Seconds(1) } };
         element.Objects.Add(controller);
         using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
         var producerGroup = (DrawableGroup.Resource)compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single();
@@ -102,7 +102,7 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(first);
         element.Objects.Add(new DrawableGroup());
         element.Objects.Add(sibling);
-        element.Objects.Add(new DrawableTimeController { OffsetPosition = { CurrentValue = Seconds(1) } });
+        element.Objects.Add(new DrawableTimeController { OffsetPosition = { Value = Seconds(1) } });
         using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
 
         var resources = compositor.EvaluateGraphics(Seconds(0.5)).Objects.SelectMany(Videos).ToArray();
@@ -129,7 +129,7 @@ public class DrawableTimeControllerFlowTests
         {
             "group" => new DrawableGroup(),
             "decorator" => new DrawableDecorator(),
-            _ => new DrawableTimeController { Speed = { CurrentValue = 200 } }
+            _ => new DrawableTimeController { Speed = { Value = 200 } }
         });
         using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
         var first = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single());
@@ -208,7 +208,7 @@ public class DrawableTimeControllerFlowTests
     {
         var source = new VideoSource();
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30, 1), 300)));
-        return new SourceVideo { Source = { CurrentValue = source } };
+        return new SourceVideo { Source = { Value = source } };
     }
 
     private static IEnumerable<SourceVideo.Resource> Videos(EngineObject.Resource resource)

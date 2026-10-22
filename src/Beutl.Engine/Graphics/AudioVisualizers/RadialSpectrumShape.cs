@@ -32,7 +32,7 @@ public sealed partial class RadialSpectrumShape : SpectrumShape
 
     [Display(Name = nameof(GraphicsStrings.SpectrumShape_Direction), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<RadialSpectrumDirection> Direction { get; } =
-        Property.Create(RadialSpectrumDirection.Outward);
+        Property.CreateExpression(RadialSpectrumDirection.Outward);
 
     public new partial class Resource
     {

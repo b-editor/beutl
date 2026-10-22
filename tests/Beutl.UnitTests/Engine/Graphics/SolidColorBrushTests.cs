@@ -10,8 +10,8 @@ public class SolidColorBrushTests
         var brush = new SolidColorBrush();
         Assert.Multiple(() =>
         {
-            Assert.That(brush.Color.CurrentValue, Is.EqualTo(Colors.White));
-            Assert.That(brush.Opacity.CurrentValue, Is.EqualTo(100f));
+            Assert.That(brush.Color.Value, Is.EqualTo(Colors.White));
+            Assert.That(brush.Opacity.Value, Is.EqualTo(100f));
         });
     }
 
@@ -23,8 +23,8 @@ public class SolidColorBrushTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(brush.Color.CurrentValue, Is.EqualTo(c));
-            Assert.That(brush.Opacity.CurrentValue, Is.EqualTo(100f));
+            Assert.That(brush.Color.Value, Is.EqualTo(c));
+            Assert.That(brush.Opacity.Value, Is.EqualTo(100f));
         });
     }
 
@@ -36,8 +36,8 @@ public class SolidColorBrushTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(brush.Color.CurrentValue, Is.EqualTo(c));
-            Assert.That(brush.Opacity.CurrentValue, Is.EqualTo(50f));
+            Assert.That(brush.Color.Value, Is.EqualTo(c));
+            Assert.That(brush.Opacity.Value, Is.EqualTo(50f));
         });
     }
 
@@ -46,7 +46,7 @@ public class SolidColorBrushTests
     {
         // 0xFFAABBCC = ARGB(0xFF, 0xAA, 0xBB, 0xCC)
         var brush = new SolidColorBrush(0xFFAABBCCu);
-        Color c = brush.Color.CurrentValue;
+        Color c = brush.Color.Value;
 
         Assert.Multiple(() =>
         {
@@ -63,6 +63,6 @@ public class SolidColorBrushTests
         var c = Color.FromArgb(0x80, 0x11, 0x22, 0x33);
         SolidColorBrush brush = c.ToBrush();
 
-        Assert.That(brush.Color.CurrentValue, Is.EqualTo(c));
+        Assert.That(brush.Color.Value, Is.EqualTo(c));
     }
 }

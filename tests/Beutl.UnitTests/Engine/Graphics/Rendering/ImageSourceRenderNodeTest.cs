@@ -21,10 +21,10 @@ public class ImageSourceRenderNodeTest
     {
         var pen = new Pen
         {
-            Brush = { CurrentValue = Brushes.Black },
-            Thickness = { CurrentValue = 40 },
-            Offset = { CurrentValue = offset },
-            StrokeAlignment = { CurrentValue = alignment },
+            Brush = { Value = Brushes.Black },
+            Thickness = { Value = 40 },
+            Offset = { Value = offset },
+            StrokeAlignment = { Value = alignment },
         };
         using var penResource = pen.ToResource(CompositionContext.Default);
         using var fillBuilder = new SKPathBuilder();
@@ -60,8 +60,8 @@ public class ImageSourceRenderNodeTest
         ImageSource.Resource source = _imageSourceResource!;
         var fill = Brushes.Resource.White;
         var pen = new Pen();
-        pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue = 1;
+        pen.Brush.Value = Brushes.Black;
+        pen.Thickness.Value = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
         var node = new ImageSourceRenderNode(source, fill, penResource);
 
@@ -74,12 +74,12 @@ public class ImageSourceRenderNodeTest
         ImageSource.Resource source = _imageSourceResource!;
         var fill = Brushes.Resource.White;
         var pen = new Pen();
-        pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue = 1;
+        pen.Brush.Value = Brushes.Black;
+        pen.Thickness.Value = 1;
         var penResource = pen.ToResource(CompositionContext.Default);
         var node = new ImageSourceRenderNode(source, fill, penResource);
 
-        pen.Thickness.CurrentValue = 2;
+        pen.Thickness.Value = 2;
         var versionBumped = false;
         penResource.Reconcile(pen, CompositionContext.Default, ref versionBumped);
 
@@ -113,8 +113,8 @@ public class ImageSourceRenderNodeTest
     {
         ImageSource.Resource source = _imageSourceResource!;
         var pen = new Pen();
-        pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue = 50;
+        pen.Brush.Value = Brushes.Black;
+        pen.Thickness.Value = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new ImageSourceRenderNode(source, null, penResource);
         using var renderer = CreateRenderer(node);
@@ -128,8 +128,8 @@ public class ImageSourceRenderNodeTest
     {
         ImageSource.Resource source = _imageSourceResource!;
         var pen = new Pen();
-        pen.Brush.CurrentValue = Brushes.Black;
-        pen.Thickness.CurrentValue = 50;
+        pen.Brush.Value = Brushes.Black;
+        pen.Thickness.Value = 50;
         var penResource = pen.ToResource(CompositionContext.Default);
         using var node = new ImageSourceRenderNode(source, null, penResource);
         using var renderer = CreateRenderer(node);

@@ -30,16 +30,16 @@ public sealed class FilterEffectCrashSafetyTests
         {
             var effect = new ColorShift
             {
-                RedOffset = { CurrentValue = new PixelPoint(offsetX, offsetY) },
+                RedOffset = { Value = new PixelPoint(offsetX, offsetY) },
             };
             var shape = new RectShape
             {
-                Width = { CurrentValue = 100 },
-                Height = { CurrentValue = 100 },
-                AlignmentX = { CurrentValue = AlignmentX.Left },
-                AlignmentY = { CurrentValue = AlignmentY.Top },
-                Fill = { CurrentValue = Brushes.Red },
-                FilterEffect = { CurrentValue = effect },
+                Width = { Value = 100 },
+                Height = { Value = 100 },
+                AlignmentX = { Value = AlignmentX.Left },
+                AlignmentY = { Value = AlignmentY.Top },
+                Fill = { Value = Brushes.Red },
+                FilterEffect = { Value = effect },
             };
             using Drawable.Resource drawable = shape.ToResource(CompositionContext.Default);
             using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
@@ -84,9 +84,9 @@ public sealed class FilterEffectCrashSafetyTests
         using var feCtx = new FilterEffectContext(new Rect(0, 0, 100, 60));
         var effect = new ShakeEffect
         {
-            Speed = { CurrentValue = float.PositiveInfinity },
-            StrengthX = { CurrentValue = float.NaN },
-            StrengthY = { CurrentValue = float.MaxValue }
+            Speed = { Value = float.PositiveInfinity },
+            StrengthX = { Value = float.NaN },
+            StrengthY = { Value = float.MaxValue }
         };
         effect.ApplyTo(feCtx, effect.ToResource(new CompositionContext(TimeSpan.Zero)));
 
@@ -156,23 +156,23 @@ public sealed class FilterEffectCrashSafetyTests
         Typeface typeface = TypefaceProvider.Typeface();
         var text = new TextBlock
         {
-            Text = { CurrentValue = "Effects & shaders" },
-            Size = { CurrentValue = 24 },
-            Fill = { CurrentValue = Brushes.White },
-            SplitByCharacters = { CurrentValue = true },
+            Text = { Value = "Effects & shaders" },
+            Size = { Value = 24 },
+            Fill = { Value = Brushes.White },
+            SplitByCharacters = { Value = true },
             FilterEffect =
             {
-                CurrentValue = new ColorShift
+                Value = new ColorShift
                 {
-                    RedOffset = { CurrentValue = new PixelPoint(2, 0) },
-                    GreenOffset = { CurrentValue = new PixelPoint(0, 1) },
-                    BlueOffset = { CurrentValue = new PixelPoint(-2, 0) }
+                    RedOffset = { Value = new PixelPoint(2, 0) },
+                    GreenOffset = { Value = new PixelPoint(0, 1) },
+                    BlueOffset = { Value = new PixelPoint(-2, 0) }
                 }
             }
         };
-        text.FontFamily.CurrentValue = typeface.FontFamily;
-        text.FontStyle.CurrentValue = typeface.Style;
-        text.FontWeight.CurrentValue = typeface.Weight;
+        text.FontFamily.Value = typeface.FontFamily;
+        text.FontStyle.Value = typeface.Style;
+        text.FontWeight.Value = typeface.Weight;
         return text.ToResource(CompositionContext.Default);
     }
 }

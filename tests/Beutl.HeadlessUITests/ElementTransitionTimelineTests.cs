@@ -159,7 +159,7 @@ public class ElementTransitionTimelineTests
             window.MouseMove(release, RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Settle(2);
             double previewWidth = enterPart.Bounds.Width;
-            TimeSpan durationDuringDrag = incoming.Model.EnterTransition!.Duration.CurrentValue;
+            TimeSpan durationDuringDrag = incoming.Model.EnterTransition!.Duration.Value;
             // The span grows to 0.75 s with the cut a third of the way in, so both halves of the ramp
             // change their slope while the pointer moves, not only the dragged one.
             TransitionPartLayout incomingDuringDrag = incoming.EnterTransitionPart.Value;
@@ -176,8 +176,8 @@ public class ElementTransitionTimelineTests
                 Assert.That(incomingDuringDrag.EndFraction, Is.EqualTo(1).Within(1e-6));
                 Assert.That(outgoingDuringDrag.StartFraction, Is.Zero);
                 Assert.That(outgoingDuringDrag.EndFraction, Is.EqualTo(1d / 3).Within(1e-6));
-                Assert.That(incoming.Model.EnterTransition!.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
-                Assert.That(outgoing.Model.ExitTransition!.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+                Assert.That(incoming.Model.EnterTransition!.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+                Assert.That(outgoing.Model.ExitTransition!.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
                 Assert.That(incoming.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "the handle must not move the clip");
                 Assert.That(enterPart.Bounds.Width, Is.EqualTo(quarter * 2).Within(0.5));
@@ -185,7 +185,7 @@ public class ElementTransitionTimelineTests
 
             // The side that decides how the boundary blends also decides the curve both halves follow.
             var easing = new CubicEaseInOut();
-            incoming.Model.EnterTransition!.Easing.CurrentValue = easing;
+            incoming.Model.EnterTransition!.Easing.Value = easing;
             HeadlessTestHelpers.Settle(3);
             HeadlessTestHelpers.Render(3);
             Assert.Multiple(() =>
@@ -228,7 +228,7 @@ public class ElementTransitionTimelineTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(incoming.Model.EnterTransition!.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+                Assert.That(incoming.Model.EnterTransition!.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
             });
         }
@@ -375,8 +375,8 @@ public class ElementTransitionTimelineTests
             Assert.Multiple(() =>
             {
                 Assert.That(incoming.Model.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
-                Assert.That(incoming.Model.EnterTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
-                Assert.That(outgoing.Model.ExitTransition?.Duration.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+                Assert.That(incoming.Model.EnterTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+                Assert.That(outgoing.Model.ExitTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
                 Assert.That(incoming.Model.Name, Is.EqualTo(name));
             });
 

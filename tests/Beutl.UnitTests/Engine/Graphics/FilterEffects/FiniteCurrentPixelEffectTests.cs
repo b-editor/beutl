@@ -39,7 +39,7 @@ public sealed class FiniteCurrentPixelEffectTests
     {
         var effect = new LutEffect
         {
-            Source = { CurrentValue = CreateLutSource(dimension) },
+            Source = { Value = CreateLutSource(dimension) },
         };
 
         string source = RecordSource(effect);

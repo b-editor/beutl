@@ -71,8 +71,8 @@ public class FormattedTextGeometryCacheTests
         using FormattedText text = TypefaceProvider.CreateText("I", 64f);
         using Pen.Resource pen = new Pen
         {
-            Thickness = { CurrentValue = 4f },
-            Brush = { CurrentValue = Brushes.White }
+            Thickness = { Value = 4f },
+            Brush = { Value = Brushes.White }
         }.ToResource(CompositionContext.Default);
 
         Geometry.Resource glyph = text.ToGeometries()[0];

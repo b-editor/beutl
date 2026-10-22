@@ -180,7 +180,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(delta)));
+            Assert.That(offset.Value, Is.EqualTo(TimeSpan.FromSeconds(delta)));
             Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
@@ -201,7 +201,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(media.Offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(media.Offset.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -215,8 +215,8 @@ public class ElementSlipServiceTests
         var source = CreateVideoSource(2);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
-            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) }
+            Source = { Value = source },
+            OffsetPosition = { Value = TimeSpan.FromSeconds(offset) }
         };
         element.Objects.Add(video);
         int before = _history.UndoCount;
@@ -227,7 +227,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(expectedApplied));
-            Assert.That(video.OffsetPosition.CurrentValue,
+            Assert.That(video.OffsetPosition.Value,
                 Is.EqualTo(TimeSpan.FromSeconds(expectedApplied ? offset + delta : offset)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedApplied ? 1 : 0)));
         });
@@ -239,7 +239,7 @@ public class ElementSlipServiceTests
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromTicks(333333));
         var source = new SoundSource();
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 0.05)));
-        var sound = new SourceSound { Source = { CurrentValue = source }, Speed = { CurrentValue = 50 } };
+        var sound = new SourceSound { Source = { Value = source }, Speed = { Value = 50 } };
         var linked = new SourceSound();
         element.Objects.Add(sound);
         element.Objects.Add(linked);
@@ -249,8 +249,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromTicks(333333)));
-            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromTicks(666666)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromTicks(333333)));
+            Assert.That(linked.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromTicks(666666)));
         });
     }
 
@@ -285,8 +285,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(source.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
-            Assert.That(group.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(source.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromMilliseconds(500)));
+            Assert.That(group.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -306,8 +306,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -317,12 +317,12 @@ public class ElementSlipServiceTests
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
-        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(3);
+        video.OffsetPosition.Value = TimeSpan.FromSeconds(3);
         element.Objects.Add(video);
 
         _service.Slip(_scene, [element], TimeSpan.FromSeconds(-1));
 
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
     }
 
     [Test]
@@ -338,7 +338,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -348,7 +348,7 @@ public class ElementSlipServiceTests
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
-        video.OffsetPosition.CurrentValue = TimeSpan.FromMilliseconds(500);
+        video.OffsetPosition.Value = TimeSpan.FromMilliseconds(500);
         element.Objects.Add(video);
         int before = _history.UndoCount;
 
@@ -357,7 +357,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -369,11 +369,11 @@ public class ElementSlipServiceTests
         var video = new SourceVideo();
         element.Objects.Add(video);
         _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
 
         _history.Undo();
 
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
     }
 
     [Test]
@@ -383,10 +383,10 @@ public class ElementSlipServiceTests
         // (5s - 2s). A +5s request must land both at the tighter 1s so the streams stay in sync.
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var videoSource = CreateVideoSource(3);
-        var video = new SourceVideo { Source = { CurrentValue = videoSource } };
+        var video = new SourceVideo { Source = { Value = videoSource } };
         var soundSource = new SoundSource();
         soundSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
-        var sound = new SourceSound { Source = { CurrentValue = soundSource } };
+        var sound = new SourceSound { Source = { Value = soundSource } };
         element.Objects.Add(video);
         element.Objects.Add(sound);
 
@@ -395,8 +395,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -416,10 +416,10 @@ public class ElementSlipServiceTests
                 holder = group;
                 break;
             case nameof(DrawablePresenter):
-                holder = new DrawablePresenter { Target = { CurrentValue = video } };
+                holder = new DrawablePresenter { Target = { Value = video } };
                 break;
             default:
-                holder = new DrawableTimeController { Target = { CurrentValue = video } };
+                holder = new DrawableTimeController { Target = { Value = video } };
                 break;
         }
 
@@ -431,7 +431,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -447,15 +447,15 @@ public class ElementSlipServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
-            Speed = { CurrentValue = speed },
+            Source = { Value = source },
+            Speed = { Value = speed },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2)
         };
         Drawable container;
         if (presenter)
         {
-            container = new DrawablePresenter { Target = { CurrentValue = video } };
+            container = new DrawablePresenter { Target = { Value = video } };
         }
         else
         {
@@ -479,7 +479,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
             Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2)));
             Assert.That(element.Range, Is.EqualTo(TimeRange.FromSeconds(4)));
@@ -487,9 +487,9 @@ public class ElementSlipServiceTests
         });
 
         _history.Undo();
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         _history.Redo();
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
     }
 
     [TestCase(100f, 1, 1)]
@@ -503,8 +503,8 @@ public class ElementSlipServiceTests
         source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
         var sound = new SourceSound
         {
-            Source = { CurrentValue = source },
-            Speed = { CurrentValue = speed },
+            Source = { Value = source },
+            Speed = { Value = speed },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2, 2)
         };
@@ -517,7 +517,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
             Assert.That(sound.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
             Assert.That(element.Range, Is.EqualTo(TimeRange.FromSeconds(10)));
         });
@@ -531,8 +531,8 @@ public class ElementSlipServiceTests
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(10));
         var sound = new SceneSound
         {
-            ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(5) } },
-            Speed = { CurrentValue = speed },
+            ReferencedScene = { Value = new Scene { Duration = TimeSpan.FromSeconds(5) } },
+            Speed = { Value = speed },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2, 2)
         };
@@ -545,7 +545,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
             Assert.That(sound.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
         });
     }
@@ -569,7 +569,7 @@ public class ElementSlipServiceTests
         if (kind == "video")
         {
             var source = CreateVideoSource(5);
-            var video = new SourceVideo { Source = { CurrentValue = source } };
+            var video = new SourceVideo { Source = { Value = source } };
             var group = new DrawableGroup();
             group.Children.Add(video);
             element.Objects.Add(group);
@@ -583,13 +583,13 @@ public class ElementSlipServiceTests
             {
                 var source = new SoundSource();
                 source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
-                sound = new SourceSound { Source = { CurrentValue = source } };
+                sound = new SourceSound { Source = { Value = source } };
             }
             else
             {
                 sound = new SceneSound
                 {
-                    ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(5) } }
+                    ReferencedScene = { Value = new Scene { Duration = TimeSpan.FromSeconds(5) } }
                 };
             }
 
@@ -604,7 +604,7 @@ public class ElementSlipServiceTests
         media.TimeRange = TimeRange.FromSeconds(sourceStart, sourceLength);
 
         Assert.That(_service.Slip(_scene, [element], TimeSpan.FromSeconds(5)), Is.EqualTo(expectedOffset > 0));
-        Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+        Assert.That(offset.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
         if (media is SourceVideo sampledVideo)
         {
             using var lastFrame = (SourceVideo.Resource)sampledVideo.ToResource(
@@ -627,22 +627,22 @@ public class ElementSlipServiceTests
         // The unsupported controller rejects the whole edit when video takes part, so this case is audio only.
         element.Objects.Add(new DrawableTimeController
         {
-            Target = { CurrentValue = new DrawableGroup() },
-            Speed = { CurrentValue = 50f }
+            Target = { Value = new DrawableGroup() },
+            Speed = { Value = 50f }
         });
         Sound sound;
         if (sceneAudio)
         {
             sound = new SceneSound
             {
-                ReferencedScene = { CurrentValue = new Scene { Duration = TimeSpan.FromSeconds(5) } }
+                ReferencedScene = { Value = new Scene { Duration = TimeSpan.FromSeconds(5) } }
             };
         }
         else
         {
             var soundSource = new SoundSource();
             soundSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
-            sound = new SourceSound { Source = { CurrentValue = soundSource } };
+            sound = new SourceSound { Source = { Value = soundSource } };
         }
         sound.IsTimeAnchor = true;
         sound.TimeRange = TimeRange.FromSeconds(2);
@@ -653,7 +653,7 @@ public class ElementSlipServiceTests
         Assert.That(_service.Slip(_scene, [element], TimeSpan.FromSeconds(3)), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(3)));
         });
     }
 
@@ -667,21 +667,21 @@ public class ElementSlipServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2, 2)
         };
-        var plain = new DrawablePresenter { Target = { CurrentValue = video } };
+        var plain = new DrawablePresenter { Target = { Value = video } };
         var controlledVideo = sharedTarget ? video : new SourceVideo
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2)
         };
         var controller = new DrawableTimeController
         {
-            Target = { CurrentValue = controlledVideo },
-            Speed = { CurrentValue = 100f }
+            Target = { Value = controlledVideo },
+            Speed = { Value = 100f }
         };
         element.Objects.Add(controllerFirst ? controller : plain);
         element.Objects.Add(controllerFirst ? plain : controller);
@@ -695,8 +695,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
-            Assert.That(controlledVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(controlledVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
@@ -710,20 +710,20 @@ public class ElementSlipServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2, 2)
         };
         Drawable target = nestedPresenter ? new DrawablePresenter
         {
-            Target = { CurrentValue = video },
+            Target = { Value = video },
             IsTimeAnchor = true,
             TimeRange = video.TimeRange
         } : video;
         var controller = new DrawableTimeController
         {
-            Target = { CurrentValue = target },
-            Speed = { CurrentValue = 100f }
+            Target = { Value = target },
+            Speed = { Value = 100f }
         };
         element.Objects.Add(controller);
         int before = _history.UndoCount;
@@ -738,7 +738,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -761,15 +761,15 @@ public class ElementSlipServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(10, 2)
         };
         Drawable target = targetKind switch
         {
-            "presenter" => new DrawablePresenter { Target = { CurrentValue = video } },
+            "presenter" => new DrawablePresenter { Target = { Value = video } },
             "group" => new DrawableGroup { Children = { video } },
-            "controller" => new DrawableTimeController { Target = { CurrentValue = video } },
+            "controller" => new DrawableTimeController { Target = { Value = video } },
             _ => video
         };
         if (target != video)
@@ -779,7 +779,7 @@ public class ElementSlipServiceTests
         }
         var controller = new DrawableTimeController
         {
-            Target = { CurrentValue = target },
+            Target = { Value = target },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(controllerStart, 2)
         };
@@ -793,7 +793,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(expectedOffset > 0));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
             foreach (TimeSpan time in new[]
                      {
@@ -828,18 +828,18 @@ public class ElementSlipServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
+            Source = { Value = source },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2)
         };
         // Reach the same source through a plain presenter first, so traversal order cannot
         // hide the enclosing time mapping when collection deduplicates the media object.
-        var presenter = new DrawablePresenter { Target = { CurrentValue = video } };
+        var presenter = new DrawablePresenter { Target = { Value = video } };
         element.Objects.Add(presenter);
         var controller = new DrawableTimeController
         {
-            Target = { CurrentValue = video },
-            Speed = { CurrentValue = 50f }
+            Target = { Value = video },
+            Speed = { Value = 50f }
         };
         element.Objects.Add(controller);
         int before = _history.UndoCount;
@@ -852,7 +852,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
@@ -876,9 +876,9 @@ public class ElementSlipServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
-            Speed = { CurrentValue = speed },
-            IsLoop = { CurrentValue = true },
+            Source = { Value = source },
+            Speed = { Value = speed },
+            IsLoop = { Value = true },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(videoStart, 2)
         };
@@ -892,7 +892,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(expectedOffset > 0));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
             foreach (TimeSpan time in new[]
                      {
@@ -928,8 +928,8 @@ public class ElementSlipServiceTests
         }
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
-            IsLoop = { CurrentValue = storedLoop },
+            Source = { Value = source },
+            IsLoop = { Value = storedLoop },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(2)
         };
@@ -946,7 +946,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(expectedOffset > 0));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedOffset)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedOffset > 0 ? 1 : 0)));
             Assert.That(sampled.IsLoop, Is.EqualTo(last ?? false));
             Assert.That(sampled.RequestedPosition, Is.EqualTo(TimeSpan.FromSeconds(last == true ? 2.9 : 7.9)));
@@ -969,22 +969,22 @@ public class ElementSlipServiceTests
         var source = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = source },
-            IsLoop = { CurrentValue = loop },
+            Source = { Value = source },
+            IsLoop = { Value = loop },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(10, 2)
         };
         Drawable target = nestedPresenter ? new DrawablePresenter
         {
-            Target = { CurrentValue = video },
+            Target = { Value = video },
             IsTimeAnchor = true,
             TimeRange = video.TimeRange
         } : video;
         var controller = new DrawableTimeController
         {
             IsEnabled = false,
-            Speed = { CurrentValue = speed },
-            Target = { CurrentValue = target }
+            Speed = { Value = speed },
+            Target = { Value = target }
         };
         element.Objects.Add(controller);
         var linked = new SourceSound();
@@ -1004,8 +1004,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedVideoOffset)));
-            Assert.That(linked.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(expectedVideoOffset * 100 / speed)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedVideoOffset)));
+            Assert.That(linked.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(expectedVideoOffset * 100 / speed)));
             Assert.That(after, Is.EqualTo(before + 1));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(TimeSpan.FromSeconds(5)));
         });
@@ -1024,8 +1024,8 @@ public class ElementSlipServiceTests
             source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
             var sound = new SourceSound
             {
-                Source = { CurrentValue = source },
-                Speed = { CurrentValue = 200f },
+                Source = { Value = source },
+                Speed = { Value = 200f },
                 IsTimeAnchor = true,
                 TimeRange = TimeRange.FromSeconds(2)
             };
@@ -1039,9 +1039,9 @@ public class ElementSlipServiceTests
             var source = CreateVideoSource(5);
             var video = new SourceVideo
             {
-                Source = { CurrentValue = source },
-                Speed = { CurrentValue = loop ? 100f : 50f },
-                IsLoop = { CurrentValue = loop },
+                Source = { Value = source },
+                Speed = { Value = loop ? 100f : 50f },
+                IsLoop = { Value = loop },
                 IsTimeAnchor = true,
                 TimeRange = TimeRange.FromSeconds(2)
             };
@@ -1052,7 +1052,7 @@ public class ElementSlipServiceTests
         }
 
         Assert.That(_service.Slip(_scene, [element], TimeSpan.FromSeconds(3)), Is.EqualTo(audio));
-        Assert.That(offset.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(audio ? 1 : 0)));
+        Assert.That(offset.Value, Is.EqualTo(TimeSpan.FromSeconds(audio ? 1 : 0)));
     }
 
     [Test]
@@ -1064,8 +1064,8 @@ public class ElementSlipServiceTests
         var videoSource = CreateVideoSource(5);
         var video = new SourceVideo
         {
-            Source = { CurrentValue = videoSource },
-            OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(1) }
+            Source = { Value = videoSource },
+            OffsetPosition = { Value = TimeSpan.FromSeconds(1) }
         };
         // Inherit the independent range from an inner group rather than anchoring the source itself.
         var inner = new DrawableGroup { IsTimeAnchor = true, TimeRange = TimeRange.FromSeconds(2) };
@@ -1077,7 +1077,7 @@ public class ElementSlipServiceTests
         soundSource.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 5)));
         var sound = new SourceSound
         {
-            Source = { CurrentValue = soundSource },
+            Source = { Value = soundSource },
             IsTimeAnchor = true,
             TimeRange = TimeRange.FromSeconds(4)
         };
@@ -1092,8 +1092,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -1105,9 +1105,9 @@ public class ElementSlipServiceTests
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
         var firstPresenter = new DrawablePresenter();
-        firstPresenter.Target.CurrentValue = video;
+        firstPresenter.Target.Value = video;
         var secondPresenter = new DrawablePresenter();
-        secondPresenter.Target.CurrentValue = video;
+        secondPresenter.Target.Value = video;
         element.Objects.Add(firstPresenter);
         element.Objects.Add(secondPresenter);
 
@@ -1116,7 +1116,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -1125,11 +1125,11 @@ public class ElementSlipServiceTests
     public void Slip_TimeRemappedSharedSource_RequiresCompatibleOffsetChanges(bool directFirst)
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var video = new SourceVideo { Speed = { Value = 200 } };
         var controller = new DrawableTimeController
         {
-            Speed = { CurrentValue = 50 },
-            Target = { CurrentValue = video }
+            Speed = { Value = 50 },
+            Target = { Value = video }
         };
         if (directFirst)
             element.Objects.Add(video);
@@ -1144,7 +1144,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(directFirst));
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(directFirst ? 1 : 0)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(directFirst ? 1 : 0)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (directFirst ? 1 : 0)));
         });
     }
@@ -1153,9 +1153,9 @@ public class ElementSlipServiceTests
     public void Slip_TimeRemappedFlowWithoutExplicitTarget_UsesPlaybackSpeed()
     {
         Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
+        var video = new SourceVideo { Speed = { Value = 200 } };
         element.Objects.Add(video);
-        element.AddObject(new DrawableTimeController { Speed = { CurrentValue = 50 } });
+        element.AddObject(new DrawableTimeController { Speed = { Value = 50 } });
         _history.Commit();
         int before = _history.UndoCount;
 
@@ -1164,7 +1164,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -1184,7 +1184,7 @@ public class ElementSlipServiceTests
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
 
         Assert.That(applied, Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
 
@@ -1193,8 +1193,8 @@ public class ElementSlipServiceTests
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         var source = CreateVideoSource(6);
-        var video = new SourceVideo { Source = { CurrentValue = source }, Speed = { CurrentValue = 200 } };
-        var controller = new DrawableTimeController { Speed = { CurrentValue = 50 } };
+        var video = new SourceVideo { Source = { Value = source }, Speed = { Value = 200 } };
+        var controller = new DrawableTimeController { Speed = { Value = 50 } };
         element.Objects.Add(controller);
         element.Objects.Add(video);
 
@@ -1214,7 +1214,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
             Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
@@ -1233,7 +1233,7 @@ public class ElementSlipServiceTests
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
         var video = new SourceVideo();
-        var controller = new DrawableTimeController { Target = { CurrentValue = video } };
+        var controller = new DrawableTimeController { Target = { Value = video } };
         switch (property)
         {
             case "Speed": controller.Speed.Expression = Expression.Create<float>("200"); break;
@@ -1252,7 +1252,7 @@ public class ElementSlipServiceTests
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
 
         Assert.That(applied, Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
 
@@ -1263,8 +1263,8 @@ public class ElementSlipServiceTests
     public void Slip_ContainerController_DoesNotRemapSiblingVideo(bool decorator, bool videoFirst)
     {
         Element element = AddElement(TimeSpan.Zero, TimeSpan.FromSeconds(2));
-        var video = new SourceVideo { Speed = { CurrentValue = 200 } };
-        var controller = new DrawableTimeController { Speed = { CurrentValue = 50 } };
+        var video = new SourceVideo { Speed = { Value = 200 } };
+        var controller = new DrawableTimeController { Speed = { Value = 50 } };
         Drawable container = decorator ? new DrawableDecorator() : new DrawableGroup();
         var children = container is DrawableDecorator d ? d.Children : ((DrawableGroup)container).Children;
         children.Add(videoFirst ? video : controller);
@@ -1281,7 +1281,7 @@ public class ElementSlipServiceTests
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
 
         Assert.That(applied, Is.True);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2)));
     }
 
     [TestCase(false)]
@@ -1292,16 +1292,16 @@ public class ElementSlipServiceTests
         var video = new SourceVideo
         {
             TimeRange = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(2)),
-            Speed = { CurrentValue = 200 }
+            Speed = { Value = 200 }
         };
         var controller = new DrawableTimeController
         {
             TimeRange = video.TimeRange,
             IsEnabled = false,
-            Speed = { CurrentValue = 50 },
-            Target = { CurrentValue = video }
+            Speed = { Value = 50 },
+            Target = { Value = video }
         };
-        var presenter = new DrawablePresenter { Target = { CurrentValue = controller } };
+        var presenter = new DrawablePresenter { Target = { Value = controller } };
         element.Objects.Add(video);
         element.Objects.Add(controllerFirst ? controller : presenter);
         element.Objects.Add(controllerFirst ? presenter : controller);
@@ -1318,7 +1318,7 @@ public class ElementSlipServiceTests
         bool applied = _service.Slip(_scene, [element], TimeSpan.FromSeconds(1));
 
         Assert.That(applied, Is.False);
-        Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
 
@@ -1331,7 +1331,7 @@ public class ElementSlipServiceTests
 
         Element second = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 1);
         var presenter = new DrawablePresenter();
-        presenter.Target.CurrentValue = video;
+        presenter.Target.Value = video;
         second.Objects.Add(presenter);
 
         bool applied = _service.Slip(_scene, [first, second], TimeSpan.FromSeconds(1));
@@ -1339,7 +1339,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -1359,8 +1359,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -1372,7 +1372,7 @@ public class ElementSlipServiceTests
         // second element's media is unbounded. The shared delta must land both at 1s.
         Element first = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
         var videoSource = CreateVideoSource(3);
-        var video = new SourceVideo { Source = { CurrentValue = videoSource } };
+        var video = new SourceVideo { Source = { Value = videoSource } };
         first.Objects.Add(video);
 
         Element second = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 1);
@@ -1384,8 +1384,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 
@@ -1394,12 +1394,12 @@ public class ElementSlipServiceTests
     {
         Element first = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
         var video = new SourceVideo();
-        video.OffsetPosition.CurrentValue = TimeSpan.FromSeconds(3);
+        video.OffsetPosition.Value = TimeSpan.FromSeconds(3);
         first.Objects.Add(video);
 
         Element second = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 1);
         var sound = new SourceSound();
-        sound.OffsetPosition.CurrentValue = TimeSpan.FromMilliseconds(500);
+        sound.OffsetPosition.Value = TimeSpan.FromMilliseconds(500);
         second.Objects.Add(sound);
 
         bool applied = _service.Slip(_scene, [first, second], TimeSpan.FromSeconds(-2));
@@ -1407,8 +1407,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
-            Assert.That(sound.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(sound.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -1430,8 +1430,8 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(lockedVideo.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(lockedVideo.OffsetPosition.Value, Is.EqualTo(TimeSpan.Zero));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -1448,7 +1448,7 @@ public class ElementSlipServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(video.OffsetPosition.CurrentValue, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(video.OffsetPosition.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
         });
     }
 

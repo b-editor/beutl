@@ -24,7 +24,7 @@ public sealed class GraphSnapshotTests
         var model = new GraphModel();
         var factory = new FactoryNode<SnapshotBrushHolder>();
         var brush = new SolidColorBrush();
-        factory.Object.Brush.CurrentValue = brush;
+        factory.Object.Brush.Value = brush;
         var probe = new NestedCycleProbeNode();
         model.Nodes.AddRange([factory, probe]);
         var nested = Find(factory, brush.Opacity);
@@ -36,11 +36,11 @@ public sealed class GraphSnapshotTests
         {
             var other = new FactoryNode<Pen>();
             var otherBrush = new SolidColorBrush();
-            other.Object.Brush.CurrentValue = otherBrush;
+            other.Object.Brush.Value = otherBrush;
             model.Nodes.Add(other);
             model.Connect(Find(other, otherBrush.Opacity), Source(model, 0f, "Opacity"));
-            invalidate = () => other.Object.Brush.CurrentValue = brush;
-            restore = () => other.Object.Brush.CurrentValue = otherBrush;
+            invalidate = () => other.Object.Brush.Value = brush;
+            restore = () => other.Object.Brush.Value = otherBrush;
         }
         else if (invalidation == "expression")
         {
@@ -96,7 +96,7 @@ public sealed class GraphSnapshotTests
         var input = new GroupInput();
         var output = new GroupOutput();
         var factory = new FactoryNode<Pen>();
-        factory.Object.Brush.CurrentValue = null;
+        factory.Object.Brush.Value = null;
         group.Group.Nodes.AddRange([input, output, factory]);
         input.AddNodePort((IInputPort)factory.Items.Single(p => p.Name == "Thickness"), out _);
         output.AddNodePort((IOutputPort)factory.Items.Single(p => p.Name == "Output"), out _);
@@ -108,7 +108,7 @@ public sealed class GraphSnapshotTests
         Assert.That(probe.LastThickness, Is.EqualTo(17f));
 
         var brush = new SolidColorBrush();
-        factory.Object.Brush.CurrentValue = brush;
+        factory.Object.Brush.Value = brush;
         var source = new LayerInputNode();
         var value = new LayerInputNode.LayerInputPort<float>();
         value.SetupProperty("Opacity");
@@ -129,7 +129,7 @@ public sealed class GraphSnapshotTests
         });
 
         group.Group.Disconnect(connection);
-        brush.Opacity.CurrentValue = 80f;
+        brush.Opacity.Value = 80f;
         group.Group.Nodes.Remove(source);
         snapshot.Evaluate(CompositionContext.Default);
         Assert.That(probe.LastThickness, Is.EqualTo(17f));
@@ -259,8 +259,8 @@ internal sealed partial class GroupPenProbeNode : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             var node = RequireOriginal();
-            node.LastThickness = Input?.Thickness.GetValue(context);
-            node.LastOpacity = Input?.Brush.GetValue(context)?.Opacity.GetValue(context);
+            node.LastThickness = Input?.Thickness.Evaluate(context);
+            node.LastOpacity = Input?.Brush.Evaluate(context)?.Opacity.Evaluate(context);
         }
     }
 }

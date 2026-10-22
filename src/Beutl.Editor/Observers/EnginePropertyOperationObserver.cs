@@ -49,7 +49,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 
         if (propertiesToTrack?.Contains("CurrentValue") != false)
         {
-            InitializePublishers(property.CurrentValue);
+            InitializePublishers(property.Value);
 
             _property.ValueChanged += OnValueChanged;
         }

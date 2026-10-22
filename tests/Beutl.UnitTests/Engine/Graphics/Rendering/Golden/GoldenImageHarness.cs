@@ -126,16 +126,16 @@ internal static class GoldenImageHarness
     public static Drawable.Resource RotatedRect(Func<FilterEffect> makeEffect, Brush? fill = null)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.TransformOrigin.CurrentValue = RelativePoint.Center;
-        shape.Width.CurrentValue = 140;
-        shape.Height.CurrentValue = 90;
-        shape.Fill.CurrentValue = fill ?? Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.TransformOrigin.Value = RelativePoint.Center;
+        shape.Width.Value = 140;
+        shape.Height.Value = 90;
+        shape.Fill.Value = fill ?? Brushes.White;
         var rotation = new RotationTransform();
-        rotation.Rotation.CurrentValue = 21f;
-        shape.Transform.CurrentValue = rotation;
-        shape.FilterEffect.CurrentValue = makeEffect();
+        rotation.Rotation.Value = 21f;
+        shape.Transform.Value = rotation;
+        shape.FilterEffect.Value = makeEffect();
         return shape.ToResource(CompositionContext.Default);
     }
 

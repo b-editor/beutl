@@ -201,23 +201,23 @@ public sealed class EffectItemRequiredRegionTests
     private static FilterEffectRenderNode CreateBlurNode(float sigma)
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(sigma, sigma);
+        blur.Sigma.Value = new Size(sigma, sigma);
         return new FilterEffectRenderNode(blur.ToResource(CompositionContext.Default));
     }
 
     private static FilterEffectRenderNode CreateDilateNode(float radius)
     {
         var dilate = new Dilate();
-        dilate.RadiusX.CurrentValue = radius;
-        dilate.RadiusY.CurrentValue = radius;
+        dilate.RadiusX.Value = radius;
+        dilate.RadiusY.Value = radius;
         return new FilterEffectRenderNode(dilate.ToResource(CompositionContext.Default));
     }
 
     private static FilterEffectRenderNode CreateErodeNode(float radius)
     {
         var erode = new Erode();
-        erode.RadiusX.CurrentValue = radius;
-        erode.RadiusY.CurrentValue = radius;
+        erode.RadiusX.Value = radius;
+        erode.RadiusY.Value = radius;
         return new FilterEffectRenderNode(erode.ToResource(CompositionContext.Default));
     }
 

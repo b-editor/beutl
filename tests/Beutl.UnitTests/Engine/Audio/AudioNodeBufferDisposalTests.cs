@@ -53,7 +53,7 @@ public class AudioNodeBufferDisposalTests
         }
     }
 
-    private static IProperty<float> Static(float value) => Property.Create(value);
+    private static IProperty<float> Static(float value) => Property.CreateExpression(value);
 
     // A derived hook that returns the input transfers ownership to the caller.
     private sealed class PassThroughDynamicsNode : DynamicsNode

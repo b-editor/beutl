@@ -60,10 +60,10 @@ public class TransformEffectEquivalenceTests
     {
         var g = new TransformGroup();
         var rot = new RotationTransform();
-        rot.Rotation.CurrentValue = 45f;
+        rot.Rotation.Value = 45f;
         var scale = new ScaleTransform();
-        scale.ScaleX.CurrentValue = 120f;
-        scale.ScaleY.CurrentValue = 100f;
+        scale.ScaleX.Value = 120f;
+        scale.ScaleY.Value = 100f;
         g.Children.Add(rot);
         g.Children.Add(scale);
         return g;
@@ -72,22 +72,22 @@ public class TransformEffectEquivalenceTests
     private static RectShape BaseShape()
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = 100;
-        shape.Height.CurrentValue = 80;
-        shape.Fill.CurrentValue = Brushes.White;
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = 100;
+        shape.Height.Value = 80;
+        shape.Fill.Value = Brushes.White;
         var pen = new Pen();
-        pen.Thickness.CurrentValue = 8;
-        pen.Brush.CurrentValue = Brushes.Red;
-        shape.Pen.CurrentValue = pen;
+        pen.Thickness.Value = 8;
+        pen.Brush.Value = Brushes.Red;
+        shape.Pen.Value = pen;
         return shape;
     }
 
     private static Drawable.Resource MakeViaDrawableTransform()
     {
         var shape = BaseShape();
-        shape.Transform.CurrentValue = MakeGroup();
+        shape.Transform.Value = MakeGroup();
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -95,8 +95,8 @@ public class TransformEffectEquivalenceTests
     {
         var shape = BaseShape();
         var fx = new TransformEffect();
-        fx.Transform.CurrentValue = MakeGroup();
-        shape.FilterEffect.CurrentValue = fx;
+        fx.Transform.Value = MakeGroup();
+        shape.FilterEffect.Value = fx;
         return shape.ToResource(CompositionContext.Default);
     }
 
@@ -106,18 +106,18 @@ public class TransformEffectEquivalenceTests
     {
         var shape = new RectShape
         {
-            AlignmentX = { CurrentValue = AlignmentX.Center },
-            AlignmentY = { CurrentValue = AlignmentY.Center },
-            Width = { CurrentValue = 160 },
-            Height = { CurrentValue = 104 },
-            Fill = { CurrentValue = Brushes.OrangeRed },
+            AlignmentX = { Value = AlignmentX.Center },
+            AlignmentY = { Value = AlignmentY.Center },
+            Width = { Value = 160 },
+            Height = { Value = 104 },
+            Fill = { Value = Brushes.OrangeRed },
         };
         var transform = new TransformEffect
         {
-            ApplyToTarget = { CurrentValue = true },
+            ApplyToTarget = { Value = true },
             Transform =
             {
-                CurrentValue = transformKind switch
+                Value = transformKind switch
                 {
                     TransformKind.FractionalScale => new ScaleTransform(60, 60),
                     TransformKind.Rotation5 => new RotationTransform(5),
@@ -129,12 +129,12 @@ public class TransformEffectEquivalenceTests
         };
         var brightness = new Brightness
         {
-            Amount = { CurrentValue = 160 },
+            Amount = { Value = 160 },
         };
         var group = new FilterEffectGroup();
         group.Children.Add(transformFirst ? transform : brightness);
         group.Children.Add(transformFirst ? brightness : transform);
-        shape.FilterEffect.CurrentValue = group;
+        shape.FilterEffect.Value = group;
         return shape.ToResource(CompositionContext.Default);
     }
 

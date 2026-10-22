@@ -58,17 +58,17 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
                 handler => Property.ValueChanged += handler,
                 handler => Property.ValueChanged -= handler)
             .Select(e => e.EventArgs.NewValue)
-            .Publish(Property.CurrentValue)
+            .Publish(Property.Value)
             .RefCount();
     }
 
     public T? GetValue()
     {
-        return Property.CurrentValue;
+        return Property.Value;
     }
 
     public void SetValue(T? value)
     {
-        Property.CurrentValue = value!;
+        Property.Value = value!;
     }
 }

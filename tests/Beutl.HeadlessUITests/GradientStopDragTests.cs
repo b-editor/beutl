@@ -39,7 +39,7 @@ public sealed class GradientStopDragTests
         var red = new GradientStop(Colors.Red, 0f);
         brush.GradientStops.Add(red);
         brush.GradientStops.Add(new GradientStop(Colors.Blue, 1f));
-        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);
         var playing = new ReactivePropertySlim<bool>(false);
         var player = new Mock<IPreviewPlayer>();
@@ -64,7 +64,7 @@ public sealed class GradientStopDragTests
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(start + new Vector(60, 0), RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render(3);
-            float reached = red.Offset.CurrentValue;
+            float reached = red.Offset.Value;
             Assert.That(reached, Is.GreaterThan(0f));
             Assert.That(history.History.IsEditing, Is.True, "The drag must hold an edit session.");
 
@@ -96,7 +96,7 @@ public sealed class GradientStopDragTests
             bool kept = end is DragEnd.CaptureLoss or DragEnd.Playback;
             Assert.Multiple(() =>
             {
-                Assert.That(red.Offset.CurrentValue, Is.EqualTo(kept ? reached : 0f));
+                Assert.That(red.Offset.Value, Is.EqualTo(kept ? reached : 0f));
                 Assert.That(history.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
                 Assert.That(history.History.IsEditing, Is.False);
             });
@@ -117,7 +117,7 @@ public sealed class GradientStopDragTests
         var red = new GradientStop(Colors.Red, 0f);
         brush.GradientStops.Add(red);
         brush.GradientStops.Add(new GradientStop(Colors.Blue, 1f));
-        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);
         using var viewModel = new BrushEditorViewModel(
             new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
@@ -142,7 +142,7 @@ public sealed class GradientStopDragTests
             window.MouseDown(start, MouseButton.Left);
             window.MouseMove(start + new Vector(60, 0), RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render(3);
-            float reached = red.Offset.CurrentValue;
+            float reached = red.Offset.Value;
             Assert.That(history.History.IsEditing, Is.True, "The drag must hold an edit session.");
 
             if (escape)
@@ -163,7 +163,7 @@ public sealed class GradientStopDragTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(red.Offset.CurrentValue, Is.EqualTo(escape ? 0f : reached));
+                Assert.That(red.Offset.Value, Is.EqualTo(escape ? 0f : reached));
                 Assert.That(history.History.UndoCount, Is.EqualTo(escape ? 0 : 1));
                 Assert.That(history.History.IsEditing, Is.False);
             });
@@ -181,7 +181,7 @@ public sealed class GradientStopDragTests
         var red = new GradientStop(Colors.Red, 0f);
         brush.GradientStops.Add(red);
         brush.GradientStops.Add(new GradientStop(Colors.Blue, 1f));
-        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);
         using var viewModel = new BrushEditorViewModel(
             new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
@@ -203,7 +203,7 @@ public sealed class GradientStopDragTests
             HeadlessTestHelpers.Render(3);
             Assert.Multiple(() =>
             {
-                Assert.That(red.Color.CurrentValue, Is.EqualTo(Color.FromArgb(255, 0, 255, 0)));
+                Assert.That(red.Color.Value, Is.EqualTo(Color.FromArgb(255, 0, 255, 0)));
                 Assert.That(history.History.IsEditing, Is.False, "Typed values must not hold an edit session.");
             });
 
@@ -212,7 +212,7 @@ public sealed class GradientStopDragTests
             HeadlessTestHelpers.Render(3);
             Assert.Multiple(() =>
             {
-                Assert.That(red.Color.CurrentValue, Is.EqualTo(Color.FromArgb(255, 0, 255, 0)));
+                Assert.That(red.Color.Value, Is.EqualTo(Color.FromArgb(255, 0, 255, 0)));
                 Assert.That(history.History.UndoCount, Is.EqualTo(1));
                 Assert.That(history.History.IsEditing, Is.False);
             });

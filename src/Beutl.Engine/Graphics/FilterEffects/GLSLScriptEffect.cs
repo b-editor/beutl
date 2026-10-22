@@ -23,7 +23,7 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
 
     [Display(Name = nameof(GraphicsStrings.Script), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
-    public IExpressionProperty<string> FragmentShader { get; } = Property.Create(GetDefaultShader());
+    public IExpressionProperty<string> FragmentShader { get; } = Property.CreateExpression(GetDefaultShader());
 
     private static string GetDefaultShader()
     {

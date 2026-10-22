@@ -372,8 +372,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
             context.Shader(ShaderDescription.CurrentPixel(BlueShader)));
         var delay = new DelayAnimationEffect
         {
-            Delay = { CurrentValue = 0 },
-            Effect = { CurrentValue = child },
+            Delay = { Value = 0 },
+            Effect = { Value = child },
         };
         Rect bounds = new(4, 7, 8, 6);
 
@@ -403,8 +403,8 @@ public sealed class EffectItemTypedSuffixExecutionTests
         });
         var delay = new DelayAnimationEffect
         {
-            Delay = { CurrentValue = 0 },
-            Effect = { CurrentValue = child },
+            Delay = { Value = 0 },
+            Effect = { Value = child },
         };
         Rect bounds = new(0, 0, 8, 6);
         using FilterEffect.Resource resource = delay.ToResource(CompositionContext.Default);

@@ -31,8 +31,8 @@ public class TransformsTests
         var t = new TranslateTransform(new Vector(3f, 5f));
         Assert.Multiple(() =>
         {
-            Assert.That(t.X.CurrentValue, Is.EqualTo(3f));
-            Assert.That(t.Y.CurrentValue, Is.EqualTo(5f));
+            Assert.That(t.X.Value, Is.EqualTo(3f));
+            Assert.That(t.Y.Value, Is.EqualTo(5f));
         });
     }
 
@@ -42,8 +42,8 @@ public class TransformsTests
         var t = new TranslateTransform(new Point(7f, -2f));
         Assert.Multiple(() =>
         {
-            Assert.That(t.X.CurrentValue, Is.EqualTo(7f));
-            Assert.That(t.Y.CurrentValue, Is.EqualTo(-2f));
+            Assert.That(t.X.Value, Is.EqualTo(7f));
+            Assert.That(t.Y.Value, Is.EqualTo(-2f));
         });
     }
 
@@ -64,7 +64,7 @@ public class TransformsTests
     public void RotationTransform_FromRadians_ConvertsToDegrees()
     {
         RotationTransform t = RotationTransform.FromRadians(MathF.PI);
-        Assert.That(t.Rotation.CurrentValue, Is.EqualTo(180f).Within(1e-3));
+        Assert.That(t.Rotation.Value, Is.EqualTo(180f).Within(1e-3));
     }
 
     [Test]
@@ -97,8 +97,8 @@ public class TransformsTests
         var t = new ScaleTransform(new Vector(150f, 250f));
         Assert.Multiple(() =>
         {
-            Assert.That(t.ScaleX.CurrentValue, Is.EqualTo(150f));
-            Assert.That(t.ScaleY.CurrentValue, Is.EqualTo(250f));
+            Assert.That(t.ScaleX.Value, Is.EqualTo(150f));
+            Assert.That(t.ScaleY.Value, Is.EqualTo(250f));
         });
     }
 
@@ -115,7 +115,7 @@ public class TransformsTests
     public void SkewTransform_FromRadians_RoundtripsToDegrees()
     {
         SkewTransform t = SkewTransform.FromRadians(MathF.PI / 4f, 0f);
-        Assert.That(t.SkewX.CurrentValue, Is.EqualTo(45f).Within(1e-3));
+        Assert.That(t.SkewX.Value, Is.EqualTo(45f).Within(1e-3));
     }
 
     [Test]

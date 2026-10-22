@@ -376,12 +376,12 @@ public class FormattedTextFallbackTests
         {
             var block = new TextBlock
             {
-                FontFamily = { CurrentValue = new FontFamily("Roboto") },
-                Text = { CurrentValue = "AV 日本語 😀 👩‍💻\n123 © ©️ 1️⃣ 🇯🇵 👍🏽\n1\uFE0F #\uFE0F *\uFE0F 兀\uFE00" },
-                Size = { CurrentValue = 48f },
-                Spacing = { CurrentValue = 6f },
-                Fill = { CurrentValue = Brushes.Black },
-                SplitByCharacters = { CurrentValue = split },
+                FontFamily = { Value = new FontFamily("Roboto") },
+                Text = { Value = "AV 日本語 😀 👩‍💻\n123 © ©️ 1️⃣ 🇯🇵 👍🏽\n1\uFE0F #\uFE0F *\uFE0F 兀\uFE00" },
+                Size = { Value = 48f },
+                Spacing = { Value = 6f },
+                Fill = { Value = Brushes.Black },
+                SplitByCharacters = { Value = split },
             };
             using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
             using var node = new DrawableRenderNode(resource);

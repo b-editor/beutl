@@ -62,7 +62,7 @@ public class AnimationSamplerTests
         var sampler = new AnimationSampler();
         var property = Property.CreateAnimatable(3.5f);
         property.SetAttributes("Value", []);
-        property.CurrentValue = 9.5f;
+        property.Value = 9.5f;
 
         Span<float> buffer = stackalloc float[4];
         sampler.SampleBuffer(property, new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)), 4, buffer);
@@ -160,7 +160,7 @@ public class AnimationSamplerTests
         for (int i = 0; i < buffer.Length; i++)
         {
             var time = owner.TimeRange.Start + TimeSpan.FromSeconds(i / 10.0);
-            Assert.That(buffer[i], Is.EqualTo(property.GetValue(new CompositionContext(time))), $"sample {i}");
+            Assert.That(buffer[i], Is.EqualTo(property.Evaluate(new CompositionContext(time))), $"sample {i}");
         }
     }
 

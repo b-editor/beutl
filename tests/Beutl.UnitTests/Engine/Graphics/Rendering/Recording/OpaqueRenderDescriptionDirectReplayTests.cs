@@ -72,11 +72,11 @@ public sealed class OpaqueRenderDescriptionDirectReplayTests
     private static Brush.Resource CreateDrawableBrush()
     {
         var content = new RectShape();
-        content.Width.CurrentValue = 8;
-        content.Height.CurrentValue = 8;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = 8;
+        content.Height.Value = 8;
+        content.Fill.Value = Brushes.White;
         var brush = new DrawableBrush(content);
-        brush.Stretch.CurrentValue = Stretch.Fill;
+        brush.Stretch.Value = Stretch.Fill;
         return brush.ToResource(CompositionContext.Default);
     }
 

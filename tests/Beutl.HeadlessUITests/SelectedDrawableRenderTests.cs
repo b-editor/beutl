@@ -18,12 +18,12 @@ public class SelectedDrawableRenderTests
     private static RectShape CreateRedRect(float x, float y)
         => new()
         {
-            Width = { CurrentValue = 48 },
-            Height = { CurrentValue = 32 },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            Transform = { CurrentValue = new TranslateTransform(x, y) },
-            Fill = { CurrentValue = new SolidColorBrush(Colors.Red) },
+            Width = { Value = 48 },
+            Height = { Value = 32 },
+            AlignmentX = { Value = AlignmentX.Left },
+            AlignmentY = { Value = AlignmentY.Top },
+            Transform = { Value = new TranslateTransform(x, y) },
+            Fill = { Value = new SolidColorBrush(Colors.Red) },
         };
 
     [AvaloniaTest]
@@ -158,11 +158,11 @@ public class SelectedDrawableRenderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("selected-drawable-empty", 320, 240);
         var drawable = new RectShape
         {
-            Width = { CurrentValue = 0 },
-            Height = { CurrentValue = 32 },
-            AlignmentX = { CurrentValue = AlignmentX.Left },
-            AlignmentY = { CurrentValue = AlignmentY.Top },
-            Transform = { CurrentValue = new TranslateTransform(37, 29) },
+            Width = { Value = 0 },
+            Height = { Value = 32 },
+            AlignmentX = { Value = AlignmentX.Left },
+            AlignmentY = { Value = AlignmentY.Top },
+            Transform = { Value = new TranslateTransform(37, 29) },
         };
 
         PixelSize measuredSize = await editor.Player.MeasureSelectedDrawable(drawable);
@@ -306,12 +306,12 @@ public class SelectedDrawableRenderTests
         element.AddObject(capture);
         element.AddObject(new RectShape
         {
-            Width = { CurrentValue = 64 },
-            Height = { CurrentValue = 48 },
+            Width = { Value = 64 },
+            Height = { Value = 48 },
         });
         innerScene.Children.Add(element);
         var drawable = new SceneDrawable();
-        drawable.ReferencedScene.CurrentValue = innerScene;
+        drawable.ReferencedScene.Value = innerScene;
 
         using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(drawable, outputScale: 2);
 

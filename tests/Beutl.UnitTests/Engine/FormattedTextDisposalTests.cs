@@ -282,10 +282,10 @@ public class FormattedTextDisposalTests
     {
         Typeface typeface = TypefaceProvider.Typeface();
         TextBlock tb = new();
-        tb.FontFamily.CurrentValue = typeface.FontFamily;
-        tb.Size.CurrentValue = 24;
-        tb.Text.CurrentValue = "ABC";
-        tb.Fill.CurrentValue = Brushes.White;
+        tb.FontFamily.Value = typeface.FontFamily;
+        tb.Size.Value = 24;
+        tb.Text.Value = "ABC";
+        tb.Fill.Value = Brushes.White;
 
         TextBlock.Resource resource = tb.ToResource(CompositionContext.Default);
         TextElements elements = resource.GetTextElements();
@@ -307,15 +307,15 @@ public class FormattedTextDisposalTests
     {
         Typeface typeface = TypefaceProvider.Typeface();
         TextBlock tb = new();
-        tb.FontFamily.CurrentValue = typeface.FontFamily;
-        tb.Size.CurrentValue = 24;
-        tb.Text.CurrentValue = "ABC";
-        tb.Fill.CurrentValue = Brushes.White;
+        tb.FontFamily.Value = typeface.FontFamily;
+        tb.Size.Value = 24;
+        tb.Text.Value = "ABC";
+        tb.Fill.Value = Brushes.White;
 
         TextBlock.Resource resource = tb.ToResource(CompositionContext.Default);
         TextElements elements = resource.GetTextElements();
 
-        tb.Text.CurrentValue = "DEF";
+        tb.Text.Value = "DEF";
         bool versionBumped = false;
         resource.Reconcile(tb, CompositionContext.Default, ref versionBumped);
 

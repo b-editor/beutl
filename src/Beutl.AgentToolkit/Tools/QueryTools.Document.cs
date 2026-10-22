@@ -110,7 +110,7 @@ public sealed partial class QueryTools
             properties.Where(IsEffectProperty).Select(property => property.Name).ToArray(),
             properties.SelectMany(property => CreateNestedAnimatedPropertySummaries(
                     property.Name,
-                    property.CurrentValue,
+                    property.Value,
                     new HashSet<Guid>()))
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(path => path, StringComparer.Ordinal)
@@ -139,7 +139,7 @@ public sealed partial class QueryTools
                         yield return propertyPath;
                     }
 
-                    foreach (string child in CreateNestedAnimatedPropertySummaries(propertyPath, property.CurrentValue, visited))
+                    foreach (string child in CreateNestedAnimatedPropertySummaries(propertyPath, property.Value, visited))
                     {
                         yield return child;
                     }
@@ -165,12 +165,12 @@ public sealed partial class QueryTools
     private static bool IsBrushProperty(IProperty property)
     {
         return typeof(Brush).IsAssignableFrom(property.ValueType)
-               && property.CurrentValue is not null;
+               && property.Value is not null;
     }
 
     private static bool IsEffectProperty(IProperty property)
     {
         return typeof(FilterEffect).IsAssignableFrom(property.ValueType)
-               && property.CurrentValue is not null;
+               && property.Value is not null;
     }
 }

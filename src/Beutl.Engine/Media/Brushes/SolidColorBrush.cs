@@ -17,8 +17,8 @@ public partial class SolidColorBrush : Brush
 
     public SolidColorBrush(Color color, float opacity = 100) : this()
     {
-        Color.CurrentValue = color;
-        Opacity.CurrentValue = opacity;
+        Color.Value = color;
+        Opacity.Value = opacity;
     }
 
     public SolidColorBrush(uint color)

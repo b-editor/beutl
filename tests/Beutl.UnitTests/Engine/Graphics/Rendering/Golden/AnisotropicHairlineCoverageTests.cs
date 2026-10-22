@@ -77,24 +77,24 @@ public class AnisotropicHairlineCoverageTests
     private static FilterEffect Blur()
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(1, 1);
+        blur.Sigma.Value = new Size(1, 1);
         return blur;
     }
 
     private static FilterEffect Dilate()
     {
         var dilate = new Dilate();
-        dilate.RadiusX.CurrentValue = 1f;
-        dilate.RadiusY.CurrentValue = 1f;
+        dilate.RadiusX.Value = 1f;
+        dilate.RadiusY.Value = 1f;
         return dilate;
     }
 
     private static FilterEffect WhiteShadowOnly()
     {
         var shadow = new DropShadow();
-        shadow.ShadowOnly.CurrentValue = true;
-        shadow.Sigma.CurrentValue = new Size(1, 1);
-        shadow.Color.CurrentValue = Colors.White;
+        shadow.ShadowOnly.Value = true;
+        shadow.Sigma.Value = new Size(1, 1);
+        shadow.Color.Value = Colors.White;
         return shadow;
     }
 
@@ -105,27 +105,27 @@ public class AnisotropicHairlineCoverageTests
     private static double MeasureInk(FilterEffect? effect, float scaleY, float outputScale)
     {
         var rectangle = new RectShape();
-        rectangle.Width.CurrentValue = 6f;
+        rectangle.Width.Value = 6f;
         // Keep the bar 100 logical units tall whatever the y stretch, so it never leaves the frame.
-        rectangle.Height.CurrentValue = 10000f / scaleY;
-        rectangle.Fill.CurrentValue = new SolidColorBrush(Colors.White);
-        rectangle.AlignmentX.CurrentValue = AlignmentX.Left;
-        rectangle.AlignmentY.CurrentValue = AlignmentY.Top;
-        rectangle.TransformOrigin.CurrentValue = RelativePoint.TopLeft;
+        rectangle.Height.Value = 10000f / scaleY;
+        rectangle.Fill.Value = new SolidColorBrush(Colors.White);
+        rectangle.AlignmentX.Value = AlignmentX.Left;
+        rectangle.AlignmentY.Value = AlignmentY.Top;
+        rectangle.TransformOrigin.Value = RelativePoint.TopLeft;
         if (effect is not null)
-            rectangle.FilterEffect.CurrentValue = effect;
+            rectangle.FilterEffect.Value = effect;
 
         var group = new TransformGroup();
         var translate = new TranslateTransform();
-        translate.X.CurrentValue = 128;
-        translate.Y.CurrentValue = 42;
+        translate.X.Value = 128;
+        translate.Y.Value = 42;
         // A TransformGroup applies its last child first, so the squeeze runs in the shape's own space.
         group.Children.Add(translate);
         var scale = new ScaleTransform();
-        scale.ScaleX.CurrentValue = 10f;
-        scale.ScaleY.CurrentValue = scaleY;
+        scale.ScaleX.Value = 10f;
+        scale.ScaleY.Value = scaleY;
         group.Children.Add(scale);
-        rectangle.Transform.CurrentValue = group;
+        rectangle.Transform.Value = group;
 
         var scene = new Scene(640, 360, "hairline") { Uri = new Uri("file:///hairline/scene") };
         var element = new Element

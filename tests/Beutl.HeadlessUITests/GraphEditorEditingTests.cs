@@ -149,7 +149,7 @@ public class GraphEditorEditingTests
         var shape = graph.Model.Element!.Objects.OfType<Beutl.Graphics.Shapes.RectShape>().Single();
         var brush = new Beutl.Media.SolidColorBrush();
         brush.Color.SetKeyFrameAnimation(animation);
-        shape.Fill.CurrentValue = brush;
+        shape.Fill.Value = brush;
         graph.Model.HistoryManager.Commit();
         using var model = new GraphEditorViewModel(graph.Model.EditorContext, animation, graph.Model.Element);
         graph.View.DataContext = model;

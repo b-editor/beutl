@@ -268,11 +268,11 @@ public sealed partial class AiSubtitleDialogViewModel
             {
                 foreach (Beutl.Graphics.Drawable drawable in element.Objects.OfType<Beutl.Graphics.Drawable>())
                 {
-                    Beutl.Graphics.Transformation.Transform? transform = drawable.Transform.CurrentValue;
+                    Beutl.Graphics.Transformation.Transform? transform = drawable.Transform.Value;
                     Beutl.Editor.Components.Helpers.AddOrSetHelper.AddOrSet(
                         ref transform,
                         new Beutl.Graphics.Transformation.TranslateTransform(position));
-                    drawable.Transform.CurrentValue = transform;
+                    drawable.Transform.Value = transform;
                 }
             }
 

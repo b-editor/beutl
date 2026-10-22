@@ -47,8 +47,8 @@ public class MaterialTextureColorSpaceTests
     [Test]
     public void AlbedoMap_DecodesSrgbLikeTheAlbedoColor()
     {
-        byte[] factor = Render(m => m.Albedo.CurrentValue = new Color(255, Mid, Mid, Mid));
-        byte[] mapped = Render(m => m.AlbedoMap.CurrentValue = SolidTexture("albedo", Mid, Mid, Mid));
+        byte[] factor = Render(m => m.Albedo.Value = new Color(255, Mid, Mid, Mid));
+        byte[] mapped = Render(m => m.AlbedoMap.Value = SolidTexture("albedo", Mid, Mid, Mid));
 
         AssertSameShading(mapped, factor);
     }
@@ -57,7 +57,7 @@ public class MaterialTextureColorSpaceTests
     public void FlatNormalMap_KeepsTheGeometricNormal()
     {
         byte[] factor = Render(_ => { });
-        byte[] mapped = Render(m => m.NormalMap.CurrentValue = SolidTexture("normal", Mid, Mid, 255));
+        byte[] mapped = Render(m => m.NormalMap.Value = SolidTexture("normal", Mid, Mid, 255));
 
         AssertSameShading(mapped, factor);
     }
@@ -67,14 +67,14 @@ public class MaterialTextureColorSpaceTests
     {
         byte[] factor = Render(m =>
         {
-            m.Metallic.CurrentValue = MidValue;
-            m.Roughness.CurrentValue = MidValue;
+            m.Metallic.Value = MidValue;
+            m.Roughness.Value = MidValue;
         });
         byte[] mapped = Render(m =>
         {
-            m.Metallic.CurrentValue = 1;
-            m.Roughness.CurrentValue = 1;
-            m.MetallicRoughnessMap.CurrentValue = SolidTexture("metallic-roughness", 0, Mid, Mid);
+            m.Metallic.Value = 1;
+            m.Roughness.Value = 1;
+            m.MetallicRoughnessMap.Value = SolidTexture("metallic-roughness", 0, Mid, Mid);
         });
 
         AssertSameShading(mapped, factor);
@@ -83,8 +83,8 @@ public class MaterialTextureColorSpaceTests
     [Test]
     public void AOMap_IsSampledAsRawData()
     {
-        byte[] factor = Render(m => m.AmbientOcclusion.CurrentValue = MidValue);
-        byte[] mapped = Render(m => m.AOMap.CurrentValue = SolidTexture("ao", Mid, Mid, Mid));
+        byte[] factor = Render(m => m.AmbientOcclusion.Value = MidValue);
+        byte[] mapped = Render(m => m.AOMap.Value = SolidTexture("ao", Mid, Mid, Mid));
 
         AssertSameShading(mapped, factor);
     }
@@ -104,7 +104,7 @@ public class MaterialTextureColorSpaceTests
         var image = new ImageSource();
         image.ReadFrom(new Uri(path));
         var texture = new ImageTextureSource();
-        texture.Source.CurrentValue = image;
+        texture.Source.Value = image;
         return texture;
     }
 
@@ -117,16 +117,16 @@ public class MaterialTextureColorSpaceTests
             var composition = new CompositionContext(TimeSpan.Zero);
 
             var camera = new PerspectiveCamera();
-            camera.Position.CurrentValue = new Vector3(0, 0, 3);
-            camera.Target.CurrentValue = Vector3.Zero;
+            camera.Position.Value = new Vector3(0, 0, 3);
+            camera.Target.Value = Vector3.Zero;
             using var cameraResource = (PerspectiveCamera.Resource)camera.ToResource(composition);
 
             var key = new DirectionalLight3D();
-            key.Direction.CurrentValue = Vector3.Normalize(new Vector3(-1, -1, -1));
-            key.Intensity.CurrentValue = 1f;
+            key.Direction.Value = Vector3.Normalize(new Vector3(-1, -1, -1));
+            key.Intensity.Value = 1f;
             var fill = new DirectionalLight3D();
-            fill.Direction.CurrentValue = Vector3.Normalize(new Vector3(0.8f, -0.3f, -0.5f));
-            fill.Intensity.CurrentValue = 0.3f;
+            fill.Direction.Value = Vector3.Normalize(new Vector3(0.8f, -0.3f, -0.5f));
+            fill.Intensity.Value = 0.3f;
             var lights = new List<Light3D.Resource>
             {
                 (Light3D.Resource)key.ToResource(composition),
@@ -134,15 +134,15 @@ public class MaterialTextureColorSpaceTests
             };
 
             var material = new PBRMaterial();
-            material.Metallic.CurrentValue = 0.2f;
-            material.Roughness.CurrentValue = 0.4f;
+            material.Metallic.Value = 0.2f;
+            material.Roughness.Value = 0.4f;
             configure(material);
 
             var sphere = new Sphere3D();
-            sphere.Radius.CurrentValue = 1f;
-            sphere.Segments.CurrentValue = 48;
-            sphere.Rings.CurrentValue = 24;
-            sphere.Material.CurrentValue = material;
+            sphere.Radius.Value = 1f;
+            sphere.Segments.Value = 48;
+            sphere.Rings.Value = 24;
+            sphere.Material.Value = material;
             var objects = new List<Object3D.Resource> { (Object3D.Resource)sphere.ToResource(composition) };
 
             try

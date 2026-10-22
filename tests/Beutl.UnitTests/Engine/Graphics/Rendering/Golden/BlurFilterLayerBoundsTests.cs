@@ -25,7 +25,7 @@ public sealed class BlurFilterLayerBoundsTests
     public void Blur_DoesNotSampleOutsideItsInput()
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(18, 18);
+        blur.Sigma.Value = new Size(18, 18);
         AssertFiniteOutput(blur, "blur");
     }
 
@@ -42,7 +42,7 @@ public sealed class BlurFilterLayerBoundsTests
             }
 
             RectShape shape = CreateRectangle(240, 120, Brushes.White);
-            shape.FilterEffect.CurrentValue = CreateShadow();
+            shape.FilterEffect.Value = CreateShadow();
             using Drawable.Resource plate = CreatePlate().ToResource(CompositionContext.Default);
             using Drawable.Resource shadowed = shape.ToResource(CompositionContext.Default);
             using Bitmap actual = RenderScene(plate, shadowed);
@@ -57,7 +57,7 @@ public sealed class BlurFilterLayerBoundsTests
         var imageSource = new ImageSource();
         imageSource.ReadFrom(uri);
         var image = new SourceImage();
-        image.Source.CurrentValue = imageSource;
+        image.Source.Value = imageSource;
         return image;
     }
 
@@ -67,7 +67,7 @@ public sealed class BlurFilterLayerBoundsTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             RectShape shape = CreateRectangle(240, 120, Brushes.White);
-            shape.FilterEffect.CurrentValue = effect;
+            shape.FilterEffect.Value = effect;
             using Drawable.Resource resource = shape.ToResource(CompositionContext.Default);
             using Bitmap actual = RenderScene(resource);
 
@@ -78,9 +78,9 @@ public sealed class BlurFilterLayerBoundsTests
     private static DropShadow CreateShadow()
     {
         var shadow = new DropShadow();
-        shadow.Position.CurrentValue = new Point(0, 10);
-        shadow.Sigma.CurrentValue = new Size(18, 18);
-        shadow.Color.CurrentValue = Color.FromArgb(150, 0, 0, 0);
+        shadow.Position.Value = new Point(0, 10);
+        shadow.Sigma.Value = new Size(18, 18);
+        shadow.Color.Value = Color.FromArgb(150, 0, 0, 0);
         return shadow;
     }
 
@@ -102,9 +102,9 @@ public sealed class BlurFilterLayerBoundsTests
     private static RectShape CreateRectangle(float width, float height, Brush fill)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = width;
-        shape.Height.CurrentValue = height;
-        shape.Fill.CurrentValue = fill;
+        shape.Width.Value = width;
+        shape.Height.Value = height;
+        shape.Fill.Value = fill;
         return shape;
     }
 

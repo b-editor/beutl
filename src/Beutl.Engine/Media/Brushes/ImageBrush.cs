@@ -17,12 +17,12 @@ public partial class ImageBrush : TileBrush
 
     public ImageBrush(ImageSource source) : this()
     {
-        Source.CurrentValue = source;
+        Source.Value = source;
     }
 
     /// <summary>
     /// Gets or sets the image to draw.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<ImageSource?> Source { get; } = Property.Create<ImageSource?>();
+    public IExpressionProperty<ImageSource?> Source { get; } = Property.CreateExpression<ImageSource?>();
 }

@@ -33,7 +33,7 @@ internal sealed class AudioSpeedMapping : IDisposable
 
     public IProperty<float>? Speed { get; set; }
     public bool IsInvalidated { get; private set; }
-    public float StaticSpeed => Normalize(Speed?.CurrentValue ?? 100f) / 100f;
+    public float StaticSpeed => Normalize(Speed?.Value ?? 100f) / 100f;
 
     public void Configure(int sampleRate)
     {
@@ -48,7 +48,7 @@ internal sealed class AudioSpeedMapping : IDisposable
     {
         if (Speed?.GetKeyFrameAnimation() is not { } animation)
         {
-            float percent = Speed?.CurrentValue ?? 100f;
+            float percent = Speed?.Value ?? 100f;
             double factor = Normalize(percent) / 100d;
             return TimeSpan.FromSeconds(time.TotalSeconds * factor);
         }
@@ -108,7 +108,7 @@ internal sealed class AudioSpeedMapping : IDisposable
         KeyFrameAnimation<float>? speedAnimation = Speed?.GetKeyFrameAnimation();
         if (speedAnimation is null)
         {
-            minimumSpeed = Normalize(Speed?.CurrentValue ?? 100f) / 100d;
+            minimumSpeed = Normalize(Speed?.Value ?? 100f) / 100d;
             return true;
         }
 
@@ -180,7 +180,7 @@ internal sealed class AudioSpeedMapping : IDisposable
         }
         else
         {
-            float percent = Speed?.CurrentValue ?? 100f;
+            float percent = Speed?.Value ?? 100f;
             drainSpeed = Normalize(percent) / 100d;
         }
 

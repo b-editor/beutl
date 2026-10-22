@@ -83,7 +83,7 @@ public class ComposerTests
         var source = new SoundSource();
         source.ReadFrom(new Uri(videoPath));
         var sound = new SourceSound();
-        sound.Source.CurrentValue = source;
+        sound.Source.Value = source;
 
         using var resource = (SourceSound.Resource)sound.ToResource(CompositionContext.Default);
         var range = new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1));

@@ -29,7 +29,7 @@ public sealed class AnimationSampler
         }
         else
         {
-            output.Fill(property.CurrentValue);
+            output.Fill(property.Value);
         }
     }
 }

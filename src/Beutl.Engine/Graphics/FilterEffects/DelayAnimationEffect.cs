@@ -13,14 +13,14 @@ public partial class DelayAnimationEffect : FilterEffect
     public DelayAnimationEffect()
     {
         ScanProperties<DelayAnimationEffect>();
-        Effect.CurrentValue = new FilterEffectGroup();
+        Effect.Value = new FilterEffectGroup();
     }
 
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Delay), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Delay { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Effect), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FilterEffect?> Effect { get; } = Property.Create<FilterEffect?>();
+    public IExpressionProperty<FilterEffect?> Effect { get; } = Property.CreateExpression<FilterEffect?>();
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {

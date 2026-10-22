@@ -69,7 +69,7 @@ public sealed class GradientStopPreviewLifetimeTests
             var remainingPreview = preview[1];
             source.RemoveAt(0);
 
-            stop.Color.CurrentValue = Colors.Blue;
+            stop.Color.Value = Colors.Blue;
             DrainPreviewUpdates();
 
             Assert.Multiple(() =>
@@ -109,8 +109,8 @@ public sealed class GradientStopPreviewLifetimeTests
 
             source.RemoveAt(0);
             Assert.That(clock.SubscriberCount, Is.EqualTo(3));
-            initialStops[2].Color.CurrentValue = Colors.Yellow;
-            initialStops[0].Color.CurrentValue = Colors.Blue;
+            initialStops[2].Color.Value = Colors.Yellow;
+            initialStops[0].Color.Value = Colors.Blue;
             DrainPreviewUpdates();
             Assert.Multiple(() =>
             {
@@ -139,8 +139,8 @@ public sealed class GradientStopPreviewLifetimeTests
             source.Move(0, 2);
             Assert.That(preview[2], Is.SameAs(removedPreview));
             source.RemoveAt(2);
-            removedStop.Color.CurrentValue = Colors.Yellow;
-            retainedStop.Color.CurrentValue = Colors.Red;
+            removedStop.Color.Value = Colors.Yellow;
+            retainedStop.Color.Value = Colors.Red;
             DrainPreviewUpdates();
 
             Assert.Multiple(() =>
@@ -169,7 +169,7 @@ public sealed class GradientStopPreviewLifetimeTests
             var newStop = new GradientStop(Colors.Blue, 1);
 
             source.Replace(new[] { newStop, newStop });
-            oldStop.Color.CurrentValue = Colors.Yellow;
+            oldStop.Color.Value = Colors.Yellow;
             DrainPreviewUpdates();
 
             Assert.Multiple(() =>

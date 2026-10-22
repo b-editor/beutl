@@ -337,8 +337,8 @@ public sealed class GpuPassFusionScaleRegionTests
         canvas.Clear(Colors.OrangeRed);
         var ellipse = new EllipseGeometry
         {
-            Width = { CurrentValue = requestedRegion.Width },
-            Height = { CurrentValue = requestedRegion.Height },
+            Width = { Value = requestedRegion.Width },
+            Height = { Value = requestedRegion.Height },
         };
         using Geometry.Resource geometry = ellipse.ToResource(CompositionContext.Default);
         using var clip = canvas.PushClip(geometry);
@@ -974,10 +974,10 @@ public sealed class GpuPassFusionScaleRegionTests
             _geometryResource = _geometry.ToResource(CompositionContext.Default);
             var pen = new Pen
             {
-                Thickness = { CurrentValue = 1.25f },
-                Brush = { CurrentValue = new SolidColorBrush(new Color(205, 225, 85, 30)) },
-                StrokeCap = { CurrentValue = StrokeCap.Round },
-                StrokeJoin = { CurrentValue = StrokeJoin.Round },
+                Thickness = { Value = 1.25f },
+                Brush = { Value = new SolidColorBrush(new Color(205, 225, 85, 30)) },
+                StrokeCap = { Value = StrokeCap.Round },
+                StrokeJoin = { Value = StrokeJoin.Round },
             };
             _penResource = pen.ToResource(CompositionContext.Default);
             _source = new GeometryRenderNode(_geometryResource, null, _penResource);

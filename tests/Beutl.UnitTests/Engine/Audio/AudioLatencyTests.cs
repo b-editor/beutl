@@ -31,7 +31,7 @@ public class AudioLatencyTests
     private static LimiterEffect CreateLimiterEffect(float lookaheadMs)
     {
         var effect = new LimiterEffect();
-        effect.Lookahead.CurrentValue = lookaheadMs;
+        effect.Lookahead.Value = lookaheadMs;
         return effect;
     }
 
@@ -152,7 +152,7 @@ public class AudioLatencyTests
         var effect = CreateLimiterEffect(5f);
         effect.IsEnabled = false;
         var stretch = new TimeStretchEffect { IsEnabled = false };
-        stretch.Speed.CurrentValue = 50f;
+        stretch.Speed.Value = 50f;
         var group = new AudioEffectGroup { IsEnabled = false };
         group.Children.Add(new FixedLatencyEffect(-1));
 
@@ -189,7 +189,7 @@ public class AudioLatencyTests
         group.Children.Add(new FixedLatencyEffect(-1) { IsEnabled = false });
         var disabledGroup = new AudioEffectGroup { IsEnabled = false };
         var stretch = new TimeStretchEffect();
-        stretch.Speed.CurrentValue = 50f;
+        stretch.Speed.Value = 50f;
         disabledGroup.Children.Add(stretch);
         group.Children.Add(disabledGroup);
         using var context = new AudioContext(SampleRate, 2);

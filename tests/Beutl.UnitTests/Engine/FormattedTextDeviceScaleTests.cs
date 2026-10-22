@@ -29,8 +29,8 @@ public class FormattedTextDeviceScaleTests
         FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         text.Pen = new Pen
         {
-            Thickness = { CurrentValue = 2f },
-            Brush = { CurrentValue = Brushes.White }
+            Thickness = { Value = 2f },
+            Brush = { Value = Brushes.White }
         }.ToResource(CompositionContext.Default);
         Rect logicalActualBounds = text.ActualBounds;
 

@@ -175,7 +175,7 @@ public class EditorCloseSaveTests
         {
             var source = new Beutl.Media.Source.ImageSource(); source.ReadFrom(new Uri(media));
             var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(sceneUri.LocalPath)!, "media.belm")) };
-            element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { CurrentValue = source } });
+            element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { Value = source } });
             editor.Scene.Children.Add(element);
         }
         var entered = new TaskCompletionSource(); var release = new TaskCompletionSource();

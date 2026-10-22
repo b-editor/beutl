@@ -119,7 +119,7 @@ public sealed class ValueReplaySafetyTests
     {
         var perspective = new Rotation3DTransform(0, 55, 0, 0, 0, 0)
         {
-            Depth = { CurrentValue = 400 },
+            Depth = { Value = 400 },
         };
         using RenderNode root = CreateTransformedLayer(
             perspective.CreateMatrix(Composition.CompositionContext.Default),

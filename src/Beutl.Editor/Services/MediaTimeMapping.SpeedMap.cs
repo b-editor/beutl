@@ -25,7 +25,7 @@ internal sealed partial class MediaTimeMapping
 
         public SpeedMap(IProperty<float> speed, int sampleRate, bool videoPlayback = false)
         {
-            _constant = speed.GetKeyFrameAnimation() is { KeyFrames.Count: 0 } ? 0 : speed.CurrentValue;
+            _constant = speed.GetKeyFrameAnimation() is { KeyFrames.Count: 0 } ? 0 : speed.Value;
             _animation = speed.GetKeyFrameAnimation() is { KeyFrames.Count: 0 } ? null : speed.GetKeyFrameAnimation();
             _minimum = _constant;
             _maximum = _constant;

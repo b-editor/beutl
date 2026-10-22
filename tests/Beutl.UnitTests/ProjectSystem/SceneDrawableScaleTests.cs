@@ -40,8 +40,8 @@ public class SceneDrawableScaleTests
         // One renderable child: a RectShape carries a default White Fill, so it actually rasterizes content.
         var rect = new RectShape
         {
-            Width = { CurrentValue = width },
-            Height = { CurrentValue = height },
+            Width = { Value = width },
+            Height = { Value = height },
         };
         SceneDrawableTestHelpers.AddElement(scene, basePath, rect);
         return scene;
@@ -59,8 +59,8 @@ public class SceneDrawableScaleTests
         Scene scene = CreateInnerScene(basePath, width, height);
         var rect = new RectShape
         {
-            Width = { CurrentValue = width / 2f },
-            Height = { CurrentValue = height / 2f },
+            Width = { Value = width / 2f },
+            Height = { Value = height / 2f },
         };
         SceneDrawableTestHelpers.AddElement(scene, basePath, rect, zIndex: 1);
         return scene;
@@ -108,7 +108,7 @@ public class SceneDrawableScaleTests
         {
             Scene inner = CreateInnerScene(_basePath, 120, 90);
             var drawable = new SceneDrawable();
-            drawable.ReferencedScene.CurrentValue = inner;
+            drawable.ReferencedScene.Value = inner;
 
             RenderNodeMeasurement measurement = MeasureConcreteOutput(drawable, inner, outputScale);
 
@@ -129,7 +129,7 @@ public class SceneDrawableScaleTests
         {
             Scene inner = CreateInnerSceneWithBackdrop(_basePath, 120, 90);
             var drawable = new SceneDrawable();
-            drawable.ReferencedScene.CurrentValue = inner;
+            drawable.ReferencedScene.Value = inner;
 
             using Drawable.Resource resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
             using var root = new DrawableRenderNode(resource);
@@ -155,7 +155,7 @@ public class SceneDrawableScaleTests
     {
         Scene inner = CreateInnerSceneWithTwoDrawables(_basePath, 120, 90);
         var drawable = new SceneDrawable();
-        drawable.ReferencedScene.CurrentValue = inner;
+        drawable.ReferencedScene.Value = inner;
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
             new CompositionContext(TimeSpan.Zero));
@@ -215,7 +215,7 @@ public class SceneDrawableScaleTests
             90,
             out RetryingSceneDrawable retrying);
         var drawable = new SceneDrawable();
-        drawable.ReferencedScene.CurrentValue = inner;
+        drawable.ReferencedScene.Value = inner;
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
             new CompositionContext(TimeSpan.Zero));
@@ -269,7 +269,7 @@ public class SceneDrawableScaleTests
             90,
             out RetryingSceneDrawable retrying);
         var drawable = new SceneDrawable();
-        drawable.ReferencedScene.CurrentValue = inner;
+        drawable.ReferencedScene.Value = inner;
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
             new CompositionContext(TimeSpan.Zero));

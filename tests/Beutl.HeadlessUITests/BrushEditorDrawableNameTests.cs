@@ -21,8 +21,8 @@ public sealed class BrushEditorDrawableNameTests
     [AvaloniaTest]
     public void Clearing_the_drawable_offers_to_create_a_new_one()
     {
-        var brush = new DrawableBrush { Drawable = { CurrentValue = new EllipseShape() } };
-        var shape = new RectShape { Fill = { CurrentValue = brush } };
+        var brush = new DrawableBrush { Drawable = { Value = new EllipseShape() } };
+        var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);
         using var viewModel = new BrushEditorViewModel(
             new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
@@ -38,7 +38,7 @@ public sealed class BrushEditorDrawableNameTests
             BrushEditorFlyoutPresenter presenter = window.GetVisualDescendants().OfType<BrushEditorFlyoutPresenter>().Single();
             Assert.That(presenter.DrawableName, Is.Not.EqualTo(Strings.CreateNew));
 
-            brush.Drawable.CurrentValue = null;
+            brush.Drawable.Value = null;
 
             Assert.Multiple(() =>
             {
@@ -47,11 +47,11 @@ public sealed class BrushEditorDrawableNameTests
             });
 
             // A brush set while the flyout is open is followed as well.
-            var next = new DrawableBrush { Drawable = { CurrentValue = new EllipseShape() } };
-            shape.Fill.CurrentValue = next;
+            var next = new DrawableBrush { Drawable = { Value = new EllipseShape() } };
+            shape.Fill.Value = next;
             HeadlessTestHelpers.Render();
             Assert.That(presenter.DrawableName, Is.Not.EqualTo(Strings.CreateNew));
-            next.Drawable.CurrentValue = null;
+            next.Drawable.Value = null;
             Assert.That(presenter.DrawableName, Is.EqualTo(Strings.CreateNew));
         }
         finally

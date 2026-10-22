@@ -764,7 +764,7 @@ public class ProjectPackageServiceTests
         ImageSource source = TestImages.WriteImage(asset);
         byte[] imageBytes = File.ReadAllBytes(asset);
         var image = new SourceImage();
-        image.Source.CurrentValue = source;
+        image.Source.Value = source;
         var element = new Element { Length = TimeSpan.FromSeconds(1) };
         element.Objects.Add(image);
         CoreSerializer.StoreToUri(element, new Uri(Path.Combine(_projectDir, "image.belm")));
@@ -784,7 +784,7 @@ public class ProjectPackageServiceTests
 
         Assert.That(imported, Is.Not.Null);
         ImageSource importedSource = imported!.Items.OfType<Scene>().Single().Children.Single()
-            .Objects.OfType<SourceImage>().Single().Source.CurrentValue!;
+            .Objects.OfType<SourceImage>().Single().Source.Value!;
         string importedRoot = Path.GetDirectoryName(imported.Uri!.LocalPath)!;
         Assert.That(importedSource.Uri.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
         Assert.That(File.ReadAllBytes(importedSource.Uri.LocalPath), Is.EqualTo(imageBytes));
@@ -803,7 +803,7 @@ public class ProjectPackageServiceTests
         string original = Path.Combine(mediaDirectory, "original.png");
         ImageSource source = TestImages.WriteImage(original);
         var element = new Element { Uri = new Uri(Path.Combine(_projectDir, "media.belm")) };
-        element.Objects.Add(new SourceImage { Source = { CurrentValue = source } });
+        element.Objects.Add(new SourceImage { Source = { Value = source } });
         scene.Children.Add(element);
         var media = new MissingMediaService();
         await media.UpdateFingerprintsAsync(scene);
@@ -818,7 +818,7 @@ public class ProjectPackageServiceTests
         ZipFile.ExtractToDirectory(package, _importDir);
         var packaged = CoreSerializer.RestoreFromUri<Project>(new Uri(Path.Combine(_importDir, Path.GetFileName(project.Uri!.LocalPath))));
         Scene packagedScene = packaged.Items.OfType<Scene>().Single();
-        var packagedSource = packagedScene.Children.Single().Objects.OfType<SourceImage>().Single().Source.CurrentValue!;
+        var packagedSource = packagedScene.Children.Single().Objects.OfType<SourceImage>().Single().Source.Value!;
         Assert.That(packagedScene.MediaFingerprints, Has.Count.EqualTo(1));
         Assert.That(packagedScene.MediaFingerprints.ContainsKey(new Uri(original).AbsoluteUri), Is.False);
         Assert.That(packagedScene.MediaFingerprints[packagedSource.Uri.AbsoluteUri].Sha256, Is.EqualTo(expectedHash));

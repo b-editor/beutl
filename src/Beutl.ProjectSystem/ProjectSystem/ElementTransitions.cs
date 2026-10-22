@@ -226,7 +226,7 @@ internal static class ElementTransitions
 
         TimeSpan duration = durationOverride is { } value && ReferenceEquals(value.Transition, transition)
             ? value.Duration
-            : transition!.Duration.CurrentValue;
+            : transition!.Duration.Value;
         return duration < TimeSpan.Zero ? TimeSpan.Zero : duration;
     }
 

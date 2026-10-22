@@ -59,8 +59,8 @@ public class RendererFindRenderNodeTests
     private static RectShape CreateRect()
     {
         var rect = new RectShape();
-        rect.Width.CurrentValue = 100;
-        rect.Height.CurrentValue = 60;
+        rect.Width.Value = 100;
+        rect.Height.Value = 60;
         return rect;
     }
 

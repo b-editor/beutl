@@ -37,7 +37,7 @@ public class ScenePackageTests
                 string imagePath = Path.Combine(directory, "image.png");
                 ImageSource image = TestImages.WriteImage(imagePath);
                 var element = new Element { Name = "Clip-" + name, Uri = new Uri(Path.Combine(elementsDirectory, "shared.belm")), Length = TimeSpan.FromSeconds(1) };
-                element.Objects.Add(new SourceImage { Source = { CurrentValue = image } });
+                element.Objects.Add(new SourceImage { Source = { Value = image } });
                 expected.Add(name, element.Id);
                 var scene = new Scene(64, 64, name) { Uri = new Uri(Path.Combine(directory, "shared.scene")) };
                 scene.Children.Add(element);
@@ -54,7 +54,7 @@ public class ScenePackageTests
                 else
                 {
                     var parent = new Element { Uri = new Uri(Path.Combine(mainDirectory, name + ".belm")), Length = TimeSpan.FromSeconds(1) };
-                    parent.Objects.Add(new SceneDrawable { ReferencedScene = { CurrentValue = scene } });
+                    parent.Objects.Add(new SceneDrawable { ReferencedScene = { Value = scene } });
                     main.Children.Add(parent);
                 }
             }
@@ -91,7 +91,7 @@ public class ScenePackageTests
                 Assert.That(scene.Uri!.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
                 Assert.That(Path.GetRelativePath(Path.GetDirectoryName(scene.Uri.LocalPath)!, element.Uri!.LocalPath),
                     Is.EqualTo(nestedElements ? Path.Combine("clips", "shared.belm") : "shared.belm"));
-                ImageSource source = element.Objects.OfType<SourceImage>().Single().Source.CurrentValue!;
+                ImageSource source = element.Objects.OfType<SourceImage>().Single().Source.Value!;
                 Assert.That(source.Uri.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
                 using var resource = source.ToResource(new CompositionContext(TimeSpan.Zero));
                 Assert.That(resource.Bitmap, Is.Not.Null);
@@ -107,5 +107,5 @@ public class ScenePackageTests
     private static IEnumerable<Scene> GetScenes(Project project, bool topLevel)
         => topLevel
             ? project.Items.OfType<Scene>().Where(scene => scene.Name != "Main")
-            : project.Items.OfType<Scene>().Single().Children.Select(element => element.Objects.OfType<SceneDrawable>().Single().ReferencedScene.CurrentValue!);
+            : project.Items.OfType<Scene>().Single().Children.Select(element => element.Objects.OfType<SceneDrawable>().Single().ReferencedScene.Value!);
 }

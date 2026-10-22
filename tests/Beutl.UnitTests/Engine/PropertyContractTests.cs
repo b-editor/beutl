@@ -58,14 +58,14 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         property.ValueChanged += (_, e) => args = e;
         property.Edited += (_, _) => edited++;
 
-        property.CurrentValue = 42;
+        property.Value = 42;
 
         Assert.That(args, Is.Not.Null);
         Assert.That(args!.Property, Is.SameAs(property));
         Assert.That(args.OldValue, Is.EqualTo(0));
         Assert.That(args.NewValue, Is.EqualTo(42));
         Assert.That(edited, Is.EqualTo(1));
-        Assert.That(property.HasLocalValue, Is.True);
+        Assert.That(property.IsValueSet, Is.True);
     }
 
     [Test]
@@ -77,15 +77,15 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         property.ValueChanged += (_, _) => valueChanged++;
         property.Edited += (_, _) => edited++;
 
-        property.CurrentValue = 10;
+        property.Value = 10;
 
         Assert.That(valueChanged, Is.Zero);
         Assert.That(edited, Is.Zero);
-        Assert.That(property.HasLocalValue, Is.False);
+        Assert.That(property.IsValueSet, Is.False);
     }
 
     [Test]
-    public void ReplaceCurrentValue_EquivalentInstance_ReplacesAndNotifiesOnce()
+    public void SetValueEvenIfEqual_EquivalentInstance_ReplacesAndNotifiesOnce()
     {
         var current = new EqualityValue("same", "old");
         var replacement = new EqualityValue("same", "new");
@@ -97,17 +97,17 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
         property.ValueChanged += (_, e) => args = e;
         property.Edited += (_, _) => edited++;
 
-        ((IProperty)property).ReplaceCurrentValue(replacement);
+        ((IProperty)property).SetValueEvenIfEqual(replacement);
 
         Assert.Multiple(() =>
         {
-            Assert.That(property.CurrentValue, Is.SameAs(replacement));
-            Assert.That(property.CurrentValue.State, Is.EqualTo("new"));
+            Assert.That(property.Value, Is.SameAs(replacement));
+            Assert.That(property.Value.State, Is.EqualTo("new"));
             Assert.That(validator.CoerceCount, Is.EqualTo(1));
             Assert.That(args!.OldValue, Is.SameAs(current));
             Assert.That(args.NewValue, Is.SameAs(replacement));
             Assert.That(edited, Is.EqualTo(1));
-            Assert.That(property.HasLocalValue, Is.True);
+            Assert.That(property.IsValueSet, Is.True);
         });
     }
 
@@ -152,9 +152,9 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     public void GetValue_WithoutAnimationOrExpression_ReturnsCurrentValue()
     {
         IExpressionProperty<int> property = Make(0);
-        property.CurrentValue = 99;
+        property.Value = 99;
 
-        int value = property.GetValue(CompositionContext.Default);
+        int value = property.Evaluate(CompositionContext.Default);
 
         Assert.That(value, Is.EqualTo(99));
     }
@@ -163,13 +163,13 @@ public class PropertyContractTests(PropertyContractTests.PropertyKind kind)
     public void ResetToDefault_RestoresDefaultsAndClearsState()
     {
         IExpressionProperty<int> property = Make(7);
-        property.CurrentValue = 100;
+        property.Value = 100;
         property.Expression = Expression.Create<int>("1+2");
 
         ResetToDefault(property);
 
-        Assert.That(property.CurrentValue, Is.EqualTo(7));
-        Assert.That(property.HasLocalValue, Is.False);
+        Assert.That(property.Value, Is.EqualTo(7));
+        Assert.That(property.IsValueSet, Is.False);
         Assert.That(property.HasExpression, Is.False);
     }
 }

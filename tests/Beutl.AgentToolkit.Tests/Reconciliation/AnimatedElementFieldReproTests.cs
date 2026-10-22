@@ -21,8 +21,8 @@ public sealed class AnimatedElementFieldReproTests
         var rect = new RectShape
         {
             Name = "hero mark",
-            Width = { CurrentValue = 200 },
-            Height = { CurrentValue = 120 },
+            Width = { Value = 200 },
+            Height = { Value = 120 },
         };
         rect.Opacity.SetKeyFrameAnimation(TestWorkspace.CreateLinearFloatAnimation(0, 100));
         element.AddObject(rect);
@@ -62,8 +62,8 @@ public sealed class AnimatedElementFieldReproTests
         var rect = new RectShape
         {
             Name = "fading rect",
-            Width = { CurrentValue = 200 },
-            Height = { CurrentValue = 120 },
+            Width = { Value = 200 },
+            Height = { Value = 120 },
         };
         rect.Opacity.SetKeyFrameAnimation(TestWorkspace.CreateLinearFloatAnimation(0, 100));
         element.AddObject(rect);

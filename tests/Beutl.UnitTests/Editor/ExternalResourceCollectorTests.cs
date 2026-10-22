@@ -353,10 +353,10 @@ public class ExternalResourceCollectorTests
         public TestEngineObjectWithFontFamily(FontFamily? fontFamily)
         {
             ScanProperties<TestEngineObjectWithFontFamily>();
-            FontFamily.CurrentValue = fontFamily;
+            FontFamily.Value = fontFamily;
         }
 
-        public IExpressionProperty<FontFamily?> FontFamily { get; } = Property.Create<FontFamily?>();
+        public IExpressionProperty<FontFamily?> FontFamily { get; } = Property.CreateExpression<FontFamily?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -365,10 +365,10 @@ public class ExternalResourceCollectorTests
         public TestEngineObjectWithNestedHierarchical(IHierarchical? nested)
         {
             ScanProperties<TestEngineObjectWithNestedHierarchical>();
-            Nested.CurrentValue = nested;
+            Nested.Value = nested;
         }
 
-        public IExpressionProperty<IHierarchical?> Nested { get; } = Property.Create<IHierarchical?>();
+        public IExpressionProperty<IHierarchical?> Nested { get; } = Property.CreateExpression<IHierarchical?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -377,9 +377,9 @@ public class ExternalResourceCollectorTests
         public TestEngineObjectWithStringProperty(string? value)
         {
             ScanProperties<TestEngineObjectWithStringProperty>();
-            StringValue.CurrentValue = value;
+            StringValue.Value = value;
         }
 
-        public IExpressionProperty<string?> StringValue { get; } = Property.Create<string?>();
+        public IExpressionProperty<string?> StringValue { get; } = Property.CreateExpression<string?>();
     }
 }

@@ -30,7 +30,7 @@ public sealed partial class PBRMaterial : Material3D
     /// Gets the albedo/base color texture map.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_AlbedoMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TextureSource?> AlbedoMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> AlbedoMap { get; } = Property.CreateExpression<TextureSource?>(null);
 
     /// <summary>
     /// Gets the metallic factor (0 = dielectric, 1 = metal).
@@ -51,7 +51,7 @@ public sealed partial class PBRMaterial : Material3D
     /// Red channel: unused, Green channel: roughness, Blue channel: metallic.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_MetallicRoughnessMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TextureSource?> MetallicRoughnessMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> MetallicRoughnessMap { get; } = Property.CreateExpression<TextureSource?>(null);
 
     /// <summary>
     /// Gets the ambient occlusion factor.
@@ -64,7 +64,7 @@ public sealed partial class PBRMaterial : Material3D
     /// Gets the ambient occlusion texture map (red channel used).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_AOMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TextureSource?> AOMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> AOMap { get; } = Property.CreateExpression<TextureSource?>(null);
 
     /// <summary>
     /// Gets the emissive color.
@@ -83,13 +83,13 @@ public sealed partial class PBRMaterial : Material3D
     /// Gets the emissive texture map.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_EmissiveMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TextureSource?> EmissiveMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> EmissiveMap { get; } = Property.CreateExpression<TextureSource?>(null);
 
     /// <summary>
     /// Gets the normal map for surface detail.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PBRMaterial_NormalMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TextureSource?> NormalMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> NormalMap { get; } = Property.CreateExpression<TextureSource?>(null);
 
     /// <summary>
     /// Gets the normal map strength (0 = flat, 1 = full effect).

@@ -110,9 +110,9 @@ public class TextBlockTests
     {
         // Matching first/last glyphs make the ink edges comparable even with different styles inside a line.
         TextBlock block = CreateTextBlock("HH\nHHHHHHHH\n\nH<b>H</b><cspace=12>H</cspace>H\nH", 40);
-        block.TextAlignment.CurrentValue = alignment;
-        block.SplitByCharacters.CurrentValue = split;
-        block.Spacing.CurrentValue = spacing;
+        block.TextAlignment.Value = alignment;
+        block.SplitByCharacters.Value = split;
+        block.Spacing.Value = spacing;
         using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
         using var node = new DrawableRenderNode(resource);
         Record(block, resource, node);
@@ -144,7 +144,7 @@ public class TextBlockTests
     public void ChangingAlignment_UpdatesAnExistingRenderTree(bool split)
     {
         TextBlock block = CreateTextBlock("HHHHHH\nHH", 40);
-        block.SplitByCharacters.CurrentValue = split;
+        block.SplitByCharacters.Value = split;
         using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
         using var node = new DrawableRenderNode(resource);
         Record(block, resource, node);
@@ -152,7 +152,7 @@ public class TextBlockTests
         Size size = block.MeasureInternal(Size.Infinity, resource);
         int version = resource.Version;
 
-        block.TextAlignment.CurrentValue = TextAlignment.End;
+        block.TextAlignment.Value = TextAlignment.End;
         bool changed = false;
         resource.Reconcile(block, CompositionContext.Default, ref changed);
         node.Update(resource);
@@ -174,21 +174,21 @@ public class TextBlockTests
     public void Alignment_RoundTripsAndOlderTextDefaultsToStart([Values] TextAlignment alignment)
     {
         TextBlock block = CreateTextBlock("Text");
-        block.TextAlignment.CurrentValue = alignment;
+        block.TextAlignment.Value = alignment;
         var json = CoreSerializer.SerializeToJsonObject(block);
         var restored = (TextBlock)CoreSerializer.DeserializeFromJsonObject(json, typeof(TextBlock));
-        Assert.That(restored.TextAlignment.CurrentValue, Is.EqualTo(alignment));
+        Assert.That(restored.TextAlignment.Value, Is.EqualTo(alignment));
 
         json.Remove(nameof(TextBlock.TextAlignment));
         var legacy = (TextBlock)CoreSerializer.DeserializeFromJsonObject(json, typeof(TextBlock));
-        Assert.That(legacy.TextAlignment.CurrentValue, Is.EqualTo(TextAlignment.Start));
+        Assert.That(legacy.TextAlignment.Value, Is.EqualTo(TextAlignment.Start));
     }
 
     [Test]
     public void TextNode_ExposesAndEvaluatesTextAlignment()
     {
         var node = new TextNode();
-        node.Object.Text.CurrentValue = "HHHHHH\nHH";
+        node.Object.Text.Value = "HHHHHH\nHH";
         var input = node.Items.OfType<InputPort<TextAlignment>>().Single();
         input.Property!.SetValue(TextAlignment.Center);
         var graph = new GraphModel();
@@ -198,7 +198,7 @@ public class TextBlockTests
         snapshot.Evaluate(CompositionContext.Default);
         var resource = (TextNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
 
-        Assert.That(node.Object.TextAlignment.CurrentValue, Is.EqualTo(TextAlignment.Center));
+        Assert.That(node.Object.TextAlignment.Value, Is.EqualTo(TextAlignment.Center));
         var textResource = (TextBlock.Resource)resource.Output!.Drawable!.Value.Resource;
         Assert.That(textResource.TextAlignment, Is.EqualTo(TextAlignment.Center));
     }
@@ -252,13 +252,13 @@ public class TextBlockTests
     {
         Typeface typeface = TypefaceProvider.Typeface();
         var tb = new TextBlock();
-        tb.FontFamily.CurrentValue = typeface.FontFamily;
-        tb.FontStyle.CurrentValue = typeface.Style;
-        tb.FontWeight.CurrentValue = typeface.Weight;
-        tb.Size.CurrentValue = size;
-        tb.Fill.CurrentValue = Brushes.Black;
-        tb.Spacing.CurrentValue = 0;
-        tb.Text.CurrentValue = text;
+        tb.FontFamily.Value = typeface.FontFamily;
+        tb.FontStyle.Value = typeface.Style;
+        tb.FontWeight.Value = typeface.Weight;
+        tb.Size.Value = size;
+        tb.Fill.Value = Brushes.Black;
+        tb.Spacing.Value = 0;
+        tb.Text.Value = text;
         return tb;
     }
 }

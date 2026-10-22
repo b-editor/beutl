@@ -18,9 +18,9 @@ public sealed class BrushSourceRecordingTests
     public void AFilledShapeRecordsOneRootFragmentOverItsOwnBounds(Func<Brush> fill)
     {
         var shape = new RectShape();
-        shape.Width.CurrentValue = (float)s_shape.Width;
-        shape.Height.CurrentValue = (float)s_shape.Height;
-        shape.Fill.CurrentValue = fill();
+        shape.Width.Value = (float)s_shape.Width;
+        shape.Height.Value = (float)s_shape.Height;
+        shape.Fill.Value = fill();
         using var resource = (Drawable.Resource)shape.ToResource(CompositionContext.Default);
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_shape.Size))
@@ -55,11 +55,11 @@ public sealed class BrushSourceRecordingTests
     private static Brush MakeDrawableBrush()
     {
         var content = new RectShape();
-        content.Width.CurrentValue = 10;
-        content.Height.CurrentValue = 10;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = 10;
+        content.Height.Value = 10;
+        content.Fill.Value = Brushes.White;
         var brush = new DrawableBrush(content);
-        brush.Stretch.CurrentValue = Stretch.Fill;
+        brush.Stretch.Value = Stretch.Fill;
         return brush;
     }
 }

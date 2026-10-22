@@ -250,8 +250,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             {
                 if (obj is Graphics3D.Scene3D scene3D)
                 {
-                    scene3D.GizmoTarget.CurrentValue = null;
-                    scene3D.GizmoMode.CurrentValue = GizmoMode.None;
+                    scene3D.GizmoTarget.Value = null;
+                    scene3D.GizmoMode.Value = GizmoMode.None;
                 }
             }
         }
@@ -264,9 +264,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         foreach (var scene3D in Scene.Children
                      .SelectMany(e => e.Objects)
                      .OfType<Graphics3D.Scene3D>()
-                     .Where(s => s.GizmoTarget.CurrentValue.HasValue))
+                     .Where(s => s.GizmoTarget.Value.HasValue))
         {
-            scene3D.GizmoMode.CurrentValue = mode;
+            scene3D.GizmoMode.Value = mode;
         }
     }
 

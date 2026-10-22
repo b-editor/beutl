@@ -72,9 +72,9 @@ public sealed class FontToolsTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             TextBlock text = RequireTextBlock(scene);
-            Assert.That(text.FontFamily.CurrentValue!.Name, Is.EqualTo(family.Name));
-            Assert.That((int)text.FontWeight.CurrentValue, Is.EqualTo(typeface.Weight));
-            Assert.That(text.FontStyle.CurrentValue.ToString(), Is.EqualTo(typeface.Style));
+            Assert.That(text.FontFamily.Value!.Name, Is.EqualTo(family.Name));
+            Assert.That((int)text.FontWeight.Value, Is.EqualTo(typeface.Weight));
+            Assert.That(text.FontStyle.Value.ToString(), Is.EqualTo(typeface.Style));
         });
     }
 
@@ -90,7 +90,7 @@ public sealed class FontToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That((int)RequireTextBlock(scene).FontWeight.CurrentValue, Is.EqualTo(1000));
+            Assert.That((int)RequireTextBlock(scene).FontWeight.Value, Is.EqualTo(1000));
         });
     }
 
@@ -161,7 +161,7 @@ public sealed class FontToolsTests
             Assert.That(apply.Value.Validation, Has.Some.Matches<ValidationOutcome>(outcome =>
                 outcome.Status == ValidationStatus.Warning
                 && outcome.Hint!.Contains("list_fonts", StringComparison.Ordinal)));
-            Assert.That(RequireTextBlock(scene).FontFamily.CurrentValue!.Name, Is.EqualTo(UnregisteredFamilyName));
+            Assert.That(RequireTextBlock(scene).FontFamily.Value!.Name, Is.EqualTo(UnregisteredFamilyName));
         });
     }
 
@@ -243,7 +243,7 @@ public sealed class FontToolsTests
             Length = TimeSpan.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
-        element.AddObject(new TextBlock { Name = "title", Text = { CurrentValue = "Launch" } });
+        element.AddObject(new TextBlock { Name = "title", Text = { Value = "Launch" } });
         scene.Children.Add(element);
 
         var session = new AgentToolkitTestSession(scene);

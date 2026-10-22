@@ -61,9 +61,9 @@ public sealed class SessionToolsTests
         };
         element.AddObject(new RectShape
         {
-            Width = { CurrentValue = 32 },
-            Height = { CurrentValue = 32 },
-            Fill = { CurrentValue = Brushes.White }
+            Width = { Value = 32 },
+            Height = { Value = 32 },
+            Fill = { Value = Brushes.White }
         });
         scene.Children.Add(element);
         ProjectOperations.Save(project);
@@ -336,9 +336,9 @@ public sealed class SessionToolsTests
         };
         healthy.AddObject(new RectShape
         {
-            Width = { CurrentValue = 32 },
-            Height = { CurrentValue = 32 },
-            Fill = { CurrentValue = Brushes.White },
+            Width = { Value = 32 },
+            Height = { Value = 32 },
+            Fill = { Value = Brushes.White },
         });
         var malformed = new Element
         {
@@ -348,9 +348,9 @@ public sealed class SessionToolsTests
         };
         malformed.AddObject(new RectShape
         {
-            Width = { CurrentValue = 16 },
-            Height = { CurrentValue = 16 },
-            Fill = { CurrentValue = Brushes.Red },
+            Width = { Value = 16 },
+            Height = { Value = 16 },
+            Fill = { Value = Brushes.Red },
         });
         scene.Children.Add(healthy);
         scene.Children.Add(malformed);
@@ -1042,9 +1042,9 @@ public sealed class SessionToolsTests
         };
         healthy.AddObject(new RectShape
         {
-            Width = { CurrentValue = 32 },
-            Height = { CurrentValue = 32 },
-            Fill = { CurrentValue = Brushes.White },
+            Width = { Value = 32 },
+            Height = { Value = 32 },
+            Fill = { Value = Brushes.White },
         });
         var malformed = new Element
         {
@@ -1054,9 +1054,9 @@ public sealed class SessionToolsTests
         };
         malformed.AddObject(new RectShape
         {
-            Width = { CurrentValue = 16 },
-            Height = { CurrentValue = 16 },
-            Fill = { CurrentValue = Brushes.Red },
+            Width = { Value = 16 },
+            Height = { Value = 16 },
+            Fill = { Value = Brushes.Red },
         });
         scene.Children.Add(healthy);
         scene.Children.Add(malformed);

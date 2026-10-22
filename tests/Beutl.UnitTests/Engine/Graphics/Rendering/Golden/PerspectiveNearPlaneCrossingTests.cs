@@ -90,7 +90,7 @@ public sealed class PerspectiveNearPlaneCrossingTests
         {
             var group = new DrawableGroup();
             group.Children.Add(CreateRotatedRect(120, 54, 60f, depth: 50f));
-            group.Transform.CurrentValue = new TranslateTransform(60f, 0f);
+            group.Transform.Value = new TranslateTransform(60f, 0f);
             using Drawable.Resource nested = group.ToResource(CompositionContext.Default);
             using Bitmap bitmap = GoldenImageHarness.RenderAtScale(
                 nested, s_frame, 1f, clearColor: Colors.Transparent);
@@ -110,14 +110,14 @@ public sealed class PerspectiveNearPlaneCrossingTests
     private static RectShape CreateRotatedRect(float width, float height, float rotationY, float depth)
     {
         var shape = new RectShape();
-        shape.AlignmentX.CurrentValue = AlignmentX.Center;
-        shape.AlignmentY.CurrentValue = AlignmentY.Center;
-        shape.Width.CurrentValue = width;
-        shape.Height.CurrentValue = height;
-        shape.Fill.CurrentValue = Brushes.White;
-        shape.Transform.CurrentValue = new Rotation3DTransform(0f, rotationY, 0f, 0f, 0f, 0f)
+        shape.AlignmentX.Value = AlignmentX.Center;
+        shape.AlignmentY.Value = AlignmentY.Center;
+        shape.Width.Value = width;
+        shape.Height.Value = height;
+        shape.Fill.Value = Brushes.White;
+        shape.Transform.Value = new Rotation3DTransform(0f, rotationY, 0f, 0f, 0f, 0f)
         {
-            Depth = { CurrentValue = depth },
+            Depth = { Value = depth },
         };
         return shape;
     }

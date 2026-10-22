@@ -15,7 +15,7 @@ public partial class TextBlock : Drawable
     public TextBlock()
     {
         ScanProperties<TextBlock>();
-        Fill.CurrentValue = new SolidColorBrush(Colors.White);
+        Fill.Value = new SolidColorBrush(Colors.White);
     }
 
     [SuppressResourceClassGeneration]
@@ -25,15 +25,15 @@ public partial class TextBlock : Drawable
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_FontFamily), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FontFamily?> FontFamily { get; } = Property.Create<FontFamily?>(Media.FontFamily.Default);
+    public IExpressionProperty<FontFamily?> FontFamily { get; } = Property.CreateExpression<FontFamily?>(Media.FontFamily.Default);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_FontStyle), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FontStyle> FontStyle { get; } = Property.Create(Media.FontStyle.Normal);
+    public IExpressionProperty<FontStyle> FontStyle { get; } = Property.CreateExpression(Media.FontStyle.Normal);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_FontWeight), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<FontWeight> FontWeight { get; } = Property.Create(Media.FontWeight.Regular);
+    public IExpressionProperty<FontWeight> FontWeight { get; } = Property.CreateExpression(Media.FontWeight.Regular);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_Spacing), ResourceType = typeof(GraphicsStrings))]
@@ -48,14 +48,14 @@ public partial class TextBlock : Drawable
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.TextBlock_Text), ResourceType = typeof(GraphicsStrings))]
     [DataType(DataType.MultilineText)]
-    public IExpressionProperty<string?> Text { get; } = Property.Create<string?>(string.Empty);
+    public IExpressionProperty<string?> Text { get; } = Property.CreateExpression<string?>(string.Empty);
 
     [SuppressResourceClassGeneration]
     [Display(Name = nameof(GraphicsStrings.Stroke), GroupName = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+    public IExpressionProperty<Pen?> Pen { get; } = Property.CreateExpression<Pen?>();
 
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
-    public IExpressionProperty<Brush?> Fill { get; } = Property.Create<Brush?>();
+    public IExpressionProperty<Brush?> Fill { get; } = Property.CreateExpression<Brush?>();
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {

@@ -20,13 +20,13 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     public T DefaultValue { get; } = defaultValue;
 
-    public T CurrentValue
+    public T Value
     {
         get => _currentValue;
         set => SetCurrentValue(value, replaceEquivalent: false);
     }
 
-    public bool HasLocalValue { get; private set; }
+    public bool IsValueSet { get; private set; }
 
     public event EventHandler<PropertyValueChangedEventArgs<T>>? ValueChanged;
 
@@ -40,7 +40,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
         {
             var oldValue = _currentValue;
             _currentValue = validatedValue;
-            HasLocalValue = true;
+            IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
             Edited?.Invoke(this, EventArgs.Empty);
@@ -53,12 +53,12 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
         }
     }
 
-    public void ReplaceCurrentValue(T value)
+    public void SetValueEvenIfEqual(T value)
         => SetCurrentValue(value, replaceEquivalent: true);
 
     public void operator <<=(T value)
     {
-        CurrentValue = value;
+        Value = value;
     }
 
     private void OnChildEdited(object? sender, EventArgs e)
@@ -97,12 +97,12 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
         if (owner is IModifiableHierarchical ownerHierarchical)
         {
-            if (CurrentValue is IHierarchical hierarchical)
+            if (Value is IHierarchical hierarchical)
                 ownerHierarchical.AddChild(hierarchical);
         }
         else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
         {
-            if (CurrentValue is IHierarchical hierarchical)
+            if (Value is IHierarchical hierarchical)
                 oldOwnerHierarchical.RemoveChild(hierarchical);
         }
 
@@ -137,15 +137,15 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
             if (optional.Value is IReference { IsNull: false } reference)
             {
                 context.Resolve(reference.Id,
-                    resolved => CurrentValue = (T)reference.Resolved((CoreObject)resolved));
+                    resolved => Value = (T)reference.Resolved((CoreObject)resolved));
             }
 
-            CurrentValue = optional.Value;
+            Value = optional.Value;
         }
     }
 
     public void SerializeValue(ICoreSerializationContext context)
     {
-        context.SetValue(Name, CurrentValue);
+        context.SetValue(Name, Value);
     }
 }

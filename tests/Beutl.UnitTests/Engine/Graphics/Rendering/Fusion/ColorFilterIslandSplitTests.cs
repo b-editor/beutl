@@ -18,7 +18,7 @@ public sealed class ColorFilterIslandSplitTests
     public void BlurThenColorStage_CompilesAfterTheSingleTargetSegment(Func<FilterEffect> colorStage)
     {
         using CompiledRenderRequest compiled = Compile(
-            [new Blur { Sigma = { CurrentValue = new(2, 2) } }, colorStage()]);
+            [new Blur { Sigma = { Value = new(2, 2) } }, colorStage()]);
 
         using (Assert.EnterMultipleScope())
         {
@@ -47,9 +47,9 @@ public sealed class ColorFilterIslandSplitTests
 
     private static IEnumerable<TestCaseData> ColorStagesAfterBlur()
     {
-        yield return new TestCaseData((Func<FilterEffect>)(() => new Saturate { Amount = { CurrentValue = 50f } }))
+        yield return new TestCaseData((Func<FilterEffect>)(() => new Saturate { Amount = { Value = 50f } }))
             .SetName("BlurThenSaturate_CompilesAfterTheSingleTargetSegment");
-        yield return new TestCaseData((Func<FilterEffect>)(() => new Brightness { Amount = { CurrentValue = 50f } }))
+        yield return new TestCaseData((Func<FilterEffect>)(() => new Brightness { Amount = { Value = 50f } }))
             .SetName("BlurThenBrightness_CompilesAfterTheSingleTargetSegment");
     }
 
@@ -74,7 +74,7 @@ public sealed class ColorFilterIslandSplitTests
     public void BrightnessThenGamma_FusesIntoASingleTwoStageShaderRun()
     {
         using CompiledRenderRequest compiled = Compile(
-            [new Brightness { Amount = { CurrentValue = 50f } }, new Gamma { Amount = { CurrentValue = 220f } }]);
+            [new Brightness { Amount = { Value = 50f } }, new Gamma { Amount = { Value = 220f } }]);
 
         using (Assert.EnterMultipleScope())
         {
@@ -95,8 +95,8 @@ public sealed class ColorFilterIslandSplitTests
         using CompiledRenderRequest compiled = Compile(
             [
                 new Curves(),
-                new Brightness { Amount = { CurrentValue = 50f } },
-                new Gamma { Amount = { CurrentValue = 220f } },
+                new Brightness { Amount = { Value = 50f } },
+                new Gamma { Amount = { Value = 220f } },
             ],
             SkslBackendBudgetResolver.Portable);
 
@@ -154,13 +154,13 @@ public sealed class ColorFilterIslandSplitTests
     {
         Rect requestedRegion = new(8, 5, 6, 4);
         var colorShift = new ColorShift();
-        colorShift.RedOffset.CurrentValue = new PixelPoint(3, 0);
-        colorShift.GreenOffset.CurrentValue = new PixelPoint(-2, 0);
-        colorShift.BlueOffset.CurrentValue = new PixelPoint(0, 2);
-        colorShift.AlphaOffset.CurrentValue = new PixelPoint(0, -1);
+        colorShift.RedOffset.Value = new PixelPoint(3, 0);
+        colorShift.GreenOffset.Value = new PixelPoint(-2, 0);
+        colorShift.BlueOffset.Value = new PixelPoint(0, 2);
+        colorShift.AlphaOffset.Value = new PixelPoint(0, -1);
 
         using CompiledRenderRequest compiled = Compile(
-            [colorShift, new Gamma { Amount = { CurrentValue = 180f } }],
+            [colorShift, new Gamma { Amount = { Value = 180f } }],
             requestedRegion: requestedRegion);
 
         CompiledShaderRun run = compiled.ExecutionPlan.ShaderRuns.Single();
@@ -195,8 +195,8 @@ public sealed class ColorFilterIslandSplitTests
         {
             Children =
             {
-                new Blur { Sigma = { CurrentValue = new(2, 2) } },
-                new Brightness { Amount = { CurrentValue = 50 } },
+                new Blur { Sigma = { Value = new(2, 2) } },
+                new Brightness { Amount = { Value = 50 } },
             },
         };
         using FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
@@ -229,14 +229,14 @@ public sealed class ColorFilterIslandSplitTests
     private static CompiledRenderRequest CompileMosaicGammaOpacityInvert()
     {
         var mosaic = new MosaicEffect();
-        mosaic.TileSize.CurrentValue = new Size(10, 10);
-        mosaic.Origin.CurrentValue = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        mosaic.TileSize.Value = new Size(10, 10);
+        mosaic.Origin.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
         var headEffects = new FilterEffectGroup
         {
             Children =
             {
                 mosaic,
-                new Gamma { Amount = { CurrentValue = 180f } },
+                new Gamma { Amount = { Value = 180f } },
             },
         };
         var tailEffects = new FilterEffectGroup
@@ -245,8 +245,8 @@ public sealed class ColorFilterIslandSplitTests
             {
                 new Invert
                 {
-                    Amount = { CurrentValue = 65f },
-                    ExcludeAlphaChannel = { CurrentValue = true },
+                    Amount = { Value = 65f },
+                    ExcludeAlphaChannel = { Value = true },
                 },
             },
         };

@@ -28,7 +28,7 @@ public class FormerPersistedNameTests
     public void A_renamed_type_loads_from_a_file_that_holds_its_former_name()
     {
         var element = new Element();
-        element.Objects.Add(new RenamedLeaf { Width = { CurrentValue = 3 } });
+        element.Objects.Add(new RenamedLeaf { Width = { Value = 3 } });
         JsonObject json = CoreSerializer.SerializeToJsonObject(element);
         JsonObject item = json[nameof(Element.Objects)]!.AsArray()[0]!.AsObject();
         Assert.That((string?)item["$type"], Is.EqualTo(TypeFormat.ToString(typeof(RenamedLeaf))));
@@ -45,7 +45,7 @@ public class FormerPersistedNameTests
             Assert.Multiple(() =>
             {
                 Assert.That(restored.Objects.Single(), Is.TypeOf<RenamedLeaf>());
-                Assert.That(((RenamedLeaf)restored.Objects[0]).Width.CurrentValue, Is.EqualTo(3));
+                Assert.That(((RenamedLeaf)restored.Objects[0]).Width.Value, Is.EqualTo(3));
                 Assert.That(incidents.Count, Is.Zero);
                 Assert.That(
                     (string?)resaved[nameof(Element.Objects)]![0]!["$type"],
@@ -162,7 +162,7 @@ public class FormerPersistedNameTests
     public void An_engine_property_reads_its_value_animation_and_expression_under_a_former_key()
     {
         var source = new MemberHolder();
-        source.Width.CurrentValue = 3;
+        source.Width.Value = 3;
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 32 });
         source.Width.SetKeyFrameAnimation(animation);
@@ -179,7 +179,7 @@ public class FormerPersistedNameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.Width.CurrentValue, Is.EqualTo(3));
+            Assert.That(restored.Width.Value, Is.EqualTo(3));
             Assert.That(
                 (restored.Width.GetKeyFrameAnimation() as KeyFrameAnimation<float>)?.KeyFrames.Select(keyFrame => keyFrame.Value),
                 Is.EqualTo(new[] { 32f }));
@@ -196,13 +196,13 @@ public class FormerPersistedNameTests
     public void A_member_under_its_current_key_wins_over_a_former_key()
     {
         var source = new MemberHolder();
-        source.Width.CurrentValue = 1;
+        source.Width.Value = 1;
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
         json["FormerWidth"] = 2f;
 
         var restored = (MemberHolder)CoreSerializer.DeserializeFromJsonObject(json, typeof(MemberHolder));
 
-        Assert.That(restored.Width.CurrentValue, Is.EqualTo(1));
+        Assert.That(restored.Width.Value, Is.EqualTo(1));
     }
 
     [Test]
@@ -249,7 +249,7 @@ public class FormerPersistedNameTests
     {
         public RenamedLeaf() => ScanProperties<RenamedLeaf>();
 
-        public IExpressionProperty<float> Width { get; } = Property.Create(1f);
+        public IExpressionProperty<float> Width { get; } = Property.CreateExpression(1f);
     }
 
     [FormerPersistedName(FormerBoxName)]

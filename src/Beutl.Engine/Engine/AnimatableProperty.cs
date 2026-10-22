@@ -39,7 +39,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public T DefaultValue { get; }
 
-    public T CurrentValue
+    public T Value
     {
         get => _currentValue;
         set => SetCurrentValue(value, replaceEquivalent: false);
@@ -57,7 +57,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         {
             var oldValue = _currentValue;
             _currentValue = validatedValue;
-            HasLocalValue = true;
+            IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
             Edited?.Invoke(this, EventArgs.Empty);
@@ -70,10 +70,10 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         }
     }
 
-    public void ReplaceCurrentValue(T value)
+    public void SetValueEvenIfEqual(T value)
         => SetCurrentValue(value, replaceEquivalent: true);
 
-    public bool HasLocalValue { get; private set; }
+    public bool IsValueSet { get; private set; }
 
     public bool HasExpression => Expression is not null and not KeyFrameAnimation<T>;
 
@@ -141,7 +141,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public void operator <<=(T value)
     {
-        CurrentValue = value;
+        Value = value;
     }
 
     private void OnChildEdited(object? sender, EventArgs e)
@@ -149,7 +149,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         Edited?.Invoke(sender, e);
     }
 
-    public T GetValue(EvaluationContext context)
+    public T Evaluate(EvaluationContext context)
     {
         T value;
 
@@ -229,7 +229,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
         if (owner is IModifiableHierarchical ownerHierarchical)
         {
-            if (CurrentValue is IHierarchical hierarchical)
+            if (Value is IHierarchical hierarchical)
                 ownerHierarchical.AddChild(hierarchical);
 
             if (_keyFrames != null)
@@ -237,7 +237,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         }
         else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
         {
-            if (CurrentValue is IHierarchical hierarchical)
+            if (Value is IHierarchical hierarchical)
                 oldOwnerHierarchical.RemoveChild(hierarchical);
 
             if (_keyFrames != null)
@@ -274,8 +274,8 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public void ResetToDefault()
     {
-        CurrentValue = DefaultValue;
-        HasLocalValue = false;
+        Value = DefaultValue;
+        IsValueSet = false;
         SetExpressionChain(null);
     }
 
@@ -290,13 +290,13 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         var optional = context.GetValue<Optional<T>>(FormerPersistedNames.ResolveMemberKey(context, Name, _attributes));
         if (optional.HasValue)
         {
-            CurrentValue = optional.Value;
+            Value = optional.Value;
         }
     }
 
     public void SerializeValue(ICoreSerializationContext context)
     {
-        context.SetValue(Name, CurrentValue);
+        context.SetValue(Name, Value);
     }
 
     public void DeserializeExpression(JsonNode expressionNode)

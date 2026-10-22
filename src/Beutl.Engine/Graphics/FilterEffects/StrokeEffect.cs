@@ -19,11 +19,11 @@ public partial class StrokeEffect : FilterEffect
     public StrokeEffect()
     {
         ScanProperties<StrokeEffect>();
-        Pen.CurrentValue = new Pen();
+        Pen.Value = new Pen();
     }
 
     [Display(Name = nameof(GraphicsStrings.Stroke), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Pen?> Pen { get; } = Property.Create<Pen?>();
+    public IExpressionProperty<Pen?> Pen { get; } = Property.CreateExpression<Pen?>();
 
     [Display(Name = nameof(GraphicsStrings.Offset), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Point> Offset { get; } = Property.CreateAnimatable(default(Point));

@@ -61,8 +61,8 @@ public sealed class GeometryPathAllocationTests
         var geometry = new PathGeometry();
         geometry.Figures.Add(new PathFigure
         {
-            StartPoint = { CurrentValue = new Point(5, 5) },
-            IsClosed = { CurrentValue = true },
+            StartPoint = { Value = new Point(5, 5) },
+            IsClosed = { Value = true },
             Segments =
             {
                 new LineSegment(new Point(50, 5)),

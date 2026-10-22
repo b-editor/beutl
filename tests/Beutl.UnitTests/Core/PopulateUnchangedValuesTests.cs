@@ -204,7 +204,7 @@ public class PopulateUnchangedValuesTests
         {
             Values = animatable
                 ? Property.CreateAnimatable<List<int>>([1, 2])
-                : Property.Create<List<int>>([1, 2]);
+                : Property.CreateExpression<List<int>>([1, 2]);
             ScanProperties<EngineCollectionOwner>();
         }
 
@@ -216,7 +216,7 @@ public class PopulateUnchangedValuesTests
     public void Populate_keeps_unchanged_engine_collection_properties(bool animatable)
     {
         var owner = new EngineCollectionOwner(animatable);
-        List<int> original = owner.Values.CurrentValue;
+        List<int> original = owner.Values.Value;
         int changed = 0;
         owner.Values.ValueChanged += (_, _) => changed++;
         JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
@@ -230,7 +230,7 @@ public class PopulateUnchangedValuesTests
         Assert.Multiple(() =>
         {
             Assert.That(owner.Name, Is.EqualTo("updated"));
-            Assert.That(owner.Values.CurrentValue, Is.SameAs(original));
+            Assert.That(owner.Values.Value, Is.SameAs(original));
             Assert.That(changed, Is.Zero);
         });
     }

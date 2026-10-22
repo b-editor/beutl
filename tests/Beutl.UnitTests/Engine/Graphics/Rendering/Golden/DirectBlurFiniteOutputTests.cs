@@ -56,7 +56,7 @@ public sealed class DirectBlurFiniteOutputTests
     private static FilterEffectRenderNode CreateBlurNode(float? workingScale)
     {
         var blur = new Blur();
-        blur.Sigma.CurrentValue = new Size(40, 40);
+        blur.Sigma.Value = new Size(40, 40);
         FilterEffect.Resource resource = blur.ToResource(CompositionContext.Default);
         FilterEffectRenderNode node = workingScale is { } scale
             ? new FixedWorkingScaleFilterRenderNode(resource, scale)

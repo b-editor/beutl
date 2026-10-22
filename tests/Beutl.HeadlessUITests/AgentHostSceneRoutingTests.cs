@@ -434,9 +434,9 @@ public sealed class AgentHostSceneRoutingTests
         var element = new Element { Name = scene.Name + " rectangle", Length = scene.Duration };
         element.AddObject(new RectShape
         {
-            Width = { CurrentValue = 640 },
-            Height = { CurrentValue = 360 },
-            Fill = { CurrentValue = fill }
+            Width = { Value = 640 },
+            Height = { Value = 360 },
+            Fill = { Value = fill }
         });
         scene.Children.Add(element);
     }

@@ -346,7 +346,7 @@ public class GraphEditorTreeTests
         HeadlessTestHelpers.Render(3);
         Assert.That(menu.IsOpen, Is.False);
         Assert.That(scope.Shape.Width.GetKeyFrameAnimation(), Is.Null);
-        Assert.That(scope.Shape.Width.CurrentValue, Is.EqualTo(240));
+        Assert.That(scope.Shape.Width.Value, Is.EqualTo(240));
         Assert.That(item.HasAnimation.Value, Is.False);
         Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.EnableAnimation));
         Assert.That(button.GetVisualDescendants().OfType<FluentIcon>().Single().Icon, Is.EqualTo(Icon.Timer));
@@ -396,7 +396,7 @@ public class GraphEditorTreeTests
         scope.AnimationButton(color).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);
         var animation = (KeyFrameAnimation<Color>)scope.Brush.Color.GetKeyFrameAnimation()!;
-        Assert.That(animation.KeyFrames.Single().Value, Is.EqualTo(scope.Brush.Color.CurrentValue));
+        Assert.That(animation.KeyFrames.Single().Value, Is.EqualTo(scope.Brush.Color.Value));
         var graph = scope.Model.SelectedAnimation.Value!;
         var tree = scope.View.FindControl<TreeView>("PropertiesTree")!;
         foreach (var channel in color.Children)
@@ -420,7 +420,7 @@ public class GraphEditorTreeTests
         scope.Model.EnableAnimation(color);
         scope.Model.SelectedTreeItem.Value = color.Children[0];
         var replacement = new SolidColorBrush(Colors.Blue);
-        scope.Base.Model.HistoryManager.ExecuteInTransaction(() => scope.Shape.Fill.CurrentValue = replacement, "Replace fill");
+        scope.Base.Model.HistoryManager.ExecuteInTransaction(() => scope.Shape.Fill.Value = replacement, "Replace fill");
         HeadlessTestHelpers.Render(3);
         Assert.That(scope.Find(replacement.Color), Is.SameAs(color));
         Assert.That(color.HasAnimation.Value, Is.False);
@@ -443,7 +443,7 @@ public class GraphEditorTreeTests
         port.SetupProperty("Amount");
         port.Property!.SetValue(42f);
         source.Items.Add(port);
-        drawable.Model.CurrentValue!.Nodes.Add(source);
+        drawable.Model.Value!.Nodes.Add(source);
         scope.Base.Model.Element!.Objects.Add(drawable);
         HeadlessTestHelpers.Render(3);
         var item = Flatten(scope.Model.TreeItems).Single(x => ReferenceEquals(x.Adapter, port.Property));
@@ -476,8 +476,8 @@ public class GraphEditorTreeTests
         nestedEffect.Children.Add(nestedBlur);
         effects.Children.Add(blur);
         effects.Children.Add(nestedEffect);
-        scope.Shape.Transform.CurrentValue = transforms;
-        scope.Shape.FilterEffect.CurrentValue = effects;
+        scope.Shape.Transform.Value = transforms;
+        scope.Shape.FilterEffect.Value = effects;
         HeadlessTestHelpers.Render(3);
         var transformRow = scope.Find(scope.Shape.Transform);
         var effectRow = scope.Find(scope.Shape.FilterEffect);
@@ -505,7 +505,7 @@ public class GraphEditorTreeTests
     {
         using var scope = await TreeScope.CreateAsync();
         var transforms = new TransformGroup();
-        scope.Shape.Transform.CurrentValue = transforms;
+        scope.Shape.Transform.Value = transforms;
         HeadlessTestHelpers.Render(3);
         var group = scope.Find(scope.Shape.Transform);
         Assert.That(group.Children, Is.Empty, "An empty group must not show an empty Children row.");
@@ -602,9 +602,9 @@ public class GraphEditorTreeTests
             graph.View.DataContext = null;
             var brush = new SolidColorBrush(Color.FromArgb(220, 240, 120, 60));
             var shape = new EllipseShape();
-            shape.Width.CurrentValue = 240;
-            shape.Height.CurrentValue = 160;
-            shape.Fill.CurrentValue = brush;
+            shape.Width.Value = 240;
+            shape.Height.Value = 160;
+            shape.Fill.Value = brush;
             graph.Model.Element!.Objects.Clear();
             graph.Model.Element.Objects.Add(shape);
             graph.Model.HistoryManager.Commit();

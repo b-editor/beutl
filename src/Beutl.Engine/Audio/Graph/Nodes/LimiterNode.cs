@@ -150,7 +150,7 @@ public sealed class LimiterNode : AudioNode
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
         return Lookahead.GetKeyFrameAnimation() != null
             ? LimiterParameters.ToLatencySamples(LimiterParameters.MaxLookaheadMs, sampleRate)
-            : LimiterParameters.ToLatencySamples(Lookahead.CurrentValue, sampleRate);
+            : LimiterParameters.ToLatencySamples(Lookahead.Value, sampleRate);
     }
 
     public override int GetDrainLatencySamples(int sampleRate)
@@ -283,7 +283,7 @@ public sealed class LimiterNode : AudioNode
 
     private AudioBuffer ProcessStatic(AudioBuffer input, AudioProcessContext context)
     {
-        var c = Derive(Threshold.CurrentValue, Release.CurrentValue, Lookahead.CurrentValue, MakeupGain.CurrentValue, context.SampleRate);
+        var c = Derive(Threshold.Value, Release.Value, Lookahead.Value, MakeupGain.Value, context.SampleRate);
         _lastDerived = c;
         _hasLastDerived = true;
 

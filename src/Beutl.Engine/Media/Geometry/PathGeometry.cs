@@ -34,17 +34,17 @@ public sealed partial class PathGeometry : Geometry
 
             if (pathVerb == SKPathVerb.Move)
             {
-                if (!currentFigure.StartPoint.CurrentValue.IsInvalid || currentFigure.Segments.Count > 0)
+                if (!currentFigure.StartPoint.Value.IsInvalid || currentFigure.Segments.Count > 0)
                 {
                     result.Figures.Add(currentFigure);
                     currentFigure = new PathFigure();
                 }
 
-                currentFigure.StartPoint.CurrentValue = points[0].ToGraphicsPoint();
+                currentFigure.StartPoint.Value = points[0].ToGraphicsPoint();
             }
             else if (pathVerb == SKPathVerb.Close)
             {
-                currentFigure.IsClosed.CurrentValue = true;
+                currentFigure.IsClosed.Value = true;
                 result.Figures.Add(currentFigure);
                 currentFigure = new PathFigure();
             }
@@ -76,7 +76,7 @@ public sealed partial class PathGeometry : Geometry
     {
         var figure = new PathFigure
         {
-            StartPoint = { CurrentValue = point }
+            StartPoint = { Value = point }
         };
         Figures.Add(figure);
     }
@@ -99,11 +99,11 @@ public sealed partial class PathGeometry : Geometry
     {
         GetLastOrAdd().Segments.Add(new ArcSegment()
         {
-            Radius = { CurrentValue = radius },
-            RotationAngle = { CurrentValue = angle },
-            IsLargeArc = { CurrentValue = isLargeArc },
-            SweepClockwise = { CurrentValue = sweepClockwise },
-            Point = { CurrentValue = point }
+            Radius = { Value = radius },
+            RotationAngle = { Value = angle },
+            IsLargeArc = { Value = isLargeArc },
+            SweepClockwise = { Value = sweepClockwise },
+            Point = { Value = point }
         });
     }
 
@@ -111,9 +111,9 @@ public sealed partial class PathGeometry : Geometry
     {
         GetLastOrAdd().Segments.Add(new ConicSegment()
         {
-            ControlPoint = { CurrentValue = controlPoint },
-            EndPoint = { CurrentValue = endPoint },
-            Weight = { CurrentValue = weight }
+            ControlPoint = { Value = controlPoint },
+            EndPoint = { Value = endPoint },
+            Weight = { Value = weight }
         });
     }
 
@@ -121,9 +121,9 @@ public sealed partial class PathGeometry : Geometry
     {
         GetLastOrAdd().Segments.Add(new CubicBezierSegment()
         {
-            ControlPoint1 = { CurrentValue = controlPoint1 },
-            ControlPoint2 = { CurrentValue = controlPoint2 },
-            EndPoint = { CurrentValue = endPoint }
+            ControlPoint1 = { Value = controlPoint1 },
+            ControlPoint2 = { Value = controlPoint2 },
+            EndPoint = { Value = endPoint }
         });
     }
 
@@ -136,8 +136,8 @@ public sealed partial class PathGeometry : Geometry
     {
         GetLastOrAdd().Segments.Add(new QuadraticBezierSegment()
         {
-            ControlPoint = { CurrentValue = controlPoint },
-            EndPoint = { CurrentValue = endPoint }
+            ControlPoint = { Value = controlPoint },
+            EndPoint = { Value = endPoint }
         });
     }
 
@@ -146,7 +146,7 @@ public sealed partial class PathGeometry : Geometry
     {
         if (Figures.Count > 0)
         {
-            Figures[^1].IsClosed.CurrentValue = true;
+            Figures[^1].IsClosed.Value = true;
         }
     }
 

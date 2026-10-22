@@ -74,7 +74,7 @@ public sealed partial class GradientStopsEditor : UserControl
         {
             int index = viewModel.Stops.Value.IndexOf(astop);
             var bstop = viewModel.Value.Value[index];
-            bstop.Color.CurrentValue = args.NewColor.Value.ToBtlColor();
+            bstop.Color.Value = args.NewColor.Value.ToBtlColor();
             viewModel.ConfirmeGradientStop(index, index);
         }
     }

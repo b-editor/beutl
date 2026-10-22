@@ -44,7 +44,7 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
     public ReactivePropertySlim<IBrush?> ChannelBrush { get; } = new();
 
     internal Type? ValueType => Property?.ValueType ?? Adapter?.PropertyType;
-    internal object? Value => Property != null ? Property.CurrentValue : Adapter?.GetValue();
+    internal object? Value => Property != null ? Property.Value : Adapter?.GetValue();
     internal IKeyFrameAnimation? Animation
     {
         get => Property != null ? Property.GetKeyFrameAnimation() : (Adapter as IAnimatablePropertyAdapter)?.Animation;

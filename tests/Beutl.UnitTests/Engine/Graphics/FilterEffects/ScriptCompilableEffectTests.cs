@@ -88,7 +88,7 @@ public sealed class ScriptCompilableEffectTests
             await dispatcher.InvokeAsync(() =>
             {
                 var effect = new CSharpScriptEffect();
-                effect.Script.CurrentValue = $"Context.Blur(new Size(2, 2)); await System.Threading.Tasks.Task.Delay({delay});";
+                effect.Script.Value = $"Context.Blur(new Size(2, 2)); await System.Threading.Tasks.Task.Delay({delay});";
                 using var resource = effect.ToResource(CompositionContext.Default);
                 using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));
 
@@ -96,7 +96,7 @@ public sealed class ScriptCompilableEffectTests
                 effect.ApplyTo(context, resource);
                 Assert.That(context._items, Is.Empty, "Rejected scripts must not apply a partial effect.");
 
-                effect.Script.CurrentValue = "Context.Blur(new Size(2, 2));";
+                effect.Script.Value = "Context.Blur(new Size(2, 2));";
                 bool versionBumped = false;
                 resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
                 Assert.That(resource._scriptRunner, Is.Not.Null);
@@ -166,7 +166,7 @@ public sealed class ScriptCompilableEffectTests
     public void Sksl_unterminated_block_comment_does_not_throw_while_building_a_resource()
     {
         var effect = new SKSLScriptEffect();
-        effect.Script.CurrentValue = "half4 apply(half4 color) { return color; } /* forgot to close";
+        effect.Script.Value = "half4 apply(half4 color) { return color; } /* forgot to close";
 
         Assert.DoesNotThrow(() => effect.ToResource(CompositionContext.Default).Dispose(),
             "The resource update runs on the render path, where a lexer throw tears down the frame "

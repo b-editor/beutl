@@ -201,10 +201,10 @@ public class MFReaderIntegrationTests
 
             var sound = new SourceSound
             {
-                Source = { CurrentValue = source },
+                Source = { Value = source },
                 TimeRange = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(duration)),
-                OffsetPosition = { CurrentValue = TimeSpan.FromSeconds(offset) },
-                Speed = { CurrentValue = speed }
+                OffsetPosition = { Value = TimeSpan.FromSeconds(offset) },
+                Speed = { Value = speed }
             };
 
             var chunks = new List<WaveformChunk>();

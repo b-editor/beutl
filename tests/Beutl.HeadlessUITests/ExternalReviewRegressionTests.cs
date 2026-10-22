@@ -21,7 +21,7 @@ public sealed class ExternalReviewRegressionTests
         string path = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "brush.json");
         var brush = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) { Uri = new Uri(path) };
         var shape = new Beutl.Graphics.Shapes.RectShape();
-        shape.Fill.CurrentValue = brush;
+        shape.Fill.Value = brush;
         var element = new Element();
         element.Objects.Add(shape);
         editor.Scene.Children.Add(element);

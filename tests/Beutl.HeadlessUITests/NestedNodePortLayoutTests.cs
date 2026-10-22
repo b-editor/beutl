@@ -23,7 +23,7 @@ public class NestedNodePortLayoutTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.CurrentValue = brush;
+        node.Object.Brush.Value = brush;
         graph.Nodes.Add(node);
         using var vm = CreateViewModel(graph);
         GraphNodeViewModel nodeVm = vm.Nodes.Single();
@@ -149,7 +149,7 @@ public class NestedNodePortLayoutTests
         var pen = new Pen();
         var brush = new SolidColorBrush();
         var fill = new SolidColorBrush();
-        pen.Brush.CurrentValue = brush;
+        pen.Brush.Value = brush;
         node.Pen.Property!.SetValue(pen);
         node.Fill.Property!.SetValue(fill);
         graph.Nodes.Add(node);

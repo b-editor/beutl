@@ -57,7 +57,7 @@ public class ElementObjectServiceTests
             ScanProperties<FallbackContainer>();
         }
 
-        public IExpressionProperty<EngineObject?> Child { get; } = Property.Create<EngineObject?>();
+        public IExpressionProperty<EngineObject?> Child { get; } = Property.CreateExpression<EngineObject?>();
     }
 
     // Takes obj out of the element by removing it or by pasting a new object over it, and returns whether it did.
@@ -176,7 +176,7 @@ public class ElementObjectServiceTests
     {
         var container = new FallbackContainer
         {
-            Child = { CurrentValue = CreateBlocker() },
+            Child = { Value = CreateBlocker() },
         };
         var other = new TestEngineObject();
         _service.Add(_element, container);

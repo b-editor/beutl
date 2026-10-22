@@ -19,19 +19,19 @@ public interface IProperty : INotifyEdited
 {
     object? DefaultValue { get; }
 
-    object? CurrentValue { get; set; }
+    object? Value { get; set; }
 
     /// <summary>
     /// Validates and installs <paramref name="value"/>, replacing distinct reference-type values
     /// even when they compare equal while preserving the normal notification semantics.
     /// </summary>
-    void ReplaceCurrentValue(object? value);
+    void SetValueEvenIfEqual(object? value);
 
     string Name { get; }
 
     Type ValueType { get; }
 
-    bool HasLocalValue { get; }
+    bool IsValueSet { get; }
 
     void SetAttributes(string name, Attribute[] attributes);
 
@@ -62,24 +62,24 @@ public interface IProperty<T> : IProperty
 {
     new T DefaultValue { get; }
 
-    new T CurrentValue { get; set; }
+    new T Value { get; set; }
 
-    void ReplaceCurrentValue(T value);
+    void SetValueEvenIfEqual(T value);
 
     object? IProperty.DefaultValue => DefaultValue;
 
-    object? IProperty.CurrentValue
+    object? IProperty.Value
     {
-        get => CurrentValue;
+        get => Value;
         set
         {
             if (value is T tValue)
             {
-                CurrentValue = tValue;
+                Value = tValue;
             }
             else if (value == null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
             {
-                CurrentValue = default!;
+                Value = default!;
             }
             else
             {
@@ -88,15 +88,15 @@ public interface IProperty<T> : IProperty
         }
     }
 
-    void IProperty.ReplaceCurrentValue(object? value)
+    void IProperty.SetValueEvenIfEqual(object? value)
     {
         if (value is T typed)
         {
-            ReplaceCurrentValue(typed);
+            SetValueEvenIfEqual(typed);
         }
         else if (value is null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
         {
-            ReplaceCurrentValue(default!);
+            SetValueEvenIfEqual(default!);
         }
         else
         {
@@ -144,7 +144,7 @@ public interface IExpressionProperty<T> : IExpressionProperty, IProperty<T>
         set => Expression = (IExpression<T>?)value;
     }
 
-    T GetValue(EvaluationContext context);
+    T Evaluate(EvaluationContext context);
 
     event Action<IExpression<T>?>? ExpressionChanged;
 }

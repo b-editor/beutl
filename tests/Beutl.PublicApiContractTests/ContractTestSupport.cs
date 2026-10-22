@@ -20,9 +20,9 @@ internal static class ContractTestSupport
     public static DrawableBrush.Resource CreateDrawableBrushResource()
     {
         var content = new EllipseShape();
-        content.Width.CurrentValue = 20;
-        content.Height.CurrentValue = 12;
-        content.Fill.CurrentValue = Brushes.White;
+        content.Width.Value = 20;
+        content.Height.Value = 12;
+        content.Fill.Value = Brushes.White;
         return new DrawableBrush(content).ToResource(CompositionContext.Default);
     }
 

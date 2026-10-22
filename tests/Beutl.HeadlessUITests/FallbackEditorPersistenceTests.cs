@@ -40,9 +40,9 @@ public sealed class FallbackEditorPersistenceTests
 
         public IExpressionProperty<Brush?> BrushValue { get; } = Property.CreateAnimatable<Brush?>();
 
-        public IExpressionProperty<Pen?> PenValue { get; } = Property.Create<Pen?>();
+        public IExpressionProperty<Pen?> PenValue { get; } = Property.CreateExpression<Pen?>();
 
-        public IExpressionProperty<TextureSource?> TextureValue { get; } = Property.Create<TextureSource?>();
+        public IExpressionProperty<TextureSource?> TextureValue { get; } = Property.CreateExpression<TextureSource?>();
     }
 
     [SuppressResourceClassGeneration]
@@ -50,14 +50,14 @@ public sealed class FallbackEditorPersistenceTests
     {
         public NullableRecoveryHolder() => ScanProperties<NullableRecoveryHolder>();
 
-        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.Create<DisplacementMapTransform?>();
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateExpression<DisplacementMapTransform?>();
 
-        public IExpressionProperty<float> Amount { get; } = Property.Create<float>();
+        public IExpressionProperty<float> Amount { get; } = Property.CreateExpression<float>();
 
         public override void Deserialize(ICoreSerializationContext context)
         {
             Id = context.GetValue<Guid>(nameof(Id));
-            Transform.CurrentValue = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
+            Transform.Value = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
         }
     }
 
@@ -73,12 +73,12 @@ public sealed class FallbackEditorPersistenceTests
         {
             Recovered recovered = StoreCorruptAndRestore(
                 root,
-                new RectShape { Fill = { CurrentValue = new SolidColorBrush(Colors.Red) } },
+                new RectShape { Fill = { Value = new SolidColorBrush(Colors.Red) } },
                 json => json[nameof(Element.Objects)]!.AsArray()[0]![nameof(Shape.Fill)]!.AsObject()["$type"]
                     = "[Beutl.Engine]Beutl.Media:DoesNotExist");
             Element recoveredElement = recovered.Element;
             var recoveredShape = (RectShape)recoveredElement.Objects.Single();
-            Assert.That(recoveredShape.Fill.CurrentValue, Is.InstanceOf<IFallback>());
+            Assert.That(recoveredShape.Fill.Value, Is.InstanceOf<IFallback>());
             Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
 
             using var history = new HistoryScope(recoveredElement);
@@ -93,7 +93,7 @@ public sealed class FallbackEditorPersistenceTests
 
             Assert.That(pasted, Is.True);
             AssertRepairThenUndoRestoresBytes(recovered, history.History,
-                () => Assert.That(recoveredShape.Fill.CurrentValue, Is.InstanceOf<IFallback>()));
+                () => Assert.That(recoveredShape.Fill.Value, Is.InstanceOf<IFallback>()));
         }
         finally
         {
@@ -114,8 +114,8 @@ public sealed class FallbackEditorPersistenceTests
         {
             var holder = new EditorValueHolder();
             var pen = new Pen();
-            pen.Brush.CurrentValue = new SolidColorBrush(Colors.Red);
-            holder.PenValue.CurrentValue = pen;
+            pen.Brush.Value = new SolidColorBrush(Colors.Red);
+            holder.PenValue.Value = pen;
             Recovered recovered = StoreCorruptAndRestore(
                 root,
                 holder,
@@ -123,8 +123,8 @@ public sealed class FallbackEditorPersistenceTests
                     = "[Beutl.Engine]Beutl.Media:MissingBrush");
             Element recoveredElement = recovered.Element;
             var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
-            var recoveredPen = recoveredHolder.PenValue.CurrentValue!;
-            Assert.That(recoveredPen.Brush.CurrentValue, Is.InstanceOf<FallbackBrush>());
+            var recoveredPen = recoveredHolder.PenValue.Value!;
+            Assert.That(recoveredPen.Brush.Value, Is.InstanceOf<FallbackBrush>());
             Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var history = new HistoryScope(recoveredElement);
             var adapter = new SimplePropertyAdapter<Pen?>(
@@ -134,7 +134,7 @@ public sealed class FallbackEditorPersistenceTests
             viewModel.Accept(Services(recoveredElement, history.History));
 
             var directPen = new Pen();
-            directPen.Brush.CurrentValue = new SolidColorBrush(Colors.Blue);
+            directPen.Brush.Value = new SolidColorBrush(Colors.Blue);
             viewModel.SetValue(recoveredPen, directPen);
             AssertFallbackBrushRestored();
 
@@ -148,7 +148,7 @@ public sealed class FallbackEditorPersistenceTests
             AssertFallbackBrushRestored();
 
             void AssertFallbackBrushRestored() => AssertRepairThenUndoRestoresBytes(recovered, history.History,
-                () => Assert.That(recoveredHolder.PenValue.CurrentValue!.Brush.CurrentValue, Is.InstanceOf<FallbackBrush>()));
+                () => Assert.That(recoveredHolder.PenValue.Value!.Brush.Value, Is.InstanceOf<FallbackBrush>()));
         }
         finally
         {
@@ -296,7 +296,7 @@ public sealed class FallbackEditorPersistenceTests
             holder => holder.BrushValue, new SolidColorBrush(Colors.Red), new SolidColorBrush(Colors.Blue),
             adapter => new BrushEditorViewModel(adapter), new SolidColorBrush(Colors.Green), "Green");
 
-        Assert.That(((SolidColorBrush)keyFrame.Value!).Color.CurrentValue, Is.EqualTo(Colors.Green));
+        Assert.That(((SolidColorBrush)keyFrame.Value!).Color.Value, Is.EqualTo(Colors.Green));
     }
 
     // A generic presenter editor that keeps the presenter replaces only its target. While the presenter's
@@ -311,16 +311,16 @@ public sealed class FallbackEditorPersistenceTests
         {
             var holder = new EditorValueHolder();
             var texture = new DrawableTextureSource();
-            texture.Drawable.CurrentValue = new DrawablePresenter { Transform = { CurrentValue = new TranslateTransform() } };
-            holder.TextureValue.CurrentValue = texture;
+            texture.Drawable.Value = new DrawablePresenter { Transform = { Value = new TranslateTransform() } };
+            holder.TextureValue.Value = texture;
             Element recovered = StoreCorruptAndRestore(
                 root,
                 holder,
                 json => AddUnreadableEasing<TranslateTransform>(
                     DrawableJson(json)[nameof(Drawable.Transform)]!.AsObject(), nameof(TranslateTransform.X))).Element;
             var recoveredHolder = (EditorValueHolder)recovered.Objects.Single();
-            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
-            var presenter = (DrawablePresenter)recoveredTexture.Drawable.CurrentValue!;
+            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.Value!;
+            var presenter = (DrawablePresenter)recoveredTexture.Drawable.Value!;
             Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
             using var history = new HistoryScope(recovered);
             using var editor = new CoreObjectEditorViewModel<Drawable>(new SimplePropertyAdapter<Drawable>(
@@ -331,7 +331,7 @@ public sealed class FallbackEditorPersistenceTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(recoveredTexture.Drawable.CurrentValue, Is.SameAs(presenter));
+                Assert.That(recoveredTexture.Drawable.Value, Is.SameAs(presenter));
                 Assert.That(presenter.Target.Expression, Is.Null);
                 Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
                 Assert.That(history.History.CanUndo, Is.False);
@@ -353,16 +353,16 @@ public sealed class FallbackEditorPersistenceTests
         {
             var holder = new EditorValueHolder();
             var texture = new DrawableTextureSource();
-            texture.Drawable.CurrentValue = new RectShape();
-            holder.TextureValue.CurrentValue = texture;
+            texture.Drawable.Value = new RectShape();
+            holder.TextureValue.Value = texture;
             Recovered recovered = StoreCorruptAndRestore(
                 root,
                 holder,
                 json => DrawableJson(json)["$type"] = "[Beutl.Engine]Beutl.Graphics:MissingDrawable");
             Element recoveredElement = recovered.Element;
             var recoveredHolder = (EditorValueHolder)recoveredElement.Objects.Single();
-            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.CurrentValue!;
-            Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
+            var recoveredTexture = (DrawableTextureSource)recoveredHolder.TextureValue.Value!;
+            Assert.That(recoveredTexture.Drawable.Value, Is.InstanceOf<FallbackDrawable>());
             Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var history = new HistoryScope(recoveredElement);
             var adapter = new SimplePropertyAdapter<TextureSource?>(
@@ -374,8 +374,8 @@ public sealed class FallbackEditorPersistenceTests
             viewModel.ChangeToImageTextureSource();
             AssertRepairThenUndoRestoresBytes(recovered, history.History, () =>
             {
-                Assert.That(recoveredHolder.TextureValue.CurrentValue, Is.SameAs(recoveredTexture));
-                Assert.That(recoveredTexture.Drawable.CurrentValue, Is.InstanceOf<FallbackDrawable>());
+                Assert.That(recoveredHolder.TextureValue.Value, Is.SameAs(recoveredTexture));
+                Assert.That(recoveredTexture.Drawable.Value, Is.InstanceOf<FallbackDrawable>());
             });
         }
         finally
@@ -399,13 +399,13 @@ public sealed class FallbackEditorPersistenceTests
             group.Children.Add(new Blur());
             Recovered recovered = StoreCorruptAndRestore(
                 root,
-                new RectShape { FilterEffect = { CurrentValue = group } },
+                new RectShape { FilterEffect = { Value = group } },
                 json => FindObject(json, obj => obj[nameof(FilterEffectGroup.Children)] is JsonArray { Count: > 0 })!
                     [nameof(FilterEffectGroup.Children)]!.AsArray()[0]!.AsObject()["$type"]
                     = "[Beutl.Engine]Beutl.Graphics.Effects:MissingFilterEffect");
             Element recoveredElement = recovered.Element;
             var recoveredShape = (RectShape)recoveredElement.Objects.Single();
-            var recoveredGroup = (FilterEffectGroup)recoveredShape.FilterEffect.CurrentValue!;
+            var recoveredGroup = (FilterEffectGroup)recoveredShape.FilterEffect.Value!;
             Assert.That(recoveredGroup.Children.Single(), Is.InstanceOf<FallbackFilterEffect>());
             Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
             using var history = new HistoryScope(recoveredElement);
@@ -454,7 +454,7 @@ public sealed class FallbackEditorPersistenceTests
             {
                 Assert.That(recovered.SuppressedStorageSource, Is.Null);
                 Assert.That(((NullableRecoveryHolder)CoreSerializer.RestoreFromUri<Element>(recovered.Uri!)
-                    .Objects.Single()).Transform.CurrentValue, Is.InstanceOf<DisplacementMapTranslateTransform>());
+                    .Objects.Single()).Transform.Value, Is.InstanceOf<DisplacementMapTranslateTransform>());
             });
         }
         finally
@@ -476,10 +476,10 @@ public sealed class FallbackEditorPersistenceTests
         try
         {
             var shape = new RectShape();
-            shape.Fill.CurrentValue = new DrawableBrush
+            shape.Fill.Value = new DrawableBrush
             {
-                Drawable = { CurrentValue = new EllipseShape() },
-                Transform = { CurrentValue = new TranslateTransform() },
+                Drawable = { Value = new EllipseShape() },
+                Transform = { Value = new TranslateTransform() },
             };
             Element recovered = StoreCorruptAndRestore(root, shape, json =>
             {
@@ -497,8 +497,8 @@ public sealed class FallbackEditorPersistenceTests
             }).Element;
 
             var recoveredShape = (RectShape)recovered.Objects.Single();
-            var brush = (DrawableBrush)recoveredShape.Fill.CurrentValue!;
-            Drawable? drawableBefore = brush.Drawable.CurrentValue;
+            var brush = (DrawableBrush)recoveredShape.Fill.Value!;
+            Drawable? drawableBefore = brush.Drawable.Value;
             Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
             using var history = new HistoryScope(recovered);
             using var editor = new BrushEditorViewModel(
@@ -508,7 +508,7 @@ public sealed class FallbackEditorPersistenceTests
             if (!drawableIsUnreadable)
             {
                 editor.SetDrawableTarget(null);
-                Assert.That(brush.Drawable.CurrentValue, Is.SameAs(drawableBefore),
+                Assert.That(brush.Drawable.Value, Is.SameAs(drawableBefore),
                     "Pointing the kept brush at a target replaces only its drawable.");
             }
 
@@ -518,12 +518,12 @@ public sealed class FallbackEditorPersistenceTests
             {
                 if (drawableIsUnreadable)
                 {
-                    Assert.That(brush.Drawable.CurrentValue, Is.InstanceOf<RectShape>());
+                    Assert.That(brush.Drawable.Value, Is.InstanceOf<RectShape>());
                     Assert.That(recovered.SuppressedStorageSource, Is.Null);
                 }
                 else
                 {
-                    Assert.That(brush.Drawable.CurrentValue, Is.SameAs(drawableBefore));
+                    Assert.That(brush.Drawable.Value, Is.SameAs(drawableBefore));
                     Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
                     Assert.That(history.History.CanUndo, Is.False);
                 }
@@ -546,14 +546,14 @@ public sealed class FallbackEditorPersistenceTests
         try
         {
             var shape = new RectShape();
-            shape.Transform.CurrentValue = new TranslateTransform();
+            shape.Transform.Value = new TranslateTransform();
             Element recovered = StoreCorruptAndRestore(
                 root,
                 shape,
                 json => AddUnreadableEasing<TranslateTransform>(
                     json["Objects"]![0]![nameof(RectShape.Transform)]!.AsObject(), nameof(TranslateTransform.X))).Element;
             var recoveredShape = (RectShape)recovered.Objects.Single();
-            Transform? unavailable = recoveredShape.Transform.CurrentValue;
+            Transform? unavailable = recoveredShape.Transform.Value;
             Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
             using var history = new HistoryScope(recovered);
             using var editor = new CoreObjectEditorViewModel<Transform>(new SimplePropertyAdapter<Transform>(
@@ -567,7 +567,7 @@ public sealed class FallbackEditorPersistenceTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(recoveredShape.Transform.CurrentValue, Is.SameAs(unavailable));
+                Assert.That(recoveredShape.Transform.Value, Is.SameAs(unavailable));
                 Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
                 Assert.That(history.History.CanUndo, Is.False);
             });
@@ -589,11 +589,11 @@ public sealed class FallbackEditorPersistenceTests
         {
             Element recovered = StoreCorruptAndRestore(
                 root,
-                new RectShape { Fill = { CurrentValue = new SolidColorBrush(Colors.Red) } },
+                new RectShape { Fill = { Value = new SolidColorBrush(Colors.Red) } },
                 json => AddUnreadableEasing<SolidColorBrush>(
                     json[nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!.AsObject(), nameof(Brush.Opacity))).Element;
             var recoveredShape = (RectShape)recovered.Objects.Single();
-            Brush? unavailable = recoveredShape.Fill.CurrentValue;
+            Brush? unavailable = recoveredShape.Fill.Value;
             Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
             using var history = new HistoryScope(recovered);
             using var viewModel = new BrushEditorViewModel(new SimplePropertyAdapter<Brush?>(
@@ -601,8 +601,8 @@ public sealed class FallbackEditorPersistenceTests
             viewModel.Accept(Services(recovered, history.History));
             JsonObject pastedJson = CoreSerializer.SerializeToJsonObject(new DrawableBrush
             {
-                Drawable = { CurrentValue = new EllipseShape() },
-                Transform = { CurrentValue = new TranslateTransform() },
+                Drawable = { Value = new EllipseShape() },
+                Transform = { Value = new TranslateTransform() },
             });
             AddUnreadableEasing<TranslateTransform>(pastedJson[nameof(Brush.Transform)]!.AsObject(), nameof(TranslateTransform.X));
 
@@ -610,7 +610,7 @@ public sealed class FallbackEditorPersistenceTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(recoveredShape.Fill.CurrentValue, Is.SameAs(unavailable));
+                Assert.That(recoveredShape.Fill.Value, Is.SameAs(unavailable));
                 Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
                 Assert.That(history.History.CanUndo, Is.False);
             });
@@ -631,7 +631,7 @@ public sealed class FallbackEditorPersistenceTests
             Recovered stored = StoreCorruptAndRestore(root, CreateTransformHolder(), CorruptTheTransform);
             Element recovered = stored.Element;
             var recoveredEffect = (NullableRecoveryHolder)recovered.Objects.Single();
-            Assert.That(recoveredEffect.Transform.CurrentValue, Is.Null);
+            Assert.That(recoveredEffect.Transform.Value, Is.Null);
             CoreSerializer.StoreToUri(recovered, recovered.Uri!);
             Assert.That(File.ReadAllBytes(stored.ElementPath), Is.EqualTo(stored.OriginalBytes));
             using var history = new HistoryScope(recovered);
@@ -643,7 +643,7 @@ public sealed class FallbackEditorPersistenceTests
             editor.SetNewInstance(typeof(DisplacementMapTranslateTransform));
             CoreSerializer.StoreToUri(recovered, recovered.Uri!);
             Assert.That(((NullableRecoveryHolder)CoreSerializer.RestoreFromUri<Element>(recovered.Uri!)
-                .Objects.Single()).Transform.CurrentValue, Is.InstanceOf<DisplacementMapTranslateTransform>());
+                .Objects.Single()).Transform.Value, Is.InstanceOf<DisplacementMapTranslateTransform>());
             Assert.That(history.History.Undo(), Is.True);
             CoreSerializer.StoreToUri(recovered, recovered.Uri!);
             Assert.That(File.ReadAllBytes(stored.ElementPath), Is.EqualTo(stored.OriginalBytes));
@@ -774,21 +774,21 @@ public sealed class FallbackEditorPersistenceTests
         switch (kind)
         {
             case PresenterKind.Brush:
-                shape.Fill.CurrentValue = new BrushPresenter
+                shape.Fill.Value = new BrushPresenter
                 {
-                    Target = { CurrentValue = new SolidColorBrush(Colors.Red) },
+                    Target = { Value = new SolidColorBrush(Colors.Red) },
                 };
                 break;
             case PresenterKind.Transform:
-                shape.Transform.CurrentValue = new TransformPresenter
+                shape.Transform.Value = new TransformPresenter
                 {
-                    Target = { CurrentValue = new TranslateTransform() },
+                    Target = { Value = new TranslateTransform() },
                 };
                 break;
             case PresenterKind.FilterEffect:
-                shape.FilterEffect.CurrentValue = new FilterEffectPresenter
+                shape.FilterEffect.Value = new FilterEffectPresenter
                 {
-                    Target = { CurrentValue = new Blur() },
+                    Target = { Value = new Blur() },
                 };
                 break;
             default:
@@ -814,9 +814,9 @@ public sealed class FallbackEditorPersistenceTests
     {
         return kind switch
         {
-            PresenterKind.Brush => ((BrushPresenter)shape.Fill.CurrentValue!).Target.CurrentValue,
-            PresenterKind.Transform => ((TransformPresenter)shape.Transform.CurrentValue!).Target.CurrentValue,
-            PresenterKind.FilterEffect => ((FilterEffectPresenter)shape.FilterEffect.CurrentValue!).Target.CurrentValue,
+            PresenterKind.Brush => ((BrushPresenter)shape.Fill.Value!).Target.Value,
+            PresenterKind.Transform => ((TransformPresenter)shape.Transform.Value!).Target.Value,
+            PresenterKind.FilterEffect => ((FilterEffectPresenter)shape.FilterEffect.Value!).Target.Value,
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
     }
@@ -853,7 +853,7 @@ public sealed class FallbackEditorPersistenceTests
 
         var holder = new EditorValueHolder();
         var property = (AnimatableProperty<T>)select(holder);
-        property.CurrentValue = currentValue;
+        property.Value = currentValue;
         var keyFrame = new KeyFrame<T> { Value = keyFrameValue };
         property.SetKeyFrameAnimation(CreateAnimation(keyFrame));
         var element = new Element { Uri = new Uri("file:///editor-test.belm") };
@@ -868,7 +868,7 @@ public sealed class FallbackEditorPersistenceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(property.CurrentValue, Is.SameAs(currentValue));
+            Assert.That(property.Value, Is.SameAs(currentValue));
             Assert.That(keyFrame.Value, Is.InstanceOf(template.GetType()));
         });
         return keyFrame;
@@ -944,7 +944,7 @@ public sealed class FallbackEditorPersistenceTests
     private static NullableRecoveryHolder CreateTransformHolder()
     {
         var holder = new NullableRecoveryHolder();
-        holder.Transform.CurrentValue = new DisplacementMapTranslateTransform();
+        holder.Transform.Value = new DisplacementMapTranslateTransform();
         return holder;
     }
 

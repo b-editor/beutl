@@ -224,9 +224,9 @@ public class FormattedTextRasterBoundsTests
     private static Pen.Resource CreateThickPen(float textSize)
     {
         var pen = new Pen();
-        pen.Brush.CurrentValue = Brushes.White;
-        pen.Thickness.CurrentValue = MathF.Max(4, textSize / 3);
-        pen.StrokeAlignment.CurrentValue = StrokeAlignment.Outside;
+        pen.Brush.Value = Brushes.White;
+        pen.Thickness.Value = MathF.Max(4, textSize / 3);
+        pen.StrokeAlignment.Value = StrokeAlignment.Outside;
         return pen.ToResource(CompositionContext.Default);
     }
 

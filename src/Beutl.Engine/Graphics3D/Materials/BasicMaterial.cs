@@ -31,7 +31,7 @@ public sealed partial class BasicMaterial : Material3D
     /// Gets the diffuse texture map.
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.BasicMaterial_DiffuseMap), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<TextureSource?> DiffuseMap { get; } = Property.Create<TextureSource?>(null);
+    public IExpressionProperty<TextureSource?> DiffuseMap { get; } = Property.CreateExpression<TextureSource?>(null);
 
     /// <summary>
     /// Gets the ambient color contribution.

@@ -89,7 +89,7 @@ public class VersionControlSaveTests
                 string media = Path.Combine(projectRoot, name + ".png"); File.WriteAllBytes(media, png);
                 var source = new Beutl.Media.Source.ImageSource(); source.ReadFrom(new Uri(media));
                 var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, name + ".belm")) };
-                element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { CurrentValue = source } });
+                element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { Value = source } });
                 scene.Children.Add(element);
             }
             AddMedia("old");
@@ -144,7 +144,7 @@ public class VersionControlSaveTests
             {
                 var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "media.belm")) };
                 var source = new Beutl.Media.Source.ImageSource(); source.ReadFrom(new Uri(media));
-                element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { CurrentValue = source } });
+                element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { Value = source } });
                 scene.Children.Add(element);
             }
             var entered = new TaskCompletionSource();
@@ -214,7 +214,7 @@ public class VersionControlSaveTests
         {
             var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "media.belm")) };
             var source = new Beutl.Media.Source.ImageSource(); source.ReadFrom(new Uri(media));
-            element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { CurrentValue = source } });
+            element.Objects.Add(new Beutl.Graphics.SourceImage { Source = { Value = source } });
             scene.Children.Add(element);
         }
         // Hash the media before the first save, which then writes the fingerprints with the scene.

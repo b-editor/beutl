@@ -411,7 +411,7 @@ public class AudioLatencyCompensationTests
         speed.AddInput(limiter);
 
         using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
-        speedProperty.CurrentValue = drainSpeed;
+        speedProperty.Value = drainSpeed;
         using var tail = speed.Flush(
             Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
@@ -435,7 +435,7 @@ public class AudioLatencyCompensationTests
         speed.AddInput(limiter);
 
         using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
-        speedProperty.CurrentValue = 100f;
+        speedProperty.Value = 100f;
         using var tail = speed.Flush(
             Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
@@ -458,7 +458,7 @@ public class AudioLatencyCompensationTests
 
         using var processed = speed.Process(Context(TimeSpan.Zero, sampleCount));
         speedProperty.SetKeyFrameAnimation(null);
-        speedProperty.CurrentValue = 100f;
+        speedProperty.Value = 100f;
         using var tail = speed.Flush(
             Context(TimeSpan.FromSeconds((double)sampleCount / SampleRate), sampleCount));
 
@@ -489,7 +489,7 @@ public class AudioLatencyCompensationTests
         speedProperty.SetKeyFrameAnimation(ConstantSpeedAnimation(200f));
         using var animatedChunk = speed.Process(Context(chunkDuration, sampleCount));
         speedProperty.SetKeyFrameAnimation(null);
-        speedProperty.CurrentValue = 50f;
+        speedProperty.Value = 50f;
         using var tail = speed.Flush(Context(chunkDuration + chunkDuration, sampleCount));
 
         int expectedSourceSamples = sampleCount / 2;
@@ -561,10 +561,10 @@ public class AudioLatencyCompensationTests
         using var sourceBuffer = CreateConstantBuffer(1f, sampleCount);
         using var delay = new DelayNode
         {
-            DelayTime = Property.Create(0f),
-            Feedback = Property.Create(100f),
-            DryMix = Property.Create(0f),
-            WetMix = Property.Create(100f),
+            DelayTime = Property.CreateExpression(0f),
+            Feedback = Property.CreateExpression(100f),
+            DryMix = Property.CreateExpression(0f),
+            WetMix = Property.CreateExpression(100f),
         };
         delay.AddInput(new BufferReplayNode(sourceBuffer));
 
@@ -599,10 +599,10 @@ public class AudioLatencyCompensationTests
         limiter.AddInput(source);
         using var delay = new DelayNode
         {
-            DelayTime = Property.Create(0f),
-            Feedback = Property.Create(100f),
-            DryMix = Property.Create(0f),
-            WetMix = Property.Create(100f),
+            DelayTime = Property.CreateExpression(0f),
+            Feedback = Property.CreateExpression(100f),
+            DryMix = Property.CreateExpression(0f),
+            WetMix = Property.CreateExpression(100f),
         };
         delay.AddInput(limiter);
 
@@ -2157,7 +2157,7 @@ public class AudioLatencyCompensationTests
         var firstRange = new TimeRange(TimeSpan.Zero, oneSecond);
         using var processed = ComposeWindow(composer, firstRange, eligibility, resource);
 
-        sound.Gain.CurrentValue = 50f;
+        sound.Gain.Value = 50f;
 
         using var tail = composer.Flush(new TimeRange(oneSecond, oneSecond), eligibility);
 
@@ -2268,7 +2268,7 @@ public class AudioLatencyCompensationTests
         var window1 = new TimeRange(TimeSpan.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
-        sound.Gain.CurrentValue = 50f;
+        sound.Gain.Value = 50f;
 
         var window2 = new TimeRange(oneSecond, oneSecond);
         using var buffer2 = ComposeWindow(composer, window2, eligibility);
@@ -2366,19 +2366,19 @@ public class AudioLatencyCompensationTests
     {
         yield return new TestCaseData(new Func<AudioNode>(() => new DelayNode
         {
-            DelayTime = Property.Create(5f),
-            Feedback = Property.Create(50f),
-            DryMix = Property.Create(50f),
-            WetMix = Property.Create(50f),
+            DelayTime = Property.CreateExpression(5f),
+            Feedback = Property.CreateExpression(50f),
+            DryMix = Property.CreateExpression(50f),
+            WetMix = Property.CreateExpression(50f),
         })).SetName("DelayNode_Flush_DrainsThroughProcessTail_NoThrow");
         yield return new TestCaseData(new Func<AudioNode>(() => new CompressorNode
         {
-            Threshold = Property.Create(-20f),
-            Ratio = Property.Create(4f),
-            Attack = Property.Create(5f),
-            Release = Property.Create(50f),
-            Knee = Property.Create(0f),
-            MakeupGain = Property.Create(0f),
+            Threshold = Property.CreateExpression(-20f),
+            Ratio = Property.CreateExpression(4f),
+            Attack = Property.CreateExpression(5f),
+            Release = Property.CreateExpression(50f),
+            Knee = Property.CreateExpression(0f),
+            MakeupGain = Property.CreateExpression(0f),
         })).SetName("CompressorNode_Flush_DrainsThroughProcessTail_NoThrow");
         yield return new TestCaseData(new Func<AudioNode>(() => new EqualizerNode { Bands = [new EqualizerBand()] }))
             .SetName("EqualizerNode_Flush_DrainsThroughProcessTail_NoThrow");

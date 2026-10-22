@@ -23,7 +23,7 @@ public sealed partial class LineWaveformShape : WaveformShape
     public IExpressionProperty<float> Smoothness { get; } = Property.CreateAnimatable(0f);
 
     [Display(Name = nameof(GraphicsStrings.WaveformShape_Mirrored), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<bool> Mirrored { get; } = Property.Create(false);
+    public IExpressionProperty<bool> Mirrored { get; } = Property.CreateExpression(false);
 
     public new partial class Resource
     {

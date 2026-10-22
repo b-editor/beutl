@@ -63,7 +63,7 @@ public class SubFrameResizeClampTests
             Layer: 0,
             Source: new ElementSource.EngineObject(() => new SourceSound
             {
-                Source = { CurrentValue = soundSource },
+                Source = { Value = soundSource },
             }))], CancellationToken.None);
         Assert.That(added.IsSuccess, Is.True);
         HeadlessTestHelpers.Settle();

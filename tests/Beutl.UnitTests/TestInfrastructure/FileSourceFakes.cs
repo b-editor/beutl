@@ -28,10 +28,10 @@ public sealed class TestEngineObjectWithFileSource : EngineObject
     public TestEngineObjectWithFileSource(IFileSource? fileSource)
     {
         ScanProperties<TestEngineObjectWithFileSource>();
-        FileSource.CurrentValue = fileSource;
+        FileSource.Value = fileSource;
     }
 
-    public IExpressionProperty<IFileSource?> FileSource { get; } = Property.Create<IFileSource?>();
+    public IExpressionProperty<IFileSource?> FileSource { get; } = Property.CreateExpression<IFileSource?>();
 
     public void AddChild(IHierarchical child)
     {

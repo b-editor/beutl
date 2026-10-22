@@ -16,13 +16,13 @@ public sealed partial class GradientStop : EngineObject
 
     public GradientStop(Color color, float offset) : this()
     {
-        Color.CurrentValue = color;
-        Offset.CurrentValue = offset;
+        Color.Value = color;
+        Offset.Value = offset;
     }
 
     [Display(Name = nameof(GraphicsStrings.Offset), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<float> Offset { get; } = Property.Create<float>();
+    public IExpressionProperty<float> Offset { get; } = Property.CreateExpression<float>();
 
     [Display(Name = nameof(GraphicsStrings.Color), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<Color> Color { get; } = Property.Create(Colors.White);
+    public IExpressionProperty<Color> Color { get; } = Property.CreateExpression(Colors.White);
 }

@@ -43,7 +43,7 @@ public sealed partial class SceneSound : Sound
             comparer: static (r, node) => node._resource == r
         );
 
-        var shiftNode = context.CreateShiftNode(OffsetPosition.CurrentValue);
+        var shiftNode = context.CreateShiftNode(OffsetPosition.Value);
         context.Connect(sourceNode, shiftNode);
 
         var speedNode = context.CreateSpeedNode(Speed);
@@ -54,9 +54,9 @@ public sealed partial class SceneSound : Sound
 
         AudioNode currentNode = gainNode;
 
-        if (Effect.CurrentValue != null && Effect.CurrentValue.IsEnabled)
+        if (Effect.Value != null && Effect.Value.IsEnabled)
         {
-            currentNode = Effect.CurrentValue.CreateNode(context, currentNode);
+            currentNode = Effect.Value.CreateNode(context, currentNode);
         }
 
         var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);

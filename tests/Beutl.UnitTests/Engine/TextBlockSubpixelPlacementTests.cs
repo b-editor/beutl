@@ -48,18 +48,18 @@ public class TextBlockSubpixelPlacementTests
     private static float MeasureInkCentroidY(Typeface typeface, float translateY)
     {
         var textBlock = new TextBlock();
-        textBlock.FontFamily.CurrentValue = typeface.FontFamily;
-        textBlock.FontStyle.CurrentValue = typeface.Style;
-        textBlock.FontWeight.CurrentValue = typeface.Weight;
-        textBlock.Size.CurrentValue = 40;
-        textBlock.Fill.CurrentValue = Brushes.White;
-        textBlock.Text.CurrentValue = "Beutl";
+        textBlock.FontFamily.Value = typeface.FontFamily;
+        textBlock.FontStyle.Value = typeface.Style;
+        textBlock.FontWeight.Value = typeface.Weight;
+        textBlock.Size.Value = 40;
+        textBlock.Fill.Value = Brushes.White;
+        textBlock.Text.Value = "Beutl";
 
         var transform = new TranslateTransform();
-        transform.Y.CurrentValue = translateY;
+        transform.Y.Value = translateY;
         var group = new TransformGroup();
         group.Children.Add(transform);
-        textBlock.Transform.CurrentValue = group;
+        textBlock.Transform.Value = group;
 
         Drawable.Resource resource = (Drawable.Resource)textBlock.ToResource(CompositionContext.Default);
         var node = new DrawableRenderNode(resource);
