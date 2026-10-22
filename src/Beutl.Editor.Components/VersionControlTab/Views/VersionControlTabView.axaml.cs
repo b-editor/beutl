@@ -103,10 +103,10 @@ internal sealed partial class VersionControlTabView : UserControl
         return true;
     }
 
-    // The window's command enables it, so the tab and the menu share one flow.
+    // The main window's command enables it, as the menu does; a floating tab's window holds its dock.
     private async Task ExecuteEnableVersionControlAsync()
     {
-        if (TopLevel.GetTopLevel(this)?.DataContext is { } window
+        if (AppHelper.GetTopLevel()?.DataContext is { } window
             && AppHelper.GetContextCommandManager?.Invoke()?.GetDefinitions()
                 .Select(entry => entry.Definition)
                 .FirstOrDefault(definition => definition.Id == "main.enableVersionControl") is { } definition)
