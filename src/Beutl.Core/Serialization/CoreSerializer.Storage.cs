@@ -131,7 +131,8 @@ public static partial class CoreSerializer
                 coreObj.Uri = uri;
             }
 
-            var options = new CoreSerializerOptions { BaseUri = uri, Mode = mode ?? DefaultStoreMode };
+            CoreSerializationMode storeMode = mode ?? DefaultStoreMode;
+            var options = new CoreSerializerOptions { BaseUri = uri, Mode = storeMode };
             string? minAppVersion = null;
             WriteJsonAtomically(
                 uri.LocalPath,
@@ -158,6 +159,12 @@ public static partial class CoreSerializer
                     RootFileVersions.RecordAppVersion(savedProject, BeutlApplication.Version);
                     RememberProjectFile(savedProject, uri.LocalPath, minAppVersion);
                 }
+            }
+
+            // Saved with its files, as an explicit save does; an auto-save writes the file alone after every edit.
+            if (obj is Project projectWithFiles && storeMode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
+            {
+                DuplicateIds.Report(projectWithFiles, "save");
             }
         }
         else

@@ -3,10 +3,17 @@
 public class PropertyLookup(ICoreObject root)
 {
     private readonly ICoreObject _root = root ?? throw new ArgumentNullException(nameof(root));
+    private readonly IHierarchical? _anchor;
+
+    // The lookup of a property's expression, which resolves ids within anchor's scene first.
+    internal PropertyLookup(ICoreObject root, IHierarchical? anchor) : this(root)
+    {
+        _anchor = anchor;
+    }
 
     public ICoreObject? FindById(Guid id)
     {
-        return _root.FindById(id);
+        return _anchor is null ? _root.FindById(id) : ReferenceScope.Find(_anchor, id, _root);
     }
 
     public bool TryGetPropertyValue<T>(string path, ExpressionContext context, out T? value)
@@ -30,7 +37,7 @@ public class PropertyLookup(ICoreObject root)
     {
         value = default;
 
-        if (_root.FindById(id) is not CoreObject coreObject)
+        if (FindById(id) is not CoreObject coreObject)
             return false;
 
         IProperty? property = coreObject.Properties.FirstOrDefault(p =>

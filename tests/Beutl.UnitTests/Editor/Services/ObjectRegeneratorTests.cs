@@ -1,6 +1,9 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
+using Beutl.Graphics;
+using Beutl.Graphics.Shapes;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Generative;
@@ -79,6 +82,62 @@ public class ObjectRegeneratorTests
         }
         var idSet = new HashSet<Guid>(regenerated.Select(r => r.Id));
         Assert.That(idSet.Count, Is.EqualTo(3));
+    }
+
+    // A script finds another object by the Id in its text, so the copy's script reads the copy's object.
+    [Test]
+    public void Regenerate_GivesAnIdInAScriptTheIdOfTheCopiedObject()
+    {
+        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        var source = new RectShape();
+        var follower = new RectShape();
+        follower.Width.Expression = new StringExpression<float>($"GetProperty<float>(\"{source.Id}.Width\") * 2");
+        element.AddObject(source);
+        element.AddObject(follower);
+
+        ObjectRegenerator.Regenerate(element, out Element copy);
+
+        Guid copiedSource = copy.Objects[0].Id;
+        string copiedScript = ((RectShape)copy.Objects[1]).Width.Expression!.ExpressionString;
+        Assert.Multiple(() =>
+        {
+            Assert.That(copiedSource, Is.Not.EqualTo(source.Id));
+            Assert.That(copiedScript, Is.EqualTo($"GetProperty<float>(\"{copiedSource}.Width\") * 2"));
+        });
+    }
+
+    [Test]
+    public void Regenerate_KeepsTheIdOfAReferenceToAnObjectOutsideTheCopy()
+    {
+        var outside = new RectShape();
+        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        element.AddObject(new DrawablePresenter { Target = { Expression = new ReferenceExpression<Drawable?>(outside.Id) } });
+
+        ObjectRegenerator.Regenerate(element, out Element copy);
+
+        var copied = (DrawablePresenter)copy.Objects[0];
+        Assert.That(((IReferenceExpression)copied.Target.Expression!).ObjectId, Is.EqualTo(outside.Id));
+    }
+
+    // One walk of the built copy runs the hook of every object in it, nested ones included, and of none in the original.
+    [Test]
+    public void Regenerate_RunsTheCopyHookOfEachObjectOfTheCopy()
+    {
+        var outer = new CopyRenewalProbe();
+        var inner = new CopyRenewalProbe();
+        outer.Inner.Value = inner;
+        var element = new Element { Length = TimeSpan.FromSeconds(1) };
+        element.AddObject(outer);
+
+        ObjectRegenerator.Regenerate(element, out Element copy);
+
+        var copiedOuter = (CopyRenewalProbe)copy.Objects[0];
+        Assert.Multiple(() =>
+        {
+            Assert.That(copiedOuter.Renewals, Is.EqualTo(1));
+            Assert.That(copiedOuter.Inner.Value!.Renewals, Is.EqualTo(1));
+            Assert.That(outer.Renewals + inner.Renewals, Is.Zero);
+        });
     }
 
     // The server answers an idempotency key it has already seen with the earlier job, so an AI node in a copy needs a
@@ -292,6 +351,22 @@ public class ObjectRegeneratorTests
             graph.Nodes.OfType<AiImageGenerationNode>().Single(),
             graph.Nodes.OfType<GroupNode>().Single().Group.Nodes.OfType<AiImageGenerationNode>().Single());
     }
+}
+
+// Counts how often a copy runs its hook.
+[SuppressResourceClassGeneration]
+public sealed class CopyRenewalProbe : EngineObject, ICopyRenewable
+{
+    public CopyRenewalProbe()
+    {
+        ScanProperties<CopyRenewalProbe>();
+    }
+
+    public IProperty<CopyRenewalProbe?> Inner { get; } = new ValueOnlyProperty<CopyRenewalProbe?>(null);
+
+    public int Renewals { get; private set; }
+
+    void ICopyRenewable.RenewForCopy() => Renewals++;
 }
 
 // Not an AI node, but with members named like an AI node's results.
