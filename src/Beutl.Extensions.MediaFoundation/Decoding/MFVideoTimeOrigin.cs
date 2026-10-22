@@ -10,9 +10,9 @@ internal static class MFVideoTimeOrigin
 {
     // MF reports MP4 video composition timestamps before the edit-list trim.
     // A normal H.264 file can therefore have a nonzero video first-gap even
-    // though its audio already starts at zero. Only add the untrimmed gap to
-    // NAudio's seek position. This reads metadata, never the media payload.
-    public static long GetAudioStartTime(string file, long firstVideoTimestamp)
+    // though its audio already starts at zero. This returns when the first video
+    // frame is shown. This reads metadata, never the media payload.
+    public static long GetFirstVideoTime(string file, long firstVideoTimestamp)
     {
         if (firstVideoTimestamp <= 0)
             return 0;
@@ -20,17 +20,16 @@ internal static class MFVideoTimeOrigin
         try
         {
             using var stream = File.OpenRead(file);
-            return GetAudioStartTime(stream, firstVideoTimestamp);
+            return GetFirstVideoTime(stream, firstVideoTimestamp);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            // Unavailable metadata must not turn a working, aligned file into
-            // an unconditional first-video-PTS audio correction.
+            // Unavailable metadata keeps frame 0 at the first video frame.
             return 0;
         }
     }
 
-    internal static long GetAudioStartTime(Stream stream, long firstVideoTimestamp)
+    internal static long GetFirstVideoTime(Stream stream, long firstVideoTimestamp)
     {
         if (firstVideoTimestamp <= 0 || !stream.CanSeek || stream.Length < 8)
             return 0;
@@ -96,7 +95,7 @@ internal static class MFVideoTimeOrigin
         catch (Exception ex) when (ex is IOException or InvalidDataException or OverflowException)
         {
             // Validate every box against its parent; corrupt or unsupported
-            // metadata leaves the existing audio time origin in place.
+            // metadata keeps frame 0 at the first video frame.
         }
         return 0;
     }

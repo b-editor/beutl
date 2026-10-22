@@ -30,7 +30,10 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     private readonly IMFSourceReader? _videoSourceReader;
     private readonly IMFAttributes? _attributes;
     private MFMediaInfo _mediaInfo;
-    private long _firstGapTimeStamp = 0;
+    // The timestamp of the container start; MF leaves an MP4 video edit list's trim in its timestamps.
+    private long _originTimeStamp = 0;
+    // Frames before the first video frame show it.
+    private int _firstFrame = 0;
     private long _currentVideoTimeStamp = 0;
 
     private readonly MFSampleCache _sampleCache;
@@ -87,7 +90,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
                 throw new Exception(message);
             }
 
-            TestFirstReadSample();
+            TestFirstReadSample(file);
         }
         catch (NoVideoStreamException)
         {
@@ -116,6 +119,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
             return SampleUtilities.SampleCopyToBuffer(sample, buf, _mediaInfo.OutImageBufferSize);
         }
 
+        frame = Math.Max(frame, _firstFrame);
         IMFSample? sample = _sampleCache.SearchFrameSample(frame);
         if (sample != null)
         {
@@ -177,8 +181,6 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         return 0;
     }
 
-    public long FirstVideoTimestamp => _firstGapTimeStamp;
-
     public MFMediaInfo GetMediaInfo() => _mediaInfo;
 
     private IMFSample? ReadSample(int streamIndex)
@@ -236,7 +238,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
 
         // success!
         // add cache
-        timestamp -= _firstGapTimeStamp;
+        timestamp -= _originTimeStamp;
         int frame = TimestampUtilities.ConvertFrameFromTimeStamp(timestamp, _mediaInfo.Fps);
         _sampleCache.AddFrameSample(frame, sample);
         _currentVideoTimeStamp = timestamp;
@@ -340,7 +342,7 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         _logger.LogInformation("ChechMediaInfo: \n{MediaInfo}", _mediaInfo.GetMediaInfoText());
     }
 
-    private void TestFirstReadSample()
+    private void TestFirstReadSample(string file)
     {
         _ = ReadSample(_mediaInfo.VideoStreamIndex) ?? throw new Exception("TestFirstReadSample() failed");
         _logger.LogInformation(
@@ -350,8 +352,10 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         SeekVideo(0);
         _currentVideoTimeStamp = 0;
 
-        _firstGapTimeStamp = firstVideoTimeStamp;
-        _logger.LogInformation("TestFirstReadSample - firstGapTimeStamp: {firstGapTimeStamp}", _firstGapTimeStamp);
+        long firstVideoTime = MFVideoTimeOrigin.GetFirstVideoTime(file, firstVideoTimeStamp);
+        _originTimeStamp = firstVideoTimeStamp - firstVideoTime;
+        _firstFrame = TimestampUtilities.ConvertFrameFromTimeStamp(firstVideoTime, _mediaInfo.Fps);
+        _logger.LogInformation("TestFirstReadSample - originTimeStamp: {originTimeStamp}", _originTimeStamp);
     }
 
     private void DisposeAfterInitializationFailure()

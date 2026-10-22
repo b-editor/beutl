@@ -114,7 +114,7 @@ public class MFVideoTimeOriginTests
     private static long Read(byte[] data, long timestamp)
     {
         using var stream = new MemoryStream(data);
-        return MFVideoTimeOrigin.GetAudioStartTime(stream, timestamp);
+        return MFVideoTimeOrigin.GetFirstVideoTime(stream, timestamp);
     }
 
     private static byte[] Mp4(params byte[][] tracks)
