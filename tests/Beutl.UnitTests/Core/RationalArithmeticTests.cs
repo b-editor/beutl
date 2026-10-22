@@ -46,10 +46,13 @@ public class RationalArithmeticTests
     }
 
     [Test]
-    public void IsZero_OnlyTrueForCanonicalZero()
+    public void IsZero_TrueForZeroOverAnyNonZeroDenominator()
     {
         Assert.That(Rational.IsZero(Rational.Zero), Is.True);
-        Assert.That(Rational.IsZero(new Rational(0, 5)), Is.False);
+        Assert.That(Rational.IsZero(new Rational(0, 5)), Is.True);
+        Assert.That(Rational.IsZero(new Rational(0, -1)), Is.True);
+        Assert.That(Rational.IsZero(Rational.NaN), Is.False);
+        Assert.That(Rational.IsZero(new Rational(1, 5)), Is.False);
     }
 
     [Test]
@@ -68,6 +71,25 @@ public class RationalArithmeticTests
         Assert.That(Rational.IsNegative(new Rational(1, -2)), Is.True);
         Assert.That(Rational.IsNegative(new Rational(-1, -2)), Is.False);
         Assert.That(Rational.IsNegative(new Rational(1, 2)), Is.False);
+        Assert.That(Rational.IsNegative(new Rational(0, -1)), Is.False);
+        Assert.That(Rational.IsNegative(Rational.NaN), Is.False);
+        Assert.That(Rational.IsNegative(Rational.NegativeInfinity), Is.True);
+    }
+
+    [TestCase(30, 1)]
+    [TestCase(30000, 1001)]
+    [TestCase(60, 2)]
+    [TestCase(-24, -1)]
+    public void SignChecks_OfAPositiveFrameRate(long numerator, long denominator)
+    {
+        var rate = new Rational(numerator, denominator);
+        Assert.Multiple(() =>
+        {
+            Assert.That(Rational.IsPositive(rate), Is.True);
+            Assert.That(Rational.IsNegative(rate), Is.False);
+            Assert.That(Rational.IsZero(rate), Is.False);
+            Assert.That(Rational.IsNormal(rate), Is.True);
+        });
     }
 
     [Test]
