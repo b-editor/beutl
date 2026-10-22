@@ -428,7 +428,7 @@ public class FilePathComparisonTests
         try
         {
             string linkPath = Path.Combine(root, "escape");
-            string missingTarget = Path.Combine(Path.GetTempPath(), "pb-target-" + Guid.NewGuid().ToString("N"));
+            string missingTarget = Path.Combine(CanonicalTempPath(), "pb-target-" + Guid.NewGuid().ToString("N"));
             SymbolicLinks.CreateOrIgnore(linkPath, missingTarget);
 
             string resolved = FilePathComparison.ResolveCanonicalPath(linkPath);
@@ -491,7 +491,7 @@ public class FilePathComparisonTests
     public void ResolveCanonicalPath_IntermediateSymlinkedDirectory_FollowsLinkTargetOutsideRoot()
     {
         string root = CreateWorkDirectoryRoot();
-        string outsideRoot = Path.Combine(Path.GetTempPath(), "pb-outside-" + Guid.NewGuid().ToString("N"));
+        string outsideRoot = Path.Combine(CanonicalTempPath(), "pb-outside-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outsideRoot);
         try
         {
@@ -520,7 +520,7 @@ public class FilePathComparisonTests
     public void ResolveCanonicalPath_RootedRelativeSymlinkTarget_ResolvesAgainstLinkDirectory()
     {
         string root = CreateWorkDirectoryRoot();
-        string outsideRoot = Path.Combine(Path.GetTempPath(), "pb-rel-" + Guid.NewGuid().ToString("N"));
+        string outsideRoot = Path.Combine(CanonicalTempPath(), "pb-rel-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(outsideRoot);
         try
         {
@@ -906,6 +906,9 @@ public class FilePathComparisonTests
             TestContext.CurrentContext.WorkDirectory,
             "path-boundary-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(path);
-        return path;
+        return FilePathComparison.ResolveCanonicalPath(path);
     }
+
+    // Expected paths are canonical; on macOS the temp folder is under /var, a link to /private/var.
+    private static string CanonicalTempPath() => FilePathComparison.ResolveCanonicalPath(Path.GetTempPath());
 }
