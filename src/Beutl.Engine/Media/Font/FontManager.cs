@@ -369,8 +369,59 @@ public sealed class FontManager
     public static IEnumerable<SKTypeface> OpenFontFaces(string file)
     {
         int count = GetFontFaceCount(file);
+        byte[]? collection = null;
         for (int index = 0; index < count; index++)
-            if (SKTypeface.FromFile(file, index) is { } face) yield return face;
+        {
+            SKTypeface? face = index == 0 || !OperatingSystem.IsMacOS()
+                ? SKTypeface.FromFile(file, index)
+                : LoadFace(collection ??= File.ReadAllBytes(file), index);
+            if (face is not null) yield return face;
+        }
+    }
+
+    // Skia's CoreText port opens only face 0 of a collection, so macOS loads a later face from a copy of its tables.
+    private static SKTypeface? LoadFace(byte[] font, int index)
+    {
+        if (index > 0 && OperatingSystem.IsMacOS())
+        {
+            if (CopyCollectionFace(font, index) is not { } face) return null;
+            (font, index) = (face, 0);
+        }
+
+        using var stream = new MemoryStream(font, writable: false);
+        return SKTypeface.FromStream(stream, index);
+    }
+
+    // A standalone font with one face of a collection, or null when the collection is malformed.
+    private static byte[]? CopyCollectionFace(ReadOnlySpan<byte> collection, int index)
+    {
+        try
+        {
+            int start = checked((int)BinaryPrimitives.ReadUInt32BigEndian(collection[(12 + index * 4)..]));
+            int tables = BinaryPrimitives.ReadUInt16BigEndian(collection[(start + 4)..]);
+            byte[] directory = collection.Slice(start, 12 + tables * 16).ToArray();
+            using var font = new MemoryStream();
+            font.Write(directory);
+            for (int table = 0; table < tables; table++)
+            {
+                Span<byte> record = directory.AsSpan(12 + table * 16, 16);
+                int offset = checked((int)BinaryPrimitives.ReadUInt32BigEndian(record[8..]));
+                int length = checked((int)BinaryPrimitives.ReadUInt32BigEndian(record[12..]));
+                // One face's tables cannot add up to more than the collection holds.
+                if (font.Length + length > directory.Length + collection.Length) return null;
+                font.Position = (font.Length + 3) & ~3L;
+                BinaryPrimitives.WriteUInt32BigEndian(record[8..], (uint)font.Position);
+                font.Write(collection.Slice(offset, length));
+            }
+
+            font.Position = 0;
+            font.Write(directory);
+            return font.ToArray();
+        }
+        catch (Exception ex) when (ex is ArgumentOutOfRangeException or OverflowException)
+        {
+            return null;
+        }
     }
 
     private static int GetFontFaceCount(string file)
@@ -421,8 +472,7 @@ public sealed class FontManager
                     // Registered faces can still be held by renderers. Cache immutable font
                     // bytes across project switches instead of disposing or duplicating them.
                     if (_projectFontCache.TryGetValue(key, out SKTypeface? cached)) return cached;
-                    using var stream = new MemoryStream(bytes, writable: false);
-                    SKTypeface? face = SKTypeface.FromStream(stream, index);
+                    SKTypeface? face = LoadFace(bytes, index);
                     if (face is not null) _projectFontCache.Add(key, face);
                     return face;
                 }

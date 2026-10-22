@@ -2,9 +2,11 @@
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Models;
 using Beutl.Graphics3D.Textures;
+using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -78,6 +80,26 @@ public sealed class ModelImportTests
         string path = ModelTestFiles.WriteGltf(_root, externalBuffer: true);
         File.Delete(Path.Combine(_root, "buffers", "geometry.bin"));
         Assert.Throws<InvalidOperationException>(() => new ModelSource().ReadFrom(new Uri(path)));
+    }
+
+    [Test]
+    public void Missing_texture_is_logged_once_and_the_model_loads_without_it()
+    {
+        using var logs = new CapturingLoggerProvider(category => category == typeof(ModelSource).FullName);
+        Log.LoggerFactory.AddProvider(logs);
+        var source = new ModelSource();
+
+        source.ReadFrom(new Uri(ModelTestFiles.WriteGltf(_root, binary: true, textureUri: "missing.png")));
+
+        var model = new Model3D(); model.Source.Value = source;
+        var material = (PBRMaterial)model.Children.Single().Material.Value!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(material.AlbedoMap.Value, Is.Null);
+            // glTF names the base color texture as both the diffuse and the base color map.
+            Assert.That(logs.Messages, Has.Count.EqualTo(1));
+            Assert.That(logs.Messages, Has.All.Contains(Path.Combine(_root, "missing.png")));
+        });
     }
 
     [Test]

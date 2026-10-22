@@ -16,7 +16,8 @@ internal static class ModelTestFiles
         bool binary = false,
         object[]? nodes = null,
         int[]? roots = null,
-        bool normals = false)
+        bool normals = false,
+        string? textureUri = null)
     {
         Directory.CreateDirectory(directory);
         // The triangle faces Normalize(0, -1, 1), the normal written when normals is set.
@@ -49,7 +50,7 @@ internal static class ModelTestFiles
             json["bufferViews"]!.AsArray().Add(JsonSerializer.SerializeToNode(new { buffer = 0, byteOffset = 36, byteLength = 36, target = 34962 }));
             json["accessors"]!.AsArray().Add(JsonSerializer.SerializeToNode(new { bufferView = 1, componentType = 5126, count = 3, type = "VEC3" }));
         }
-        if (embeddedTexture)
+        if (embeddedTexture || textureUri != null)
         {
             using var bitmap = new Bitmap(2, 2);
             bitmap.GetPixelSpan().Fill(255);
@@ -59,7 +60,9 @@ internal static class ModelTestFiles
             json["meshes"]![0]!["primitives"]![0]!["material"] = 0;
             json["materials"] = JsonNode.Parse("[{\"pbrMetallicRoughness\":{\"baseColorTexture\":{\"index\":0}}}]");
             json["textures"] = JsonNode.Parse("[{\"source\":0}]");
-            if (binary)
+            if (textureUri != null)
+                json["images"] = JsonSerializer.SerializeToNode(new[] { new { uri = textureUri } });
+            else if (binary)
             {
                 json["bufferViews"]!.AsArray().Add(JsonSerializer.SerializeToNode(new { buffer = 0, byteOffset = buffer.Length, byteLength = png.Length }));
                 json["images"] = JsonSerializer.SerializeToNode(new[] { new { bufferView = 1, mimeType = "image/png" } });
