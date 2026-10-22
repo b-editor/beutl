@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 
 namespace Beutl.Collections;
 
-public class CoreList<T> : ICoreList<T>
+public class CoreList<T> : ICoreList<T>, IReplaceableList
 {
     private static readonly PropertyChangedEventArgs s_countPropertyChanged = new(nameof(CoreList<object>.Count));
     private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
@@ -160,6 +160,8 @@ public class CoreList<T> : ICoreList<T>
             NotifyCountChanged();
         }
     }
+
+    void IReplaceableList.ReplaceItems(object? source) => Replace((IList<T>)source!);
 
     // Notified like Clear: one Reset with ResetBehavior.Reset, else a Remove of the old items and an Add of the new.
     // A Replace is never raised: its counts can differ, which DynamicData and Avalonia's panels do not handle.
