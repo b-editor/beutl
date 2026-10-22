@@ -5,6 +5,8 @@
         xmlns:icons="using:FluentIcons.Avalonia.Fluent"
         xmlns:lang="using:Beutl.Language"
         xmlns:local="using:Beutl.Controls"
+        xmlns:sty="using:FluentAvalonia.Styling"
+        xmlns:styling="using:Beutl.Controls.Styling"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:ui="using:FluentAvalonia.UI.Controls">
 
@@ -69,17 +71,22 @@
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
+                    <ResourceDictionary.MergedDictionaries>
+                        <ResourceInclude Source="/Styling/TextOnAccentColors.axaml" />
+                    </ResourceDictionary.MergedDictionaries>
                     <StaticResource x:Key="MainWindowBackground" ResourceKey="ApplicationPageBackgroundThemeBrush" />
                     <!--  The border theme matches this to its dock splitter.  -->
                     <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <ResourceDictionary.MergedDictionaries>
+                        <ResourceInclude Source="/Styling/TextOnAccentColors.axaml" />
                         <ResourceInclude Source="/Styling/BeutlDarkColors.axaml" />
                     </ResourceDictionary.MergedDictionaries>
                     <SolidColorBrush x:Key="MainWindowBackground" Color="#FF111111" />
                     <SolidColorBrush x:Key="TitleBarBottomBorderBrush" Color="{DynamicResource ControlStrokeColorDefault}" />
                 </ResourceDictionary>
+                <styling:HighContrastTextOnAccentResources x:Key="{x:Static sty:FluentAvaloniaTheme.HighContrastTheme}" />
             </ResourceDictionary.ThemeDictionaries>
 
             <x:Double x:Key="LayerHeight">25</x:Double>
