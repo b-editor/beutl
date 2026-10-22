@@ -63,7 +63,7 @@ public static partial class CoreSerializer
         }
 
         JsonObject node = SerializeToJsonObject(value, new CoreSerializerOptions { BaseUri = value.Uri });
-        node["Uri"] = serializedUri.ToString();
+        node["Uri"] = UriHelper.ToPersistedReference(serializedUri);
         return node;
     }
 

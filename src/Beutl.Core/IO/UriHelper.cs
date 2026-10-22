@@ -13,6 +13,10 @@ internal static class UriHelper
         return uri;
     }
 
+    // Uri.ToString() unescapes "%25" in an absolute URI, so a name with "%XX" would read back as another file.
+    public static string ToPersistedReference(Uri serializedUri)
+        => serializedUri.IsAbsoluteUri ? serializedUri.AbsoluteUri : serializedUri.ToString();
+
     public static Uri ResolvePersistedReference(string? value, Uri? baseUri, bool allowRelative = false)
     {
         if (!Uri.TryCreate(value, UriKind.RelativeOrAbsolute, out Uri? uri))

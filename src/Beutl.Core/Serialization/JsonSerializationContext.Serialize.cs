@@ -157,7 +157,7 @@ public partial class JsonSerializationContext
             return node;
         }
 
-        return (JsonValue)serializedUri.ToString();
+        return (JsonValue)UriHelper.ToPersistedReference(serializedUri);
     }
 
     public void SetValue<T>(string name, T? value)
