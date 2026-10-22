@@ -145,7 +145,7 @@ public sealed partial class ElementView
                     Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
                     MediaTime minFrame = SceneTimeRangeService.GetFrameDuration(viewModel.Scene);
                     MediaTime modelStart = viewModel.BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-                    // A start read from a file counts from the frame it falls short of.
+                    // A start within a tick of a frame, as one written by hand can be, counts from that frame.
                     MediaTime deltaStart = modelStart - MediaTimeJsonConverter.SnapToFrame(viewModel.Model.Start, rate);
                     int modelIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                     int deltaIndex = modelIndex - viewModel.Model.ZIndex;

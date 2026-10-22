@@ -7,7 +7,7 @@ namespace Beutl.ProjectSystem;
 // they have played at a given time.
 internal static class ElementTransitions
 {
-    // Clip boundaries snap to frames, but a time typed by hand or read from a file can leave one element's
+    // Clip boundaries snap to frames, but a time typed by hand or read outside a project can leave one element's
     // end just off the next element's start. Anything closer than this is one boundary.
     internal static readonly MediaTime AdjacencyTolerance = MediaTime.FromSeconds(0.001);
 

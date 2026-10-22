@@ -84,13 +84,12 @@ public sealed class ElementStructureService : IElementStructureService
         }, CommandNames.SplitElement);
     }
 
-    // Whether a cut at `at` leaves a frame on each side, with times read from a file counted from their frames.
+    // Whether a cut at the frame `at` leaves a frame on each side; a clip end within a tick of a frame counts as that frame.
     internal static bool LeavesAFrameOnEachSide(Scene scene, Element target, MediaTime at)
     {
         MediaTime frame = SceneTimeRangeService.GetFrameDuration(scene);
-        MediaTime cut = SceneTimeRangeService.SnapToFrame(scene, at);
-        return cut - SceneTimeRangeService.SnapToFrame(scene, target.Start) >= frame
-               && SceneTimeRangeService.SnapToFrame(scene, target.Range.End) - cut >= frame;
+        return at - SceneTimeRangeService.SnapToFrame(scene, target.Start) >= frame
+               && SceneTimeRangeService.SnapToFrame(scene, target.Range.End) - at >= frame;
     }
 
     private static int FindGroupIndex(Scene scene, Guid id)

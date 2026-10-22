@@ -99,7 +99,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     private MediaTime FrameToTime(long frame) => MediaTime.FromFrames(frame, _rate);
 
-    // The number of frames in duration, rounded to the nearest frame. A scene length read from a file falls
+    // The number of frames in duration, rounded to the nearest frame. A scene length written by hand can fall
     // just short of its frame count, so truncating here would drop the last frame
     internal static long ToFrameCount(MediaTime duration, Rational rate)
     {

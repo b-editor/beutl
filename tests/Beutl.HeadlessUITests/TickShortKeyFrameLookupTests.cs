@@ -11,18 +11,18 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
-// A key time read back from a file falls up to a tick short of its frame; deleting, inserting and the keyframe mark
-// still find that keyframe on its frame (#2885).
+// A key time read outside a project, as a template's is, falls up to a tick short of its frame; deleting, inserting and
+// the keyframe mark still find that keyframe on its frame (#2885).
 [TestFixture]
-public sealed class SavedKeyFrameLookupTests
+public sealed class TickShortKeyFrameLookupTests
 {
     private static readonly string[] s_rates = ["30", "30000/1001"];
 
     [AvaloniaTest]
-    public async Task Delete_insert_and_the_mark_find_a_keyframe_read_back_from_a_file([ValueSource(nameof(s_rates))] string rateText)
+    public async Task Delete_insert_and_the_mark_find_a_keyframe_a_tick_short_of_its_frame([ValueSource(nameof(s_rates))] string rateText)
     {
         await TestReset.ResetShellAsync();
-        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("saved-keyframes");
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("tick-short-keyframes");
         scene.FindHierarchicalParent<Project>()!.Variables[ProjectVariableKeys.FrameRate] = rateText;
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromFrames(30, rate));

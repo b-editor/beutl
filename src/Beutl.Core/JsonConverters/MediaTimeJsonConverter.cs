@@ -8,11 +8,37 @@ using Beutl.Serialization;
 namespace Beutl.JsonConverters;
 
 // Files keep the TimeSpan strings of earlier versions until #2885 raises the format floor. A time is written rounded down
-// to a tick and read rounded up to a flick, so a saved time never moves later and a file read and saved stays the same.
+// to a tick and read rounded up to a flick; a project's files are read on its frame grid, so a frame reads back exactly.
 internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
 {
     [ThreadStatic]
     private static int t_flickScopes;
+
+    // The frame rate of the project whose files are read. Async-local, as a scene reads its element files in parallel.
+    private static readonly AsyncLocal<Rational?> s_frameGrid = new();
+
+    internal static bool ReadsOnFrameGrid => s_frameGrid.Value is not null;
+
+    // While a project's files are read, a time within a tick of one of its frames reads as that frame.
+    internal static IDisposable ReadOnFrameGrid(Rational rate)
+    {
+        Rational? previous = s_frameGrid.Value;
+        s_frameGrid.Value = rate;
+        return Disposable.Create(() => s_frameGrid.Value = previous);
+    }
+
+    // Ticks from a file read as the frame of `rate` within a tick of them, or else rounded up to a flick.
+    internal static MediaTime FromFileTicks(long ticks, Rational? rate)
+    {
+        var time = MediaTime.FromTicks(ticks, MidpointRounding.ToPositiveInfinity);
+        if (rate is not { } grid || !TryRoundToFrame(time, grid, out MediaTime frame))
+            return time;
+
+        long below = frame.ToTicks(MidpointRounding.ToNegativeInfinity);
+        long above = frame.ToTicks(MidpointRounding.ToPositiveInfinity);
+        bool withinATick = below == above ? Math.Abs(ticks - below) <= 1 : ticks == below || ticks == above;
+        return withinATick ? frame : time;
+    }
 
     // Copies that stay in this process (snapshots, duplicates, the clipboard) write exact flicks instead.
     // The scope belongs to the calling thread, so it must not span an await.
@@ -22,11 +48,28 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
         return Disposable.Create(static () => t_flickScopes--);
     }
 
-    // A time read from a file falls less than a tick short of its frame; that frame is used, and other times are kept.
+    // A time within a tick of a frame, as a template's or a hand-written time can be, as that frame.
     internal static MediaTime SnapToFrame(MediaTime time, Rational rate)
     {
-        MediaTime frame = time.RoundToFrame(rate, MidpointRounding.ToPositiveInfinity);
-        return frame - time < MediaTime.FromTicks(1, MidpointRounding.ToPositiveInfinity) ? frame : time;
+        return TryRoundToFrame(time, rate, out MediaTime frame)
+               && Math.Abs(frame.Flicks - time.Flicks) <= MediaTime.FromTicks(1, MidpointRounding.ToPositiveInfinity).Flicks
+            ? frame
+            : time;
+    }
+
+    // A time near the ends of the range of MediaTime has no frame within it.
+    private static bool TryRoundToFrame(MediaTime time, Rational rate, out MediaTime frame)
+    {
+        try
+        {
+            frame = time.RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            return true;
+        }
+        catch (OverflowException)
+        {
+            frame = time;
+            return false;
+        }
     }
 
     // A length is written as the distance between its ends on the tick grid, so ends that met in ticks still meet.
@@ -51,8 +94,8 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
             return length;
         }
 
-        long endTicks = start.ToTicks(MidpointRounding.ToNegativeInfinity) + length.ToTicks(MidpointRounding.ToNegativeInfinity);
-        return MediaTime.FromTicks(endTicks, MidpointRounding.ToPositiveInfinity) - start;
+        long endTicks = startNode.Deserialize<TimeSpan>().Ticks + lengthNode.Deserialize<TimeSpan>().Ticks;
+        return FromFileTicks(endTicks, s_frameGrid.Value) - start;
     }
 
     public override MediaTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
@@ -61,7 +104,7 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
             return new MediaTime(reader.GetInt64());
 
         TimeSpan value = JsonMetadataServices.TimeSpanConverter.Read(ref reader, typeof(TimeSpan), options);
-        return MediaTime.FromTicks(value.Ticks, MidpointRounding.ToPositiveInfinity);
+        return FromFileTicks(value.Ticks, s_frameGrid.Value);
     }
 
     public override void Write(Utf8JsonWriter writer, MediaTime value, JsonSerializerOptions options)

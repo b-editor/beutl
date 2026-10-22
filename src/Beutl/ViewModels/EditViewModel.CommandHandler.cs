@@ -86,7 +86,7 @@ public partial class EditViewModel : IContextCommandStateNotifier
         MediaTime current = _editorClock.CurrentTime.Value;
         MediaTime? target = null;
         Rational rate = Player.GetFrameRate();
-        // A marker or scene bound read from a file counts as the frame it falls short of.
+        // A marker or scene bound within a tick of a frame, as one written by hand can be, counts as that frame.
         foreach (MediaTime marker in Scene.Markers.Select(m => m.Time).Union([MediaTime.Zero, Scene.Start, Scene.Duration + Scene.Start])
                      .Select(time => MediaTimeJsonConverter.SnapToFrame(time, rate)))
         {

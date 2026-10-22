@@ -33,7 +33,7 @@ internal static class AnimationOperations
     // The frame rate key times snap to: the project's, or 30 fps outside a project.
     internal static Rational GetFrameRate(Scene? scene) => scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
 
-    // The keyframe at keyTime, where a key time read from a file counts as the frame it falls short of.
+    // The keyframe at keyTime, where a key time within a tick of a frame, as a template's can be, is at that frame.
     internal static IKeyFrame? FindKeyFrameOnFrame(IEnumerable<IKeyFrame> keyFrames, MediaTime keyTime, Rational rate)
     {
         MediaTime at = MediaTimeJsonConverter.SnapToFrame(keyTime, rate);

@@ -247,7 +247,7 @@ public sealed partial class ElementResizeService
         IReadOnlyList<SlippableMedia.Target> backTargets)
     {
         MediaTime minDuration = SceneTimeRangeService.GetFrameDuration(scene);
-        // Times read from a file count from the frames they fall short of.
+        // Clip ends within a tick of a frame, as a template's can be, count from that frame.
         MediaTime frontLength = SceneTimeRangeService.SnapToFrame(scene, front.Range.End)
                                 - SceneTimeRangeService.SnapToFrame(scene, front.Start);
         MediaTime backLength = SceneTimeRangeService.SnapToFrame(scene, back.Range.End)

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.JsonConverters;
 
 namespace Beutl.Serialization;
 
@@ -437,6 +438,7 @@ public static partial class CoreSerializer
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
         // The files a project references are read while it is, and record it as their project.
         using (RootFileVersions.BeginReading(obj as Project))
+        using (ReadOnProjectFrameGrid(obj))
         {
             PopulateFromJsonObjectCore(obj, type, json, options);
         }
@@ -445,6 +447,16 @@ public static partial class CoreSerializer
         {
             DuplicateIds.Report(project, "load");
         }
+    }
+
+    // A file read into a project outside the read of the project itself, such as a reload, is read on its frame grid.
+    private static IDisposable? ReadOnProjectFrameGrid(ICoreSerializable obj)
+    {
+        if (obj is Project || MediaTimeJsonConverter.ReadsOnFrameGrid)
+            return null;
+
+        Project? project = (obj as IHierarchical)?.FindHierarchicalParent<Project>() ?? RootFileVersions.GetProject(obj);
+        return project is null ? null : MediaTimeJsonConverter.ReadOnFrameGrid(Project.ReadFrameRate(project));
     }
 
     private static void AddLegacyTypeDiscriminator(JsonObject json, Type type)

@@ -646,12 +646,13 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     public Rational GetFrameRate() => Project.GetFrameRate();
 
-    // The scene's first and last frames, where a start or end read from a file counts as the frame it falls short of.
+    // The scene's first and last frames, where a start or end within a tick of a frame counts as that frame.
     private (MediaTime First, MediaTime Last) GetFirstAndLastFrames()
     {
         Rational rate = GetFrameRate();
-        MediaTime end = MediaTimeJsonConverter.SnapToFrame(Scene.Start + Scene.Duration, rate);
-        return (MediaTimeJsonConverter.SnapToFrame(Scene.Start, rate), end - MediaTime.FromFrames(1, rate));
+        Scene scene = Scene!;
+        MediaTime end = MediaTimeJsonConverter.SnapToFrame(scene.Start + scene.Duration, rate);
+        return (MediaTimeJsonConverter.SnapToFrame(scene.Start, rate), end - MediaTime.FromFrames(1, rate));
     }
 
     public void ToggleLoop()

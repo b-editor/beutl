@@ -2,6 +2,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Microsoft.Extensions.Logging;
@@ -80,7 +81,7 @@ public partial class EditViewModel
             }
 
             parsed = true;
-            TimelineOptions timelineOptions = ReadTimelineOptions(jsonObject);
+            TimelineOptions timelineOptions = ReadTimelineOptions(jsonObject, Player.GetFrameRate());
             _timelineOptionsProvider.Options.Value = timelineOptions;
 
             DockHost.ReadFromJson(jsonObject);
@@ -92,7 +93,8 @@ public partial class EditViewModel
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
             {
-                _editorClock.Seek(MediaTime.FromTimeSpan(currentTime));
+                // The view state is a file of the project, read on its frame grid.
+                _editorClock.Seek(MediaTimeJsonConverter.FromFileTicks(currentTime.Ticks, Player.GetFrameRate()));
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -125,7 +127,7 @@ public partial class EditViewModel
         }
     }
 
-    private static TimelineOptions ReadTimelineOptions(JsonObject jsonObject)
+    private static TimelineOptions ReadTimelineOptions(JsonObject jsonObject, Rational frameRate)
     {
         var timelineOptions = new TimelineOptions();
 
@@ -154,7 +156,7 @@ public partial class EditViewModel
         if (jsonObject.TryGetPropertyValue("bpm-grid", out JsonNode? bpmGridNode)
             && bpmGridNode is JsonObject bpmGridObj)
         {
-            var bpmGrid = ReadBpmGrid(bpmGridObj);
+            var bpmGrid = ReadBpmGrid(bpmGridObj, frameRate);
 
             timelineOptions = timelineOptions with { BpmGrid = bpmGrid };
         }
@@ -162,7 +164,7 @@ public partial class EditViewModel
         return timelineOptions;
     }
 
-    private static BpmGridOptions ReadBpmGrid(JsonObject bpmGridObj)
+    private static BpmGridOptions ReadBpmGrid(JsonObject bpmGridObj, Rational frameRate)
     {
         var bpmGrid = new BpmGridOptions();
 
@@ -174,7 +176,7 @@ public partial class EditViewModel
 
         if (bpmGridObj.TryGetPropertyValueAsJsonValue("offset", out string? bpmOffsetStr)
             && TimeSpan.TryParseExact(bpmOffsetStr, "c", CultureInfo.InvariantCulture, out TimeSpan bpmOffset))
-            bpmGrid = bpmGrid with { Offset = MediaTime.FromTimeSpan(bpmOffset) };
+            bpmGrid = bpmGrid with { Offset = MediaTimeJsonConverter.FromFileTicks(bpmOffset.Ticks, frameRate) };
 
         if (bpmGridObj.TryGetPropertyValueAsJsonValue("is-enabled", out bool isEnabled))
             bpmGrid = bpmGrid with { IsEnabled = isEnabled };

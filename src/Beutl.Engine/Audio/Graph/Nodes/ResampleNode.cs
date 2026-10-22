@@ -119,7 +119,7 @@ public sealed class ResampleNode : AudioNode
             ?? context.TimeRange.Start.ToSamples(SourceSampleRate, MidpointRounding.ToZero);
 
         // Same-rate input passes through unchanged, so read exactly the requested block. A block whose
-        // times were read from a file can end just past its last sample; rounding that end up would
+        // times are off the sample grid can end just past its last sample; rounding that end up would
         // pull one extra sample and skip it on the next contiguous read.
         long sourceEnd = SourceSampleRate == context.SampleRate
             ? sourceStart + context.GetSampleCount()

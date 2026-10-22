@@ -43,7 +43,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
 
     internal static MediaTime GetFrameDuration(Scene scene) => MediaTime.FromFrames(1, GetFrameRate(scene));
 
-    // A time read from a file taken back to the frame it falls short of; other times are kept.
+    // A time within a tick of a frame, as one written by hand can be, as that frame; other times are kept.
     internal static MediaTime SnapToFrame(Scene scene, MediaTime time)
         => MediaTimeJsonConverter.SnapToFrame(time, GetFrameRate(scene));
 

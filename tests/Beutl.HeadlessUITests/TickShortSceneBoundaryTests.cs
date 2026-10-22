@@ -7,15 +7,15 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
-// A scene end or a marker read back from a file falls up to a tick short of its frame; the timecode box, the Start
-// command and stepping between markers still treat it as that frame (#2885).
+// A scene end or a marker written by hand or read outside a project can fall up to a tick short of its frame; the
+// timecode box, the Start command and stepping between markers still treat it as that frame (#2885).
 [TestFixture]
-public sealed class ReopenedSceneBoundaryTests
+public sealed class TickShortSceneBoundaryTests
 {
     private static readonly string[] s_rates = ["30", "30000/1001"];
 
     [AvaloniaTest]
-    public async Task The_timecode_box_takes_the_last_frame_of_a_reopened_scene([ValueSource(nameof(s_rates))] string rateText)
+    public async Task The_timecode_box_takes_the_last_frame_of_a_scene_ending_a_tick_short([ValueSource(nameof(s_rates))] string rateText)
     {
         (EditViewModel editor, Rational rate) = await OpenAsync(rateText, frames: 2);
 
@@ -32,7 +32,7 @@ public sealed class ReopenedSceneBoundaryTests
     }
 
     [AvaloniaTest]
-    public async Task Start_from_the_last_frame_of_a_reopened_scene_goes_to_its_start([ValueSource(nameof(s_rates))] string rateText)
+    public async Task Start_from_the_last_frame_of_a_scene_ending_a_tick_short_goes_to_its_start([ValueSource(nameof(s_rates))] string rateText)
     {
         (EditViewModel editor, Rational rate) = await OpenAsync(rateText, frames: 2);
         var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
@@ -44,11 +44,11 @@ public sealed class ReopenedSceneBoundaryTests
     }
 
     [AvaloniaTest]
-    public async Task Stepping_back_from_a_reopened_marker_reaches_the_one_before_it([ValueSource(nameof(s_rates))] string rateText)
+    public async Task Stepping_back_from_a_marker_a_tick_short_reaches_the_one_before_it([ValueSource(nameof(s_rates))] string rateText)
     {
         (EditViewModel editor, Rational rate) = await OpenAsync(rateText, frames: 30);
-        editor.Scene.Markers.Add(new SceneMarker(Reopen(MediaTime.FromFrames(1, rate)), "first"));
-        editor.Scene.Markers.Add(new SceneMarker(Reopen(MediaTime.FromFrames(2, rate)), "second"));
+        editor.Scene.Markers.Add(new SceneMarker(TickShort(MediaTime.FromFrames(1, rate)), "first"));
+        editor.Scene.Markers.Add(new SceneMarker(TickShort(MediaTime.FromFrames(2, rate)), "second"));
         var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
         clock.Seek(MediaTime.FromFrames(2, rate));
 
@@ -57,19 +57,20 @@ public sealed class ReopenedSceneBoundaryTests
         Assert.That(clock.CurrentTime.Value, Is.EqualTo(MediaTime.FromFrames(1, rate)));
     }
 
-    // A scene of this many frames whose end, as a file gives it back, falls a little short of its frame.
+    // A scene of this many frames whose end falls a little short of its frame.
     private static async Task<(EditViewModel Editor, Rational Rate)> OpenAsync(string rateText, int frames)
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("reopened-scene");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tick-short-scene");
         Project project = editor.Scene.FindHierarchicalParent<Project>()!;
         project.Variables[ProjectVariableKeys.FrameRate] = rateText;
         Rational rate = project.GetFrameRate();
         editor.Scene.Start = MediaTime.Zero;
-        editor.Scene.Duration = Reopen(MediaTime.FromFrames(frames, rate));
+        editor.Scene.Duration = TickShort(MediaTime.FromFrames(frames, rate));
         HeadlessTestHelpers.Settle();
         return (editor, rate);
     }
 
-    private static MediaTime Reopen(MediaTime time) => JsonSerializer.Deserialize<MediaTime>(JsonSerializer.Serialize(time));
+    // A time as its TimeSpan string reads outside a project: rounded down to a tick, then up to a flick.
+    private static MediaTime TickShort(MediaTime time) => JsonSerializer.Deserialize<MediaTime>(JsonSerializer.Serialize(time));
 }

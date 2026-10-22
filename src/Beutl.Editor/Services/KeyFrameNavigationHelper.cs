@@ -77,7 +77,7 @@ public static class KeyFrameNavigationHelper
             {
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {
-                    // Times read from a file count as the frames they fall short of.
+                    // Times within a tick of a frame, as a template's key times can be, count as that frame.
                     MediaTime time = MediaTimeJsonConverter.SnapToFrame(kf.KeyTime, rate)
                                      + MediaTimeJsonConverter.SnapToFrame(offset, rate);
                     bool inDirection = forward ? time > current : time < current;
