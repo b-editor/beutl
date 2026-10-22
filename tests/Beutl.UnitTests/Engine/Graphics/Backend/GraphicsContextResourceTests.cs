@@ -95,9 +95,9 @@ public class GraphicsContextResourceTests
             var flushes = new List<ImmediateCanvasFlushKind>();
             using (ImmediateCanvas.ObserveFlushes(flushes.Add))
             {
-                DrawAndRelease(shared);
+                DrawAndRelease(shared, waitForDraw: true);
                 Assert.That(flushes, Is.Empty, "The shared context's canvases and reclaim queue already wait.");
-                DrawAndRelease(other);
+                DrawAndRelease(other, waitForDraw: false);
             }
 
             Assert.That(flushes, other is CompositeContext
@@ -106,11 +106,17 @@ public class GraphicsContextResourceTests
         });
 
         // The flush runs the release the texture deferred, which is where it waits for Skia.
-        static void DrawAndRelease(IGraphicsContext context)
+        static void DrawAndRelease(IGraphicsContext context, bool waitForDraw)
         {
             ITexture2D texture = context.CreateTexture2D(8, 8, TextureFormat.BGRA8Unorm);
             using (SKSurface surface = texture.CreateSkiaSurface())
+            {
                 surface.Canvas.Clear(SKColors.CornflowerBlue);
+                // As the shared context's canvases do before its textures go.
+                if (waitForDraw)
+                    surface.Flush(true, true);
+            }
+
             texture.Dispose();
             VulkanTestEnvironment.ResolveVulkan(context).FlushCommands(waitForCompletion: true);
         }
