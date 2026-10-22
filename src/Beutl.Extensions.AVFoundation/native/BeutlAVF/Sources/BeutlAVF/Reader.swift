@@ -204,6 +204,8 @@ final class VideoReaderContext {
 
     private func seek(to timestamp: CMTime) throws {
         cache.reset()
+        // A seek past the end decodes nothing, so the next read must not take its position from a frame before it.
+        currentTimestamp = timestamp
         let (newReader, newOutput) = try Self.makeReaderAndOutput(
             asset: asset, track: track, start: timestamp, pixelFormat: pixelFormat)
         self.reader = newReader

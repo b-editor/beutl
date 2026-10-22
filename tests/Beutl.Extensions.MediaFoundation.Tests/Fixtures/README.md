@@ -34,6 +34,7 @@ list and needs the audio seek to add that offset. `MFAudioVideoSyncTests` checks
 decoded picture/audio content, backward seeks, duration, and normalized EOF
 in both Audio and AudioVideo modes. Tests use the committed fixtures and do
 not require ffmpeg on the Windows runner.
+`AVFReaderSeekTests` in Beutl.Extensions.AVFoundation.Tests links `marker-bframes.mp4`.
 
 Regenerate with ffmpeg:
 
