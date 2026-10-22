@@ -1,4 +1,5 @@
 ﻿using System.Buffers.Binary;
+using Beutl.Configuration;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using HarfBuzzSharp;
@@ -66,6 +67,92 @@ public class FontCollectionTests
         {
             FontManager.Instance.ClearProjectFonts(project);
         }
+    }
+
+    [Test]
+    public void InstalledCollections_RegisterEveryFace()
+    {
+        var family = new FontFamily("Beutl Test Variable");
+        FontManager manager = CreateManager(Path.GetDirectoryName(_collection)!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(manager.FontFamilies, Is.SupersetOf(new[] { new FontFamily("Roboto"), family }));
+            Assert.That(manager.IsRegistered(family), Is.True);
+            // macOS loads a later face only when its family is first looked up.
+            Assert.That(manager._fonts.ContainsKey(family), Is.EqualTo(!OperatingSystem.IsMacOS()));
+        });
+        Assert.That(manager.TryResolveSkia(new Typeface(family), out SKTypeface face), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(face.FamilyName, Is.EqualTo(family.Name));
+            Assert.That(manager.GetTypefaces(family), Is.Not.Empty);
+        });
+    }
+
+    [Test]
+    public void ReadFamilyNames_NamesEveryFace()
+    {
+        Assert.That(FontManager.ReadFamilyNames(_collection), Is.EqualTo(new[] { "Roboto", "Beutl Test Variable" }));
+    }
+
+    [Test]
+    public void LoadCopy_StopsAtTheCapOfTheCollection()
+    {
+        // Faces sharing one set of tables make every copy as large as the font, as a crafted file can.
+        byte[] collection = CreateSharedCollection("Roboto-Regular.ttf", faces: 5);
+        long copy = FontCollection.CopyFace(collection, 1)!.Length;
+        var fonts = new FontCollection(_collection, collection, maxCopiedBytes: copy * 2);
+        SKTypeface?[] faces = [.. Enumerable.Range(1, 4).Select(fonts.LoadCopy)];
+        try
+        {
+            Assert.That(faces.Select(face => face?.FamilyName), Is.EqualTo(new[] { "Roboto", "Roboto", null, null }));
+        }
+        finally
+        {
+            foreach (SKTypeface? face in faces) face?.Dispose();
+        }
+    }
+
+    private static FontManager CreateManager(string fontDirectory)
+    {
+        var directories = GlobalConfiguration.Instance.FontConfig.FontDirectories;
+        directories.Add(fontDirectory);
+        try
+        {
+            return (FontManager)Activator.CreateInstance(typeof(FontManager), nonPublic: true)!;
+        }
+        finally
+        {
+            directories.Remove(fontDirectory);
+        }
+    }
+
+    private static byte[] CreateSharedCollection(string name, int faces)
+    {
+        byte[] font = ReadFont(name);
+        int tables = BinaryPrimitives.ReadUInt16BigEndian(font.AsSpan(4));
+        int directory = 12 + tables * 16;
+        int start = 12 + faces * 4 + (faces - 1) * directory;
+        for (int table = 0; table < tables; table++)
+        {
+            Span<byte> offset = font.AsSpan(12 + table * 16 + 8, 4);
+            BinaryPrimitives.WriteUInt32BigEndian(offset, BinaryPrimitives.ReadUInt32BigEndian(offset) + (uint)start);
+        }
+
+        byte[] collection = new byte[start + font.Length];
+        "ttcf"u8.CopyTo(collection);
+        BinaryPrimitives.WriteUInt32BigEndian(collection.AsSpan(4), 0x10000);
+        BinaryPrimitives.WriteUInt32BigEndian(collection.AsSpan(8), (uint)faces);
+        font.CopyTo(collection, start);
+        for (int face = 0; face < faces; face++)
+        {
+            int at = face == 0 ? start : 12 + faces * 4 + (face - 1) * directory;
+            BinaryPrimitives.WriteUInt32BigEndian(collection.AsSpan(12 + face * 4), (uint)at);
+            font.AsSpan(0, directory).CopyTo(collection.AsSpan(at));
+        }
+
+        return collection;
     }
 
     private static byte[] CreateCollection(params string[] names)

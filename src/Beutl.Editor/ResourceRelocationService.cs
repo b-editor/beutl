@@ -8,7 +8,6 @@ using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace Beutl.Editor;
 
@@ -365,9 +364,8 @@ public class ResourceRelocationService
     {
         try
         {
-            using SKTypeface? typeface = SKTypeface.FromFile(file);
-            if (typeface != null &&
-                string.Equals(typeface.FamilyName, fontFamilyName, StringComparison.OrdinalIgnoreCase))
+            // A collection bundles as a whole, whichever of its faces names the family.
+            if (FontManager.ReadFamilyNames(file).Contains(fontFamilyName, StringComparer.OrdinalIgnoreCase))
             {
                 foundFiles.Add(file);
             }
