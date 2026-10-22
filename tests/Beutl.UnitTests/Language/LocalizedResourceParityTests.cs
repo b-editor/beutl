@@ -10,10 +10,20 @@ namespace Beutl.UnitTests.Language;
 [TestFixture]
 public partial class LocalizedResourceParityTests
 {
+    // Every resx family in Beutl.Language, so a new one is checked without being listed here.
+    private static IEnumerable<string> Families()
+    {
+        const string Prefix = "Beutl.Language.";
+        const string Suffix = ".resources";
+        return typeof(Strings).Assembly.GetManifestResourceNames()
+            .Where(name => name.StartsWith(Prefix, StringComparison.Ordinal) && name.EndsWith(Suffix, StringComparison.Ordinal))
+            .Select(name => name[Prefix.Length..^Suffix.Length])
+            .Order(StringComparer.Ordinal);
+    }
+
     private static IEnumerable<TestCaseData> ResourceCases()
     {
-        string[] families = [nameof(Strings), nameof(SettingsStrings), nameof(ExtensionsStrings)];
-        foreach (string family in families)
+        foreach (string family in Families())
         {
             foreach (CultureInfo culture in LocalizeService.Instance.SupportedCultures())
             {
