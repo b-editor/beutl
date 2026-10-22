@@ -38,8 +38,8 @@ public class SaveRoundTripTests
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.FromSeconds(1),
-            Length: TimeSpan.FromSeconds(3),
+            Start: MediaTime.FromSeconds(1),
+            Length: MediaTime.FromSeconds(3),
             Layer: 2,
             Source: new ElementSource.EngineObject(
                 () => new RectShape { Width = { Value = 321 } }),
@@ -67,7 +67,7 @@ public class SaveRoundTripTests
         Element reopenedElement = reopenedScene.Children.Single(e => e.Id == elementId);
         Assert.That(reopenedElement.Name, Is.EqualTo("RoundTripRect"));
         Assert.That(reopenedElement.ZIndex, Is.EqualTo(4));
-        Assert.That(reopenedElement.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(reopenedElement.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
 
         RectShape reopenedRect = reopenedElement.Objects.OfType<RectShape>().Single();
         Assert.That(reopenedRect.Width.Value, Is.EqualTo(321));
@@ -220,8 +220,8 @@ public class SaveRoundTripTests
         var sourceEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
         var adder = (IElementAdder)sourceEditor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(1),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(1),
             Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))],
             CancellationToken.None);

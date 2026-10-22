@@ -215,11 +215,11 @@ public sealed partial class EditViewModel
 
     Scene IAiJobResultEditorContext.Scene => Scene;
 
-    TimeSpan IAiJobResultEditorContext.CurrentTime => Player.CurrentFrame.Value;
+    MediaTime IAiJobResultEditorContext.CurrentTime => Player.CurrentFrame.Value;
 
     IElementAdder IAiJobResultEditorContext.ElementAdder => _elementAdder;
 
-    int IAiJobResultEditorContext.GetNextLayer(TimeSpan start)
+    int IAiJobResultEditorContext.GetNextLayer(MediaTime start)
     {
         return Scene.Children
             .Where(item => item.Start <= start && start < item.Range.End)

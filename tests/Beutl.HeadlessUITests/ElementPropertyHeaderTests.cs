@@ -36,7 +36,7 @@ public class ElementPropertyHeaderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"element-headers-{Guid.NewGuid():N}");
         Scene scene = editor.Scene;
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
+        await adder.AddAsync([new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 0,
             new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
         Element element = scene.Children.First();
         var firstObject = element.Objects[0];

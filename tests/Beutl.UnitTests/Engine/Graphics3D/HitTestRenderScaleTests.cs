@@ -54,7 +54,7 @@ public class HitTestRenderScaleTests
 
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var context = new CompositionContext(TimeSpan.Zero);
+            var context = new CompositionContext(MediaTime.Zero);
             (Camera3D.Resource camera, Sphere3D.Resource sphere) = BuildScene(context);
             var objects = new List<Object3D.Resource> { sphere };
 

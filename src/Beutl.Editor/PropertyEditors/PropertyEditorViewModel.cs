@@ -25,7 +25,7 @@ namespace Beutl.Editor.PropertyEditors;
 public abstract class PropertyEditorViewModel : IPropertyEditorContext, IServiceProvider
 {
     protected readonly ILogger Logger;
-    private readonly BehaviorSubject<TimeSpan> _currentTime;
+    private readonly BehaviorSubject<MediaTime> _currentTime;
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     protected CompositeDisposable Disposables = [];
     private IDisposable? _currentFrameRevoker;
@@ -59,7 +59,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
         // Keeps the clock's last time for a value subscribed after Accept; completes during disposal so stale clock
         // writes are ignored.
-        _currentTime = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        _currentTime = new BehaviorSubject<MediaTime>(MediaTime.Zero);
         CurrentTime = _currentTime.AsObservable();
 
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
@@ -195,7 +195,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public ReactivePropertySlim<float> KeyFrameIndex { get; } = new();
 
-    public IObservable<TimeSpan> CurrentTime { get; }
+    public IObservable<MediaTime> CurrentTime { get; }
 
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 
@@ -248,8 +248,8 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
                 if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
                 {
-                    TimeSpan start = _element?.Start ?? default;
-                    TimeSpan keyTime = EditingKeyFrame.Value.KeyTime;
+                    MediaTime start = _element?.Start ?? default;
+                    MediaTime keyTime = EditingKeyFrame.Value.KeyTime;
 
                     _clock.Seek(animation.UseGlobalClock ? keyTime : keyTime + start);
                 }
@@ -268,24 +268,23 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     }
 
     // Marks the playhead sitting on a keyframe, and moves the index slider to it.
-    private void UpdateKeyFrameIndicator((TimeSpan First, KeyFrames? Second) t)
+    private void UpdateKeyFrameIndicator((MediaTime First, KeyFrames? Second) t)
     {
         if (GetAnimation() is { } animation)
         {
-            int rate = _scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? 30;
+            Rational rate = _scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
 
-            TimeSpan globalkeyTime = t.First;
-            TimeSpan localKeyTime =
+            MediaTime globalkeyTime = t.First;
+            MediaTime localKeyTime =
                 _element != null ? globalkeyTime - _element.Start : globalkeyTime;
-            TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
-            keyTime = keyTime.RoundToRate(rate);
+            MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+            keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-            IsAtKeyFrame.Value = t.Second?.Any(obj => obj.KeyTime == keyTime) ?? false;
+            IKeyFrame? atFrame = t.Second != null ? AnimationOperations.FindKeyFrameOnFrame(t.Second, keyTime, rate) : null;
+            IsAtKeyFrame.Value = atFrame != null;
             if (t.Second != null)
             {
-                float kfIndex = t.Second.IndexAtOrCount(keyTime);
-                if (!IsAtKeyFrame.Value)
-                    kfIndex -= 0.5f;
+                float kfIndex = atFrame != null ? t.Second.IndexOf(atFrame) : t.Second.IndexAtOrCount(keyTime) - 0.5f;
 
                 _skipKeyFrameIndexSubscription = KeyFrameIndex.Value != kfIndex;
                 KeyFrameIndex.Value = kfIndex;
@@ -376,11 +375,11 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         PropertyAdapter = null!;
     }
 
-    public virtual void InsertKeyFrame(TimeSpan keyTime)
+    public virtual void InsertKeyFrame(MediaTime keyTime)
     {
     }
 
-    public virtual void RemoveKeyFrame(TimeSpan keyTime)
+    public virtual void RemoveKeyFrame(MediaTime keyTime)
     {
     }
 

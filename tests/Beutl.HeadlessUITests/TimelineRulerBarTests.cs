@@ -38,12 +38,12 @@ public class TimelineRulerBarTests
     [TestCase("start", RulerDragEnd.Escape)]
     public async Task Capture_loss_and_playback_keep_a_ruler_drag_and_Escape_and_Undo_revert_it(string target, RulerDragEnd end)
     {
-        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-ruler-drag-end", TimeSpan.FromSeconds(2));
+        using TimelineTestHost host = await TimelineTestHost.CreateAsync("timeline-ruler-drag-end", MediaTime.FromSeconds(2));
         var editor = (EditViewModel)host.Model.EditorContext;
         HistoryManager history = editor.HistoryManager;
         Scene scene = host.Scene;
         Window window = host.Window;
-        var marker = new SceneMarker(TimeSpan.FromSeconds(0.8), name: "Cue");
+        var marker = new SceneMarker(MediaTime.FromSeconds(0.8), name: "Cue");
         scene.Markers.Add(marker);
         history.Commit();
         history.ExecuteInTransaction(() => marker.Note = "earlier", "Earlier");
@@ -54,11 +54,11 @@ public class TimelineRulerBarTests
             RoutingStrategies.Bubble, handledEventsToo: true);
 
         // 150 px per second: the marker sits at 120 px, the ending bar at 300 px and the starting bar at 0 px.
-        (double from, double to, TimeSpan initial, TimeSpan reached) = target switch
+        (double from, double to, MediaTime initial, MediaTime reached) = target switch
         {
-            "marker" => (120d, 180d, TimeSpan.FromSeconds(0.8), TimeSpan.FromSeconds(1.2)),
-            "end" => (298d, 270d, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1.8)),
-            _ => (2d, 30d, TimeSpan.Zero, TimeSpan.FromSeconds(0.2))
+            "marker" => (120d, 180d, MediaTime.FromSeconds(0.8), MediaTime.FromSeconds(1.2)),
+            "end" => (298d, 270d, MediaTime.FromSeconds(2), MediaTime.FromSeconds(1.8)),
+            _ => (2d, 30d, MediaTime.Zero, MediaTime.FromSeconds(0.2))
         };
         Point press = host.Ruler.TranslatePoint(new Point(from, 8), window)!.Value;
         Point moved = host.Ruler.TranslatePoint(new Point(to, 8), window)!.Value;
@@ -104,7 +104,7 @@ public class TimelineRulerBarTests
         Assert.Multiple(() =>
         {
             Assert.That(Value(), Is.EqualTo(kept ? reached : initial));
-            Assert.That(scene.Start + scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(target == "end" && kept ? 1.8 : 2)));
+            Assert.That(scene.Start + scene.Duration, Is.EqualTo(MediaTime.FromSeconds(target == "end" && kept ? 1.8 : 2)));
             Assert.That(marker.Note, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
             Assert.That(history.UndoCount, Is.EqualTo(undoCount + (kept ? 1 : 0)));
             Assert.That(history.IsEditing, Is.False);
@@ -117,7 +117,7 @@ public class TimelineRulerBarTests
             Assert.That(Value(), Is.EqualTo(initial), "The drag is one entry.");
         }
 
-        TimeSpan Value() => target switch
+        MediaTime Value() => target switch
         {
             "marker" => marker.Time,
             "end" => scene.Duration,
@@ -134,8 +134,8 @@ public class TimelineRulerBarTests
     {
         using TimelineTestHost host = await TimelineTestHost.CreateAsync(
             "timeline-ruler",
-            TimeSpan.FromSeconds(2),
-            [new ElementDescription(TimeSpan.FromSeconds(0.2), TimeSpan.FromSeconds(1.2), 0,
+            MediaTime.FromSeconds(2),
+            [new ElementDescription(MediaTime.FromSeconds(0.2), MediaTime.FromSeconds(1.2), 0,
                 new ElementSource.EngineObject(() => new RectShape()))],
             width: width,
             theme: light ? ThemeVariant.Light : ThemeVariant.Dark);
@@ -147,33 +147,33 @@ public class TimelineRulerBarTests
         TimelineScale ruler = host.Ruler;
         ScrollViewer content = host.Content;
         Panel timeline = host.Timeline;
-        var marker = new SceneMarker(TimeSpan.FromSeconds(0.8), name: "Cue");
+        var marker = new SceneMarker(MediaTime.FromSeconds(0.8), name: "Cue");
         scene.Markers.Add(marker);
         HeadlessTestHelpers.Render();
         CheckLayout();
 
         // The 32px ruler and the 6px margin above it seek along the same time axis.
         Click(ruler, new Point(75, 24));
-        Assert.That(model.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
+        Assert.That(model.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
         Click(bar, new Point(90, 4));
-        Assert.That(model.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(0.6)));
+        Assert.That(model.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.6)));
 
         Drag(ruler, new Point(120, 8), new Point(180, 8), TimelineHelper.MouseFlags.MarkerPressed);
-        Assert.That(marker.Time, Is.EqualTo(TimeSpan.FromSeconds(1.2)));
+        Assert.That(marker.Time, Is.EqualTo(MediaTime.FromSeconds(1.2)));
 
         // Playback range handles are hit in the ruler's own coordinates.
         Drag(ruler, new Point(298, 8), new Point(270, 8), TimelineHelper.MouseFlags.EndingBarMarkerPressed);
-        Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.8)));
+        Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.8)));
         Drag(ruler, new Point(2, 8), new Point(30, 8), TimelineHelper.MouseFlags.StartingBarMarkerPressed);
-        Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(0.2)));
-        Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1.6)));
+        Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(0.2)));
+        Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.6)));
 
         model.Options.Value = model.Options.Value with { Offset = new System.Numerics.Vector2(75, 0) };
         HeadlessTestHelpers.Render();
         Assert.That(content.Offset.X, Is.EqualTo(75));
         CheckLayout();
         Click(bar, new Point(75, 4));
-        Assert.That(model.CurrentTime.Value, Is.EqualTo(TimeSpan.FromSeconds(1)));
+        Assert.That(model.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
 
         Point zoomPoint = bar.TranslatePoint(new Point(100, 4), window)!.Value;
         window.MouseWheel(zoomPoint, new Vector(0, 1), TimelineTestHost.CommandModifier);

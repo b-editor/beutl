@@ -94,8 +94,8 @@ public sealed class Scene3DGizmoStateTests
             scene3D.Objects.Add(cube);
             var element = new Element
             {
-                Start = TimeSpan.Zero,
-                Length = TimeSpan.FromSeconds(1),
+                Start = MediaTime.Zero,
+                Length = MediaTime.FromSeconds(1),
                 IsEnabled = true,
             };
             element.AddObject(scene3D);
@@ -123,7 +123,7 @@ public sealed class Scene3DGizmoStateTests
     {
         using (renderer)
         {
-            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.Zero));
+            renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
             using Bitmap snapshot = renderer.Snapshot();
             using Bitmap srgb = snapshot.Convert(
                 BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);

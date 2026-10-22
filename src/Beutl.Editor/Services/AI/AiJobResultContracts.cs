@@ -13,11 +13,11 @@ public interface IAiJobResultEditorContext : IEditorContext
 {
     Scene Scene { get; }
 
-    TimeSpan CurrentTime { get; }
+    MediaTime CurrentTime { get; }
 
     IElementAdder ElementAdder { get; }
 
-    int GetNextLayer(TimeSpan start);
+    int GetNextLayer(MediaTime start);
 }
 
 /// <summary>

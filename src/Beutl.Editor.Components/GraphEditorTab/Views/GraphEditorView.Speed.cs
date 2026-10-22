@@ -73,7 +73,7 @@ public partial class GraphEditorView
                 Point vector = GraphEditorTangentCoupling.Opposite(model,
                     GraphEditorTangentCoupling.Vector(state.Item, state.Incoming), state.OppositeVector);
                 int oppositeIndex = channel.KeyFrames.IndexOf(opposite);
-                double duration = (opposite.Model.KeyTime - channel.KeyFrames[oppositeIndex - 1].Model.KeyTime).TotalSeconds;
+                double duration = (opposite.Model.KeyTime - channel.KeyFrames[oppositeIndex - 1].Model.KeyTime).ToSeconds();
                 if (duration > 0 && Math.Abs(vector.X) > 1e-9)
                     SetVelocity(opposite, !state.Incoming, vector.Y / vector.X, Math.Abs(vector.X) / duration);
             }
@@ -88,7 +88,7 @@ public partial class GraphEditorView
         if (index <= 0) return;
         var previous = item.Parent.KeyFrames[index - 1].Model;
         double difference = item.Parent.ConvertToDouble(item.Model.Value) - item.Parent.ConvertToDouble(previous.Value);
-        double duration = (item.Model.KeyTime - previous.KeyTime).TotalSeconds;
+        double duration = (item.Model.KeyTime - previous.KeyTime).ToSeconds();
         if (duration <= 0) return;
         var spline = GraphEditorCurveMath.ToSpline(item.Model.Easing);
         if (replaceEasing) spline = new SplineEasing(spline.X1, spline.Y1, spline.X2, spline.Y2);

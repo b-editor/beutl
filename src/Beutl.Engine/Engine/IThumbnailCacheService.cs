@@ -4,13 +4,13 @@ namespace Beutl.Engine;
 
 public interface IThumbnailCacheService
 {
-    bool TryGet(string cacheKey, TimeSpan time, TimeSpan threshold, out Bitmap? bitmap);
+    bool TryGet(string cacheKey, MediaTime time, MediaTime threshold, out Bitmap? bitmap);
 
-    void Save(string cacheKey, TimeSpan time, Bitmap bitmap);
+    void Save(string cacheKey, MediaTime time, Bitmap bitmap);
 
-    bool TryGetWaveform(string cacheKey, TimeSpan time, TimeSpan threshold, out float minValue, out float maxValue);
+    bool TryGetWaveform(string cacheKey, MediaTime time, MediaTime threshold, out float minValue, out float maxValue);
 
-    void SaveWaveform(string cacheKey, TimeSpan time, float minValue, float maxValue);
+    void SaveWaveform(string cacheKey, MediaTime time, float minValue, float maxValue);
 
     void Invalidate(string cacheKey);
 }

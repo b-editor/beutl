@@ -41,7 +41,7 @@ public partial class DelayAnimationEffect : FilterEffect
     /// keeping one child resource per target in <c>cache</c>.
     /// </summary>
     private static void ApplyDelayed(
-        (float delay, TimeSpan globalTime, FilterEffect childEffect, List<FilterEffect.Resource> cache,
+        (float delay, MediaTime globalTime, FilterEffect childEffect, List<FilterEffect.Resource> cache,
             bool disableResourceShare, bool preferProxy, ProxyPreset preferredProxyPreset) data,
         CustomFilterEffectContext effectContext)
     {
@@ -49,7 +49,7 @@ public partial class DelayAnimationEffect : FilterEffect
 
         for (int i = data.cache.Count; i < targetCount; i++)
         {
-            TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * i);
+            MediaTime delayedTime = data.globalTime - MediaTime.FromSeconds(data.delay * i / 1000d);
             data.cache.Add(data.childEffect.ToResource(CreateDelayedContext(
                 delayedTime,
                 data.disableResourceShare,
@@ -68,7 +68,7 @@ public partial class DelayAnimationEffect : FilterEffect
             EffectTarget target = effectContext.Targets[i];
             if (target.IsEmpty) continue;
 
-            TimeSpan delayedTime = data.globalTime - TimeSpan.FromMilliseconds(data.delay * j);
+            MediaTime delayedTime = data.globalTime - MediaTime.FromSeconds(data.delay * j / 1000d);
             var delayedContext = CreateDelayedContext(
                 delayedTime,
                 data.disableResourceShare,
@@ -113,7 +113,7 @@ public partial class DelayAnimationEffect : FilterEffect
     /// and proxy preferences.
     /// </summary>
     private static CompositionContext CreateDelayedContext(
-        TimeSpan delayedTime,
+        MediaTime delayedTime,
         bool disableResourceShare,
         bool preferProxy,
         ProxyPreset preferredProxyPreset)
@@ -136,7 +136,7 @@ public partial class DelayAnimationEffect : FilterEffect
     {
         private float _delay;
         private FilterEffect.Resource? _effect;
-        private TimeSpan _globalTime;
+        private MediaTime _globalTime;
         private bool _disableResourceShare;
         private bool _preferProxy;
         private ProxyPreset _preferredProxyPreset = ProxyPreset.Quarter;
@@ -146,7 +146,7 @@ public partial class DelayAnimationEffect : FilterEffect
 
         public FilterEffect.Resource? Effect => _effect;
 
-        public TimeSpan GlobalTime => _globalTime;
+        public MediaTime GlobalTime => _globalTime;
 
         public bool DisableResourceShare => _disableResourceShare;
 
@@ -170,7 +170,7 @@ public partial class DelayAnimationEffect : FilterEffect
                 _delayedResources.Clear();
             }
 
-            TimeSpan oldTime = _globalTime;
+            MediaTime oldTime = _globalTime;
             bool oldPreferProxy = _preferProxy;
             ProxyPreset oldPreferredPreset = _preferredProxyPreset;
             _globalTime = context.Time;

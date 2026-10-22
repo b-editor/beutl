@@ -34,13 +34,13 @@ public sealed class SceneSnapshotTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(640, 360, "Scene")
         {
-            Duration = TimeSpan.FromSeconds(4),
+            Duration = MediaTime.FromSeconds(4),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "el.belm"))
         };
         element.AddObject(new Scene3D());
@@ -48,17 +48,17 @@ public sealed class SceneSnapshotTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(StillRenderer.ContainsGpuOnlyContent(scene, TimeSpan.FromSeconds(1)), Is.True);
-            Assert.That(StillRenderer.ContainsGpuOnlyContent(scene, TimeSpan.FromSeconds(3)), Is.False);
+            Assert.That(StillRenderer.ContainsGpuOnlyContent(scene, MediaTime.FromSeconds(1)), Is.True);
+            Assert.That(StillRenderer.ContainsGpuOnlyContent(scene, MediaTime.FromSeconds(3)), Is.False);
             Assert.That(StillRenderer.ContainsGpuOnlyContent(scene), Is.True);
         });
 
         // Trimming the scene to [10s, 14s) puts the 3D element outside the visible window entirely.
-        scene.Start = TimeSpan.FromSeconds(10);
+        scene.Start = MediaTime.FromSeconds(10);
 
         Assert.Multiple(() =>
         {
-            Assert.That(StillRenderer.ContainsGpuOnlyContent(scene, TimeSpan.FromSeconds(1)), Is.False);
+            Assert.That(StillRenderer.ContainsGpuOnlyContent(scene, MediaTime.FromSeconds(1)), Is.False);
             Assert.That(StillRenderer.ContainsGpuOnlyContent(scene), Is.False);
         });
     }
@@ -167,12 +167,12 @@ public sealed class SceneSnapshotTests
         string dir = TestWorkspace.CreateDirectory();
         var sceneA = new Scene(640, 360, "A")
         {
-            Duration = TimeSpan.FromSeconds(2),
+            Duration = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "A.scene"))
         };
         var sceneB = new Scene(640, 360, "B")
         {
-            Duration = TimeSpan.FromSeconds(2),
+            Duration = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "B.scene"))
         };
         AddReferenceElement(sceneA, sceneB, Path.Combine(dir, "a-el.belm"));
@@ -187,8 +187,8 @@ public sealed class SceneSnapshotTests
             drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(target.Id);
             var element = new Element
             {
-                Start = TimeSpan.Zero,
-                Length = TimeSpan.FromSeconds(2),
+                Start = MediaTime.Zero,
+                Length = MediaTime.FromSeconds(2),
                 Uri = new Uri(uri)
             };
             element.AddObject(drawable);
@@ -202,21 +202,21 @@ public sealed class SceneSnapshotTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(640, 360, "Scene")
         {
-            Start = TimeSpan.FromSeconds(10),
+            Start = MediaTime.FromSeconds(10),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var element = new Element
         {
-            Start = TimeSpan.FromSeconds(10),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(10),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "el.belm"))
         };
         scene.Children.Add(element);
 
         // The frame at local time 1s renders at 11s (time + scene.Start), where the element is visible.
-        IReadOnlyList<RenderStillActiveElement> visible = StillRenderer.CreateActiveElementSummaries(scene, TimeSpan.FromSeconds(1));
+        IReadOnlyList<RenderStillActiveElement> visible = StillRenderer.CreateActiveElementSummaries(scene, MediaTime.FromSeconds(1));
         // Local time 5s renders at 15s, past the element's range.
-        IReadOnlyList<RenderStillActiveElement> hidden = StillRenderer.CreateActiveElementSummaries(scene, TimeSpan.FromSeconds(5));
+        IReadOnlyList<RenderStillActiveElement> hidden = StillRenderer.CreateActiveElementSummaries(scene, MediaTime.FromSeconds(5));
 
         Assert.Multiple(() =>
         {
@@ -230,18 +230,18 @@ public sealed class SceneSnapshotTests
         string dir = TestWorkspace.CreateDirectory();
         var outer = new Scene(640, 360, "Outer")
         {
-            Duration = TimeSpan.FromSeconds(4),
+            Duration = MediaTime.FromSeconds(4),
             Uri = new Uri(Path.Combine(dir, "Outer.scene"))
         };
         var referenced = new Scene(640, 360, "Referenced")
         {
-            Duration = TimeSpan.FromSeconds(4),
+            Duration = MediaTime.FromSeconds(4),
             Uri = new Uri(Path.Combine(dir, "Referenced.scene"))
         };
         var referencedElement = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(4),
             Uri = new Uri(Path.Combine(dir, "ref-el.belm"))
         };
         referencedElement.AddObject(new Scene3D());
@@ -249,8 +249,8 @@ public sealed class SceneSnapshotTests
 
         var outerElement = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(4),
             Uri = new Uri(Path.Combine(dir, "outer-el.belm"))
         };
         outerElement.AddObject(makeReference(referenced));

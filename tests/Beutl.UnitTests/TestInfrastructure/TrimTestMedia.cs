@@ -16,7 +16,7 @@ namespace Beutl.UnitTests.TestInfrastructure;
 /// </summary>
 internal static class TrimTestMedia
 {
-    public static TimeSpan Seconds(double value) => TimeSpan.FromSeconds(value);
+    public static MediaTime Seconds(double value) => MediaTime.FromSeconds(value);
 
     // A 100x100 test video at 30 fps that lasts durationSeconds.
     public static VideoSource CreateVideoSource(int durationSeconds)
@@ -35,7 +35,7 @@ internal static class TrimTestMedia
         };
 
     // Adds the SourceVideo, SourceSound or SceneSound that mediaType names, with a source of durationSeconds.
-    public static (IProperty<float> Speed, IProperty<TimeSpan> Offset) AddMedia(
+    public static (IProperty<float> Speed, IProperty<MediaTime> Offset) AddMedia(
         Element element,
         string mediaType,
         float speed,
@@ -45,7 +45,7 @@ internal static class TrimTestMedia
     {
         EngineObject media;
         IProperty<float> speedProperty;
-        IProperty<TimeSpan> offsetProperty;
+        IProperty<MediaTime> offsetProperty;
         switch (mediaType)
         {
             case nameof(SourceVideo):
@@ -92,7 +92,7 @@ internal static class TrimTestMedia
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = useGlobalClock };
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 100,
             Easing = new LinearEasing()
         });

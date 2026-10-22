@@ -75,10 +75,10 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
         set => Validator = value as IValidator<T>;
     }
 
-    public TimeSpan Duration
+    public MediaTime Duration
         => KeyFrames.Count > 0
             ? KeyFrames[^1].KeyTime
-            : TimeSpan.Zero;
+            : MediaTime.Zero;
 
     public bool Validate(out string? error)
     {
@@ -93,12 +93,12 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
         return KeyFrames.GetPreviousAndNextKeyFrame(keyframe);
     }
 
-    public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(TimeSpan timeSpan)
+    public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(MediaTime timeSpan)
     {
         return KeyFrames.GetPreviousAndNextKeyFrame(timeSpan);
     }
 
-    public T? GetAnimatedValue(TimeSpan time)
+    public T? GetAnimatedValue(MediaTime time)
     {
         if (_parent != null && !UseGlobalClock)
         {
@@ -108,7 +108,7 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
         return Interpolate(time);
     }
 
-    public T? Interpolate(TimeSpan timeSpan)
+    public T? Interpolate(MediaTime timeSpan)
     {
         (IKeyFrame? prev, IKeyFrame? next) = GetPreviousAndNextKeyFrame(timeSpan);
 
@@ -116,15 +116,15 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
         {
             T? nextValue = next2.Value;
             T? prevValue = prev is KeyFrame<T> prev2 ? prev2.Value : nextValue;
-            TimeSpan prevTime = prev?.KeyTime ?? TimeSpan.Zero;
-            TimeSpan nextTime = next.KeyTime;
+            MediaTime prevTime = prev?.KeyTime ?? MediaTime.Zero;
+            MediaTime nextTime = next.KeyTime;
             // Zero除算になるので
             if (nextTime == prevTime)
             {
                 return nextValue;
             }
 
-            float progress = (float)((timeSpan - prevTime) / (nextTime - prevTime));
+            float progress = (float)((double)(timeSpan - prevTime).Flicks / (nextTime - prevTime).Flicks);
             float ease = next.Easing.Ease(progress);
             if (prevValue == null)
                 return nextValue;

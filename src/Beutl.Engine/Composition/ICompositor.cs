@@ -4,7 +4,7 @@ namespace Beutl.Composition;
 
 public interface ICompositor : IDisposable
 {
-    CompositionFrame EvaluateGraphics(TimeSpan time);
+    CompositionFrame EvaluateGraphics(MediaTime time);
 
     CompositionFrame EvaluateAudio(TimeRange timeRange);
 }

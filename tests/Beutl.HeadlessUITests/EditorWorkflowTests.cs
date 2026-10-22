@@ -17,12 +17,12 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class EditorWorkflowTests
 {
-    private static async Task<Element> AddRectangle(EditViewModel editor, TimeSpan start, int layer)
+    private static async Task<Element> AddRectangle(EditViewModel editor, MediaTime start, int layer)
     {
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
             Start: start,
-            Length: TimeSpan.FromSeconds(2),
+            Length: MediaTime.FromSeconds(2),
             Layer: layer,
             Source: new ElementSource.EngineObject(() => new RectShape()))],
             CancellationToken.None);
@@ -50,7 +50,7 @@ public class EditorWorkflowTests
         Assert.That(editor.Scene.Children, Is.Empty);
         Assert.That(editor.HistoryManager.CanUndo, Is.False);
 
-        Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+        Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
 
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
         Assert.That(editor.Scene.Children[0], Is.SameAs(element));
@@ -66,7 +66,7 @@ public class EditorWorkflowTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("addelem-next-save");
         using IDisposable autoSave = SuppressAutoSave();
-        Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+        Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
         bool writtenByTheAdd = File.Exists(element.Uri!.LocalPath);
 
         Assert.That(await editor.SaveAsync(), Is.True);
@@ -87,7 +87,7 @@ public class EditorWorkflowTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("addelem-undo-before-save");
         using IDisposable autoSave = SuppressAutoSave();
-        Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+        Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
 
         Assert.That(editor.HistoryManager.Undo(), Is.True);
         Assert.That(await editor.SaveAsync(), Is.True);
@@ -110,7 +110,7 @@ public class EditorWorkflowTests
         try
         {
             editor.Scene.Uri = null;
-            Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+            Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
             Uri temporary = element.Uri!;
             bool inTemporaryStorage = FilePathComparison.IsSameOrDescendant(
                 UnsavedSceneStorage.GetDirectory(editor.Scene.Id),
@@ -175,8 +175,8 @@ public class EditorWorkflowTests
             source.ReadFrom(new Uri(imagePath));
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
             await adder.AddAsync([new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(2),
+                Start: MediaTime.Zero,
+                Length: MediaTime.FromSeconds(2),
                 Layer: 0,
                 Source: new ElementSource.EngineObject(() =>
                 {
@@ -216,7 +216,7 @@ public class EditorWorkflowTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("undoprop");
-        Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+        Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
 
         // Exercises the observer-to-history pipeline, not an edit service.
         int originalZIndex = element.ZIndex;
@@ -243,7 +243,7 @@ public class EditorWorkflowTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("undoadd");
-        Element element = await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+        Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
         Guid elementId = element.Id;
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
 
@@ -267,7 +267,7 @@ public class EditorWorkflowTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(useMenu ? "editor-history-menu" : "editor-history");
-        await AddRectangle(editor, TimeSpan.Zero, layer: 0);
+        await AddRectangle(editor, MediaTime.Zero, layer: 0);
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
 
         IUndoRedoEditorContext history = editor;

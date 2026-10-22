@@ -16,7 +16,7 @@ public class ElementDuplicateServiceTests
     [SetUp]
     public void Setup()
     {
-        _harness = new SceneHistoryHarness("beutl_dup", start: TimeSpan.Zero, duration: TimeSpan.FromSeconds(60));
+        _harness = new SceneHistoryHarness("beutl_dup", start: MediaTime.Zero, duration: MediaTime.FromSeconds(60));
         _scene = _harness.Scene;
         _history = _harness.History;
         _service = new ElementDuplicateService(_history);
@@ -28,7 +28,7 @@ public class ElementDuplicateServiceTests
         _harness.Dispose();
     }
 
-    private Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0)
+    private Element AddElement(MediaTime start, MediaTime length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
     [Test]
@@ -40,11 +40,11 @@ public class ElementDuplicateServiceTests
     [Test]
     public void DuplicateAtPosition_NonOverlapping_CommitsOneEntry()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
         int childrenBefore = _scene.Children.Count;
 
-        bool success = _service.DuplicateAtPosition(_scene, [element], TimeSpan.FromSeconds(10), 0);
+        bool success = _service.DuplicateAtPosition(_scene, [element], MediaTime.FromSeconds(10), 0);
 
         Assert.Multiple(() =>
         {
@@ -59,7 +59,7 @@ public class ElementDuplicateServiceTests
     {
         int before = _history.UndoCount;
 
-        bool success = _service.DuplicateAtPosition(_scene, [], TimeSpan.FromSeconds(10), 0);
+        bool success = _service.DuplicateAtPosition(_scene, [], MediaTime.FromSeconds(10), 0);
 
         Assert.Multiple(() =>
         {
@@ -71,15 +71,15 @@ public class ElementDuplicateServiceTests
     [Test]
     public void DuplicateAtClickedPosition_ClickInEmptySlot_PlacesAtClick()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [element], TimeSpan.FromSeconds(15), 0);
+            _scene, [element], MediaTime.FromSeconds(15), 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Success, Is.True);
-            Assert.That(outcome.ScrollToRange.Start, Is.EqualTo(TimeSpan.FromSeconds(15)));
+            Assert.That(outcome.ScrollToRange.Start, Is.EqualTo(MediaTime.FromSeconds(15)));
             Assert.That(outcome.ScrollToZIndex, Is.EqualTo(0));
         });
     }
@@ -87,7 +87,7 @@ public class ElementDuplicateServiceTests
     [Test]
     public void DuplicateAtClickedPosition_ClickOnExisting_FindsOpenSlot()
     {
-        Element element = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
             _scene, [element], element.Start, 0);
@@ -105,7 +105,7 @@ public class ElementDuplicateServiceTests
     public void DuplicateAtClickedPosition_EmptySources_ReturnsFailed()
     {
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [], TimeSpan.FromSeconds(5), 0);
+            _scene, [], MediaTime.FromSeconds(5), 0);
 
         Assert.That(outcome.Success, Is.False);
     }
@@ -113,13 +113,13 @@ public class ElementDuplicateServiceTests
     [Test]
     public void DuplicateAtClickedPosition_LockedSource_IsExcluded()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         locked.IsLocked = true;
-        Element free = AddElement(TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(2));
+        Element free = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         int childrenBefore = _scene.Children.Count;
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [locked, free], TimeSpan.FromSeconds(20), 0);
+            _scene, [locked, free], MediaTime.FromSeconds(20), 0);
 
         Assert.Multiple(() =>
         {
@@ -131,11 +131,11 @@ public class ElementDuplicateServiceTests
     [Test]
     public void DuplicateAtClickedPosition_ClickedOnLockedLayer_PlacesElsewhere()
     {
-        Element source = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element source = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 0);
         _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [source], TimeSpan.FromSeconds(20), 3);
+            _scene, [source], MediaTime.FromSeconds(20), 3);
 
         Assert.Multiple(() =>
         {
@@ -150,13 +150,13 @@ public class ElementDuplicateServiceTests
     {
         // Sources on layers 0 and 2; the locked layer 1 sits in the gap and no
         // duplicate lands on it, so the placement must succeed.
-        Element bottom = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
-        Element top = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
+        Element bottom = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 0);
+        Element top = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 2);
         _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
         int childrenBefore = _scene.Children.Count;
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [bottom, top], TimeSpan.FromSeconds(20), 0);
+            _scene, [bottom, top], MediaTime.FromSeconds(20), 0);
 
         Assert.Multiple(() =>
         {
@@ -172,19 +172,19 @@ public class ElementDuplicateServiceTests
         // Sources on layers 0 and 2; a clip sits on the gap layer 1 at the clicked
         // time. No duplicate lands on layer 1, so it must not block the placement —
         // the duplicates keep the clicked start/zIndex instead of being nudged away.
-        Element bottom = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 0);
-        Element top = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 2);
-        AddElement(TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(2), zIndex: 1);
+        Element bottom = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 0);
+        Element top = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 2);
+        AddElement(MediaTime.FromSeconds(20), MediaTime.FromSeconds(2), zIndex: 1);
         int childrenBefore = _scene.Children.Count;
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [bottom, top], TimeSpan.FromSeconds(20), 0);
+            _scene, [bottom, top], MediaTime.FromSeconds(20), 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Success, Is.True);
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 2));
-            Assert.That(outcome.ScrollToRange.Start, Is.EqualTo(TimeSpan.FromSeconds(20)));
+            Assert.That(outcome.ScrollToRange.Start, Is.EqualTo(MediaTime.FromSeconds(20)));
             Assert.That(outcome.ScrollToZIndex, Is.EqualTo(0));
         });
     }
@@ -197,15 +197,15 @@ public class ElementDuplicateServiceTests
         _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
         var clipboardElement = new Element
         {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(2),
             ZIndex = 2,
             Uri = new Uri(Path.Combine(_harness.BasePath, $"{Guid.NewGuid():N}.layer")),
         };
         int childrenBefore = _scene.Children.Count;
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [clipboardElement], TimeSpan.FromSeconds(20), 0);
+            _scene, [clipboardElement], MediaTime.FromSeconds(20), 0);
 
         Assert.Multiple(() =>
         {
@@ -217,13 +217,13 @@ public class ElementDuplicateServiceTests
     [Test]
     public void DuplicateAtClickedPosition_AllSourcesLocked_ReturnsFailed()
     {
-        Element locked = AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), zIndex: 3);
+        Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
         _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
         int childrenBefore = _scene.Children.Count;
         int before = _history.UndoCount;
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [locked], TimeSpan.FromSeconds(20), 0);
+            _scene, [locked], MediaTime.FromSeconds(20), 0);
 
         Assert.Multiple(() =>
         {

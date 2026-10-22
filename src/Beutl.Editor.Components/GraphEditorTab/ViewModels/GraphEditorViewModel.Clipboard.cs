@@ -77,7 +77,7 @@ public sealed partial class GraphEditorViewModel
         clipboard ??= ClipboardHelper.GetClipboard();
         if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
         var canPaste = CapturePasteContext();
-        TimeSpan start = target?.KeyTime ?? ConvertKeyTime(CurrentTime.Value);
+        MediaTime start = target?.KeyTime ?? ConvertKeyTime(CurrentTime.Value);
         try
         {
             string? json = await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection)
@@ -93,11 +93,11 @@ public sealed partial class GraphEditorViewModel
         }
     }
 
-    private void PasteSelection(string? json, TimeSpan start, IKeyFrame? target = null)
+    private void PasteSelection(string? json, MediaTime start, IKeyFrame? target = null)
     {
         if (!IsClipboardContextActive || SelectedView.Value is not { } channel
             || target != null && !Animation.KeyFrames.Contains(target)) return;
-        if (start < TimeSpan.Zero) start = TimeSpan.Zero;
+        if (start < MediaTime.Zero) start = MediaTime.Zero;
         if (KeyFrameSelectionClipboard.Read(json) is not { } source || source.Keys.Length == 0)
         {
             NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);

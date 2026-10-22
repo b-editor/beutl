@@ -221,7 +221,7 @@ public partial class MissingMediaTests
 
     private static Element AddImage(Scene scene, string path, string name = "Clip")
     {
-        var element = new Element { Name = name, Length = TimeSpan.FromSeconds(3) };
+        var element = new Element { Name = name, Length = MediaTime.FromSeconds(3) };
         if (scene.Uri != null) element.Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri.LocalPath)!, $"{element.Id}.belm"));
         element.Objects.Add(new SourceImage { Source = { Value = ImageSource.Open(path) } });
         scene.Children.Add(element);
@@ -238,7 +238,7 @@ public partial class MissingMediaTests
         Element second = AddImage(scene, imagePath, "Second");
         var video = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = TimeSpan.Zero, Value = VideoSource.Open(Path.Combine(directory, "missing.mp4")) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = VideoSource.Open(Path.Combine(directory, "missing.mp4")) });
         video.Source.SetKeyFrameAnimation(animation);
         first.Objects.Add(video);
         first.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(Path.Combine(directory, "missing.wav")) } });
@@ -481,7 +481,7 @@ public partial class MissingMediaTests
         var drawable = (SourceImage)element.Objects.Single();
         ImageSource source = drawable.Source.Value!;
         var compositor = editor.Renderer.Value.Compositor;
-        var initial = (SourceImage.Resource)compositor.EvaluateGraphics(TimeSpan.Zero).Objects.Single();
+        var initial = (SourceImage.Resource)compositor.EvaluateGraphics(MediaTime.Zero).Objects.Single();
         Assert.That(initial.Source!.IsOffline, Is.True);
         using var vm = new MissingMediaViewModel(editor);
         File.WriteAllBytes(path, s_png);
@@ -491,7 +491,7 @@ public partial class MissingMediaTests
         await vm.SetReplacementAsync(vm.Rows.Single(), path);
         await vm.WaitForCandidatesAsync();
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-        var repaired = (SourceImage.Resource)compositor.EvaluateGraphics(TimeSpan.Zero).Objects.Single();
+        var repaired = (SourceImage.Resource)compositor.EvaluateGraphics(MediaTime.Zero).Objects.Single();
         Assert.That(repaired, Is.SameAs(initial));
         Assert.That(repaired.Source!.IsOffline, Is.False);
         Assert.That(repaired.Source.Bitmap, Is.Not.SameAs(shared.Bitmap), "Relinking must discard a live shared decode at the same URI.");
@@ -830,11 +830,11 @@ public partial class MissingMediaTests
             Assert.That(save.IsCompletedSuccessfully, Is.True, "Saving must not depend on a pending media read.");
             await save;
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            using (editor.HistoryManager.SuppressRecording()) editor.Scene.Duration = TimeSpan.FromSeconds(17);
+            using (editor.HistoryManager.SuppressRecording()) editor.Scene.Duration = MediaTime.FromSeconds(17);
             release.SetResult();
             await editor.WaitForMediaFingerprintsAsync();
             var reopened = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
-            Assert.That(reopened.Duration, Is.Not.EqualTo(TimeSpan.FromSeconds(17)));
+            Assert.That(reopened.Duration, Is.Not.EqualTo(MediaTime.FromSeconds(17)));
             // The scene file that the save wrote has no fingerprints and references no fingerprint file, so the
             // hash waits in the scene for the next save.
             Assert.That(reopened.MediaFingerprints, Is.Empty);
@@ -914,7 +914,7 @@ public partial class MissingMediaTests
             // The auto-save wrote the scene file before the hash, so it references no fingerprint file, and the hash
             // waits in the scene. The next auto-save of the scene writes the reference, and the update after it the file.
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).MediaFingerprints, Is.Empty);
-            editor.Scene.Duration += TimeSpan.FromSeconds(1);
+            editor.Scene.Duration += MediaTime.FromSeconds(1);
             editor.HistoryManager.Commit("Edit the scene");
             HeadlessTestHelpers.Settle();
             await editor.WaitForMediaFingerprintsAsync();
@@ -1028,14 +1028,14 @@ public partial class MissingMediaTests
         string path = Path.Combine(NewDirectory(), "restored.png");
         using (editor.HistoryManager.SuppressRecording()) AddImage(editor.Scene, path);
         var compositor = editor.Renderer.Value.Compositor;
-        var resource = (SourceImage.Resource)compositor.EvaluateGraphics(TimeSpan.Zero).Objects.Single();
+        var resource = (SourceImage.Resource)compositor.EvaluateGraphics(MediaTime.Zero).Objects.Single();
         Assert.That(resource.Source!.IsOffline, Is.True);
         File.WriteAllBytes(path, s_png);
         var owner = new Window(); owner.Show();
         try
         {
             await editor.OpenMissingMediaAsync(refresh: true);
-            var refreshed = (SourceImage.Resource)compositor.EvaluateGraphics(TimeSpan.Zero).Objects.Single();
+            var refreshed = (SourceImage.Resource)compositor.EvaluateGraphics(MediaTime.Zero).Objects.Single();
             Assert.That(refreshed.Source!.IsOffline, Is.False);
         }
         finally { owner.Close(); await TestReset.ResetShellAsync(); }

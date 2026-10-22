@@ -44,7 +44,7 @@ internal sealed class ProjectFileWriteClipboardService(
 
     public async Task<ElementPasteOutcome> PasteAsync(
         Scene scene,
-        TimeSpan clickedFrame,
+        MediaTime clickedFrame,
         int clickedLayer)
     {
         using IProjectFileWriteLease? fileWrite = editorService.TryBeginProjectFileWrite();

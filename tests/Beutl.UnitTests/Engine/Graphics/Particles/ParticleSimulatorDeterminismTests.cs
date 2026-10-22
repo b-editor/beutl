@@ -47,7 +47,7 @@ public sealed class ParticleSimulatorDeterminismTests
     {
         const long frameRate = 30;
         var emitter = CreateEmitter(preset);
-        using ParticleEmitter.Resource sequential = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
+        using ParticleEmitter.Resource sequential = emitter.ToResource(new CompositionContext(MediaTime.Zero));
         for (int frame = 1; frame <= targetFrame; frame++)
         {
             var versionBumped = false;
@@ -81,7 +81,7 @@ public sealed class ParticleSimulatorDeterminismTests
             emitter.Transform.Value = transform;
         }
 
-        using var sequential = emitter.ToResource(new CompositionContext(TimeSpan.Zero));
+        using var sequential = emitter.ToResource(new CompositionContext(MediaTime.Zero));
         for (int frame = 1; frame <= frameRate * 2; frame++)
         {
             bool versionBumped = false;
@@ -91,7 +91,7 @@ public sealed class ParticleSimulatorDeterminismTests
         // Reuse the playback resource for backward and forward seeks, including cached steps.
         foreach (double seconds in new[] { 2, 0.75, 1.25 })
         {
-            var context = new CompositionContext(TimeSpan.FromSeconds(seconds));
+            var context = new CompositionContext(MediaTime.FromSeconds(seconds));
             bool versionBumped = false;
             sequential.Reconcile(emitter, context, ref versionBumped);
             using var cold = emitter.ToResource(context);
@@ -109,7 +109,7 @@ public sealed class ParticleSimulatorDeterminismTests
         var emitter = CreateSyntheticEmitter();
         var transform = new TranslateTransform();
         emitter.Transform.Value = transform;
-        var context = new CompositionContext(TimeSpan.FromSeconds(1));
+        var context = new CompositionContext(MediaTime.FromSeconds(1));
         using var resource = emitter.ToResource(context);
         var before = resource.GetAliveParticles().ToArray();
         int version = resource.Version;
@@ -147,7 +147,7 @@ public sealed class ParticleSimulatorDeterminismTests
         ParticlePreset preset)
     {
         const long frameRate = 30;
-        float exportTime = (float)ExportTimestamp(targetFrame, frameRate).TotalSeconds;
+        float exportTime = (float)ExportTimestamp(targetFrame, frameRate).ToSeconds();
         float stillTime = (float)Math.Round(targetFrame / (double)frameRate, 4);
 
         var export = new ParticleSimulator();
@@ -170,7 +170,7 @@ public sealed class ParticleSimulatorDeterminismTests
         int[] ages = [.. new[] { 1, 3, 10, 60, 300, 600 }.Where(age => age <= maxAge)];
         ParticleEmitter emitter = CreateSyntheticEmitter();
         using ParticleEmitter.Resource sequential =
-            emitter.ToResource(new CompositionContext(TimeSpan.Zero));
+            emitter.ToResource(new CompositionContext(MediaTime.Zero));
         int previousFrame = 0;
 
         foreach (int age in ages)
@@ -186,7 +186,7 @@ public sealed class ParticleSimulatorDeterminismTests
             }
 
             using ParticleEmitter.Resource cold = emitter.ToResource(
-                new CompositionContext(TimeSpan.FromSeconds(age)));
+                new CompositionContext(MediaTime.FromSeconds(age)));
             Assert.That(
                 sequential.GetAliveParticles().ToArray(),
                 Is.EqualTo(cold.GetAliveParticles().ToArray()),
@@ -198,7 +198,7 @@ public sealed class ParticleSimulatorDeterminismTests
     private static void Simulate(ParticleSimulator simulator, float time, ParticlePreset preset)
     {
         ParticleSettings settings = ParticleEmitter.Resource.CreateSettings(
-            CreateEmitter(preset), new CompositionContext(TimeSpan.Zero));
+            CreateEmitter(preset), new CompositionContext(MediaTime.Zero));
         simulator.Simulate(time, in settings);
     }
 
@@ -272,8 +272,8 @@ public sealed class ParticleSimulatorDeterminismTests
         };
     }
 
-    private static TimeSpan ExportTimestamp(long frame, long frameRate)
-        => TimeSpan.FromTicks(frame * TimeSpan.TicksPerSecond / frameRate);
+    private static MediaTime ExportTimestamp(long frame, long frameRate)
+        => MediaTime.FromTimeSpan(TimeSpan.FromTicks(frame * TimeSpan.TicksPerSecond / frameRate));
 
     private static KeyFrameAnimation<float> CreateAnimation(float start, float end)
     {
@@ -281,8 +281,8 @@ public sealed class ParticleSimulatorDeterminismTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = start },
-                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = end },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = start },
+                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = end },
             },
         };
     }

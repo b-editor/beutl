@@ -134,7 +134,7 @@ public sealed class EngineResourceIdentityRoutingTests
         using Pen.Resource penResource = pen.ToResource(CompositionContext.Default);
         var emitter = new ParticleEmitter();
         using var emitterResource =
-            (ParticleEmitter.Resource)emitter.ToResource(new CompositionContext(TimeSpan.FromSeconds(1)));
+            (ParticleEmitter.Resource)emitter.ToResource(new CompositionContext(MediaTime.FromSeconds(1)));
         var effect = new ShakeEffect();
         using FilterEffect.Resource effectResource = effect.ToResource(CompositionContext.Default);
         var scene = new Scene3D();

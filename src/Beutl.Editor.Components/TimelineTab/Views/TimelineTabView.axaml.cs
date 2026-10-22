@@ -22,14 +22,14 @@ namespace Beutl.Editor.Components.TimelineTab.Views;
 public sealed partial class TimelineTabView : UserControl
 {
     internal MouseFlags _mouseFlag = MouseFlags.Free;
-    internal TimeSpan _pointerFrame;
+    internal MediaTime _pointerFrame;
     private readonly TimelineRulerDrag _rulerDrag;
     private bool _rightButtonPressed;
     private SceneMarker? _pressedMarker;
     private Point _markerPressPosition;
     private DragSession? _markerDrag;
     private const double MarkerDragThreshold = 4d;
-    private static readonly TimeSpan s_defaultElementLength = TimeSpan.FromSeconds(5);
+    private static readonly MediaTime s_defaultElementLength = MediaTime.FromSeconds(5);
     private readonly ILogger _logger = Log.CreateLogger<TimelineTabView>();
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;

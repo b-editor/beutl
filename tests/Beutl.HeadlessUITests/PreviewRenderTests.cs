@@ -26,7 +26,7 @@ public class PreviewRenderTests
             Width = { Value = 200 },
             Height = { Value = 150 },
             Fill = { Value = new SolidColorBrush(Colors.Red) }
-        }, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        }, MediaTime.Zero, MediaTime.FromSeconds(2));
         return editor.Scene;
     }
 
@@ -41,7 +41,7 @@ public class PreviewRenderTests
         Bitmap snapshot = RenderThread.Dispatcher.Invoke(() =>
         {
             using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
-            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(TimeSpan.Zero);
+            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(MediaTime.Zero);
             renderer.Render(frame);
             return renderer.Snapshot();
         });
@@ -66,7 +66,7 @@ public class PreviewRenderTests
         Bitmap snapshot = RenderThread.Dispatcher.Invoke(() =>
         {
             SceneRenderer renderer = editor.Renderer.Value;
-            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(TimeSpan.Zero);
+            CompositionFrame frame = renderer.Compositor.EvaluateGraphics(MediaTime.Zero);
             renderer.Render(frame);
             return renderer.Snapshot();
         });
@@ -93,7 +93,7 @@ public class PreviewRenderTests
         var output = new OutputNode();
         graph.Nodes.AddRange([rect, shape, output]);
         Connection[] connections = [graph.Connect(shape.Geometry, rect.OutputPort), graph.Connect(output.InputPort, shape.Output)];
-        await TestShell.AddElementAsync(editor, () => drawable, TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        await TestShell.AddElementAsync(editor, () => drawable, MediaTime.Zero, MediaTime.FromSeconds(2));
 
         editor.FrameCacheManager.Value.Clear();
         editor.Player.QueuePreviewRender();

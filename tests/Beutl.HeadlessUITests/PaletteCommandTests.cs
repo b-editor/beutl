@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Globalization;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -61,17 +62,17 @@ public class PaletteCommandTests
 
     private static void SetPlayhead(EditViewModel editor, double seconds)
     {
-        editor.GetService<IEditorClock>()!.Seek(TimeSpan.FromSeconds(seconds));
+        editor.GetService<IEditorClock>()!.Seek(MediaTime.FromSeconds(seconds));
     }
 
-    private static TimeSpan Playhead(EditViewModel editor) => editor.GetService<IEditorClock>()!.CurrentTime.Value;
+    private static MediaTime Playhead(EditViewModel editor) => editor.GetService<IEditorClock>()!.CurrentTime.Value;
 
     private static async Task<Element> AddRectAsync(EditViewModel editor, double start, double length, int layer)
     {
         ElementAddResult result = await editor.GetService<IElementAdder>()!.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.FromSeconds(start), TimeSpan.FromSeconds(length), layer,
+                    MediaTime.FromSeconds(start), MediaTime.FromSeconds(length), layer,
                     new ElementSource.EngineObject(() => new RectShape()))
             ],
             CancellationToken.None);
@@ -110,7 +111,7 @@ public class PaletteCommandTests
 
         await RunAsync(editor, Execution("editor.gotoTimecode", editor, interaction));
 
-        Assert.That(Playhead(editor), Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(Playhead(editor), Is.EqualTo(MediaTime.FromSeconds(2)));
         Assert.That(interaction.IsDone, Is.True);
     }
 
@@ -121,12 +122,12 @@ public class PaletteCommandTests
     [TestCase(30 * 3600 * 25, 30, "1.01:00:00.000")]
     public void Palette_timecodes_parse_back_to_the_same_frame(long frame, int rate, string expected)
     {
-        TimeSpan time = TimeSpan.FromSeconds(frame / (double)rate).RoundToRate(rate);
+        MediaTime time = MediaTime.FromSeconds(frame / (double)rate).RoundToFrame(new Rational(rate), MidpointRounding.AwayFromZero);
         string text = CommandPaletteInput.FormatTimecode(time);
 
-        bool parsed = GotoTimecodeParser.TryParse(text, rate, TimeSpan.Zero, [], out TimeSpan result, out _);
+        bool parsed = GotoTimecodeParser.TryParse(text, new Rational(rate), MediaTime.Zero, [], out MediaTime result, out _);
 
-        Assert.That((text, parsed, result.RoundToRate(rate)), Is.EqualTo((expected, true, time)));
+        Assert.That((text, parsed, result.RoundToFrame(new Rational(rate), MidpointRounding.AwayFromZero)), Is.EqualTo((expected, true, time)));
     }
 
     [AvaloniaTest]
@@ -134,7 +135,7 @@ public class PaletteCommandTests
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-goto-999fps", frameRate: 999);
         // 501 / 999 s prints as 00:00:00.501, which snaps back to frame 500.
-        TimeSpan frame501 = TimeSpan.FromSeconds(501 / 999d).RoundToRate(999);
+        MediaTime frame501 = MediaTime.FromSeconds(501 / 999d).RoundToFrame(new Rational(999), MidpointRounding.AwayFromZero);
         editor.GetService<IEditorClock>()!.Seek(frame501);
         HeadlessTestHelpers.Settle();
         string? prefilled = null;
@@ -179,8 +180,8 @@ public class PaletteCommandTests
         await RunAsync(editor, Execution("editor.addMarker", editor, new ScriptedInteraction().Input("Outro")));
         Assert.That(scene.Markers.Select(m => (m.Time, m.Name)), Is.EqualTo(new[]
         {
-            (TimeSpan.FromSeconds(1), "Intro"),
-            (TimeSpan.FromSeconds(3), "Outro"),
+            (MediaTime.FromSeconds(1), "Intro"),
+            (MediaTime.FromSeconds(3), "Outro"),
         }));
 
         SetPlayhead(editor, 0);
@@ -188,7 +189,7 @@ public class PaletteCommandTests
         await RunAsync(editor, Execution("editor.goToMarker", editor, goTo));
         Assert.Multiple(() =>
         {
-            Assert.That(Playhead(editor), Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(Playhead(editor), Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(goTo.PickedFrom<SceneMarker>().Select(i => (i.Label, i.Description)), Is.EqualTo(new[]
             {
                 ("Intro", "00:00:01.000"),
@@ -233,8 +234,8 @@ public class PaletteCommandTests
         await RunAsync(timeline, Execution("timeline.split", editor));
         Assert.That(editor.Scene.Children.Select(e => (e.Start, e.Length)), Is.EquivalentTo(new[]
         {
-            (TimeSpan.Zero, TimeSpan.FromSeconds(1)),
-            (TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3)),
+            (MediaTime.Zero, MediaTime.FromSeconds(1)),
+            (MediaTime.FromSeconds(1), MediaTime.FromSeconds(3)),
         }));
 
         // Saving a template is refused for a name that cannot be a file name; cancelling saves nothing.
@@ -331,7 +332,7 @@ public class PaletteCommandTests
         CloseTimeline(editor);
         editor.GetService<IEditorSelection>()!.Select(element);
         // Off the 30 fps grid, so the playhead's frame 31 lands inside the clip but under a frame from its start.
-        element.Start = TimeSpan.FromSeconds(1.01);
+        element.Start = MediaTime.FromSeconds(1.01);
         SetPlayhead(editor, 31 / 30d);
 
         Assert.That(CanRun(TimelineTabExtension.Instance, Execution("timeline.split", editor)), Is.False);
@@ -360,8 +361,8 @@ public class PaletteCommandTests
         Assert.That(editor.Scene.Children.Where(e => e.ZIndex == 1).Select(e => (e.Start, e.Length)),
             Is.EquivalentTo(new[]
             {
-                (TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(1)),
-                (TimeSpan.FromSeconds(6), TimeSpan.FromSeconds(3)),
+                (MediaTime.FromSeconds(5), MediaTime.FromSeconds(1)),
+                (MediaTime.FromSeconds(6), MediaTime.FromSeconds(3)),
             }));
     }
 
@@ -437,7 +438,7 @@ public class PaletteCommandTests
         Element added = editor.Scene.Children.Single(e => e.Objects.OfType<EllipseShape>().Any());
         Assert.Multiple(() =>
         {
-            Assert.That(added.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(added.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(added.ZIndex, Is.EqualTo(1));
             // The library group goes in the description, where the pick filter also searches.
             Assert.That(interaction.PickedFrom<Type>().Single(i => i.Value == typeof(AudioWaveformDrawable)).Description,
@@ -473,9 +474,35 @@ public class PaletteCommandTests
         Assert.Multiple(() =>
         {
             Assert.That(scene.FrameSize, Is.EqualTo(new PixelSize(1280, 720)));
-            Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(7)));
-            Assert.That(scene.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.ChangeSceneSettings));
+        });
+    }
+
+    // A scene time confirmed as the palette shows it stays exact, and a typed frame time lands on the frame (#2885).
+    [AvaloniaTest]
+    public async Task Scene_time_commands_keep_a_time_left_as_shown_and_snap_a_typed_one([Values("30", "30000/1001")] string rateText)
+    {
+        EditViewModel editor = await OpenEditorForNewScene("palette-scene-times");
+        Scene scene = editor.Scene;
+        scene.FindHierarchicalParent<Project>()!.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        scene.Start = MediaTime.FromFrames(1, rate);
+        scene.Duration = MediaTime.FromFrames(301, rate);
+        SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
+        string typed = TimeSpan.FromTicks(MediaTime.FromFrames(600, rate).ToTicks(MidpointRounding.ToNegativeInfinity)).ToString();
+
+        await RunAsync(settings, Execution("sceneSettings.changeSceneStart", editor, new ScriptedInteraction().Input(options => options.Value)));
+        await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input(typed)));
+        MediaTime typedDuration = scene.Duration;
+        await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input("00:00:00.0000001")));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(scene.Start, Is.EqualTo(MediaTime.FromFrames(1, rate)));
+            Assert.That(typedDuration, Is.EqualTo(MediaTime.FromFrames(600, rate)));
+            Assert.That(scene.Duration, Is.EqualTo(typedDuration), "a tick snaps to frame zero, which is no duration");
         });
     }
 
@@ -602,7 +629,7 @@ public class PaletteCommandTests
         Assert.Multiple(() =>
         {
             Assert.That(editor.HistoryManager.CurrentIndex, Is.Zero);
-            Assert.That(editor.Scene.Duration, Is.Not.EqualTo(TimeSpan.FromSeconds(6)));
+            Assert.That(editor.Scene.Duration, Is.Not.EqualTo(MediaTime.FromSeconds(6)));
             Assert.That(items, Has.Count.EqualTo(3));
             Assert.That(items[^1].Value.IsInitial, Is.True, "Newest first, so the initial state is last.");
             Assert.That(items[0].Description, Does.EndWith(Strings.Current));
@@ -616,7 +643,7 @@ public class PaletteCommandTests
         HistoryTabExtension history = HistoryTabExtension.Instance;
         editor.HistoryManager.Clear();
         // Recorded but not committed, like a nudge still in its debounce.
-        editor.Scene.Markers.Add(new SceneMarker(TimeSpan.FromSeconds(1), "Pending"));
+        editor.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "Pending"));
         Assert.That(editor.HistoryManager.HasPendingOperations, Is.True, "The marker must be a pending edit.");
 
         Assert.That(CanRun(history, Execution("history.jumpToHistory", editor)), Is.True);
@@ -722,7 +749,7 @@ public class PaletteCommandTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(editor.Scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(9)));
+                Assert.That(editor.Scene.Duration, Is.EqualTo(MediaTime.FromSeconds(9)));
                 Assert.That(editor.DockHost.FindToolContext(typeof(SceneSettingsTabExtension)), Is.Null);
                 Assert.That(palette.IsOpen.Value, Is.False);
             });

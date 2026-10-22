@@ -2,6 +2,7 @@
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
 
@@ -12,7 +13,7 @@ internal static class AnimationOperations
     private static readonly MethodInfo s_insertKeyFrame = typeof(AnimationOperations).GetMethods()
         .Single(m => m.Name == nameof(InsertKeyFrame) && m.IsGenericMethodDefinition);
 
-    private static TimeSpan ConvertKeyTime(IKeyFrameAnimation animation, TimeSpan globalkeyTime, ILogger logger)
+    private static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, ILogger logger)
     {
         var element = animation.FindHierarchicalParent<Element>();
         var scene = animation.FindHierarchicalParent<Scene>();
@@ -21,32 +22,39 @@ internal static class AnimationOperations
     }
 
     // The animation's key time at a time on the timeline, rounded to the frames of the scene.
-    internal static TimeSpan ConvertKeyTime(IKeyFrameAnimation animation, TimeSpan globalkeyTime, Element? element, Scene? scene)
+    internal static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, Element? element, Scene? scene)
     {
-        TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
-        TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
+        MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
 
-        Project? proj = scene?.FindHierarchicalParent<Project>();
-        int rate = proj?.GetFrameRate() ?? 30;
+        return keyTime.RoundToFrame(GetFrameRate(scene), MidpointRounding.AwayFromZero);
+    }
 
-        return keyTime.RoundToRate(rate);
+    // The frame rate key times snap to: the project's, or 30 fps outside a project.
+    internal static Rational GetFrameRate(Scene? scene) => scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
+
+    // The keyframe at keyTime, where a key time within a tick of a frame, as a template's can be, is at that frame.
+    internal static IKeyFrame? FindKeyFrameOnFrame(IEnumerable<IKeyFrame> keyFrames, MediaTime keyTime, Rational rate)
+    {
+        MediaTime at = MediaTimeJsonConverter.SnapToFrame(keyTime, rate);
+        return keyFrames.FirstOrDefault(k => MediaTimeJsonConverter.SnapToFrame(k.KeyTime, rate) == at);
     }
 
     // InsertKeyFrame<T> for an animation whose value type is known only at run time.
-    public static IKeyFrame? InsertKeyFrame(IKeyFrameAnimation animation, Easing? easing, TimeSpan keyTime, ILogger logger)
+    public static IKeyFrame? InsertKeyFrame(IKeyFrameAnimation animation, Easing? easing, MediaTime keyTime, ILogger logger)
     {
         return (IKeyFrame?)s_insertKeyFrame.MakeGenericMethod(animation.ValueType)
             .Invoke(null, BindingFlags.DoNotWrapExceptions, null, [animation, easing, keyTime, logger], null);
     }
 
-    public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Easing? easing, TimeSpan keyTime, ILogger logger)
+    public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Easing? easing, MediaTime keyTime, ILogger logger)
     {
         logger.LogInformation("Inserting key frame at {KeyTime}", keyTime);
         bool defaultEasing = easing is null or SplineEasing { X1: 0, Y1: 0, X2: 1, Y2: 1 };
         KeyFrame<T>? createdKeyFrame = null;
         keyTime = ConvertKeyTime(animation, keyTime, logger);
 
-        if (animation.KeyFrames.All(x => x.KeyTime != keyTime))
+        if (FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(animation.FindHierarchicalParent<Scene>())) == null)
         {
             (IKeyFrame? prevIKeyFrame, IKeyFrame? nextIKeyFrame) = animation.GetPreviousAndNextKeyFrame(keyTime);
 
@@ -57,8 +65,7 @@ internal static class AnimationOperations
                 && nextKeyFrame.Easing is SplineEasing existingEasing)
             {
                 var duration = nextKeyFrame.KeyTime - prevKeyFrame.KeyTime;
-                float t = (float)(keyTime - prevKeyFrame.KeyTime).TotalMilliseconds /
-                          (float)duration.TotalMilliseconds;
+                float t = (float)((double)(keyTime - prevKeyFrame.KeyTime).Flicks / duration.Flicks);
                 (easing, SplineEasing right) = SplineEasingHelper.SplitByT(existingEasing, t);
                 split = (nextKeyFrame, right);
             }
@@ -83,10 +90,10 @@ internal static class AnimationOperations
     }
 
     // The keyframe at keyTime, or null when there is none.
-    internal static IKeyFrame? FindKeyFrame(IKeyFrameAnimation animation, TimeSpan keyTime, ILogger logger)
+    internal static IKeyFrame? FindKeyFrame(IKeyFrameAnimation animation, MediaTime keyTime, ILogger logger)
     {
         keyTime = ConvertKeyTime(animation, keyTime, logger);
-        return animation.KeyFrames.FirstOrDefault(x => x.KeyTime == keyTime);
+        return FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(animation.FindHierarchicalParent<Scene>()));
     }
 
     public static void RemoveKeyFrame(IKeyFrameAnimation animation, IKeyFrame keyframe, ILogger logger)

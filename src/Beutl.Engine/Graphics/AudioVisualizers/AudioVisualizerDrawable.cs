@@ -62,8 +62,8 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         private float[] _cachedSamples = [];
         private int _cachedSampleLength;
         private int _cachedSampleRate;
-        private TimeSpan _cachedStart;
-        private TimeSpan _cachedDuration;
+        private MediaTime _cachedStart;
+        private MediaTime _cachedDuration;
         private int _cachedSourceVersion = -1;
 
         // CompositionFrame の Objects 配列は _source が変わった時だけ作り直す。
@@ -85,12 +85,12 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         /// <summary>
         /// Gets the start of the time window the cached samples cover.
         /// </summary>
-        protected TimeSpan CachedStart => _cachedStart;
+        protected MediaTime CachedStart => _cachedStart;
 
         /// <summary>
         /// Gets the length of the time window the cached samples cover.
         /// </summary>
-        protected TimeSpan CachedDuration => _cachedDuration;
+        protected MediaTime CachedDuration => _cachedDuration;
 
         /// <summary>
         /// Gets the rate the visualizer's own composer runs at, which is available before any source has
@@ -123,13 +123,13 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                     Version++;
                 }
                 _cachedSampleRate = 0;
-                _cachedDuration = TimeSpan.Zero;
+                _cachedDuration = MediaTime.Zero;
                 _cachedSourceVersion = -1;
                 return;
             }
 
             _composer ??= new Composer { SampleRate = DefaultComposerSampleRate };
-            (TimeSpan start, TimeSpan duration) = ComputeSampleWindow(context.Time);
+            (MediaTime start, MediaTime duration) = ComputeSampleWindow(context.Time);
             EnsureSamplesComposed(start, duration);
         }
 
@@ -145,7 +145,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
             _cachedSamples = [];
         }
 
-        protected abstract (TimeSpan Start, TimeSpan Duration) ComputeSampleWindow(TimeSpan currentTime);
+        protected abstract (MediaTime Start, MediaTime Duration) ComputeSampleWindow(MediaTime currentTime);
 
         internal void RenderToCanvas(ImmediateCanvas canvas, Rect bounds)
         {
@@ -155,11 +155,11 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
         protected abstract void RenderForeground(ImmediateCanvas canvas, Rect bounds);
 
-        private void EnsureSamplesComposed(TimeSpan targetStart, TimeSpan targetDuration)
+        private void EnsureSamplesComposed(MediaTime targetStart, MediaTime targetDuration)
         {
             int rate = _composer!.SampleRate;
 
-            if (targetDuration <= TimeSpan.Zero)
+            if (targetDuration <= MediaTime.Zero)
             {
                 if (_cachedSampleLength != 0)
                 {
@@ -168,7 +168,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
                 }
                 _cachedSampleRate = rate;
                 _cachedStart = targetStart;
-                _cachedDuration = TimeSpan.Zero;
+                _cachedDuration = MediaTime.Zero;
                 _cachedSourceVersion = _source!.Version;
                 return;
             }

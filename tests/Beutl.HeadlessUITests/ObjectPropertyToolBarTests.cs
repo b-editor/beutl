@@ -28,7 +28,7 @@ public class ObjectPropertyToolBarTests
     public async Task Back_bar_keeps_property_navigation_and_empty_state_working(int width)
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("object-property-bar");
-        await TestShell.AddElementAsync(editor, () => new RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(2));
         Element element = scene.Children.First();
         var first = element.Objects[0];
         var second = new EllipseShape();

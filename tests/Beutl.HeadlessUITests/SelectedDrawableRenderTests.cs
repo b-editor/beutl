@@ -298,8 +298,8 @@ public class SelectedDrawableRenderTests
         var capture = new SelectedDrawableScaleCaptureDrawable();
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             IsEnabled = true,
             Uri = new Uri(Path.Combine(location, "nested.layer"))
         };
@@ -354,7 +354,7 @@ public class SelectedDrawableRenderTests
     {
         return RenderThread.Dispatcher.Invoke(() =>
         {
-            using var resource = drawable.ToResource(new CompositionContext(TimeSpan.Zero));
+            using var resource = drawable.ToResource(new CompositionContext(MediaTime.Zero));
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
             {

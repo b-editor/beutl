@@ -9,7 +9,14 @@ using Beutl.Serialization;
 
 namespace Beutl.Audio;
 
-public sealed partial class FallbackSound : Sound, IFallback;
+public sealed partial class FallbackSound : Sound, IFallback
+{
+    public partial class Resource
+    {
+        // A sound whose type did not load is silent.
+        public override SoundSource.Resource? GetSoundSource() => null;
+    }
+}
 
 [FallbackType(typeof(FallbackSound))]
 public abstract partial class Sound : EngineObject
@@ -24,7 +31,7 @@ public abstract partial class Sound : EngineObject
 
     [Display(Name = nameof(AudioStrings.Sound_OffsetPosition), ResourceType = typeof(AudioStrings))]
     [SuppressResourceClassGeneration]
-    public IExpressionProperty<TimeSpan> OffsetPosition { get; } = Property.CreateExpression<TimeSpan>();
+    public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();
 
     [Range(0, float.MaxValue)]
     [Display(Name = nameof(AudioStrings.Sound_Gain), ResourceType = typeof(AudioStrings))]

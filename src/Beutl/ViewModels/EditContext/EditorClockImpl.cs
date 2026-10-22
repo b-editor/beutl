@@ -8,12 +8,12 @@ namespace Beutl.ViewModels;
 internal sealed class EditorClockImpl : IEditorClock, IDisposable
 {
     private readonly Scene _scene;
-    private readonly ReactivePropertySlim<TimeSpan> _currentTime = new();
+    private readonly ReactivePropertySlim<MediaTime> _currentTime = new();
 
     public EditorClockImpl(Scene scene)
     {
         _scene = scene;
-        MaximumTime = new ReactivePropertySlim<TimeSpan>();
+        MaximumTime = new ReactivePropertySlim<MediaTime>();
 
         foreach (Element element in _scene.Children)
         {
@@ -26,13 +26,13 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
         CalculateMaximumTime();
     }
 
-    public IReadOnlyReactiveProperty<TimeSpan> CurrentTime => _currentTime;
+    public IReadOnlyReactiveProperty<MediaTime> CurrentTime => _currentTime;
 
-    public ReactivePropertySlim<TimeSpan> MaximumTime { get; }
+    public ReactivePropertySlim<MediaTime> MaximumTime { get; }
 
-    IReadOnlyReactiveProperty<TimeSpan> IEditorClock.MaximumTime => MaximumTime;
+    IReadOnlyReactiveProperty<MediaTime> IEditorClock.MaximumTime => MaximumTime;
 
-    public void Seek(TimeSpan time)
+    public void Seek(MediaTime time)
     {
         if (Dispatcher.UIThread.CheckAccess())
             _currentTime.Value = time;
@@ -74,13 +74,13 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
         }
     }
 
-    private void OnElementStartChanged(object? sender, PropertyValueChangedEventArgs<TimeSpan> e)
+    private void OnElementStartChanged(object? sender, PropertyValueChangedEventArgs<MediaTime> e)
     {
         if (e.Property.GetOwnerObject() is Element element)
             OnElementRangeChanged(element, element.Range.WithStart(e.OldValue));
     }
 
-    private void OnElementLengthChanged(object? sender, PropertyValueChangedEventArgs<TimeSpan> e)
+    private void OnElementLengthChanged(object? sender, PropertyValueChangedEventArgs<MediaTime> e)
     {
         if (e.Property.GetOwnerObject() is Element element)
             OnElementRangeChanged(element, element.Range.WithDuration(e.OldValue));
@@ -102,7 +102,7 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
     {
         MaximumTime.Value = _scene.Children.Count > 0
             ? _scene.Children.Max(i => i.Range.End)
-            : TimeSpan.Zero;
+            : MediaTime.Zero;
     }
 
     public void Dispose()

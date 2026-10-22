@@ -266,8 +266,8 @@ public class DockLayoutPresetTests
         ElementAddResult addResult = await adder.AddAsync(
         [
             new ElementDescription(
-                Start: TimeSpan.Zero,
-                Length: TimeSpan.FromSeconds(1),
+                Start: MediaTime.Zero,
+                Length: MediaTime.FromSeconds(1),
                 Layer: 0,
                 Source: new ElementSource.EngineObject(() => new RectShape())),
         ], CancellationToken.None);

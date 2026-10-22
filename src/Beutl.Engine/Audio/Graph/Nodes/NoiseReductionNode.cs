@@ -25,7 +25,7 @@ public sealed class NoiseReductionNode : AudioNode
     private AudioSourceStream? _stream;
     private List<AudioNode>? _upstreamSnapshot;
     private int _sampleRate;
-    private TimeSpan? _lastTimeRangeEnd;
+    private MediaTime? _lastTimeRangeEnd;
     private AnimationSampler? _sampler;
     private NoiseReductionSettings _staticSettings;
     private bool _animated;
@@ -164,7 +164,7 @@ public sealed class NoiseReductionNode : AudioNode
         {
             // Truncate like SourceNode and ResampleNode, so a start between samples maps to the
             // sample the upstream delivers there.
-            long outputStart = AudioMath.TimeToSampleIndex(context.TimeRange.Start, _sampleRate);
+            long outputStart = context.TimeRange.Start.ToSamples(_sampleRate, MidpointRounding.ToZero);
             Restart(context, outputStart, terminal);
         }
         else if (_inputStale)
@@ -288,7 +288,7 @@ public sealed class NoiseReductionNode : AudioNode
         if (!_animated)
             return _staticSettings;
 
-        var time = TimeSpan.FromSeconds(position / (double)_sampleRate);
+        var time = MediaTime.FromSeconds(position / (double)_sampleRate);
         return NoiseReductionParameters.Normalize(
             Sample(Reduction, time),
             Sample(Sensitivity, time),
@@ -296,20 +296,20 @@ public sealed class NoiseReductionNode : AudioNode
             Sample(Adaptation, time));
     }
 
-    private float Sample(IProperty<float> property, TimeSpan time)
+    private float Sample(IProperty<float> property, MediaTime time)
     {
         if (property.GetKeyFrameAnimation() is null)
             return property.Value;
 
         Span<float> value = stackalloc float[1];
-        _sampler!.SampleBuffer(property, new TimeRange(time, TimeSpan.Zero), _sampleRate, value);
+        _sampler!.SampleBuffer(property, new TimeRange(time, MediaTime.Zero), _sampleRate, value);
         return value[0];
     }
 
     // A fractional end still contains the sample it cuts into.
-    private long ToTerminalSample(TimeSpan time)
+    private long ToTerminalSample(MediaTime time)
     {
-        double value = time.TotalSeconds * _sampleRate;
+        double value = time.ToSeconds() * _sampleRate;
         double rounded = Math.Round(value);
         return (long)(Math.Abs(value - rounded) < 1e-6 ? rounded : Math.Ceiling(value));
     }

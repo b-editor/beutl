@@ -151,7 +151,7 @@ public class EditorProjectSessionGatewayTests
             Assert.That(BeutlApplication.Current.Project!.Uri!.LocalPath, Is.EqualTo(path));
             Assert.That(result.Session.Source, Is.EqualTo(EditingSessionSource.LiveEditor));
             Scene scene = result.Project.Items.OfType<Scene>().Single();
-            Assert.That(scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(6)));
+            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(6)));
             Assert.That(scene.FrameSize.Width, Is.EqualTo(800));
         });
     }

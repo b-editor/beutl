@@ -86,7 +86,7 @@ public class EnginePropertyOperationObserverTests
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = MediaTime.FromSeconds(1) });
 
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
     }
@@ -272,7 +272,7 @@ public class EnginePropertyOperationObserverTests
         property.SetKeyFrameAnimation(newAnimation);
         receivedOperations.Clear();
 
-        newAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
+        newAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = MediaTime.FromSeconds(1) });
 
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
     }
@@ -295,7 +295,7 @@ public class EnginePropertyOperationObserverTests
         property.SetKeyFrameAnimation(newAnimation);
         receivedOperations.Clear();
 
-        oldAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
+        oldAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = MediaTime.FromSeconds(1) });
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -525,7 +525,7 @@ public class EnginePropertyOperationObserverTests
         receivedOperations.Clear();
 
         observer.Dispose();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = TimeSpan.FromSeconds(1) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = MediaTime.FromSeconds(1) });
 
         Assert.That(receivedOperations, Is.Empty);
     }

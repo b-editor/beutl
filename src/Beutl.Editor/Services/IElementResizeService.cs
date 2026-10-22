@@ -41,10 +41,10 @@ public interface IElementResizeService
             return false;
         }
 
-        TimeSpan duration = originalDuration.FloorToRate(SceneTimeRangeService.GetFrameRate(scene));
+        MediaTime duration = originalDuration.RoundToFrame(SceneTimeRangeService.GetFrameRate(scene), MidpointRounding.ToNegativeInfinity);
         if (!ripple && element.GetAfter(element.ZIndex, element.Range.End) is { } after)
         {
-            TimeSpan delta = after.Start - element.Start;
+            MediaTime delta = after.Start - element.Start;
             if (delta < duration)
             {
                 duration = delta;
@@ -61,7 +61,7 @@ public interface IElementResizeService
     /// each back clip's content in place. Returns <see langword="false"/> without a commit when any pair is not
     /// adjacent on one layer of the scene, is locked or repeats an element, or when the delta clamps to zero.
     /// </summary>
-    bool Roll(Scene scene, IReadOnlyList<ElementTrimPair> pairs, TimeSpan delta);
+    bool Roll(Scene scene, IReadOnlyList<ElementTrimPair> pairs, MediaTime delta);
 
     /// <summary>
     /// Slide: moves the middle clips of every lane by one shared delta, clamped to every lane, growing the front and
@@ -69,13 +69,13 @@ public interface IElementResizeService
     /// lane is not a contiguous chain on one layer of the scene, has a locked or repeated element, or the delta
     /// clamps to zero.
     /// </summary>
-    bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, TimeSpan delta);
+    bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, MediaTime delta);
 }
 
 public readonly record struct ElementResizeRequest(
     Element Element,
-    TimeSpan NewStart,
-    TimeSpan NewLength,
+    MediaTime NewStart,
+    MediaTime NewLength,
     int ZIndex)
 {
     // Commands requesting an original source length must retain media limits

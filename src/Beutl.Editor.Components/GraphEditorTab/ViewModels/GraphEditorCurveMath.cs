@@ -14,12 +14,12 @@ internal static class GraphEditorCurveMath
             var next = channel.KeyFrames[index + 1].Model;
             return GraphEditorCurveMath.Velocity(next.Easing, 0,
                 channel.ConvertToDouble(next.Value) - channel.ConvertToDouble(item.Model.Value),
-                (next.KeyTime - item.Model.KeyTime).TotalSeconds);
+                (next.KeyTime - item.Model.KeyTime).ToSeconds());
         }
         var previous = channel.KeyFrames[index - 1].Model;
         return GraphEditorCurveMath.Velocity(item.Model.Easing, 1,
             channel.ConvertToDouble(item.Model.Value) - channel.ConvertToDouble(previous.Value),
-            (item.Model.KeyTime - previous.KeyTime).TotalSeconds);
+            (item.Model.KeyTime - previous.KeyTime).ToSeconds());
     }
 
     // Value graph derivatives are signed (units/second), including decreasing scalar channels.

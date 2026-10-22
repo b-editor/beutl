@@ -230,7 +230,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Object3D.Resource[] Objects,
         Light3D.Resource[] Lights,
         Rect Bounds,
-        TimeSpan Time,
+        MediaTime Time,
         bool DisableResourceShare,
         Color BackgroundColor,
         Color AmbientColor,

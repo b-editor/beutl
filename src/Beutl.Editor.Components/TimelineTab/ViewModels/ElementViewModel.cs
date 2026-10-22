@@ -252,7 +252,7 @@ public sealed partial class ElementViewModel : IDisposable
 
     public Action RenameRequested { get; set; } = () => { };
 
-    public Func<TimeSpan>? GetClickedTime { get; set; }
+    public Func<MediaTime>? GetClickedTime { get; set; }
 
     public TimelineTabViewModel Timeline { get; }
 
@@ -465,8 +465,8 @@ public sealed partial class ElementViewModel : IDisposable
     // Ripple shifts the dragged edge's delta onto neighbours, so the untouched edge must carry its
     // exact model coordinate — re-deriving it through a lossy pixel->frame round-trip would leak a
     // sub-frame delta onto the wrong side for an off-frame clip and ripple the wrong neighbours.
-    internal static (TimeSpan Start, TimeSpan Length) ResolveRippleResizeBounds(
-        bool leftEdge, TimeSpan roundedStart, TimeSpan roundedLength, TimeSpan modelStart, TimeSpan modelEnd)
+    internal static (MediaTime Start, MediaTime Length) ResolveRippleResizeBounds(
+        bool leftEdge, MediaTime roundedStart, MediaTime roundedLength, MediaTime modelStart, MediaTime modelEnd)
     {
         return leftEdge
             ? (roundedStart, modelEnd - roundedStart)
@@ -478,10 +478,10 @@ public sealed partial class ElementViewModel : IDisposable
         PrepareAnimationContext context = PrepareAnimation();
 
         float scale = Timeline.Options.Value.Scale;
-        int rate = SceneTimeRangeService.GetFrameRate(Scene);
-        TimeSpan roundedStart = BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-        TimeSpan roundedLength = Width.Value.PixelToTimeSpan(scale).RoundToRate(rate);
-        (TimeSpan start, TimeSpan length) = ripple || leftEdge
+        Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
+        MediaTime roundedStart = BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        MediaTime roundedLength = Width.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        (MediaTime start, MediaTime length) = ripple || leftEdge
             ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start, Model.Range.End)
             : (roundedStart, roundedLength);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
@@ -609,12 +609,12 @@ public sealed partial class ElementViewModel : IDisposable
             .CutAsync(Scene, models, Timeline.IsRippleEnabled.Value);
     }
 
-    public void SplitAt(TimeSpan timeSpan)
+    public void SplitAt(MediaTime timeSpan)
     {
         SplitCore([this], timeSpan);
     }
 
-    private void OnSplit(TimeSpan timeSpan)
+    private void OnSplit(MediaTime timeSpan)
     {
         IReadOnlyList<ElementViewModel> targets = GetGroupOrSelectedElements();
         if (targets.Count == 0)
@@ -625,12 +625,12 @@ public sealed partial class ElementViewModel : IDisposable
         SplitCore(targets, timeSpan);
     }
 
-    private void SplitCore(IReadOnlyList<ElementViewModel> targets, TimeSpan timeSpan)
+    private void SplitCore(IReadOnlyList<ElementViewModel> targets, MediaTime timeSpan)
     {
         Element[] models = targets.Where(t => t.IsEditable.Value).Select(t => t.Model).ToArray();
         if (models.Length == 0) return;
-        int rate = SceneTimeRangeService.GetFrameRate(Scene);
-        TimeSpan at = timeSpan.RoundToRate(rate);
+        Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
+        MediaTime at = timeSpan.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Split(Scene, models, at);
     }

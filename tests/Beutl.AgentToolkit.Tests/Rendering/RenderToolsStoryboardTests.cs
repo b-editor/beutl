@@ -27,7 +27,7 @@ public sealed class RenderToolsStoryboardTests
         var scene = new Scene(320, 180, "live")
         {
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
-            Duration = TimeSpan.FromSeconds(2)
+            Duration = MediaTime.FromSeconds(2)
         };
         using var session = new DispatchingTestSession(scene, rootOnlyInsideDispatch: true);
 
@@ -50,21 +50,21 @@ public sealed class RenderToolsStoryboardTests
         var scene = new Scene(16, 9, "trimmed")
         {
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
-            Start = TimeSpan.FromSeconds(5),
-            Duration = TimeSpan.FromSeconds(10)
+            Start = MediaTime.FromSeconds(5),
+            Duration = MediaTime.FromSeconds(10)
         };
         scene.Children.Add(new Element
         {
             Name = "before-trim",
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
         scene.Children.Add(new Element
         {
             Name = "clip",
-            Start = TimeSpan.FromSeconds(5),
-            Length = TimeSpan.FromSeconds(10),
+            Start = MediaTime.FromSeconds(5),
+            Length = MediaTime.FromSeconds(10),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
 
@@ -77,7 +77,7 @@ public sealed class RenderToolsStoryboardTests
             // midpoint (absolute 10s) becomes scene-relative 5s, not the double-offset 10s.
             Assert.That(frames.Select(frame => frame.Name), Is.EqualTo(new[] { "clip" }));
             Assert.That(frames.Select(frame => frame.Time),
-                Is.EqualTo(new[] { TimeSpan.FromSeconds(5) }));
+                Is.EqualTo(new[] { MediaTime.FromSeconds(5) }));
         });
     }
 
@@ -87,35 +87,35 @@ public sealed class RenderToolsStoryboardTests
         var scene = new Scene(16, 9, "filtered")
         {
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
-            Duration = TimeSpan.FromSeconds(10)
+            Duration = MediaTime.FromSeconds(10)
         };
         scene.Children.Add(new Element
         {
             Name = "visible",
-            Start = TimeSpan.FromSeconds(2),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
         scene.Children.Add(new Element
         {
             Name = "disabled",
             IsEnabled = false,
-            Start = TimeSpan.FromSeconds(4),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(4),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
         scene.Children.Add(new Element
         {
             Name = "after-window",
-            Start = TimeSpan.FromSeconds(12),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(12),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
         scene.Children.Add(new Element
         {
             Name = "zero-length",
-            Start = TimeSpan.FromSeconds(5),
-            Length = TimeSpan.Zero,
+            Start = MediaTime.FromSeconds(5),
+            Length = MediaTime.Zero,
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
 
@@ -128,9 +128,9 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public void Explicit_storyboard_shots_at_the_scene_end_clamp_to_the_last_renderable_tick()
+    public void Explicit_storyboard_shots_at_the_scene_end_clamp_to_the_last_renderable_flick()
     {
-        var scene = new Scene(16, 9, "shot-end") { Duration = TimeSpan.FromSeconds(4) };
+        var scene = new Scene(16, 9, "shot-end") { Duration = MediaTime.FromSeconds(4) };
 
         RenderTools.ResolvedStoryboardFrame[] fromShots =
             RenderTools.ResolveStoryboardFrames(scene, [new("end", 4.0)], timeSeconds: null, subdivisionLevel: 0).ToArray();
@@ -141,15 +141,15 @@ public sealed class RenderToolsStoryboardTests
         {
             // A shot at exactly Duration renders past every element (Range end is exclusive); both the
             // explicit shots and explicit timeSeconds branches must pull it one tick inside.
-            Assert.That(fromShots[^1].Time, Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
-            Assert.That(fromTimes[^1].Time, Is.EqualTo(scene.Duration - TimeSpan.FromTicks(1)));
+            Assert.That(fromShots[^1].Time, Is.EqualTo(scene.Duration - new MediaTime(1)));
+            Assert.That(fromTimes[^1].Time, Is.EqualTo(scene.Duration - new MediaTime(1)));
         });
     }
 
     [Test]
     public void Explicit_shots_reject_out_of_range_non_finite_and_duplicate_times()
     {
-        var scene = new Scene(16, 9, "validate") { Duration = TimeSpan.FromSeconds(5) };
+        var scene = new Scene(16, 9, "validate") { Duration = MediaTime.FromSeconds(5) };
 
         Assert.Multiple(() =>
         {
@@ -175,7 +175,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Resolve_storyboard_frames_subdivides_explicit_shots_at_binary_points()
     {
-        var scene = new Scene(16, 9, "subdivision") { Duration = TimeSpan.FromSeconds(1) };
+        var scene = new Scene(16, 9, "subdivision") { Duration = MediaTime.FromSeconds(1) };
         StoryboardShotInput[] shots =
         [
             new("left", 0),
@@ -209,7 +209,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Resolve_storyboard_frames_clamps_level_deduplicates_with_half_frame_tolerance_and_keeps_order()
     {
-        var scene = new Scene(16, 9, "subdivision") { Duration = TimeSpan.FromSeconds(1) };
+        var scene = new Scene(16, 9, "subdivision") { Duration = MediaTime.FromSeconds(1) };
         StoryboardShotInput[] nearDuplicateShots =
         [
             new("left", 0),
@@ -264,7 +264,7 @@ public sealed class RenderToolsStoryboardTests
 
         static Scene CreateScene(int frameRate)
         {
-            var scene = new Scene(16, 9, "frame-rate") { Duration = TimeSpan.FromSeconds(1) };
+            var scene = new Scene(16, 9, "frame-rate") { Duration = MediaTime.FromSeconds(1) };
             var project = new Project();
             project.Variables[ProjectVariableKeys.FrameRate] = frameRate.ToString(CultureInfo.InvariantCulture);
             project.Items.Add(scene);
@@ -275,7 +275,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Resolve_frame_sample_times_rejects_an_explicit_list_with_fewer_than_two_distinct_times()
     {
-        var scene = new Scene(16, 9, "quality") { Duration = TimeSpan.FromSeconds(4) };
+        var scene = new Scene(16, 9, "quality") { Duration = MediaTime.FromSeconds(4) };
 
         Assert.Multiple(() =>
         {
@@ -324,10 +324,10 @@ public sealed class RenderToolsStoryboardTests
         string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "single-shot")
         {
-            Duration = TimeSpan.FromSeconds(6),
+            Duration = MediaTime.FromSeconds(6),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
-        AddColorRectElement(scene, workspace, "continuous", TimeSpan.Zero, TimeSpan.FromSeconds(6), 320, 180, Colors.Red);
+        AddColorRectElement(scene, workspace, "continuous", MediaTime.Zero, MediaTime.FromSeconds(6), 320, 180, Colors.Red);
 
         RenderTools.ResolvedStoryboardFrame[] frames = RenderTools.ResolveStoryboardFrames(
             scene,
@@ -386,7 +386,7 @@ public sealed class RenderToolsStoryboardTests
     public async Task Render_storyboard_rejects_time_seconds_above_frame_count_cap()
     {
         string workspace = TestWorkspace.CreateDirectory();
-        var scene = new Scene(16, 9, "too-many-times") { Duration = TimeSpan.FromSeconds(60) };
+        var scene = new Scene(16, 9, "too-many-times") { Duration = MediaTime.FromSeconds(60) };
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
 
@@ -573,7 +573,7 @@ public sealed class RenderToolsStoryboardTests
     public async Task Render_storyboard_rejects_requests_above_frame_count_cap()
     {
         string workspace = TestWorkspace.CreateDirectory();
-        var scene = new Scene(16, 9, "too-many") { Duration = TimeSpan.FromSeconds(60) };
+        var scene = new Scene(16, 9, "too-many") { Duration = MediaTime.FromSeconds(60) };
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
 
@@ -725,10 +725,10 @@ public sealed class RenderToolsStoryboardTests
         string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(1600, 900, "large-still")
         {
-            Duration = TimeSpan.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
-        AddColorRectElement(scene, workspace, "large background", TimeSpan.Zero, TimeSpan.FromSeconds(1), 1600, 900, Colors.Red);
+        AddColorRectElement(scene, workspace, "large background", MediaTime.Zero, MediaTime.FromSeconds(1), 1600, 900, Colors.Red);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
 
@@ -760,7 +760,7 @@ public sealed class RenderToolsStoryboardTests
         string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, $"oversized-{toolName}")
         {
-            Duration = TimeSpan.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         using var session = new AgentToolkitTestSession(scene);
@@ -999,14 +999,14 @@ public sealed class RenderToolsStoryboardTests
     }
 
     [Test]
-    public void Resolve_frame_sample_times_clamp_the_exclusive_scene_end_to_the_last_renderable_tick()
+    public void Resolve_frame_sample_times_clamp_the_exclusive_scene_end_to_the_last_renderable_flick()
     {
-        var scene = new Scene(320, 180, "clamp-edge") { Duration = TimeSpan.FromSeconds(2) };
+        var scene = new Scene(320, 180, "clamp-edge") { Duration = MediaTime.FromSeconds(2) };
 
-        IReadOnlyList<TimeSpan> samples = RenderTools.ResolveFrameSampleTimes(
-            scene, [0.0, scene.Duration.TotalSeconds], sampleCount: 2);
+        IReadOnlyList<MediaTime> samples = RenderTools.ResolveFrameSampleTimes(
+            scene, [0.0, scene.Duration.ToSeconds()], sampleCount: 2);
 
-        Assert.That(samples, Is.EqualTo(new[] { TimeSpan.Zero, scene.Duration - TimeSpan.FromTicks(1) }));
+        Assert.That(samples, Is.EqualTo(new[] { MediaTime.Zero, scene.Duration - new MediaTime(1) }));
     }
 
     [Test]
@@ -1015,10 +1015,10 @@ public sealed class RenderToolsStoryboardTests
         string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "clamp-collapse")
         {
-            Duration = TimeSpan.FromSeconds(2),
+            Duration = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
-        AddColorRectElement(scene, workspace, "bg", TimeSpan.Zero, TimeSpan.FromSeconds(2), 320, 180, Colors.Red);
+        AddColorRectElement(scene, workspace, "bg", MediaTime.Zero, MediaTime.FromSeconds(2), 320, 180, Colors.Red);
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
 
@@ -1130,12 +1130,12 @@ public sealed class RenderToolsStoryboardTests
     {
         var scene = new Scene(320, 180, "storyboard")
         {
-            Duration = TimeSpan.FromSeconds(3),
+            Duration = MediaTime.FromSeconds(3),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
-        AddColorRectElement(scene, workspace, "opening", TimeSpan.Zero, TimeSpan.FromSeconds(1), 320, 180, Colors.Red);
-        AddColorRectElement(scene, workspace, "middle", TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), 320, 180, Colors.Blue);
-        AddColorRectElement(scene, workspace, "closing", TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), 320, 180, Colors.Green);
+        AddColorRectElement(scene, workspace, "opening", MediaTime.Zero, MediaTime.FromSeconds(1), 320, 180, Colors.Red);
+        AddColorRectElement(scene, workspace, "middle", MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), 320, 180, Colors.Blue);
+        AddColorRectElement(scene, workspace, "closing", MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), 320, 180, Colors.Green);
         return scene;
     }
 
@@ -1143,13 +1143,13 @@ public sealed class RenderToolsStoryboardTests
     {
         var scene = new Scene(320, 180, "static-scene")
         {
-            Duration = TimeSpan.FromSeconds(3),
+            Duration = MediaTime.FromSeconds(3),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
-        AddColorRectElement(scene, workspace, "Background plate", TimeSpan.Zero, TimeSpan.FromSeconds(3), 320, 180, Color.Parse("#ff20242b"));
-        AddColorRoundedRectElement(scene, workspace, "Title backing plate", TimeSpan.Zero, TimeSpan.FromSeconds(3), 120, 44, Color.Parse("#eeedf0e8"));
-        AddTextElement(scene, workspace, "Launch notes", TimeSpan.Zero, TimeSpan.FromSeconds(3));
-        AddEllipseElement(scene, workspace, "Soft accent", TimeSpan.Zero, TimeSpan.FromSeconds(3));
+        AddColorRectElement(scene, workspace, "Background plate", MediaTime.Zero, MediaTime.FromSeconds(3), 320, 180, Color.Parse("#ff20242b"));
+        AddColorRoundedRectElement(scene, workspace, "Title backing plate", MediaTime.Zero, MediaTime.FromSeconds(3), 120, 44, Color.Parse("#eeedf0e8"));
+        AddTextElement(scene, workspace, "Launch notes", MediaTime.Zero, MediaTime.FromSeconds(3));
+        AddEllipseElement(scene, workspace, "Soft accent", MediaTime.Zero, MediaTime.FromSeconds(3));
         return scene;
     }
 
@@ -1157,17 +1157,17 @@ public sealed class RenderToolsStoryboardTests
     {
         var scene = new Scene(320, 180, "eye-trace")
         {
-            Duration = TimeSpan.FromSeconds(2),
+            Duration = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
-        AddColorRectElement(scene, workspace, "black background", TimeSpan.Zero, TimeSpan.FromSeconds(2), 320, 180, Colors.Black);
-        AddFocalRectElement(scene, workspace, "first focal", TimeSpan.Zero, TimeSpan.FromSeconds(1), -120, -60);
+        AddColorRectElement(scene, workspace, "black background", MediaTime.Zero, MediaTime.FromSeconds(2), 320, 180, Colors.Black);
+        AddFocalRectElement(scene, workspace, "first focal", MediaTime.Zero, MediaTime.FromSeconds(1), -120, -60);
         AddFocalRectElement(
             scene,
             workspace,
             "second focal",
-            TimeSpan.FromSeconds(1),
-            TimeSpan.FromSeconds(1),
+            MediaTime.FromSeconds(1),
+            MediaTime.FromSeconds(1),
             jumpAcrossCut ? 120 : -120,
             jumpAcrossCut ? 60 : -60);
         return scene;
@@ -1177,8 +1177,8 @@ public sealed class RenderToolsStoryboardTests
         Scene scene,
         string workspace,
         string name,
-        TimeSpan start,
-        TimeSpan length,
+        MediaTime start,
+        MediaTime length,
         float width,
         float height,
         Color color)
@@ -1197,8 +1197,8 @@ public sealed class RenderToolsStoryboardTests
         Scene scene,
         string workspace,
         string name,
-        TimeSpan start,
-        TimeSpan length,
+        MediaTime start,
+        MediaTime length,
         float x,
         float y)
     {
@@ -1223,8 +1223,8 @@ public sealed class RenderToolsStoryboardTests
         Scene scene,
         string workspace,
         string name,
-        TimeSpan start,
-        TimeSpan length,
+        MediaTime start,
+        MediaTime length,
         float width,
         float height,
         Color color)
@@ -1240,7 +1240,7 @@ public sealed class RenderToolsStoryboardTests
         AddElement(scene, workspace, name, start, length, scene.Children.Count, rect);
     }
 
-    private static void AddTextElement(Scene scene, string workspace, string text, TimeSpan start, TimeSpan length)
+    private static void AddTextElement(Scene scene, string workspace, string text, MediaTime start, MediaTime length)
     {
         var block = new TextBlock
         {
@@ -1252,7 +1252,7 @@ public sealed class RenderToolsStoryboardTests
         AddElement(scene, workspace, text, start, length, 10, block);
     }
 
-    private static void AddEllipseElement(Scene scene, string workspace, string name, TimeSpan start, TimeSpan length)
+    private static void AddEllipseElement(Scene scene, string workspace, string name, MediaTime start, MediaTime length)
     {
         var ellipse = new EllipseShape
         {
@@ -1275,8 +1275,8 @@ public sealed class RenderToolsStoryboardTests
         Scene scene,
         string workspace,
         string name,
-        TimeSpan start,
-        TimeSpan length,
+        MediaTime start,
+        MediaTime length,
         int zIndex,
         EngineObject obj)
     {
@@ -1356,7 +1356,7 @@ public sealed class RenderToolsStoryboardTests
         IReadOnlyList<double> expectedSeconds)
     {
         Assert.That(
-            frames.Select(frame => frame.Time.TotalSeconds).ToArray(),
+            frames.Select(frame => frame.Time.ToSeconds()).ToArray(),
             Is.EqualTo(expectedSeconds.ToArray()).Within(0.000001));
     }
 

@@ -11,41 +11,41 @@ public class ElementBehaviorTests
     {
         var element = new Element
         {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2)
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(2)
         };
 
-        Assert.That(element.Range.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-        Assert.That(element.Range.Duration, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(element.Range.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Assert.That(element.Range.Duration, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
     public void Start_ChangePropagatesToObjectsAndRaisesEditedWithRanges()
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(2) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(2) };
         var obj = new TestObject();
         element.AddObject(obj);
         ElementEditedEventArgs? args = null;
         element.Edited += (_, e) => args = e as ElementEditedEventArgs;
 
-        element.Start = TimeSpan.FromSeconds(5);
+        element.Start = MediaTime.FromSeconds(5);
 
         Assert.That(args, Is.Not.Null);
         Assert.That(args!.AffectedRange, Is.Not.Empty);
-        Assert.That(obj.TimeRange.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
-        Assert.That(obj.TimeRange.Duration, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(obj.TimeRange.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+        Assert.That(obj.TimeRange.Duration, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
     public void Length_ChangePropagatesToObjects()
     {
-        var element = new Element { Start = TimeSpan.FromSeconds(1) };
+        var element = new Element { Start = MediaTime.FromSeconds(1) };
         var obj = new TestObject();
         element.AddObject(obj);
 
-        element.Length = TimeSpan.FromSeconds(7);
+        element.Length = MediaTime.FromSeconds(7);
 
-        Assert.That(obj.TimeRange.Duration, Is.EqualTo(TimeSpan.FromSeconds(7)));
+        Assert.That(obj.TimeRange.Duration, Is.EqualTo(MediaTime.FromSeconds(7)));
     }
 
     [Test]
@@ -163,8 +163,8 @@ public class ElementBehaviorTests
         };
         var occupying = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(5),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(5),
             ZIndex = 0,
             Uri = new Uri(Path.Combine(basePath, "a.belm")),
         };
@@ -172,8 +172,8 @@ public class ElementBehaviorTests
         scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
         var added = new Element
         {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(2),
             ZIndex = 0,
             Uri = new Uri(Path.Combine(basePath, "b.belm")),
         };
@@ -282,18 +282,18 @@ public class ElementBehaviorTests
 
         Assert.That(element.HasOriginalDuration(), Is.False);
         Assert.That(element.TryGetOriginalDuration(out var ts), Is.False);
-        Assert.That(ts, Is.EqualTo(default(TimeSpan)));
+        Assert.That(ts, Is.EqualTo(default(MediaTime)));
     }
 
     [Test]
     public void HasOriginalDuration_WithProvider_ReturnsTrueAndDuration()
     {
         var element = new Element();
-        element.AddObject(new TestDurationObject(TimeSpan.FromSeconds(8)));
+        element.AddObject(new TestDurationObject(MediaTime.FromSeconds(8)));
 
         Assert.That(element.HasOriginalDuration(), Is.True);
         Assert.That(element.TryGetOriginalDuration(out var ts), Is.True);
-        Assert.That(ts, Is.EqualTo(TimeSpan.FromSeconds(8)));
+        Assert.That(ts, Is.EqualTo(MediaTime.FromSeconds(8)));
     }
 
     [Test]
@@ -303,11 +303,11 @@ public class ElementBehaviorTests
         var splittable = new TestSplittable();
         element.AddObject(splittable);
 
-        element.NotifySplitted(backward: true, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+        element.NotifySplitted(backward: true, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         Assert.That(splittable.LastBackward, Is.True);
-        Assert.That(splittable.LastStartDelta, Is.EqualTo(TimeSpan.FromSeconds(1)));
-        Assert.That(splittable.LastDurationDelta, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(splittable.LastStartDelta, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Assert.That(splittable.LastDurationDelta, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [SuppressResourceClassGeneration]
@@ -324,16 +324,16 @@ public class ElementBehaviorTests
     [SuppressResourceClassGeneration]
     private class TestDurationObject : EngineObject, IOriginalDurationProvider
     {
-        private readonly TimeSpan _duration;
+        private readonly MediaTime _duration;
 
-        public TestDurationObject(TimeSpan duration)
+        public TestDurationObject(MediaTime duration)
         {
             _duration = duration;
         }
 
         public bool HasOriginalDuration() => true;
 
-        public bool TryGetOriginalDuration(out TimeSpan timeSpan)
+        public bool TryGetOriginalDuration(out MediaTime timeSpan)
         {
             timeSpan = _duration;
             return true;
@@ -344,10 +344,10 @@ public class ElementBehaviorTests
     private class TestSplittable : EngineObject, ISplittable
     {
         public bool LastBackward { get; private set; }
-        public TimeSpan LastStartDelta { get; private set; }
-        public TimeSpan LastDurationDelta { get; private set; }
+        public MediaTime LastStartDelta { get; private set; }
+        public MediaTime LastDurationDelta { get; private set; }
 
-        public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+        public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
         {
             LastBackward = backward;
             LastStartDelta = startDelta;

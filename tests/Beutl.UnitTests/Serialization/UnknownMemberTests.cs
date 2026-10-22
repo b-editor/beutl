@@ -167,7 +167,7 @@ public class UnknownMemberTests
         var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
         string elementPath = Path.Combine(_root, "element.belm");
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
-        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(elementPath) };
         element.AddObject(new RectShape { Fill = { Value = new SolidColorBrush(Colors.Red) } });
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, sceneUri);
@@ -180,7 +180,7 @@ public class UnknownMemberTests
 
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element restoredElement = restored.Children.Single();
-        restoredElement.Start = TimeSpan.FromSeconds(2);
+        restoredElement.Start = MediaTime.FromSeconds(2);
         CoreSerializer.StoreToUri(restored, sceneUri);
         JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonObject savedShape = saved[nameof(Element.Objects)]![0]!.AsObject();
@@ -188,7 +188,7 @@ public class UnknownMemberTests
         Assert.Multiple(() =>
         {
             Assert.That(restoredElement.SuppressedStorageSource, Is.Null);
-            Assert.That(CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Start, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(JsonNode.DeepEquals(saved["FutureClip"], json["FutureClip"]), Is.True);
             Assert.That(savedShape["FutureShape"]!.GetValue<int>(), Is.EqualTo(3));
             Assert.That(JsonNode.DeepEquals(savedShape[nameof(RectShape.Fill)]!["FutureBrush"],
@@ -356,7 +356,7 @@ public class UnknownMemberTests
     private static KeyFrameAnimation<float> CreateAnimation(float value)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = value });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = value });
         return animation;
     }
 

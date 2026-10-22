@@ -35,7 +35,7 @@ public sealed class RendererWideRecordingTests
                 surface: new CpuRenderTarget(8, 8));
             var frame = new CompositionFrame(
                 ImmutableArray<EngineObject.Resource>.Empty,
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
                 new PixelSize(8, 8),
                 null);
 
@@ -65,7 +65,7 @@ public sealed class RendererWideRecordingTests
             surface: surface);
         var frame = new CompositionFrame(
             ImmutableArray<EngineObject.Resource>.Empty,
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
             new PixelSize(8, 8),
             null);
         RenderThread.Dispatcher.Invoke(() => renderer.Render(frame));
@@ -444,7 +444,7 @@ public sealed class RendererWideRecordingTests
                 (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(resource),
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
                 new PixelSize(8, 8),
                 null);
             using var renderer = new Renderer(8, 8, RenderIntent.Preview)
@@ -497,7 +497,7 @@ public sealed class RendererWideRecordingTests
         using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
         var frame = new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
             new PixelSize(8, 8),
             null);
         Renderer renderer = VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -541,7 +541,7 @@ public sealed class RendererWideRecordingTests
         using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
         var frame = new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
             new PixelSize(8, 8),
             null);
         Renderer renderer = VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -655,7 +655,7 @@ public sealed class RendererWideRecordingTests
                 (Drawable.Resource)second.ToResource(CompositionContext.Default);
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(firstResource, secondResource),
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
                 new PixelSize(8, 8),
                 null);
             using var renderer = new Renderer(
@@ -736,7 +736,7 @@ public sealed class RendererWideRecordingTests
                 (Drawable.Resource)group.ToResource(CompositionContext.Default);
             var frame = new CompositionFrame(
                 ImmutableArray.Create<EngineObject.Resource>(resource),
-                new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+                new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
                 new PixelSize(8, 8),
                 null);
             using var renderer = new Renderer(
@@ -826,7 +826,7 @@ public sealed class RendererWideRecordingTests
         using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
         var frame = new CompositionFrame(
             ImmutableArray.Create<EngineObject.Resource>(resource),
-            new TimeRange(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
             new PixelSize(8, 8),
             null);
         var renderer = new Renderer(

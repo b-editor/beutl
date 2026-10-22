@@ -38,8 +38,8 @@ public class ProjectPersistenceTests
         var scene = new Scene(1920, 1080, "scene0") { Uri = sceneUri };
         var element = new Element
         {
-            Start = TimeSpan.FromSeconds(2),
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.FromSeconds(2),
+            Length = MediaTime.FromSeconds(4),
             ZIndex = 1,
             Uri = elementUri,
         };
@@ -76,8 +76,8 @@ public class ProjectPersistenceTests
         Element restoredElement = restoredScene.Children[0];
         Assert.Multiple(() =>
         {
-            Assert.That(restoredElement.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-            Assert.That(restoredElement.Length, Is.EqualTo(TimeSpan.FromSeconds(4)));
+            Assert.That(restoredElement.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(restoredElement.Length, Is.EqualTo(MediaTime.FromSeconds(4)));
             Assert.That(restoredElement.ZIndex, Is.EqualTo(1));
             Assert.That(restoredElement.Objects.OfType<RectShape>().Count(), Is.EqualTo(1));
         });
@@ -125,7 +125,7 @@ public class ProjectPersistenceTests
 
         var project = new Project { Uri = projectUri };
         var scene = new Scene(1024, 768, "s") { Uri = sceneUri };
-        scene.Children.Add(new Element { Length = TimeSpan.FromSeconds(3), Uri = elementUri });
+        scene.Children.Add(new Element { Length = MediaTime.FromSeconds(3), Uri = elementUri });
         project.Items.Add(scene);
         CoreSerializer.StoreToUri(project, projectUri);
 
@@ -139,7 +139,7 @@ public class ProjectPersistenceTests
             Assert.That(secondRestore.Items, Has.Count.EqualTo(1));
             Assert.That(secondScene.FrameSize, Is.EqualTo(new PixelSize(1024, 768)));
             Assert.That(secondScene.Children, Has.Count.EqualTo(1));
-            Assert.That(secondScene.Children[0].Length, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(secondScene.Children[0].Length, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 

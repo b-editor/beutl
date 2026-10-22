@@ -40,8 +40,8 @@ public class LockedClipPropertyTests
     {
         (EditViewModel editor, Element element, RectShape shape) = await OpenClip();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 200 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 200 });
         shape.Width.SetKeyFrameAnimation(animation);
         var layer = new TimelineLayer { ZIndex = element.ZIndex };
         editor.Scene.Layers.Add(layer);
@@ -72,13 +72,13 @@ public class LockedClipPropertyTests
         property.SetValue(250);
         property.Reset();
         Assert.That(property.SetCurrentValueAndGetCoerced(250), Is.EqualTo(100));
-        property.InsertKeyFrame(TimeSpan.FromSeconds(0.5));
-        property.RemoveKeyFrame(TimeSpan.Zero);
+        property.InsertKeyFrame(MediaTime.FromSeconds(0.5));
+        property.RemoveKeyFrame(MediaTime.Zero);
         property.RemoveAnimation();
         property.PrepareToEditAnimation();
         Assert.That(property.SetExpression("1 + 2", out _), Is.False);
 
-        ((IEditorClock)editor.GetService(typeof(IEditorClock))!).Seek(TimeSpan.FromSeconds(0.5));
+        ((IEditorClock)editor.GetService(typeof(IEditorClock))!).Seek(MediaTime.FromSeconds(0.5));
         tab.Items[0].IsExpanded.Value = false;
         var menu = new PropertyEditorMenu { DataContext = property };
         var objectView = new EngineObjectPropertyView { DataContext = tab.Items[0] };
@@ -122,14 +122,14 @@ public class LockedClipPropertyTests
             // Keyframe navigation remains available while the clip is read-only.
             property.KeyFrameIndex.Value = 1;
             Assert.That(((IEditorClock)editor.GetService(typeof(IEditorClock))!).CurrentTime.Value,
-                Is.EqualTo(TimeSpan.FromSeconds(1)));
+                Is.EqualTo(MediaTime.FromSeconds(1)));
             SetLock(false);
             HeadlessTestHelpers.Settle();
             Assert.That(property.CanEdit.Value, Is.True);
             Assert.That(number.IsReadOnly, Is.False);
             Assert.That(visibility.IsEffectivelyEnabled, Is.True);
             property.SetValue(200, 300);
-            property.InsertKeyFrame(TimeSpan.FromSeconds(1.5));
+            property.InsertKeyFrame(MediaTime.FromSeconds(1.5));
             HeadlessTestHelpers.Click(visibility, ticks: 0);
             Assert.That(animation.KeyFrames[1].Value, Is.EqualTo(300));
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(3));
@@ -175,7 +175,7 @@ public class LockedClipPropertyTests
         Assert.That(property.CanEdit.Value, Is.False);
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 2,
+        await adder.AddAsync([new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 2,
             new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
         Element second = editor.Scene.Children.Last();
         tab.Element.Value = second;
@@ -424,7 +424,7 @@ public class LockedClipPropertyTests
     private static async Task<(EditViewModel Editor, Element Element, RectShape Shape)> OpenClip()
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("clip-lock");
-        await TestShell.AddElementAsync(editor, () => new RectShape(), TimeSpan.Zero, TimeSpan.FromSeconds(2));
+        await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(2));
         Element element = scene.Children.First();
         var shape = (RectShape)element.Objects[0];
         shape.Width.Value = 100;

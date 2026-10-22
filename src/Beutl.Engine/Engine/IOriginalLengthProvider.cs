@@ -4,5 +4,5 @@ public interface IOriginalDurationProvider
 {
     bool HasOriginalDuration();
 
-    bool TryGetOriginalDuration(out TimeSpan timeSpan);
+    bool TryGetOriginalDuration(out MediaTime timeSpan);
 }

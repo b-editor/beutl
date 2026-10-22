@@ -4,14 +4,14 @@ namespace Beutl.AgentToolkit.Rendering;
 
 public sealed class RenderedFrameAnalysis : IDisposable
 {
-    public RenderedFrameAnalysis(TimeSpan time, Bitmap bitmap, IReadOnlyList<RenderedTextBounds> textBounds)
+    public RenderedFrameAnalysis(MediaTime time, Bitmap bitmap, IReadOnlyList<RenderedTextBounds> textBounds)
     {
         Time = time;
         Bitmap = bitmap;
         TextBounds = textBounds;
     }
 
-    public TimeSpan Time { get; }
+    public MediaTime Time { get; }
 
     public Bitmap Bitmap { get; }
 

@@ -40,7 +40,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
 
     public ReactivePropertySlim<IPropertyEditorContext?> BandCountEditor { get; } = new();
 
-    public ReactivePropertySlim<TimeSpan> CurrentTime { get; } = new();
+    public ReactivePropertySlim<MediaTime> CurrentTime { get; } = new();
 
     public ReactivePropertySlim<int> SampleRate { get; } = new(44100);
 

@@ -239,8 +239,8 @@ public sealed class FontToolsTests
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
         element.AddObject(new TextBlock { Name = "title", Text = { Value = "Launch" } });

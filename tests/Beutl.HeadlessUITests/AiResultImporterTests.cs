@@ -30,7 +30,7 @@ public sealed class AiResultImporterTests
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(scene, editor.GetRequiredService<IElementAdder>());
         ElementAddResult added = await importer.ImportImageAsync(bitmap,
-            new AiResultImportOptions(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0, "Shared resource"));
+            new AiResultImportOptions(MediaTime.Zero, MediaTime.FromSeconds(2), 0, "Shared resource"));
         Assert.That(added.IsSuccess, Is.True);
         Element element = added.Elements.Single();
         Uri original = element.Objects.OfType<Beutl.Graphics.SourceImage>().Single().Source.Value!.Uri;
@@ -64,8 +64,8 @@ public sealed class AiResultImporterTests
         ElementAddResult result = await importer.ImportImageAsync(
             bitmap,
             new AiResultImportOptions(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(5),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(5),
                 0,
                 "AI image"));
         HeadlessTestHelpers.Settle();
@@ -99,8 +99,8 @@ public sealed class AiResultImporterTests
         await Assert.ThrowsAsync<IOException>(() => importer.ImportImageAsync(
             bitmap,
             new AiResultImportOptions(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(5),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(5),
                 0,
                 "AI image")));
 
@@ -132,8 +132,8 @@ public sealed class AiResultImporterTests
             importer,
             new byte[] { 1, 2, 3, 4 },
             new AiResultImportOptions(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(4),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(4),
                 0,
                 "AI video"));
 
@@ -158,8 +158,8 @@ public sealed class AiResultImporterTests
             await importer.ImportVideoAsync(
                 sourcePath,
                 new AiResultImportOptions(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(4),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(4),
                     0,
                     "AI video"));
 
@@ -182,8 +182,8 @@ public sealed class AiResultImporterTests
             importer,
             new byte[] { 1, 2, 3, 4 },
             new AiResultImportOptions(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(4),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(4),
                 0,
                 "AI video"));
 
@@ -216,8 +216,8 @@ public sealed class AiResultImporterTests
                 importer,
                 new byte[] { 1, 2, 3, 4 },
                 new AiResultImportOptions(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(4),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(4),
                     0,
                     "AI video"));
             string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
@@ -256,8 +256,8 @@ public sealed class AiResultImporterTests
                 importer,
                 new byte[] { 1, 2, 3, 4 },
                 new AiResultImportOptions(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(4),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(4),
                     0,
                     "AI video"));
             string resourcePath = adder.StagedPath!;
@@ -300,8 +300,8 @@ public sealed class AiResultImporterTests
                     importer,
                     new byte[] { 1, 2, 3, 4 },
                     new AiResultImportOptions(
-                        TimeSpan.Zero,
-                        TimeSpan.FromSeconds(4),
+                        MediaTime.Zero,
+                        MediaTime.FromSeconds(4),
                         0,
                         "AI video"));
                 Assert.Fail("A truncated AI video must be rejected before materialization.");
@@ -450,8 +450,8 @@ public sealed class AiResultImporterTests
             ElementAddResult result = await importer.ImportImageAsync(
                 bitmap,
                 new AiResultImportOptions(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(2),
                     0,
                     "Unsaved AI image"));
             HeadlessTestHelpers.Settle();
@@ -563,8 +563,8 @@ public sealed class AiResultImporterTests
             ElementAddResult result = await importer.ImportImageAsync(
                 bitmap,
                 new AiResultImportOptions(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(2),
                     0,
                     "Unsaved AI image"));
             Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
@@ -630,8 +630,8 @@ public sealed class AiResultImporterTests
             ElementAddResult result = await importer.ImportImageAsync(
                 bitmap,
                 new AiResultImportOptions(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(2),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(2),
                     0,
                     "Unsaved AI image"));
             Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);

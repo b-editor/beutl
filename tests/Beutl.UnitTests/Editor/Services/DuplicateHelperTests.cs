@@ -8,7 +8,7 @@ namespace Beutl.UnitTests.Editor.Services;
 [TestFixture]
 public class DuplicateHelperTests
 {
-    private static Element CreateElement(TimeSpan start, TimeSpan length, int zIndex = 0, Guid? id = null, string? basePath = null)
+    private static Element CreateElement(MediaTime start, MediaTime length, int zIndex = 0, Guid? id = null, string? basePath = null)
     {
         var element = new Element
         {
@@ -30,13 +30,13 @@ public class DuplicateHelperTests
         // The placement search seed range should span A's full duration (10s),
         // not just maxStart-minStart (1s). Otherwise the spiral search picks
         // a "next slot" that overlaps A.
-        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(10));
-        Element b = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        Element a = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(10));
+        Element b = CreateElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1));
 
         var (range, minZ, maxZ) = DuplicateHelper.ComputePlacementRange([a, b]);
 
-        Assert.That(range.Start, Is.EqualTo(TimeSpan.FromSeconds(0)));
-        Assert.That(range.Duration, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(range.Start, Is.EqualTo(MediaTime.FromSeconds(0)));
+        Assert.That(range.Duration, Is.EqualTo(MediaTime.FromSeconds(10)));
         Assert.That(minZ, Is.EqualTo(0));
         Assert.That(maxZ, Is.EqualTo(0));
     }
@@ -85,24 +85,24 @@ public class DuplicateHelperTests
         Guid sourceA = Guid.NewGuid();
         Guid sourceB = Guid.NewGuid();
         Guid sourceC = Guid.NewGuid();
-        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceA, basePath: harness.BasePath);
-        Element b = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceB, basePath: harness.BasePath);
-        Element c = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0, id: sourceC, basePath: harness.BasePath);
+        Element a = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(1), zIndex: 0, id: sourceA, basePath: harness.BasePath);
+        Element b = CreateElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), zIndex: 0, id: sourceB, basePath: harness.BasePath);
+        Element c = CreateElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 0, id: sourceC, basePath: harness.BasePath);
         scene.Children.Add(a);
         scene.Children.Add(b);
         scene.Children.Add(c);
         scene.Groups.Add(ImmutableHashSet.Create(sourceA, sourceB, sourceC));
 
         // 新規要素は正規化済みの位置を持つ前提 (ObjectRegenerator が新しい Id を振った状態)
-        Element newA = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), zIndex: 0);
-        Element newB = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), zIndex: 0);
-        Element newC = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), zIndex: 0);
+        Element newA = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(1), zIndex: 0);
+        Element newB = CreateElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), zIndex: 0);
+        Element newC = CreateElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 0);
 
         DuplicateHelper.PlaceDuplicates(
             scene,
             newElements: [newA, newB, newC],
             sourceElements: [a, b, c],
-            anchorStart: TimeSpan.FromSeconds(10),
+            anchorStart: MediaTime.FromSeconds(10),
             anchorZIndex: 1);
 
         Assert.That(scene.Children.Count, Is.EqualTo(6));
@@ -116,9 +116,9 @@ public class DuplicateHelperTests
         Assert.That(newGroup.SetEquals([newA.Id, newB.Id, newC.Id]), Is.True);
         Assert.That(newGroup.Overlaps([sourceA, sourceB, sourceC]), Is.False);
 
-        Assert.That(newA.Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
-        Assert.That(newB.Start, Is.EqualTo(TimeSpan.FromSeconds(11)));
-        Assert.That(newC.Start, Is.EqualTo(TimeSpan.FromSeconds(12)));
+        Assert.That(newA.Start, Is.EqualTo(MediaTime.FromSeconds(10)));
+        Assert.That(newB.Start, Is.EqualTo(MediaTime.FromSeconds(11)));
+        Assert.That(newC.Start, Is.EqualTo(MediaTime.FromSeconds(12)));
         Assert.That(newA.ZIndex, Is.EqualTo(1));
         Assert.That(newB.ZIndex, Is.EqualTo(1));
         Assert.That(newC.ZIndex, Is.EqualTo(1));
@@ -138,10 +138,10 @@ public class DuplicateHelperTests
         Guid sourceY = Guid.NewGuid();
         Guid sourceZ = Guid.NewGuid();
         Guid sourceW = Guid.NewGuid();
-        Element x = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1), id: sourceX, basePath: harness.BasePath);
-        Element y = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1), id: sourceY, basePath: harness.BasePath);
-        Element z = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1), id: sourceZ, basePath: harness.BasePath);
-        Element w = CreateElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1), id: sourceW, basePath: harness.BasePath);
+        Element x = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(1), id: sourceX, basePath: harness.BasePath);
+        Element y = CreateElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), id: sourceY, basePath: harness.BasePath);
+        Element z = CreateElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), id: sourceZ, basePath: harness.BasePath);
+        Element w = CreateElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1), id: sourceW, basePath: harness.BasePath);
         scene.Children.Add(x);
         scene.Children.Add(y);
         scene.Children.Add(z);
@@ -149,16 +149,16 @@ public class DuplicateHelperTests
         scene.Groups.Add(ImmutableHashSet.Create(sourceX, sourceY));
         scene.Groups.Add(ImmutableHashSet.Create(sourceZ, sourceW));
 
-        Element newX = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
-        Element newY = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
-        Element newZ = CreateElement(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(1));
-        Element newW = CreateElement(TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(1));
+        Element newX = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(1));
+        Element newY = CreateElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1));
+        Element newZ = CreateElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
+        Element newW = CreateElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1));
 
         DuplicateHelper.PlaceDuplicates(
             scene,
             newElements: [newX, newY, newZ, newW],
             sourceElements: [x, y, z, w],
-            anchorStart: TimeSpan.FromSeconds(20),
+            anchorStart: MediaTime.FromSeconds(20),
             anchorZIndex: 0);
 
         Assert.That(scene.Groups.Count, Is.EqualTo(4));
@@ -171,9 +171,9 @@ public class DuplicateHelperTests
     {
         // Single 5s clip at t=0..5 on layer 0. Anchor at t=3 → new range 3..8 still
         // overlaps the original on the same layer.
-        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), zIndex: 0);
+        Element a = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(5), zIndex: 0);
 
-        bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(3), anchorZIndex: 0);
+        bool result = DuplicateHelper.WouldOverlapSources([a], MediaTime.FromSeconds(3), anchorZIndex: 0);
 
         Assert.That(result, Is.True);
     }
@@ -182,9 +182,9 @@ public class DuplicateHelperTests
     public void WouldOverlapSources_ReturnsFalse_WhenAnchorIsExactlyAtSourceEnd()
     {
         // [0,5) and [5,10) on layer 0 are adjacent but not intersecting.
-        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), zIndex: 0);
+        Element a = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(5), zIndex: 0);
 
-        bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(5), anchorZIndex: 0);
+        bool result = DuplicateHelper.WouldOverlapSources([a], MediaTime.FromSeconds(5), anchorZIndex: 0);
 
         Assert.That(result, Is.False);
     }
@@ -193,9 +193,9 @@ public class DuplicateHelperTests
     public void WouldOverlapSources_ReturnsFalse_WhenLayerDiffers()
     {
         // Same time range but different ZIndex — no overlap.
-        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(5), zIndex: 0);
+        Element a = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(5), zIndex: 0);
 
-        bool result = DuplicateHelper.WouldOverlapSources([a], TimeSpan.FromSeconds(0), anchorZIndex: 1);
+        bool result = DuplicateHelper.WouldOverlapSources([a], MediaTime.FromSeconds(0), anchorZIndex: 1);
 
         Assert.That(result, Is.False);
     }
@@ -205,10 +205,10 @@ public class DuplicateHelperTests
     {
         // a: [0,2), b: [10,12) on layer 0. Shift by +1 → new a: [1,3), new b: [11,13).
         // new a overlaps source a.
-        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
-        Element b = CreateElement(TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element a = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
+        Element b = CreateElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2), zIndex: 0);
 
-        bool result = DuplicateHelper.WouldOverlapSources([a, b], TimeSpan.FromSeconds(1), anchorZIndex: 0);
+        bool result = DuplicateHelper.WouldOverlapSources([a, b], MediaTime.FromSeconds(1), anchorZIndex: 0);
 
         Assert.That(result, Is.True);
     }
@@ -218,10 +218,10 @@ public class DuplicateHelperTests
     {
         // a: [0,2), b: [4,6) on layer 0. Anchor at t=10 → new a: [10,12), new b: [14,16).
         // Neither intersects any source on the same layer.
-        Element a = CreateElement(TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2), zIndex: 0);
-        Element b = CreateElement(TimeSpan.FromSeconds(4), TimeSpan.FromSeconds(2), zIndex: 0);
+        Element a = CreateElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2), zIndex: 0);
+        Element b = CreateElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(2), zIndex: 0);
 
-        bool result = DuplicateHelper.WouldOverlapSources([a, b], TimeSpan.FromSeconds(10), anchorZIndex: 0);
+        bool result = DuplicateHelper.WouldOverlapSources([a, b], MediaTime.FromSeconds(10), anchorZIndex: 0);
 
         Assert.That(result, Is.False);
     }
@@ -230,7 +230,7 @@ public class DuplicateHelperTests
     public void WouldOverlapSources_ReturnsFalse_OnEmptyInput()
     {
         Assert.That(
-            DuplicateHelper.WouldOverlapSources([], TimeSpan.Zero, anchorZIndex: 0), Is.False);
+            DuplicateHelper.WouldOverlapSources([], MediaTime.Zero, anchorZIndex: 0), Is.False);
     }
 
     [Test]
@@ -239,15 +239,15 @@ public class DuplicateHelperTests
         var scene = new Scene(100, 100, string.Empty);
         Assert.That(scene.Uri, Is.Null);
 
-        Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        Element newOne = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
+        Element source = CreateElement(MediaTime.Zero, MediaTime.FromSeconds(1));
+        Element newOne = CreateElement(MediaTime.Zero, MediaTime.FromSeconds(1));
 
         Assert.Throws<InvalidOperationException>(
             () => DuplicateHelper.PlaceDuplicates(
                 scene,
                 newElements: [newOne],
                 sourceElements: [source],
-                anchorStart: TimeSpan.Zero,
+                anchorStart: MediaTime.Zero,
                 anchorZIndex: 0));
     }
 
@@ -256,16 +256,16 @@ public class DuplicateHelperTests
     {
         // Positional zip mapping breaking silently would corrupt group remap.
         var scene = new Scene(100, 100, string.Empty);
-        Element source = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        Element newA = CreateElement(TimeSpan.Zero, TimeSpan.FromSeconds(1));
-        Element newB = CreateElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        Element source = CreateElement(MediaTime.Zero, MediaTime.FromSeconds(1));
+        Element newA = CreateElement(MediaTime.Zero, MediaTime.FromSeconds(1));
+        Element newB = CreateElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1));
 
         Assert.Throws<ArgumentException>(
             () => DuplicateHelper.PlaceDuplicates(
                 scene,
                 newElements: [newA, newB],
                 sourceElements: [source],
-                anchorStart: TimeSpan.Zero,
+                anchorStart: MediaTime.Zero,
                 anchorZIndex: 0));
     }
 }

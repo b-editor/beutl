@@ -14,18 +14,18 @@ internal sealed partial class MediaTimeMapping
 {
     internal enum TrimRole { Front, Middle, Back }
 
-    internal readonly record struct Interval(TimeSpan Min, TimeSpan Max)
+    internal readonly record struct Interval(MediaTime Min, MediaTime Max)
     {
-        public static Interval Between(TimeSpan a, TimeSpan b) => a <= b ? new(a, b) : new(b, a);
+        public static Interval Between(MediaTime a, MediaTime b) => a <= b ? new(a, b) : new(b, a);
 
-        public Interval Shift(TimeSpan delta) => new(Add(Min, delta), Add(Max, delta));
+        public Interval Shift(MediaTime delta) => new(Add(Min, delta), Add(Max, delta));
     }
 
     private readonly TimeRange _elementRange;
     private readonly Clock _sourceClock;
     private readonly SpeedMap _speed;
     private readonly Controller[] _controllers;
-    private readonly TimeSpan? _videoDuration;
+    private readonly MediaTime? _videoDuration;
     private readonly bool _loopVideo;
     private readonly KeyFrameAnimation<bool>? _loopAnimation;
     private readonly bool _sourceSupported;
@@ -36,7 +36,7 @@ internal sealed partial class MediaTimeMapping
     internal readonly record struct ControllerLink(DrawableTimeController Controller, Drawable Target);
 
     public MediaTimeMapping(Element element, EngineObject source, IProperty<float> speed,
-        IReadOnlyList<ControllerLink> controllers, int sampleRate, TimeSpan? videoDuration = null,
+        IReadOnlyList<ControllerLink> controllers, int sampleRate, MediaTime? videoDuration = null,
         IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
         IReadOnlyDictionary<Element, TrimRole>? timingRoles = null, bool portalInput = false)
     {
@@ -79,7 +79,7 @@ internal sealed partial class MediaTimeMapping
     // group together when that unresolved constraint refuses a geometry change.
     public bool HasSharedClock => _opaquePortal || _sourceClock.UsesPeerClock || _controllers.Any(c => c.HasSharedClock);
 
-    public (long Phase, long DurationOffset)? DurationLoopPhase(TimeSpan startDelta = default)
+    public (long Phase, long DurationOffset)? DurationLoopPhase(MediaTime startDelta = default)
     {
         var geometry = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration);
         Interval time = new(geometry.Start, geometry.Start);
@@ -92,7 +92,7 @@ internal sealed partial class MediaTimeMapping
         return null;
     }
 
-    public Interval Range(TimeSpan from, TimeSpan to, TimeSpan startDelta = default, TimeSpan lengthDelta = default,
+    public Interval Range(MediaTime from, MediaTime to, MediaTime startDelta = default, MediaTime lengthDelta = default,
         bool extrapolate = false, bool conservative = true, bool sourceOffset = false)
     {
         var elementRange = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration + lengthDelta);
@@ -100,7 +100,7 @@ internal sealed partial class MediaTimeMapping
         return Map(range, elementRange, extrapolate, conservative, sourceOffset);
     }
 
-    public Interval? SampledRange(TimeSpan from, TimeSpan to, TimeSpan startDelta = default, TimeSpan lengthDelta = default,
+    public Interval? SampledRange(MediaTime from, MediaTime to, MediaTime startDelta = default, MediaTime lengthDelta = default,
         bool conservative = true)
     {
         var elementRange = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration + lengthDelta);
@@ -128,18 +128,18 @@ internal sealed partial class MediaTimeMapping
         // the speed integral, while bounds use the wrapped playback window.
         if (sourceOffset) return range;
         (bool loop, bool plain) = LoopModes(sourceTime, sourceRange.Start);
-        Interval? wrapped = loop && _videoDuration is { } duration && duration > TimeSpan.Zero ? Loop(range, duration) : null;
+        Interval? wrapped = loop && _videoDuration is { } duration && duration > MediaTime.Zero ? Loop(range, duration) : null;
         if (wrapped.HasValue && !plain) return wrapped.Value;
-        if (!extrapolate && _videoDuration is { } original && range.Min < TimeSpan.Zero)
-            range = range.Max < TimeSpan.Zero
+        if (!extrapolate && _videoDuration is { } original && range.Min < MediaTime.Zero)
+            range = range.Max < MediaTime.Zero
                 ? range.Shift(original)
-                : Interval.Between(Min(range.Min + original, TimeSpan.Zero), Max(original, range.Max));
+                : Interval.Between(Min(range.Min + original, MediaTime.Zero), Max(original, range.Max));
         return wrapped is { } looped
             ? new Interval(Min(range.Min, looped.Min), Max(range.Max, looped.Max))
             : range;
     }
 
-    private (bool Loop, bool Plain) LoopModes(Interval time, TimeSpan ownerStart)
+    private (bool Loop, bool Plain) LoopModes(Interval time, MediaTime ownerStart)
     {
         if (_loopAnimation == null) return (_loopVideo, !_loopVideo);
         if (!_loopAnimation.UseGlobalClock) time = time.Shift(-ownerStart);
@@ -221,19 +221,19 @@ internal sealed partial class MediaTimeMapping
         public TimeRange GetRange(TimeRange elementRange)
         {
             if (!_followsElement) return _range;
-            TimeSpan startDelta = elementRange.Start - _elementRange.Start;
-            TimeSpan lengthDelta = elementRange.Duration - _elementRange.Duration;
+            MediaTime startDelta = elementRange.Start - _elementRange.Start;
+            MediaTime lengthDelta = elementRange.Duration - _elementRange.Duration;
             if (UsesPeerClock && _elementRole is { } role && _ownerRole is { } ownerRole)
             {
                 // Fronts grow, middles move, and backs move while shrinking. A
                 // reference to another role cannot reuse this element's geometry.
-                TimeSpan delta = role == TrimRole.Front ? lengthDelta : startDelta;
-                startDelta = ownerRole == TrimRole.Front ? TimeSpan.Zero : delta;
+                MediaTime delta = role == TrimRole.Front ? lengthDelta : startDelta;
+                startDelta = ownerRole == TrimRole.Front ? MediaTime.Zero : delta;
                 lengthDelta = ownerRole switch
                 {
                     TrimRole.Front => delta,
                     TrimRole.Back => -delta,
-                    _ => TimeSpan.Zero
+                    _ => MediaTime.Zero
                 };
             }
             return new TimeRange(_range.Start + startDelta, _range.Duration + lengthDelta);
@@ -245,7 +245,7 @@ internal sealed partial class MediaTimeMapping
         private readonly Clock _clock;
         private readonly Clock? _targetClock;
         private readonly SpeedMap _speed;
-        private readonly TimeSpan _offset;
+        private readonly MediaTime _offset;
         private readonly bool _adjust;
         private readonly bool _reverse;
         private readonly bool _loop;
@@ -260,14 +260,14 @@ internal sealed partial class MediaTimeMapping
 
         public bool HasSharedClock => _clock.UsesPeerClock || _targetClock?.UsesPeerClock == true;
 
-        public (long Phase, long DurationOffset)? DurationLoopPhase(Interval time, TimeRange elementRange, TimeSpan originalLength)
+        public (long Phase, long DurationOffset)? DurationLoopPhase(Interval time, TimeRange elementRange, MediaTime originalLength)
         {
             if (!_loop || _targetClock?.ChangesWithElement != true || !IsSupported) return null;
             TimeRange target = _targetClock.GetRange(elementRange);
             TimeRange owner = _clock.GetRange(elementRange);
             Interval raw = _speed.Map(time.Shift(_offset - (_adjust ? target.Start : owner.Start)), owner.Start);
-            long phase = raw.Min.Ticks == long.MinValue ? long.MaxValue : Math.Abs(raw.Min.Ticks);
-            return (phase, (target.Duration - originalLength).Ticks);
+            long phase = raw.Min.Flicks == long.MinValue ? long.MaxValue : Math.Abs(raw.Min.Flicks);
+            return (phase, (target.Duration - originalLength).Flicks);
         }
 
         public Controller(Element element, DrawableTimeController controller, Drawable target, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
@@ -291,7 +291,7 @@ internal sealed partial class MediaTimeMapping
         public Interval Map(Interval time, TimeRange elementRange)
         {
             TimeRange? targetRange = _targetClock?.GetRange(elementRange);
-            if (targetRange is not { Duration: var duration } target || duration <= TimeSpan.Zero)
+            if (targetRange is not { Duration: var duration } target || duration <= MediaTime.Zero)
                 return time;
 
             TimeRange owner = _clock.GetRange(elementRange);
@@ -303,7 +303,7 @@ internal sealed partial class MediaTimeMapping
                 time = Loop(time, duration);
             }
             if (_holdFirst)
-                time = new Interval(Max(time.Min, TimeSpan.Zero), Max(time.Max, TimeSpan.Zero));
+                time = new Interval(Max(time.Min, MediaTime.Zero), Max(time.Max, MediaTime.Zero));
             if (_holdLast)
                 time = new Interval(Min(time.Min, duration), Min(time.Max, duration));
             if (_frameRate > 0)
@@ -311,31 +311,31 @@ internal sealed partial class MediaTimeMapping
             return time.Shift(target.Start);
         }
 
-        private TimeSpan Quantize(TimeSpan time) => TimeSpan.FromSeconds(Math.Floor(time.TotalSeconds * _frameRate) / _frameRate);
+        private MediaTime Quantize(MediaTime time) => MediaTime.FromSeconds(Math.Floor(time.ToSeconds() * _frameRate) / _frameRate);
 
     }
 
-    private static TimeSpan Min(TimeSpan a, TimeSpan b) => a < b ? a : b;
-    private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
+    private static MediaTime Min(MediaTime a, MediaTime b) => a < b ? a : b;
+    private static MediaTime Max(MediaTime a, MediaTime b) => a > b ? a : b;
 
-    private static TimeSpan Add(TimeSpan a, TimeSpan b)
-        => TimeSpan.FromTicks((long)Math.Clamp((decimal)a.Ticks + b.Ticks, long.MinValue + 1m, long.MaxValue));
+    private static MediaTime Add(MediaTime a, MediaTime b)
+        => new MediaTime((long)Math.Clamp((decimal)a.Flicks + b.Flicks, long.MinValue + 1m, long.MaxValue));
 
-    private static Interval Loop(Interval time, TimeSpan duration)
+    private static Interval Loop(Interval time, MediaTime duration)
     {
-        long period = duration.Ticks;
-        long minCycle = (long)Math.Floor(time.Min.Ticks / (double)period);
-        long maxCycle = (long)Math.Floor(time.Max.Ticks / (double)period);
+        long period = duration.Flicks;
+        long minCycle = (long)Math.Floor(time.Min.Flicks / (double)period);
+        long maxCycle = (long)Math.Floor(time.Max.Flicks / (double)period);
         // A wrap inside the interval reaches both ends, even if its two endpoints
         // happen to request the very same frame.
         return minCycle == maxCycle
             ? new Interval(Modulo(time.Min), Modulo(time.Max))
-            : new Interval(TimeSpan.Zero, duration);
+            : new Interval(MediaTime.Zero, duration);
 
-        TimeSpan Modulo(TimeSpan value)
+        MediaTime Modulo(MediaTime value)
         {
-            long remainder = value.Ticks % period;
-            return TimeSpan.FromTicks(remainder < 0 ? remainder + period : remainder);
+            long remainder = value.Flicks % period;
+            return new MediaTime(remainder < 0 ? remainder + period : remainder);
         }
     }
 }

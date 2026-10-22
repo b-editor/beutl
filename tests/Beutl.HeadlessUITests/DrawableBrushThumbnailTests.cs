@@ -167,7 +167,7 @@ public class DrawableBrushThumbnailTests
             Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True);
 
             var drawableBrush = new DisposalTrackingDrawableBrush();
-            using var clock = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+            using var clock = new BehaviorSubject<MediaTime>(MediaTime.Zero);
             (_, subscription, _) = drawableBrush.ToAvaBrushSync(clock);
             subscription.Dispose();
 
@@ -200,13 +200,13 @@ public class DrawableBrushThumbnailTests
     public async Task Resource_lifetime_and_updates_are_serialized_on_render_dispatcher()
     {
         var drawableBrush = new DisposalTrackingDrawableBrush();
-        using var clock = new BehaviorSubject<TimeSpan>(TimeSpan.Zero);
+        using var clock = new BehaviorSubject<MediaTime>(MediaTime.Zero);
         (_, IDisposable subscription, _) = drawableBrush.ToAvaBrushSync(clock);
 
         await HeadlessTestHelpers.WaitUntilAsync(
             () => drawableBrush.ResourceUpdateCalls == 1);
 
-        clock.OnNext(TimeSpan.FromSeconds(1));
+        clock.OnNext(MediaTime.FromSeconds(1));
         await HeadlessTestHelpers.WaitUntilAsync(
             () => drawableBrush.ResourceUpdateCalls == 2);
 
@@ -254,7 +254,7 @@ public class DrawableBrushThumbnailTests
     private static void UpdateResource(DrawableBrush.Resource resource, DrawableBrush drawableBrush)
     {
         bool versionBumped = false;
-        resource.Reconcile(drawableBrush, new CompositionContext(TimeSpan.Zero), ref versionBumped);
+        resource.Reconcile(drawableBrush, new CompositionContext(MediaTime.Zero), ref versionBumped);
     }
 
     private static ConcurrentQueue<AvaPixelSize> RecordPublishedSizes(AvaImageBrush imageBrush)
@@ -283,7 +283,7 @@ public class DrawableBrushThumbnailTests
             DrawableBrush = new DrawableBrush(drawable);
             if (stretch is { } value)
                 DrawableBrush.Stretch.Value = value;
-            Resource = (DrawableBrush.Resource)DrawableBrush.ToResource(new CompositionContext(TimeSpan.Zero));
+            Resource = (DrawableBrush.Resource)DrawableBrush.ToResource(new CompositionContext(MediaTime.Zero));
             ImageBrush = imageBrush ?? new AvaImageBrush();
             Handler = new AvaloniaTypeConverter.DrawableImageBrushHandler(Resource, ImageBrush, RenderThread.Dispatcher);
         }

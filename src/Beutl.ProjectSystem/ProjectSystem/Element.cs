@@ -6,6 +6,7 @@ using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Transitions;
+using Beutl.JsonConverters;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Serialization;
@@ -54,10 +55,10 @@ public class Element : Hierarchical, INotifyEdited
     public event EventHandler? Edited;
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
-    public IProperty<TimeSpan> StartProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero);
+    public IProperty<MediaTime> StartProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero);
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
-    public IProperty<TimeSpan> LengthProperty { get; } = new ValueOnlyProperty<TimeSpan>(TimeSpan.Zero);
+    public IProperty<MediaTime> LengthProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero);
 
     public IProperty<int> ZIndexProperty { get; } = new ValueOnlyProperty<int>(0);
 
@@ -81,13 +82,13 @@ public class Element : Hierarchical, INotifyEdited
     [Display(Name = nameof(Strings.ExitTransition), ResourceType = typeof(Strings))]
     public IProperty<ClipTransition?> ExitTransitionProperty { get; } = new ValueOnlyProperty<ClipTransition?>(null);
 
-    public TimeSpan Start
+    public MediaTime Start
     {
         get => StartProperty.Value;
         set => StartProperty.Value = value;
     }
 
-    public TimeSpan Length
+    public MediaTime Length
     {
         get => LengthProperty.Value;
         set => LengthProperty.Value = value;
@@ -185,7 +186,7 @@ public class Element : Hierarchical, INotifyEdited
         Objects.Remove(obj);
     }
 
-    public void NotifySplitted(bool backward, TimeSpan startDelta, TimeSpan durationDelta)
+    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
     {
         foreach (EngineObject item in _objects)
         {
@@ -205,7 +206,7 @@ public class Element : Hierarchical, INotifyEdited
         return false;
     }
 
-    public bool TryGetOriginalDuration(out TimeSpan timeSpan)
+    public bool TryGetOriginalDuration(out MediaTime timeSpan)
     {
         foreach (EngineObject item in _objects)
         {
@@ -220,6 +221,7 @@ public class Element : Hierarchical, INotifyEdited
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
+        context.SetValue(nameof(Length), MediaTimeJsonConverter.LengthToWrite(Start, Length));
         context.SetValue(nameof(Objects), Objects);
         if (EnterTransition != null)
         {
@@ -235,6 +237,7 @@ public class Element : Hierarchical, INotifyEdited
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+        Length = MediaTimeJsonConverter.LengthRead(context, nameof(Start), nameof(Length), Start, Length);
         if (context.GetValue<EngineObject[]>(nameof(Objects)) is { } objects)
         {
             Objects.Replace(objects);
@@ -351,7 +354,7 @@ public class Element : Hierarchical, INotifyEdited
         Edited?.Invoke(sender, e);
     }
 
-    internal Element? GetBefore(int zindex, TimeSpan start)
+    internal Element? GetBefore(int zindex, MediaTime start)
     {
         if (HierarchicalParent is Scene scene)
         {
@@ -372,7 +375,7 @@ public class Element : Hierarchical, INotifyEdited
         return null;
     }
 
-    internal Element? GetAfter(int zindex, TimeSpan end)
+    internal Element? GetAfter(int zindex, MediaTime end)
     {
         if (HierarchicalParent is Scene scene)
         {
@@ -393,7 +396,7 @@ public class Element : Hierarchical, INotifyEdited
         return null;
     }
 
-    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(int zindex, TimeSpan start, TimeSpan end)
+    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(int zindex, MediaTime start, MediaTime end)
     {
         if (HierarchicalParent is Scene scene)
         {
@@ -415,7 +418,7 @@ public class Element : Hierarchical, INotifyEdited
         return (null, null, null);
     }
 
-    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(int zindex, TimeSpan start, Element[] excludes)
+    internal (Element? Before, Element? After, Element? Cover) GetBeforeAndAfterAndCover(int zindex, MediaTime start, Element[] excludes)
     {
         if (HierarchicalParent is Scene scene)
         {

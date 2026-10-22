@@ -3,15 +3,15 @@ using Avalonia.Data.Converters;
 
 namespace Beutl.Converters;
 
-public sealed class TimeSpanToDoubleConverter : IValueConverter
+public sealed class MediaTimeToSecondsConverter : IValueConverter
 {
-    public static readonly TimeSpanToDoubleConverter Instance = new();
+    public static readonly MediaTimeToSecondsConverter Instance = new();
 
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is TimeSpan ts)
+        if (value is MediaTime time)
         {
-            return ts.TotalSeconds;
+            return time.ToSeconds();
         }
         else
         {
@@ -23,7 +23,7 @@ public sealed class TimeSpanToDoubleConverter : IValueConverter
     {
         if (value is double secs)
         {
-            return TimeSpan.FromSeconds(secs);
+            return MediaTime.FromSeconds(secs);
         }
         else
         {

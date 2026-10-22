@@ -16,9 +16,9 @@ namespace Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
 internal static class AiDialogResults
 {
     // At the playhead, on the first layer that is free there.
-    public static AiResultImportOptions PlaceAtPlayhead(IAiJobResultEditorContext editor, TimeSpan length, string name)
+    public static AiResultImportOptions PlaceAtPlayhead(IAiJobResultEditorContext editor, MediaTime length, string name)
     {
-        TimeSpan start = editor.CurrentTime;
+        MediaTime start = editor.CurrentTime;
         return new AiResultImportOptions(start, length, editor.GetNextLayer(start), name);
     }
 
@@ -106,7 +106,7 @@ internal static class AiDialogResults
     {
         try
         {
-            AiResultImportOptions options = PlaceAtPlayhead(editor, TimeSpan.FromSeconds(seconds), title);
+            AiResultImportOptions options = PlaceAtPlayhead(editor, MediaTime.FromSeconds(seconds), title);
             ElementAddResult result = await import(options, operation.CancellationToken);
             PublishImport(operation, result, title, addedMessage, resultNoun);
         }

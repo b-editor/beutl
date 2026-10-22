@@ -33,7 +33,7 @@ public class GraphEditorDragDropBehavior : Behavior<GraphEditorView>
 
         if (!KeyFrameClipboardCommands.TryCreateDroppedEasing(e.DataTransfer, out Easing? easing)) return;
 
-        TimeSpan time = e.GetPosition(AssociatedObject.graphPanel).X.PixelToTimeSpan(scale);
+        MediaTime time = e.GetPosition(AssociatedObject.graphPanel).X.PixelToTime(scale);
         viewModel.DropEasing(easing, time);
         e.Handled = true;
     }

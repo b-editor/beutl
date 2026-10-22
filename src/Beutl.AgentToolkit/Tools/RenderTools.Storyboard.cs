@@ -24,7 +24,7 @@ public sealed partial class RenderTools
             ResolvedStoryboardFrame shot = resolvedShots[i];
             string stillPath = Path.Combine(
                 normalizedDirectory,
-                $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.TotalMilliseconds)):D8}ms.png");
+                $"{safeBasename}-shot-{i:D2}-{Math.Max(0, (long)Math.Round(shot.Time.ToSeconds() * 1000)):D8}ms.png");
             string resolvedPath = ToolPaths.ResolveForWrite(stillPath, "outputDirectory");
             destructiveGuard.EnsureOverwriteAllowed(resolvedPath, confirmOverwrite);
             plannedShots.Add((shot, resolvedPath));
@@ -68,7 +68,7 @@ public sealed partial class RenderTools
                 : null;
             var renderedShot = new RenderStoryboardShot(
                 shot.Name,
-                shot.Time.TotalSeconds,
+                shot.Time.ToSeconds(),
                 resolvedPath,
                 visibility,
                 shot.Kind,
@@ -138,12 +138,12 @@ public sealed partial class RenderTools
             // Validate explicit shots up front (finite, in-range, non-duplicate) instead of silently
             // filtering/clamping — a typo like a 30s shot in a 5s scene must fail like the
             // timeSeconds path does, not render a blank/misleading frame.
-            TimeSpan duration = GetEffectiveSceneDuration(scene);
-            var seen = new HashSet<TimeSpan>();
+            MediaTime duration = GetEffectiveSceneDuration(scene);
+            var seen = new HashSet<MediaTime>();
             var explicitShots = new List<ResolvedStoryboardShot>(shots.Length);
             for (int i = 0; i < shots.Length; i++)
             {
-                TimeSpan time = ResolveExplicitStoryboardTime(
+                MediaTime time = ResolveExplicitStoryboardTime(
                     shots[i].TimeSeconds,
                     duration,
                     seen,
@@ -163,7 +163,7 @@ public sealed partial class RenderTools
             // Only enabled elements that overlap the visible window can render at their derived time;
             // disabled/off-window draft layers would add blank frames and burn the subdivision cap.
             .Where(element => element.IsEnabled
-                && element.Length > TimeSpan.Zero
+                && element.Length > MediaTime.Zero
                 && element.Start < scene.Start + scene.Duration
                 && element.Start + element.Length > scene.Start)
             .OrderBy(element => element.Start)
@@ -173,11 +173,11 @@ public sealed partial class RenderTools
                 // Element.Start lives on the absolute timeline axis while shot times are
                 // scene-relative (the renderer re-applies scene.Start); normalize and clamp so a
                 // trimmed scene (Scene.Start > 0) does not sample past the element.
-                TimeSpan midpoint = element.Start + TimeSpan.FromTicks(element.Length.Ticks / 2);
-                TimeSpan relative = midpoint - scene.Start;
-                if (relative < TimeSpan.Zero)
+                MediaTime midpoint = element.Start + new MediaTime(element.Length.Flicks / 2);
+                MediaTime relative = midpoint - scene.Start;
+                if (relative < MediaTime.Zero)
                 {
-                    relative = TimeSpan.Zero;
+                    relative = MediaTime.Zero;
                 }
 
                 relative = ClampShotToRenderableRange(relative, scene.Duration);
@@ -220,7 +220,7 @@ public sealed partial class RenderTools
                 .ToArray();
         }
 
-        TimeSpan dedupeTolerance = GetStoryboardDedupeTolerance(GetSceneFrameRate(scene));
+        MediaTime dedupeTolerance = GetStoryboardDedupeTolerance(GetSceneFrameRate(scene));
         ResolvedStoryboardShot[] dedupedAnchors = timeSeconds is null
             ? DeduplicateStoryboardAnchors(anchors, dedupeTolerance)
             : anchors.ToArray();
@@ -242,7 +242,7 @@ public sealed partial class RenderTools
             }
 
             ResolvedStoryboardShot right = dedupedAnchors[i + 1];
-            TimeSpan gap = right.Time - left.Time;
+            MediaTime gap = right.Time - left.Time;
             if (gap <= dedupeTolerance)
             {
                 continue;
@@ -250,7 +250,7 @@ public sealed partial class RenderTools
 
             for (int numerator = 1; numerator < denominator; numerator++)
             {
-                TimeSpan time = Interpolate(left.Time, right.Time, numerator, denominator);
+                MediaTime time = Interpolate(left.Time, right.Time, numerator, denominator);
                 if (IsDuplicateStoryboardTime(time, left.Time, dedupeTolerance)
                     || IsDuplicateStoryboardTime(time, right.Time, dedupeTolerance)
                     || (frames.Count > 0 && IsDuplicateStoryboardTime(time, frames[^1].Time, dedupeTolerance)))
@@ -290,13 +290,13 @@ public sealed partial class RenderTools
             throw CreateStoryboardTimeValidationError("render_storyboard timeSeconds must contain at least one scene time.");
         }
 
-        TimeSpan duration = GetEffectiveSceneDuration(scene);
-        var seen = new HashSet<TimeSpan>();
+        MediaTime duration = GetEffectiveSceneDuration(scene);
+        var seen = new HashSet<MediaTime>();
         var result = new List<ResolvedStoryboardShot>(timeSeconds.Length);
         for (int i = 0; i < timeSeconds.Length; i++)
         {
             double seconds = timeSeconds[i];
-            TimeSpan time = ResolveExplicitStoryboardTime(
+            MediaTime time = ResolveExplicitStoryboardTime(
                 seconds,
                 duration,
                 seen,
@@ -310,10 +310,10 @@ public sealed partial class RenderTools
             .ToArray();
     }
 
-    private static TimeSpan ResolveExplicitStoryboardTime(
+    private static MediaTime ResolveExplicitStoryboardTime(
         double seconds,
-        TimeSpan duration,
-        HashSet<TimeSpan> seen,
+        MediaTime duration,
+        HashSet<MediaTime> seen,
         string itemLabel,
         string listLabel)
     {
@@ -322,13 +322,13 @@ public sealed partial class RenderTools
             throw CreateStoryboardTimeValidationError($"render_storyboard {itemLabel} must be finite.");
         }
 
-        if (seconds < 0 || seconds > duration.TotalSeconds)
+        if (seconds < 0 || seconds > duration.ToSeconds())
         {
             throw CreateStoryboardTimeValidationError(
-                $"render_storyboard {itemLabel}={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.TotalSeconds.ToString(CultureInfo.InvariantCulture)} seconds.");
+                $"render_storyboard {itemLabel}={seconds.ToString(CultureInfo.InvariantCulture)} is outside the scene range 0..{duration.ToSeconds().ToString(CultureInfo.InvariantCulture)} seconds.");
         }
 
-        TimeSpan time = ClampShotToRenderableRange(TimeSpan.FromSeconds(seconds), duration);
+        MediaTime time = ClampShotToRenderableRange(MediaTime.FromSeconds(seconds), duration);
         if (!seen.Add(time))
         {
             throw CreateStoryboardTimeValidationError(
@@ -338,11 +338,11 @@ public sealed partial class RenderTools
         return time;
     }
 
-    // Element.Range treats its end as exclusive, so a time at or past Duration is pulled one tick
+    // Element.Range treats its end as exclusive, so a time at or past Duration is pulled one flick
     // inside the scene.
-    private static TimeSpan ClampShotToRenderableRange(TimeSpan time, TimeSpan duration)
-        => duration > TimeSpan.Zero && time >= duration
-            ? TimeSpan.FromTicks(duration.Ticks - 1)
+    private static MediaTime ClampShotToRenderableRange(MediaTime time, MediaTime duration)
+        => duration > MediaTime.Zero && time >= duration
+            ? duration - new MediaTime(1)
             : time;
 
     private static string CreateExplicitStoryboardTimeName(double seconds)
@@ -382,7 +382,7 @@ public sealed partial class RenderTools
 
     private static ResolvedStoryboardShot[] DeduplicateStoryboardAnchors(
         IReadOnlyList<ResolvedStoryboardShot> anchors,
-        TimeSpan tolerance)
+        MediaTime tolerance)
     {
         var result = new List<ResolvedStoryboardShot>(anchors.Count);
         foreach (ResolvedStoryboardShot anchor in anchors)
@@ -397,22 +397,23 @@ public sealed partial class RenderTools
         return [.. result];
     }
 
-    private static TimeSpan GetStoryboardDedupeTolerance(int frameRate)
+    private static MediaTime GetStoryboardDedupeTolerance(Rational frameRate)
     {
-        return TimeSpan.FromSeconds(0.5d / frameRate);
+        return MediaTime.FromSeconds(0.5d / frameRate.ToDouble());
     }
 
-    internal static int GetSceneFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
+    internal static Rational GetSceneFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
 
-    private static bool IsDuplicateStoryboardTime(TimeSpan left, TimeSpan right, TimeSpan tolerance)
+    private static bool IsDuplicateStoryboardTime(MediaTime left, MediaTime right, MediaTime tolerance)
     {
-        return (left - right).Duration() <= tolerance;
+        MediaTime distance = left - right;
+        return distance <= tolerance && distance >= -tolerance;
     }
 
-    private static TimeSpan Interpolate(TimeSpan left, TimeSpan right, int numerator, int denominator)
+    private static MediaTime Interpolate(MediaTime left, MediaTime right, int numerator, int denominator)
     {
-        long ticks = left.Ticks + (long)Math.Round((right.Ticks - left.Ticks) * (numerator / (double)denominator));
-        return TimeSpan.FromTicks(Math.Max(0, ticks));
+        long flicks = left.Flicks + (long)Math.Round((right.Flicks - left.Flicks) * (numerator / (double)denominator));
+        return new MediaTime(Math.Max(0, flicks));
     }
 
     private static (int Numerator, int Denominator, int SubdivisionLevel) ReduceBinaryFraction(
@@ -464,13 +465,13 @@ public sealed partial class RenderTools
 
     internal sealed record ResolvedStoryboardFrame(
         string Name,
-        TimeSpan Time,
+        MediaTime Time,
         string Kind,
         int SubdivisionLevel);
 
     internal sealed record ResolvedStoryboardShot(
         string Name,
-        TimeSpan Time);
+        MediaTime Time);
 
     private sealed record StoryboardEyeTraceFrame(
         string Name,

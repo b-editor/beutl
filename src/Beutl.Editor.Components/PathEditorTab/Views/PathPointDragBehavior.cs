@@ -264,7 +264,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     {
                         if (keyframe == null) return;
 
-                        TimeSpan keyTime = keyframe.KeyTime;
+                        MediaTime keyTime = keyframe.KeyTime;
 
                         if (!c.Animation.UseGlobalClock)
                         {
@@ -286,7 +286,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                 else
                 {
                     var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-                    TimeSpan time = clock.CurrentTime.Value;
+                    MediaTime time = clock.CurrentTime.Value;
                     BtlPoint newValue = Mirror(anchor.GetEndPoint().Evaluate(new CompositionContext(time)),
                         _dragState!.GetInterpolatedValue(time), c.GetInterpolatedValue(time), viewModel.Symmetry.Value);
 
@@ -488,19 +488,19 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         var scene = viewModel.EditorContext.GetRequiredService<Scene>();
         var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
         ProjectSystem.Element? element = viewModel.Element.Value;
-        int rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
-        TimeSpan globalkeyTime = clock.CurrentTime.Value;
-        TimeSpan localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
+        Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        MediaTime globalkeyTime = clock.CurrentTime.Value;
+        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<BtlPoint> animation)
         {
-            TimeSpan keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
-            keyTime = keyTime.RoundToRate(rate);
+            MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+            keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
+
+            if (AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) is KeyFrame<BtlPoint> atFrame)
+                return new(property, segment, atFrame, null);
 
             (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
-
-            if (next?.KeyTime == keyTime)
-                return new(property, segment, next as KeyFrame<BtlPoint>, null);
 
             return new(property, segment, prev as KeyFrame<BtlPoint>, next as KeyFrame<BtlPoint>);
         }

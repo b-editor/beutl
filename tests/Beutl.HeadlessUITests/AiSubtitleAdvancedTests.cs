@@ -149,7 +149,7 @@ public sealed class AiSubtitleAdvancedTests
         using var stream = new MemoryStream();
 
         var writer = new SpeechWaveEncoder.SpeechWaveWriter(stream);
-        writer.Append(new AudioFrameSnapshot(stereo, sampleRate, 2, TimeSpan.Zero), CancellationToken.None);
+        writer.Append(new AudioFrameSnapshot(stereo, sampleRate, 2, MediaTime.Zero), CancellationToken.None);
         writer.Complete();
 
         byte[] bytes = stream.ToArray();
@@ -176,7 +176,7 @@ public sealed class AiSubtitleAdvancedTests
         {
             float[] mono = Enumerable.Repeat(levels[slice], sampleRate).ToArray();
             writer.Append(
-                new AudioFrameSnapshot(mono, sampleRate, 1, TimeSpan.FromSeconds(slice)),
+                new AudioFrameSnapshot(mono, sampleRate, 1, MediaTime.FromSeconds(slice)),
                 CancellationToken.None);
         }
 
@@ -212,7 +212,7 @@ public sealed class AiSubtitleAdvancedTests
 
         Assert.Throws<OperationCanceledException>(() =>
             writer.Append(
-                new AudioFrameSnapshot(new float[32_000], 16_000, 1, TimeSpan.Zero),
+                new AudioFrameSnapshot(new float[32_000], 16_000, 1, MediaTime.Zero),
                 cancellationTokenSource.Token));
         Assert.That(stream.Length, Is.Zero);
     }
@@ -286,7 +286,7 @@ public sealed class AiSubtitleAdvancedTests
         using var sceneStream = new MemoryStream();
         var sceneWriter = new SpeechWaveEncoder.SpeechWaveWriter(sceneStream);
         sceneWriter.Append(
-            new AudioFrameSnapshot([0], 44_100, 1, TimeSpan.Zero),
+            new AudioFrameSnapshot([0], 44_100, 1, MediaTime.Zero),
             CancellationToken.None);
         sceneWriter.Complete();
 

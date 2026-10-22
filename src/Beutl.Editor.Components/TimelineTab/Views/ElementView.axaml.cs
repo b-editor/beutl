@@ -30,7 +30,7 @@ public sealed partial class ElementView : UserControl
     private static readonly ILogger s_logger = Log.CreateLogger<ElementView>();
     private readonly CompositeDisposable _disposables = [];
     private TimelineTabView? _timeline;
-    private TimeSpan _pointerPosition;
+    private MediaTime _pointerPosition;
     private static ColorPickerFlyout? s_colorPickerFlyout;
     private _ResizeBehavior? _resizeBehavior;
     // The width of an element's edge that counts as its boundary with the element beside it; the same zone
@@ -38,7 +38,7 @@ public sealed partial class ElementView : UserControl
     private const double BoundaryHitWidth = 10;
     private ElementEdge? _draggingTransitionEdge;
     private double _transitionDragStartX;
-    private TimeSpan _transitionDragStartDuration;
+    private MediaTime _transitionDragStartDuration;
 
     public ElementView()
     {
@@ -150,7 +150,7 @@ public sealed partial class ElementView : UserControl
         if (_draggingTransitionEdge is not { } edge || DataContext is not ElementViewModel viewModel) return;
 
         _draggingTransitionEdge = null;
-        TimeSpan duration = GetDraggedTransitionDuration(viewModel, edge, e);
+        MediaTime duration = GetDraggedTransitionDuration(viewModel, edge, e);
         e.Pointer.Capture(null);
         viewModel.CommitTransitionDuration(edge, duration);
         e.Handled = true;
@@ -167,17 +167,17 @@ public sealed partial class ElementView : UserControl
     // The side grows by however far the pointer has moved since the press, away from its edge, snapped to
     // frames and kept within the element. A press without a drag keeps the duration as it is, even when it
     // is not a whole number of frames.
-    private TimeSpan GetDraggedTransitionDuration(ElementViewModel viewModel, ElementEdge edge, PointerEventArgs e)
+    private MediaTime GetDraggedTransitionDuration(ElementViewModel viewModel, ElementEdge edge, PointerEventArgs e)
     {
         double delta = e.GetPosition(border).X - _transitionDragStartX;
         if (delta == 0) return _transitionDragStartDuration;
 
         float scale = viewModel.Timeline.Options.Value.Scale;
-        int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+        Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
         if (edge == ElementEdge.End) delta = -delta;
 
-        TimeSpan duration = (_transitionDragStartDuration + delta.PixelToTimeSpan(scale)).RoundToRate(rate);
-        if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
+        MediaTime duration = (_transitionDragStartDuration + delta.PixelToTime(scale)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        if (duration < MediaTime.Zero) duration = MediaTime.Zero;
         if (duration > viewModel.Model.Length) duration = viewModel.Model.Length;
         return duration;
     }
@@ -326,7 +326,7 @@ public sealed partial class ElementView : UserControl
         base.OnPointerMoved(e);
         Point point = e.GetPosition(this);
         float scale = ViewModel.Timeline.Options.Value.Scale;
-        _pointerPosition = point.X.PixelToTimeSpan(scale);
+        _pointerPosition = point.X.PixelToTime(scale);
     }
 
     private void EnableElementClick(object? sender, RoutedEventArgs e)
@@ -407,7 +407,7 @@ public sealed partial class ElementView : UserControl
         }
     }
 
-    private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag, int? sameZIndex = null)
+    private MediaTime RoundStartTime(MediaTime time, float scale, bool flag, int? sameZIndex = null)
     {
         Element model = ViewModel.Model;
         TimelineTabViewModel timeline = ViewModel.Timeline;
@@ -419,7 +419,7 @@ public sealed partial class ElementView : UserControl
         }
 
         IEditorClock clock = timeline.EditorContext.GetRequiredService<IEditorClock>();
-        IEnumerable<TimeSpan> candidates = SnapHelper
+        IEnumerable<MediaTime> candidates = SnapHelper
             .CollectElementCandidates(timeline.Scene.Children, model, sameZIndex)
             .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
 

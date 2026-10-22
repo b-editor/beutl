@@ -65,7 +65,7 @@ public static class ElementTransitionEdits
     }
 
     /// <summary>Creates a transition of <paramref name="transitionType"/> lasting <paramref name="duration"/>.</summary>
-    public static ClipTransition CreateTransition(Type transitionType, TimeSpan duration)
+    public static ClipTransition CreateTransition(Type transitionType, MediaTime duration)
     {
         if (!IsTransitionType(transitionType))
         {

@@ -78,7 +78,7 @@ public sealed class SceneCompositor : ICompositor
     {
         private readonly SceneCompositor _compositor;
 
-        public CompositorContext(TimeSpan time,
+        public CompositorContext(MediaTime time,
             SceneCompositor compositor,
             IList<EngineObject.Resource> flow,
             IList<Element> currentElements,
@@ -102,7 +102,7 @@ public sealed class SceneCompositor : ICompositor
         // The frame's own time while a transition evaluates one of its sides at a held time. Elements a
         // portal draws into that side are not the side's own content and have not ended, so they play on
         // at the frame's time, and both sides share one evaluation of them.
-        public TimeSpan? FrameTime { get; set; }
+        public MediaTime? FrameTime { get; set; }
 
         private static ProxyPreset ToPreset(int value)
         {
@@ -114,7 +114,7 @@ public sealed class SceneCompositor : ICompositor
         public void EvaluateElementIntoFlow(Element element)
         {
             using var tmpObjects = new PooledList<EngineObject>();
-            TimeSpan sideTime = Time;
+            MediaTime sideTime = Time;
             Time = FrameTime ?? sideTime;
             try
             {
@@ -127,7 +127,7 @@ public sealed class SceneCompositor : ICompositor
         }
     }
 
-    public CompositionFrame EvaluateGraphics(TimeSpan time)
+    public CompositionFrame EvaluateGraphics(MediaTime time)
     {
         DisposeDetachedResources();
         using var currentElements = new PooledList<Element>();
@@ -149,7 +149,7 @@ public sealed class SceneCompositor : ICompositor
 
         return new CompositionFrame(
             [.. allResources],
-            new(time, TimeSpan.FromTicks(1)),
+            new(time, new MediaTime(1)),
             Scene.FrameSize,
             null);
     }
@@ -230,13 +230,13 @@ public sealed class SceneCompositor : ICompositor
         using var to = new PooledList<EngineObject.Resource>();
         using var tmpObjects = new PooledList<EngineObject>();
         IList<EngineObject.Resource>? oldFlow = context.Flow;
-        TimeSpan time = context.Time;
+        MediaTime time = context.Time;
         IList<Element> elements = context.CurrentElements;
         // A portal takes the elements it draws out of the current ones, so each side starts from the same
         // elements; whatever either side took stays out of the frame afterwards.
         Element[] inputs = [.. elements];
         var incomingInputs = new List<Element>(inputs);
-        TimeSpan? frameTime = context.FrameTime;
+        MediaTime? frameTime = context.FrameTime;
         context.FrameTime = time;
         try
         {
@@ -367,7 +367,7 @@ public sealed class SceneCompositor : ICompositor
     }
 
     // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
-    private void SortLayers(TimeSpan time, PooledList<Element> currentElements, CompositionTarget target)
+    private void SortLayers(MediaTime time, PooledList<Element> currentElements, CompositionTarget target)
     {
         LayerSnapshot snapshot = GetLayerSnapshot();
         bool graphics = target == CompositionTarget.Graphics;
@@ -386,12 +386,12 @@ public sealed class SceneCompositor : ICompositor
 
     // Two elements that touch within the tolerance can leave a gap of up to that tolerance between them,
     // which their transition spans; a frame inside it still has to reach the transition through them.
-    private static bool CoversTime(Element item, TimeSpan time, bool graphics)
+    private static bool CoversTime(Element item, MediaTime time, bool graphics)
     {
         if (item.Range.Contains(time)) return true;
         if (!graphics) return false;
 
-        TimeSpan tolerance = ElementTransitions.AdjacencyTolerance;
+        MediaTime tolerance = ElementTransitions.AdjacencyTolerance;
         return time >= item.Start - tolerance
                && time < item.Range.End + tolerance
                && ElementTransitions.TryGetActive(item, time, out _);
@@ -401,7 +401,7 @@ public sealed class SceneCompositor : ICompositor
     // overlap, or touch within the tolerance) only the first stays in the list to collect it. Past the
     // transition the incoming element has taken over, so an outgoing element that runs on beyond it (the
     // two overlap and the span stops at the incoming element's middle) stays hidden.
-    private void KeepOneElementPerTransition(TimeSpan time, PooledList<Element> currentElements)
+    private void KeepOneElementPerTransition(MediaTime time, PooledList<Element> currentElements)
     {
         HashSet<Element> participants = GetTransitionParticipants();
         if (participants.Count == 0) return;

@@ -75,7 +75,7 @@ public partial class Scene
 
     private bool IsFreeRange(TimeRange range, int zindex)
     {
-        return range.Duration > TimeSpan.Zero && !IsOverlapping(range, zindex);
+        return range.Duration > MediaTime.Zero && !IsOverlapping(range, zindex);
     }
 
     private (TimeRange Range, int ZIndex) GetCorrectPosition(Element element, ElementOverlapHandling handling)
@@ -89,8 +89,8 @@ public partial class Scene
             throw new InvalidOperationException("要素の位置が無効です");
 
         (Element? before, Element? after, Element? cover) = GetBeforeAndAfterAndCover(element);
-        var candidateStart = new List<TimeSpan>(2);
-        var candidateEnd = new List<TimeSpan>(2);
+        var candidateStart = new List<MediaTime>(2);
+        var candidateEnd = new List<MediaTime>(2);
         if (cover != null)
         {
             candidateEnd.Add(cover.Start);
@@ -100,12 +100,12 @@ public partial class Scene
         if (after != null) candidateEnd.Add(after.Start);
         if (before != null) candidateStart.Add(before.Range.End);
 
-        TimeSpan start = element.Start;
-        TimeSpan end = element.Range.End;
+        MediaTime start = element.Start;
+        MediaTime end = element.Range.End;
 
         if (handling.HasFlag(ElementOverlapHandling.Start) && handling.HasFlag(ElementOverlapHandling.Length))
         {
-            foreach (TimeSpan cEnd in candidateEnd)
+            foreach (MediaTime cEnd in candidateEnd)
             {
                 TimeRange range = TimeRange.FromRange(start, cEnd);
                 if (IsFreeRange(range, element.ZIndex))
@@ -113,7 +113,7 @@ public partial class Scene
                     return (range, element.ZIndex);
                 }
 
-                foreach (TimeSpan cStart in candidateStart)
+                foreach (MediaTime cStart in candidateStart)
                 {
                     range = TimeRange.FromRange(cStart, cEnd);
                     if (IsFreeRange(range, element.ZIndex))
@@ -126,7 +126,7 @@ public partial class Scene
 
         if (handling.HasFlag(ElementOverlapHandling.Length))
         {
-            foreach (TimeSpan item in candidateEnd)
+            foreach (MediaTime item in candidateEnd)
             {
                 TimeRange range = TimeRange.FromRange(start, item);
                 if (IsFreeRange(range, element.ZIndex))
@@ -138,7 +138,7 @@ public partial class Scene
 
         if (handling.HasFlag(ElementOverlapHandling.Start))
         {
-            foreach (TimeSpan item in candidateStart)
+            foreach (MediaTime item in candidateStart)
             {
                 TimeRange range = TimeRange.FromRange(item, end);
                 if (IsFreeRange(range, element.ZIndex))
@@ -166,10 +166,10 @@ public partial class Scene
         }
     }
 
-    private void MoveChildCore(int zIndex, TimeSpan newStart, TimeSpan newLength, Element element)
+    private void MoveChildCore(int zIndex, MediaTime newStart, MediaTime newLength, Element element)
     {
         bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-        TimeSpan newEnd = newStart + newLength;
+        MediaTime newEnd = newStart + newLength;
         (Element? before, Element? after, Element? cover) =
             element.GetBeforeAndAfterAndCover(zIndex, newStart, newEnd);
 
@@ -184,9 +184,9 @@ public partial class Scene
         }
         else if (after != null && after.Start < newEnd)
         {
-            TimeSpan ns = after.Start - newLength;
+            MediaTime ns = after.Start - newLength;
             if (((before != null && (after.Start - before.Range.End) >= newLength) || before == null) &&
-                ns >= TimeSpan.Zero)
+                ns >= MediaTime.Zero)
             {
                 element.Start = ns;
                 element.Length = newLength;
@@ -207,7 +207,7 @@ public partial class Scene
         }
     }
 
-    private void MoveChildrenCore(Element[] elements, int deltaZIndex, TimeSpan deltaTime)
+    private void MoveChildrenCore(Element[] elements, int deltaZIndex, MediaTime deltaTime)
     {
         foreach (Element item in elements)
         {
@@ -216,7 +216,7 @@ public partial class Scene
                 break;
             }
 
-            TimeSpan? newDeltaStart = DeltaStart(item, elements, deltaZIndex, deltaTime);
+            MediaTime? newDeltaStart = DeltaStart(item, elements, deltaZIndex, deltaTime);
             if (newDeltaStart.HasValue)
             {
                 deltaTime = newDeltaStart.Value;
@@ -225,10 +225,10 @@ public partial class Scene
 
         bool conflict = HasConflict(elements, deltaZIndex, deltaTime);
         bool adjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-        TimeSpan newSceneDuration = Duration;
+        MediaTime newSceneDuration = Duration;
         if (adjustSceneDuration)
         {
-            TimeSpan maxEndingTime = elements.Max(i => i.Range.End + deltaTime);
+            MediaTime maxEndingTime = elements.Max(i => i.Range.End + deltaTime);
             if (newSceneDuration + Start < maxEndingTime)
             {
                 newSceneDuration = maxEndingTime - Start;
@@ -250,14 +250,14 @@ public partial class Scene
         }
     }
 
-    private bool HasConflict(Element[] elements, int deltaZIndex, TimeSpan deltaTime)
+    private bool HasConflict(Element[] elements, int deltaZIndex, MediaTime deltaTime)
     {
         Element[] others = Children.Except(elements).ToArray();
         foreach (Element item in elements)
         {
             TimeRange newRange = item.Range.AddStart(deltaTime);
             int newLayer = item.ZIndex + deltaZIndex;
-            if (newLayer < 0 || newRange.Start.Ticks < 0)
+            if (newLayer < 0 || newRange.Start < MediaTime.Zero)
                 return true;
 
             foreach (Element other in others)
@@ -272,11 +272,11 @@ public partial class Scene
         return false;
     }
 
-    private static TimeSpan? DeltaStart(Element element, Element[] elements, int deltaZIndex, TimeSpan deltaTime)
+    private static MediaTime? DeltaStart(Element element, Element[] elements, int deltaZIndex, MediaTime deltaTime)
     {
-        TimeSpan newStart = element.Start + deltaTime;
+        MediaTime newStart = element.Start + deltaTime;
 
-        TimeSpan newEnd = newStart + element.Length;
+        MediaTime newEnd = newStart + element.Length;
         int newIndex = element.ZIndex + deltaZIndex;
         (Element? before, Element? after, Element? _) =
             element.GetBeforeAndAfterAndCover(newIndex, newStart, elements);
@@ -290,14 +290,14 @@ public partial class Scene
         }
         else if (after != null && after.Start < newEnd)
         {
-            TimeSpan ns = after.Start - element.Length;
+            MediaTime ns = after.Start - element.Length;
             if (((before != null && (after.Start - before.Range.End) >= element.Length) || before == null) &&
-                ns >= TimeSpan.Zero)
+                ns >= MediaTime.Zero)
             {
                 return ns - element.Start;
             }
         }
-        else if (newStart.Ticks < 0)
+        else if (newStart < MediaTime.Zero)
         {
             return -element.Start;
         }

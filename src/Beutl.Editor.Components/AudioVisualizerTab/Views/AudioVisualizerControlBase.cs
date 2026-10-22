@@ -11,8 +11,8 @@ public abstract class AudioVisualizerControlBase : Control
     public static readonly StyledProperty<AudioSampleRingBuffer?> RingBufferProperty =
         AvaloniaProperty.Register<AudioVisualizerControlBase, AudioSampleRingBuffer?>(nameof(RingBuffer));
 
-    public static readonly StyledProperty<TimeSpan> PlayheadTimeProperty =
-        AvaloniaProperty.Register<AudioVisualizerControlBase, TimeSpan>(nameof(PlayheadTime));
+    public static readonly StyledProperty<MediaTime> PlayheadTimeProperty =
+        AvaloniaProperty.Register<AudioVisualizerControlBase, MediaTime>(nameof(PlayheadTime));
 
     public static readonly StyledProperty<IBrush> SecondaryBrushProperty =
         AvaloniaProperty.Register<AudioVisualizerControlBase, IBrush>(
@@ -30,7 +30,7 @@ public abstract class AudioVisualizerControlBase : Control
         set => SetValue(RingBufferProperty, value);
     }
 
-    public TimeSpan PlayheadTime
+    public MediaTime PlayheadTime
     {
         get => GetValue(PlayheadTimeProperty);
         set => SetValue(PlayheadTimeProperty, value);

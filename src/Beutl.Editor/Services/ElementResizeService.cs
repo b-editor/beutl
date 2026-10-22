@@ -25,7 +25,7 @@ public sealed partial class ElementResizeService : IElementResizeService
         if (requests.Count == 0) return;
 
         // Sub-frame original durations and pixel rounding can submit zero length from async UI handlers.
-        TimeSpan minLength = GetMinimumLength(scene);
+        MediaTime minLength = GetMinimumLength(scene);
         requests = NormalizeRequests(requests, ripple, minLength);
         ResizePeerGroup[] peerGroups = CreatePeerGroups(requests);
         var mediaConstraints = new Dictionary<Element, SlippableMedia.ResizeConstraints>();
@@ -47,10 +47,11 @@ public sealed partial class ElementResizeService : IElementResizeService
         _historyManager.Commit(CommandNames.MoveElement);
     }
 
-    private static TimeSpan GetMinimumLength(Scene scene)
+    // One frame, but never empty: at a rate of more than a frame a flick, a frame rounds to zero.
+    private static MediaTime GetMinimumLength(Scene scene)
     {
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
-        return TimeSpan.FromTicks((TimeSpan.TicksPerSecond + (long)rate - 1) / rate);
+        MediaTime frame = MediaTime.FromFrames(1, SceneTimeRangeService.GetFrameRate(scene));
+        return frame > MediaTime.Zero ? frame : new MediaTime(1);
     }
 
     private static ResizePeerGroup[] CreatePeerGroups(IReadOnlyList<ElementResizeRequest> requests)
@@ -62,7 +63,7 @@ public sealed partial class ElementResizeService : IElementResizeService
 
     private static ElementResizeRequest[] ClampToMedia(IReadOnlyList<ElementResizeRequest> requests,
         ResizePeerGroup[] peerGroups, Dictionary<Element, SlippableMedia.ResizeConstraints> mediaConstraints,
-        TimeSpan minLength)
+        MediaTime minLength)
         => requests.Select(req =>
         {
             if (req.ClampToSource || req.NewLength != req.Element.Length
@@ -78,16 +79,16 @@ public sealed partial class ElementResizeService : IElementResizeService
 
     private static void ResizeWithRipple(Scene scene, IReadOnlyList<ElementResizeRequest> requests,
         ResizePeerGroup[] peerGroups, Dictionary<Element, SlippableMedia.ResizeConstraints> mediaConstraints,
-        TimeSpan minLength)
+        MediaTime minLength)
     {
         bool autoAdjustSceneDuration = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-        var oldBounds = new Dictionary<Element, (int ZIndex, TimeSpan Start, TimeSpan End)>(requests.Count);
-        var clamped = new Dictionary<Element, (TimeSpan Start, TimeSpan Length)>(requests.Count);
+        var oldBounds = new Dictionary<Element, (int ZIndex, MediaTime Start, MediaTime End)>(requests.Count);
+        var clamped = new Dictionary<Element, (MediaTime Start, MediaTime Length)>(requests.Count);
         var resizedSet = new HashSet<Element>(requests.Select(r => r.Element));
         foreach (ElementResizeRequest req in requests)
         {
             // Clamp computed against pre-mutation state so the write loop applies a floor-safe start.
-            (TimeSpan start, TimeSpan length) = ClampRippleStart(scene, req, resizedSet, minLength);
+            (MediaTime start, MediaTime length) = ClampRippleStart(scene, req, resizedSet, minLength);
             length = ClampRippleEnd(scene, req, start, length, resizedSet);
             if (mediaConstraints.TryGetValue(req.Element, out var constraints))
             {
@@ -113,7 +114,7 @@ public sealed partial class ElementResizeService : IElementResizeService
         // writes are still CoreObjectOperationObserver-recorded for undo.
         foreach (ElementResizeRequest req in requests)
         {
-            (TimeSpan start, TimeSpan length) = clamped[req.Element];
+            (MediaTime start, MediaTime length) = clamped[req.Element];
             req.Element.ZIndex = req.ZIndex;
             req.Element.Start = start;
             req.Element.Length = length;
@@ -122,15 +123,15 @@ public sealed partial class ElementResizeService : IElementResizeService
         Element[] resized = requests.Select(r => r.Element).ToArray();
         foreach (ElementResizeRequest req in requests)
         {
-            (int oldZ, TimeSpan oldStart, TimeSpan oldEnd) = oldBounds[req.Element];
+            (int oldZ, MediaTime oldStart, MediaTime oldEnd) = oldBounds[req.Element];
             if (req.Element.ZIndex != oldZ) continue;
 
             // Both run: a pure right-edge resize has startDelta == 0, a pure left-edge
             // resize has endDelta == 0, so each ShiftX no-ops on the untouched edge.
-            TimeSpan endDelta = req.Element.Range.End - oldEnd;
+            MediaTime endDelta = req.Element.Range.End - oldEnd;
             RippleHelper.ShiftAfter(scene, oldZ, oldEnd, endDelta, resized);
 
-            TimeSpan startDelta = req.Element.Start - oldStart;
+            MediaTime startDelta = req.Element.Start - oldStart;
             RippleHelper.ShiftBefore(scene, oldZ, oldStart, startDelta, resized);
         }
 
@@ -145,7 +146,7 @@ public sealed partial class ElementResizeService : IElementResizeService
     private static bool IsLeftEdgeResize(ElementResizeRequest request)
         => request.NewStart != request.Element.Start && request.NewStart + request.NewLength == request.Element.Range.End;
 
-    private static (bool LeftEdge, TimeSpan Before, TimeSpan After)? GetResizeEdge(ElementResizeRequest request)
+    private static (bool LeftEdge, MediaTime Before, MediaTime After)? GetResizeEdge(ElementResizeRequest request)
     {
         Element element = request.Element;
         if (IsLeftEdgeResize(request))
@@ -165,10 +166,10 @@ public sealed partial class ElementResizeService : IElementResizeService
                 .OfType<SlippableMedia.ResizeConstraints>().ToArray();
             if (!limits.Any(limit => limit.HasSharedClock)) continue;
             int[] indices = Enumerable.Range(0, result.Length).Where(i => group.Elements.Contains(result[i].Element)).ToArray();
-            TimeSpan delta = indices.Select(i => group.LeftEdge
+            MediaTime delta = indices.Select(i => group.LeftEdge
                     ? result[i].NewStart - result[i].Element.Start
                     : result[i].NewLength - result[i].Element.Length)
-                .MinBy(value => Math.Abs(value.Ticks));
+                .MinBy(value => Math.Abs(value.Flicks));
             delta = SlippableMedia.ClampSharedResizeDelta(limits, delta, group.LeftEdge);
             foreach (int i in indices)
             {
@@ -183,7 +184,7 @@ public sealed partial class ElementResizeService : IElementResizeService
 
     private static void ExtendSceneDurationToIncludeChildren(Scene scene)
     {
-        TimeSpan sceneEnd = scene.Start + scene.Duration;
+        MediaTime sceneEnd = scene.Start + scene.Duration;
         foreach (Element child in scene.Children)
         {
             if (sceneEnd < child.Range.End)
@@ -196,26 +197,26 @@ public sealed partial class ElementResizeService : IElementResizeService
     }
 
     private static ElementResizeRequest ClampMedia(ElementResizeRequest req,
-        SlippableMedia.ResizeConstraints constraints, TimeSpan minLength)
+        SlippableMedia.ResizeConstraints constraints, MediaTime minLength)
     {
         if (IsLeftEdgeResize(req))
         {
-            TimeSpan start = constraints.ClampStart(req.NewStart);
+            MediaTime start = constraints.ClampStart(req.NewStart);
             return req with { NewStart = start, NewLength = req.Element.Range.End - start };
         }
-        TimeSpan length = constraints.ClampLength(req.NewLength, req.NewStart);
+        MediaTime length = constraints.ClampLength(req.NewLength, req.NewStart);
         return req with { NewLength = length < minLength ? minLength : length };
     }
 
-    private static ElementResizeRequest[] NormalizeRequests(IReadOnlyList<ElementResizeRequest> requests, bool ripple, TimeSpan minLength)
+    private static ElementResizeRequest[] NormalizeRequests(IReadOnlyList<ElementResizeRequest> requests, bool ripple, MediaTime minLength)
     {
         var normalized = new ElementResizeRequest[requests.Count];
         for (int i = 0; i < requests.Count; i++)
         {
             ElementResizeRequest req = requests[i];
-            TimeSpan start = req.NewStart < TimeSpan.Zero ? TimeSpan.Zero : req.NewStart;
-            TimeSpan length = req.NewLength;
-            if (ripple && req.NewStart < TimeSpan.Zero && length > TimeSpan.Zero)
+            MediaTime start = req.NewStart < MediaTime.Zero ? MediaTime.Zero : req.NewStart;
+            MediaTime length = req.NewLength;
+            if (ripple && req.NewStart < MediaTime.Zero && length > MediaTime.Zero)
             {
                 // Preserve the requested end so clamping a left-edge drag does not ripple followers.
                 length += req.NewStart;
@@ -224,11 +225,11 @@ public sealed partial class ElementResizeService : IElementResizeService
             if (length < minLength)
             {
                 // A changed start with the original end identifies a fixed-right-edge resize.
-                TimeSpan end = req.Element.Range.End;
-                if (req.NewStart >= TimeSpan.Zero && req.NewStart != req.Element.Start
+                MediaTime end = req.Element.Range.End;
+                if (req.NewStart >= MediaTime.Zero && req.NewStart != req.Element.Start
                     && req.NewLength == end - req.NewStart)
                 {
-                    start = end > minLength ? end - minLength : TimeSpan.Zero;
+                    start = end > minLength ? end - minLength : MediaTime.Zero;
                 }
 
                 length = minLength;
@@ -243,17 +244,17 @@ public sealed partial class ElementResizeService : IElementResizeService
     // below zero or onto a locked clip, keeping the requested end. Clamps rather than throws: UI
     // callers run on an async-void pointer path, and frame rounding at submission can dip below the
     // preview floor.
-    private static (TimeSpan Start, TimeSpan Length) ClampRippleStart(
-        Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized, TimeSpan minLength)
+    private static (MediaTime Start, MediaTime Length) ClampRippleStart(
+        Scene scene, ElementResizeRequest req, IReadOnlyCollection<Element> resized, MediaTime minLength)
     {
         if (req.ZIndex != req.Element.ZIndex) return (req.NewStart, req.NewLength);
 
-        TimeSpan startDelta = req.NewStart - req.Element.Start;
-        if (startDelta >= TimeSpan.Zero) return (req.NewStart, req.NewLength);
+        MediaTime startDelta = req.NewStart - req.Element.Start;
+        if (startDelta >= MediaTime.Zero) return (req.NewStart, req.NewLength);
 
         // Collect the layer's locked-clip ends once and sort them; a locked clip is an immovable
         // barrier the upstream shift cannot cross, so each clip's floor is one binary search.
-        var lockedEnds = new List<TimeSpan>();
+        var lockedEnds = new List<MediaTime>();
         foreach (Element e in scene.Children)
         {
             if (e.ZIndex == req.Element.ZIndex && scene.IsElementLocked(e)) lockedEnds.Add(e.Range.End);
@@ -265,7 +266,7 @@ public sealed partial class ElementResizeService : IElementResizeService
         // room: each clip can move left only to the timeline start or the end of the nearest locked
         // clip in front of it (locked clips are immovable and must not be overlapped). Seed the bound
         // with the resized clip's own room so its left edge is clamped even with no free upstream clip.
-        TimeSpan maxGrow = req.Element.Start - NearestLockedEndAtOrBefore(lockedEnds, req.Element.Start);
+        MediaTime maxGrow = req.Element.Start - NearestLockedEndAtOrBefore(lockedEnds, req.Element.Start);
         foreach (Element e in scene.Children)
         {
             if (e.ZIndex != req.Element.ZIndex || resized.Contains(e) || scene.IsElementLocked(e)
@@ -274,7 +275,7 @@ public sealed partial class ElementResizeService : IElementResizeService
                 continue;
             }
 
-            TimeSpan room = e.Start - NearestLockedEndAtOrBefore(lockedEnds, e.Start);
+            MediaTime room = e.Start - NearestLockedEndAtOrBefore(lockedEnds, e.Start);
             if (room < maxGrow) maxGrow = room;
         }
 
@@ -283,8 +284,8 @@ public sealed partial class ElementResizeService : IElementResizeService
             return (req.NewStart, req.NewLength);
         }
 
-        TimeSpan clampedStart = req.Element.Start - maxGrow;
-        TimeSpan clampedLength = req.NewStart + req.NewLength - clampedStart;
+        MediaTime clampedStart = req.Element.Start - maxGrow;
+        MediaTime clampedLength = req.NewStart + req.NewLength - clampedStart;
         // If the requested end is too close to or before the barrier, keep a positive minimum.
         if (clampedLength < minLength) clampedLength = minLength;
 
@@ -293,10 +294,10 @@ public sealed partial class ElementResizeService : IElementResizeService
 
     // Largest end in the sorted list that is at or before start, or zero (the timeline floor) when
     // none qualifies.
-    private static TimeSpan NearestLockedEndAtOrBefore(List<TimeSpan> sortedEnds, TimeSpan start)
+    private static MediaTime NearestLockedEndAtOrBefore(List<MediaTime> sortedEnds, MediaTime start)
     {
         int lo = 0, hi = sortedEnds.Count - 1;
-        TimeSpan floor = TimeSpan.Zero;
+        MediaTime floor = MediaTime.Zero;
         while (lo <= hi)
         {
             int mid = (lo + hi) >>> 1;
@@ -317,16 +318,16 @@ public sealed partial class ElementResizeService : IElementResizeService
     // Limits a same-layer right-edge grow so the ripple shift cannot push any follower onto a
     // locked follower, which stays anchored. The rightmost non-locked follower before the lock
     // hits it first, so the growing run may only advance until that clip touches the lock.
-    private static TimeSpan ClampRippleEnd(
-        Scene scene, ElementResizeRequest req, TimeSpan start, TimeSpan length, IReadOnlyCollection<Element> resized)
+    private static MediaTime ClampRippleEnd(
+        Scene scene, ElementResizeRequest req, MediaTime start, MediaTime length, IReadOnlyCollection<Element> resized)
     {
         if (req.ZIndex != req.Element.ZIndex) return length;
 
-        TimeSpan oldEnd = req.Element.Range.End;
-        TimeSpan newEnd = start + length;
+        MediaTime oldEnd = req.Element.Range.End;
+        MediaTime newEnd = start + length;
         if (newEnd <= oldEnd) return length;
 
-        TimeSpan? nearestLockedStart = null;
+        MediaTime? nearestLockedStart = null;
         foreach (Element e in scene.Children)
         {
             if (e.ZIndex == req.Element.ZIndex && scene.IsElementLocked(e) && e.Start >= oldEnd)
@@ -337,7 +338,7 @@ public sealed partial class ElementResizeService : IElementResizeService
 
         if (nearestLockedStart is not { } lockStart) return length;
 
-        TimeSpan blockingEnd = oldEnd;
+        MediaTime blockingEnd = oldEnd;
         foreach (Element e in scene.Children)
         {
             if (e.ZIndex == req.Element.ZIndex && !scene.IsElementLocked(e) && !resized.Contains(e)
@@ -347,14 +348,14 @@ public sealed partial class ElementResizeService : IElementResizeService
             }
         }
 
-        TimeSpan maxEnd = oldEnd + (lockStart - blockingEnd);
+        MediaTime maxEnd = oldEnd + (lockStart - blockingEnd);
         if (newEnd <= maxEnd) return length;
 
-        TimeSpan clampedEnd = maxEnd > oldEnd ? maxEnd : oldEnd;
+        MediaTime clampedEnd = maxEnd > oldEnd ? maxEnd : oldEnd;
         // A start past the clamp point (e.g. the element also moved right onto the lock) would make
         // the clamped length non-positive and corrupt the range; leave the length to the caller's
         // move validation instead of forcing a bad value here.
-        TimeSpan clampedLength = clampedEnd - start;
-        return clampedLength > TimeSpan.Zero ? clampedLength : length;
+        MediaTime clampedLength = clampedEnd - start;
+        return clampedLength > MediaTime.Zero ? clampedLength : length;
     }
 }

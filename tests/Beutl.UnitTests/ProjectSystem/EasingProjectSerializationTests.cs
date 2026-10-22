@@ -106,7 +106,7 @@ public class EasingProjectSerializationTests
         var element = new EasingElement
         {
             Uri = new Uri(Path.Combine(_root, "element.belm")),
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
         };
         element.AddObject(new RectShape());
         scene.Children.Add(element);

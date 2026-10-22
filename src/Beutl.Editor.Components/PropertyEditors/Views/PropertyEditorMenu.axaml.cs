@@ -74,7 +74,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             }
             else if (viewModel.HasAnimation.Value && viewModel.GetService<IEditorClock>() is { } editorClock)
             {
-                TimeSpan keyTime = editorClock.CurrentTime.Value;
+                MediaTime keyTime = editorClock.CurrentTime.Value;
                 if (symbolIcon.IconVariant == FluentIcons.Common.IconVariant.Filled)
                 {
                     viewModel.RemoveKeyFrame(keyTime);

@@ -26,9 +26,9 @@ public class SubFrameResizeClampTests
     private static string? s_tempDir;
 
     // 10 ms: positive, but 0.3 frames at the 30 fps project rate, so FloorToRate(30) == 0.
-    private static readonly TimeSpan SubFrameAudioDuration = TimeSpan.FromMilliseconds(10);
+    private static readonly MediaTime SubFrameAudioDuration = MediaTime.FromSeconds(0.01);
 
-    private static readonly TimeSpan OneFrameAt30 = TimeSpan.FromTicks(333334);
+    private static readonly MediaTime OneFrameAt30 = MediaTime.FromFrames(1, new Rational(30));
 
     [OneTimeTearDown]
     public void OneTimeTearDown()
@@ -58,8 +58,8 @@ public class SubFrameResizeClampTests
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(1),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(1),
             Layer: 0,
             Source: new ElementSource.EngineObject(() => new SourceSound
             {
@@ -77,9 +77,9 @@ public class SubFrameResizeClampTests
         // Preconditions that used to make the crash deterministic:
         // the original duration resolves, is positive, but floors to zero frames.
         Assert.That(viewModel!.HasOriginalDuration(), Is.True);
-        Assert.That(element.TryGetOriginalDuration(out TimeSpan original), Is.True);
+        Assert.That(element.TryGetOriginalDuration(out MediaTime original), Is.True);
         Assert.That(original, Is.EqualTo(SubFrameAudioDuration));
-        Assert.That(original.FloorToRate(30), Is.EqualTo(TimeSpan.Zero),
+        Assert.That(original.RoundToFrame(new Rational(30), MidpointRounding.ToNegativeInfinity), Is.EqualTo(MediaTime.Zero),
             "The scenario requires an original duration shorter than one project frame.");
         Assert.That(timeline.IsRippleEnabled.Value, Is.False,
             "The telemetry crash is the non-ripple path.");
@@ -100,7 +100,7 @@ public class SubFrameResizeClampTests
             $"The resize must be clamped at the service boundary instead of escaping to the dispatcher, but got: {surfaced}");
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
             Assert.That(element.Length, Is.EqualTo(OneFrameAt30),
                 "the sub-frame original duration is floored to one frame at the project rate");
         });
@@ -117,8 +117,8 @@ public class SubFrameResizeClampTests
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.FromSeconds(1),
-            Length: TimeSpan.FromSeconds(2),
+            Start: MediaTime.FromSeconds(1),
+            Length: MediaTime.FromSeconds(2),
             Layer: 0,
             Source: new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))], CancellationToken.None);
         Assert.That(added.IsSuccess, Is.True);
@@ -153,7 +153,7 @@ public class SubFrameResizeClampTests
             $"A zero-length resize submission must be floored at the service boundary, but got: {surfaced}");
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(element.Length, Is.EqualTo(OneFrameAt30),
                 "the zero-frame width is floored to one frame at the project rate");
         });
@@ -169,9 +169,9 @@ public class SubFrameResizeClampTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"left-edge-{ripple}-{endSeconds}");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        TimeSpan end = TimeSpan.FromSeconds(endSeconds);
+        MediaTime end = MediaTime.FromSeconds(endSeconds);
         ElementAddResult added = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero, Length: end, Layer: 0,
+            Start: MediaTime.Zero, Length: end, Layer: 0,
             Source: new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))], CancellationToken.None);
         Assert.That(added.IsSuccess, Is.True);
         HeadlessTestHelpers.Settle();
@@ -235,7 +235,7 @@ public class SubFrameResizeClampTests
     {
         private readonly AudioStreamInfo _audioInfo = new(
             "test",
-            new Rational(SubFrameAudioDuration.Milliseconds, 1000),
+            new Rational(SubFrameAudioDuration.Flicks, MediaTime.FlicksPerSecond),
             44100,
             2);
 

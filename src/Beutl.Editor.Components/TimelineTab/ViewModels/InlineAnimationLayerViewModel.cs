@@ -25,7 +25,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     private readonly CompositeDisposable _innerDisposables = [];
     private readonly ReactivePropertySlim<bool> _useGlobalClock = new(true);
     private LayerHeaderViewModel? _lastLayerHeader;
-    private TimeSpan _pointerPosition;
+    private MediaTime _pointerPosition;
     private bool _disposed;
 
     public InlineAnimationLayerViewModel(
@@ -162,7 +162,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     public ReactivePropertySlim<LayerHeaderViewModel?> LayerHeader => Element.LayerHeader;
 
-    public void DropEasing(Easing easing, TimeSpan keyTime)
+    public void DropEasing(Easing easing, MediaTime keyTime)
     {
         if (!IsEditable) return;
         if (Property.Animation is IKeyFrameAnimation kfAnimation)
@@ -173,7 +173,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         }
     }
 
-    public void InsertKeyFrame(Easing easing, TimeSpan keyTime)
+    public void InsertKeyFrame(Easing easing, MediaTime keyTime)
     {
         if (!IsEditable) return;
         if (Property.Animation is not IKeyFrameAnimation animation) return;
@@ -187,7 +187,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         history.Commit(CommandNames.InsertKeyFrame);
     }
 
-    public TimeSpan ConvertKeyTime(TimeSpan globalkeyTime, IKeyFrameAnimation animation)
+    public MediaTime ConvertKeyTime(MediaTime globalkeyTime, IKeyFrameAnimation animation)
     {
         return AnimationOperations.ConvertKeyTime(animation, globalkeyTime, Element.Model, Timeline.Scene);
     }
@@ -198,7 +198,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         KeyFrameClipboardCommands.PasteAnimation(Timeline.EditorContext, Property.Animation!, json, _logger);
     }
 
-    private void PasteKeyFrame(string json, TimeSpan pointerPosition)
+    private void PasteKeyFrame(string json, MediaTime pointerPosition)
     {
         if (!IsEditable) return;
         KeyFrameClipboardCommands.PasteKeyFrame(
@@ -215,7 +215,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         history.Commit(CommandNames.DeleteAnimation);
     }
 
-    internal async Task PasteKeyFrameAtPositionAsync(TimeSpan pointerPosition, IClipboard? clipboard = null)
+    internal async Task PasteKeyFrameAtPositionAsync(MediaTime pointerPosition, IClipboard? clipboard = null)
     {
         clipboard ??= ClipboardHelper.GetClipboard();
         if (_disposed || !IsEditable || clipboard == null || Property.Animation is not IKeyFrameAnimation animation) return;
@@ -230,7 +230,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             _logger);
     }
 
-    internal void PasteSelection(string json, TimeSpan keyTime)
+    internal void PasteSelection(string json, MediaTime keyTime)
     {
         if (_disposed || !IsEditable || Property.Animation is not IKeyFrameAnimation animation) return;
         if (KeyFrameSelectionClipboard.Read(json) is not { } source
@@ -256,7 +256,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         if (!KeyFrameClipboardCommands.TryCreateDroppedEasing(e.DataTransfer, out Easing? easing)) return false;
 
         float scale = Timeline.Options.Value.Scale;
-        TimeSpan time = positionX.PixelToTimeSpan(scale);
+        MediaTime time = positionX.PixelToTime(scale);
         DropEasing(easing, time);
         return true;
     }
@@ -264,7 +264,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     public void UpdatePointerPosition(double positionX)
     {
         float scale = Timeline.Options.Value.Scale;
-        _pointerPosition = positionX.PixelToTimeSpan(scale);
+        _pointerPosition = positionX.PixelToTime(scale);
     }
 
     private void OnLayerHeaderChanged(LayerHeaderViewModel? obj)
@@ -276,7 +276,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     private void UpdateWidth()
     {
-        TimeSpan duration = Property.Animation?.Duration ?? TimeSpan.Zero;
+        MediaTime duration = Property.Animation?.Duration ?? MediaTime.Zero;
         Width.Value = duration.TimeToPixel(Timeline.Options.Value.Scale);
     }
 

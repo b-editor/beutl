@@ -22,8 +22,8 @@ public class DocumentRoundTripTests
     {
         var text = new TextBlock { Text = { Value = "Title" } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0 }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 100 }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0 }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100 }, out _);
         text.Opacity.SetKeyFrameAnimation(animation);
         var adapter = new DocumentAdapter();
 
@@ -41,7 +41,7 @@ public class DocumentRoundTripTests
     {
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        scene.Children.Add(new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) });
+        scene.Children.Add(new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) });
         var adapter = new DocumentAdapter();
 
         JsonObject document = adapter.Read(scene);

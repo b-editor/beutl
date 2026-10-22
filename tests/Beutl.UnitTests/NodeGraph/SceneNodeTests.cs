@@ -34,10 +34,10 @@ public sealed class SceneNodeTests
         var (model, node) = CreateGraph(referenced);
 
         node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
-        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(2)), Is.EqualTo(1), "The element is on screen at 0.5 s.");
+        Assert.That(Evaluate(model, node, MediaTime.FromSeconds(2)), Is.EqualTo(1), "The element is on screen at 0.5 s.");
 
         node.Time.Property!.SetValue(TimeSpan.FromSeconds(2));
-        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(0.5)), Is.EqualTo(0), "The element has ended at 2 s.");
+        Assert.That(Evaluate(model, node, MediaTime.FromSeconds(0.5)), Is.EqualTo(0), "The element has ended at 2 s.");
         Assert.That(node.ErrorMonitor.Value, Is.Null);
     }
 
@@ -50,8 +50,8 @@ public sealed class SceneNodeTests
         model.Nodes.Add(time);
         Connection connection = model.Connect(node.Time, time.Time);
 
-        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(0.5)), Is.EqualTo(1), "Seconds reach the time input.");
-        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(2)), Is.EqualTo(0));
+        Assert.That(Evaluate(model, node, MediaTime.FromSeconds(0.5)), Is.EqualTo(1), "Seconds reach the time input.");
+        Assert.That(Evaluate(model, node, MediaTime.FromSeconds(2)), Is.EqualTo(0));
         Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Convert));
     }
 
@@ -63,7 +63,7 @@ public sealed class SceneNodeTests
         node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
 
         using var snapshot = new GraphSnapshot();
-        var context = new CompositionContext(TimeSpan.FromSeconds(3));
+        var context = new CompositionContext(MediaTime.FromSeconds(3));
         snapshot.Build(model, context);
         snapshot.Evaluate(context);
         var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
@@ -85,11 +85,11 @@ public sealed class SceneNodeTests
         Scene referenced = CreateScene(new RectShape());
         var (model, node) = CreateGraph(referenced);
         HostGraph(model, referenced);
-        Assert.That(node.Object.Start, Is.EqualTo(TimeSpan.Zero), "The scene's time does not follow the hosting element.");
+        Assert.That(node.Object.Start, Is.EqualTo(MediaTime.Zero), "The scene's time does not follow the hosting element.");
 
         node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
 
-        Assert.That(Evaluate(model, node, TimeSpan.FromSeconds(6)), Is.EqualTo(1),
+        Assert.That(Evaluate(model, node, MediaTime.FromSeconds(6)), Is.EqualTo(1),
             "0.5 s of the referenced scene is drawn, not 0.5 s minus the element's start.");
     }
 
@@ -111,7 +111,7 @@ public sealed class SceneNodeTests
             Scene outer = HostGraph(model, referenced);
 
             using var renderer = new SceneRenderer(outer, Beutl.Graphics.Rendering.RenderIntent.Preview);
-            renderer.Render(renderer.Compositor.EvaluateGraphics(TimeSpan.FromSeconds(6)));
+            renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(6)));
             using Beutl.Media.Bitmap snapshot = renderer.Snapshot();
             using Beutl.Media.Bitmap srgb = snapshot.Convert(
                 Beutl.Media.BitmapColorType.Bgra8888, Beutl.Media.BitmapAlphaType.Unpremul, Beutl.Media.BitmapColorSpace.Srgb);
@@ -139,7 +139,7 @@ public sealed class SceneNodeTests
         SceneNode node = restored.Nodes.OfType<SceneNode>().Single();
 
         Assert.That(node.Object.IsTimeAnchor, Is.True);
-        Assert.That(node.Object.Start, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(node.Object.Start, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
@@ -154,8 +154,8 @@ public sealed class SceneNodeTests
         node.Object.ReferencedScene.Value = scene;
 
         using var compositor = new SceneCompositor(scene);
-        Assert.DoesNotThrow(() => compositor.EvaluateGraphics(TimeSpan.FromSeconds(0.5)));
-        Assert.DoesNotThrow(() => Evaluate(graph, node, TimeSpan.FromSeconds(0.5)));
+        Assert.DoesNotThrow(() => compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)));
+        Assert.DoesNotThrow(() => Evaluate(graph, node, MediaTime.FromSeconds(0.5)));
     }
 
     private Scene CreateScene(Beutl.Engine.EngineObject content)
@@ -163,8 +163,8 @@ public sealed class SceneNodeTests
         var scene = new Scene(64, 48, "referenced") { Uri = new Uri(Path.Combine(_directory, $"{Guid.NewGuid():N}.scene")) };
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(_directory, $"{Guid.NewGuid():N}.layer")),
         };
         element.AddObject(content);
@@ -189,8 +189,8 @@ public sealed class SceneNodeTests
         drawable.Model.Value = model;
         var host = new Element
         {
-            Start = TimeSpan.FromSeconds(5),
-            Length = TimeSpan.FromSeconds(10),
+            Start = MediaTime.FromSeconds(5),
+            Length = MediaTime.FromSeconds(10),
             Uri = new Uri(Path.Combine(_directory, "host.layer")),
         };
         host.AddObject(drawable);
@@ -214,7 +214,7 @@ public sealed class SceneNodeTests
     }
 
     // How many objects of the referenced scene were drawn.
-    private static int Evaluate(GraphModel model, SceneNode node, TimeSpan time)
+    private static int Evaluate(GraphModel model, SceneNode node, MediaTime time)
     {
         using var snapshot = new GraphSnapshot();
         var context = new CompositionContext(time);

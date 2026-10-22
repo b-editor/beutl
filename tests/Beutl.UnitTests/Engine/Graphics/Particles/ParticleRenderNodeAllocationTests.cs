@@ -42,7 +42,7 @@ public sealed class ParticleRenderNodeAllocationTests
             ParticleColor = { Value = Colors.OrangeRed },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
-            new CompositionContext(TimeSpan.FromSeconds(1)));
+            new CompositionContext(MediaTime.FromSeconds(1)));
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_frame, outputScale: 1))
             emitter.Render(context, resource);
@@ -195,7 +195,7 @@ public sealed class ParticleRenderNodeAllocationTests
         var emitter = new ParticleEmitter
         {
             Seed = { Value = 11 },
-            PrewarmDuration = { Value = TimeSpan.FromSeconds(prewarm) },
+            PrewarmDuration = { Value = MediaTime.FromSeconds(prewarm) },
             EmissionRate = { Value = 4 },
             Lifetime = { Value = 1.2f },
             MaxParticles = { Value = 8 },
@@ -209,7 +209,7 @@ public sealed class ParticleRenderNodeAllocationTests
             InitialRotationRandom = { Value = 0 },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
-            new CompositionContext(TimeSpan.FromSeconds(time)));
+            new CompositionContext(MediaTime.FromSeconds(time)));
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_frame, outputScale: 1))
             emitter.Render(context, resource);
@@ -252,7 +252,7 @@ public sealed class ParticleRenderNodeAllocationTests
             InitialRotationRandom = { Value = 0 },
         };
         using ParticleEmitter.Resource resource = emitter.ToResource(
-            new CompositionContext(TimeSpan.FromSeconds(1)));
+            new CompositionContext(MediaTime.FromSeconds(1)));
         if (mutate is not null)
         {
             // The simulator owns the buffer the render node reads, so poking it here is how a fixture

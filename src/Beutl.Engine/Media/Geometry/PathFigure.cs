@@ -27,7 +27,7 @@ public sealed partial class PathFigure : EngineObject
     {
         public void ApplyTo(IGeometryContext context)
         {
-            bool skipFirst = false;
+            int skipIndex = -1;
             if (!StartPoint.IsInvalid)
             {
                 context.MoveTo(StartPoint);
@@ -36,7 +36,8 @@ public sealed partial class PathFigure : EngineObject
             {
                 if (IsClosed)
                 {
-                    var endPoint = Segments[^1].GetEndPoint();
+                    int last = IndexOfLoaded(fromEnd: true);
+                    var endPoint = last >= 0 ? Segments[last].GetEndPoint() : null;
                     if (endPoint.HasValue)
                     {
                         context.MoveTo(endPoint.Value);
@@ -44,28 +45,37 @@ public sealed partial class PathFigure : EngineObject
                 }
                 else
                 {
-                    var endPoint = Segments[0].GetEndPoint();
+                    int first = IndexOfLoaded(fromEnd: false);
+                    var endPoint = first >= 0 ? Segments[first].GetEndPoint() : null;
                     if (endPoint.HasValue)
                     {
                         context.MoveTo(endPoint.Value);
-                        skipFirst = true;
+                        skipIndex = first;
                     }
                 }
             }
 
-            foreach (PathSegment.Resource item in Segments)
+            for (int i = 0; i < Segments.Count; i++)
             {
-                if (skipFirst)
-                {
-                    skipFirst = false;
-                    continue;
-                }
-
-                item.ApplyTo(context);
+                if (i != skipIndex)
+                    Segments[i].ApplyTo(context);
             }
 
             if (IsClosed)
                 context.Close();
+        }
+
+        // A segment whose type did not load adds nothing, so the implicit start comes from the segments that did.
+        private int IndexOfLoaded(bool fromEnd)
+        {
+            for (int i = 0; i < Segments.Count; i++)
+            {
+                int index = fromEnd ? Segments.Count - 1 - i : i;
+                if (Segments[index] is not FallbackPathSegment.Resource)
+                    return index;
+            }
+
+            return -1;
         }
     }
 }

@@ -149,7 +149,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         }
     }
 
-    public override void InsertKeyFrame(TimeSpan keyTime)
+    public override void InsertKeyFrame(MediaTime keyTime)
     {
         if (!IsElementEditable) return;
         if (GetAnimation() is not KeyFrameAnimation<TValue> kfAnimation) return;
@@ -170,7 +170,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         }
     }
 
-    public override void RemoveKeyFrame(TimeSpan keyTime)
+    public override void RemoveKeyFrame(MediaTime keyTime)
     {
         if (IsDisposed || GetAnimation() is not KeyFrameAnimation<TValue> kfAnimation) return;
         // Check the keyframe itself: removing another one while it holds an easing that could not be
@@ -198,7 +198,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             {
                 Value = initialValue,
                 Easing = new SplineEasing(),
-                KeyTime = TimeSpan.Zero
+                KeyTime = MediaTime.Zero
             });
 
             animatableProperty.Animation = newAnimation;

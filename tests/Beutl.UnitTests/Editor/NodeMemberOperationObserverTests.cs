@@ -275,7 +275,7 @@ public class NodeMemberOperationObserverTests
 
         receivedOperations.Clear();
 
-        newAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f });
+        newAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0f });
 
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
     }
@@ -398,7 +398,7 @@ public class NodeMemberOperationObserverTests
         var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
         sut.Dispose();
 
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 0f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0f });
 
         Assert.That(receivedOperations, Is.Empty);
         Assert.That(_sequenceGenerator.GetNext(), Is.EqualTo(1));

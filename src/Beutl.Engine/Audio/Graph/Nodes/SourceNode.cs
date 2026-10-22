@@ -15,7 +15,7 @@ public sealed class SourceNode : AudioNode
             return 0;
 
         double seconds = source.Resource.MediaReader?.AudioInfo.Duration.ToDouble()
-            ?? source.Resource.Duration.TotalSeconds;
+            ?? source.Resource.Duration.ToSeconds();
         return double.IsFinite(seconds) && seconds >= 0 ? seconds * sampleRate : null;
     }
 
@@ -31,14 +31,14 @@ public sealed class SourceNode : AudioNode
         var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
 
         // An unloaded or failed-to-open source has SampleRate == 0 and is unreadable — return silence
-        // (this also avoids TimeToSampleIndex throwing on the non-positive rate below).
+        // (this also avoids ToSamples throwing on the non-positive rate below).
         if (resource.SampleRate <= 0)
         {
             return buffer;
         }
 
-        long start = AudioMath.TimeToSampleIndex(context.TimeRange.Start, resource.SampleRate);
-        long length = (long)Math.Ceiling(context.TimeRange.Duration.TotalSeconds * resource.SampleRate);
+        long start = context.TimeRange.Start.ToSamples(resource.SampleRate, MidpointRounding.ToZero);
+        long length = context.TimeRange.Duration.ToSamples(resource.SampleRate, MidpointRounding.ToPositiveInfinity);
 
         // Resource.Read takes int sample offsets, so an out-of-int-range start/length is unreadable —
         // return silence rather than wrapping the cast to a negative offset.

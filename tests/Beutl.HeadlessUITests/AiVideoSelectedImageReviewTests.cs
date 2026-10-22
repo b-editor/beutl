@@ -29,7 +29,7 @@ public sealed partial class AiDialogWorkflowTests
         var image = new SourceImage();
         image.Source.Value = imageSource;
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        var added = await adder.AddAsync([new ElementDescription(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0,
+        var added = await adder.AddAsync([new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), 0,
             new ElementSource.EngineObject(() => image))], CancellationToken.None);
         Assert.That(added.IsSuccess, Is.True, added.Failure?.Message);
         var selected = added.Elements.Single();

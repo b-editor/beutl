@@ -4,6 +4,7 @@ using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 using Beutl.Animation;
 using Beutl.Composition;
+using Beutl.JsonConverters;
 using Beutl.Media;
 using Beutl.Reactive;
 using Beutl.Serialization;
@@ -89,9 +90,9 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         set => TimeRangeProperty.Value = value;
     }
 
-    public TimeSpan Start => TimeRange.Start;
+    public MediaTime Start => TimeRange.Start;
 
-    public TimeSpan Duration => TimeRange.Duration;
+    public MediaTime Duration => TimeRange.Duration;
 
     protected override void OnAttachedToHierarchy(in HierarchyAttachmentEventArgs args)
     {
@@ -131,11 +132,15 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 
     internal override void DeserializeMembers(ICoreSerializationContext context)
     {
-        var start = context.GetValue<Optional<TimeSpan>>(nameof(TimeRange.Start));
-        var duration = context.GetValue<Optional<TimeSpan>>(nameof(TimeRange.Duration));
+        var start = context.GetValue<Optional<MediaTime>>(nameof(TimeRange.Start));
+        var duration = context.GetValue<Optional<MediaTime>>(nameof(TimeRange.Duration));
         var zIndex = context.GetValue<Optional<int>>(nameof(ZIndex));
         if (start.HasValue && duration.HasValue)
-            TimeRange = new TimeRange(start.Value, duration.Value);
+        {
+            TimeRange = new TimeRange(start.Value, MediaTimeJsonConverter.LengthRead(
+                context, nameof(TimeRange.Start), nameof(TimeRange.Duration), start.Value, duration.Value));
+        }
+
         if (zIndex.HasValue)
             ZIndex = zIndex.Value;
         IsTimeAnchor = start.HasValue && duration.HasValue && zIndex.HasValue;
@@ -224,7 +229,7 @@ public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
         if (IsTimeAnchor)
         {
             context.SetValue(nameof(TimeRange.Start), TimeRange.Start);
-            context.SetValue(nameof(TimeRange.Duration), TimeRange.Duration);
+            context.SetValue(nameof(TimeRange.Duration), MediaTimeJsonConverter.LengthToWrite(TimeRange.Start, TimeRange.Duration));
             context.SetValue(nameof(ZIndex), ZIndex);
         }
 

@@ -84,7 +84,7 @@ public sealed partial class SpeedNode
             bool draining,
             bool forceReanchor)
         {
-            double outputStart = context.TimeRange.Start.TotalSeconds;
+            double outputStart = context.TimeRange.Start.ToSeconds();
 
             // A static-speed change across contiguous chunks is a source-position discontinuity that
             // BeginStream's output-time comparison cannot see: output stays contiguous, but the source cursor
@@ -156,7 +156,7 @@ public sealed partial class SpeedNode
             bool draining,
             bool forceReanchor)
         {
-            double outputStart = context.TimeRange.Start.TotalSeconds;
+            double outputStart = context.TimeRange.Start.ToSeconds();
             BeginStream(
                 outputStart,
                 sourceStartSeconds,

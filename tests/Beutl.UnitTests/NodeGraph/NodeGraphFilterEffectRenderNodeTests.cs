@@ -131,7 +131,7 @@ public class NodeGraphFilterEffectRenderNodeTests
     public void ToResource_CapturesProxyPreferencesFromCompositionContext()
     {
         var effect = new NodeGraphFilterEffect();
-        var context = new CompositionContext(TimeSpan.Zero)
+        var context = new CompositionContext(MediaTime.Zero)
         {
             PreferProxy = true,
             PreferredProxyPreset = ProxyPreset.Eighth,
@@ -964,7 +964,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Connect(captureNode.Height, measureNode.Height);
         using var snapshot = new GraphSnapshot();
 
-        var context = new CompositionContext(TimeSpan.Zero)
+        var context = new CompositionContext(MediaTime.Zero)
         {
             TargetDomain = new Rect(0, 0, 64, 48),
         };
@@ -995,7 +995,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.IsEnabled = true;
         using var snapshot = new GraphSnapshot();
 
-        var context = new CompositionContext(TimeSpan.Zero)
+        var context = new CompositionContext(MediaTime.Zero)
         {
             TargetDomain = new Rect(0, 0, 64, 48),
         };
@@ -1032,7 +1032,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         monitor.IsEnabled = true;
         using var snapshot = new GraphSnapshot();
 
-        var context = new CompositionContext(TimeSpan.Zero)
+        var context = new CompositionContext(MediaTime.Zero)
         {
             TargetDomain = new Rect(0, 0, 64, 48),
         };
@@ -1092,7 +1092,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         }
 
         using var snapshot = new GraphSnapshot();
-        var context = new CompositionContext(TimeSpan.Zero)
+        var context = new CompositionContext(MediaTime.Zero)
         {
             TargetDomain = new Rect(0, 0, 64, 48),
         };

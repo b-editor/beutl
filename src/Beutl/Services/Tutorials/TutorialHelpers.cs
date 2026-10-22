@@ -179,12 +179,12 @@ public static class TutorialHelpers
     public static void PrepareForPlayback(
         EditViewModel? editVm,
         Element? element,
-        TimeSpan? additionalDuration = null)
+        MediaTime? additionalDuration = null)
     {
         var clock = editVm?.GetService<IEditorClock>();
         if (editVm == null || element == null || clock == null) return;
 
-        var duration = additionalDuration ?? TimeSpan.FromSeconds(1);
+        var duration = additionalDuration ?? MediaTime.FromSeconds(1);
         editVm.Scene.Duration = element.Range.End + duration;
         clock.Seek(element.Start);
         editVm.HistoryManager.Commit(CommandNames.ChangeSceneDuration);

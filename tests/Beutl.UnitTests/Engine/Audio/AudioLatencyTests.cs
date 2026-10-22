@@ -36,7 +36,7 @@ public class AudioLatencyTests
     }
 
     private static AudioProcessContext CreateContext(int sampleCount, int sampleRate = SampleRate)
-        => AudioTestContexts.Seconds(TimeSpan.Zero, sampleCount, sampleRate);
+        => AudioTestContexts.Seconds(MediaTime.Zero, sampleCount, sampleRate);
 
     [TestCase(0f)]
     [TestCase(5f)]
@@ -351,8 +351,8 @@ public class AudioLatencyTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 200f },
-                new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1), Value = 50f },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 200f },
+                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 50f },
             },
         });
         using var limiter = CreateLimiterNode(5f);
@@ -375,7 +375,7 @@ public class AudioLatencyTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 50f },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50f },
                 new KeyFrame<float> { KeyTime = duration - terminalSample - terminalSample, Value = 100f },
             },
         });
@@ -407,10 +407,10 @@ public class AudioLatencyTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f },
                 new KeyFrame<float>
                 {
-                    KeyTime = TimeSpan.FromSeconds(1),
+                    KeyTime = MediaTime.FromSeconds(1),
                     Value = 200f,
                     Easing = easing,
                 },
@@ -441,10 +441,10 @@ public class AudioLatencyTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100f },
+                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f },
                 new KeyFrame<float>
                 {
-                    KeyTime = TimeSpan.FromSeconds(1),
+                    KeyTime = MediaTime.FromSeconds(1),
                     Value = 200f,
                     Easing = new UnknownRangeEasing(),
                 },

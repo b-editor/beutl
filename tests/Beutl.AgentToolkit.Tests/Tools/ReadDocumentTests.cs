@@ -69,7 +69,7 @@ public sealed class ReadDocumentTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "off-frame-measure")
         {
-            Duration = TimeSpan.FromSeconds(2),
+            Duration = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var plate = new RectShape
@@ -84,7 +84,7 @@ public sealed class ReadDocumentTests
         };
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
         element.AddObject(plate);
@@ -114,7 +114,7 @@ public sealed class ReadDocumentTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "nested-measure")
         {
-            Duration = TimeSpan.FromSeconds(2),
+            Duration = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var group = new DrawableGroup { Name = "wrapper" };
@@ -122,7 +122,7 @@ public sealed class ReadDocumentTests
         group.Children.Add(nested);
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
         element.AddObject(group);
@@ -452,8 +452,8 @@ public sealed class ReadDocumentTests
         scene.Uri = new Uri(Path.Combine(dir, "Scene.scene"));
         var element = new Element
         {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(2)
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(2)
         };
         element.AddObject(new TextBlock { Text = { Value = "Scoped" } });
         element.Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"));
@@ -461,7 +461,7 @@ public sealed class ReadDocumentTests
         scene.Children.Add(new Element
         {
             Name = "sibling",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
 
@@ -504,14 +504,14 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1280, 720, "Summary")
         {
-            Duration = TimeSpan.FromSeconds(8),
+            Duration = MediaTime.FromSeconds(8),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
             Name = "Title element",
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(4),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(4),
             ZIndex = 3,
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
@@ -571,15 +571,15 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1920, 1080, "Measure trimmed")
         {
-            Start = TimeSpan.FromSeconds(30),
-            Duration = TimeSpan.FromSeconds(5),
+            Start = MediaTime.FromSeconds(30),
+            Duration = MediaTime.FromSeconds(5),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
             Name = "Clip",
-            Start = TimeSpan.FromSeconds(32),
-            Length = TimeSpan.FromSeconds(2),
+            Start = MediaTime.FromSeconds(32),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var plate = new RoundedRectShape
@@ -613,13 +613,13 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1920, 1080, "Measure")
         {
-            Duration = TimeSpan.FromSeconds(5),
+            Duration = MediaTime.FromSeconds(5),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var titleElement = new Element
         {
             Name = "Title element",
-            Length = TimeSpan.FromSeconds(5),
+            Length = MediaTime.FromSeconds(5),
             ZIndex = 2,
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
@@ -635,7 +635,7 @@ public sealed class ReadDocumentTests
         var plateElement = new Element
         {
             Name = "Plate element",
-            Length = TimeSpan.FromSeconds(5),
+            Length = MediaTime.FromSeconds(5),
             ZIndex = 1,
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
@@ -694,13 +694,13 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(200, 200, "Measure effect")
         {
-            Duration = TimeSpan.FromSeconds(5),
+            Duration = MediaTime.FromSeconds(5),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
             Name = "Plate element",
-            Length = TimeSpan.FromSeconds(5),
+            Length = MediaTime.FromSeconds(5),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var plate = new RoundedRectShape
@@ -747,14 +747,14 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(320, 180, "graph-measure-node")
         {
-            Duration = TimeSpan.FromSeconds(2),
+            Duration = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         NodeGraphDrawable drawable = BuildMeasureNodeGraphDrawable();
         var element = new Element
         {
             Name = "Graph element",
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         element.AddObject(drawable);
@@ -825,13 +825,13 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1280, 720, "Fallback summary")
         {
-            Duration = TimeSpan.FromSeconds(2),
+            Duration = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
             Name = "Fallback element",
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var fallback = new FallbackEngineObject
@@ -906,7 +906,7 @@ public sealed class ReadDocumentTests
         animation.KeyFrames.Add(
             new KeyFrame<float>
             {
-                KeyTime = TimeSpan.Zero,
+                KeyTime = MediaTime.Zero,
                 Value = 0,
                 Easing = new LinearEasing()
             },
@@ -914,7 +914,7 @@ public sealed class ReadDocumentTests
         animation.KeyFrames.Add(
             new KeyFrame<float>
             {
-                KeyTime = TimeSpan.FromSeconds(1),
+                KeyTime = MediaTime.FromSeconds(1),
                 Value = 1,
                 Easing = new SineEaseOut()
             },

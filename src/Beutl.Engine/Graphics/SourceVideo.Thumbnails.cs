@@ -106,7 +106,7 @@ public partial class SourceVideo : IThumbnailsProvider
         try
         {
             resource = ToResource(preferProxy
-                ? new CompositionContext(TimeSpan.Zero)
+                ? new CompositionContext(MediaTime.Zero)
                 {
                     PreferProxy = true,
                     PreferredProxyPreset = preferredProxyPreset,
@@ -116,7 +116,7 @@ public partial class SourceVideo : IThumbnailsProvider
             if (resource.Source is not { } source)
                 yield break;
 
-            if (source.Duration <= TimeSpan.Zero)
+            if (source.Duration <= MediaTime.Zero)
                 yield break;
             var duration = TimeRange.Duration;
 
@@ -131,7 +131,7 @@ public partial class SourceVideo : IThumbnailsProvider
                 yield break;
             // count > 0 implies frameSize dimensions and maxHeight are positive, so this is finite.
             float thumbWidth = maxHeight * (float)frameSize.Width / frameSize.Height;
-            double interval = duration.TotalSeconds / count;
+            double interval = duration.ToSeconds() / count;
 
             string? baseKey = cacheService != null ? GetThumbnailsCacheKey() : null;
             // Partition by preview-source mode: ThumbnailsInvalidated covers mode changes for one
@@ -140,7 +140,7 @@ public partial class SourceVideo : IThumbnailsProvider
             string? cacheKey = baseKey != null
                 ? baseKey + (preferProxy ? GetProxyThumbnailCacheKeySuffix(preferredProxyPreset) : OriginalThumbnailCacheKeySuffix)
                 : null;
-            var cacheThreshold = TimeSpan.FromSeconds(interval * 0.5);
+            var cacheThreshold = MediaTime.FromSeconds(interval * 0.5);
 
             int effectiveStart = Math.Max(0, startIndex);
             int effectiveEnd = endIndex < 0 ? count - 1 : Math.Min(endIndex, count - 1);
@@ -161,7 +161,7 @@ public partial class SourceVideo : IThumbnailsProvider
                 if (cancellationToken.IsCancellationRequested)
                     yield break;
 
-                var time = TimeSpan.FromSeconds(i * interval);
+                var time = MediaTime.FromSeconds(i * interval);
 
                 if (cacheKey != null
                     && cacheService!.TryGet(cacheKey, time, cacheThreshold, out var cached)

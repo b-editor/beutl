@@ -636,7 +636,7 @@ public class NestedInputPortTests
         var graph = new GraphModel();
         var node = new FactoryNode<TransformGroup>();
         var transform = new TranslateTransform();
-        transform.X.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, TimeSpan.FromSeconds(1)));
+        transform.X.SetKeyFrameAnimation(TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1)));
         transform.X.Expression = Expression.Create<float>("7");
         node.Object.Children.Add(transform);
         graph.Nodes.Add(node);
@@ -648,7 +648,7 @@ public class NestedInputPortTests
         var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         Evaluate(restored);
         var x = (IExpressionProperty<float>)((INestedInputPort)restored.FindNodePort(port.Id)!).Property!.GetEngineProperty()!;
-        var context = new CompositionContext(TimeSpan.FromSeconds(0.5));
+        var context = new CompositionContext(MediaTime.FromSeconds(0.5));
 
         using (Assert.EnterMultipleScope())
         {

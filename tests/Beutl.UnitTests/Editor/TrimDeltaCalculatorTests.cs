@@ -6,27 +6,27 @@ namespace Beutl.UnitTests.Editor;
 public class TrimDeltaCalculatorTests
 {
     // A snap function that pulls any time within one frame of a cut onto that cut.
-    private static Func<TimeSpan, TimeSpan> SnapToCut(TimeSpan cut, TimeSpan tolerance)
+    private static Func<MediaTime, MediaTime> SnapToCut(MediaTime cut, MediaTime tolerance)
     {
-        return t => (t - cut).Duration() <= tolerance ? cut : t;
+        return t => new MediaTime(Math.Abs((t - cut).Flicks)) <= tolerance ? cut : t;
     }
 
     [Test]
     public void SnappedDelta_NullSnap_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => TrimDeltaCalculator.SnappedDelta(TimeSpan.Zero, TimeSpan.Zero, null!));
+            () => TrimDeltaCalculator.SnappedDelta(MediaTime.Zero, MediaTime.Zero, null!));
     }
 
     [Test]
     public void SnappedDelta_NoMoveClick_IsZero()
     {
-        TimeSpan press = TimeSpan.FromSeconds(5);
-        TimeSpan release = TimeSpan.FromSeconds(5);
+        MediaTime press = MediaTime.FromSeconds(5);
+        MediaTime release = MediaTime.FromSeconds(5);
 
-        TimeSpan delta = TrimDeltaCalculator.SnappedDelta(press, release, t => t);
+        MediaTime delta = TrimDeltaCalculator.SnappedDelta(press, release, t => t);
 
-        Assert.That(delta, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(delta, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
@@ -34,24 +34,24 @@ public class TrimDeltaCalculatorTests
     {
         // Press and release are the same point, both just off a cut. Snapping only the release
         // would yield a spurious one-frame delta; snapping both endpoints identically cancels out.
-        TimeSpan cut = TimeSpan.FromSeconds(5);
-        TimeSpan point = cut + TimeSpan.FromMilliseconds(10);
-        Func<TimeSpan, TimeSpan> snap = SnapToCut(cut, TimeSpan.FromMilliseconds(33));
+        MediaTime cut = MediaTime.FromSeconds(5);
+        MediaTime point = cut + MediaTime.FromSeconds(0.01);
+        Func<MediaTime, MediaTime> snap = SnapToCut(cut, MediaTime.FromSeconds(0.033));
 
-        TimeSpan delta = TrimDeltaCalculator.SnappedDelta(point, point, snap);
+        MediaTime delta = TrimDeltaCalculator.SnappedDelta(point, point, snap);
 
-        Assert.That(delta, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(delta, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
     public void SnappedDelta_ReleaseSnapsToCut_ReturnsSnappedDistance()
     {
-        TimeSpan cut = TimeSpan.FromSeconds(5);
-        TimeSpan press = TimeSpan.FromSeconds(4);
-        TimeSpan release = cut + TimeSpan.FromMilliseconds(10);
-        Func<TimeSpan, TimeSpan> snap = SnapToCut(cut, TimeSpan.FromMilliseconds(33));
+        MediaTime cut = MediaTime.FromSeconds(5);
+        MediaTime press = MediaTime.FromSeconds(4);
+        MediaTime release = cut + MediaTime.FromSeconds(0.01);
+        Func<MediaTime, MediaTime> snap = SnapToCut(cut, MediaTime.FromSeconds(0.033));
 
-        TimeSpan delta = TrimDeltaCalculator.SnappedDelta(press, release, snap);
+        MediaTime delta = TrimDeltaCalculator.SnappedDelta(press, release, snap);
 
         Assert.That(delta, Is.EqualTo(cut - press));
     }
@@ -59,11 +59,11 @@ public class TrimDeltaCalculatorTests
     [Test]
     public void SnappedDelta_NegativeMovement_IsNegative()
     {
-        TimeSpan press = TimeSpan.FromSeconds(5);
-        TimeSpan release = TimeSpan.FromSeconds(3);
+        MediaTime press = MediaTime.FromSeconds(5);
+        MediaTime release = MediaTime.FromSeconds(3);
 
-        TimeSpan delta = TrimDeltaCalculator.SnappedDelta(press, release, t => t);
+        MediaTime delta = TrimDeltaCalculator.SnappedDelta(press, release, t => t);
 
-        Assert.That(delta, Is.EqualTo(TimeSpan.FromSeconds(-2)));
+        Assert.That(delta, Is.EqualTo(MediaTime.FromSeconds(-2)));
     }
 }

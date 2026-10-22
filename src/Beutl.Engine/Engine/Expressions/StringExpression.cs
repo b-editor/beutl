@@ -149,6 +149,7 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
             ? nullableTarget.TypeArguments[0]
             : target;
         if (SymbolEqualityComparer.Default.Equals(source, unwrappedTarget)) return true;
+        if (IsSavedTimeResult(source, unwrappedTarget)) return true;
 
         Conversion conversion = compilation.ClassifyConversion(source, target);
         if (conversion.IsIdentity || conversion.IsReference || conversion.IsBoxing || conversion.IsUnboxing)
@@ -177,6 +178,10 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
             ? symbol.Construct(arguments!)
             : null;
     }
+
+    // Expressions saved before #2885 return TimeSpan for the time properties, which hold MediaTime now.
+    private static bool IsSavedTimeResult(ITypeSymbol source, ITypeSymbol target)
+        => source.ToDisplayString() == "System.TimeSpan" && target.ToDisplayString() == "Beutl.MediaTime";
 
     private static bool IsNumericType(SpecialType type)
     {
@@ -216,6 +221,11 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
         if (value is T typedValue)
         {
             return typedValue;
+        }
+
+        if (value is TimeSpan span && typeof(T) == typeof(MediaTime))
+        {
+            return (T)(object)MediaTime.FromTimeSpan(span);
         }
 
         var targetType = typeof(T);

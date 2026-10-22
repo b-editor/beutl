@@ -43,7 +43,7 @@ public class ElementViewDragCancellationTests
         {
             (EditViewModel editor, ElementViewModel[] elements) = await OpenElements(grouped);
             TimelineTabViewModel timeline = elements[0].Timeline;
-            if (snapping) elements[0].Scene.Duration = TimeSpan.FromSeconds(kind == "right" ? 4.5 : 6);
+            if (snapping) elements[0].Scene.Duration = MediaTime.FromSeconds(kind == "right" ? 4.5 : 6);
             view = new TimelineTabView { DataContext = timeline };
             window = new Window { Content = view, Width = 1200, Height = 420 };
             window.Show();
@@ -69,7 +69,7 @@ public class ElementViewDragCancellationTests
             Point press = border.TranslatePoint(new Point(x, border.Bounds.Height / 2), window)!.Value;
             float scale = timeline.Options.Value.Scale;
             var delta = new Vector(
-                TimeSpan.FromSeconds(kind == "left" ? -0.5 : kind == "right" ? 0.5 : 3).TimeToPixel(scale),
+                MediaTime.FromSeconds(kind == "left" ? -0.5 : kind == "right" ? 0.5 : 3).TimeToPixel(scale),
                 kind is "move" or "duplicate" ? FrameNumberHelper.LayerHeight : 0);
             Point release = press + delta;
             RawInputModifiers modifiers = kind == "duplicate" ? RawInputModifiers.Alt : RawInputModifiers.None;
@@ -120,8 +120,8 @@ public class ElementViewDragCancellationTests
                     Element model = elements[i].Model;
                     Assert.Multiple(() =>
                     {
-                        Assert.That(model.Start, Is.EqualTo(initial[i].Start + TimeSpan.FromSeconds(kind == "left" ? -0.5 : kind == "move" ? 3 : 0)));
-                        Assert.That(model.Length, Is.EqualTo(initial[i].Length + TimeSpan.FromSeconds(kind is "left" or "right" ? 0.5 : 0)));
+                        Assert.That(model.Start, Is.EqualTo(initial[i].Start + MediaTime.FromSeconds(kind == "left" ? -0.5 : kind == "move" ? 3 : 0)));
+                        Assert.That(model.Length, Is.EqualTo(initial[i].Length + MediaTime.FromSeconds(kind is "left" or "right" ? 0.5 : 0)));
                         Assert.That(model.ZIndex, Is.EqualTo(initial[i].ZIndex + (kind == "move" ? 1 : 0)));
                     });
                 }
@@ -129,7 +129,7 @@ public class ElementViewDragCancellationTests
                 if (kind == "duplicate")
                 {
                     Element[] copies = elements[0].Scene.Children.Except(elements.Select(vm => vm.Model)).ToArray();
-                    Assert.That(copies.Select(copy => copy.Start), Is.All.EqualTo(TimeSpan.FromSeconds(5)));
+                    Assert.That(copies.Select(copy => copy.Start), Is.All.EqualTo(MediaTime.FromSeconds(5)));
                     Assert.That(copies.Select(copy => copy.ZIndex).Order(), Is.EqualTo(initial.Select(item => item.ZIndex + 1).Order()));
                 }
             }
@@ -182,7 +182,7 @@ public class ElementViewDragCancellationTests
             border.AddHandler(InputElement.PointerPressedEvent, (_, e) => pointer = e.Pointer,
                 RoutingStrategies.Bubble, handledEventsToo: true);
             Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
-            Point release = press + new Vector(TimeSpan.FromSeconds(3).TimeToPixel(timeline.Options.Value.Scale), 0);
+            Point release = press + new Vector(MediaTime.FromSeconds(3).TimeToPixel(timeline.Options.Value.Scale), 0);
             window.MouseMove(press, modifiers);
             window.MouseDown(press, MouseButton.Left, modifiers);
             window.MouseMove(release, modifiers | RawInputModifiers.LeftMouseButton);
@@ -199,8 +199,8 @@ public class ElementViewDragCancellationTests
             foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
             Assert.Multiple(() =>
             {
-                Assert.That(selected.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(5)));
-                Assert.That(pressed.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+                Assert.That(selected.Model.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(pressed.Model.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
                 Assert.That(elements.Select(vm => vm.Model.ZIndex), Is.EqualTo(new[] { 0, 1 }));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
@@ -243,7 +243,7 @@ public class ElementViewDragCancellationTests
             HeadlessTestHelpers.Render(5);
             Border border = view.GetVisualDescendants().OfType<ElementView>().Single().FindControl<Border>("border")!;
             Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), window)!.Value;
-            Point moved = press + new Vector(TimeSpan.FromSeconds(3).TimeToPixel(timeline.Options.Value.Scale), 0);
+            Point moved = press + new Vector(MediaTime.FromSeconds(3).TimeToPixel(timeline.Options.Value.Scale), 0);
             window.MouseMove(press);
             window.MouseDown(press, MouseButton.Left);
             window.MouseMove(moved, RawInputModifiers.LeftMouseButton);
@@ -275,7 +275,7 @@ public class ElementViewDragCancellationTests
             bool confirmed = end == DragEnd.Playback;
             Assert.Multiple(() =>
             {
-                Assert.That(clip.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(confirmed ? 5 : 2)));
+                Assert.That(clip.Model.Start, Is.EqualTo(MediaTime.FromSeconds(confirmed ? 5 : 2)));
                 Assert.That(clip.Model.Name, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + (confirmed ? 1 : 0)));
                 Assert.That(editor.HistoryManager.IsEditing, Is.False);
@@ -292,7 +292,7 @@ public class ElementViewDragCancellationTests
     private static async Task<(EditViewModel Editor, ElementViewModel[] Elements)> OpenElements(bool grouped, int count = 1)
     {
         ElementDescription[] descriptions = Enumerable.Range(0, grouped ? 2 : count)
-            .Select(layer => new ElementDescription(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2), layer,
+            .Select(layer => new ElementDescription(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), layer,
                 new ElementSource.EngineObject(() => new RectShape())))
             .ToArray();
         (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(

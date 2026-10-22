@@ -26,9 +26,9 @@ public class GraphEditorSelectionCommandTests
     public async Task Distribute_preserves_endpoints_values_selection_and_one_undo(bool keyboard)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.7), Value = 200 };
-        var fourth = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.1), Value = 300 };
-        var unselected = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 900 };
+        var third = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.7), Value = 200 };
+        var fourth = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1.1), Value = 300 };
+        var unselected = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = 900 };
         graph.Animation.KeyFrames.Add(third, out _);
         graph.Animation.KeyFrames.Add(fourth, out _);
         graph.Animation.KeyFrames.Add(unselected, out _);
@@ -39,7 +39,7 @@ public class GraphEditorSelectionCommandTests
 
         Invoke(graph, "DistributeEvenly", keyboard ? Key.D : null);
 
-        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.TotalSeconds * 30),
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.ToSeconds() * 30),
             Is.EqualTo(new[] { 15d, 25, 35, 45, 60 }).Within(0.00001));
         Assert.That(graph.Animation.KeyFrames.Select(key => key.Value), Is.EqualTo(new[] { 100f, 200, 300, 500, 900 }));
         Assert.That(graph.Model.SelectedView.Value!.SelectionCount.Value, Is.EqualTo(4));
@@ -65,8 +65,8 @@ public class GraphEditorSelectionCommandTests
         Invoke(graph, "Reverse", keyboard ? Key.R : null);
 
         Assert.That(graph.Animation.KeyFrames, Is.EqualTo(new[] { graph.Second, graph.First }));
-        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(1.5));
-        Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(0.5));
+        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(1.5));
+        Assert.That(graph.Second.KeyTime.ToSeconds(), Is.EqualTo(0.5));
         Assert.That(graph.First.Value, Is.EqualTo(100));
         Assert.That(graph.Second.Value, Is.EqualTo(500));
         Assert.That(graph.First.Easing, Is.TypeOf<QuadraticEaseOut>());
@@ -91,7 +91,7 @@ public class GraphEditorSelectionCommandTests
         {
             graph.Animation.KeyFrames.Add(new KeyFrame<float>
             {
-                KeyTime = TimeSpan.FromSeconds(0.5 + (double)index / (count - 1)),
+                KeyTime = MediaTime.FromSeconds(0.5 + (double)index / (count - 1)),
                 Value = 100 + 50 * index,
                 Easing = new SplineEasing(0.25f, 0.1f, 0.75f, 0.9f)
             }, out _);
@@ -99,7 +99,7 @@ public class GraphEditorSelectionCommandTests
         var keys = graph.Animation.KeyFrames.ToArray();
         graph.Model.SelectedView.Value!.SetSelection(keys);
         graph.Model.HistoryManager.Commit();
-        var sampleTimes = Enumerable.Range(0, 31).Select(index => TimeSpan.FromSeconds(0.5 + index / 30d)).ToArray();
+        var sampleTimes = Enumerable.Range(0, 31).Select(index => MediaTime.FromSeconds(0.5 + index / 30d)).ToArray();
         var originalValues = sampleTimes.Select(graph.Animation.Interpolate).ToArray();
         string before = GraphScope.Snapshot(graph.Animation);
         int undo = graph.Model.HistoryManager.UndoCount;
@@ -140,17 +140,17 @@ public class GraphEditorSelectionCommandTests
         if (reason == "reverse-hold") graph.Second.Easing = new HoldEasing();
         else
         {
-            var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.7), Value = 200 };
+            var third = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.7), Value = 200 };
             graph.Animation.KeyFrames.Add(third, out _);
             graph.Model.SelectedView.Value!.SetSelection([graph.First, third, graph.Second]);
             if (reason == "distribute-rounding")
             {
-                third.KeyTime = TimeSpan.FromSeconds(0.51);
-                graph.Second.KeyTime = TimeSpan.FromSeconds(0.52);
+                third.KeyTime = MediaTime.FromSeconds(0.51);
+                graph.Second.KeyTime = MediaTime.FromSeconds(0.52);
             }
             else graph.Animation.KeyFrames.Add(new KeyFrame<float>
             {
-                KeyTime = TimeSpan.FromSeconds(reason == "reverse-collision" ? 1.3 : 1),
+                KeyTime = MediaTime.FromSeconds(reason == "reverse-collision" ? 1.3 : 1),
                 Value = 999
             }, out _);
         }
@@ -173,8 +173,8 @@ public class GraphEditorSelectionCommandTests
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         // Value scaling must keep even imported subframe times exactly as they are.
-        graph.First.KeyTime = TimeSpan.FromSeconds(0.501);
-        var unselected = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(2), Value = 999 };
+        graph.First.KeyTime = MediaTime.FromSeconds(0.501);
+        var unselected = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = 999 };
         graph.Animation.KeyFrames.Add(unselected);
         graph.Model.HistoryManager.Commit();
         string before = GraphScope.Snapshot(graph.Animation);
@@ -185,10 +185,10 @@ public class GraphEditorSelectionCommandTests
         // Width uses the property's existing nonnegative validation.
         Assert.That(graph.First.Value, Is.EqualTo(Math.Max(0, 100 * factor)));
         Assert.That(graph.Second.Value, Is.EqualTo(Math.Max(0, 500 * factor)));
-        Assert.That(graph.First.KeyTime.TotalSeconds, Is.EqualTo(0.501));
-        Assert.That(graph.Second.KeyTime.TotalSeconds, Is.EqualTo(1.5));
+        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(0.501));
+        Assert.That(graph.Second.KeyTime.ToSeconds(), Is.EqualTo(1.5));
         Assert.That(unselected.Value, Is.EqualTo(999));
-        Assert.That(unselected.KeyTime.TotalSeconds, Is.EqualTo(2));
+        Assert.That(unselected.KeyTime.ToSeconds(), Is.EqualTo(2));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         string after = GraphScope.Snapshot(graph.Animation);
         graph.Model.HistoryManager.Undo();
@@ -209,7 +209,7 @@ public class GraphEditorSelectionCommandTests
         var first = new KeyFrame<GraphicsPoint> { Value = new GraphicsPoint(10, 20) };
         var second = new KeyFrame<GraphicsPoint>
         {
-            KeyTime = TimeSpan.FromSeconds(1),
+            KeyTime = MediaTime.FromSeconds(1),
             Value = new GraphicsPoint(30, 40),
             Easing = new SplineEasing(0.25f, 0.25f, 0.75f, 0.75f)
         };
@@ -223,7 +223,7 @@ public class GraphEditorSelectionCommandTests
         using var model = new GraphEditorViewModel(graph.Model.EditorContext, animation, graph.Model.Element);
         graph.View.DataContext = model;
         model.SelectedView.Value!.SetSelection(selectAll ? animation.KeyFrames : [first]);
-        var sampleTimes = Enumerable.Range(0, 31).Select(index => TimeSpan.FromSeconds(index / 30d)).ToArray();
+        var sampleTimes = Enumerable.Range(0, 31).Select(index => MediaTime.FromSeconds(index / 30d)).ToArray();
         var originalValues = sampleTimes.Select(animation.Interpolate).ToArray();
         string before = GraphScope.Snapshot(animation);
         int undo = model.HistoryManager.UndoCount;
@@ -255,7 +255,7 @@ public class GraphEditorSelectionCommandTests
     public async Task Retiming_shortcuts_do_not_run_while_a_textbox_has_focus()
     {
         using var graph = await GraphScope.CreateAsync();
-        var third = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.7), Value = 200 };
+        var third = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.7), Value = 200 };
         graph.Animation.KeyFrames.Add(third, out _);
         graph.Model.SelectedView.Value!.SetSelection(graph.Animation.KeyFrames);
         graph.Model.HistoryManager.Commit();

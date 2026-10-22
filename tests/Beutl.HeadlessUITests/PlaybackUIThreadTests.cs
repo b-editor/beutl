@@ -24,7 +24,7 @@ public class PlaybackUIThreadTests
     public async Task Playback_NotifiesThePlayheadPreviewAndIsPlaying_OnTheUIThread()
     {
         TestGpu.RequireAnyDevice();
-        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.5));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(0.5));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         var offThread = new ConcurrentQueue<string>();
         int clockChanges = 0;
@@ -53,7 +53,7 @@ public class PlaybackUIThreadTests
         // The scene is half a second long, so playback stops at its end by itself.
         editor.Player.Play();
         await HeadlessTestHelpers.WaitUntilAsync(
-            () => playingChanges >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
+            () => playingChanges >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromSeconds(120), pump: false);
 
         Assert.Multiple(() =>
         {
@@ -69,9 +69,9 @@ public class PlaybackUIThreadTests
     public async Task LoopPlayback_RewindsToTheStart_AndKeepsPlaying()
     {
         TestGpu.RequireAnyDevice();
-        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(0.3));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
-        var times = new ConcurrentQueue<TimeSpan>();
+        var times = new ConcurrentQueue<MediaTime>();
         var offThread = new ConcurrentQueue<string>();
         int clockChanges = 0;
         using IDisposable subscription = clock.CurrentTime.Skip(1).Subscribe(time =>
@@ -85,7 +85,7 @@ public class PlaybackUIThreadTests
         {
             editor.Player.Play();
             // A stop that landed after a restart would end playback before the second rewind.
-            await HeadlessTestHelpers.WaitUntilAsync(() => Rewinds(times) >= 2, TimeSpan.FromMinutes(2), pump: false);
+            await HeadlessTestHelpers.WaitUntilAsync(() => Rewinds(times) >= 2, TimeSpan.FromSeconds(120), pump: false);
         }
         finally
         {
@@ -93,7 +93,7 @@ public class PlaybackUIThreadTests
             editor.Player.IsLoopEnabled.Value = false;
         }
 
-        TimeSpan[] seen = [.. times];
+        MediaTime[] seen = [.. times];
         Assert.Multiple(() =>
         {
             Assert.That(offThread, Is.Empty, "notifications that arrived off the UI thread");
@@ -113,14 +113,14 @@ public class PlaybackUIThreadTests
     public async Task Pause_LeavesThePlayheadWhereItStopped()
     {
         TestGpu.RequireAnyDevice();
-        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(30));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(30));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
 
         editor.Player.Play();
         await HeadlessTestHelpers.WaitUntilAsync(
-            () => clock.CurrentTime.Value >= TimeSpan.FromSeconds(0.2), TimeSpan.FromMinutes(2), pump: false);
+            () => clock.CurrentTime.Value >= MediaTime.FromSeconds(0.2), TimeSpan.FromSeconds(120), pump: false);
         await editor.Player.Pause();
-        TimeSpan pausedAt = clock.CurrentTime.Value;
+        MediaTime pausedAt = clock.CurrentTime.Value;
 
         // Let whatever is still queued on the UI thread run.
         await Task.Delay(TimeSpan.FromMilliseconds(300));
@@ -138,7 +138,7 @@ public class PlaybackUIThreadTests
     public async Task SubscriberThatThrows_StopsPlayback()
     {
         TestGpu.RequireAnyDevice();
-        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(30));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(30));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         int thrown = 0;
         using IDisposable subscription = clock.CurrentTime.Skip(1).Subscribe(_ =>
@@ -149,7 +149,7 @@ public class PlaybackUIThreadTests
 
         editor.Player.Play();
         await HeadlessTestHelpers.WaitUntilAsync(
-            () => thrown == 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
+            () => thrown == 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromSeconds(120), pump: false);
 
         Assert.That(editor.Player.IsPlaying.Value, Is.False);
     }
@@ -160,7 +160,7 @@ public class PlaybackUIThreadTests
     public async Task LoopRestartWhoseSubscriberThrows_StopsPlayback_AndPlayStartsAgain()
     {
         TestGpu.RequireAnyDevice();
-        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(0.3));
         int starts = 0;
         // The first start is Play() itself; the second is the restart at the end of the first pass.
         using IDisposable subscription = editor.Player.IsPlaying.Skip(1).Where(playing => playing).Subscribe(_ =>
@@ -174,7 +174,7 @@ public class PlaybackUIThreadTests
         {
             editor.Player.Play();
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => starts >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
+                () => starts >= 2 && !editor.Player.IsPlaybackActive, TimeSpan.FromSeconds(120), pump: false);
             Assert.That(editor.Player.IsPlaying.Value, Is.False);
 
             editor.Player.Play();
@@ -193,7 +193,7 @@ public class PlaybackUIThreadTests
     public async Task LoopEndWhoseSubscriberThrows_StopsPlayback()
     {
         TestGpu.RequireAnyDevice();
-        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(0.3));
         int starts = 0;
         int stops = 0;
         using IDisposable subscription = editor.Player.IsPlaying.Skip(1).Subscribe(playing =>
@@ -209,7 +209,7 @@ public class PlaybackUIThreadTests
         {
             editor.Player.Play();
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
+                () => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromSeconds(120), pump: false);
 
             Assert.Multiple(() =>
             {
@@ -231,7 +231,7 @@ public class PlaybackUIThreadTests
     public async Task EndWhoseSubscriberThrows_StillRestoresThePausedPreview()
     {
         TestGpu.RequireAnyDevice();
-        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(0.3));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(0.3));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         int stops = 0;
         using IDisposable subscription = editor.Player.IsPlaying.Skip(1).Where(playing => !playing).Subscribe(_ =>
@@ -242,17 +242,17 @@ public class PlaybackUIThreadTests
 
         editor.Player.Play();
         await HeadlessTestHelpers.WaitUntilAsync(
-            () => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromMinutes(2), pump: false);
+            () => stops >= 1 && !editor.Player.IsPlaybackActive, TimeSpan.FromSeconds(120), pump: false);
         Assert.That(editor.FrameCacheManager.Value.Options.DeletionStrategy, Is.EqualTo(FrameCacheDeletionStrategy.Old));
 
         // Let the render that the stopped state queued land first, so that only the seek below can change the preview.
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
         int previews = 0;
         using IDisposable previewSubscription =
             editor.Player.PreviewImage.Skip(1).Subscribe(_ => Interlocked.Increment(ref previews));
-        clock.Seek(TimeSpan.FromSeconds(0.1));
+        clock.Seek(MediaTime.FromSeconds(0.1));
         await HeadlessTestHelpers.WaitUntilAsync(
-            () => Volatile.Read(ref previews) >= 1, TimeSpan.FromMinutes(2), pump: false);
+            () => Volatile.Read(ref previews) >= 1, TimeSpan.FromSeconds(120), pump: false);
     }
 
     private static void Record(ref int count, ConcurrentQueue<string> offThread, string what)
@@ -262,9 +262,9 @@ public class PlaybackUIThreadTests
             offThread.Enqueue(what);
     }
 
-    private static int Rewinds(ConcurrentQueue<TimeSpan> times)
+    private static int Rewinds(ConcurrentQueue<MediaTime> times)
     {
-        TimeSpan[] seen = [.. times];
+        MediaTime[] seen = [.. times];
         int rewinds = 0;
         for (int i = 1; i < seen.Length; i++)
         {
@@ -275,12 +275,12 @@ public class PlaybackUIThreadTests
         return rewinds;
     }
 
-    private static async Task<EditViewModel> OpenEditor(TimeSpan duration)
+    private static async Task<EditViewModel> OpenEditor(MediaTime duration)
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("playback-ui-thread", 320, 240, duration: duration);
 
         // Let the preview render queued by opening the scene finish first.
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
         return editor;
     }
 }

@@ -35,9 +35,9 @@ public sealed partial class AiDialogWorkflowTests
         viewModel.SelectedAudioSource.Value = new AudioSourceItem(
             "clip",
             Path.Combine(BeutlHomeIsolation.CurrentHome!, "recording.wav"),
-            TimeSpan.FromSeconds(fileSeconds),
-            elementLength: TimeSpan.FromSeconds(clipSeconds),
-            sourceOffset: TimeSpan.FromSeconds(offsetSeconds),
+            MediaTime.FromSeconds(fileSeconds),
+            elementLength: MediaTime.FromSeconds(clipSeconds),
+            sourceOffset: MediaTime.FromSeconds(offsetSeconds),
             speed: speed);
         AiOperationAvailabilityRequest.Transcription[] requests = [];
         await WaitUntilAsync(() => (requests = availability.GetRequestsSnapshot()

@@ -64,12 +64,12 @@ public class PlayerViewModelQuiescenceTests
     {
         EditViewModel editor = await OpenEditor();
         var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
-        editor.Scene.Duration = TimeSpan.FromSeconds(30);
-        clock.Seek(TimeSpan.FromSeconds(5));
+        editor.Scene.Duration = MediaTime.FromSeconds(30);
+        clock.Seek(MediaTime.FromSeconds(5));
         int startedBuffers = 0;
         using var subscription = editor.BufferStatus.StartTime.Subscribe(time =>
         {
-            if (time != TimeSpan.Zero)
+            if (time != MediaTime.Zero)
                 Interlocked.Increment(ref startedBuffers);
         });
         object sessionLock = typeof(PlaybackSessionGuard)
@@ -154,15 +154,15 @@ public class PlayerViewModelQuiescenceTests
     {
         EditViewModel editor = await OpenEditor();
         var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
-        editor.Scene.Duration = TimeSpan.FromSeconds(20);
-        clock.Seek(TimeSpan.FromSeconds(5));
+        editor.Scene.Duration = MediaTime.FromSeconds(20);
+        clock.Seek(MediaTime.FromSeconds(5));
 
         await MoveAndPause(forward: true);
         await MoveAndPause(forward: false);
 
         async Task MoveAndPause(bool forward)
         {
-            TimeSpan start = clock.CurrentTime.Value;
+            MediaTime start = clock.CurrentTime.Value;
             var moved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             using var subscription = clock.CurrentTime.Subscribe(time =>
             {
@@ -183,7 +183,7 @@ public class PlayerViewModelQuiescenceTests
                 await editor.Player.Pause().WaitAsync(TimeSpan.FromSeconds(5));
             }
 
-            TimeSpan stoppedTime = clock.CurrentTime.Value;
+            MediaTime stoppedTime = clock.CurrentTime.Value;
             // A retired shuttle may have already posted another clock update to the UI thread.
             await Dispatcher.UIThread.InvokeAsync(static () => { }, DispatcherPriority.Background);
             Assert.Multiple(() =>
@@ -274,7 +274,7 @@ public class PlayerViewModelQuiescenceTests
                 Assert.That(pause.IsCompleted, Is.False, "the playback task can finish before its render producer");
                 Assert.That(editor.Player.IsPlaying.Value, Is.False, "a new session must not enter behind the barrier");
             });
-            Assert.That(await ((IPreviewPlayer)editor.Player).ComposeAudioAsync(TimeSpan.Zero, TimeSpan.FromSeconds(1)),
+            Assert.That(await ((IPreviewPlayer)editor.Player).ComposeAudioAsync(MediaTime.Zero, MediaTime.FromSeconds(1)),
                 Is.Null, "idle audio requests must be suspended while draining");
         }
         finally
@@ -376,14 +376,14 @@ public class PlayerViewModelQuiescenceTests
                 throw new TimeoutException("The test did not release the compose dispatcher.");
         });
         Task? pause = null;
-        Task<(AudioBuffer? Audio, TimeSpan SceneEnd)>? buffer = null;
+        Task<(AudioBuffer? Audio, MediaTime SceneEnd)>? buffer = null;
         bool bufferWasComposed = false;
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             int generation = GetSessionGuard(editor.Player).Claim(static () => { });
             buffer = ComposeThread.Dispatcher.InvokeAsync(() =>
-                editor.Player.FillAudioData(TimeSpan.Zero, editor.Scene, generation, cts.Token));
+                editor.Player.FillAudioData(MediaTime.Zero, editor.Scene, generation, cts.Token));
             if (cancelToken)
                 cts.Cancel();
             else
@@ -427,7 +427,7 @@ public class PlayerViewModelQuiescenceTests
             {
                 var requested = new TaskCompletionSource<Task>(TaskCreationOptions.RunContinuationsAsynchronously);
                 request = Task.Run(() => requested.SetResult(((IPreviewPlayer)editor.Player)
-                    .ComposeAudioAsync(TimeSpan.Zero, TimeSpan.FromSeconds(1))));
+                    .ComposeAudioAsync(MediaTime.Zero, MediaTime.FromSeconds(1))));
                 audio = requested.Task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
                 // Flush any audio work already admitted by the background caller, while the UI
                 // thread is still executing this synchronous history mutation.
@@ -485,7 +485,7 @@ public class PlayerViewModelQuiescenceTests
         EditViewModel editor = await OpenEditor();
         using var cts = new CancellationTokenSource();
         using var playing = new ReactivePropertySlim<bool>(true);
-        using var producer = new BufferedPlayer(editor, playing, 30, cts.Token);
+        using var producer = new BufferedPlayer(editor, playing, new Rational(30), cts.Token);
         if (cancelToken)
             cts.Cancel();
         else
@@ -502,7 +502,7 @@ public class PlayerViewModelQuiescenceTests
     private static BlockingPlaybackSound AddBlockingSound(Scene scene)
     {
         var sound = new BlockingPlaybackSound();
-        var element = new Element { Length = TimeSpan.FromSeconds(2) };
+        var element = new Element { Length = MediaTime.FromSeconds(2) };
         element.Objects.Add(sound);
         scene.Children.Add(element);
         return sound;
@@ -514,7 +514,7 @@ public class PlayerViewModelQuiescenceTests
         Task playback = Task.Run(() =>
         {
             using var audio = editor.Player.FillAudioData(
-                TimeSpan.Zero, editor.Scene, generation, CancellationToken.None).Audio;
+                MediaTime.Zero, editor.Scene, generation, CancellationToken.None).Audio;
         });
         SetPlaybackTask(editor.Player, playback);
         return playback;

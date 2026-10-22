@@ -64,22 +64,22 @@ public sealed partial class SourceSound : IThumbnailsProvider
         if (chunkCount <= 0 || samplesPerChunk <= 0)
             yield break;
 
-        if (resource.Source.Duration <= TimeSpan.Zero)
+        if (resource.Source.Duration <= MediaTime.Zero)
             yield break;
 
         var duration = TimeRange.Duration;
 
         // TimeRange.Duration is unnormalized; a non-positive span has no waveform and would drive
         // totalSamples negative (GetWaveformChunkSamplePosition then throws). Bail out instead.
-        if (duration <= TimeSpan.Zero)
+        if (duration <= MediaTime.Zero)
             yield break;
 
         int sampleRate = resource.Source.SampleRate;
-        long totalSamples = AudioMath.TimeToSampleIndex(duration, sampleRate);
+        long totalSamples = duration.ToSamples(sampleRate, MidpointRounding.ToZero);
 
         string? cacheKey = cacheService != null ? GetThumbnailsCacheKey() : null;
-        double chunkDurationSecs = duration.TotalSeconds / chunkCount;
-        var cacheThreshold = TimeSpan.FromSeconds(chunkDurationSecs * 0.5);
+        double chunkDurationSecs = duration.ToSeconds() / chunkCount;
+        var cacheThreshold = MediaTime.FromSeconds(chunkDurationSecs * 0.5);
 
         using var composer = new Composer { SampleRate = sampleRate };
         var frame = new CompositionFrame(
@@ -98,9 +98,9 @@ public sealed partial class SourceSound : IThumbnailsProvider
             long fullSpan = endSample - startSample;
             // Long clips are approximated: capping at samplesPerChunk resets the effect state per chunk.
             int sampleCount = (int)Math.Min(fullSpan, samplesPerChunk);
-            var chunkTime = TimeSpan.FromSeconds((double)startSample / sampleRate);
-            TimeSpan startTime = TimeRange.Start + chunkTime;
-            TimeSpan durationTime = GetWaveformChunkDuration(sampleCount, sampleRate);
+            var chunkTime = MediaTime.FromSamples(startSample, sampleRate);
+            MediaTime startTime = TimeRange.Start + chunkTime;
+            MediaTime durationTime = GetWaveformChunkDuration(sampleCount, sampleRate);
 
             if (sampleCount <= 0)
                 continue;
@@ -177,17 +177,13 @@ public sealed partial class SourceSound : IThumbnailsProvider
         return chunkIndex * quotient + chunkIndex * remainder / chunkCount;
     }
 
-    internal static TimeSpan GetWaveformChunkDuration(int sampleCount, int sampleRate)
+    internal static MediaTime GetWaveformChunkDuration(int sampleCount, int sampleRate)
     {
         if (sampleCount < 0)
             throw new ArgumentOutOfRangeException(nameof(sampleCount));
         if (sampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sampleRate));
 
-        // Floor the tick count: TimeSpan.FromSeconds rounds to nearest, and rounding up would let
-        // AudioProcessContext.GetSampleCount's ceiling request one extra sample. Flooring maps a
-        // positive duration back to exactly sampleCount samples.
-        long ticks = (long)((decimal)sampleCount * TimeSpan.TicksPerSecond / sampleRate);
-        return TimeSpan.FromTicks(ticks);
+        return MediaTime.FromSamples(sampleCount, sampleRate);
     }
 }

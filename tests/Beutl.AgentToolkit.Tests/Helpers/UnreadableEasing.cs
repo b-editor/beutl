@@ -16,7 +16,7 @@ internal static class UnreadableEasing
     public static void AddTo(JsonObject shapeJson)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 32 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 32 });
         var shape = new RectShape();
         shape.Width.SetKeyFrameAnimation(animation);
         JsonObject animationJson = CoreSerializer.SerializeToJsonObject(shape)["Animations"]![nameof(RectShape.Width)]!

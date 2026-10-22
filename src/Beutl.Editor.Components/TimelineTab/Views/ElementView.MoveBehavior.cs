@@ -7,6 +7,7 @@ using Avalonia.Xaml.Interactivity;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.JsonConverters;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -107,7 +108,7 @@ public sealed partial class ElementView
                 _lastPosition = point;
                 _lastAlt = e.KeyModifiers.HasFlag(KeyModifiers.Alt);
                 float scale = viewModel.Timeline.Options.Value.Scale;
-                TimeSpan pointerFrame = point.X.PixelToTimeSpan(scale);
+                MediaTime pointerFrame = point.X.PixelToTime(scale);
 
                 pointerFrame = view.RoundStartTime(pointerFrame, scale, _lastAlt);
 
@@ -120,9 +121,9 @@ public sealed partial class ElementView
                     return;
                 }
 
-                TimeSpan newframe = pointerFrame - _start.X.PixelToTimeSpan(scale);
+                MediaTime newframe = pointerFrame - _start.X.PixelToTime(scale);
 
-                newframe = TimeSpan.FromTicks(Math.Max(newframe.Ticks, TimeSpan.Zero.Ticks));
+                if (newframe < MediaTime.Zero) newframe = MediaTime.Zero;
 
                 var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);
                 var newLeft = newframe.TimeToPixel(scale);
@@ -141,13 +142,14 @@ public sealed partial class ElementView
 
                 if (_duplicateMode && _ghosts.Count == 0)
                 {
-                    int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
-                    TimeSpan minFrame = SceneTimeRangeService.GetFrameDuration(viewModel.Scene);
-                    TimeSpan modelStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-                    TimeSpan deltaStart = modelStart - viewModel.Model.Start;
+                    Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+                    MediaTime minFrame = SceneTimeRangeService.GetFrameDuration(viewModel.Scene);
+                    MediaTime modelStart = viewModel.BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+                    // A start within a tick of a frame, as one written by hand can be, counts from that frame.
+                    MediaTime deltaStart = modelStart - MediaTimeJsonConverter.SnapToFrame(viewModel.Model.Start, rate);
                     int modelIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
                     int deltaIndex = modelIndex - viewModel.Model.ZIndex;
-                    if (Math.Abs(deltaStart.Ticks) >= minFrame.Ticks || deltaIndex != 0)
+                    if (Math.Abs(deltaStart.Flicks) >= minFrame.Flicks || deltaIndex != 0)
                     {
                         SpawnGhostsForRelatedElements(_relatedElements, timeline);
                     }
@@ -226,16 +228,16 @@ public sealed partial class ElementView
             _slipTargets = [];
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+            Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
             bool alt = _lastAlt;
-            TimeSpan delta = TrimDeltaCalculator.SnappedDelta(
-                    _start.X.PixelToTimeSpan(scale),
-                    _lastPosition.X.PixelToTimeSpan(scale),
+            MediaTime delta = TrimDeltaCalculator.SnappedDelta(
+                    _start.X.PixelToTime(scale),
+                    _lastPosition.X.PixelToTime(scale),
                     t => view.RoundStartTime(t, scale, alt))
-                .RoundToRate(rate);
+                .RoundToFrame(rate, MidpointRounding.AwayFromZero);
             // RoundStartTime re-sets the snap guide line as a side effect; clear it.
             viewModel.Timeline.SnapBarPosition.Value = null;
-            if (delta != TimeSpan.Zero && targets.Length > 0)
+            if (delta != MediaTime.Zero && targets.Length > 0)
             {
                 viewModel.Timeline.EditorContext
                     .GetRequiredService<IElementSlipService>()
@@ -287,9 +289,9 @@ public sealed partial class ElementView
             var elems = relatedElements.Select(x => x.Model).ToArray();
 
             float scale = viewModel.Timeline.Options.Value.Scale;
-            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
-            TimeSpan newStart = viewModel.BorderMargin.Value.Left.PixelToTimeSpan(scale).RoundToRate(rate);
-            TimeSpan deltaStart = newStart - viewModel.Model.Start;
+            Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+            MediaTime newStart = viewModel.BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime deltaStart = newStart - viewModel.Model.Start;
             int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
             int deltaIndex = newIndex - viewModel.Model.ZIndex;
             // Selection modifiers can leave the pressed clip out of the participant list; it stays where it was.
@@ -330,7 +332,7 @@ public sealed partial class ElementView
             IReadOnlyList<ElementViewModel> relatedElements,
             Element[] elems,
             bool duplicate,
-            TimeSpan deltaStart,
+            MediaTime deltaStart,
             int deltaIndex)
         {
             var animations = relatedElements

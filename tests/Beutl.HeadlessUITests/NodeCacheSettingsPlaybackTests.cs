@@ -27,7 +27,7 @@ public class NodeCacheSettingsPlaybackTests
     {
         TestGpu.RequireAnyDevice();
         // Long enough that playback still runs when the setting changes.
-        EditViewModel editor = await OpenEditor(TimeSpan.FromMinutes(2));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(120));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         bool enabled = config.IsNodeCacheEnabled;
@@ -38,7 +38,7 @@ public class NodeCacheSettingsPlaybackTests
         {
             editor.Player.Play();
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => clock.CurrentTime.Value >= TimeSpan.FromSeconds(0.2), TimeSpan.FromMinutes(2), pump: false);
+                () => clock.CurrentTime.Value >= MediaTime.FromSeconds(0.2), TimeSpan.FromSeconds(120), pump: false);
 
             // A job that holds the render thread between two playback frames, until the change has returned.
             blocked = await BlockRenderThreadAsync(release);
@@ -59,7 +59,7 @@ public class NodeCacheSettingsPlaybackTests
             await blocked.WaitAsync(TimeSpan.FromSeconds(10));
             await editor.Player.Pause();
             await HeadlessTestHelpers.WaitUntilAsync(
-                () => editor.Renderer.Value.CacheOptions.IsEnabled == !enabled, TimeSpan.FromMinutes(2), pump: false);
+                () => editor.Renderer.Value.CacheOptions.IsEnabled == !enabled, TimeSpan.FromSeconds(120), pump: false);
         }
         finally
         {
@@ -77,7 +77,7 @@ public class NodeCacheSettingsPlaybackTests
         Task job = RenderThread.Dispatcher.InvokeAsync(() =>
         {
             entered.TrySetResult();
-            release.Token.WaitHandle.WaitOne(TimeSpan.FromMinutes(1));
+            release.Token.WaitHandle.WaitOne(TimeSpan.FromSeconds(60));
         });
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
         return job;
@@ -86,7 +86,7 @@ public class NodeCacheSettingsPlaybackTests
     [AvaloniaTest]
     public async Task PreviewSettings_DisableTheNodeCacheControls_WhilePlaying()
     {
-        EditViewModel editor = await OpenEditor(TimeSpan.FromSeconds(10));
+        EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(10));
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         bool enabled = config.IsNodeCacheEnabled;
         // With the cache on, the pixel limits are enabled until playback starts.
@@ -137,7 +137,7 @@ public class NodeCacheSettingsPlaybackTests
         }
     }
 
-    private static async Task<EditViewModel> OpenEditor(TimeSpan duration)
+    private static async Task<EditViewModel> OpenEditor(MediaTime duration)
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-cache-playback", 320, 240, duration: duration);
 

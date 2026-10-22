@@ -81,7 +81,7 @@ public class FileReferenceRoundTripTests
     {
         string elementPath = CreatePath(Path.Combine(name, $"{name}.belm"));
         var scene = new Scene();
-        scene.Children.Add(new Element { Length = TimeSpan.FromSeconds(1), Uri = FileUri(elementPath) });
+        scene.Children.Add(new Element { Length = MediaTime.FromSeconds(1), Uri = FileUri(elementPath) });
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(
             scene, new CoreSerializerOptions { Mode = CoreSerializationMode.EmbedReferencedObjects });
@@ -102,7 +102,7 @@ public class FileReferenceRoundTripTests
         source.ReadFrom(FileUri(imagePath));
         var image = new SourceImage();
         image.Source.Value = source;
-        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = FileUri(CreatePath(Path.Combine("clip", "clip.belm"))) };
+        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = FileUri(CreatePath(Path.Combine("clip", "clip.belm"))) };
         element.AddObject(image);
         return element;
     }

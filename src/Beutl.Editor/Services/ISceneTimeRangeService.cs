@@ -13,11 +13,11 @@ namespace Beutl.Editor.Services;
 /// </summary>
 public interface ISceneTimeRangeService
 {
-    void SetStart(Scene scene, TimeSpan newStart);
+    void SetStart(Scene scene, MediaTime newStart);
 
-    void SetEnd(Scene scene, TimeSpan newEnd);
+    void SetEnd(Scene scene, MediaTime newEnd);
 
-    void UpdateStartDrag(Scene scene, TimeSpan pointerTime, TimeSpan initialStart, TimeSpan initialDuration);
+    void UpdateStartDrag(Scene scene, MediaTime pointerTime, MediaTime initialStart, MediaTime initialDuration);
 
-    void UpdateEndDrag(Scene scene, TimeSpan pointerTime);
+    void UpdateEndDrag(Scene scene, MediaTime pointerTime);
 }

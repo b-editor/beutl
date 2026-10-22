@@ -47,7 +47,7 @@ public class DelayNodeTests
     }
 
     private static AudioProcessContext ContextAt(double startSeconds) =>
-        AudioTestContexts.CreateContext(TimeSpan.FromSeconds(startSeconds), TimeSpan.FromSeconds(1), SampleRate);
+        AudioTestContexts.CreateContext(MediaTime.FromSeconds(startSeconds), MediaTime.FromSeconds(1), SampleRate);
 
     private static DelayNode CreateNode(AudioNode? input, Func<float, IProperty<float>>? makeProperty = null)
     {
@@ -77,7 +77,7 @@ public class DelayNodeTests
         using var continuing = CreateNode(new BufferReplayNode(input));
         continuing.Process(ContextAt(0)).Dispose();
         using AudioBuffer afterRounding = continuing.Process(new AudioProcessContext(
-            new TimeRange(TimeSpan.FromSeconds(1) + TimeSpan.FromTicks(tickOffset), TimeSpan.FromSeconds(1)),
+            new TimeRange(MediaTime.FromSeconds(1) + MediaTime.FromTimeSpan(TimeSpan.FromTicks(tickOffset)), MediaTime.FromSeconds(1)),
             SampleRate, new AnimationSampler(), null));
 
         using var fresh = CreateNode(new BufferReplayNode(input));
@@ -138,7 +138,7 @@ public class DelayNodeTests
         {
             int count = context.GetSampleCount();
             var buffer = new AudioBuffer(sampleRate, channelCount, count);
-            int startIndex = (int)(context.TimeRange.Start.TotalSeconds * sampleRate);
+            int startIndex = (int)(context.TimeRange.Start.ToSeconds() * sampleRate);
             for (int ch = 0; ch < channelCount; ch++)
             {
                 Span<float> data = buffer.GetChannelData(ch);

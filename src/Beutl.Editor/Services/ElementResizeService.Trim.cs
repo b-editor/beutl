@@ -7,7 +7,7 @@ namespace Beutl.Editor.Services;
 
 public sealed partial class ElementResizeService
 {
-    public bool Roll(Scene scene, IReadOnlyList<ElementTrimPair> pairs, TimeSpan delta)
+    public bool Roll(Scene scene, IReadOnlyList<ElementTrimPair> pairs, MediaTime delta)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(pairs);
@@ -19,8 +19,8 @@ public sealed partial class ElementResizeService
         if (!CanRollPairs(scene, pairs)) return false;
 
         TrimConstraints constraints = CreateTrimConstraints(scene, pairs);
-        TimeSpan clamped = constraints.Clamp(delta);
-        if (clamped == TimeSpan.Zero || !constraints.TryGetOffsetChanges(clamped, out var changes)) return false;
+        MediaTime clamped = constraints.Clamp(delta);
+        if (clamped == MediaTime.Zero || !constraints.TryGetOffsetChanges(clamped, out var changes)) return false;
 
         for (int i = 0; i < pairs.Count; i++)
         {
@@ -38,7 +38,7 @@ public sealed partial class ElementResizeService
         return true;
     }
 
-    public bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, TimeSpan delta)
+    public bool Slide(Scene scene, IReadOnlyList<ElementSlideLane> lanes, MediaTime delta)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(lanes);
@@ -53,8 +53,8 @@ public sealed partial class ElementResizeService
         TrimConstraints constraints = CreateTrimConstraints(scene,
             lanes.Select(l => new ElementTrimPair(l.Front, l.Back)).ToArray(),
             lanes.SelectMany(l => l.Middles));
-        TimeSpan clamped = constraints.Clamp(delta);
-        if (clamped == TimeSpan.Zero || !constraints.TryGetOffsetChanges(clamped, out var changes)) return false;
+        MediaTime clamped = constraints.Clamp(delta);
+        if (clamped == MediaTime.Zero || !constraints.TryGetOffsetChanges(clamped, out var changes)) return false;
 
         for (int i = 0; i < lanes.Count; i++)
         {
@@ -76,48 +76,48 @@ public sealed partial class ElementResizeService
     }
 
     internal sealed class TrimConstraints(
-        TimeSpan min, TimeSpan max, List<SlippableMedia.Target> fronts,
+        MediaTime min, MediaTime max, List<SlippableMedia.Target> fronts,
         List<SlippableMedia.Target> backs, List<SlippableMedia.Target> middles,
-        HashSet<IProperty<TimeSpan>> fixedOffsets, bool clampEnd)
+        HashSet<IProperty<MediaTime>> fixedOffsets, bool clampEnd)
     {
-        public TimeSpan Min { get; } = min;
-        public TimeSpan Max { get; } = max;
+        public MediaTime Min { get; } = min;
+        public MediaTime Max { get; } = max;
 
-        public TimeSpan Clamp(TimeSpan requested)
+        public MediaTime Clamp(MediaTime requested)
         {
             if (fronts.Concat(middles).Any(t => !t.IsSupported)
-                || backs.Any(t => !t.CanWriteOffsets)) return TimeSpan.Zero;
-            TimeSpan delta = ElementResizeService.Clamp(requested, Min, Max);
+                || backs.Any(t => !t.CanWriteOffsets)) return MediaTime.Zero;
+            MediaTime delta = ElementResizeService.Clamp(requested, Min, Max);
             // Conflicting shared offsets cannot be reconciled by shrinking the
             // edit to a rounding-sized movement that happens to have equal ticks.
-            if (!TryGetOffsetChanges(delta, out _)) return TimeSpan.Zero;
+            if (!TryGetOffsetChanges(delta, out _)) return MediaTime.Zero;
             // Animated local clocks restart at the new in-point. Their allowed
             // deltas need not form an interval, so validate the actual requested
             // post-trim window, not just the two endpoints of the geometry bounds.
-            bool Fits(TimeSpan d) =>
+            bool Fits(MediaTime d) =>
                 (!clampEnd || fronts.All(t => t.Fits(t.Length + d, allowRecovery: true)))
                 && (!clampEnd || middles.All(t => t.Fits(t.Length, d, allowRecovery: true)))
                 && backs.All(t => t.CanTrim(d, clampEnd))
                 && TryGetOffsetChanges(d, out _);
-            TimeSpan result = SlippableMedia.ClampDelta(delta, Fits);
+            MediaTime result = SlippableMedia.ClampDelta(delta, Fits);
             foreach (SlippableMedia.Target target in fronts.Where(t => t.HasVariableDuration))
             {
-                var limits = new SlippableMedia.ResizeConstraints(TimeSpan.Zero, target.Length, [target]);
+                var limits = new SlippableMedia.ResizeConstraints(MediaTime.Zero, target.Length, [target]);
                 result = limits.SearchDurationPhases(target.Length + result, target.Length + delta,
-                    TimeSpan.Zero, length => Fits(length - target.Length)) - target.Length;
+                    MediaTime.Zero, length => Fits(length - target.Length)) - target.Length;
             }
             foreach (SlippableMedia.Target target in backs.Where(t => t.HasVariableDuration))
             {
-                var limits = new SlippableMedia.ResizeConstraints(TimeSpan.Zero, target.Length, [target]);
+                var limits = new SlippableMedia.ResizeConstraints(MediaTime.Zero, target.Length, [target]);
                 result = target.Length - limits.SearchDurationPhases(target.Length - result, target.Length - delta,
-                    TimeSpan.Zero, length => Fits(target.Length - length));
+                    MediaTime.Zero, length => Fits(target.Length - length));
             }
             return result;
         }
 
-        public bool TryGetOffsetChanges(TimeSpan delta, out Dictionary<IProperty<TimeSpan>, TimeSpan> changes)
+        public bool TryGetOffsetChanges(MediaTime delta, out Dictionary<IProperty<MediaTime>, MediaTime> changes)
             => SlippableMedia.TryGetOffsetChanges(backs, delta, trim: true, out changes)
-                && changes.All(change => change.Value == TimeSpan.Zero || !fixedOffsets.Contains(change.Key));
+                && changes.All(change => change.Value == MediaTime.Zero || !fixedOffsets.Contains(change.Key));
     }
 
     // The view keeps this snapshot for the gesture, including its integral caches.
@@ -128,7 +128,7 @@ public sealed partial class ElementResizeService
         var fronts = new List<SlippableMedia.Target>();
         var backs = new List<SlippableMedia.Target>();
         var middles = new List<SlippableMedia.Target>();
-        var fixedOffsets = new HashSet<IProperty<TimeSpan>>();
+        var fixedOffsets = new HashSet<IProperty<MediaTime>>();
         var movedElements = fixedElements?.ToHashSet() ?? [];
         var timingRoles = new Dictionary<Element, MediaTimeMapping.TrimRole>();
         foreach ((Element front, Element back) in pairs)
@@ -138,8 +138,8 @@ public sealed partial class ElementResizeService
         }
         foreach (Element middle in movedElements) timingRoles[middle] = MediaTimeMapping.TrimRole.Middle;
         var timingPeers = timingRoles.Keys.ToHashSet();
-        TimeSpan min = TimeSpan.Zero;
-        TimeSpan max = TimeSpan.Zero;
+        MediaTime min = MediaTime.Zero;
+        MediaTime max = MediaTime.Zero;
         for (int i = 0; i < pairs.Count; i++)
         {
             (Element front, Element back) = pairs[i];
@@ -148,7 +148,7 @@ public sealed partial class ElementResizeService
             fronts.AddRange(frontTargets);
             backs.AddRange(backTargets);
             fixedOffsets.UnionWith(frontTargets.Select(t => t.Offset));
-            (TimeSpan pairMin, TimeSpan pairMax) = ComputeTrimDeltaBounds(scene, front, back, frontTargets, backTargets);
+            (MediaTime pairMin, MediaTime pairMax) = ComputeTrimDeltaBounds(scene, front, back, frontTargets, backTargets);
             if (i == 0 || pairMin > min) min = pairMin;
             if (i == 0 || pairMax < max) max = pairMax;
         }
@@ -218,7 +218,7 @@ public sealed partial class ElementResizeService
             if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
             if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
 
-            TimeSpan expectedStart = front.Range.End;
+            MediaTime expectedStart = front.Range.End;
             foreach (Element middle in middles)
             {
                 if (!used.Add(middle)) return false;
@@ -241,23 +241,28 @@ public sealed partial class ElementResizeService
     // original-length extension). Max (≥ 0) is bounded by the shrinking back keeping one frame
     // and, when ClampResizeToOriginalLength is on, by the front out-point staying within its
     // source (matching normal edge resize, which may run past the media with the preference off).
-    private static (TimeSpan Min, TimeSpan Max) ComputeTrimDeltaBounds(
+    private static (MediaTime Min, MediaTime Max) ComputeTrimDeltaBounds(
         Scene scene, Element front, Element back,
         IReadOnlyList<SlippableMedia.Target> frontTargets,
         IReadOnlyList<SlippableMedia.Target> backTargets)
     {
-        TimeSpan minDuration = SceneTimeRangeService.GetFrameDuration(scene);
+        MediaTime minDuration = SceneTimeRangeService.GetFrameDuration(scene);
+        // Clip ends within a tick of a frame, as a template's can be, count from that frame.
+        MediaTime frontLength = SceneTimeRangeService.SnapToFrame(scene, front.Range.End)
+                                - SceneTimeRangeService.SnapToFrame(scene, front.Start);
+        MediaTime backLength = SceneTimeRangeService.SnapToFrame(scene, back.Range.End)
+                               - SceneTimeRangeService.SnapToFrame(scene, back.Start);
 
-        if (front.Length < minDuration || back.Length < minDuration)
-            return (TimeSpan.Zero, TimeSpan.Zero);
+        if (frontLength < minDuration || backLength < minDuration)
+            return (MediaTime.Zero, MediaTime.Zero);
 
-        TimeSpan min = minDuration - front.Length;
-        TimeSpan max = back.Length - minDuration;
+        MediaTime min = minDuration - frontLength;
+        MediaTime max = backLength - minDuration;
 
         if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength
             && frontTargets.All(t => !t.HasVariableDuration))
         {
-            TimeSpan outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length, max);
+            MediaTime outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length, max);
             if (outRoom < max) max = outRoom;
         }
 
@@ -270,13 +275,13 @@ public sealed partial class ElementResizeService
 
         // Enforce the documented Min ≤ 0 ≤ Max contract structurally instead of relying on
         // every media OffsetPosition being non-negative (an invariant owned by other services).
-        if (min > TimeSpan.Zero) min = TimeSpan.Zero;
-        if (max < TimeSpan.Zero) max = TimeSpan.Zero;
+        if (min > MediaTime.Zero) min = MediaTime.Zero;
+        if (max < MediaTime.Zero) max = MediaTime.Zero;
 
         return (min, max);
     }
 
-    private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max)
+    private static MediaTime Clamp(MediaTime value, MediaTime min, MediaTime max)
     {
         if (value < min) return min;
         if (value > max) return max;

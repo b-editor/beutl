@@ -19,8 +19,8 @@ public class SceneTimeRangeServiceTests
     {
         _scene = new Scene(100, 100, string.Empty)
         {
-            Start = TimeSpan.FromSeconds(1),
-            Duration = TimeSpan.FromSeconds(5),
+            Start = MediaTime.FromSeconds(1),
+            Duration = MediaTime.FromSeconds(5),
         };
         _harness = new HistoryHarness(_scene);
         _history = _harness.History;
@@ -42,21 +42,21 @@ public class SceneTimeRangeServiceTests
     [Test]
     public void SetStart_NegativeValue_ClampsToZero()
     {
-        _service.SetStart(_scene, TimeSpan.FromSeconds(-3));
+        _service.SetStart(_scene, MediaTime.FromSeconds(-3));
 
-        Assert.That(_scene.Start, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(_scene.Start, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
     public void SetStart_KeepsSceneEnd_WhenInsideRange()
     {
-        TimeSpan originalEnd = _scene.Start + _scene.Duration;
+        MediaTime originalEnd = _scene.Start + _scene.Duration;
 
-        _service.SetStart(_scene, TimeSpan.FromSeconds(2));
+        _service.SetStart(_scene, MediaTime.FromSeconds(2));
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(_scene.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_scene.Start + _scene.Duration, Is.EqualTo(originalEnd));
         });
     }
@@ -66,7 +66,7 @@ public class SceneTimeRangeServiceTests
     {
         int before = _history.UndoCount;
 
-        _service.SetStart(_scene, TimeSpan.FromSeconds(2));
+        _service.SetStart(_scene, MediaTime.FromSeconds(2));
 
         Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
     }
@@ -75,17 +75,17 @@ public class SceneTimeRangeServiceTests
     public void SetEnd_BeforeSceneStart_ShiftsSceneBack()
     {
         // Scene Start=1s, Duration=5s => End=6s. Setting End to 0.5s should pull start back.
-        _service.SetEnd(_scene, TimeSpan.FromMilliseconds(500));
+        _service.SetEnd(_scene, MediaTime.FromSeconds(0.5));
 
-        Assert.That(_scene.Start, Is.LessThan(TimeSpan.FromSeconds(1)));
+        Assert.That(_scene.Start, Is.LessThan(MediaTime.FromSeconds(1)));
     }
 
     [Test]
     public void SetEnd_ExtendsDuration()
     {
-        _service.SetEnd(_scene, TimeSpan.FromSeconds(10));
+        _service.SetEnd(_scene, MediaTime.FromSeconds(10));
 
-        Assert.That(_scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(9)));
+        Assert.That(_scene.Duration, Is.EqualTo(MediaTime.FromSeconds(9)));
     }
 
     [Test]
@@ -93,7 +93,7 @@ public class SceneTimeRangeServiceTests
     {
         int before = _history.UndoCount;
 
-        _service.SetEnd(_scene, TimeSpan.FromSeconds(10));
+        _service.SetEnd(_scene, MediaTime.FromSeconds(10));
 
         Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
     }
@@ -103,7 +103,7 @@ public class SceneTimeRangeServiceTests
     {
         int before = _history.UndoCount;
 
-        _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(10));
+        _service.UpdateEndDrag(_scene, MediaTime.FromSeconds(10));
 
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
@@ -116,14 +116,14 @@ public class SceneTimeRangeServiceTests
         EditSession session = _history.BeginEdit(CommandNames.ChangeSceneDuration);
         using (session.Enter())
         {
-            _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(8));
-            _service.UpdateEndDrag(_scene, TimeSpan.FromSeconds(10));
+            _service.UpdateEndDrag(_scene, MediaTime.FromSeconds(8));
+            _service.UpdateEndDrag(_scene, MediaTime.FromSeconds(10));
         }
         session.Complete();
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(9)));
+            Assert.That(_scene.Duration, Is.EqualTo(MediaTime.FromSeconds(9)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -131,16 +131,16 @@ public class SceneTimeRangeServiceTests
     [Test]
     public void UpdateStartDrag_PreservesInitialSceneEnd_AcrossPointerFrames()
     {
-        TimeSpan initialStart = _scene.Start;
-        TimeSpan initialDuration = _scene.Duration;
-        TimeSpan initialEnd = initialStart + initialDuration;
+        MediaTime initialStart = _scene.Start;
+        MediaTime initialDuration = _scene.Duration;
+        MediaTime initialEnd = initialStart + initialDuration;
 
-        _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(2), initialStart, initialDuration);
-        _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(3), initialStart, initialDuration);
+        _service.UpdateStartDrag(_scene, MediaTime.FromSeconds(2), initialStart, initialDuration);
+        _service.UpdateStartDrag(_scene, MediaTime.FromSeconds(3), initialStart, initialDuration);
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(_scene.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
             // End must stay pinned: without this, each drag frame compounds the previous one.
             Assert.That(_scene.Start + _scene.Duration, Is.EqualTo(initialEnd));
         });
@@ -149,14 +149,14 @@ public class SceneTimeRangeServiceTests
     [Test]
     public void UpdateStartDrag_InACancelledEditSession_RestoresInitialValues()
     {
-        TimeSpan initialStart = _scene.Start;
-        TimeSpan initialDuration = _scene.Duration;
+        MediaTime initialStart = _scene.Start;
+        MediaTime initialDuration = _scene.Duration;
         int before = _history.UndoCount;
 
         EditSession session = _history.BeginEdit(CommandNames.ChangeSceneStart);
         using (session.Enter())
         {
-            _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(4), initialStart, initialDuration);
+            _service.UpdateStartDrag(_scene, MediaTime.FromSeconds(4), initialStart, initialDuration);
         }
         session.Cancel();
 
@@ -172,15 +172,15 @@ public class SceneTimeRangeServiceTests
     public void UpdateEndDrag_PointerBeforeStart_KeepsStartPinned()
     {
         // Moving the end before the start keeps the start and rounds the duration up to one frame.
-        TimeSpan initialStart = _scene.Start;
+        MediaTime initialStart = _scene.Start;
 
-        _service.UpdateEndDrag(_scene, TimeSpan.Zero);
+        _service.UpdateEndDrag(_scene, MediaTime.Zero);
 
         Assert.Multiple(() =>
         {
             Assert.That(_scene.Start, Is.EqualTo(initialStart));
             // duration clamped to one frame (default rate = 30 fps)
-            Assert.That(_scene.Duration, Is.EqualTo(TimeSpan.FromSeconds(1d / 30)));
+            Assert.That(_scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
         });
     }
 
@@ -188,12 +188,12 @@ public class SceneTimeRangeServiceTests
     public void UpdateStartDrag_PointerAfterInitialEnd_ClampsToOneFrameBeforeEnd()
     {
         // Moving the start past the end does not extend the end; the start stops one frame before it.
-        TimeSpan initialStart = _scene.Start;
-        TimeSpan initialDuration = _scene.Duration;
-        TimeSpan initialEnd = initialStart + initialDuration;
-        TimeSpan frame = TimeSpan.FromSeconds(1d / 30);
+        MediaTime initialStart = _scene.Start;
+        MediaTime initialDuration = _scene.Duration;
+        MediaTime initialEnd = initialStart + initialDuration;
+        MediaTime frame = MediaTime.FromSeconds(1d / 30);
 
-        _service.UpdateStartDrag(_scene, TimeSpan.FromSeconds(100), initialStart, initialDuration);
+        _service.UpdateStartDrag(_scene, MediaTime.FromSeconds(100), initialStart, initialDuration);
 
         Assert.Multiple(() =>
         {

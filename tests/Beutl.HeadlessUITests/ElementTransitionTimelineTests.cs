@@ -137,7 +137,7 @@ public class ElementTransitionTimelineTests
             float scale = incoming.Timeline.Options.Value.Scale;
             Panel exitPart = FindElementView(view, outgoing).FindControl<Panel>("exitTransitionPart")!;
             Panel enterPart = FindElementView(view, incoming).FindControl<Panel>("enterTransitionPart")!;
-            double quarter = TimeSpan.FromSeconds(0.25).TimeToPixel(scale);
+            double quarter = MediaTime.FromSeconds(0.25).TimeToPixel(scale);
 
             Assert.Multiple(() =>
             {
@@ -160,7 +160,7 @@ public class ElementTransitionTimelineTests
             window.MouseMove(release, RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Settle(2);
             double previewWidth = enterPart.Bounds.Width;
-            TimeSpan durationDuringDrag = incoming.Model.EnterTransition!.Duration.Value;
+            MediaTime durationDuringDrag = incoming.Model.EnterTransition!.Duration.Value;
             // The span grows to 0.75 s with the cut a third of the way in, so both halves of the ramp
             // change their slope while the pointer moves, not only the dragged one.
             TransitionPartLayout incomingDuringDrag = incoming.EnterTransitionPart.Value;
@@ -172,15 +172,15 @@ public class ElementTransitionTimelineTests
             Assert.Multiple(() =>
             {
                 Assert.That(previewWidth, Is.EqualTo(quarter * 2).Within(0.5));
-                Assert.That(durationDuringDrag, Is.EqualTo(TimeSpan.FromSeconds(0.25)), "the drag previews without editing");
+                Assert.That(durationDuringDrag, Is.EqualTo(MediaTime.FromSeconds(0.25)), "the drag previews without editing");
                 Assert.That(incomingDuringDrag.StartFraction, Is.EqualTo(1d / 3).Within(1e-6));
                 Assert.That(incomingDuringDrag.EndFraction, Is.EqualTo(1).Within(1e-6));
                 Assert.That(outgoingDuringDrag.StartFraction, Is.Zero);
                 Assert.That(outgoingDuringDrag.EndFraction, Is.EqualTo(1d / 3).Within(1e-6));
-                Assert.That(incoming.Model.EnterTransition!.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.5)));
-                Assert.That(outgoing.Model.ExitTransition!.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+                Assert.That(incoming.Model.EnterTransition!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+                Assert.That(outgoing.Model.ExitTransition!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
-                Assert.That(incoming.Model.Start, Is.EqualTo(TimeSpan.FromSeconds(2)), "the handle must not move the clip");
+                Assert.That(incoming.Model.Start, Is.EqualTo(MediaTime.FromSeconds(2)), "the handle must not move the clip");
                 Assert.That(enterPart.Bounds.Width, Is.EqualTo(quarter * 2).Within(0.5));
             });
 
@@ -229,7 +229,7 @@ public class ElementTransitionTimelineTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(incoming.Model.EnterTransition!.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+                Assert.That(incoming.Model.EnterTransition!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
             });
         }
@@ -330,7 +330,7 @@ public class ElementTransitionTimelineTests
             (EditViewModel editor, ElementViewModel outgoing, _) = await OpenCut();
             Element over = editor.Scene.Children.Last();
             var shape = new RectShape();
-            var top = new Element { Start = TimeSpan.FromSeconds(0.5), Length = TimeSpan.FromSeconds(1), ZIndex = 0 };
+            var top = new Element { Start = MediaTime.FromSeconds(0.5), Length = MediaTime.FromSeconds(1), ZIndex = 0 };
             top.Objects.Add(shape);
             editor.Scene.Children.Add(top);
             HeadlessTestHelpers.Settle(3);
@@ -376,8 +376,8 @@ public class ElementTransitionTimelineTests
             Assert.Multiple(() =>
             {
                 Assert.That(incoming.Model.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
-                Assert.That(incoming.Model.EnterTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
-                Assert.That(outgoing.Model.ExitTransition?.Duration.Value, Is.EqualTo(TimeSpan.FromSeconds(0.25)));
+                Assert.That(incoming.Model.EnterTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+                Assert.That(outgoing.Model.ExitTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
                 Assert.That(incoming.Model.Name, Is.EqualTo(name));
             });
 
@@ -455,11 +455,11 @@ public class ElementTransitionTimelineTests
         (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
             $"element-transition-{Guid.NewGuid():N}",
             [
-                new(TimeSpan.Zero, TimeSpan.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
-                new(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(3), 0, new ElementSource.EngineObject(() => new RectShape())),
+                new(MediaTime.Zero, MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
+                new(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), 0, new ElementSource.EngineObject(() => new RectShape())),
             ]);
-        Element outgoing = editor.Scene.Children.Single(model => model.Start == TimeSpan.Zero);
-        Element incoming = editor.Scene.Children.Single(model => model.Start == TimeSpan.FromSeconds(2));
+        Element outgoing = editor.Scene.Children.Single(model => model.Start == MediaTime.Zero);
+        Element incoming = editor.Scene.Children.Single(model => model.Start == MediaTime.FromSeconds(2));
         editor.HistoryManager.Commit();
         return (editor, timeline.GetViewModelFor(outgoing)!, timeline.GetViewModelFor(incoming)!);
     }

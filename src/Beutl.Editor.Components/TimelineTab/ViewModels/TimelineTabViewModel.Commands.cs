@@ -66,9 +66,9 @@ public sealed partial class TimelineTabViewModel
     }
 
     // Ending the scene at a frame keeps that frame inside it, so the end lands one frame later.
-    private void SetSceneEndAfterFrame(TimeSpan frame)
+    private void SetSceneEndAfterFrame(MediaTime frame)
     {
-        TimeSpan time = frame + SceneTimeRangeService.GetFrameDuration(Scene);
+        MediaTime time = frame + SceneTimeRangeService.GetFrameDuration(Scene);
         EditorContext.GetRequiredService<ISceneTimeRangeService>().SetEnd(Scene, time);
     }
 
@@ -98,12 +98,12 @@ public sealed partial class TimelineTabViewModel
             .ToArray();
         if (targets.Length == 0) return;
 
-        int rate = SceneTimeRangeService.GetFrameRate(Scene);
+        Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
         int frames = unit switch
         {
             NudgeUnit.Frame => direction,
             NudgeUnit.Large => direction * 10,
-            NudgeUnit.Second => direction * rate,
+            NudgeUnit.Second => (int)MediaTime.FromSeconds(direction).ToFrame(rate, MidpointRounding.AwayFromZero),
             _ => throw new ArgumentOutOfRangeException(nameof(unit), unit, "Unhandled NudgeUnit."),
         };
 
@@ -124,7 +124,7 @@ public sealed partial class TimelineTabViewModel
         }
     }
 
-    public void RazorSplitAt(TimeSpan time)
+    public void RazorSplitAt(MediaTime time)
     {
         Element[] models = Elements
             .Where(e => e.Model.Range.Contains(time) && e.IsEditable.Value)
@@ -133,6 +133,6 @@ public sealed partial class TimelineTabViewModel
         if (models.Length == 0) return;
 
         EditorContext.GetRequiredService<IElementStructureService>()
-            .Split(Scene, models, time.RoundToRate(SceneTimeRangeService.GetFrameRate(Scene)));
+            .Split(Scene, models, time.RoundToFrame(SceneTimeRangeService.GetFrameRate(Scene), MidpointRounding.AwayFromZero));
     }
 }

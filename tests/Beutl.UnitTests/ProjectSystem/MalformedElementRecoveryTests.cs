@@ -594,7 +594,7 @@ public sealed class MalformedElementRecoveryTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 32,
         });
         shape.Width.SetKeyFrameAnimation(animation);
@@ -627,7 +627,7 @@ public sealed class MalformedElementRecoveryTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 32,
         });
         shape.Width.SetKeyFrameAnimation(animation);
@@ -1059,14 +1059,14 @@ public sealed class MalformedElementRecoveryTests
         scene.Children.Add(new Element
         {
             Name = "One",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(element1Path),
         });
         scene.Children.Add(new Element
         {
             Name = "Two",
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(element2Path),
         });
         Guid healthyId = scene.Children[0].Id;
@@ -1342,8 +1342,8 @@ public sealed class MalformedElementRecoveryTests
         {
             Id = repairedId,
             Name = "Repaired",
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPaths[0]),
         };
         repaired.AddObject(new RectShape());
@@ -1412,7 +1412,7 @@ public sealed class MalformedElementRecoveryTests
         {
             Id = claimant.Id,
             Name = "Repaired",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPaths[1]),
         };
         repaired.AddObject(new RectShape());
@@ -1474,7 +1474,7 @@ public sealed class MalformedElementRecoveryTests
         {
             Id = repairedSource.Id,
             Name = "Repaired",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPaths[1]),
         };
         var healthyShape = new RectShape();
@@ -1538,7 +1538,7 @@ public sealed class MalformedElementRecoveryTests
         {
             Id = repairedSource.Id,
             Name = "Repaired",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPaths[0]),
         };
         var healthyShape = new RectShape();
@@ -1608,7 +1608,7 @@ public sealed class MalformedElementRecoveryTests
         {
             Id = repairedSource.Id,
             Name = "Repaired",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPaths[0]),
         };
         var repairedSecondShape = new RectShape { Id = secondShapeId };
@@ -1666,7 +1666,7 @@ public sealed class MalformedElementRecoveryTests
         {
             Id = repairedSource.Id,
             Name = "Repaired",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPaths[0]),
         };
         repaired.AddObject(new RectShape { Id = repairedId });
@@ -1734,7 +1734,7 @@ public sealed class MalformedElementRecoveryTests
         {
             Id = repairedSource.Id,
             Name = "Repaired",
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPaths[0]),
         };
         var repairedShape = new RectShape { Id = Guid.NewGuid() };
@@ -1823,7 +1823,7 @@ public sealed class MalformedElementRecoveryTests
         var animation = new KeyFrameAnimation<Reference<Element>>();
         animation.KeyFrames.Add(new KeyFrame<Reference<Element>>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = new Reference<Element>(originalId),
         });
         holder.AnimatedTarget.SetKeyFrameAnimation(animation);
@@ -1941,7 +1941,7 @@ public sealed class MalformedElementRecoveryTests
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
         Scene source = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
-        var marker = new SceneMarker(TimeSpan.Zero, "Marker") { Id = Guid.NewGuid() };
+        var marker = new SceneMarker(MediaTime.Zero, "Marker") { Id = Guid.NewGuid() };
         source.Markers.Add(marker);
         CoreSerializer.StoreToUri(source, sceneUri);
         File.WriteAllText(elementPath, $$"""{"Id":"{{marker.Id}}","Objects":[""");
@@ -1990,7 +1990,7 @@ public sealed class MalformedElementRecoveryTests
         string elementPath = Path.Combine(_root, "registered.belm");
         var element = new RegisteredRecoveryElement
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPath),
             PluginTransform = new RotationTransform(),
         };
@@ -2028,14 +2028,14 @@ public sealed class MalformedElementRecoveryTests
         Guid claimantId = Guid.NewGuid();
         var healthy = new Element
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(healthyPath),
         };
         healthy.AddObject(new RectShape { Id = claimantId });
         var recovered = new RegisteredRecoveryElement
         {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(recoveredPath),
             PluginTransform = new RotationTransform { Id = claimantId },
         };
@@ -2074,7 +2074,7 @@ public sealed class MalformedElementRecoveryTests
         Guid originalId = Guid.NewGuid();
         var recovered = new RegisteredOptionalRecoveryElement
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(recoveredPath),
             PluginTransform = new Optional<Transform>(
                 new RotationTransform { Id = originalId }),
@@ -2083,8 +2083,8 @@ public sealed class MalformedElementRecoveryTests
         referenceHolder.Target.Value = new Reference<Transform>(originalId);
         var holder = new Element
         {
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(holderPath),
         };
         holder.AddObject(referenceHolder);
@@ -2891,7 +2891,7 @@ public sealed class MalformedElementRecoveryTests
         string outsideTransformPath = Path.Combine(outsideDirectory, "transform.json");
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(elementPath),
         };
         element.AddObject(new RectShape
@@ -2997,8 +2997,8 @@ public sealed class MalformedElementRecoveryTests
         var normal = new Element
         {
             Name = "Normal",
-            Start = TimeSpan.FromSeconds(1),
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(normalPath),
         };
         normal.AddObject(new RectShape());
@@ -3162,8 +3162,8 @@ public sealed class MalformedElementRecoveryTests
             var element = new Element
             {
                 Name = Path.GetFileNameWithoutExtension(elementPath),
-                Start = TimeSpan.FromSeconds(i),
-                Length = TimeSpan.FromSeconds(1),
+                Start = MediaTime.FromSeconds(i),
+                Length = MediaTime.FromSeconds(1),
                 Uri = new Uri(elementPath),
             };
             element.AddObject(new RectShape

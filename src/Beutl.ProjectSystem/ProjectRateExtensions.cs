@@ -2,8 +2,8 @@
 
 public static class ProjectRateExtensions
 {
-    public static int GetFrameRate(this Project? project)
-        => GetPositiveRate(project, ProjectVariableKeys.FrameRate, 30);
+    // A whole number such as "30" or a fraction such as "30000/1001"; anything that is not a positive rate reads as 30.
+    public static Rational GetFrameRate(this Project? project) => Project.ReadFrameRate(project);
 
     public static int GetSampleRate(this Project? project)
         => GetPositiveRate(project, ProjectVariableKeys.SampleRate, 44100);

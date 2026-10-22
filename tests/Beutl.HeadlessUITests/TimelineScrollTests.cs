@@ -135,7 +135,7 @@ public class TimelineScrollTests
         public static async Task<TimelineSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector, bool swap)
         {
             TimelineTestHost host = await TimelineTestHost.CreateAsync(
-                "timeline-scroll", TimeSpan.FromSeconds(30), scrollDetector: detector);
+                "timeline-scroll", MediaTime.FromSeconds(30), scrollDetector: detector);
             return new TimelineSession(host, swap);
         }
 

@@ -35,7 +35,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         Element? Element,
         CoreObject? Object,
         string? PropertyName,
-        TimeSpan? Time,
+        MediaTime? Time,
         TimeRange? RemovedRange = null,
         int RemovedZIndex = 0);
 
@@ -112,18 +112,18 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
 
             // Seek before rendering when the scene already has a tab. A closed scene only gets
             // its background tab while the call resolves its target, so seek after it instead.
-            if (await follower.ShowFrameAsync(sceneId, TimeSpan.FromSeconds(seconds)))
+            if (await follower.ShowFrameAsync(sceneId, MediaTime.FromSeconds(seconds)))
                 return await next(context, cancellationToken);
 
             CallToolResult result = await next(context, cancellationToken);
-            await follower.ShowFrameAsync(sceneId, TimeSpan.FromSeconds(seconds));
+            await follower.ShowFrameAsync(sceneId, MediaTime.FromSeconds(seconds));
             return result;
         });
     }
 
     // `sceneTime` is relative to the scene start, as in render_still. Returns false when the scene
     // has no editor tab yet.
-    internal async Task<bool> ShowFrameAsync(Guid sceneId, TimeSpan sceneTime)
+    internal async Task<bool> ShowFrameAsync(Guid sceneId, MediaTime sceneTime)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -137,9 +137,9 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
                 return true;
 
             Scene scene = editor.Scene;
-            int rate = editor.Player.GetFrameRate();
-            TimeSpan last = (scene.Start + scene.Duration - TimeSpan.FromTicks(1)).FloorToRate(rate);
-            TimeSpan time = (scene.Start + sceneTime).RoundToRate(rate);
+            Rational rate = editor.Player.GetFrameRate();
+            MediaTime last = (scene.Start + scene.Duration - new MediaTime(1)).RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
+            MediaTime time = (scene.Start + sceneTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             editor.SeekAndScroll(Clamp(time, scene.Start, last));
             return true;
         }, DispatcherPriority.Normal);
@@ -186,10 +186,10 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         if (!editor.Player.IsPlaying.Value)
         {
             IEditorClock clock = editor.GetRequiredService<IEditorClock>();
-            int rate = editor.Player.GetFrameRate();
-            TimeSpan last = (element.Range.End - TimeSpan.FromTicks(1)).FloorToRate(rate);
+            Rational rate = editor.Player.GetFrameRate();
+            MediaTime last = (element.Range.End - new MediaTime(1)).RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
             // Keep the playhead when it already shows the element; otherwise move it the least.
-            TimeSpan time = Clamp(target.Time ?? clock.CurrentTime.Value, element.Start, last);
+            MediaTime time = Clamp(target.Time ?? clock.CurrentTime.Value, element.Start, last);
             if (clock.CurrentTime.Value != time)
                 clock.Seek(time);
         }
@@ -286,7 +286,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         return new EditTarget(element, obj, propertyName, KeyFrameTime(obj, element));
     }
 
-    private static TimeSpan? KeyFrameTime(CoreObject obj, Element element)
+    private static MediaTime? KeyFrameTime(CoreObject obj, Element element)
     {
         if (obj is not IKeyFrame keyFrame
             || keyFrame.EnumerateAncestors<IKeyFrameAnimation>().FirstOrDefault() is not { } animation)
@@ -299,6 +299,6 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
 
     private static string PropertyNameOf(string propertyPath) => PropertyPathHelper.Parse(propertyPath).Name;
 
-    private static TimeSpan Clamp(TimeSpan value, TimeSpan min, TimeSpan max)
+    private static MediaTime Clamp(MediaTime value, MediaTime min, MediaTime max)
         => max < min ? min : value < min ? min : value > max ? max : value;
 }

@@ -99,7 +99,7 @@ public class ShrinkingTransformKeepsItsFootprintTests
             new PixelSize(640, 360),
             outputScale,
             outputScale * 2f,
-            TimeSpan.Zero);
+            MediaTime.Zero);
         return SceneRenderHarness.SumAlpha(bitmap);
     }
 }

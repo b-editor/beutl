@@ -11,7 +11,7 @@ public sealed class AudioSampleRingBuffer
     // Gap between a new write's start time and the expected continuation of the
     // previous write. Larger gaps (e.g. scene scrub) trigger a reset so stale
     // samples don't get mixed with data from a different timeline position.
-    private static readonly TimeSpan s_continuityTolerance = TimeSpan.FromMilliseconds(150);
+    private static readonly MediaTime s_continuityTolerance = MediaTime.FromSeconds(0.15);
 
     private readonly object _gate = new();
     private float[] _left = [];
@@ -24,7 +24,7 @@ public sealed class AudioSampleRingBuffer
     // Anchors the ring buffer to scene time: _lastWriteEndTime corresponds to
     // absolute sample index _lastWriteEndIndex (== _totalWritten at that point).
     private bool _hasAnchor;
-    private TimeSpan _lastWriteEndTime;
+    private MediaTime _lastWriteEndTime;
     private long _lastWriteEndIndex;
 
     public int SampleRate
@@ -35,7 +35,7 @@ public sealed class AudioSampleRingBuffer
         }
     }
 
-    public void WriteInterleaved(ReadOnlySpan<float> interleaved, int channelCount, int sampleRate, TimeSpan startTime)
+    public void WriteInterleaved(ReadOnlySpan<float> interleaved, int channelCount, int sampleRate, MediaTime startTime)
     {
         if (channelCount < 1) return;
         int frames = interleaved.Length / channelCount;
@@ -50,8 +50,8 @@ public sealed class AudioSampleRingBuffer
                 // window ending at the playhead, so stepping by <100 ms always
                 // overlaps) or a large forward jump breaks the linear time↔index
                 // mapping that ReadAroundTime relies on — reset in those cases.
-                TimeSpan gap = startTime - _lastWriteEndTime;
-                if (gap < TimeSpan.Zero || gap > s_continuityTolerance)
+                MediaTime gap = startTime - _lastWriteEndTime;
+                if (gap < MediaTime.Zero || gap > s_continuityTolerance)
                 {
                     needsReset = true;
                 }
@@ -82,7 +82,7 @@ public sealed class AudioSampleRingBuffer
 
             _hasAnchor = true;
             _lastWriteEndIndex = _totalWritten;
-            _lastWriteEndTime = startTime + TimeSpan.FromSeconds(frames / (double)sampleRate);
+            _lastWriteEndTime = startTime + MediaTime.FromSamples(frames, sampleRate);
         }
     }
 
@@ -96,7 +96,7 @@ public sealed class AudioSampleRingBuffer
             _totalWritten = 0;
             _hasAnchor = false;
             _lastWriteEndIndex = 0;
-            _lastWriteEndTime = TimeSpan.Zero;
+            _lastWriteEndTime = MediaTime.Zero;
         }
     }
 
@@ -106,10 +106,10 @@ public sealed class AudioSampleRingBuffer
     // and reports the offset of those real samples within the destination span
     // via `leadingZeros` so callers doing analysis (RMS, LUFS, ...) can skip
     // the silent prefix.
-    public int ReadAroundTime(TimeSpan playheadTime, Span<float> destLeft, Span<float> destRight, int length)
+    public int ReadAroundTime(MediaTime playheadTime, Span<float> destLeft, Span<float> destRight, int length)
         => ReadAroundTime(playheadTime, destLeft, destRight, length, out _);
 
-    public int ReadAroundTime(TimeSpan playheadTime, Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
+    public int ReadAroundTime(MediaTime playheadTime, Span<float> destLeft, Span<float> destRight, int length, out int leadingZeros)
     {
         leadingZeros = 0;
         if (destLeft.Length < length || destRight.Length < length) return 0;
@@ -121,7 +121,7 @@ public sealed class AudioSampleRingBuffer
                 return 0;
             }
 
-            double secondsFromEnd = (_lastWriteEndTime - playheadTime).TotalSeconds;
+            double secondsFromEnd = (_lastWriteEndTime - playheadTime).ToSeconds();
             long samplesFromEnd = (long)Math.Round(secondsFromEnd * _sampleRate);
             long targetEnd = _lastWriteEndIndex - samplesFromEnd;
             return ReadEndingAtLocked(targetEnd, destLeft, destRight, length, out leadingZeros);
@@ -131,7 +131,7 @@ public sealed class AudioSampleRingBuffer
     // Snapshot of `windowSamples` ending at `playheadTime` used for RMS / peak
     // calculations.
     public (float LeftRms, float RightRms, float LeftPeak, float RightPeak) ComputeMeters(
-        int windowSamples, TimeSpan playheadTime)
+        int windowSamples, MediaTime playheadTime)
     {
         Span<float> l = windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
         Span<float> r = windowSamples <= 4096 ? stackalloc float[windowSamples] : new float[windowSamples];
@@ -225,6 +225,6 @@ public sealed class AudioSampleRingBuffer
         _totalWritten = 0;
         _hasAnchor = false;
         _lastWriteEndIndex = 0;
-        _lastWriteEndTime = TimeSpan.Zero;
+        _lastWriteEndTime = MediaTime.Zero;
     }
 }

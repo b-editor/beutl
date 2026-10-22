@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Sessions;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using ModelContextProtocol.Server;
@@ -215,9 +216,13 @@ public sealed partial class EditTools
         Element element = ((Scene)root).Children.First(item => item.Id == Guid.Parse(elementId));
         EngineObject source = element.Objects.First(item => item.Id == Guid.Parse(objectId));
         ObjectRegenerator.Regenerate(source, source.GetType(), out ICoreSerializable copy);
-        return CoreSerializer.SerializeToJsonObject(
-            copy,
-            DocumentAdapter.CreateOptions(root) with { BaseUri = DeclarativeDocumentApplier.ResolveBaseUri(element) });
+        // The copy keeps exact times, as the editor's duplicates do.
+        using (MediaTimeJsonConverter.WriteFlicks())
+        {
+            return CoreSerializer.SerializeToJsonObject(
+                copy,
+                DocumentAdapter.CreateOptions(root) with { BaseUri = DeclarativeDocumentApplier.ResolveBaseUri(element) });
+        }
     }
 
     private static AppliedEntityId CreateAppliedEntityId(CoreObject obj, string path)

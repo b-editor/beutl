@@ -40,7 +40,7 @@ public class PixelSortEffectTests
             // Descending, so that sorting the left-to-right gradient changes it.
             effect.Ascending.Value = false;
 
-            var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(TimeSpan.Zero));
+            var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(MediaTime.Zero));
             effect.ApplyTo(feCtx, resource);
 
             using var builder = new SKImageFilterBuilder();
@@ -118,7 +118,7 @@ public class PixelSortEffectTests
             {
                 byte v = (byte)(255 * x / Math.Max(1, width - 1));
                 var brush = new SolidColorBrush(new Color(255, v, v, v));
-                var brushResource = (SolidColorBrush.Resource)(object)brush.ToResource(new CompositionContext(TimeSpan.Zero));
+                var brushResource = (SolidColorBrush.Resource)(object)brush.ToResource(new CompositionContext(MediaTime.Zero));
                 canvas.DrawRectangle(new Rect(x, 0, 1, height), brushResource, pen: null);
             }
         }

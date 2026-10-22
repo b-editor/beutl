@@ -73,10 +73,10 @@ public class AiSubtitleTemplateTests
         var source = new AudioSourceItem(
             "Audio",
             "/tmp/audio.wav",
-            TimeSpan.FromSeconds(20),
-            elementStart: TimeSpan.FromSeconds(10),
-            elementLength: TimeSpan.FromSeconds(4),
-            sourceOffset: TimeSpan.FromSeconds(2),
+            MediaTime.FromSeconds(20),
+            elementStart: MediaTime.FromSeconds(10),
+            elementLength: MediaTime.FromSeconds(4),
+            sourceOffset: MediaTime.FromSeconds(2),
             speed: 200);
 
         AiTranscriptionSegment[] result = source.MapSegmentsToScene(
@@ -514,8 +514,8 @@ public class AiSubtitleTemplateTests
         await TestReset.ResetShellAsync();
         using AiSubtitleDialogViewModel viewModel =
             TestShell.MainViewModel.CreateAiSubtitleToolViewModel(null);
-        var first = new AudioSourceItem("First", "/tmp/first.wav", TimeSpan.FromSeconds(10));
-        var second = new AudioSourceItem("Second", "/tmp/second.wav", TimeSpan.FromSeconds(10));
+        var first = new AudioSourceItem("First", "/tmp/first.wav", MediaTime.FromSeconds(10));
+        var second = new AudioSourceItem("Second", "/tmp/second.wav", MediaTime.FromSeconds(10));
         viewModel.SelectedAudioSource.Value = first;
         viewModel.ResultSegments.Value =
         [
@@ -536,37 +536,37 @@ public class AiSubtitleTemplateTests
         var first = new AudioSourceItem(
             "First",
             "/tmp/source.flac",
-            TimeSpan.FromSeconds(30),
-            elementStart: TimeSpan.FromSeconds(2),
-            elementLength: TimeSpan.FromSeconds(10),
-            sourceOffset: TimeSpan.FromSeconds(1),
+            MediaTime.FromSeconds(30),
+            elementStart: MediaTime.FromSeconds(2),
+            elementLength: MediaTime.FromSeconds(10),
+            sourceOffset: MediaTime.FromSeconds(1),
             speed: 125,
             elementId: elementId);
         var equivalent = new AudioSourceItem(
             "Renamed",
             "/tmp/source.flac",
-            TimeSpan.FromSeconds(30),
-            elementStart: TimeSpan.FromSeconds(2),
-            elementLength: TimeSpan.FromSeconds(10),
-            sourceOffset: TimeSpan.FromSeconds(1),
+            MediaTime.FromSeconds(30),
+            elementStart: MediaTime.FromSeconds(2),
+            elementLength: MediaTime.FromSeconds(10),
+            sourceOffset: MediaTime.FromSeconds(1),
             speed: 125,
             elementId: elementId);
         var changedMapping = new AudioSourceItem(
             "Changed",
             "/tmp/source.flac",
-            TimeSpan.FromSeconds(30),
-            elementStart: TimeSpan.FromSeconds(3),
-            elementLength: TimeSpan.FromSeconds(10),
-            sourceOffset: TimeSpan.FromSeconds(1),
+            MediaTime.FromSeconds(30),
+            elementStart: MediaTime.FromSeconds(3),
+            elementLength: MediaTime.FromSeconds(10),
+            sourceOffset: MediaTime.FromSeconds(1),
             speed: 125,
             elementId: elementId);
         var anotherElement = new AudioSourceItem(
             "Other element",
             "/tmp/source.flac",
-            TimeSpan.FromSeconds(30),
-            elementStart: TimeSpan.FromSeconds(2),
-            elementLength: TimeSpan.FromSeconds(10),
-            sourceOffset: TimeSpan.FromSeconds(1),
+            MediaTime.FromSeconds(30),
+            elementStart: MediaTime.FromSeconds(2),
+            elementLength: MediaTime.FromSeconds(10),
+            sourceOffset: MediaTime.FromSeconds(1),
             speed: 125,
             elementId: Guid.NewGuid());
         string relativePath = Path.GetRelativePath(
@@ -575,10 +575,10 @@ public class AiSubtitleTemplateTests
         var equivalentRelativePath = new AudioSourceItem(
             "Relative",
             relativePath,
-            TimeSpan.FromSeconds(30),
-            elementStart: TimeSpan.FromSeconds(2),
-            elementLength: TimeSpan.FromSeconds(10),
-            sourceOffset: TimeSpan.FromSeconds(1),
+            MediaTime.FromSeconds(30),
+            elementStart: MediaTime.FromSeconds(2),
+            elementLength: MediaTime.FromSeconds(10),
+            sourceOffset: MediaTime.FromSeconds(1),
             speed: 125,
             elementId: elementId);
 
@@ -685,9 +685,9 @@ public class AiSubtitleTemplateTests
         {
             Assert.That(elements, Has.Length.EqualTo(2));
             Assert.That(elements.Select(element => element.Start),
-                Is.EqualTo(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2) }));
+                Is.EqualTo(new[] { MediaTime.Zero, MediaTime.FromSeconds(2) }));
             Assert.That(elements.Select(element => element.Length),
-                Is.EqualTo(new[] { TimeSpan.FromSeconds(1.25), TimeSpan.FromSeconds(0.5) }));
+                Is.EqualTo(new[] { MediaTime.FromSeconds(1.25), MediaTime.FromSeconds(0.5) }));
             Assert.That(subtitles.Select(subtitle => subtitle.Text.Value),
                 Is.EqualTo(new[] { "First", "Second" }));
             Assert.That(subtitles.Select(subtitle => subtitle.Id).Distinct().Count(), Is.EqualTo(2));
@@ -742,8 +742,8 @@ public class AiSubtitleTemplateTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(element.Start, Is.EqualTo(TimeSpan.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(subtitle.Text.Value, Is.EqualTo("Generated text"));
             Assert.That(subtitle.Size.Value, Is.EqualTo(72));
             Assert.That(subtitle.FontWeight.Value, Is.EqualTo(FontWeight.Bold));

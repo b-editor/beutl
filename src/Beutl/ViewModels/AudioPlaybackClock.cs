@@ -5,7 +5,7 @@ internal sealed class AudioPlaybackClock
     private readonly object _lock = new();
     private readonly TaskCompletionSource _started =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
-    private TimeSpan _anchorAudioTime;
+    private MediaTime _anchorAudioTime;
     private long _anchorTimestamp;
     private bool _running;
 
@@ -15,7 +15,7 @@ internal sealed class AudioPlaybackClock
 
     public void SignalStarted() => _started.TrySetResult();
 
-    public void Anchor(TimeSpan audioTime)
+    public void Anchor(MediaTime audioTime)
     {
         lock (_lock)
         {
@@ -35,12 +35,12 @@ internal sealed class AudioPlaybackClock
         _started.TrySetResult();
     }
 
-    public TimeSpan? GetTime()
+    public MediaTime? GetTime()
     {
         lock (_lock)
         {
             if (!_running) return null;
-            return _anchorAudioTime + Stopwatch.GetElapsedTime(_anchorTimestamp);
+            return _anchorAudioTime + MediaTime.FromTimeSpan(Stopwatch.GetElapsedTime(_anchorTimestamp));
         }
     }
 }

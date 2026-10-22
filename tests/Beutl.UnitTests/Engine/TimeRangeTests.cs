@@ -16,7 +16,7 @@ public class TimeRangeTests
 
         Assert.That(range1.Contains(range2), Is.True);
         Assert.That(range2.Contains(range3), Is.False);
-        Assert.That(range1.Contains(TimeSpan.FromSeconds(7)), Is.False);
+        Assert.That(range1.Contains(MediaTime.FromSeconds(7)), Is.False);
     }
 
     [Test]
@@ -66,9 +66,9 @@ public class TimeRangeTests
     [Test]
     public void Empty_HasZeroStartAndDuration()
     {
-        Assert.That(TimeRange.Empty.Start, Is.EqualTo(TimeSpan.Zero));
-        Assert.That(TimeRange.Empty.Duration, Is.EqualTo(TimeSpan.Zero));
-        Assert.That(TimeRange.Empty.End, Is.EqualTo(TimeSpan.Zero));
+        Assert.That(TimeRange.Empty.Start, Is.EqualTo(MediaTime.Zero));
+        Assert.That(TimeRange.Empty.Duration, Is.EqualTo(MediaTime.Zero));
+        Assert.That(TimeRange.Empty.End, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
@@ -82,20 +82,20 @@ public class TimeRangeTests
     [Test]
     public void DurationOnlyConstructor_StartsAtZero()
     {
-        var range = new TimeRange(TimeSpan.FromSeconds(3));
+        var range = new TimeRange(MediaTime.FromSeconds(3));
 
-        Assert.That(range.Start, Is.EqualTo(TimeSpan.Zero));
-        Assert.That(range.Duration, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        Assert.That(range.Start, Is.EqualTo(MediaTime.Zero));
+        Assert.That(range.Duration, Is.EqualTo(MediaTime.FromSeconds(3)));
     }
 
     [Test]
     public void FromRange_DerivesDurationFromEndMinusStart()
     {
-        var range = TimeRange.FromRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(7));
+        var range = TimeRange.FromRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(7));
 
-        Assert.That(range.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-        Assert.That(range.Duration, Is.EqualTo(TimeSpan.FromSeconds(5)));
-        Assert.That(range.End, Is.EqualTo(TimeSpan.FromSeconds(7)));
+        Assert.That(range.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(range.Duration, Is.EqualTo(MediaTime.FromSeconds(5)));
+        Assert.That(range.End, Is.EqualTo(MediaTime.FromSeconds(7)));
     }
 
     [Test]
@@ -103,7 +103,7 @@ public class TimeRangeTests
     {
         var zero = new TimeRange();
         var positive = TimeRange.FromSeconds(1, 2);
-        var negative = new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(-1));
+        var negative = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(-1));
 
         Assert.That(zero.IsEmpty, Is.True);
         Assert.That(positive.IsEmpty, Is.False);
@@ -115,10 +115,10 @@ public class TimeRangeTests
     {
         var range = TimeRange.FromSeconds(2, 3);
 
-        Assert.That(range.Contains(TimeSpan.FromSeconds(2)), Is.True);
-        Assert.That(range.Contains(TimeSpan.FromSeconds(4)), Is.True);
-        Assert.That(range.Contains(TimeSpan.FromSeconds(5)), Is.False);
-        Assert.That(range.Contains(TimeSpan.FromSeconds(1.99)), Is.False);
+        Assert.That(range.Contains(MediaTime.FromSeconds(2)), Is.True);
+        Assert.That(range.Contains(MediaTime.FromSeconds(4)), Is.True);
+        Assert.That(range.Contains(MediaTime.FromSeconds(5)), Is.False);
+        Assert.That(range.Contains(MediaTime.FromSeconds(1.99)), Is.False);
     }
 
     [Test]
@@ -126,10 +126,10 @@ public class TimeRangeTests
     {
         var range = TimeRange.FromSeconds(2, 3);
 
-        var modified = range.WithStart(TimeSpan.FromSeconds(10));
+        var modified = range.WithStart(MediaTime.FromSeconds(10));
 
-        Assert.That(modified.Start, Is.EqualTo(TimeSpan.FromSeconds(10)));
-        Assert.That(modified.Duration, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        Assert.That(modified.Start, Is.EqualTo(MediaTime.FromSeconds(10)));
+        Assert.That(modified.Duration, Is.EqualTo(MediaTime.FromSeconds(3)));
     }
 
     [Test]
@@ -137,10 +137,10 @@ public class TimeRangeTests
     {
         var range = TimeRange.FromSeconds(2, 3);
 
-        var modified = range.WithDuration(TimeSpan.FromSeconds(10));
+        var modified = range.WithDuration(MediaTime.FromSeconds(10));
 
-        Assert.That(modified.Start, Is.EqualTo(TimeSpan.FromSeconds(2)));
-        Assert.That(modified.Duration, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(modified.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(modified.Duration, Is.EqualTo(MediaTime.FromSeconds(10)));
     }
 
     [Test]
@@ -148,10 +148,10 @@ public class TimeRangeTests
     {
         var range = TimeRange.FromSeconds(2, 3);
 
-        var shifted = range.AddStart(TimeSpan.FromSeconds(5));
+        var shifted = range.AddStart(MediaTime.FromSeconds(5));
 
-        Assert.That(shifted.Start, Is.EqualTo(TimeSpan.FromSeconds(7)));
-        Assert.That(shifted.Duration, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        Assert.That(shifted.Start, Is.EqualTo(MediaTime.FromSeconds(7)));
+        Assert.That(shifted.Duration, Is.EqualTo(MediaTime.FromSeconds(3)));
     }
 
     [Test]
@@ -159,10 +159,10 @@ public class TimeRangeTests
     {
         var range = TimeRange.FromSeconds(5, 3);
 
-        var shifted = range.SubtractStart(TimeSpan.FromSeconds(2));
+        var shifted = range.SubtractStart(MediaTime.FromSeconds(2));
 
-        Assert.That(shifted.Start, Is.EqualTo(TimeSpan.FromSeconds(3)));
-        Assert.That(shifted.Duration, Is.EqualTo(TimeSpan.FromSeconds(3)));
+        Assert.That(shifted.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+        Assert.That(shifted.Duration, Is.EqualTo(MediaTime.FromSeconds(3)));
     }
 
     [Test]
@@ -188,8 +188,8 @@ public class TimeRangeTests
     [Test]
     public void Intersects_EmptyRange_ReturnsFalse()
     {
-        var zeroDuration = new TimeRange(TimeSpan.FromSeconds(5), TimeSpan.Zero);
-        var negativeDuration = new TimeRange(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(-1));
+        var zeroDuration = new TimeRange(MediaTime.FromSeconds(5), MediaTime.Zero);
+        var negativeDuration = new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(-1));
         var nonEmpty = TimeRange.FromSeconds(0, 10);
 
         Assert.That(zeroDuration.Intersects(nonEmpty), Is.False);

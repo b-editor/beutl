@@ -30,12 +30,12 @@ public class PlaybackFrameRangeTests
         EditViewModel editor = await OpenEditor();
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         // Where playback leaves the playhead at frame 10: 3,333,333 ticks, which truncates to frame 9.
-        TimeSpan playhead = 10.ToTimeSpan(Rate);
+        MediaTime playhead = MediaTime.FromFrames(10, new Rational(Rate));
         clock.Seek(playhead);
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
 
         // The producer reports each frame it queues on the render thread.
-        var queued = new ConcurrentQueue<TimeSpan>();
+        var queued = new ConcurrentQueue<MediaTime>();
         using IDisposable subscription = editor.BufferStatus.EndTime.Subscribe(time =>
         {
             if (RenderThread.Dispatcher.CheckAccess())
@@ -45,7 +45,7 @@ public class PlaybackFrameRangeTests
         try
         {
             editor.Player.Play();
-            await HeadlessTestHelpers.WaitUntilAsync(() => queued.Count >= 3, TimeSpan.FromMinutes(2), pump: false);
+            await HeadlessTestHelpers.WaitUntilAsync(() => queued.Count >= 3, TimeSpan.FromSeconds(120), pump: false);
         }
         finally
         {
@@ -63,20 +63,20 @@ public class PlaybackFrameRangeTests
         // As dragging the scene start leaves it: the start and the end snapped to frames 1 and 4. Truncating the
         // start and adding the length rounded up gave frames 0 to 3.
         Scene scene = editor.Scene;
-        TimeSpan end = TimeSpan.FromSeconds(4d / Rate).RoundToRate(Rate);
-        scene.Start = TimeSpan.FromSeconds(1d / Rate).RoundToRate(Rate);
+        MediaTime end = MediaTime.FromSeconds(4d / Rate).RoundToFrame(new Rational(Rate), MidpointRounding.AwayFromZero);
+        scene.Start = MediaTime.FromSeconds(1d / Rate).RoundToFrame(new Rational(Rate), MidpointRounding.AwayFromZero);
         scene.Duration = end - scene.Start;
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
 
         using var isPlaying = new ReactivePropertySlim<bool>(true);
-        using var player = new BufferedPlayer(editor, isPlaying, Rate, CancellationToken.None);
+        using var player = new BufferedPlayer(editor, isPlaying, new Rational(Rate), CancellationToken.None);
 
-        player.Start(PlaybackRange.From(scene.Start, scene.Start, scene.Duration, Rate));
-        await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 3, TimeSpan.FromMinutes(2), pump: false);
+        player.Start(PlaybackRange.From(scene.Start, scene.Start, scene.Duration, new Rational(Rate)));
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 3, TimeSpan.FromSeconds(120), pump: false);
         // The producer then waits at the end of the range for an edit that drops frames, rendering nothing past it.
         await Task.Delay(TimeSpan.FromMilliseconds(300));
         isPlaying.Value = false;
-        await HeadlessTestHelpers.WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromMinutes(2), pump: false);
+        await HeadlessTestHelpers.WaitUntilAsync(() => player.ProducerStopped, TimeSpan.FromSeconds(120), pump: false);
 
         var frames = new List<int>();
         while (player.TryDequeue(out BufferedPlayer.Frame frame))
@@ -97,7 +97,7 @@ public class PlaybackFrameRangeTests
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("playback-frame-range", 320, 240, frameRate: Rate);
 
         // Let the preview render queued by opening the scene finish first.
-        RenderThreadDrain.Drain(TimeSpan.FromMinutes(2));
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
         return editor;
     }
 }

@@ -47,8 +47,8 @@ public sealed class SceneHistoryHarness : IDisposable
     /// <param name="duration">Scene duration; <see langword="null"/> leaves the property default.</param>
     public SceneHistoryHarness(
         string namePrefix,
-        TimeSpan? start = null,
-        TimeSpan? duration = null)
+        MediaTime? start = null,
+        MediaTime? duration = null)
     {
         BasePath = Path.Combine(Path.GetTempPath(), $"{namePrefix}_{Guid.NewGuid():N}");
         Directory.CreateDirectory(BasePath);
@@ -74,7 +74,7 @@ public sealed class SceneHistoryHarness : IDisposable
     /// appends it to <see cref="Scene"/>'s children. The scene's default include matcher reads <c>.belm</c>
     /// files back from disk.
     /// </summary>
-    public Element AddElement(TimeSpan start, TimeSpan length, int zIndex = 0, bool isEnabled = true)
+    public Element AddElement(MediaTime start, MediaTime length, int zIndex = 0, bool isEnabled = true)
     {
         var element = new Element
         {
@@ -93,14 +93,14 @@ public sealed class SceneHistoryHarness : IDisposable
     /// enabled flag, matching the element-attribute fixture.
     /// </summary>
     public Element AddElement(bool isEnabled = true)
-        => AddElement(TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2), 0, isEnabled);
+        => AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0, isEnabled);
 
     /// <summary>
     /// Layer-oriented overload: derives <c>Start</c> from <paramref name="zIndex"/> (one second per
     /// layer) and uses a one-second length, matching the layer-service fixtures.
     /// </summary>
     public Element AddElement(int zIndex, bool isEnabled = true)
-        => AddElement(TimeSpan.FromSeconds(zIndex), TimeSpan.FromSeconds(1), zIndex, isEnabled);
+        => AddElement(MediaTime.FromSeconds(zIndex), MediaTime.FromSeconds(1), zIndex, isEnabled);
 
     public TimelineLayer AddLayer(int zIndex)
     {

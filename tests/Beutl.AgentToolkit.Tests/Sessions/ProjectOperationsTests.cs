@@ -104,7 +104,7 @@ public sealed class ProjectOperationsTests
         var element = new Element
         {
             Uri = new Uri(Path.Combine(_tempRoot, "outside", "clip.belm")),
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
         };
         scene.Children.Add(element);
 
@@ -150,7 +150,7 @@ public sealed class ProjectOperationsTests
             var recovered = new Element
             {
                 Name = "Recovered",
-                Length = TimeSpan.FromSeconds(1),
+                Length = MediaTime.FromSeconds(1),
                 Uri = new Uri(outsidePath),
                 SuppressedStorageSource = new SuppressedStorageSource(retainedBytes, new Uri(outsidePath)),
             };
@@ -280,7 +280,7 @@ public sealed class ProjectOperationsTests
         scene.Uri = new Uri(Path.Combine(outsideDir, "escape.scene"));
         var element = new Element
         {
-            Length = TimeSpan.FromSeconds(1),
+            Length = MediaTime.FromSeconds(1),
             Uri = new Uri(Path.Combine(outsideDir, "escape.belm"))
         };
         scene.Children.Add(element);

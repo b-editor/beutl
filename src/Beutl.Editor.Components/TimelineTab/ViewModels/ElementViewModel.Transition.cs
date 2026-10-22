@@ -110,14 +110,14 @@ public sealed partial class ElementViewModel
     }
 
     // The duration this element's own side adds at edge, or none when it sets no transition there.
-    public TimeSpan? GetOwnTransitionDuration(ElementEdge edge)
+    public MediaTime? GetOwnTransitionDuration(ElementEdge edge)
     {
         return ElementTransitionEdits.GetTransition(Model, edge)?.Duration.Value;
     }
 
     // Redraws the boundary at the duration a drag would commit, on both of its elements, without touching
     // the document; null ends the preview.
-    public void PreviewTransitionDuration(ElementEdge edge, TimeSpan? duration)
+    public void PreviewTransitionDuration(ElementEdge edge, MediaTime? duration)
     {
         TransitionDurationOverride? preview =
             duration is { } value && ElementTransitionEdits.GetTransition(Model, edge) is { } transition
@@ -131,7 +131,7 @@ public sealed partial class ElementViewModel
         }
     }
 
-    public void CommitTransitionDuration(ElementEdge edge, TimeSpan duration)
+    public void CommitTransitionDuration(ElementEdge edge, MediaTime duration)
     {
         PreviewTransitionDuration(edge, null);
         if (IsEditable.Value)
@@ -176,16 +176,16 @@ public sealed partial class ElementViewModel
 
         TimeRange region = boundary.Region;
         TimeRange range = Model.Range;
-        TimeSpan partStart = region.Start > range.Start ? region.Start : range.Start;
-        TimeSpan partEnd = region.End < range.End ? region.End : range.End;
+        MediaTime partStart = region.Start > range.Start ? region.Start : range.Start;
+        MediaTime partEnd = region.End < range.End ? region.End : range.End;
         if (partEnd <= partStart) return TransitionPartLayout.Hidden;
 
-        double regionTicks = region.Duration.Ticks;
-        double startFraction = (partStart - region.Start).Ticks / regionTicks;
-        double endFraction = (partEnd - region.Start).Ticks / regionTicks;
+        double regionFlicks = region.Duration.Flicks;
+        double startFraction = (partStart - region.Start).Flicks / regionFlicks;
+        double endFraction = (partEnd - region.Start).Flicks / regionFlicks;
         ClipTransition transition = boundary.Transition;
         string toolTip = $"{TypeDisplayHelpers.GetLocalizedName(transition.GetType())} "
-                         + $"({region.Duration.TotalSeconds:0.##}s)";
+                         + $"({region.Duration.ToSeconds():0.##}s)";
         return new TransitionPartLayout(
             true,
             new Thickness((partStart - range.Start).TimeToPixel(scale), 0, 0, 0),

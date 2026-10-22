@@ -16,7 +16,7 @@ public class KeyFrameNavigationHelperTests
     [Test]
     public void EnumerateKeyFrameAnimations_WithNoAnimations_ReturnsEmpty()
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(5) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(5) };
         element.AddObject(new TestAnimatableObject());
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
@@ -27,12 +27,12 @@ public class KeyFrameNavigationHelperTests
     [Test]
     public void EnumerateKeyFrameAnimations_EngineProperty_LocalClock_ReturnsAnimationWithElementOffset()
     {
-        var element = new Element { Start = TimeSpan.FromSeconds(3), Length = TimeSpan.FromSeconds(5) };
+        var element = new Element { Start = MediaTime.FromSeconds(3), Length = MediaTime.FromSeconds(5) };
         var obj = new TestAnimatableObject();
         element.AddObject(obj);
 
         var animation = CreateAnimation(useGlobalClock: false,
-            TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
+            MediaTime.FromSeconds(0), MediaTime.FromSeconds(1));
         obj.FloatValue.SetKeyFrameAnimation(animation);
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
@@ -41,19 +41,19 @@ public class KeyFrameNavigationHelperTests
         {
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].Animation, Is.SameAs(animation));
-            Assert.That(result[0].Offset, Is.EqualTo(TimeSpan.FromSeconds(3)));
+            Assert.That(result[0].Offset, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
     [Test]
     public void EnumerateKeyFrameAnimations_EngineProperty_GlobalClock_ReturnsZeroOffset()
     {
-        var element = new Element { Start = TimeSpan.FromSeconds(3), Length = TimeSpan.FromSeconds(5) };
+        var element = new Element { Start = MediaTime.FromSeconds(3), Length = MediaTime.FromSeconds(5) };
         var obj = new TestAnimatableObject();
         element.AddObject(obj);
 
         var animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
+            MediaTime.FromSeconds(0), MediaTime.FromSeconds(1));
         obj.FloatValue.SetKeyFrameAnimation(animation);
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
@@ -62,19 +62,19 @@ public class KeyFrameNavigationHelperTests
         {
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].Animation, Is.SameAs(animation));
-            Assert.That(result[0].Offset, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(result[0].Offset, Is.EqualTo(MediaTime.Zero));
         });
     }
 
     [Test]
     public void EnumerateKeyFrameAnimations_MultipleProperties_ReturnsAll()
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(5) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(5) };
         var obj = new TestMultiPropertyObject();
         element.AddObject(obj);
 
-        var anim1 = CreateAnimation(useGlobalClock: false, TimeSpan.Zero);
-        var anim2 = CreateAnimation(useGlobalClock: false, TimeSpan.FromSeconds(1));
+        var anim1 = CreateAnimation(useGlobalClock: false, MediaTime.Zero);
+        var anim2 = CreateAnimation(useGlobalClock: false, MediaTime.FromSeconds(1));
         obj.FloatA.SetKeyFrameAnimation(anim1);
         obj.FloatB.SetKeyFrameAnimation(anim2);
 
@@ -91,10 +91,10 @@ public class KeyFrameNavigationHelperTests
     public void EnumerateKeyFrameAnimations_NodeGraphMember_LocalClock_ReturnsAnimationWithGraphNodeOffset()
     {
         (Element element, KeyFrameNavTestGraphNode node) = CreateNodeGraphElement(
-            new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)));
+            new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(5)));
 
         var animation = CreateAnimation(useGlobalClock: false,
-            TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
+            MediaTime.FromSeconds(0), MediaTime.FromSeconds(1));
         node.Items.Add(new TestNodeMember<float>("Value", animation));
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
@@ -103,7 +103,7 @@ public class KeyFrameNavigationHelperTests
         {
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].Animation, Is.SameAs(animation));
-            Assert.That(result[0].Offset, Is.EqualTo(TimeSpan.FromSeconds(2)));
+            Assert.That(result[0].Offset, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -111,10 +111,10 @@ public class KeyFrameNavigationHelperTests
     public void EnumerateKeyFrameAnimations_NodeGraphMember_GlobalClock_ReturnsZeroOffset()
     {
         (Element element, KeyFrameNavTestGraphNode node) = CreateNodeGraphElement(
-            new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)));
+            new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(5)));
 
         var animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(1));
+            MediaTime.FromSeconds(0), MediaTime.FromSeconds(1));
         node.Items.Add(new TestNodeMember<float>("Value", animation));
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
@@ -123,7 +123,7 @@ public class KeyFrameNavigationHelperTests
         {
             Assert.That(result, Has.Count.EqualTo(1));
             Assert.That(result[0].Animation, Is.SameAs(animation));
-            Assert.That(result[0].Offset, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(result[0].Offset, Is.EqualTo(MediaTime.Zero));
         });
     }
 
@@ -131,7 +131,7 @@ public class KeyFrameNavigationHelperTests
     public void EnumerateKeyFrameAnimations_EnginePropertyBackedInputPort_IsExcluded()
     {
         (Element element, KeyFrameNavTestGraphNode node) = CreateNodeGraphElement(
-            new TimeRange(TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)));
+            new TimeRange(MediaTime.FromSeconds(2), MediaTime.FromSeconds(5)));
 
         // The engine-property pass already covers EngineObject-backed properties, so the node-graph
         // pass skips IEnginePropertyBackedInputPort to avoid double-counting. The backing object is
@@ -139,7 +139,7 @@ public class KeyFrameNavigationHelperTests
         // could otherwise surface its animation.
         var backing = new TestAnimatableObject();
         backing.FloatValue.SetKeyFrameAnimation(CreateAnimation(useGlobalClock: false,
-            TimeSpan.Zero, TimeSpan.FromSeconds(1)));
+            MediaTime.Zero, MediaTime.FromSeconds(1)));
         node.Items.Add(new EnginePropertyBackedInputPort<float>(backing, backing.FloatValue));
 
         var result = KeyFrameNavigationHelper.EnumerateKeyFrameAnimations(element).ToList();
@@ -160,33 +160,33 @@ public class KeyFrameNavigationHelperTests
         bool forward,
         double expectedSeconds)
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(10) };
         var obj = new TestAnimatableObject();
         element.AddObject(obj);
 
         var animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3), TimeSpan.FromSeconds(5));
+            MediaTime.FromSeconds(1), MediaTime.FromSeconds(3), MediaTime.FromSeconds(5));
         obj.FloatValue.SetKeyFrameAnimation(animation);
 
-        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [element], TimeSpan.FromSeconds(currentSeconds), forward);
+        MediaTime? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
+            [element], MediaTime.FromSeconds(currentSeconds), forward);
 
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(expectedSeconds)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(expectedSeconds)));
     }
 
     [Test]
     public void FindAdjacentKeyFrame_NoKeyFrameInDirection_ReturnsNull()
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(10) };
         var obj = new TestAnimatableObject();
         element.AddObject(obj);
 
         var animation = CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(2));
+            MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         obj.FloatValue.SetKeyFrameAnimation(animation);
 
-        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [element], TimeSpan.FromSeconds(5), forward: true);
+        MediaTime? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
+            [element], MediaTime.FromSeconds(5), forward: true);
 
         Assert.That(result, Is.Null);
     }
@@ -194,46 +194,46 @@ public class KeyFrameNavigationHelperTests
     [Test]
     public void FindAdjacentKeyFrame_MultipleElements_SearchesAll()
     {
-        var el1 = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
+        var el1 = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(10) };
         var obj1 = new TestAnimatableObject();
         el1.AddObject(obj1);
         obj1.FloatValue.SetKeyFrameAnimation(CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(5)));
+            MediaTime.FromSeconds(5)));
 
-        var el2 = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
+        var el2 = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(10) };
         var obj2 = new TestAnimatableObject();
         el2.AddObject(obj2);
         obj2.FloatValue.SetKeyFrameAnimation(CreateAnimation(useGlobalClock: true,
-            TimeSpan.FromSeconds(2)));
+            MediaTime.FromSeconds(2)));
 
-        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [el1, el2], TimeSpan.FromSeconds(1), forward: true);
+        MediaTime? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
+            [el1, el2], MediaTime.FromSeconds(1), forward: true);
 
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(2)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
     public void FindAdjacentKeyFrame_WithOffset_AdjustsKeyFrameTime()
     {
-        var element = new Element { Start = TimeSpan.FromSeconds(10), Length = TimeSpan.FromSeconds(5) };
+        var element = new Element { Start = MediaTime.FromSeconds(10), Length = MediaTime.FromSeconds(5) };
         var obj = new TestAnimatableObject();
         element.AddObject(obj);
 
         var animation = CreateAnimation(useGlobalClock: false,
-            TimeSpan.FromSeconds(0), TimeSpan.FromSeconds(2));
+            MediaTime.FromSeconds(0), MediaTime.FromSeconds(2));
         obj.FloatValue.SetKeyFrameAnimation(animation);
 
-        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [element], TimeSpan.FromSeconds(9), forward: true);
+        MediaTime? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
+            [element], MediaTime.FromSeconds(9), forward: true);
 
-        Assert.That(result, Is.EqualTo(TimeSpan.FromSeconds(10)));
+        Assert.That(result, Is.EqualTo(MediaTime.FromSeconds(10)));
     }
 
     [Test]
     public void FindAdjacentKeyFrame_EmptyRoots_ReturnsNull()
     {
-        TimeSpan? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
-            [], TimeSpan.FromSeconds(1), forward: true);
+        MediaTime? result = KeyFrameNavigationHelper.FindAdjacentKeyFrame(
+            [], MediaTime.FromSeconds(1), forward: true);
 
         Assert.That(result, Is.Null);
     }
@@ -242,7 +242,7 @@ public class KeyFrameNavigationHelperTests
 
     #region Helpers
 
-    private static KeyFrameAnimation<float> CreateAnimation(bool useGlobalClock, params TimeSpan[] keyTimes)
+    private static KeyFrameAnimation<float> CreateAnimation(bool useGlobalClock, params MediaTime[] keyTimes)
     {
         var animation = new KeyFrameAnimation<float> { UseGlobalClock = useGlobalClock };
         for (int i = 0; i < keyTimes.Length; i++)
@@ -287,7 +287,7 @@ public class KeyFrameNavigationHelperTests
 
     private static (Element Element, KeyFrameNavTestGraphNode Node) CreateNodeGraphElement(TimeRange nodeTimeRange)
     {
-        var element = new Element { Start = TimeSpan.Zero, Length = TimeSpan.FromSeconds(10) };
+        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(10) };
         var drawable = new NodeGraphDrawable();
         element.AddObject(drawable);
 

@@ -60,7 +60,7 @@ public class VideoFileImportTests
         {
             Assert.That(editor.Scene.Children, Has.Count.EqualTo(2));
             Assert.That(editor.Scene.Children.Select(element => element.Length),
-                Is.All.EqualTo(TimeSpan.FromSeconds(2)));
+                Is.All.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
         }
@@ -83,8 +83,8 @@ public class VideoFileImportTests
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(5),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(5),
             Layer: 0,
             Source: new ElementSource.File(path))],
             CancellationToken.None);
@@ -113,8 +113,8 @@ public class VideoFileImportTests
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult result = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(5),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(5),
             Layer: 0,
             Source: new ElementSource.File(path))],
             CancellationToken.None);
@@ -153,8 +153,8 @@ public class VideoFileImportTests
             ElementAddResult result = await adder.AddAsync(
             [
                 new ElementDescription(
-                    TimeSpan.Zero,
-                    TimeSpan.FromSeconds(5),
+                    MediaTime.Zero,
+                    MediaTime.FromSeconds(5),
                     0,
                     new ElementSource.File(path)),
             ], CancellationToken.None);
@@ -190,8 +190,8 @@ public class VideoFileImportTests
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         ElementAddResult result = await adder.AddAsync([
             new ElementDescription(
-                TimeSpan.Zero,
-                TimeSpan.FromSeconds(5),
+                MediaTime.Zero,
+                MediaTime.FromSeconds(5),
                 Layer: 0,
                 Source: new ElementSource.File(path)),
         ], CancellationToken.None);

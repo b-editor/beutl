@@ -26,6 +26,21 @@ namespace Beutl.AgentToolkit.Tests.Schema;
 
 public sealed class SchemaGenerationTests
 {
+    // #2885 step 3: a time property names Beutl.MediaTime, and its default still writes as TimeSpan text.
+    [Test]
+    public void A_time_property_names_MediaTime_and_writes_its_default_as_text()
+    {
+        CapabilitySchema schema = new SchemaGenerator().Generate(typeFilter: nameof(SourceVideo));
+        PropertyDescriptor offset = schema.Types.Single(type => type.Type == typeof(SourceVideo).FullName)
+            .Properties.Single(property => property.Name == nameof(SourceVideo.OffsetPosition));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(offset.ValueType, Is.EqualTo(typeof(MediaTime).FullName));
+            Assert.That(System.Text.Json.JsonSerializer.Serialize(offset.Default), Is.EqualTo("\"00:00:00\""));
+        });
+    }
+
     [Test]
     public void DiagonalClipping_ExposesSignedWidthAndAnimatedParametersWithoutMode()
     {
@@ -212,7 +227,7 @@ public sealed class SchemaGenerationTests
     public void Camera_rig_push_in_example_applies_through_merge_patch_and_reconciler()
     {
         Scene scene = TestWorkspace.CreateScene("camera-nested");
-        scene.Duration = TimeSpan.FromSeconds(8);
+        scene.Duration = MediaTime.FromSeconds(8);
         using var session = new AgentToolkitTestSession(scene);
 
         DeclarativeExample example = new SchemaGenerator()
@@ -243,7 +258,7 @@ public sealed class SchemaGenerationTests
     public void Camera_rig_portal_example_applies_through_merge_patch_and_reconciler()
     {
         Scene scene = TestWorkspace.CreateScene("camera-portal");
-        scene.Duration = TimeSpan.FromSeconds(8);
+        scene.Duration = MediaTime.FromSeconds(8);
         using var session = new AgentToolkitTestSession(scene);
 
         DeclarativeExample example = new SchemaGenerator()

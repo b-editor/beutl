@@ -16,7 +16,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly Scene _scene;
     private readonly SceneComposer _composer;
     private readonly long _sampleRate;
-    private readonly Subject<TimeSpan> _progress;
+    private readonly Subject<MediaTime> _progress;
     private readonly long _sampleCount;
     private readonly Channel<AudioBuffer> _channel;
     private readonly CancellationTokenSource _cts = new();
@@ -27,7 +27,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
     private readonly int _chunkSize;
     private bool _disposed;
 
-    public SampleProviderImpl(Scene scene, SceneComposer composer, long sampleRate, Subject<TimeSpan> progress)
+    public SampleProviderImpl(Scene scene, SceneComposer composer, long sampleRate, Subject<MediaTime> progress)
     {
         _scene = scene;
         _composer = composer;
@@ -60,7 +60,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         if (offset >= _sampleCount)
             return null;
 
-        _progress.OnNext(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * Math.Min(offset + length, _sampleCount) / _sampleRate));
+        _progress.OnNext(MediaTime.FromSamples(Math.Min(offset + length, _sampleCount), (int)_sampleRate));
 
         // Past the end the samples stay zero.
         var audio = new AudioBuffer((int)_sampleRate, 2, length);
@@ -150,8 +150,8 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
 
     private AudioBuffer ComposeCore(long offset, int length)
     {
-        AudioBuffer buffer = _composer.Compose(new(TimeSpan.FromTicks(TimeSpan.TicksPerSecond * offset / _sampleRate) + _scene.Start,
-            TimeSpan.FromSeconds(1)))
+        AudioBuffer buffer = _composer.Compose(new(MediaTime.FromSamples(offset, (int)_sampleRate) + _scene.Start,
+            MediaTime.FromSeconds(1)))
                      ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
         if (buffer.SampleCount == length)
             return buffer;

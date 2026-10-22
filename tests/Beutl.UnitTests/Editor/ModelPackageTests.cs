@@ -83,9 +83,9 @@ public class ModelPackageTests
             child.Position.Value = new Vector3(10, 20, 30);
             ((PBRMaterial)child.Material.Value!).Albedo.Value = Beutl.Media.Colors.Red;
             var scene3D = new Scene3D(); scene3D.Objects.Add(model);
-            var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(Path.Combine(projectDirectory, "model.belm")) };
+            var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(projectDirectory, "model.belm")) };
             element.Objects.Add(scene3D);
-            var scene = new Scene(64, 64, "Model") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")), Duration = TimeSpan.FromSeconds(1) };
+            var scene = new Scene(64, 64, "Model") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")), Duration = MediaTime.FromSeconds(1) };
             scene.Children.Add(element);
             var project = new Project { Uri = new Uri(Path.Combine(projectDirectory, "main.bep")) };
             project.Items.Add(scene);

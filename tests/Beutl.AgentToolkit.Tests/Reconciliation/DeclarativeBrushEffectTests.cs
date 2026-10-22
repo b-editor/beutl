@@ -203,7 +203,7 @@ public sealed class DeclarativeBrushEffectTests
     private static Scene CreateSceneWithRect(out Element element, out RectShape rect)
     {
         Scene scene = TestWorkspace.CreateScene();
-        element = TestWorkspace.AddElement(scene, TimeSpan.Zero, TimeSpan.FromSeconds(4));
+        element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         rect = new RectShape
         {
             Width = { Value = 640 },

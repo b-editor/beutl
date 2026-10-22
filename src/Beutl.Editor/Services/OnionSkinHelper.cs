@@ -2,7 +2,7 @@
 
 namespace Beutl.Editor.Services;
 
-public readonly record struct OnionSkinSample(TimeSpan Time, bool IsPrev, float Alpha);
+public readonly record struct OnionSkinSample(MediaTime Time, bool IsPrev, float Alpha);
 
 public static class OnionSkinHelper
 {
@@ -10,41 +10,39 @@ public static class OnionSkinHelper
     // linearly. Samples outside the scene are omitted, and alpha is spread over the emitted samples only, so a sample
     // cut off near the scene start does not dim the near frames.
     //
-    // Sample times are derived from absolute frame numbers via the shared frame<->time
-    // conversion (int.ToTimeSpan(rate)), so they land on exactly the same frame grid the
-    // player uses. Stepping by a single rounded per-frame tick would instead accumulate a
-    // sub-frame drift at rates whose frame duration is fractional in ticks (e.g. 24/60 fps).
+    // Sample times are derived from absolute frame numbers with MediaTime.FromFrames, so they land on
+    // exactly the frame grid the player uses.
     public static IReadOnlyList<OnionSkinSample> EnumerateOnionSkinTimes(
-        int currentFrame, TimeSpan sceneStart, TimeSpan sceneDuration,
-        int frameRate, int prevCount, int nextCount,
+        int currentFrame, MediaTime sceneStart, MediaTime sceneDuration,
+        Rational frameRate, int prevCount, int nextCount,
         float prevBaseOpacity, float nextBaseOpacity)
     {
-        if (frameRate <= 0)
+        if (frameRate.Numerator <= 0 || frameRate.Denominator <= 0)
             return [];
         prevCount = Math.Max(0, prevCount);
         nextCount = Math.Max(0, nextCount);
         if (prevCount == 0 && nextCount == 0)
             return [];
 
-        TimeSpan minTime = sceneStart;
-        TimeSpan maxTime = sceneStart + sceneDuration; // exclusive
+        MediaTime minTime = sceneStart;
+        MediaTime maxTime = sceneStart + sceneDuration; // exclusive
 
         // Collect prev times in oldest→closest order. Alpha is filled in after the actual
         // emitted count is known so falloff stays continuous when the loop skipped frames
         // that fell outside the scene range.
-        var prevTimes = new List<TimeSpan>(prevCount);
+        var prevTimes = new List<MediaTime>(prevCount);
         for (int i = prevCount; i >= 1; i--)
         {
-            TimeSpan t = (currentFrame - i).ToTimeSpan(frameRate);
+            var t = MediaTime.FromFrames(currentFrame - i, frameRate);
             if (t < minTime || t >= maxTime)
                 continue;
             prevTimes.Add(t);
         }
 
-        var nextTimes = new List<TimeSpan>(nextCount);
+        var nextTimes = new List<MediaTime>(nextCount);
         for (int i = 1; i <= nextCount; i++)
         {
-            TimeSpan t = (currentFrame + i).ToTimeSpan(frameRate);
+            var t = MediaTime.FromFrames(currentFrame + i, frameRate);
             if (t < minTime || t >= maxTime)
                 continue;
             nextTimes.Add(t);
@@ -79,11 +77,11 @@ public static class OnionSkinHelper
     // UI thread) so this stays a pure function and does not read shared mutable config off-thread.
     public static bool IsEditAffectingPreview(
         IReadOnlyList<TimeRange> affectedRange,
-        TimeSpan currentTime,
+        MediaTime currentTime,
         bool onionSkinEnabled,
         int prevCount, float prevOpacity,
         int nextCount, float nextOpacity,
-        int frameRate, TimeSpan sceneStart, TimeSpan sceneDuration)
+        Rational frameRate, MediaTime sceneStart, MediaTime sceneDuration)
     {
         if (affectedRange.Any(v => v.Contains(currentTime)))
             return true;
@@ -98,7 +96,10 @@ public static class OnionSkinHelper
         if (effectivePrev == 0 && effectiveNext == 0)
             return false;
 
-        int frame = (int)Math.Round(currentTime.ToFrameNumber(frameRate), MidpointRounding.AwayFromZero);
+        if (frameRate.Numerator <= 0 || frameRate.Denominator <= 0)
+            return false;
+
+        int frame = (int)currentTime.ToFrame(frameRate, MidpointRounding.AwayFromZero);
         IReadOnlyList<OnionSkinSample> samples = EnumerateOnionSkinTimes(
             frame, sceneStart, sceneDuration, frameRate,
             effectivePrev, effectiveNext, prevOpacity, nextOpacity);

@@ -17,7 +17,10 @@ internal static class DataAnnotationValidation
 
         if (!attribute.RequiresValidationContext)
         {
-            if (!attribute.IsValid(value))
+            // A time property's [Range] gives its limits as TimeSpan strings.
+            object? checkedValue = value is MediaTime time && attribute is RangeAttribute { OperandType: var type }
+                && type == typeof(TimeSpan) ? time.ToTimeSpan() : value;
+            if (!attribute.IsValid(checkedValue))
             {
                 return attribute.FormatErrorMessage(context.Property?.Name ?? typeof(T).Name);
             }

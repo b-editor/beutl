@@ -27,7 +27,7 @@ public class EditSessionWriterTests
         EditSession session = editor.HistoryManager.BeginEdit("Drag");
 
         Task result = host.InvokeOnUIThreadAsync(() => applied = true);
-        await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.QueuedEditCount == 1, TimeSpan.FromMinutes(1));
+        await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.QueuedEditCount == 1, TimeSpan.FromSeconds(60));
         Assert.That(applied, Is.False);
 
         session.Complete();
@@ -43,9 +43,9 @@ public class EditSessionWriterTests
         EditSession session = editor.HistoryManager.BeginEdit("Drag");
 
         ValueTask<ElementAddResult> adding = editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
-            TimeSpan.Zero, TimeSpan.FromSeconds(1), 0, new ElementSource.EngineObject(() => new RectShape()))],
+            MediaTime.Zero, MediaTime.FromSeconds(1), 0, new ElementSource.EngineObject(() => new RectShape()))],
             CancellationToken.None);
-        await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.QueuedEditCount == 1, TimeSpan.FromMinutes(1));
+        await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.QueuedEditCount == 1, TimeSpan.FromSeconds(60));
         Assert.That(editor.Scene.Children, Is.Empty);
 
         session.Complete();
@@ -64,8 +64,8 @@ public class EditSessionWriterTests
         bool read = false;
         EditSession session = editor.HistoryManager.BeginEdit("Drag");
 
-        Task editing = Task.Run(() => binding.InvokeEdit(() => edited = true, TimeSpan.FromMinutes(1), CancellationToken.None));
-        await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.QueuedEditCount == 1, TimeSpan.FromMinutes(1));
+        Task editing = Task.Run(() => binding.InvokeEdit(() => edited = true, TimeSpan.FromSeconds(60), CancellationToken.None));
+        await HeadlessTestHelpers.WaitUntilAsync(() => editor.HistoryManager.QueuedEditCount == 1, TimeSpan.FromSeconds(60));
         await Task.Run(() => binding.Invoke(() => read = true)).WaitAsync(TimeSpan.FromMinutes(1));
         ValueTask<int> undo = binding.ExecuteHistoryMutationAsync(_ => false, history => history.UndoCount, sessionWait: TimeSpan.FromMinutes(1));
         HeadlessTestHelpers.Settle();
@@ -91,8 +91,8 @@ public class EditSessionWriterTests
         bool edited = false;
         EditSession session = editor.HistoryManager.BeginEdit("Drag");
 
-        Task editing = Task.Run(() => binding.InvokeEdit(() => edited = true, TimeSpan.FromMilliseconds(100), CancellationToken.None));
-        await HeadlessTestHelpers.WaitUntilAsync(() => editing.IsCompleted, TimeSpan.FromMinutes(1));
+        Task editing = Task.Run(() => binding.InvokeEdit(() => edited = true, TimeSpan.FromSeconds(0.1), CancellationToken.None));
+        await HeadlessTestHelpers.WaitUntilAsync(() => editing.IsCompleted, TimeSpan.FromSeconds(60));
         session.Complete();
         HeadlessTestHelpers.Settle();
 

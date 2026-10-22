@@ -6,7 +6,8 @@ namespace Beutl.Audio.Graph;
 
 public sealed class AudioProcessContext
 {
-    internal const long TimestampQuantizationToleranceTicks = 1;
+    // One TimeSpan tick, the most that independently rounded boundaries of files differ by.
+    internal static readonly MediaTime TimestampQuantizationTolerance = MediaTime.FromTicks(1, MidpointRounding.ToPositiveInfinity);
 
     public AudioProcessContext(TimeRange timeRange, int sampleRate, AnimationSampler animationSampler, TimeRange? originalTimeRange)
     {
@@ -27,7 +28,7 @@ public sealed class AudioProcessContext
 
     // Terminal live-input boundary in the current node's timeline. Clip nodes establish it;
     // time-mapping nodes translate it before forwarding contexts to their inputs.
-    internal TimeSpan? ProcessEndTime { get; init; }
+    internal MediaTime? ProcessEndTime { get; init; }
 
     public int SampleRate { get; }
 
@@ -42,7 +43,7 @@ public sealed class AudioProcessContext
     /// Returns the number of audio samples that cover <paramref name="range"/> at the given <paramref name="sampleRate"/>.
     /// </summary>
     /// <remarks>
-    /// Always rounds up via <see cref="Math.Ceiling(double)"/> so non-integer-second durations never under-allocate.
+    /// Always rounds up so durations between sample boundaries never under-allocate.
     /// Both per-node audio paths and the silence fallback in <see cref="Composing.Composer"/> must route through
     /// this helper to stay in sync; replacing it with truncation will desynchronise mix and silent buffers by one sample.
     /// </remarks>
@@ -50,10 +51,10 @@ public sealed class AudioProcessContext
     {
         if (sampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
-        if (range.Duration < TimeSpan.Zero)
+        if (range.Duration < MediaTime.Zero)
             throw new ArgumentOutOfRangeException(nameof(range), $"Duration must be non-negative; was {range.Duration}.");
 
-        double samples = Math.Ceiling(range.Duration.TotalSeconds * sampleRate);
+        long samples = range.Duration.ToSamples(sampleRate, MidpointRounding.ToPositiveInfinity);
         if (samples > int.MaxValue)
             throw new ArgumentOutOfRangeException(nameof(range), $"Sample count {samples} exceeds Int32.MaxValue at sampleRate={sampleRate}.");
 
@@ -64,41 +65,21 @@ public sealed class AudioProcessContext
     /// Returns a representable duration whose ceiling-based sample count is exactly
     /// <paramref name="sampleCount"/>.
     /// </summary>
-    /// <remarks>
-    /// <see cref="TimeSpan.FromSeconds(double)"/> may round a quotient upward by one tick. Feeding that
-    /// duration back through <see cref="GetSampleCount(TimeRange, int)"/> can therefore consume one
-    /// extra sample. Taking the greatest whole-tick duration that does not exceed the exact sample
-    /// boundary keeps stateful audio nodes and their callers on the same sample count.
-    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">
     /// <paramref name="sampleCount"/> is negative, <paramref name="sampleRate"/> is not positive, or
-    /// the requested sample count cannot be represented at the given rate with <see cref="TimeSpan"/>
-    /// tick precision.
+    /// the requested sample count cannot be represented at the given rate with flick precision.
     /// </exception>
-    public static TimeSpan GetDurationForSampleCount(int sampleCount, int sampleRate)
+    public static MediaTime GetDurationForSampleCount(int sampleCount, int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(sampleCount);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
 
         if (sampleCount == 0)
-            return TimeSpan.Zero;
+            return MediaTime.Zero;
 
-        long ticks = (long)sampleCount * TimeSpan.TicksPerSecond / sampleRate;
-        if (ticks == 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(sampleRate),
-                $"Sample rate {sampleRate} is too high to represent {sampleCount} samples as a positive TimeSpan.");
-        }
-
-        var duration = TimeSpan.FromTicks(ticks);
-        int roundTripped = GetSampleCount(new TimeRange(TimeSpan.Zero, duration), sampleRate);
-        while (roundTripped > sampleCount && ticks > 0)
-        {
-            duration = TimeSpan.FromTicks(--ticks);
-            roundTripped = GetSampleCount(new TimeRange(TimeSpan.Zero, duration), sampleRate);
-        }
-
+        // Rounded down, as earlier versions took whole ticks, so a block that starts on a sample ends on its last one.
+        var duration = new MediaTime((long)((Int128)sampleCount * MediaTime.FlicksPerSecond / sampleRate));
+        int roundTripped = GetSampleCount(new TimeRange(MediaTime.Zero, duration), sampleRate);
         if (roundTripped != sampleCount)
         {
             throw new ArgumentOutOfRangeException(
@@ -114,23 +95,22 @@ public sealed class AudioProcessContext
     /// Returns whether this chunk continues directly from a previous chunk that ended at <paramref name="previousEnd"/>.
     /// </summary>
     /// <remarks>
-    /// Independently rounded sample boundaries may differ by one tick. A one-tick gap or overlap is
-    /// contiguous; two ticks or more is a seek/edit boundary. Stateful nodes must use this helper so
-    /// a chain resets consistently.
+    /// Independently rounded boundaries read from files may differ by one tick. A gap or overlap of up to
+    /// one tick is contiguous; more is a seek/edit boundary. Stateful nodes must use this helper so a
+    /// chain resets consistently.
     /// </remarks>
-    public bool ContinuesFrom(TimeSpan previousEnd)
+    public bool ContinuesFrom(MediaTime previousEnd)
     {
-        long difference = TimeRange.Start.Ticks - previousEnd.Ticks;
-        return difference is >= -TimestampQuantizationToleranceTicks and <= TimestampQuantizationToleranceTicks;
+        MediaTime difference = TimeRange.Start - previousEnd;
+        return difference >= -TimestampQuantizationTolerance && difference <= TimestampQuantizationTolerance;
     }
 
-    public TimeSpan GetTimeForSample(int sampleIndex)
+    public MediaTime GetTimeForSample(int sampleIndex)
     {
         if (sampleIndex < 0)
             throw new ArgumentOutOfRangeException(nameof(sampleIndex), "Sample index must be non-negative.");
 
-        var offsetSeconds = (double)sampleIndex / SampleRate;
-        return TimeRange.Start + TimeSpan.FromSeconds(offsetSeconds);
+        return TimeRange.Start + MediaTime.FromSamples(sampleIndex, SampleRate);
     }
 
     // The absolute time range of samples [startSample, startSample + sampleCount) in this block; nodes sample
@@ -142,12 +122,12 @@ public sealed class AudioProcessContext
         return new TimeRange(chunkStart, chunkEnd - chunkStart);
     }
 
-    public int GetSampleForTime(TimeSpan time)
+    public int GetSampleForTime(MediaTime time)
     {
         var offset = time - TimeRange.Start;
-        if (offset < TimeSpan.Zero)
+        if (offset < MediaTime.Zero)
             return -1;
 
-        return (int)(offset.TotalSeconds * SampleRate);
+        return (int)offset.ToSamples(SampleRate, MidpointRounding.ToZero);
     }
 }

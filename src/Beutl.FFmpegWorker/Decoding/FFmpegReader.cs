@@ -55,6 +55,8 @@ public sealed class FFmpegReader : MediaReader
     private long _firstVideoFrame;
     private int _samplesReturn;
     private bool _audioSeek;
+    // The target of a seek whose next frame starts after it; reads from there up to that frame are silence.
+    private long _audioSilenceStart = long.MaxValue;
     private double _videoTimeBaseDouble;
     private double _videoAvgFrameRateDouble;
     private MediaFrame? _swVideoFrame;
@@ -198,7 +200,7 @@ public sealed class FFmpegReader : MediaReader
     {
         info = default;
 
-        if (length == 0)
+        if (length <= 0)
         {
             info = CreateAudioFrameInfo(0);
             return true;
@@ -224,61 +226,70 @@ public sealed class FFmpegReader : MediaReader
         // SampleConverterを遅延初期化
         _sampleConverter ??= new SampleConverter();
 
-        fixed (byte* buf = destination)
+        while ((!needGrab || GrabAudio()) && _currentAudioFrame.NbSamples > 0)
         {
-            while ((!needGrab || GrabAudio()) && _currentAudioFrame.NbSamples > 0)
+            // SampleConverterの設定
+            _sampleConverter.SetOpts(
+                AV_CHANNEL_LAYOUT_STEREO,
+                AudioInfo.SampleRate,
+                AVSampleFormat.AV_SAMPLE_FMT_FLT,
+                _currentAudioFrame.NbSamples);
+
+            // 変換
+            using var convertedFrame = _sampleConverter.ConvertFrame(_currentAudioFrame, out _, out _);
+            _samplesReturn = convertedFrame.NbSamples;
+
+            if (_samplesReturn < 0)
             {
-                // SampleConverterの設定
-                _sampleConverter.SetOpts(
-                    AV_CHANNEL_LAYOUT_STEREO,
-                    AudioInfo.SampleRate,
-                    AVSampleFormat.AV_SAMPLE_FMT_FLT,
-                    _currentAudioFrame.NbSamples);
+                Debug.WriteLine("swr_convert error.");
+                return false;
+            }
 
-                // 変換
-                using var convertedFrame = _sampleConverter.ConvertFrame(_currentAudioFrame, out _, out _);
-                _samplesReturn = convertedFrame.NbSamples;
-
-                if (_samplesReturn < 0)
-                {
-                    Debug.WriteLine("swr_convert error.");
-                    return false;
-                }
-
-                int skip = 0;
-                if ((int)_audioNowTimestamp < start)
-                {
-                    skip = start - (int)_audioNowTimestamp;
-                }
-
-                int len = _samplesReturn - skip;
-                if (decoded + len > length)
-                {
-                    len = length - decoded;
-                }
-
-                if (len > 0)
-                {
-                    Buffer.MemoryCopy(
-                        convertedFrame.Data[0] + (skip * sampleSize),
-                        buf + (decoded * sampleSize),
-                        len * sampleSize,
-                        len * sampleSize);
-                    decoded += len;
-                }
-
-                if (decoded >= length || len <= 0)
+            // The stream has no audio before this frame, either before it starts or in a gap of its timestamps.
+            long position = (long)start + decoded;
+            if (_audioNowTimestamp > position)
+            {
+                int silence = (int)Math.Min(_audioNowTimestamp - position, length - decoded);
+                destination.Slice(checked(decoded * sampleSize), checked(silence * sampleSize)).Clear();
+                decoded += silence;
+                position += silence;
+                if (decoded >= length)
                 {
                     info = CreateAudioFrameInfo(decoded);
                     return true;
                 }
-
-                needGrab = skip + len >= _currentAudioFrame.NbSamples;
             }
 
-            info = CreateAudioFrameInfo(decoded);
-            return true;
+            int skip = OffsetInFrame(position, _audioNowTimestamp, _samplesReturn);
+            if (skip < 0)
+            {
+                needGrab = true;
+                continue;
+            }
+
+            int len = Math.Min(_samplesReturn - skip, length - decoded);
+            new ReadOnlySpan<byte>(convertedFrame.Data[0] + ((long)skip * sampleSize), checked(len * sampleSize))
+                .CopyTo(destination.Slice(checked(decoded * sampleSize)));
+            decoded += len;
+
+            if (decoded >= length)
+            {
+                info = CreateAudioFrameInfo(decoded);
+                return true;
+            }
+
+            needGrab = skip + len >= _currentAudioFrame.NbSamples;
         }
+
+        info = CreateAudioFrameInfo(decoded);
+        return true;
+    }
+
+    // Where a read at the position starts in the frame, or -1 when the frame does not hold that position.
+    internal static int OffsetInFrame(long position, long frameStart, int frameSamples)
+    {
+        long offset = position - frameStart;
+        return offset >= 0 && offset < frameSamples ? (int)offset : -1;
     }
 
     private unsafe AudioFrameInfo CreateAudioFrameInfo(int samples)
@@ -292,7 +303,7 @@ public sealed class FFmpegReader : MediaReader
     }
 
     private bool IsInCurrentAudioFrame(int start)
-        => start >= _audioNowTimestamp && start < _audioNextTimestamp;
+        => start >= Math.Min(_audioNowTimestamp, _audioSilenceStart) && start < _audioNextTimestamp;
 
     public override unsafe bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
     {
@@ -561,27 +572,36 @@ public sealed class FFmpegReader : MediaReader
         if (_currentAudioFrame == null || _audioStream == null || _audioDecoder == null || _demuxer == null)
             return;
 
-        if (_audioSeek)
-        {
-            _audioNowTimestamp = (long)((_currentAudioFrame.Pts * ffmpeg.av_q2d(_audioStream.TimeBase)
-                                         - (_demuxer.StartTime * ffmpeg.av_q2d(s_time_base))) *
-                                        _audioDecoder.SampleRate);
-            _audioSeek = false;
-            _audioNowTimestamp -= _audioNowTimestamp % _currentAudioFrame.NbSamples;
-        }
-        else
-        {
-            _audioNowTimestamp = _audioNextTimestamp;
-        }
+        long? position = _currentAudioFrame.Pts == ffmpeg.AV_NOPTS_VALUE
+            ? null
+            : SamplePosition(
+                (_currentAudioFrame.Pts * ffmpeg.av_q2d(_audioStream.TimeBase)) - (AudioOriginTime * ffmpeg.av_q2d(s_time_base)),
+                _audioDecoder.SampleRate);
+        long fromPts = position ?? _audioNextTimestamp;
 
+        // A frame over 0.1 s after the previous one follows a gap, as in aresample; less is rounding or drift.
+        bool afterGap = fromPts - _audioNextTimestamp > _audioDecoder.SampleRate / 10;
+        _audioNowTimestamp = _audioSeek || afterGap ? fromPts : _audioNextTimestamp;
+        _audioSeek = false;
+        _audioSilenceStart = long.MaxValue;
         _audioNextTimestamp = _audioNowTimestamp + _currentAudioFrame.NbSamples;
     }
+
+    // The sample at the time, or null for a time an int sample position cannot address, as a crafted PTS gives.
+    internal static long? SamplePosition(double seconds, int sampleRate)
+    {
+        double sample = Math.Round(seconds * sampleRate);
+        return Math.Abs(sample) <= int.MaxValue ? (long)sample : null;
+    }
+
+    // Sample 0 is the container start; WAV gives none, and its timestamps start at 0.
+    private long AudioOriginTime => _demuxer!.StartTime == ffmpeg.AV_NOPTS_VALUE ? 0 : _demuxer.StartTime;
 
     private unsafe void SeekAudio(long sample_pos)
     {
         if (_demuxer == null || _audioDecoder == null) return;
 
-        long timestamp = sample_pos * 1000000 / _audioDecoder.SampleRate + _demuxer.StartTime;
+        long timestamp = sample_pos * 1000000 / _audioDecoder.SampleRate + AudioOriginTime;
         _demuxer.Seek(timestamp, -1);
         ffmpeg.avcodec_flush_buffers(_audioDecoder);
         _audioSeek = true;
@@ -589,6 +609,9 @@ public sealed class FFmpegReader : MediaReader
         while (GrabAudio() && _audioNextTimestamp < sample_pos)
         {
         }
+
+        if (_audioNowTimestamp > sample_pos)
+            _audioSilenceStart = sample_pos;
     }
 
     private bool GrabVideo()
@@ -830,7 +853,12 @@ public sealed class FFmpegReader : MediaReader
             // デコーダー作成
             _audioDecoder = MediaDecoder.CreateDecoder(
                 _audioStream.CodecparRef,
-                ctx => ApplyThreadCount(ctx));
+                ctx =>
+                {
+                    ApplyThreadCount(ctx);
+                    // Without it, FFmpeg keeps the PTS of a frame whose leading samples it skips (MP3 and Opus delay).
+                    ctx.PktTimebase = _audioStream.TimeBase;
+                });
         }
         catch
         {
@@ -847,6 +875,8 @@ public sealed class FFmpegReader : MediaReader
 
         // フレーム初期化
         _currentAudioFrame = new MediaFrame();
+        // The first frame takes its position from the PTS, as after a seek.
+        _audioSeek = true;
     }
 
     private unsafe void GetPacketColorSpace()

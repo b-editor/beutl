@@ -160,7 +160,7 @@ public class VersionControlSaveTests
             Assert.That(await CountSnapshotsAsync(git.GitPath, projectRoot, "save"), Is.EqualTo(1));
             // An ordinary auto-save must not cancel the explicit save that is
             // waiting for its media hash, nor request a snapshot of its own.
-            scene.Duration += TimeSpan.FromSeconds(1);
+            scene.Duration += MediaTime.FromSeconds(1);
             editor.HistoryManager.Commit("Edit while hashing");
             HeadlessTestHelpers.Settle();
             release.SetResult();
@@ -917,7 +917,7 @@ public class VersionControlSaveTests
             File.Copy(original.Uri.LocalPath, alternate);
 
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
-            scene.Duration = TimeSpan.FromSeconds(73);
+            scene.Duration = MediaTime.FromSeconds(73);
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.Not.EqualTo(scene.Duration));
 
             await TestShell.Project.OpenProject(alternate);
@@ -931,9 +931,9 @@ public class VersionControlSaveTests
             {
                 Assert.That(opened.Uri!.LocalPath, Is.EqualTo(alternate));
                 Assert.That(openedScene.Uri, Is.EqualTo(scene.Uri));
-                Assert.That(openedScene.Duration, Is.EqualTo(TimeSpan.FromSeconds(73)));
+                Assert.That(openedScene.Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
                 Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration,
-                    Is.EqualTo(TimeSpan.FromSeconds(73)), "Saving the newly opened project must retain the close-time edits.");
+                    Is.EqualTo(MediaTime.FromSeconds(73)), "Saving the newly opened project must retain the close-time edits.");
             });
         }
         finally
@@ -1253,8 +1253,8 @@ public class VersionControlSaveTests
     private static async Task AddRectangleAsync(IElementAdder adder)
     {
         ElementAddResult result = await adder.AddAsync([new ElementDescription(
-            Start: TimeSpan.Zero,
-            Length: TimeSpan.FromSeconds(1),
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(1),
             Layer: 0,
             Source: new ElementSource.EngineObject(() => new RectShape()))],
             CancellationToken.None);

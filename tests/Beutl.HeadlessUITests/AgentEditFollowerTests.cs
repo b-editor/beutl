@@ -76,8 +76,8 @@ public sealed class AgentEditFollowerTests
         try
         {
             var animation = new KeyFrameAnimation<float>();
-            var first = new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 100 };
-            var second = new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(1.5), Value = 100 };
+            var first = new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 };
+            var second = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1.5), Value = 100 };
             animation.KeyFrames.Add(first, out _);
             animation.KeyFrames.Add(second, out _);
             fixture.FarRect.Opacity.SetKeyFrameAnimation(animation);
@@ -100,7 +100,7 @@ public sealed class AgentEditFollowerTests
             });
 
             fixture.Select(fixture.Near);
-            fixture.Seek(TimeSpan.Zero);
+            fixture.Seek(MediaTime.Zero);
             Success(await client.CallToolAsync("undo", Target(fixture.Editor.Scene.Id)));
             HeadlessTestHelpers.Render(2);
 
@@ -235,7 +235,7 @@ public sealed class AgentEditFollowerTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(fixture.Clock.Value, Is.EqualTo(TimeSpan.FromSeconds(13.25).RoundToRate(30)));
+                Assert.That(fixture.Clock.Value, Is.EqualTo(MediaTime.FromSeconds(13.25).RoundToFrame(new Rational(30), MidpointRounding.AwayFromZero)));
                 Assert.That(fixture.Timeline.Options.Value.Offset.X, Is.GreaterThan(0));
             });
         }
@@ -267,7 +267,7 @@ public sealed class AgentEditFollowerTests
             {
                 Assert.That(fixture.FarRect.Width.Value, Is.EqualTo(200));
                 Assert.That(fixture.Selection.Value, Is.Null);
-                Assert.That(fixture.Clock.Value, Is.EqualTo(TimeSpan.Zero));
+                Assert.That(fixture.Clock.Value, Is.EqualTo(MediaTime.Zero));
                 Assert.That(fixture.Timeline.Options.Value.Offset.X, Is.Zero);
                 Assert.That(Flashed(fixture.Window), Is.Empty);
             });
@@ -291,11 +291,11 @@ public sealed class AgentEditFollowerTests
         public IReadOnlyReactiveProperty<CoreObject?> Selection
             => Editor.GetRequiredService<IEditorSelection>().SelectedObject;
 
-        public IReadOnlyReactiveProperty<TimeSpan> Clock => Editor.GetRequiredService<IEditorClock>().CurrentTime;
+        public IReadOnlyReactiveProperty<MediaTime> Clock => Editor.GetRequiredService<IEditorClock>().CurrentTime;
 
         public void Select(CoreObject? obj) => Editor.GetRequiredService<IEditorSelection>().Select(obj);
 
-        public void Seek(TimeSpan time) => Editor.GetRequiredService<IEditorClock>().Seek(time);
+        public void Seek(MediaTime time) => Editor.GetRequiredService<IEditorClock>().Seek(time);
 
         public TimelineTabViewModel Timeline => Editor.FindToolTab<TimelineTabViewModel>()!;
 
@@ -310,10 +310,10 @@ public sealed class AgentEditFollowerTests
         System.IO.Directory.CreateDirectory(directory);
         Project project = (await TestShell.Project.CreateProject(640, 360, 30, 44100, "Follow", directory))!;
         Scene scene = project.Items.OfType<Scene>().Single();
-        scene.Duration = TimeSpan.FromSeconds(20);
-        Element near = AddRectangle(scene, directory, "near", TimeSpan.Zero, 0);
+        scene.Duration = MediaTime.FromSeconds(20);
+        Element near = AddRectangle(scene, directory, "near", MediaTime.Zero, 0);
         // Far right and far down, so the timeline has to scroll both ways to show it.
-        Element far = AddRectangle(scene, directory, "far", TimeSpan.FromSeconds(12), 20);
+        Element far = AddRectangle(scene, directory, "far", MediaTime.FromSeconds(12), 20);
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
 
@@ -322,20 +322,20 @@ public sealed class AgentEditFollowerTests
         window.Show();
         HeadlessTestHelpers.Render(5);
         editor.GetRequiredService<IEditorSelection>().Select(null);
-        editor.GetRequiredService<IEditorClock>().Seek(TimeSpan.Zero);
+        editor.GetRequiredService<IEditorClock>().Seek(MediaTime.Zero);
         HeadlessTestHelpers.Render(2);
 
         var config = new AiAgentConfig { FollowLiveMcpEdits = follow };
         return new Fixture(editor, window, near, far, (RectShape)far.Objects.Single(), directory, config);
     }
 
-    private static Element AddRectangle(Scene scene, string directory, string name, TimeSpan start, int zIndex)
+    private static Element AddRectangle(Scene scene, string directory, string name, MediaTime start, int zIndex)
     {
         var element = new Element
         {
             Name = name,
             Start = start,
-            Length = TimeSpan.FromSeconds(2),
+            Length = MediaTime.FromSeconds(2),
             ZIndex = zIndex,
             Uri = new Uri(Path.Combine(directory, $"{name}.belm"))
         };

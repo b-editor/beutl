@@ -96,7 +96,7 @@ public sealed class GenerativeShapeSuggestionTests
     [TestCase(4.5, ExpectedResult = 6)]
     [TestCase(30.0, ExpectedResult = 8)]
     public int TheShortestDurationCoveringASpanIsSuggested(double seconds)
-        => GenerativeShapeSuggestion.SuggestDuration([8, 4, 6], TimeSpan.FromSeconds(seconds), 6);
+        => GenerativeShapeSuggestion.SuggestDuration([8, 4, 6], MediaTime.FromSeconds(seconds), 6);
 
     [Test]
     public void WithoutASpanThePreferredDurationIsSuggestedWhenOffered()

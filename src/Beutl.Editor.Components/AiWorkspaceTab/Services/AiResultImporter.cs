@@ -12,8 +12,8 @@ using Microsoft.Extensions.Logging;
 namespace Beutl.Editor.Components.AiWorkspaceTab.Services;
 
 internal sealed record AiResultImportOptions(
-    TimeSpan Start,
-    TimeSpan Length,
+    MediaTime Start,
+    MediaTime Length,
     int Layer,
     string Name);
 

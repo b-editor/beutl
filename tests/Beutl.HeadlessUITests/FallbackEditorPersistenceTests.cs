@@ -203,8 +203,8 @@ public sealed class FallbackEditorPersistenceTests
         {
             var shape = new RectShape();
             var animation = new KeyFrameAnimation<float>();
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 32 });
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.FromSeconds(0.5), Value = 48 });
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 32 });
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.5), Value = 48 });
             shape.Width.SetKeyFrameAnimation(animation);
             Recovered recovered = StoreCorruptAndRestore(
                 root,
@@ -220,15 +220,15 @@ public sealed class FallbackEditorPersistenceTests
                 (AnimatableProperty<float>)recoveredShape.Width, recoveredShape));
             viewModel.Accept(Services(recoveredElement, history.History));
 
-            viewModel.RemoveKeyFrame(TimeSpan.Zero);
+            viewModel.RemoveKeyFrame(MediaTime.Zero);
             int countAfterHealthyRemoval = recoveredAnimation.KeyFrames.Count;
-            viewModel.RemoveKeyFrame(TimeSpan.FromSeconds(0.5));
+            viewModel.RemoveKeyFrame(MediaTime.FromSeconds(0.5));
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
 
             Assert.Multiple(() =>
             {
                 Assert.That(countAfterHealthyRemoval, Is.EqualTo(2));
-                Assert.That(recoveredAnimation.KeyFrames.Single().KeyTime, Is.EqualTo(TimeSpan.Zero));
+                Assert.That(recoveredAnimation.KeyFrames.Single().KeyTime, Is.EqualTo(MediaTime.Zero));
                 Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
                 Assert.That(File.ReadAllBytes(recovered.ElementPath), Is.Not.EqualTo(recovered.OriginalBytes));
             });
@@ -738,7 +738,7 @@ public sealed class FallbackEditorPersistenceTests
             switch (kind)
             {
                 case AnimationDiscardKind.RemoveKeyFrame:
-                    viewModel.RemoveKeyFrame(TimeSpan.Zero);
+                    viewModel.RemoveKeyFrame(MediaTime.Zero);
                     break;
                 case AnimationDiscardKind.RemoveAnimation:
                     viewModel.RemoveAnimation();
@@ -911,7 +911,7 @@ public sealed class FallbackEditorPersistenceTests
     {
         var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
         string elementPath = Path.Combine(root, "element.belm");
-        var element = new Element { Length = TimeSpan.FromSeconds(1), Uri = new Uri(elementPath) };
+        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(elementPath) };
         element.AddObject(obj);
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
         scene.Children.Add(element);
@@ -935,7 +935,7 @@ public sealed class FallbackEditorPersistenceTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = TimeSpan.Zero,
+            KeyTime = MediaTime.Zero,
             Value = 32,
         });
         shape.Width.SetKeyFrameAnimation(animation);
@@ -969,7 +969,7 @@ public sealed class FallbackEditorPersistenceTests
     {
         var obj = new T();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TimeSpan.Zero, Value = 1 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 1 });
         obj.Properties.Single(property => property.Name == propertyName).SetKeyFrameAnimation(animation);
         JsonObject animationJson = CoreSerializer.SerializeToJsonObject(obj)["Animations"]![propertyName]!
             .DeepClone()

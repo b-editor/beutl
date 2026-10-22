@@ -45,7 +45,8 @@ public static class Expression
         {
             if (objNode.TryGetDiscriminator(out Type? type))
             {
-                return JsonSerializer.Deserialize(objNode, type) as IExpression<T>;
+                return JsonSerializer.Deserialize(objNode, WithTimeArgument<T>(type, typeof(TimeSpan), typeof(MediaTime)))
+                    as IExpression<T>;
             }
 
             if (objNode.TryGetPropertyValue("ObjectId", out JsonNode? objectIdNode) &&
@@ -93,8 +94,27 @@ public static class Expression
             {
                 throw new InvalidOperationException("Serialized expression is not a JsonObject.");
             }
-            obj.WriteDiscriminator(expression.GetType());
+            obj.WriteDiscriminator(WithTimeArgument<T>(expression.GetType(), typeof(MediaTime), typeof(TimeSpan)));
             return obj;
+        }
+    }
+
+    // Until #2885 step 4 raises the format floor, files name an expression of a MediaTime property with TimeSpan.
+    private static Type WithTimeArgument<T>(Type type, Type from, Type to)
+    {
+        if (typeof(T) != typeof(MediaTime) || !type.IsGenericType || type.GenericTypeArguments is not [var argument]
+            || argument != from)
+        {
+            return type;
+        }
+
+        try
+        {
+            return type.GetGenericTypeDefinition().MakeGenericType(to);
+        }
+        catch (ArgumentException)
+        {
+            return type;
         }
     }
 }

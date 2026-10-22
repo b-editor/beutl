@@ -15,7 +15,7 @@ public sealed partial class StillRenderer
 {
     public async ValueTask<RenderStillResponse> RenderAsync(
         Scene scene,
-        TimeSpan time,
+        MediaTime time,
         string outputPath,
         float renderScale,
         CancellationToken cancellationToken)
@@ -45,7 +45,7 @@ public sealed partial class StillRenderer
             outputPath,
             snapshot.Width,
             snapshot.Height,
-            time.ToString("c"),
+            time.ToTimeSpan().ToString("c"),
             analysis.Warnings,
             analysis,
             CreateActiveElementSummaries(scene, time));
@@ -53,7 +53,7 @@ public sealed partial class StillRenderer
 
     public ValueTask<Bitmap> RenderBitmapAsync(
         Scene scene,
-        TimeSpan time,
+        MediaTime time,
         float renderScale,
         CancellationToken cancellationToken)
     {
@@ -67,7 +67,7 @@ public sealed partial class StillRenderer
 
     public ValueTask<RenderedFrameAnalysis> RenderFrameAnalysisAsync(
         Scene scene,
-        TimeSpan time,
+        MediaTime time,
         float renderScale,
         CancellationToken cancellationToken)
     {
@@ -86,9 +86,9 @@ public sealed partial class StillRenderer
 
     private static async ValueTask<TResult> RenderRenderedFrameAsync<TResult>(
         Scene scene,
-        TimeSpan time,
+        MediaTime time,
         float renderScale,
-        Func<Scene, SceneRenderer, TimeSpan, TResult> project,
+        Func<Scene, SceneRenderer, MediaTime, TResult> project,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -109,15 +109,15 @@ public sealed partial class StillRenderer
     // relativeTime scopes the check to elements active at that scene-relative sample; null checks the
     // whole visible window [Scene.Start, Scene.Start + Duration) (exports render the full window).
     // A Scene3D on a disabled or never-rendered element must not force the GPU requirement.
-    internal static bool ContainsGpuOnlyContent(Scene scene, TimeSpan? relativeTime = null)
+    internal static bool ContainsGpuOnlyContent(Scene scene, MediaTime? relativeTime = null)
     {
-        TimeSpan windowStart = scene.Start;
-        TimeSpan windowEnd = scene.Start + scene.Duration;
+        MediaTime windowStart = scene.Start;
+        MediaTime windowEnd = scene.Start + scene.Duration;
         return scene.Children
             .Where(element => element.IsEnabled)
             .Where(element => relativeTime is { } time
                 ? element.Range.Contains(time + scene.Start)
-                : scene.Duration <= TimeSpan.Zero
+                : scene.Duration <= MediaTime.Zero
                   || (element.Start < windowEnd && element.Start + element.Length > windowStart))
             .SelectMany(element => element.Objects)
             .Any(ContainsEnabledGpuContent);
@@ -126,7 +126,7 @@ public sealed partial class StillRenderer
     // A final render forces original media (no proxy fallback), so a moved/deleted original that a Ready
     // proxy would have stood in for during preview renders a blank frame instead of failing. Preflight the
     // frame's renderable sources on the render thread and fail fast, matching the save-frame/export guard.
-    private static void ThrowIfSourcesMissing(Scene scene, TimeSpan sceneTime)
+    private static void ThrowIfSourcesMissing(Scene scene, MediaTime sceneTime)
     {
         IReadOnlyList<string> missing = Beutl.Editor.ExportSourceValidator.GetMissingPaths(
             Beutl.Editor.ExportSourceValidator.CollectRenderableSources(scene, sceneTime));
@@ -194,7 +194,7 @@ public sealed partial class StillRenderer
     // export passes null to check the whole visible window.
     internal static async ValueTask ThrowIfGpuContextUnavailableAsync(
         Scene scene,
-        TimeSpan? relativeTime,
+        MediaTime? relativeTime,
         CancellationToken cancellationToken)
     {
         if (ContainsGpuOnlyContent(scene, relativeTime)
@@ -212,19 +212,19 @@ public sealed partial class StillRenderer
             ct: cancellationToken).ConfigureAwait(false);
     }
 
-    internal static IReadOnlyList<RenderStillActiveElement> CreateActiveElementSummaries(Scene scene, TimeSpan time)
+    internal static IReadOnlyList<RenderStillActiveElement> CreateActiveElementSummaries(Scene scene, MediaTime time)
     {
         // The frame is rendered at time + scene.Start (EvaluateGraphics), so element activity must be
         // filtered at the same absolute time or a non-zero Scene.Start reports the wrong elements.
-        TimeSpan renderTime = time + scene.Start;
+        MediaTime renderTime = time + scene.Start;
         return scene.Children
             .Where(element => element.IsEnabled && element.Range.Contains(renderTime))
             .OrderBy(element => element.ZIndex)
             .Select(element => new RenderStillActiveElement(
                 element.Id.ToString(),
                 element.Name,
-                element.Start.ToString("c"),
-                element.Length.ToString("c"),
+                element.Start.ToTimeSpan().ToString("c"),
+                element.Length.ToTimeSpan().ToString("c"),
                 element.ZIndex,
                 element.Objects.Count))
             .ToArray();
@@ -233,9 +233,9 @@ public sealed partial class StillRenderer
     private static IReadOnlyList<RenderedTextBounds> CreateRenderedTextBounds(
         Scene scene,
         SceneRenderer renderer,
-        TimeSpan time)
+        MediaTime time)
     {
-        TimeSpan renderTime = time + scene.Start;
+        MediaTime renderTime = time + scene.Start;
         var result = new List<RenderedTextBounds>();
         foreach (Element element in scene.Children)
         {

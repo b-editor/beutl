@@ -14,8 +14,8 @@ internal static class SceneDrawableTestHelpers
     {
         var element = new Element
         {
-            Start = TimeSpan.Zero,
-            Length = TimeSpan.FromSeconds(1),
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(1),
             IsEnabled = true,
             ZIndex = zIndex,
             Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer"))
