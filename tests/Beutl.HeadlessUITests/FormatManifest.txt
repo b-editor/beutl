@@ -816,6 +816,9 @@ Beutl.Utilities
 [Beutl.Extensions.AVFoundation].Encoding:AVFVideoEncoderSettings
   sealed
   keys: Bitrate, Codec, CodecOptions, ColorPrimaries, ColorTransfer, DestinationSize, FrameRate, Id, JPEGQuality, KeyframeRate, Name, ProfileLevelH264, SourceSize, YCbCrMatrix
+[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Decoding:FFmpegDecodingSettings
+  sealed
+  keys: Acceleration, ForceSrgbGamma, ThreadCount
 [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:AdditionalOption
   sealed
   keys: Id, Name, Value
@@ -828,9 +831,6 @@ Beutl.Utilities
 [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegVideoEncoderSettings
   sealed
   keys: Bitrate, Codec, CodecOptions, ColorPrimaries, ColorRange, ColorSpace, ColorTrc, DestinationSize, Format, FrameRate, Id, KeyframeRate, Name, Options, SourceSize
-[Beutl.Extensions.FFmpeg].Decoding:FFmpegDecodingSettings
-  sealed
-  keys: Acceleration, ForceSrgbGamma, ThreadCount
 [Beutl.NodeGraph].Generative:GenerationRecord
   sealed
   keys: CreatedAt, Fingerprint, Id, Image, IsPinned, ModelId, Name, ParameterFingerprint, Seed, Summary, Video
@@ -1422,7 +1422,7 @@ timeline.toggleSlipMode
 [Beutl.Engine]Beutl.Media.Decoding:AnimatedPngDecoderInfo
 [Beutl.Engine]Beutl.Media.Wave:WaveDecoderInfo
 [Beutl.Extensions.AVFoundation].Decoding:AVFDecoderInfo
-[Beutl.Extensions.FFmpeg].Decoding:FFmpegDecoderInfo
+[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Decoding:FFmpegDecoderInfo
 
 ## Editors
 # Extension.EditorExtensions in settings.json: the $type of every EditorExtension.
@@ -1452,7 +1452,7 @@ Beutl.Embedding.MediaFoundation.Decoding.MFDecodingExtension
 Beutl.Extensions.AVFoundation.Decoding.AVFDecodingExtension
   settings: [Beutl.Extensions.AVFoundation].Decoding:AVFDecodingSettings
 Beutl.Extensions.FFmpeg.Decoding.FFmpegDecodingExtension
-  settings: [Beutl.Extensions.FFmpeg].Decoding:FFmpegDecodingSettings
+  settings: [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Decoding:FFmpegDecodingSettings
 Beutl.Extensions.FFmpeg.Encoding.FFmpegControlledEncodingExtension
   settings: [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:FFmpegEncodingSettings
 Beutl.Extensions.FFmpeg.Encoding.FFmpegHeadlessEncodingExtension

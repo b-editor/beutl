@@ -53,10 +53,10 @@
   <!-- Decode encoded frames through both worker read paths for pixel round-trip tests. -->
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
   </ItemGroup>
 
   <!-- The worker's decoding message handler, driven in-process to order a read against a parallel close. -->

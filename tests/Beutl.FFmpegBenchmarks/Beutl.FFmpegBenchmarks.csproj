@@ -20,23 +20,23 @@
   </ItemGroup>
 
   <!-- Link source files for FFmpegReader (direct-call mode).
-       FFmpeg direct-call types have moved to Beutl.FFmpegWorker; settings types remain in the extension. -->
+       FFmpeg direct-call types have moved to Beutl.FFmpegWorker; settings types are in Beutl.Extensions.FFmpeg.Core. -->
   <ItemGroup>
     <Compile Include="..\..\src\Beutl.FFmpegWorker\Decoding\FFmpegReader.cs" Link="Linked\FFmpegReader.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegSeekDecision.cs" Link="Linked\FFmpegSeekDecision.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegFrameValidation.cs" Link="Linked\FFmpegFrameValidation.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegDecodingSettings.cs" Link="Linked\FFmpegDecodingSettings.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegVideoSlotSizing.cs" Link="Linked\FFmpegVideoSlotSizing.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\ColorSpaceHelper.cs" Link="Linked\ColorSpaceHelper.cs" />
     <Compile Include="..\..\src\Beutl.FFmpegWorker\HardwareAcceleration.cs" Link="Linked\HardwareAcceleration.cs" />
   </ItemGroup>
 
   <!-- FFmpegReaderProxy (IPC経由) 用のソースファイルをリンク -->
   <ItemGroup>
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderProxy.cs" Link="Linked\FFmpegReaderProxy.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegWorkerRequests.cs" Link="Linked\FFmpegWorkerRequests.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderIdlePolicy.cs" Link="Linked\FFmpegReaderIdlePolicy.cs" />
-    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg\Decoding\FFmpegReaderIdleTracker.cs" Link="Linked\FFmpegReaderIdleTracker.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegReaderProxy.cs" Link="Linked\FFmpegReaderProxy.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegWorkerRequests.cs" Link="Linked\FFmpegWorkerRequests.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegReaderIdlePolicy.cs" Link="Linked\FFmpegReaderIdlePolicy.cs" />
+    <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\Decoding\FFmpegReaderIdleTracker.cs" Link="Linked\FFmpegReaderIdleTracker.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\FFmpegWorkerProcess.cs" Link="Linked\FFmpegWorkerProcess.cs" />
     <Compile Include="..\..\src\Beutl.Extensions.FFmpeg.Core\FFmpegWorkerLogPump.cs" Link="Linked\FFmpegWorkerLogPump.cs" />
   </ItemGroup>

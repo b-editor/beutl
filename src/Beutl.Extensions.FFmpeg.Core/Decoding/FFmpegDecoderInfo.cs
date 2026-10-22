@@ -9,9 +9,10 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Extensions.FFmpeg.Decoding;
 
-// Beutl 1.x built this extension into the app as Beutl.Embedding.FFmpeg (FFmpegBuildIn, on by default up to
-// v1.1.0), so a decoder priority it saved in settings.json names this type that way.
+// A decoder priority in settings.json names this type as Beutl 1.x saved it (built in as Beutl.Embedding.FFmpeg up to
+// v1.1.0), or as later versions did before it moved from Beutl.Extensions.FFmpeg to Beutl.Extensions.FFmpeg.Core.
 [FormerPersistedName("[Beutl.Embedding.FFmpeg].Decoding:FFmpegDecoderInfo")]
+[FormerPersistedName("[Beutl.Extensions.FFmpeg].Decoding:FFmpegDecoderInfo")]
 public sealed class FFmpegDecoderInfo : IDecoderInfo
 {
     private readonly ILogger _logger = Log.CreateLogger<FFmpegDecoderInfo>();
