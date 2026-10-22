@@ -49,6 +49,7 @@ public static class ProjectOperations
             Duration = options.Duration
         };
 
+#pragma warning disable RS0030 // Writes a new project's rates until #2885 stores them as a rational rate.
         var project = new Project
         {
             Uri = CreateFileUri(projectPath),
@@ -59,6 +60,7 @@ public static class ProjectOperations
                 [ProjectVariableKeys.SampleRate] = options.SampleRate.ToString(),
             }
         };
+#pragma warning restore RS0030
 
         return project;
     }
