@@ -353,8 +353,8 @@ public sealed class FileSourceEditorTests
         Assert.That(((StorageFileEditor)control).Value, Is.Null);
 
         var adapter = new EnginePropertyAdapter<MediaSource?>(holder.AbstractSource, holder);
-        Assert.That(PropertyEditorExtension.Instance.TryCreateContext([adapter], out var context), Is.True);
-        using var __ = context;
+        using IPropertyEditorContext? context = PropertyEditorResolver.CreateContext(
+            adapter, [PropertyEditorExtension.Instance], PropertyEditorSurface.Panel);
         Assert.That(context, Is.TypeOf<CoreObjectEditorViewModel<MediaSource>>());
     }
 

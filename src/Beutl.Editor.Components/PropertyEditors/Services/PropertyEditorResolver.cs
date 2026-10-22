@@ -100,13 +100,6 @@ internal static class PropertyEditorResolver
         for (int i = extensions.Count - 1; i >= 0; i--)
         {
             PropertyEditorExtension extension = extensions[i];
-            if (LegacyPropertyEditors.TryTake(extension, remaining, surface, out IPropertyAdapter[]? legacyTaken, out IPropertyEditorContext? legacyContext))
-            {
-                if (legacyContext != null) add(legacyContext);
-                Remove(adapters, legacyTaken);
-                return true;
-            }
-
             // Of one extension's editors, the one that takes the earliest property goes first, as the properties are ordered.
             (PropertyEditorRegistration Registration, IPropertyAdapter[] Taken, int First)? best = null;
             foreach (PropertyEditorRegistration registration in RegistrationsOf(extension))

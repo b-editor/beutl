@@ -48,8 +48,7 @@ internal sealed class PropertyEditorControls : IPropertyEditorHost
             return control != null;
         }
 
-        if (LegacyPropertyEditors.TryCreateControl(context, surface, out control)) return true;
-
+        control = null;
         PropertyEditorRegistration? registration = PropertyEditorResolver.RegistrationOf(context) ?? FindFor(context, surface);
         if (registration is null) return false;
 

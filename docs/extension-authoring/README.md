@@ -2,9 +2,9 @@
 
 Extensions build against the `Beutl.Extensibility.Sdk` release that matches the Beutl version they target.
 
-When a factory (`TryCreateContent`, `TryCreateContext`, `TryCreateEditor`, `MatchProperty`, `GetIcon`) or a
-command of an extension from a package throws, Beutl logs it with the package name, shows one notice and turns the
-extension off until it restarts.
+When a factory (`TryCreateContent`, `TryCreateContext`, `TryCreateEditor`, `RegisterEditors` and the functions it
+registers, `GetIcon`) or a command of an extension from a package throws, Beutl logs it with the package name, shows
+one notice and turns the extension off until it restarts.
 
 ## Guides
 
@@ -24,5 +24,7 @@ extension off until it restarts.
 - [Audio effect latency](audio-effect-latency-migration.md): overrides of `AudioEffect.GetLatencySamples`.
 - [Resource reconcile](resource-reconcile-migration.md): overrides of `EngineObject.Resource.Update`, the
   generated `PreUpdate`/`PostUpdate` hooks, and the `CompareAndUpdate` helpers.
+- [Property editor registration](property-editor-registration-migration.md): `PropertyEditorExtension` overrides
+  of `MatchProperty`, `TryCreateContext*` and `TryCreateControl*`, and `IPropertyEditorFactory.MatchProperty`.
 
 Material and template packages for the store are described in [data packages](../data-packages.md).

@@ -233,12 +233,13 @@ public sealed class ExtensionGuardCallSiteTests
 
     private sealed class ThrowingPropertyEditor(bool throwOnMatch) : PropertyEditorExtension
     {
-        public override IEnumerable<IPropertyAdapter> MatchProperty(IReadOnlyList<IPropertyAdapter> properties)
-            => throwOnMatch ? throw new InvalidOperationException("match") : properties;
-
-        public override bool TryCreateContext(
-            IReadOnlyList<IPropertyAdapter> properties, [NotNullWhen(true)] out IPropertyEditorContext? context)
-            => throw new InvalidOperationException("context");
+        protected internal override void RegisterEditors(PropertyEditorRegistry registry)
+        {
+            registry.RegisterGroup<IPropertyEditorContext>(
+                properties => throwOnMatch ? throw new InvalidOperationException("match") : properties,
+                _ => throw new InvalidOperationException("context"),
+                _ => throw new InvalidOperationException("control"));
+        }
     }
 
     private sealed class CommandExtension : ViewExtension

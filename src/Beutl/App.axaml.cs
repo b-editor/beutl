@@ -155,7 +155,6 @@ public sealed class App : Application
     // The process-wide hooks and registrations that the app and the UI tests share.
     internal static void RegisterProcessServices(Func<ContextCommandManager?> commands, Action? alongside = null)
     {
-        PropertyEditorExtension.DefaultHandler = new PropertyEditorService.PropertyEditorExtensionImpl();
         PropertyEditorControls.Install();
         NotificationService.Handler = new NotificationServiceHandler();
         TutorialService.Current = new TutorialServiceHandler();
