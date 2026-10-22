@@ -4,7 +4,11 @@ using Beutl.Serialization;
 
 namespace Beutl.Graphics.Transformation;
 
-public sealed partial class FallbackTransform : Transform, IFallback;
+public sealed partial class FallbackTransform : Transform, IFallback
+{
+    // A transform whose type did not load leaves its target where it is.
+    public override Matrix CreateMatrix(CompositionContext context) => Matrix.Identity;
+}
 
 [SuppressResourceClassGeneration]
 [FallbackType(typeof(FallbackTransform))]
