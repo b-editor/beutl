@@ -96,7 +96,7 @@ public partial class NodeGraphView : UserControl
 
     private void OnDrop(object? sender, DragEventArgs e)
     {
-        if (DataContext is NodeGraphViewModel viewModel
+        if (DataContext is NodeGraphViewModel { CanEdit.Value: true } viewModel
             && e.DataTransfer.TryGetValue(BeutlDataFormats.GraphNode) is { } typeName
             && TypeFormat.ToType(typeName) is { } item)
         {
@@ -107,7 +107,7 @@ public partial class NodeGraphView : UserControl
 
     private void OnDragEnter(object? sender, DragEventArgs e)
     {
-        if (e.DataTransfer.Contains(BeutlDataFormats.GraphNode))
+        if (e.DataTransfer.Contains(BeutlDataFormats.GraphNode) && DataContext is NodeGraphViewModel { CanEdit.Value: true })
         {
             e.DragEffects = DragDropEffects.Copy;
         }

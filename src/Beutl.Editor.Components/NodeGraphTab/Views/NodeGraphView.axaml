@@ -34,8 +34,12 @@
                             ZoomSpeed="1.2">
                 <paz:ZoomBorder.ContextFlyout>
                     <ui:FAMenuFlyout Opened="CanvasMenuOpened">
-                        <ui:FAMenuFlyoutSubItem x:Name="addNode" Text="{x:Static lang:Strings.AddNode}" />
-                        <ui:FAMenuFlyoutSubItem x:Name="templatesMenu" Text="{x:Static lang:NodeGraphStrings.Template_Templates}" />
+                        <ui:FAMenuFlyoutSubItem x:Name="addNode"
+                                                IsEnabled="{Binding CanEdit.Value}"
+                                                Text="{x:Static lang:Strings.AddNode}" />
+                        <ui:FAMenuFlyoutSubItem x:Name="templatesMenu"
+                                                IsEnabled="{Binding CanEdit.Value}"
+                                                Text="{x:Static lang:NodeGraphStrings.Template_Templates}" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.ResetZoom"
                                              Click="ResetZoomClick"
                                              Text="{x:Static lang:Strings.ResetZoom}" />

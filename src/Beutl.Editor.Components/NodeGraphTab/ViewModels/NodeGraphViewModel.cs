@@ -5,6 +5,7 @@ using Beutl.Language;
 using Beutl.Logging;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
+using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -15,12 +16,18 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 {
     private static readonly ILogger s_logger = Log.CreateLogger<NodeGraphViewModel>();
     private readonly CompositeDisposable _disposables = [];
+    private readonly ReactivePropertySlim<bool> _canEdit = new(true);
     private CancellationTokenSource? _generativeCts;
 
     public NodeGraphViewModel(GraphModel graph, IEditorContext editorContext)
     {
         NodeGraph = graph;
         EditorContext = editorContext;
+        // Set before the node view models, which read it.
+        ElementEditability.Observe(graph.FindHierarchicalParent<Element>())
+            .Subscribe(editable => _canEdit.Value = editable)
+            .DisposeWith(_disposables);
+        _canEdit.DisposeWith(_disposables);
         graph.Nodes.ForEachItem(
                 (idx, item) =>
                 {
@@ -45,7 +52,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
             .DisposeWith(_disposables);
 
         CanRunGenerative = HasGenerativeNodes
-            .CombineLatest(IsGenerating, (has, running) => has && !running)
+            .CombineLatest(IsGenerating, CanEdit, (has, running, editable) => has && !running && editable)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
         HasGenerativeNodes.Value = ContainsGenerativeNode();
@@ -84,6 +91,9 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
 
     public IEditorContext EditorContext { get; }
 
+    // False while the clip holding the graph is locked or recovery keeps its file: the tab is then read-only.
+    public IReadOnlyReactiveProperty<bool> CanEdit => _canEdit;
+
     /// <summary>True while a queue of generative nodes is running.</summary>
     public ReactivePropertySlim<bool> IsGenerating { get; } = new();
 
@@ -102,7 +112,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
     /// </summary>
     public async Task RunGenerativeAsync(IReadOnlyCollection<GenerativeNode>? targets, bool force, int variations = 1)
     {
-        if (IsGenerating.Value)
+        if (IsGenerating.Value || !CanEdit.Value)
             return;
         if (EditorContext.GetService<IGenerativeNodeExecutor>() is not { } executor)
         {

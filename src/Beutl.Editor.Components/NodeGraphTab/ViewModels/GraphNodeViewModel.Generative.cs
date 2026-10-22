@@ -19,7 +19,7 @@ public sealed partial class GraphNodeViewModel
 
     public void ApplyPrompt(string prompt)
     {
-        if (GraphNode is IPromptLibraryTarget { CanApplyPrompt: true } target)
+        if (CanEdit.Value && GraphNode is IPromptLibraryTarget { CanApplyPrompt: true } target)
         {
             target.ApplyPrompt(prompt);
             EditorContext.GetService<HistoryManager>()?.Commit(NodeGraphStrings.Generative_PromptLibrary);
@@ -40,7 +40,7 @@ public sealed partial class GraphNodeViewModel
 
     public void SelectGeneration(Guid id)
     {
-        if (GraphNode is GenerativeNode node && node.ActiveGenerationId != id)
+        if (CanEdit.Value && GraphNode is GenerativeNode node && node.ActiveGenerationId != id)
         {
             node.SelectGeneration(id);
             CommitGenerationEdit();
@@ -49,7 +49,7 @@ public sealed partial class GraphNodeViewModel
 
     public void ToggleActivePinned()
     {
-        if (GraphNode is GenerativeNode { ActiveGeneration: { } active })
+        if (CanEdit.Value && GraphNode is GenerativeNode { ActiveGeneration: { } active })
         {
             active.IsPinned = !active.IsPinned;
             CommitGenerationEdit();
@@ -58,7 +58,7 @@ public sealed partial class GraphNodeViewModel
 
     public void PruneGenerations()
     {
-        if (GraphNode is GenerativeNode node && node.PruneGenerations() > 0)
+        if (CanEdit.Value && GraphNode is GenerativeNode node && node.PruneGenerations() > 0)
             CommitGenerationEdit();
     }
 
@@ -75,7 +75,7 @@ public sealed partial class GraphNodeViewModel
     /// <summary>Lays the node's kept results side by side and makes the chosen one active.</summary>
     public async Task CompareGenerationsAsync()
     {
-        if (GraphNode is not GenerativeNode node || node.Generations.Count == 0)
+        if (!CanEdit.Value || GraphNode is not GenerativeNode node || node.Generations.Count == 0)
             return;
 
         GenerationRecord[] records = [.. node.Generations];
