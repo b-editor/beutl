@@ -153,6 +153,34 @@ public sealed class UnknownDataApplyTests
         });
     }
 
+    // The applier's rules remove an animation the document drops from a nested value it keeps in place.
+    [Test]
+    public void Apply_edit_removes_an_animation_from_a_nested_value_it_keeps()
+    {
+        (Scene scene, string elementPath, _) = CreateScene();
+        var shape = (RectShape)scene.Children.Single().Objects[0];
+        Brush brush = shape.Fill.Value!;
+        var animation = new KeyFrameAnimation<float> { KeyFrames = { new KeyFrame<float> { Value = 20 } } };
+        brush.Opacity.SetKeyFrameAnimation(animation);
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(Shape.Fill)]!["Animations"]!.AsObject()
+            .Remove(nameof(Brush.Opacity));
+
+        new Reconciler().Apply(session, document);
+        CoreSerializer.StoreToUri(scene, scene.Uri!);
+        Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        Brush reloadedBrush = ((RectShape)reloaded.Children.Single().Objects[0]).Fill.Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shape.Fill.Value, Is.SameAs(brush));
+            Assert.That(brush.Opacity.GetKeyFrameAnimation(), Is.Null);
+            Assert.That(reloadedBrush.Opacity.GetKeyFrameAnimation(), Is.Null);
+            Assert.That(ReadSavedFill(elementPath)["FutureBrush"]?.GetValue<int>(), Is.EqualTo(4));
+        });
+    }
+
     // Another type or Id still replaces the value. Written directly, as apply_edit refuses both documents.
     [TestCase(true)]
     [TestCase(false)]
