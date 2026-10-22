@@ -12,16 +12,16 @@ public interface IElementDuplicateService
     DuplicateOutcome DuplicateAtClickedPosition(
         Scene scene,
         IReadOnlyList<Element> sources,
-        TimeSpan clickedFrame,
+        MediaTime clickedFrame,
         int clickedLayer);
 
     bool DuplicateAtPosition(
         Scene scene,
         IReadOnlyList<Element> sources,
-        TimeSpan anchorStart,
+        MediaTime anchorStart,
         int anchorZIndex);
 
-    bool WouldOverlap(IReadOnlyList<Element> sources, TimeSpan anchorStart, int anchorZIndex);
+    bool WouldOverlap(IReadOnlyList<Element> sources, MediaTime anchorStart, int anchorZIndex);
 }
 
 public sealed record DuplicateOutcome(bool Success, TimeRange ScrollToRange, int ScrollToZIndex)

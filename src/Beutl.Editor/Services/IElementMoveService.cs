@@ -16,7 +16,7 @@ public interface IElementMoveService
     ElementMoveOutcome Move(
         Scene scene,
         IReadOnlyList<Element> elements,
-        TimeSpan deltaStart,
+        MediaTime deltaStart,
         int deltaZIndex);
 
     /// <summary>Places duplicates of <paramref name="elements"/> at (origin + delta),
@@ -28,7 +28,7 @@ public interface IElementMoveService
     ElementMoveOutcome DuplicateOrMove(
         Scene scene,
         IReadOnlyList<Element> elements,
-        TimeSpan deltaStart,
+        MediaTime deltaStart,
         int deltaZIndex);
 }
 

@@ -108,7 +108,7 @@ public sealed class ElementAttributeService : IElementAttributeService
         // A new boundary is centred on the cut, half on each element; a lone edge takes it all.
         if (partner != null)
         {
-            TimeSpan half = ClipTransition.DefaultDuration / 2;
+            MediaTime half = new MediaTime(ClipTransition.DefaultDuration.Flicks / 2);
             ElementTransitionEdits.SetTransition(
                 element, edge, ElementTransitionEdits.CreateTransition(transitionType, half));
             ElementTransitionEdits.SetTransition(
@@ -142,12 +142,12 @@ public sealed class ElementAttributeService : IElementAttributeService
         }
     }
 
-    public void SetTransitionDuration(Element element, ElementEdge edge, TimeSpan duration)
+    public void SetTransitionDuration(Element element, ElementEdge edge, MediaTime duration)
     {
         ArgumentNullException.ThrowIfNull(element);
         if (IsReadOnly(element)) return;
         if (ElementTransitionEdits.GetTransition(element, edge) is not { } transition) return;
-        if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
+        if (duration < MediaTime.Zero) duration = MediaTime.Zero;
         if (transition.Duration.Value == duration) return;
 
         transition.Duration.Value = duration;

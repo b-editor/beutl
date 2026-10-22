@@ -17,7 +17,7 @@ internal static partial class SlippableMedia
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
-        private readonly Dictionary<MediaSource, TimeSpan?> _sourceDurations;
+        private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
         private readonly List<Target> _targets = new();
         private readonly List<DrawableTimeController> _disabledFlowControllers = new();
         private readonly HashSet<object> _path = new();
@@ -30,7 +30,7 @@ internal static partial class SlippableMedia
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
-            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, TimeSpan?>? sourceDurations = null)
+            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null)
         {
             _element = element;
             _timingPeers = timingPeers;
@@ -88,10 +88,10 @@ internal static partial class SlippableMedia
         private bool IsEnabled(EngineObject obj)
             => obj.IsEnabled || obj is DrawableTimeController controller && _reenabledControllers?.Contains(controller) == true;
 
-        private TimeSpan? GetSourceDuration(MediaSource? source)
+        private MediaTime? GetSourceDuration(MediaSource? source)
         {
             if (source == null) return null;
-            if (_sourceDurations.TryGetValue(source, out TimeSpan? duration)) return duration;
+            if (_sourceDurations.TryGetValue(source, out MediaTime? duration)) return duration;
             // All re-enabling states use the same pre-edit media. Keep only its
             // duration in this operation's cache so each reader is opened once
             // and its temporary resource is still disposed immediately.
@@ -99,7 +99,7 @@ internal static partial class SlippableMedia
             duration = resource switch
             {
                 VideoSource.Resource video => video.Duration,
-                SoundSource.Resource sound => sound.Duration > TimeSpan.Zero ? sound.Duration : null,
+                SoundSource.Resource sound => sound.Duration > MediaTime.Zero ? sound.Duration : null,
                 _ => null
             };
             _sourceDurations.Add(source, duration);
@@ -217,7 +217,7 @@ internal static partial class SlippableMedia
             {
                 // These unattached properties only carry a rejected constraint;
                 // IsSupported prevents them from ever becoming an offset write.
-                _targets.Add(new Target(Property.CreateExpression<TimeSpan>(), null,
+                _targets.Add(new Target(Property.CreateExpression<MediaTime>(), null,
                     new MediaTimeMapping(_element, node.Object, Property.CreateExpression(100f), [], 60), _element.Length));
                 return;
             }
@@ -237,7 +237,7 @@ internal static partial class SlippableMedia
             {
                 case SourceVideo video:
                     {
-                        TimeSpan? duration = GetSourceDuration(video.Source.Value);
+                        MediaTime? duration = GetSourceDuration(video.Source.Value);
                         _targets.Add(new Target(video.OffsetPosition, duration,
                             new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length));
                     }

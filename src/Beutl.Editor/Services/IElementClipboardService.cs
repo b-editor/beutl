@@ -21,7 +21,7 @@ public interface IElementClipboardService
 
     Task<bool> CutAsync(Scene scene, IReadOnlyList<Element> elements, bool ripple = false);
 
-    Task<ElementPasteOutcome> PasteAsync(Scene scene, TimeSpan clickedFrame, int clickedLayer);
+    Task<ElementPasteOutcome> PasteAsync(Scene scene, MediaTime clickedFrame, int clickedLayer);
 }
 
 public sealed record ElementPasteOutcome(

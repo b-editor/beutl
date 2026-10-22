@@ -66,7 +66,7 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
         }
     }
 
-    public KeyFramePasteResult PasteKeyFrame(IKeyFrameAnimation target, string json, TimeSpan keyTime)
+    public KeyFramePasteResult PasteKeyFrame(IKeyFrameAnimation target, string json, MediaTime keyTime)
     {
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(json);

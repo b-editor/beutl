@@ -12,65 +12,65 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public void SetStart(Scene scene, TimeSpan newStart)
+    public void SetStart(Scene scene, MediaTime newStart)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ApplyStart(scene, newStart);
         _historyManager.Commit(CommandNames.ChangeSceneStart);
     }
 
-    public void SetEnd(Scene scene, TimeSpan newEnd)
+    public void SetEnd(Scene scene, MediaTime newEnd)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ApplyEnd(scene, newEnd);
         _historyManager.Commit(CommandNames.ChangeSceneDuration);
     }
 
-    public void UpdateStartDrag(Scene scene, TimeSpan pointerTime, TimeSpan initialStart, TimeSpan initialDuration)
+    public void UpdateStartDrag(Scene scene, MediaTime pointerTime, MediaTime initialStart, MediaTime initialDuration)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ApplyStartDrag(scene, pointerTime, initialStart, initialDuration);
     }
 
-    public void UpdateEndDrag(Scene scene, TimeSpan pointerTime)
+    public void UpdateEndDrag(Scene scene, MediaTime pointerTime)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ApplyEndDrag(scene, pointerTime);
     }
 
-    internal static int GetFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
+    internal static Rational GetFrameRate(Scene scene) => scene.FindHierarchicalParent<Project>().GetFrameRate();
 
-    internal static TimeSpan GetFrameDuration(Scene scene) => TimeSpan.FromSeconds(1d / GetFrameRate(scene));
+    internal static MediaTime GetFrameDuration(Scene scene) => MediaTime.FromFrames(1, GetFrameRate(scene));
 
     /// <summary>
     /// One-shot start update (keyboard / menu path). Setting start past the
     /// current end shifts the end forward one frame and snaps start to the old
     /// end.
     /// </summary>
-    private static void ApplyStart(Scene scene, TimeSpan newStart)
+    private static void ApplyStart(Scene scene, MediaTime newStart)
     {
-        TimeSpan frame = GetFrameDuration(scene);
-        TimeSpan sceneEnd = scene.Start + scene.Duration;
+        MediaTime frame = GetFrameDuration(scene);
+        MediaTime sceneEnd = scene.Start + scene.Duration;
 
         if (newStart > sceneEnd)
         {
             // Start past end: shift end forward one frame, snap start to old end.
-            TimeSpan shift = newStart - sceneEnd + frame;
+            MediaTime shift = newStart - sceneEnd + frame;
             scene.Duration = shift;
             scene.Start = sceneEnd;
             return;
         }
 
-        if (newStart < TimeSpan.Zero)
+        if (newStart < MediaTime.Zero)
         {
-            newStart = TimeSpan.Zero;
+            newStart = MediaTime.Zero;
         }
         else if (newStart > sceneEnd - frame)
         {
             newStart = sceneEnd - frame;
         }
 
-        TimeSpan newDuration = TimeSpan.FromTicks(Math.Max((sceneEnd - newStart).Ticks, frame.Ticks));
+        MediaTime newDuration = sceneEnd - newStart > frame ? sceneEnd - newStart : frame;
         scene.Duration = newDuration;
         scene.Start = newStart;
     }
@@ -79,22 +79,22 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// One-shot end update (keyboard / menu path). An end before the current
     /// start shifts both start and duration backward.
     /// </summary>
-    private static void ApplyEnd(Scene scene, TimeSpan newEnd)
+    private static void ApplyEnd(Scene scene, MediaTime newEnd)
     {
-        TimeSpan frame = GetFrameDuration(scene);
+        MediaTime frame = GetFrameDuration(scene);
 
         if (newEnd < scene.Start)
         {
             // End dragged before the start: shift both back one frame.
-            TimeSpan shifted = newEnd - frame;
-            if (shifted < TimeSpan.Zero) shifted = TimeSpan.Zero;
+            MediaTime shifted = newEnd - frame;
+            if (shifted < MediaTime.Zero) shifted = MediaTime.Zero;
             scene.Duration = scene.Start - shifted;
             scene.Start = shifted;
             return;
         }
 
-        TimeSpan duration = newEnd - scene.Start;
-        if (duration <= TimeSpan.Zero) duration = frame;
+        MediaTime duration = newEnd - scene.Start;
+        if (duration <= MediaTime.Zero) duration = frame;
         scene.Duration = duration;
     }
 
@@ -104,12 +104,12 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// <see cref="ApplyStart"/> it never shifts the end forward (drag past end
     /// clamps to the end).
     /// </summary>
-    private static void ApplyStartDrag(Scene scene, TimeSpan newStart, TimeSpan initialStart, TimeSpan initialDuration)
+    private static void ApplyStartDrag(Scene scene, MediaTime newStart, MediaTime initialStart, MediaTime initialDuration)
     {
-        TimeSpan frame = GetFrameDuration(scene);
-        TimeSpan sceneEnd = initialStart + initialDuration;
+        MediaTime frame = GetFrameDuration(scene);
+        MediaTime sceneEnd = initialStart + initialDuration;
 
-        if (newStart < TimeSpan.Zero) newStart = TimeSpan.Zero;
+        if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
         if (newStart > sceneEnd - frame) newStart = sceneEnd - frame;
 
         scene.Start = newStart;
@@ -121,11 +121,11 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     /// touches <see cref="Scene.Start"/>; dragging left of Start must only
     /// shrink duration, not move the scene backward.
     /// </summary>
-    private static void ApplyEndDrag(Scene scene, TimeSpan pointerTime)
+    private static void ApplyEndDrag(Scene scene, MediaTime pointerTime)
     {
-        TimeSpan frame = GetFrameDuration(scene);
+        MediaTime frame = GetFrameDuration(scene);
 
-        TimeSpan duration = pointerTime - scene.Start;
+        MediaTime duration = pointerTime - scene.Start;
         if (duration < frame) duration = frame;
         scene.Duration = duration;
     }

@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Beutl.Engine;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -12,12 +13,17 @@ internal static partial class SceneSnapshot
     // Call on the thread that owns the scene. The copy keeps the Ids of the scene and of the scenes it references.
     internal static Scene Create(Scene scene)
     {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions
+        JsonObject json;
+        using (MediaTimeJsonConverter.WriteFlicks())
         {
-            BaseUri = scene.Uri,
-            Mode = CoreSerializationMode.EmbedReferencedObjects,
-            KeepUnknownMembers = false
-        });
+            json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions
+            {
+                BaseUri = scene.Uri,
+                Mode = CoreSerializationMode.EmbedReferencedObjects,
+                KeepUnknownMembers = false
+            });
+        }
+
         var clone = (Scene)DeserializeDetached(json, typeof(Scene), scene.Uri);
         AttachRoot(scene, clone, CloneReferencedObjects(scene));
         return clone;
@@ -108,11 +114,16 @@ internal static partial class SceneSnapshot
 
     private static CoreObject CloneDetached(CoreObject source)
     {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(source, new CoreSerializerOptions
+        JsonObject json;
+        using (MediaTimeJsonConverter.WriteFlicks())
         {
-            BaseUri = source.Uri,
-            Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
-        });
+            json = CoreSerializer.SerializeToJsonObject(source, new CoreSerializerOptions
+            {
+                BaseUri = source.Uri,
+                Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
+            });
+        }
+
         return DeserializeDetached(json, source.GetType(), source.Uri);
     }
 

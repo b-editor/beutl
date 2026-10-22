@@ -52,7 +52,7 @@ public sealed class ElementNudgeService : IElementNudgeService
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0 || frames == 0 || _disposed) return;
 
-        int rate = SceneTimeRangeService.GetFrameRate(scene);
+        Rational rate = SceneTimeRangeService.GetFrameRate(scene);
 
         // Anchor on the leftmost element so the delta lands on the frame grid
         // even when callers have off-grid starts.
@@ -60,11 +60,11 @@ public sealed class ElementNudgeService : IElementNudgeService
             .OrderBy(e => e.Start)
             .ThenBy(e => e.ZIndex)
             .First();
-        TimeSpan anchoredStart = anchor.Start.RoundToRate(rate) + frames.ToTimeSpan(rate);
-        if (anchoredStart < TimeSpan.Zero) return;
+        MediaTime anchoredStart = anchor.Start.RoundToFrame(rate, MidpointRounding.AwayFromZero) + MediaTime.FromFrames(frames, rate);
+        if (anchoredStart < MediaTime.Zero) return;
 
-        TimeSpan delta = anchoredStart - anchor.Start;
-        if (delta == TimeSpan.Zero) return;
+        MediaTime delta = anchoredStart - anchor.Start;
+        if (delta == MediaTime.Zero) return;
 
         if (_session is not { IsOpen: true })
         {

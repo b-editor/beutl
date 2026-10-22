@@ -29,13 +29,13 @@ public sealed class ElementStructureService : IElementStructureService
         _historyManager.Commit(CommandNames.DeleteElement);
     }
 
-    public void Split(Scene scene, IReadOnlyList<Element> targets, TimeSpan at)
+    public void Split(Scene scene, IReadOnlyList<Element> targets, MediaTime at)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(targets);
         if (targets.Count == 0 || scene.Uri is null) return;
 
-        TimeSpan minDuration = SceneTimeRangeService.GetFrameDuration(scene);
+        MediaTime minDuration = SceneTimeRangeService.GetFrameDuration(scene);
         if (!targets.Any(target => !scene.IsElementLocked(target)
             && at - target.Start >= minDuration
             && target.Start + target.Length - at >= minDuration))
@@ -48,8 +48,8 @@ public sealed class ElementStructureService : IElementStructureService
             {
                 if (scene.IsElementLocked(target)) continue;
 
-                TimeSpan forwardDuration = at - target.Start;
-                TimeSpan backwardDuration = target.Length - forwardDuration;
+                MediaTime forwardDuration = at - target.Start;
+                MediaTime backwardDuration = target.Length - forwardDuration;
                 if (forwardDuration < minDuration || backwardDuration < minDuration) continue;
 
                 ObjectRegenerator.Regenerate(target, out Element backward);
@@ -68,7 +68,7 @@ public sealed class ElementStructureService : IElementStructureService
                 scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
                 scene.AddChild(backward);
                 backward.NotifySplitted(true, forwardDuration, -forwardDuration);
-                target.NotifySplitted(false, TimeSpan.Zero, -backwardDuration);
+                target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
 
                 // Track group membership so back-clips stay in their source's group.
                 int groupIndex = FindGroupIndex(scene, target.Id);
@@ -221,7 +221,7 @@ public sealed class ElementStructureService : IElementStructureService
         return lockedIds;
     }
 
-    private static void ShiftLocalKeyFrames(Element element, TimeSpan delta)
+    private static void ShiftLocalKeyFrames(Element element, MediaTime delta)
     {
         foreach (IKeyFrameAnimation anim in new ObjectSearcher(element, o => o is IKeyFrameAnimation { UseGlobalClock: false })
                      .SearchAll()

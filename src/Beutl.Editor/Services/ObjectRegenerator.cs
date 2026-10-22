@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
+using Beutl.JsonConverters;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
@@ -17,10 +18,14 @@ public static class ObjectRegenerator
     {
         // ICoreObjects with a Uri serialize as a file reference by default, hiding their
         // inner Ids from the JSON. Embed them so every Id of the copy is in it.
-        var jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
+        JsonObject jsonObject;
+        using (MediaTimeJsonConverter.WriteFlicks())
         {
-            Mode = CoreSerializationMode.EmbedReferencedObjects
-        });
+            jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
+            {
+                Mode = CoreSerializationMode.EmbedReferencedObjects
+            });
+        }
 
         // Each object of the copy writes its Id, including fallbacks and the objects unknown members keep.
         var newIds = new Dictionary<Guid, Guid>();

@@ -131,16 +131,16 @@ public static class ObjectTemplatePreviewRenderer
             cancellationToken.ThrowIfCancellationRequested();
             if (Clone(element, typeof(Element)) is not Element copy)
                 return null;
-            copy.Start = TimeSpan.Zero;
+            copy.Start = MediaTime.Zero;
             copies.Add(copy);
         }
         cancellationToken.ThrowIfCancellationRequested();
 
-        TimeSpan duration = copies.Select(item => item.Length)
-            .Where(item => item > TimeSpan.Zero).DefaultIfEmpty(TimeSpan.Zero).Min();
-        TimeSpan time = duration > TimeSpan.Zero
-            ? duration / 2
-            : TimeSpan.Zero;
+        MediaTime duration = copies.Select(item => item.Length)
+            .Where(item => item > MediaTime.Zero).DefaultIfEmpty(MediaTime.Zero).Min();
+        MediaTime time = duration > MediaTime.Zero
+            ? new MediaTime(duration.Flicks / 2)
+            : MediaTime.Zero;
 
         // The element's sizes are authored against its own scene's frame — a caption is a 355pt
         // glyph in a 1920x1080 project — so the preview scene has to keep that frame for layout to
@@ -154,7 +154,7 @@ public static class ObjectTemplatePreviewRenderer
         string directory = Path.Combine(Path.GetTempPath(), "beutl-template-preview");
         var scene = new Scene(frameSize.Width, frameSize.Height, string.Empty)
         {
-            Duration = duration > TimeSpan.Zero ? duration : TimeSpan.FromSeconds(1),
+            Duration = duration > MediaTime.Zero ? duration : MediaTime.FromSeconds(1),
             Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, "preview.scene"))
         };
         foreach (Element copy in copies)
@@ -201,7 +201,7 @@ public static class ObjectTemplatePreviewRenderer
         // Auxiliary graph nodes (Measure / Preview) evaluate their own subtree during ToResource, so a
         // bounds-unknown effect throws here rather than in MeasureBounds, where the fallback below lives.
         // The domain is the same preview frame the measurement and the render pass compose against.
-        var context = new CompositionContext(TimeSpan.Zero)
+        var context = new CompositionContext(MediaTime.Zero)
         {
             TargetDomain = new Rect(default, availableSize)
         };

@@ -11,7 +11,7 @@ public interface IElementStructureService
 {
     void Delete(Scene scene, IReadOnlyList<Element> elements, bool ripple = false);
 
-    void Split(Scene scene, IReadOnlyList<Element> targets, TimeSpan at);
+    void Split(Scene scene, IReadOnlyList<Element> targets, MediaTime at);
 
     void Group(Scene scene, IReadOnlyCollection<Guid> ids);
 

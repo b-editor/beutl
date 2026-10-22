@@ -17,13 +17,13 @@ public sealed class ElementMoveService : IElementMoveService
     public ElementMoveOutcome Move(
         Scene scene,
         IReadOnlyList<Element> elements,
-        TimeSpan deltaStart,
+        MediaTime deltaStart,
         int deltaZIndex)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ArgumentNullException.ThrowIfNull(elements);
 
-        if (deltaStart == TimeSpan.Zero && deltaZIndex == 0) return ElementMoveOutcome.None;
+        if (deltaStart == MediaTime.Zero && deltaZIndex == 0) return ElementMoveOutcome.None;
 
         Element[] editable = FilterUnlocked(scene, elements);
         if (editable.Length == 0) return ElementMoveOutcome.None;
@@ -40,7 +40,7 @@ public sealed class ElementMoveService : IElementMoveService
     public ElementMoveOutcome DuplicateOrMove(
         Scene scene,
         IReadOnlyList<Element> elements,
-        TimeSpan deltaStart,
+        MediaTime deltaStart,
         int deltaZIndex)
     {
         ArgumentNullException.ThrowIfNull(scene);
@@ -50,7 +50,7 @@ public sealed class ElementMoveService : IElementMoveService
         // them would bypass the lock's editing freeze, so drop them up front.
         Element[] source = FilterUnlocked(scene, elements);
         if (source.Length == 0) return ElementMoveOutcome.None;
-        TimeSpan minSourceStart = TimeSpan.MaxValue;
+        MediaTime minSourceStart = MediaTime.MaxValue;
         int minSourceZIndex = int.MaxValue;
         foreach (Element e in source)
         {
@@ -58,8 +58,8 @@ public sealed class ElementMoveService : IElementMoveService
             if (e.ZIndex < minSourceZIndex) minSourceZIndex = e.ZIndex;
         }
 
-        TimeSpan anchorStart = minSourceStart + deltaStart;
-        if (anchorStart < TimeSpan.Zero) anchorStart = TimeSpan.Zero;
+        MediaTime anchorStart = minSourceStart + deltaStart;
+        if (anchorStart < MediaTime.Zero) anchorStart = MediaTime.Zero;
         int anchorZIndex = Math.Max(minSourceZIndex + deltaZIndex, 0);
 
         // Refuse landing the duplicate (or its move fallback) on a locked layer.
@@ -78,7 +78,7 @@ public sealed class ElementMoveService : IElementMoveService
             return ElementMoveOutcome.Duplicated;
         }
 
-        if (deltaStart == TimeSpan.Zero && deltaZIndex == 0)
+        if (deltaStart == MediaTime.Zero && deltaZIndex == 0)
         {
             return ElementMoveOutcome.None;
         }

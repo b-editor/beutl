@@ -17,7 +17,7 @@ public interface IPreviewPlayer
 
     IObservable<AudioFrameSnapshot> AudioFramePushed => Observable.Empty<AudioFrameSnapshot>();
 
-    Task<AudioFrameSnapshot?> ComposeAudioAsync(TimeSpan start, TimeSpan duration, CancellationToken ct = default)
+    Task<AudioFrameSnapshot?> ComposeAudioAsync(MediaTime start, MediaTime duration, CancellationToken ct = default)
         => Task.FromResult<AudioFrameSnapshot?>(null);
 
     /// <summary>

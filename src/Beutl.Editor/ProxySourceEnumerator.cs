@@ -407,7 +407,7 @@ public static partial class ProxySourceEnumerator
     // Then the referenced scene samples the element-local window directly.
     private static bool IsIdentityAudioMap(SceneSound sceneSound)
         => sceneSound.OffsetPosition.GetKeyFrameAnimation() is null
-           && sceneSound.OffsetPosition.Value == TimeSpan.Zero
+           && sceneSound.OffsetPosition.Value == MediaTime.Zero
            && sceneSound.Speed.GetKeyFrameAnimation() is null
            && sceneSound.Speed.Value == 100f;
 }

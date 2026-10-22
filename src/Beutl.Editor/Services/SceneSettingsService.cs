@@ -13,7 +13,7 @@ public sealed class SceneSettingsService : ISceneSettingsService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public bool Apply(Scene scene, PixelSize frameSize, TimeSpan start, TimeSpan duration)
+    public bool Apply(Scene scene, PixelSize frameSize, MediaTime start, MediaTime duration)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
