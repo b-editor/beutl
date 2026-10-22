@@ -194,7 +194,7 @@ public partial class GraphEditorView
             delta = state.HorizontalConstraint.Value ? delta.WithY(0) : delta.WithX(0);
         }
         else state.HorizontalConstraint = null;
-        double seconds = delta.X.PixelToTimeSpan(model.Options.Value.Scale).TotalSeconds;
+        double seconds = delta.X.PixelToTime(model.Options.Value.Scale).ToSeconds();
         double value = -delta.Y / model.ScaleY.Value;
         if (model.Snap.Value && !e.KeyModifiers.HasFlag(KeyModifiers.Alt))
         {
@@ -203,10 +203,10 @@ public partial class GraphEditorView
         }
         if (model.IsSpeedGraph.Value)
         {
-            snapshot.Apply(entry => (entry.Time.TotalSeconds + seconds, entry.Number));
+            snapshot.Apply(entry => (entry.Time.ToSeconds() + seconds, entry.Number));
             ApplyVelocityDelta(snapshot, value);
         }
-        else snapshot.Apply(entry => (entry.Time.TotalSeconds + seconds, entry.Number + value));
+        else snapshot.Apply(entry => (entry.Time.ToSeconds() + seconds, entry.Number + value));
     }
 
     // Dragging past the viewport edge scrolls the graph; the scrolled distance joins the drag.
@@ -228,17 +228,17 @@ public partial class GraphEditorView
     {
         if (DataContext is not GraphEditorViewModel model) return delta;
         var selected = snapshot.Entries.Select(x => x.Model).ToHashSet();
-        double offset = model.UseGlobalClock.Value ? 0 : model.Element?.Start.TotalSeconds ?? 0;
-        var targets = model.Animation.KeyFrames.Where(x => !selected.Contains(x)).Select(x => x.KeyTime.TotalSeconds)
-            .Concat([model.CurrentTime.Value.TotalSeconds - offset, model.Scene.Start.TotalSeconds - offset,
-                (model.Scene.Start + model.Scene.Duration).TotalSeconds - offset, 0]);
-        double tolerance = 6d.PixelToTimeSpan(model.Options.Value.Scale).TotalSeconds;
+        double offset = model.UseGlobalClock.Value ? 0 : model.Element?.Start.ToSeconds() ?? 0;
+        var targets = model.Animation.KeyFrames.Where(x => !selected.Contains(x)).Select(x => x.KeyTime.ToSeconds())
+            .Concat([model.CurrentTime.Value.ToSeconds() - offset, model.Scene.Start.ToSeconds() - offset,
+                (model.Scene.Start + model.Scene.Duration).ToSeconds() - offset, 0]);
+        double tolerance = 6d.PixelToTime(model.Options.Value.Scale).ToSeconds();
         double best = tolerance;
         double correction = 0;
         foreach (double target in targets)
             foreach (var entry in snapshot.Entries)
             {
-                double distance = target - (entry.Time.TotalSeconds + delta);
+                double distance = target - (entry.Time.ToSeconds() + delta);
                 if (Math.Abs(distance) < best) { best = Math.Abs(distance); correction = distance; }
             }
         return delta + correction;
@@ -273,9 +273,9 @@ public partial class GraphEditorView
         double sy = vertical && bounds.Height > 0.01 ? (handle.Y + delta.Y - anchor.Y) / (handle.Y - anchor.Y) : 1;
         if (modifiers.HasFlag(KeyModifiers.Shift) && horizontal && vertical)
             sx = sy = Math.Abs(sx - 1) > Math.Abs(sy - 1) ? sx : sy;
-        double originTime = (anchor.X - model.Margin.Value.Left).PixelToTimeSpan(model.Options.Value.Scale).TotalSeconds;
+        double originTime = (anchor.X - model.Margin.Value.Left).PixelToTime(model.Options.Value.Scale).ToSeconds();
         double originValue = (snapshot.InitialBaseline - anchor.Y) / model.ScaleY.Value;
-        snapshot.Apply(entry => (originTime + (entry.Time.TotalSeconds - originTime) * sx,
+        snapshot.Apply(entry => (originTime + (entry.Time.ToSeconds() - originTime) * sx,
             originValue + (entry.Number - originValue) * sy), sx, sy, transformHandles: true);
     }
 
@@ -417,18 +417,18 @@ public partial class GraphEditorView
     private static void NudgeSelection(GraphEditorViewModel model, GraphEditorViewViewModel channel, KeyEventArgs e)
     {
         double frames = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
-        double delta = (e.Key == Key.Left ? -frames : frames) / SceneTimeRangeService.GetFrameRate(model.Scene);
+        double delta = (e.Key == Key.Left ? -frames : frames) / SceneTimeRangeService.GetFrameRate(model.Scene).ToDouble();
         var snapshot = new GraphEditorDragSnapshot(channel);
         if (snapshot.Entries.Length > 0)
-            model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.TotalSeconds + delta, entry.Number)), CommandNames.MoveKeyFrame);
+            model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.ToSeconds() + delta, entry.Number)), CommandNames.MoveKeyFrame);
     }
 
     // J jumps back to the previous keyframe, K forward to the next one.
     private static void JumpToAdjacentKeyFrame(GraphEditorViewModel model, GraphEditorViewViewModel channel, Key key)
     {
-        var times = channel.KeyFrames.Select(x => x.Model.KeyTime + (model.UseGlobalClock.Value ? TimeSpan.Zero : model.Element?.Start ?? TimeSpan.Zero));
-        var target = key == Key.J ? times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (TimeSpan?)x).FirstOrDefault()
-            : times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (TimeSpan?)x).FirstOrDefault();
+        var times = channel.KeyFrames.Select(x => x.Model.KeyTime + (model.UseGlobalClock.Value ? MediaTime.Zero : model.Element?.Start ?? MediaTime.Zero));
+        var target = key == Key.J ? times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (MediaTime?)x).FirstOrDefault()
+            : times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (MediaTime?)x).FirstOrDefault();
         if (target.HasValue) model.Seek(target.Value);
     }
 

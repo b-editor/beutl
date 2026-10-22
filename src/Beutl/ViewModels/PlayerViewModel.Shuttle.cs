@@ -96,7 +96,7 @@ public partial class PlayerViewModel
     {
         Scene? scene = Scene;
         if (_isDisposing || _isPausing || _isShuttling || scene == null) return;
-        int rate = GetFrameRate();
+        Rational rate = GetFrameRate();
         UsageTelemetry.Current?.Record("playback.started", feature: "shuttle");
         // Clear a stop request left by a prior Pause() so the flag's "true until the next
         // playback start" invariant holds across shuttle too, not just Play().
@@ -111,7 +111,8 @@ public partial class PlayerViewModel
         {
             try
             {
-                TimeSpan tick = TimeSpan.FromSeconds(1d / rate);
+                TimeSpan tick = TimeSpan.FromSeconds(1d / rate.ToDouble());
+                MediaTime frame = MediaTime.FromFrames(1, rate);
 
                 if (!_sessionGuard.TryApply(generation, () => scene.Edited -= OnSceneEdited))
                 {
@@ -130,7 +131,7 @@ public partial class PlayerViewModel
                         break;
 
                     // シャトル再生中に Scene.Start / Duration が変更されても追従できるよう毎回取得
-                    TimeSpan sceneStart = default, sceneEnd = default;
+                    MediaTime sceneStart = default, sceneEnd = default;
                     if (!_sessionGuard.TryApply(generation, () =>
                         {
                             sceneStart = scene.Start;
@@ -144,17 +145,17 @@ public partial class PlayerViewModel
 
                     float speed = PlaybackSpeed.Value;
                     int sign = direction == ViewModels.PlaybackDirection.Forward ? 1 : -1;
-                    TimeSpan delta = TimeSpan.FromTicks((long)(elapsed.Ticks * speed * sign));
-                    TimeSpan currentTime = _editorClock.CurrentTime.Value;
-                    TimeSpan next = currentTime + delta;
+                    MediaTime delta = MediaTime.FromSeconds(elapsed.TotalSeconds * speed * sign);
+                    MediaTime currentTime = _editorClock.CurrentTime.Value;
+                    MediaTime next = currentTime + delta;
 
                     // 範囲外から再生開始した場合はその位置から自然に再生する。
                     // シーン範囲内に入った時点で通常のループ・境界判定に切り替わる。
                     bool insideRange = currentTime >= sceneStart && currentTime < sceneEnd;
                     if (insideRange)
                     {
-                        TimeSpan minTime = sceneStart;
-                        TimeSpan maxTime = sceneEnd - tick;
+                        MediaTime minTime = sceneStart;
+                        MediaTime maxTime = sceneEnd - frame;
                         if (IsLoopEnabled.Value)
                         {
                             if (next > sceneEnd) next = minTime;
@@ -174,10 +175,10 @@ public partial class PlayerViewModel
                         // 範囲外: シーン範囲に向かう方向のみ進行を許可する。
                         bool movingTowardRange = currentTime >= sceneEnd ? sign < 0 : sign > 0;
                         if (!movingTowardRange) break;
-                        if (next < TimeSpan.Zero) { next = TimeSpan.Zero; break; }
+                        if (next < MediaTime.Zero) { next = MediaTime.Zero; break; }
                     }
 
-                    TimeSpan target = next;
+                    MediaTime target = next;
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
                         _sessionGuard.TryApply(generation, () =>

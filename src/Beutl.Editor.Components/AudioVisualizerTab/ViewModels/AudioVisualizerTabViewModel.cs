@@ -9,7 +9,8 @@ namespace Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
 public sealed class AudioVisualizerTabViewModel : IToolContext
 {
-    private static readonly TimeSpan s_composeWindow = TimeSpan.FromMilliseconds(100);
+    private static readonly MediaTime s_composeWindow = MediaTime.FromSeconds(0.1);
+    private static readonly MediaTime s_settledDistance = MediaTime.FromSeconds(0.01);
 
     public const int DefaultFftSize = 2048;
     public const float DefaultMinDecibels = -90f;
@@ -59,7 +60,7 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     public AudioSampleRingBuffer RingBuffer { get; } = new();
 
-    public ReactivePropertySlim<TimeSpan> PlayheadTime { get; } = new(TimeSpan.Zero);
+    public ReactivePropertySlim<MediaTime> PlayheadTime { get; } = new(MediaTime.Zero);
 
     public ReactivePropertySlim<AudioVisualizerMode> SelectedMode { get; } = new(AudioVisualizerMode.Waveform);
 
@@ -103,11 +104,11 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
 
     // Spectrogram needs 4 s and Meter 0.4 s plus margin; the other modes need only the short
     // default window.
-    private TimeSpan GetComposeWindowForMode(AudioVisualizerMode mode)
+    private MediaTime GetComposeWindowForMode(AudioVisualizerMode mode)
         => mode switch
         {
-            AudioVisualizerMode.Spectrogram => TimeSpan.FromSeconds(4),
-            AudioVisualizerMode.Meter => TimeSpan.FromMilliseconds(500),
+            AudioVisualizerMode.Spectrogram => MediaTime.FromSeconds(4),
+            AudioVisualizerMode.Meter => MediaTime.FromSeconds(0.5),
             _ => s_composeWindow,
         };
 
@@ -123,15 +124,15 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
             {
                 if (_player.IsPlaying.Value) break;
 
-                TimeSpan targetTime = _clock.CurrentTime.Value;
-                TimeSpan window = GetComposeWindowForMode(SelectedMode.Value);
+                MediaTime targetTime = _clock.CurrentTime.Value;
+                MediaTime window = GetComposeWindowForMode(SelectedMode.Value);
 
                 // Compose a window ending AT the playhead so that ReadAroundTime
                 // finds the samples the user would be hearing if playback resumed.
-                TimeSpan windowStart = targetTime - window;
-                if (windowStart < TimeSpan.Zero) windowStart = TimeSpan.Zero;
-                TimeSpan duration = targetTime - windowStart;
-                if (duration <= TimeSpan.Zero) duration = window;
+                MediaTime windowStart = targetTime - window;
+                if (windowStart < MediaTime.Zero) windowStart = MediaTime.Zero;
+                MediaTime duration = targetTime - windowStart;
+                if (duration <= MediaTime.Zero) duration = window;
 
                 AudioFrameSnapshot? snapshot = await _player
                     .ComposeAudioAsync(windowStart, duration)
@@ -141,7 +142,8 @@ public sealed class AudioVisualizerTabViewModel : IToolContext
                     OnAudioFrameReceived(snapshot);
                 }
 
-                if ((_clock.CurrentTime.Value - targetTime).Duration() < TimeSpan.FromMilliseconds(10))
+                MediaTime moved = _clock.CurrentTime.Value - targetTime;
+                if (moved > -s_settledDistance && moved < s_settledDistance)
                     break;
             }
         }

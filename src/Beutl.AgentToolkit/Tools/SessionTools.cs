@@ -394,8 +394,8 @@ public sealed class SessionTools(
                 scene.Name,
                 scene.FrameSize.Width,
                 scene.FrameSize.Height,
-                scene.Start.ToString("c", CultureInfo.InvariantCulture),
-                scene.Duration.ToString("c", CultureInfo.InvariantCulture),
+                scene.Start.ToTimeSpan().ToString("c", CultureInfo.InvariantCulture),
+                scene.Duration.ToTimeSpan().ToString("c", CultureInfo.InvariantCulture),
                 scene.Children.Count))
             .ToArray());
     }

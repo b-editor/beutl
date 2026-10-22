@@ -23,16 +23,16 @@ public partial class PlayerView
     }
 
     private static KeyFrameState<T>? FindKeyFramePair<T>(
-        IProperty<T> property, IEditorClock clock, Scene scene, TimeSpan? localStart)
+        IProperty<T> property, IEditorClock clock, Scene scene, MediaTime? localStart)
     {
-        int rate = scene.FindHierarchicalParent<Project>() is { } proj ? proj.GetFrameRate() : 30;
-        TimeSpan globalKeyTime = clock.CurrentTime.Value;
-        TimeSpan localKeyTime = localStart.HasValue ? globalKeyTime - localStart.Value : globalKeyTime;
+        Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        MediaTime globalKeyTime = clock.CurrentTime.Value;
+        MediaTime localKeyTime = localStart.HasValue ? globalKeyTime - localStart.Value : globalKeyTime;
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<T> animation)
         {
-            TimeSpan keyTime = animation.UseGlobalClock ? globalKeyTime : localKeyTime;
-            keyTime = keyTime.RoundToRate(rate);
+            MediaTime keyTime = animation.UseGlobalClock ? globalKeyTime : localKeyTime;
+            keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
             (IKeyFrame? prev, IKeyFrame? next) = animation.KeyFrames.GetPreviousAndNextKeyFrame(keyTime);
 

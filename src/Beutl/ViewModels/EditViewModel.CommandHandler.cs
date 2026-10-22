@@ -52,20 +52,20 @@ public partial class EditViewModel : IContextCommandStateNotifier
     }
 
     // The frame the playhead is on, never before zero, and the name a new marker gets there.
-    private (int Rate, TimeSpan Time, string DefaultName) GetMarkerPlacement()
+    private (Rational Rate, MediaTime Time, string DefaultName) GetMarkerPlacement()
     {
-        int rate = Player.GetFrameRate();
-        TimeSpan time = _editorClock.CurrentTime.Value.RoundToRate(rate);
-        if (time < TimeSpan.Zero) time = TimeSpan.Zero;
+        Rational rate = Player.GetFrameRate();
+        MediaTime time = _editorClock.CurrentTime.Value.RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        if (time < MediaTime.Zero) time = MediaTime.Zero;
         return (rate, time, $"Marker {Scene.Markers.Count + 1}");
     }
 
     internal void ToggleMarkerAtCurrentTime()
     {
-        (int rate, TimeSpan time, string defaultName) = GetMarkerPlacement();
+        (Rational rate, MediaTime time, string defaultName) = GetMarkerPlacement();
 
         SceneMarker? existing = Scene.Markers
-            .FirstOrDefault(m => m.Time.RoundToRate(rate) == time);
+            .FirstOrDefault(m => m.Time.RoundToFrame(rate, MidpointRounding.AwayFromZero) == time);
         if (existing != null)
         {
             Scene.Markers.Remove(existing);
@@ -82,9 +82,9 @@ public partial class EditViewModel : IContextCommandStateNotifier
 
     internal void SeekToAdjacentMarker(bool forward)
     {
-        TimeSpan current = _editorClock.CurrentTime.Value;
-        TimeSpan? target = null;
-        foreach (TimeSpan marker in Scene.Markers.Select(m => m.Time).Union([TimeSpan.Zero, Scene.Start, Scene.Duration + Scene.Start]))
+        MediaTime current = _editorClock.CurrentTime.Value;
+        MediaTime? target = null;
+        foreach (MediaTime marker in Scene.Markers.Select(m => m.Time).Union([MediaTime.Zero, Scene.Start, Scene.Duration + Scene.Start]))
         {
             if (forward)
             {
@@ -112,7 +112,7 @@ public partial class EditViewModel : IContextCommandStateNotifier
 
     internal void SeekToAdjacentKeyFrame(bool forward)
     {
-        TimeSpan current = _editorClock.CurrentTime.Value;
+        MediaTime current = _editorClock.CurrentTime.Value;
 
         CoreObject? sel = _editorSelection.SelectedObject.Value;
         Element? scope = sel as Element
@@ -127,7 +127,7 @@ public partial class EditViewModel : IContextCommandStateNotifier
             ? new[] { scope }
             : Scene.Children.ToArray();
 
-        TimeSpan? target = KeyFrameNavigationHelper.FindAdjacentKeyFrame(roots, current, forward);
+        MediaTime? target = KeyFrameNavigationHelper.FindAdjacentKeyFrame(roots, current, forward);
 
         if (target == null)
         {
@@ -140,14 +140,14 @@ public partial class EditViewModel : IContextCommandStateNotifier
         SeekAndScroll(target.Value);
     }
 
-    internal void SeekAndScroll(TimeSpan time)
+    internal void SeekAndScroll(MediaTime time)
     {
         _editorClock.Seek(time);
 
         if (FindToolTab<TimelineTabViewModel>() is { } timeline)
         {
             int currentZIndex = timeline.ToLayerNumber(timeline.Options.Value.Offset.Y);
-            timeline.ScrollTo.Execute((new TimeRange(time, TimeSpan.FromTicks(1)), currentZIndex));
+            timeline.ScrollTo.Execute((new TimeRange(time, new MediaTime(1)), currentZIndex));
         }
     }
 }

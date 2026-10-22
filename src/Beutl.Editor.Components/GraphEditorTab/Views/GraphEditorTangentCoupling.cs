@@ -38,18 +38,18 @@ internal static class GraphEditorTangentCoupling
         if (index <= 0) return default;
         var previous = keys[index - 1].Model;
         var spline = GraphEditorCurveMath.ToSpline(segment.Model.Easing);
-        double duration = (segment.Model.KeyTime - previous.KeyTime).TotalSeconds;
+        double duration = (segment.Model.KeyTime - previous.KeyTime).ToSeconds();
         double difference = segment.Parent.ConvertToDouble(segment.Model.Value) - segment.Parent.ConvertToDouble(previous.Value);
         return incoming ? new Point((spline.X2 - 1) * duration, (spline.Y2 - 1) * difference)
             : new Point(spline.X1 * duration, spline.Y1 * difference);
     }
 
     public static Point ToPixels(GraphEditorViewModel editor, Point vector) => new(
-        vector.X * TimeSpan.FromSeconds(1).TimeToPixel(editor.Options.Value.Scale), -vector.Y * editor.ScaleY.Value);
+        vector.X * MediaTime.FromSeconds(1).TimeToPixel(editor.Options.Value.Scale), -vector.Y * editor.ScaleY.Value);
 
     private static double Length(GraphEditorViewModel editor, Point vector)
     {
-        double x = vector.X * TimeSpan.FromSeconds(1).TimeToPixel(editor.Options.Value.Scale);
+        double x = vector.X * MediaTime.FromSeconds(1).TimeToPixel(editor.Options.Value.Scale);
         double y = editor.IsSpeedGraph.Value ? 0 : vector.Y * editor.ScaleY.Value;
         return Math.Sqrt(x * x + y * y);
     }

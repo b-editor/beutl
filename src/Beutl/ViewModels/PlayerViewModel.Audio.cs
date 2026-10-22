@@ -14,7 +14,7 @@ namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
-    internal void PublishAudioSnapshot(AudioBuffer? audio, TimeSpan startTime)
+    internal void PublishAudioSnapshot(AudioBuffer? audio, MediaTime startTime)
     {
         // An abandoned audio task may still publish after disposal begins.
         if (audio == null || _isDisposing) return;
@@ -27,7 +27,7 @@ public partial class PlayerViewModel
         _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, audio.SampleRate, 2, startTime));
     }
 
-    async Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(TimeSpan start, TimeSpan duration, CancellationToken ct)
+    async Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(MediaTime start, MediaTime duration, CancellationToken ct)
     {
         // Admit idle composition on the UI thread, like history mutations. A background visualizer
         // continuation must not enqueue fresh scene work between Pause and the synchronous mutation.
@@ -89,7 +89,7 @@ public partial class PlayerViewModel
     private async Task PlayAudio(
         Scene scene,
         AudioPlaybackClock clock,
-        TimeSpan startTime,
+        MediaTime startTime,
         int sampleRate,
         int generation,
         CancellationToken playbackToken)
@@ -146,8 +146,8 @@ public partial class PlayerViewModel
         }
     }
 
-    internal (AudioBuffer? Audio, TimeSpan SceneEnd) FillAudioData(
-        TimeSpan time, Scene scene, int generation, CancellationToken playbackToken)
+    internal (AudioBuffer? Audio, MediaTime SceneEnd) FillAudioData(
+        MediaTime time, Scene scene, int generation, CancellationToken playbackToken)
     {
         return ComposeThread.Dispatcher.Invoke(() =>
         {
@@ -155,9 +155,9 @@ public partial class PlayerViewModel
             // after its drain barrier. A stopping or retired session must not read scene state,
             // including the interval before a queued PauseCore has retired the generation.
             if (_isPausing || playbackToken.IsCancellationRequested || !_sessionGuard.Owns(generation))
-                return ((AudioBuffer?)null, TimeSpan.Zero);
+                return ((AudioBuffer?)null, MediaTime.Zero);
 
-            TimeSpan sceneEnd = scene.Start + scene.Duration;
+            MediaTime sceneEnd = scene.Start + scene.Duration;
             SceneComposer composer = EditViewModel.Composer.Value;
             AudioBuffer? audio = composer.Compose(new TimeRange(time, s_second));
             if (audio is not null)
@@ -170,7 +170,7 @@ public partial class PlayerViewModel
     // Scene.Start + Duration を超えた末尾サンプルをゼロ埋めする。
     // 編集中に Duration が縮んでバッファ全体が範囲外になるケースもありうる。
     internal static void SilenceTailBeyondSceneEnd(
-        AudioBuffer audio, TimeSpan bufferStart, TimeSpan sceneEndTime)
+        AudioBuffer audio, MediaTime bufferStart, MediaTime sceneEndTime)
     {
         if (sceneEndTime <= bufferStart)
         {
@@ -178,10 +178,10 @@ public partial class PlayerViewModel
             return;
         }
 
-        TimeSpan bufferEnd = bufferStart + TimeSpan.FromSeconds(audio.SampleCount / (double)audio.SampleRate);
+        MediaTime bufferEnd = bufferStart + MediaTime.FromSeconds(audio.SampleCount / (double)audio.SampleRate);
         if (bufferEnd <= sceneEndTime) return;
 
-        double keepSeconds = (sceneEndTime - bufferStart).TotalSeconds;
+        double keepSeconds = (sceneEndTime - bufferStart).ToSeconds();
         int keepSamples = (int)Math.Ceiling(keepSeconds * audio.SampleRate);
         keepSamples = Math.Clamp(keepSamples, 0, audio.SampleCount);
 
@@ -218,12 +218,12 @@ public partial class PlayerViewModel
     }
 
     private async Task PlayWithXA2(XAudioContext audioContext, Scene scene,
-        AudioPlaybackClock clock, TimeSpan startTime, int sampleRate, int generation, CancellationToken playbackToken)
+        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
         cts.Token.ThrowIfCancellationRequested();
-        TimeSpan cur = startTime;
-        TimeSpan sceneEndTime = default;
+        MediaTime cur = startTime;
+        MediaTime sceneEndTime = default;
         var source = new XAudioSource(audioContext);
         var primaryBuffer = new XAudioBuffer();
         var secondaryBuffer = new XAudioBuffer();
@@ -233,7 +233,7 @@ public partial class PlayerViewModel
         void PrepareBuffer(XAudioBuffer buffer)
         {
             cts.Token.ThrowIfCancellationRequested();
-            TimeSpan bufferStartTime = cur;
+            MediaTime bufferStartTime = cur;
             var bufferData = FillAudioData(cur, scene, generation, playbackToken);
             sceneEndTime = bufferData.SceneEnd;
             using AudioBuffer? audio = bufferData.Audio;
@@ -257,7 +257,7 @@ public partial class PlayerViewModel
         {
             if (!hasAudio || !audioClockValid) return;
             double seconds = (double)source.SamplesPlayed / sampleRate;
-            clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
+            clock.Anchor(startTime + MediaTime.FromSeconds(seconds));
         }
 
         async Task PlaybackLoop()
@@ -330,14 +330,14 @@ public partial class PlayerViewModel
     }
 
     private async Task PlayWithOpenAL(AudioContext audioContext, Scene scene,
-        AudioPlaybackClock clock, TimeSpan startTime, int sampleRate, int generation, CancellationToken playbackToken)
+        AudioPlaybackClock clock, MediaTime startTime, int sampleRate, int generation, CancellationToken playbackToken)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
         cts.Token.ThrowIfCancellationRequested();
         audioContext.MakeCurrent();
 
-        TimeSpan cur = startTime;
-        TimeSpan sceneEndTime = default;
+        MediaTime cur = startTime;
+        MediaTime sceneEndTime = default;
         uint[] buffers = audioContext.GenBuffers(2);
         uint source = audioContext.GenSource();
         long totalProcessedSamples = 0;
@@ -351,14 +351,14 @@ public partial class PlayerViewModel
             audioContext.GetSource(source, GetSourceInteger.SampleOffset, out int sampleOffset);
             long pos = totalProcessedSamples + sampleOffset;
             double seconds = (double)pos / sampleRate;
-            clock.Anchor(startTime + TimeSpan.FromSeconds(seconds));
+            clock.Anchor(startTime + MediaTime.FromSeconds(seconds));
         }
 
         // Composes the next second and queues it in the buffer takeBuffer returns once the audio is ready.
         void FillAndQueue(Func<uint> takeBuffer)
         {
             cts.Token.ThrowIfCancellationRequested();
-            TimeSpan bufferStartTime = cur;
+            MediaTime bufferStartTime = cur;
             var bufferData = FillAudioData(cur, scene, generation, playbackToken);
             sceneEndTime = bufferData.SceneEnd;
             using AudioBuffer? audio = bufferData.Audio;

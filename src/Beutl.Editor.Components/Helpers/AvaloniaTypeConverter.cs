@@ -19,7 +19,7 @@ public static partial class AvaloniaTypeConverter
         return new Media.GradientStop(obj.Color.ToBtlColor(), (float)obj.Offset);
     }
 
-    private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<TimeSpan> time,
+    private static IDisposable AdaptEngineObject<T, TResource>(T obj, IObservable<MediaTime> time,
         Func<T, CompositionContext, TResource> createResource, Action<TResource> onUpdated)
         where T : EngineObject
         where TResource : EngineObject.Resource
@@ -32,7 +32,7 @@ public static partial class AvaloniaTypeConverter
     }
 
     public static (Avalonia.Media.GradientStop, IDisposable) ToAvaGradientStopSync(
-        this Media.GradientStop obj, IObservable<TimeSpan> time)
+        this Media.GradientStop obj, IObservable<MediaTime> time)
     {
         var s = new Avalonia.Media.GradientStop();
         var d = AdaptEngineObject(
@@ -48,7 +48,7 @@ public static partial class AvaloniaTypeConverter
     }
 
     public static (IObservable<Avalonia.Media.Geometry>, IDisposable) ToAvaGeometrySync(
-        this PathFigure obj, IObservable<TimeSpan> time)
+        this PathFigure obj, IObservable<MediaTime> time)
     {
         var reactiveProperty = new ReactivePropertySlim<Avalonia.Media.Geometry>();
         var d = AdaptEngineObject(
@@ -68,7 +68,7 @@ public static partial class AvaloniaTypeConverter
 
     public static (Avalonia.Media.GradientStops, IDisposable) ToAvaGradientStopsSync(
         this ICoreList<Media.GradientStop> obj,
-        IObservable<TimeSpan> time)
+        IObservable<MediaTime> time)
     {
         var d = new CompositeDisposable();
         var stops = new Avalonia.Media.GradientStops();
@@ -103,7 +103,7 @@ public static partial class AvaloniaTypeConverter
     // stop at the same index.
     private sealed class GradientStopsSync(
         ICoreList<Media.GradientStop> source,
-        IObservable<TimeSpan> time,
+        IObservable<MediaTime> time,
         Avalonia.Media.GradientStops stops,
         List<IDisposable> subscription)
     {
@@ -214,7 +214,7 @@ public static partial class AvaloniaTypeConverter
     }
 
     public static (Avalonia.Media.Brush?, IDisposable, Action?) ToAvaBrushSync(this Media.Brush? brush,
-        IObservable<TimeSpan> time)
+        IObservable<MediaTime> time)
     {
         switch (brush)
         {

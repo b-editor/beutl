@@ -71,7 +71,7 @@ internal static class BuiltInPropertyEditors
         registry.RegisterValue<CornerRadius, (float, float, float, float)>(
             VectorEditors.CornerRadius, () => new Vector4Editor<float> { Theme = FindTheme("CornerRadiusEditorStyle") });
 
-        registry.RegisterValue<TimeSpan, TimeSpan>(p => new TimeSpanEditorViewModel(p), () => new TimeSpanEditor());
+        registry.RegisterValue<MediaTime, MediaTime>(p => new MediaTimeEditorViewModel(p), () => new MediaTimeEditor());
         Add(registry, typeof(Easing), p => Create(typeof(EasingEditorViewModel<>), p.PropertyType, p), _ => new EasingEditor());
 
         Add<ImageSource?>(registry, p => new ImageSourceEditorViewModel(p), () => new ImageSourceEditor());

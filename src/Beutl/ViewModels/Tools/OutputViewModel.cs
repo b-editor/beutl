@@ -68,7 +68,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 var controller = newEncoder.CreateController(newFile);
                 Project? project = Model.FindHierarchicalParent<Project>();
-                controller.VideoSettings.FrameRate = new Rational(project.GetFrameRate(), 1);
+                controller.VideoSettings.FrameRate = project.GetFrameRate();
                 controller.AudioSettings.SampleRate = project.GetSampleRate();
                 // A new controller starts at the scene's size, whatever default its encoder gives. Settings copied
                 // above, because only the destination changed, keep their output size like everything else.
@@ -420,7 +420,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         videoSettings.SourceSize = scene.FrameSize;
 
-        ProgressMax.Value = scene.Duration.TotalSeconds * ((videoEnabled ? 1 : 0) + (audioEnabled ? 1 : 0));
+        ProgressMax.Value = scene.Duration.ToSeconds() * ((videoEnabled ? 1 : 0) + (audioEnabled ? 1 : 0));
 
         double frameRate = videoSettings.FrameRate.ToDouble();
         if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
@@ -435,7 +435,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         float renderScale = Math.Max(1, supersampleFactor);
         using var renderer = videoEnabled ? ExportRendererFactory.Create(scene, renderScale) : null;
-        using var frameProgress = new Subject<TimeSpan>();
+        using var frameProgress = new Subject<MediaTime>();
         using IFrameProvider frameProvider = renderer != null
             ? new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress)
             : DisabledMediaProvider.Instance;
@@ -443,12 +443,12 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         {
             SampleRate = audioSettings.SampleRate
         } : null;
-        using var sampleProgress = new Subject<TimeSpan>();
+        using var sampleProgress = new Subject<MediaTime>();
         using ISampleProvider sampleProvider = composer != null
             ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate, sampleProgress)
             : DisabledMediaProvider.Instance;
 
-        IObservable<TimeSpan> progress = videoEnabled && audioEnabled
+        IObservable<MediaTime> progress = videoEnabled && audioEnabled
             ? frameProgress.CombineLatest(sampleProgress, (video, audio) => video + audio)
             : videoEnabled ? frameProgress : sampleProgress;
 
@@ -457,7 +457,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         using (frameProgress
                    .Subscribe(t =>
                    {
-                       long frame = (long)Math.Round(t.TotalSeconds * frameRate);
+                       long frame = (long)Math.Round(t.ToSeconds() * frameRate);
                        FrameProgressText.Value = totalFrames > 0
                            ? $"{frame} / {totalFrames}"
                            : $"{frame}";
@@ -465,7 +465,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         using (progress
                    .Subscribe(t =>
                    {
-                       double value = t.TotalSeconds;
+                       double value = t.ToSeconds();
                        ProgressValue.Value = value;
                        UpdateProgressIndicators(stopwatch.Elapsed, value, ProgressMax.Value, destinationPath);
                    }))

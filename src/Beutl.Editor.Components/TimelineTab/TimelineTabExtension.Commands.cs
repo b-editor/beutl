@@ -245,8 +245,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     // one. Like IElementStructureService.Split, both halves have to be at least one frame long.
     private static bool CanSplit(IEditorContext editorContext, Scene scene, Element element)
     {
-        TimeSpan time = GetSplitTime(editorContext, scene);
-        TimeSpan frame = SceneTimeRangeService.GetFrameDuration(scene);
+        MediaTime time = GetSplitTime(editorContext, scene);
+        MediaTime frame = SceneTimeRangeService.GetFrameDuration(scene);
         return GetSplitTargets(editorContext, scene, element)
             .Any(e => time - e.Start >= frame && e.Range.End - time >= frame);
     }
@@ -310,9 +310,9 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
         return scene is not null && element is not null && scene.Children.Contains(element);
     }
 
-    private static TimeSpan GetSplitTime(IEditorContext editorContext, Scene scene)
+    private static MediaTime GetSplitTime(IEditorContext editorContext, Scene scene)
     {
-        TimeSpan time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? TimeSpan.Zero;
-        return time.RoundToRate(SceneTimeRangeService.GetFrameRate(scene));
+        MediaTime time = editorContext.GetService<IEditorClock>()?.CurrentTime.Value ?? MediaTime.Zero;
+        return time.RoundToFrame(SceneTimeRangeService.GetFrameRate(scene), MidpointRounding.AwayFromZero);
     }
 }

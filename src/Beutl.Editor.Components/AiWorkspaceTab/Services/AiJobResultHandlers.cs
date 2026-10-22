@@ -220,13 +220,13 @@ internal sealed class ImageAiJobResultCapabilities(Func<string> getDisplayName)
         using Bitmap bitmap = Bitmap.FromStream(content);
 
         IAiJobResultEditorContext editor = context.Editor;
-        TimeSpan start = editor.CurrentTime;
+        MediaTime start = editor.CurrentTime;
         var importer = new AiResultImporter(editor.Scene, editor.ElementAdder);
         ElementAddResult result = await importer.ImportImageAsync(
             bitmap,
             new AiResultImportOptions(
                 start,
-                TimeSpan.FromSeconds(5),
+                MediaTime.FromSeconds(5),
                 editor.GetNextLayer(start),
                 KindDisplayName),
             cancellationToken);
@@ -264,7 +264,7 @@ internal sealed class VideoAiJobResultCapabilities()
                 download.Metadata);
             string extension = metadata?.GetFileExtension() ?? ".mp4";
 
-            TimeSpan duration = TimeSpan.FromSeconds(AiJobResultInput.GetInt32(job, "durationSeconds") ?? 6);
+            MediaTime duration = MediaTime.FromSeconds(AiJobResultInput.GetInt32(job, "durationSeconds") ?? 6);
             if (AiJobResultInput.GetString(job, "mode") is "edit" or "extend" or "motion")
             {
                 string completedPath = Path.ChangeExtension(temporaryContentPath, extension);
@@ -279,13 +279,13 @@ internal sealed class VideoAiJobResultCapabilities()
                     double seconds = reader.HasVideo ? reader.VideoInfo.Duration.ToDouble() : 0;
                     // Some backends can decode frames without duration metadata. Keep the
                     // retained/default length in that case; the importer still validates decoding.
-                    return double.IsFinite(seconds) && seconds > 0 && seconds < TimeSpan.MaxValue.TotalSeconds
-                        ? TimeSpan.FromSeconds(seconds)
+                    return double.IsFinite(seconds) && seconds > 0 && seconds < MediaTime.MaxValue.ToSeconds()
+                        ? MediaTime.FromSeconds(seconds)
                         : duration;
                 }, cancellationToken);
             }
             IAiJobResultEditorContext editor = context.Editor;
-            TimeSpan start = editor.CurrentTime;
+            MediaTime start = editor.CurrentTime;
             var importer = new AiResultImporter(editor.Scene, editor.ElementAdder);
             ElementAddResult result = await importer.ImportVideoAsync(
                 ownedPath,

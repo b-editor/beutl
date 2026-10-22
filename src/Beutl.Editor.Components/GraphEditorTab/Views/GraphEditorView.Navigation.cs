@@ -138,11 +138,11 @@ public partial class GraphEditorView
             model.RefreshVerticalRange();
             if (!heightOnly)
             {
-                double first = keys.Min(x => x.Model.KeyTime.TotalSeconds);
-                double last = keys.Max(x => x.Model.KeyTime.TotalSeconds);
-                double duration = Math.Max(last - first, 1d / SceneTimeRangeService.GetFrameRate(model.Scene));
+                double first = keys.Min(x => x.Model.KeyTime.ToSeconds());
+                double last = keys.Max(x => x.Model.KeyTime.ToSeconds());
+                double duration = Math.Max(last - first, 1d / SceneTimeRangeService.GetFrameRate(model.Scene).ToDouble());
                 float scale = (float)Math.Clamp(Math.Max(1, scroll.Viewport.Width - padding * 2)
-                    / TimeSpan.FromSeconds(duration).TimeToPixel(1), 0.001, 100);
+                    / MediaTime.FromSeconds(duration).TimeToPixel(1), 0.001, 100);
                 model.Options.Value = model.Options.Value with { Scale = scale };
             }
             graphPanel.UpdateLayout();

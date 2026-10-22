@@ -14,8 +14,8 @@ public partial class GraphEditorView
     {
         if (CaptureSelection(3) is not { } snapshot) return;
         var entries = snapshot.Entries.OrderBy(entry => entry.Time).ToArray();
-        double first = entries[0].Time.TotalSeconds;
-        double last = entries[^1].Time.TotalSeconds;
+        double first = entries[0].Time.ToSeconds();
+        double last = entries[^1].Time.ToSeconds();
         var times = entries.Select((entry, index) =>
                 (entry.Model, Time: first + (last - first) * index / (snapshot.Entries.Length - 1)))
             .ToDictionary(entry => entry.Model, entry => entry.Time);
@@ -25,8 +25,8 @@ public partial class GraphEditorView
     internal void ReverseSelection()
     {
         if (CaptureSelection(2) is not { } snapshot) return;
-        double ends = snapshot.Entries.Min(entry => entry.Time.TotalSeconds) + snapshot.Entries.Max(entry => entry.Time.TotalSeconds);
-        ApplySelectionTransform(() => snapshot.Apply(entry => (ends - entry.Time.TotalSeconds, entry.Number),
+        double ends = snapshot.Entries.Min(entry => entry.Time.ToSeconds()) + snapshot.Entries.Max(entry => entry.Time.ToSeconds());
+        ApplySelectionTransform(() => snapshot.Apply(entry => (ends - entry.Time.ToSeconds(), entry.Number),
             timeScale: -1, transformHandles: true, updateValues: false));
     }
 

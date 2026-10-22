@@ -116,7 +116,7 @@ public partial class PlayerViewModel
     }
 
     internal static CompositionContext CreateSelectedDrawableCompositionContext(
-        TimeSpan frame,
+        MediaTime frame,
         PixelSize frameSize)
         => new(frame)
         {

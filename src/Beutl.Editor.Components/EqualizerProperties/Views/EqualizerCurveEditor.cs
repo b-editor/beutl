@@ -40,8 +40,8 @@ public sealed class EqualizerCurveEditor : Control
         AvaloniaProperty.Register<EqualizerCurveEditor, int>(nameof(SelectedBandIndex), defaultValue: -1,
             defaultBindingMode: Avalonia.Data.BindingMode.TwoWay);
 
-    public static readonly StyledProperty<TimeSpan> CurrentTimeProperty =
-        AvaloniaProperty.Register<EqualizerCurveEditor, TimeSpan>(nameof(CurrentTime));
+    public static readonly StyledProperty<MediaTime> CurrentTimeProperty =
+        AvaloniaProperty.Register<EqualizerCurveEditor, MediaTime>(nameof(CurrentTime));
 
     public static readonly StyledProperty<int> SampleRateProperty =
         AvaloniaProperty.Register<EqualizerCurveEditor, int>(nameof(SampleRate), defaultValue: DefaultResponseSampleRate);
@@ -87,7 +87,7 @@ public sealed class EqualizerCurveEditor : Control
         set => SetValue(SelectedBandIndexProperty, value);
     }
 
-    public TimeSpan CurrentTime
+    public MediaTime CurrentTime
     {
         get => GetValue(CurrentTimeProperty);
         set => SetValue(CurrentTimeProperty, value);

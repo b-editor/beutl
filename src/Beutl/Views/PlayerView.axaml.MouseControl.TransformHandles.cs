@@ -259,7 +259,7 @@ public partial class PlayerView
             if (element == null || !scene.Children.Contains(element))
             {
                 int zindex = drawable.ZIndex;
-                TimeSpan time = Clock.CurrentTime.Value;
+                MediaTime time = Clock.CurrentTime.Value;
                 element = FindEnabledElementAt(scene, zindex, time);
             }
 
@@ -824,9 +824,9 @@ public partial class PlayerView
         {
             Element? element = _press?.Element;
             if (element == null) return;
-            int rate = EditViewModel.Player.GetFrameRate();
-            int st = (int)element.Start.ToFrameNumber(rate);
-            int ed = (int)Math.Ceiling(element.Range.End.ToFrameNumber(rate));
+            Rational rate = EditViewModel.Player.GetFrameRate();
+            int st = (int)element.Start.ToFrame(rate, MidpointRounding.ToNegativeInfinity);
+            int ed = (int)element.Range.End.ToFrame(rate, MidpointRounding.ToPositiveInfinity);
             EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks([(st, ed)]);
         }
     }

@@ -103,7 +103,7 @@ public sealed partial class TimelineTabView
         }
     }
 
-    private void OnCurrentTimeChangedForAutoScroll(TimeSpan currentTime)
+    private void OnCurrentTimeChangedForAutoScroll(MediaTime currentTime)
     {
         if (ViewModel == null) return;
 
@@ -120,8 +120,8 @@ public sealed partial class TimelineTabView
             Size viewport = ContentScroll.Viewport - new Size(Spacing * 2, 0);
             Avalonia.Vector offset = ContentScroll.Offset + new Avalonia.Vector(Spacing, 0);
 
-            var start = offset.X.PixelToTimeSpan(scale);
-            var length = viewport.Width.PixelToTimeSpan(scale);
+            var start = offset.X.PixelToTime(scale);
+            var length = viewport.Width.PixelToTime(scale);
             int startZIndex = viewModel.ToLayerNumber(offset.Y);
             int endZIndex = viewModel.ToLayerNumber(offset.Y + viewport.Height);
 

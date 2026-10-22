@@ -27,7 +27,7 @@ public partial class PlayerView
         var storage = e.DataTransfer.TryGetValue(StorageDragData.Format);
         using var consumption = storage?.Consumption?.Claim();
         if (DataContext is not PlayerViewModel { Scene: { } scene, EditViewModel: { } editViewModel } viewModel) return;
-        TimeSpan frame = viewModel.CurrentFrame.Value;
+        MediaTime frame = viewModel.CurrentFrame.Value;
 
         AvaPoint position = e.GetPosition(image);
         double scaleX = image.Bounds.Size.Width / scene.FrameSize.Width;
@@ -57,7 +57,7 @@ public partial class PlayerView
         StorageDragData storage,
         Scene scene,
         EditViewModel editViewModel,
-        TimeSpan frame,
+        MediaTime frame,
         Point centeredPosition)
     {
         e.Handled = true;
@@ -73,7 +73,7 @@ public partial class PlayerView
             foreach (string path in import.Paths)
             {
                 int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
-                ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, TimeSpan.FromSeconds(5), layer,
+                ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, MediaTime.FromSeconds(5), layer,
                     new ElementSource.File(path), Position: centeredPosition));
                 if (result is { IsSuccess: true }) import.Retain(path);
             }
@@ -87,7 +87,7 @@ public partial class PlayerView
         DragEventArgs e,
         Scene scene,
         EditViewModel editViewModel,
-        TimeSpan frame,
+        MediaTime frame,
         Point scaledPosition,
         bool containsFe,
         bool containsTra)
@@ -139,7 +139,7 @@ public partial class PlayerView
         DragEventArgs e,
         Scene scene,
         EditViewModel editViewModel,
-        TimeSpan frame,
+        MediaTime frame,
         Point centeredPosition)
     {
         int CalculateZIndex(Scene scene)
@@ -168,11 +168,11 @@ public partial class PlayerView
             int zindex = CalculateZIndex(scene);
 
             await AddElement(editViewModel, new ElementDescription(
-                frame, TimeSpan.FromSeconds(5), zindex, source, Position: centeredPosition));
+                frame, MediaTime.FromSeconds(5), zindex, source, Position: centeredPosition));
         }
     }
 
-    private static Element? FindEnabledElementAt(Scene scene, int zIndex, TimeSpan time)
+    private static Element? FindEnabledElementAt(Scene scene, int zIndex, MediaTime time)
     {
         return scene.Children.FirstOrDefault(v =>
             v.IsEnabled

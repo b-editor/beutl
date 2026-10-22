@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using Beutl.Editor;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
 using Beutl.ProjectSystem;
 using Beutl.Services;
@@ -32,11 +33,11 @@ public sealed class SceneSettingsTabViewModel : IToolContext
             .ToReactiveProperty()
             .DisposeWith(_disposable);
         StartInput = _scene.StartProperty.GetObservable()
-            .Select(v => v.ToString())
+            .Select(TimeText.Format)
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
         DurationInput = _scene.DurationProperty.GetObservable()
-            .Select(v => v.ToString())
+            .Select(TimeText.Format)
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
         LayerCount = _optionsProvider.Options.Select(x => x.MaxLayerCount)
@@ -66,7 +67,7 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     private async Task ApplyAsync()
     {
-        if (TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration))
+        if (TryReadSceneSettings(out Media.PixelSize frameSize, out MediaTime start, out MediaTime duration))
         {
             // Pause playback before rebuilding the renderer to avoid UI freeze. Pause also returns a pause
             // still draining the last frame, which IsPlaying no longer shows.
@@ -105,16 +106,16 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     {
         Width.Value = _scene.FrameSize.Width;
         Height.Value = _scene.FrameSize.Height;
-        StartInput.Value = _scene.Start.ToString();
-        DurationInput.Value = _scene.Duration.ToString();
+        StartInput.Value = TimeText.Format(_scene.Start);
+        DurationInput.Value = TimeText.Format(_scene.Duration);
         LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
     }
 
     internal static string? DurationValidator(string str)
     {
-        if (TimeSpan.TryParse(str, out TimeSpan time))
+        if (TimeText.TryParse(str, out MediaTime time))
         {
-            if (time <= TimeSpan.Zero)
+            if (time <= MediaTime.Zero)
             {
                 return MessageStrings.ValueLessThanOrEqualToZero;
             }
@@ -131,9 +132,9 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     internal static string? StartValidator(string str)
     {
-        if (TimeSpan.TryParse(str, out TimeSpan time))
+        if (TimeText.TryParse(str, out MediaTime time))
         {
-            if (time < TimeSpan.Zero)
+            if (time < MediaTime.Zero)
             {
                 return MessageStrings.ValueLessThanZero;
             }
@@ -175,15 +176,15 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         return observable <= 0 ? MessageStrings.ValueLessThanOrEqualToZero : null;
     }
 
-    private bool TryReadSceneSettings(out Media.PixelSize frameSize, out TimeSpan start, out TimeSpan duration)
+    private bool TryReadSceneSettings(out Media.PixelSize frameSize, out MediaTime start, out MediaTime duration)
     {
         frameSize = new Media.PixelSize(Width.Value, Height.Value);
-        bool hasStart = TimeSpan.TryParse(StartInput.Value, out start);
-        bool hasDuration = TimeSpan.TryParse(DurationInput.Value, out duration);
+        bool hasStart = TimeText.TryParse(StartInput.Value, out start);
+        bool hasDuration = TimeText.TryParse(DurationInput.Value, out duration);
         return Width.Value > 0
             && Height.Value > 0
-            && hasStart && start >= TimeSpan.Zero
-            && hasDuration && duration > TimeSpan.Zero;
+            && hasStart && start >= MediaTime.Zero
+            && hasDuration && duration > MediaTime.Zero;
     }
 
     public void Dispose()

@@ -145,7 +145,7 @@ public static class TimelineBasicsTutorial
                         }
                         else
                         {
-                            clock.Seek(element.Start + TimeSpan.FromSeconds(2));
+                            clock.Seek(element.Start + MediaTime.FromSeconds(2));
                             step4Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,

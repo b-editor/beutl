@@ -145,9 +145,10 @@ public partial class GraphEditorView
     private static void InvalidateVelocityPreview(GraphEditorViewModel model)
     {
         if (model.EditorContext.GetService<IBufferStatus>() is not { } buffer) return;
-        int rate = SceneTimeRangeService.GetFrameRate(model.Scene);
-        TimeSpan start = model.Element?.Start ?? model.Scene.Start;
-        TimeSpan end = model.Element?.Range.End ?? model.Scene.Start + model.Scene.Duration;
-        buffer.DeleteCache((int)Math.Floor(start.ToFrameNumber(rate)), (int)Math.Ceiling(end.ToFrameNumber(rate)));
+        Rational rate = SceneTimeRangeService.GetFrameRate(model.Scene);
+        MediaTime start = model.Element?.Start ?? model.Scene.Start;
+        MediaTime end = model.Element?.Range.End ?? model.Scene.Start + model.Scene.Duration;
+        buffer.DeleteCache(
+            (int)start.ToFrame(rate, MidpointRounding.ToNegativeInfinity), (int)end.ToFrame(rate, MidpointRounding.ToPositiveInfinity));
     }
 }

@@ -68,20 +68,17 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             await ThrowIfExportSourcesMissingAsync(scene, cancellationToken).ConfigureAwait(false);
 
             using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
-            using var frameProgress = new Subject<TimeSpan>();
+            using var frameProgress = new Subject<MediaTime>();
             using var frameProvider = new FrameProviderImpl(scene, frameRate, renderer, frameProgress);
-            double ratePerSecond = frameRate.ToDouble();
             using IDisposable frameProgressSubscription = onFrameProgress is null
                 ? Disposable.Empty
                 : frameProgress.Subscribe(time => onFrameProgress(
-                    // The provider derives frame times from integer ticks, so the product lands
-                    // just under the frame number; round rather than truncate. ReadNextFrame emits
-                    // this signal before returning the frame, so only preceding frames
+                    // ReadNextFrame emits this signal before returning the frame, so only preceding frames
                     // are complete at this point.
-                    Math.Min((long)Math.Round(time.TotalSeconds * ratePerSecond), frameProvider.FrameCount),
+                    Math.Min(time.ToFrame(frameRate, MidpointRounding.AwayFromZero), frameProvider.FrameCount),
                     frameProvider.FrameCount));
             using var composer = CreateExportComposer(scene, normalizedSampleRate);
-            using var sampleProgress = new Subject<TimeSpan>();
+            using var sampleProgress = new Subject<MediaTime>();
             using var sampleProvider = new SampleProviderImpl(scene, composer, normalizedSampleRate, sampleProgress);
 
             await controller.Encode(frameProvider, sampleProvider, cancellationToken).ConfigureAwait(false);
@@ -104,7 +101,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 outputPath,
                 frameProvider.FrameCount,
                 sampleProvider.SampleCount,
-                scene.Duration.ToString("c"),
+                scene.Duration.ToTimeSpan().ToString("c"),
                 GetEncoderName(encoder),
                 warnings);
         }
@@ -232,18 +229,18 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
     internal static string? CreateAvFoundationBitrateWarning(
         string outputPath,
-        TimeSpan duration,
+        MediaTime duration,
         int requestedBitrate,
         int? configuredAudioBitrate = null)
     {
         if (requestedBitrate <= 0
-            || duration <= TimeSpan.Zero
+            || duration <= MediaTime.Zero
             || !File.Exists(outputPath))
         {
             return null;
         }
 
-        double containerBitrate = new FileInfo(outputPath).Length * 8d / duration.TotalSeconds;
+        double containerBitrate = new FileInfo(outputPath).Length * 8d / duration.ToSeconds();
         double measuredVideoBitrate = configuredAudioBitrate is > 0
             ? Math.Max(0, containerBitrate - configuredAudioBitrate.Value)
             : containerBitrate;

@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Media;
@@ -46,10 +47,10 @@ public sealed partial class SceneSettingsTabExtension
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = Strings.CommandPalette_TimeSpanHint,
-            Value = scene.Start.ToString(),
+            Value = TimeText.Format(scene.Start),
             Validate = SceneSettingsTabViewModel.StartValidator
         });
-        if (input is not null && TimeSpan.TryParse(input, out TimeSpan start))
+        if (input is not null && TimeText.TryParse(input, out MediaTime start))
             await ApplyAsync(editorContext, scene, interaction.CancellationToken, start: start);
     }
 
@@ -58,10 +59,10 @@ public sealed partial class SceneSettingsTabExtension
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = Strings.CommandPalette_TimeSpanHint,
-            Value = scene.Duration.ToString(),
+            Value = TimeText.Format(scene.Duration),
             Validate = SceneSettingsTabViewModel.DurationValidator
         });
-        if (input is not null && TimeSpan.TryParse(input, out TimeSpan duration))
+        if (input is not null && TimeText.TryParse(input, out MediaTime duration))
             await ApplyAsync(editorContext, scene, interaction.CancellationToken, duration: duration);
     }
 
@@ -84,7 +85,7 @@ public sealed partial class SceneSettingsTabExtension
     // The settings left out keep the scene's values as of the change, not as of the prompt.
     private static async Task ApplyAsync(
         IEditorContext editorContext, Scene scene, CancellationToken cancellationToken,
-        PixelSize? frameSize = null, TimeSpan? start = null, TimeSpan? duration = null)
+        PixelSize? frameSize = null, MediaTime? start = null, MediaTime? duration = null)
     {
         bool changes = frameSize is { } f && f != scene.FrameSize
             || start is { } s && s != scene.Start

@@ -70,12 +70,12 @@ internal static class KeyFrameClipboardCommands
     }
 
     internal static void PasteKeyFrame(
-        IServiceProvider services, IKeyFrameAnimation animation, string json, Func<IKeyFrameAnimation, TimeSpan> getKeyTime,
+        IServiceProvider services, IKeyFrameAnimation animation, string json, Func<IKeyFrameAnimation, MediaTime> getKeyTime,
         Action<Easing> insertWithEasing, ILogger logger)
     {
         logger.LogInformation("Pasting JSON");
         var keyFrameAnimation = (IKeyFrameAnimation)animation;
-        TimeSpan keyTime = getKeyTime(keyFrameAnimation);
+        MediaTime keyTime = getKeyTime(keyFrameAnimation);
         IKeyFrameClipboardService service = services.GetRequiredService<IKeyFrameClipboardService>();
         KeyFramePasteResult result = service.PasteKeyFrame(keyFrameAnimation, json, keyTime);
 
@@ -85,8 +85,8 @@ internal static class KeyFrameClipboardCommands
     // The easing replaces that of the keyframe near keyTime, the drop position as a key time, or comes with a
     // new keyframe inserted at dropTime.
     internal static void DropEasing(
-        IKeyFrameAnimation animation, Scene scene, HistoryManager history, Easing easing, TimeSpan dropTime,
-        TimeSpan keyTime, Action<Easing, TimeSpan> insertKeyFrame, ILogger? logger)
+        IKeyFrameAnimation animation, Scene scene, HistoryManager history, Easing easing, MediaTime dropTime,
+        MediaTime keyTime, Action<Easing, MediaTime> insertKeyFrame, ILogger? logger)
     {
         IKeyFrame? keyFrame = FindEasingDropTarget(animation, keyTime, scene);
         if (keyFrame != null)
@@ -195,10 +195,10 @@ internal static class KeyFrameClipboardCommands
     }
 
     // A dropped easing lands on an existing keyframe within three frames of the drop position.
-    internal static IKeyFrame? FindEasingDropTarget(IKeyFrameAnimation animation, TimeSpan keyTime, Scene scene)
+    internal static IKeyFrame? FindEasingDropTarget(IKeyFrameAnimation animation, MediaTime keyTime, Scene scene)
     {
-        TimeSpan threshold = SceneTimeRangeService.GetFrameDuration(scene) * 3;
+        MediaTime threshold = MediaTime.FromFrames(3, SceneTimeRangeService.GetFrameRate(scene));
 
-        return animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Ticks - keyTime.Ticks) <= threshold.Ticks);
+        return animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Flicks - keyTime.Flicks) <= threshold.Flicks);
     }
 }

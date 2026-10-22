@@ -42,14 +42,14 @@ public partial class EditViewModel
             {
                 ["bpm"] = _timelineOptionsProvider.Options.Value.BpmGrid.Bpm,
                 ["subdivisions"] = _timelineOptionsProvider.Options.Value.BpmGrid.Subdivisions,
-                ["offset"] = _timelineOptionsProvider.Options.Value.BpmGrid.Offset.ToString("c"),
+                ["offset"] = _timelineOptionsProvider.Options.Value.BpmGrid.Offset.ToTimeSpan().ToString("c"),
                 ["is-enabled"] = _timelineOptionsProvider.Options.Value.BpmGrid.IsEnabled,
             }
         };
 
         DockHost.WriteToJson(json);
 
-        json["current-time"] = JsonValue.Create(_editorClock.CurrentTime.Value);
+        json["current-time"] = JsonValue.Create(_editorClock.CurrentTime.Value.ToTimeSpan());
 
         string name = Path.GetFileNameWithoutExtension(Scene.Uri!.LocalPath);
         json.JsonSave(Path.Combine(viewStateDir, $"{name}.config"));
@@ -92,7 +92,7 @@ public partial class EditViewModel
             if (jsonObject.TryGetPropertyValueAsJsonValue("current-time", out string? currentTimeStr)
                 && TimeSpan.TryParse(currentTimeStr, out TimeSpan currentTime))
             {
-                _editorClock.Seek(currentTime);
+                _editorClock.Seek(MediaTime.FromTimeSpan(currentTime));
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -174,7 +174,7 @@ public partial class EditViewModel
 
         if (bpmGridObj.TryGetPropertyValueAsJsonValue("offset", out string? bpmOffsetStr)
             && TimeSpan.TryParseExact(bpmOffsetStr, "c", CultureInfo.InvariantCulture, out TimeSpan bpmOffset))
-            bpmGrid = bpmGrid with { Offset = bpmOffset };
+            bpmGrid = bpmGrid with { Offset = MediaTime.FromTimeSpan(bpmOffset) };
 
         if (bpmGridObj.TryGetPropertyValueAsJsonValue("is-enabled", out bool isEnabled))
             bpmGrid = bpmGrid with { IsEnabled = isEnabled };

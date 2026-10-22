@@ -62,9 +62,9 @@ internal sealed partial class DeclarativeDocumentApplier
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.KeyTime), out JsonNode? keyTimeNode) && keyTimeNode is not null)
         {
-            keyFrame.KeyTime = (TimeSpan)CoreSerializer.DeserializeFromJsonNode(
+            keyFrame.KeyTime = (MediaTime)CoreSerializer.DeserializeFromJsonNode(
                 keyTimeNode.DeepClone(),
-                typeof(TimeSpan),
+                typeof(MediaTime),
                 CreateOptions(keyFrame as CoreObject))!;
         }
     }

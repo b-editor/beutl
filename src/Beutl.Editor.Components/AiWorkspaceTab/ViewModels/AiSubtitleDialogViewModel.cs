@@ -402,7 +402,7 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                 {
                     // The original audio duration bounds what a run can send; the element can run
                     // past the end of the audio.
-                    TimeSpan duration = sound.TryGetOriginalDuration(out TimeSpan original)
+                    MediaTime duration = sound.TryGetOriginalDuration(out MediaTime original)
                         ? original
                         : element.Length;
                     items.Add(new AudioSourceItem(
@@ -638,9 +638,9 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
 public sealed class AudioSourceItem
 {
     private const int AnimationSampleRate = 1000;
-    private readonly TimeSpan _elementStart;
-    private readonly TimeSpan _elementLength;
-    private readonly TimeSpan _sourceOffset;
+    private readonly MediaTime _elementStart;
+    private readonly MediaTime _elementLength;
+    private readonly MediaTime _sourceOffset;
     private readonly float _speed;
     private readonly KeyFrameAnimation<float>? _speedAnimation;
     private readonly Guid _elementId;
@@ -648,10 +648,10 @@ public sealed class AudioSourceItem
     public AudioSourceItem(
         string name,
         string filePath,
-        TimeSpan duration,
-        TimeSpan elementStart = default,
-        TimeSpan? elementLength = null,
-        TimeSpan sourceOffset = default,
+        MediaTime duration,
+        MediaTime elementStart = default,
+        MediaTime? elementLength = null,
+        MediaTime sourceOffset = default,
         float speed = 100,
         KeyFrameAnimation<float>? speedAnimation = null,
         Guid elementId = default)
@@ -667,7 +667,7 @@ public sealed class AudioSourceItem
         _speedAnimation = speedAnimation;
     }
 
-    private AudioSourceItem(string name, TimeSpan sceneStart, TimeSpan duration)
+    private AudioSourceItem(string name, MediaTime sceneStart, MediaTime duration)
     {
         Name = name;
         FilePath = null;
@@ -683,31 +683,31 @@ public sealed class AudioSourceItem
 
     public string? FilePath { get; }
 
-    public TimeSpan Duration { get; }
+    public MediaTime Duration { get; }
 
     public bool IsSceneMix { get; }
 
-    public TimeSpan SceneStart { get; }
+    public MediaTime SceneStart { get; }
 
     internal Guid ElementId => _elementId;
 
-    internal TimeSpan SourceOffset => _sourceOffset;
+    internal MediaTime SourceOffset => _sourceOffset;
 
     internal double GetSourceElapsedSeconds()
     {
         if (_speedAnimation is null)
-            return Math.Max(_elementLength.TotalSeconds * (_speed / 100d), 0);
+            return Math.Max(_elementLength.ToSeconds() * (_speed / 100d), 0);
 
         using var integrator = new SpeedIntegrator(AnimationSampleRate);
         integrator.EnsureCache(_speedAnimation);
-        TimeSpan elapsed = _speedAnimation.UseGlobalClock
+        MediaTime elapsed = _speedAnimation.UseGlobalClock
             ? integrator.Integrate(_elementStart + _elementLength, _speedAnimation)
               - integrator.Integrate(_elementStart, _speedAnimation)
             : integrator.Integrate(_elementLength, _speedAnimation);
-        return Math.Max(elapsed.TotalSeconds, 0);
+        return Math.Max(elapsed.ToSeconds(), 0);
     }
 
-    internal static AudioSourceItem CreateSceneMix(string name, TimeSpan sceneStart, TimeSpan duration)
+    internal static AudioSourceItem CreateSceneMix(string name, MediaTime sceneStart, MediaTime duration)
         => new(name, sceneStart, duration);
 
     internal static bool CanResume(AudioSourceItem? candidate, AudioSourceItem? previous)
@@ -761,7 +761,7 @@ public sealed class AudioSourceItem
     {
         ArgumentNullException.ThrowIfNull(segments);
 
-        double elementLength = Math.Max(_elementLength.TotalSeconds, 0);
+        double elementLength = Math.Max(_elementLength.ToSeconds(), 0);
         if (elementLength <= 0)
             return [];
 
@@ -773,22 +773,22 @@ public sealed class AudioSourceItem
 
         double SourceElapsedAt(double localSeconds)
         {
-            TimeSpan localTime = TimeSpan.FromSeconds(Math.Clamp(localSeconds, 0, elementLength));
+            MediaTime localTime = MediaTime.FromSeconds(Math.Clamp(localSeconds, 0, elementLength));
             if (_speedAnimation == null)
-                return localTime.TotalSeconds * (_speed / 100d);
+                return localTime.ToSeconds() * (_speed / 100d);
 
-            TimeSpan elapsed = _speedAnimation.UseGlobalClock
+            MediaTime elapsed = _speedAnimation.UseGlobalClock
                 ? integrator.Integrate(_elementStart + localTime, _speedAnimation)
                   - integrator.Integrate(_elementStart, _speedAnimation)
                 : integrator.Integrate(localTime, _speedAnimation);
-            return Math.Max(elapsed.TotalSeconds, 0);
+            return Math.Max(elapsed.ToSeconds(), 0);
         }
 
         double totalSourceElapsed = SourceElapsedAt(elementLength);
         if (totalSourceElapsed <= 0)
             return [];
 
-        double sourceWindowStart = _sourceOffset.TotalSeconds;
+        double sourceWindowStart = _sourceOffset.ToSeconds();
         double sourceWindowEnd = sourceWindowStart + totalSourceElapsed;
 
         double ToLocalTime(double sourceSeconds)
@@ -826,8 +826,8 @@ public sealed class AudioSourceItem
             if (clippedEnd <= clippedStart)
                 continue;
 
-            double sceneStart = _elementStart.TotalSeconds + ToLocalTime(clippedStart);
-            double sceneEnd = _elementStart.TotalSeconds + ToLocalTime(clippedEnd);
+            double sceneStart = _elementStart.ToSeconds() + ToLocalTime(clippedStart);
+            double sceneEnd = _elementStart.ToSeconds() + ToLocalTime(clippedEnd);
             if (sceneEnd <= sceneStart)
                 continue;
 
@@ -842,5 +842,5 @@ public sealed class AudioSourceItem
         return result.ToArray();
     }
 
-    public override string ToString() => $"{Name} ({Duration.TotalSeconds:F1}s)";
+    public override string ToString() => $"{Name} ({Duration.ToSeconds():F1}s)";
 }

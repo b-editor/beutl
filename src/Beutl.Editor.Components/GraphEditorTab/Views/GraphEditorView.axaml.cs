@@ -24,7 +24,7 @@ public partial class GraphEditorView : UserControl
     private readonly CompositeDisposable _disposables = [];
     private TimelineHelper.MouseFlags _mouseFlag = TimelineHelper.MouseFlags.Free;
     private readonly TimelineRulerDrag _rulerDrag;
-    private TimeSpan _pointerFrame;
+    private MediaTime _pointerFrame;
     private int _contextVersion;
 
     public GraphEditorView()
@@ -146,7 +146,7 @@ public partial class GraphEditorView : UserControl
         }
     }
 
-    private void OnCurrentTimeChangedForAutoScroll(GraphEditorViewModel viewModel, TimeSpan currentTime)
+    private void OnCurrentTimeChangedForAutoScroll(GraphEditorViewModel viewModel, MediaTime currentTime)
     {
         TimelineHelper.AutoScrollToPlayhead(scroll, viewModel.EditorContext, viewModel.Options, currentTime);
     }
@@ -157,12 +157,12 @@ public partial class GraphEditorView : UserControl
         {
             PointerPoint pointerPt = e.GetCurrentPoint(graphPanel);
             viewModel.UpdatePointerPosition(pointerPt.Position.X);
-            int rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
-            _pointerFrame = pointerPt.Position.X.PixelToTimeSpan(viewModel.Options.Value.Scale).RoundToRate(rate);
+            Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+            _pointerFrame = pointerPt.Position.X.PixelToTime(viewModel.Options.Value.Scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-            if (_pointerFrame < TimeSpan.Zero)
+            if (_pointerFrame < MediaTime.Zero)
             {
-                _pointerFrame = TimeSpan.Zero;
+                _pointerFrame = MediaTime.Zero;
             }
 
             if (_mouseFlag == TimelineHelper.MouseFlags.SeekBarPressed)
@@ -235,8 +235,8 @@ public partial class GraphEditorView : UserControl
                 if (_mouseFlag == TimelineHelper.MouseFlags.SeekBarPressed)
                 {
                     viewModel.Seek(pointerPt.Position.X
-                        .PixelToTimeSpan(viewModel.Options.Value.Scale)
-                        .RoundToRate(SceneTimeRangeService.GetFrameRate(viewModel.Scene)));
+                        .PixelToTime(viewModel.Options.Value.Scale)
+                        .RoundToFrame(SceneTimeRangeService.GetFrameRate(viewModel.Scene), MidpointRounding.AwayFromZero));
                 }
 
                 e.Pointer.Capture(RulerBar);

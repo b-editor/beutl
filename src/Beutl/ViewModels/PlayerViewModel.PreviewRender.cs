@@ -40,7 +40,7 @@ public partial class PlayerViewModel
 
     internal bool ApplyPlaybackRenderFailure(
         BufferedPlayer.RenderFailure failure,
-        int rate,
+        Rational rate,
         Func<bool> isCurrent)
     {
         ArgumentNullException.ThrowIfNull(failure);
@@ -48,7 +48,7 @@ public partial class PlayerViewModel
         if (Scene is null || !isCurrent())
             return false;
 
-        _editorClock.Seek(failure.Frame.ToTimeSpan(rate));
+        _editorClock.Seek(MediaTime.FromFrames(failure.Frame, rate));
         EditViewModel.FrameCacheManager.Value.CurrentFrame = failure.Frame;
         UpdatePreviewRenderError(MessageStrings.FrameDrawingException, isCurrent);
         IsPlaying.Value = false;
@@ -220,10 +220,10 @@ public partial class PlayerViewModel
             if (Scene is null)
                 return;
 
-            int rate = GetFrameRate();
-            TimeSpan time = _editorClock.CurrentTime.Value;
-            frame = (int)Math.Round(time.ToFrameNumber(rate), MidpointRounding.AwayFromZero);
-            time = frame.ToTimeSpan(rate);
+            Rational rate = GetFrameRate();
+            MediaTime time = _editorClock.CurrentTime.Value;
+            frame = (int)time.ToFrame(rate, MidpointRounding.AwayFromZero);
+            time = MediaTime.FromFrames(frame, rate);
             Ref<Bitmap>? bitmapRef;
 
             // A side contributes nothing when its opacity is 0, so fold opacity into the
@@ -298,7 +298,7 @@ public partial class PlayerViewModel
 
     private Ref<Bitmap> RenderOnionSkinFrame(
         SceneRenderer renderer,
-        TimeSpan time,
+        MediaTime time,
         int frame,
         IReadOnlyList<OnionSkinSample> onionSamples,
         CancellationToken token)
@@ -380,7 +380,7 @@ public partial class PlayerViewModel
         }
     }
 
-    private Ref<Bitmap> RenderCachedFrame(SceneRenderer renderer, TimeSpan time, Ref<Bitmap> cache)
+    private Ref<Bitmap> RenderCachedFrame(SceneRenderer renderer, MediaTime time, Ref<Bitmap> cache)
     {
         using (cache)
         {
@@ -400,7 +400,7 @@ public partial class PlayerViewModel
     }
 
     private Ref<Bitmap> RenderAndCacheFrame(
-        SceneRenderer renderer, FrameCacheManager cacheManager, TimeSpan time, int frame)
+        SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame)
     {
         var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
         renderer.Render(compositionFrame);
@@ -421,7 +421,7 @@ public partial class PlayerViewModel
         return bitmapRef;
     }
 
-    private void UpdateCurrentFrame(TimeSpan timeSpan)
+    private void UpdateCurrentFrame(MediaTime timeSpan)
     {
         QueueRender();
 

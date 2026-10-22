@@ -98,7 +98,7 @@ public partial class PlayerView : UserControl
 
         // Parse synchronously because Player reads the result right after; seek only after awaiting Pause
         // during playback so the playback timer does not overwrite the new playhead.
-        if (!vm.TryParseTimecode(e.Input, out TimeSpan target, out GotoTimecodeError error))
+        if (!vm.TryParseTimecode(e.Input, out MediaTime target, out GotoTimecodeError error))
         {
             e.Reject(PlayerViewModel.GetTimecodeErrorMessage(error));
             return;
@@ -381,7 +381,7 @@ public partial class PlayerView : UserControl
             return;
         }
 
-        TimeSpan time = clock.CurrentTime.Value;
+        MediaTime time = clock.CurrentTime.Value;
         if (time < element.Start || time >= element.Range.End)
         {
             ClearTransformHandleOverlay();
@@ -409,7 +409,7 @@ public partial class PlayerView : UserControl
         {
             BtlDrawable target = drawable;
             BtlSize availableSize = scene.FrameSize.ToSize(1.0f);
-            TimeSpan ctxTime = time;
+            MediaTime ctxTime = time;
             snap = QueryRenderThread(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime), null);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
@@ -469,7 +469,7 @@ public partial class PlayerView : UserControl
     // independent Resource on RenderThread so we evaluate animations against ctxTime without piggybacking
     // on the renderer's cached render node.
     private (BtlRect localBounds, BtlMatrix userMatrix, BtlPoint pivotLocal)? ComputeOverlayGeometry(
-        SceneRenderer renderer, BtlDrawable target, BtlSize availableSize, TimeSpan ctxTime)
+        SceneRenderer renderer, BtlDrawable target, BtlSize availableSize, MediaTime ctxTime)
     {
         BtlRect? bounds = renderer.GetBoundary(target);
         if (bounds is not { Width: > 0, Height: > 0 }) return null;
@@ -549,7 +549,7 @@ public partial class PlayerView : UserControl
                 snapshot[i] = new PlayerMarkerEntry(
                     m.Name ?? string.Empty,
                     // Player の CurrentTime 表示 (hh\:mm\:ss\.ff) と桁を揃える。
-                    m.Time.ToString(@"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture));
+                    m.Time.ToTimeSpan().ToString(@"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture));
             }
             Player.Markers = snapshot;
         }
