@@ -31,7 +31,7 @@ public enum GenerativeNodeStatus
 /// while the graph is evaluated: frames only ever show the active generation, which is
 /// a file saved with the project. New generations run when they are queued.
 /// </summary>
-public abstract partial class GenerativeNode : GraphNode
+public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
 {
     private readonly HierarchicalList<GenerationRecord> _generations;
     private ActiveSnapshot? _active;
@@ -215,6 +215,8 @@ public abstract partial class GenerativeNode : GraphNode
     /// after a refunded failure — would be answered with the old job instead of a new one.
     /// </summary>
     internal void RenewRequestKey() => RequestKeySeed = Guid.NewGuid().ToString("N");
+
+    void ICopyRenewable.RenewForCopy() => RenewRequestKey();
 
     /// <summary>Adds a finished generation and makes it the one the node outputs.</summary>
     internal GenerationRecord AddGeneration(GenerativeRequest request, GenerativeExecutionResult result)
