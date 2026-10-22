@@ -51,6 +51,16 @@ public class PropertyLookup(ICoreObject root)
             return true;
         }
 
+        // Expressions saved before #2885 read times as TimeSpan.
+        if (typeof(T) == typeof(TimeSpan) && property is IProperty<MediaTime> timeProperty)
+        {
+            MediaTime time = timeProperty is IExpressionProperty<MediaTime> expressionTime
+                ? expressionTime.Evaluate(context)
+                : timeProperty.Value;
+            value = (T)(object)time.ToTimeSpan();
+            return true;
+        }
+
         return false;
     }
 }
