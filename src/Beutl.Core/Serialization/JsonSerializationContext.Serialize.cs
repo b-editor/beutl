@@ -152,12 +152,12 @@ public partial class JsonSerializationContext
         Uri serializedUri = UriHelper.ToSerializedUri(value.Uri!, parent.BaseUri);
 
         if (parent.Mode.HasFlag(CoreSerializationMode.EmbedReferencedObjects)
-            && CoreSerializer.SerializeEmbeddedReference(value, serializedUri) is { } node)
+            && CoreSerializer.SerializeEmbeddedReference(value, serializedUri, parent) is { } node)
         {
             return node;
         }
 
-        return (JsonValue)serializedUri.ToString();
+        return (JsonValue)UriHelper.ToPersistedReference(serializedUri);
     }
 
     public void SetValue<T>(string name, T? value)

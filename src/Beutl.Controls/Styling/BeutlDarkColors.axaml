@@ -26,10 +26,6 @@
     <Color x:Key="SystemFillColorSolidNeutralBackground">#222222</Color>
 
     <!-- ===== SolidColorBrushes ===== -->
-    <SolidColorBrush x:Key="TextOnAccentFillColorSelectedTextBrush" Color="{DynamicResource TextOnAccentFillColorSelectedText}" />
-    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="{DynamicResource TextOnAccentFillColorPrimary}" />
-    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="{DynamicResource TextOnAccentFillColorSecondary}" />
-    <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="{DynamicResource TextOnAccentFillColorDisabled}" />
     <SolidColorBrush x:Key="ControlFillColorInputActiveBrush" Color="{StaticResource ControlFillColorInputActive}" />
     <SolidColorBrush x:Key="ControlSolidFillColorDefaultBrush" Color="{StaticResource ControlSolidFillColorDefault}" />
     <SolidColorBrush x:Key="ControlOnImageFillColorDefaultBrush" Color="{StaticResource ControlOnImageFillColorDefault}" />
@@ -66,35 +62,11 @@
     </LinearGradientBrush>
 
     <!-- ===== StaticResource aliases ===== -->
-    <StaticResource x:Key="AccentButtonForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="AccentButtonForegroundPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="AccentButtonForegroundPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
-    <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
     <StaticResource x:Key="ComboBoxDropDownBackground" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundUnchecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundUncheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundUncheckedPressed" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundUncheckedDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundCheckedDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminate" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminatePointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminatePressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
-    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminateDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
     <StaticResource x:Key="DatePickerFlyoutPresenterBackground" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
-    <StaticResource x:Key="DatePickerFlyoutPresenterHighlightForegroundColor" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
     <StaticResource x:Key="LoopingSelectorUpDownButtonBackground" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
-    <StaticResource x:Key="LoopingSelectorItemForegroundSelected" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
     <StaticResource x:Key="TimePickerFlyoutPresenterBackground" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
-    <StaticResource x:Key="TimePickerFlyoutPresenterHighlightForegroundColor" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
     <StaticResource x:Key="MenuFlyoutPresenterBackground" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
-    <StaticResource x:Key="RadioButtonCheckGlyphFill" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="RadioButtonCheckGlyphFillPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="RadioButtonCheckGlyphFillPressed" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
     <StaticResource x:Key="ScrollBarTrackFill" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
     <StaticResource x:Key="ScrollBarTrackFillPointerOver" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
     <StaticResource x:Key="ScrollBarTrackFillDisabled" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
@@ -105,10 +77,6 @@
     <StaticResource x:Key="SliderInlineTickBarFill" ResourceKey="ControlFillColorInputActiveBrush" />
     <StaticResource x:Key="TextControlBackgroundFocused" ResourceKey="ControlFillColorInputActiveBrush" />
     <StaticResource x:Key="AutoSuggestBoxSuggestionsListBackground" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
-    <StaticResource x:Key="ToggleSwitchKnobFillOn" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="ToggleSwitchKnobFillOnPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="ToggleSwitchKnobFillOnPressed" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="ToggleSwitchKnobFillOnDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
     <StaticResource x:Key="ContentDialogBackground" ResourceKey="SolidBackgroundFillColorBaseBrush" />
     <StaticResource x:Key="NumberBoxPopupBackground" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
     <StaticResource x:Key="NavigationViewDefaultPaneBackground" ResourceKey="SolidBackgroundFillColorBaseBrush" />
@@ -117,41 +85,19 @@
     <StaticResource x:Key="CommandBarBackgroundOpen" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
     <StaticResource x:Key="CommandBarBorderBrushOpen" ResourceKey="CardStrokeColorDefaultSolidBrush" />
     <StaticResource x:Key="CommandBarOverflowPresenterBackground" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
-    <StaticResource x:Key="AppBarToggleButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
-    <StaticResource x:Key="AppBarToggleButtonCheckGlyphForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="AppBarToggleButtonCheckGlyphForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="AppBarToggleButtonCheckGlyphForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
     <StaticResource x:Key="FlyoutPresenterBackground" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
     <StaticResource x:Key="ColorPickerBackground" ResourceKey="SolidBackgroundFillColorBaseBrush" />
     <StaticResource x:Key="ColorPickerTabsBackground" ResourceKey="LayerFillColorDefaultBrush" />
     <StaticResource x:Key="ColorPickerColorTypeButtonBackground" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
-    <StaticResource x:Key="SplitButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="SplitButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="SplitButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
     <StaticResource x:Key="ToolTipBackgroundBrush" ResourceKey="AcrylicBackgroundFillColorDefaultBrush" />
-    <StaticResource x:Key="ListViewItemCheckBrush" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="ListViewItemDragForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="ListViewItemMultiArrangeOverlayTextBorder" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="ListViewItemCheckPressedBrush" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
-    <StaticResource x:Key="ListViewItemCheckDisabledBrush" ResourceKey="TextOnAccentFillColorDisabledBrush" />
     <StaticResource x:Key="InfoBarErrorSeverityBackgroundBrush" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
     <StaticResource x:Key="InfoBarWarningSeverityBackgroundBrush" ResourceKey="SystemFillColorCautionBackgroundBrush" />
     <StaticResource x:Key="InfoBarSuccessSeverityBackgroundBrush" ResourceKey="SystemFillColorSuccessBackgroundBrush" />
-    <StaticResource x:Key="CalendarViewTodaySelectedInnerBorderBrush" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CalendarViewTodayForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CalendarViewTodayBlackoutForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
     <StaticResource x:Key="CalendarViewBackground" ResourceKey="ControlFillColorInputActiveBrush" />
     <StaticResource x:Key="CommandBarFlyoutBackground" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
-    <StaticResource x:Key="CommandBarFlyoutAppBarButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CommandBarFlyoutAppBarButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
-    <StaticResource x:Key="CommandBarFlyoutAppBarButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
-    <StaticResource x:Key="CommandBarFlyoutAppBarButtonForegroundCheckedDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
     <StaticResource x:Key="DataGridDetailsPresenterBackgroundBrush" ResourceKey="SolidBackgroundFillColorBase" />
     <StaticResource x:Key="DataGridRowInvalidBrush" ResourceKey="SystemFillColorCriticalBackgroundBrush" />
     <StaticResource x:Key="DataGridRowGroupHeaderBackgroundBrush" ResourceKey="SolidBackgroundFillColorBaseBrush" />
-    <StaticResource x:Key="InfoBadgeForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
     <StaticResource x:Key="TabViewItemHeaderBackgroundSelected" ResourceKey="SolidBackgroundFillColorTertiaryBrush" />
     <StaticResource x:Key="TabViewItemHeaderBackgroundPressed" ResourceKey="LayerOnMicaBaseAltFillColorDefaultBrush" />
     <StaticResource x:Key="TaskDialogButtonAreaBackground" ResourceKey="SolidBackgroundFillColorSecondaryBrush" />

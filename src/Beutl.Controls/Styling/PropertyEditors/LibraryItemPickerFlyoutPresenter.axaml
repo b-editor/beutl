@@ -147,7 +147,10 @@
                             </Panel>
                         </Border>
 
-                        <StackPanel Grid.Row="1">
+                        <!--  A native popup at the pointer keeps the size it opened with, so the search box takes its row from the list.  -->
+                        <Grid Grid.Row="1"
+                              Height="254"
+                              RowDefinitions="Auto,*">
                             <TextBox x:Name="SearchTextBox"
                                      Margin="4,0,4,4"
                                      Classes="clearButton"
@@ -155,9 +158,8 @@
                                      Text="{TemplateBinding SearchText, Mode=TwoWay}"
                                      PlaceholderText="{x:Static lang:Strings.Search}" />
 
-                            <Panel>
+                            <Panel Grid.Row="1">
                                 <ListBox x:Name="PART_ListBox"
-                                         Height="250"
                                          Margin="4,4,4,0"
                                          ItemContainerTheme="{StaticResource LibraryItemPicker_ListBoxItem}"
                                          ItemTemplate="{StaticResource LibraryItemPicker_ItemTemplate}"
@@ -165,7 +167,6 @@
                                          SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}" />
 
                                 <ListBox x:Name="PART_ReferenceListBox"
-                                         Height="250"
                                          Margin="4,4,4,0"
                                          IsVisible="False"
                                          ItemTemplate="{StaticResource LibraryItemPicker_ItemTemplate}"
@@ -182,7 +183,7 @@
                                            TextAlignment="Center"
                                            TextWrapping="Wrap" />
                             </Panel>
-                        </StackPanel>
+                        </Grid>
 
                         <ProgressRing Name="PART_ProgressRing"
                                       Grid.RowSpan="3"

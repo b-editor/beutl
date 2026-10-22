@@ -16,14 +16,14 @@ public static class ObjectRegenerator
 
     private static void RegenerateCore(ICoreSerializable obj, PooledArrayBufferWriter<byte> output)
     {
-        // ICoreObjects with a Uri serialize as a file reference by default, hiding their
-        // inner Ids from the JSON. Embed them so every Id of the copy is in it.
+        // The copy holds its file-backed objects itself, so their Ids are in the JSON; a scene stays a reference.
         JsonObject jsonObject;
         using (MediaTimeJsonConverter.WriteFlicks())
         {
             jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
             {
-                Mode = CoreSerializationMode.EmbedReferencedObjects
+                Mode = CoreSerializationMode.EmbedReferencedObjects,
+                EmbedsCopy = true
             });
         }
 
@@ -72,9 +72,12 @@ public static class ObjectRegenerator
     // Runs the hook of each object in a copy that must not share a value with its original besides the Ids.
     internal static void RenewCopiedValues(object copy)
     {
-        foreach (ICopyRenewable renewable in ChildObjects.Walk(copy).OfType<ICopyRenewable>())
+        foreach (ICopyRenewable renewable in ChildObjects.Walk(copy, IsReferencedProjectItem).OfType<ICopyRenewable>())
             renewable.RenewForCopy();
     }
+
+    // A project item read from its file, such as a scene a clip draws, is not part of the copy.
+    private static bool IsReferencedProjectItem(object obj) => obj is ProjectItem { Uri: not null };
 
     // The Ids of every object serialized in node, found under the "Id" key that CoreObject writes them to.
     private static IEnumerable<Guid> CollectSerializedIds(JsonNode? node)

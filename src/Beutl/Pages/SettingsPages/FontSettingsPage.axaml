@@ -20,6 +20,11 @@
             </ui:FACommandBar.PrimaryCommands>
         </ui:FACommandBar>
 
+        <TextBlock Margin="18,4,18,8"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                   Text="{x:Static lang:SettingsStrings.FontDirectories_Description}"
+                   TextWrapping="Wrap" />
+
         <ListBox ItemsSource="{CompiledBinding FontDirectories}">
             <ListBox.ItemTemplate>
                 <DataTemplate>

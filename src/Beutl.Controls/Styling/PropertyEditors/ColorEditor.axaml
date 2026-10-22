@@ -156,14 +156,14 @@
                                     HorizontalAlignment="Right"
                                     HorizontalContentAlignment="Stretch"
                                     CornerRadius="{DynamicResource ControlCornerRadius}"
-                                    IsEnabled="{TemplateBinding IsReadOnly, Converter={x:Static BoolConverters.Not}}">
+                                    IsEnabled="{Binding IsReadOnly, Converter={x:Static BoolConverters.Not}, RelativeSource={RelativeSource AncestorType={x:Type local:PropertyEditor}}}">
                                 <Grid ColumnDefinitions="*,Auto">
                                     <Border MinWidth="23"
                                             MinHeight="23"
                                             Margin="8,6,4,6"
                                             HorizontalAlignment="Left"
                                             VerticalAlignment="Center"
-                                            Background="{Binding PreviewBrush, Mode=OneWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                            Background="{Binding PreviewBrush, Mode=OneWay, RelativeSource={RelativeSource AncestorType={x:Type local:PropertyEditor}}}"
                                             BorderBrush="{DynamicResource ColorPickerButtonOutline}"
                                             BorderThickness="1"
                                             CornerRadius="{DynamicResource ControlCornerRadius}" />

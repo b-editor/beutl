@@ -28,25 +28,6 @@ public static partial class CoreSerializer
         StoreToUriCore(obj, uri, mode, authorizedRootPath);
     }
 
-    /// <summary>
-    /// Stores <paramref name="obj"/>, which belongs to the project of <paramref name="owner"/> but is not
-    /// in the hierarchy yet, such as an element written before it is added to its scene.
-    /// </summary>
-    /// <remarks>
-    /// A scene reads every element file in its folder, so the file is part of the project as soon as it
-    /// exists, and the project file is raised first as for any other file of the project.
-    /// </remarks>
-    internal static void StoreToUri<T>(T obj, Uri uri, ICoreSerializable owner)
-        where T : ICoreSerializable
-    {
-        if (FindProject(owner) is { } project)
-        {
-            RaiseProjectFile(project, GetMinAppVersionToWrite(obj));
-        }
-
-        StoreToUriCore(obj, uri, mode: null, authorizedRootPath: null);
-    }
-
     private static void StoreToUriCore<T>(
         T obj,
         Uri uri,

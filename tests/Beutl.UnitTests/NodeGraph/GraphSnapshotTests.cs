@@ -172,6 +172,61 @@ public sealed class GraphSnapshotTests
         Assert.That(model.AllConnections, Is.Empty, "The first Undo removes the connection itself.");
     }
 
+    // The UI thread owns Connection.Status, so evaluation on another thread posts the statuses that changed.
+    [Test]
+    public void EvaluationPostsChangedStatusesInsteadOfWritingThem()
+    {
+        var model = new GraphModel();
+        var factory = new FactoryNode<Pen>();
+        model.Nodes.Add(factory);
+        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name == "Thickness"), Source(model, 17f));
+        var posted = new List<Action>();
+        GraphSnapshot.PostToDocumentThread = posted.Add;
+        try
+        {
+            using var snapshot = new GraphSnapshot();
+            snapshot.Build(model, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
+            Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Connected));
+            Assert.That(posted, Has.Count.EqualTo(1));
+
+            posted[0]();
+            snapshot.Evaluate(CompositionContext.Default);
+
+            Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+            Assert.That(posted, Has.Count.EqualTo(1), "An unchanged status is not posted again.");
+        }
+        finally
+        {
+            GraphSnapshot.PostToDocumentThread = null;
+        }
+    }
+
+    [Test]
+    public void APostedStatusLeavesAConnectionRemovedMeanwhileDisconnected()
+    {
+        var model = new GraphModel();
+        var factory = new FactoryNode<Pen>();
+        model.Nodes.Add(factory);
+        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name == "Thickness"), Source(model, 17f));
+        var posted = new List<Action>();
+        GraphSnapshot.PostToDocumentThread = posted.Add;
+        try
+        {
+            using var snapshot = new GraphSnapshot();
+            snapshot.Build(model, CompositionContext.Default);
+            snapshot.Evaluate(CompositionContext.Default);
+            model.Disconnect(connection);
+            posted.ForEach(write => write());
+        }
+        finally
+        {
+            GraphSnapshot.PostToDocumentThread = null;
+        }
+
+        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Disconnected));
+    }
+
     [Test]
     public void Evaluate_RefreshesRoutingFlagsWithoutRebuild()
     {

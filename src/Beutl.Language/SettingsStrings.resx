@@ -370,6 +370,9 @@
   <data name="Font" xml:space="preserve">
     <value>Font</value>
   </data>
+  <data name="FontDirectories_Description" xml:space="preserve">
+    <value>Fonts are loaded from these folders. Changes take effect after restart.</value>
+  </data>
   <data name="ToneMapping" xml:space="preserve">
     <value>Tone Mapping</value>
     <comment/>

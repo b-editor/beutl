@@ -25,23 +25,8 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
         var parentContext = ThreadLocalSerializationContext.Current;
         if (jsonNode is JsonValue jsonValue && jsonValue.TryGetValue(out string? uriString))
         {
-            uriString = Uri.UnescapeDataString(uriString);
-            if (!Uri.TryCreate(uriString, UriKind.RelativeOrAbsolute, out Uri? uri))
-            {
-                throw new JsonException($"Invalid URI: {uriString}");
-            }
-
-            if (!uri.IsAbsoluteUri)
-            {
-                if (parentContext == null)
-                    throw new JsonException("Cannot resolve relative URI without a parent context.");
-
-                if (!Uri.TryCreate(parentContext.BaseUri, uriString, out uri))
-                {
-                    throw new JsonException($"Invalid relative URI: {uriString}");
-                }
-            }
-
+            // Decoded once, as other references are: decoding first made a "#" or "?" in a name start a fragment.
+            Uri uri = UriHelper.ResolvePersistedReference(uriString, parentContext?.BaseUri);
             IFileSource? instance = CreateInstance(typeToConvert);
             if (instance == null)
             {
@@ -66,6 +51,6 @@ public class FileSourceJsonConverter : JsonConverter<IFileSource>
 
         var serializedUri = UriHelper.ToSerializedUri(value.Uri, parentContext.BaseUri);
 
-        writer.WriteStringValue(serializedUri.ToString());
+        writer.WriteStringValue(UriHelper.ToPersistedReference(serializedUri));
     }
 }

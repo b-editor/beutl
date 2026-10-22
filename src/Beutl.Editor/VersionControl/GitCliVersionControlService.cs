@@ -695,7 +695,13 @@ internal sealed partial class GitCliVersionControlService :
         try
         {
             ThrowIfDisposed();
-            return await (runOnThreadPool ? Task.Run(operation, cancellationToken) : operation())
+            // The lock probe reads files, so it runs where the operation does.
+            Func<Task<T>> probedOperation = () =>
+            {
+                ForgetRemovedRecoverableLock();
+                return operation();
+            };
+            return await (runOnThreadPool ? Task.Run(probedOperation, cancellationToken) : probedOperation())
                 .ConfigureAwait(false);
         }
         catch (Exception ex)

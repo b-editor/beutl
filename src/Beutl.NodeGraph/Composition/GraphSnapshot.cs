@@ -16,6 +16,9 @@ public sealed class GraphSnapshot : IDisposable
     private GraphNode.Resource[] _resources = [];
     private GraphCompositionContext[] _contexts = [];
     private ConnectionSnapshot[] _connections = [];
+    // The statuses of _connections that evaluation found, and those last posted to the document thread.
+    private ConnectionStatus[] _statuses = [];
+    private ConnectionStatus[] _postedStatuses = [];
     private readonly Dictionary<(int, int), List<int>> _outputConnectionMap = new();
     private readonly Dictionary<(int, int), List<int>> _inputConnectionMap = new();
     private readonly HashSet<(int, int)> _connectedInputs = [];
@@ -23,6 +26,9 @@ public sealed class GraphSnapshot : IDisposable
     private int _resourceCount;
     private int _initializedResourceCount;
     private int _lifecycleInProgress;
+
+    // The app posts the Connection.Status writes to the UI thread, which owns the document (#2873).
+    internal static Action<Action>? PostToDocumentThread { get; set; }
 
     public void MarkDirty() => _isDirty = true;
 
@@ -232,6 +238,7 @@ public sealed class GraphSnapshot : IDisposable
         Dictionary<GraphNode, int> nodeToResourceIndex)
     {
         var connectionList = new List<ConnectionSnapshot>();
+        List<(Connection, ConnectionStatus)>? rejected = null;
 
         foreach (Connection connection in allConnections)
         {
@@ -246,13 +253,13 @@ public sealed class GraphSnapshot : IDisposable
                                    || !nodeToResourceIndex.TryGetValue(outputNode, out int outputResourceIdx)
                                    || !nodeToResourceIndex.TryGetValue(inputNode, out int inputResourceIdx))
             {
-                connection.Status = ConnectionStatus.Error;
+                (rejected ??= []).Add((connection, ConnectionStatus.Error));
                 continue;
             }
 
             if (inputSock is IInputPort input && !inputNode.CanConnectInput(input))
             {
-                connection.Status = ConnectionStatus.Error;
+                (rejected ??= []).Add((connection, ConnectionStatus.Error));
                 continue;
             }
 
@@ -286,6 +293,10 @@ public sealed class GraphSnapshot : IDisposable
         }
 
         _connections = connectionList.ToArray();
+        _statuses = new ConnectionStatus[_connections.Length];
+        _postedStatuses = new ConnectionStatus[_connections.Length];
+        if (rejected != null)
+            PostStatuses(rejected);
         return connectionList;
     }
 
@@ -353,6 +364,8 @@ public sealed class GraphSnapshot : IDisposable
 
             PropagateOutputs(ctx.Resource);
         }
+
+        PostChangedStatuses();
     }
 
     // Adds the render node each OutputNode of model received in the last evaluation.
@@ -421,16 +434,16 @@ public sealed class GraphSnapshot : IDisposable
                 if (outputValue is IReadOnlyItemValue<T> typed)
                 {
                     result.Add(typed.GetValue());
-                    conn.OriginalConnection.Status = ConnectionStatus.Success;
+                    _statuses[connIdx] = ConnectionStatus.Success;
                 }
                 else if (outputValue.GetBoxed() is T unboxed)
                 {
                     result.Add(unboxed);
-                    conn.OriginalConnection.Status = ConnectionStatus.Convert;
+                    _statuses[connIdx] = ConnectionStatus.Convert;
                 }
                 else
                 {
-                    conn.OriginalConnection.Status = ConnectionStatus.Error;
+                    _statuses[connIdx] = ConnectionStatus.Error;
                 }
             }
         }
@@ -479,7 +492,7 @@ public sealed class GraphSnapshot : IDisposable
                 IItemValue inputValue = _resources[conn.InputSlotIndex].ItemValues[conn.InputItemIndex];
 
                 var propagateResult = inputValue.PropagateFrom(outputValue);
-                conn.OriginalConnection.Status = propagateResult switch
+                _statuses[ci] = propagateResult switch
                 {
                     PropagateResult.Success => ConnectionStatus.Success,
                     PropagateResult.Converted => ConnectionStatus.Convert,
@@ -492,6 +505,41 @@ public sealed class GraphSnapshot : IDisposable
                 }
             }
         }
+    }
+
+    private void PostChangedStatuses()
+    {
+        List<(Connection, ConnectionStatus)>? changed = null;
+        for (int i = 0; i < _statuses.Length; i++)
+        {
+            ConnectionStatus status = _statuses[i];
+            // Zero is a connection that no evaluation has reached yet.
+            if (status == 0 || status == _postedStatuses[i]) continue;
+
+            _postedStatuses[i] = status;
+            (changed ??= []).Add((_connections[i].OriginalConnection, status));
+        }
+
+        if (changed != null)
+            PostStatuses(changed);
+    }
+
+    private static void PostStatuses(List<(Connection Connection, ConnectionStatus Status)> statuses)
+    {
+        void Write()
+        {
+            foreach ((Connection connection, ConnectionStatus status) in statuses)
+            {
+                // A connection removed meanwhile keeps the Disconnected that its removal set.
+                if (connection.HierarchicalParent != null)
+                    connection.Status = status;
+            }
+        }
+
+        if (PostToDocumentThread is { } post)
+            post(Write);
+        else
+            Write();
     }
 
     private static void DisposeItemValues(IItemValue[] itemValues, int count, ref ExceptionDispatchInfo? failure)
@@ -519,6 +567,8 @@ public sealed class GraphSnapshot : IDisposable
         _resources = [];
         _contexts = [];
         _connections = [];
+        _statuses = [];
+        _postedStatuses = [];
         _resourceCount = 0;
         _initializedResourceCount = 0;
         _isDirty = true;

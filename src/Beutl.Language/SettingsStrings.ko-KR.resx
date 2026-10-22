@@ -370,6 +370,9 @@
   <data name="Font" xml:space="preserve">
     <value>글꼴</value>
   </data>
+  <data name="FontDirectories_Description" xml:space="preserve">
+    <value>이 폴더에서 글꼴을 불러옵니다. 변경 사항은 다시 시작 후 적용됩니다.</value>
+  </data>
   <data name="ToneMapping" xml:space="preserve">
     <value>톤 매핑</value>
     <comment />

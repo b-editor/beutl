@@ -424,25 +424,6 @@ public class FormatFloorTests
         AssertProjectFileRaisedFirst(replaced, referencedPath, before);
     }
 
-    // A scene reads every element file in its folder, so a file written before its element joins the
-    // scene is already part of the project.
-    [Test]
-    public void An_element_written_before_it_joins_its_scene_first_raises_the_project_file()
-    {
-        SaveProject();
-        SetVersionFields(_projectPath, OlderAppVersion, OlderMinAppVersion);
-        Project project = LoadProject();
-        Scene scene = (Scene)project.Items.Single();
-        var element = new Element { Length = MediaTime.FromSeconds(1) };
-        Uri uri = ElementFileNaming.GetUri(scene.Uri!, element.Id);
-        JsonObject before = Read(_projectPath);
-
-        // As the element adder writes a new element before it adds the element to the scene.
-        List<Replacement> replaced = RecordReplacements(() => CoreSerializer.StoreToUri(element, uri, owner: scene));
-
-        AssertProjectFileRaisedFirst(replaced, uri.LocalPath, before);
-    }
-
     [Test]
     public void A_project_file_that_records_the_floor_is_not_rewritten()
     {

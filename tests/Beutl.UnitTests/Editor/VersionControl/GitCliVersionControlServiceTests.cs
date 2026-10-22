@@ -1743,6 +1743,31 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     }
 
     [Test]
+    public async Task Stale_lock_is_kept_while_it_exists_and_forgotten_after_it_is_removed()
+    {
+        await File.WriteAllTextAsync(Path.Combine(Root, "project.bep"), "{}\n");
+        string lockPath = Path.Combine(Root, ".git", "index.lock");
+        await File.WriteAllTextAsync(lockPath, "");
+        File.SetLastWriteTimeUtc(
+            lockPath,
+            DateTime.UtcNow - GitCliRunner.StaleLockAge - TimeSpan.FromMinutes(1));
+        using GitCliVersionControlService service = CreateService();
+        await Assert.ThrowsAsync<GitOperationException>(
+            async () => await service.CommitAllAsync(
+                "beutl: snapshot on save",
+                SnapshotKind.Save,
+                CancellationToken.None));
+        RepositoryLockInfo? captured = service.RecoverableLock;
+
+        await service.GetStatusAsync(CancellationToken.None);
+        Assert.That(service.RecoverableLock, Is.Not.Null.And.SameAs(captured));
+
+        File.Delete(lockPath);
+        await service.GetStatusAsync(CancellationToken.None);
+        Assert.That(service.RecoverableLock, Is.Null);
+    }
+
+    [Test]
     public async Task Stale_current_branch_lock_failure_is_exposed()
     {
         await CommitFileAsync("baseline.txt", "baseline\n", "baseline");

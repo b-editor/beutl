@@ -94,7 +94,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
                 if (panel.Children.Count == 2)
                 {
-                    panel.Children.RemoveAt(1);
+                    panel.Children.RemoveAt(0);
                 }
             }
             else
@@ -103,7 +103,7 @@ public sealed partial class EngineObjectPropertyView : UserControl
 
                 if (panel.Children.Count == 1)
                 {
-                    panel.Children.Add(new FallbackObjectView());
+                    panel.Children.Insert(0, new FallbackObjectView());
                 }
             }
         }

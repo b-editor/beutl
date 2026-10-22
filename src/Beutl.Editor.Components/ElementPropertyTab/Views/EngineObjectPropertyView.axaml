@@ -68,7 +68,7 @@
             </Grid>
         </Expander.Header>
 
-        <Panel x:Name="panel">
+        <StackPanel x:Name="panel">
             <!--  ここに何か追加する場合、OnDataContextChangedでIndex、Countをハードコードしているので、考慮する  -->
             <ItemsControl x:Name="propertiesList"
                           Grid.IsSharedSizeScope="True"
@@ -79,6 +79,6 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-        </Panel>
+        </StackPanel>
     </Expander>
 </UserControl>

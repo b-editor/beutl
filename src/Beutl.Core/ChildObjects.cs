@@ -47,8 +47,8 @@ internal static class ChildObjects
         }
     }
 
-    // Every object below root, root first and each once, in the order Find visits them.
-    public static IEnumerable<object> Walk(object root)
+    // Every object below root, root first and each once, in the order Find visits them, except what skip leaves out.
+    public static IEnumerable<object> Walk(object root, Func<object, bool>? skip = null)
     {
         var visited = new HashSet<object>(ReferenceEqualityComparer.Instance) { root };
         var pending = new Stack<IEnumerator<object>>();
@@ -63,6 +63,9 @@ internal static class ChildObjects
             }
 
             object child = children.Current;
+            if (skip?.Invoke(child) == true)
+                continue;
+
             if (child.GetType().IsValueType || visited.Add(child))
             {
                 yield return child;

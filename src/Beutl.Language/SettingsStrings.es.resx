@@ -370,6 +370,9 @@
   <data name="Font" xml:space="preserve">
     <value>Fuente</value>
   </data>
+  <data name="FontDirectories_Description" xml:space="preserve">
+    <value>Las fuentes se cargan desde estas carpetas. Los cambios surten efecto después de reiniciar.</value>
+  </data>
   <data name="ToneMapping" xml:space="preserve">
     <value>Mapeo de tonos</value>
     <comment />

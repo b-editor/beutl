@@ -1,0 +1,59 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--  FluentAvalonia's brushes and aliases keep static colors; these follow the colors AccentResolution sets.  -->
+    <SolidColorBrush x:Key="TextOnAccentFillColorSelectedTextBrush" Color="{DynamicResource TextOnAccentFillColorSelectedText}" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="{DynamicResource TextOnAccentFillColorPrimary}" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="{DynamicResource TextOnAccentFillColorSecondary}" />
+    <SolidColorBrush x:Key="TextOnAccentFillColorDisabledBrush" Color="{DynamicResource TextOnAccentFillColorDisabled}" />
+
+    <StaticResource x:Key="AccentButtonForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="AccentButtonForegroundPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="AccentButtonForegroundPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundUnchecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundUncheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundUncheckedPressed" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundUncheckedDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundCheckedDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminate" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminatePointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminatePressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="CheckBoxCheckGlyphForegroundIndeterminateDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
+    <StaticResource x:Key="DatePickerFlyoutPresenterHighlightForegroundColor" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="LoopingSelectorItemForegroundSelected" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="TimePickerFlyoutPresenterHighlightForegroundColor" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="RadioButtonCheckGlyphFill" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="RadioButtonCheckGlyphFillPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="RadioButtonCheckGlyphFillPressed" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ToggleSwitchKnobFillOn" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ToggleSwitchKnobFillOnPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ToggleSwitchKnobFillOnPressed" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ToggleSwitchKnobFillOnDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
+    <StaticResource x:Key="AppBarToggleButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="AppBarToggleButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="AppBarToggleButtonCheckGlyphForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="AppBarToggleButtonCheckGlyphForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="AppBarToggleButtonCheckGlyphForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="SplitButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="SplitButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="SplitButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="ListViewItemCheckBrush" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ListViewItemDragForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ListViewItemMultiArrangeOverlayTextBorder" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="ListViewItemCheckPressedBrush" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="ListViewItemCheckDisabledBrush" ResourceKey="TextOnAccentFillColorDisabledBrush" />
+    <StaticResource x:Key="CalendarViewTodaySelectedInnerBorderBrush" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CalendarViewTodayForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CalendarViewTodayBlackoutForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CommandBarFlyoutAppBarButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CommandBarFlyoutAppBarButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+    <StaticResource x:Key="CommandBarFlyoutAppBarButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+    <StaticResource x:Key="CommandBarFlyoutAppBarButtonForegroundCheckedDisabled" ResourceKey="TextOnAccentFillColorDisabledBrush" />
+    <StaticResource x:Key="InfoBadgeForeground" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+</ResourceDictionary>
