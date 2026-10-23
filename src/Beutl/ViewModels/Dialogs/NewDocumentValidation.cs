@@ -44,8 +44,7 @@ internal static class NewDocumentValidation
             _ => MessageStrings.ValueLessThanOrEqualToZero,
         };
 
-    // A whole number, a fraction such as 30000/1001 or a decimal, where a decimal within 0.005 of an NTSC
-    // rate, such as 29.97, is that rate. Null when the text is not a number.
+    // A whole number, a fraction such as 30000/1001, or a decimal; a decimal near an NTSC rate (29.97) is that rate.
     public static Rational? ParseFrameRate(string? text)
     {
         text = text?.Trim();

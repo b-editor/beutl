@@ -25,8 +25,7 @@ internal sealed partial class DeclarativeDocumentApplier
     public void Apply(CoreObject root, JsonObject document)
     {
         _documentBaseUri = ResolveBaseUri(root);
-        // The live objects are compared with the document as DocumentAdapter.Read wrote it, and its times read on the
-        // frame grid of the project, as the project's files do.
+        // Compared with the document as DocumentAdapter.Read wrote it; its times read on the project's frame grid.
         using (MediaTimeJsonConverter.WriteTimeSpanStrings())
         using ((root as IHierarchical)?.FindHierarchicalParent<Project>() is { } project
                    ? MediaTimeJsonConverter.ReadOnFrameGrid(project.GetFrameRate())

@@ -46,8 +46,7 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
             : ticks >= below - 1 && ticks <= above + 1;
     }
 
-    // Agent documents show and take times as TimeSpan strings rounded down to a tick, as earlier versions wrote them.
-    // The scope belongs to the calling thread, so it must not span an await.
+    // Agent documents show times as TimeSpan strings; the scope is the thread's, so it must not span an await.
     internal static IDisposable WriteTimeSpanStrings()
     {
         t_stringScopes++;
@@ -78,8 +77,7 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
         }
     }
 
-    // A length written as a TimeSpan string is the distance between its ends on the tick grid, so ends that met in ticks
-    // still meet.
+    // A length written as a TimeSpan string spans its ends on the tick grid, so ends that met in ticks still meet.
     internal static MediaTime LengthToWrite(MediaTime start, MediaTime length)
     {
         if (t_stringScopes == 0)
