@@ -186,51 +186,6 @@ public sealed class ShaderAndAllocationFailureTests
     }
 
     [Test]
-    public void ProgramCacheDisposal_ContinuesAfterEachProgramFaultAndSurfacesTheFirstFailure()
-    {
-        var cache = new ProgramCache<ThrowingProgram>(
-            static _ => 1,
-            maxRetainedBytes: 16);
-        var programs = new List<ThrowingProgram>();
-        ProgramCacheContextKey context = new(
-            "device",
-            "context",
-            "capability",
-            "options");
-        Acquire("half4 main(float2 p) { return half4(1); }");
-        Acquire("half4 main(float2 p) { return half4(0); }");
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(cache.Dispose);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure!.Message, Is.EqualTo("program-dispose-1"),
-                "The most-recently-used program is the first disposal attempt.");
-            Assert.That(programs.Select(static program => program.DisposeCalls), Is.All.EqualTo(1));
-            Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
-            Assert.DoesNotThrow(cache.Dispose);
-        });
-
-        void Acquire(string source)
-        {
-            ShaderProgramIdentity identity = ShaderProgramIdentity.CreateSksl(
-                source,
-                [],
-                SkslBackendBudget.Unlimited);
-            using ProgramCacheLease<ThrowingProgram> lease = cache.GetOrCreate(
-                identity,
-                context,
-                () =>
-                {
-                    var program = new ThrowingProgram(programs.Count);
-                    programs.Add(program);
-                    return program;
-                },
-                static factory => factory());
-        }
-    }
-
-    [Test]
     public void ProgramCreationFailure_LeavesNoEntryAndAValidRetryCanBeRetained()
     {
         using var cache = new ProgramCache<FailureTestDisposable>(
@@ -272,7 +227,7 @@ public sealed class ShaderAndAllocationFailureTests
     }
 
     [Test]
-    public void RendererDisposal_ContinuesAfterPoolFaultAndStillReleasesProgramsAndPlans()
+    public void RendererDisposal_StopsBeforeProgramsAndPlansWhenPoolCleanupFails()
     {
         var poolFailure = new InvalidOperationException("renderer-pool-dispose-primary");
         using var node = new ShaderNode(ShaderDescription.CurrentPixel(
@@ -298,8 +253,8 @@ public sealed class ShaderAndAllocationFailureTests
             Assert.That(failure, Is.SameAs(poolFailure));
             Assert.That(renderer.TargetPoolStatistics.OwnedTargets, Is.Zero);
             Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-            Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.Zero);
-            Assert.That(renderer.StructuralPlanCacheStatistics.RetainedPlans, Is.Zero);
+            Assert.That(renderer.ProgramCacheStatistics.RetainedPrograms, Is.EqualTo(1));
+            Assert.That(renderer.StructuralPlanCacheStatistics.RetainedPlans, Is.EqualTo(1));
             Assert.That(factory.Targets, Has.All.Matches<FailureTestRenderTarget>(target => target.DisposeCalls == 1));
             Assert.DoesNotThrow(renderer.Dispose);
         });
@@ -406,17 +361,6 @@ public sealed class ShaderAndAllocationFailureTests
                     output.Canvas.Use(canvas => canvas.Clear(Colors.CornflowerBlue));
                     throw failure;
                 })));
-        }
-    }
-
-    private sealed class ThrowingProgram(int id) : IDisposable
-    {
-        public int DisposeCalls { get; private set; }
-
-        public void Dispose()
-        {
-            DisposeCalls++;
-            throw new InvalidOperationException($"program-dispose-{id}");
         }
     }
 }

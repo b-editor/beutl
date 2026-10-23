@@ -1,5 +1,4 @@
-﻿using System.Runtime.ExceptionServices;
-using Beutl.Graphics.Backend;
+﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
@@ -136,7 +135,6 @@ public sealed class RenderNodeRenderer : IDisposable
         CompiledRenderRequest? request = null;
         RenderRequestOwner? owner = null;
         RenderNodeCacheLifecycle? cacheLifecycle = null;
-        ExceptionDispatchInfo? primary = null;
         try
         {
             cacheLifecycle = effectiveRequest.ManageCacheLifecycle ? RenderNodeCacheLifecycle.Create(Root) : null;
@@ -184,15 +182,17 @@ public sealed class RenderNodeRenderer : IDisposable
         }
         catch (Exception ex)
         {
-            primary = ExceptionDispatchInfo.Capture(ex);
+            owner?.RecordPrimaryFailure(ex);
+            throw;
         }
         finally
         {
-            DisposeAndCapture(request, ref primary);
-            DisposeAndCapture(targets, ref primary);
+            request?.Dispose();
+            targets.Dispose();
         }
 
-        ThrowAfterCleanup(primary, owner, targets);
+        owner?.ThrowIfFailed();
+        targets.ThrowIfCleanupFailed();
         cacheLifecycle?.CompleteSuccessfully(
             effectiveRequest.Purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup);
     }
@@ -207,7 +207,6 @@ public sealed class RenderNodeRenderer : IDisposable
         RenderTargetLease? executionLease = null;
         ImmediateCanvas? executionCanvas = null;
         IDisposable? destinationClip = null;
-        ExceptionDispatchInfo? primary = null;
 
         void FinalizeExternalResources()
         {
@@ -258,21 +257,13 @@ public sealed class RenderNodeRenderer : IDisposable
                 request.ExecutionTargetBounds,
                 FinalizeExternalResources);
         }
-        catch (Exception ex)
-        {
-            primary = ExceptionDispatchInfo.Capture(ex);
-        }
         finally
         {
-            DisposeExecutionResourcesAndCapture(
-                request.Request.Options.Owner,
-                ref primary,
+            DisposeExecutionResources(
                 destinationClip,
                 executionCanvas,
                 executionLease);
         }
-
-        primary?.Throw();
     }
 
     private static IDisposable PushExpandedDestinationClip(
@@ -345,7 +336,6 @@ public sealed class RenderNodeRenderer : IDisposable
         ImmediateCanvas? canvas = null;
         Bitmap? bitmap = null;
         Rect selectedBounds = default;
-        ExceptionDispatchInfo? primary = null;
         try
         {
             targets = _targetPool.BeginSession(effectiveRequest.Intent);
@@ -394,13 +384,6 @@ public sealed class RenderNodeRenderer : IDisposable
                 void FinalizeExternalResources()
                     => DisposeExecutionResources(TakeExternalResources());
 
-                void FinalizeExternalResourcesAndCapture(ref ExceptionDispatchInfo? failure)
-                    => DisposeExecutionResourcesAndCapture(
-                        owner!,
-                        ref failure,
-                        TakeExternalResources());
-
-                ExceptionDispatchInfo? executionPrimary = null;
                 try
                 {
                     var executor = new RenderRequestExecutor(
@@ -427,16 +410,10 @@ public sealed class RenderNodeRenderer : IDisposable
                         FinalizeExternalResources);
                     LastExecutionStatistics = executor.Statistics;
                 }
-                catch (Exception ex)
-                {
-                    executionPrimary = ExceptionDispatchInfo.Capture(ex);
-                }
                 finally
                 {
-                    FinalizeExternalResourcesAndCapture(ref executionPrimary);
+                    FinalizeExternalResources();
                 }
-
-                executionPrimary?.Throw();
             }
             else
             {
@@ -450,36 +427,32 @@ public sealed class RenderNodeRenderer : IDisposable
         }
         catch (Exception ex)
         {
-            primary = ExceptionDispatchInfo.Capture(ex);
+            owner?.RecordPrimaryFailure(ex);
+            bitmap?.Dispose();
+            throw;
         }
         finally
         {
-            if (owner is not null)
-            {
-                DisposeExecutionResourcesAndCapture(owner, ref primary, canvas, rootLease);
-            }
-            else
-            {
-                DisposeAndCapture(canvas, ref primary);
-                DisposeAndCapture(rootLease, ref primary);
-            }
-            DisposeAndCapture(request, ref primary);
-            DisposeAndCapture(targets, ref primary);
+            canvas?.Dispose();
+            rootLease?.Dispose();
+            request?.Dispose();
+            targets?.Dispose();
         }
 
         try
         {
-            ThrowAfterCleanup(primary, owner, targets);
+            owner?.ThrowIfFailed();
+            targets?.ThrowIfCleanupFailed();
             cacheLifecycle?.CompleteSuccessfully(
                 effectiveRequest.Purpose is RenderRequestPurpose.Frame or RenderRequestPurpose.CacheWarmup);
+
+            return new RenderNodeRasterization(selectedBounds, effectiveRequest.OutputScale, bitmap);
         }
         catch
         {
-            DisposeBestEffort(bitmap);
+            bitmap?.Dispose();
             throw;
         }
-
-        return new RenderNodeRasterization(selectedBounds, effectiveRequest.OutputScale, bitmap);
     }
 
     internal static Bitmap TakeRasterizationBitmap(Bitmap complete, PixelRect selectedSubset)
@@ -520,7 +493,6 @@ public sealed class RenderNodeRenderer : IDisposable
             effectiveRequest);
         RenderRequestOwner owner = request.Options.Owner;
         RenderNodeMeasurement measurement = default;
-        ExceptionDispatchInfo? primary = null;
         try
         {
             var recorder = new RenderRequestRecorder(request);
@@ -528,16 +500,12 @@ public sealed class RenderNodeRenderer : IDisposable
             measurement = new RenderRequestCompiler().ResolveMetadata(request, graph);
             request.CompleteMetadataOnly();
         }
-        catch (Exception ex)
-        {
-            primary = ExceptionDispatchInfo.Capture(ex);
-        }
         finally
         {
-            DisposeAndCapture(request, ref primary);
+            request.Dispose();
         }
 
-        ThrowAfterCleanup(primary, owner, targets: null);
+        owner.ThrowIfFailed();
         return measurement;
     }
 
@@ -572,7 +540,6 @@ public sealed class RenderNodeRenderer : IDisposable
             effectiveRequest);
         RenderRequestOwner owner = request.Options.Owner;
         bool result = false;
-        ExceptionDispatchInfo? primary = null;
         try
         {
             var recorder = new RenderRequestRecorder(request);
@@ -594,23 +561,19 @@ public sealed class RenderNodeRenderer : IDisposable
 
             request.CompleteMetadataOnly();
         }
-        catch (Exception ex)
-        {
-            primary = ExceptionDispatchInfo.Capture(ex);
-        }
         finally
         {
-            DisposeAndCapture(request, ref primary);
+            request.Dispose();
         }
 
-        ThrowAfterCleanup(primary, owner, targets: null);
+        owner.ThrowIfFailed();
         return result;
     }
 
     /// <summary>Releases renderer-owned plans, programs, and pooled targets.</summary>
     /// <remarks>
-    /// Disposal is idempotent and attempts every owned cleanup while preserving the first failure. It does not
-    /// dispose the root, root cache, target factory, destinations, or previously returned rasterizations.
+    /// Disposal is idempotent. It does not dispose the root, root cache, target factory, destinations,
+    /// or previously returned rasterizations.
     /// </remarks>
     public void Dispose()
     {
@@ -618,26 +581,10 @@ public sealed class RenderNodeRenderer : IDisposable
             return;
 
         IsDisposed = true;
-        Exception? primary = null;
-        DisposeKeepingFirst(_targetPool, ref primary);
-        DisposeKeepingFirst(_programCache, ref primary);
-        DisposeKeepingFirst(_spirvProgramCache, ref primary);
-        DisposeKeepingFirst(_structuralPlanCache, ref primary);
-
-        if (primary is not null)
-            ExceptionDispatchInfo.Capture(primary).Throw();
-    }
-
-    private static void DisposeKeepingFirst(IDisposable disposable, ref Exception? primary)
-    {
-        try
-        {
-            disposable.Dispose();
-        }
-        catch (Exception ex)
-        {
-            primary ??= ex;
-        }
+        _targetPool.Dispose();
+        _programCache.Dispose();
+        _spirvProgramCache.Dispose();
+        _structuralPlanCache.Dispose();
     }
 
     private CompiledRenderRequest RecordAndCompile(
@@ -679,12 +626,9 @@ public sealed class RenderNodeRenderer : IDisposable
                     allowPersistentLookup ? RenderNodeCacheLookup.Instance : null)
                 .Compile(request, graph, shaderBudget);
         }
-        catch (Exception ex)
+        catch
         {
-            ExceptionDispatchInfo? primary = ExceptionDispatchInfo.Capture(ex);
-            DisposeAndCapture(request, ref primary);
-            request.Options.Owner.ReportMaskedFailures(primary!.SourceException);
-            primary!.Throw();
+            request.Dispose();
             throw;
         }
     }
@@ -807,78 +751,10 @@ public sealed class RenderNodeRenderer : IDisposable
         return true;
     }
 
-    private static void DisposeAndCapture(IDisposable? disposable, ref ExceptionDispatchInfo? primary)
-    {
-        try
-        {
-            disposable?.Dispose();
-        }
-        catch (Exception ex)
-        {
-            primary ??= ExceptionDispatchInfo.Capture(ex);
-        }
-    }
-
-    internal static void DisposeExecutionResourcesAndCapture(
-        RenderRequestOwner owner,
-        ref ExceptionDispatchInfo? primary,
-        params IDisposable?[] resources)
-    {
-        ArgumentNullException.ThrowIfNull(owner);
-        if (primary is not null)
-            owner.RecordPrimaryFailure(primary.SourceException);
-
-        try
-        {
-            DisposeExecutionResources(resources);
-        }
-        catch (Exception ex)
-        {
-            IEnumerable<Exception> cleanupFailures = ex is AggregateException aggregate
-                ? aggregate.Flatten().InnerExceptions
-                : [ex];
-            foreach (Exception failure in cleanupFailures)
-            {
-                owner.RecordCleanupFailure(failure);
-                primary ??= ExceptionDispatchInfo.Capture(failure);
-            }
-        }
-    }
-
     private static void DisposeExecutionResources(params IDisposable?[] resources)
     {
-        List<Exception>? failures = null;
         foreach (IDisposable? resource in resources)
-        {
-            try
-            {
-                resource?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-        }
-
-        if (failures is [var failure])
-            ExceptionDispatchInfo.Capture(failure).Throw();
-        if (failures is { Count: > 1 })
-            throw new AggregateException(failures);
-    }
-
-    private static void ThrowAfterCleanup(
-        ExceptionDispatchInfo? primary,
-        RenderRequestOwner? owner,
-        RenderTargetLeaseSession? targets)
-    {
-        if (owner is not null && (primary?.SourceException ?? owner.PrimaryFailure?.SourceException) is { } thrown)
-        {
-            owner.ReportMaskedFailures(thrown);
-        }
-
-        primary?.Throw();
-        owner?.ThrowIfFailed();
-        targets?.ThrowIfCleanupFailed();
+            resource?.Dispose();
     }
 
     private static void ValidateTargetDomain(Rect? domain)
@@ -903,18 +779,6 @@ public sealed class RenderNodeRenderer : IDisposable
             throw new ArgumentException(
                 "A requested region must be finite and have non-negative dimensions.",
                 nameof(region));
-        }
-    }
-
-    private static void DisposeBestEffort(IDisposable? disposable)
-    {
-        try
-        {
-            disposable?.Dispose();
-        }
-        catch
-        {
-            // A teardown fault must not replace an in-flight render or allocation failure.
         }
     }
 

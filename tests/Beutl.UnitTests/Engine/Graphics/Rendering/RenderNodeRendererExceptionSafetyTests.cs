@@ -1,5 +1,4 @@
-﻿using System.Runtime.ExceptionServices;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
@@ -34,72 +33,6 @@ public class RenderNodeRendererExceptionSafetyTests
         Assert.That(discharged, Is.EqualTo(new[] { "remaining", "fault", "first" }));
     }
 
-    [Test]
-    public void CleanupOnlyFailure_DischargesEveryResourceExactlyOnceAndSurfacesFailure()
-    {
-        var discharged = new List<string>();
-        using var node = CreateNode(
-            discharged,
-            new RecordedOperationSpec("first"),
-            new RecordedOperationSpec("fault", ThrowOnDispose: true),
-            new RecordedOperationSpec("remaining"));
-        using var target = FailureTestSupport.CreateCpuTarget(4, 4);
-        using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
-
-        var ex = Assert.Throws<AggregateException>(() => ExecuteRequestAndSurfaceOwnerFailure(node, canvas));
-
-        Assert.That(ex!.InnerExceptions.Single().Message, Is.EqualTo("fault"));
-        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "fault", "first" }));
-    }
-
-    [Test]
-    public void ExpandedTargetCleanup_PreservesPrimaryAndAttemptsEveryResource()
-    {
-        var primaryFailure = new InvalidOperationException("expanded-primary");
-        var firstFailure = new InvalidOperationException("expanded-first-cleanup");
-        var secondFailure = new InvalidOperationException("expanded-second-cleanup");
-        var thirdFailure = new InvalidOperationException("expanded-third-cleanup");
-        var first = new FailureTestDisposable(firstFailure);
-        var second = new FailureTestDisposable(secondFailure);
-        var third = new FailureTestDisposable(thirdFailure);
-        using var owner = new RenderRequestOwner();
-        ExceptionDispatchInfo? primary = ExceptionDispatchInfo.Capture(primaryFailure);
-
-        RenderNodeRenderer.DisposeExecutionResourcesAndCapture(
-            owner,
-            ref primary,
-            first,
-            second,
-            third);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(primary?.SourceException, Is.SameAs(primaryFailure));
-            Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primaryFailure));
-            Assert.That(owner.CleanupFailures, Is.EqualTo(new[] { firstFailure, secondFailure, thirdFailure }));
-            Assert.That(first.DisposeCalls, Is.EqualTo(1));
-            Assert.That(second.DisposeCalls, Is.EqualTo(1));
-            Assert.That(third.DisposeCalls, Is.EqualTo(1));
-        });
-    }
-
-    [Test]
-    public void Measure_CleanupOnlyFailure_DischargesEveryResourceExactlyOnceAndSurfacesFailure()
-    {
-        var discharged = new List<string>();
-        using var node = CreateNode(
-            discharged,
-            new RecordedOperationSpec("first", TrackMetadataDischarge: true),
-            new RecordedOperationSpec("fault", ThrowOnDispose: true, TrackMetadataDischarge: true),
-            new RecordedOperationSpec("remaining", TrackMetadataDischarge: true));
-        using var renderer = CreateRenderer(node);
-
-        var ex = Assert.Throws<AggregateException>(() => renderer.Measure());
-
-        Assert.That(ex!.Flatten().InnerExceptions.Single().Message, Is.EqualTo("fault"));
-        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "fault", "first" }));
-    }
-
     [TestCase(EntryPoint.Rasterize)]
     [TestCase(EntryPoint.Render)]
     public void PooledTargetDisposeFailure_SurfacesAtRendererDisposalAfterSuccessfulRequest(EntryPoint entryPoint)
@@ -121,78 +54,6 @@ public class RenderNodeRendererExceptionSafetyTests
         Assert.That(factory.Targets, Has.Count.EqualTo(entryPoint == EntryPoint.Rasterize ? 2 : 1));
         Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).EqualTo(1));
         Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
-    }
-
-    [TestCase(EntryPoint.Rasterize)]
-    [TestCase(EntryPoint.Render)]
-    public void ContinuesCleanupAndPreservesOriginalException_WhenRemainingResourcesThrow(EntryPoint entryPoint)
-    {
-        var discharged = new List<string>();
-        using var node = CreateNode(
-            discharged,
-            new RecordedOperationSpec("first"),
-            new RecordedOperationSpec("render-fault", ThrowOnExecute: true),
-            new RecordedOperationSpec("throwing-remaining-1", ThrowOnDispose: true),
-            new RecordedOperationSpec("throwing-remaining-2", ThrowOnDispose: true),
-            new RecordedOperationSpec("remaining"));
-        using var renderer = CreateRenderer(node);
-
-        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
-
-        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(discharged, Is.EqualTo(new[]
-        {
-            "remaining",
-            "throwing-remaining-2",
-            "throwing-remaining-1",
-            "render-fault",
-            "first",
-        }));
-    }
-
-    [TestCase(EntryPoint.Rasterize)]
-    [TestCase(EntryPoint.Render)]
-    public void PreservesExecutionException_WhenFaultingResourceAlsoThrowsOnDispose(EntryPoint entryPoint)
-    {
-        var discharged = new List<string>();
-        using var node = CreateNode(
-            discharged,
-            new RecordedOperationSpec("first"),
-            new RecordedOperationSpec(
-                "render-fault",
-                ThrowOnExecute: true,
-                ThrowOnDispose: true,
-                DisposeFaultMessage: "dispose-fault"),
-            new RecordedOperationSpec("remaining"));
-        using var renderer = CreateRenderer(node);
-
-        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
-
-        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "render-fault", "first" }));
-    }
-
-    [TestCase(EntryPoint.Rasterize)]
-    [TestCase(EntryPoint.Render)]
-    public void PreservesExecutionException_WhilePooledTargetFailureWaitsForRendererDisposal(EntryPoint entryPoint)
-    {
-        var discharged = new List<string>();
-        using var node = CreateNode(
-            discharged,
-            new RecordedOperationSpec("render-fault", ThrowOnExecute: true, AllocateBeforeThrow: true));
-        int throwingTarget = entryPoint == EntryPoint.Rasterize ? 1 : 0;
-        FailureTestTargetFactory factory = CreateDisposeFaultingFactory(throwingTarget);
-        var renderer = CreateRenderer(node, factory);
-
-        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
-
-        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(factory.Targets, Has.Count.EqualTo(entryPoint == EntryPoint.Rasterize ? 2 : 1));
-        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).Zero);
-        Assert.That(discharged, Is.EqualTo(new[] { "render-fault" }));
-        var cleanup = Assert.Throws<InvalidOperationException>(renderer.Dispose);
-        Assert.That(cleanup!.Message, Is.EqualTo("rt-dispose-fault"));
-        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).EqualTo(1));
     }
 
     [TestCase(EntryPoint.Rasterize)]
@@ -256,45 +117,6 @@ public class RenderNodeRendererExceptionSafetyTests
         });
     }
 
-    [TestCase(EntryPoint.Rasterize)]
-    [TestCase(EntryPoint.Render)]
-    public void PreservesAllocationFailure_WhenResourceCleanupAlsoThrows(EntryPoint entryPoint)
-    {
-        var discharged = new List<string>();
-        using var node = CreateNode(
-            discharged,
-            new RecordedOperationSpec("first", ThrowOnDispose: true),
-            new RecordedOperationSpec("second"));
-        var factory = new FailureTestTargetFactory(failAt: 0);
-        using var renderer = CreateRenderer(node, factory);
-
-        var ex = Assert.Throws<InvalidOperationException>(() => Execute(entryPoint, renderer));
-
-        Assert.That(
-            ex!.Message,
-            Does.StartWith("The render-target factory could not allocate 4x4 pixels"));
-        Assert.That(discharged, Is.EqualTo(new[] { "second", "first" }));
-    }
-
-    [Test]
-    public void RequestOwner_CleanupContinuesAfterFaultAndPreservesStrictLifo()
-    {
-        var discharged = new List<string>();
-        using var owner = new RenderRequestOwner();
-        Register(owner, new RecordedOperation(new RecordedOperationSpec("first"), discharged, true));
-        Register(owner, new RecordedOperation(
-            new RecordedOperationSpec("throws", ThrowOnDispose: true),
-            discharged,
-            true));
-        Register(owner, new RecordedOperation(new RecordedOperationSpec("remaining"), discharged, true));
-
-        owner.Cleanup();
-
-        Assert.That(discharged, Is.EqualTo(new[] { "remaining", "throws", "first" }));
-        Assert.That(owner.CleanupFailures.Length, Is.EqualTo(1));
-        Assert.That(owner.PrimaryFailure!.SourceException, Is.TypeOf<AggregateException>());
-    }
-
     [Test]
     public void Diagnostics_ClassifyResourceDisposeFaultAsCleanup()
     {
@@ -324,29 +146,6 @@ public class RenderNodeRendererExceptionSafetyTests
     }
 
     [Test]
-    public void Rasterize_ReturnsBuiltTargetsToPoolAndPreservesExecutionFailure()
-    {
-        var discharged = new List<string>();
-        using var node = CreateNode(
-            discharged,
-            new RecordedOperationSpec("first"),
-            new RecordedOperationSpec("second"),
-            new RecordedOperationSpec("render-fault", ThrowOnExecute: true, AllocateBeforeThrow: true));
-        FailureTestTargetFactory factory = CreateDisposeFaultingFactory(1);
-        var renderer = CreateRenderer(node, factory);
-
-        var ex = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
-
-        Assert.That(ex!.Message, Is.EqualTo("render-fault"));
-        Assert.That(factory.Targets, Has.Count.EqualTo(2));
-        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).Zero);
-        Assert.That(discharged, Is.EqualTo(new[] { "render-fault", "second", "first" }));
-        var cleanup = Assert.Throws<InvalidOperationException>(renderer.Dispose);
-        Assert.That(cleanup!.Message, Is.EqualTo("rt-dispose-fault"));
-        Assert.That(factory.Targets, Has.All.Property(nameof(FailureTestRenderTarget.DisposeCalls)).EqualTo(1));
-    }
-
-    [Test]
     public void Rasterize_SurfacesPooledRootTargetDisposeFailureAtRendererDisposal()
     {
         var discharged = new List<string>();
@@ -363,35 +162,6 @@ public class RenderNodeRendererExceptionSafetyTests
         Assert.That(factory.Targets[0].DisposeCalls, Is.EqualTo(1));
         Assert.That(factory.Targets[1].DisposeCalls, Is.EqualTo(1));
         Assert.That(discharged, Is.EqualTo(new[] { "ok" }));
-    }
-
-    [Test]
-    public void Diagnostics_ReconcileCleanupFaultAndIntermediateDischarge()
-    {
-        var discharged = new List<string>();
-        using var owner = new RenderRequestOwner();
-        RenderResource<RecordedOperation> kept = Register(
-            owner,
-            new RecordedOperation(new RecordedOperationSpec("kept"), discharged, true));
-        RenderResource<RecordedOperation> faulting = Register(
-            owner,
-            new RecordedOperation(new RecordedOperationSpec("fault", ThrowOnDispose: true), discharged, true));
-
-        owner.Cleanup();
-        owner.Cleanup();
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(discharged, Is.EqualTo(new[] { "fault", "kept" }),
-                "A fault must not strand the intermediates registered before it.");
-            Assert.That(
-                faulting.RegistrationState,
-                Is.EqualTo(RenderResourceRegistrationState.Released),
-                "An intermediate that threw on release is still released; retrying it would double-dispose.");
-            Assert.That(kept.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Released));
-            Assert.That(owner.CleanupFailures.Length, Is.EqualTo(1));
-            Assert.That(discharged, Has.Count.EqualTo(2), "A second cleanup pass must discharge nothing again.");
-        });
     }
 
     [Test]
@@ -443,46 +213,6 @@ public class RenderNodeRendererExceptionSafetyTests
         using RenderTarget target = FailureTestSupport.CreateCpuTarget(4, 4);
         using var canvas = new ImmediateCanvas(target, RenderIntent.Preview);
         renderer.Render(canvas);
-    }
-
-    private static void ExecuteRequestAndSurfaceOwnerFailure(RenderNode node, ImmediateCanvas destination)
-    {
-        var request = new RenderRequest(new RenderRequestOptions(
-            RenderIntent.Preview,
-            RenderRequestPurpose.Auxiliary,
-            outputScale: destination.Density,
-            maxWorkingScale: destination.MaxWorkingScale,
-            cachePolicy: Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled));
-        RenderRequestOwner owner = request.Options.Owner;
-        CompiledRenderRequest? compiled = null;
-        Exception? executionFailure = null;
-        using var targetRegistry = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession targets = targetRegistry.BeginSession(
-            RenderIntent.Preview,
-            destination._renderTarget);
-        try
-        {
-            RecordedRenderGraph graph = new RenderRequestRecorder(request).Record(node);
-            compiled = new RenderRequestCompiler().Compile(request, graph);
-            new RenderRequestExecutor(targets).Execute(compiled, destination);
-        }
-        catch (Exception ex)
-        {
-            executionFailure = ex;
-        }
-        finally
-        {
-            if (compiled is not null)
-                compiled.Dispose();
-            else
-                request.Dispose();
-            targets.Dispose();
-        }
-
-        owner.ThrowIfFailed();
-        targets.ThrowIfCleanupFailed();
-        if (executionFailure is not null)
-            throw executionFailure;
     }
 
     private static RenderResource<RecordedOperation> Register(

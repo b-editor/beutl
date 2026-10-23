@@ -79,59 +79,6 @@ public sealed class RenderNodeRendererLifetimeTests
     }
 
     [Test]
-    public void Rasterize_EmptySelection_SurfacesLeaseSessionCleanupFailure()
-    {
-        var bounds = new Rect(0, 0, 8, 8);
-        var cleanup = new InvalidOperationException("empty-selection-target-cleanup");
-        using var source = new CpuRenderTarget(8, 8);
-        using var node = new ShaderNode(source, bounds);
-        using var factory = new FailureTestTargetFactory(
-            disposeFailure: index => index == 0 ? cleanup : null);
-        using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = bounds,
-            OutputScale = 1,
-            MaxWorkingScale = 1,
-            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
-        }, factory);
-
-        using (RenderNodeRasterization seeded = renderer.Rasterize())
-        {
-            Assert.That(seeded.Bitmap, Is.Not.Null);
-        }
-
-        FailureTestRenderTarget faultingTarget = factory.Targets[0];
-        node.StopPublishing();
-        Exception? observed = null;
-        int emptyResults = 0;
-        const int safetyLimit = 512;
-        while (!faultingTarget.IsDisposed && emptyResults < safetyLimit)
-        {
-            try
-            {
-                using RenderNodeRasterization empty = renderer.Rasterize();
-                Assert.That(empty.Bitmap, Is.Null);
-                emptyResults++;
-            }
-            catch (Exception ex)
-            {
-                observed = ex;
-                break;
-            }
-        }
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(observed, Is.SameAs(cleanup));
-            Assert.That(emptyResults, Is.GreaterThan(0));
-            Assert.That(faultingTarget.IsDisposed, Is.True);
-            Assert.That(faultingTarget.DisposeCalls, Is.EqualTo(1));
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-        });
-    }
-
-    [Test]
     public void Dispose_ReleasesRendererOwnedState_AndPreservesBorrowedState()
     {
         var bounds = new Rect(0, 0, 8, 8);
@@ -186,19 +133,8 @@ public sealed class RenderNodeRendererLifetimeTests
 
     private sealed class ShaderNode(RenderTarget source, Rect bounds) : RenderNode
     {
-        public bool PublishOutput { get; private set; } = true;
-
-        public void StopPublishing()
-        {
-            PublishOutput = false;
-            MarkChanged();
-        }
-
         public override void Process(RenderNodeContext context)
         {
-            if (!PublishOutput)
-                return;
-
             RenderResource<RenderTarget> target = context.Borrow(source);
             RenderFragmentHandle input = context.MaterializedInput(
                 MaterializedInputDescription.FromRenderTarget(

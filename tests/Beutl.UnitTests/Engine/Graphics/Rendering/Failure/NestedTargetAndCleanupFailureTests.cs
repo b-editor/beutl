@@ -394,31 +394,6 @@ public sealed class NestedTargetAndCleanupFailureTests
     }
 
     [Test]
-    public void ExecutionPrimary_SurvivesCleanupFaultAndCleanupContinuesInStrictLifoOrder()
-    {
-        var order = new List<string>();
-        var primary = new InvalidOperationException("execution-primary");
-        var cleanup = new InvalidOperationException("cleanup-secondary");
-        using var node = new PrimaryAndCleanupFailureNode(order, primary, cleanup);
-        using var renderer = FailureTestSupport.CreateRenderer(
-            node,
-            useRenderCache: true,
-            purpose: RenderRequestPurpose.Frame);
-        node.Cache.RecordStableRequests();
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure, Is.SameAs(primary));
-            Assert.That(order, Is.EqualTo(new[] { "last", "throwing", "first" }));
-            Assert.That(node.Resources, Has.All.Matches<OrderedDisposable>(resource => resource.DisposeCalls == 1));
-            Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
-        });
-    }
-
-    [Test]
     public void SameProducerHitAndMultipleMisses_PublishEveryCapture()
     {
         RunSameProducerHitAndMultipleMisses((producer, compiled, execution) =>

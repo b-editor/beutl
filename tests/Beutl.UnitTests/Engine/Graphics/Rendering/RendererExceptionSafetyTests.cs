@@ -33,7 +33,7 @@ public class RendererExceptionSafetyTests
     }
 
     [Test]
-    public void RecalculateBoundaries_DischargesEveryMetadataResource_WhenOneDischargeThrows()
+    public void RecalculateBoundaries_SurfacesMetadataCleanupFailure()
     {
         VulkanTestEnvironment.EnsureAvailable();
         var discharged = new List<string>();
@@ -42,17 +42,13 @@ public class RendererExceptionSafetyTests
             using var renderer = new Renderer(16, 16, RenderIntent.Preview);
             CompositionFrame frame = CreateFrame(
                 discharged,
-                new RecordedOperationSpec("first", TrackMetadataDischarge: true),
-                new RecordedOperationSpec("fault", ThrowOnDispose: true, TrackMetadataDischarge: true),
-                new RecordedOperationSpec("remaining", TrackMetadataDischarge: true));
+                new RecordedOperationSpec("fault", ThrowOnDispose: true, TrackMetadataDischarge: true));
             renderer.UpdateFrame(frame);
 
             var ex = Assert.Throws<AggregateException>(() => renderer.RecalculateBoundaries(0));
 
-            // Metadata-only requests own the same recording resources. Cleanup is strict LIFO and a
-            // failing resource cannot stop later cleanup or cause the same resource to run twice.
             Assert.That(ex!.Flatten().InnerExceptions.Single().Message, Is.EqualTo("fault"));
-            Assert.That(discharged, Is.EqualTo(new[] { "remaining", "fault", "first" }));
+            Assert.That(discharged, Is.EqualTo(new[] { "fault" }));
         });
     }
 
