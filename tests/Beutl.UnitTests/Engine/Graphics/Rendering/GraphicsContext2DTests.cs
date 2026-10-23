@@ -419,9 +419,7 @@ public class GraphicsContext2DTests
         protected override void OnDispose(bool disposing)
         {
             Released = true;
-            // The finalizer calls OnDispose(false) unguarded, and a throwing finalizer kills the test host.
-            if (disposing)
-                throw new InvalidOperationException("resource release failed");
+            throw new InvalidOperationException("resource release failed");
         }
     }
 
@@ -453,6 +451,37 @@ public class GraphicsContext2DTests
         Assert.That(node.Children, Is.Not.Empty);
         Assert.That(node.Children[0], Is.InstanceOf<ClearRenderNode>());
         Assert.That(((ClearRenderNode)node.Children[0]).Color, Is.EqualTo(Colors.White));
+    }
+
+    [Test]
+    public void Clear_KeepsItsNodeAndMarksAChangeOnlyWhenTheColorChanges()
+    {
+        using var root = new ContainerRenderNode();
+        Record(root, static context => context.Clear());
+        var clear = (ClearRenderNode)root.Children[0];
+        long recorded = root.ChangeVersion;
+
+        Record(root, static context => context.Clear());
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Children[0], Is.SameAs(clear));
+            Assert.That(clear.IsDisposed, Is.False);
+            Assert.That(root.ChangeVersion, Is.EqualTo(recorded));
+        });
+
+        Record(root, static context => context.Clear(Colors.White));
+        Assert.Multiple(() =>
+        {
+            Assert.That(root.Children[0], Is.SameAs(clear));
+            Assert.That(clear.Color, Is.EqualTo(Colors.White));
+            Assert.That(root.ChangeVersion, Is.GreaterThan(recorded));
+        });
+
+        static void Record(ContainerRenderNode root, Action<GraphicsContext2D> draw)
+        {
+            using var context = new GraphicsContext2D(root);
+            draw(context);
+        }
     }
 
     [Test]

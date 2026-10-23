@@ -25,10 +25,11 @@ public sealed class BitmapColorSpace : IEquatable<BitmapColorSpace>
 
     public static BitmapColorSpace? CreateIcc(ReadOnlySpan<byte> iccData)
     {
-        var icc = SKColorSpaceIccProfile.Create(iccData);
+        using var icc = SKColorSpaceIccProfile.Create(iccData);
         if (icc == null) return null;
+        // Skia reads some profiles it cannot make a color space of, such as CMYK ones.
         var skCs = SKColorSpace.CreateIcc(iccData);
-        return new BitmapColorSpace(skCs);
+        return skCs == null ? null : new BitmapColorSpace(skCs);
     }
 
     public static BitmapColorSpace CreateRgb(BitmapColorSpaceTransferFn transferFn, BitmapColorSpaceXyz toXyzD50)
