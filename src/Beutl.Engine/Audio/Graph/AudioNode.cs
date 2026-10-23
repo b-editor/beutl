@@ -4,226 +4,54 @@ public abstract class AudioNode : IDisposable
 {
     private readonly List<AudioNode> _inputs = new();
     private bool _disposed;
-    private bool _inputClearTransaction;
-    private bool _inputTopologyCommitCallback;
 
     public IReadOnlyList<AudioNode> Inputs => _inputs;
 
     public void AddInput(AudioNode input)
     {
-        ThrowIfInputTopologyCommitCallback();
         ArgumentNullException.ThrowIfNull(input);
 
         if (IndexOfInput(input) >= 0)
             return;
 
-        AudioNode[] previousInputs = [.. _inputs];
-        int index = _inputs.Count;
         _inputs.Add(input);
-        try
-        {
-            OnInputAdded(input, index);
-        }
-        catch
-        {
-            _inputs.Clear();
-            _inputs.AddRange(previousInputs);
-            throw;
-        }
-    }
-
-    internal void RestoreInput(AudioNode input, int index)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-
-        if (IndexOfInput(input) >= 0)
-            return;
-        if ((uint)index > (uint)_inputs.Count)
-            throw new ArgumentOutOfRangeException(nameof(index));
-
-        _inputs.Insert(index, input);
-        try
-        {
-            OnInputAdded(input, index);
-        }
-        catch
-        {
-            _inputs.RemoveAt(index);
-            throw;
-        }
-    }
-
-    internal void RestoreInputOrder(AudioNode input, int index)
-    {
-        ArgumentNullException.ThrowIfNull(input);
-
-        int currentIndex = IndexOfInput(input);
-        if (currentIndex < 0)
-            throw new ArgumentException("The input is not connected to this node.", nameof(input));
-        if ((uint)index >= (uint)_inputs.Count)
-            throw new ArgumentOutOfRangeException(nameof(index));
-        if (currentIndex == index)
-            return;
-
-        _inputs.RemoveAt(currentIndex);
-        _inputs.Insert(index, input);
-    }
-
-    internal object? CaptureInputStateForRollback(AudioNode input, int index)
-        => CaptureInputState(input, index);
-
-    internal void RestoreInputStateForRollback(AudioNode input, int index, object? state)
-        => RestoreInputState(input, index, state);
-
-    protected bool IsInputTopologyTransaction => _inputClearTransaction;
-
-    internal void BeginInputTopologyTransaction()
-    {
-        _inputClearTransaction = true;
-    }
-
-    internal void BeginInputTopologyCommit()
-    {
-        if (_inputClearTransaction)
-            BeginInputTopologyCommitGuard();
-    }
-
-    internal void BeginInputTopologyCommitGuard()
-    {
-        _inputTopologyCommitCallback = true;
-    }
-
-    internal Exception? CompleteInputTopologyCommit()
-    {
-        if (!_inputClearTransaction)
-            return null;
-
-        try
-        {
-            _inputTopologyCommitCallback = true;
-            OnInputClearTransactionCommitted();
-            return null;
-        }
-        catch (Exception exception)
-        {
-            // The topology is already validated at this point. Keep the transaction committed and
-            // report the hook failure after all nodes have completed their lifecycle notification.
-            return exception;
-        }
-    }
-
-    internal void EndInputTopologyCommit()
-    {
-        EndInputTopologyCommitGuard();
-        _inputClearTransaction = false;
-    }
-
-    internal void EndInputTopologyCommitGuard()
-    {
-        _inputTopologyCommitCallback = false;
-    }
-
-    internal void RollbackInputTopologyTransaction()
-    {
-        if (!_inputClearTransaction)
-            return;
-
-        try
-        {
-            OnInputClearTransactionRolledBack();
-        }
-        finally
-        {
-            _inputTopologyCommitCallback = false;
-            _inputClearTransaction = false;
-        }
+        OnInputAdded(input, _inputs.Count - 1);
     }
 
     public void RemoveInput(AudioNode input)
     {
-        ThrowIfInputTopologyCommitCallback();
         ArgumentNullException.ThrowIfNull(input);
 
         int index = IndexOfInput(input);
         if (index < 0)
             return;
 
-        AudioNode[] previousInputs = [.. _inputs];
         _inputs.RemoveAt(index);
-        try
-        {
-            OnInputRemoved(input, index);
-        }
-        catch
-        {
-            _inputs.Clear();
-            _inputs.AddRange(previousInputs);
-            throw;
-        }
+        OnInputRemoved(input, index);
     }
 
     public void ClearInputs()
     {
-        ThrowIfInputTopologyCommitCallback();
-        AudioNode[] previousInputs = [.. _inputs];
         _inputs.Clear();
-        try
-        {
-            OnInputsCleared();
-        }
-        catch
-        {
-            _inputs.Clear();
-            _inputs.AddRange(previousInputs);
-            throw;
-        }
+        OnInputsCleared();
     }
 
     /// <summary>Called after an input is appended, allowing derived nodes to keep connection metadata
-    /// aligned with <see cref="Inputs"/>. If this hook throws, the input list is restored to its
-    /// pre-call state. An override that mutates its own state must provide the same strong exception
-    /// guarantee by undoing those mutations before it propagates an exception.</summary>
+    /// aligned with <see cref="Inputs"/>. The input hooks must not throw.</summary>
     protected virtual void OnInputAdded(AudioNode input, int index)
     {
     }
 
-    /// <summary>Captures metadata associated with an input before a graph transaction removes it.</summary>
-    /// <remarks>
-    /// The returned state is supplied to <see cref="RestoreInputState"/> if the enclosing graph
-    /// transaction rolls back. Overrides should return <see langword="null"/> when no metadata needs
-    /// restoration.
-    /// </remarks>
-    protected virtual object? CaptureInputState(AudioNode input, int index) => null;
-
-    /// <summary>Restores metadata captured by <see cref="CaptureInputState"/> after an input is reinserted.</summary>
-    protected virtual void RestoreInputState(AudioNode input, int index, object? state)
-    {
-    }
-
     /// <summary>Called after an input is removed, with its former position in
-    /// <see cref="Inputs"/>. If this hook throws, the input list is restored to its pre-call
-    /// state. An override that mutates its own state must provide the same strong exception guarantee
-    /// by undoing those mutations before it propagates an exception.</summary>
+    /// <see cref="Inputs"/>.</summary>
     protected virtual void OnInputRemoved(AudioNode input, int index)
     {
     }
 
     /// <summary>Called whenever <see cref="ClearInputs"/> is invoked, including when there were no
     /// inputs. This hook is not part of disposal; derived nodes that own disposable connection
-    /// metadata must release it from <see cref="Dispose(bool)"/>. If this hook throws, the input list
-    /// is restored to its pre-call state. An override that mutates its own state must provide the same
-    /// strong exception guarantee by undoing those mutations before it propagates an exception.</summary>
+    /// metadata must release it from <see cref="Dispose(bool)"/>.</summary>
     protected virtual void OnInputsCleared()
-    {
-    }
-
-    /// <summary>Called after an AudioContext input-topology transaction commits.</summary>
-    protected virtual void OnInputClearTransactionCommitted()
-    {
-    }
-
-    /// <summary>Called after an AudioContext input-topology transaction rolls back.</summary>
-    protected virtual void OnInputClearTransactionRolledBack()
     {
     }
 
@@ -236,15 +64,6 @@ public abstract class AudioNode : IDisposable
         }
 
         return -1;
-    }
-
-    private void ThrowIfInputTopologyCommitCallback()
-    {
-        if (_inputTopologyCommitCallback)
-        {
-            throw new InvalidOperationException(
-                "Audio input topology cannot be mutated from an input-topology commit callback.");
-        }
     }
 
     public abstract AudioBuffer Process(AudioProcessContext context);
@@ -411,7 +230,6 @@ public abstract class AudioNode : IDisposable
 
     public void Dispose()
     {
-        ThrowIfInputTopologyCommitCallback();
         Dispose(disposing: true);
         GC.SuppressFinalize(this);
     }
