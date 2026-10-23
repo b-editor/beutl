@@ -31,6 +31,10 @@ public sealed class PropertyReferenceComparisonAnalyzerTests
     [TestCase("c.Equals((object)a)", "Equals")]
     [TestCase("Equals(a, b)", "Equals")]
     [TestCase("object.Equals(a, c)", "Equals")]
+    [TestCase("(IProperty<int>)o == b", "==")]
+    [TestCase("(IProperty)o != a", "!=")]
+    [TestCase("((IProperty<int>)o).Equals(b)", "Equals")]
+    [TestCase("object.Equals((IProperty)o, a)", "Equals")]
     public void TwoPropertyObjects_AreReported(string comparison, string compared)
     {
         Diagnostic diagnostic = Analyze(comparison).Single();
@@ -41,6 +45,8 @@ public sealed class PropertyReferenceComparisonAnalyzerTests
     [TestCase("a == null")]
     [TestCase("null != a")]
     [TestCase("a == default")]
+    [TestCase("a == (IProperty)null")]
+    [TestCase("a == default(IProperty<int>)")]
     [TestCase("ReferenceEquals(a, b)")]
     [TestCase("a.Value == b.Value")]
     [TestCase("a.Value.Equals(b.Value)")]

@@ -75,20 +75,22 @@ public sealed class PropertyReferenceComparisonAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    // Whether the operand, read past its conversions, is a property object rather than null.
+    // Whether the operand or a conversion inside it, like (IProperty<int>)o, is a property object rather than null.
     private static bool IsPropertyObject(IOperation operand, INamedTypeSymbol property)
     {
-        while (operand is IConversionOperation conversion)
+        bool isProperty = false;
+        for (IOperation? current = operand; current is not null; current = (current as IConversionOperation)?.Operand)
         {
-            operand = conversion.Operand;
+            if (current.ConstantValue is { HasValue: true, Value: null })
+            {
+                return false;
+            }
+
+            isProperty |= current.Type is { } type
+                          && (SymbolEqualityComparer.Default.Equals(type, property)
+                              || type.AllInterfaces.Contains(property, SymbolEqualityComparer.Default));
         }
 
-        if (operand.ConstantValue is { HasValue: true, Value: null } || operand.Type is not { } type)
-        {
-            return false;
-        }
-
-        return SymbolEqualityComparer.Default.Equals(type, property)
-               || type.AllInterfaces.Contains(property, SymbolEqualityComparer.Default);
+        return isProperty;
     }
 }
