@@ -97,6 +97,8 @@ public sealed class RenderTargetFactoryReachTests
         {
             Assert.That(afterCreateTarget, Is.GreaterThan(0),
                 "CreateTarget must ask the caller's factory.");
+            Assert.That(factory.Targets, Has.Count.GreaterThan(afterCreateTarget),
+                "CreateTargetLike must ask the caller's factory.");
             Assert.That(fresh.RenderTarget, Is.Not.Null);
             Assert.That(replacement.RenderTarget, Is.Not.Null);
         });
