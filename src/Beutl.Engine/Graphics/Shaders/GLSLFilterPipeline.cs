@@ -1,5 +1,4 @@
 ﻿using System.Collections.Immutable;
-using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Composite;
@@ -123,8 +122,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
         IRenderPass3D? renderPass = null;
         IPipeline3D? pipeline = null;
         ISampler? sampler = null;
-        GLSLFilterPipeline? result = null;
-        Exception? creationFailure = null;
         try
         {
             (byte[] vertexShaderSpirv, byte[] fragmentShaderSpirv) = CompileStages(context, fragmentShaderSource);
@@ -159,7 +156,7 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 VertexInputDescription.Empty,
                 pipelineOptions);
 
-            result = new GLSLFilterPipeline(
+            return new GLSLFilterPipeline(
                 context,
                 renderPass,
                 pipeline,
@@ -168,33 +165,15 @@ internal sealed class GLSLFilterPipeline : IDisposable
                 fragmentShaderSpirv,
                 outputCoverage,
                 inputCount);
-            renderPass = null;
-            pipeline = null;
-            sampler = null;
         }
         catch (Exception ex)
         {
-            creationFailure = ex;
+            s_logger.LogError(ex, "Failed to create GLSL filter pipeline.");
+            DisposeAfterFailedCreation(pipeline);
+            DisposeAfterFailedCreation(renderPass);
+            DisposeAfterFailedCreation(sampler);
+            return null;
         }
-
-        List<Exception>? cleanupFailures = null;
-        DisposeBestEffort(pipeline, ref cleanupFailures);
-        DisposeBestEffort(renderPass, ref cleanupFailures);
-        DisposeBestEffort(sampler, ref cleanupFailures);
-        if (creationFailure is null && cleanupFailures is null)
-            return result;
-
-        Exception failure = cleanupFailures is null
-            ? creationFailure!
-            : creationFailure is null && cleanupFailures.Count == 1
-                ? cleanupFailures[0]
-                : new AggregateException(
-                    "GLSL filter pipeline creation and cleanup failed.",
-                    creationFailure is null
-                        ? cleanupFailures
-                        : [creationFailure, .. cleanupFailures]);
-        s_logger.LogError(failure, "Failed to create GLSL filter pipeline.");
-        return null;
     }
 
     /// <summary>
@@ -210,20 +189,15 @@ internal sealed class GLSLFilterPipeline : IDisposable
         return (vertexShaderSpirv, fragmentShaderSpirv);
     }
 
-    private static void DisposeBestEffort(
-        IDisposable? resource,
-        ref List<Exception>? failures)
+    private static void DisposeAfterFailedCreation(IDisposable? resource)
     {
-        if (resource is null)
-            return;
-
         try
         {
-            resource.Dispose();
+            resource?.Dispose();
         }
         catch (Exception ex)
         {
-            (failures ??= []).Add(ex);
+            s_logger.LogError(ex, "Failed to release a resource of a GLSL filter pipeline that could not be created.");
         }
     }
 
@@ -314,14 +288,20 @@ internal sealed class GLSLFilterPipeline : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        List<Exception>? failures = null;
-        DisposeBestEffort(_pipeline, ref failures);
-        DisposeBestEffort(_renderPass, ref failures);
-        DisposeBestEffort(_sampler, ref failures);
-        if (failures is null)
-            return;
-        if (failures.Count == 1)
-            ExceptionDispatchInfo.Capture(failures[0]).Throw();
-        throw new AggregateException("GLSL filter pipeline cleanup failed.", failures);
+        try
+        {
+            _pipeline.Dispose();
+        }
+        finally
+        {
+            try
+            {
+                _renderPass.Dispose();
+            }
+            finally
+            {
+                _sampler.Dispose();
+            }
+        }
     }
 }

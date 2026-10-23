@@ -48,9 +48,6 @@ public class AnimatedImageReader : MediaReader
     // Returns the frame shown at the given time, or -1 when there is none.
     private int FindFrameIndex(long ms)
     {
-        if (_repetitionCount == 0)
-            return 0;
-
         if (_cycleDuration <= 0)
         {
             return -1;
@@ -58,9 +55,10 @@ public class AnimatedImageReader : MediaReader
 
         long effective = ms;
 
-        if (_repetitionCount > 0)
+        // Skia counts the repetitions after the first pass, so 0 plays once; a negative count loops forever.
+        if (_repetitionCount >= 0)
         {
-            long fullDuration = (long)_cycleDuration * _repetitionCount;
+            long fullDuration = _cycleDuration * (_repetitionCount + 1L);
             if (effective >= fullDuration)
             {
                 return -1;

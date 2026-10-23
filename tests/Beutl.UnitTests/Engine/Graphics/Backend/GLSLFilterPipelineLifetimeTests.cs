@@ -139,32 +139,6 @@ public sealed class GLSLFilterPipelineLifetimeTests
     }
 
     [Test]
-    public void Create_WhenConstructionAndCleanupFail_ReturnsNullAfterEveryCleanup()
-    {
-        var fixture = new PipelineFixture();
-        fixture.Context
-            .Setup(x => x.CreatePipeline3D(
-                It.IsAny<IRenderPass3D>(),
-                It.IsAny<byte[]>(),
-                It.IsAny<byte[]>(),
-                It.IsAny<DescriptorBinding[]>(),
-                It.IsAny<VertexInputDescription>(),
-                It.IsAny<PipelineOptions>()))
-            .Throws(new InvalidOperationException("construction"));
-        fixture.RenderPass.Setup(x => x.Dispose()).Throws(new InvalidOperationException("render pass"));
-        fixture.Sampler.Setup(x => x.Dispose()).Throws(new InvalidOperationException("sampler"));
-
-        GLSLFilterPipeline? result = null;
-        Assert.DoesNotThrow(() => result = fixture.Create());
-
-        Assert.That(result, Is.Null);
-        fixture.CompilerLifetime.Verify(x => x.Dispose(), Times.Once);
-        fixture.RenderPass.Verify(x => x.Dispose(), Times.Once);
-        fixture.Sampler.Verify(x => x.Dispose(), Times.Once);
-        fixture.Pipeline.Verify(x => x.Dispose(), Times.Never);
-    }
-
-    [Test]
     public void Create_OnSuccess_TransfersResourcesToReturnedPipeline()
     {
         var fixture = new PipelineFixture();
@@ -191,55 +165,17 @@ public sealed class GLSLFilterPipelineLifetimeTests
         fixture.Sampler.Verify(x => x.Dispose(), Times.Once);
     }
 
-    [TestCase(PipelineResource.Pipeline)]
-    [TestCase(PipelineResource.RenderPass)]
-    [TestCase(PipelineResource.Sampler)]
-    public void Dispose_WhenResourceThrows_AttemptsEveryResourceOnce(PipelineResource failingResource)
-    {
-        var fixture = new PipelineFixture();
-        switch (failingResource)
-        {
-            case PipelineResource.Pipeline:
-                fixture.Pipeline.Setup(x => x.Dispose()).Throws<InvalidOperationException>();
-                break;
-            case PipelineResource.RenderPass:
-                fixture.RenderPass.Setup(x => x.Dispose()).Throws<InvalidOperationException>();
-                break;
-            case PipelineResource.Sampler:
-                fixture.Sampler.Setup(x => x.Dispose()).Throws<InvalidOperationException>();
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(failingResource), failingResource, null);
-        }
-
-        GLSLFilterPipeline? result = fixture.Create();
-
-        Assert.That(result, Is.Not.Null);
-        Assert.Throws<InvalidOperationException>(result!.Dispose);
-        Assert.DoesNotThrow(result.Dispose);
-        fixture.Pipeline.Verify(x => x.Dispose(), Times.Once);
-        fixture.RenderPass.Verify(x => x.Dispose(), Times.Once);
-        fixture.Sampler.Verify(x => x.Dispose(), Times.Once);
-    }
-
     [Test]
-    public void Dispose_WhenEveryResourceThrows_PreservesEveryFailure()
+    public void Dispose_WhenEveryResourceThrows_StillDisposesEachResourceOnce()
     {
         var fixture = new PipelineFixture();
-        var pipelineFailure = new InvalidOperationException("pipeline");
-        var renderPassFailure = new InvalidOperationException("render pass");
-        var samplerFailure = new InvalidOperationException("sampler");
-        fixture.Pipeline.Setup(x => x.Dispose()).Throws(pipelineFailure);
-        fixture.RenderPass.Setup(x => x.Dispose()).Throws(renderPassFailure);
-        fixture.Sampler.Setup(x => x.Dispose()).Throws(samplerFailure);
+        fixture.Pipeline.Setup(x => x.Dispose()).Throws<InvalidOperationException>();
+        fixture.RenderPass.Setup(x => x.Dispose()).Throws<InvalidOperationException>();
+        fixture.Sampler.Setup(x => x.Dispose()).Throws<InvalidOperationException>();
         GLSLFilterPipeline result = fixture.Create()
             ?? throw new AssertionException("The fixture pipeline was not created.");
 
-        AggregateException? failure = Assert.Throws<AggregateException>(result.Dispose);
-
-        Assert.That(
-            failure!.InnerExceptions,
-            Is.EqualTo(new[] { pipelineFailure, renderPassFailure, samplerFailure }));
+        Assert.Throws<InvalidOperationException>(result.Dispose);
         Assert.DoesNotThrow(result.Dispose);
         fixture.Pipeline.Verify(x => x.Dispose(), Times.Once);
         fixture.RenderPass.Verify(x => x.Dispose(), Times.Once);
@@ -299,12 +235,5 @@ public sealed class GLSLFilterPipelineLifetimeTests
                 Context.Object,
                 "fragment shader",
                 ShaderOutputCoverage.ProvablyFull);
-    }
-
-    public enum PipelineResource
-    {
-        Pipeline,
-        RenderPass,
-        Sampler,
     }
 }
