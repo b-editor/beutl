@@ -7,6 +7,9 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  merge_group:
+    types: [ checks_requested ]
+    branches: [ main ]
 
 # Cancel superseded checks for the same branch or pull request.
 concurrency:
@@ -182,6 +185,8 @@ jobs:
     timeout-minutes: 20
     strategy:
       fail-fast: false
+      # Queue builds share the Free plan's 20-job pool with PRs and other repositories.
+      max-parallel: ${{ github.event_name == 'merge_group' && 4 || 16 }}
       matrix:
         suite: [unit-particles, unit-golden, unit-rendering, unit-audio, unit-engine, unit-git, unit-other, ui-a-d, ui-e-i, ui-j-m, ui-n-r, ui-other, graphics3d, other]
         validation: [false]
@@ -325,6 +330,8 @@ jobs:
           path: coveragereport
 
       - name: Upload coverage to Codecov
+        # Publish coverage for PRs and main, not the queue's temporary merge commits.
+        if: github.event_name != 'merge_group'
         uses: codecov/codecov-action@v7.1.1
         with:
           files: ./coveragereport/Cobertura.xml

@@ -256,12 +256,44 @@ internal sealed partial class DeclarativeDocumentApplier
 
         NormalizeRegisteredPropertyValues(target, payload);
         NormalizeEnginePropertyValues(target, payload);
+        List<(CoreObject Value, JsonObject Desired)> changedValues = TakeChangedValuesOfTheSameObject(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
         ClearAbsentRegisteredObjectProperties(target, desired, payload);
         ClearAbsentObjectProperties(target, desired, payload);
+        foreach ((CoreObject value, JsonObject valueDesired) in changedValues)
+        {
+            ApplyCoreObject(value, valueDesired);
+        }
+
         ApplyListProperties(target, desired);
         ApplyAnimations(target, desired);
         ApplyExpressions(target, desired);
+    }
+
+    // Takes the changed values of the same type and Id, to apply in place as the editor does and keep unknown members.
+    private List<(CoreObject Value, JsonObject Desired)> TakeChangedValuesOfTheSameObject(
+        EngineObject target, JsonObject payload)
+    {
+        var values = new List<(CoreObject, JsonObject)>();
+        foreach (IProperty property in target.Properties)
+        {
+            // A member its type reads itself may be set even when left out of the payload, so the populate reads it.
+            if (!CoreObject.IsAutoSerialized(property)
+                || property.Value is not CoreObject value
+                || value is IFallback or IEnumerable
+                || payload[property.Name] is not JsonObject json
+                || CoreSerializer.ResolveActualType(json, property.ValueType) != value.GetType()
+                || !IdentityMatches(value, json)
+                || JsonNode.DeepEquals(SerializeCurrent(value), json))
+            {
+                continue;
+            }
+
+            payload.Remove(property.Name);
+            values.Add((value, json));
+        }
+
+        return values;
     }
 
     private void ApplyRegisteredProperties(CoreObject target, JsonObject desired, IReadOnlySet<string> excluded)

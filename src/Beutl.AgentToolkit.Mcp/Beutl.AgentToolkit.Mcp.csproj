@@ -16,4 +16,24 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Console" />
   </ItemGroup>
 
+  <!-- As in src/Beutl/Beutl.csproj, so `dotnet run` from a source checkout finds the GPL worker in FFmpegWorker/.
+       ReferenceOutputAssembly=false keeps it out of the MIT compile closure; Private=false keeps it out of the publish. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Beutl.FFmpegWorker\Beutl.FFmpegWorker.csproj"
+                      ReferenceOutputAssembly="false"
+                      Private="false" />
+  </ItemGroup>
+
+  <Target Name="CopyFFmpegWorkerForMcp" AfterTargets="Build">
+    <PropertyGroup>
+      <_FFmpegWorkerOutDir>..\Beutl.FFmpegWorker\bin\$(Configuration)\$(TargetFramework)\$(RuntimeIdentifier)\</_FFmpegWorkerOutDir>
+    </PropertyGroup>
+    <ItemGroup>
+      <_FFmpegWorkerOutput Include="$(_FFmpegWorkerOutDir)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_FFmpegWorkerOutput)"
+          DestinationFiles="@(_FFmpegWorkerOutput->'$(OutDir)FFmpegWorker\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>

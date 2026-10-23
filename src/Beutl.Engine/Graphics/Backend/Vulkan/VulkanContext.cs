@@ -136,6 +136,9 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
     public GRContext SkiaContext => _skiaContext ?? throw new InvalidOperationException(
         "SkiaSharp Vulkan context is not initialized. Make sure the Vulkan context was created successfully.");
 
+    // Null on MoltenVK, where Skia draws through Metal, and once disposed.
+    internal GRContext? SkiaContextOrNull => _skiaContext;
+
     public Vk Vk => _vulkanInstance.Vk;
 
     public Instance Instance => _vulkanInstance.Instance;
