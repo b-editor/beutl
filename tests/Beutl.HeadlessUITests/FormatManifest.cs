@@ -52,6 +52,7 @@ internal static partial class FormatManifest
     {
         ["Beutl.AgentToolkit.Mcp"] =
             "the stdio MCP host of Beutl.AgentToolkit, which is read; it declares no serializable types and no store",
+        ["Beutl.Analyzers"] = "a Roslyn analyzer, which runs in the compiler rather than in the app",
         ["Beutl.Engine.SourceGenerators"] = "a Roslyn analyzer, which runs in the compiler rather than in the app",
         ["Beutl.FFmpegWorker"] =
             "the GPL worker process, which MIT test projects must not reference; it declares no serializable types",

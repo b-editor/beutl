@@ -36,8 +36,8 @@ public sealed class PathFigureEditorViewModel : ValueEditorViewModel<PathFigure>
                             Group.Value = new ListEditorViewModel<PathSegment>(prop) { IsExpanded = { Value = true } };
 
                             Properties.Value = new PropertiesEditorViewModel(group, GetExtensionProvider(),
-                                p => p == group.StartPoint
-                                     || p == group.IsClosed);
+                                p => ReferenceEquals(p, group.StartPoint)
+                                     || ReferenceEquals(p, group.IsClosed));
                         }
 
                         AcceptChild();

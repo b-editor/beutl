@@ -93,7 +93,7 @@ public abstract partial class CoreObject : IChildObjectSource
     internal virtual bool IsBaseField(IProperty property) => property is not (IExpressionProperty or IListProperty);
 
     // Id and Name, which come after the base fields when saved and shown.
-    internal bool IsOwnField(IProperty property) => property == Id || property == Name;
+    internal bool IsOwnField(IProperty property) => ReferenceEquals(property, Id) || ReferenceEquals(property, Name);
 
     private void RegisterOwnField(IProperty property, string name)
     {

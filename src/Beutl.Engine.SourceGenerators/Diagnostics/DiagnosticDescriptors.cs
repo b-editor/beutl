@@ -232,4 +232,17 @@ public static class DiagnosticDescriptors
             + "memoization is not reported. The "
             + "runtime cross-check in Beutl.Engine, not this rule, is what covers those. Treat silence as "
             + "the absence of the shape authors usually write, not as a proof that the node is safe to skip.");
+
+    public static readonly DiagnosticDescriptor PropertyReferenceComparison = new(
+        id: "BESG007",
+        title: "Property objects compared by reference",
+        messageFormat:
+            "'{0}' compares two property objects by reference, not their values: compare their Value, or call "
+            + "ReferenceEquals when the same property object is meant",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        description:
+            "Since value-only properties are property objects, a.Id == b.Id and a.Id.Equals(b.Id) compile but are "
+            + "false for two objects with the same id.");
 }

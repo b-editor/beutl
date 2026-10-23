@@ -421,13 +421,13 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     }
                 }
 
-                _coordDragStates = list.DistinctBy(s => s.Property).Where(s => s.Property != prop).ToArray();
+                _coordDragStates = list.DistinctBy(s => s.Property).Where(s => !ReferenceEquals(s.Property, prop)).ToArray();
             }
             else
             {
                 var list = new List<PathPointDragState>();
                 CoordinateAnotherControlPoint(list, view, viewModel, figure, segment, prop);
-                _coordDragStates = list.DistinctBy(s => s.Property).Where(s => s.Property != prop).ToArray();
+                _coordDragStates = list.DistinctBy(s => s.Property).Where(s => !ReferenceEquals(s.Property, prop)).ToArray();
             }
 
             return true;

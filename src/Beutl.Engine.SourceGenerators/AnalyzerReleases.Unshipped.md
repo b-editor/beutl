@@ -8,3 +8,4 @@ BESG003 | Beutl.Engine.SourceGenerators | Warning | MetadataCallbackPurityAnalyz
 BESG004 | Beutl.Engine.SourceGenerators | Warning | MetadataCallbackPurityAnalyzer
 BESG005 | Beutl.Engine.SourceGenerators | Warning | RenderNodeChangeMarkingAnalyzer
 BESG006 | Beutl.Engine.SourceGenerators | Warning | ScanPropertiesCallAnalyzer
+BESG007 | Beutl.Engine.SourceGenerators | Warning | PropertyReferenceComparisonAnalyzer

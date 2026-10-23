@@ -40,6 +40,7 @@
   </Folder>
   <Project Path="nukebuild\_build.csproj" />
   <Project Path="src\Beutl.Engine.SourceGenerators\Beutl.Engine.SourceGenerators.csproj" />
+  <Project Path="src\Beutl.Analyzers\Beutl.Analyzers.csproj" />
   <Project Path="sdk\Beutl.Extensibility.Sdk\Beutl.Extensibility.Sdk.csproj" />
   <Project Path="src\Beutl.AgentToolkit\Beutl.AgentToolkit.csproj" />
   <Project Path="src\Beutl.AgentToolkit.Mcp\Beutl.AgentToolkit.Mcp.csproj" />

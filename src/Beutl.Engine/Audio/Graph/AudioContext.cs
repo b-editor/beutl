@@ -125,7 +125,7 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(gain);
 
-        if (_previousNodes?.OfType<GainNode>().FirstOrDefault(n => n.Gain == gain) is { } existing)
+        if (_previousNodes?.OfType<GainNode>().FirstOrDefault(n => ReferenceEquals(n.Gain, gain)) is { } existing)
         {
             // Matched by Gain reference, so no re-assignment is needed (Gain is init-only).
             return AddNode(Reclaim(existing));
@@ -235,7 +235,7 @@ public sealed partial class AudioContext : IDisposable
         ThrowIfTopologyMutation();
         ArgumentNullException.ThrowIfNull(speed);
 
-        if (_previousNodes?.OfType<SpeedNode>().FirstOrDefault(n => n.Speed == speed) is { } existing)
+        if (_previousNodes?.OfType<SpeedNode>().FirstOrDefault(n => ReferenceEquals(n.Speed, speed)) is { } existing)
         {
             return AddNode(Reclaim(existing));
         }

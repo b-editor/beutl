@@ -82,7 +82,7 @@ public partial class Scene : ProjectItem, INotifyEdited
     public IListProperty<SceneMarker> Markers { get; } = new ListProperty<SceneMarker> { AffectsRender = false };
 
     // Layers is saved before Id and Name, where its CoreProperty form was, and Deserialize reads it.
-    internal override bool IsBaseField(IProperty property) => property == Layers || base.IsBaseField(property);
+    internal override bool IsBaseField(IProperty property) => ReferenceEquals(property, Layers) || base.IsBaseField(property);
 
     private static MediaTime NotNegative(MediaTime value) => value < MediaTime.Zero ? MediaTime.Zero : value;
 

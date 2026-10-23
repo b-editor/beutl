@@ -43,7 +43,7 @@ internal static class PathEditingOperations
     private static IExpressionProperty<Point> EdgeStart(PathFigure figure, int index, bool explicitStart)
     {
         IExpressionProperty<Point> before = EndPoint(figure, index - 1);
-        return before == figure.StartPoint && !explicitStart ? EndPoint(figure, figure.Segments.Count - 1) : before;
+        return ReferenceEquals(before, figure.StartPoint) && !explicitStart ? EndPoint(figure, figure.Segments.Count - 1) : before;
     }
 
     internal static Point Start(PathFigure figure, int index, CompositionContext context)
@@ -113,7 +113,7 @@ internal static class PathEditingOperations
         // Only this edge's actual start point affects its split. Animation on an
         // unrelated anchor (or on an unused explicit start) must not block insertion.
         IExpressionProperty<Point> before = EndPoint(figure, index - 1);
-        bool supportedStart = before != figure.StartPoint ? CanUsePoint(before)
+        bool supportedStart = !ReferenceEquals(before, figure.StartPoint) ? CanUsePoint(before)
             : CanUsePoint(figure.StartPoint) && (!ReadPoint(figure.StartPoint).Value.IsInvalid
                 || IsStatic(figure.IsClosed) && figure.IsClosed.Value
                     && CanUsePoint(EndPoint(figure, figure.Segments.Count - 1)));

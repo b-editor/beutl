@@ -52,6 +52,15 @@
     </PackageReference>
   </ItemGroup>
 
+  <!-- Beutl.Analyzers for the src and test projects without the generator as an analyzer, which carries the same warnings.
+       Build-only, so packages do not carry it, and left out of the library query of build/BeutlLibraries.proj. -->
+  <PropertyGroup>
+    <_BeutlTakesAnalyzers Condition="'$(IsRoslynComponent)' != 'true' and '$(BeutlLibraryQuery)' != 'true' and ($(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)src')) or $(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)tests')))">true</_BeutlTakesAnalyzers>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(_BeutlTakesAnalyzers)' == 'true' and '@(ProjectReference->WithMetadataValue('Filename', 'Beutl.Engine.SourceGenerators')->WithMetadataValue('OutputItemType', 'Analyzer'))' == ''">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src/Beutl.Analyzers/Beutl.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" PrivateAssets="all" />
+  </ItemGroup>
+
   <!-- APIs code under src must not call; tests still may, to test them. Build-only, so packages do not carry it. -->
   <PropertyGroup>
     <_BeutlBansApis>$(MSBuildProjectDirectory.StartsWith('$(MSBuildThisFileDirectory)src'))</_BeutlBansApis>

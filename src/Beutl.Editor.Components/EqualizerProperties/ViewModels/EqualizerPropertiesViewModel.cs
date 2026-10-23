@@ -118,7 +118,7 @@ public sealed class EqualizerPropertiesViewModel : IPropertyEditorContext, IServ
         var equalizer = TryGetEqualizerEffect();
         if (equalizer == null) return;
 
-        _bandCountAdapter = _props.FirstOrDefault(p => p.GetEngineProperty() == equalizer.BandCountOption);
+        _bandCountAdapter = _props.FirstOrDefault(p => ReferenceEquals(p.GetEngineProperty(), equalizer.BandCountOption));
         if (_bandCountAdapter != null)
         {
             BandCountEditor.Value = factory.CreateEditor(_bandCountAdapter);
