@@ -50,7 +50,7 @@ public sealed class FusionBoundaryTests
 
 
     [Test]
-    public void StandaloneBackendOverflow_ExecutesCompatibilityPathWithParityAndExactReason()
+    public void StandaloneBackendOverflow_ExecutesCompatibilityPathWithParity()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
