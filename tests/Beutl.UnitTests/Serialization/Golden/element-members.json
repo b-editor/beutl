@@ -1,6 +1,6 @@
 {
-  "Start": "00:00:01",
-  "Length": "00:00:04",
+  "Start": 705600000,
+  "Length": 2822400000,
   "ZIndex": 2,
   "AccentColor": "Red",
   "IsEnabled": false,
@@ -12,8 +12,8 @@
       "IsEnabled": true,
       "Id": "00000000-0000-0000-0000-000000000002",
       "Name": "",
-      "Start": "00:00:01",
-      "Duration": "00:00:04",
+      "Start": 705600000,
+      "Duration": 2822400000,
       "ZIndex": 2,
       "Animations": {
         "Width": {
@@ -23,7 +23,7 @@
           "KeyFrames": [
             {
               "Value": 10,
-              "KeyTime": "00:00:00",
+              "KeyTime": 0,
               "Id": "00000000-0000-0000-0000-000000000004",
               "Name": "",
               "Easing": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing",
@@ -31,7 +31,7 @@
             },
             {
               "Value": 20,
-              "KeyTime": "00:00:01",
+              "KeyTime": 705600000,
               "Id": "00000000-0000-0000-0000-000000000005",
               "Name": "",
               "Easing": {
@@ -44,7 +44,7 @@
             },
             {
               "Value": 30,
-              "KeyTime": "00:00:02",
+              "KeyTime": 1411200000,
               "Id": "00000000-0000-0000-0000-000000000006",
               "Name": "",
               "Easing": "[Beutl.Engine]Beutl.Animation.Easings:SineEaseIn",
@@ -60,7 +60,7 @@
           "KeyFrames": [
             {
               "Value": 40,
-              "KeyTime": "00:00:01",
+              "KeyTime": 705600000,
               "Id": "00000000-0000-0000-0000-000000000008",
               "Name": "",
               "Easing": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing",
@@ -118,7 +118,7 @@
     "Name": "",
     "Animations": {},
     "Expressions": {},
-    "Duration": "00:00:00.5000000",
+    "Duration": 352800000,
     "Easing": {
       "$type": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing"
     },
@@ -131,7 +131,7 @@
     "Animations": {},
     "Expressions": {},
     "Direction": 0,
-    "Duration": "00:00:00.5000000",
+    "Duration": 352800000,
     "Easing": {
       "$type": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing"
     },
