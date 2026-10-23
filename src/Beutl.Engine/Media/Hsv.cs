@@ -54,7 +54,7 @@ public readonly struct Hsv : IEquatable<Hsv>
         if (S == 0)
         {
             r = g = b = MathF.Round(V * 2.55F);
-            return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
+            return Color.FromArgb((byte)MathF.Round(a * 255.0F), (byte)r, (byte)g, (byte)b);
         }
 
         float hh = H;
