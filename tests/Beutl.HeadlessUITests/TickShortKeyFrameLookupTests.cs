@@ -5,6 +5,7 @@ using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
@@ -32,8 +33,11 @@ public sealed class TickShortKeyFrameLookupTests
         var saved = new KeyFrameAnimation<float>();
         for (int frame = 0; frame < 3; frame++)
             saved.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromFrames(frame, rate), Value = 100 * (frame + 1) });
-        var animation = (KeyFrameAnimation<float>)CoreSerializer.DeserializeFromJsonObject(
-            CoreSerializer.SerializeToJsonObject(saved), typeof(KeyFrameAnimation<float>));
+        // Written as TimeSpan strings, as earlier versions wrote templates.
+        System.Text.Json.Nodes.JsonObject json;
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            json = CoreSerializer.SerializeToJsonObject(saved);
+        var animation = (KeyFrameAnimation<float>)CoreSerializer.DeserializeFromJsonObject(json, typeof(KeyFrameAnimation<float>));
         shape.Width.SetKeyFrameAnimation(animation);
         Assert.That(animation.KeyFrames[1].KeyTime, Is.LessThan(MediaTime.FromFrames(1, rate)));
 
