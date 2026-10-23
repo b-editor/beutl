@@ -15,7 +15,7 @@ namespace Beutl.ProjectSystem;
 // A Beutl 1.x element kept its operators and its node tree under these keys. The migration reads them, and a 2.x
 // element drops them rather than keeping them as unknown members.
 [DroppedMembers("Operation", "UseNode", "NodeTree")]
-public class Element : Hierarchical, INotifyEdited
+public partial class Element : Hierarchical, INotifyEdited
 {
     public Element()
     {
@@ -42,20 +42,20 @@ public class Element : Hierarchical, INotifyEdited
     public event EventHandler? Edited;
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
-    public IProperty<MediaTime> Start { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero);
+    public IProperty<MediaTime> Start { get; } = Property.CreateValue(MediaTime.Zero);
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
-    public IProperty<MediaTime> Length { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero);
+    public IProperty<MediaTime> Length { get; } = Property.CreateValue(MediaTime.Zero);
 
-    public IProperty<int> ZIndex { get; } = new ValueOnlyProperty<int>(0);
+    public IProperty<int> ZIndex { get; } = Property.CreateValue(0);
 
-    public IProperty<Color> AccentColor { get; } = new ValueOnlyProperty<Color>(Colors.Teal);
+    public IProperty<Color> AccentColor { get; } = Property.CreateValue(Colors.Teal);
 
-    public IProperty<bool> IsEnabled { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> IsEnabled { get; } = Property.CreateValue(true);
 
     // Editor-only; does not affect composition. Timeline and property editors refuse
     // edits when this is true or its TimelineLayer.IsLocked is.
-    public IProperty<bool> IsLocked { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> IsLocked { get; } = Property.CreateValue(false);
 
     // Serialize and Deserialize write and read the objects and transitions themselves.
     [NotAutoSerialized]
@@ -67,7 +67,7 @@ public class Element : Hierarchical, INotifyEdited
     /// </summary>
     [NotAutoSerialized]
     [Display(Name = nameof(Strings.EnterTransition), ResourceType = typeof(Strings))]
-    public IProperty<ClipTransition?> EnterTransition { get; } = new ValueOnlyProperty<ClipTransition?>(null);
+    public IProperty<ClipTransition?> EnterTransition { get; } = Property.CreateValue<ClipTransition?>(null);
 
     /// <summary>
     /// Gets or sets this element's side of the transition at its end: how it blends out into the adjacent
@@ -75,7 +75,7 @@ public class Element : Hierarchical, INotifyEdited
     /// </summary>
     [NotAutoSerialized]
     [Display(Name = nameof(Strings.ExitTransition), ResourceType = typeof(Strings))]
-    public IProperty<ClipTransition?> ExitTransition { get; } = new ValueOnlyProperty<ClipTransition?>(null);
+    public IProperty<ClipTransition?> ExitTransition { get; } = Property.CreateValue<ClipTransition?>(null);
 
     public TimeRange Range => new(Start.Value, Length.Value);
 

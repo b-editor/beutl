@@ -9,7 +9,7 @@ namespace Beutl.Configuration;
 // ShowStorageServices is a setting this section no longer has: the file browser always shows the registered storage
 // services, so a stored value is dropped rather than kept as an unknown member.
 [DroppedMembers("ShowStorageServices")]
-public sealed class ViewConfig : ConfigurationBase
+public sealed partial class ViewConfig : ConfigurationBase
 {
     // Extension ids must remain outside BuiltinThemeIds, whose normalization defines reserved ids.
     private const string DefaultThemeId = FirstPartyThemeIds.DarkBorder;
@@ -24,23 +24,23 @@ public sealed class ViewConfig : ConfigurationBase
 
     // Serialize and Deserialize write and read the theme, the window bounds and the lists themselves.
     [NotAutoSerialized]
-    public IProperty<string> Theme { get; } = new ValueOnlyProperty<string>(DefaultThemeId);
+    public IProperty<string> Theme { get; } = Property.CreateValue(DefaultThemeId);
 
-    public IProperty<CultureInfo> UICulture { get; } = new ValueOnlyProperty<CultureInfo>(CultureInfo.InstalledUICulture);
-
-    [NotAutoSerialized]
-    public IProperty<(int X, int Y)?> WindowPosition { get; } = new ValueOnlyProperty<(int X, int Y)?>(null);
+    public IProperty<CultureInfo> UICulture { get; } = Property.CreateValue(CultureInfo.InstalledUICulture);
 
     [NotAutoSerialized]
-    public IProperty<(int Width, int Height)?> WindowSize { get; } = new ValueOnlyProperty<(int Width, int Height)?>(null);
+    public IProperty<(int X, int Y)?> WindowPosition { get; } = Property.CreateValue<(int X, int Y)?>(null);
 
-    public IProperty<bool?> IsWindowMaximized { get; } = new ValueOnlyProperty<bool?>(null);
+    [NotAutoSerialized]
+    public IProperty<(int Width, int Height)?> WindowSize { get; } = Property.CreateValue<(int Width, int Height)?>(null);
 
-    public IProperty<bool> UseCustomAccentColor { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool?> IsWindowMaximized { get; } = Property.CreateValue<bool?>(null);
 
-    public IProperty<string?> CustomAccentColor { get; } = new ValueOnlyProperty<string?>(null);
+    public IProperty<bool> UseCustomAccentColor { get; } = Property.CreateValue(false);
 
-    public IProperty<bool> ShowExactBoundaries { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<string?> CustomAccentColor { get; } = Property.CreateValue<string?>(null);
+
+    public IProperty<bool> ShowExactBoundaries { get; } = Property.CreateValue(false);
 
     [NotAutoSerialized]
     public IListProperty<string> RecentFiles { get; } = new ListProperty<string> { AffectsRender = false };
@@ -52,7 +52,7 @@ public sealed class ViewConfig : ConfigurationBase
     [NotAutoSerialized]
     public IListProperty<string> PinnedToolTabs { get; } = new ListProperty<string> { AffectsRender = false };
 
-    public IProperty<string?> LastOpenedProjectFile { get; } = new ValueOnlyProperty<string?>(null);
+    public IProperty<string?> LastOpenedProjectFile { get; } = Property.CreateValue<string?>(null);
 
     public override void Deserialize(ICoreSerializationContext context)
     {

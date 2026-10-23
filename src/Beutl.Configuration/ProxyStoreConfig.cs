@@ -4,7 +4,7 @@ using Beutl;
 
 namespace Beutl.Configuration;
 
-public sealed class ProxyStoreConfig : ConfigurationBase
+public sealed partial class ProxyStoreConfig : ConfigurationBase
 {
     public const long MinTotalBytes = 5L * 1024 * 1024 * 1024;
     public const long DefaultTotalBytes = 50L * 1024 * 1024 * 1024;
@@ -30,10 +30,10 @@ public sealed class ProxyStoreConfig : ConfigurationBase
 
     // The ranges clamp each value set, also when read.
     [Range(MinTotalBytes, MaxTotalBytesLimit)]
-    public IProperty<long> MaxTotalBytes { get; } = new ValueOnlyProperty<long>(DefaultTotalBytes);
+    public IProperty<long> MaxTotalBytes { get; } = Property.CreateValue(DefaultTotalBytes);
 
     [Range(MinPreset, MaxPreset)]
-    public IProperty<int> DefaultPreset { get; } = new ValueOnlyProperty<int>(DefaultPresetValue);
+    public IProperty<int> DefaultPreset { get; } = Property.CreateValue(DefaultPresetValue);
 
     // gib comes from a free-form TextBox and may be huge, NaN, or infinite; clamp in GiB
     // space so the long cast never sees an out-of-range product.

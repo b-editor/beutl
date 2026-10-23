@@ -17,9 +17,9 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
     // Serialize and Deserialize write and read the codec by its name.
     [ChoicesProvider(typeof(AudioCodecChoicesProvider))]
     [NotAutoSerialized]
-    public IProperty<CodecRecord> Codec { get; } = new ValueOnlyProperty<CodecRecord>(CodecRecord.Default);
+    public IProperty<CodecRecord> Codec { get; } = Property.CreateValue(CodecRecord.Default);
 
-    public IProperty<AudioFormat> Format { get; } = new ValueOnlyProperty<AudioFormat>(AudioFormat.Fltp);
+    public IProperty<AudioFormat> Format { get; } = Property.CreateValue(AudioFormat.Fltp);
 
     public string? OutputFile { get; set; }
 

@@ -57,7 +57,7 @@ public sealed partial class RenamedPluginObject : EngineObject
     public IExpressionProperty<float> Size { get; } = Property.CreateExpression(0f);
 }
 
-public sealed class RenamedPluginSettings : ExtensionSettings
+public sealed partial class RenamedPluginSettings : ExtensionSettings
 {
     public const string FormerLimitKey = "FormerLimit";
 

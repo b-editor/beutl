@@ -1,32 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Animation;
-using Beutl.Media;
 using Beutl.Validation;
 
-namespace Beutl.Engine;
+namespace Beutl;
 
+// Beutl.Engine adds CreateAnimatable through EnginePropertyExtensions.
 public static class Property
 {
-    public static IExpressionProperty<T> CreateAnimatable<T>(
-        T defaultValue = default(T)!,
-        IValidator<T>? validator = null)
-    {
-        var property = new AnimatableProperty<T>(defaultValue, validator);
-
-        return property;
-    }
-
-    public static IExpressionProperty<T> CreateAnimatable<T>(
-        T defaultValue,
-        params ValidationAttribute[] validationAttributes)
-    {
-        var validator = validationAttributes.Length > 0
-            ? new MultipleValidator<T>(PropertyValidators.FromAttributes<T>(validationAttributes))
-            : null;
-
-        return CreateAnimatable(defaultValue, validator);
-    }
-
     public static IExpressionProperty<T> CreateExpression<T>(
         T defaultValue = default(T)!,
         IValidator<T>? validator = null)

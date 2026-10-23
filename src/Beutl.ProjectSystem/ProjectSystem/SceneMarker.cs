@@ -4,7 +4,7 @@ using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
 
-public class SceneMarker : Hierarchical
+public partial class SceneMarker : Hierarchical
 {
     public SceneMarker()
     {
@@ -26,7 +26,7 @@ public class SceneMarker : Hierarchical
         Coerce = static (_, value) => value < MediaTime.Zero ? MediaTime.Zero : value
     };
 
-    public IProperty<Color> Color { get; } = new ValueOnlyProperty<Color>(Colors.Yellow);
+    public IProperty<Color> Color { get; } = Property.CreateValue(Colors.Yellow);
 
     public IProperty<string> Note { get; } = new ValueOnlyProperty<string>(string.Empty)
     {

@@ -45,13 +45,13 @@ public static class ScanPropertiesCoreEmitter
             switch (prop)
             {
                 case ValuePropertyInfo vp:
-                    EmitPropertyScan(sb, bodyIndent, vp.Name);
+                    EmitPropertyScan(sb, bodyIndent, vp.Name, vp.Attributes);
                     break;
                 case ObjectPropertyInfo op:
-                    EmitPropertyScan(sb, bodyIndent, op.Name);
+                    EmitPropertyScan(sb, bodyIndent, op.Name, op.Attributes);
                     break;
                 case ListPropertyInfo lp:
-                    EmitPropertyScan(sb, bodyIndent, lp.Name);
+                    EmitPropertyScan(sb, bodyIndent, lp.Name, lp.Attributes);
                     break;
             }
         }
@@ -70,24 +70,31 @@ public static class ScanPropertiesCoreEmitter
     {
         foreach (ValuePropertyInfo prop in info.ValueProperties)
         {
-            EmitAttributeField(sb, indent, prop.Name, prop.Attributes);
+            EmitAttributeField(sb, indent, prop.Name);
             EmitValidatorField(sb, indent, prop.Name);
         }
 
         foreach (ObjectPropertyInfo prop in info.ObjectProperties)
         {
-            EmitAttributeField(sb, indent, prop.Name, prop.Attributes);
+            EmitAttributeField(sb, indent, prop.Name);
             EmitValidatorField(sb, indent, prop.Name);
         }
 
         foreach (ListPropertyInfo prop in info.ListProperties)
         {
-            EmitAttributeField(sb, indent, prop.Name, prop.Attributes);
+            EmitAttributeField(sb, indent, prop.Name);
             EmitValidatorField(sb, indent, prop.Name);
         }
     }
 
-    private static void EmitAttributeField(StringBuilder sb, string indent, string propName, IReadOnlyList<AttributeData> attributes)
+    // Filled by the first scan rather than by the type initializer, which may be the one making the object.
+    private static void EmitAttributeField(StringBuilder sb, string indent, string propName)
+    {
+        sb.Append(indent).AppendLine($"private static global::System.Attribute[]? __attrs_{propName};");
+        sb.AppendLine();
+    }
+
+    private static void EmitAttributeArray(StringBuilder sb, string indent, string propName, IReadOnlyList<AttributeData> attributes)
     {
         var emittedAttrs = new List<string>();
         foreach (AttributeData attr in attributes)
@@ -99,7 +106,7 @@ public static class ScanPropertiesCoreEmitter
             }
         }
 
-        sb.Append(indent).Append($"private static readonly global::System.Attribute[] __attrs_{propName} = [");
+        sb.Append(indent).Append($"__attrs_{propName} ??= [");
         if (emittedAttrs.Count > 0)
         {
             sb.AppendLine();
@@ -111,7 +118,6 @@ public static class ScanPropertiesCoreEmitter
         }
 
         sb.AppendLine("];");
-        sb.AppendLine();
     }
 
     private static void EmitValidatorField(StringBuilder sb, string indent, string propName)
@@ -120,8 +126,9 @@ public static class ScanPropertiesCoreEmitter
         sb.AppendLine();
     }
 
-    private static void EmitPropertyScan(StringBuilder sb, string indent, string propName)
+    private static void EmitPropertyScan(StringBuilder sb, string indent, string propName, IReadOnlyList<AttributeData> attributes)
     {
+        EmitAttributeArray(sb, indent, propName, attributes);
         sb.Append(indent).AppendLine($"__validator_{propName} ??= {propName}.CreateValidator(__attrs_{propName});");
         sb.Append(indent).AppendLine($"{propName}.SetValidator(__validator_{propName});");
         sb.Append(indent).AppendLine($"{propName}.SetAttributes(\"{propName}\", __attrs_{propName});");

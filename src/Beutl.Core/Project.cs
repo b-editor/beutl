@@ -12,7 +12,7 @@ internal static class ProjectVariableKeys
     public const string SampleRate = "samplerate";
 }
 
-public sealed class Project : Hierarchical
+public sealed partial class Project : Hierarchical
 {
     public Project()
     {
@@ -26,12 +26,12 @@ public sealed class Project : Hierarchical
     public IListProperty<ProjectItem> Items { get; } = new ListProperty<ProjectItem> { AffectsRender = false };
 
     [NotAutoSerialized]
-    public IProperty<Dictionary<string, string>> Variables { get; } = new ValueOnlyProperty<Dictionary<string, string>>(null!);
+    public IProperty<Dictionary<string, string>> Variables { get; } = Property.CreateValue<Dictionary<string, string>>(null!);
 
     // A whole number such as 30 or a fraction such as 30000/1001.
-    public IProperty<Rational> FrameRate { get; } = new ValueOnlyProperty<Rational>(new Rational(30));
+    public IProperty<Rational> FrameRate { get; } = Property.CreateValue(new Rational(30));
 
-    public IProperty<int> SampleRate { get; } = new ValueOnlyProperty<int>(44100);
+    public IProperty<int> SampleRate { get; } = Property.CreateValue(44100);
 
     /// <summary>
     /// Gets the version of Beutl that last saved the project file, as the file records it, or the running

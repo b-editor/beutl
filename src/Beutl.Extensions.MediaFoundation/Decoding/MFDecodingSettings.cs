@@ -23,12 +23,12 @@ public sealed class MFDecodingSettings : ExtensionSettings
         Name = nameof(Strings.SeekThresholdInVideoStream),
         Description = nameof(Strings.SeekThresholdInVideoStream_Description),
         ResourceType = typeof(Strings))]
-    public IProperty<int> ThresholdFrameCount { get; } = new ValueOnlyProperty<int>(30);
+    public IProperty<int> ThresholdFrameCount { get; } = Property.CreateValue(30);
 
     [Range(1, int.MaxValue)]
     [Display(
         Name = nameof(Strings.MaxVideoBufferSize),
         GroupName = nameof(Strings.Cache),
         ResourceType = typeof(Strings))]
-    public IProperty<int> MaxVideoBufferSize { get; } = new ValueOnlyProperty<int>(4);
+    public IProperty<int> MaxVideoBufferSize { get; } = Property.CreateValue(4);
 }

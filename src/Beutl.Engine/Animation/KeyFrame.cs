@@ -13,7 +13,7 @@ using Beutl.Validation;
 
 namespace Beutl.Animation;
 
-public class KeyFrame : Hierarchical
+public partial class KeyFrame : Hierarchical
 {
     // Every key frame starts with this one easing, as the CoreProperty's default value was shared.
     private static readonly LinearEasing s_defaultEasing = new();

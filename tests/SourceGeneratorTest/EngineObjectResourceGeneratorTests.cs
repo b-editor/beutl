@@ -71,4 +71,63 @@ public class EngineObjectResourceGeneratorTests
             Assert.That(derived3, Does.Contain("item.Dispose();"));
         });
     }
+
+    private const string CoreObjects = """
+        namespace SourceGeneratorTest;
+
+        public partial class Settings : CoreObject
+        {
+            public IProperty<int> Count { get; } = Beutl.Engine.Property.Create(0);
+
+            internal IProperty<int> Internal { get; } = Beutl.Engine.Property.Create(0);
+        }
+
+        public partial class EngineType : Beutl.Engine.EngineObject
+        {
+            public IProperty<int> Shown { get; } = Beutl.Engine.Property.Create(0);
+
+            internal IProperty<int> Internal { get; } = Beutl.Engine.Property.Create(0);
+        }
+
+        public class Unmarked : CoreObject
+        {
+            public IProperty<int> Count { get; } = Beutl.Engine.Property.Create(0);
+        }
+
+        public class Empty : CoreObject
+        {
+        }
+
+        public class Outer
+        {
+            public partial class Nested : CoreObject
+            {
+                public IProperty<int> Count { get; } = Beutl.Engine.Property.Create(0);
+            }
+        }
+        """;
+
+    [Test]
+    public void ACoreObjectThatIsNotAnEngineObject_GetsOnlyItsPropertyScan()
+    {
+        GeneratorHarnessResult result = GeneratorDriverHarness.Run(CoreObjects);
+        string settings = result.GetSource("Settings_Properties.g.cs");
+        string engine = result.GetSource("EngineType_Resource.g.cs");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.CompilationErrors, Is.Empty,
+                string.Join(Environment.NewLine, result.CompilationErrors.Select(d => d.ToString())));
+            Assert.That(settings, Does.Contain("Count.SetAttributes(\"Count\", __attrs_Count);"));
+            Assert.That(settings, Does.Not.Contain("Internal"));
+            Assert.That(settings, Does.Not.Contain("Resource"));
+            Assert.That(engine, Does.Contain("yield return Shown;"));
+            Assert.That(engine, Does.Not.Contain("Internal"));
+            Assert.That(result.HasSource("Empty_Properties.g.cs"), Is.False);
+            Assert.That(result.HasSource("Nested_Properties.g.cs"), Is.False);
+            Assert.That(
+                result.GeneratorDiagnostics.Where(d => d.Id == "BESG001").Select(d => d.GetMessage()),
+                Is.EqualTo(new[] { "Type 'SourceGeneratorTest.Unmarked' must be declared partial to generate its property scan" }));
+        });
+    }
 }

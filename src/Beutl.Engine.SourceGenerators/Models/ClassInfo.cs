@@ -4,9 +4,11 @@ using Microsoft.CodeAnalysis;
 
 namespace Beutl.Engine.SourceGenerators.Models;
 
+// A CoreObject that is not an EngineObject gets only its property scan, and only when it declares properties.
 public readonly record struct ClassInfo(
     INamedTypeSymbol Symbol,
     bool IsPartial,
+    bool IsEngineObject,
     INamedTypeSymbol? BaseResourceOwner,
     ImmutableArray<ValuePropertyInfo> ValueProperties,
     ImmutableArray<ObjectPropertyInfo> ObjectProperties,
@@ -17,6 +19,9 @@ public readonly record struct ClassInfo(
 {
     public bool ShouldGenerate()
     {
+        if (!IsEngineObject)
+            return !OrderedProperties.IsEmpty;
+
         return !SuppressedResourceGeneration
             || !OrderedProperties.IsEmpty
             || NodePortProperties.Length > 0;

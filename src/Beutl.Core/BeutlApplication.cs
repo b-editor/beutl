@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl;
 
-public class BeutlApplication : Hierarchical, IHierarchicalRoot
+public partial class BeutlApplication : Hierarchical, IHierarchicalRoot
 {
     internal static readonly string s_version;
 
@@ -36,7 +36,7 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
     }
 
     // The open project, which the property makes a child of the application.
-    public IProperty<Project?> Project { get; } = new ValueOnlyProperty<Project?>(null);
+    public IProperty<Project?> Project { get; } = Property.CreateValue<Project?>(null);
 
     public event EventHandler<IHierarchical>? DescendantAttached;
 

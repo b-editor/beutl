@@ -10,7 +10,7 @@ namespace Beutl.NodeGraph.Generative;
 /// Records are part of the project, so undoing a generation or picking an older one
 /// is an ordinary edit, and the result renders without the network.
 /// </remarks>
-public sealed class GenerationRecord : Hierarchical
+public sealed partial class GenerationRecord : Hierarchical
 {
     public GenerationRecord()
     {
@@ -25,23 +25,23 @@ public sealed class GenerationRecord : Hierarchical
     public IProperty<VideoSource?> Video { get; } = new ValueOnlyProperty<VideoSource?>(null) { OwnsValue = false };
 
     /// <summary>Identifies the complete request, reference pictures included.</summary>
-    public IProperty<string> Fingerprint { get; } = new ValueOnlyProperty<string>(string.Empty);
+    public IProperty<string> Fingerprint { get; } = Property.CreateValue(string.Empty);
 
     /// <summary>
     /// Identifies the scalar inputs only. Cheap enough to compare every frame, so it is
     /// what the stale indicator uses; <see cref="Fingerprint"/> decides at queue time.
     /// </summary>
-    public IProperty<string> ParameterFingerprint { get; } = new ValueOnlyProperty<string>(string.Empty);
+    public IProperty<string> ParameterFingerprint { get; } = Property.CreateValue(string.Empty);
 
-    public IProperty<string?> ModelId { get; } = new ValueOnlyProperty<string?>(null);
+    public IProperty<string?> ModelId { get; } = Property.CreateValue<string?>(null);
 
-    public IProperty<int?> Seed { get; } = new ValueOnlyProperty<int?>(null);
+    public IProperty<int?> Seed { get; } = Property.CreateValue<int?>(null);
 
     /// <summary>A short description of what was asked for, shown in the history.</summary>
-    public IProperty<string?> Summary { get; } = new ValueOnlyProperty<string?>(null);
+    public IProperty<string?> Summary { get; } = Property.CreateValue<string?>(null);
 
-    public IProperty<DateTimeOffset> CreatedAt { get; } = new ValueOnlyProperty<DateTimeOffset>(default);
+    public IProperty<DateTimeOffset> CreatedAt { get; } = Property.CreateValue<DateTimeOffset>(default);
 
     /// <summary>A pinned generation is kept when older ones are pruned.</summary>
-    public IProperty<bool> IsPinned { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> IsPinned { get; } = Property.CreateValue(false);
 }

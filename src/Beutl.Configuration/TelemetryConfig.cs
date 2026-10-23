@@ -2,20 +2,20 @@
 
 namespace Beutl.Configuration;
 
-public sealed class TelemetryConfig : ConfigurationBase
+public sealed partial class TelemetryConfig : ConfigurationBase
 {
     public TelemetryConfig()
     {
         ScanProperties<TelemetryConfig>();
     }
 
-    public IProperty<bool?> Beutl_Logging { get; } = new ValueOnlyProperty<bool?>(null);
+    public IProperty<bool?> Beutl_Logging { get; } = Property.CreateValue<bool?>(null);
 
-    public IProperty<bool?> Beutl_Application { get; } = new ValueOnlyProperty<bool?>(null);
+    public IProperty<bool?> Beutl_Application { get; } = Property.CreateValue<bool?>(null);
 
-    public IProperty<bool?> Beutl_PackageManagement { get; } = new ValueOnlyProperty<bool?>(null);
+    public IProperty<bool?> Beutl_PackageManagement { get; } = Property.CreateValue<bool?>(null);
 
-    public IProperty<bool?> Beutl_Api_Client { get; } = new ValueOnlyProperty<bool?>(null);
+    public IProperty<bool?> Beutl_Api_Client { get; } = Property.CreateValue<bool?>(null);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {

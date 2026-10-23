@@ -5,7 +5,7 @@ using Beutl.Validation;
 
 namespace Beutl.Animation;
 
-public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
+public sealed partial class KeyFrame<T> : KeyFrame, IKeyFrame
 {
     internal static readonly Animator<T> s_animator = AnimatorRegistry.CreateAnimator<T>();
     // Shared by every key frame of T, so that none allocates handlers of its own.

@@ -15,14 +15,14 @@ public sealed class AVFDecodingSettings : ExtensionSettings
     }
 
     [Range(1, int.MaxValue)]
-    public IProperty<int> ThresholdFrameCount { get; } = new ValueOnlyProperty<int>(30);
+    public IProperty<int> ThresholdFrameCount { get; } = Property.CreateValue(30);
 
     [Range(1, int.MaxValue)]
-    public IProperty<int> ThresholdSampleCount { get; } = new ValueOnlyProperty<int>(30000);
+    public IProperty<int> ThresholdSampleCount { get; } = Property.CreateValue(30000);
 
     [Range(1, int.MaxValue)]
-    public IProperty<int> MaxVideoBufferSize { get; } = new ValueOnlyProperty<int>(4);
+    public IProperty<int> MaxVideoBufferSize { get; } = Property.CreateValue(4);
 
     [Range(1, int.MaxValue)]
-    public IProperty<int> MaxAudioBufferSize { get; } = new ValueOnlyProperty<int>(20);
+    public IProperty<int> MaxAudioBufferSize { get; } = Property.CreateValue(20);
 }

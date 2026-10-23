@@ -2,14 +2,14 @@
 
 namespace Beutl.Configuration;
 
-public sealed class GraphicsConfig : ConfigurationBase
+public sealed partial class GraphicsConfig : ConfigurationBase
 {
     public GraphicsConfig()
     {
         ScanProperties<GraphicsConfig>();
     }
 
-    public IProperty<string?> SelectedGpuName { get; } = new ValueOnlyProperty<string?>(null);
+    public IProperty<string?> SelectedGpuName { get; } = Property.CreateValue<string?>(null);
 
     // Read once at startup, so a change has to reach settings.json before Beutl next starts.
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)

@@ -8,7 +8,7 @@ namespace Beutl.Configuration;
 // #2852 removed the agent workspace root (agent tools take absolute paths), so a stored WorkspaceRoot is dropped
 // rather than kept as an unknown member.
 [DroppedMembers("WorkspaceRoot")]
-public sealed class AiAgentConfig : ConfigurationBase
+public sealed partial class AiAgentConfig : ConfigurationBase
 {
     public AiAgentConfig()
     {
@@ -17,39 +17,39 @@ public sealed class AiAgentConfig : ConfigurationBase
 
     // Empty means "use the host-computed default" (first catalog agent, project
     // scope, or the selected agent's own conventions).
-    public IProperty<string> AgentId { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> AgentId { get; } = Property.CreateValue("");
 
-    public IProperty<string> InstallScope { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> InstallScope { get; } = Property.CreateValue("");
 
-    public IProperty<string> ProjectRoot { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> ProjectRoot { get; } = Property.CreateValue("");
 
-    public IProperty<string> SkillsDirectory { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> SkillsDirectory { get; } = Property.CreateValue("");
 
-    public IProperty<string> SubagentsDirectory { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> SubagentsDirectory { get; } = Property.CreateValue("");
 
-    public IProperty<bool> InstallSkills { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> InstallSkills { get; } = Property.CreateValue(true);
 
-    public IProperty<bool> InstallSubagents { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> InstallSubagents { get; } = Property.CreateValue(true);
 
     // One MCP server covers live editing of running editors and headless file editing.
-    public IProperty<bool> InstallMcp { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> InstallMcp { get; } = Property.CreateValue(true);
 
-    public IProperty<string> McpConfigFileName { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> McpConfigFileName { get; } = Property.CreateValue("");
 
-    public IProperty<string> McpServersPropertyName { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> McpServersPropertyName { get; } = Property.CreateValue("");
 
     // Keep legacy settings until migration succeeds, then omit this property from new saves.
-    public IProperty<string> LiveMcpToken { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> LiveMcpToken { get; } = Property.CreateValue("");
 
     // Empty means "use the detected stdio launcher"; a non-empty value is the user's override, which must
     // survive reopening the settings page.
-    public IProperty<string> StdioCommand { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> StdioCommand { get; } = Property.CreateValue("");
 
-    public IProperty<string> StdioArguments { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> StdioArguments { get; } = Property.CreateValue("");
 
     // Experimental: move the editor to each live MCP edit and rendered frame. Off by default because it
     // takes over the selection, playhead and scroll position.
-    public IProperty<bool> FollowLiveMcpEdits { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> FollowLiveMcpEdits { get; } = Property.CreateValue(false);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {

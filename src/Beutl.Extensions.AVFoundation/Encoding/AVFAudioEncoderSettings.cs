@@ -10,19 +10,19 @@ public sealed class AVFAudioEncoderSettings : AudioEncoderSettings
         ScanProperties<AVFAudioEncoderSettings>();
     }
 
-    public IProperty<AudioFormatType> Format { get; } = new ValueOnlyProperty<AudioFormatType>(AudioFormatType.MPEG4AAC);
+    public IProperty<AudioFormatType> Format { get; } = Property.CreateValue(AudioFormatType.MPEG4AAC);
 
-    public IProperty<BitDepth> LinearPcmBitDepth { get; } = new ValueOnlyProperty<BitDepth>(BitDepth.Bits16);
+    public IProperty<BitDepth> LinearPcmBitDepth { get; } = Property.CreateValue(BitDepth.Bits16);
 
-    public IProperty<bool> LinearPcmBigEndian { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> LinearPcmBigEndian { get; } = Property.CreateValue(false);
 
-    public IProperty<bool> LinearPcmFloat { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> LinearPcmFloat { get; } = Property.CreateValue(false);
 
-    public IProperty<bool> LinearPcmNonInterleaved { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> LinearPcmNonInterleaved { get; } = Property.CreateValue(false);
 
-    public IProperty<AudioQuality> Quality { get; } = new ValueOnlyProperty<AudioQuality>(AudioQuality.Default);
+    public IProperty<AudioQuality> Quality { get; } = Property.CreateValue(AudioQuality.Default);
 
-    public IProperty<AudioQuality> SampleRateConverterQuality { get; } = new ValueOnlyProperty<AudioQuality>(AudioQuality.Default);
+    public IProperty<AudioQuality> SampleRateConverterQuality { get; } = Property.CreateValue(AudioQuality.Default);
 
     public enum BitDepth
     {

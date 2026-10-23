@@ -7,12 +7,11 @@ using Microsoft.CodeAnalysis.Operations;
 
 namespace Beutl.Engine.SourceGenerators.Analyzers;
 
-// Reports EngineObject constructors that do not call ScanProperties<Self>(): the type still renders,
+// Reports CoreObject constructors that do not call ScanProperties<Self>(): the type still works,
 // but its properties are not saved, edited or recorded in history (36ff0d677).
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ScanPropertiesCallAnalyzer : DiagnosticAnalyzer
 {
-    private const string EngineObjectMetadataName = "Beutl.Engine.EngineObject";
     private const string CoreObjectMetadataName = "Beutl.CoreObject";
     private const string PropertyMetadataName = "Beutl.IProperty";
     private const string ScanPropertiesMethodName = "ScanProperties";
@@ -27,24 +26,23 @@ public sealed class ScanPropertiesCallAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EngineObjectMetadataName) is not { } engineObject
-                || start.Compilation.GetTypeByMetadataName(CoreObjectMetadataName) is not { } coreObject
+            if (start.Compilation.GetTypeByMetadataName(CoreObjectMetadataName) is not { } coreObject
                 || start.Compilation.GetTypeByMetadataName(PropertyMetadataName) is not { } property)
             {
                 return;
             }
 
             start.RegisterSymbolStartAction(
-                symbolStart => AnalyzeType(symbolStart, engineObject, coreObject, property),
+                symbolStart => AnalyzeType(symbolStart, coreObject, property),
                 SymbolKind.NamedType);
         });
     }
 
     private static void AnalyzeType(
-        SymbolStartAnalysisContext context, INamedTypeSymbol engineObject, INamedTypeSymbol coreObject, INamedTypeSymbol property)
+        SymbolStartAnalysisContext context, INamedTypeSymbol coreObject, INamedTypeSymbol property)
     {
         if (context.Symbol is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsStatic: false } type
-            || !InheritsFrom(type, engineObject)
+            || !InheritsFrom(type, coreObject)
             || !DeclaresProperty(type, property))
         {
             return;

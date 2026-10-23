@@ -14,7 +14,7 @@ namespace Beutl.Engine;
 public sealed partial class FallbackEngineObject : EngineObject, IFallback;
 
 [FallbackType(typeof(FallbackEngineObject))]
-public class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
+public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJsonCodec
 {
     private IDisposable? _timeAnchorSubscription;
     private List<IProperty>? _displayProperties;
