@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace Beutl.Media.Encoding;
 
-public abstract class MediaEncoderSettings : CoreObject
+public abstract partial class MediaEncoderSettings : CoreObject
 {
     protected MediaEncoderSettings()
     {
@@ -11,7 +11,7 @@ public abstract class MediaEncoderSettings : CoreObject
     }
 
     [Obsolete]
-    public IProperty<JsonNode?> CodecOptions { get; } = new ValueOnlyProperty<JsonNode?>(null);
+    public IProperty<JsonNode?> CodecOptions { get; } = Property.CreateValue<JsonNode?>(null);
 
     // A setting raises PropertyChanged under its name.
     internal override void OnPropertyValueChanged(IProperty property)

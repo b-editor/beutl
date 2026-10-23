@@ -2,24 +2,24 @@
 
 namespace Beutl.Configuration;
 
-public sealed class VersionControlConfig : ConfigurationBase
+public sealed partial class VersionControlConfig : ConfigurationBase
 {
     public VersionControlConfig()
     {
         ScanProperties<VersionControlConfig>();
     }
 
-    public IProperty<bool> EnableForNewProjects { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> EnableForNewProjects { get; } = Property.CreateValue(true);
 
-    public IProperty<bool> AutoCommitOnSave { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> AutoCommitOnSave { get; } = Property.CreateValue(true);
 
-    public IProperty<bool> AutoCommitOnClose { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> AutoCommitOnClose { get; } = Property.CreateValue(true);
 
-    public IProperty<string?> GitExecutablePath { get; } = new ValueOnlyProperty<string?>(null);
+    public IProperty<string?> GitExecutablePath { get; } = Property.CreateValue<string?>(null);
 
-    public IProperty<bool> UseLfsWhenAvailable { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> UseLfsWhenAvailable { get; } = Property.CreateValue(true);
 
-    public IProperty<int> LargeMediaWarningThresholdMb { get; } = new ValueOnlyProperty<int>(50);
+    public IProperty<int> LargeMediaWarningThresholdMb { get; } = Property.CreateValue(50);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {

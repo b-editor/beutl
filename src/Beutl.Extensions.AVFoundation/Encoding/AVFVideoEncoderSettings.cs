@@ -12,13 +12,13 @@ public sealed class AVFVideoEncoderSettings : VideoEncoderSettings
     }
 
     [Display(Name = "Codec")]
-    public IProperty<VideoCodec> Codec { get; } = new ValueOnlyProperty<VideoCodec>(VideoCodec.H264);
+    public IProperty<VideoCodec> Codec { get; } = Property.CreateValue(VideoCodec.H264);
 
     [Display(Name = "JPEG Quality")]
-    public IProperty<float> JPEGQuality { get; } = new ValueOnlyProperty<float>(-1);
+    public IProperty<float> JPEGQuality { get; } = Property.CreateValue<float>(-1);
 
     [Display(Name = "H.264 Profile/Level")]
-    public IProperty<VideoProfileLevelH264> ProfileLevelH264 { get; } = new ValueOnlyProperty<VideoProfileLevelH264>(VideoProfileLevelH264.Default);
+    public IProperty<VideoProfileLevelH264> ProfileLevelH264 { get; } = Property.CreateValue(VideoProfileLevelH264.Default);
 
     [Display(Name = "Color Transfer",
         Description = "Pq / Hlg selects the HDR encoder path (HEVC Main10).")]
@@ -27,13 +27,13 @@ public sealed class AVFVideoEncoderSettings : VideoEncoderSettings
     /// HDR encoder path (HEVC Main10 profile, 16bpc pixel pipeline, matching AVVideoColor
     /// properties).
     /// </summary>
-    public IProperty<ColorTransferCharacteristic> ColorTransfer { get; } = new ValueOnlyProperty<ColorTransferCharacteristic>(ColorTransferCharacteristic.Default);
+    public IProperty<ColorTransferCharacteristic> ColorTransfer { get; } = Property.CreateValue(ColorTransferCharacteristic.Default);
 
     [Display(Name = "Color Primaries")]
-    public IProperty<ColorPrimariesType> ColorPrimaries { get; } = new ValueOnlyProperty<ColorPrimariesType>(ColorPrimariesType.Default);
+    public IProperty<ColorPrimariesType> ColorPrimaries { get; } = Property.CreateValue(ColorPrimariesType.Default);
 
     [Display(Name = "YCbCr Matrix")]
-    public IProperty<YCbCrMatrixType> YCbCrMatrix { get; } = new ValueOnlyProperty<YCbCrMatrixType>(YCbCrMatrixType.Default);
+    public IProperty<YCbCrMatrixType> YCbCrMatrix { get; } = Property.CreateValue(YCbCrMatrixType.Default);
 
     public bool IsHdr =>
         ColorTransfer.Value == ColorTransferCharacteristic.Pq ||

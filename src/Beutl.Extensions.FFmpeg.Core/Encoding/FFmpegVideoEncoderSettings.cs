@@ -23,7 +23,7 @@ public sealed class AdditionalOption : CoreObject
         Value.Value = value;
     }
 
-    public IProperty<string> Value { get; } = new ValueOnlyProperty<string>("");
+    public IProperty<string> Value { get; } = Property.CreateValue("");
 
     public override void Deserialize(ICoreSerializationContext context)
     {
@@ -49,22 +49,22 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         ];
     }
 
-    public IProperty<int> Format { get; } = new ValueOnlyProperty<int>(FFPixelFormat.None);
+    public IProperty<int> Format { get; } = Property.CreateValue(FFPixelFormat.None);
 
     // Serialize and Deserialize write and read the codec by its name.
     [NotAutoSerialized]
     [ChoicesProvider(typeof(VideoCodecChoicesProvider))]
-    public IProperty<CodecRecord> Codec { get; } = new ValueOnlyProperty<CodecRecord>(CodecRecord.Default);
+    public IProperty<CodecRecord> Codec { get; } = Property.CreateValue(CodecRecord.Default);
 
-    public IProperty<FFColorPrimaries> ColorPrimaries { get; } = new ValueOnlyProperty<FFColorPrimaries>(FFColorPrimaries.UNSPECIFIED);
+    public IProperty<FFColorPrimaries> ColorPrimaries { get; } = Property.CreateValue(FFColorPrimaries.UNSPECIFIED);
 
-    public IProperty<FFColorTransfer> ColorTrc { get; } = new ValueOnlyProperty<FFColorTransfer>(FFColorTransfer.UNSPECIFIED);
+    public IProperty<FFColorTransfer> ColorTrc { get; } = Property.CreateValue(FFColorTransfer.UNSPECIFIED);
 
-    public IProperty<FFColorSpace> ColorSpace { get; } = new ValueOnlyProperty<FFColorSpace>(FFColorSpace.UNSPECIFIED);
+    public IProperty<FFColorSpace> ColorSpace { get; } = Property.CreateValue(FFColorSpace.UNSPECIFIED);
 
-    public IProperty<FFColorRange> ColorRange { get; } = new ValueOnlyProperty<FFColorRange>(FFColorRange.UNSPECIFIED);
+    public IProperty<FFColorRange> ColorRange { get; } = Property.CreateValue(FFColorRange.UNSPECIFIED);
 
-    public IProperty<CoreList<AdditionalOption>> Options { get; } = new ValueOnlyProperty<CoreList<AdditionalOption>>(null!);
+    public IProperty<CoreList<AdditionalOption>> Options { get; } = Property.CreateValue<CoreList<AdditionalOption>>(null!);
 
     public string? OutputFile { get; set; }
 

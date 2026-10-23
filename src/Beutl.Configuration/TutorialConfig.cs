@@ -6,14 +6,14 @@ using Beutl.Serialization;
 namespace Beutl.Configuration;
 
 [DroppedMembers("ShowTutorialsOnStartup")]
-public sealed class TutorialConfig : ConfigurationBase
+public sealed partial class TutorialConfig : ConfigurationBase
 {
     public TutorialConfig()
     {
         ScanProperties<TutorialConfig>();
     }
 
-    public IProperty<CoreList<string>> CompletedTutorialIds { get; } = new ValueOnlyProperty<CoreList<string>>([]);
+    public IProperty<CoreList<string>> CompletedTutorialIds { get; } = Property.CreateValue<CoreList<string>>([]);
 
     public void MarkCompleted(string tutorialId)
     {

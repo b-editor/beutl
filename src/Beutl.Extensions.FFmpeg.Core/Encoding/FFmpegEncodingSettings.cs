@@ -15,9 +15,9 @@ public sealed class FFmpegEncodingSettings : ExtensionSettings
         Acceleration.ValueChanged += (_, _) => OnChanged();
     }
 
-    public IProperty<int> ThreadCount { get; } = new ValueOnlyProperty<int>(-1);
+    public IProperty<int> ThreadCount { get; } = Property.CreateValue(-1);
 
-    public IProperty<AccelerationOptions> Acceleration { get; } = new ValueOnlyProperty<AccelerationOptions>(AccelerationOptions.Software);
+    public IProperty<AccelerationOptions> Acceleration { get; } = Property.CreateValue(AccelerationOptions.Software);
 
     public enum AccelerationOptions
     {

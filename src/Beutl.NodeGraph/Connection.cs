@@ -11,7 +11,7 @@ public enum ConnectionStatus
     Error = Connected | 0b10000,
 }
 
-public sealed class Connection : Hierarchical
+public sealed partial class Connection : Hierarchical
 {
     public Connection(IInputPort input, IOutputPort output)
         : this()
@@ -27,13 +27,13 @@ public sealed class Connection : Hierarchical
         ScanProperties<Connection>();
     }
 
-    public IProperty<Reference<NodeMember>> Input { get; } = new ValueOnlyProperty<Reference<NodeMember>>(default);
+    public IProperty<Reference<NodeMember>> Input { get; } = Property.CreateValue<Reference<NodeMember>>(default);
 
-    public IProperty<Reference<NodeMember>> Output { get; } = new ValueOnlyProperty<Reference<NodeMember>>(default);
+    public IProperty<Reference<NodeMember>> Output { get; } = Property.CreateValue<Reference<NodeMember>>(default);
 
     // Evaluation sets it again on every pass, so history leaves it out.
     [NotTracked]
-    public IProperty<ConnectionStatus> Status { get; } = new ValueOnlyProperty<ConnectionStatus>(default);
+    public IProperty<ConnectionStatus> Status { get; } = Property.CreateValue<ConnectionStatus>(default);
 
     public void Connect()
     {

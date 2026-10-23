@@ -61,7 +61,7 @@ public partial class Scene : ProjectItem, INotifyEdited
 
     public event EventHandler? Edited;
 
-    public IProperty<PixelSize> FrameSize { get; } = new ValueOnlyProperty<PixelSize>(default);
+    public IProperty<PixelSize> FrameSize { get; } = Property.CreateValue<PixelSize>(default);
 
     // Serialize and Deserialize write and read the elements, groups and markers themselves.
     [NotAutoSerialized]

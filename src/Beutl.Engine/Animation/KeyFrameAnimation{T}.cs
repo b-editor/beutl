@@ -8,7 +8,7 @@ using Beutl.Validation;
 namespace Beutl.Animation;
 
 // Keyframe animation is the expression at the bottom of a property's expression chain (see IExpression<T>.Replaced).
-public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpression<T>, IKeyFrameExpression
+public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpression<T>, IKeyFrameExpression
 {
     private IValidator<T>? _validator;
     private EngineObject? _parent;
