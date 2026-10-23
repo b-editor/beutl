@@ -718,6 +718,33 @@ public sealed class DeviceBufferBudgetTests
         });
     }
 
+    // Why a direct Create made nothing travels with the allocation error, so a failure in CI names it (#3285).
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AnAllocationError_CarriesWhyTheTargetWasNotMade(bool wrapDeclined)
+    {
+        Mock<IGraphicsContext> device = MockAttaching(DeviceBudget);
+        var failure = new InvalidOperationException("The device ran out of memory.");
+        if (wrapDeclined)
+        {
+            var texture = new Mock<ITexture2D>();
+            texture.Setup(t => t.CreateSkiaSurface()).Returns((SKSurface)null!);
+            device.Setup(c => c.CreateTexture2D(4, 4, TextureFormat.RGBA16Float)).Returns(texture.Object);
+        }
+        else
+        {
+            device.Setup(c => c.CreateTexture2D(4, 4, TextureFormat.RGBA16Float)).Throws(failure);
+        }
+
+        Exception? reason = WithAllocationDevice(device.Object, () => RenderThread.Dispatcher.Invoke(() =>
+        {
+            using RenderTarget? created = RenderTarget.Create(4, 4);
+            return RenderTargetPool.CreateAllocationFailure(new PixelSize(4, 4)).InnerException;
+        }));
+
+        Assert.That(reason, wrapDeclined ? Has.Message.Contains("Skia made no surface") : Is.SameAs(failure));
+    }
+
     [Test]
     public void ADirectCreateOffTheRenderThread_IsStillAllocatedPastTheDevicesLimit()
     {
