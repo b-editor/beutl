@@ -1,6 +1,6 @@
 ﻿# Test suite guide
 
-Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are the two BenchmarkDotNet projects (`Beutl.Benchmarks`, `Beutl.FFmpegBenchmarks`). Use this index when picking the right project for a new test.
+Most projects under `tests/` are NUnit (+ Moq where needed); the exception is the BenchmarkDotNet project `Beutl.Benchmarks`. Use this index when picking the right project for a new test.
 
 ## Where new tests go
 
@@ -22,7 +22,7 @@ Most projects under `tests/` are NUnit (+ Moq where needed); the exceptions are 
 
 `tests/Beutl.Graphics3DTests/` is a Vulkan-gated NUnit suite for GPU-backed Graphics3D rendering checks — its tests self-skip (`Assert.Ignore`) when no Vulkan/MoltenVK device is available, so they are safe to run in CI. GPU-free Graphics3D logic tests (hit-testing, render-scale, density, etc.) still go under `tests/Beutl.UnitTests/Engine/Graphics3D/`.
 
-`tests/Beutl.FFmpegWorker.Tests/` covers the GPL worker's direct in-process FFmpeg-calling types (e.g. `FFmpegEncodingController`). Because the worker is GPL-3.0 and MIT projects must not `ProjectReference` it, this project reaches those types by **source-linking** them (`<Compile Include>` under `BEUTL_FFMPEG_WORKER`), the same firewall-preserving pattern `Beutl.FFmpegBenchmarks` uses — never a `ProjectReference`. It is `IsPackable=false` (never distributed), and its native tests self-skip (`Assert.Ignore`) when the FFmpeg shared libraries are not available.
+`tests/Beutl.FFmpegWorker.Tests/` covers the GPL worker's direct in-process FFmpeg-calling types (e.g. `FFmpegEncodingController`). Because the worker is GPL-3.0 and MIT projects must not `ProjectReference` it, this project reaches those types by **source-linking** them (`<Compile Include>` under `BEUTL_FFMPEG_WORKER`) — never a `ProjectReference`. It is `IsPackable=false` (never distributed), and its native tests self-skip (`Assert.Ignore`) when the FFmpeg shared libraries are not available.
 
 CI's `other` suite, which runs `Beutl.FFmpegWorker.Tests` and `Beutl.FFmpegIpc.Tests`, installs the FFmpeg 8 shared libraries and sets `BEUTL_REQUIRE_FFMPEG=1`. `.github/scripts/ci_tests.py` then fails the suite when a test skips because FFmpeg is missing. It recognizes such a skip by its reason: "FFmpeg native…", "FFmpeg natives", "FFmpeg shared libraries" or "FFmpeg worker…", followed later by "unavailable", "not available" or "not present", as in "FFmpeg native libraries are not available.". Keep that wording for new FFmpeg-backed tests, and word other reasons, such as a missing encoder, differently.
 
