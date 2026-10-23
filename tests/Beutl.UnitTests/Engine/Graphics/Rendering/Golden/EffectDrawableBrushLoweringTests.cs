@@ -231,8 +231,7 @@ internal sealed partial class TypedOperationBeforeBrushEffect : FilterEffect
     }
 }
 
-// Exercises the public FilterEffectExecutor.Activate(FilterEffectContext) seam: a registered brush must stay
-// resolvable inside the nested executor that seam builds.
+// A registered brush stays resolvable while a custom effect paints its targets.
 internal sealed partial class NestedActivateBrushEffect : FilterEffect
 {
     public NestedActivateBrushEffect()
