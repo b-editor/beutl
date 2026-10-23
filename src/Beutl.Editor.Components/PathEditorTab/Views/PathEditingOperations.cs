@@ -39,15 +39,25 @@ internal static class PathEditingOperations
         return figure.StartPoint;
     }
 
-    internal static Point Start(PathFigure figure, int index, CompositionContext context)
+    // An edge with no loaded segment before it starts where the figure does, which for an implicit start is the end of
+    // the last loaded segment, as a closed figure draws.
+    private static IExpressionProperty<Point> EdgeStart(PathFigure figure, int index, bool explicitStart)
     {
-        if (index > 0) return EndPoint(figure, index - 1).Evaluate(context);
-        Point start = figure.StartPoint.Evaluate(context);
-        return !start.IsInvalid ? start : EndPoint(figure, figure.Segments.Count - 1).Evaluate(context);
+        IExpressionProperty<Point> before = EndPoint(figure, index - 1);
+        return before == figure.StartPoint && !explicitStart ? EndPoint(figure, figure.Segments.Count - 1) : before;
     }
 
-    internal static int FirstEdge(PathFigure figure, CompositionContext context) =>
-        figure.StartPoint.Evaluate(context).IsInvalid && !figure.IsClosed.Evaluate(context) ? 1 : 0;
+    internal static Point Start(PathFigure figure, int index, CompositionContext context)
+        => EdgeStart(figure, index, !figure.StartPoint.Evaluate(context).IsInvalid).Evaluate(context);
+
+    // An implicit start on an open figure is the point of its first loaded segment, which draws no edge of its own.
+    internal static int FirstEdge(PathFigure figure, CompositionContext context)
+    {
+        if (!figure.StartPoint.Evaluate(context).IsInvalid || figure.IsClosed.Evaluate(context)) return 0;
+        int first = 0;
+        while (first < figure.Segments.Count && figure.Segments[first] is FallbackPathSegment) first++;
+        return first + 1;
+    }
 
     internal static int EdgeCount(PathFigure figure, CompositionContext context) => figure.Segments.Count
         + (figure.Segments.Count > 0 && figure.IsClosed.Evaluate(context)
@@ -103,7 +113,8 @@ internal static class PathEditingOperations
                 && CanUsePoint(EndPoint(figure, figure.Segments.Count - 1));
         // Only this edge's actual start point affects its split. Animation on an
         // unrelated anchor (or on an unused explicit start) must not block insertion.
-        bool supportedStart = index > 0 ? CanUsePoint(EndPoint(figure, index - 1))
+        IExpressionProperty<Point> before = EndPoint(figure, index - 1);
+        bool supportedStart = before != figure.StartPoint ? CanUsePoint(before)
             : CanUsePoint(figure.StartPoint) && (!ReadPoint(figure.StartPoint).Value.IsInvalid
                 || IsStatic(figure.IsClosed) && figure.IsClosed.Value
                     && CanUsePoint(EndPoint(figure, figure.Segments.Count - 1)));
@@ -119,8 +130,7 @@ internal static class PathEditingOperations
     internal static PathSegment? Split(PathFigure figure, int index, float t, CompositionContext context)
     {
         if (t <= 0 || t >= 1 || !CanSplit(figure, index)) return null;
-        SplitPoint startPoint = ReadPoint(index > 0 ? EndPoint(figure, index - 1)
-            : !ReadPoint(figure.StartPoint).Value.IsInvalid ? figure.StartPoint : EndPoint(figure, figure.Segments.Count - 1));
+        SplitPoint startPoint = ReadPoint(EdgeStart(figure, index, !ReadPoint(figure.StartPoint).Value.IsInvalid));
         if (index == figure.Segments.Count)
         {
             var closingPoint = new LineSegment();

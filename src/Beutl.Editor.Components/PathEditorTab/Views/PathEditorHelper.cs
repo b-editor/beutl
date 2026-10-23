@@ -114,7 +114,9 @@ public static class PathEditorHelper
                 point = mat.ToBtlMatrix().Transform(point);
             }
 
-            PathSegment? obj = CreateSegment(tag, point, lastPoint);
+            // Segments that did not load can leave an implicit start with no point to draw from, so the controls
+            // sit on the new point rather than becoming NaN.
+            PathSegment? obj = CreateSegment(tag, point, lastPoint.IsInvalid ? point : lastPoint);
 
             if (obj != null)
             {

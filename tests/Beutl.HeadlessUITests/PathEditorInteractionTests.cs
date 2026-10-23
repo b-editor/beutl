@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Animation;
@@ -1789,6 +1790,87 @@ public class PathEditorInteractionTests
             Assert.That(PathPointProperties.Get(editor.Figure, unloaded, new CompositionContext(MediaTime.Zero)), Is.Empty,
                 "A handle drag looking for its anchor passes over it.");
         });
+    }
+
+    // On a closed figure with an implicit start, the first edge past segments that did not load starts at the last point
+    // that did, as the figure draws, so it can be hovered and split there.
+    [AvaloniaTest]
+    public async Task The_first_edge_past_segments_that_did_not_load_starts_where_a_closed_figure_draws_it()
+    {
+        using var editor = await Fixture.Create();
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            editor.Figure.IsClosed.Value = true;
+            editor.Figure.Segments.Insert(0, new FallbackPathSegment());
+        }
+        HeadlessTestHelpers.Render(3);
+
+        editor.MouseMove(new Point(180, 140));
+        editor.Key(Key.P);
+        editor.Click(180, 140);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.Figure.Segments, Has.Count.EqualTo(5));
+            Assert.That(editor.Figure.Segments[1], Is.TypeOf<LineSegment>(), "The pen split the edge from (280, 180).");
+            Assert.That(editor.Figure.Segments[1].GetEndPoint().Value, Is.EqualTo(new BtlPoint(180, 140)));
+            Assert.That(editor.Figure.Segments[2].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
+        });
+    }
+
+    // On an open figure with an implicit start, the first segment that loaded is only the start point, so a bend there
+    // bends the edge leaving it and nothing leading into it.
+    [AvaloniaTest]
+    public async Task A_bend_at_the_start_of_an_open_figure_past_segments_that_did_not_load_bends_only_the_edge_leaving_it()
+    {
+        using var editor = await Fixture.Create();
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            editor.Figure.Segments.Insert(0, new FallbackPathSegment());
+        }
+        HeadlessTestHelpers.Render(3);
+
+        editor.Key(Key.B);
+        editor.Click(80, 100);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.Figure.Segments[1], Is.TypeOf<LineSegment>(), "No edge leads into the start.");
+            Assert.That(editor.Figure.Segments[2], Is.TypeOf<CubicBezierSegment>(), "The edge leaving the start bends.");
+            Assert.That(editor.Figure.Segments.OfType<CubicBezierSegment>()
+                    .SelectMany(cubic => new[] { cubic.ControlPoint1.Value, cubic.ControlPoint2.Value }),
+                Has.None.Matches<BtlPoint>(handle => handle.IsInvalid));
+        });
+    }
+
+    // With an implicit start and only segments that did not load there is no point to draw from, so a segment added
+    // from the canvas menu gets its handles on its own point.
+    [AvaloniaTest]
+    [TestCase("Cubic")]
+    [TestCase("Quad")]
+    [TestCase("Conic")]
+    public async Task A_segment_the_menu_adds_past_segments_that_did_not_load_gets_no_NaN_handles(string tag)
+    {
+        using var editor = await Fixture.Create(empty: true);
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            editor.Figure.Segments.Add(new FallbackPathSegment());
+        }
+        HeadlessTestHelpers.Render(3);
+        PathSegment? added = null;
+        Mock.Get(editor.Model.FigureContext.Value!)
+            .Setup(context => context.AddSegment(It.IsAny<PathSegment>()))
+            .Callback<PathSegment>(segment => added = segment);
+
+        editor.MouseDown(new Point(200, 150), MouseButton.Right);
+        editor.MouseUp(new Point(200, 150), MouseButton.Right);
+        var menu = (FAMenuFlyout)editor.View.FindControl<Canvas>("canvas")!.ContextFlyout!;
+        menu.Items.OfType<FAMenuFlyoutItem>().Single(item => Equals(item.Tag, tag))
+            .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+
+        Assert.That(added, Is.Not.Null, "The menu added no segment.");
+        Assert.That(PathEditorHelper.GetControlPointProperties(added!).Select(property => property.Value),
+            Has.All.Matches<BtlPoint>(handle => MathF.Abs(handle.X - 200) < 0.01f && MathF.Abs(handle.Y - 150) < 0.01f));
     }
 
     private sealed class Fixture : IDisposable
