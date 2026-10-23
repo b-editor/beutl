@@ -11,7 +11,7 @@ namespace Beutl.UnitTests.Serialization;
 [TestFixture]
 public class FileReferenceRoundTripTests
 {
-    private static readonly string[] s_names = ["a#b", "a?b", "50%20off", "two words", "シーン", "シーン #1"];
+    private static readonly string[] s_names = ["a#b", "a?b", "50%20off", "a%41", "ア50%20off", "two words", "シーン", "シーン #1"];
 
     private string _root = null!;
 
