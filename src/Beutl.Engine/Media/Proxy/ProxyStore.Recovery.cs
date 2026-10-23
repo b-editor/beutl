@@ -156,7 +156,7 @@ public sealed partial class ProxyStore
 
             if (removedKeys.Count > 0 || changedKeys.Count > 0)
             {
-                FlushCore(changedKeys, removedKeys);
+                FlushCore();
             }
 
             return CollectTrackedProxyPaths();
@@ -217,28 +217,21 @@ public sealed partial class ProxyStore
         }
         catch
         {
-            // FlushCore refuses to overwrite an unreadable index (it cannot distinguish corruption from
-            // a concurrent writer), so the rebuild must discard the corrupt file first or the snapshot
-            // never reaches disk and every later flush keeps degrading. Safe here: construction is
-            // single-threaded and the store is not yet serving.
-            RebuildFromSidecars(discardCorruptIndex: true);
+            RebuildFromSidecars();
         }
     }
 
     // Rebuild the in-memory index from meta.json sidecars when index.json is missing/invalid. Guarded
     // so a filesystem fault (permissions, I/O) during recovery starts the store with an empty index
     // rather than failing construction and blocking proxy services from starting.
-    private void RebuildFromSidecars(bool discardCorruptIndex = false)
+    private void RebuildFromSidecars()
     {
         _entries.Clear();
-        if (discardCorruptIndex)
-            TryDelete(_indexPath);
 
         try
         {
-            HashSet<ProxyKey> adoptedKeys =
-                MergeSidecarCandidates(CollectSidecarCandidates(CancellationToken.None));
-            FlushCore(adoptedKeys);
+            MergeSidecarCandidates(CollectSidecarCandidates(CancellationToken.None));
+            FlushCore();
         }
         catch (Exception ex)
         {
