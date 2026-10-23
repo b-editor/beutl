@@ -50,11 +50,11 @@ public sealed class GeometryEditorViewModel : ValueEditorViewModel<Geometry?>, I
                         };
 
                         Properties.Value = new PropertiesEditorViewModel(group, GetExtensionProvider(),
-                            p => p == group.FillType);
+                            p => ReferenceEquals(p, group.FillType));
                     }
                     else if (v is { } geometry)
                     {
-                        Properties.Value = new PropertiesEditorViewModel(geometry, GetExtensionProvider(), (p) => p != geometry.Transform);
+                        Properties.Value = new PropertiesEditorViewModel(geometry, GetExtensionProvider(), (p) => !ReferenceEquals(p, geometry.Transform));
                     }
 
                     AcceptChild();

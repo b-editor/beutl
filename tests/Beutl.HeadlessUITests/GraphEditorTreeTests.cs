@@ -491,8 +491,8 @@ public class GraphEditorTreeTests
         Assert.That(scaleRow.Parent!.Parent, Is.SameAs(transformRow));
         Assert.That(blurRow.Parent, Is.SameAs(effectRow));
         Assert.That(nestedBlurRow.Parent!.Parent, Is.SameAs(effectRow));
-        Assert.That(Flatten(scope.Model.TreeItems).Any(x => x.Property == transforms.Children
-            || x.Property == nestedTransform.Children || x.Property == effects.Children || x.Property == nestedEffect.Children), Is.False);
+        Assert.That(Flatten(scope.Model.TreeItems).Any(x => ReferenceEquals(x.Property, transforms.Children)
+            || ReferenceEquals(x.Property, nestedTransform.Children) || ReferenceEquals(x.Property, effects.Children) || ReferenceEquals(x.Property, nestedEffect.Children)), Is.False);
         transformRow.IsExpanded.Value = true;
         effectRow.IsExpanded.Value = true;
         scaleRow.Parent.IsExpanded.Value = true;
@@ -549,7 +549,7 @@ public class GraphEditorTreeTests
         var groupRow = scope.Model.TreeItems.Last();
         Assert.That(scope.Find(child.Width).Parent!.Parent, Is.SameAs(groupRow));
         Assert.That(scope.Find(group.Opacity).Parent, Is.SameAs(groupRow));
-        Assert.That(Flatten(scope.Model.TreeItems).Any(x => x.Property == group.Children), Is.False);
+        Assert.That(Flatten(scope.Model.TreeItems).Any(x => ReferenceEquals(x.Property, group.Children)), Is.False);
     }
 
     private static IEnumerable<GraphEditorTreeItemViewModel> Flatten(IEnumerable<GraphEditorTreeItemViewModel> items)
@@ -618,7 +618,7 @@ public class GraphEditorTreeTests
             return new TreeScope { Base = graph, Model = model, View = view, Shape = shape, Brush = brush };
         }
 
-        public GraphEditorTreeItemViewModel Find(IProperty property) => Flatten(Model.TreeItems).Single(x => x.Property == property);
+        public GraphEditorTreeItemViewModel Find(IProperty property) => Flatten(Model.TreeItems).Single(x => ReferenceEquals(x.Property, property));
 
         public Button AnimationButton(GraphEditorTreeItemViewModel item) => View.GetVisualDescendants().OfType<Button>()
             .Single(x => ReferenceEquals(x.DataContext, item) && x.Classes.Contains("graph-animation"));

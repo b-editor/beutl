@@ -86,8 +86,8 @@ public class GraphEditorLockTests
         string first = GraphScope.Snapshot(graph.First);
         using var tab = new GraphEditorTabViewModel(graph.Model.EditorContext);
         tab.Element.Value = element;
-        GraphEditorTreeItemViewModel widthItem = Flatten(tab.TreeItems).Single(x => x.Property == shape.Width);
-        GraphEditorTreeItemViewModel heightItem = Flatten(tab.TreeItems).Single(x => x.Property == shape.Height);
+        GraphEditorTreeItemViewModel widthItem = Flatten(tab.TreeItems).Single(x => ReferenceEquals(x.Property, shape.Width));
+        GraphEditorTreeItemViewModel heightItem = Flatten(tab.TreeItems).Single(x => ReferenceEquals(x.Property, shape.Height));
         GraphEditorKeyFrameViewModel firstItem = graph.Model.SelectedView.Value.KeyFrames.Single(x => x.Model == graph.First);
         GraphEditorKeyFrameViewModel unreadableItem = graph.Model.SelectedView.Value.KeyFrames.Single(x => x.Model == unreadable);
         Assert.That(SceneRecovery.HoldsRecoveryBlocker(unreadable), Is.True);

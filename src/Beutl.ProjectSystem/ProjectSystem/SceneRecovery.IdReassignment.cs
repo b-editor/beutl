@@ -358,7 +358,7 @@ internal sealed partial class SceneRecovery
 
         foreach (IProperty property in _scene.Properties)
         {
-            if (property == _scene.Children || property == _scene.Layers || property == _scene.Markers
+            if (ReferenceEquals(property, _scene.Children) || ReferenceEquals(property, _scene.Layers) || ReferenceEquals(property, _scene.Markers)
                 || !CoreObject.IsAutoSerialized(property)
                 || property.Value is not { } value)
             {

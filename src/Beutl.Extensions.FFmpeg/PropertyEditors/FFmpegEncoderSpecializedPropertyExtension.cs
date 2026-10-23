@@ -13,24 +13,24 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
 {
     private static bool IsVideoOptionsProperty(IPropertyAdapter prop)
         => prop is EnginePropertyAdapter<CoreList<AdditionalOption>> { Object: FFmpegVideoEncoderSettings settings } adapter
-            && adapter.Property == settings.Options;
+            && ReferenceEquals(adapter.Property, settings.Options);
 
     private static bool IsSampleRateProperty(IPropertyAdapter prop)
     {
         return prop is EnginePropertyAdapter<int> { Object: FFmpegAudioEncoderSettings settings } adapter
-               && adapter.Property == settings.SampleRate;
+               && ReferenceEquals(adapter.Property, settings.SampleRate);
     }
 
     private static bool IsPixelFormatProperty(IPropertyAdapter prop)
     {
         return prop is EnginePropertyAdapter<int> { Object: FFmpegVideoEncoderSettings settings } adapter
-               && adapter.Property == settings.Format;
+               && ReferenceEquals(adapter.Property, settings.Format);
     }
 
     private static bool IsAudioFormatProperty(IPropertyAdapter prop)
     {
         return prop is EnginePropertyAdapter<AudioFormat> { Object: FFmpegAudioEncoderSettings settings } adapter
-               && adapter.Property == settings.Format;
+               && ReferenceEquals(adapter.Property, settings.Format);
     }
 
     protected override void RegisterEditors(PropertyEditorRegistry registry)
