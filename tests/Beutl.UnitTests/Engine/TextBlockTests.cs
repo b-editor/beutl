@@ -41,9 +41,9 @@ public class TextBlockTests
     public void ParseAndDraw(string str)
     {
         TextBlock tb = CreateTextBlock(str);
-        var resource = tb.ToResource(CompositionContext.Default);
+        using var resource = tb.ToResource(CompositionContext.Default);
 
-        var node = new DrawableRenderNode(resource);
+        using var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new(1920, 1080)))
         {
             context.Clear(Colors.White);

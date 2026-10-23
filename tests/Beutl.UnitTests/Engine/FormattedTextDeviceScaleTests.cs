@@ -12,7 +12,7 @@ public class FormattedTextDeviceScaleTests
     [Test]
     public void GetTextBlob_WithDeviceDensity_ShapesAtScaledFontSize()
     {
-        FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
+        using FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         Rect logicalLayoutBounds = text.Bounds;
 
         SKRect logicalBounds = text.GetTextBlob()!.Bounds;
@@ -26,7 +26,7 @@ public class FormattedTextDeviceScaleTests
     [Test]
     public void GetStrokePath_WithDeviceDensity_ReturnsDenseScaledPathWithoutMutatingLogicalBounds()
     {
-        FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
+        using FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         text.Pen = new Pen
         {
             Thickness = { Value = 2f },
@@ -45,7 +45,7 @@ public class FormattedTextDeviceScaleTests
     [Test]
     public void GetTextBlob_EmptyText_ReturnsNullInsteadOfThrowing()
     {
-        FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
+        using FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         text.Text = string.Empty;
 
         Assert.That(text.GetTextBlob(), Is.Null);
@@ -55,7 +55,7 @@ public class FormattedTextDeviceScaleTests
     [Test]
     public void GetTextBlob_AfterPropertyChange_ReshapesScaledBlob()
     {
-        FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
+        using FormattedText text = TypefaceProvider.CreateText("Scale", 24f, spacing: 1f);
         SKTextBlob before = text.GetTextBlob(2f)!;
         float beforeWidth = before.Bounds.Width;
 
