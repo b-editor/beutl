@@ -9,7 +9,6 @@ namespace Beutl.Animation;
 public class KeySpline
 {
     // Evaluations use one immutable set of control points and coefficients.
-    private readonly Lock _updateLock = new();
     private SplineState _state;
 
     // constants
@@ -68,12 +67,9 @@ public class KeySpline
                 throw new ArgumentException("Invalid KeySpline X1 value. Must be >= 0.0 and <= 1.0.");
             }
 
-            lock (_updateLock)
-            {
-                SplineState state = _state;
-                Volatile.Write(ref _state,
-                    new SplineState(value, state.ControlPointY1, state.ControlPointX2, state.ControlPointY2));
-            }
+            SplineState state = _state;
+            Volatile.Write(ref _state,
+                new SplineState(value, state.ControlPointY1, state.ControlPointX2, state.ControlPointY2));
         }
     }
 
@@ -82,12 +78,9 @@ public class KeySpline
         get => Volatile.Read(ref _state).ControlPointY1;
         set
         {
-            lock (_updateLock)
-            {
-                SplineState state = _state;
-                Volatile.Write(ref _state,
-                    new SplineState(state.ControlPointX1, value, state.ControlPointX2, state.ControlPointY2));
-            }
+            SplineState state = _state;
+            Volatile.Write(ref _state,
+                new SplineState(state.ControlPointX1, value, state.ControlPointX2, state.ControlPointY2));
         }
     }
 
@@ -101,12 +94,9 @@ public class KeySpline
                 throw new ArgumentException("Invalid KeySpline X2 value. Must be >= 0.0 and <= 1.0.");
             }
 
-            lock (_updateLock)
-            {
-                SplineState state = _state;
-                Volatile.Write(ref _state,
-                    new SplineState(state.ControlPointX1, state.ControlPointY1, value, state.ControlPointY2));
-            }
+            SplineState state = _state;
+            Volatile.Write(ref _state,
+                new SplineState(state.ControlPointX1, state.ControlPointY1, value, state.ControlPointY2));
         }
     }
 
@@ -115,12 +105,9 @@ public class KeySpline
         get => Volatile.Read(ref _state).ControlPointY2;
         set
         {
-            lock (_updateLock)
-            {
-                SplineState state = _state;
-                Volatile.Write(ref _state,
-                    new SplineState(state.ControlPointX1, state.ControlPointY1, state.ControlPointX2, value));
-            }
+            SplineState state = _state;
+            Volatile.Write(ref _state,
+                new SplineState(state.ControlPointX1, state.ControlPointY1, state.ControlPointX2, value));
         }
     }
 
