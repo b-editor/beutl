@@ -269,7 +269,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
     private TimeSpan GetSceneStart()
     {
         IEditingSession? session = sessions.CurrentSession;
-        return session?.ReadOnSession(() => session.Root is Scene scene ? scene.Start.ToTimeSpan() : TimeSpan.Zero)
+        return session?.ReadOnSession(() => session.Root is Scene scene ? scene.Start.Value.ToTimeSpan() : TimeSpan.Zero)
                ?? TimeSpan.Zero;
     }
 
@@ -280,7 +280,7 @@ public sealed partial class QueryTools(AgentSessionManager sessions) : ToolBase
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
                 $"Current root '{session.Root.GetType().FullName}' is not a Scene.",
-                session.Root.Id.ToString()));
+                session.Root.Id.Value.ToString()));
         }
 
         return scene;

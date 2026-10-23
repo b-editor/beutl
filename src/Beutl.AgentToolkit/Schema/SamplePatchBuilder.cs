@@ -42,10 +42,10 @@ internal static class SamplePatchBuilder
     {
         var element = new Element
         {
-            Name = name,
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromTimeSpan(length),
-            ZIndex = zIndex
+            Name = { Value = name },
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromTimeSpan(length) },
+            ZIndex = { Value = zIndex }
         };
         element.AddObject(obj);
         return element;

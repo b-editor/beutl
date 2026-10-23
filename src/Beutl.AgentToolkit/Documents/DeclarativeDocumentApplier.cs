@@ -81,7 +81,7 @@ internal sealed partial class DeclarativeDocumentApplier
         }
 
         // The type name comes from the file, so the message leaves it out.
-        string target = fallback is CoreObject { Id: var id } ? id.ToString() : string.Empty;
+        string target = fallback is CoreObject { Id.Value: var id } ? id.ToString() : string.Empty;
         throw new ReconcileException(new ToolError(
             ErrorCode.ValidationRejected,
             $"Object '{target}' is of a type that could not be loaded, so it is kept as it was read and cannot be edited.",
@@ -168,11 +168,11 @@ internal sealed partial class DeclarativeDocumentApplier
 
         int width = desired.TryGetPropertyValue("Width", out JsonNode? widthNode)
             ? widthNode!.GetValue<int>()
-            : scene.FrameSize.Width;
+            : scene.FrameSize.Value.Width;
         int height = desired.TryGetPropertyValue("Height", out JsonNode? heightNode)
             ? heightNode!.GetValue<int>()
-            : scene.FrameSize.Height;
-        scene.FrameSize = new PixelSize(width, height);
+            : scene.FrameSize.Value.Height;
+        scene.FrameSize.Value = new PixelSize(width, height);
 
         if (desired.TryGetPropertyValue("Elements", out JsonNode? elementsNode))
         {
@@ -191,7 +191,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 HashSet<Guid> ids = group
                     .Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .Select(text => Guid.TryParse(text, out Guid id) ? id : Guid.Empty)
-                    .Where(id => id != Guid.Empty && scene.Children.Any(element => element.Id == id))
+                    .Where(id => id != Guid.Empty && scene.Children.Any(element => element.Id.Value == id))
                     .ToHashSet();
                 if (ids.Count >= 2)
                 {
@@ -305,9 +305,11 @@ internal sealed partial class DeclarativeDocumentApplier
                 continue;
             }
 
+            // A list property, like Scene.Layers, is read as an array of its items.
+            Type fieldType = field is IListProperty listField ? listField.ElementType.MakeArrayType() : field.ValueType;
             object? fieldValue = fieldNode is null
                 ? null
-                : EnumJsonValueNormalizer.Deserialize(fieldNode, field.ValueType, CreateOptions(target));
+                : EnumJsonValueNormalizer.Deserialize(fieldNode, fieldType, CreateOptions(target));
             if (field.Value is ICoreList list && fieldValue is IList items)
             {
                 ReplaceItems(list, items);
@@ -468,10 +470,10 @@ internal sealed partial class DeclarativeDocumentApplier
         string sceneDirectory = Path.GetDirectoryName(scene.Uri.LocalPath)
                                 ?? throw new InvalidOperationException("Scene Uri must have a directory.");
 
-        string path = Path.Combine(sceneDirectory, $"{element.Id:N}.{EditorConstants.ElementFileExtension}");
+        string path = Path.Combine(sceneDirectory, $"{element.Id.Value:N}.{EditorConstants.ElementFileExtension}");
         for (int index = 1; File.Exists(path) || scene.Children.Any(item => item.Uri?.LocalPath == path); index++)
         {
-            path = Path.Combine(sceneDirectory, $"{element.Id:N}-{index}.{EditorConstants.ElementFileExtension}");
+            path = Path.Combine(sceneDirectory, $"{element.Id.Value:N}-{index}.{EditorConstants.ElementFileExtension}");
         }
 
         element.Uri = new Uri(path);
@@ -479,7 +481,7 @@ internal sealed partial class DeclarativeDocumentApplier
 
     private static bool IdentityMatches(CoreObject current, JsonObject desired)
     {
-        return !CollectionReconciler.TryGetId(desired, out Guid id) || current.Id == id;
+        return !CollectionReconciler.TryGetId(desired, out Guid id) || current.Id.Value == id;
     }
 
     private static bool TypeMatches(CoreObject current, JsonObject desired)

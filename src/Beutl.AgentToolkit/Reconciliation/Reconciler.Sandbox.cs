@@ -175,7 +175,7 @@ public sealed partial class Reconciler
 
     private static FallbackIdentity CreateFallbackIdentity(IFallback fallback)
     {
-        return fallback is CoreObject { Id: var id } && id != Guid.Empty
+        return fallback is CoreObject { Id.Value: var id } && id != Guid.Empty
             ? new FallbackIdentity(id, null)
             : new FallbackIdentity(
                 null,

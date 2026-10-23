@@ -195,10 +195,10 @@ public sealed partial class StillRenderer
         out NormalizedFocalPoint focalPoint)
     {
         RenderedTextBounds? best = textBounds
-            .Where(item => item.TextBlock.IsEnabled)
+            .Where(item => item.TextBlock.IsEnabled.Value)
             .Where(item => !string.IsNullOrWhiteSpace(item.TextBlock.Text.Value))
             .Where(item => item.Bounds.Width >= 4 && item.Bounds.Height >= 4)
-            .OrderByDescending(item => item.Element.ZIndex)
+            .OrderByDescending(item => item.Element.ZIndex.Value)
             .ThenByDescending(item => item.Bounds.Width * item.Bounds.Height)
             .FirstOrDefault();
         if (best is null)
@@ -207,8 +207,8 @@ public sealed partial class StillRenderer
             return false;
         }
 
-        double width = scene.FrameSize.Width > 0 ? scene.FrameSize.Width : best.Bounds.Right;
-        double height = scene.FrameSize.Height > 0 ? scene.FrameSize.Height : best.Bounds.Bottom;
+        double width = scene.FrameSize.Value.Width > 0 ? scene.FrameSize.Value.Width : best.Bounds.Right;
+        double height = scene.FrameSize.Value.Height > 0 ? scene.FrameSize.Value.Height : best.Bounds.Bottom;
         focalPoint = new NormalizedFocalPoint(
             NormalizeUnit(best.Bounds.Center.X, width),
             NormalizeUnit(best.Bounds.Center.Y, height));

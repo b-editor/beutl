@@ -46,15 +46,15 @@ public static class ProjectOperations
         var scene = new Scene(options.Width, options.Height, projectName)
         {
             Uri = CreateFileUri(scenePath),
-            Duration = MediaTime.FromTimeSpan(options.Duration)
+            Duration = { Value = MediaTime.FromTimeSpan(options.Duration) }
         };
 
         var project = new Project
         {
             Uri = CreateFileUri(projectPath),
             Items = { scene },
-            FrameRate = options.FrameRate,
-            SampleRate = options.SampleRate,
+            FrameRate = { Value = options.FrameRate },
+            SampleRate = { Value = options.SampleRate },
         };
 
         return project;
@@ -77,8 +77,8 @@ public static class ProjectOperations
         var scene = new Scene(options.Width, options.Height, sceneName)
         {
             Uri = DeriveUniqueSceneUri(project, projectDirectory, sceneName, exclude: null),
-            Start = MediaTime.FromTimeSpan(options.Start),
-            Duration = MediaTime.FromTimeSpan(options.Duration)
+            Start = { Value = MediaTime.FromTimeSpan(options.Start) },
+            Duration = { Value = MediaTime.FromTimeSpan(options.Duration) }
         };
 
         project.Items.Add(scene);
@@ -325,7 +325,7 @@ public static class ProjectOperations
         }
 
         string projectDirectory = GetProjectDirectory(project.Uri!);
-        string sceneName = string.IsNullOrWhiteSpace(scene.Name) ? $"Scene{project.Items.IndexOf(scene) + 1}" : scene.Name;
+        string sceneName = string.IsNullOrWhiteSpace(scene.Name.Value) ? $"Scene{project.Items.IndexOf(scene) + 1}" : scene.Name.Value;
         ValidateSceneName(sceneName);
         scene.Uri = DeriveUniqueSceneUri(project, projectDirectory, sceneName, exclude: scene);
     }

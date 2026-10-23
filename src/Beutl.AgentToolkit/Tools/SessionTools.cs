@@ -142,7 +142,7 @@ public sealed class SessionTools(
             ? Path.GetRelativePath(
                 Path.GetDirectoryName(sceneUri.LocalPath)!,
                 uri.LocalPath).Replace('\\', '/')
-            : element.Name;
+            : element.Name.Value;
     }
 
     private static void AddFallbackIncidents(
@@ -163,8 +163,8 @@ public sealed class SessionTools(
             }
 
             incidents.Add(new RecoveryIncident(
-                scene.Id.ToString(),
-                scene.Name,
+                scene.Id.Value.ToString(),
+                scene.Name.Value,
                 elementFile,
                 fallback.Reason.ToString(),
                 typeName,
@@ -183,8 +183,8 @@ public sealed class SessionTools(
             foreach (SuppressedRecoveryIncident recoveryIncident in source.RecoveryIncidents!)
             {
                 incidents.Add(new RecoveryIncident(
-                    scene.Id.ToString(),
-                    scene.Name,
+                    scene.Id.Value.ToString(),
+                    scene.Name.Value,
                     elementFile,
                     recoveryIncident.Reason,
                     recoveryIncident.TypeName,
@@ -257,7 +257,7 @@ public sealed class SessionTools(
                     name),
                 cancellationToken).ConfigureAwait(false);
             return new AddSceneResponse(
-                result.Scene.Id.ToString(),
+                result.Scene.Id.Value.ToString(),
                 result.Session.SessionId,
                 CreateSummary(result.Session, result.Project));
         });
@@ -393,12 +393,12 @@ public sealed class SessionTools(
         return new SessionSummary(project.Items
             .OfType<Scene>()
             .Select(scene => new SceneSummary(
-                scene.Id.ToString(),
-                scene.Name,
-                scene.FrameSize.Width,
-                scene.FrameSize.Height,
-                scene.Start.ToTimeSpan().ToString("c", CultureInfo.InvariantCulture),
-                scene.Duration.ToTimeSpan().ToString("c", CultureInfo.InvariantCulture),
+                scene.Id.Value.ToString(),
+                scene.Name.Value,
+                scene.FrameSize.Value.Width,
+                scene.FrameSize.Value.Height,
+                scene.Start.Value.ToTimeSpan().ToString("c", CultureInfo.InvariantCulture),
+                scene.Duration.Value.ToTimeSpan().ToString("c", CultureInfo.InvariantCulture),
                 scene.Children.Count))
             .ToArray());
     }

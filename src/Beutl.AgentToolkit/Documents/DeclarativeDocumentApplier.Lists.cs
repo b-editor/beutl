@@ -56,13 +56,13 @@ internal sealed partial class DeclarativeDocumentApplier
                 itemJson,
                 CreateIdentityListItemPath(fieldName, desiredIndex),
                 owner);
-            desiredIds.Add(item.Id);
+            desiredIds.Add(item.Id.Value);
             PlaceListItem(list, item, desiredIndex);
         }
 
         for (int index = list.Count - 1; index >= 0; index--)
         {
-            if (list[index] is CoreObject item && !desiredIds.Contains(item.Id))
+            if (list[index] is CoreObject item && !desiredIds.Contains(item.Id.Value))
             {
                 list.RemoveAt(index);
             }
@@ -104,7 +104,7 @@ internal sealed partial class DeclarativeDocumentApplier
                         && element.Objects.FirstOrDefault(obj => obj is not PortalObject) is { } content)
                     {
                         Type contentType = content.GetType();
-                        element.AccentColor = ElementAccentColorGenerator.GenerateColor(contentType.FullName ?? contentType.Name);
+                        element.AccentColor.Value = ElementAccentColorGenerator.GenerateColor(contentType.FullName ?? contentType.Name);
                     }
 
                     AssignNewElementUri(scene, element);
@@ -161,7 +161,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
                     $"Flow operator '{flowOperator.GetType().Name}' in Objects is not preceded by a PortalObject.",
-                    flowOperator.Id.ToString(),
+                    flowOperator.Id.Value.ToString(),
                     "Keep a PortalObject entry immediately before each flow operator in Objects (Element.AddObject pairs them); do not reorder or delete the portal out of the pair."));
             }
         }
@@ -266,7 +266,7 @@ internal sealed partial class DeclarativeDocumentApplier
     {
         foreach (object? item in list)
         {
-            if (item is CoreObject coreObject && coreObject.Id == id)
+            if (item is CoreObject coreObject && coreObject.Id.Value == id)
             {
                 return coreObject;
             }

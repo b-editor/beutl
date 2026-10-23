@@ -47,7 +47,7 @@ public sealed class AgentSessionManager(CompositionPlanStore? plans = null)
     private static string BuildSessionKey(IEditingSession session)
     {
         return session.ReadOnSession(() =>
-            $"{session.Source}:{session.Root.Uri?.ToString() ?? session.Root.Id.ToString()}");
+            $"{session.Source}:{session.Root.Uri?.ToString() ?? session.Root.Id.Value.ToString()}");
     }
 
     public void UseSource(ISessionSource source)

@@ -90,22 +90,22 @@ public sealed partial class Reconciler
     private static void ValidateElementTimeline(Element element, List<ValidationOutcome> validation)
     {
         string identity = DescribeElement(element);
-        if (element.Start < MediaTime.Zero)
+        if (element.Start.Value < MediaTime.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(
-                element.Start.ToTimeSpan().ToString("c"),
-                $"Element {identity} Start '{element.Start.ToTimeSpan():c}' must be non-negative.",
+                element.Start.Value.ToTimeSpan().ToString("c"),
+                $"Element {identity} Start '{element.Start.Value.ToTimeSpan():c}' must be non-negative.",
                 options: null,
-                $"Set a non-negative Start on element {element.Id}."));
+                $"Set a non-negative Start on element {element.Id.Value}."));
         }
 
-        if (element.Length <= MediaTime.Zero)
+        if (element.Length.Value <= MediaTime.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(
-                element.Length.ToTimeSpan().ToString("c"),
-                $"Element {identity} Length '{element.Length.ToTimeSpan():c}' must be positive.",
+                element.Length.Value.ToTimeSpan().ToString("c"),
+                $"Element {identity} Length '{element.Length.Value.ToTimeSpan():c}' must be positive.",
                 options: null,
-                $"Set a positive Length on element {element.Id}."));
+                $"Set a positive Length on element {element.Id.Value}."));
         }
     }
 
@@ -119,20 +119,20 @@ public sealed partial class Reconciler
             return;
         }
 
-        if (scene.FrameSize.Width <= 0 || scene.FrameSize.Height <= 0)
+        if (scene.FrameSize.Value.Width <= 0 || scene.FrameSize.Value.Height <= 0)
         {
             validation.Add(ValidationOutcome.Rejected(
-                $"{scene.FrameSize.Width}x{scene.FrameSize.Height}",
-                $"Scene frame size '{scene.FrameSize.Width}x{scene.FrameSize.Height}' must be positive.",
+                $"{scene.FrameSize.Value.Width}x{scene.FrameSize.Value.Height}",
+                $"Scene frame size '{scene.FrameSize.Value.Width}x{scene.FrameSize.Value.Height}' must be positive.",
                 options: null,
                 "Set Width and Height to positive pixel values before applying."));
         }
 
-        if (scene.Duration <= MediaTime.Zero)
+        if (scene.Duration.Value <= MediaTime.Zero)
         {
             validation.Add(ValidationOutcome.Rejected(
-                scene.Duration.ToTimeSpan().ToString("c"),
-                $"Scene duration '{scene.Duration.ToTimeSpan():c}' must be positive.",
+                scene.Duration.Value.ToTimeSpan().ToString("c"),
+                $"Scene duration '{scene.Duration.Value.ToTimeSpan():c}' must be positive.",
                 options: null,
                 "Set a positive Duration before applying."));
         }

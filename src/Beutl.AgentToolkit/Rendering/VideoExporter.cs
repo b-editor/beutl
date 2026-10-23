@@ -86,10 +86,10 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 && bitrate is int requestedBitrate
                 && CreateAvFoundationBitrateWarning(
                     output.TemporaryPath,
-                    scene.Duration,
+                    scene.Duration.Value,
                     requestedBitrate,
-                    controller.AudioSettings.Bitrate > 0
-                        ? controller.AudioSettings.Bitrate
+                    controller.AudioSettings.Bitrate.Value > 0
+                        ? controller.AudioSettings.Bitrate.Value
                         : null) is { } bitrateWarning)
             {
                 warnings.Add(bitrateWarning);
@@ -101,7 +101,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
                 outputPath,
                 frameProvider.FrameCount,
                 sampleProvider.SampleCount,
-                scene.Duration.ToTimeSpan().ToString("c"),
+                scene.Duration.Value.ToTimeSpan().ToString("c"),
                 GetEncoderName(encoder),
                 warnings);
         }
@@ -153,11 +153,11 @@ public sealed class VideoExporter(EncoderRegistration encoders)
         int? crf,
         int? bitrate)
     {
-        controller.VideoSettings.SourceSize = scene.FrameSize;
-        controller.VideoSettings.DestinationSize = scene.FrameSize;
-        controller.VideoSettings.FrameRate = frameRate;
-        controller.AudioSettings.SampleRate = sampleRate;
-        controller.AudioSettings.Channels = 2;
+        controller.VideoSettings.SourceSize.Value = scene.FrameSize.Value;
+        controller.VideoSettings.DestinationSize.Value = scene.FrameSize.Value;
+        controller.VideoSettings.FrameRate.Value = frameRate;
+        controller.AudioSettings.SampleRate.Value = sampleRate;
+        controller.AudioSettings.Channels.Value = 2;
         return new List<string>(
             ApplyQualitySettings(controller.VideoSettings, crf, bitrate));
     }
@@ -168,7 +168,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
     {
         IReadOnlySet<string> renderableSources = await RenderThread.Dispatcher.InvokeAsync(
             () => Beutl.Editor.ExportSourceValidator.CollectRenderableSources(
-                scene, new TimeRange(scene.Start, scene.Duration)),
+                scene, new TimeRange(scene.Start.Value, scene.Duration.Value)),
             ct: cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(renderableSources);
         if (missingSources.Count > 0)
@@ -189,14 +189,14 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
             if (crf is int crfValue)
             {
-                SetOption(ffmpeg.Options, "crf", crfValue.ToString(CultureInfo.InvariantCulture));
+                SetOption(ffmpeg.Options.Value, "crf", crfValue.ToString(CultureInfo.InvariantCulture));
             }
 
             if (bitrate is int bitrateValue)
             {
-                settings.Bitrate = bitrateValue;
+                settings.Bitrate.Value = bitrateValue;
                 // libx264 ignores the target bitrate while a crf option is present, so drop crf for ABR.
-                RemoveOption(ffmpeg.Options, "crf");
+                RemoveOption(ffmpeg.Options.Value, "crf");
             }
 
             return [];
@@ -207,7 +207,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             ApplySdrColorMetadata(avFoundation);
             if (bitrate is int bitrateValue)
             {
-                settings.Bitrate = bitrateValue;
+                settings.Bitrate.Value = bitrateValue;
             }
 
             return crf.HasValue
@@ -221,7 +221,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
         if (bitrate is int fallbackBitrate)
         {
-            settings.Bitrate = fallbackBitrate;
+            settings.Bitrate.Value = fallbackBitrate;
         }
 
         return [];
@@ -259,24 +259,24 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
     private static void ApplySdrColorMetadata(FFmpegVideoEncoderSettings settings)
     {
-        if (settings.ColorPrimaries == FFColorPrimaries.UNSPECIFIED)
-            settings.ColorPrimaries = FFColorPrimaries.BT709;
-        if (settings.ColorTrc == FFColorTransfer.UNSPECIFIED)
-            settings.ColorTrc = FFColorTransfer.BT709;
-        if (settings.ColorSpace == FFColorSpace.UNSPECIFIED)
-            settings.ColorSpace = FFColorSpace.BT709;
-        if (settings.ColorRange == FFColorRange.UNSPECIFIED)
-            settings.ColorRange = FFColorRange.MPEG;
+        if (settings.ColorPrimaries.Value == FFColorPrimaries.UNSPECIFIED)
+            settings.ColorPrimaries.Value = FFColorPrimaries.BT709;
+        if (settings.ColorTrc.Value == FFColorTransfer.UNSPECIFIED)
+            settings.ColorTrc.Value = FFColorTransfer.BT709;
+        if (settings.ColorSpace.Value == FFColorSpace.UNSPECIFIED)
+            settings.ColorSpace.Value = FFColorSpace.BT709;
+        if (settings.ColorRange.Value == FFColorRange.UNSPECIFIED)
+            settings.ColorRange.Value = FFColorRange.MPEG;
     }
 
     private static void ApplySdrColorMetadata(AVFVideoEncoderSettings settings)
     {
-        if (settings.ColorPrimaries == AVFVideoEncoderSettings.ColorPrimariesType.Default)
-            settings.ColorPrimaries = AVFVideoEncoderSettings.ColorPrimariesType.Bt709;
-        if (settings.ColorTransfer == AVFVideoEncoderSettings.ColorTransferCharacteristic.Default)
-            settings.ColorTransfer = AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709;
-        if (settings.YCbCrMatrix == AVFVideoEncoderSettings.YCbCrMatrixType.Default)
-            settings.YCbCrMatrix = AVFVideoEncoderSettings.YCbCrMatrixType.Bt709;
+        if (settings.ColorPrimaries.Value == AVFVideoEncoderSettings.ColorPrimariesType.Default)
+            settings.ColorPrimaries.Value = AVFVideoEncoderSettings.ColorPrimariesType.Bt709;
+        if (settings.ColorTransfer.Value == AVFVideoEncoderSettings.ColorTransferCharacteristic.Default)
+            settings.ColorTransfer.Value = AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709;
+        if (settings.YCbCrMatrix.Value == AVFVideoEncoderSettings.YCbCrMatrixType.Default)
+            settings.YCbCrMatrix.Value = AVFVideoEncoderSettings.YCbCrMatrixType.Bt709;
     }
 
     private static string GetEncoderName(ControllableEncodingExtension encoder)
@@ -293,9 +293,9 @@ public sealed class VideoExporter(EncoderRegistration encoders)
     {
         foreach (AdditionalOption option in options)
         {
-            if (string.Equals(option.Name, name, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(option.Name.Value, name, StringComparison.OrdinalIgnoreCase))
             {
-                option.Value = value;
+                option.Value.Value = value;
                 return;
             }
         }
@@ -307,7 +307,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
     {
         for (int i = options.Count - 1; i >= 0; i--)
         {
-            if (string.Equals(options[i].Name, name, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(options[i].Name.Value, name, StringComparison.OrdinalIgnoreCase))
             {
                 options.RemoveAt(i);
             }

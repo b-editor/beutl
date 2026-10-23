@@ -31,7 +31,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = "Seeded gradient field",
+                    Name = { Value = "Seeded gradient field" },
                     Width = { Value = context.Metadata.Width },
                     Height = { Value = context.Metadata.Height },
                     Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) }
@@ -50,7 +50,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = $"Seeded ribbon {i + 1}",
+                    Name = { Value = $"Seeded ribbon {i + 1}" },
                     Width = { Value = 1060 + context.Random.Range(-120, 180) },
                     Height = { Value = 58 + context.Random.Range(0, 34) },
                     Fill = { Value = CreateLinearGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
@@ -92,7 +92,7 @@ public sealed partial class CompositionTemplateCatalog
             fullLength,
             new TextBlock
             {
-                Name = "Seeded title",
+                Name = { Value = "Seeded title" },
                 Text = { Value = title },
                 Size = { Value = 104 + context.Random.Range(-10, 8) },
                 Spacing = { Value = 8 + context.Random.Range(0, 8) },
@@ -147,7 +147,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = "Instrument gradient field",
+                    Name = { Value = "Instrument gradient field" },
                     Width = { Value = context.Metadata.Width },
                     Height = { Value = context.Metadata.Height },
                     Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) }
@@ -242,7 +242,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new EllipseShape
                 {
-                    Name = $"Seeded orbit ring {i + 1}",
+                    Name = { Value = $"Seeded orbit ring {i + 1}" },
                     Width = { Value = size },
                     Height = { Value = size },
                     Fill = { Value = null },
@@ -294,7 +294,7 @@ public sealed partial class CompositionTemplateCatalog
             fullLength,
             new RectShape
             {
-                Name = "Seeded scan sweep",
+                Name = { Value = "Seeded scan sweep" },
                 Width = { Value = layout.SweepWidth },
                 Height = { Value = 9 },
                 Fill = { Value = CreateLinearGradient("#0036f0ff", palette.Accent) },
@@ -349,7 +349,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new EllipseShape
                 {
-                    Name = $"Seeded signal node {i + 1}",
+                    Name = { Value = $"Seeded signal node {i + 1}" },
                     Width = { Value = 48 + context.Random.Range(0, 38) },
                     Height = { Value = 48 + context.Random.Range(0, 38) },
                     Fill = { Value = CreateLinearGradient(palette.SecondaryAccent, palette.Accent) },
@@ -402,7 +402,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = "Editorial gradient field",
+                    Name = { Value = "Editorial gradient field" },
                     Width = { Value = context.Metadata.Width },
                     Height = { Value = context.Metadata.Height },
                     Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
@@ -427,7 +427,7 @@ public sealed partial class CompositionTemplateCatalog
             fullLength,
             new RoundedRectShape
             {
-                Name = "Seeded editorial panel",
+                Name = { Value = "Seeded editorial panel" },
                 Width = { Value = 700 + context.Random.Range(-70, 110) },
                 Height = { Value = 580 + context.Random.Range(-60, 80) },
                 CornerRadius = { Value = new CornerRadius(48 + context.Random.Range(-12, 14)) },
@@ -473,7 +473,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = $"Seeded editorial block {i + 1}",
+                    Name = { Value = $"Seeded editorial block {i + 1}" },
                     Width = { Value = i % 2 == 0 ? 610 + context.Random.Range(-60, 90) : 82 + context.Random.Range(-12, 24) },
                     Height = { Value = i % 2 == 0 ? 86 + context.Random.Range(-10, 24) : 420 + context.Random.Range(-60, 90) },
                     Fill = { Value = CreateLinearGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
@@ -529,7 +529,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = "Soft liquid field",
+                    Name = { Value = "Soft liquid field" },
                     Width = { Value = context.Metadata.Width },
                     Height = { Value = context.Metadata.Height },
                     Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
@@ -561,7 +561,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new EllipseShape
                 {
-                    Name = $"Seeded liquid blob {i + 1}",
+                    Name = { Value = $"Seeded liquid blob {i + 1}" },
                     Width = { Value = size },
                     Height = { Value = size * context.Random.Range(0.62f, 1.18f) },
                     Fill = { Value = CreateRadialGradient(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent, "#00111111") },
@@ -623,7 +623,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = "Editorial dashboard field",
+                    Name = { Value = "Editorial dashboard field" },
                     Width = { Value = context.Metadata.Width },
                     Height = { Value = context.Metadata.Height },
                     Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
@@ -650,7 +650,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = $"Metric rule {i + 1}",
+                    Name = { Value = $"Metric rule {i + 1}" },
                     Width = { Value = 1380 },
                     Height = { Value = 2 },
                     Fill = { Value = new SolidColorBrush(Color.Parse(i % 2 == 0 ? "#33ffffff" : "#2243e7ff")) },
@@ -680,7 +680,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RoundedRectShape
                 {
-                    Name = $"Seeded metric bar {i + 1}",
+                    Name = { Value = $"Seeded metric bar {i + 1}" },
                     Width = { Value = 46 + context.Random.Range(-8, 16) },
                     Height = { Value = 20 },
                     CornerRadius = { Value = new CornerRadius(18) },
@@ -741,7 +741,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = "Chromatic cutout field",
+                    Name = { Value = "Chromatic cutout field" },
                     Width = { Value = context.Metadata.Width },
                     Height = { Value = context.Metadata.Height },
                     Fill = { Value = CreateLinearGradient(palette.BackgroundA, palette.BackgroundB) },
@@ -773,7 +773,7 @@ public sealed partial class CompositionTemplateCatalog
                 fullLength,
                 new RectShape
                 {
-                    Name = $"Seeded glitch slice {i + 1}",
+                    Name = { Value = $"Seeded glitch slice {i + 1}" },
                     Width = { Value = width },
                     Height = { Value = height },
                     Fill = { Value = CreateLinearGradient(i % 2 == 0 ? palette.Accent : "#eeffffff", i % 2 == 0 ? palette.SecondaryAccent : palette.Accent) },
@@ -815,7 +815,7 @@ public sealed partial class CompositionTemplateCatalog
             fullLength,
             new TextBlock
             {
-                Name = "Hard cut title",
+                Name = { Value = "Hard cut title" },
                 Text = { Value = title },
                 Size = { Value = 112 + context.Random.Range(-12, 10) },
                 Spacing = { Value = 2 },
@@ -865,7 +865,7 @@ public sealed partial class CompositionTemplateCatalog
                 length,
                 new EllipseShape
                 {
-                    Name = $"Deterministic noise dot {i + 1}",
+                    Name = { Value = $"Deterministic noise dot {i + 1}" },
                     Width = { Value = size },
                     Height = { Value = size },
                     Fill = { Value = new SolidColorBrush(Color.Parse(i % 2 == 0 ? palette.Accent : palette.SecondaryAccent)) },
@@ -936,7 +936,7 @@ public sealed partial class CompositionTemplateCatalog
             length,
             new TextBlock
             {
-                Name = objectName,
+                Name = { Value = objectName },
                 Text = { Value = text },
                 Size = { Value = size },
                 Spacing = { Value = spacing },

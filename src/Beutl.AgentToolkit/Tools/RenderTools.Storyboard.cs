@@ -162,28 +162,28 @@ public sealed partial class RenderTools
         ResolvedStoryboardShot[] derivedShots = scene.Children
             // Only enabled elements that overlap the visible window can render at their derived time;
             // disabled/off-window draft layers would add blank frames and burn the subdivision cap.
-            .Where(element => element.IsEnabled
-                && element.Length > MediaTime.Zero
-                && element.Start < scene.Start + scene.Duration
-                && element.Start + element.Length > scene.Start)
-            .OrderBy(element => element.Start)
-            .ThenBy(element => element.ZIndex)
+            .Where(element => element.IsEnabled.Value
+                && element.Length.Value > MediaTime.Zero
+                && element.Start.Value < scene.Start.Value + scene.Duration.Value
+                && element.Start.Value + element.Length.Value > scene.Start.Value)
+            .OrderBy(element => element.Start.Value)
+            .ThenBy(element => element.ZIndex.Value)
             .Select(element =>
             {
                 // Element.Start lives on the absolute timeline axis while shot times are
                 // scene-relative (the renderer re-applies scene.Start); normalize and clamp so a
                 // trimmed scene (Scene.Start > 0) does not sample past the element.
-                MediaTime midpoint = element.Start + new MediaTime(element.Length.Flicks / 2);
-                MediaTime relative = midpoint - scene.Start;
+                MediaTime midpoint = element.Start.Value + new MediaTime(element.Length.Value.Flicks / 2);
+                MediaTime relative = midpoint - scene.Start.Value;
                 if (relative < MediaTime.Zero)
                 {
                     relative = MediaTime.Zero;
                 }
 
-                relative = ClampShotToRenderableRange(relative, scene.Duration);
+                relative = ClampShotToRenderableRange(relative, scene.Duration.Value);
 
                 return new ResolvedStoryboardShot(
-                    string.IsNullOrWhiteSpace(element.Name) ? element.Id.ToString() : element.Name,
+                    string.IsNullOrWhiteSpace(element.Name.Value) ? element.Id.Value.ToString() : element.Name.Value,
                     relative);
             })
             .GroupBy(shot => shot.Time)

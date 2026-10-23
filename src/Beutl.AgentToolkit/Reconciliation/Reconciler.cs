@@ -234,7 +234,7 @@ public sealed partial class Reconciler
 
         return scene.Children
             .Where(static child => child.SuppressedStorageSource is not null)
-            .Where(child => affectedIds.Contains(child.Id))
+            .Where(child => affectedIds.Contains(child.Id.Value))
             .ToArray();
     }
 
@@ -384,7 +384,7 @@ public sealed partial class Reconciler
 
         if (!document.ContainsKey(nameof(CoreObject.Id)))
         {
-            document[nameof(CoreObject.Id)] = session.Root.Id.ToString();
+            document[nameof(CoreObject.Id)] = session.Root.Id.Value.ToString();
         }
 
         ValidateReferenceValues(session.Root, document);

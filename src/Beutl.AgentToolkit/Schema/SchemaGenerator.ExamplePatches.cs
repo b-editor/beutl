@@ -139,7 +139,7 @@ public sealed partial class SchemaGenerator
     {
         return new DrawableGroup
         {
-            Name = name,
+            Name = { Value = name },
             Transform =
             {
                 Value = new TransformGroup
@@ -175,14 +175,14 @@ public sealed partial class SchemaGenerator
         DrawableGroup rig = CreateCameraRigGroup("[role:camera-rig] Shot 1 camera");
         rig.Children.Add(new RectShape
         {
-            Name = "[role:text-backing] Shot 1 title plate",
+            Name = { Value = "[role:text-backing] Shot 1 title plate" },
             Width = { Value = 760 },
             Height = { Value = 240 },
             Fill = { Value = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
         });
         rig.Children.Add(new TextBlock
         {
-            Name = "Shot 1 hero title",
+            Name = { Value = "Shot 1 hero title" },
             Text = { Value = "Camera move" },
             Size = { Value = 96 },
             Fill = { Value = new SolidColorBrush(Colors.White) }
@@ -213,7 +213,7 @@ public sealed partial class SchemaGenerator
             s_exampleElementLength,
             new RectShape
             {
-                Name = "[role:text-backing] Shot 2 title plate",
+                Name = { Value = "[role:text-backing] Shot 2 title plate" },
                 Width = { Value = 760 },
                 Height = { Value = 240 },
                 Fill = { Value = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
@@ -225,7 +225,7 @@ public sealed partial class SchemaGenerator
             s_exampleElementLength,
             new TextBlock
             {
-                Name = "Shot 2 hero title",
+                Name = { Value = "Shot 2 hero title" },
                 Text = { Value = "Camera move" },
                 Size = { Value = 96 },
                 Fill = { Value = new SolidColorBrush(Colors.White) }

@@ -452,7 +452,7 @@ public sealed partial class RenderTools(
     }
 
     private static MediaTime GetEffectiveSceneDuration(Scene scene)
-        => scene.Duration > MediaTime.Zero ? scene.Duration : MediaTime.FromSeconds(1);
+        => scene.Duration.Value > MediaTime.Zero ? scene.Duration.Value : MediaTime.FromSeconds(1);
 
     private OwnedOutputOperation BeginOutputOperation()
     {
@@ -487,7 +487,7 @@ public sealed partial class RenderTools(
         ArgumentException.ThrowIfNullOrWhiteSpace(toolName);
 
         float normalizedScale = float.IsFinite(renderScale) && renderScale > 0f ? renderScale : 1f;
-        PixelSize frameSize = scene.FrameSize;
+        PixelSize frameSize = scene.FrameSize.Value;
 
         // Validate against the allocator reached by StillRenderer or VideoExporter, not the engine ceiling.
         int maxDimension = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction).MaxDimension;
