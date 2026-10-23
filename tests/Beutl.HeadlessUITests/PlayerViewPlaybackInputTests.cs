@@ -530,23 +530,36 @@ public partial class PlayerViewPlaybackInputTests
         Scene3D scene = await Add3DScene(editor);
         Object3D cube = scene.Objects.Single();
         // The scene's own transform moves it, or that of a group that draws it.
-        Drawable transformed = scene;
+        Beutl.Graphics.Drawable transformed = scene;
         if (grouped)
         {
-            var group = new DrawableGroup();
+            var group = new Beutl.Graphics.DrawableGroup();
             editor.Scene.Children.Single().Objects.Add(group);
             transformed = group;
         }
 
-        // The cube is drawn at the middle of the 640x480 render: at (480, 240) in the frame once moved, (160, 120) once halved.
-        if (scaled)
+        // The cube is drawn at the middle of the 640x480 render. In the frame it is at (480, 240) once moved and at
+        // (160, 120) once halved about the top left. A group halved about the centre of what it draws and moved puts it
+        // at (400, 240), which needs the bounds the group measured.
+        Point drawn;
+        if (scaled && grouped)
+        {
+            var transform = new TransformGroup();
+            transform.Children.Add(new ScaleTransform(100, 100, 50));
+            transform.Children.Add(new TranslateTransform(160, 0));
+            transformed.Transform.Value = transform;
+            drawn = new Point(400, 240);
+        }
+        else if (scaled)
         {
             transformed.TransformOrigin.Value = Beutl.Graphics.RelativePoint.TopLeft;
             transformed.Transform.Value = new ScaleTransform(100, 100, 50);
+            drawn = new Point(160, 120);
         }
         else
         {
             transformed.Transform.Value = new TranslateTransform(160, 0);
+            drawn = new Point(480, 240);
         }
 
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
@@ -557,7 +570,6 @@ public partial class PlayerViewPlaybackInputTests
             await PreparePreview(view, window);
             editor.Player.IsMoveMode.Value = false;
             editor.Player.IsCameraMode.Value = true;
-            Point drawn = scaled ? new Point(160, 120) : new Point(480, 240);
             Point point = view.image.TranslatePoint(drawn * (view.image.Bounds.Width / 640), window)!.Value;
 
             window.MouseDown(point, MouseButton.Left);
