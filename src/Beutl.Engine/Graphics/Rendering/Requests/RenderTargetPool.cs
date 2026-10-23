@@ -251,10 +251,11 @@ internal sealed partial class RenderTargetPool : IDisposable
     internal static InvalidOperationException CreateAllocationFailure(
         PixelSize deviceSize,
         int? maxDimension = null)
-        => new(maxDimension is { } budget
-            ? $"A {deviceSize.Width}x{deviceSize.Height} pixel render target exceeds the {budget} pixels "
-              + "this device can attach."
-            : $"The render-target factory could not allocate {deviceSize.Width}x{deviceSize.Height} pixels.");
+        => maxDimension is { } budget
+            ? new($"A {deviceSize.Width}x{deviceSize.Height} pixel render target exceeds the {budget} pixels "
+                  + "this device can attach.")
+            : new($"The render-target factory could not allocate {deviceSize.Width}x{deviceSize.Height} pixels.",
+                RenderTarget.TakeRefusalReason(deviceSize));
 
     /// <summary>
     /// Whether <paramref name="deviceSize"/> is past what <paramref name="request"/> may allocate, reporting
