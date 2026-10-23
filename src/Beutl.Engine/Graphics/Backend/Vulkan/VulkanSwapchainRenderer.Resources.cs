@@ -125,7 +125,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         };
 
         Image image;
-        _vk.CreateImage(_device, &imageInfo, null, &image);
+        Check(_vk.CreateImage(_device, &imageInfo, null, &image), "vkCreateImage");
         _sourceImage = image;
 
         MemoryRequirements memReqs;
@@ -139,9 +139,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         };
 
         DeviceMemory memory;
-        _vk.AllocateMemory(_device, &allocInfo, null, &memory);
+        Check(_vk.AllocateMemory(_device, &allocInfo, null, &memory), "vkAllocateMemory");
         _sourceMemory = memory;
-        _vk.BindImageMemory(_device, _sourceImage, _sourceMemory, 0);
+        Check(_vk.BindImageMemory(_device, _sourceImage, _sourceMemory, 0), "vkBindImageMemory");
 
         var viewInfo = new ImageViewCreateInfo
         {
@@ -160,7 +160,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         };
 
         ImageView view;
-        _vk.CreateImageView(_device, &viewInfo, null, &view);
+        Check(_vk.CreateImageView(_device, &viewInfo, null, &view), "vkCreateImageView");
         _sourceImageView = view;
         _sourceImageLayout = ImageLayout.Undefined;
 
@@ -211,7 +211,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         };
 
         Silk.NET.Vulkan.Buffer buffer;
-        _vk.CreateBuffer(_device, &bufferInfo, null, &buffer);
+        Check(_vk.CreateBuffer(_device, &bufferInfo, null, &buffer), "vkCreateBuffer");
         _stagingBuffer = buffer;
 
         MemoryRequirements memReqs;
@@ -226,9 +226,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         };
 
         DeviceMemory memory;
-        _vk.AllocateMemory(_device, &allocInfo, null, &memory);
+        Check(_vk.AllocateMemory(_device, &allocInfo, null, &memory), "vkAllocateMemory");
         _stagingMemory = memory;
-        _vk.BindBufferMemory(_device, _stagingBuffer, _stagingMemory, 0);
+        Check(_vk.BindBufferMemory(_device, _stagingBuffer, _stagingMemory, 0), "vkBindBufferMemory");
 
         _stagingSize = requiredSize;
     }
@@ -264,7 +264,7 @@ internal sealed unsafe partial class VulkanSwapchainRenderer
         };
 
         CommandBuffer cmdBuf;
-        _vk.AllocateCommandBuffers(_device, &allocInfo, &cmdBuf);
+        Check(_vk.AllocateCommandBuffers(_device, &allocInfo, &cmdBuf), "vkAllocateCommandBuffers");
         return cmdBuf;
     }
 
