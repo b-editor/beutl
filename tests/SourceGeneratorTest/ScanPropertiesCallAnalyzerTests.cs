@@ -111,6 +111,21 @@ public sealed class ScanPropertiesCallAnalyzerTests
         Assert.That(Analyze(source), Is.Empty);
     }
 
+    [TestCase("ScanProperties<Settings>();", 0)]
+    [TestCase("", 1)]
+    public void ACoreObjectThatIsNotAnEngineObject_IsCheckedToo(string body, int expected)
+    {
+        string source = $$"""
+            using Beutl.Engine;
+            public sealed class Settings : CoreObject
+            {
+                public Settings() { {{body}} }
+                public IProperty<int> Value { get; } = Property.Create<int>();
+            }
+            """;
+        Assert.That(Analyze(source), Has.Length.EqualTo(expected));
+    }
+
     [Test]
     public void TypesWithNothingToScan_AreNotReported()
     {

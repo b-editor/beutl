@@ -27,27 +27,31 @@ public static class ClassInfoExtractor
             return null;
         }
 
-        if (SymbolEqualityComparer.Default.Equals(symbol, types.EngineObject))
+        if (!TypeAnalysisHelpers.InheritsFrom(symbol, types.CoreObject))
         {
             return null;
         }
 
-        if (!TypeAnalysisHelpers.InheritsFrom(symbol, types.EngineObject))
+        bool isEngineObject = types.EngineObject is { } engineObject && TypeAnalysisHelpers.InheritsFrom(symbol, engineObject);
+
+        // The generated declaration is top-level, so a nested CoreObject keeps the reflection scan.
+        if (!isEngineObject && symbol.ContainingType is not null)
         {
             return null;
         }
 
-        bool suppressedResourceClassGeneration = TypeAnalysisHelpers.HasSuppressResourceClassGenerationAttribute(symbol, types.SuppressAttribute);
+        bool suppressedResourceClassGeneration = isEngineObject
+            && TypeAnalysisHelpers.HasSuppressResourceClassGenerationAttribute(symbol, types.SuppressAttribute!);
         bool isPartial = classDeclaration.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword));
 
         var valueProperties = ImmutableArray.CreateBuilder<ValuePropertyInfo>();
         var objectProperties = ImmutableArray.CreateBuilder<ObjectPropertyInfo>();
         var listProperties = ImmutableArray.CreateBuilder<ListPropertyInfo>();
         var orderedProperties = ImmutableArray.CreateBuilder<object>();
-        CollectResourceProperties(symbol, types, valueProperties, objectProperties, listProperties, orderedProperties);
+        CollectResourceProperties(symbol, types, isEngineObject, valueProperties, objectProperties, listProperties, orderedProperties);
 
         var portProperties = ImmutableArray.CreateBuilder<NodePortPropertyInfo>();
-        bool isNodeSubclass = types.Node != null && TypeAnalysisHelpers.InheritsFrom(symbol, types.Node);
+        bool isNodeSubclass = isEngineObject && types.Node != null && TypeAnalysisHelpers.InheritsFrom(symbol, types.Node);
 
         if (isNodeSubclass && types.InputPort != null && types.OutputPort != null && types.NodeMember != null)
         {
@@ -55,8 +59,9 @@ public static class ClassInfoExtractor
         }
 
         INamedTypeSymbol? baseResourceOwner = null;
-        if (symbol.BaseType is INamedTypeSymbol baseType
-            && TypeAnalysisHelpers.InheritsFrom(baseType, types.EngineObject))
+        if (isEngineObject
+            && symbol.BaseType is INamedTypeSymbol baseType
+            && TypeAnalysisHelpers.InheritsFrom(baseType, types.EngineObject!))
         {
             baseResourceOwner = baseType;
         }
@@ -64,6 +69,7 @@ public static class ClassInfoExtractor
         return new ClassInfo(
             symbol,
             isPartial,
+            isEngineObject,
             baseResourceOwner,
             valueProperties.ToImmutable(),
             objectProperties.ToImmutable(),
@@ -76,6 +82,7 @@ public static class ClassInfoExtractor
     private static void CollectResourceProperties(
         INamedTypeSymbol symbol,
         KnownTypes types,
+        bool isEngineObject,
         ImmutableArray<ValuePropertyInfo>.Builder valueProperties,
         ImmutableArray<ObjectPropertyInfo>.Builder objectProperties,
         ImmutableArray<ListPropertyInfo>.Builder listProperties,
@@ -83,12 +90,25 @@ public static class ClassInfoExtractor
     {
         foreach (ISymbol member in symbol.GetMembers())
         {
-            if (!TryGetOwnInstanceProperty(member, symbol, out IPropertySymbol propertySymbol, out INamedTypeSymbol namedType))
+            // The members CoreObject.ScanPropertiesCore reads: public instance properties typed as IProperty.
+            if (!TryGetOwnInstanceProperty(member, symbol, out IPropertySymbol propertySymbol, out INamedTypeSymbol namedType)
+                || propertySymbol.DeclaredAccessibility != Accessibility.Public
+                || propertySymbol.IsIndexer
+                || !(SymbolEqualityComparer.Default.Equals(namedType, types.IPropertyBase)
+                     || namedType.AllInterfaces.Contains(types.IPropertyBase, SymbolEqualityComparer.Default)))
             {
                 continue;
             }
 
-            var excludeResource = TypeAnalysisHelpers.HasAttribute(propertySymbol, types.SuppressAttribute);
+            if (!isEngineObject)
+            {
+                var scannedOnly = new ValuePropertyInfo(propertySymbol.Name, namedType, propertySymbol.GetAttributes(), true);
+                valueProperties.Add(scannedOnly);
+                orderedProperties.Add(scannedOnly);
+                continue;
+            }
+
+            var excludeResource = TypeAnalysisHelpers.HasAttribute(propertySymbol, types.SuppressAttribute!);
 
             if (namedType.IsGenericType
                 && (SymbolEqualityComparer.Default.Equals(namedType.ConstructedFrom, types.IProperty)
@@ -96,7 +116,7 @@ public static class ClassInfoExtractor
             {
                 ITypeSymbol valueType = namedType.TypeArguments[0];
                 ImmutableArray<AttributeData> propAttrs = propertySymbol.GetAttributes();
-                if (TypeAnalysisHelpers.IsEngineObjectType(valueType, types.EngineObject) && valueType is INamedTypeSymbol engineObjectType)
+                if (TypeAnalysisHelpers.IsEngineObjectType(valueType, types.EngineObject!) && valueType is INamedTypeSymbol engineObjectType)
                 {
                     var propInfo = new ObjectPropertyInfo(propertySymbol.Name, engineObjectType, propAttrs, excludeResource);
                     objectProperties.Add(propInfo);
@@ -116,7 +136,7 @@ public static class ClassInfoExtractor
             {
                 ITypeSymbol elementType = namedType.TypeArguments[0];
                 ImmutableArray<AttributeData> listAttrs = propertySymbol.GetAttributes();
-                if (!TypeAnalysisHelpers.IsEngineObjectType(elementType, types.EngineObject))
+                if (!TypeAnalysisHelpers.IsEngineObjectType(elementType, types.EngineObject!))
                 {
                     // A list of other items, like GraphModel.AllConnections, is registered without a resource.
                     var scanned = new ValuePropertyInfo(propertySymbol.Name, namedType, listAttrs, true);
@@ -128,7 +148,13 @@ public static class ClassInfoExtractor
                 var propInfo = new ListPropertyInfo(propertySymbol.Name, elementType, listAttrs, excludeResource);
                 listProperties.Add(propInfo);
                 orderedProperties.Add(propInfo);
+                continue;
             }
+
+            // Another IProperty, like a ValueOnlyProperty<T> member, is registered without a resource.
+            var other = new ValuePropertyInfo(propertySymbol.Name, namedType, propertySymbol.GetAttributes(), true);
+            valueProperties.Add(other);
+            orderedProperties.Add(other);
         }
     }
 
@@ -142,7 +168,7 @@ public static class ClassInfoExtractor
             if (!TryGetOwnInstanceProperty(member, symbol, out IPropertySymbol propertySymbol, out INamedTypeSymbol namedType)
                 || !namedType.IsGenericType)
                 continue;
-            if (TypeAnalysisHelpers.HasAttribute(propertySymbol, types.SuppressAttribute))
+            if (TypeAnalysisHelpers.HasAttribute(propertySymbol, types.SuppressAttribute!))
                 continue;
 
             NodePortKind? kind = GetNodePortKind(namedType.ConstructedFrom, types);
@@ -198,12 +224,15 @@ public static class ClassInfoExtractor
         return true;
     }
 
+    // The engine types are null in Beutl.Core and Beutl.Configuration, which do not reference Beutl.Engine.
     private readonly record struct KnownTypes(
-        INamedTypeSymbol EngineObject,
+        INamedTypeSymbol CoreObject,
+        INamedTypeSymbol? EngineObject,
+        INamedTypeSymbol IPropertyBase,
         INamedTypeSymbol IProperty,
         INamedTypeSymbol? IExpressionProperty,
         INamedTypeSymbol IListProperty,
-        INamedTypeSymbol SuppressAttribute,
+        INamedTypeSymbol? SuppressAttribute,
         INamedTypeSymbol? InputPort,
         INamedTypeSymbol? OutputPort,
         INamedTypeSymbol? NodeMember,
@@ -211,12 +240,19 @@ public static class ClassInfoExtractor
     {
         public static KnownTypes? Resolve(Compilation compilation)
         {
-            INamedTypeSymbol? engineObjectSymbol = compilation.GetTypeByMetadataName("Beutl.Engine.EngineObject");
+            INamedTypeSymbol? coreObjectSymbol = compilation.GetTypeByMetadataName("Beutl.CoreObject");
+            INamedTypeSymbol? iPropertyBaseSymbol = compilation.GetTypeByMetadataName("Beutl.IProperty");
             INamedTypeSymbol? iPropertySymbol = compilation.GetTypeByMetadataName("Beutl.IProperty`1");
             INamedTypeSymbol? iExpressionPropertySymbol = compilation.GetTypeByMetadataName("Beutl.IExpressionProperty`1");
             INamedTypeSymbol? iListPropertySymbol = compilation.GetTypeByMetadataName("Beutl.IListProperty`1");
+            if (coreObjectSymbol is null || iPropertyBaseSymbol is null || iPropertySymbol is null || iListPropertySymbol is null)
+            {
+                return null;
+            }
+
+            INamedTypeSymbol? engineObjectSymbol = compilation.GetTypeByMetadataName("Beutl.Engine.EngineObject");
             INamedTypeSymbol? suppressAttribute = compilation.GetTypeByMetadataName("Beutl.Engine.SuppressResourceClassGenerationAttribute");
-            if (engineObjectSymbol is null || iPropertySymbol is null || iListPropertySymbol is null || suppressAttribute is null)
+            if (engineObjectSymbol is not null && suppressAttribute is null)
             {
                 return null;
             }
@@ -227,7 +263,9 @@ public static class ClassInfoExtractor
             INamedTypeSymbol? nodeSymbol = compilation.GetTypeByMetadataName("Beutl.NodeGraph.GraphNode");
 
             return new KnownTypes(
+                coreObjectSymbol,
                 engineObjectSymbol,
+                iPropertyBaseSymbol,
                 iPropertySymbol,
                 iExpressionPropertySymbol,
                 iListPropertySymbol,

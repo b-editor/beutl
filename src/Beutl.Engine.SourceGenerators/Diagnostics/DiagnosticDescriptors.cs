@@ -9,7 +9,7 @@ public static class DiagnosticDescriptors
     public static readonly DiagnosticDescriptor MissingPartial = new(
         id: "BESG001",
         title: "Partial declaration required",
-        messageFormat: "Type '{0}' must be declared partial to generate Resource nested classes",
+        messageFormat: "Type '{0}' must be declared partial to generate {1}",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
@@ -163,7 +163,7 @@ public static class DiagnosticDescriptors
 
     public static readonly DiagnosticDescriptor MissingScanProperties = new(
         id: "BESG006",
-        title: "EngineObject constructor does not register the type's properties",
+        title: "CoreObject constructor does not register the type's properties",
         messageFormat:
             "'{0}' declares properties, but this constructor does not call ScanProperties<{0}>(), so they are "
             + "not saved, edited or recorded in history",
