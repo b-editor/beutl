@@ -283,10 +283,9 @@ public sealed class FileBrowserWriteAdmissionTests
     }
 
     // Cancel stops a folder copy before its next file, and the files already copied stay, as they do
-    // when a drop of several files is canceled. Dropping the folder again skips it, as for any
-    // existing folder.
+    // when a drop of several files is canceled. Dropping the folder again and merging completes it.
     [AvaloniaTest]
-    public async Task A_folder_copy_canceled_partway_keeps_what_it_copied_and_a_second_drop_skips_it()
+    public async Task A_folder_copy_canceled_partway_keeps_what_it_copied_and_merging_completes_it()
     {
         EditViewModel editor = await OpenSceneWithoutPendingWritesAsync("filebrowser-cancel-folder-copy");
         using var browser = new FileBrowserTabViewModel(editor);
@@ -329,15 +328,18 @@ public sealed class FileBrowserWriteAdmissionTests
             Assert.That(notifications.All, Has.Count.EqualTo(1), "a canceled copy is no failure");
         });
 
-        string kept = Directory.GetFiles(copiedFolder).Single();
         browser.TransferNotificationDelay = Timeout.InfiniteTimeSpan;
         browser.CopyFile = static (source, destination) => File.Copy(source, destination);
+        browser.ConfirmAsync = static _ => Task.FromResult(FAContentDialogResult.Primary);
         await browser.TransferFilesToDirectoryAsync([(folder, true)], fixture.TargetDir, move: false)
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Multiple(() =>
         {
-            Assert.That(Directory.GetFiles(copiedFolder), Is.EqualTo(new[] { kept }), "the existing folder is skipped");
+            Assert.That(
+                Directory.GetFiles(copiedFolder).Select(Path.GetFileName),
+                Is.EquivalentTo(new[] { "a.txt", "b.txt" }),
+                "merging copies what is missing");
             Assert.That(
                 notifications.All.Select(n => (n.Type, n.Title, n.Message)),
                 Is.EqualTo(new[] { (NotificationType.Information, Strings.Copy, Strings.FileBrowser_CopyingFiles) }),

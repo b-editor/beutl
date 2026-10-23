@@ -1789,6 +1789,18 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="FileBrowser_MovingFiles" xml:space="preserve">
     <value>파일을 이동하는 중…</value>
   </data>
+  <data name="FileBrowser_FolderExists" xml:space="preserve">
+    <value>이 위치에 "{0}" 폴더가 이미 있습니다. 병합하면 없는 파일만 복사하며 기존 파일은 바꾸지 않습니다.</value>
+  </data>
+  <data name="FileBrowser_MergeFolder" xml:space="preserve">
+    <value>병합</value>
+  </data>
+  <data name="FileBrowser_SkipFolder" xml:space="preserve">
+    <value>건너뛰기</value>
+  </data>
+  <data name="FileBrowser_FolderNotMoved" xml:space="preserve">
+    <value>같은 이름의 폴더가 이미 있어서 "{0}"을(를) 이동하지 않았습니다.</value>
+  </data>
   <data name="PathEditor_ShowStroke" xml:space="preserve">
     <value>윤곽선 표시</value>
   </data>

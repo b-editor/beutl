@@ -474,6 +474,18 @@
   <data name="FileBrowser_MovingFiles" xml:space="preserve">
     <value>ファイルを移動しています…</value>
   </data>
+  <data name="FileBrowser_FolderExists" xml:space="preserve">
+    <value>「{0}」という名前のフォルダーがすでにあります。結合すると、足りないファイルだけをコピーし、既存のファイルは置き換えません。</value>
+  </data>
+  <data name="FileBrowser_MergeFolder" xml:space="preserve">
+    <value>結合</value>
+  </data>
+  <data name="FileBrowser_SkipFolder" xml:space="preserve">
+    <value>スキップ</value>
+  </data>
+  <data name="FileBrowser_FolderNotMoved" xml:space="preserve">
+    <value>同じ名前のフォルダーがすでにあるため、「{0}」は移動されませんでした。</value>
+  </data>
   <data name="ListView" xml:space="preserve">
     <value>リスト表示</value>
   </data>

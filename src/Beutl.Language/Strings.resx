@@ -479,6 +479,18 @@
   <data name="FileBrowser_MovingFiles" xml:space="preserve">
     <value>Moving files…</value>
   </data>
+  <data name="FileBrowser_FolderExists" xml:space="preserve">
+    <value>A folder named "{0}" already exists here. Merge copies only the files it is missing and replaces nothing.</value>
+  </data>
+  <data name="FileBrowser_MergeFolder" xml:space="preserve">
+    <value>Merge</value>
+  </data>
+  <data name="FileBrowser_SkipFolder" xml:space="preserve">
+    <value>Skip</value>
+  </data>
+  <data name="FileBrowser_FolderNotMoved" xml:space="preserve">
+    <value>"{0}" was not moved, because a folder with that name already exists here.</value>
+  </data>
   <data name="ListView" xml:space="preserve">
     <value>List View</value>
   </data>
