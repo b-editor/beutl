@@ -975,7 +975,7 @@ public class CompressorNodeTests
     [Test]
     public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
     {
-        // A non-finite property default cannot serve as the sanitization fallback.
+        // A non-finite static value falls back to the declared constant, whatever the property's default.
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 

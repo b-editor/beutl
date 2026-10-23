@@ -243,9 +243,9 @@ public abstract class DynamicsNode : AudioNode
     /// <c>[Range]</c> and freezing the follower. A finite-but-out-of-range value is a different
     /// authoring error from a non-finite one, so each gets its own once-per-parameter warning.
     /// </remarks>
-    protected float Sanitize(float value, float fallback, float declaredDefault, float min, float max, string paramName)
+    protected float Sanitize(float value, float fallback, float min, float max, string paramName)
     {
-        float safe = SafeParameter(value, fallback, declaredDefault, paramName);
+        float safe = SafeParameter(value, fallback, paramName);
         float clamped = Math.Clamp(safe, min, max);
         if (clamped != safe && _loggedClampedParameters.Add(paramName))
         {
@@ -257,18 +257,16 @@ public abstract class DynamicsNode : AudioNode
         return clamped;
     }
 
-    private float SafeParameter(float value, float fallback, float declaredDefault, string paramName)
+    private float SafeParameter(float value, float fallback, string paramName)
     {
         if (float.IsFinite(value)) return value;
-        // IProperty implementations may expose non-finite defaults, which Math.Clamp cannot recover.
-        float safeFallback = float.IsFinite(fallback) ? fallback : declaredDefault;
         if (_loggedNonFiniteParameters.Add(paramName))
         {
             Logger.LogWarning(
                 "{Node} parameter '{Param}' produced a non-finite value; falling back to {Fallback}. Further occurrences for this parameter will be suppressed.",
-                DiagnosticName, paramName, safeFallback);
+                DiagnosticName, paramName, fallback);
         }
-        return safeFallback;
+        return fallback;
     }
 
     /// <summary>
