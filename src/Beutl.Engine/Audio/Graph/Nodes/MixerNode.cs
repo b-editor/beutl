@@ -22,17 +22,6 @@ public sealed class MixerNode : AudioNode
         public int SampleRate { get; set; }
     }
 
-    private sealed record InputState(
-        float[] Gains,
-        bool HasBranchEndTime,
-        MediaTime BranchEndTime,
-        bool WasProcessed,
-        bool UnknownDrainAttempted,
-        bool HasTailBudget,
-        int RemainingTailSamples,
-        int TailBudgetSampleRate,
-        MediaTime? LastTimeRangeEnd);
-
     public float[] Gains
     {
         get => _gains;
@@ -352,57 +341,6 @@ public sealed class MixerNode : AudioNode
     protected override void OnInputAdded(AudioNode input, int index)
     {
         AppendDefaultIfConfigured(ref _gains, index, 1f);
-    }
-
-    protected override object CaptureInputState(AudioNode input, int index)
-    {
-        return new InputState(
-            (float[])_gains.Clone(),
-            _branchEndTimes.TryGetValue(input, out MediaTime branchEndTime),
-            branchEndTime,
-            _processedBranches.Contains(input),
-            _unknownDrainAttempts.Contains(input),
-            _branchTailBudgets.TryGetValue(input, out BranchTailBudget? budget),
-            budget?.RemainingSamples ?? 0,
-            budget?.SampleRate ?? 0,
-            _lastTimeRangeEnd);
-    }
-
-    protected override void RestoreInputState(AudioNode input, int index, object? state)
-    {
-        if (state is not InputState snapshot)
-            return;
-
-        _gains = (float[])snapshot.Gains.Clone();
-        if (snapshot.HasBranchEndTime)
-            _branchEndTimes[input] = snapshot.BranchEndTime;
-        else
-            _branchEndTimes.Remove(input);
-
-        if (snapshot.WasProcessed)
-            _processedBranches.Add(input);
-        else
-            _processedBranches.Remove(input);
-
-        if (snapshot.UnknownDrainAttempted)
-            _unknownDrainAttempts.Add(input);
-        else
-            _unknownDrainAttempts.Remove(input);
-
-        if (snapshot.HasTailBudget)
-        {
-            _branchTailBudgets[input] = new BranchTailBudget
-            {
-                RemainingSamples = snapshot.RemainingTailSamples,
-                SampleRate = snapshot.TailBudgetSampleRate,
-            };
-        }
-        else
-        {
-            _branchTailBudgets.Remove(input);
-        }
-
-        _lastTimeRangeEnd = snapshot.LastTimeRangeEnd;
     }
 
     protected override void OnInputRemoved(AudioNode input, int index)
