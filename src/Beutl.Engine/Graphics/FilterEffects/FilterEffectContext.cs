@@ -268,6 +268,7 @@ public sealed partial class FilterEffectContext : IDisposable
     /// inferring a footprint from <paramref name="transformBounds"/>, which may be narrower than what the
     /// filter reads.
     /// </param>
+    // The factory must not re-enter its executor.
     [EditorBrowsable(EditorBrowsableState.Never)]
     public void AppendSkiaFilter<T>(T data, Func<T, SKImageFilter?, FilterEffectExecutor, SKImageFilter?> factory,
         Func<T, Rect, Rect> transformBounds, Func<T, Rect, Rect>? transformSamplingBounds = null)

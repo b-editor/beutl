@@ -253,23 +253,12 @@ public sealed partial class FilterEffectExecutor : IDisposable
         _ownedProgramCache?.Dispose();
     }
 
-    /// <summary>
-    /// Makes sure every current target has chain bookkeeping, keeping what an in-progress chain accumulated.
-    /// </summary>
-    /// <remarks>
-    /// A Skia item runs author code that may re-enter <see cref="Activate"/> or <see cref="Flush"/>, both of
-    /// which drop this map and can replace the targets it was keyed by. Entries are therefore added rather
-    /// than the map rebuilt, so calling this again after author code has run restores a dropped map and covers
-    /// a target that appeared, without resetting a chain that survived.
-    /// </remarks>
     private void BeginSkiaChain()
     {
-        _pendingSkiaTargets ??= new Dictionary<EffectTarget, PendingSkiaTarget>();
+        if (_pendingSkiaTargets is not null) return;
+        _pendingSkiaTargets = new Dictionary<EffectTarget, PendingSkiaTarget>();
         foreach (EffectTarget target in CurrentTargets)
         {
-            if (_pendingSkiaTargets.ContainsKey(target))
-                continue;
-
             Rect physicalBounds = target.RasterBounds.Translate(
                 target.OriginalBounds.Position - target.Bounds.Position);
             // OriginalBounds cannot serve as the anchor frame: a stage the fallback executor allocated
@@ -351,9 +340,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
 
         BeginSkiaChain();
         effectiveItem.Accepts(this, Builder);
-        // Author code just ran and may have gone through Activate() or Flush(), either of
-        // which drops the bookkeeping this loop is about to read.
-        BeginSkiaChain();
 
         foreach (EffectTarget t in CurrentTargets)
         {
@@ -416,14 +402,10 @@ public sealed partial class FilterEffectExecutor : IDisposable
         Apply(ctx);
     }
 
+    // Skia factories must not re-enter their executor.
     public SKImageFilter? Activate(FilterEffectContext context)
     {
-        // A no-op Flush still drops the pending-Skia bookkeeping, which the caller's own in-progress chain
-        // still needs when it authored this call from a Skia factory.
-        Dictionary<EffectTarget, PendingSkiaTarget>? pendingSkiaTargets =
-            Builder.HasFilter() ? null : _pendingSkiaTargets;
         Flush(false);
-        _pendingSkiaTargets = pendingSkiaTargets;
 
         using EffectTargets cloned = CurrentTargets.Clone();
         using var builder = new SKImageFilterBuilder();

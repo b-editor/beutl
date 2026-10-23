@@ -245,17 +245,9 @@ internal sealed partial class NestedActivateBrushEffect : FilterEffect
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        context.AppendSkiaFilter(
+        context.CustomEffect(
             new BrushPaintState(r.Brush),
-            static (state, _, executor) =>
-            {
-                using var nested = new FilterEffectContext(
-                    executor.CurrentTargets.CalculateBounds(),
-                    executor.OutputScale,
-                    executor.WorkingScale);
-                nested.CustomEffect(state, BrushPaintOperation.PaintBrush, static (_, bounds) => bounds);
-                return executor.Activate(nested);
-            },
+            BrushPaintOperation.PaintBrush,
             static (_, bounds) => bounds);
     }
 }
