@@ -245,7 +245,15 @@ public abstract class DynamicsNode : AudioNode
     /// </remarks>
     protected float Sanitize(float value, float fallback, float min, float max, string paramName)
     {
-        float safe = SafeParameter(value, fallback, paramName);
+        bool isFinite = float.IsFinite(value);
+        float safe = isFinite ? value : fallback;
+        if (!isFinite && _loggedNonFiniteParameters.Add(paramName))
+        {
+            Logger.LogWarning(
+                "{Node} parameter '{Param}' produced a non-finite value; falling back to {Fallback}. Further occurrences for this parameter will be suppressed.",
+                DiagnosticName, paramName, fallback);
+        }
+
         float clamped = Math.Clamp(safe, min, max);
         if (clamped != safe && _loggedClampedParameters.Add(paramName))
         {
@@ -255,18 +263,6 @@ public abstract class DynamicsNode : AudioNode
                 DiagnosticName, paramName, safe, min, max, clamped);
         }
         return clamped;
-    }
-
-    private float SafeParameter(float value, float fallback, string paramName)
-    {
-        if (float.IsFinite(value)) return value;
-        if (_loggedNonFiniteParameters.Add(paramName))
-        {
-            Logger.LogWarning(
-                "{Node} parameter '{Param}' produced a non-finite value; falling back to {Fallback}. Further occurrences for this parameter will be suppressed.",
-                DiagnosticName, paramName, fallback);
-        }
-        return fallback;
     }
 
     /// <summary>

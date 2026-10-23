@@ -972,14 +972,15 @@ public class CompressorNodeTests
             $"A one-tick boundary rounding must not reset the envelope (continuing≈{continuingFirst:F4}, fresh≈{freshFirst:F4}).");
     }
 
-    [Test]
-    public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
+    [TestCase(float.NaN)]
+    [TestCase(-60f)]
+    public void Process_NonFiniteValue_FallsBackToDeclaredConstant(float thresholdDefault)
     {
-        // A non-finite static value falls back to the declared constant, whatever the property's default.
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
-        var node = CreateNode(threshold: float.NaN, ratio: float.NaN, attack: float.NaN, release: float.NaN, knee: float.NaN, makeup: float.NaN);
+        using var node = CreateNode(threshold: thresholdDefault, ratio: float.NaN, attack: float.NaN, release: float.NaN, knee: float.NaN, makeup: float.NaN);
+        node.Threshold.Value = float.NaN;
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25)));
@@ -999,6 +1000,6 @@ public class CompressorNodeTests
         float expectedDb = inputPeakDb - slope * (inputPeakDb - DefaultThresholdDb);
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
         Assert.That(steadyPeakDb, Is.EqualTo(expectedDb).Within(3f),
-            $"With non-finite property defaults the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
+            $"With a non-finite value the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
     }
 }
