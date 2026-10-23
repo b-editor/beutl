@@ -14,7 +14,7 @@ internal sealed partial class DeclarativeDocumentApplier
 {
     private void ApplyListProperties(EngineObject target, JsonObject desired)
     {
-        foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>())
+        foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>().Where(list => !target.IsBaseField(list)))
         {
             if (desired.TryGetPropertyValue(listProperty.Name, out JsonNode? node))
             {
