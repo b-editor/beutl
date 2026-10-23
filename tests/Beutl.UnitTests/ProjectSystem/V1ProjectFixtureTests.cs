@@ -210,12 +210,6 @@ public class V1ProjectFixtureTests
         }
 
         line($"  [{index}] {ShortTypeName(TypeFormat.ToString(obj.GetType()))}");
-        if ((bool?)writtenOperator?["IsEnabled"] == false && obj.IsEnabled)
-        {
-            // Pinned as it is: ElementMigration reads an operator's Value, not the operator's own
-            // IsEnabled. 1.1.0 skipped a turned-off DecorateOperator or GroupOperator; 2.x applies it.
-            line("      KNOWN GAP: 1.1.0 wrote this operator turned off, but the migrated object is enabled");
-        }
 
         JsonObject actual = CoreSerializer.SerializeToJsonObject(obj);
         if (writtenOperator?["Value"] is JsonObject writtenValue)
