@@ -419,9 +419,7 @@ public class GraphicsContext2DTests
         protected override void OnDispose(bool disposing)
         {
             Released = true;
-            // The finalizer calls OnDispose(false) unguarded, and a throwing finalizer kills the test host.
-            if (disposing)
-                throw new InvalidOperationException("resource release failed");
+            throw new InvalidOperationException("resource release failed");
         }
     }
 
