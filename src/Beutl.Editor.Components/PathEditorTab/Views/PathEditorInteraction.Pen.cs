@@ -46,7 +46,7 @@ internal sealed partial class PathEditorInteraction
         }
         if (TryLocal(point, out BtlPoint local) && !PathPointDragBehavior.IsClosed(Context!, figure))
         {
-            AppendPenPoint(e, figure, explicitStart, point, local);
+            AppendPenPoint(e, figure, point, local);
         }
         e.Handled = true;
     }
@@ -62,7 +62,7 @@ internal sealed partial class PathEditorInteraction
             // closing edge must be appended, never written over segment 0.
             if (_outgoing is { } outgoing)
             {
-                BtlPoint last = figure.Segments[^1].GetEndPoint().Evaluate(Composition);
+                BtlPoint last = PathEditingOperations.EndPoint(figure, figure.Segments.Count - 1).Evaluate(Composition);
                 figure.Segments.Add(PathEditingOperations.Cubic(outgoing,
                     PathEditingOperations.Lerp(last, explicitStart, 2f / 3), explicitStart));
             }
@@ -85,7 +85,7 @@ internal sealed partial class PathEditorInteraction
             }
             else if (figure.Segments[0] is LineSegment && (_firstIncoming != null || _outgoing != null))
             {
-                BtlPoint last = figure.Segments[^1].GetEndPoint().Evaluate(Composition);
+                BtlPoint last = PathEditingOperations.EndPoint(figure, figure.Segments.Count - 1).Evaluate(Composition);
                 BtlPoint first = endpoint.GetEndPoint().Evaluate(Composition);
                 figure.Segments[0] = PathEditingOperations.Cubic(
                     _outgoing ?? PathEditingOperations.Lerp(last, first, 1f / 3),
@@ -96,30 +96,29 @@ internal sealed partial class PathEditorInteraction
         Tool = PathEditorTool.Move;
     }
 
-    private void AppendPenPoint(PointerPressedEventArgs e, PathFigure figure, BtlPoint explicitStart, Point point, BtlPoint local)
+    private void AppendPenPoint(PointerPressedEventArgs e, PathFigure figure, Point point, BtlPoint local)
     {
         // New controls are static. Do not sample a driven edge start into
         // them, whether it is the explicit start or a previous endpoint.
         var startProperty = figure.Segments.Count == 0
-            ? figure.StartPoint : figure.Segments[^1].GetEndPoint();
+            ? figure.StartPoint : PathEditingOperations.EndPoint(figure, figure.Segments.Count - 1);
         if (!PathEditingOperations.IsStatic(startProperty)) return;
+        BtlPoint previous = startProperty.Evaluate(Composition);
         _penPoint = local;
-        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && figure.Segments.Count > 0)
-            _penPoint = PathEditingOperations.SnapAngle(figure.Segments[^1].GetEndPoint().Evaluate(Composition), local);
+        if (e.KeyModifiers.HasFlag(KeyModifiers.Shift) && figure.Segments.Count > 0 && !previous.IsInvalid)
+            _penPoint = PathEditingOperations.SnapAngle(previous, local);
         _penSegment = null;
         _start = point;
         BeginGestureEntry();
-        // Only an implicit start needs a move-only anchor. With an explicit
+        // Only an implicit start needs a move-only anchor, also after segments that did not load. With an explicit
         // start, the first point already terminates an edge that can be bent.
-        if (figure.Segments.Count == 0 && explicitStart.IsInvalid)
+        if (previous.IsInvalid)
         {
             _penEnd = new LineSegment(_penPoint);
             figure.Segments.Add(_penEnd);
         }
         else
         {
-            BtlPoint previous = figure.Segments.Count == 0
-                ? explicitStart : figure.Segments[^1].GetEndPoint().Evaluate(Composition);
             _penSegment = PathEditingOperations.Cubic(_outgoing ?? PathEditingOperations.Lerp(previous, _penPoint, 1f / 3),
                 PathEditingOperations.Lerp(previous, _penPoint, 2f / 3), _penPoint);
             _penEnd = _penSegment;
@@ -134,7 +133,7 @@ internal sealed partial class PathEditorInteraction
     private bool CanCloseExplicitPath(PathFigure figure) =>
         PathEditingOperations.IsStatic(figure.IsClosed)
         && (_outgoing == null || PathEditingOperations.IsStatic(figure.StartPoint)
-            && PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint()));
+            && PathEditingOperations.IsStatic(PathEditingOperations.EndPoint(figure, figure.Segments.Count - 1)));
 
     private bool CanCloseImplicitPath(PathFigure figure)
     {
@@ -142,7 +141,7 @@ internal sealed partial class PathEditorInteraction
         if (_outgoing == null && _firstIncoming == null) return true;
         if (!PathEditingOperations.IsStatic(figure.StartPoint)
             || !PathEditingOperations.IsStatic(figure.Segments[0].GetEndPoint())
-            || !PathEditingOperations.IsStatic(figure.Segments[^1].GetEndPoint())) return false;
+            || !PathEditingOperations.IsStatic(PathEditingOperations.EndPoint(figure, figure.Segments.Count - 1))) return false;
         return figure.Segments[0] switch
         {
             LineSegment => true,
