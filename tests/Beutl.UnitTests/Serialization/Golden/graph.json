@@ -493,8 +493,8 @@
           "Name": "Time",
           "Animations": {},
           "Expressions": {},
-          "Setter": "00:00:00",
-          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:TimeSpan>"
+          "Setter": 0,
+          "$type": "[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Core]Beutl:MediaTime>"
         },
         {
           "IsEnabled": true,
@@ -509,8 +509,8 @@
         "IsEnabled": true,
         "Id": "00000000-0000-0000-0000-000000000050",
         "Name": "",
-        "Start": "00:00:00",
-        "Duration": "3650.00:00:00",
+        "Start": 0,
+        "Duration": 222518016000000000,
         "ZIndex": 0,
         "Animations": {},
         "Expressions": {},

@@ -65,8 +65,5 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)build/BannedSymbols.txt" />
-    <!-- The project and its rate helpers own the variables. -->
-    <AdditionalFiles Include="$(MSBuildThisFileDirectory)build/BannedSymbols.ProjectVariables.txt"
-                     Condition="'$(MSBuildProjectName)' != 'Beutl.Core' And '$(MSBuildProjectName)' != 'Beutl.ProjectSystem'" />
   </ItemGroup>
 </Project>

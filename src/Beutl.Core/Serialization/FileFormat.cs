@@ -34,7 +34,7 @@ public static class FileFormat
     /// breaking change changes the meaning of an existing member, changes the structure of persisted
     /// data, or writes a type or member under a new name. New members and new types do not raise it.
     /// </remarks>
-    public const string Floor = "2.0.0-preview.1";
+    public const string Floor = "2.0.0-preview.9";
 
     internal const string AppVersionKey = "appVersion";
 

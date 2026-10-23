@@ -34,7 +34,7 @@ public class ProjectLifecyclePerformanceTests
             }
 
             string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"lifecycle-{trackHistory}-{Guid.NewGuid():N}");
-            Project project = (await TestShell.Project.CreateProject(1920, 1080, 30, 44100, "Empty", location))!;
+            Project project = (await TestShell.Project.CreateProject(1920, 1080, new Rational(30), 44100, "Empty", location))!;
             Assert.That(project, Is.Not.Null);
             Assert.That(TestShell.Editor.TabItems.Count, Is.EqualTo(1));
             string file = project.Uri!.LocalPath;

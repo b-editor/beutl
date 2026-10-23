@@ -46,7 +46,7 @@ public sealed class SessionToolsTests
             projectPath,
             64,
             64,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1)));
         Scene scene = project.Items.OfType<Scene>().Single();
         var element = new Element
@@ -152,7 +152,7 @@ public sealed class SessionToolsTests
             projectPath,
             64,
             64,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1)));
         Scene scene = project.Items.OfType<Scene>().Single();
         var element = new Element
@@ -188,7 +188,7 @@ public sealed class SessionToolsTests
             projectPath,
             64,
             64,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1)));
         Scene scene = project.Items.OfType<Scene>().Single();
         var holder = new AnimatedValueHolder();
@@ -257,7 +257,7 @@ public sealed class SessionToolsTests
             projectPath,
             64,
             64,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1)));
         Scene scene = project.Items.OfType<Scene>().Single();
         var shape = new RectShape();
@@ -322,7 +322,7 @@ public sealed class SessionToolsTests
             projectPath,
             64,
             64,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1)));
         Scene scene = project.Items.OfType<Scene>().Single();
         string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
@@ -440,7 +440,7 @@ public sealed class SessionToolsTests
             projectPath,
             64,
             64,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1)));
         Scene scene = project.Items.OfType<Scene>().Single();
         string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
@@ -486,7 +486,7 @@ public sealed class SessionToolsTests
             projectPath,
             64,
             64,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1),
             Name: "First scene"));
         Scene firstScene = project.Items.OfType<Scene>().Single();
@@ -648,6 +648,58 @@ public sealed class SessionToolsTests
             Assert.That(summary.Value.Duration, Is.EqualTo("00:00:04"));
             Assert.That(saved.IsSuccess, Is.True, saved.Error?.Message);
             Assert.That(saved.Value!.SavedPath, Is.EqualTo(created.Value.SavedPath));
+        });
+    }
+
+    // A rate such as 29.97 fps is a numerator and a denominator; the project keeps it reduced, as a whole rate such as
+    // 60/2 would be written as its numerator.
+    [TestCase(30000, 1001, "30000/1001")]
+    [TestCase(60000, 1000, "60")]
+    [TestCase(24, 1, "24")]
+    public async Task Create_project_takes_a_fractional_frame_rate(int frameRate, int frameRateDenominator, string saved)
+    {
+        string root = TestWorkspace.CreateDirectory();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = TestSessions.CreateSessionTools(source, new AgentSessionManager());
+
+        ToolResult<CreateProjectResponse> created = await sessionTools.CreateProject(
+            Path.Combine(root, "ntsc.bep"),
+            width: 640,
+            height: 360,
+            frameRate: frameRate,
+            duration: "00:00:04",
+            frameRateDenominator: frameRateDenominator);
+
+        Assert.That(created.IsSuccess, Is.True, created.Error?.Message);
+        Project project = ((FileEditingSession)source.CurrentSession!).Project;
+        JsonObject file = JsonNode.Parse(File.ReadAllText(created.Value!.SavedPath))!.AsObject();
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.FrameRate.ToString(), Is.EqualTo(saved));
+            Assert.That((string?)file["FrameRate"], Is.EqualTo(saved));
+        });
+    }
+
+    [Test]
+    public async Task Create_project_rejects_a_frame_rate_denominator_that_is_not_positive()
+    {
+        string root = TestWorkspace.CreateDirectory();
+        using var source = new FileSessionSource();
+        SessionTools sessionTools = TestSessions.CreateSessionTools(source, new AgentSessionManager());
+
+        ToolResult<CreateProjectResponse> result = await sessionTools.CreateProject(
+            Path.Combine(root, "zero.bep"),
+            width: 640,
+            height: 360,
+            frameRate: 30,
+            duration: "00:00:04",
+            frameRateDenominator: 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(File.Exists(Path.Combine(root, "zero.bep")), Is.False);
         });
     }
 
@@ -997,7 +1049,7 @@ public sealed class SessionToolsTests
         var gateway = new FileProjectSessionGateway(source, manager);
 
         FileEditingSession sessionB = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "b.bep"), 640, 360, 30, TimeSpan.FromSeconds(4)));
+            Path.Combine(root, "b.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(4)));
         sessionB.Save(skipConflictCheck: true);
 
         // The gateway uses the passed session, not the current one: add_scene targets B, and B is
@@ -1014,7 +1066,7 @@ public sealed class SessionToolsTests
         // A session swapped out of the source is disposed, so add_scene authorized for it is
         // rejected rather than silently retargeting the new current project.
         FileEditingSession sessionC = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "c.bep"), 640, 360, 30, TimeSpan.FromSeconds(4)));
+            Path.Combine(root, "c.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(4)));
         sessionC.Save(skipConflictCheck: true);
 
         await Assert.ThrowsAsync<SessionUnavailableException>(async () => await gateway.AddSceneAsync(
@@ -1028,7 +1080,7 @@ public sealed class SessionToolsTests
             projectPath,
             64,
             64,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1)));
         Scene scene = project.Items.OfType<Scene>().Single();
         string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
@@ -1095,7 +1147,7 @@ public sealed class SessionToolsTests
         public DispatchingTestSession? LastSession { get; private set; }
 
         public ValueTask<ProjectSessionResult> OpenProjectAsync(string fullPath, CancellationToken cancellationToken = default)
-            => CreateProjectAsync(new ProjectCreateOptions(fullPath, 640, 360, 30, TimeSpan.FromSeconds(4)), cancellationToken);
+            => CreateProjectAsync(new ProjectCreateOptions(fullPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(4)), cancellationToken);
 
         public ValueTask<ProjectSessionResult> CreateProjectAsync(
             ProjectCreateOptions options,

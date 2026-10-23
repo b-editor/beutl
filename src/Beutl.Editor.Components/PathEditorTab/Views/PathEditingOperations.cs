@@ -3,7 +3,6 @@ using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
-using Beutl.JsonConverters;
 using Beutl.Media;
 using Beutl.Serialization;
 using SkiaSharp;
@@ -215,9 +214,7 @@ internal static class PathEditingOperations
         }
 
         // Copy metadata/easing without sharing mutable keyframes or duplicating IDs.
-        JsonObject json;
-        using (MediaTimeJsonConverter.WriteFlicks())
-            json = CoreSerializer.SerializeToJsonObject((KeyFrame<Point>)point.Animation.KeyFrames[0]);
+        JsonObject json = CoreSerializer.SerializeToJsonObject((KeyFrame<Point>)point.Animation.KeyFrames[0]);
         json.Remove(nameof(CoreObject.Id));
         var derived = (KeyFrame<Point>)CoreSerializer.DeserializeFromJsonObject(json, typeof(KeyFrame<Point>));
         derived.Value = point.Value;

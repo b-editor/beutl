@@ -6,7 +6,8 @@ using Beutl.Serialization;
 
 namespace Beutl;
 
-public static class ProjectVariableKeys
+// The variables that held the rates before 2.0.0-preview.9, which a project reads once into its rate members.
+internal static class ProjectVariableKeys
 {
     public const string FrameRate = "framerate";
     public const string SampleRate = "samplerate";
@@ -32,6 +33,11 @@ public sealed class Project : Hierarchical
     [NotAutoSerialized]
     public IProperty<Dictionary<string, string>> VariablesProperty { get; } = new ValueOnlyProperty<Dictionary<string, string>>(null!);
 
+    // A whole number such as 30 or a fraction such as 30000/1001.
+    public IProperty<Rational> FrameRateProperty { get; } = new ValueOnlyProperty<Rational>(new Rational(30));
+
+    public IProperty<int> SampleRateProperty { get; } = new ValueOnlyProperty<int>(44100);
+
     /// <summary>
     /// Gets the version of Beutl that last saved the project file, as the file records it, or the running
     /// version for a project that has no file yet.
@@ -56,20 +62,28 @@ public sealed class Project : Hierarchical
 
     public Dictionary<string, string> Variables { get; } = [];
 
-    // The rate GetFrameRate gives, read here so that the project's own read can use it.
+    public Rational FrameRate
+    {
+        get => FrameRateProperty.Value;
+        set => FrameRateProperty.Value = value;
+    }
+
+    public int SampleRate
+    {
+        get => SampleRateProperty.Value;
+        set => SampleRateProperty.Value = value;
+    }
+
+    // The rate GetFrameRate gives: the project's when it is positive, or 30.
     internal static Rational ReadFrameRate(Project? project)
-        => project?.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value) == true
-           && Rational.TryParse(value, CultureInfo.InvariantCulture, out Rational rate)
-           && rate.Numerator > 0 && rate.Denominator > 0
-            ? rate
-            : new Rational(30);
+        => project?.FrameRate is { Numerator: > 0, Denominator: > 0 } rate ? rate : new Rational(30);
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         using Activity? activity = BeutlApplication.ActivitySource.StartActivity("Project.Deserialize");
         base.Deserialize(context);
 
-        // The variables come first: the items are read on the project's frame grid.
+        // The variables and rates come first: the items are read on the project's frame grid.
         if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
         {
             Variables.Clear();
@@ -77,6 +91,19 @@ public sealed class Project : Hierarchical
             {
                 Variables.Add(item.Key, item.Value);
             }
+        }
+
+        // Earlier versions kept the rates as variables, which a read moves to the rate members.
+        if (Variables.Remove(ProjectVariableKeys.FrameRate, out string? frameRate) && !context.Contains(nameof(FrameRate))
+            && Rational.TryParse(frameRate, CultureInfo.InvariantCulture, out Rational rate))
+        {
+            FrameRate = rate;
+        }
+
+        if (Variables.Remove(ProjectVariableKeys.SampleRate, out string? sampleRate) && !context.Contains(nameof(SampleRate))
+            && int.TryParse(sampleRate, NumberStyles.Integer, CultureInfo.InvariantCulture, out int samples))
+        {
+            SampleRate = samples;
         }
 
         using (MediaTimeJsonConverter.ReadOnFrameGrid(ReadFrameRate(this)))

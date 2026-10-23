@@ -50,7 +50,7 @@ public class VersionControlRestoreTests
         Project project = (await TestShell.Project.CreateProject(
             640,
             480,
-            30,
+            new Rational(30),
             44100,
             "control-path",
             location))!;
@@ -4981,7 +4981,7 @@ public class VersionControlRestoreTests
             Project? project = await projectService.CreateProject(
                 640,
                 480,
-                30,
+                new Rational(30),
                 44100,
                 "untracked",
                 location);
@@ -5062,7 +5062,7 @@ public class VersionControlRestoreTests
                 project = await projectService.CreateProject(
                     640,
                     480,
-                    30,
+                    new Rational(30),
                     44100,
                     "declined",
                     location,
@@ -5148,7 +5148,7 @@ public class VersionControlRestoreTests
                 project = await projectService.CreateProject(
                     640,
                     480,
-                    30,
+                    new Rational(30),
                     44100,
                     "prepared",
                     location,
@@ -5280,7 +5280,7 @@ public class VersionControlRestoreTests
                 project = await projectService.CreateProject(
                     640,
                     480,
-                    30,
+                    new Rational(30),
                     44100,
                     "interrupted",
                     location,
@@ -5377,7 +5377,7 @@ public class VersionControlRestoreTests
                 project = await projectService.CreateProject(
                     640,
                     480,
-                    30,
+                    new Rational(30),
                     44100,
                     "reserved-path-failure",
                     location,
@@ -5452,7 +5452,7 @@ public class VersionControlRestoreTests
                 project = await projectService.CreateProject(
                     640,
                     480,
-                    30,
+                    new Rational(30),
                     44100,
                     "not-opened",
                     location,
@@ -5541,7 +5541,7 @@ public class VersionControlRestoreTests
             creation = projectService.CreateProject(
                 640,
                 480,
-                30,
+                new Rational(30),
                 44100,
                 "close-during-identity",
                 location,
@@ -5636,7 +5636,7 @@ public class VersionControlRestoreTests
             creation = projectService.CreateProject(
                 640,
                 480,
-                30,
+                new Rational(30),
                 44100,
                 "disposed",
                 location,
@@ -7267,7 +7267,7 @@ public class VersionControlRestoreTests
         Project? project = await TestShell.Project.CreateProject(
             640,
             480,
-            30,
+            new Rational(30),
             44100,
             "tracked",
             location);

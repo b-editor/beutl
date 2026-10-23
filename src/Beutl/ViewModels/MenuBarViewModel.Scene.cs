@@ -6,7 +6,6 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SceneSettingsTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
-using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -78,10 +77,7 @@ public partial class MenuBarViewModel
 
     private static DataTransfer CreateElementDataObject(Element element)
     {
-        string json;
-        // The clipboard keeps exact times, as ElementClipboardService does.
-        using (MediaTimeJsonConverter.WriteFlicks())
-            json = CoreSerializer.SerializeToJsonString(element);
+        string json = CoreSerializer.SerializeToJsonString(element);
         var data = new DataTransfer();
         data.Add(DataTransferItem.CreateText(json));
         data.Add(DataTransferItem.Create(BeutlDataFormats.Element, json));

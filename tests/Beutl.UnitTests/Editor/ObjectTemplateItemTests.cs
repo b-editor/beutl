@@ -1,8 +1,14 @@
 ﻿using System.Buffers.Binary;
 using System.Text;
 using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Editor.Services;
+using Beutl.Extensibility;
 using Beutl.IO;
+using Beutl.JsonConverters;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -166,5 +172,33 @@ public class ObjectTemplateItemTests
         JsonNode json = ObjectTemplateItem.ToJson(item);
         return ObjectTemplateItem.FromJson(
             json, item.Name.Value, Path.Combine(_root, "templates", "pkg", "title.json"), NullLogger.Instance);
+    }
+
+    // A template records no version, and one from before 2.0.0-preview.9 names time keyframes over TimeSpan (#2885).
+    [Test]
+    public void A_template_saved_before_flick_counts_keeps_the_keyframes_of_a_node_time_port()
+    {
+        var sceneNode = new SceneNode();
+        var animation = new KeyFrameAnimation<MediaTime>();
+        animation.KeyFrames.Add(new KeyFrame<MediaTime> { KeyTime = MediaTime.FromSeconds(1), Value = MediaTime.FromSeconds(3) });
+        ((IAnimatablePropertyAdapter<MediaTime>)sceneNode.Time.Property!).Animation = animation;
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.Value!.Nodes.Add(sceneNode);
+        var element = new Element();
+        element.AddObject(drawable);
+        JsonNode file;
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            file = ObjectTemplateItem.ToJson(ObjectTemplateItem.CreateFromInstance(element, "clip"));
+        string text = file.ToJsonString().Replace("[Beutl.Core]Beutl:MediaTime", "[System.Private.CoreLib]System:TimeSpan");
+        Assert.That(text, Does.Contain("[System.Private.CoreLib]System:TimeSpan"));
+
+        ObjectTemplateItem item = ObjectTemplateItem.FromJson(
+            JsonNode.Parse(text)!, "clip", Path.Combine(_root, "templates", "clip.json"), NullLogger.Instance)!;
+        var instance = (Element)item.CreateInstance()!;
+        GraphModel graph = ((NodeGraphDrawable)instance.Objects.Single()).Model.Value!;
+        var keyFrames = ((IAnimatablePropertyAdapter<MediaTime>)graph.Nodes.OfType<SceneNode>().Single().Time.Property!).Animation;
+
+        Assert.That(keyFrames?.KeyFrames.OfType<KeyFrame<MediaTime>>().Select(k => (k.KeyTime, k.Value)),
+            Is.EqualTo(new[] { (MediaTime.FromSeconds(1), MediaTime.FromSeconds(3)) }));
     }
 }

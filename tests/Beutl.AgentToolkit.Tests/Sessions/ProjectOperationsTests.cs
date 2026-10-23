@@ -34,7 +34,7 @@ public sealed class ProjectOperationsTests
             Path.Combine(_tempRoot, "proj.bep"),
             Width: 1920,
             Height: 1080,
-            FrameRate: 30,
+            FrameRate: new Rational(30),
             Duration: TimeSpan.FromSeconds(10)));
 
         // CreateProject seeds a scene named after the project ("proj") at proj/proj.scene.
@@ -60,7 +60,7 @@ public sealed class ProjectOperationsTests
             Path.Combine(_tempRoot, "proj.bep"),
             Width: 1920,
             Height: 1080,
-            FrameRate: 30,
+            FrameRate: new Rational(30),
             Duration: TimeSpan.FromSeconds(10)));
 
         string projectDir = Path.GetDirectoryName(project.Uri!.LocalPath)!;
@@ -89,7 +89,7 @@ public sealed class ProjectOperationsTests
     public void Save_RehomesHealthyElementWithoutOverwritingExistingEntry(bool normalizeFirst, string entryKind)
     {
         Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
-            Path.Combine(_tempRoot, "project", "proj.bep"), 1920, 1080, 30, TimeSpan.FromSeconds(10)));
+            Path.Combine(_tempRoot, "project", "proj.bep"), 1920, 1080, new Rational(30), TimeSpan.FromSeconds(10)));
         Scene scene = project.Items.OfType<Scene>().Single();
         string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         Directory.CreateDirectory(sceneDirectory);
@@ -135,7 +135,7 @@ public sealed class ProjectOperationsTests
             Path.Combine(_tempRoot, "proj.bep"),
             Width: 1920,
             Height: 1080,
-            FrameRate: 30,
+            FrameRate: new Rational(30),
             Duration: TimeSpan.FromSeconds(10)));
         Scene scene = project.Items.OfType<Scene>().Single();
         string outsideDirectory = Path.Combine(
@@ -183,7 +183,7 @@ public sealed class ProjectOperationsTests
             Path.Combine(_tempRoot, "proj.bep"),
             Width: 1920,
             Height: 1080,
-            FrameRate: 30,
+            FrameRate: new Rational(30),
             Duration: TimeSpan.FromSeconds(10)));
 
         Scene first = project.Items.OfType<Scene>().First();
@@ -212,7 +212,7 @@ public sealed class ProjectOperationsTests
             Path.Combine(_tempRoot, "proj.bep"),
             Width: 1920,
             Height: 1080,
-            FrameRate: 30,
+            FrameRate: new Rational(30),
             Duration: TimeSpan.FromSeconds(10)));
 
         string projectDir = Path.GetDirectoryName(project.Uri!.LocalPath)!;
@@ -268,7 +268,7 @@ public sealed class ProjectOperationsTests
             Path.Combine(_tempRoot, "proj.bep"),
             Width: 1920,
             Height: 1080,
-            FrameRate: 30,
+            FrameRate: new Rational(30),
             Duration: TimeSpan.FromSeconds(10)));
 
         string projectDir = Path.GetDirectoryName(project.Uri!.LocalPath)!;

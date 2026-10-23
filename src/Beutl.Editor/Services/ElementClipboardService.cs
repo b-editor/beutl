@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.Extensibility;
 using Beutl.Graphics;
-using Beutl.JsonConverters;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
@@ -46,19 +45,15 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (elements.Count == 0) return false;
 
         var entries = new List<ClipboardEntry>(3);
-        // The clipboard keeps exact times, which an earlier version cannot paste.
-        using (MediaTimeJsonConverter.WriteFlicks())
-        {
-            string singleJson = CoreSerializer.SerializeToJsonString(elements[0]);
-            entries.Add(new(BeutlClipboardFormats.Element, singleJson));
-            entries.Add(new(BeutlClipboardFormats.Text, singleJson));
+        string singleJson = CoreSerializer.SerializeToJsonString(elements[0]);
+        entries.Add(new(BeutlClipboardFormats.Element, singleJson));
+        entries.Add(new(BeutlClipboardFormats.Text, singleJson));
 
-            if (elements.Count > 1)
-            {
-                JsonNode multiNode = new JsonArray(
-                    elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
-                entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString()));
-            }
+        if (elements.Count > 1)
+        {
+            JsonNode multiNode = new JsonArray(
+                elements.Select(JsonNode (e) => CoreSerializer.SerializeToJsonObject(e)).ToArray());
+            entries.Add(new ClipboardEntry(BeutlClipboardFormats.Elements, multiNode.ToJsonString()));
         }
 
         return await _clipboard.SetAsync(entries);

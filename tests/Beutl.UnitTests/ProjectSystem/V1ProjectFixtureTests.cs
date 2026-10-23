@@ -117,7 +117,8 @@ public class V1ProjectFixtureTests
         var text = new StringBuilder();
         void Line(string line = "") => text.Append(line).Append('\n');
 
-        Line($"Project variables: {string.Join(", ", project.Variables.OrderBy(v => v.Key).Select(v => $"{v.Key}={v.Value}"))}");
+        Line($"Project rates: {project.FrameRate} fps, {project.SampleRate} Hz");
+        Line($"Project variables: {string.Join(", ", project.Variables.OrderBy(v => v.Key).Select(v => $"{v.Key}={v.Value}"))}".TrimEnd());
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
             Line($"Scene \"{scene.Name}\": {scene.FrameSize.Width}x{scene.FrameSize.Height}, duration {scene.Duration.ToTimeSpan()}, {scene.Children.Count} elements");

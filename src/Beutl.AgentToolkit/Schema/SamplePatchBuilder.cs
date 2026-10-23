@@ -6,6 +6,7 @@ using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Transformation;
+using Beutl.JsonConverters;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -115,7 +116,12 @@ internal static class SamplePatchBuilder
 
     public static JsonObject SerializeWithoutIds(ICoreSerializable value)
     {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(value);
+        JsonObject json;
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+        {
+            json = CoreSerializer.SerializeToJsonObject(value);
+        }
+
         CollectionReconciler.RemoveIds(json);
         return json;
     }

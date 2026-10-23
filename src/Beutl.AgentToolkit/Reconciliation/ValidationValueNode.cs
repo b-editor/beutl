@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.JsonConverters;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
@@ -29,7 +30,10 @@ internal static class ValidationValueNode
 
         try
         {
-            return CoreSerializer.SerializeToJsonNode(value, options);
+            using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            {
+                return CoreSerializer.SerializeToJsonNode(value, options);
+            }
         }
         catch (Exception ex)
         {

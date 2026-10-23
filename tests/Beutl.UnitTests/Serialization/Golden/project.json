@@ -1,11 +1,13 @@
 {
+  "FrameRate": "30000/1001",
+  "SampleRate": 44100,
   "Id": "00000000-0000-0000-0000-000000000001",
   "Name": "",
   "items": [
     "file:///golden/scene/scene.scene"
   ],
   "variables": {
-    "framerate": "30"
+    "author": "beutl"
   },
   "$type": "[Beutl.Core]Beutl:Project"
 }

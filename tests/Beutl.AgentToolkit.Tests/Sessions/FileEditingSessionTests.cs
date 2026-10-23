@@ -36,7 +36,7 @@ public sealed class FileEditingSessionTests
         string projectPath = Path.Combine(root, "demo.bep");
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2)));
+            projectPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(2)));
         string elementPath = Path.Combine(Path.GetDirectoryName(session.Scene.Uri!.LocalPath)!, "clip.belm");
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float> { Value = 10 });
@@ -89,7 +89,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
         // A second scene sharing the seed scene's name ("demo") is what Save As must not collapse onto
         // the same <name>/<name>.scene sidecar.
@@ -115,7 +115,7 @@ public sealed class FileEditingSessionTests
         File.WriteAllText(existingSidecar, "existing sidecar");
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
         session.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true);
 
@@ -135,7 +135,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         var element = new Element
         {
@@ -166,7 +166,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         string relativePath = Path.Combine("sub", "clip.belm");
         var element = new Element
@@ -192,7 +192,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         string relativePath = Path.Combine("..assets", "clip.belm");
         var element = new Element
@@ -219,7 +219,7 @@ public sealed class FileEditingSessionTests
         string projectPath = Path.Combine(root, "demo.bep");
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            projectPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         string firstPath = Path.Combine(sceneDirectory, "first", "clip.belm");
@@ -274,7 +274,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2)));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2)));
         session.Save(skipConflictCheck: true);
         string projectPath = session.Project.Uri!.LocalPath;
         string[] originalSceneUris = session.Project.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath).ToArray();
@@ -301,7 +301,7 @@ public sealed class FileEditingSessionTests
         string projectPath = Path.Combine(root, "demo.bep");
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            projectPath, 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            projectPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         string elementPath = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm");
         scene.Children.Add(new Element
@@ -366,7 +366,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2)));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2)));
 
         session.Dispose();
 
@@ -380,8 +380,8 @@ public sealed class FileEditingSessionTests
         string pathA = Path.Combine(root, "a.bep");
         string pathB = Path.Combine(root, "b.bep");
         using var source = new FileSessionSource();
-        TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(pathA, 640, 360, 30, TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
-        TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(pathB, 640, 360, 30, TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
+        TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(pathA, 640, 360, new Rational(30), TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
+        TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(pathB, 640, 360, new Rational(30), TimeSpan.FromSeconds(2))).Save(skipConflictCheck: true);
 
         for (int i = 0; i < 20; i++)
         {
@@ -414,7 +414,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
         const int threadCount = 8;
         int concurrent = 0;
@@ -456,7 +456,7 @@ public sealed class FileEditingSessionTests
         // Not disposed via `using`: the test disposes the session itself and RecordingPipeline.Dispose is not idempotent.
         var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
         Assert.That(OperationWaitsForInFlightInvoke(session, s => s.Dispose()), Is.True);
     }
@@ -467,7 +467,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
         Assert.That(OperationWaitsForInFlightInvoke(session, s => s.Save(skipConflictCheck: true)), Is.True);
     }
@@ -478,7 +478,7 @@ public sealed class FileEditingSessionTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(2), Name: "demo"));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(2), Name: "demo"));
 
         Assert.That(OperationWaitsForInFlightInvoke(session, s => s.SaveAs(Path.Combine(root, "copy.bep"), skipConflictCheck: true)), Is.True);
     }

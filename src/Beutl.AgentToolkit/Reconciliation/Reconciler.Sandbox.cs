@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -9,13 +10,17 @@ namespace Beutl.AgentToolkit.Reconciliation;
 
 public sealed partial class Reconciler
 {
-    // Applies the full desired document to a throwaway clone of the current root, so newly inserted
-    // subtrees exist and are findable by Id here — unlike the live root the diff runs against.
-    private static CoreObject BuildValidationSandbox(
+    // Applies the full desired document to a throwaway clone of the current root, so newly inserted subtrees exist and
+    // are findable by Id here — unlike the live root the diff runs against. Internal so tests can read the clone.
+    internal static CoreObject BuildValidationSandbox(
         IEditingSession session,
         JsonObject currentDocument,
         JsonObject desiredDocument)
     {
+        // The clone has no project, so its times are read on the live root's frame grid, as Apply reads them there.
+        using IDisposable? frameGrid = (session.Root as IHierarchical)?.FindHierarchicalParent<Project>() is { } project
+            ? MediaTimeJsonConverter.ReadOnFrameGrid(project.GetFrameRate())
+            : null;
         CoreObject sandboxRoot;
         Dictionary<IncidentIdentity, int> existingIncidents;
         using (var baseline = DeserializationIncidents.BeginCapture())

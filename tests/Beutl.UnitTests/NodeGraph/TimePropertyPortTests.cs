@@ -1,16 +1,22 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine.Expressions;
+using Beutl.Extensibility;
 using Beutl.Graphics;
+using Beutl.JsonConverters;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
-// Time properties that #2885 moved to MediaTime still take numbers and keep their saved node ports.
+// Time properties and node time ports that #2885 moved to MediaTime take numbers and keep their saved ports.
 [TestFixture]
 public sealed class TimePropertyPortTests
 {
@@ -32,9 +38,10 @@ public sealed class TimePropertyPortTests
         });
     }
 
-    // Until #2885 step 4 the port and the expression it sets keep the TimeSpan names earlier versions read and write.
+    // Earlier versions name the nested port of a time property, the expression its connection sets and the time port of
+    // a scene node with its keyframes over TimeSpan. They read over MediaTime, keeping the connection and the keyframes.
     [Test]
-    public void A_connected_nested_time_port_keeps_its_connection_and_saved_types_through_a_reopen()
+    public void Time_ports_of_an_earlier_version_read_over_MediaTime_with_their_connection_and_keyframes()
     {
         var graph = new GraphModel();
         var node = new FactoryNode<DrawableBrush>();
@@ -44,29 +51,64 @@ public sealed class TimePropertyPortTests
         graph.Nodes.Add(node);
         INestedInputPort port = Find(node, video.OffsetPosition);
         Connection connection = graph.Connect(port, Source(graph, 2f));
-
-        JsonObject saved = CoreSerializer.SerializeToJsonObject(graph);
-        var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(saved.DeepClone().AsObject(), typeof(GraphModel));
-        Evaluate(restored);
-        JsonObject resaved = CoreSerializer.SerializeToJsonObject(restored);
-        IExpressionProperty<MediaTime> offset = ((SourceVideo)restored.Nodes.OfType<FactoryNode<DrawableBrush>>().Single()
-            .Object.Drawable.Value!).OffsetPosition;
-
-        Assert.Multiple(() =>
+        var sceneNode = new SceneNode();
+        var keyFrames = new KeyFrameAnimation<MediaTime>();
+        keyFrames.KeyFrames.Add(new KeyFrame<MediaTime> { KeyTime = MediaTime.FromSeconds(1), Value = MediaTime.FromSeconds(4) });
+        ((IAnimatablePropertyAdapter<MediaTime>)sceneNode.Time.Property!).Animation = keyFrames;
+        graph.Nodes.Add(sceneNode);
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-time-ports-{Guid.NewGuid():N}");
+        try
         {
-            Assert.That(restored.AllConnections.Single().Id, Is.EqualTo(connection.Id));
-            Assert.That(restored.FindNodePort(port.Id), Is.InstanceOf<NestedInputPort<TimeSpan>>());
-            Assert.That(offset.Evaluate(CompositionContext.Default), Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That((offset.Expression as NodePortExpression<MediaTime>)?.Replaced?.ExpressionString,
-                Is.EqualTo("TimeSpan.FromSeconds(3)"));
-            foreach (JsonObject file in new[] { saved, resaved })
+            Uri uri = SaveAsEarlierVersion(graph, directory);
+
+            Element element = CoreSerializer.RestoreFromUri<Element>(uri);
+            GraphModel restored = ((NodeGraphDrawable)element.Objects.Single()).Model.Value!;
+            Evaluate(restored);
+            IExpressionProperty<MediaTime> offset = ((SourceVideo)restored.Nodes.OfType<FactoryNode<DrawableBrush>>().Single()
+                .Object.Drawable.Value!).OffsetPosition;
+            var restoredKeyFrames = ((IAnimatablePropertyAdapter<MediaTime>)restored.Nodes.OfType<SceneNode>().Single()
+                .Time.Property!).Animation;
+            string[] names = [.. TypeNames(CoreSerializer.SerializeToJsonObject(element))];
+
+            Assert.Multiple(() =>
             {
-                string[] names = [.. TypeNames(file)];
-                Assert.That(names, Has.Member("[Beutl.NodeGraph]:NestedInputPort<[System.Private.CoreLib]System:TimeSpan>")
-                    .And.Member("[Beutl.NodeGraph]:NodePortExpression<[System.Private.CoreLib]System:TimeSpan>"));
-                Assert.That(names.Where(name => name.Contains(nameof(MediaTime))), Is.Empty);
-            }
-        });
+                Assert.That(restored.AllConnections.Single().Id, Is.EqualTo(connection.Id));
+                Assert.That(restored.FindNodePort(port.Id), Is.InstanceOf<NestedInputPort<MediaTime>>());
+                Assert.That(offset.Evaluate(CompositionContext.Default), Is.EqualTo(MediaTime.FromSeconds(2)));
+                Assert.That((offset.Expression as NodePortExpression<MediaTime>)?.Replaced?.ExpressionString,
+                    Is.EqualTo("TimeSpan.FromSeconds(3)"));
+                Assert.That(restoredKeyFrames?.KeyFrames.OfType<KeyFrame<MediaTime>>().Select(k => (k.KeyTime, k.Value)),
+                    Is.EqualTo(new[] { (MediaTime.FromSeconds(1), MediaTime.FromSeconds(4)) }));
+                Assert.That(names, Has.Member("[Beutl.NodeGraph]:NestedInputPort<[Beutl.Core]Beutl:MediaTime>")
+                    .And.Member("[Beutl.NodeGraph]:NodePortExpression<[Beutl.Core]Beutl:MediaTime>")
+                    .And.Member("[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Core]Beutl:MediaTime>"));
+                Assert.That(names.Where(name => name.Contains(nameof(TimeSpan))), Is.Empty);
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    // An element file holding the graph as 2.0.0-preview.8 wrote it: TimeSpan strings and type names over TimeSpan.
+    private static Uri SaveAsEarlierVersion(GraphModel graph, string directory)
+    {
+        var drawable = new NodeGraphDrawable();
+        drawable.Model.Value = graph;
+        var element = new Element { Uri = new Uri(Path.Combine(directory, "graph.belm")) };
+        element.AddObject(drawable);
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            CoreSerializer.StoreToUri(element, element.Uri);
+
+        string file = element.Uri.LocalPath;
+        JsonObject json = JsonNode.Parse(File.ReadAllText(file))!.AsObject();
+        json["minAppVersion"] = "2.0.0-preview.1";
+        string text = json.ToJsonString(new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping })
+            .Replace("[Beutl.Core]Beutl:MediaTime", "[System.Private.CoreLib]System:TimeSpan");
+        Assert.That(text, Does.Contain("DefaultInputPort<[System.Private.CoreLib]System:TimeSpan>"));
+        File.WriteAllText(file, text);
+        return element.Uri;
     }
 
     private static IEnumerable<string> TypeNames(JsonNode? node) => node switch

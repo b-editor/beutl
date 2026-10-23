@@ -21,7 +21,7 @@ public sealed class NestedSoundTimeRangeTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
         var tools = new EditTools(manager);
@@ -80,7 +80,7 @@ public sealed class NestedSoundTimeRangeTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var manager = new AgentSessionManager();
         manager.UseSource(source);
         var tools = new EditTools(manager);
@@ -119,7 +119,7 @@ public sealed class NestedSoundTimeRangeTests
         string root = TestWorkspace.CreateDirectory();
         using var source = new FileSessionSource();
         FileEditingSession session = TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var element = new Element
         {
             Name = "viz",

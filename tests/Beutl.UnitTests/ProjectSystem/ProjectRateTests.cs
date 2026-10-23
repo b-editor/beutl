@@ -1,26 +1,26 @@
 ﻿using System.Globalization;
+using System.Text.Json.Nodes;
+using Beutl.Serialization;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
 [TestFixture]
 public sealed class ProjectRateTests
 {
-    [TestCase("24", "48000", "24", 48000)]
-    [TestCase("60", "96000", "60", 96000)]
-    [TestCase("30000/1001", "48000", "30000/1001", 48000)]
-    [TestCase(null, null, "30", 44100)]
-    [TestCase("invalid", "invalid", "30", 44100)]
-    [TestCase("0", "-1", "30", 44100)]
-    [TestCase("-24", "0", "30", 44100)]
-    [TestCase("30000/0", "48000", "30", 48000)]
-    [TestCase("-30000/1001", "48000", "30", 48000)]
-    [TestCase("2147483648", "2147483648", "2147483648", 44100)]
+    [TestCase("24", 48000, "24", 48000)]
+    [TestCase("30000/1001", 48000, "30000/1001", 48000)]
+    [TestCase("0", -1, "30", 44100)]
+    [TestCase("-24", 0, "30", 44100)]
+    [TestCase("30000/0", 48000, "30", 48000)]
+    [TestCase("-30000/1001", 48000, "30", 48000)]
     public void Reads_positive_project_rates_or_uses_defaults(
-        string? frameRate, string? sampleRate, string expectedFrameRate, int expectedSampleRate)
+        string frameRate, int sampleRate, string expectedFrameRate, int expectedSampleRate)
     {
-        var project = new Project();
-        if (frameRate != null) project.Variables[ProjectVariableKeys.FrameRate] = frameRate;
-        if (sampleRate != null) project.Variables[ProjectVariableKeys.SampleRate] = sampleRate;
+        var project = new Project
+        {
+            FrameRate = Rational.Parse(frameRate, CultureInfo.InvariantCulture),
+            SampleRate = sampleRate,
+        };
 
         Assert.Multiple(() =>
         {
@@ -38,5 +38,54 @@ public sealed class ProjectRateTests
             Assert.That(project.GetFrameRate(), Is.EqualTo(new Rational(30)));
             Assert.That(project.GetSampleRate(), Is.EqualTo(44100));
         });
+    }
+
+    // Earlier versions kept the rates as variables, which a read moves to the rate members once.
+    [TestCase("24", "48000", "24", 48000)]
+    [TestCase("30000/1001", "96000", "30000/1001", 96000)]
+    [TestCase("invalid", "invalid", "30", 44100)]
+    [TestCase("2147483648", "2147483648", "2147483648", 44100)]
+    public void A_project_of_an_earlier_version_moves_its_rate_variables_to_the_rates(
+        string frameRate, string sampleRate, string expectedFrameRate, int expectedSampleRate)
+    {
+        Project project = Read(new JsonObject
+        {
+            ["variables"] = new JsonObject { ["framerate"] = frameRate, ["samplerate"] = sampleRate, ["author"] = "beutl" },
+        });
+        JsonObject saved = CoreSerializer.SerializeToJsonObject(project);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.FrameRate, Is.EqualTo(Rational.Parse(expectedFrameRate, CultureInfo.InvariantCulture)));
+            Assert.That(project.SampleRate, Is.EqualTo(expectedSampleRate));
+            Assert.That(project.Variables, Is.EquivalentTo(new Dictionary<string, string> { ["author"] = "beutl" }));
+            Assert.That((string?)saved["FrameRate"], Is.EqualTo(expectedFrameRate));
+            Assert.That((int?)saved["SampleRate"], Is.EqualTo(expectedSampleRate));
+            Assert.That(saved["variables"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { "author" }));
+        });
+    }
+
+    [Test]
+    public void The_rates_win_over_rate_variables_left_in_a_file()
+    {
+        Project project = Read(new JsonObject
+        {
+            ["FrameRate"] = "30000/1001",
+            ["SampleRate"] = 48000,
+            ["variables"] = new JsonObject { ["framerate"] = "60", ["samplerate"] = "22050" },
+        });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.FrameRate, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(project.SampleRate, Is.EqualTo(48000));
+            Assert.That(project.Variables, Is.Empty);
+        });
+    }
+
+    private static Project Read(JsonObject json)
+    {
+        json["items"] = new JsonArray();
+        return (Project)CoreSerializer.DeserializeFromJsonObject(json, typeof(Project));
     }
 }

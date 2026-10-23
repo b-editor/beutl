@@ -63,7 +63,7 @@ public class BufferedPlayerReadAheadTests
         string name = $"read-ahead-{Guid.NewGuid():N}";
         string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, name);
         Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(320, 240, 30, 44100, name, directory))!;
+        Project project = (await TestShell.Project.CreateProject(320, 240, new Rational(30), 44100, name, directory))!;
         HeadlessTestHelpers.Settle();
         TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().First());
         HeadlessTestHelpers.Settle();

@@ -12,7 +12,7 @@ using Beutl.ViewModels;
 
 namespace Beutl.HeadlessUITests;
 
-// The time ports of VideoSourceNode and SceneNode stay TimeSpan until #2885 step 4 and are edited with MediaTimeEditor.
+// The time ports of VideoSourceNode and SceneNode are edited with MediaTimeEditor.
 [TestFixture]
 public sealed class NodeTimePortEditorTests
 {
@@ -26,7 +26,7 @@ public sealed class NodeTimePortEditorTests
         var node = (GraphNode)Activator.CreateInstance(nodeType)!;
         var graph = new GraphModel();
         graph.Nodes.Add(node);
-        var time = (InputPort<TimeSpan>)node.Items.Single(item => item is InputPort<TimeSpan>);
+        var time = (InputPort<MediaTime>)node.Items.Single(item => item is InputPort<MediaTime>);
         using var graphViewModel = new NodeGraphViewModel(graph, editor);
         var view = new GraphNodeView { DataContext = graphViewModel.Nodes.Single() };
         var next = new Button { Content = "Next" };
@@ -43,7 +43,7 @@ public sealed class NodeTimePortEditorTests
             next.Focus();
             HeadlessTestHelpers.Render(3);
 
-            Assert.That(time.Property!.GetValue(), Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(time.Property!.GetValue(), Is.EqualTo(MediaTime.FromSeconds(2.5)));
         }
         finally
         {

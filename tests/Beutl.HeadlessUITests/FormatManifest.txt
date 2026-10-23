@@ -88,7 +88,7 @@ Beutl.Utilities
   abstract
 [Beutl.Core]Beutl:Project
   sealed
-  keys: Id, Name, items, variables
+  keys: FrameRate, Id, Name, SampleRate, items, variables
 [Beutl.Core]Beutl:ProjectItem
   abstract
 [Beutl.Editor].Services:ObjectRegenerator:ListWrapper<T>
@@ -988,6 +988,9 @@ Beutl.Utilities
   keys: Id, Input, Name, Output, Status
 [Beutl.NodeGraph]:DefaultInputPort<T>
   sealed
+[Beutl.NodeGraph]:DefaultInputPort<[Beutl.Core]Beutl:MediaTime>
+  sealed
+  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[Beutl.Engine]Beutl.Graphics.Rendering:RenderNode>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
@@ -1058,9 +1061,6 @@ Beutl.Utilities
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:String>
-  sealed
-  keys: Animations, Connection, Expressions, Id, IsEnabled, Name
-[Beutl.NodeGraph]:DefaultInputPort<[System.Private.CoreLib]System:TimeSpan>
   sealed
   keys: Animations, Connection, Expressions, Id, IsEnabled, Name
 [Beutl.NodeGraph]:DefaultNodeMember<T>

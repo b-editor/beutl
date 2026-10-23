@@ -266,7 +266,7 @@ public sealed class RenderToolsStoryboardTests
         {
             var scene = new Scene(16, 9, "frame-rate") { Duration = MediaTime.FromSeconds(1) };
             var project = new Project();
-            project.Variables[ProjectVariableKeys.FrameRate] = frameRate.ToString(CultureInfo.InvariantCulture);
+            project.FrameRate = new Rational(frameRate);
             project.Items.Add(scene);
             return scene;
         }

@@ -163,6 +163,8 @@ public sealed class ObjectTemplateItem(
             // would pin the whole parsed document — including the base64 preview — for the
             // lifetime of every item the service caches.
             var payload = (JsonObject)jsonObject.DeepClone();
+            // A template records no version; one from before 2.0.0-preview.9 names its time types over TimeSpan.
+            CoreSerializer.RenameTimeSpanTypeArguments(payload);
 
             return new ObjectTemplateItem(id, baseType, actualType, payload, name, categoryFormat, filePath)
             {

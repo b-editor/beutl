@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.JsonConverters;
 using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Documents;
@@ -12,7 +13,12 @@ public sealed class DocumentAdapter
     {
         ArgumentNullException.ThrowIfNull(root);
 
-        JsonObject document = CoreSerializer.SerializeToJsonObject(root, CreateOptions(root));
+        JsonObject document;
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+        {
+            document = CoreSerializer.SerializeToJsonObject(root, CreateOptions(root));
+        }
+
         SchemaVersion.Stamp(document);
         return document;
     }

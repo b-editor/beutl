@@ -1,6 +1,8 @@
-﻿using System.Text.Json;
+﻿using System.Globalization;
+using System.Text.Json;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor.Services;
+using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -63,7 +65,7 @@ public sealed class TickShortSceneBoundaryTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("tick-short-scene");
         Project project = editor.Scene.FindHierarchicalParent<Project>()!;
-        project.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         Rational rate = project.GetFrameRate();
         editor.Scene.Start = MediaTime.Zero;
         editor.Scene.Duration = TickShort(MediaTime.FromFrames(frames, rate));
@@ -72,5 +74,11 @@ public sealed class TickShortSceneBoundaryTests
     }
 
     // A time as its TimeSpan string reads outside a project: rounded down to a tick, then up to a flick.
-    private static MediaTime TickShort(MediaTime time) => JsonSerializer.Deserialize<MediaTime>(JsonSerializer.Serialize(time));
+    private static MediaTime TickShort(MediaTime time)
+    {
+        string text;
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            text = JsonSerializer.Serialize(time);
+        return JsonSerializer.Deserialize<MediaTime>(text);
+    }
 }

@@ -7,12 +7,12 @@ using Beutl.Serialization;
 
 namespace Beutl.JsonConverters;
 
-// Files keep the TimeSpan strings of earlier versions until #2885 raises the format floor. A time is written rounded down
-// to a tick and read rounded up to a flick; a project's files are read on its frame grid, so a frame reads back exactly.
+// Files hold times as flick counts. A TimeSpan string, as earlier versions wrote and agent documents still use, reads
+// rounded up to a flick, and on the frame grid of the project whose files are read.
 internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
 {
     [ThreadStatic]
-    private static int t_flickScopes;
+    private static int t_stringScopes;
 
     // The frame rate of the project whose files are read. Async-local, as a scene reads its element files in parallel.
     private static readonly AsyncLocal<Rational?> s_frameGrid = new();
@@ -46,19 +46,18 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
             : ticks >= below - 1 && ticks <= above + 1;
     }
 
-    // Copies that stay in this process (snapshots, duplicates, the clipboard) write exact flicks instead.
-    // The scope belongs to the calling thread, so it must not span an await.
-    internal static IDisposable WriteFlicks()
+    // Agent documents show times as TimeSpan strings; the scope is the thread's, so it must not span an await.
+    internal static IDisposable WriteTimeSpanStrings()
     {
-        t_flickScopes++;
-        return Disposable.Create(static () => t_flickScopes--);
+        t_stringScopes++;
+        return Disposable.Create(static () => t_stringScopes--);
     }
 
-    // A time within a tick of a frame, as a template's or a hand-written time can be, as that frame.
+    // A time less than two ticks from a frame, as a template's or a hand-written time can be, as that frame.
     internal static MediaTime SnapToFrame(MediaTime time, Rational rate)
     {
         return TryRoundToFrame(time, rate, out MediaTime frame)
-               && Math.Abs(frame.Flicks - time.Flicks) <= MediaTime.FromTicks(1, MidpointRounding.ToPositiveInfinity).Flicks
+               && Math.Abs(frame.Flicks - time.Flicks) < MediaTime.FromTicks(2, MidpointRounding.ToPositiveInfinity).Flicks
             ? frame
             : time;
     }
@@ -78,10 +77,10 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
         }
     }
 
-    // A length is written as the distance between its ends on the tick grid, so ends that met in ticks still meet.
+    // A length written as a TimeSpan string spans its ends on the tick grid, so ends that met in ticks still meet.
     internal static MediaTime LengthToWrite(MediaTime start, MediaTime length)
     {
-        if (t_flickScopes > 0)
+        if (t_stringScopes == 0)
             return length;
 
         long ticks = (start + length).ToTicks(MidpointRounding.ToNegativeInfinity)
@@ -115,7 +114,7 @@ internal sealed class MediaTimeJsonConverter : JsonConverter<MediaTime>
 
     public override void Write(Utf8JsonWriter writer, MediaTime value, JsonSerializerOptions options)
     {
-        if (t_flickScopes > 0)
+        if (t_stringScopes == 0)
         {
             writer.WriteNumberValue(value.Flicks);
             return;

@@ -30,7 +30,7 @@ public class OpenProjectTests
         try
         {
             config.AutoCommitOnClose = false;
-            Project original = (await TestShell.Project.CreateProject(320, 180, 30, 44100,
+            Project original = (await TestShell.Project.CreateProject(320, 180, new Rational(30), 44100,
                 "original", TestShell.NewWorkspace($"failed-project-switch-{failActivation}")))!;
             Scene scene = original.Items.OfType<Scene>().Single();
             var otherScene = new Scene(320, 180, "other")
@@ -134,7 +134,7 @@ public class OpenProjectTests
         await TestReset.ResetShellAsync();
 
         Project created = (await TestShell.Project.CreateProject(
-            800, 600, 60, 22050, "reopen", TestShell.NewWorkspace("reopen")))!;
+            800, 600, new Rational(60), 22050, "reopen", TestShell.NewWorkspace("reopen")))!;
         HeadlessTestHelpers.Settle();
 
         string projectFile = created.Uri!.LocalPath;
@@ -161,8 +161,8 @@ public class OpenProjectTests
             Assert.That(reopenedScene.FrameSize.Width, Is.EqualTo(800));
             Assert.That(reopenedScene.FrameSize.Height, Is.EqualTo(600));
             Assert.That(File.Exists(reopenedScene.Uri!.LocalPath), Is.True);
-            Assert.That(reopened.Variables[ProjectVariableKeys.FrameRate], Is.EqualTo("60"));
-            Assert.That(reopened.Variables[ProjectVariableKeys.SampleRate], Is.EqualTo("22050"));
+            Assert.That(reopened.FrameRate, Is.EqualTo(new Rational(60)));
+            Assert.That(reopened.SampleRate, Is.EqualTo(22050));
         });
     }
 
@@ -172,7 +172,7 @@ public class OpenProjectTests
         await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "resave-version", TestShell.NewWorkspace("resave-version")))!;
+            640, 480, new Rational(30), 44100, "resave-version", TestShell.NewWorkspace("resave-version")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = project.Uri!.LocalPath;
 

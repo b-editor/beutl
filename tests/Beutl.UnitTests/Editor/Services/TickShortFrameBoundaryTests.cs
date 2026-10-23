@@ -3,6 +3,7 @@ using System.Text.Json;
 using Beutl.Animation;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
+using Beutl.JsonConverters;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.TestInfrastructure;
@@ -103,7 +104,7 @@ public sealed class TickShortFrameBoundaryTests
     {
         var harness = new SceneHistoryHarness("beutl_tick_short_frames", duration: MediaTime.FromSeconds(60));
         var project = new Project();
-        project.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         project.Items.Add(harness.Scene);
         rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         return harness;
@@ -118,5 +119,11 @@ public sealed class TickShortFrameBoundaryTests
     }
 
     // A time as its TimeSpan string reads outside a project: rounded down to a tick, then up to a flick.
-    private static MediaTime TickShort(MediaTime time) => JsonSerializer.Deserialize<MediaTime>(JsonSerializer.Serialize(time));
+    private static MediaTime TickShort(MediaTime time)
+    {
+        string text;
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            text = JsonSerializer.Serialize(time);
+        return JsonSerializer.Deserialize<MediaTime>(text);
+    }
 }

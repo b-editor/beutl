@@ -96,7 +96,8 @@ public partial class PropertyConversionGoldenTests
     {
         var project = new Project { Uri = new Uri("file:///golden/golden.bproj") };
         project.Items.Add(new Scene(1920, 1080, "scene") { Uri = new Uri("file:///golden/scene/scene.scene") });
-        project.Variables[ProjectVariableKeys.FrameRate] = "30";
+        project.FrameRate = new Rational(30000, 1001);
+        project.Variables["author"] = "beutl";
 
         AssertGolden(CoreSerializer.SerializeToJsonObject(project), "project");
     }

@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using NuGet.Versioning;
 
 namespace Beutl.Serialization;
@@ -45,6 +46,44 @@ public static partial class CoreSerializer
         json.Remove(FileFormat.MinAppVersionKey);
         return new StoredVersion(appVersion, minAppVersion);
     }
+
+    // Files from before 2.0.0-preview.9 name the generic types of times over TimeSpan; they read over MediaTime.
+    private static void ReadTimeTypesOfEarlierVersions(JsonObject json, StoredVersion version)
+    {
+        if (version.MinAppVersion is { } recorded && FileFormat.IsAtLeast(recorded, "2.0.0-preview.9"))
+            return;
+
+        RenameTimeSpanTypeArguments(json);
+    }
+
+    // Templates record no version, so their JSON gets this on every read; newer builds write no TimeSpan arguments.
+    internal static void RenameTimeSpanTypeArguments(JsonNode? node)
+    {
+        if (node is JsonArray array)
+        {
+            foreach (JsonNode? item in array)
+                RenameTimeSpanTypeArguments(item);
+        }
+        else if (node is JsonObject obj)
+        {
+            foreach ((string key, JsonNode? value) in obj.ToArray())
+            {
+                if (key != "$type")
+                {
+                    RenameTimeSpanTypeArguments(value);
+                }
+                else if (value is JsonValue typeValue && typeValue.TryGetValue(out string? typeName))
+                {
+                    string renamed = TimeSpanTypeArgument().Replace(typeName, "[Beutl.Core]Beutl:MediaTime");
+                    if (!ReferenceEquals(renamed, typeName))
+                        obj[key] = renamed;
+                }
+            }
+        }
+    }
+
+    [GeneratedRegex(@"(?<=[<,])\[System\.Private\.CoreLib\]System:TimeSpan(?=[>,])")]
+    private static partial Regex TimeSpanTypeArgument();
 
     private static void RecordRead(ICoreSerializable obj, StoredVersion version, Uri uri)
     {

@@ -328,6 +328,7 @@ public static partial class CoreSerializer
         using var stream = UriHelper.ResolveStream(uri);
         JsonObject jsonObject = ParseStoredObject(stream, uri);
         StoredVersion version = TakeVersionFields(jsonObject, uri);
+        ReadTimeTypesOfEarlierVersions(jsonObject, version);
 
         // 互換性処理
         // 1.x で作成されたファイルでは一部のオブジェクトに $type が付与されないため、
@@ -409,6 +410,7 @@ public static partial class CoreSerializer
         using var stream = UriHelper.ResolveStream(uri);
         JsonObject jsonObject = ParseStoredObject(stream, uri);
         StoredVersion version = TakeVersionFields(jsonObject, uri);
+        ReadTimeTypesOfEarlierVersions(jsonObject, version);
         AddLegacyTypeDiscriminator(jsonObject, obj.GetType());
         RecordRead(obj, version, uri);
         PopulateFromStorage(obj, type, jsonObject, uri);

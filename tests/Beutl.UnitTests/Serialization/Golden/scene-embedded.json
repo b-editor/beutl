@@ -1,7 +1,7 @@
 {
   "FrameSize": "1280, 720",
-  "Start": "00:00:01",
-  "Duration": "00:00:30",
+  "Start": 705600000,
+  "Duration": 21168000000,
   "Layers": [
     {
       "ZIndex": 2,
@@ -24,7 +24,7 @@
   ],
   "Markers": [
     {
-      "Time": "00:00:03",
+      "Time": 2116800000,
       "Color": "Green",
       "Note": "note",
       "Id": "00000000-0000-0000-0000-000000000005",
@@ -34,8 +34,8 @@
   ],
   "Elements": [
     {
-      "Start": "00:00:01",
-      "Length": "00:00:04",
+      "Start": 705600000,
+      "Length": 2822400000,
       "ZIndex": 2,
       "AccentColor": "Red",
       "IsEnabled": false,
@@ -47,8 +47,8 @@
           "IsEnabled": true,
           "Id": "00000000-0000-0000-0000-000000000006",
           "Name": "",
-          "Start": "00:00:01",
-          "Duration": "00:00:04",
+          "Start": 705600000,
+          "Duration": 2822400000,
           "ZIndex": 2,
           "Animations": {
             "Width": {
@@ -58,7 +58,7 @@
               "KeyFrames": [
                 {
                   "Value": 10,
-                  "KeyTime": "00:00:00",
+                  "KeyTime": 0,
                   "Id": "00000000-0000-0000-0000-000000000008",
                   "Name": "",
                   "Easing": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing",
@@ -66,7 +66,7 @@
                 },
                 {
                   "Value": 20,
-                  "KeyTime": "00:00:01",
+                  "KeyTime": 705600000,
                   "Id": "00000000-0000-0000-0000-000000000009",
                   "Name": "",
                   "Easing": {
@@ -79,7 +79,7 @@
                 },
                 {
                   "Value": 30,
-                  "KeyTime": "00:00:02",
+                  "KeyTime": 1411200000,
                   "Id": "00000000-0000-0000-0000-000000000010",
                   "Name": "",
                   "Easing": "[Beutl.Engine]Beutl.Animation.Easings:SineEaseIn",
@@ -95,7 +95,7 @@
               "KeyFrames": [
                 {
                   "Value": 40,
-                  "KeyTime": "00:00:01",
+                  "KeyTime": 705600000,
                   "Id": "00000000-0000-0000-0000-000000000012",
                   "Name": "",
                   "Easing": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing",
@@ -153,7 +153,7 @@
         "Name": "",
         "Animations": {},
         "Expressions": {},
-        "Duration": "00:00:00.5000000",
+        "Duration": 352800000,
         "Easing": {
           "$type": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing"
         },
@@ -166,7 +166,7 @@
         "Animations": {},
         "Expressions": {},
         "Direction": 0,
-        "Duration": "00:00:00.5000000",
+        "Duration": 352800000,
         "Easing": {
           "$type": "[Beutl.Engine]Beutl.Animation.Easings:LinearEasing"
         },
@@ -176,8 +176,8 @@
       "Uri": "file:///golden/scene/first.belm"
     },
     {
-      "Start": "00:00:00",
-      "Length": "00:00:01",
+      "Start": 0,
+      "Length": 705600000,
       "ZIndex": 0,
       "AccentColor": "Teal",
       "IsEnabled": true,
