@@ -479,16 +479,11 @@ internal static class FilterEffectStageFallbackExecutor
             return source.Clone();
         }
 
-        Rect physicalBounds = source.RasterBounds.Union(source.Bounds);
-        density = environment.Budget.ClampWorkingScaleToExactFootprint(
-            physicalBounds.Translate(source.DeviceGridOffset),
-            density);
-        PixelRect physicalDeviceBounds = PixelRect.FromRect(physicalBounds, density);
         EffectTarget? normalized = AllocateTarget(
             source.Bounds,
             density,
             environment,
-            physicalDeviceBounds,
+            source.RasterBounds.Union(source.Bounds),
             source.DeviceGridOffset);
         if (normalized?.RenderTarget is not { } normalizedTarget)
         {
@@ -574,24 +569,18 @@ internal static class FilterEffectStageFallbackExecutor
         Rect bounds,
         float density,
         StageEnvironment environment,
-        PixelRect? physicalDeviceBounds = null,
+        Rect? physicalBounds = null,
         Vector deviceGridOffset = default)
     {
         if (IsEmpty(bounds))
             return null;
 
-        if (physicalDeviceBounds is null)
-        {
-            density = environment.Budget.ClampWorkingScaleToExactFootprint(
-                bounds.Translate(deviceGridOffset),
-                density);
-        }
-
-        PixelRect deviceBounds = ResolveAllocationDeviceBounds(
+        PixelRect deviceBounds = FitAllocationToBudget(
             bounds,
-            density,
-            deviceGridOffset,
-            physicalDeviceBounds);
+            ref density,
+            environment.Budget,
+            physicalBounds,
+            deviceGridOffset);
         EffectTarget? result = EffectTargetAllocation.Allocate(
             environment.LeaseSession,
             bounds,
@@ -623,6 +612,30 @@ internal static class FilterEffectStageFallbackExecutor
         }
     }
 
+    // A physical footprint keeps the apron its local grid rounds, which can come out up to two pixels wider than the
+    // footprint on the device grid that the clamp measures, so the clamp gives a pixel back until the buffer fits.
+    private static PixelRect FitAllocationToBudget(
+        Rect bounds,
+        ref float density,
+        BufferDimensionBudget budget,
+        Rect? physicalBounds,
+        Vector deviceGridOffset)
+    {
+        Rect footprint = (physicalBounds ?? bounds).Translate(deviceGridOffset);
+        float requested = density;
+        PixelRect deviceBounds = default;
+        int lowest = Math.Max(budget.MaxDimension - 2, 1);
+        for (int maxDimension = budget.MaxDimension; maxDimension >= lowest; maxDimension--)
+        {
+            density = BufferDimensionBudget.Named(maxDimension).ClampWorkingScaleToExactFootprint(footprint, requested);
+            deviceBounds = ResolveAllocationDeviceBounds(bounds, density, deviceGridOffset, physicalBounds);
+            if (budget.Fits(deviceBounds.Size))
+                break;
+        }
+
+        return deviceBounds;
+    }
+
     /// <summary>Places the buffer on the device grid, keeping the caller's apron around the semantic area.</summary>
     /// <remarks>
     /// Without a requested physical footprint the buffer is exactly the semantic rectangle. With one, the
@@ -634,13 +647,15 @@ internal static class FilterEffectStageFallbackExecutor
         Rect bounds,
         float density,
         Vector deviceGridOffset,
-        PixelRect? physicalDeviceBounds)
+        Rect? physicalBounds)
     {
         PixelRect semanticDeviceBounds = PixelRect.FromRect(
             bounds.Translate(deviceGridOffset),
             density);
-        if (physicalDeviceBounds is not { } requestedPhysicalBounds)
+        if (physicalBounds is not { } physical)
             return semanticDeviceBounds;
+
+        PixelRect requestedPhysicalBounds = PixelRect.FromRect(physical, density);
         if (deviceGridOffset == default)
             return requestedPhysicalBounds;
 
