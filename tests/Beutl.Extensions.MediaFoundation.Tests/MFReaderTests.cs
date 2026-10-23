@@ -112,8 +112,6 @@ public class MFReaderTests
 
     private sealed class FakeVideoDecoder : IMediaFoundationVideoDecoder
     {
-        public long FirstVideoTimestamp => 0;
-
         public Exception? GetMediaInfoException { get; init; }
 
         public int DisposeCount { get; private set; }
