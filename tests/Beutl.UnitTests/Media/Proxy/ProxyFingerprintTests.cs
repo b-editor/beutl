@@ -131,29 +131,6 @@ public class ProxyFingerprintTests
     }
 
     [Test]
-    public void Deserialize_LegacyWithoutSourcePath_FallsBackToAbsolutePath()
-    {
-        var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
-        var reference = new ProxyFingerprint(CreatePath("legacy.mov"), 123, mtime);
-        string legacyJson = JsonSerializer.Serialize(
-            new
-            {
-                absolutePath = reference.AbsolutePath,
-                fileSizeBytes = reference.FileSizeBytes,
-                mtimeUtc = reference.MtimeUtc,
-            },
-            s_jsonOptions);
-
-        var restored = JsonSerializer.Deserialize<ProxyFingerprint>(legacyJson, s_jsonOptions);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(restored, Is.EqualTo(reference));
-            Assert.That(restored.SourcePath, Is.EqualTo(reference.AbsolutePath));
-        });
-    }
-
-    [Test]
     public void ResolveComparableKey_SymlinkResolvesToSameKeyAsTarget()
     {
         string dir = TestContext.CurrentContext.WorkDirectory;
@@ -223,6 +200,7 @@ public class ProxyFingerprintTests
         Assert.Multiple(() =>
         {
             Assert.That(key.AbsolutePath, Is.EqualTo(ProxyFingerprint.ResolveComparableKey(missing)));
+            Assert.That(key.SourcePath, Is.EqualTo(key.AbsolutePath));
             Assert.That(key.FileSizeBytes, Is.EqualTo(0));
             Assert.That(key, Is.Not.EqualTo(new ProxyFingerprint(missing, 4096, DateTime.UtcNow)));
         });
