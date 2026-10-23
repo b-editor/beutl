@@ -460,7 +460,7 @@ public class Renderer3DTests
             if (spot)
             {
                 var light = new SpotLight3D();
-                light.Position.Value = new Vector3(0, 6, 0);
+                light.Position.Value = new Vector3(0, -0.75f, 1.5f);
                 light.Direction.Value = direction;
                 light.Intensity.Value = 30f;
                 light.Range.Value = 15f;
@@ -480,7 +480,10 @@ public class Renderer3DTests
             }
         };
 
-        Assert.That(RenderShadowScene(Pointing(Vector3.Zero)), Is.EqualTo(RenderShadowScene(Pointing(Vector3.UnitY))));
+        byte[] pointingUp = RenderShadowScene(Pointing(Vector3.UnitY));
+        Assert.That(pointingUp.SequenceEqual(RenderShadowScene(static _ => { })), Is.False,
+            "The reference light must illuminate visible pixels.");
+        Assert.That(RenderShadowScene(Pointing(Vector3.Zero)).SequenceEqual(pointingUp), Is.True);
     }
 
     private static List<Light3D.Resource> BuildThreePointLights(CompositionContext renderContext)
