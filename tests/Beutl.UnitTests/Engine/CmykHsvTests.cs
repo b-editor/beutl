@@ -104,16 +104,17 @@ public class CmykHsvTests
         });
     }
 
-    [Test]
-    public void Hsv_ToColor_ZeroSaturationProducesGray()
+    [TestCase(1f, 0xff)]
+    [TestCase(0.25f, 0x40)]
+    public void Hsv_ToColor_ZeroSaturationProducesGray(float alpha, int expectedAlpha)
     {
-        var hsv = new Hsv(180f, 0f, 50f, 1f);
+        var hsv = new Hsv(180f, 0f, 50f, alpha);
         Color color = hsv.ToColor();
         Assert.Multiple(() =>
         {
             Assert.That(color.R, Is.EqualTo(color.G));
             Assert.That(color.G, Is.EqualTo(color.B));
-            Assert.That(color.A, Is.EqualTo(0xff));
+            Assert.That(color.A, Is.EqualTo(expectedAlpha));
             Assert.That(color.R, Is.GreaterThan(0));
         });
     }
