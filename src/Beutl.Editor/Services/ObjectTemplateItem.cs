@@ -78,15 +78,7 @@ public sealed class ObjectTemplateItem(
         }
     }
 
-    // `new Uri(path)` reads a URI-reserved character in the file name — a `#` is legal in a
-    // package payload — as syntax, truncating the base path.
-    internal static Uri ToFileUri(string path)
-    {
-        return new UriBuilder("file", string.Empty)
-        {
-            Path = Path.GetFullPath(path)
-        }.Uri;
-    }
+    internal static Uri ToFileUri(string path) => UriHelper.CreateFromPath(Path.GetFullPath(path));
 
     public static ObjectTemplateItem CreateFromInstance(ICoreSerializable obj, string name)
     {
