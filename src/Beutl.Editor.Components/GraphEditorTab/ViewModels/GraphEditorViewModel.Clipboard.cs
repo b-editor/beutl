@@ -34,7 +34,7 @@ public sealed partial class GraphEditorViewModel
     {
         int version = _clipboardContextVersion;
         var channel = SelectedView.Value;
-        return () => IsClipboardContextActive && version == _clipboardContextVersion
+        return () => CanEdit.Value && IsClipboardContextActive && version == _clipboardContextVersion
             && ReferenceEquals(SelectedView.Value, channel);
     }
 

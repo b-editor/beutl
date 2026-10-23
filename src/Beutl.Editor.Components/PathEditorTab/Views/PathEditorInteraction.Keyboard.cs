@@ -79,7 +79,7 @@ internal sealed partial class PathEditorInteraction
 
     private void DeleteSelectedAnchors(KeyEventArgs e)
     {
-        if (Context?.PathFigure.Value is { } figure)
+        if (CanEdit && Context?.PathFigure.Value is { } figure)
         {
             var selected = _view.GetSelectedAnchors().Select(t => t.DataContext).OfType<PathSegment>().ToHashSet();
             if (selected.Count > 0)
@@ -97,6 +97,7 @@ internal sealed partial class PathEditorInteraction
 
     private void NudgeSelection(KeyEventArgs e, PathFigure figure)
     {
+        if (!CanEdit) return;
         _nudges ??= CreateSelectionDragStates(figure);
         if (_nudges.Count == 0) return;
         float amount = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
@@ -115,7 +116,7 @@ internal sealed partial class PathEditorInteraction
 
     public void PreviewSelectionPosition(BtlPoint point)
     {
-        if (Context?.PathFigure.Value is not { } figure || !float.IsFinite(point.X) || !float.IsFinite(point.Y)) return;
+        if (!CanEdit || Context?.PathFigure.Value is not { } figure || !float.IsFinite(point.X) || !float.IsFinite(point.Y)) return;
         if (_coordinateStates == null)
         {
             var points = _view.GetSelectedAnchors().Select(PathEditorHelper.GetProperty)

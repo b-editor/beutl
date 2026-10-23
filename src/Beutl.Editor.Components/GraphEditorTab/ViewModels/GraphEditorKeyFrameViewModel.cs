@@ -143,11 +143,14 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .WithSubscribe(CopyAsync)
             .DisposeWith(_disposables);
 
-        PasteCommand = new AsyncReactiveCommand()
+        GraphEditorViewModel editor = parent.Parent;
+        PasteCommand = new AsyncReactiveCommand(editor.CanEdit)
             .WithSubscribe(() => PasteAsync())
             .DisposeWith(_disposables);
 
-        RemoveCommand = new ReactiveCommand()
+        // Removing a keyframe whose easing could not be read repairs a recovery-protected clip, so it stays allowed.
+        RemoveCommand = new ReactiveCommand(
+                editor.CanEdit.Select(_ => ElementEditability.CanRepair(editor.Element, keyframe, editor.Scene)))
             .WithSubscribe(Remove)
             .DisposeWith(_disposables);
     }
@@ -292,16 +295,9 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     private void Remove()
     {
-        if (IsSelected.Value)
-        {
-            var selected = Parent.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
-            Parent.Parent.DeleteKeyFrames(selected);
-            return;
-        }
-        AnimationOperations.RemoveKeyFrame(
-            animation: Parent.Parent.Animation,
-            keyframe: Model,
-            logger: _logger);
-        Parent.Parent.HistoryManager.Commit(CommandNames.RemoveKeyFrame);
+        IKeyFrame[] removed = IsSelected.Value
+            ? [.. Parent.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model)]
+            : [Model];
+        Parent.Parent.DeleteKeyFrames(removed);
     }
 }
