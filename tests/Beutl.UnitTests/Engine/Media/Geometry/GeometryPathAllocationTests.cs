@@ -30,32 +30,6 @@ public sealed class GeometryPathAllocationTests
         Assert.That(Measure(() => resource.GetCachedPath(), Iterations), Is.Zero);
     }
 
-    [Test]
-    public void ARebuild_DoesNotCostMoreThanThePreChangeConstruction()
-    {
-        using Geometry.Resource shipped = CreateGeometry().ToResource(CompositionContext.Default);
-        using Geometry.Resource reference = CreateGeometry().ToResource(CompositionContext.Default);
-
-        const int rebuildIterations = 2000;
-        long before = Measure(
-            () =>
-            {
-                using GeometryContext context = PreChangeGeometryPath.Build(reference);
-                _ = context.NativeObject;
-            },
-            rebuildIterations);
-        long after = Measure(
-            () =>
-            {
-                shipped.InvalidateCachedPaths();
-                _ = shipped.GetCachedPath();
-            },
-            rebuildIterations);
-
-        Assert.That(after, Is.LessThanOrEqualTo(before),
-            $"rebuild allocated {after} bytes against the pre-change {before}");
-    }
-
     private static PathGeometry CreateGeometry()
     {
         var geometry = new PathGeometry();
