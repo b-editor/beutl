@@ -1,4 +1,5 @@
-﻿using System.Reactive.Linq;
+﻿using System.Globalization;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using Avalonia.Headless.NUnit;
 using Beutl.Editor;
@@ -31,7 +32,7 @@ public sealed class ExportPreviewFrameParityTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("frame-parity", 16, 16);
         Scene scene = editor.Scene;
-        scene.FindHierarchicalParent<Project>()!.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        scene.FindHierarchicalParent<Project>()!.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         scene.Duration = ThroughFile(new Element { Length = MediaTime.FromFrames(9, rate) }).Length;
         var starts = new List<MediaTime>();

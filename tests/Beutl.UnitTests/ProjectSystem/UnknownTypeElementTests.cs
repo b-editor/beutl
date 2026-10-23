@@ -70,7 +70,7 @@ public class UnknownTypeElementTests
         JsonArray savedObjects = saved[nameof(Element.Objects)]!.AsArray();
         Element reopened = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
         // The object whose type is missing moved with its element, which is a member it knows.
-        unavailableJson["Start"] = "00:00:02";
+        unavailableJson["Start"] = MediaTime.FromSeconds(2).Flicks;
 
         Assert.Multiple(() =>
         {

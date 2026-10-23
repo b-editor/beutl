@@ -15,7 +15,7 @@ public class ShellSmokeTests
         await TestReset.ResetShellAsync();
 
         Project? project = await TestShell.Project.CreateProject(
-            1920, 1080, 30, 44100, "create", TestShell.NewWorkspace("create"));
+            1920, 1080, new Rational(30), 44100, "create", TestShell.NewWorkspace("create"));
         HeadlessTestHelpers.Settle();
 
         Assert.That(project, Is.Not.Null);
@@ -36,7 +36,7 @@ public class ShellSmokeTests
         MainViewModel vm = TestShell.MainViewModel;
         Assert.That(vm.IsProjectOpened.Value, Is.False);
 
-        await TestShell.Project.CreateProject(640, 480, 30, 44100, "vm", TestShell.NewWorkspace("vm"));
+        await TestShell.Project.CreateProject(640, 480, new Rational(30), 44100, "vm", TestShell.NewWorkspace("vm"));
         HeadlessTestHelpers.Settle();
 
         Assert.That(vm.IsProjectOpened.Value, Is.True);

@@ -173,7 +173,8 @@ public sealed partial class GraphEditorTabViewModel
     {
         var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType) : null;
         item.CanAnimate.Value = canAnimate && factory != null;
-        item.CanRemoveAnimation.Value = item.Animation != null;
+        // Removing an animation that holds what could not be loaded repairs a recovery-protected clip.
+        item.CanRemoveAnimation.Value = item.Animation != null && ElementEditability.CanRepair(Element.Value, item.Animation);
         item.HasAnimation.Value = item.Animation != null;
         var children = new List<GraphEditorTreeItemViewModel>();
         if (item.ValueType is { } type)
@@ -274,8 +275,14 @@ public sealed partial class GraphEditorTabViewModel
     {
         var property = item.PropertyItem ?? item;
         if (!property.CanRemoveAnimation.Value || property.Animation == null
+            || !ElementEditability.CanRepair(Element.Value, property.Animation)
             || !_treeCache.TryGetValue(property.Key, out var current) || current != property) return;
-        _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() => property.Animation = null, Strings.RemoveAnimation);
+        HistoryManager history = _editorContext.GetRequiredService<HistoryManager>();
+        history.ExecuteInTransaction(() =>
+        {
+            property.Animation = null;
+            if (Element.Value is { } element) ElementRecoveryService.TryCompleteRepair(element, history);
+        }, Strings.RemoveAnimation);
         Refresh();
     }
 
@@ -283,6 +290,7 @@ public sealed partial class GraphEditorTabViewModel
     {
         var property = item.PropertyItem ?? item;
         if (!property.CanAnimate.Value || Element.Value == null || property.ValueType is not { } type
+            || !ElementEditability.IsEditable(Element.Value)
             || !_treeCache.TryGetValue(property.Key, out var current) || current != property) return;
         if (property.Animation == null)
         {

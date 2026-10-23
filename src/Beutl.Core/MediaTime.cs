@@ -73,7 +73,8 @@ public readonly struct MediaTime(long flicks)
         return TimeSpan.FromTicks((long)ticks);
     }
 
-    // Directed conversions for the TimeSpan strings of files; a tick outside the range of MediaTime is clamped.
+    // Directed conversions for TimeSpan strings, of earlier files and agent documents; a tick outside the range of
+    // MediaTime is clamped.
     internal static MediaTime FromTicks(long ticks, MidpointRounding rounding)
     {
         Int128 flicks = RoundDivide((Int128)ticks * FlicksPerTickNumerator, FlicksPerTickDenominator, rounding);

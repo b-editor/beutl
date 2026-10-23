@@ -24,7 +24,7 @@ public class ProjectDiskDeletionTests
         string name,
         string location)
     {
-        Project project = (await TestShell.Project.CreateProject(320, 180, 30, 44100, name, location))!;
+        Project project = (await TestShell.Project.CreateProject(320, 180, new Rational(30), 44100, name, location))!;
         HeadlessTestHelpers.Settle();
         string projectFile = project.Uri!.LocalPath;
         string sceneFile = project.Items.OfType<Scene>().Single().Uri!.LocalPath;
@@ -255,7 +255,7 @@ public class ProjectDiskDeletionTests
         try
         {
             Project project = (await TestShell.Project.CreateProject(
-                320, 180, 30, 44100, "busy", NewWorkspace("open")))!;
+                320, 180, new Rational(30), 44100, "busy", NewWorkspace("open")))!;
             HeadlessTestHelpers.Settle();
             string projectFile = project.Uri!.LocalPath;
             var shown = new List<FAContentDialog>();
@@ -840,7 +840,7 @@ public class ProjectDiskDeletionTests
     {
         await TestReset.ResetShellAsync();
         (string nextProject, _) = await CreateClosedProjectAsync("next", NewWorkspace("pending-open"));
-        await TestShell.Project.CreateProject(320, 180, 30, 44100, "closing", NewWorkspace("closing"));
+        await TestShell.Project.CreateProject(320, 180, new Rational(30), 44100, "closing", NewWorkspace("closing"));
         HeadlessTestHelpers.Settle();
         var closingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseClosing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

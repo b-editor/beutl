@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -776,7 +777,207 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // Loading dropped the holder's unreadable transform, which the agent's copy of the scene cannot show, so only
+    // deleting the holder repairs the element; renaming the element is refused (#2974).
+    [TestCase("rename", false)]
+    [TestCase("delete-holder", true)]
+    public void Apply_edit_repairs_a_dropped_value_only_by_deleting_the_object_that_held_it(string edit, bool accepted)
+    {
+        Element element = CreateElementWithADroppedValue(out Scene scene);
+        EngineObject holder = element.Objects.Single();
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+        JsonObject members = edit == "rename"
+            ? new JsonObject { [nameof(CoreObject.Name)] = "Renamed" }
+            : new JsonObject
+            {
+                [nameof(Element.Objects)] = new JsonArray(
+                    new JsonObject { ["Id"] = holder.Id.ToString(), ["$delete"] = true }),
+            };
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: ElementPatch(element, members), schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.EqualTo(accepted), result.Error?.Message);
+            Assert.That(element.IsRecoveryProtected, Is.EqualTo(!accepted));
+            Assert.That(element.Objects.Contains(holder), Is.EqualTo(!accepted));
+        });
+    }
+
+    // Reads its transform as any object and keeps it only as a transform, so loading drops the fallback for a missing one.
+    [SuppressResourceClassGeneration]
+    public sealed class DroppingTransformHolder : EngineObject
+    {
+        public DroppingTransformHolder() => ScanProperties<DroppingTransformHolder>();
+
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateExpression<DisplacementMapTransform?>();
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            Id = context.GetValue<Guid>(nameof(Id));
+            Transform.Value = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
+        }
+    }
+
+    private static Element CreateElementWithADroppedValue(out Scene scene)
+    {
+        Scene created = TestWorkspace.CreateScene();
+        var holder = new DroppingTransformHolder();
+        holder.Transform.Value = new DisplacementMapTranslateTransform();
+        AddElement(created, "Dropped", zIndex: 0).AddObject(holder);
+        CoreSerializer.StoreToUri(created, created.Uri!);
+        string elementPath = created.Children.Single().Uri!.LocalPath;
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json[nameof(Element.Objects)]![0]![nameof(DroppingTransformHolder.Transform)]!["$type"]
+            = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        scene = CoreSerializer.RestoreFromUri<Scene>(created.Uri!);
+        Element element = scene.Children.Single();
+        Assert.That(element.IsRecoveryProtected, Is.True);
+        return element;
+    }
+
     // Protects the element with a keyframe easing from a missing assembly, or with an unreadable file, and reopens it.
+    // As in the timeline, the transition a locked element blends with stays, also when the element after it sets it.
+    [Test]
+    public void Apply_edit_rejects_changing_the_transition_a_locked_element_blends_with()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element locked = AddElement(scene, "Locked", zIndex: 0);
+        Element next = AddElement(scene, "Next", zIndex: 0);
+        next.Start = locked.Range.End;
+        next.EnterTransition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+        locked.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        FindElement(document, next).Remove(nameof(Element.EnterTransition));
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools()
+            .ApplyEdit(desired: document, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain($"'Locked' ({locked.Id}) is locked, so the transition at its end"));
+            Assert.That(next.EnterTransition, Is.Not.Null);
+        });
+    }
+
+    // Both sides' durations set the time a boundary blends over, so the other side's stays too.
+    [Test]
+    public void Apply_edit_rejects_changing_the_duration_on_the_other_side_of_a_locked_element_boundary()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element previous = AddElement(scene, "Previous", zIndex: 0);
+        Element locked = AddElement(scene, "Locked", zIndex: 0);
+        locked.Start = previous.Range.End;
+        previous.ExitTransition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+        locked.EnterTransition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+        locked.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        FindElement(document, previous)[nameof(Element.ExitTransition)]![nameof(ClipTransition.Duration)] =
+            TimeSpan.FromSeconds(2).ToString("c");
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools()
+            .ApplyEdit(desired: document, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain($"'Locked' ({locked.Id}) is locked, so the transition at its start"));
+            Assert.That(previous.ExitTransition!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+        });
+    }
+
+    // As placement keeps clips apart, no element comes to overlap a locked element on its layer.
+    [TestCase("move")]
+    [TestCase("insert")]
+    public void Apply_edit_rejects_placing_an_element_over_a_locked_element(string edit)
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element locked = AddElement(scene, "Locked", zIndex: 0);
+        Element other = AddElement(scene, "Other", zIndex: 0);
+        locked.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject patch = edit == "move"
+            ? ElementPatch(other, new JsonObject { [nameof(Element.Start)] = TimeSpan.FromSeconds(1).ToString("c") })
+            : InsertPatch("New title", zIndex: 0);
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools()
+            .ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain($"would overlap locked element 'Locked' ({locked.Id})"));
+            Assert.That(scene.Children, Has.Count.EqualTo(2));
+            Assert.That(other.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+        });
+    }
+
+    // Elements on one layer draw in Elements order, so one that overlaps a locked element keeps its side of it.
+    [Test]
+    public void Apply_edit_rejects_reordering_an_element_that_overlaps_a_locked_element()
+    {
+        (Scene scene, Element locked, Element above) = CreateOverlappingLockedElement();
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        JsonArray elements = document["Elements"]!.AsArray();
+        JsonNode first = elements[0]!;
+        elements.RemoveAt(0);
+        elements.Add(first);
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools()
+            .ApplyEdit(desired: document, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain($"'Above' ({above.Id}) overlaps locked element 'Locked'"));
+            Assert.That(scene.Children, Is.EqualTo(new[] { locked, above }));
+        });
+    }
+
+    // An element that overlapped a locked element before the edit may stay there and change.
+    [Test]
+    public void Apply_edit_lets_an_element_that_already_overlaps_a_locked_element_change()
+    {
+        (Scene scene, _, Element above) = CreateOverlappingLockedElement();
+        using var session = new AgentToolkitTestSession(scene);
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools().ApplyEdit(
+            patch: ElementPatch(above, new JsonObject { [nameof(CoreObject.Name)] = "Renamed" }),
+            schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(above.Name, Is.EqualTo("Renamed"));
+        });
+    }
+
+    // A locked element with another element over it on its layer, drawn above it.
+    private static (Scene Scene, Element Locked, Element Above) CreateOverlappingLockedElement()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element locked = AddElement(scene, "Locked", zIndex: 0);
+        Element above = AddElement(scene, "Above", zIndex: 0);
+        above.Start = locked.Start;
+        locked.IsLocked = true;
+        return (scene, locked, above);
+    }
+
+    private static JsonObject FindElement(JsonObject document, Element element)
+        => document["Elements"]!.AsArray().OfType<JsonObject>().Single(item => (string?)item["Id"] == element.Id.ToString());
+
     private static Element CreateProtectedElement(out Scene scene, bool unreadable = false)
     {
         Scene created = TestWorkspace.CreateScene();

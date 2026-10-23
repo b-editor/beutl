@@ -1,4 +1,5 @@
-Project variables: framerate=30, samplerate=44100
+Project rates: 30 fps, 44100 Hz
+Project variables:
 Scene "V1Project": 1920x1080, duration 00:05:00, 12 elements
 
 Notices on open:
@@ -41,11 +42,11 @@ Layer 1: "Ellipse" (7GwgTlYf.belm)
       Animations.Width.KeyFrames[0].Easing.Y2 = 1
       Animations.Width.KeyFrames[1]: KeyFrame<Single>
       Animations.Width.KeyFrames[1].Value = 600
-      Animations.Width.KeyFrames[1].KeyTime = "00:00:02"
+      Animations.Width.KeyFrames[1].KeyTime = 1411200000
       Animations.Width.KeyFrames[1].Easing = "[Beutl.Engine]Beutl.Animation.Easings:SineEaseInOut"
       Animations.Width.KeyFrames[2]: KeyFrame<Single>
       Animations.Width.KeyFrames[2].Value = 450
-      Animations.Width.KeyFrames[2].KeyTime = "00:00:04"
+      Animations.Width.KeyFrames[2].KeyTime = 2822400000
       Animations.Width.KeyFrames[2].Easing.X1 = 0.25
       Animations.Width.KeyFrames[2].Easing.Y1 = 0.1
       Animations.Width.KeyFrames[2].Easing.X2 = 0.25
@@ -82,7 +83,7 @@ Layer 2: "Rectangle" (bRgyZBAD.belm)
       Transform.Children[0].Animations.X.KeyFrames[0].Easing.Y2 = 1
       Transform.Children[0].Animations.X.KeyFrames[1]: KeyFrame<Single>
       Transform.Children[0].Animations.X.KeyFrames[1].Value = 200
-      Transform.Children[0].Animations.X.KeyFrames[1].KeyTime = "00:00:03"
+      Transform.Children[0].Animations.X.KeyFrames[1].KeyTime = 2116800000
       Transform.Children[0].Animations.X.KeyFrames[1].Easing = "[Beutl.Engine]Beutl.Animation.Easings:QuadraticEaseOut"
       Transform.Children[0].X = -200
       Transform.Children[0].Y = 100
@@ -94,8 +95,8 @@ Layer 3: "Decorator" (DF8DDAUl.belm)
   [0] PortalObject
       Count = 1
   [1] DrawableDecorator
-      KNOWN GAP: 1.1.0 wrote this operator turned off, but the migrated object is enabled
       1.1.0 values not read: Child, Fill, OpacityMask, IsVisible, TimeRange
+      IsEnabled = false
       Transform.Children: 1 item(s)
       Transform.Children[0]: ScaleTransform
       Transform.Children[0].Scale = 150
@@ -157,7 +158,7 @@ Layer 7: "clip.mp4" (SEur90lf.belm)
   editable: recovery does not keep the file
   [0] SourceVideo
       1.1.0 values not read: Fill, OpacityMask, IsVisible, TimeRange
-      OffsetPosition = "00:00:02"
+      OffsetPosition = 1411200000
       Speed = 150
       Source = "file:///C:/Users/beutl/Videos/clip.mp4"
       IsLoop = true
@@ -187,7 +188,7 @@ Layer 10: "Opening theme.wav" (wIPiDfws.belm)
   [0] SourceSound
       1.1.0 values not read: IsVisible, TimeRange
       Source = "file:///C:/Users/beutl/Music/Opening%20theme.wav"
-      OffsetPosition = "00:00:01"
+      OffsetPosition = 705600000
       Gain = 50
       Speed = 120
       Effect.Children: 1 item(s)

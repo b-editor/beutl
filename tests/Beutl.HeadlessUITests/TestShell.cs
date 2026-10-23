@@ -35,7 +35,7 @@ internal static class TestShell
     // Creates a project named after its NewWorkspace folder.
     public static async Task<Project> CreateProjectAsync(string name, int width = 640, int height = 480)
     {
-        Project project = (await Project.CreateProject(width, height, 30, 44100, name, NewWorkspace(name)))!;
+        Project project = (await Project.CreateProject(width, height, new Rational(30), 44100, name, NewWorkspace(name)))!;
         HeadlessTestHelpers.Settle();
         return project;
     }
@@ -59,7 +59,7 @@ internal static class TestShell
             await TestReset.ResetShellAsync();
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"{name}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(location);
-        Project project = (await Project.CreateProject(width, height, frameRate, sampleRate, name, location))!;
+        Project project = (await Project.CreateProject(width, height, new Rational(frameRate), sampleRate, name, location))!;
         Scene scene = project.Items.OfType<Scene>().Single();
         if (duration is { } length)
             scene.Duration = length;

@@ -2,7 +2,6 @@
 using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reflection;
 using System.Text.Json.Nodes;
 using Beutl.Editor;
 using Beutl.Engine;
@@ -95,10 +94,9 @@ internal sealed class NestedInputPortManager(GraphNode node)
             }
             else if (!HistoryReplay.IsActive)
             {
-                var portType = typeof(NestedInputPort<>).MakeGenericType(PortTypeOf(target.Property));
-                port = (INestedInputPort)Activator.CreateInstance(portType, BindingFlags.Instance | BindingFlags.NonPublic,
-                    null, [target.Root, target.Path], null)!;
-                port.Bind(target.Owner, target.Property);
+                var portType = typeof(NestedInputPort<>).MakeGenericType(target.Property.ValueType);
+                port = (INestedInputPort)Activator.CreateInstance(portType,
+                    target.Root, target.Path, target.Owner, target.Property)!;
                 added.Add(port);
             }
         }
@@ -170,7 +168,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
             }
         }
 
-        if (owner != null && property != null && PortTypeOf(property) == port.AssociatedType)
+        if (owner != null && property != null && property.ValueType == port.AssociatedType)
             port.Bind(owner, property);
         else
             port.Unbind();
@@ -247,10 +245,6 @@ internal sealed class NestedInputPortManager(GraphNode node)
         }
     }
 
-    // Until #2885 step 4 raises the format floor, a MediaTime property takes a TimeSpan port, as earlier versions wrote.
-    private static Type PortTypeOf(IProperty property)
-        => property is IExpressionProperty<MediaTime> ? typeof(TimeSpan) : property.ValueType;
-
     private static Guid GetItemId(EngineObject item)
         => item is IFallback { Json: { } json } && json[nameof(CoreObject.Id)] is JsonValue value
             && value.TryGetValue<Guid>(out Guid id) ? id : item.Id;
@@ -264,7 +258,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
             => new(port.RootMember.Id, port.PropertyPath, port.AssociatedType);
 
         public static PortKey Of(Target target)
-            => new(target.Root.Id, target.Path, PortTypeOf(target.Property));
+            => new(target.Root.Id, target.Path, target.Property.ValueType);
 
         public bool Equals(PortKey other)
             => RootId == other.RootId && Type == other.Type && Path.SequenceEqual(other.Path);

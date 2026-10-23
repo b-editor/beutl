@@ -25,15 +25,13 @@ public class ProjectPersistenceTests
     }
 
     [Test]
-    public void Project_with_scene_and_variables_round_trips_through_disk()
+    public void Project_with_scene_and_rates_round_trips_through_disk()
     {
         var projectUri = new Uri(Path.Combine(_baseDir, "demo.bproj"));
         var sceneUri = new Uri(Path.Combine(_baseDir, "scene0", "scene0.scene"));
         var elementUri = new Uri(Path.Combine(_baseDir, "scene0", "clip.belm"));
 
-        var project = new Project { Uri = projectUri };
-        project.Variables[ProjectVariableKeys.FrameRate] = "30";
-        project.Variables[ProjectVariableKeys.SampleRate] = "48000";
+        var project = new Project { Uri = projectUri, FrameRate = new Rational(30000, 1001), SampleRate = 48000 };
 
         var scene = new Scene(1920, 1080, "scene0") { Uri = sceneUri };
         var element = new Element
@@ -61,8 +59,8 @@ public class ProjectPersistenceTests
         Assert.Multiple(() =>
         {
             Assert.That(restored.Items, Has.Count.EqualTo(1));
-            Assert.That(restored.Variables[ProjectVariableKeys.FrameRate], Is.EqualTo("30"));
-            Assert.That(restored.Variables[ProjectVariableKeys.SampleRate], Is.EqualTo("48000"));
+            Assert.That(restored.FrameRate, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(restored.SampleRate, Is.EqualTo(48000));
         });
 
         var restoredScene = (Scene)restored.Items[0];
@@ -144,7 +142,8 @@ public class ProjectPersistenceTests
     }
 
     [TestCase("2.0.0-alpha.1", FileFormat.Floor)]
-    [TestCase("2.0.0-preview.2", "2.0.0-preview.2")]
+    [TestCase("2.0.0-preview.2", FileFormat.Floor)]
+    [TestCase("2.0.0-preview.10", "2.0.0-preview.10")]
     [TestCase("2.1.0", "2.1.0")]
     public void A_save_records_the_higher_of_the_recorded_minimum_and_the_floor(
         string recordedMinAppVersion,

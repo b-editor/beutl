@@ -46,7 +46,7 @@ public class VersionControlToolBarTests
         Directory.CreateDirectory(root);
         try
         {
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "adoption-blocked", root))!;
+            Project project = (await TestShell.Project.CreateProject(640, 480, new Rational(30), 44100, "adoption-blocked", root))!;
             TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
             if (editor.FindToolTab<VersionControlTabViewModel>() is { } previous)
@@ -77,7 +77,7 @@ public class VersionControlToolBarTests
         using var cancellation = new CancellationTokenSource();
         try
         {
-            Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "adoption-move", root))!;
+            Project project = (await TestShell.Project.CreateProject(640, 480, new Rational(30), 44100, "adoption-move", root))!;
             Scene firstScene = project.Items.OfType<Scene>().Single();
             var secondScene = new Scene(640, 480, "Second") { Uri = new Uri(Path.Combine(root, "second.scene")) };
             project.Items.Add(secondScene);
@@ -117,7 +117,7 @@ public class VersionControlToolBarTests
         await TestReset.ResetShellAsync();
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"version-control-bars-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "version-control-bars", root))!;
+        Project project = (await TestShell.Project.CreateProject(640, 480, new Rational(30), 44100, "version-control-bars", root))!;
         Scene scene = project.Items.OfType<Scene>().Single();
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
@@ -231,7 +231,7 @@ public class VersionControlToolBarTests
         await TestReset.ResetShellAsync();
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, $"adoption-panel-{Guid.NewGuid():N}");
         Directory.CreateDirectory(root);
-        Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, "adoption-panel", root))!;
+        Project project = (await TestShell.Project.CreateProject(640, 480, new Rational(30), 44100, "adoption-panel", root))!;
         TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;

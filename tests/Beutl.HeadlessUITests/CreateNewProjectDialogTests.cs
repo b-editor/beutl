@@ -32,12 +32,101 @@ public class CreateNewProjectDialogTests
         var numericPage = carousel!.Items[1] as Panel;
         Assert.That(numericPage, Is.Not.Null, "the second Carousel page should host the numeric inputs");
 
-        List<string?> units = numericPage!.Children.OfType<TextBox>()
-            .Select(tb => (tb.InnerRightContent as TextBlock)?.Text)
-            .ToList();
+        // The frame rate box picks a rate or takes one typed, with its unit beside it.
+        List<string?> units = numericPage!.Children
+            .Select(child => child switch
+            {
+                TextBox box => (box.InnerRightContent as TextBlock)?.Text,
+                Grid grid when grid.Children.OfType<ComboBox>().Any()
+                    => grid.Children.OfType<Panel>().Single().Children.OfType<TextBlock>().Single().Text,
+                _ => null,
+            })
+            .OfType<string>()
+            .ToList<string?>();
 
         Assert.That(units, Is.EqualTo(new[] { "px", "fps", "Hz" }),
             "Size, FrameRate and SampleRate inputs should carry their unit suffixes in order");
+    }
+
+    // A whole rate, a fraction, or an NTSC rate as its decimal, kept reduced since a whole rate such as 60/2 would be
+    // written as its numerator.
+    [TestCase("30", 30, 1)]
+    [TestCase(" 24 ", 24, 1)]
+    [TestCase("30.0", 30, 1)]
+    [TestCase("29.97", 30000, 1001)]
+    [TestCase("23.976", 24000, 1001)]
+    [TestCase("59.94", 60000, 1001)]
+    [TestCase("30000/1001", 30000, 1001)]
+    [TestCase("60/2", 30, 1)]
+    [TestCase("12.5", 25, 2)]
+    public void The_frame_rate_box_reads_whole_fractional_and_NTSC_rates(string text, long numerator, long denominator)
+    {
+        Rational? rate = NewDocumentValidation.ParseFrameRate(text);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rate?.Numerator, Is.EqualTo(numerator));
+            Assert.That(rate?.Denominator, Is.EqualTo(denominator));
+            Assert.That(NewDocumentValidation.ValidateFrameRate(text), Is.Null);
+        });
+    }
+
+    [TestCase("", true)]
+    [TestCase("fps", true)]
+    [TestCase("1e3", true)]
+    [TestCase("0", false)]
+    [TestCase("-29.97", false)]
+    [TestCase("30/0", false)]
+    public void The_frame_rate_box_rejects_what_is_not_a_positive_rate(string text, bool notANumber)
+    {
+        Assert.That(
+            NewDocumentValidation.ValidateFrameRate(text),
+            Is.EqualTo(notANumber ? MessageStrings.InvalidString : MessageStrings.ValueLessThanOrEqualToZero));
+    }
+
+    [AvaloniaTest]
+    public async Task A_project_created_at_an_NTSC_rate_keeps_the_fraction()
+    {
+        await TestReset.ResetShellAsync();
+        try
+        {
+            CreateNewProjectViewModel viewModel = CreateViewModel(TestShell.Project);
+            string location = Path.Combine(Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!, "create-ntsc");
+            Directory.CreateDirectory(location);
+            viewModel.Location.Value = location;
+            viewModel.Name.Value = "ntsc-project";
+            viewModel.FrameRate.Value = "29.97";
+            Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+            Assert.That(viewModel.CanCreate.Value, Is.True);
+
+            await viewModel.Create.ExecuteAsync();
+
+            Project project = TestShell.Project.CurrentProject.Value!;
+            System.Text.Json.Nodes.JsonNode file = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(project.Uri!.LocalPath))!;
+            Assert.Multiple(() =>
+            {
+                Assert.That(project.FrameRate, Is.EqualTo(new Rational(30000, 1001)));
+                Assert.That((string?)file["FrameRate"], Is.EqualTo("30000/1001"));
+            });
+        }
+        finally
+        {
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [AvaloniaTest]
+    public void A_frame_rate_that_is_not_a_rate_blocks_creation()
+    {
+        CreateNewProjectViewModel viewModel = CreateViewModel(new ProjectService());
+        viewModel.FrameRate.Value = "fast";
+        Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(viewModel.CanCreate.Value, Is.False);
+            Assert.That(viewModel.FrameRate.HasErrors, Is.True);
+        });
     }
 
     [AvaloniaTest]

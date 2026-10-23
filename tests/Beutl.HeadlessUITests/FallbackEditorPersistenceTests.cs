@@ -62,6 +62,39 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
+    // Like NullableRecoveryHolder, but it does not read its Id, so recovery cannot tell which object held the transform.
+    [SuppressResourceClassGeneration]
+    public sealed class IdlessRecoveryHolder : EngineObject
+    {
+        public IdlessRecoveryHolder() => ScanProperties<IdlessRecoveryHolder>();
+
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateExpression<DisplacementMapTransform?>();
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            Transform.Value = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
+        }
+    }
+
+    // Drops its own transform and holds an IdlessRecoveryHolder that drops one too, so one record names Transform and
+    // another covers this whole object.
+    [SuppressResourceClassGeneration]
+    public sealed class NestingRecoveryHolder : EngineObject
+    {
+        public NestingRecoveryHolder() => ScanProperties<NestingRecoveryHolder>();
+
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateExpression<DisplacementMapTransform?>();
+
+        public IExpressionProperty<IdlessRecoveryHolder?> Child { get; } = Property.CreateExpression<IdlessRecoveryHolder?>();
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            Id = context.GetValue<Guid>(nameof(Id));
+            Transform.Value = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
+            Child.Value = context.GetValue<IdlessRecoveryHolder>(nameof(Child));
+        }
+    }
+
     // A brush whose type is missing does not protect its element: pasting over it is an ordinary edit, and
     // undoing it brings the fallback back, which saves the JSON it was read from.
     [AvaloniaTest]
@@ -239,10 +272,10 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
-    // Loading dropped the unreadable transform, so any replacement repairs the element, including an
-    // expression on a property that cannot be animated.
+    // Loading dropped the unreadable transform. An expression on another property does not replace it, so the edit is
+    // refused and saving keeps the file as it was read (#2974).
     [AvaloniaTest]
-    public async Task SetExpression_OnAPropertyThatCannotBeAnimated_CompletesTheRepair()
+    public async Task SetExpression_OnAnotherProperty_IsRefusedWhileADroppedValueIsUnrepaired()
     {
         await TestReset.ResetShellAsync();
 
@@ -258,14 +291,164 @@ public sealed class FallbackEditorPersistenceTests
                 (SimpleProperty<float>)recoveredHolder.Amount, recoveredHolder));
             viewModel.Accept(Services(recovered, history.History));
 
-            Assert.That(viewModel.SetExpression("1 + 2", out string? error), Is.True, error);
+            bool set = viewModel.SetExpression("1 + 2", out _);
             CoreSerializer.StoreToUri(recovered, recovered.Uri!);
 
             Assert.Multiple(() =>
             {
+                Assert.That(set, Is.False);
+                Assert.That(recoveredHolder.Amount.HasExpression, Is.False);
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+                Assert.That(File.ReadAllBytes(stored.ElementPath), Is.EqualTo(stored.OriginalBytes));
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // Removing the object that held the dropped transform repairs the element, and undoing it protects the element
+    // again (#2974).
+    [AvaloniaTest]
+    public async Task RemovingTheObjectThatHeldADroppedValue_RepairsAndUndoRestoresBytes()
+    {
+        await TestReset.ResetShellAsync();
+
+        string root = CreateRoot();
+        try
+        {
+            Recovered stored = StoreCorruptAndRestore(root, CreateTransformHolder(), CorruptTheTransform);
+            Element recovered = stored.Element;
+            EngineObject holder = recovered.Objects.Single();
+            using var history = new HistoryScope(recovered);
+
+            Assert.That(new ElementObjectService(history.History).Remove(recovered, holder), Is.True);
+            Assert.That(recovered.SuppressedStorageSource, Is.Null);
+            AssertRepairThenUndoRestoresBytes(stored, history.History, () =>
+            {
+                Assert.That(recovered.Objects.Single(), Is.SameAs(holder));
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // Each dropped value needs its own repair: the element stays protected until both transforms are replaced (#2974).
+    [AvaloniaTest]
+    public async Task TwoDroppedValues_KeepTheElementProtectedUntilBothAreReplaced()
+    {
+        await TestReset.ResetShellAsync();
+
+        string root = CreateRoot();
+        try
+        {
+            Element recovered = StoreCorruptAndRestore(root, CreateTransformHolder(), CorruptTwoTransforms).Element;
+            NullableRecoveryHolder[] holders = recovered.Objects.Cast<NullableRecoveryHolder>().ToArray();
+            using var history = new HistoryScope(recovered);
+
+            ReplaceTransform(holders[1]);
+            bool protectedAfterOne = recovered.SuppressedStorageSource is not null;
+            ReplaceTransform(holders[0]);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(holders, Has.Length.EqualTo(2));
+                Assert.That(protectedAfterOne, Is.True);
                 Assert.That(recovered.SuppressedStorageSource, Is.Null);
-                Assert.That(File.ReadAllBytes(stored.ElementPath), Is.Not.EqualTo(stored.OriginalBytes));
-                Assert.That(File.ReadAllText(stored.ElementPath), Does.Contain("1 + 2"));
+            });
+
+            void ReplaceTransform(NullableRecoveryHolder holder)
+            {
+                using var editor = new CoreObjectEditorViewModel<DisplacementMapTransform>(
+                    new SimplePropertyAdapter<DisplacementMapTransform>(
+                        (SimpleProperty<DisplacementMapTransform>)holder.Transform, holder));
+                editor.Accept(Services(recovered, history.History));
+                editor.SetValue(new DisplacementMapTranslateTransform());
+            }
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // A record that covers the whole holder is never resolved by an edit of its Transform, so that edit is refused rather
+    // than left unsaved.
+    [AvaloniaTest]
+    public async Task ARecordThatCoversTheWholeObject_RefusesAnEditOfItsDroppedMember()
+    {
+        await TestReset.ResetShellAsync();
+
+        string root = CreateRoot();
+        try
+        {
+            var original = new NestingRecoveryHolder();
+            original.Transform.Value = new DisplacementMapTranslateTransform();
+            original.Child.Value = new IdlessRecoveryHolder();
+            original.Child.Value.Transform.Value = new DisplacementMapTranslateTransform();
+            Recovered stored = StoreCorruptAndRestore(root, original, json =>
+            {
+                CorruptTheTransform(json);
+                json["Objects"]![0]!["Child"]!["Transform"]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+            });
+            Element recovered = stored.Element;
+            var holder = (NestingRecoveryHolder)recovered.Objects.Single();
+            using var history = new HistoryScope(recovered);
+            using var editor = new CoreObjectEditorViewModel<DisplacementMapTransform>(
+                new SimplePropertyAdapter<DisplacementMapTransform>(
+                    (SimpleProperty<DisplacementMapTransform>)holder.Transform, holder));
+            editor.Accept(Services(recovered, history.History));
+
+            editor.SetValue(new DisplacementMapTranslateTransform());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Child.Value, Is.Not.Null);
+                Assert.That(holder.Transform.Value, Is.Null);
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+            });
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // When no object that saving writes is found above a dropped value, the record covers the whole element: neither
+    // replacing the transform nor removing the object repairs it, and only deleting the element ends the protection.
+    [AvaloniaTest]
+    public async Task ADroppedValueWithoutAKnownOwner_KeepsTheWholeElementProtected()
+    {
+        await TestReset.ResetShellAsync();
+
+        string root = CreateRoot();
+        try
+        {
+            var original = new IdlessRecoveryHolder();
+            original.Transform.Value = new DisplacementMapTranslateTransform();
+            Recovered stored = StoreCorruptAndRestore(root, original, CorruptTheTransform);
+            Element recovered = stored.Element;
+            var holder = (IdlessRecoveryHolder)recovered.Objects.Single();
+            using var history = new HistoryScope(recovered);
+            using var editor = new CoreObjectEditorViewModel<DisplacementMapTransform>(
+                new SimplePropertyAdapter<DisplacementMapTransform>(
+                    (SimpleProperty<DisplacementMapTransform>)holder.Transform, holder));
+            editor.Accept(Services(recovered, history.History));
+
+            editor.SetValue(new DisplacementMapTranslateTransform());
+            bool removed = new ElementObjectService(history.History).Remove(recovered, holder);
+            CoreSerializer.StoreToUri(recovered, recovered.Uri!);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Transform.Value, Is.Null);
+                Assert.That(removed, Is.False);
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+                Assert.That(File.ReadAllBytes(stored.ElementPath), Is.EqualTo(stored.OriginalBytes));
             });
         }
         finally
@@ -954,6 +1137,20 @@ public sealed class FallbackEditorPersistenceTests
 
     private static void CorruptTheTransform(JsonObject json)
         => json["Objects"]![0]!["Transform"]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+
+    // Adds a copy of the first holder, with Ids of its own, and makes both transforms unreadable.
+    private static void CorruptTwoTransforms(JsonObject json)
+    {
+        JsonArray objects = json["Objects"]!.AsArray();
+        JsonObject second = objects[0]!.DeepClone().AsObject();
+        second[nameof(CoreObject.Id)] = Guid.NewGuid().ToString();
+        second["Transform"]![nameof(CoreObject.Id)] = Guid.NewGuid().ToString();
+        objects.Add(second);
+        foreach (JsonNode? holder in objects)
+        {
+            holder!["Transform"]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        }
+    }
 
     private static JsonObject DrawableJson(JsonObject json)
         => FindObject(json, obj => obj.ContainsKey(nameof(DrawableTextureSource.Drawable)))!

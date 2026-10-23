@@ -1,1 +1,0 @@
-P:Beutl.Project.Variables;Read the rates through ProjectRateExtensions in Beutl.ProjectSystem

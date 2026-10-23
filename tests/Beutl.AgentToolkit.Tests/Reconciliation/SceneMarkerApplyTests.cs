@@ -214,6 +214,6 @@ public sealed class SceneMarkerApplyTests
     {
         string root = TestWorkspace.CreateDirectory();
         return TestWorkspace.CreateFileSession(source, new ProjectCreateOptions(
-            Path.Combine(root, "demo.bep"), 640, 360, 30, TimeSpan.FromSeconds(6)));
+            Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
     }
 }

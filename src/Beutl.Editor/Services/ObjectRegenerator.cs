@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
-using Beutl.JsonConverters;
 using Beutl.Serialization;
 using Beutl.Utilities;
 
@@ -17,15 +16,11 @@ public static class ObjectRegenerator
     private static void RegenerateCore(ICoreSerializable obj, PooledArrayBufferWriter<byte> output)
     {
         // The copy holds its file-backed objects itself, so their Ids are in the JSON; a scene stays a reference.
-        JsonObject jsonObject;
-        using (MediaTimeJsonConverter.WriteFlicks())
+        JsonObject jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
         {
-            jsonObject = CoreSerializer.SerializeToJsonObject(obj, new CoreSerializerOptions
-            {
-                Mode = CoreSerializationMode.EmbedReferencedObjects,
-                EmbedsCopy = true
-            });
-        }
+            Mode = CoreSerializationMode.EmbedReferencedObjects,
+            EmbedsCopy = true
+        });
 
         // Each object of the copy writes its Id, including fallbacks and the objects unknown members keep.
         var newIds = new Dictionary<Guid, Guid>();

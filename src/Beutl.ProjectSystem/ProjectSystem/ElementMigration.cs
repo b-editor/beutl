@@ -132,9 +132,19 @@ internal static class ElementMigration
                 {
                     // 2.x does not read the runtime state and the values 1.x kept for itself, so they are dropped
                     // rather than kept as unknown members.
-                    return (EngineObject)CoreSerializer.DeserializeFromJsonObject(
+                    var migrated = (EngineObject)CoreSerializer.DeserializeFromJsonObject(
                         valueObj, targetType,
                         new CoreSerializerOptions { BaseUri = jsonContext.BaseUri, KeepUnknownMembers = false });
+                    // 1.x skipped a decorator or group turned off, and drew every other operator whatever its toggle said.
+                    if ((targetType == typeof(DrawableDecorator) || targetType == typeof(DrawableGroup))
+                        && operatorObj["IsEnabled"] is JsonValue enabled
+                        && enabled.TryGetValue(out bool isEnabled)
+                        && !isEnabled)
+                    {
+                        migrated.IsEnabled = false;
+                    }
+
+                    return migrated;
                 }
 
                 throw new InvalidOperationException("Unknown type");

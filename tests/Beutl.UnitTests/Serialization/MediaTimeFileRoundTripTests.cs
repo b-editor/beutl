@@ -1,4 +1,6 @@
-﻿using Beutl.Animation;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
@@ -10,32 +12,23 @@ using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Serialization;
 
-// Files keep the TimeSpan strings of earlier versions until #2885 raises the format floor, at a whole and an NTSC rate.
+// Files hold flick counts, and the TimeSpan strings of earlier versions still read, at a whole and an NTSC rate (#2885).
 [TestFixture]
 public sealed class MediaTimeFileRoundTripTests
 {
     private static readonly Rational[] s_rates = [new(30), new(30000, 1001)];
 
     [TestCaseSource(nameof(s_rates))]
-    public void A_file_of_an_earlier_version_reads_and_saves_to_the_same_bytes(Rational rate)
+    public void A_file_reads_its_flicks_exactly_and_saves_to_the_same_bytes(Rational rate)
     {
         using var harness = new SceneHistoryHarness("beutl_mediatime_bytes");
-        // Tick values as an earlier version writes them: frame times rounded down and up, and ticks off every frame.
-        long[] ticks = [.. Enumerable.Range(1, 30).SelectMany(frame => FrameTicks(frame, rate)), 1, 7, 12_345_678];
-        Scene scene = harness.Scene;
-        scene.Start = FromTicks(ticks[0]);
-        scene.Duration = FromTicks(ticks[0] + ticks[^1]) - scene.Start;
-        for (int i = 0; i + 1 < ticks.Length; i += 2)
-        {
-            Element element = harness.AddElement(FromTicks(ticks[i]), FromTicks(ticks[i] + ticks[i + 1]) - FromTicks(ticks[i]), i);
-            var animation = new KeyFrameAnimation<float>();
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = FromTicks(ticks[i + 1]), Value = 1 });
-            var shape = new RectShape();
-            shape.Width.SetKeyFrameAnimation(animation);
-            element.AddObject(shape);
-        }
-
-        scene.Markers.Add(new SceneMarker { Time = FromTicks(ticks[3]) });
+        // Frame times, which fall between ticks at an NTSC rate, and times off every frame.
+        MediaTime[] times =
+        [
+            .. Enumerable.Range(1, 30).Select(frame => MediaTime.FromFrames(frame, rate)),
+            new(1), new(7), new(729_119_977),
+        ];
+        Scene scene = BuildScene(harness, Pairs(times).Select(pair => (pair.First, pair.First + pair.Second, pair.Second)));
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         Dictionary<string, byte[]> saved = ReadFiles(harness.BasePath);
         string elementFile = File.ReadAllText(scene.Children[0].Uri!.LocalPath);
@@ -45,9 +38,38 @@ public sealed class MediaTimeFileRoundTripTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(elementFile, Does.Contain($"\"Start\": \"{TimeSpan.FromTicks(ticks[0]):c}\""));
-            Assert.That(elementFile, Does.Contain($"\"Length\": \"{TimeSpan.FromTicks(ticks[1]):c}\""));
+            Assert.That(elementFile, Does.Contain($"\"Start\": {times[0].Flicks}"));
+            Assert.That(elementFile, Does.Contain($"\"Length\": {times[1].Flicks}"));
+            Assert.That(Describe(restored), Is.EqualTo(Describe(scene)));
             Assert.That(ReadFiles(harness.BasePath), Is.EqualTo(saved));
+        });
+    }
+
+    // Outside a project an earlier version's strings read rounded up to a flick, which a save then keeps as flicks.
+    [TestCaseSource(nameof(s_rates))]
+    public void A_file_of_an_earlier_version_saves_the_times_it_read_as_flicks(Rational rate)
+    {
+        using var harness = new SceneHistoryHarness("beutl_mediatime_earlier");
+        // Tick values as an earlier version writes them: frame times rounded down and up, and ticks off every frame.
+        long[] ticks = [.. Enumerable.Range(1, 30).SelectMany(frame => FrameTicks(frame, rate)), 1, 7, 12_345_678];
+        // An earlier version wrote a length as the distance between its ends in ticks, so the ends are whole ticks.
+        Scene scene = BuildScene(harness, Pairs(ticks)
+            .Select(pair => (FromTicks(pair.First), FromTicks(pair.First + pair.Second), FromTicks(pair.Second))));
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            CoreSerializer.StoreToUri(scene, scene.Uri!);
+        string earlierFile = File.ReadAllText(scene.Children[0].Uri!.LocalPath);
+
+        Scene read = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        CoreSerializer.StoreToUri(read, scene.Uri!);
+        string savedFile = File.ReadAllText(read.Children[0].Uri!.LocalPath);
+        Scene reread = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(earlierFile, Does.Contain($"\"Start\": \"{TimeSpan.FromTicks(ticks[0]):c}\""));
+            Assert.That(Describe(read), Is.EqualTo(Describe(scene)));
+            Assert.That(savedFile, Does.Contain($"\"Start\": {read.Children[0].Start.Flicks}"));
+            Assert.That(Describe(reread), Is.EqualTo(Describe(scene)));
         });
     }
 
@@ -111,9 +133,10 @@ public sealed class MediaTimeFileRoundTripTests
         Assert.That(mismatches, Is.Empty);
     }
 
-    // Any tick an earlier version wrote reads back to a time that writes the same string; an integer reads as flicks.
+    // Any tick an earlier version wrote reads back to a time that an agent document shows as the same string, and that
+    // a file holds as flicks which read back exactly.
     [Test]
-    public void Times_read_from_TimeSpan_strings_write_the_same_strings()
+    public void Times_read_from_TimeSpan_strings_show_the_same_strings_and_keep_their_flicks()
     {
         var random = new Random(2885);
         long[] ticks =
@@ -121,25 +144,32 @@ public sealed class MediaTimeFileRoundTripTests
             0, 1, -1, 7, 333_333, 333_334, -12_345_678, 863_999_999_999, 130_000_000_000_000_000,
             .. Enumerable.Range(0, 500).Select(_ => random.NextInt64(-100_000_000_000_000, 100_000_000_000_000)),
         ];
-        var mismatches = new List<long>();
+        var mismatches = new List<string>();
         foreach (long tick in ticks)
         {
-            string text = System.Text.Json.JsonSerializer.Serialize(TimeSpan.FromTicks(tick));
-            var time = System.Text.Json.JsonSerializer.Deserialize<MediaTime>(text);
-            if (System.Text.Json.JsonSerializer.Serialize(time) != text)
-                mismatches.Add(tick);
+            string text = JsonSerializer.Serialize(TimeSpan.FromTicks(tick));
+            var time = JsonSerializer.Deserialize<MediaTime>(text);
+            using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            {
+                if (JsonSerializer.Serialize(time) != text)
+                    mismatches.Add($"{tick} shows another string");
+            }
+
+            if (JsonSerializer.Deserialize<MediaTime>(JsonSerializer.Serialize(time)) != time)
+                mismatches.Add($"{tick} reads other flicks");
         }
 
         Assert.Multiple(() =>
         {
             Assert.That(mismatches, Is.Empty);
-            Assert.That(System.Text.Json.JsonSerializer.Deserialize<MediaTime>("123"), Is.EqualTo(new MediaTime(123)));
+            Assert.That(JsonSerializer.Serialize(new MediaTime(123)), Is.EqualTo("123"));
+            Assert.That(JsonSerializer.Deserialize<MediaTime>("123"), Is.EqualTo(new MediaTime(123)));
         });
     }
 
-    // Copies that stay in the process keep the exact time, which a file would round to a tick.
+    // Copies keep the exact time, as files do.
     [Test]
-    public void Snapshots_duplicates_and_the_clipboard_keep_exact_times()
+    public void Snapshots_duplicates_and_copies_keep_exact_times()
     {
         var rate = new Rational(30000, 1001);
         using var harness = new SceneHistoryHarness("beutl_mediatime_copies", duration: MediaTime.FromFrames(900, rate));
@@ -148,46 +178,52 @@ public sealed class MediaTimeFileRoundTripTests
 
         Scene snapshot = SceneSnapshot.Create(harness.Scene);
         ObjectRegenerator.Regenerate(element, out Element duplicate);
-        string clipboard;
-        using (MediaTimeJsonConverter.WriteFlicks())
-            clipboard = CoreSerializer.SerializeToJsonString(element);
-        var pasted = (Element)CoreSerializer.DeserializeFromJsonObject(
-            System.Text.Json.Nodes.JsonNode.Parse(clipboard)!.AsObject(), typeof(Element));
+        string copy = CoreSerializer.SerializeToJsonString(element);
+        var pasted = (Element)CoreSerializer.DeserializeFromJsonObject(JsonNode.Parse(copy)!.AsObject(), typeof(Element));
 
         Assert.Multiple(() =>
         {
             Assert.That(snapshot.Children.Single().Range, Is.EqualTo(element.Range));
             Assert.That(snapshot.Duration, Is.EqualTo(harness.Scene.Duration));
             Assert.That(duplicate.Range, Is.EqualTo(element.Range));
-            Assert.That(clipboard, Does.Contain($"\"Start\": {element.Start.Flicks}"));
+            Assert.That(copy, Does.Contain($"\"Start\": {element.Start.Flicks}"));
             Assert.That(pasted.Range, Is.EqualTo(element.Range));
-            Assert.That(
-                CoreSerializer.SerializeToJsonString(element),
-                Does.Contain($"\"Start\": \"{TimeSpan.FromTicks(element.Start.ToTicks(MidpointRounding.ToNegativeInfinity)):c}\""));
         });
     }
 
-    // The scope belongs to the thread that opened it, so a copy whose clipboard write resumes on another thread must
-    // not leave that thread writing flicks into files.
-    [Test]
-    public void A_clipboard_copy_leaves_its_thread_writing_strings()
+    // An element on its own layer for each range, with a keyframe at the given time; the scene spans the elements and
+    // has a marker at the second one's start.
+    private static Scene BuildScene(SceneHistoryHarness harness, IEnumerable<(MediaTime Start, MediaTime End, MediaTime Key)> ranges)
     {
-        using var harness = new SceneHistoryHarness("beutl_mediatime_clipboard_thread");
-        Element element = harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        var service = new ElementClipboardService(
-            harness.History, new ResumingClipboard(), new ElementDuplicateService(harness.History), () => Colors.Magenta);
-
-        string? afterCopy = null;
-        var thread = new Thread(() =>
+        Scene scene = harness.Scene;
+        (MediaTime Start, MediaTime End, MediaTime Key)[] all = [.. ranges];
+        scene.Start = all[0].Start;
+        scene.Duration = all[^1].End - scene.Start;
+        for (int i = 0; i < all.Length; i++)
         {
-            service.CopyAsync([element]).GetAwaiter().GetResult();
-            afterCopy = CoreSerializer.SerializeToJsonString(element);
-        });
-        thread.Start();
-        thread.Join();
+            Element element = harness.AddElement(all[i].Start, all[i].End - all[i].Start, i);
+            var animation = new KeyFrameAnimation<float>();
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = all[i].Key, Value = 1 });
+            var shape = new RectShape();
+            shape.Width.SetKeyFrameAnimation(animation);
+            element.AddObject(shape);
+        }
 
-        Assert.That(afterCopy, Does.Contain("\"Start\": \"00:00:01\""));
+        scene.Markers.Add(new SceneMarker { Time = all[1].Start });
+        return scene;
     }
+
+    private static IEnumerable<(T First, T Second)> Pairs<T>(T[] values)
+        => Enumerable.Range(0, values.Length / 2).Select(i => (values[2 * i], values[(2 * i) + 1]));
+
+    private static string[] Describe(Scene scene)
+        =>
+        [
+            $"scene {scene.Start.Flicks} + {scene.Duration.Flicks}, marker {scene.Markers.Single().Time.Flicks}",
+            .. scene.Children.OrderBy(element => element.ZIndex).Select(element =>
+                $"{element.Start.Flicks} + {element.Length.Flicks}, key "
+                + ((RectShape)element.Objects.Single()).Width.GetKeyFrameAnimation()!.KeyFrames.Single().KeyTime.Flicks),
+        ];
 
     private static MediaTime FromTicks(long ticks) => MediaTime.FromTicks(ticks, MidpointRounding.ToPositiveInfinity);
 
@@ -209,21 +245,4 @@ public sealed class MediaTimeFileRoundTripTests
     private static Dictionary<string, byte[]> ReadFiles(string directory)
         => Directory.GetFiles(directory, "*", SearchOption.AllDirectories)
             .ToDictionary(path => Path.GetRelativePath(directory, path), File.ReadAllBytes);
-
-    private sealed class ResumingClipboard : IClipboardGateway
-    {
-        public Task<IReadOnlyList<string>> GetFormatsAsync() => Task.FromResult<IReadOnlyList<string>>([]);
-
-        public Task<string?> TryGetStringAsync(string format) => Task.FromResult<string?>(null);
-
-        public Task<IReadOnlyList<string>?> TryGetFilePathsAsync() => Task.FromResult<IReadOnlyList<string>?>(null);
-
-        public Task<ReadOnlyMemory<byte>?> TryGetBitmapPngAsync() => Task.FromResult<ReadOnlyMemory<byte>?>(null);
-
-        public async Task<bool> SetAsync(IReadOnlyList<ClipboardEntry> entries)
-        {
-            await Task.Delay(10).ConfigureAwait(false);
-            return true;
-        }
-    }
 }

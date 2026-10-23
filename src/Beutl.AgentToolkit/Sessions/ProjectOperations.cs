@@ -11,7 +11,7 @@ public sealed record ProjectCreateOptions(
     string ProjectPath,
     int Width,
     int Height,
-    int FrameRate,
+    Rational FrameRate,
     TimeSpan Duration,
     int SampleRate = 48000,
     string? Name = null);
@@ -49,18 +49,13 @@ public static class ProjectOperations
             Duration = MediaTime.FromTimeSpan(options.Duration)
         };
 
-#pragma warning disable RS0030 // Writes a new project's rates until #2885 stores them as a rational rate.
         var project = new Project
         {
             Uri = CreateFileUri(projectPath),
             Items = { scene },
-            Variables =
-            {
-                [ProjectVariableKeys.FrameRate] = options.FrameRate.ToString(),
-                [ProjectVariableKeys.SampleRate] = options.SampleRate.ToString(),
-            }
+            FrameRate = options.FrameRate,
+            SampleRate = options.SampleRate,
         };
-#pragma warning restore RS0030
 
         return project;
     }

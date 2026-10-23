@@ -135,6 +135,9 @@ internal sealed partial class PathEditorInteraction
     }
 
     private IPathEditorContext? Context => _view.DataContext as IPathEditorContext;
+
+    // The path stays as it is while its clip is locked or recovery keeps its file.
+    private bool CanEdit => ElementEditability.IsEditable(Context?.Element.Value);
     private CompositionContext Composition => new(Context!.EditorContext.GetRequiredService<IEditorClock>().CurrentTime.Value);
     private IEnumerable<Thumb> Anchors => _canvas.Children.OfType<Thumb>().Where(t => !t.Classes.Contains("control"));
 
@@ -253,6 +256,12 @@ internal sealed partial class PathEditorInteraction
         }
         if (Context?.PathFigure.Value is not { } figure) return;
         Thumb? thumb = Ancestor<Thumb>(e.Source);
+        if (!CanEdit)
+        {
+            // A press on a read-only path only selects.
+            if (thumb == null) BeginMarquee(e, point);
+            return;
+        }
         if ((Tool == PathEditorTool.Bend || e.ClickCount == 2) && thumb?.DataContext is PathSegment anchor && !thumb.Classes.Contains("control"))
         {
             Bend(figure, anchor);

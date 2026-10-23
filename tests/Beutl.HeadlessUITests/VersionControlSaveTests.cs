@@ -268,7 +268,7 @@ public class VersionControlSaveTests
             Project project = (await TestShell.Project.CreateProject(
                 640,
                 480,
-                30,
+                new Rational(30),
                 44100,
                 "explicit-save",
                 location))!;
@@ -752,7 +752,7 @@ public class VersionControlSaveTests
         Project project = (await TestShell.Project.CreateProject(
             640,
             480,
-            30,
+            new Rational(30),
             44100,
             directoryName,
             location))!;
@@ -963,7 +963,7 @@ public class VersionControlSaveTests
             Project replacement = (await TestShell.Project.CreateProject(
                 640,
                 480,
-                30,
+                new Rational(30),
                 44100,
                 "replacement",
                 replacementLocation))!;
@@ -971,7 +971,7 @@ public class VersionControlSaveTests
             Project expected = (await TestShell.Project.CreateProject(
                 640,
                 480,
-                30,
+                new Rational(30),
                 44100,
                 "expected",
                 expectedLocation))!;

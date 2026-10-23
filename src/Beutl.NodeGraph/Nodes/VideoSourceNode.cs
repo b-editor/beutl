@@ -11,14 +11,14 @@ public sealed partial class VideoSourceNode : GraphNode
     {
         Output = AddOutput<VideoSourceRenderNode?>("Output", NodePortDisplays.Output);
         Source = AddInput<VideoSource?>("Source", NodePortDisplays.Source);
-        Time = AddInput<TimeSpan>("Time", NodePortDisplays.Time);
+        Time = AddInput<MediaTime>("Time", NodePortDisplays.Time);
     }
 
     public OutputPort<VideoSourceRenderNode?> Output { get; }
 
     public InputPort<VideoSource?> Source { get; }
 
-    public InputPort<TimeSpan> Time { get; }
+    public InputPort<MediaTime> Time { get; }
 
     public partial class Resource
     {
@@ -57,8 +57,7 @@ public sealed partial class VideoSourceNode : GraphNode
                 _sourceResource!.Reconcile(source, context, ref versionBumped);
             }
 
-            // The port stays TimeSpan until #2885 step 4; a time past the range of MediaTime clamps.
-            var time = MediaTime.FromTicks(((TimeSpan)Time).Ticks, MidpointRounding.AwayFromZero);
+            MediaTime time = Time;
             Rational rate = _sourceResource.FrameRate;
             int frame = rate.Numerator > 0 && rate.Denominator > 0
                 ? (int)time.ToFrame(rate, MidpointRounding.AwayFromZero)

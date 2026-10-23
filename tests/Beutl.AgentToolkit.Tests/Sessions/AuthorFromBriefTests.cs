@@ -20,7 +20,7 @@ public sealed class AuthorFromBriefTests
             projectPath,
             1920,
             1080,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(10),
             Name: "promo"));
 
@@ -72,7 +72,7 @@ public sealed class AuthorFromBriefTests
             projectPath,
             1280,
             720,
-            24,
+            new Rational(24),
             TimeSpan.FromSeconds(5),
             Name: "multi"));
 

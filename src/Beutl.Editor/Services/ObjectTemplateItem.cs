@@ -78,15 +78,7 @@ public sealed class ObjectTemplateItem(
         }
     }
 
-    // `new Uri(path)` reads a URI-reserved character in the file name — a `#` is legal in a
-    // package payload — as syntax, truncating the base path.
-    internal static Uri ToFileUri(string path)
-    {
-        return new UriBuilder("file", string.Empty)
-        {
-            Path = Path.GetFullPath(path)
-        }.Uri;
-    }
+    internal static Uri ToFileUri(string path) => UriHelper.CreateFromPath(Path.GetFullPath(path));
 
     public static ObjectTemplateItem CreateFromInstance(ICoreSerializable obj, string name)
     {
@@ -171,6 +163,8 @@ public sealed class ObjectTemplateItem(
             // would pin the whole parsed document — including the base64 preview — for the
             // lifetime of every item the service caches.
             var payload = (JsonObject)jsonObject.DeepClone();
+            // A template records no version; one from before 2.0.0-preview.9 names its time types over TimeSpan.
+            CoreSerializer.RenameTimeSpanTypeArguments(payload);
 
             return new ObjectTemplateItem(id, baseType, actualType, payload, name, categoryFormat, filePath)
             {

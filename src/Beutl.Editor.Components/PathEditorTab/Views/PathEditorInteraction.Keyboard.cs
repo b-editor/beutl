@@ -84,12 +84,16 @@ internal sealed partial class PathEditorInteraction
             var selected = _view.GetSelectedAnchors().Select(t => t.DataContext).OfType<PathSegment>().ToHashSet();
             if (selected.Count > 0)
             {
-                Mutate(() =>
+                // A read-only path keeps its points, and the key still stops here.
+                if (CanEdit)
                 {
-                    for (int i = figure.Segments.Count - 1; i >= 0; i--)
-                        if (selected.Contains(figure.Segments[i])) figure.Segments.RemoveAt(i);
-                });
-                SyncSelection();
+                    Mutate(() =>
+                    {
+                        for (int i = figure.Segments.Count - 1; i >= 0; i--)
+                            if (selected.Contains(figure.Segments[i])) figure.Segments.RemoveAt(i);
+                    });
+                    SyncSelection();
+                }
                 e.Handled = true;
             }
         }
@@ -97,6 +101,7 @@ internal sealed partial class PathEditorInteraction
 
     private void NudgeSelection(KeyEventArgs e, PathFigure figure)
     {
+        if (!CanEdit) return;
         _nudges ??= CreateSelectionDragStates(figure);
         if (_nudges.Count == 0) return;
         float amount = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
@@ -115,7 +120,7 @@ internal sealed partial class PathEditorInteraction
 
     public void PreviewSelectionPosition(BtlPoint point)
     {
-        if (Context?.PathFigure.Value is not { } figure || !float.IsFinite(point.X) || !float.IsFinite(point.Y)) return;
+        if (!CanEdit || Context?.PathFigure.Value is not { } figure || !float.IsFinite(point.X) || !float.IsFinite(point.Y)) return;
         if (_coordinateStates == null)
         {
             var points = _view.GetSelectedAnchors().Select(PathEditorHelper.GetProperty)

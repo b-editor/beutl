@@ -93,9 +93,6 @@ public static class ItemValueHelper
             case ItemValue<UInt128> uint128NodePort:
                 uint128NodePort.AcceptNumber();
                 break;
-            case ItemValue<TimeSpan> timeSpanNodePort:
-                timeSpanNodePort.AcceptNumber();
-                break;
             case ItemValue<MediaTime> mediaTimeNodePort:
                 mediaTimeNodePort.AcceptNumber();
                 break;
@@ -467,24 +464,8 @@ public static class ItemValueHelper
         });
     }
 
-    public static void AcceptNumber(this ItemValue<TimeSpan> itemValue)
-    {
-        itemValue.RegisterReceiver((source, out value) =>
-        {
-            value = default;
-
-            if (ToNumber(source, out double numValue))
-            {
-                value = TimeSpan.FromSeconds(numValue);
-                return true;
-            }
-
-            return false;
-        });
-    }
-
-    // Seconds, as the TimeSpan overload takes them.
-    internal static void AcceptNumber(this ItemValue<MediaTime> itemValue)
+    // A number is a time in seconds.
+    public static void AcceptNumber(this ItemValue<MediaTime> itemValue)
     {
         itemValue.RegisterReceiver((source, out value) =>
         {

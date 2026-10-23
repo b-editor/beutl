@@ -156,7 +156,7 @@ public sealed partial class ProjectService
         }
     }
 
-    public Task<Project?> CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
+    public Task<Project?> CreateProject(int width, int height, Rational framerate, int samplerate, string name, string location)
     {
         return CreateProject(width, height, framerate, samplerate, name, location, beforeOpening: null);
     }
@@ -167,7 +167,7 @@ public sealed partial class ProjectService
     internal async Task<Project?> CreateProject(
         int width,
         int height,
-        int framerate,
+        Rational framerate,
         int samplerate,
         string name,
         string location,
@@ -358,7 +358,7 @@ public sealed partial class ProjectService
     private async Task<Project?> CreateProjectCoreAsync(
         int width,
         int height,
-        int framerate,
+        Rational framerate,
         int samplerate,
         string name,
         string location,
@@ -373,7 +373,7 @@ public sealed partial class ProjectService
         using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("project.create");
         activity?.SetTag(nameof(width), width);
         activity?.SetTag(nameof(height), height);
-        activity?.SetTag(nameof(framerate), framerate);
+        activity?.SetTag(nameof(framerate), framerate.ToDouble());
         activity?.SetTag(nameof(samplerate), samplerate);
         try
         {
@@ -384,18 +384,13 @@ public sealed partial class ProjectService
             {
                 Uri = UriHelper.CreateFromPath(Path.Combine(location, name, $"{name}.{EditorConstants.SceneFileExtension}")),
             };
-#pragma warning disable RS0030 // Writes a new project's rates until #2885 stores them as a rational rate.
             var project = new Project()
             {
                 Items = { scene },
                 Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{EditorConstants.ProjectFileExtension}")),
-                Variables =
-                {
-                    [ProjectVariableKeys.FrameRate] = framerate.ToString(),
-                    [ProjectVariableKeys.SampleRate] = samplerate.ToString(),
-                }
+                FrameRate = framerate,
+                SampleRate = samplerate,
             };
-#pragma warning restore RS0030
 
             CoreSerializer.StoreToUri(scene, scene.Uri);
             ProjectPersistence.PersistOrRollback(

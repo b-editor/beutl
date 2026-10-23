@@ -25,7 +25,7 @@ internal static class AgentHostInstanceTestWorker
                 await TestReset.ResetShellAsync();
                 string projectRoot = Path.Combine(home, "project");
                 Directory.CreateDirectory(projectRoot);
-                Project project = (await TestShell.Project.CreateProject(640, 480, 30, 44100, name, projectRoot))!;
+                Project project = (await TestShell.Project.CreateProject(640, 480, new Rational(30), 44100, name, projectRoot))!;
                 Scene scene = project.Items.OfType<Scene>().Single();
                 TestShell.Editor.ActivateTabItem(scene);
                 await using var endpoint = new AgentHostEndpoint(

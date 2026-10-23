@@ -1,6 +1,7 @@
 ﻿using Beutl.Configuration;
 using Beutl.Logging;
 using Beutl.Media.Proxy;
+using Beutl.Serialization;
 
 using Microsoft.Extensions.Logging;
 
@@ -136,18 +137,8 @@ public static class DecoderRegistry
         return null;
     }
 
-    // Build an escaped file URI for the resolver: new Uri(rawPath) parses URI-reserved chars in the
-    // filename (# fragment, ? query) as delimiters, so LocalPath would drop them and no longer match
-    // the path ProxyFingerprint.FromFile stored — the proxy would never resolve for such files.
-    internal static Uri ToFileUri(string file)
-    {
-        return new UriBuilder
-        {
-            Scheme = Uri.UriSchemeFile,
-            Host = string.Empty,
-            Path = Path.GetFullPath(file),
-        }.Uri;
-    }
+    // The resolver matches the LocalPath of this URI with the path ProxyFingerprint.FromFile stored.
+    internal static Uri ToFileUri(string file) => UriHelper.CreateFromPath(Path.GetFullPath(file));
 
     public static IDecoderInfo[] GuessDecoder(string file)
     {
