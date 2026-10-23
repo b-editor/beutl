@@ -83,41 +83,33 @@ public class TextElements : IReadOnlyList<TextElement>, IDisposable
         public LineEnumerator GetEnumerator()
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            int count = 0;
-            foreach (TextElement item in _array)
+            if (_formattedTexts is null)
             {
-                count += item.CountElements();
-            }
-
-            if (_formattedTexts?.Length != count)
-            {
-                // The element count changed (TextElement is mutable): dispose the abandoned array's
-                // FormattedText handles before replacing it so they are released deterministically.
-                if (_formattedTexts is { } stale)
+                int count = 0;
+                foreach (TextElement item in _array)
                 {
-                    foreach (FormattedText item in stale)
-                    {
-                        item.Dispose();
-                    }
+                    count += item.CountElements();
                 }
 
-                _formattedTexts = new FormattedText[count];
-                foreach (ref FormattedText item in _formattedTexts.AsSpan())
+                var formattedTexts = new FormattedText[count];
+                foreach (ref FormattedText item in formattedTexts.AsSpan())
                 {
                     item = new FormattedText();
                 }
+
+                Span<FormattedText> span = formattedTexts;
+                bool startWithNewLine = false;
+                foreach (TextElement item in _array)
+                {
+                    int ct = item.GetFormattedTexts(span, startWithNewLine, out startWithNewLine);
+                    span = span.Slice(ct);
+                }
+
+                // Later element changes require a new TextElements instance.
+                _formattedTexts = formattedTexts;
             }
 
-            Span<FormattedText> span = _formattedTexts;
-            bool startWithNewLine = false;
-
-            foreach (TextElement item in _array)
-            {
-                int ct = item.GetFormattedTexts(span, startWithNewLine, out startWithNewLine);
-                span = span.Slice(ct);
-            }
-
-            return new LineEnumerator(_formattedTexts, count);
+            return new LineEnumerator(_formattedTexts, _formattedTexts.Length);
         }
     }
 
