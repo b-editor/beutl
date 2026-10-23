@@ -46,7 +46,7 @@ internal static class FallbackDeserializationHelper
             coreObject.Id = id;
         }
 
-        DeserializationIncidents.RecordFallback(fallback);
+        DeserializationIncidents.RecordFallback(fallback, json);
         return fallback;
     }
 }

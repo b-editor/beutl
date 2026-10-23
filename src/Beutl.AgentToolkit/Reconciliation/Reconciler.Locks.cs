@@ -186,7 +186,8 @@ public sealed partial class Reconciler
                 .OfType<EngineObject>()
                 .Select(blocker => blocker.Id)
                 .ToHashSet();
-            if (sandbox.Children.FirstOrDefault(child => child.Id == element.Id) is not { } repaired
+            if (SceneRecovery.IsRecoveryBlocker(element)
+                || sandbox.Children.FirstOrDefault(child => child.Id == element.Id) is not { } repaired
                 || SceneRecovery.HoldsUnresolvedRecoveryBlocker(repaired)
                 || SerializedGraphTraversal.Enumerate(repaired).OfType<EngineObject>().Any(item => blockers.Contains(item.Id)))
             {

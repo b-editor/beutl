@@ -80,6 +80,7 @@ internal sealed partial class SceneRecovery
             EnsureFallbackProjection(fallback);
         }
 
+        RecordDroppedValues(element, incidents);
         MarkRecoveredElement(
             element,
             File.ReadAllBytes(uri.LocalPath),
@@ -287,10 +288,10 @@ internal sealed partial class SceneRecovery
 
     // Whether content (an element, one of its objects, or a value or animation inside one) holds
     // what recovery keeps the element's original file for: content the Beutl 1.x migration could not
-    // convert, the stand-in for an element file that could not be read, or a keyframe whose easing could
-    // not be read. A fallback for an object whose type could not be loaded is not one: saving writes back what
-    // it kept. Content nested where the serialized graph does not reach (for example inside a record) is not
-    // found.
+    // convert, the stand-in for an element file that could not be read, a keyframe whose easing could
+    // not be read, or an object with a member whose value loading dropped. A fallback for an object whose type
+    // could not be loaded is not one: saving writes back what it kept. Content nested where the serialized graph
+    // does not reach (for example inside a record) is not found.
     internal static bool HoldsRecoveryBlocker(object? content)
     {
         return SerializedGraphTraversal.Visit(content, "$", static (value, _) => IsRecoveryBlocker(value));
@@ -300,7 +301,8 @@ internal sealed partial class SceneRecovery
     internal static bool IsRecoveryBlocker(object value)
     {
         return value is KeyFrame { HasLossyEasing: true }
-               || (value is EngineObject obj && IsRecoveryBlockerObject(obj));
+               || (value is EngineObject obj && IsRecoveryBlockerObject(obj))
+               || (value is CoreObject owner && HoldsUnresolvedDroppedValue(owner));
     }
 
     private static bool IsRecoveryBlockerObject(EngineObject obj)
@@ -311,14 +313,18 @@ internal sealed partial class SceneRecovery
 
     internal static bool HoldsUnresolvedRecoveryBlocker(Element element)
     {
+        SaveDroppedValues(element);
         return HoldsRecoveryBlocker(element)
                || HasUnresolvedSerializedRecoveryBlocker(element);
     }
 
-    // Finds the easings that could not be read where the serialized graph does not reach.
+    // Finds lossy easings, and objects with values that loading dropped, where the serialized graph does not reach.
     private static bool HasUnresolvedSerializedRecoveryBlocker(Element element)
     {
         using var capture = new LossyEasingSerializationCapture();
+        using SerializedObjectCapture? saved = s_droppedValueOwners.TryGetValue(element, out _)
+            ? new SerializedObjectCapture()
+            : null;
         CoreSerializer.SerializeToJsonObject(
             element,
             new CoreSerializerOptions
@@ -326,7 +332,9 @@ internal sealed partial class SceneRecovery
                 BaseUri = element.Uri,
                 Mode = CoreSerializationMode.ReadWrite | CoreSerializationMode.EmbedReferencedObjects,
             });
-        return capture.HasLossyEasing;
+        return capture.HasLossyEasing
+               || (saved?.Objects.Where(static obj => s_droppedValues.TryGetValue(obj, out _)).ToArray() ?? [])
+                   .Any(HoldsUnresolvedDroppedValue);
     }
 
     private static void EnsureFallbackProjection(IFallback fallback)
