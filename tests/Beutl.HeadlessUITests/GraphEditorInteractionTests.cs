@@ -317,7 +317,8 @@ public class GraphEditorInteractionTests
     [TestCase(true, true)]
     public async Task Ruler_wheel_scrolls_only_the_hovered_axis(bool horizontal, bool shift)
     {
-        using var graph = await GraphScope.CreateAsync(selectAll: false);
+        using var graph = await GraphScope.CreateAsync(selectAll: false,
+            scrollDetector: _ => throw new AssertionException("Ruler scrolling must not depend on the scroll device."));
         graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 2 };
         graph.Model.ScaleY.Value = 2;
         HeadlessTestHelpers.Render(3);
@@ -419,11 +420,13 @@ public class GraphEditorInteractionTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Plot_wheel_respects_the_timeline_scroll_preference(bool swapped)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task Plot_wheel_preserves_gesture_axes_and_mouse_scroll_preference(bool swapped, bool touchpad)
     {
-        using var graph = await GraphScope.CreateAsync(selectAll: false);
+        using var graph = await GraphScope.CreateAsync(selectAll: false, scrollDetector: touchpad ? _ => true : null);
         var config = GlobalConfiguration.Instance.EditorConfig;
         bool previous = config.SwapTimelineScrollDirection.Value;
         try
@@ -435,17 +438,101 @@ public class GraphEditorInteractionTests
             var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
             Point pointer = scroll.TranslatePoint(new Point(180, 160), graph.Window)!.Value;
             graph.HitTest(pointer);
-            foreach (var delta in new[] { new Vector(0, -1), new Vector(-1, 0), new Vector(-2, -1) })
+            foreach (RawInputModifiers modifiers in new[] { RawInputModifiers.None, RawInputModifiers.Shift })
             {
-                graph.Model.ScrollOffset.Value = new Vector(75, 80);
-                HeadlessTestHelpers.Render();
-                graph.Window.MouseWheel(pointer, delta);
-                HeadlessTestHelpers.Render();
-                Assert.That(scroll.Offset.X, Is.EqualTo(75 - (swapped ? delta.X : delta.Y) * 50).Within(0.01));
-                Assert.That(scroll.Offset.Y, Is.EqualTo(80 - (swapped ? delta.Y : delta.X) * 50).Within(0.01));
+                foreach (var delta in new[] { new Vector(0, -1), new Vector(-1, 0), new Vector(-0.4, -0.7), new Vector(0.25, 0.5) })
+                {
+                    graph.Model.ScrollOffset.Value = new Vector(75, 80);
+                    HeadlessTestHelpers.Render();
+                    if (touchpad && !swapped && modifiers == RawInputModifiers.None)
+                        HeadlessCapture.SaveIfRequested(graph.View, nameof(GraphEditorInteractionTests), $"scroll-{delta.X}-{delta.Y}-before");
+                    graph.Window.MouseWheel(pointer, delta, modifiers);
+                    HeadlessTestHelpers.Render();
+                    if (touchpad && !swapped && modifiers == RawInputModifiers.None)
+                        HeadlessCapture.SaveIfRequested(graph.View, nameof(GraphEditorInteractionTests), $"scroll-{delta.X}-{delta.Y}-after");
+                    bool preserveAxes = touchpad || (swapped ^ (OperatingSystem.IsWindows() && modifiers == RawInputModifiers.Shift));
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(scroll.Offset.X, Is.EqualTo(75 - (preserveAxes ? delta.X : delta.Y) * 50).Within(0.01));
+                        Assert.That(scroll.Offset.Y, Is.EqualTo(80 - (preserveAxes ? delta.Y : delta.X) * 50).Within(0.01));
+                        Assert.That(graph.Model.Options.Value.Scale, Is.EqualTo(2));
+                        Assert.That(graph.Model.ScaleY.Value, Is.EqualTo(2));
+                    });
+                }
             }
         }
         finally { config.SwapTimelineScrollDirection.Value = previous; }
+    }
+
+    [AvaloniaTest]
+    [Platform("MacOSX")]
+    public async Task Plot_scroll_tracks_native_gestures_momentum_and_mouse_wheel_changes()
+    {
+        nint nativeEvent = 0;
+        using var graph = await GraphScope.CreateAsync(selectAll: false,
+            scrollDetector: _ => NativeScrollInput.MacOS.IsGestureScrollEvent(nativeEvent, 5000));
+        var config = GlobalConfiguration.Instance.EditorConfig;
+        bool previous = config.SwapTimelineScrollDirection.Value;
+        try
+        {
+            config.SwapTimelineScrollDirection.Value = false;
+            graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 2 };
+            graph.Model.ScaleY.Value = 2;
+            HeadlessTestHelpers.Render(3);
+            var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
+            Point pointer = scroll.TranslatePoint(new Point(180, 160), graph.Window)!.Value;
+            graph.HitTest(pointer);
+            (long Phase, long Momentum, bool Gesture)[] samples = [(2, 0, true), (0, 2, true), (0, 0, false), (1, 0, true)];
+            foreach (var sample in samples)
+            {
+                NativeScrollInputTests.WithMacScrollEvent(0, sample.Phase, sample.Momentum, currentEvent =>
+                {
+                    nativeEvent = currentEvent;
+                    graph.Model.ScrollOffset.Value = new Vector(75, 80);
+                    HeadlessTestHelpers.Render();
+                    graph.Window.MouseWheel(pointer, new Vector(-0.4, -0.7));
+                    HeadlessTestHelpers.Render();
+                    Assert.Multiple(() =>
+                    {
+                        Assert.That(scroll.Offset.X, Is.EqualTo(sample.Gesture ? 95 : 110).Within(0.01));
+                        Assert.That(scroll.Offset.Y, Is.EqualTo(sample.Gesture ? 115 : 100).Within(0.01));
+                    });
+                });
+            }
+        }
+        finally { config.SwapTimelineScrollDirection.Value = previous; }
+    }
+
+    [AvaloniaTest]
+    public void Native_scroll_registration_is_released_on_detach_and_window_close()
+    {
+        int registrations = 0;
+        int removals = 0;
+        var view = new GraphEditorView(_ => false, _ =>
+        {
+            registrations++;
+            return System.Reactive.Disposables.Disposable.Create(() => removals++);
+        });
+        var first = new Window { Content = view };
+        var second = new Window();
+        try
+        {
+            first.Show();
+            Assert.That(registrations, Is.EqualTo(1));
+            first.Content = null;
+            Assert.That(removals, Is.EqualTo(1));
+            second.Content = view;
+            second.Show();
+            Assert.That(registrations, Is.EqualTo(2));
+            second.Close();
+            Assert.That(removals, Is.EqualTo(2));
+        }
+        finally
+        {
+            first.Close();
+            second.Close();
+        }
+        Assert.That(removals, Is.EqualTo(2));
     }
 
     [AvaloniaTest]
@@ -455,7 +542,8 @@ public class GraphEditorInteractionTests
     [TestCase(KeyModifiers.Meta, true)]
     public async Task Plot_command_wheel_zooms_time_and_shift_zooms_value(KeyModifiers command, bool shift)
     {
-        using var graph = await GraphScope.CreateAsync(selectAll: false);
+        using var graph = await GraphScope.CreateAsync(selectAll: false,
+            scrollDetector: _ => throw new AssertionException("Zoom must not depend on the scroll device."));
         using var commandModifier = CommandModifierScope.Use(command);
         var scroll = graph.View.FindControl<ScrollViewer>("scroll")!;
         graph.Model.ScaleY.Value = 2;
