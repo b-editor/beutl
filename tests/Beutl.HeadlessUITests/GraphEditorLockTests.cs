@@ -92,13 +92,20 @@ public class GraphEditorLockTests
         GraphEditorKeyFrameViewModel unreadableItem = graph.Model.SelectedView.Value.KeyFrames.Single(x => x.Model == unreadable);
         Assert.That(SceneRecovery.HoldsRecoveryBlocker(unreadable), Is.True);
 
-        // What loaded stays as it is.
+        // What loaded stays as it is, also when selected with the unreadable keyframe.
         graph.Model.DropEasing(new HoldEasing(), MediaTime.FromSeconds(0.5));
         bool deletedFirst = graph.Model.DeleteKeyFrames([graph.First]);
         tab.RemoveAnimation(heightItem);
+        graph.Model.SelectedView.Value.SetSelection([unreadable, graph.First]);
+        bool canRemoveMixed = ((ICommand)unreadableItem.RemoveCommand).CanExecute(null);
+        graph.View.Focus();
+        graph.PressKey(Key.Delete);
+        graph.Model.SelectedView.Value.SetSelection([]);
         Assert.Multiple(() =>
         {
             Assert.That(GraphScope.Snapshot(graph.First), Is.EqualTo(first));
+            Assert.That(graph.Animation.KeyFrames, Does.Contain(graph.First).And.Contain(unreadable));
+            Assert.That(canRemoveMixed, Is.False);
             Assert.That(deletedFirst, Is.False);
             Assert.That(shape.Height.GetKeyFrameAnimation(), Is.SameAs(height));
             Assert.That(((ICommand)firstItem.RemoveCommand).CanExecute(null), Is.False);

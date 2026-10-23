@@ -213,11 +213,14 @@ public sealed partial class GraphEditorViewModel : IDisposable
         _pointerPosition = positionX.PixelToTime(scale);
     }
 
+    // On a recovery-protected clip only keys whose easing could not be read may go, as removing each repairs it.
+    internal bool CanDeleteKeyFrames(IEnumerable<IKeyFrame> keyFrames)
+        => keyFrames.All(key => ElementEditability.CanRepair(Element, key, Scene));
+
     internal bool DeleteKeyFrames(IEnumerable<IKeyFrame> keyFrames)
     {
         var selected = keyFrames.Where(Animation.KeyFrames.Contains).ToArray();
-        // Removing a keyframe whose easing could not be read repairs a recovery-protected clip, so it stays allowed.
-        if (selected.Length == 0 || !ElementEditability.CanRepair(Element, selected, Scene)) return false;
+        if (selected.Length == 0 || !CanDeleteKeyFrames(selected)) return false;
         var selection = Views.Select(view => (view.Name, Keys: view.KeyFrames.Where(key => key.IsSelected.Value)
             .Select(key => key.Model).ToArray())).ToArray();
         var owner = new WeakReference<GraphEditorViewModel>(this);
