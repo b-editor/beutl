@@ -3,6 +3,7 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
