@@ -132,7 +132,7 @@ internal sealed partial class SceneRecovery
 
         private bool CoversTheOwner => Array.IndexOf(members, null) >= 0;
 
-        public bool Holds(string member) => Array.IndexOf(members, member) >= 0;
+        public bool Holds(string member) => !CoversTheOwner && Array.IndexOf(members, member) >= 0;
 
         public void EnsureSaved(CoreObject owner)
         {

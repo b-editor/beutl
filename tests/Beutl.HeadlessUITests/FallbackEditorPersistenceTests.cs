@@ -76,6 +76,25 @@ public sealed class FallbackEditorPersistenceTests
         }
     }
 
+    // Drops its own transform and holds an IdlessRecoveryHolder that drops one too, so one record names Transform and
+    // another covers this whole object.
+    [SuppressResourceClassGeneration]
+    public sealed class NestingRecoveryHolder : EngineObject
+    {
+        public NestingRecoveryHolder() => ScanProperties<NestingRecoveryHolder>();
+
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateExpression<DisplacementMapTransform?>();
+
+        public IExpressionProperty<IdlessRecoveryHolder?> Child { get; } = Property.CreateExpression<IdlessRecoveryHolder?>();
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            Id = context.GetValue<Guid>(nameof(Id));
+            Transform.Value = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
+            Child.Value = context.GetValue<IdlessRecoveryHolder>(nameof(Child));
+        }
+    }
+
     // A brush whose type is missing does not protect its element: pasting over it is an ordinary edit, and
     // undoing it brings the fallback back, which saves the JSON it was read from.
     [AvaloniaTest]
@@ -350,6 +369,48 @@ public sealed class FallbackEditorPersistenceTests
                 editor.Accept(Services(recovered, history.History));
                 editor.SetValue(new DisplacementMapTranslateTransform());
             }
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // A record that covers the whole holder is never resolved by an edit of its Transform, so that edit is refused rather
+    // than left unsaved.
+    [AvaloniaTest]
+    public async Task ARecordThatCoversTheWholeObject_RefusesAnEditOfItsDroppedMember()
+    {
+        await TestReset.ResetShellAsync();
+
+        string root = CreateRoot();
+        try
+        {
+            var original = new NestingRecoveryHolder();
+            original.Transform.Value = new DisplacementMapTranslateTransform();
+            original.Child.Value = new IdlessRecoveryHolder();
+            original.Child.Value.Transform.Value = new DisplacementMapTranslateTransform();
+            Recovered stored = StoreCorruptAndRestore(root, original, json =>
+            {
+                CorruptTheTransform(json);
+                json["Objects"]![0]!["Child"]!["Transform"]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+            });
+            Element recovered = stored.Element;
+            var holder = (NestingRecoveryHolder)recovered.Objects.Single();
+            using var history = new HistoryScope(recovered);
+            using var editor = new CoreObjectEditorViewModel<DisplacementMapTransform>(
+                new SimplePropertyAdapter<DisplacementMapTransform>(
+                    (SimpleProperty<DisplacementMapTransform>)holder.Transform, holder));
+            editor.Accept(Services(recovered, history.History));
+
+            editor.SetValue(new DisplacementMapTranslateTransform());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(holder.Child.Value, Is.Not.Null);
+                Assert.That(holder.Transform.Value, Is.Null);
+                Assert.That(recovered.SuppressedStorageSource, Is.Not.Null);
+            });
         }
         finally
         {
