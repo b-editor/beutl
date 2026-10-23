@@ -520,22 +520,33 @@ public partial class PlayerViewPlaybackInputTests
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task A_3D_press_selects_the_object_where_a_moved_or_scaled_scene_draws_it(bool scaled)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task A_3D_press_selects_the_object_where_a_moved_or_scaled_scene_draws_it(bool scaled, bool grouped)
     {
         EditViewModel editor = await OpenEditor();
         Scene3D scene = await Add3DScene(editor);
         Object3D cube = scene.Objects.Single();
+        // The scene's own transform moves it, or that of a group that draws it.
+        Drawable transformed = scene;
+        if (grouped)
+        {
+            var group = new DrawableGroup();
+            editor.Scene.Children.Single().Objects.Add(group);
+            transformed = group;
+        }
+
         // The cube is drawn at the middle of the 640x480 render: at (480, 240) in the frame once moved, (160, 120) once halved.
         if (scaled)
         {
-            scene.TransformOrigin.Value = Beutl.Graphics.RelativePoint.TopLeft;
-            scene.Transform.Value = new ScaleTransform(100, 100, 50);
+            transformed.TransformOrigin.Value = Beutl.Graphics.RelativePoint.TopLeft;
+            transformed.Transform.Value = new ScaleTransform(100, 100, 50);
         }
         else
         {
-            scene.Transform.Value = new TranslateTransform(160, 0);
+            transformed.Transform.Value = new TranslateTransform(160, 0);
         }
 
         editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Single());
