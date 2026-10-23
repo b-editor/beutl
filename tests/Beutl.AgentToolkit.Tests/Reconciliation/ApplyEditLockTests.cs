@@ -803,6 +803,34 @@ public sealed class ApplyEditLockTests
         });
     }
 
+    // Both sides' durations set the time a boundary blends over, so the other side's stays too.
+    [Test]
+    public void Apply_edit_rejects_changing_the_duration_on_the_other_side_of_a_locked_element_boundary()
+    {
+        Scene scene = TestWorkspace.CreateScene();
+        Element previous = AddElement(scene, "Previous", zIndex: 0);
+        Element locked = AddElement(scene, "Locked", zIndex: 0);
+        locked.Start = previous.Range.End;
+        previous.ExitTransition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+        locked.EnterTransition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+        locked.IsLocked = true;
+        using var session = new AgentToolkitTestSession(scene);
+        JsonObject document = session.Documents.Read(scene);
+        FindElement(document, previous)[nameof(Element.ExitTransition)]![nameof(ClipTransition.Duration)] =
+            TimeSpan.FromSeconds(2).ToString("c");
+
+        ToolResult<ApplyEditResponse> result = session.CreateEditTools()
+            .ApplyEdit(desired: document, schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
+            Assert.That(result.Error.Message, Does.Contain($"'Locked' ({locked.Id}) is locked, so the transition at its start"));
+            Assert.That(previous.ExitTransition!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+        });
+    }
+
     // As placement keeps clips apart, no element comes to overlap a locked element on its layer.
     [TestCase("move")]
     [TestCase("insert")]
