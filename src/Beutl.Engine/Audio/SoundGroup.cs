@@ -33,18 +33,18 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         foreach (var child in r.Children)
         {
             Sound original = child.RequireOriginal();
-            if (original.TimeRange.Start < TimeRange.Start)
+            if (original.TimeRange.Value.Start < TimeRange.Value.Start)
             {
                 PassThroughOutsideGroup(
                     context, original, child,
-                    original.TimeRange.Start, TimeRange.Start - original.TimeRange.Start);
+                    original.TimeRange.Value.Start, TimeRange.Value.Start - original.TimeRange.Value.Start);
             }
 
-            if (original.TimeRange.End > TimeRange.End)
+            if (original.TimeRange.Value.End > TimeRange.Value.End)
             {
                 PassThroughOutsideGroup(
                     context, original, child,
-                    TimeRange.End, original.TimeRange.End - TimeRange.End);
+                    TimeRange.Value.End, original.TimeRange.Value.End - TimeRange.Value.End);
             }
         }
 
@@ -58,11 +58,11 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
             foreach (var outputNode in ComposeChildInto(context, original, child))
             {
                 // ShiftNodeでSoundGroupのStartを加算して打ち消す
-                var shiftNode = context.CreateShiftNode(TimeRange.Start);
+                var shiftNode = context.CreateShiftNode(TimeRange.Value.Start);
                 context.Connect(outputNode, shiftNode);
                 context.Connect(shiftNode, mixerNode);
                 // Let the mixer skip a child's already-recovered tail.
-                mixerNode.SetBranchEndTime(shiftNode, original.TimeRange.End - TimeRange.Start);
+                mixerNode.SetBranchEndTime(shiftNode, original.TimeRange.Value.End - TimeRange.Value.Start);
             }
         }
 
@@ -72,13 +72,13 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         context.Connect(currentNode, gainNode);
         currentNode = gainNode;
 
-        if (Effect.Value != null && Effect.Value.IsEnabled)
+        if (Effect.Value != null && Effect.Value.IsEnabled.Value)
         {
             currentNode = Effect.Value.CreateNode(context, currentNode);
         }
 
         // ClipNodeを作成（EffectがローカルTimeRangeを前提としているため）
-        var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var clipNode = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(currentNode, clipNode);
         context.MarkAsOutput(clipNode);
     }

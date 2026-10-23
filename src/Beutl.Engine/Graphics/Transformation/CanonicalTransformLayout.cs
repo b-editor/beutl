@@ -106,9 +106,9 @@ internal static class CanonicalTransformLayout
         }
         return t switch
         {
-            RotationTransform r when r.IsEnabled => (r, null, null),
-            ScaleTransform s when s.IsEnabled => (null, s, null),
-            TranslateTransform tr when tr.IsEnabled => (null, null, tr),
+            RotationTransform r when r.IsEnabled.Value => (r, null, null),
+            ScaleTransform s when s.IsEnabled.Value => (null, s, null),
+            TranslateTransform tr when tr.IsEnabled.Value => (null, null, tr),
             _ => (null, null, null)
         };
     }
@@ -121,7 +121,7 @@ internal static class CanonicalTransformLayout
         for (int i = 0; i < children.Count; i++)
         {
             Transform c = children[i];
-            if (!c.IsEnabled) continue;
+            if (!c.IsEnabled.Value) continue;
             if (rIdx < 0 && c is RotationTransform) rIdx = i;
             if (sIdx < 0 && c is ScaleTransform) sIdx = i;
             if (tIdx < 0 && c is TranslateTransform) tIdx = i;

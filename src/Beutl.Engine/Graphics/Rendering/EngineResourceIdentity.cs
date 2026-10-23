@@ -33,7 +33,7 @@ internal static class EngineResourceIdentity
         ArgumentNullException.ThrowIfNull(resource);
         EngineObject? original = resource.GetOriginal();
         if (original is not null)
-            return original.Id;
+            return original.Id.Value;
 
         return s_detached.GetValue(resource, static _ => new DetachedIdentityHolder(Guid.NewGuid())).Value;
     }

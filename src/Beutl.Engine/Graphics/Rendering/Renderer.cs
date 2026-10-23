@@ -853,7 +853,7 @@ public class Renderer : IRenderer
     {
         _dispatcher.VerifyAccess();
         return [.. _allCurrentEntries
-            .Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex == zIndex)
+            .Where(e => e.Node.Drawable?.Resource.RequireOriginal().ZIndex.Value == zIndex)
             .Select(e => recalculate ? e.RecalculateBounds() : e.GetBounds())];
     }
 

@@ -20,7 +20,7 @@ public sealed class AnimationSampler
             // 音声グラフでは ClipNode で時刻が要素ローカルに変換されているため、
             // GetAnimatedValue が期待するグローバル時刻へ戻すために owner.TimeRange.Start を加算する。
             // (UseGlobalClock=false なら GetAnimatedValue が再度引き、結果としてローカルで補間される)
-            var ownerStart = (property.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? MediaTime.Zero;
+            var ownerStart = (property.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
             for (int i = 0; i < output.Length; i++)
             {
                 output[i] = keyFrameAnimation.GetAnimatedValue(

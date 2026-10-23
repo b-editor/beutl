@@ -53,13 +53,13 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         if (targetDrawable == null)
             return currentTime;
 
-        MediaTime targetStart = targetDrawable.TimeRange.Start;
-        MediaTime targetDuration = targetDrawable.TimeRange.Duration;
+        MediaTime targetStart = targetDrawable.TimeRange.Value.Start;
+        MediaTime targetDuration = targetDrawable.TimeRange.Value.Duration;
 
         if (targetDuration <= MediaTime.Zero)
             return currentTime;
 
-        MediaTime baseTime = currentTime - TimeRange.Start;
+        MediaTime baseTime = currentTime - TimeRange.Value.Start;
 
         // 1. AdjustTimeRange: baseTime = currentTime - Target's Start
         if (resource.AdjustTimeRange)
@@ -77,10 +77,10 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         var anm = Speed.GetKeyFrameAnimation();
         if (anm is KeyFrameAnimation<float> keyFrameAnimation && keyFrameAnimation.KeyFrames.Count > 0)
         {
-            if (keyFrameAnimation.UseGlobalClock)
+            if (keyFrameAnimation.UseGlobalClock.Value)
             {
-                baseTime = CalculateTimeWithSpeed(baseTime + TimeRange.Start, resource)
-                         - CalculateTimeWithSpeed(TimeRange.Start, resource);
+                baseTime = CalculateTimeWithSpeed(baseTime + TimeRange.Value.Start, resource)
+                         - CalculateTimeWithSpeed(TimeRange.Value.Start, resource);
             }
             else
             {

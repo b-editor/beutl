@@ -19,8 +19,8 @@ internal static class KeyFrameDeltaHelper
         where T : notnull, System.Numerics.IAdditionOperators<T, T, T>
     {
         if (previous == null && next == null) return false;
-        if (previous != null) previous.Value = startPrev + delta;
-        if (next != null) next.Value = startNext + delta;
+        if (previous != null) previous.Value.Value = startPrev + delta;
+        if (next != null) next.Value.Value = startNext + delta;
         return true;
     }
 
@@ -34,8 +34,8 @@ internal static class KeyFrameDeltaHelper
         where T : notnull
     {
         // KeyFrame<T>.Value is T? for nullability; current callers pin T to struct types so `!` is safe.
-        T prev = previous != null ? previous.Value! : fallback;
-        T nextVal = next != null ? next.Value! : fallback;
+        T prev = previous != null ? previous.Value.Value! : fallback;
+        T nextVal = next != null ? next.Value.Value! : fallback;
         return (prev, nextVal);
     }
 }

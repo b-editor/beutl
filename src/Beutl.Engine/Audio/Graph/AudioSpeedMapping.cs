@@ -53,8 +53,8 @@ internal sealed class AudioSpeedMapping : IDisposable
             return MediaTime.FromSeconds(time.ToSeconds() * factor);
         }
 
-        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? MediaTime.Zero;
-        return animation.UseGlobalClock
+        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
+        return animation.UseGlobalClock.Value
             ? _integrator.Integrate(time + ownerStart, animation) - _integrator.Integrate(ownerStart, animation)
             : _integrator.Integrate(time, animation);
     }
@@ -69,12 +69,12 @@ internal sealed class AudioSpeedMapping : IDisposable
             return end / minimumSpeed;
 
         Configure(sampleRate);
-        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? MediaTime.Zero;
+        var ownerStart = (Speed.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
         var key = new FiniteEndKey(animation, _integrator.CacheVersion, sampleRate, end,
-            ownerStart, animation.UseGlobalClock);
+            ownerStart, animation.UseGlobalClock.Value);
         if (_finiteEndKey == key)
             return _finiteEndValue;
-        MediaTime origin = animation.UseGlobalClock
+        MediaTime origin = animation.UseGlobalClock.Value
             ? _integrator.Integrate(ownerStart, animation)
             : MediaTime.Zero;
         double low = 0;
@@ -83,7 +83,7 @@ internal sealed class AudioSpeedMapping : IDisposable
         {
             double middle = (low + high) / 2;
             var time = MediaTime.FromSeconds(middle / sampleRate);
-            if (animation.UseGlobalClock)
+            if (animation.UseGlobalClock.Value)
                 time += ownerStart;
             double mapped = (_integrator.Integrate(time, animation) - origin).ToSeconds() * sampleRate;
             if (mapped < end)
@@ -196,7 +196,7 @@ internal sealed class AudioSpeedMapping : IDisposable
         }
 
         var animation = Speed!.GetKeyFrameAnimation()!;
-        var ownerStart = (Speed!.GetOwnerObject() as EngineObject)?.TimeRange.Start ?? MediaTime.Zero;
+        var ownerStart = (Speed!.GetOwnerObject() as EngineObject)?.TimeRange.Value.Start ?? MediaTime.Zero;
         long startInSamples = context.TimeRange.Start.ToSamples(
             context.SampleRate, roundSampleClock ? MidpointRounding.AwayFromZero : MidpointRounding.ToZero);
         for (int i = 0; i < speeds.Length; i++)

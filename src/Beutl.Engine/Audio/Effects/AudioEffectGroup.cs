@@ -17,7 +17,7 @@ public sealed partial class AudioEffectGroup : AudioEffect
 
     public override AudioNode CreateNode(AudioContext context, AudioNode inputNode)
     {
-        return Children.Where(item => item.IsEnabled)
+        return Children.Where(item => item.IsEnabled.Value)
             .Aggregate(inputNode, (current, item) => item.CreateNode(context, current));
     }
 
@@ -25,10 +25,10 @@ public sealed partial class AudioEffectGroup : AudioEffect
     public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
     {
         base.GetLatencySamples(sampleRate, inputLatency);
-        if (!IsEnabled)
+        if (!IsEnabled.Value)
             return inputLatency;
 
-        foreach (AudioEffect item in Children.Where(item => item.IsEnabled))
+        foreach (AudioEffect item in Children.Where(item => item.IsEnabled.Value))
         {
             int latency = item.GetLatencySamples(sampleRate, inputLatency);
             if (latency < 0)

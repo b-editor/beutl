@@ -115,9 +115,16 @@ public static class ClassInfoExtractor
             if (namedType.IsGenericType && SymbolEqualityComparer.Default.Equals(namedType.ConstructedFrom, types.IListProperty))
             {
                 ITypeSymbol elementType = namedType.TypeArguments[0];
-                if (!TypeAnalysisHelpers.IsEngineObjectType(elementType, types.EngineObject)) continue;
-
                 ImmutableArray<AttributeData> listAttrs = propertySymbol.GetAttributes();
+                if (!TypeAnalysisHelpers.IsEngineObjectType(elementType, types.EngineObject))
+                {
+                    // A list of other items, like GraphModel.AllConnections, is registered without a resource.
+                    var scanned = new ValuePropertyInfo(propertySymbol.Name, namedType, listAttrs, true);
+                    valueProperties.Add(scanned);
+                    orderedProperties.Add(scanned);
+                    continue;
+                }
+
                 var propInfo = new ListPropertyInfo(propertySymbol.Name, elementType, listAttrs, excludeResource);
                 listProperties.Add(propInfo);
                 orderedProperties.Add(propInfo);

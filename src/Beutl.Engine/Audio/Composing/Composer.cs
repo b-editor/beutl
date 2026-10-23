@@ -295,7 +295,7 @@ public partial class Composer : IComposer
             // Entries ending at or before the previous boundary may still hold a partially drained tail.
             if (entry.SoundRange.End - previous.End > AudioProcessContext.TimestampQuantizationTolerance)
                 continue;
-            if (entry.Sound.TimeRange != entry.SoundRange)
+            if (entry.Sound.TimeRange.Value != entry.SoundRange)
                 continue;
             if (!eligibility.Contains(entry.Sound))
                 continue;
@@ -364,7 +364,7 @@ public partial class Composer : IComposer
 
     private bool CanFlushEntry(AudioNodeEntry entry)
     {
-        if (entry.IsDirty || !entry.Sound.IsEnabled || entry.Sound.TimeRange != entry.SoundRange)
+        if (entry.IsDirty || !entry.Sound.IsEnabled.Value || entry.Sound.TimeRange.Value != entry.SoundRange)
             return false;
 
         return _lastEligibility is not { } eligibility || eligibility.Contains(entry.Sound);
@@ -487,7 +487,7 @@ public partial class Composer : IComposer
             entry.IsDirty = false;
         }
 
-        entry.SoundRange = sound.TimeRange;
+        entry.SoundRange = sound.TimeRange.Value;
         entry.TailBudgets.Clear();
         _currentEntry.Add(entry);
     }

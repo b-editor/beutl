@@ -118,7 +118,7 @@ public partial class SourceVideo : IThumbnailsProvider
 
             if (source.Duration <= MediaTime.Zero)
                 yield break;
-            var duration = TimeRange.Duration;
+            var duration = TimeRange.Value.Duration;
 
             // Rendering draws the video into LogicalFrameSize; sizing the strip from the (possibly
             // smaller) proxy decode size would clip the frame. LogicalFrameSize equals FrameSize when
@@ -176,7 +176,7 @@ public partial class SourceVideo : IThumbnailsProvider
                     if (cancellationToken.IsCancellationRequested)
                         return null;
 
-                    var ctx = new CompositionContext(time + TimeRange.Start)
+                    var ctx = new CompositionContext(time + TimeRange.Value.Start)
                     {
                         PreferProxy = preferProxy,
                         PreferredProxyPreset = preferredProxyPreset,

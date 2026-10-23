@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Text.Json;
@@ -29,33 +28,25 @@ public class KeyFrame : Hierarchical
     protected KeyFrame()
     {
         ScanProperties<KeyFrame>();
-        EasingProperty.ValueChanged += s_easingChanged;
-        KeyTimeProperty.ValueChanged += s_keyTimeChanged;
+        Easing.ValueChanged += s_easingChanged;
+        KeyTime.ValueChanged += s_keyTimeChanged;
     }
 
     // Serialize and Deserialize write and read the easing themselves.
     [NotAutoSerialized]
-    public IProperty<Easing> EasingProperty { get; } = Property.CreateValue<Easing>(s_defaultEasing);
+    public IProperty<Easing> Easing { get; } = Property.CreateValue<Easing>(s_defaultEasing);
 
-    public IProperty<MediaTime> KeyTimeProperty { get; } = Property.CreateValue(MediaTime.Zero);
-
-    public Easing Easing
-    {
-        get => EasingProperty.Value;
-        set => EasingProperty.Value = value;
-    }
+    public IProperty<MediaTime> KeyTime { get; } = Property.CreateValue(MediaTime.Zero);
 
     [NotAutoSerialized]
-    internal bool HasLossyEasing => ReferenceEquals(Easing, _lossyFallbackEasing);
+    internal bool HasLossyEasing => ReferenceEquals(Easing.Value, _lossyFallbackEasing);
 
-    private protected virtual void OnEasingChanged() => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Easing)));
-
-    private protected virtual void OnKeyTimeChanged() => OnPropertyChanged(new PropertyChangedEventArgs(nameof(KeyTime)));
-
-    public MediaTime KeyTime
+    private protected virtual void OnEasingChanged()
     {
-        get => KeyTimeProperty.Value;
-        set => KeyTimeProperty.Value = value;
+    }
+
+    private protected virtual void OnKeyTimeChanged()
+    {
     }
 
     public IValidator? Validator { get; set; }
@@ -127,7 +118,7 @@ public class KeyFrame : Hierarchical
             {
                 if (Activator.CreateInstance(type) is Easing easing)
                 {
-                    Easing = easing;
+                    Easing.Value = easing;
                 }
                 else
                 {
@@ -174,7 +165,7 @@ public class KeyFrame : Hierarchical
     {
         if (TryReadSplineEasing(easingObject, out SplineEasing? splineEasing))
         {
-            Easing = splineEasing;
+            Easing.Value = splineEasing;
         }
         else
         {
@@ -215,7 +206,7 @@ public class KeyFrame : Hierarchical
         DeserializationIncidents.RecordFallback(reason, typeName, message);
         _lossyFallbackEasing = new LinearEasing();
         _lossyFallbackEasingJson = originalJson?.DeepClone();
-        Easing = _lossyFallbackEasing;
+        Easing.Value = _lossyFallbackEasing;
     }
 
     public override void Serialize(ICoreSerializationContext context)
@@ -226,7 +217,7 @@ public class KeyFrame : Hierarchical
             LossyEasingSerializationCapture.Record();
             context.SetValue(nameof(Easing), _lossyFallbackEasingJson?.DeepClone());
         }
-        else if (Easing is SplineEasing splineEasing)
+        else if (Easing.Value is SplineEasing splineEasing)
         {
             context.SetValue(nameof(Easing), new JsonObject
             {
@@ -238,7 +229,7 @@ public class KeyFrame : Hierarchical
         }
         else
         {
-            context.SetValue(nameof(Easing), TypeFormat.ToString(Easing.GetType()));
+            context.SetValue(nameof(Easing), TypeFormat.ToString(Easing.Value.GetType()));
         }
     }
 }

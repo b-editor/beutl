@@ -132,12 +132,12 @@ public sealed class SpeedIntegrator : IDisposable
             {
                 var first = (KeyFrame<float>)keyframes.KeyFrames[0];
                 var last = (KeyFrame<float>)keyframes.KeyFrames[^1];
-                int constantEnd = sec >= Math.Ceiling(last.KeyTime.ToSeconds())
+                int constantEnd = sec >= Math.Ceiling(last.KeyTime.Value.ToSeconds())
                     ? targetSec
-                    : Math.Min(targetSec, (int)Math.Floor(first.KeyTime.ToSeconds()));
+                    : Math.Min(targetSec, (int)Math.Floor(first.KeyTime.Value.ToSeconds()));
                 if (constantEnd > sec)
                 {
-                    float constant = sec >= Math.Ceiling(last.KeyTime.ToSeconds()) ? last.Value : first.Value;
+                    float constant = sec >= Math.Ceiling(last.KeyTime.Value.ToSeconds()) ? last.Value.Value : first.Value.Value;
                     constant = _speedTransform?.Invoke(constant) ?? constant;
                     sum += constant / 100d * (constantEnd - sec);
                     _integralCache![constantEnd] = sum;

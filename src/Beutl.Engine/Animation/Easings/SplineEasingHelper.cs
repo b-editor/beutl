@@ -104,9 +104,9 @@ public static class SplineEasingHelper
 
         public void Update(KeyFrame<T> keyframe, KeyFrame<T> prevKeyFrame)
         {
-            Decrease = keyframe.Value < prevKeyFrame.Value;
-            Height = float.CreateChecked(T.Abs(keyframe.Value - prevKeyFrame.Value));
-            Width = (float)(keyframe.KeyTime - prevKeyFrame.KeyTime).ToSeconds();
+            Decrease = keyframe.Value.Value < prevKeyFrame.Value.Value;
+            Height = float.CreateChecked(T.Abs(keyframe.Value.Value - prevKeyFrame.Value.Value));
+            Width = (float)(keyframe.KeyTime.Value - prevKeyFrame.KeyTime.Value).ToSeconds();
             P1 = (X: 0f, Y: Decrease ? Height : 0f);
             P2 = (X: Width, Y: Decrease ? 0f : Height);
         }
@@ -233,7 +233,7 @@ public static class SplineEasingHelper
         }
         else
         {
-            keyFrame.KeyTime = keyTime;
+            keyFrame.KeyTime.Value = keyTime;
         }
     }
 
@@ -270,14 +270,14 @@ public static class SplineEasingHelper
             return;
 
         if (0 <= index - 1 && index + 1 < animation.KeyFrames.Count
-                           && animation.KeyFrames[index + 1] is KeyFrame<T> { Easing: SplineEasing } nextKeyFrame
+                           && animation.KeyFrames[index + 1] is KeyFrame<T> { Easing.Value: SplineEasing } nextKeyFrame
                            && animation.KeyFrames[index - 1] is KeyFrame<T>
                            {
-                               Easing: SplineEasing prevSplineEasing
+                               Easing.Value: SplineEasing prevSplineEasing
                            } prevKeyFrame)
         {
-            nextKeyFrame.Easing = new SplineEasing();
-            var nextSplineEasing = (SplineEasing)nextKeyFrame.Easing;
+            nextKeyFrame.Easing.Value = new SplineEasing();
+            var nextSplineEasing = (SplineEasing)nextKeyFrame.Easing.Value;
             var nextInfo = new InterpolationInfo<T>(nextSplineEasing, nextKeyFrame, prevKeyFrame);
 
             if (0 <= index - 2
@@ -289,7 +289,7 @@ public static class SplineEasingHelper
 
             if (index + 2 < animation.KeyFrames.Count && animation.KeyFrames[index + 2] is KeyFrame<T>
                 {
-                    Easing: SplineEasing nextNextSplineEasing
+                    Easing.Value: SplineEasing nextNextSplineEasing
                 } nextNextKeyFrame)
             {
                 var nextNextInfo = new InterpolationInfo<T>(nextNextSplineEasing, nextNextKeyFrame, nextKeyFrame);
@@ -313,10 +313,10 @@ public static class SplineEasingHelper
             ? (KeyFrame<T>)animation.KeyFrames[oldIndex + 1]
             : null;
         var oldPrevKeyFrame = 0 <= oldIndex - 1 ? (KeyFrame<T>)animation.KeyFrames[oldIndex - 1] : null;
-        var oldNextInfo = oldNextKeyFrame?.Easing is SplineEasing oldNextEasing
+        var oldNextInfo = oldNextKeyFrame?.Easing.Value is SplineEasing oldNextEasing
             ? new InterpolationInfo<T>(oldNextEasing, oldNextKeyFrame, keyFrame)
             : null;
-        var currentInfo = keyFrame.Easing is SplineEasing currentEasing && oldPrevKeyFrame != null
+        var currentInfo = keyFrame.Easing.Value is SplineEasing currentEasing && oldPrevKeyFrame != null
             ? new InterpolationInfo<T>(currentEasing, keyFrame, oldPrevKeyFrame)
             : null;
         var oldNextCPV1 = oldNextInfo?.ControlPoint1Vector();
@@ -327,9 +327,9 @@ public static class SplineEasingHelper
         var newIndex = animation.KeyFrames.IndexAtOrCount(keyTime);
         // ここで移動前後で区間が変わらないことを確認
 
-        if (oldPrevKeyFrame?.KeyTime < keyTime && oldNextKeyFrame?.KeyTime > keyTime)
+        if (oldPrevKeyFrame?.KeyTime.Value < keyTime && oldNextKeyFrame?.KeyTime.Value > keyTime)
         {
-            keyFrame.KeyTime = keyTime;
+            keyFrame.KeyTime.Value = keyTime;
 
             oldNextInfo?.Update(oldNextKeyFrame, keyFrame);
             currentInfo?.Update(keyFrame, oldPrevKeyFrame);
@@ -347,14 +347,14 @@ public static class SplineEasingHelper
             var newPrevKeyFrame = 0 <= newIndex - 1
                 ? (KeyFrame<T>)animation.KeyFrames[newIndex - 1]
                 : null;
-            var newNextInfo = newNextKeyFrame?.Easing is SplineEasing newNextEasing && newPrevKeyFrame != null
+            var newNextInfo = newNextKeyFrame?.Easing.Value is SplineEasing newNextEasing && newPrevKeyFrame != null
                 ? new InterpolationInfo<T>(newNextEasing, newNextKeyFrame, newPrevKeyFrame)
                 : null;
 
             var newNextCPV1 = newNextInfo?.ControlPoint1Vector();
             var newNextCPV2 = newNextInfo?.ControlPoint2Vector();
 
-            keyFrame.KeyTime = keyTime;
+            keyFrame.KeyTime.Value = keyTime;
 
             if (oldPrevKeyFrame != null)
                 oldNextInfo?.Update(oldNextKeyFrame!, oldPrevKeyFrame);

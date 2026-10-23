@@ -10,23 +10,15 @@ namespace Beutl.Animation;
 // Keyframe animation is the expression at the bottom of a property's expression chain (see IExpression<T>.Replaced).
 public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpression<T>, IKeyFrameExpression
 {
-    private readonly KeyFrames _keyFrames;
     private IValidator<T>? _validator;
     private EngineObject? _parent;
 
     public KeyFrameAnimation()
     {
-        _keyFrames = new KeyFrames(this);
-        // The list is a value rather than a default, as its CoreProperty form had no default.
-        KeyFramesProperty.Value = _keyFrames;
         ScanProperties<KeyFrameAnimation<T>>();
-        UseGlobalClockProperty.ValueChanged += (_, _) =>
-        {
-            OnPropertyChanged(new PropertyChangedEventArgs(nameof(UseGlobalClock)));
-            Edited?.Invoke(this, EventArgs.Empty);
-        };
-        _keyFrames.Attached += OnKeyFrameAttached;
-        _keyFrames.Detached += OnKeyFrameDetached;
+        UseGlobalClock.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        KeyFrames.Attached += OnKeyFrameAttached;
+        KeyFrames.Detached += OnKeyFrameDetached;
     }
 
     public event EventHandler? Edited;
@@ -35,23 +27,11 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
 
     public string ExpressionString => "[KeyFrames]";
 
-    public IProperty<bool> UseGlobalClockProperty { get; } = Property.CreateValue(false);
+    public IProperty<bool> UseGlobalClock { get; } = Property.CreateValue(false);
 
     // Serialize and Deserialize write and read the key frames themselves.
     [NotAutoSerialized]
-    public IProperty<KeyFrames> KeyFramesProperty { get; } = new ValueOnlyProperty<KeyFrames>(null!) { KeepsList = true };
-
-    public bool UseGlobalClock
-    {
-        get => UseGlobalClockProperty.Value;
-        set => UseGlobalClockProperty.Value = value;
-    }
-
-    public KeyFrames KeyFrames
-    {
-        get => _keyFrames;
-        set => _keyFrames.Replace(value);
-    }
+    public IListProperty<IKeyFrame> KeyFrames { get; } = new ListProperty<IKeyFrame> { AffectsRender = false };
 
     public IValidator<T>? Validator
     {
@@ -77,7 +57,7 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
 
     public MediaTime Duration
         => KeyFrames.Count > 0
-            ? KeyFrames[^1].KeyTime
+            ? KeyFrames[^1].KeyTime.Value
             : MediaTime.Zero;
 
     public bool Validate(out string? error)
@@ -100,9 +80,9 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
 
     public T? GetAnimatedValue(MediaTime time)
     {
-        if (_parent != null && !UseGlobalClock)
+        if (_parent != null && !UseGlobalClock.Value)
         {
-            return Interpolate(time - _parent.TimeRange.Start);
+            return Interpolate(time - _parent.TimeRange.Value.Start);
         }
 
         return Interpolate(time);
@@ -114,10 +94,10 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
 
         if (next is KeyFrame<T> next2)
         {
-            T? nextValue = next2.Value;
-            T? prevValue = prev is KeyFrame<T> prev2 ? prev2.Value : nextValue;
-            MediaTime prevTime = prev?.KeyTime ?? MediaTime.Zero;
-            MediaTime nextTime = next.KeyTime;
+            T? nextValue = next2.Value.Value;
+            T? prevValue = prev is KeyFrame<T> prev2 ? prev2.Value.Value : nextValue;
+            MediaTime prevTime = prev?.KeyTime.Value ?? MediaTime.Zero;
+            MediaTime nextTime = next.KeyTime.Value;
             // Zero除算になるので
             if (nextTime == prevTime)
             {
@@ -125,7 +105,7 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
             }
 
             float progress = (float)((double)(timeSpan - prevTime).Flicks / (nextTime - prevTime).Flicks);
-            float ease = next.Easing.Ease(progress);
+            float ease = next.Easing.Value.Ease(progress);
             if (prevValue == null)
                 return nextValue;
             else if (nextValue == null)
@@ -137,7 +117,7 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
         }
         else if (prev is KeyFrame<T> prev2)
         {
-            return prev2.Value;
+            return prev2.Value.Value;
         }
         else
         {
@@ -155,7 +135,7 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
     {
         base.Deserialize(context);
 
-        if (context.GetValue<KeyFrames>(nameof(KeyFrames)) is { } keyframes)
+        if (context.GetValue<IKeyFrame[]>(nameof(KeyFrames)) is { } keyframes)
         {
             KeyFrames.Replace(keyframes);
         }
@@ -186,7 +166,7 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
             for (int i = 0; i < KeyFrames.Count; i++)
             {
                 IKeyFrame item = KeyFrames[i];
-                if (keyframe != item && keyframe.KeyTime <= item.KeyTime)
+                if (keyframe != item && keyframe.KeyTime.Value <= item.KeyTime.Value)
                 {
                     if (index < i)
                     {
@@ -203,8 +183,8 @@ public class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpressio
 
     private static bool IsOutOfOrder(IKeyFrame? prev, IKeyFrame keyframe, IKeyFrame? next)
     {
-        return (prev != null && prev.KeyTime > keyframe.KeyTime)
-            || (next != null && keyframe.KeyTime > next.KeyTime);
+        return (prev != null && prev.KeyTime.Value > keyframe.KeyTime.Value)
+            || (next != null && keyframe.KeyTime.Value > next.KeyTime.Value);
     }
 
     private void OnKeyFrameEdited(object? sender, EventArgs e)

@@ -11,14 +11,7 @@ public abstract class MediaEncoderSettings : CoreObject
     }
 
     [Obsolete]
-    public IProperty<JsonNode?> CodecOptionsProperty { get; } = new ValueOnlyProperty<JsonNode?>(null);
-
-    [Obsolete()]
-    public JsonNode? CodecOptions
-    {
-        get => CodecOptionsProperty.Value;
-        set => CodecOptionsProperty.Value = value;
-    }
+    public IProperty<JsonNode?> CodecOptions { get; } = new ValueOnlyProperty<JsonNode?>(null);
 
     // A setting raises PropertyChanged under its name.
     internal override void OnPropertyValueChanged(IProperty property)
