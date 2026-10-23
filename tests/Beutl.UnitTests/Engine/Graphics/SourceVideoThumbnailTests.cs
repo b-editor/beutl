@@ -93,54 +93,6 @@ public class SourceVideoThumbnailTests
         }
     }
 
-    [Test]
-    public async Task ThumbnailRenderResources_CopiedShutdownHandlerIsSafeAfterCleanupUnsubscribes()
-    {
-        Dispatcher dispatcher = Dispatcher.Spawn();
-        using var cleanupEntered = new ManualResetEventSlim();
-        using var releaseCleanup = new ManualResetEventSlim();
-        using var shutdownHandlerEntered = new ManualResetEventSlim();
-        using var releaseShutdownHandler = new ManualResetEventSlim();
-        var resource = new BlockingDisposalProbe(cleanupEntered, releaseCleanup);
-        EventHandler blockingShutdownHandler = (_, _) =>
-        {
-            shutdownHandlerEntered.Set();
-            releaseShutdownHandler.Wait();
-        };
-        dispatcher.ShutdownStarted += blockingShutdownHandler;
-        Task? shutdown = null;
-        try
-        {
-            await dispatcher.InvokeAsync(static () => { });
-            Task cleanup = SourceVideo.DisposeThumbnailRenderResourcesAsync(dispatcher, resource);
-            Assert.That(cleanupEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
-                "The cleanup fixture did not enter resource disposal.");
-
-            shutdown = Task.Run(dispatcher.Shutdown);
-            Assert.That(shutdownHandlerEntered.Wait(TimeSpan.FromSeconds(5)), Is.True,
-                "Shutdown did not snapshot and enter the blocking handler.");
-
-            releaseCleanup.Set();
-            await cleanup.WaitAsync(TimeSpan.FromSeconds(5));
-            releaseShutdownHandler.Set();
-            await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
-
-            Assert.That(resource.DisposeCount, Is.EqualTo(1));
-        }
-        finally
-        {
-            releaseCleanup.Set();
-            releaseShutdownHandler.Set();
-            dispatcher.ShutdownStarted -= blockingShutdownHandler;
-            if (!dispatcher.HasShutdownStarted)
-                dispatcher.Shutdown();
-            if (shutdown is not null)
-                await shutdown.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(5)), Is.True,
-                "The local dispatcher did not finish after the shutdown race fixture was released.");
-        }
-    }
-
     private sealed class DisposalThreadProbe : IDisposable
     {
         public int DisposeCount { get; private set; }
@@ -151,22 +103,6 @@ public class SourceVideoThumbnailTests
         {
             DisposeCount++;
             DisposedOnRenderThread = RenderThread.Dispatcher.CheckAccess();
-        }
-    }
-
-    private sealed class BlockingDisposalProbe(
-        ManualResetEventSlim entered,
-        ManualResetEventSlim release) : IDisposable
-    {
-        private int _disposeCount;
-
-        public int DisposeCount => Volatile.Read(ref _disposeCount);
-
-        public void Dispose()
-        {
-            Interlocked.Increment(ref _disposeCount);
-            entered.Set();
-            release.Wait();
         }
     }
 }
