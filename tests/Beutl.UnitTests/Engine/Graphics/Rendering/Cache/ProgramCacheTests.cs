@@ -14,19 +14,26 @@ public sealed class ProgramCacheTests
     private const string SourceB = "half4 main(float2 p) { return half4(0); }";
 
     [Test]
-    public void SpirvFailures_AreThrottledWithinTheRendererContext()
+    public void SpirvFailures_AreRememberedWithinTheRendererContext()
     {
         Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.EnsureAvailable();
-        Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        var graphics = GraphicsContextFactory.SharedContext!;
+        using var cache = SpirvShaderProgramCache.Create();
+        var context = new ProgramCacheContextKey(graphics, graphics, "test", graphics);
+        var description = ShaderDescription.CurrentPixel(
+            new SkslSource("half4 apply(half4 color) { return color; }", ShaderDescriptionKind.CurrentPixel),
+            new SpirvShaderLowering("#version 450\ninvalid shader", []), null);
+        void Acquire() => Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.InvokeOnRenderThread(
+            () => SpirvShaderProgramCache.Acquire(cache, description, graphics, context).Dispose());
+
+        Assert.Throws<InvalidOperationException>(Acquire);
+        // Past the one-second cooldown the cache used to keep, the failed program is still not compiled again.
+        Thread.Sleep(TimeSpan.FromMilliseconds(1200));
+        InvalidOperationException? remembered = Assert.Throws<InvalidOperationException>(Acquire);
+
+        Assert.Multiple(() =>
         {
-            var graphics = GraphicsContextFactory.SharedContext!;
-            using var cache = SpirvShaderProgramCache.Create();
-            var context = new ProgramCacheContextKey(graphics, graphics, "test", graphics);
-            var description = ShaderDescription.CurrentPixel(
-                new SkslSource("half4 apply(half4 color) { return color; }", ShaderDescriptionKind.CurrentPixel),
-                new SpirvShaderLowering("#version 450\ninvalid shader", []), null);
-            Assert.Throws<InvalidOperationException>(() => SpirvShaderProgramCache.Acquire(cache, description, graphics, context));
-            Assert.Throws<InvalidOperationException>(() => SpirvShaderProgramCache.Acquire(cache, description, graphics, context));
+            Assert.That(remembered!.Message, Does.Contain("failed earlier"));
             Assert.That(cache.Statistics.Misses, Is.EqualTo(1));
         });
     }
@@ -505,7 +512,7 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
-    public void ByteBudget_EvictionDefersItsCleanupFailureUntilCacheDisposal()
+    public void ByteBudget_EvictionCleanupFailureIsNotRethrownByLaterCalls()
     {
         var failure = new InvalidOperationException("evicted-program-dispose");
         var cache = CreateCache(maxRetainedBytes: 8);
@@ -525,14 +532,12 @@ public sealed class ProgramCacheTests
                 static factory => factory());
         });
 
-        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(cache.Dispose);
+        Assert.DoesNotThrow(cache.Dispose);
         Assert.Multiple(() =>
         {
-            Assert.That(actual, Is.SameAs(failure));
             Assert.That(evicted.DisposeCount, Is.EqualTo(1));
             Assert.That(retained.DisposeCount, Is.EqualTo(1));
             Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
-            Assert.DoesNotThrow(cache.Dispose);
         });
     }
 
