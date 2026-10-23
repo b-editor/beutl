@@ -87,7 +87,6 @@ public static class EngineObjectHelper
                 int runningUpdates = 0;
                 bool workCancelled = false;
                 bool releaseRequested = false;
-                var release = new DispatcherCleanup(renderDispatcher, ReleaseResource);
 
                 IDisposable trigger = ObserveEdits(obj, time)
                     .Subscribe(onNext: t =>
@@ -233,7 +232,11 @@ public static class EngineObjectHelper
                             return;
                     }
 
-                    release.Request();
+                    // A repeated release finds nothing left to dispose, so both callers may run it.
+                    if (renderDispatcher.CheckAccess() || renderDispatcher.HasShutdownFinished)
+                        ReleaseResource();
+                    else
+                        renderDispatcher.Dispatch(ReleaseResource, DispatchPriority.Low);
                 }
 
                 void ReleaseResource()

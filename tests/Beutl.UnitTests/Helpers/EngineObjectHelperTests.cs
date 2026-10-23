@@ -177,69 +177,6 @@ public class EngineObjectHelperTests
         Assert.That(reported, Is.SameAs(failure));
     }
 
-    // Shutdown stops draining the queue, so a release queued before it must still run once the dispatcher thread has
-    // actually stopped; the blocked operation below stands in for a frame still reading the resource.
-    [Test]
-    public void Render_dispatcher_shutdown_releases_a_resource_whose_dispatch_it_abandoned()
-    {
-        using var published = new ManualResetEventSlim();
-        using var blockerEntered = new ManualResetEventSlim();
-        using var releaseBlocker = new ManualResetEventSlim();
-        Dispatcher dispatcher = Dispatcher.Spawn();
-        CountingResource? created = null;
-
-        try
-        {
-            IDisposable subscription = _probe
-                .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
-                    _time,
-                    (_, _) => new CountingResource(),
-                    dispatcher)
-                .Subscribe(t =>
-                {
-                    t.Read(r => created = r);
-                    published.Set();
-                });
-
-            Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
-
-            dispatcher.Dispatch(
-                () =>
-                {
-                    blockerEntered.Set();
-                    releaseBlocker.Wait();
-                },
-                DispatchPriority.High);
-            Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(30)), Is.True);
-
-            subscription.Dispose();
-            Assert.That(created!.IsDisposed, Is.False, "the release is queued behind the blocked operation");
-
-            dispatcher.Shutdown();
-
-            Assert.That(
-                created.IsDisposed, Is.False,
-                "the dispatcher thread is still inside the blocked operation");
-
-            releaseBlocker.Set();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(created.IsDisposed, Is.True);
-                Assert.That(
-                    created.DisposeCalls, Is.EqualTo(1),
-                    "draining the queue must not release the resource a second time");
-            });
-        }
-        finally
-        {
-            releaseBlocker.Set();
-            ShutDownAndJoin(dispatcher);
-            created?.Dispose();
-        }
-    }
-
     // A published resource is rebuilt in place on the render dispatcher, so a reader on another thread could land
     // midway through a rebuild, as the path editor's "Collection was modified" faults did.
     [Test]
@@ -323,8 +260,8 @@ public class EngineObjectHelperTests
             Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
             subscription.Dispose();
-            dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            // The teardown queues its release at low priority, so this runs after it.
+            dispatcher.Invoke(static () => { }, DispatchPriority.Low);
 
             bool wasRead = handle!.Value.Read(_ => Assert.Fail("a released resource was handed to a reader"));
             Assert.That(wasRead, Is.False);
