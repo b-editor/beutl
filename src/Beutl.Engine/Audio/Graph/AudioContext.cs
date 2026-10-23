@@ -438,6 +438,14 @@ public sealed partial class AudioContext : IDisposable
         return node;
     }
 
+    // A context for a child sound that takes its reused nodes from this context's pool.
+    internal AudioContext CreateChildContext()
+    {
+        var child = new AudioContext(SampleRate, ChannelCount);
+        child._previousNodes = _previousNodes;
+        return child;
+    }
+
     private static bool RemoveReference(List<AudioNode> nodes, AudioNode node)
     {
         for (int i = 0; i < nodes.Count; i++)
