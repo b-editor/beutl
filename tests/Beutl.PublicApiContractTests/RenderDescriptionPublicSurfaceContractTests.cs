@@ -242,6 +242,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         using var renderer = CreateRenderer(node);
         renderer.Measure();
 
+        Assert.That(observed, Is.Not.Empty);
         Assert.Multiple(() =>
         {
             foreach ((string name, Exception? duplicate, Exception? uninitialized) in observed)
