@@ -141,24 +141,24 @@ internal sealed unsafe class VulkanInstance : IDisposable
         {
             s_logger.LogInformation("Found GPU: {DeviceName} (Type: {DeviceType})", gpu.Name, gpu.Type);
 
-            if (gpu.Type == PhysicalDeviceType.DiscreteGpu)
-            {
+            if (selected == null || Preference(gpu.Type) < Preference(selected.Type))
                 selected = gpu;
-                break;
-            }
 
-            if (gpu.Type == PhysicalDeviceType.IntegratedGpu && selected == null)
-            {
-                selected = gpu;
-            }
-            else if (selected == null)
-            {
-                selected = gpu;
-            }
+            if (gpu.Type == PhysicalDeviceType.DiscreteGpu)
+                break;
         }
 
         s_logger.LogInformation("Selected GPU: {DeviceName}", selected!.Name);
         return selected;
+
+        // A discrete GPU, then an integrated one, then the rest, such as SwiftShader; ties keep enumeration order.
+        static int Preference(PhysicalDeviceType type)
+            => type switch
+            {
+                PhysicalDeviceType.DiscreteGpu => 0,
+                PhysicalDeviceType.IntegratedGpu => 1,
+                _ => 2,
+            };
     }
 
     public VulkanPhysicalDeviceInfo GetPhysicalDeviceDetails(PhysicalDevice device)
