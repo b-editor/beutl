@@ -9,7 +9,7 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public sealed class BrushConstructorShaderTests
 {
-    // Displacement maps read all four channels of the bare shader, including the brush opacity.
+    // Skia CPU raster paths can round intermediate opacity one 8-bit step apart.
     [TestCase(100f)]
     [TestCase(50f)]
     [TestCase(0f)]
@@ -37,6 +37,7 @@ public sealed class BrushConstructorShaderTests
 
         using SKPixmap pixels = bitmap.PeekPixels();
         Assert.That(pixels.GetPixelSpan().Slice(0, 16).ToArray(),
-            Is.EqualTo(pixels.GetPixelSpan().Slice(pixels.RowBytes, 16).ToArray()));
+            Is.EqualTo(pixels.GetPixelSpan().Slice(pixels.RowBytes, 16).ToArray())
+                .Within(opacity is > 0 and < 100 ? 1 : 0));
     }
 }
