@@ -259,7 +259,7 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (Exception ex)
             {
-                CaptureCleanupFailure(ex, ref failure);
+                failure ??= ExceptionDispatchInfo.Capture(ex);
             }
         }
 
@@ -276,25 +276,8 @@ internal sealed partial class RenderRequestExecutor
             }
             catch (Exception ex)
             {
-                CaptureCleanupFailure(ex, ref failure);
+                failure ??= ExceptionDispatchInfo.Capture(ex);
             }
-        }
-
-        private static void CaptureCleanupFailure(
-            Exception cleanupFailure,
-            ref ExceptionDispatchInfo? failure)
-        {
-            if (failure is null)
-            {
-                failure = ExceptionDispatchInfo.Capture(cleanupFailure);
-                return;
-            }
-
-            const string key = "DrawableBrushMaterializationCleanupFailure";
-            Exception primary = failure.SourceException;
-            primary.Data[key] = primary.Data[key] is Exception previous
-                ? new AggregateException(previous, cleanupFailure)
-                : cleanupFailure;
         }
 
         private readonly struct DrawableBrushCycleScope(
