@@ -79,17 +79,21 @@ internal sealed partial class PathEditorInteraction
 
     private void DeleteSelectedAnchors(KeyEventArgs e)
     {
-        if (CanEdit && Context?.PathFigure.Value is { } figure)
+        if (Context?.PathFigure.Value is { } figure)
         {
             var selected = _view.GetSelectedAnchors().Select(t => t.DataContext).OfType<PathSegment>().ToHashSet();
             if (selected.Count > 0)
             {
-                Mutate(() =>
+                // A read-only path keeps its points, and the key still stops here.
+                if (CanEdit)
                 {
-                    for (int i = figure.Segments.Count - 1; i >= 0; i--)
-                        if (selected.Contains(figure.Segments[i])) figure.Segments.RemoveAt(i);
-                });
-                SyncSelection();
+                    Mutate(() =>
+                    {
+                        for (int i = figure.Segments.Count - 1; i >= 0; i--)
+                            if (selected.Contains(figure.Segments[i])) figure.Segments.RemoveAt(i);
+                    });
+                    SyncSelection();
+                }
                 e.Handled = true;
             }
         }
