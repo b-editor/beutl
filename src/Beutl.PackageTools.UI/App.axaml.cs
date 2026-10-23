@@ -25,7 +25,7 @@ public partial class App : Application
     {
         GlobalConfiguration config = GlobalConfiguration.Instance;
         ViewConfig view = config.ViewConfig;
-        CultureInfo.CurrentUICulture = view.UICulture;
+        CultureInfo.CurrentUICulture = view.UICulture.Value;
 
         AvaloniaXamlLoader.Load(this);
 #if DEBUG
@@ -34,7 +34,7 @@ public partial class App : Application
         var theme = (FluentAvaloniaTheme)Styles[0];
 
         Color? designAccent = null;
-        switch (view.Theme)
+        switch (view.Theme.Value)
         {
             case BuiltinThemeIds.Light:
                 RequestedThemeVariant = ThemeVariant.Light;
@@ -68,7 +68,7 @@ public partial class App : Application
         // shows the same accent surfaces, so a light custom accent would leave the theme's white
         // labels on a near-white fill.
         Color? accent = AccentResolution.Normalize(
-            view.UseCustomAccentColor && Color.TryParse(view.CustomAccentColor, out Color customColor)
+            view.UseCustomAccentColor.Value && Color.TryParse(view.CustomAccentColor.Value, out Color customColor)
                 ? customColor
                 : designAccent);
 

@@ -16,9 +16,9 @@ public partial class Scene
     /// </summary>
     public IEnumerable<SceneGap> EnumerateGaps()
     {
-        foreach (IGrouping<int, Element> zGroup in Children.GroupBy(e => e.ZIndex).OrderBy(g => g.Key))
+        foreach (IGrouping<int, Element> zGroup in Children.GroupBy(e => e.ZIndex.Value).OrderBy(g => g.Key))
         {
-            List<Element> sorted = zGroup.OrderBy(e => e.Start).ThenBy(e => e.Range.End).ToList();
+            List<Element> sorted = zGroup.OrderBy(e => e.Start.Value).ThenBy(e => e.Range.End).ToList();
 
             // The anchor is the run's furthest-ending element, so it ends exactly at the gap start.
             Element coveredEndElement = sorted[0];
@@ -26,9 +26,9 @@ public partial class Scene
             for (int i = 1; i < sorted.Count; i++)
             {
                 Element next = sorted[i];
-                if (next.Start > coveredEnd)
+                if (next.Start.Value > coveredEnd)
                 {
-                    yield return new SceneGap(zGroup.Key, new TimeRange(coveredEnd, next.Start - coveredEnd), coveredEndElement);
+                    yield return new SceneGap(zGroup.Key, new TimeRange(coveredEnd, next.Start.Value - coveredEnd), coveredEndElement);
                 }
 
                 if (next.Range.End > coveredEnd)
@@ -59,7 +59,7 @@ public partial class Scene
         if (anchor.HierarchicalParent is not Scene scene || !ReferenceEquals(scene, this))
             return false;
 
-        int z = anchor.ZIndex;
+        int z = anchor.ZIndex.Value;
         // The gap to close is the first one after the coverage run that contains the anchor: every gap before the
         // run ends by the time the anchor starts, and every gap after it starts at or after the anchor's end.
         if (EnumerateGaps().Where(g => g.ZIndex == z && g.Range.Start >= anchor.Range.End)
@@ -118,8 +118,8 @@ public partial class Scene
 
         var result = new List<Element>();
         foreach (IGrouping<MediaTime, Element> startGroup in Children
-            .Where(e => e.ZIndex == zIndex && e.Start >= fromStart)
-            .GroupBy(e => e.Start)
+            .Where(e => e.ZIndex.Value == zIndex && e.Start.Value >= fromStart)
+            .GroupBy(e => e.Start.Value)
             .OrderBy(g => g.Key))
         {
             if (startGroup.Any(IsElementLocked)) break;
@@ -132,13 +132,13 @@ public partial class Scene
 
     private bool MoveChildrenAndDetectChange(Element[] elements, MediaTime deltaStart)
     {
-        MediaTime[] originalStarts = elements.Select(e => e.Start).ToArray();
+        MediaTime[] originalStarts = elements.Select(e => e.Start.Value).ToArray();
 
         MoveChildren(0, deltaStart, elements);
 
         for (int i = 0; i < elements.Length; i++)
         {
-            if (elements[i].Start != originalStarts[i])
+            if (elements[i].Start.Value != originalStarts[i])
             {
                 return true;
             }

@@ -15,11 +15,11 @@ public class OnionSkinTests
     {
         var config = new EditorConfig();
 
-        Assert.That(config.IsOnionSkinEnabled, Is.False);
-        Assert.That(config.OnionSkinPrevCount, Is.EqualTo(1));
-        Assert.That(config.OnionSkinNextCount, Is.EqualTo(0));
-        Assert.That(config.OnionSkinPrevOpacity, Is.EqualTo(0.35f).Within(0.0001f));
-        Assert.That(config.OnionSkinNextOpacity, Is.EqualTo(0.35f).Within(0.0001f));
+        Assert.That(config.IsOnionSkinEnabled.Value, Is.False);
+        Assert.That(config.OnionSkinPrevCount.Value, Is.EqualTo(1));
+        Assert.That(config.OnionSkinNextCount.Value, Is.EqualTo(0));
+        Assert.That(config.OnionSkinPrevOpacity.Value, Is.EqualTo(0.35f).Within(0.0001f));
+        Assert.That(config.OnionSkinNextOpacity.Value, Is.EqualTo(0.35f).Within(0.0001f));
     }
 
     [Test]
@@ -27,18 +27,18 @@ public class OnionSkinTests
     {
         var config = new EditorConfig
         {
-            IsOnionSkinEnabled = true,
-            OnionSkinPrevCount = 3,
-            OnionSkinNextCount = 2,
-            OnionSkinPrevOpacity = 0.6f,
-            OnionSkinNextOpacity = 0.2f,
+            IsOnionSkinEnabled = { Value = true },
+            OnionSkinPrevCount = { Value = 3 },
+            OnionSkinNextCount = { Value = 2 },
+            OnionSkinPrevOpacity = { Value = 0.6f },
+            OnionSkinNextOpacity = { Value = 0.2f },
         };
 
-        Assert.That(config.IsOnionSkinEnabled, Is.True);
-        Assert.That(config.OnionSkinPrevCount, Is.EqualTo(3));
-        Assert.That(config.OnionSkinNextCount, Is.EqualTo(2));
-        Assert.That(config.OnionSkinPrevOpacity, Is.EqualTo(0.6f).Within(0.0001f));
-        Assert.That(config.OnionSkinNextOpacity, Is.EqualTo(0.2f).Within(0.0001f));
+        Assert.That(config.IsOnionSkinEnabled.Value, Is.True);
+        Assert.That(config.OnionSkinPrevCount.Value, Is.EqualTo(3));
+        Assert.That(config.OnionSkinNextCount.Value, Is.EqualTo(2));
+        Assert.That(config.OnionSkinPrevOpacity.Value, Is.EqualTo(0.6f).Within(0.0001f));
+        Assert.That(config.OnionSkinNextOpacity.Value, Is.EqualTo(0.2f).Within(0.0001f));
     }
 
     [Test]
@@ -392,12 +392,12 @@ public class OnionSkinTests
         // Counts are clamped to 0..10 by [Range].
         var config = new EditorConfig
         {
-            OnionSkinPrevCount = 1_000_000,
-            OnionSkinNextCount = -5,
+            OnionSkinPrevCount = { Value = 1_000_000 },
+            OnionSkinNextCount = { Value = -5 },
         };
 
-        Assert.That(config.OnionSkinPrevCount, Is.EqualTo(10));
-        Assert.That(config.OnionSkinNextCount, Is.EqualTo(0));
+        Assert.That(config.OnionSkinPrevCount.Value, Is.EqualTo(10));
+        Assert.That(config.OnionSkinNextCount.Value, Is.EqualTo(0));
     }
 
     [Test]
@@ -405,12 +405,12 @@ public class OnionSkinTests
     {
         var config = new EditorConfig
         {
-            OnionSkinPrevOpacity = 5f,
-            OnionSkinNextOpacity = -1f,
+            OnionSkinPrevOpacity = { Value = 5f },
+            OnionSkinNextOpacity = { Value = -1f },
         };
 
-        Assert.That(config.OnionSkinPrevOpacity, Is.EqualTo(1f).Within(0.0001f));
-        Assert.That(config.OnionSkinNextOpacity, Is.EqualTo(0f).Within(0.0001f));
+        Assert.That(config.OnionSkinPrevOpacity.Value, Is.EqualTo(1f).Within(0.0001f));
+        Assert.That(config.OnionSkinNextOpacity.Value, Is.EqualTo(0f).Within(0.0001f));
     }
 
     [Test]
@@ -418,12 +418,12 @@ public class OnionSkinTests
     {
         var config = new EditorConfig
         {
-            NodeCacheMaxPixels = 0,
-            NodeCacheMinPixels = -10,
+            NodeCacheMaxPixels = { Value = 0 },
+            NodeCacheMinPixels = { Value = -10 },
         };
 
-        Assert.That(config.NodeCacheMaxPixels, Is.EqualTo(1));
-        Assert.That(config.NodeCacheMinPixels, Is.EqualTo(1));
+        Assert.That(config.NodeCacheMaxPixels.Value, Is.EqualTo(1));
+        Assert.That(config.NodeCacheMinPixels.Value, Is.EqualTo(1));
     }
 
     // A TimeRange that contains the given frame's time (Contains is [Start, End)).

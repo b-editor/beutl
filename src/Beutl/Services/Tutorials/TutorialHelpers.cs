@@ -164,7 +164,7 @@ public static class TutorialHelpers
 
         foreach (KeyFrame item in animation.KeyFrames.OfType<KeyFrame>())
         {
-            item.EasingProperty.GetObservable().Skip(1)
+            item.Easing.GetObservable().Skip(1)
                 .Subscribe(_ => EasingChangedHandler())
                 .DisposeWith(disposables);
         }
@@ -185,8 +185,8 @@ public static class TutorialHelpers
         if (editVm == null || element == null || clock == null) return;
 
         var duration = additionalDuration ?? MediaTime.FromSeconds(1);
-        editVm.Scene.Duration = element.Range.End + duration;
-        clock.Seek(element.Start);
+        editVm.Scene.Duration.Value = element.Range.End + duration;
+        clock.Seek(element.Start.Value);
         editVm.HistoryManager.Commit(CommandNames.ChangeSceneDuration);
     }
 

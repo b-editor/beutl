@@ -123,11 +123,11 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
                 .DisposeWith(_disposables);
         }
 
-        _config.DefaultPresetProperty.ValueChanged += OnDefaultPresetChanged;
-        Disposable.Create(() => _config.DefaultPresetProperty.ValueChanged -= OnDefaultPresetChanged)
+        _config.DefaultPreset.ValueChanged += OnDefaultPresetChanged;
+        Disposable.Create(() => _config.DefaultPreset.ValueChanged -= OnDefaultPresetChanged)
             .DisposeWith(_disposables);
-        _config.MaxTotalBytesProperty.ValueChanged += OnMaxTotalBytesChanged;
-        Disposable.Create(() => _config.MaxTotalBytesProperty.ValueChanged -= OnMaxTotalBytesChanged)
+        _config.MaxTotalBytes.ValueChanged += OnMaxTotalBytesChanged;
+        Disposable.Create(() => _config.MaxTotalBytes.ValueChanged -= OnMaxTotalBytesChanged)
             .DisposeWith(_disposables);
 
         Refresh();

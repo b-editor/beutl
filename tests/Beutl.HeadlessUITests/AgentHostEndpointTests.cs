@@ -307,7 +307,7 @@ public sealed class AgentHostEndpointTests
         await TestReset.ResetShellAsync();
         string directory = Directory.CreateTempSubdirectory("endpoint-token-").FullName;
         var firstConfig = new AiAgentConfig();
-        var secondConfig = new AiAgentConfig { LiveMcpToken = "old-snapshot-token" };
+        var secondConfig = new AiAgentConfig { LiveMcpToken = { Value = "old-snapshot-token" } };
         try
         {
             await using var first = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), UnavailableAgentAiBackend.Instance, firstConfig, directory);
@@ -319,8 +319,8 @@ public sealed class AgentHostEndpointTests
             {
                 Assert.That(first.InstanceId, Is.EqualTo(firstInstanceId));
                 Assert.That(first.Token, Does.Match("^[0-9A-F]{32}$"));
-                Assert.That(firstConfig.LiveMcpToken, Is.Empty);
-                Assert.That(secondConfig.LiveMcpToken, Is.Empty);
+                Assert.That(firstConfig.LiveMcpToken.Value, Is.Empty);
+                Assert.That(secondConfig.LiveMcpToken.Value, Is.Empty);
                 Assert.That(second.Token, Is.EqualTo(first.Token));
                 Assert.That(LiveMcpTokenStore.GetOrCreate(directory), Is.EqualTo(first.Token));
             });
@@ -346,7 +346,7 @@ public sealed class AgentHostEndpointTests
         string directory = Directory.CreateTempSubdirectory("endpoint-invalid-token-").FullName;
         string invalidPath = Path.Combine(directory, fileName);
         File.WriteAllText(invalidPath, "{");
-        var config = new AiAgentConfig { LiveMcpToken = "pending-migration-token" };
+        var config = new AiAgentConfig { LiveMcpToken = { Value = "pending-migration-token" } };
         try
         {
             await using var endpoint = new AgentHostEndpoint(new ProjectService(), new EditorService(new ExtensionProvider()), UnavailableAgentAiBackend.Instance, config, directory);
@@ -359,7 +359,7 @@ public sealed class AgentHostEndpointTests
                 Assert.That(endpoint.IsRunning, Is.False);
                 Assert.That(endpoint.EndpointUri, Is.Null);
                 Assert.That(endpoint.Token, Is.Empty);
-                Assert.That(config.LiveMcpToken, Is.EqualTo("pending-migration-token"));
+                Assert.That(config.LiveMcpToken.Value, Is.EqualTo("pending-migration-token"));
                 Assert.That(File.ReadAllText(invalidPath), Is.EqualTo("{"));
             });
             if (fileName == "settings.json")

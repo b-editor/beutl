@@ -250,7 +250,7 @@ public sealed class GenerativeNodeModelTests
     public void InputsFollowTheAiTabsOrder()
     {
         var node = new AiImageGenerationNode();
-        string[] inputs = node.Items.OfType<IInputPort>().Select(port => port.Name).ToArray();
+        string[] inputs = node.Items.OfType<IInputPort>().Select(port => port.Name.Value).ToArray();
         Assert.That(inputs, Is.EqualTo(new[]
         {
             "Prompt", "AspectRatio", "Model", "Background", "Seed", "SeedControl", "References",

@@ -12,7 +12,7 @@ public class EditorConfigPreviewSourceModeTests
     {
         var config = new EditorConfig();
 
-        Assert.That(config.PreviewSourceMode, Is.EqualTo(PreviewSourceMode.PreferProxy));
+        Assert.That(config.PreviewSourceMode.Value, Is.EqualTo(PreviewSourceMode.PreferProxy));
     }
 
     [Test]
@@ -22,11 +22,11 @@ public class EditorConfigPreviewSourceModeTests
         bool raised = false;
         config.ConfigurationChanged += (_, _) => raised = true;
 
-        config.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
+        config.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.PreviewSourceMode, Is.EqualTo(PreviewSourceMode.ForceOriginal));
+            Assert.That(config.PreviewSourceMode.Value, Is.EqualTo(PreviewSourceMode.ForceOriginal));
             Assert.That(raised, Is.True);
         });
     }
@@ -35,11 +35,11 @@ public class EditorConfigPreviewSourceModeTests
     [TestCase(1, PreviewSourceMode.ForceOriginal)]
     public void SetPreviewSourceModeFromIndex_ValidIndex_UpdatesValue(int index, PreviewSourceMode expected)
     {
-        var config = new EditorConfig { PreviewSourceMode = PreviewSourceMode.ForceOriginal };
+        var config = new EditorConfig { PreviewSourceMode = { Value = PreviewSourceMode.ForceOriginal } };
 
         config.SetPreviewSourceModeFromIndex(index);
 
-        Assert.That(config.PreviewSourceMode, Is.EqualTo(expected));
+        Assert.That(config.PreviewSourceMode.Value, Is.EqualTo(expected));
     }
 
     // A ComboBox with no selection reports SelectedIndex -1; an out-of-range index must be ignored so an
@@ -48,35 +48,35 @@ public class EditorConfigPreviewSourceModeTests
     [TestCase(2)]
     public void SetPreviewSourceModeFromIndex_OutOfRange_LeavesValueUnchanged(int index)
     {
-        var config = new EditorConfig { PreviewSourceMode = PreviewSourceMode.ForceOriginal };
+        var config = new EditorConfig { PreviewSourceMode = { Value = PreviewSourceMode.ForceOriginal } };
 
         config.SetPreviewSourceModeFromIndex(index);
 
-        Assert.That(config.PreviewSourceMode, Is.EqualTo(PreviewSourceMode.ForceOriginal));
+        Assert.That(config.PreviewSourceMode.Value, Is.EqualTo(PreviewSourceMode.ForceOriginal));
     }
 
     [Test]
     public void JsonRoundTrip_PreservesPreviewSourceMode()
     {
-        var config = new EditorConfig { PreviewSourceMode = PreviewSourceMode.ForceOriginal };
+        var config = new EditorConfig { PreviewSourceMode = { Value = PreviewSourceMode.ForceOriginal } };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(config);
         var restored = new EditorConfig();
         CoreSerializer.PopulateFromJsonObject(restored, json);
 
-        Assert.That(restored.PreviewSourceMode, Is.EqualTo(PreviewSourceMode.ForceOriginal));
+        Assert.That(restored.PreviewSourceMode.Value, Is.EqualTo(PreviewSourceMode.ForceOriginal));
     }
 
     [Test]
     public void LegacyJsonWithoutPreviewSourceMode_DefaultsToPreferProxy()
     {
-        var config = new EditorConfig { PreviewSourceMode = PreviewSourceMode.ForceOriginal };
+        var config = new EditorConfig { PreviewSourceMode = { Value = PreviewSourceMode.ForceOriginal } };
         JsonObject json = CoreSerializer.SerializeToJsonObject(config);
         json.Remove(nameof(EditorConfig.PreviewSourceMode));
 
         var restored = new EditorConfig();
         CoreSerializer.PopulateFromJsonObject(restored, json);
 
-        Assert.That(restored.PreviewSourceMode, Is.EqualTo(PreviewSourceMode.PreferProxy));
+        Assert.That(restored.PreviewSourceMode.Value, Is.EqualTo(PreviewSourceMode.PreferProxy));
     }
 }

@@ -33,8 +33,8 @@ public class AVFEncodingController : EncodingController
         BitmapColorSpace? hdrTargetColorSpace = isHdr
             ? ColorSpaceMapper.BuildColorSpace(
                 isHdr: true,
-                MapTransfer(VideoSettings.ColorTransfer),
-                MapPrimaries(VideoSettings.ColorPrimaries))
+                MapTransfer(VideoSettings.ColorTransfer.Value),
+                MapPrimaries(VideoSettings.ColorPrimaries.Value))
             : null;
 
         BeutlAVFException.ThrowIfFailed(
@@ -53,8 +53,8 @@ public class AVFEncodingController : EncodingController
             long sampleCount = 0;
             long frameCount = 0;
 
-            long frameRateNum = VideoSettings.FrameRate.Numerator;
-            long frameRateDen = VideoSettings.FrameRate.Denominator;
+            long frameRateNum = VideoSettings.FrameRate.Value.Numerator;
+            long frameRateDen = VideoSettings.FrameRate.Value.Denominator;
 
             while ((encodeVideo || encodeAudio) && !cancellationToken.IsCancellationRequested)
             {
@@ -166,45 +166,45 @@ public class AVFEncodingController : EncodingController
         // Force HEVC when HDR is selected — H.264/JPEG have no HDR10 profile in VideoToolbox.
         int codec = isHdr
             ? (int)AVFVideoEncoderSettings.VideoCodec.HEVC
-            : (int)VideoSettings.Codec;
+            : (int)VideoSettings.Codec.Value;
 
         return new BeutlVideoEncoderConfig
         {
-            Width = VideoSettings.DestinationSize.Width,
-            Height = VideoSettings.DestinationSize.Height,
-            SourceWidth = VideoSettings.SourceSize.Width,
-            SourceHeight = VideoSettings.SourceSize.Height,
+            Width = VideoSettings.DestinationSize.Value.Width,
+            Height = VideoSettings.DestinationSize.Value.Height,
+            SourceWidth = VideoSettings.SourceSize.Value.Width,
+            SourceHeight = VideoSettings.SourceSize.Value.Height,
             Codec = codec,
-            Bitrate = VideoSettings.Bitrate,
-            KeyframeInterval = VideoSettings.KeyframeRate,
-            ProfileLevelH264 = (int)VideoSettings.ProfileLevelH264,
-            FrameRateNum = (int)VideoSettings.FrameRate.Numerator,
-            FrameRateDen = (int)VideoSettings.FrameRate.Denominator,
-            JpegQuality = VideoSettings.JPEGQuality,
+            Bitrate = VideoSettings.Bitrate.Value,
+            KeyframeInterval = VideoSettings.KeyframeRate.Value,
+            ProfileLevelH264 = (int)VideoSettings.ProfileLevelH264.Value,
+            FrameRateNum = (int)VideoSettings.FrameRate.Value.Numerator,
+            FrameRateDen = (int)VideoSettings.FrameRate.Value.Denominator,
+            JpegQuality = VideoSettings.JPEGQuality.Value,
             IsHdr = isHdr ? 1 : 0,
-            ColorTransfer = (int)MapTransfer(VideoSettings.ColorTransfer),
-            ColorPrimaries = (int)MapPrimaries(VideoSettings.ColorPrimaries),
-            YCbCrMatrix = (int)MapMatrix(VideoSettings.YCbCrMatrix),
+            ColorTransfer = (int)MapTransfer(VideoSettings.ColorTransfer.Value),
+            ColorPrimaries = (int)MapPrimaries(VideoSettings.ColorPrimaries.Value),
+            YCbCrMatrix = (int)MapMatrix(VideoSettings.YCbCrMatrix.Value),
         };
     }
 
     private BeutlAudioEncoderConfig BuildAudioConfig(int sourceSampleRate)
     {
-        int sampleRate = AudioSettings.SampleRate > 0 ? AudioSettings.SampleRate : sourceSampleRate;
+        int sampleRate = AudioSettings.SampleRate.Value > 0 ? AudioSettings.SampleRate.Value : sourceSampleRate;
         int flags = 0;
-        if (AudioSettings.LinearPcmFloat) flags |= 1;
-        if (AudioSettings.LinearPcmBigEndian) flags |= 2;
-        if (AudioSettings.LinearPcmNonInterleaved) flags |= 4;
+        if (AudioSettings.LinearPcmFloat.Value) flags |= 1;
+        if (AudioSettings.LinearPcmBigEndian.Value) flags |= 2;
+        if (AudioSettings.LinearPcmNonInterleaved.Value) flags |= 4;
 
         return new BeutlAudioEncoderConfig
         {
             SampleRate = sampleRate,
-            ChannelCount = AudioSettings.Channels,
-            FormatFourCC = (int)AudioSettings.Format,
-            Bitrate = AudioSettings.Bitrate,
-            Quality = (int)AudioSettings.Quality,
-            SampleRateConverterQuality = (int)AudioSettings.SampleRateConverterQuality,
-            LinearPcmBitDepth = (int)AudioSettings.LinearPcmBitDepth,
+            ChannelCount = AudioSettings.Channels.Value,
+            FormatFourCC = (int)AudioSettings.Format.Value,
+            Bitrate = AudioSettings.Bitrate.Value,
+            Quality = (int)AudioSettings.Quality.Value,
+            SampleRateConverterQuality = (int)AudioSettings.SampleRateConverterQuality.Value,
+            LinearPcmBitDepth = (int)AudioSettings.LinearPcmBitDepth.Value,
             LinearPcmFlags = flags,
         };
     }

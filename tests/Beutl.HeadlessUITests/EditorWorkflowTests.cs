@@ -75,8 +75,8 @@ public class EditorWorkflowTests
         {
             Assert.That(writtenByTheAdd, Is.False);
             Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children.Select(child => child.Id),
-                Is.EqualTo(new[] { element.Id }));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children.Select(child => child.Id.Value),
+                Is.EqualTo(new[] { element.Id.Value }));
         });
     }
 
@@ -113,7 +113,7 @@ public class EditorWorkflowTests
             Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
             Uri temporary = element.Uri!;
             bool inTemporaryStorage = FilePathComparison.IsSameOrDescendant(
-                UnsavedSceneStorage.GetDirectory(editor.Scene.Id),
+                UnsavedSceneStorage.GetDirectory(editor.Scene.Id.Value),
                 temporary.LocalPath);
             bool writtenByTheAdd = File.Exists(temporary.LocalPath);
 
@@ -127,14 +127,14 @@ public class EditorWorkflowTests
                 Assert.That(Path.GetDirectoryName(element.Uri!.LocalPath),
                     Is.EqualTo(Path.GetDirectoryName(savedUri.LocalPath)));
                 Assert.That(File.Exists(element.Uri!.LocalPath), Is.True);
-                Assert.That(CoreSerializer.RestoreFromUri<Scene>(savedUri).Children.Select(child => child.Id),
-                    Is.EqualTo(new[] { element.Id }));
+                Assert.That(CoreSerializer.RestoreFromUri<Scene>(savedUri).Children.Select(child => child.Id.Value),
+                    Is.EqualTo(new[] { element.Id.Value }));
             });
         }
         finally
         {
             editor.Scene.Uri = savedUri;
-            UnsavedSceneStorage.Cleanup(editor.Scene.Id);
+            UnsavedSceneStorage.Cleanup(editor.Scene.Id.Value);
         }
     }
 
@@ -219,8 +219,8 @@ public class EditorWorkflowTests
         Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
 
         // Exercises the observer-to-history pipeline, not an edit service.
-        int originalZIndex = element.ZIndex;
-        element.ZIndex = originalZIndex + 5;
+        int originalZIndex = element.ZIndex.Value;
+        element.ZIndex.Value = originalZIndex + 5;
         editor.HistoryManager.Commit("EditZIndex");
         HeadlessTestHelpers.Settle();
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(2));
@@ -228,13 +228,13 @@ public class EditorWorkflowTests
         bool undone = editor.HistoryManager.Undo();
         HeadlessTestHelpers.Settle();
         Assert.That(undone, Is.True);
-        Assert.That(element.ZIndex, Is.EqualTo(originalZIndex));
+        Assert.That(element.ZIndex.Value, Is.EqualTo(originalZIndex));
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(1));
 
         bool redone = editor.HistoryManager.Redo();
         HeadlessTestHelpers.Settle();
         Assert.That(redone, Is.True);
-        Assert.That(element.ZIndex, Is.EqualTo(originalZIndex + 5));
+        Assert.That(element.ZIndex.Value, Is.EqualTo(originalZIndex + 5));
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(2));
     }
 
@@ -244,7 +244,7 @@ public class EditorWorkflowTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("undoadd");
         Element element = await AddRectangle(editor, MediaTime.Zero, layer: 0);
-        Guid elementId = element.Id;
+        Guid elementId = element.Id.Value;
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
 
         bool undone = editor.HistoryManager.Undo();
@@ -257,7 +257,7 @@ public class EditorWorkflowTests
         HeadlessTestHelpers.Settle();
         Assert.That(redone, Is.True);
         Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
-        Assert.That(editor.Scene.Children[0].Id, Is.EqualTo(elementId));
+        Assert.That(editor.Scene.Children[0].Id.Value, Is.EqualTo(elementId));
     }
 
     [AvaloniaTest]

@@ -18,8 +18,8 @@ internal static class UnmigratedNodeTreeNotice
                 .OfType<Scene>()
                 .SelectMany(static scene => scene.Children
                     .Where(static element => element.Objects.Any(ElementMigration.IsUnmigratedNodeTree))
-                    .OrderBy(static element => element.Start)
-                    .ThenBy(static element => element.ZIndex))) is not { } listed)
+                    .OrderBy(static element => element.Start.Value)
+                    .ThenBy(static element => element.ZIndex.Value))) is not { } listed)
         {
             return null;
         }

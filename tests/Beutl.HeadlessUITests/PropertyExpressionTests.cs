@@ -56,7 +56,7 @@ public class PropertyExpressionTests
         var property = (AnimatableProperty<float>)shape.Opacity;
         property.Value = 75;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 50 });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 50 } });
         property.SetKeyFrameAnimation(animation);
         if (runtimeFailure)
         {

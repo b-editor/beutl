@@ -81,9 +81,9 @@ public class OutputFileSafetyTests
         });
         using var output = CreateOutput(editor, destination, encoder);
         EncodingController settings = output.Controller.Value!;
-        settings.VideoSettings.FrameRate = new Rational(24, 1);
-        settings.VideoSettings.DestinationSize = new PixelSize(128, 72);
-        settings.AudioSettings.SampleRate = 48000;
+        settings.VideoSettings.FrameRate.Value = new Rational(24, 1);
+        settings.VideoSettings.DestinationSize.Value = new PixelSize(128, 72);
+        settings.AudioSettings.SampleRate.Value = 48000;
 
         await output.RunAsync(CancellationToken.None);
 
@@ -96,9 +96,9 @@ public class OutputFileSafetyTests
             Assert.That(output.Controller.Value, Is.SameAs(settings));
             Assert.That(executionController!.OutputFile, Is.Not.EqualTo(destination));
             Assert.That(Path.GetFileName(executionController.OutputFile), Is.EqualTo(Path.GetFileName(destination)));
-            Assert.That(executionController.VideoSettings.FrameRate, Is.EqualTo(new Rational(24, 1)));
-            Assert.That(executionController.VideoSettings.DestinationSize, Is.EqualTo(new PixelSize(128, 72)));
-            Assert.That(executionController.AudioSettings.SampleRate, Is.EqualTo(48000));
+            Assert.That(executionController.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(24, 1)));
+            Assert.That(executionController.VideoSettings.DestinationSize.Value, Is.EqualTo(new PixelSize(128, 72)));
+            Assert.That(executionController.AudioSettings.SampleRate.Value, Is.EqualTo(48000));
         });
         AssertNoStaging(destination);
     }
@@ -151,8 +151,8 @@ public class OutputFileSafetyTests
         var scene = new Scene
         {
             Uri = new Uri(Path.Combine(directory, "main.scene")),
-            FrameSize = new PixelSize(64, 64),
-            Duration = MediaTime.FromSeconds(0.1),
+            FrameSize = { Value = new PixelSize(64, 64) },
+            Duration = { Value = MediaTime.FromSeconds(0.1) },
         };
         CoreSerializer.StoreToUri(scene, scene.Uri);
         TestShell.Editor.ActivateTabItem(scene);

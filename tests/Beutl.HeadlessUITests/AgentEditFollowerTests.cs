@@ -46,7 +46,7 @@ public sealed class AgentEditFollowerTests
             Assert.Multiple(() =>
             {
                 Assert.That(fixture.Selection.Value, Is.SameAs(fixture.Far));
-                Assert.That(fixture.Clock.Value, Is.EqualTo(fixture.Far.Start), "The playhead moves the least to show the element.");
+                Assert.That(fixture.Clock.Value, Is.EqualTo(fixture.Far.Start.Value), "The playhead moves the least to show the element.");
                 Assert.That(properties.Items.Single()!.Model, Is.SameAs(fixture.FarRect));
                 Assert.That(HasFlash(farView.border), Is.True, "The timeline clip flashes.");
                 Assert.That(Flashed(fixture.Window).Any(target => target.FindAncestorOfType<ElementPropertyTabView>() is not null
@@ -76,8 +76,8 @@ public sealed class AgentEditFollowerTests
         try
         {
             var animation = new KeyFrameAnimation<float>();
-            var first = new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 };
-            var second = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1.5), Value = 100 };
+            var first = new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100 } };
+            var second = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1.5) }, Value = { Value = 100 } };
             animation.KeyFrames.Add(first, out _);
             animation.KeyFrames.Add(second, out _);
             fixture.FarRect.Opacity.SetKeyFrameAnimation(animation);
@@ -85,7 +85,7 @@ public sealed class AgentEditFollowerTests
             await host.StartAsync();
             await using McpClient client = await ConnectAsync(host);
 
-            var keyFrames = new JsonArray(new JsonObject { ["Id"] = second.Id.ToString(), ["Value"] = 40 });
+            var keyFrames = new JsonArray(new JsonObject { ["Id"] = second.Id.Value.ToString(), ["Value"] = 40 });
             Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject
             {
                 ["Animations"] = new JsonObject { ["Opacity"] = new JsonObject { ["KeyFrames"] = keyFrames } }
@@ -94,21 +94,21 @@ public sealed class AgentEditFollowerTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(second.Value, Is.EqualTo(40));
+                Assert.That(second.Value.Value, Is.EqualTo(40));
                 Assert.That(fixture.Selection.Value, Is.SameAs(fixture.Far));
-                Assert.That(fixture.Clock.Value, Is.EqualTo(fixture.Far.Start + second.KeyTime));
+                Assert.That(fixture.Clock.Value, Is.EqualTo(fixture.Far.Start.Value + second.KeyTime.Value));
             });
 
             fixture.Select(fixture.Near);
             fixture.Seek(MediaTime.Zero);
-            Success(await client.CallToolAsync("undo", Target(fixture.Editor.Scene.Id)));
+            Success(await client.CallToolAsync("undo", Target(fixture.Editor.Scene.Id.Value)));
             HeadlessTestHelpers.Render(2);
 
             Assert.Multiple(() =>
             {
-                Assert.That(second.Value, Is.EqualTo(100));
+                Assert.That(second.Value.Value, Is.EqualTo(100));
                 Assert.That(fixture.Selection.Value, Is.SameAs(fixture.Far));
-                Assert.That(fixture.Clock.Value, Is.EqualTo(fixture.Far.Start + second.KeyTime));
+                Assert.That(fixture.Clock.Value, Is.EqualTo(fixture.Far.Start.Value + second.KeyTime.Value));
             });
         }
         finally
@@ -134,7 +134,7 @@ public sealed class AgentEditFollowerTests
             HeadlessTestHelpers.Render(2);
             fixture.Select(null);
 
-            Dictionary<string, object?> undo = Target(fixture.Editor.Scene.Id);
+            Dictionary<string, object?> undo = Target(fixture.Editor.Scene.Id.Value);
             undo["steps"] = 2;
             Success(await client.CallToolAsync("undo", undo));
             HeadlessTestHelpers.Render(2);
@@ -221,7 +221,7 @@ public sealed class AgentEditFollowerTests
             await using McpClient client = await ConnectAsync(host);
 
             string output = Path.Combine(fixture.Directory, "frame.png");
-            Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id);
+            Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id.Value);
             arguments["outputPath"] = output;
             arguments["timeSeconds"] = 13.25;
             JsonObject rendered = Payload(await client.CallToolAsync("render_still", arguments));
@@ -257,7 +257,7 @@ public sealed class AgentEditFollowerTests
             await using McpClient client = await ConnectAsync(host);
 
             Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject { ["Width"] = 200 })));
-            Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id);
+            Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id.Value);
             arguments["outputPath"] = Path.Combine(fixture.Directory, "frame.png");
             arguments["timeSeconds"] = 13.25;
             await client.CallToolAsync("render_still", arguments);
@@ -310,7 +310,7 @@ public sealed class AgentEditFollowerTests
         System.IO.Directory.CreateDirectory(directory);
         Project project = (await TestShell.Project.CreateProject(640, 360, new Rational(30), 44100, "Follow", directory))!;
         Scene scene = project.Items.OfType<Scene>().Single();
-        scene.Duration = MediaTime.FromSeconds(20);
+        scene.Duration.Value = MediaTime.FromSeconds(20);
         Element near = AddRectangle(scene, directory, "near", MediaTime.Zero, 0);
         // Far right and far down, so the timeline has to scroll both ways to show it.
         Element far = AddRectangle(scene, directory, "far", MediaTime.FromSeconds(12), 20);
@@ -325,7 +325,7 @@ public sealed class AgentEditFollowerTests
         editor.GetRequiredService<IEditorClock>().Seek(MediaTime.Zero);
         HeadlessTestHelpers.Render(2);
 
-        var config = new AiAgentConfig { FollowLiveMcpEdits = follow };
+        var config = new AiAgentConfig { FollowLiveMcpEdits = { Value = follow } };
         return new Fixture(editor, window, near, far, (RectShape)far.Objects.Single(), directory, config);
     }
 
@@ -333,13 +333,13 @@ public sealed class AgentEditFollowerTests
     {
         var element = new Element
         {
-            Name = name,
-            Start = start,
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = zIndex,
+            Name = { Value = name },
+            Start = { Value = start },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = zIndex },
             Uri = new Uri(Path.Combine(directory, $"{name}.belm"))
         };
-        element.AddObject(new RectShape { Name = name, Width = { Value = 100 }, Height = { Value = 100 } });
+        element.AddObject(new RectShape { Name = { Value = name }, Width = { Value = 100 }, Height = { Value = 100 } });
         scene.Children.Add(element);
         return element;
     }
@@ -349,14 +349,14 @@ public sealed class AgentEditFollowerTests
 
     private static Dictionary<string, object?> Patch(Fixture fixture, Element element, JsonObject rect)
     {
-        rect["Id"] = element.Objects.Single().Id.ToString();
-        Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id);
+        rect["Id"] = element.Objects.Single().Id.Value.ToString();
+        Dictionary<string, object?> arguments = Target(fixture.Editor.Scene.Id.Value);
         arguments["schemaVersion"] = "1";
         arguments["patch"] = new JsonObject
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = element.Id.ToString(),
+                ["Id"] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(rect)
             })
         };

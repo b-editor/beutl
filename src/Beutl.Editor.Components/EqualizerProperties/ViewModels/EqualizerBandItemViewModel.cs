@@ -87,7 +87,7 @@ public sealed class EqualizerBandItemViewModel : IDisposable
     public float GetEffectiveValue(IProperty<float> property, MediaTime globalTime)
     {
         if (GetEditingKeyFrame(property, globalTime) is { } kf)
-            return kf.Value;
+            return kf.Value.Value;
         if (property is IExpressionProperty<float> { HasExpression: true } expressionProperty)
             return expressionProperty.Evaluate(new CompositionContext(globalTime));
         return property.Value;
@@ -96,7 +96,7 @@ public sealed class EqualizerBandItemViewModel : IDisposable
     public void SetPropertyValue(IProperty<float> property, MediaTime globalTime, float value)
     {
         if (GetEditingKeyFrame(property, globalTime) is { } kf)
-            kf.Value = value;
+            kf.Value.Value = value;
         else
             property.Value = value;
     }
@@ -125,8 +125,8 @@ public sealed class EqualizerBandItemViewModel : IDisposable
             return null;
 
         MediaTime time = globalTime;
-        if (adapter.Animation is { UseGlobalClock: false } && _element != null)
-            time -= _element.Start;
+        if (adapter.Animation is { UseGlobalClock.Value: false } && _element != null)
+            time -= _element.Start.Value;
 
         int idx = Math.Clamp(keyFrames.IndexAtOrCount(time), 0, keyFrames.Count - 1);
         return keyFrames[idx] as KeyFrame<float>;

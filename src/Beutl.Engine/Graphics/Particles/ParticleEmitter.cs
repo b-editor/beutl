@@ -252,7 +252,7 @@ public partial class ParticleEmitter : Drawable
             ResourceReconciler.ReconcileChild(this, context, emitter.ParticleDrawable, ref _particleDrawable, ref versionBumped);
 
             double oldTime = _time;
-            _time = (context.Time - obj.TimeRange.Start).ToSeconds();
+            _time = (context.Time - obj.TimeRange.Value.Start).ToSeconds();
             if (_time >= 0)
             {
                 // Keep the original composition clock for animated properties and the particle drawable.

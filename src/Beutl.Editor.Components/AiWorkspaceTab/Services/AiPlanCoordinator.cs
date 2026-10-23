@@ -45,7 +45,7 @@ internal sealed class AiPlanCoordinator : IAiPlanCoordinator
         _entitlements = entitlements ?? throw new ArgumentNullException(nameof(entitlements));
         _openUri = openUri ?? OpenWithShell;
         _language = language ?? (() =>
-            GlobalConfiguration.Instance.ViewConfig.UICulture.TwoLetterISOLanguageName);
+            GlobalConfiguration.Instance.ViewConfig.UICulture.Value.TwoLetterISOLanguageName);
         // The pages opened here belong to the same site the client talks to, so
         // a client pointed at a local server with BEUTL_API_BASE_URL must not send
         // the user to the live one to manage a plan that server knows nothing about.

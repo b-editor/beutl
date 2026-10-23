@@ -43,10 +43,10 @@ public class NodeGraphLockTests
     [TestCase(true)]
     public void Drags_keys_and_menus_leave_the_graph_of_a_read_only_clip_as_it_is(bool protect)
     {
-        var source = new ExpressionNode { Position = (20, 40) };
-        var free = new ExpressionNode { Position = (20, 260) };
-        var target = new ExpressionNode { Position = (380, 260) };
-        var output = new OutputNode { Position = (380, 40) };
+        var source = new ExpressionNode { Position = { Value = (20, 40) } };
+        var free = new ExpressionNode { Position = { Value = (20, 260) } };
+        var target = new ExpressionNode { Position = { Value = (380, 260) } };
+        var output = new OutputNode { Position = { Value = (380, 40) } };
         using var scope = new LockedGraphScope(protect, [source, free, target, output],
             graph => graph.Connect(output.InputPort, source.Output));
         string before = CoreSerializer.SerializeToJsonObject(scope.Graph).ToJsonString();
@@ -105,8 +105,8 @@ public class NodeGraphLockTests
     [AvaloniaTest]
     public void A_move_the_service_refuses_puts_the_dragged_nodes_back()
     {
-        var first = new ExpressionNode { Position = (20, 40) };
-        var second = new ExpressionNode { Position = (20, 260) };
+        var first = new ExpressionNode { Position = { Value = (20, 40) } };
+        var second = new ExpressionNode { Position = { Value = (20, 260) } };
         using var scope = new LockedGraphScope(protect: false, [first, second], lockClip: false);
         foreach (GraphNodeViewModel node in scope.Model.Nodes)
             node.IsSelected.Value = true;
@@ -117,14 +117,14 @@ public class NodeGraphLockTests
         scope.Window.MouseMove(start + new Vector(60, 30), RawInputModifiers.LeftMouseButton);
         HeadlessTestHelpers.Render(3);
         Assert.That(scope.Model.Nodes[0].Position.Value, Is.EqualTo(new Point(80, 70)), "The drag moves the nodes.");
-        scope.Element.IsLocked = true;
+        scope.Element.IsLocked.Value = true;
         scope.Window.MouseUp(start + new Vector(60, 30), MouseButton.Left);
         HeadlessTestHelpers.Render(3);
 
         Assert.Multiple(() =>
         {
-            Assert.That(first.Position, Is.EqualTo((20d, 40d)));
-            Assert.That(second.Position, Is.EqualTo((20d, 260d)));
+            Assert.That(first.Position.Value, Is.EqualTo((20d, 40d)));
+            Assert.That(second.Position.Value, Is.EqualTo((20d, 260d)));
             Assert.That(scope.Model.Nodes.Select(node => node.Position.Value),
                 Is.EqualTo(new[] { new Point(20, 40), new Point(20, 260) }));
             Assert.That(scope.History.UndoCount, Is.Zero);
@@ -140,20 +140,20 @@ public class NodeGraphLockTests
         Element element = scene.Children.Single();
         GraphModel graph = ((NodeGraphDrawable)element.Objects.Single()).Model.Value!;
         var node = new RectGeometryNode();
-        node.Object.Width.Value = 100;
+        node.Object.Value.Width.Value = 100;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 200 });
-        node.Object.Height.SetKeyFrameAnimation(animation);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 200 } });
+        node.Object.Value.Height.SetKeyFrameAnimation(animation);
         graph.Nodes.Add(node);
         editor.HistoryManager.Commit("test setup");
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         int undoCount = editor.HistoryManager.UndoCount;
         using var viewModel = new NodeGraphViewModel(graph, editor);
         NumberEditorViewModel<float>[] editors = [.. viewModel.Nodes.Single().Items
             .Select(item => item.PropertyEditorContext).OfType<NumberEditorViewModel<float>>()];
-        NumberEditorViewModel<float> width = editors.Single(e => ReferenceEquals(e.PropertyAdapter.GetEngineProperty(), node.Object.Width));
-        NumberEditorViewModel<float> height = editors.Single(e => ReferenceEquals(e.PropertyAdapter.GetEngineProperty(), node.Object.Height));
+        NumberEditorViewModel<float> width = editors.Single(e => ReferenceEquals(e.PropertyAdapter.GetEngineProperty(), node.Object.Value.Width));
+        NumberEditorViewModel<float> height = editors.Single(e => ReferenceEquals(e.PropertyAdapter.GetEngineProperty(), node.Object.Value.Height));
 
         width.SetValue(100, 250);
         height.KeyFrameIndex.Value = 1;
@@ -161,7 +161,7 @@ public class NodeGraphLockTests
         Assert.Multiple(() =>
         {
             Assert.That(width.CanEdit.Value, Is.False);
-            Assert.That(node.Object.Width.Value, Is.EqualTo(100));
+            Assert.That(node.Object.Value.Width.Value, Is.EqualTo(100));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
             Assert.That(((IEditorClock)editor.GetService(typeof(IEditorClock))!).CurrentTime.Value,
                 Is.EqualTo(MediaTime.FromSeconds(3)), "The keyframe at 1 s is 1 s after the clip start.");
@@ -171,13 +171,13 @@ public class NodeGraphLockTests
     [AvaloniaTest]
     public async Task Generative_commands_leave_a_locked_clip_as_it_is()
     {
-        var image = new AiImageGenerationNode { Position = (380, 40) };
-        var older = new GenerationRecord { Summary = "older", CreatedAt = DateTimeOffset.Now.AddMinutes(-5) };
-        var newer = new GenerationRecord { Summary = "newer", CreatedAt = DateTimeOffset.Now };
+        var image = new AiImageGenerationNode { Position = { Value = (380, 40) } };
+        var older = new GenerationRecord { Summary = { Value = "older" }, CreatedAt = { Value = DateTimeOffset.Now.AddMinutes(-5) } };
+        var newer = new GenerationRecord { Summary = { Value = "newer" }, CreatedAt = { Value = DateTimeOffset.Now } };
         image.Generations.Add(older);
         image.Generations.Add(newer);
-        image.SelectGeneration(newer.Id);
-        var prompt = new AiPromptNode { Position = (20, 40) };
+        image.SelectGeneration(newer.Id.Value);
+        var prompt = new AiPromptNode { Position = { Value = (20, 40) } };
         using var scope = new LockedGraphScope(protect: false, [prompt, image]);
         string before = CoreSerializer.SerializeToJsonObject(scope.Graph).ToJsonString();
         GraphNodeViewModel imageViewModel = scope.Model.Nodes.Single(node => node.GraphNode == image);
@@ -188,7 +188,7 @@ public class NodeGraphLockTests
         HeadlessTestHelpers.Render(3);
         var history = imageView.FindControl<FAMenuFlyoutSubItem>("GenerationHistoryMenu")!;
 
-        imageViewModel.SelectGeneration(older.Id);
+        imageViewModel.SelectGeneration(older.Id.Value);
         imageViewModel.ToggleActivePinned();
         imageViewModel.PruneGenerations();
         promptViewModel.ApplyPrompt("a cat");
@@ -215,7 +215,7 @@ public class NodeGraphLockTests
     {
         string directory = Path.Combine(Path.GetTempPath(), $"beutl-locked-generation-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        var image = new AiImageGenerationNode { Position = (20, 40) };
+        var image = new AiImageGenerationNode { Position = { Value = (20, 40) } };
         image.Prompt.Property!.SetValue("a cat");
         using var scope = new LockedGraphScope(protect: false, [image], lockClip: false);
         var executor = new WaitingExecutor(directory);
@@ -226,7 +226,7 @@ public class NodeGraphLockTests
         {
             Task run = scope.Model.RunGenerativeAsync([image], force: true, variations);
             await executor.Started.Task.WaitAsync(TimeSpan.FromMinutes(1));
-            scope.Element.IsLocked = true;
+            scope.Element.IsLocked.Value = true;
             executor.Release();
             await run.WaitAsync(TimeSpan.FromMinutes(1));
 
@@ -281,7 +281,7 @@ public class NodeGraphLockTests
             var scene = new Scene(64, 64, "Scene");
             Element = new Element
             {
-                Length = MediaTime.FromSeconds(1),
+                Length = { Value = MediaTime.FromSeconds(1) },
                 Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
             };
             var drawable = new NodeGraphDrawable();
@@ -302,7 +302,7 @@ public class NodeGraphLockTests
             }
             else if (lockClip)
             {
-                Element.IsLocked = true;
+                Element.IsLocked.Value = true;
             }
 
             var sequence = new OperationSequenceGenerator();

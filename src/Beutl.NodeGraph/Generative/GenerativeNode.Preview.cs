@@ -119,7 +119,7 @@ public abstract partial class GenerativeNode
     {
         try
         {
-            return (record.Image ?? (MediaSource?)record.Video) is { } media ? DecodePreview(media) : null;
+            return (record.Image.Value ?? (MediaSource?)record.Video.Value) is { } media ? DecodePreview(media) : null;
         }
         catch (Exception)
         {

@@ -22,8 +22,8 @@ public class TimelineInlineRestoreTests
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("inline-restore");
         var shape = new RectShape();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 200, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100 }, Easing = { Value = new LinearEasing() } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 200 }, Easing = { Value = new LinearEasing() } });
         shape.Width.SetKeyFrameAnimation(animation);
         await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(2));
         Element element = scene.Children.Single();

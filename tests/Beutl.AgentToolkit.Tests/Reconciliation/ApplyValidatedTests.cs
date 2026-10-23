@@ -26,7 +26,7 @@ public sealed class ApplyValidatedTests
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.Not.Null);
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(8)));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(8)));
             // Resolve, change-set validation, and the write must share a single dispatch so a UI edit
             // cannot slip between the check and the write.
             Assert.That(binding.InvokeCount, Is.EqualTo(1));
@@ -37,7 +37,7 @@ public sealed class ApplyValidatedTests
     public void ApplyValidated_rejects_without_mutating_when_validation_fails()
     {
         (LiveEditingSession session, FakeLiveBinding binding, Scene scene) = CreateLiveSession();
-        MediaTime original = scene.Duration;
+        MediaTime original = scene.Duration.Value;
         var reconciler = new Reconciler();
 
         Assert.Throws<ReconcileException>(() => reconciler.ApplyValidated(
@@ -51,7 +51,7 @@ public sealed class ApplyValidatedTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Duration, Is.EqualTo(original));
+            Assert.That(scene.Duration.Value, Is.EqualTo(original));
             Assert.That(binding.InvokeCount, Is.EqualTo(1));
         });
     }

@@ -156,7 +156,7 @@ public sealed partial class ProxiesTabViewModel
         HashSet<Scene> seenScenes = new(ReferenceEqualityComparer.Instance);
         HashSet<(Scene, CompositionTarget?)> visitedRefScenes = [];
         ProxyEntry[] storeEntries = [.. _store?.Enumerate() ?? []];
-        ProxyPreset preferredPreset = ToPreset(_config.DefaultPreset);
+        ProxyPreset preferredPreset = ToPreset(_config.DefaultPreset.Value);
 
         // The totals and the delete action are labelled project-wide, so scan every scene in the
         // open project (not just the edited one); a clip used only by another scene must count too.
@@ -204,7 +204,7 @@ public sealed partial class ProxiesTabViewModel
         long totalBytes = _store.GetTotalBytes();
         ProjectUsageText.Value = MediaFileInfo.FormatFileSize(projectBytes);
         StoreUsageText.Value = MediaFileInfo.FormatFileSize(totalBytes);
-        StoreCapText.Value = MediaFileInfo.FormatFileSize(_storeCapInfo?.MaxTotalBytes ?? _config.MaxTotalBytes);
+        StoreCapText.Value = MediaFileInfo.FormatFileSize(_storeCapInfo?.MaxTotalBytes ?? _config.MaxTotalBytes.Value);
     }
 
     internal void UpdateClipSummary()
@@ -253,7 +253,7 @@ public sealed partial class ProxiesTabViewModel
     // default; only a row that fell through to the default with no generated proxy does.
     private (ProxyPreset Preset, bool FollowingDefault) ResolveInitialPreset(ProxyFingerprint source)
     {
-        ProxyPreset defaultPreset = ToPreset(_config.DefaultPreset);
+        ProxyPreset defaultPreset = ToPreset(_config.DefaultPreset.Value);
         if (IsGenerated(FindEntry(source, defaultPreset)))
             return (defaultPreset, false);
 

@@ -45,8 +45,8 @@ public sealed partial class AiPromptNode : GraphNode, IPromptLibraryTarget
     public GenerativeOperation PromptOperation => GenerativeOperation.ImageGeneration;
 
     // Applying sets the fields' own values, which a connected field would ignore.
-    public bool CanApplyPrompt => Prompt.Connection.IsNull && Style.Connection.IsNull
-        && Composition.Connection.IsNull && Motion.Connection.IsNull && Exclusions.Connection.IsNull;
+    public bool CanApplyPrompt => Prompt.Connection.Value.IsNull && Style.Connection.Value.IsNull
+        && Composition.Connection.Value.IsNull && Motion.Connection.Value.IsNull && Exclusions.Connection.Value.IsNull;
 
     public string ComposePrompt() => PromptSections.Compose(
         Prompt.Property?.GetValue(),

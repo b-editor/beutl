@@ -41,7 +41,7 @@ public class AutoSaveServiceTests
         var element = new Element
         {
             Uri = CreateUri("elements/restored.belm"),
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
         };
         CoreSerializer.StoreToUri(scene, scene.Uri);
         CoreSerializer.StoreToUri(element, element.Uri);
@@ -79,7 +79,7 @@ public class AutoSaveServiceTests
         Assert.That(scene.Children, Is.EqualTo(new[] { element }));
         for (int i = 0; i < 3; i++)
         {
-            element.Name = $"Restored element {i}";
+            element.Name.Value = $"Restored element {i}";
             harness.History.Commit("Rename element");
         }
 
@@ -93,8 +93,8 @@ public class AutoSaveServiceTests
         {
             Assert.That(errors, Is.Empty);
             Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
-            Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { element.Id }));
-            Assert.That(restored.Children.Select(child => child.Name), Is.EqualTo(new[] { element.Name }));
+            Assert.That(restored.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { element.Id.Value }));
+            Assert.That(restored.Children.Select(child => child.Name.Value), Is.EqualTo(new[] { element.Name.Value }));
             Assert.That(patterns["Exclude"], Is.Null);
             Assert.That(includes, Is.Unique);
         });
@@ -104,7 +104,7 @@ public class AutoSaveServiceTests
     public void AutoSave_WritesTheNewHalfOfASplitBeforeTheScene_SoTheSceneNeedsNoIncludeEntry()
     {
         var scene = new Scene { Uri = CreateUri("main.scene") };
-        var element = new Element { Uri = CreateUri("clip.belm"), Length = MediaTime.FromSeconds(10) };
+        var element = new Element { Uri = CreateUri("clip.belm"), Length = { Value = MediaTime.FromSeconds(10) } };
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, scene.Uri);
         using var harness = new HistoryHarness(scene);
@@ -124,8 +124,8 @@ public class AutoSaveServiceTests
             Assert.That(errors, Is.Empty);
             Assert.That(File.Exists(back.Uri!.LocalPath), Is.True);
             Assert.That(patterns["Include"]!.GetValue<string>(), Is.EqualTo("**/*.belm"));
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Select(child => child.Id),
-                Is.EquivalentTo(new[] { element.Id, back.Id }));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Select(child => child.Id.Value),
+                Is.EquivalentTo(new[] { element.Id.Value, back.Id.Value }));
         });
     }
 

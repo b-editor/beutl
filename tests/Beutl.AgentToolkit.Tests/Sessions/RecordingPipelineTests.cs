@@ -11,14 +11,14 @@ public class RecordingPipelineTests
         var root = new TestModel();
         using RecordingPipeline pipeline = RecordingPipeline.Create(root);
 
-        pipeline.History.ExecuteInTransaction(() => root.Value = 42, "agent edit");
+        pipeline.History.ExecuteInTransaction(() => root.Value.Value = 42, "agent edit");
 
         Assert.That(pipeline.History.CanUndo, Is.True);
-        Assert.That(root.Value, Is.EqualTo(42));
+        Assert.That(root.Value.Value, Is.EqualTo(42));
 
         pipeline.History.Undo();
 
-        Assert.That(root.Value, Is.EqualTo(0));
+        Assert.That(root.Value.Value, Is.EqualTo(0));
     }
 
     [Test]
@@ -26,14 +26,14 @@ public class RecordingPipelineTests
     {
         var root = new TestModel();
         using RecordingPipeline pipeline = RecordingPipeline.Create(root);
-        root.Value = 1;
+        root.Value.Value = 1;
 
-        pipeline.History.ExecuteInTransaction(() => root.Value = 2, "agent edit");
+        pipeline.History.ExecuteInTransaction(() => root.Value.Value = 2, "agent edit");
 
         Assert.That(pipeline.History.UndoCount, Is.EqualTo(2));
         Assert.That(pipeline.History.Undo(), Is.True);
-        Assert.That(root.Value, Is.EqualTo(1));
+        Assert.That(root.Value.Value, Is.EqualTo(1));
         Assert.That(pipeline.History.Undo(), Is.True);
-        Assert.That(root.Value, Is.Zero);
+        Assert.That(root.Value.Value, Is.Zero);
     }
 }

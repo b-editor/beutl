@@ -142,7 +142,7 @@ public static partial class ProxySourceEnumerator
         {
             // Mirror Element.CollectObjects: the render path skips disabled objects and objects whose
             // composition target does not match, so the preflight must not demand their files either.
-            if (skipDisabledElements && !obj.IsEnabled)
+            if (skipDisabledElements && !obj.IsEnabled.Value)
                 continue;
 
             if (renderTarget is { } target)
@@ -241,7 +241,7 @@ public static partial class ProxySourceEnumerator
                     // The remapped full walk (range dropped below) is a superset of a window-preserving
                     // one, so it must run even if a presenter already window-visited this target — dedup it
                     // in its own set so that earlier windowed visit cannot suppress it (identity-only would).
-                    if ((!skipDisabledElements || target.IsEnabled) && walkContext.VisitedFullWalkTargets.Add(target))
+                    if ((!skipDisabledElements || target.IsEnabled.Value) && walkContext.VisitedFullWalkTargets.Add(target))
                     {
                         // A time controller remaps composition time, so neither the element-local window
                         // nor the scene-time window still maps — drop both to the conservative full walk.
@@ -257,7 +257,7 @@ public static partial class ProxySourceEnumerator
                     when ResolveExpressionValue<Drawable>(presenter, presenter.Target, walkContext: walkContext) is { } presented:
                     // A full walk already covers this windowed subset, so skip when the target was
                     // full-walked; otherwise dedup the windowed visit in VisitedTargets.
-                    if ((!skipDisabledElements || presented.IsEnabled)
+                    if ((!skipDisabledElements || presented.IsEnabled.Value)
                         && !walkContext.VisitedFullWalkTargets.Contains(presented)
                         && walkContext.VisitedTargets.Add(presented))
                     {
@@ -290,7 +290,7 @@ public static partial class ProxySourceEnumerator
         {
             foreach (Sound child in soundGroup.Children)
             {
-                if (skipDisabledElements && !child.IsEnabled)
+                if (skipDisabledElements && !child.IsEnabled.Value)
                     continue;
 
                 foreach (IFileSource source in EnumerateObjectFileSources(
@@ -305,7 +305,7 @@ public static partial class ProxySourceEnumerator
     {
         foreach (Drawable child in children)
         {
-            if (skipDisabledElements && !child.IsEnabled)
+            if (skipDisabledElements && !child.IsEnabled.Value)
                 continue;
             if (walkContext.ConnectedNodeInputs != null && !TryVisitGraphDrawable(child, localRange, walkContext))
                 continue;
@@ -354,13 +354,13 @@ public static partial class ProxySourceEnumerator
             {
                 // A disabled child never renders through SceneCompositor.SortLayers, so export preflight
                 // must not demand its original file exist; the render-independent IsEnabled gate applies.
-                if (skipDisabledElements && !child.IsEnabled)
+                if (skipDisabledElements && !child.IsEnabled.Value)
                     continue;
 
                 // SortLayers also drops a muted / non-solo layer for the pass it composes, so the embedded
                 // scene never reads that child's source for this target — preflight must skip it too. Only
                 // in the export-preflight walk (skipDisabledElements), and only for a concrete target.
-                if (skipDisabledElements && renderTarget is { } skipTarget && layerSkip.ShouldSkip(child.ZIndex, skipTarget))
+                if (skipDisabledElements && renderTarget is { } skipTarget && layerSkip.ShouldSkip(child.ZIndex.Value, skipTarget))
                     continue;
 
                 // SortLayers only composes a child whose range intersects the sampled time, so a child
@@ -372,7 +372,7 @@ public static partial class ProxySourceEnumerator
                 // referencedSceneWindow is in referenced-scene time; each child samples its own local
                 // animations at scene-time - child.Start, while its global-clock keyframes sample the
                 // referenced scene's own clock (outerSceneWindow, unshifted by child.Start).
-                TimeRange? childWindow = referencedSceneWindow?.SubtractStart(child.Start);
+                TimeRange? childWindow = referencedSceneWindow?.SubtractStart(child.Start.Value);
                 foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, skipDisabledElements, renderTarget, childWindow, outerSceneWindow))
                     yield return source;
             }

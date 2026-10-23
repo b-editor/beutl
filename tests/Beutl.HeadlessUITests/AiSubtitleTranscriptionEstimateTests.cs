@@ -72,14 +72,14 @@ public sealed partial class AiDialogWorkflowTests
         soundSource.ReadFrom(new Uri(sourcePath));
         var sound = new SourceSound { Source = { Value = soundSource } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(10), Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(10) }, Value = { Value = 100 } });
         sound.Speed.SetKeyFrameAnimation(animation);
         var element = new Element
         {
-            Name = "Voice",
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(10),
+            Name = { Value = "Voice" },
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(10) },
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!,
                 $"speed-estimate-{Guid.NewGuid():N}.belm")),
@@ -87,10 +87,10 @@ public sealed partial class AiDialogWorkflowTests
         element.Objects.Add(sound);
         var other = new Element
         {
-            Name = "Title",
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(10),
-            ZIndex = 1,
+            Name = { Value = "Title" },
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(10) },
+            ZIndex = { Value = 1 },
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!,
                 $"speed-estimate-other-{Guid.NewGuid():N}.belm")),
@@ -105,12 +105,12 @@ public sealed partial class AiDialogWorkflowTests
             await WaitUntilAsync(() => LastTranscriptionSeconds() is > 9.99 and < 10.01);
 
             // From 100 % to 300 % over the ten seconds, the clip plays twenty seconds of its file.
-            ((KeyFrame<float>)animation.KeyFrames[1]).Value = 300;
+            ((KeyFrame<float>)animation.KeyFrames[1]).Value.Value = 300;
             await WaitUntilAsync(() => LastTranscriptionSeconds() is > 19.99 and < 20.01);
             int checks = TranscriptionChecks().Length;
             long recomputations = viewModel.SourceSpanRecomputations;
             long sceneEdits = viewModel.SceneAudioRevision;
-            other.ZIndex = 2;
+            other.ZIndex.Value = 2;
             // Past the 250 ms the availability tracker waits before it checks.
             await Task.Delay(TimeSpan.FromMilliseconds(750));
 

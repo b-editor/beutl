@@ -389,8 +389,8 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
         var items = new List<AudioSourceItem>();
         items.Add(AudioSourceItem.CreateSceneMix(
             Strings.AiSubtitle_SceneMix,
-            scene.Start,
-            scene.Duration));
+            scene.Start.Value,
+            scene.Duration.Value));
         foreach (Element element in scene.Children)
         {
             foreach (EngineObject obj in element.Objects)
@@ -404,17 +404,17 @@ public sealed partial class AiSubtitleDialogViewModel : IDisposable, IAsyncDispo
                     // past the end of the audio.
                     MediaTime duration = sound.TryGetOriginalDuration(out MediaTime original)
                         ? original
-                        : element.Length;
+                        : element.Length.Value;
                     items.Add(new AudioSourceItem(
-                        element.Name,
+                        element.Name.Value,
                         source.Uri.LocalPath,
                         duration,
-                        element.Start,
-                        element.Length,
+                        element.Start.Value,
+                        element.Length.Value,
                         sound.OffsetPosition.Value,
                         sound.Speed.Value,
                         sound.Speed.GetKeyFrameAnimation() as KeyFrameAnimation<float>,
-                        elementId: element.Id));
+                        elementId: element.Id.Value));
                 }
             }
         }
@@ -703,7 +703,7 @@ public sealed class AudioSourceItem
 
         using var integrator = new SpeedIntegrator(AnimationSampleRate);
         integrator.EnsureCache(_speedAnimation);
-        MediaTime elapsed = _speedAnimation.UseGlobalClock
+        MediaTime elapsed = _speedAnimation.UseGlobalClock.Value
             ? integrator.Integrate(_elementStart + _elementLength, _speedAnimation)
               - integrator.Integrate(_elementStart, _speedAnimation)
             : integrator.Integrate(_elementLength, _speedAnimation);
@@ -780,7 +780,7 @@ public sealed class AudioSourceItem
             if (_speedAnimation == null)
                 return localTime.ToSeconds() * (_speed / 100d);
 
-            MediaTime elapsed = _speedAnimation.UseGlobalClock
+            MediaTime elapsed = _speedAnimation.UseGlobalClock.Value
                 ? integrator.Integrate(_elementStart + localTime, _speedAnimation)
                   - integrator.Integrate(_elementStart, _speedAnimation)
                 : integrator.Integrate(localTime, _speedAnimation);

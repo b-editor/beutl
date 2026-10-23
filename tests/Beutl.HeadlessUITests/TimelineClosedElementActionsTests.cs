@@ -59,10 +59,10 @@ public class TimelineClosedElementActionsTests
             Element pasted = editor.Scene.Children.Single(e => e != copied);
             Assert.Multiple(() =>
             {
-                Assert.That(pasted.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-                Assert.That(pasted.Length, Is.EqualTo(copied.Length));
+                Assert.That(pasted.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+                Assert.That(pasted.Length.Value, Is.EqualTo(copied.Length.Value));
                 // The layer above the copied clip, which shows at the playhead.
-                Assert.That(pasted.ZIndex, Is.EqualTo(1));
+                Assert.That(pasted.ZIndex.Value, Is.EqualTo(1));
                 Assert.That(pasted.Objects.OfType<RectShape>().Count(), Is.EqualTo(1));
                 Assert.That(notifications.All, Is.Empty);
             });
@@ -98,8 +98,8 @@ public class TimelineClosedElementActionsTests
             Assert.Multiple(() =>
             {
                 Assert.That(video.Source.Value, Is.Not.Null);
-                Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
-                Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(37d / 25).RoundToFrame(new Rational(30), MidpointRounding.ToNegativeInfinity)));
+                Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero));
+                Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(37d / 25).RoundToFrame(new Rational(30), MidpointRounding.ToNegativeInfinity)));
             });
         }
         finally

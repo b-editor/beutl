@@ -104,10 +104,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         // would cancel in-flight generation. Both apply synchronously on the UI thread, so Current is
         // never torn, and Skip(1) drops the replay of the current value.
         services._configSubscription = new CompositeDisposable(
-            config.StoreRootPathProperty.GetObservable().Skip(1)
-                .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath, config.MaxTotalBytes)),
-            config.MaxTotalBytesProperty.GetObservable().Skip(1)
-                .Subscribe(_ => services.UpdateEvictionCap(config.MaxTotalBytes)));
+            config.StoreRootPath.GetObservable().Skip(1)
+                .Subscribe(_ => services.ReinitializeStore(config.StoreRootPath.Value, config.MaxTotalBytes.Value)),
+            config.MaxTotalBytes.GetObservable().Skip(1)
+                .Subscribe(_ => services.UpdateEvictionCap(config.MaxTotalBytes.Value)));
 
         _ = Task.Run(() => ReconcileAndSweepAsync(store, eviction));
 
@@ -144,10 +144,10 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
         BuildServicesWithFallback(ProxyStoreConfig config)
     {
         // Read once: the fallback below compares this value with the default.
-        string storeRootPath = config.StoreRootPath;
+        string storeRootPath = config.StoreRootPath.Value;
         try
         {
-            return BuildServices(storeRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
+            return BuildServices(storeRootPath, config.MaxTotalBytes.Value, resolverVersionOffset: 0);
         }
         catch (Exception ex)
         {
@@ -162,8 +162,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             NotificationService.ShowWarning(
                 NotificationTitle,
                 "The proxy store location could not be opened. Using the default location instead.");
-            config.StoreRootPath = ProxyStoreConfig.DefaultStoreRootPath;
-            return BuildServices(config.StoreRootPath, config.MaxTotalBytes, resolverVersionOffset: 0);
+            config.StoreRootPath.Value = ProxyStoreConfig.DefaultStoreRootPath;
+            return BuildServices(config.StoreRootPath.Value, config.MaxTotalBytes.Value, resolverVersionOffset: 0);
         }
     }
 
@@ -237,8 +237,8 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
             // Revert the persisted path to the last-good one so GlobalConfiguration's auto-save does not
             // write an unopenable store path to settings.json, which would fail proxy init on next launch.
             // The revert re-enters here with the current path and no-ops on the equality guard above.
-            if (_config is { } config && !string.Equals(config.StoreRootPath, Store.StoreRootPath, StorePathComparison))
-                config.StoreRootPath = Store.StoreRootPath;
+            if (_config is { } config && !string.Equals(config.StoreRootPath.Value, Store.StoreRootPath, StorePathComparison))
+                config.StoreRootPath.Value = Store.StoreRootPath;
             return;
         }
 
@@ -417,7 +417,7 @@ internal sealed class ProxyMediaServices : IAsyncDisposable
 
         try
         {
-            if (BeutlApplication.Current.Project is not { } project)
+            if (BeutlApplication.Current.Project.Value is not { } project)
                 return s_noOpenProjectSources;
 
             // Each job of a Generate All batch runs this sweep, so memoize on the project to walk it once.

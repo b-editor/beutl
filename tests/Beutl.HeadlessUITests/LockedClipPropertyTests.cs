@@ -40,10 +40,10 @@ public class LockedClipPropertyTests
     {
         (EditViewModel editor, Element element, RectShape shape) = await OpenClip();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 200 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 200 } });
         shape.Width.SetKeyFrameAnimation(animation);
-        var layer = new TimelineLayer { ZIndex = element.ZIndex };
+        var layer = new TimelineLayer { ZIndex = { Value = element.ZIndex.Value } };
         editor.Scene.Layers.Add(layer);
         if (!lockAfterSelection) SetLock(true);
         Select(editor, element);
@@ -109,7 +109,7 @@ public class LockedClipPropertyTests
             objectView.Remove_Click(null, new Avalonia.Interactivity.RoutedEventArgs());
             Assert.Multiple(() =>
             {
-                Assert.That(shape.IsEnabled, Is.True);
+                Assert.That(shape.IsEnabled.Value, Is.True);
                 Assert.That(tab.Items[0].IsEnabled.Value, Is.True);
                 Assert.That(element.Objects, Does.Contain(shape));
                 Assert.That(shape.Width.Value, Is.EqualTo(100));
@@ -133,15 +133,15 @@ public class LockedClipPropertyTests
             HeadlessTestHelpers.Click(visibility, ticks: 0);
             Assert.That(animation.KeyFrames[1].Value, Is.EqualTo(300));
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(3));
-            Assert.That(shape.IsEnabled, Is.False);
+            Assert.That(shape.IsEnabled.Value, Is.False);
             Assert.That(editor.HistoryManager.UndoCount, Is.GreaterThan(before));
         }
         finally { window.Close(); }
 
         void SetLock(bool value)
         {
-            if (lockLayer) layer.IsLocked = value;
-            else element.IsLocked = value;
+            if (lockLayer) layer.IsLocked.Value = value;
+            else element.IsLocked.Value = value;
         }
     }
 
@@ -153,12 +153,12 @@ public class LockedClipPropertyTests
         using var tab = new ElementPropertyTabViewModel(editor);
         tab.Element.Value = element;
         var property = WidthEditor(tab, shape);
-        var layer = new TimelineLayer { ZIndex = element.ZIndex, IsLocked = true };
+        var layer = new TimelineLayer { ZIndex = { Value = element.ZIndex.Value }, IsLocked = { Value = true } };
         editor.Scene.Layers.Add(layer);
         Assert.That(property.CanEdit.Value, Is.False);
-        layer.ZIndex = 1;
+        layer.ZIndex.Value = 1;
         Assert.That(property.CanEdit.Value, Is.True);
-        element.ZIndex = 1;
+        element.ZIndex.Value = 1;
         Assert.That(property.CanEdit.Value, Is.False);
         editor.Scene.Layers.Remove(layer);
         Assert.That(property.CanEdit.Value, Is.True);
@@ -181,7 +181,7 @@ public class LockedClipPropertyTests
         tab.Element.Value = second;
         Assert.That(property.IsDisposed, Is.True);
         Assert.That(tab.CanEdit.Value, Is.True);
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         Assert.That(tab.CanEdit.Value, Is.True);
         tab.Element.Value = null;
         Assert.That(tab.CanEdit.Value, Is.False);
@@ -216,7 +216,7 @@ public class LockedClipPropertyTests
             Assert.That(MenuItem(button, "editExpressionItem").IsEnabled, Is.True);
             Assert.That(MenuItem(button, "removeExpressionItem").IsEnabled, Is.True);
 
-            element.IsLocked = true;
+            element.IsLocked.Value = true;
             HeadlessTestHelpers.Settle();
             Assert.That(MenuItem(button, "editExpressionItem").IsEnabled, Is.False);
             Assert.That(MenuItem(button, "removeExpressionItem").IsEnabled, Is.False);
@@ -228,7 +228,7 @@ public class LockedClipPropertyTests
             Assert.That(shape.Width.GetKeyFrameAnimation(), Is.Null);
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
 
-            element.IsLocked = false;
+            element.IsLocked.Value = false;
             Assert.That(property.SetExpression("4 + 5", out error), Is.True, error);
             property.RemoveExpression();
             Assert.That(shape.Width.Expression, Is.Null);
@@ -260,7 +260,7 @@ public class LockedClipPropertyTests
         var fill = PropertyEditorTestHost.Flatten(tab.Items[0].Properties, includeGroups: false).OfType<BrushEditorViewModel>()
             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shape.Fill));
         editor.HistoryManager.Commit("test setup");
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         int before = editor.HistoryManager.UndoCount;
 
         x.SetValue(10, 20);
@@ -275,7 +275,7 @@ public class LockedClipPropertyTests
         {
             Assert.That(x.CanEdit.Value, Is.False);
             Assert.That(translation.X.Value, Is.EqualTo(10));
-            Assert.That(translation.IsEnabled, Is.True);
+            Assert.That(translation.IsEnabled.Value, Is.True);
             Assert.That(child.IsEnabled.Value, Is.True);
             Assert.That(group.Children, Is.EqualTo(new[] { translation }));
             Assert.That(shape.Fill.Value, Is.SameAs(brush));
@@ -283,13 +283,13 @@ public class LockedClipPropertyTests
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
         });
 
-        element.IsLocked = false;
+        element.IsLocked.Value = false;
         x.SetValue(10, 20);
         child.IsEnabled.Value = false;
         transform.AddItem(new TranslateTransform());
         fill.SetColor(Colors.Red, Colors.Blue);
         Assert.That(translation.X.Value, Is.EqualTo(20));
-        Assert.That(translation.IsEnabled, Is.False);
+        Assert.That(translation.IsEnabled.Value, Is.False);
         Assert.That(group.Children, Has.Count.EqualTo(2));
         Assert.That(brush.Color.Value, Is.EqualTo(Colors.Blue));
     }
@@ -312,7 +312,7 @@ public class LockedClipPropertyTests
     {
         (EditViewModel editor, Element element, _) = await OpenClip();
         var drawable = new NodeGraphDrawable();
-        var node = new LayerInputNode { Name = "original" };
+        var node = new LayerInputNode { Name = { Value = "original" } };
         drawable.Model.Value!.Nodes.Add(node);
         ((IElementObjectService)editor.GetService(typeof(IElementObjectService))!).Add(element, drawable);
         Select(editor, element);
@@ -322,23 +322,23 @@ public class LockedClipPropertyTests
             .OfType<GraphModelEditorViewModel>().Single();
         GraphModelNodeMemberViewModel member = graph.NodeMembers.Single();
         member.UpdateName("unlocked rename");
-        Assert.That(node.Name, Is.EqualTo("unlocked rename"));
+        Assert.That(node.Name.Value, Is.EqualTo("unlocked rename"));
 
         // The flyout confirmation keeps this callback even if the clip is locked later.
         Action<string?> confirmRename = member.UpdateName;
-        var layer = new TimelineLayer { ZIndex = element.ZIndex };
+        var layer = new TimelineLayer { ZIndex = { Value = element.ZIndex.Value } };
         editor.Scene.Layers.Add(layer);
-        if (lockLayer) layer.IsLocked = true;
-        else element.IsLocked = true;
+        if (lockLayer) layer.IsLocked.Value = true;
+        else element.IsLocked.Value = true;
         int before = editor.HistoryManager.UndoCount;
         confirmRename("locked rename");
-        Assert.That(node.Name, Is.EqualTo("unlocked rename"));
+        Assert.That(node.Name.Value, Is.EqualTo("unlocked rename"));
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
 
-        layer.IsLocked = false;
-        element.IsLocked = false;
+        layer.IsLocked.Value = false;
+        element.IsLocked.Value = false;
         confirmRename("rename after unlock");
-        Assert.That(node.Name, Is.EqualTo("rename after unlock"));
+        Assert.That(node.Name.Value, Is.EqualTo("rename after unlock"));
         Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
     }
 
@@ -390,7 +390,7 @@ public class LockedClipPropertyTests
 
     private static void AssertEffectToggleLock(EditViewModel editor, Element element, EngineObject effect, Control view, bool lockLayer)
     {
-        var layer = new TimelineLayer { ZIndex = element.ZIndex };
+        var layer = new TimelineLayer { ZIndex = { Value = element.ZIndex.Value } };
         editor.Scene.Layers.Add(layer);
         editor.HistoryManager.Commit("test setup");
         var window = new Window { Content = view, Width = 640, Height = 480 };
@@ -401,21 +401,21 @@ public class LockedClipPropertyTests
             ToggleButton toggle = view.GetVisualDescendants().OfType<ToggleButton>()
                 .Single(button => button.Classes.Contains("size-24x24") && button.IsEffectivelyVisible);
             Assert.That(toggle.IsEffectivelyEnabled, Is.True);
-            if (lockLayer) layer.IsLocked = true;
-            else element.IsLocked = true;
+            if (lockLayer) layer.IsLocked.Value = true;
+            else element.IsLocked.Value = true;
             HeadlessTestHelpers.Settle();
             int before = editor.HistoryManager.UndoCount;
             Assert.That(toggle.IsEffectivelyEnabled, Is.False);
             HeadlessTestHelpers.Click(toggle, ticks: 0);
-            Assert.That(effect.IsEnabled, Is.True);
+            Assert.That(effect.IsEnabled.Value, Is.True);
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before));
 
-            layer.IsLocked = false;
-            element.IsLocked = false;
+            layer.IsLocked.Value = false;
+            element.IsLocked.Value = false;
             HeadlessTestHelpers.Settle();
             Assert.That(toggle.IsEffectivelyEnabled, Is.True);
             HeadlessTestHelpers.Click(toggle, ticks: 0);
-            Assert.That(effect.IsEnabled, Is.False);
+            Assert.That(effect.IsEnabled.Value, Is.False);
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
         }
         finally { window.Close(); }

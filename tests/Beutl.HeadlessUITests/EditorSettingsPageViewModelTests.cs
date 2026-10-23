@@ -18,9 +18,9 @@ public sealed class EditorSettingsPageViewModelTests
         TestGpu.RequireAnyDevice();
 
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        long priorBytes = config.MaxTotalBytes;
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName;
-        config.MaxTotalBytes = atCap ? ProxyStoreConfig.MaxTotalBytesLimit : ProxyStoreConfig.MinTotalBytes;
+        long priorBytes = config.MaxTotalBytes.Value;
+        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
+        config.MaxTotalBytes.Value = atCap ? ProxyStoreConfig.MaxTotalBytesLimit : ProxyStoreConfig.MinTotalBytes;
 
         try
         {
@@ -31,13 +31,13 @@ public sealed class EditorSettingsPageViewModelTests
             Assert.Multiple(() =>
             {
                 Assert.That(viewModel.ProxyStoreMaxTotalGiB.Value, Is.EqualTo(500d), "TextBox must re-sync to the clamped value.");
-                Assert.That(config.MaxTotalBytes, Is.EqualTo(ProxyStoreConfig.MaxTotalBytesLimit));
+                Assert.That(config.MaxTotalBytes.Value, Is.EqualTo(ProxyStoreConfig.MaxTotalBytesLimit));
             });
         }
         finally
         {
-            config.MaxTotalBytes = priorBytes;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName = priorGpu;
+            config.MaxTotalBytes.Value = priorBytes;
+            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 
@@ -53,17 +53,17 @@ public sealed class EditorSettingsPageViewModelTests
             string? GitExecutablePath,
             bool UseLfsWhenAvailable,
             int LargeMediaWarningThresholdMb) previous = (
-            config.EnableForNewProjects,
-            config.AutoCommitOnSave,
-            config.AutoCommitOnClose,
-            config.GitExecutablePath,
-            config.UseLfsWhenAvailable,
-            config.LargeMediaWarningThresholdMb);
-        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName;
+            config.EnableForNewProjects.Value,
+            config.AutoCommitOnSave.Value,
+            config.AutoCommitOnClose.Value,
+            config.GitExecutablePath.Value,
+            config.UseLfsWhenAvailable.Value,
+            config.LargeMediaWarningThresholdMb.Value);
+        string? priorGpu = GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value;
 
         try
         {
-            config.GitExecutablePath = null;
+            config.GitExecutablePath.Value = null;
             using var viewModel = new EditorSettingsPageViewModel();
 
             Assert.That(viewModel.GitExecutablePath.Value, Is.EqualTo(string.Empty));
@@ -77,28 +77,28 @@ public sealed class EditorSettingsPageViewModelTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(config.EnableForNewProjects, Is.False);
-                Assert.That(config.AutoCommitOnSave, Is.False);
-                Assert.That(config.AutoCommitOnClose, Is.False);
-                Assert.That(config.GitExecutablePath, Is.EqualTo("/opt/custom/git"));
-                Assert.That(config.UseLfsWhenAvailable, Is.False);
-                Assert.That(config.LargeMediaWarningThresholdMb, Is.EqualTo(1));
+                Assert.That(config.EnableForNewProjects.Value, Is.False);
+                Assert.That(config.AutoCommitOnSave.Value, Is.False);
+                Assert.That(config.AutoCommitOnClose.Value, Is.False);
+                Assert.That(config.GitExecutablePath.Value, Is.EqualTo("/opt/custom/git"));
+                Assert.That(config.UseLfsWhenAvailable.Value, Is.False);
+                Assert.That(config.LargeMediaWarningThresholdMb.Value, Is.EqualTo(1));
                 Assert.That(viewModel.LargeMediaWarningThresholdMb.Value, Is.EqualTo(1));
             });
 
             viewModel.GitExecutablePath.Value = "  ";
-            Assert.That(config.GitExecutablePath, Is.Null);
+            Assert.That(config.GitExecutablePath.Value, Is.Null);
             Assert.That(viewModel.GitExecutablePath.Value, Is.EqualTo(string.Empty));
         }
         finally
         {
-            config.EnableForNewProjects = previous.EnableForNewProjects;
-            config.AutoCommitOnSave = previous.AutoCommitOnSave;
-            config.AutoCommitOnClose = previous.AutoCommitOnClose;
-            config.GitExecutablePath = previous.GitExecutablePath;
-            config.UseLfsWhenAvailable = previous.UseLfsWhenAvailable;
-            config.LargeMediaWarningThresholdMb = previous.LargeMediaWarningThresholdMb;
-            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName = priorGpu;
+            config.EnableForNewProjects.Value = previous.EnableForNewProjects;
+            config.AutoCommitOnSave.Value = previous.AutoCommitOnSave;
+            config.AutoCommitOnClose.Value = previous.AutoCommitOnClose;
+            config.GitExecutablePath.Value = previous.GitExecutablePath;
+            config.UseLfsWhenAvailable.Value = previous.UseLfsWhenAvailable;
+            config.LargeMediaWarningThresholdMb.Value = previous.LargeMediaWarningThresholdMb;
+            GlobalConfiguration.Instance.GraphicsConfig.SelectedGpuName.Value = priorGpu;
         }
     }
 }

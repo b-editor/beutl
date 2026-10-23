@@ -52,7 +52,7 @@ internal sealed partial class MediaTimeMapping
         // Referenced/portal media can belong to a locked element even when the
         // consumer is editable. Its clock still supplies bounds for ordinary resize.
         Element? owner = source.FindHierarchicalParent<Element>();
-        _sourceLocked = owner != null && (owner.IsLocked
+        _sourceLocked = owner != null && (owner.IsLocked.Value
             || owner.HierarchicalParent is Scene scene && scene.IsElementLocked(owner));
         // A stored source or property value does not describe an evaluated source
         // switch/expression. Keep these edits atomic until their mapping is bounded.
@@ -142,7 +142,7 @@ internal sealed partial class MediaTimeMapping
     private (bool Loop, bool Plain) LoopModes(Interval time, MediaTime ownerStart)
     {
         if (_loopAnimation == null) return (_loopVideo, !_loopVideo);
-        if (!_loopAnimation.UseGlobalClock) time = time.Shift(-ownerStart);
+        if (!_loopAnimation.UseGlobalClock.Value) time = time.Shift(-ownerStart);
         if (time.Min == time.Max)
         {
             bool value = _loopAnimation.Interpolate(time.Min);
@@ -155,17 +155,17 @@ internal sealed partial class MediaTimeMapping
         foreach (IKeyFrame frame in keys.KeyFrames)
         {
             if (frame is not KeyFrame<bool> key) return (true, true);
-            if (key.KeyTime < time.Min) previous = key;
+            if (key.KeyTime.Value < time.Min) previous = key;
             else
             {
                 // Linear/hold boolean interpolation keeps the preceding value until
                 // the next key. Other easings can reach the next value early.
-                if (key.KeyTime > time.Max && key.Easing is LinearEasing or HoldEasing) break;
-                modes |= key.Value ? 1 : 2;
-                if (key.KeyTime > time.Max) break;
+                if (key.KeyTime.Value > time.Max && key.Easing.Value is LinearEasing or HoldEasing) break;
+                modes |= key.Value.Value ? 1 : 2;
+                if (key.KeyTime.Value > time.Max) break;
             }
         }
-        if (previous != null) modes |= previous.Value ? 1 : 2;
+        if (previous != null) modes |= previous.Value.Value ? 1 : 2;
         return ((modes & 1) != 0, (modes & 2) != 0);
     }
 
@@ -184,7 +184,7 @@ internal sealed partial class MediaTimeMapping
         public Clock(Element element, EngineObject obj, IReadOnlySet<Element>? timingPeers = null,
             IReadOnlyDictionary<Element, TrimRole>? timingRoles = null)
         {
-            _range = obj.TimeRange;
+            _range = obj.TimeRange.Value;
             _elementRange = element.Range;
             // Top-level objects always receive Element.Range. Descendants can opt out
             // using IsTimeAnchor; presenter references can belong to another element.
@@ -203,7 +203,7 @@ internal sealed partial class MediaTimeMapping
                         clockOwner = ownedHere ? element : peerOwner;
                         break;
                     }
-                    if (engine.IsTimeAnchor) break;
+                    if (engine.IsTimeAnchor.Value) break;
                 }
                 if (current == element || current is Element peer && timingPeers?.Contains(peer) == true)
                 {

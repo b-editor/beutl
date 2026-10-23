@@ -108,11 +108,11 @@ public class SceneSettingsTabViewModelTests
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         var scene = new Scene(640, 480, string.Empty)
         {
-            Start = MediaTime.FromFrames(1, rate),
-            Duration = MediaTime.FromFrames(301, rate),
+            Start = { Value = MediaTime.FromFrames(1, rate) },
+            Duration = { Value = MediaTime.FromFrames(301, rate) },
         };
         var project = new Project();
-        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        project.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         project.Items.Add(scene);
         using SceneSettingsTabViewModel viewModel = CreateViewModel(
             scene, out CaptureSceneSettingsService sceneSettingsService, out BlockingPreviewPlayer previewPlayer);
@@ -143,8 +143,8 @@ public class SceneSettingsTabViewModelTests
     {
         var scene = new Scene(640, 480, string.Empty)
         {
-            Start = MediaTime.FromSeconds(1),
-            Duration = MediaTime.FromSeconds(5),
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Duration = { Value = MediaTime.FromSeconds(5) },
         };
         SceneSettingsTabViewModel viewModel = CreateViewModel(scene, out sceneSettingsService, out previewPlayer, isPlaying);
         viewModel.Width.Value = 800;

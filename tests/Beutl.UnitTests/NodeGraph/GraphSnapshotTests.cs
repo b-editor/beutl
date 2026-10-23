@@ -24,35 +24,35 @@ public sealed class GraphSnapshotTests
         var model = new GraphModel();
         var factory = new FactoryNode<SnapshotBrushHolder>();
         var brush = new SolidColorBrush();
-        factory.Object.Brush.Value = brush;
+        factory.Object.Value.Brush.Value = brush;
         var probe = new NestedCycleProbeNode();
         model.Nodes.AddRange([factory, probe]);
         var nested = Find(factory, brush.Opacity);
         var invalid = model.Connect(nested, probe.Output);
-        var valid = model.Connect(probe.Input, (IOutputPort)factory.Items.Single(p => p.Name == "Output"));
+        var valid = model.Connect(probe.Input, (IOutputPort)factory.Items.Single(p => p.Name.Value == "Output"));
         Action invalidate;
         Action restore;
         if (invalidation == "alias")
         {
             var other = new FactoryNode<Pen>();
             var otherBrush = new SolidColorBrush();
-            other.Object.Brush.Value = otherBrush;
+            other.Object.Value.Brush.Value = otherBrush;
             model.Nodes.Add(other);
             model.Connect(Find(other, otherBrush.Opacity), Source(model, 0f, "Opacity"));
-            invalidate = () => other.Object.Brush.Value = brush;
-            restore = () => other.Object.Brush.Value = otherBrush;
+            invalidate = () => other.Object.Value.Brush.Value = brush;
+            restore = () => other.Object.Value.Brush.Value = otherBrush;
         }
         else if (invalidation == "expression")
         {
-            invalidate = () => factory.Object.Brush.Expression = new ConstantExpression<Brush?>(new SolidColorBrush());
-            restore = () => factory.Object.Brush.Expression = null;
+            invalidate = () => factory.Object.Value.Brush.Expression = new ConstantExpression<Brush?>(new SolidColorBrush());
+            restore = () => factory.Object.Value.Brush.Expression = null;
         }
         else
         {
             var animation = new KeyFrameAnimation<Brush?>();
-            animation.KeyFrames.Add(new KeyFrame<Brush?> { Value = new SolidColorBrush() });
-            invalidate = () => factory.Object.Brush.SetKeyFrameAnimation(animation);
-            restore = () => factory.Object.Brush.SetKeyFrameAnimation(null);
+            animation.KeyFrames.Add(new KeyFrame<Brush?> { Value = { Value = new SolidColorBrush() } });
+            invalidate = () => factory.Object.Value.Brush.SetKeyFrameAnimation(animation);
+            restore = () => factory.Object.Value.Brush.SetKeyFrameAnimation(null);
         }
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, CompositionContext.Default);
@@ -67,11 +67,11 @@ public sealed class GraphSnapshotTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(nested.Connection.Value, Is.SameAs(invalid));
-            Assert.That(invalid.Status, Is.EqualTo(ConnectionStatus.Error));
-            Assert.That(valid.Status, Is.EqualTo(ConnectionStatus.Success));
+            Assert.That(nested.Connection.Value.Value, Is.SameAs(invalid));
+            Assert.That(invalid.Status.Value, Is.EqualTo(ConnectionStatus.Error));
+            Assert.That(valid.Status.Value, Is.EqualTo(ConnectionStatus.Success));
             Assert.That(probe.EvaluationCount, Is.EqualTo(1));
-            Assert.That(probe.LastInput, Is.SameAs(factory.Object));
+            Assert.That(probe.LastInput, Is.SameAs(factory.Object.Value));
         });
 
         restore();
@@ -80,8 +80,8 @@ public sealed class GraphSnapshotTests
         snapshot.Build(model, CompositionContext.Default);
         snapshot.Evaluate(CompositionContext.Default);
         Assert.That(probe.EvaluationCount, Is.EqualTo(1), "Restoring the edge must restore cycle detection.");
-        Assert.That(invalid.Status, Is.EqualTo(ConnectionStatus.Error));
-        Assert.That(valid.Status, Is.EqualTo(ConnectionStatus.Error));
+        Assert.That(invalid.Status.Value, Is.EqualTo(ConnectionStatus.Error));
+        Assert.That(valid.Status.Value, Is.EqualTo(ConnectionStatus.Error));
     }
 
     [Test]
@@ -96,28 +96,28 @@ public sealed class GraphSnapshotTests
         var input = new GroupInput();
         var output = new GroupOutput();
         var factory = new FactoryNode<Pen>();
-        factory.Object.Brush.Value = null;
-        group.Group.Nodes.AddRange([input, output, factory]);
-        input.AddNodePort((IInputPort)factory.Items.Single(p => p.Name == "Thickness"), out _);
-        output.AddNodePort((IOutputPort)factory.Items.Single(p => p.Name == "Output"), out _);
-        group.Items.Single(p => p.Name == "Thickness").Property!.SetValue(17f);
-        graph.Connect(probe.Input, (IOutputPort)group.Items.Single(p => p.Name == "Output"));
+        factory.Object.Value.Brush.Value = null;
+        group.Group.Value.Nodes.AddRange([input, output, factory]);
+        input.AddNodePort((IInputPort)factory.Items.Single(p => p.Name.Value == "Thickness"), out _);
+        output.AddNodePort((IOutputPort)factory.Items.Single(p => p.Name.Value == "Output"), out _);
+        group.Items.Single(p => p.Name.Value == "Thickness").Property!.SetValue(17f);
+        graph.Connect(probe.Input, (IOutputPort)group.Items.Single(p => p.Name.Value == "Output"));
         using var snapshot = new GraphSnapshot();
         snapshot.Build(graph, CompositionContext.Default);
         snapshot.Evaluate(CompositionContext.Default);
         Assert.That(probe.LastThickness, Is.EqualTo(17f));
 
         var brush = new SolidColorBrush();
-        factory.Object.Brush.Value = brush;
+        factory.Object.Value.Brush.Value = brush;
         var source = new LayerInputNode();
         var value = new LayerInputNode.LayerInputPort<float>();
         value.SetupProperty("Opacity");
         value.Property!.SetValue(25f);
         source.Items.Add(value);
         // Both group I/O slot indices change when the new upstream node comes first.
-        group.Group.Nodes.Insert(0, source);
+        group.Group.Value.Nodes.Insert(0, source);
         var nested = Find(factory, brush.Opacity);
-        var connection = group.Group.Connect(nested, value);
+        var connection = group.Group.Value.Connect(nested, value);
 
         snapshot.Evaluate(CompositionContext.Default);
 
@@ -125,12 +125,12 @@ public sealed class GraphSnapshotTests
         {
             Assert.That(probe.LastThickness, Is.EqualTo(17f));
             Assert.That(probe.LastOpacity, Is.EqualTo(25f));
-            Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+            Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Success));
         });
 
-        group.Group.Disconnect(connection);
+        group.Group.Value.Disconnect(connection);
         brush.Opacity.Value = 80f;
-        group.Group.Nodes.Remove(source);
+        group.Group.Value.Nodes.Remove(source);
         snapshot.Evaluate(CompositionContext.Default);
         Assert.That(probe.LastThickness, Is.EqualTo(17f));
         Assert.That(probe.LastOpacity, Is.EqualTo(80f));
@@ -148,7 +148,7 @@ public sealed class GraphSnapshotTests
         model.Connect(second.Input, first.Output);
         using var snapshot = new GraphSnapshot();
         snapshot.Build(model, CompositionContext.Default);
-        Assert.That(model.AllConnections.Select(connection => connection.Status), Is.All.EqualTo(ConnectionStatus.Error));
+        Assert.That(model.AllConnections.Select(connection => connection.Status.Value), Is.All.EqualTo(ConnectionStatus.Error));
     }
 
     // Evaluation sets the status again on every pass, so a status change alone must not become an undo step.
@@ -160,13 +160,13 @@ public sealed class GraphSnapshotTests
         model.Nodes.Add(factory);
         var value = Source(model, 17f);
         using var history = new HistoryHarness(model);
-        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name == "Thickness"), value);
+        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name.Value == "Thickness"), value);
         history.History.Commit("Connect");
 
         Evaluate(model);
         history.History.Commit("After evaluation");
 
-        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Success));
         Assert.That(history.History.UndoCount, Is.EqualTo(1));
         Assert.That(history.History.Undo(), Is.True);
         Assert.That(model.AllConnections, Is.Empty, "The first Undo removes the connection itself.");
@@ -179,7 +179,7 @@ public sealed class GraphSnapshotTests
         var model = new GraphModel();
         var factory = new FactoryNode<Pen>();
         model.Nodes.Add(factory);
-        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name == "Thickness"), Source(model, 17f));
+        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name.Value == "Thickness"), Source(model, 17f));
         var posted = new List<Action>();
         GraphSnapshot.PostToDocumentThread = posted.Add;
         try
@@ -187,13 +187,13 @@ public sealed class GraphSnapshotTests
             using var snapshot = new GraphSnapshot();
             snapshot.Build(model, CompositionContext.Default);
             snapshot.Evaluate(CompositionContext.Default);
-            Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Connected));
+            Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Connected));
             Assert.That(posted, Has.Count.EqualTo(1));
 
             posted[0]();
             snapshot.Evaluate(CompositionContext.Default);
 
-            Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+            Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Success));
             Assert.That(posted, Has.Count.EqualTo(1), "An unchanged status is not posted again.");
         }
         finally
@@ -208,7 +208,7 @@ public sealed class GraphSnapshotTests
         var model = new GraphModel();
         var factory = new FactoryNode<Pen>();
         model.Nodes.Add(factory);
-        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name == "Thickness"), Source(model, 17f));
+        var connection = model.Connect((IInputPort)factory.Items.Single(p => p.Name.Value == "Thickness"), Source(model, 17f));
         var posted = new List<Action>();
         GraphSnapshot.PostToDocumentThread = posted.Add;
         try
@@ -224,7 +224,7 @@ public sealed class GraphSnapshotTests
             GraphSnapshot.PostToDocumentThread = null;
         }
 
-        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Disconnected));
+        Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Disconnected));
     }
 
     [Test]

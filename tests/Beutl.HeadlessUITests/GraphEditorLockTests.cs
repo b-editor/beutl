@@ -28,8 +28,8 @@ public class GraphEditorLockTests
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
         Element element = graph.Model.Element!;
-        if (lockLayer) graph.Model.Scene.Layers.Add(new TimelineLayer { ZIndex = element.ZIndex, IsLocked = true });
-        else element.IsLocked = true;
+        if (lockLayer) graph.Model.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = element.ZIndex.Value }, IsLocked = { Value = true } });
+        else element.IsLocked.Value = true;
         graph.Model.HistoryManager.Commit();
         int undoCount = graph.Model.HistoryManager.UndoCount;
         string before = GraphScope.Snapshot(graph.Animation);
@@ -74,7 +74,7 @@ public class GraphEditorLockTests
         Element element = graph.Model.Element!;
         var shape = (RectShape)element.Objects.Single();
         var height = new KeyFrameAnimation<float>();
-        height.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50 });
+        height.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 50 } });
         shape.Height.SetKeyFrameAnimation(height);
         KeyFrame<float> unreadable = CreateUnreadableKeyFrame(MediaTime.FromSeconds(1), 300);
         graph.Animation.KeyFrames.Insert(1, unreadable);
@@ -117,7 +117,7 @@ public class GraphEditorLockTests
         {
             case "drop":
                 graph.Model.DropEasing(new HoldEasing(), MediaTime.FromSeconds(1));
-                Assert.That(unreadable.Easing, Is.TypeOf<HoldEasing>());
+                Assert.That(unreadable.Easing.Value, Is.TypeOf<HoldEasing>());
                 break;
             case "delete":
                 Assert.That(graph.Model.DeleteKeyFrames([unreadable]), Is.True);
@@ -143,7 +143,7 @@ public class GraphEditorLockTests
     // A keyframe read back from JSON whose easing names a type that is not loaded.
     private static KeyFrame<float> CreateUnreadableKeyFrame(MediaTime keyTime, float value)
     {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(new KeyFrame<float> { KeyTime = keyTime, Value = value });
+        JsonObject json = CoreSerializer.SerializeToJsonObject(new KeyFrame<float> { KeyTime = { Value = keyTime }, Value = { Value = value } });
         json[nameof(KeyFrame.Easing)] = "[Missing.Plugin]Missing.Namespace:MissingEasing";
         return (KeyFrame<float>)CoreSerializer.DeserializeFromJsonObject(json, typeof(KeyFrame<float>));
     }

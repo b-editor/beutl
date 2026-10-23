@@ -50,11 +50,11 @@ public sealed partial class ElementView
         MediaTime? leftmost = null;
         foreach (Element other in scene.Children)
         {
-            if (other != element && other.ZIndex == element.ZIndex && other.Range.End <= element.Start)
+            if (other != element && other.ZIndex.Value == element.ZIndex.Value && other.Range.End <= element.Start.Value)
             {
-                if (leftmost is not { } cur || other.Start < cur)
+                if (leftmost is not { } cur || other.Start.Value < cur)
                 {
-                    leftmost = other.Start;
+                    leftmost = other.Start.Value;
                 }
             }
         }
@@ -71,13 +71,13 @@ public sealed partial class ElementView
             try
             {
                 float scale = vm.Timeline.Options.Value.Scale;
-                vm.BorderMargin.Value = new Thickness(vm.Model.Start.TimeToPixel(scale), 0, 0, 0);
-                vm.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(vm.Model.ZIndex), 0, 0);
-                vm.Width.Value = vm.Model.Length.TimeToPixel(scale);
+                vm.BorderMargin.Value = new Thickness(vm.Model.Start.Value.TimeToPixel(scale), 0, 0, 0);
+                vm.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(vm.Model.ZIndex.Value), 0, 0);
+                vm.Width.Value = vm.Model.Length.Value.TimeToPixel(scale);
             }
             catch (Exception ex)
             {
-                s_logger.LogWarning(ex, "Failed to restore visual state to model for element {Id}.", vm.Model.Id);
+                s_logger.LogWarning(ex, "Failed to restore visual state to model for element {Id}.", vm.Model.Id.Value);
             }
         }
     }
@@ -257,7 +257,7 @@ public sealed partial class ElementView
             double left = ctx.ViewModel.BorderMargin.Value.Left;
             double x = CalculateRightResizeX(
                 pointerX,
-                ctx.After?.Start.TimeToPixel(scale),
+                ctx.After?.Start.Value.TimeToPixel(scale),
                 left,
                 ctx.OriginalDuration?.TimeToPixel(scale),
                 ripple);
@@ -395,15 +395,15 @@ public sealed partial class ElementView
             }
             else if (_resizeType == AlignmentX.Left)
             {
-                MediaTime targetStartTime = viewModel.Model.Start;
-                filteredElements = relatedElements.Where(elem => elem.Model.Start == targetStartTime);
+                MediaTime targetStartTime = viewModel.Model.Start.Value;
+                filteredElements = relatedElements.Where(elem => elem.Model.Start.Value == targetStartTime);
             }
             else
             {
                 filteredElements = [viewModel];
             }
 
-            bool clampToOriginal = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+            bool clampToOriginal = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
             ElementViewModel[] participants = filteredElements.ToArray();
             var timingPeers = participants.Select(elem => elem.Model).ToHashSet();
 
@@ -416,9 +416,9 @@ public sealed partial class ElementView
 
                 return new ElementResizeContext(
                     ViewModel: elem,
-                    Before: elem.Model.GetBefore(elem.Model.ZIndex, elem.Model.Start),
-                    After: elem.Model.GetAfter(elem.Model.ZIndex, elem.Model.Range.End),
-                    RecordedStartTime: elem.Model.Start,
+                    Before: elem.Model.GetBefore(elem.Model.ZIndex.Value, elem.Model.Start.Value),
+                    After: elem.Model.GetAfter(elem.Model.ZIndex.Value, elem.Model.Range.End),
+                    RecordedStartTime: elem.Model.Start.Value,
                     RecordedEndTime: elem.Model.Range.End,
                     LeftmostUpstreamStart: GetLeftmostUpstreamStart(viewModel.Scene, elem.Model),
                     OriginalDuration: originalDuration,
@@ -451,7 +451,7 @@ public sealed partial class ElementView
             if (_resizeType is not (AlignmentX.Left or AlignmentX.Right)) return false;
 
             Element model = viewModel.Model;
-            MediaTime boundary = _resizeType == AlignmentX.Right ? model.Range.End : model.Start;
+            MediaTime boundary = _resizeType == AlignmentX.Right ? model.Range.End : model.Start.Value;
 
             IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
                 viewModel.Scene, CollectTrimMembers(viewModel), boundary);

@@ -20,7 +20,7 @@ public class ShellSmokeTests
 
         Assert.That(project, Is.Not.Null);
         Assert.That(TestShell.Project.IsOpened.Value, Is.True);
-        Assert.That(BeutlApplication.Current.Project, Is.SameAs(project));
+        Assert.That(BeutlApplication.Current.Project.Value, Is.SameAs(project));
         Assert.That(File.Exists(project!.Uri!.LocalPath), Is.True);
 
         Scene? scene = project.Items.OfType<Scene>().FirstOrDefault();

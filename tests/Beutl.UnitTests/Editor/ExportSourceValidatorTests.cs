@@ -146,7 +146,7 @@ public sealed class ExportSourceValidatorTests
             Uri = new Uri(Path.Combine(_root, "test.scene")),
         };
         Element disabled = CreateVideoElement(_root, missingPath);
-        disabled.IsEnabled = false;
+        disabled.IsEnabled.Value = false;
         scene.Children.Add(disabled);
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
@@ -167,7 +167,7 @@ public sealed class ExportSourceValidatorTests
             Uri = new Uri(Path.Combine(_root, "test.scene")),
         };
         Element outOfRange = CreateVideoElement(_root, missingPath);
-        outOfRange.Start = MediaTime.FromSeconds(20);
+        outOfRange.Start.Value = MediaTime.FromSeconds(20);
         scene.Children.Add(outOfRange);
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
@@ -189,13 +189,13 @@ public sealed class ExportSourceValidatorTests
             Uri = new Uri(Path.Combine(_root, "test.scene")),
         };
         Element visible = CreateVideoElement(_root, atFrame);
-        visible.Start = MediaTime.Zero;
-        visible.Length = MediaTime.FromSeconds(2);
+        visible.Start.Value = MediaTime.Zero;
+        visible.Length.Value = MediaTime.FromSeconds(2);
         scene.Children.Add(visible);
 
         Element later = CreateVideoElement(_root, laterOnly);
-        later.Start = MediaTime.FromSeconds(5);
-        later.Length = MediaTime.FromSeconds(2);
+        later.Start.Value = MediaTime.FromSeconds(5);
+        later.Length.Value = MediaTime.FromSeconds(2);
         scene.Children.Add(later);
 
         IReadOnlySet<string> referenced =
@@ -219,7 +219,7 @@ public sealed class ExportSourceValidatorTests
         };
         childScene.Children.Add(CreateImageElement(_root, missingEnabled));
         Element disabled = CreateImageElement(_root, missingDisabled);
-        disabled.IsEnabled = false;
+        disabled.IsEnabled.Value = false;
         childScene.Children.Add(disabled);
 
         var sceneDrawable = new SceneDrawable();
@@ -247,7 +247,7 @@ public sealed class ExportSourceValidatorTests
 
         SourceVideo enabled = VideoDrawable(enabledMissing);
         SourceVideo disabled = VideoDrawable(disabledMissing);
-        disabled.IsEnabled = false;
+        disabled.IsEnabled.Value = false;
         Element element = ElementWith(_root, enabled);
         element.AddObject(disabled);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
@@ -294,12 +294,12 @@ public sealed class ExportSourceValidatorTests
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         Element before = CreateVideoElement(_root, beforeStart);
-        before.Start = MediaTime.Zero;
-        before.Length = MediaTime.FromSeconds(2);
+        before.Start.Value = MediaTime.Zero;
+        before.Length.Value = MediaTime.FromSeconds(2);
         scene.Children.Add(before);
         Element inside = CreateVideoElement(_root, inSegment);
-        inside.Start = MediaTime.FromSeconds(5);
-        inside.Length = MediaTime.FromSeconds(2);
+        inside.Start.Value = MediaTime.FromSeconds(5);
+        inside.Length.Value = MediaTime.FromSeconds(2);
         scene.Children.Add(inside);
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -323,9 +323,9 @@ public sealed class ExportSourceValidatorTests
 
         var drawable = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(startExisting) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(5), Value = MakeVideoSource(midMissing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(10), Value = MakeVideoSource(endExisting) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(startExisting) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(5) }, Value = { Value = MakeVideoSource(midMissing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(10) }, Value = { Value = MakeVideoSource(endExisting) } });
         drawable.Source.SetKeyFrameAnimation(animation);
 
         Element element = ElementWith(_root, drawable, length: MediaTime.FromSeconds(15));
@@ -401,10 +401,10 @@ public sealed class ExportSourceValidatorTests
         File.WriteAllBytes(existing, [1]);
 
         var drawable = new SourceVideo();
-        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = true };
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(11), Value = MakeVideoSource(existing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(12), Value = MakeVideoSource(missingAtGlobal12) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(13), Value = MakeVideoSource(existing) });
+        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = { Value = true } };
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(11) }, Value = { Value = MakeVideoSource(existing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(12) }, Value = { Value = MakeVideoSource(missingAtGlobal12) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(13) }, Value = { Value = MakeVideoSource(existing) } });
         drawable.Source.SetKeyFrameAnimation(animation);
 
         Element element = ElementWith(_root, drawable, MediaTime.FromSeconds(10), MediaTime.FromSeconds(10));
@@ -429,10 +429,10 @@ public sealed class ExportSourceValidatorTests
         var drawable = new SourceVideo();
         drawable.Source.Value = MakeVideoSource(missingBase);
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(keyframed) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(keyframed) } });
         drawable.Source.SetKeyFrameAnimation(animation);
         Element element = ElementWith(_root, drawable);
-        element.Length = MediaTime.FromSeconds(10);
+        element.Length.Value = MediaTime.FromSeconds(10);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
@@ -453,11 +453,11 @@ public sealed class ExportSourceValidatorTests
 
         var drawable = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(outgoingMissing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(5), Value = MakeVideoSource(incoming) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(outgoingMissing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(5) }, Value = { Value = MakeVideoSource(incoming) } });
         drawable.Source.SetKeyFrameAnimation(animation);
         Element element = ElementWith(_root, drawable);
-        element.Length = MediaTime.FromSeconds(10);
+        element.Length.Value = MediaTime.FromSeconds(10);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
@@ -479,13 +479,13 @@ public sealed class ExportSourceValidatorTests
 
         var child = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(oldMissing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(5), Value = MakeVideoSource(newExisting) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(oldMissing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(5) }, Value = { Value = MakeVideoSource(newExisting) } });
         child.Source.SetKeyFrameAnimation(animation);
         var decorator = new DrawableDecorator();
         decorator.Children.Add(child);
         Element element = ElementWith(_root, decorator);
-        element.Length = MediaTime.FromSeconds(10);
+        element.Length.Value = MediaTime.FromSeconds(10);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
@@ -506,13 +506,13 @@ public sealed class ExportSourceValidatorTests
 
         var node = new VideoSourceNode();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(oldMissing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(5), Value = MakeVideoSource(newExisting) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(oldMissing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(5) }, Value = { Value = MakeVideoSource(newExisting) } });
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value!.Nodes.Add(node);
         Element element = ElementWith(_root, drawable);
-        element.Length = MediaTime.FromSeconds(10);
+        element.Length.Value = MediaTime.FromSeconds(10);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
@@ -558,9 +558,9 @@ public sealed class ExportSourceValidatorTests
 
         var drawable = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(a) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(5), Value = MakeVideoSource(missingB) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(10), Value = MakeVideoSource(c) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(a) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(5) }, Value = { Value = MakeVideoSource(missingB) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(10) }, Value = { Value = MakeVideoSource(c) } });
         drawable.Source.SetKeyFrameAnimation(animation);
         Element element = ElementWith(_root, drawable, length: MediaTime.FromSeconds(15));
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
@@ -582,10 +582,10 @@ public sealed class ExportSourceValidatorTests
         var drawable = new SourceVideo();
         drawable.Source.Value = MakeVideoSource(missingBase);
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = null });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = null } });
         drawable.Source.SetKeyFrameAnimation(animation);
         Element element = ElementWith(_root, drawable);
-        element.Length = MediaTime.FromSeconds(10);
+        element.Length.Value = MediaTime.FromSeconds(10);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(element);
 
@@ -608,9 +608,9 @@ public sealed class ExportSourceValidatorTests
 
         var childDrawable = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(existing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(2), Value = MakeVideoSource(missingAt2s) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(8), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(existing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = MakeVideoSource(missingAt2s) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(8) }, Value = { Value = MakeVideoSource(existing) } });
         childDrawable.Source.SetKeyFrameAnimation(animation);
         Element childElement = ElementWith(_root, childDrawable, length: MediaTime.FromSeconds(10));
         var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
@@ -639,10 +639,10 @@ public sealed class ExportSourceValidatorTests
         File.WriteAllBytes(existing, [1]);
 
         var drawable = new SourceVideo();
-        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = true };
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(10), Value = MakeVideoSource(existing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(20), Value = MakeVideoSource(existing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(30), Value = MakeVideoSource(missingAtGlobal30) });
+        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = { Value = true } };
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(10) }, Value = { Value = MakeVideoSource(existing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(20) }, Value = { Value = MakeVideoSource(existing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(30) }, Value = { Value = MakeVideoSource(missingAtGlobal30) } });
         drawable.Source.SetKeyFrameAnimation(animation);
 
         Element element = ElementWith(_root, drawable, MediaTime.FromSeconds(5), MediaTime.FromSeconds(30));
@@ -672,9 +672,9 @@ public sealed class ExportSourceValidatorTests
         // local-12s key holds from (3s, +inf). Only the last two are sampled inside local [5s, 10s].
         var drawable = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(missingEarly) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(3), Value = MakeVideoSource(existing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(12), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(missingEarly) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(3) }, Value = { Value = MakeVideoSource(existing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(12) }, Value = { Value = MakeVideoSource(existing) } });
         drawable.Source.SetKeyFrameAnimation(animation);
         Element element = ElementWith(_root, drawable, MediaTime.FromSeconds(10), MediaTime.FromSeconds(15));
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
@@ -703,13 +703,13 @@ public sealed class ExportSourceValidatorTests
         var drawable = new SourceVideo();
         drawable.Source.Value = MakeVideoSource(missingBase);
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(missingKey) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(missingKey) } });
         drawable.Source.SetKeyFrameAnimation(animation);
-        drawable.Source.Expression = Beutl.Engine.Expressions.Expression.CreateReference<VideoSource>(referenced.Id, "Source");
+        drawable.Source.Expression = Beutl.Engine.Expressions.Expression.CreateReference<VideoSource>(referenced.Id.Value, "Source");
 
         Element referencedElement = ElementWith(_root, referenced);
         Element element = ElementWith(_root, drawable);
-        element.Length = MediaTime.FromSeconds(10);
+        element.Length.Value = MediaTime.FromSeconds(10);
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(referencedElement);
         scene.Children.Add(element);
@@ -732,10 +732,10 @@ public sealed class ExportSourceValidatorTests
         File.WriteAllBytes(existing, [1]);
 
         var node = new VideoSourceNode();
-        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = true };
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(10), Value = MakeVideoSource(existing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(20), Value = MakeVideoSource(existing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(30), Value = MakeVideoSource(missingLate) });
+        var animation = new KeyFrameAnimation<VideoSource?> { UseGlobalClock = { Value = true } };
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(10) }, Value = { Value = MakeVideoSource(existing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(20) }, Value = { Value = MakeVideoSource(existing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(30) }, Value = { Value = MakeVideoSource(missingLate) } });
         ((IAnimatablePropertyAdapter<VideoSource?>)node.Source.Property!).Animation = animation;
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value!.Nodes.Add(node);
@@ -760,15 +760,15 @@ public sealed class ExportSourceValidatorTests
 
         var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
         Element outOfWindow = CreateImageElement(_root, missingImage);
-        outOfWindow.Start = MediaTime.FromSeconds(30);
-        outOfWindow.Length = MediaTime.FromSeconds(5);
+        outOfWindow.Start.Value = MediaTime.FromSeconds(30);
+        outOfWindow.Length.Value = MediaTime.FromSeconds(5);
         childScene.Children.Add(outOfWindow);
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         Element outer = ElementWith(_root, sceneDrawable);
-        outer.Length = MediaTime.FromSeconds(10);
+        outer.Length.Value = MediaTime.FromSeconds(10);
         scene.Children.Add(outer);
 
         // Export [0s, 5s]: the referenced-scene child at 30s never composes, so its missing image is dropped.
@@ -790,8 +790,8 @@ public sealed class ExportSourceValidatorTests
         {
             var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, $"child-{Guid.NewGuid():N}.scene")) };
             Element lateChild = CreateSoundElement(_root, missingLate);
-            lateChild.Start = MediaTime.FromSeconds(30);
-            lateChild.Length = MediaTime.FromSeconds(5);
+            lateChild.Start.Value = MediaTime.FromSeconds(30);
+            lateChild.Length.Value = MediaTime.FromSeconds(5);
             childScene.Children.Add(lateChild);
 
             var sceneSound = new SceneSound();
@@ -799,14 +799,14 @@ public sealed class ExportSourceValidatorTests
             if (animateSpeed)
             {
                 var speed = new KeyFrameAnimation<float>();
-                speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f });
-                speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(5), Value = 200f });
+                speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100f } });
+                speed.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(5) }, Value = { Value = 200f } });
                 sceneSound.Speed.SetKeyFrameAnimation(speed);
             }
 
             var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, $"root-{Guid.NewGuid():N}.scene")) };
             Element outer = ElementWith(_root, sceneSound);
-            outer.Length = MediaTime.FromSeconds(40);
+            outer.Length.Value = MediaTime.FromSeconds(40);
             scene.Children.Add(outer);
             return scene;
         }
@@ -834,7 +834,7 @@ public sealed class ExportSourceValidatorTests
 
         var presented = VideoDrawable(missingVideo);
         var presenter = new DrawablePresenter();
-        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presented.Id);
+        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presented.Id.Value);
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(ElementWith(_root, presented));
@@ -861,9 +861,9 @@ public sealed class ExportSourceValidatorTests
 
         var target = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = MakeVideoSource(existing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(5), Value = MakeVideoSource(remappedMissing) });
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(10), Value = MakeVideoSource(existing) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = MakeVideoSource(existing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(5) }, Value = { Value = MakeVideoSource(remappedMissing) } });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(10) }, Value = { Value = MakeVideoSource(existing) } });
         target.Source.SetKeyFrameAnimation(animation);
 
         // Both flow operators reference the same target instance (Target is a reference property, so
@@ -879,7 +879,7 @@ public sealed class ExportSourceValidatorTests
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         Element groupElement = ElementWith(_root, group);
-        groupElement.Length = MediaTime.FromSeconds(15);
+        groupElement.Length.Value = MediaTime.FromSeconds(15);
         scene.Children.Add(groupElement);
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -903,7 +903,7 @@ public sealed class ExportSourceValidatorTests
         var expressionTarget = VideoDrawable(expressionVideo);
         var presenter = new DrawablePresenter();
         presenter.Target.Value = currentTarget;
-        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(expressionTarget.Id);
+        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(expressionTarget.Id.Value);
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(ElementWith(_root, expressionTarget));
@@ -928,7 +928,7 @@ public sealed class ExportSourceValidatorTests
         // Value holds a missing file; the expression self-cycles back to the Target property. The
         // render evaluates the expression to DefaultValue (null) on cycle, so the missing file never opens.
         presenter.Target.Value = VideoDrawable(missingCurrent);
-        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presenter.Id, "Target");
+        presenter.Target.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Drawable>(presenter.Id.Value, "Target");
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         scene.Children.Add(ElementWith(_root, presenter));
@@ -1073,16 +1073,16 @@ public sealed class ExportSourceValidatorTests
 
         var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
         Element child = CreateImageElement(_root, missingImage);
-        child.Start = MediaTime.Zero;
-        child.Length = MediaTime.FromSeconds(5);
+        child.Start.Value = MediaTime.Zero;
+        child.Length.Value = MediaTime.FromSeconds(5);
         childScene.Children.Add(child);
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         Element outer = ElementWith(_root, sceneDrawable);
-        outer.Start = MediaTime.Zero;
-        outer.Length = MediaTime.FromSeconds(10);
+        outer.Start.Value = MediaTime.Zero;
+        outer.Length.Value = MediaTime.FromSeconds(10);
         scene.Children.Add(outer);
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -1169,7 +1169,7 @@ public sealed class ExportSourceValidatorTests
         string missingVideo = Path.Combine(_root, "disabled-node-brush.mov");
 
         SourceVideo disabledInner = VideoDrawable(missingVideo);
-        disabledInner.IsEnabled = false;
+        disabledInner.IsEnabled.Value = false;
         var brush = new DrawableBrush();
         brush.Drawable.Value = disabledInner;
         var node = new Beutl.NodeGraph.Nodes.GeometryShapeNode();
@@ -1200,7 +1200,7 @@ public sealed class ExportSourceValidatorTests
         holder.Fill.Value = holderBrush;
 
         var refShape = new RectShape();
-        refShape.Fill.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Brush>(holder.Id, "Fill");
+        refShape.Fill.Expression = Beutl.Engine.Expressions.Expression.CreateReference<Brush>(holder.Id.Value, "Fill");
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
         scene.Children.Add(ElementWith(_root, refShape));
@@ -1223,9 +1223,9 @@ public sealed class ExportSourceValidatorTests
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         Element element = CreateVideoElement(_root, missingVideo);
-        element.ZIndex = 3;
+        element.ZIndex.Value = 3;
         scene.Children.Add(element);
-        scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsVideoMuted = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 3 }, IsVideoMuted = { Value = true } });
 
         IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1248,9 +1248,9 @@ public sealed class ExportSourceValidatorTests
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         Element element = CreateSoundElement(_root, missingSound);
-        element.ZIndex = 2;
+        element.ZIndex.Value = 2;
         scene.Children.Add(element);
-        scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsVideoMuted = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsVideoMuted = { Value = true } });
 
         IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1266,9 +1266,9 @@ public sealed class ExportSourceValidatorTests
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         Element element = CreateSoundElement(_root, missingSound);
-        element.ZIndex = 1;
+        element.ZIndex.Value = 1;
         scene.Children.Add(element);
-        scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsAudioMuted = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsAudioMuted = { Value = true } });
 
         IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1286,13 +1286,13 @@ public sealed class ExportSourceValidatorTests
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "test.scene")) };
         Element soloed = CreateVideoElement(_root, soloMissing);
-        soloed.ZIndex = 0;
+        soloed.ZIndex.Value = 0;
         Element other = CreateVideoElement(_root, otherMissing);
-        other.ZIndex = 1;
+        other.ZIndex.Value = 1;
         scene.Children.Add(soloed);
         scene.Children.Add(other);
-        scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsSolo = true });
-        scene.Layers.Add(new TimelineLayer { ZIndex = 1 });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsSolo = { Value = true } });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 } });
 
         IReadOnlyList<string> export = ExportSourceValidator.GetMissingPaths(
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
@@ -1310,9 +1310,9 @@ public sealed class ExportSourceValidatorTests
 
         var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
         Element child = CreateImageElement(_root, missingImage);
-        child.ZIndex = 4;
+        child.ZIndex.Value = 4;
         childScene.Children.Add(child);
-        childScene.Layers.Add(new TimelineLayer { ZIndex = 4, IsVideoMuted = true });
+        childScene.Layers.Add(new TimelineLayer { ZIndex = { Value = 4 }, IsVideoMuted = { Value = true } });
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.Value = childScene;
@@ -1335,13 +1335,13 @@ public sealed class ExportSourceValidatorTests
 
         var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
         Element soloed = CreateImageElement(_root, soloMissing);
-        soloed.ZIndex = 0;
+        soloed.ZIndex.Value = 0;
         Element other = CreateImageElement(_root, otherMissing);
-        other.ZIndex = 1;
+        other.ZIndex.Value = 1;
         childScene.Children.Add(soloed);
         childScene.Children.Add(other);
-        childScene.Layers.Add(new TimelineLayer { ZIndex = 0, IsSolo = true });
-        childScene.Layers.Add(new TimelineLayer { ZIndex = 1 });
+        childScene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsSolo = { Value = true } });
+        childScene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 } });
 
         var sceneDrawable = new SceneDrawable();
         sceneDrawable.ReferencedScene.Value = childScene;
@@ -1364,9 +1364,9 @@ public sealed class ExportSourceValidatorTests
 
         var childScene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "child.scene")) };
         Element child = CreateSoundElement(_root, missingSound);
-        child.ZIndex = 5;
+        child.ZIndex.Value = 5;
         childScene.Children.Add(child);
-        childScene.Layers.Add(new TimelineLayer { ZIndex = 5, IsAudioMuted = true });
+        childScene.Layers.Add(new TimelineLayer { ZIndex = { Value = 5 }, IsAudioMuted = { Value = true } });
 
         // A default SceneSound has the identity audio map, so it windows the referenced scene per-target.
         var sceneSound = new SceneSound();
@@ -1423,9 +1423,9 @@ public sealed class ExportSourceValidatorTests
     {
         var element = new Element
         {
-            Start = start ?? MediaTime.Zero,
-            Length = length ?? MediaTime.FromSeconds(1),
-            IsEnabled = true,
+            Start = { Value = start ?? MediaTime.Zero },
+            Length = { Value = length ?? MediaTime.FromSeconds(1) },
+            IsEnabled = { Value = true },
             Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
         };
         element.AddObject(obj);

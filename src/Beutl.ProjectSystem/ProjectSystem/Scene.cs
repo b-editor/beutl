@@ -35,9 +35,6 @@ public partial class Scene : ProjectItem, INotifyEdited
 {
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
-    private readonly Elements _children;
-    private readonly HierarchicalList<TimelineLayer> _layers;
-    private readonly HierarchicalList<SceneMarker> _markers;
     private readonly SceneRecovery _recovery;
 
     public Scene()
@@ -48,104 +45,52 @@ public partial class Scene : ProjectItem, INotifyEdited
     public Scene(int width, int height, string name)
     {
         _recovery = new SceneRecovery(this);
-        _children = new Elements(this);
-        _layers = new HierarchicalList<TimelineLayer>(this);
-        _markers = new HierarchicalList<SceneMarker>(this);
-        // The lists are values rather than defaults, as their CoreProperty forms had no default.
-        ChildrenProperty.Value = _children;
-        GroupsProperty.Value = Groups;
-        LayersProperty.Value = _layers;
-        MarkersProperty.Value = _markers;
-        DurationProperty.Value = MediaTime.FromSeconds(300);
+        Duration.Value = MediaTime.FromSeconds(300);
         ScanProperties<Scene>();
-        FrameSizeProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(FrameSize)));
-        StartProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Start)));
-        DurationProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Duration)));
-        FrameSize = new PixelSize(width, height);
-        _children.CollectionChanged += Children_CollectionChanged;
-        _children.Attached += item => item.Edited += OnElementEdited;
-        _children.Detached += item => item.Edited -= OnElementEdited;
-        _layers.CollectionChanged += Layers_CollectionChanged;
-        _layers.Attached += OnLayerAttached;
-        _layers.Detached += OnLayerDetached;
-        // A plain list, so it names its owner for the write check itself.
-        Groups.WriteOwner = this;
-        Name = name;
+        FrameSize.Value = new PixelSize(width, height);
+        Children.CollectionChanged += Children_CollectionChanged;
+        Children.Attached += item => item.Edited += OnElementEdited;
+        Children.Detached += item => item.Edited -= OnElementEdited;
+        Layers.CollectionChanged += Layers_CollectionChanged;
+        Layers.Attached += OnLayerAttached;
+        Layers.Detached += OnLayerDetached;
+        Name.Value = name;
     }
 
     internal SceneRecovery Recovery => _recovery;
 
     public event EventHandler? Edited;
 
-    public IProperty<PixelSize> FrameSizeProperty { get; } = new ValueOnlyProperty<PixelSize>(default);
+    public IProperty<PixelSize> FrameSize { get; } = new ValueOnlyProperty<PixelSize>(default);
 
     // Serialize and Deserialize write and read the elements, groups and markers themselves.
     [NotAutoSerialized]
-    public IProperty<Elements> ChildrenProperty { get; } = new ValueOnlyProperty<Elements>(null!) { KeepsList = true };
+    public IListProperty<Element> Children { get; } = new ListProperty<Element> { AffectsRender = false };
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
-    public IProperty<MediaTime> StartProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero) { Coerce = static (_, value) => NotNegative(value) };
+    public IProperty<MediaTime> Start { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero) { Coerce = static (_, value) => NotNegative(value) };
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
-    public IProperty<MediaTime> DurationProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero) { Coerce = static (_, value) => NotNegative(value) };
+    public IProperty<MediaTime> Duration { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero) { Coerce = static (_, value) => NotNegative(value) };
 
     [NotAutoSerialized]
-    public IProperty<CoreList<ImmutableHashSet<Guid>>> GroupsProperty { get; } = new ValueOnlyProperty<CoreList<ImmutableHashSet<Guid>>>(null!) { KeepsList = true };
+    public IListProperty<ImmutableHashSet<Guid>> Groups { get; } = new ListProperty<ImmutableHashSet<Guid>> { AffectsRender = false };
 
-    public IProperty<CoreList<TimelineLayer>> LayersProperty { get; } = new ValueOnlyProperty<CoreList<TimelineLayer>>(null!) { KeepsList = true };
+    public IListProperty<TimelineLayer> Layers { get; } = new ListProperty<TimelineLayer> { AffectsRender = false };
 
     [NotAutoSerialized]
-    public IProperty<CoreList<SceneMarker>> MarkersProperty { get; } = new ValueOnlyProperty<CoreList<SceneMarker>>(null!) { KeepsList = true };
+    public IListProperty<SceneMarker> Markers { get; } = new ListProperty<SceneMarker> { AffectsRender = false };
 
-    public PixelSize FrameSize
-    {
-        get => FrameSizeProperty.Value;
-        set => FrameSizeProperty.Value = value;
-    }
-
-    public MediaTime Start
-    {
-        get => StartProperty.Value;
-        set => StartProperty.Value = value;
-    }
-
-    public MediaTime Duration
-    {
-        get => DurationProperty.Value;
-        set => DurationProperty.Value = value;
-    }
-
-    public Elements Children
-    {
-        get => _children;
-        set => _children.Replace(value);
-    }
-
-    public CoreList<ImmutableHashSet<Guid>> Groups
-    {
-        get;
-        set => field.Replace(value);
-    } = [];
-
-    public CoreList<TimelineLayer> Layers
-    {
-        get => _layers;
-        set => _layers.Replace(value);
-    }
-
-    public CoreList<SceneMarker> Markers
-    {
-        get => _markers;
-        set => _markers.Replace(value);
-    }
+    // Layers is saved before Id and Name, where its CoreProperty form was, and Deserialize reads it.
+    internal override bool IsBaseField(IProperty property) => property == Layers || base.IsBaseField(property);
 
     private static MediaTime NotNegative(MediaTime value) => value < MediaTime.Zero ? MediaTime.Zero : value;
 
     public bool IsLayerLocked(int zIndex)
     {
-        foreach (TimelineLayer layer in _layers)
+        foreach (TimelineLayer layer in Layers)
         {
-            if (layer.ZIndex == zIndex && layer.IsLocked) return true;
+            if (layer.ZIndex.Value == zIndex && layer.IsLocked.Value) return true;
         }
 
         return false;
@@ -165,7 +110,7 @@ public partial class Scene : ProjectItem, INotifyEdited
     internal bool IsElementLockedByUser(Element element)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return element.IsLocked || IsLayerLocked(element.ZIndex);
+        return element.IsLocked.Value || IsLayerLocked(element.ZIndex.Value);
     }
 
     // Prunes ids from every group and disbands any group left with fewer than two
@@ -313,8 +258,8 @@ public partial class Scene : ProjectItem, INotifyEdited
         if (items is null) return false;
         foreach (object? item in items)
         {
-            if (item is TimelineLayer { IsVideoMuted: true } or TimelineLayer { IsAudioMuted: true }
-                or TimelineLayer { IsSolo: true })
+            if (item is TimelineLayer { IsVideoMuted.Value: true } or TimelineLayer { IsAudioMuted.Value: true }
+                or TimelineLayer { IsSolo.Value: true })
             {
                 return true;
             }
@@ -325,26 +270,27 @@ public partial class Scene : ProjectItem, INotifyEdited
 
     private void OnLayerAttached(TimelineLayer layer)
     {
-        layer.PropertyChanged += OnLayerPropertyChanged;
+        layer.IsVideoMuted.ValueChanged += OnLayerFlagChanged;
+        layer.IsAudioMuted.ValueChanged += OnLayerFlagChanged;
+        layer.IsSolo.ValueChanged += OnLayerFlagChanged;
+        layer.ZIndex.ValueChanged += OnLayerZIndexChanged;
     }
 
     private void OnLayerDetached(TimelineLayer layer)
     {
-        layer.PropertyChanged -= OnLayerPropertyChanged;
+        layer.IsVideoMuted.ValueChanged -= OnLayerFlagChanged;
+        layer.IsAudioMuted.ValueChanged -= OnLayerFlagChanged;
+        layer.IsSolo.ValueChanged -= OnLayerFlagChanged;
+        layer.ZIndex.ValueChanged -= OnLayerZIndexChanged;
     }
 
-    private void OnLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        // Edited triggers a preview re-render; Name/Color/IsLocked are editor-only
-        // and must not. ZIndex retargets existing mute/solo flags, so it counts.
-        if (e.PropertyName is nameof(TimelineLayer.IsVideoMuted)
-            or nameof(TimelineLayer.IsAudioMuted)
-            or nameof(TimelineLayer.IsSolo)
-            or nameof(TimelineLayer.ZIndex))
-        {
-            Edited?.Invoke(sender, EventArgs.Empty);
-        }
-    }
+    // Edited triggers a preview re-render; Name/Color/IsLocked are editor-only
+    // and must not. ZIndex retargets existing mute/solo flags, so it counts.
+    private void OnLayerFlagChanged(object? sender, PropertyValueChangedEventArgs<bool> e)
+        => Edited?.Invoke(e.Property.GetOwnerObject(), EventArgs.Empty);
+
+    private void OnLayerZIndexChanged(object? sender, PropertyValueChangedEventArgs<int> e)
+        => Edited?.Invoke(e.Property.GetOwnerObject(), EventArgs.Empty);
 
     private void OnElementEdited(object? sender, EventArgs e)
     {

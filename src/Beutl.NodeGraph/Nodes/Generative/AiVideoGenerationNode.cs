@@ -117,7 +117,7 @@ public sealed partial class AiVideoGenerationNode : SeededGenerativeNode, IPromp
             ImageReferences = images,
             VideoReferences = videos,
             ModelId = NormalizeModelId(r.Model),
-            RequestKeySeed = RequestKeySeed,
+            RequestKeySeed = RequestKeySeed.Value,
             ParameterFingerprint = r.ComputeParameterFingerprint(),
         };
     }

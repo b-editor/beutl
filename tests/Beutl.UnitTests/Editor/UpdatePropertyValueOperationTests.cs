@@ -69,45 +69,45 @@ public class UpdatePropertyValueOperationTests
     [Test]
     public void Apply_WithValueOnlyProperty_ShouldSetNewValue()
     {
-        _root.Value = 0;
+        _root.Value.Value = 0;
         var op = CreateOp(_root, "Value", 42, 0);
 
         op.Apply();
 
-        Assert.That(_root.Value, Is.EqualTo(42));
+        Assert.That(_root.Value.Value, Is.EqualTo(42));
     }
 
     [Test]
     public void Apply_WithStringValueOnlyProperty_ShouldSetNewValue()
     {
-        _root.Title = "original";
+        _root.Title.Value = "original";
         var op = CreateOp<string?>(_root, "Title", "modified", "original");
 
         op.Apply();
 
-        Assert.That(_root.Title, Is.EqualTo("modified"));
+        Assert.That(_root.Title.Value, Is.EqualTo("modified"));
     }
 
     [Test]
     public void Apply_WithNullableProperty_ShouldSetToNull()
     {
-        _root.Title = "original";
+        _root.Title.Value = "original";
         var op = CreateOp<string?>(_root, "Title", null, "original");
 
         op.Apply();
 
-        Assert.That(_root.Title, Is.Null);
+        Assert.That(_root.Title.Value, Is.Null);
     }
 
     [Test]
     public void Apply_WithNullableProperty_ShouldSetFromNull()
     {
-        _root.Title = null;
+        _root.Title.Value = null;
         var op = CreateOp<string?>(_root, "Title", "new value", null);
 
         op.Apply();
 
-        Assert.That(_root.Title, Is.EqualTo("new value"));
+        Assert.That(_root.Title.Value, Is.EqualTo("new value"));
     }
 
     #endregion
@@ -117,36 +117,36 @@ public class UpdatePropertyValueOperationTests
     [Test]
     public void Revert_WithStringValueOnlyProperty_ShouldSetOldValue()
     {
-        _root.Title = "modified";
+        _root.Title.Value = "modified";
         var op = CreateOp<string?>(_root, "Title", "modified", "original");
 
         op.Revert();
 
-        Assert.That(_root.Title, Is.EqualTo("original"));
+        Assert.That(_root.Title.Value, Is.EqualTo("original"));
     }
 
     [Test]
     public void Revert_WithNullableProperty_ShouldSetToNull()
     {
-        _root.Title = "value";
+        _root.Title.Value = "value";
         var op = CreateOp<string?>(_root, "Title", "value", null);
 
         op.Revert();
 
-        Assert.That(_root.Title, Is.Null);
+        Assert.That(_root.Title.Value, Is.Null);
     }
 
     [Test]
     public void ApplyThenRevert_WithValueOnlyProperty_ShouldRestoreOriginalValue()
     {
-        _root.Value = 10;
+        _root.Value.Value = 10;
         var op = CreateOp(_root, "Value", 50, 10);
 
         op.Apply();
-        Assert.That(_root.Value, Is.EqualTo(50));
+        Assert.That(_root.Value.Value, Is.EqualTo(50));
         op.Revert();
 
-        Assert.That(_root.Value, Is.EqualTo(10));
+        Assert.That(_root.Value.Value, Is.EqualTo(10));
     }
 
     #endregion
@@ -379,12 +379,12 @@ public class UpdatePropertyValueOperationTests
     {
         var list = new CoreList<int> { 1, 2, 3 };
         var newList = new CoreList<int> { 4, 5, 6 };
-        _root.Items = list;
+        _root.Items.Value = list;
         var op = CreateOp<CoreList<int>?>(_root, "Items", newList, list);
 
         op.Apply();
 
-        Assert.That(_root.Items, Is.SameAs(newList));
+        Assert.That(_root.Items.Value, Is.SameAs(newList));
     }
 
     [Test]
@@ -392,12 +392,12 @@ public class UpdatePropertyValueOperationTests
     {
         var oldList = new CoreList<int> { 1, 2, 3 };
         var newList = new CoreList<int> { 4, 5, 6 };
-        _root.Items = newList;
+        _root.Items.Value = newList;
         var op = CreateOp<CoreList<int>?>(_root, "Items", newList, oldList);
 
         op.Revert();
 
-        Assert.That(_root.Items, Is.SameAs(oldList));
+        Assert.That(_root.Items.Value, Is.SameAs(oldList));
     }
 
     [Test]
@@ -422,29 +422,11 @@ public class UpdatePropertyValueOperationTests
             ScanProperties<TestCoreObject>();
         }
 
-        public IProperty<int> ValueProperty { get; } = new ValueOnlyProperty<int>(default);
+        public IProperty<int> Value { get; } = new ValueOnlyProperty<int>(default);
 
-        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
+        public IProperty<string?> Title { get; } = new ValueOnlyProperty<string?>(null);
 
-        public IProperty<CoreList<int>?> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<int>?>(null);
-
-        public int Value
-        {
-            get => ValueProperty.Value;
-            set => ValueProperty.Value = value;
-        }
-
-        public string? Title
-        {
-            get => TitleProperty.Value;
-            set => TitleProperty.Value = value;
-        }
-
-        public CoreList<int>? Items
-        {
-            get => ItemsProperty.Value;
-            set => ItemsProperty.Value = value;
-        }
+        public IProperty<CoreList<int>?> Items { get; } = new ValueOnlyProperty<CoreList<int>?>(null);
     }
 
     [SuppressResourceClassGeneration]

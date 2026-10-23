@@ -11,34 +11,16 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
     public FFmpegDecodingSettings()
     {
         ScanProperties<FFmpegDecodingSettings>();
-        ThreadCountProperty.ValueChanged += (_, _) => OnChanged();
-        AccelerationProperty.ValueChanged += (_, _) => OnChanged();
-        ForceSrgbGammaProperty.ValueChanged += (_, _) => OnChanged();
+        ThreadCount.ValueChanged += (_, _) => OnChanged();
+        Acceleration.ValueChanged += (_, _) => OnChanged();
+        ForceSrgbGamma.ValueChanged += (_, _) => OnChanged();
     }
 
-    public IProperty<int> ThreadCountProperty { get; } = new ValueOnlyProperty<int>(-1);
+    public IProperty<int> ThreadCount { get; } = new ValueOnlyProperty<int>(-1);
 
-    public IProperty<AccelerationOptions> AccelerationProperty { get; } = new ValueOnlyProperty<AccelerationOptions>(AccelerationOptions.Software);
+    public IProperty<AccelerationOptions> Acceleration { get; } = new ValueOnlyProperty<AccelerationOptions>(AccelerationOptions.Software);
 
-    public IProperty<bool> ForceSrgbGammaProperty { get; } = new ValueOnlyProperty<bool>(true);
-
-    public int ThreadCount
-    {
-        get => ThreadCountProperty.Value;
-        set => ThreadCountProperty.Value = value;
-    }
-
-    public AccelerationOptions Acceleration
-    {
-        get => AccelerationProperty.Value;
-        set => AccelerationProperty.Value = value;
-    }
-
-    public bool ForceSrgbGamma
-    {
-        get => ForceSrgbGammaProperty.Value;
-        set => ForceSrgbGammaProperty.Value = value;
-    }
+    public IProperty<bool> ForceSrgbGamma { get; } = new ValueOnlyProperty<bool>(true);
 
     public enum AccelerationOptions
     {

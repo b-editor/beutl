@@ -51,10 +51,10 @@ public sealed class NestedSoundTimeRangeTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = drawable.Id.ToString(),
+                    [nameof(CoreObject.Id)] = drawable.Id.Value.ToString(),
                     ["Source"] = new JsonObject
                     {
                         ["$type"] = IdentityHelper.WriteDiscriminator(typeof(SourceSound))
@@ -69,7 +69,7 @@ public sealed class NestedSoundTimeRangeTests
         Assert.That(sound, Is.Not.Null);
         Assert.Multiple(() =>
         {
-            Assert.That(sound!.TimeRange, Is.EqualTo(new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(5))));
+            Assert.That(sound!.TimeRange.Value, Is.EqualTo(new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(5))));
             Assert.That(((IHierarchical)sound).HierarchicalRoot, Is.Not.Null);
         });
     }
@@ -110,7 +110,7 @@ public sealed class NestedSoundTimeRangeTests
         var drawable = (AudioSpectrumDrawable)session.Scene.Children.Single().Objects.Single();
         Sound? sound = drawable.Source.Value;
         Assert.That(sound, Is.Not.Null);
-        Assert.That(sound!.TimeRange, Is.EqualTo(new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(4))));
+        Assert.That(sound!.TimeRange.Value, Is.EqualTo(new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(4))));
     }
 
     [Test]
@@ -122,12 +122,12 @@ public sealed class NestedSoundTimeRangeTests
             Path.Combine(root, "demo.bep"), 640, 360, new Rational(30), TimeSpan.FromSeconds(6)));
         var element = new Element
         {
-            Name = "viz",
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(5),
+            Name = { Value = "viz" },
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(5) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(session.Scene.Uri!.LocalPath)!, "element.belm"))
         };
-        var drawable = new AudioWaveformDrawable { Name = "waveform" };
+        var drawable = new AudioWaveformDrawable { Name = { Value = "waveform" } };
         element.AddObject(drawable);
         session.Scene.Children.Add(element);
 

@@ -24,13 +24,13 @@ public sealed class ExportVideoRateTests
         var scene = new Scene(64, 64, "rates")
         {
             Uri = new Uri(Path.Combine(directory, "rates.scene")),
-            Duration = MediaTime.FromSeconds(1)
+            Duration = { Value = MediaTime.FromSeconds(1) }
         };
         if (frameRate.HasValue && sampleRate.HasValue)
         {
             var project = new Project();
-            project.FrameRate = new Rational(frameRate.Value);
-            project.SampleRate = sampleRate.Value;
+            project.FrameRate.Value = new Rational(frameRate.Value);
+            project.SampleRate.Value = sampleRate.Value;
             project.Items.Add(scene);
         }
 
@@ -61,8 +61,8 @@ public sealed class ExportVideoRateTests
         int expectedSampleRate = overrideRates ? 96000 : sampleRate ?? 44100;
         Assert.Multiple(() =>
         {
-            Assert.That(encoder.Controller!.VideoSettings.FrameRate, Is.EqualTo(expectedFrameRate));
-            Assert.That(encoder.Controller.AudioSettings.SampleRate, Is.EqualTo(expectedSampleRate));
+            Assert.That(encoder.Controller!.VideoSettings.FrameRate.Value, Is.EqualTo(expectedFrameRate));
+            Assert.That(encoder.Controller.AudioSettings.SampleRate.Value, Is.EqualTo(expectedSampleRate));
             Assert.That(encodedFrameRate, Is.EqualTo(expectedFrameRate));
             Assert.That(encodedSampleRate, Is.EqualTo(expectedSampleRate));
             Assert.That(encodedSampleCount, Is.EqualTo(expectedSampleRate));

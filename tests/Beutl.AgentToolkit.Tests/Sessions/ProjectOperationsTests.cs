@@ -104,7 +104,7 @@ public sealed class ProjectOperationsTests
         var element = new Element
         {
             Uri = new Uri(Path.Combine(_tempRoot, "outside", "clip.belm")),
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
         };
         scene.Children.Add(element);
 
@@ -124,7 +124,7 @@ public sealed class ProjectOperationsTests
             }
             else
                 Assert.That(File.ReadAllText(occupiedPath), Is.EqualTo("unrelated data"));
-            Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri!).Id, Is.EqualTo(element.Id));
+            Assert.That(CoreSerializer.RestoreFromUri<Element>(element.Uri!).Id.Value, Is.EqualTo(element.Id.Value));
         });
     }
 
@@ -149,8 +149,8 @@ public sealed class ProjectOperationsTests
             File.WriteAllBytes(outsidePath, retainedBytes);
             var recovered = new Element
             {
-                Name = "Recovered",
-                Length = MediaTime.FromSeconds(1),
+                Name = { Value = "Recovered" },
+                Length = { Value = MediaTime.FromSeconds(1) },
                 Uri = new Uri(outsidePath),
                 SuppressedStorageSource = new SuppressedStorageSource(retainedBytes, new Uri(outsidePath)),
             };
@@ -280,7 +280,7 @@ public sealed class ProjectOperationsTests
         scene.Uri = new Uri(Path.Combine(outsideDir, "escape.scene"));
         var element = new Element
         {
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(outsideDir, "escape.belm"))
         };
         scene.Children.Add(element);

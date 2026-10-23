@@ -295,7 +295,7 @@ public sealed class FileSourceEditorTests
         var staticSource = new TestMediaSource();
         staticSource.ReadFrom(new Uri(CreateFile("static.psd")));
         holder.Source.Value = staticSource;
-        var keyframe = new KeyFrame<TestMediaSource?> { Value = staticSource };
+        var keyframe = new KeyFrame<TestMediaSource?> { Value = { Value = staticSource } };
         var animation = new KeyFrameAnimation<TestMediaSource?>();
         animation.KeyFrames.Add(keyframe);
         var property = (AnimatableProperty<TestMediaSource?>)holder.Source;
@@ -310,11 +310,11 @@ public sealed class FileSourceEditorTests
         Confirm((StorageFileEditor)control, path);
 
         Assert.That(holder.Source.Value, Is.SameAs(staticSource));
-        Assert.That(keyframe.Value!.Uri.LocalPath, Is.EqualTo(path));
+        Assert.That(keyframe.Value.Value!.Uri.LocalPath, Is.EqualTo(path));
         Assert.That(history.History.Undo(), Is.True);
-        Assert.That(keyframe.Value, Is.SameAs(staticSource));
+        Assert.That(keyframe.Value.Value, Is.SameAs(staticSource));
         Assert.That(history.History.Redo(), Is.True);
-        Assert.That(keyframe.Value!.Uri.LocalPath, Is.EqualTo(path));
+        Assert.That(keyframe.Value.Value!.Uri.LocalPath, Is.EqualTo(path));
     }
 
     [AvaloniaTest]
@@ -362,7 +362,7 @@ public sealed class FileSourceEditorTests
     public void Locked_and_disposed_editors_do_not_change_the_source()
     {
         var holder = new FilePropertyHolder();
-        var element = new Element { IsLocked = true };
+        var element = new Element { IsLocked = { Value = true } };
         element.AddObject(holder);
         var (vm, control) = CreateControl(new EnginePropertyAdapter<TestMediaSource?>(holder.Source, holder));
         using var _ = vm;
@@ -375,7 +375,7 @@ public sealed class FileSourceEditorTests
         Assert.That(holder.Source.Value, Is.Null);
         Assert.That(editor.Value, Is.Null);
         Assert.That(history.History.UndoCount, Is.Zero);
-        element.IsLocked = false;
+        element.IsLocked.Value = false;
         vm.Dispose();
         Assert.DoesNotThrow(() => Confirm(editor, path));
         Assert.That(holder.Source.Value, Is.Null);

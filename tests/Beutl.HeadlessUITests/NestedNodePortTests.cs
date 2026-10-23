@@ -42,11 +42,11 @@ public class NestedNodePortTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
-        var group = new GroupNode { Position = (30, 750) };
+        var group = new GroupNode { Position = { Value = (30, 750) } };
         if (grouped) graph.Nodes.Add(group);
-        GraphModel secondGraph = grouped ? group.Group : graph;
-        var first = new GeometryShapeNode { Position = (30, 140) };
-        var second = new GeometryShapeNode { Position = (grouped ? 30 : 340, 140) };
+        GraphModel secondGraph = grouped ? group.Group.Value : graph;
+        var first = new GeometryShapeNode { Position = { Value = (30, 140) } };
+        var second = new GeometryShapeNode { Position = { Value = (grouped ? 30 : 340, 140) } };
         var brush = new SolidColorBrush();
         first.Fill.Property!.SetValue(brush);
         second.Fill.Property!.SetValue(brush);
@@ -54,7 +54,7 @@ public class NestedNodePortTests
         secondGraph.Nodes.Add(second);
         IOutputPort AddSource(GraphModel target)
         {
-            var source = new LayerInputNode { Position = (30, 0) };
+            var source = new LayerInputNode { Position = { Value = (30, 0) } };
             var port = new LayerInputNode.LayerInputPort<Color>();
             port.SetupProperty("Color");
             port.Property!.SetValue(Colors.Red);
@@ -144,13 +144,13 @@ public class NestedNodePortTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
-        var node = new GeometryShapeNode { Position = (70, 140) };
+        var node = new GeometryShapeNode { Position = { Value = (70, 140) } };
         var pen = new Pen();
         var brush = new SolidColorBrush();
         pen.Brush.Value = brush;
         node.Pen.Property!.SetValue(pen);
         graph.Nodes.Add(node);
-        var source = new LayerInputNode { Position = (10, 0) };
+        var source = new LayerInputNode { Position = { Value = (10, 0) } };
         var output = new LayerInputNode.LayerInputPort<float>();
         output.SetupProperty("Opacity");
         var otherOutput = new LayerInputNode.LayerInputPort<float>();
@@ -190,7 +190,7 @@ public class NestedNodePortTests
             using (var snapshot = new GraphSnapshot())
                 snapshot.Build(graph, CompositionContext.Default);
             HeadlessTestHelpers.Render(3);
-            Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Error));
+            Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Error));
             Assert.That(member.CanConnect.Value, Is.False);
             Assert.That(point.IsEnabled, Is.True, "An invalid existing connection must remain disconnectable.");
             Point position = point.TranslatePoint(new Point(5, 5), window)!.Value;
@@ -255,7 +255,7 @@ public class NestedNodePortTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
-        var node = new GeometryShapeNode { Position = (70, 140) };
+        var node = new GeometryShapeNode { Position = { Value = (70, 140) } };
         var shared = new SolidColorBrush();
         var pen = new Pen();
         pen.Brush.Value = shared;
@@ -303,9 +303,9 @@ public class NestedNodePortTests
             var penRow = Row(penBrushVm);
             var fillPort = (INestedInputPort)((InputPortViewModel)fillRow.DataContext!).Model!;
             var penPort = (INestedInputPort)((InputPortViewModel)penRow.DataContext!).Model!;
-            Assert.That(fillPort.RootMember.Id, Is.EqualTo(node.Fill.Id));
+            Assert.That(fillPort.RootMember.Id, Is.EqualTo(node.Fill.Id.Value));
             Assert.That(fillPort.PropertyPath, Is.EqualTo(new[] { "p:Color" }));
-            Assert.That(penPort.RootMember.Id, Is.EqualTo(node.Pen.Id));
+            Assert.That(penPort.RootMember.Id, Is.EqualTo(node.Pen.Id.Value));
             Assert.That(penPort.PropertyPath, Is.EqualTo(new[] { "p:Brush", "p:Color" }));
             Assert.That(penRow.DataContext, Is.Not.SameAs(fillRow.DataContext));
 
@@ -342,14 +342,14 @@ public class NestedNodePortTests
         first.Primary.Value = first.Secondary.Value = shared;
         second.Primary.Value = second.Secondary.Value = shared;
         var node = new FactoryNode<AliasedBrushList>();
-        node.Object.Items.AddRange([first, second]);
+        node.Object.Value.Items.AddRange([first, second]);
         var graph = new GraphModel();
         graph.Nodes.Add(node);
         using var vm = new NodeGraphViewModel(graph, editor);
         var nodeVm = vm.Nodes.Single();
         var list = (ListEditorViewModel<AliasedBrushPair?>)nodeVm.Items
-            .Single(p => p.Model!.Name == "Items").PropertyEditorContext!;
-        Guid rootId = node.Items.Single(p => p.Name == "Items").Id;
+            .Single(p => p.Model!.Name.Value == "Items").PropertyEditorContext!;
+        Guid rootId = node.Items.Single(p => p.Name.Value == "Items").Id.Value;
         var view = new NodeGraphView { DataContext = vm };
         var window = new Window { Content = view, Width = 640, Height = 1000 };
         try
@@ -370,7 +370,7 @@ public class NestedNodePortTests
                         brush.IsExpanded.Value = true;
                         var color = brush.ChildContext.Value!.Properties.OfType<PropertyEditorViewModel>()
                             .Single(p => ReferenceEquals(p.PropertyAdapter.GetEngineProperty(), shared.Color));
-                        expected.Add((color, ["i:" + pair.Id, "p:" + brush.PropertyAdapter.GetEngineProperty()!.Name, "p:Color"]));
+                        expected.Add((color, ["i:" + pair.Id.Value, "p:" + brush.PropertyAdapter.GetEngineProperty()!.Name, "p:Color"]));
                     }
                 }
                 await FinishTransition();
@@ -385,19 +385,19 @@ public class NestedNodePortTests
                     result.Add(port);
                 }
                 Assert.That(result, Has.Count.EqualTo(4));
-                Assert.That(result.Select(p => p.Id), Is.Unique);
+                Assert.That(result.Select(p => p.Id.Value), Is.Unique);
                 return result.ToArray();
             }
             var initial = await ReadPorts();
-            node.Object.Items.Move(0, 1);
+            node.Object.Value.Items.Move(0, 1);
             Assert.That(await ReadPorts(), Is.EquivalentTo(initial));
 
             var replacement = new AliasedBrushPair();
             replacement.Primary.Value = replacement.Secondary.Value = shared;
-            node.Object.Items[1] = replacement;
+            node.Object.Value.Items[1] = replacement;
             var replaced = await ReadPorts();
             Assert.That(replaced.Count(p => initial.Contains(p)), Is.EqualTo(2));
-            Assert.That(replaced.Any(p => p.PropertyPath.Contains("i:" + first.Id)), Is.False);
+            Assert.That(replaced.Any(p => p.PropertyPath.Contains("i:" + first.Id.Value)), Is.False);
         }
         finally
         {
@@ -411,7 +411,7 @@ public class NestedNodePortTests
     {
         var graph = new GraphModel();
         var node = new FactoryNode<TransformGroup>();
-        node.Object.Children.Add(new TranslateTransform());
+        node.Object.Value.Children.Add(new TranslateTransform());
         graph.Nodes.Add(node);
         using var vm = new NodeGraphViewModel(graph, NodeGraphTestContext.Create().Object);
         GraphNodeViewModel nodeVm = vm.Nodes.Single();
@@ -425,7 +425,7 @@ public class NestedNodePortTests
         };
         var transforms = Enumerable.Range(0, 800).Select(i => (Transform)new TranslateTransform(i, 0)).ToArray();
 
-        node.Object.Children.AddRange(transforms);
+        node.Object.Value.Children.AddRange(transforms);
 
         Assert.That(nodeVm.NestedItems, Has.Count.EqualTo(1602));
         Assert.That(nodeVm.NestedItems.Take(2), Is.EqualTo(originalItems));
@@ -433,7 +433,7 @@ public class NestedNodePortTests
         Assert.That(collectionChanges, Is.EqualTo(1));
         Assert.That(action, Is.EqualTo(NotifyCollectionChangedAction.Add));
 
-        node.Object.Children.RemoveRange(1, 800);
+        node.Object.Value.Children.RemoveRange(1, 800);
 
         Assert.That(nodeVm.NestedItems, Is.EqualTo(originalItems));
         Assert.That(collectionChanges, Is.EqualTo(2));
@@ -447,9 +447,9 @@ public class NestedNodePortTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.Value = brush;
+        node.Object.Value.Brush.Value = brush;
         graph.Nodes.Add(node);
-        var source = new LayerInputNode { Position = (300, 0) };
+        var source = new LayerInputNode { Position = { Value = (300, 0) } };
         var output = new LayerInputNode.LayerInputPort<Color>();
         output.SetupProperty("Color");
         output.Property!.SetValue(Colors.Red);
@@ -470,7 +470,7 @@ public class NestedNodePortTests
             await FinishTransition();
             Assert.That(FindPortView(view, brush.Color).DataContext, Is.SameAs(portVm));
 
-            node.Object.Brush.Value = new FallbackBrush { Json = CoreSerializer.SerializeToJsonObject(brush) };
+            node.Object.Value.Brush.Value = new FallbackBrush { Json = CoreSerializer.SerializeToJsonObject(brush) };
             await FinishTransition();
             Assert.That(nodeVm.NestedItems, Does.Contain(portVm));
             Assert.That(portVm.CanConnect.Value, Is.False);
@@ -479,7 +479,7 @@ public class NestedNodePortTests
             for (int i = 0; i < 2; i++)
             {
                 var replacement = new SolidColorBrush();
-                node.Object.Brush.Value = replacement;
+                node.Object.Value.Brush.Value = replacement;
                 brushVm.IsExpanded.Value = true;
                 await FinishTransition();
                 NodePortView row = FindPortView(view, replacement.Color);
@@ -503,10 +503,10 @@ public class NestedNodePortTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
-        var node = new TextNode { Position = (16, 8) };
-        node.Object.Size.Value = 232;
-        node.Object.Spacing.Value = 0;
-        node.Object.Text.Value = "Text";
+        var node = new TextNode { Position = { Value = (16, 8) } };
+        node.Object.Value.Size.Value = 232;
+        node.Object.Value.Spacing.Value = 0;
+        node.Object.Value.Text.Value = "Text";
         graph.Nodes.Add(node);
         using var vm = new NodeGraphViewModel(graph, editor);
         var view = new NodeGraphView { DataContext = vm, Width = 320 };
@@ -515,7 +515,7 @@ public class NestedNodePortTests
         var baselines = new Dictionary<string, (Border Frame, PropertyEditor Editor)>();
         foreach (string name in new[] { "FontFamily", "Size", "Spacing", "Text" })
         {
-            var context = nodeVm.Items.Single(item => item.Model!.Name == name).PropertyEditorContext!;
+            var context = nodeVm.Items.Single(item => item.Model!.Name.Value == name).PropertyEditorContext!;
             Assert.That(PropertyEditorHost.TryCreateControl(context, PropertyEditorSurface.Node, out Control? control), Is.True);
             var baselineEditor = (PropertyEditor)control!;
             baselineEditor.EditorStyle = PropertyEditorStyle.Compact;
@@ -548,7 +548,7 @@ public class NestedNodePortTests
             foreach (var (name, baseline) in baselines)
             {
                 NodePortView row = nodeView.GetVisualDescendants().OfType<NodePortView>()
-                    .Single(row => row.DataContext is NodeMemberViewModel member && member.Model!.Name == name);
+                    .Single(row => row.DataContext is NodeMemberViewModel member && member.Model!.Name.Value == name);
                 PropertyEditor actualEditor = row.GetVisualDescendants().OfType<PropertyEditor>().Single();
                 Assert.That(baseline.Editor.MinWidth, Is.EqualTo(200));
                 Assert.That(actualEditor.MinWidth, Is.EqualTo(baseline.Editor.MinWidth), name);
@@ -565,7 +565,7 @@ public class NestedNodePortTests
                 }
             }
             NodePortView fill = nodeView.GetVisualDescendants().OfType<NodePortView>()
-                .Single(row => row.DataContext is NodeMemberViewModel member && member.Model!.Name == "Fill");
+                .Single(row => row.DataContext is NodeMemberViewModel member && member.Model!.Name.Value == "Fill");
             Assert.That(fill.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "BrushPreviewButton").Bounds.Width,
                 Is.EqualTo(80), "Root brush previews stay 80px wide.");
         }
@@ -583,13 +583,13 @@ public class NestedNodePortTests
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("nested-ports");
         var graph = new GraphModel();
-        var node = new GeometryShapeNode { Position = (70, 140) };
+        var node = new GeometryShapeNode { Position = { Value = (70, 140) } };
         var pen = new Pen();
         var brush = new SolidColorBrush();
         pen.Brush.Value = brush;
         node.Pen.Property!.SetValue(pen);
         graph.Nodes.Add(node);
-        var source = new LayerInputNode { Position = (10, 0) };
+        var source = new LayerInputNode { Position = { Value = (10, 0) } };
         var output = new LayerInputNode.LayerInputPort<float>();
         output.SetupProperty("Thickness");
         output.Property!.SetValue(18f);
@@ -719,7 +719,7 @@ public class NestedNodePortTests
         var second = new TranslateTransform();
         group.Children.Add(first);
         group.Children.Add(second);
-        node.Items.Single(i => i.Name == "Transform").Property!.SetValue(group);
+        node.Items.Single(i => i.Name.Value == "Transform").Property!.SetValue(group);
         graph.Nodes.Add(node);
         using var vm = new NodeGraphViewModel(graph, editor);
         var view = new NodeGraphView { DataContext = vm };
@@ -763,7 +763,7 @@ public class NestedNodePortTests
         var graph = new GraphModel();
         var node = new FactoryNode<LinearGradientBrush>();
         var stop = new GradientStop(Colors.Red, 0.25f);
-        node.Object.GradientStops.Add(stop);
+        node.Object.Value.GradientStops.Add(stop);
         graph.Nodes.Add(node);
         using var vm = new NodeGraphViewModel(graph, editor);
         var view = new NodeGraphView { DataContext = vm };
@@ -789,7 +789,7 @@ public class NestedNodePortTests
             NodePortView colorRow = FindPortView(view, stop.Color);
             double colorHeaderX = colorRow.ProvidedEditor!.GetVisualDescendants().OfType<TextBlock>()
                 .Single(text => text.Name == "PART_HeaderTextBlock").TranslatePoint(default, colorRow)!.Value.X;
-            var source = new LayerInputNode { Position = (300, 0) };
+            var source = new LayerInputNode { Position = { Value = (300, 0) } };
             var output = new LayerInputNode.LayerInputPort<Color>();
             output.SetupProperty("Color");
             output.Property!.SetValue(Colors.Blue);

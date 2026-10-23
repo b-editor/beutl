@@ -55,7 +55,7 @@ public sealed class App : Application
         GlobalConfiguration config = GlobalConfiguration.Instance;
         ViewConfig view = config.ViewConfig;
 
-        GraphicsContextFactory.SelectGpuByName(config.GraphicsConfig.SelectedGpuName);
+        GraphicsContextFactory.SelectGpuByName(config.GraphicsConfig.SelectedGpuName.Value);
 
         AvaloniaXamlLoader.Load(this);
 #if DEBUG

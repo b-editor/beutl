@@ -32,7 +32,7 @@ public class CoreObjectOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator, "Parent");
-        obj.StringValue = "changed";
+        obj.StringValue.Value = "changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -51,8 +51,8 @@ public class CoreObjectOperationObserverTests
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, obj, _sequenceGenerator, "", propertyPathsToTrack);
 
-        obj.StringValue = "changed";
-        obj.IntValue = 100;
+        obj.StringValue.Value = "changed";
+        obj.IntValue.Value = 100;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -63,14 +63,14 @@ public class CoreObjectOperationObserverTests
     public void Constructor_WithCollection_ShouldInitializeCollectionPublisher()
     {
         var parentObj = new TestCollectionCoreObject();
-        var childItem = new TestCoreObject { StringValue = "item1" };
-        parentObj.Items.Add(childItem);
+        var childItem = new TestCoreObject { StringValue = { Value = "item1" } };
+        parentObj.Items.Value.Add(childItem);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
-        childItem.StringValue = "modified";
+        childItem.StringValue.Value = "modified";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
@@ -89,7 +89,7 @@ public class CoreObjectOperationObserverTests
         var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
         operationObserver.Dispose();
-        obj.StringValue = "changed";
+        obj.StringValue.Value = "changed";
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -112,8 +112,8 @@ public class CoreObjectOperationObserverTests
     public void Dispose_ShouldDisposeCollectionPublishers()
     {
         var parentObj = new TestCollectionCoreObject();
-        var childItem = new TestCoreObject { StringValue = "item1" };
-        parentObj.Items.Add(childItem);
+        var childItem = new TestCoreObject { StringValue = { Value = "item1" } };
+        parentObj.Items.Value.Add(childItem);
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -121,7 +121,7 @@ public class CoreObjectOperationObserverTests
         var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
 
         operationObserver.Dispose();
-        childItem.StringValue = "modified";
+        childItem.StringValue.Value = "modified";
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -139,7 +139,7 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        obj.StringValue = "new value";
+        obj.StringValue.Value = "new value";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -163,9 +163,9 @@ public class CoreObjectOperationObserverTests
 
         using (PublishingSuppression.Enter())
         {
-            obj.StringValue = "suppressed";
+            obj.StringValue.Value = "suppressed";
         }
-        obj.StringValue = "not suppressed";
+        obj.StringValue.Value = "not suppressed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -181,7 +181,7 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        obj.NotTrackedValue = "changed";
+        obj.NotTrackedValue.Value = "changed";
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -195,7 +195,7 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        obj.TrackedValue = "changed";
+        obj.TrackedValue.Value = "changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
@@ -210,14 +210,14 @@ public class CoreObjectOperationObserverTests
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
         receivedOperations.Clear();
 
-        var newChild = new TestCoreObject { StringValue = "new child" };
-        parentObj.Child = newChild;
+        var newChild = new TestCoreObject { StringValue = { Value = "new child" } };
+        parentObj.Child.Value = newChild;
 
         // First operation is for setting Child property
         receivedOperations.Clear();
 
         // Modify new child
-        newChild.StringValue = "modified";
+        newChild.StringValue.Value = "modified";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -227,18 +227,18 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void OnPropertyChanged_WithReplacedChildObject_ShouldDisposeOldPublisher()
     {
-        var oldChild = new TestCoreObject { StringValue = "old" };
-        var parentObj = new TestParentCoreObject { Child = oldChild };
+        var oldChild = new TestCoreObject { StringValue = { Value = "old" } };
+        var parentObj = new TestParentCoreObject { Child = { Value = oldChild } };
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
 
-        var newChild = new TestCoreObject { StringValue = "new" };
-        parentObj.Child = newChild;
+        var newChild = new TestCoreObject { StringValue = { Value = "new" } };
+        parentObj.Child.Value = newChild;
         receivedOperations.Clear();
 
-        oldChild.StringValue = "should not be tracked";
+        oldChild.StringValue.Value = "should not be tracked";
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -254,14 +254,14 @@ public class CoreObjectOperationObserverTests
         receivedOperations.Clear();
 
         var newList = new CoreList<TestCoreObject>();
-        var item = new TestCoreObject { StringValue = "new item" };
+        var item = new TestCoreObject { StringValue = { Value = "new item" } };
         newList.Add(item);
-        parentObj.Items = newList;
+        parentObj.Items.Value = newList;
 
         receivedOperations.Clear();
 
-        var anotherItem = new TestCoreObject { StringValue = "another" };
-        parentObj.Items.Add(anotherItem);
+        var anotherItem = new TestCoreObject { StringValue = { Value = "another" } };
+        parentObj.Items.Value.Add(anotherItem);
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
@@ -275,9 +275,9 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        obj.StringValue = "first";
-        obj.StringValue = "second";
-        obj.StringValue = "third";
+        obj.StringValue.Value = "first";
+        obj.StringValue.Value = "second";
+        obj.StringValue.Value = "third";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(3));
         var operations = receivedOperations.Cast<UpdatePropertyValueOperation<string>>().ToList();
@@ -300,9 +300,9 @@ public class CoreObjectOperationObserverTests
     {
         var keyFrame = new KeyFrame<float>
         {
-            Value = 1.0f,
-            KeyTime = MediaTime.FromSeconds(1),
-            Easing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f)
+            Value = { Value = 1.0f },
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Easing = { Value = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f) }
         };
 
         var receivedOperations = new List<ChangeOperation>();
@@ -310,7 +310,7 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, keyFrame, _sequenceGenerator);
 
-        var splineEasing = (SplineEasing)keyFrame.Easing;
+        var splineEasing = (SplineEasing)keyFrame.Easing.Value;
         splineEasing.X1 = 0.5f;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
@@ -321,9 +321,9 @@ public class CoreObjectOperationObserverTests
     {
         var keyFrame = new KeyFrame<float>
         {
-            Value = 1.0f,
-            KeyTime = MediaTime.FromSeconds(1),
-            Easing = new LinearEasing()
+            Value = { Value = 1.0f },
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Easing = { Value = new LinearEasing() }
         };
 
         var receivedOperations = new List<ChangeOperation>();
@@ -333,7 +333,7 @@ public class CoreObjectOperationObserverTests
         receivedOperations.Clear();
 
         var newSplineEasing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f);
-        keyFrame.Easing = newSplineEasing;
+        keyFrame.Easing.Value = newSplineEasing;
 
         receivedOperations.Clear();
 
@@ -348,9 +348,9 @@ public class CoreObjectOperationObserverTests
         var oldSplineEasing = new SplineEasing(0.25f, 0.1f, 0.25f, 1.0f);
         var keyFrame = new KeyFrame<float>
         {
-            Value = 1.0f,
-            KeyTime = MediaTime.FromSeconds(1),
-            Easing = oldSplineEasing
+            Value = { Value = 1.0f },
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Easing = { Value = oldSplineEasing }
         };
 
         var receivedOperations = new List<ChangeOperation>();
@@ -358,7 +358,7 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, keyFrame, _sequenceGenerator);
 
-        keyFrame.Easing = new LinearEasing();
+        keyFrame.Easing.Value = new LinearEasing();
         receivedOperations.Clear();
 
         oldSplineEasing.X1 = 0.5f;
@@ -373,15 +373,15 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void Constructor_WithDeepNestedObjects_ShouldTrackAllLevels()
     {
-        var innerChild = new TestCoreObject { StringValue = "inner" };
-        var middleChild = new TestParentCoreObject { Child = innerChild };
-        var parentObj = new TestGrandParentCoreObject { MiddleChild = middleChild };
+        var innerChild = new TestCoreObject { StringValue = { Value = "inner" } };
+        var middleChild = new TestParentCoreObject { Child = { Value = innerChild } };
+        var parentObj = new TestGrandParentCoreObject { MiddleChild = { Value = middleChild } };
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
-        innerChild.StringValue = "modified";
+        innerChild.StringValue.Value = "modified";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -391,9 +391,9 @@ public class CoreObjectOperationObserverTests
     [Test]
     public void Dispose_WithDeepNestedObjects_ShouldStopAllTracking()
     {
-        var innerChild = new TestCoreObject { StringValue = "inner" };
-        var middleChild = new TestParentCoreObject { Child = innerChild };
-        var parentObj = new TestGrandParentCoreObject { MiddleChild = middleChild };
+        var innerChild = new TestCoreObject { StringValue = { Value = "inner" } };
+        var middleChild = new TestParentCoreObject { Child = { Value = innerChild } };
+        var parentObj = new TestGrandParentCoreObject { MiddleChild = { Value = middleChild } };
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -401,7 +401,7 @@ public class CoreObjectOperationObserverTests
         var operationObserver = new CoreObjectOperationObserver(testObserver, parentObj, _sequenceGenerator);
 
         operationObserver.Dispose();
-        innerChild.StringValue = "should not track";
+        innerChild.StringValue.Value = "should not track";
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -414,7 +414,7 @@ public class CoreObjectOperationObserverTests
     public void Constructor_WithNestedPropertyPathsToTrack_ShouldOnlyTrackSpecified()
     {
         var child = new TestCoreObject();
-        var parent = new TestParentCoreObject { Child = child };
+        var parent = new TestParentCoreObject { Child = { Value = child } };
 
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -424,8 +424,8 @@ public class CoreObjectOperationObserverTests
         using var operationObserver = new CoreObjectOperationObserver(
             testObserver, parent, _sequenceGenerator, "", propertyPathsToTrack);
 
-        child.StringValue = "tracked";
-        child.IntValue = 100;
+        child.StringValue.Value = "tracked";
+        child.IntValue.Value = 100;
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -466,7 +466,7 @@ public class CoreObjectOperationObserverTests
 
         using var operationObserver = new CoreObjectOperationObserver(testObserver, obj, _sequenceGenerator);
 
-        obj.Title = "changed";
+        obj.Title.Value = "changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -690,21 +690,9 @@ public class CoreObjectOperationObserverTests
             ScanProperties<TestCoreObject>();
         }
 
-        public IProperty<string?> StringValueProperty { get; } = new ValueOnlyProperty<string?>(null);
+        public IProperty<string?> StringValue { get; } = new ValueOnlyProperty<string?>(null);
 
-        public IProperty<int> IntValueProperty { get; } = new ValueOnlyProperty<int>(default);
-
-        public string? StringValue
-        {
-            get => StringValueProperty.Value;
-            set => StringValueProperty.Value = value;
-        }
-
-        public int IntValue
-        {
-            get => IntValueProperty.Value;
-            set => IntValueProperty.Value = value;
-        }
+        public IProperty<int> IntValue { get; } = new ValueOnlyProperty<int>(default);
     }
 
     private class TestParentCoreObject : CoreObject
@@ -714,13 +702,7 @@ public class CoreObjectOperationObserverTests
             ScanProperties<TestParentCoreObject>();
         }
 
-        public IProperty<TestCoreObject?> ChildProperty { get; } = new ValueOnlyProperty<TestCoreObject?>(null);
-
-        public TestCoreObject? Child
-        {
-            get => ChildProperty.Value;
-            set => ChildProperty.Value = value;
-        }
+        public IProperty<TestCoreObject?> Child { get; } = new ValueOnlyProperty<TestCoreObject?>(null);
     }
 
     private class TestCollectionCoreObject : CoreObject
@@ -730,13 +712,7 @@ public class CoreObjectOperationObserverTests
             ScanProperties<TestCollectionCoreObject>();
         }
 
-        public IProperty<CoreList<TestCoreObject>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<TestCoreObject>>([]);
-
-        public CoreList<TestCoreObject> Items
-        {
-            get => ItemsProperty.Value;
-            set => ItemsProperty.Value = value;
-        }
+        public IProperty<CoreList<TestCoreObject>> Items { get; } = new ValueOnlyProperty<CoreList<TestCoreObject>>([]);
     }
 
     private class TestCoreObjectWithNotTrackedProperty : CoreObject
@@ -747,21 +723,9 @@ public class CoreObjectOperationObserverTests
         }
 
         [NotTracked]
-        public IProperty<string?> NotTrackedValueProperty { get; } = new ValueOnlyProperty<string?>(null);
+        public IProperty<string?> NotTrackedValue { get; } = new ValueOnlyProperty<string?>(null);
 
-        public IProperty<string?> TrackedValueProperty { get; } = new ValueOnlyProperty<string?>(null);
-
-        public string? NotTrackedValue
-        {
-            get => NotTrackedValueProperty.Value;
-            set => NotTrackedValueProperty.Value = value;
-        }
-
-        public string? TrackedValue
-        {
-            get => TrackedValueProperty.Value;
-            set => TrackedValueProperty.Value = value;
-        }
+        public IProperty<string?> TrackedValue { get; } = new ValueOnlyProperty<string?>(null);
     }
 
     private class TestGrandParentCoreObject : CoreObject
@@ -771,13 +735,7 @@ public class CoreObjectOperationObserverTests
             ScanProperties<TestGrandParentCoreObject>();
         }
 
-        public IProperty<TestParentCoreObject?> MiddleChildProperty { get; } = new ValueOnlyProperty<TestParentCoreObject?>(null);
-
-        public TestParentCoreObject? MiddleChild
-        {
-            get => MiddleChildProperty.Value;
-            set => MiddleChildProperty.Value = value;
-        }
+        public IProperty<TestParentCoreObject?> MiddleChild { get; } = new ValueOnlyProperty<TestParentCoreObject?>(null);
     }
 
     private class TestHierarchicalObject : Hierarchical
@@ -787,13 +745,7 @@ public class CoreObjectOperationObserverTests
             ScanProperties<TestHierarchicalObject>();
         }
 
-        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
-
-        public string? Title
-        {
-            get => TitleProperty.Value;
-            set => TitleProperty.Value = value;
-        }
+        public IProperty<string?> Title { get; } = new ValueOnlyProperty<string?>(null);
 
         public void AddTestChild(TestHierarchicalObject child)
         {

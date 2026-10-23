@@ -14,12 +14,12 @@ public class VersionControlConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.EnableForNewProjects, Is.True);
-            Assert.That(config.AutoCommitOnSave, Is.True);
-            Assert.That(config.AutoCommitOnClose, Is.True);
-            Assert.That(config.GitExecutablePath, Is.Null);
-            Assert.That(config.UseLfsWhenAvailable, Is.True);
-            Assert.That(config.LargeMediaWarningThresholdMb, Is.EqualTo(50));
+            Assert.That(config.EnableForNewProjects.Value, Is.True);
+            Assert.That(config.AutoCommitOnSave.Value, Is.True);
+            Assert.That(config.AutoCommitOnClose.Value, Is.True);
+            Assert.That(config.GitExecutablePath.Value, Is.Null);
+            Assert.That(config.UseLfsWhenAvailable.Value, Is.True);
+            Assert.That(config.LargeMediaWarningThresholdMb.Value, Is.EqualTo(50));
         });
     }
 
@@ -28,12 +28,12 @@ public class VersionControlConfigTests
     {
         var source = new VersionControlConfig
         {
-            EnableForNewProjects = false,
-            AutoCommitOnSave = false,
-            AutoCommitOnClose = false,
-            GitExecutablePath = "/opt/git/bin/git",
-            UseLfsWhenAvailable = false,
-            LargeMediaWarningThresholdMb = 125,
+            EnableForNewProjects = { Value = false },
+            AutoCommitOnSave = { Value = false },
+            AutoCommitOnClose = { Value = false },
+            GitExecutablePath = { Value = "/opt/git/bin/git" },
+            UseLfsWhenAvailable = { Value = false },
+            LargeMediaWarningThresholdMb = { Value = 125 },
         };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
@@ -42,12 +42,12 @@ public class VersionControlConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.EnableForNewProjects, Is.False);
-            Assert.That(restored.AutoCommitOnSave, Is.False);
-            Assert.That(restored.AutoCommitOnClose, Is.False);
-            Assert.That(restored.GitExecutablePath, Is.EqualTo("/opt/git/bin/git"));
-            Assert.That(restored.UseLfsWhenAvailable, Is.False);
-            Assert.That(restored.LargeMediaWarningThresholdMb, Is.EqualTo(125));
+            Assert.That(restored.EnableForNewProjects.Value, Is.False);
+            Assert.That(restored.AutoCommitOnSave.Value, Is.False);
+            Assert.That(restored.AutoCommitOnClose.Value, Is.False);
+            Assert.That(restored.GitExecutablePath.Value, Is.EqualTo("/opt/git/bin/git"));
+            Assert.That(restored.UseLfsWhenAvailable.Value, Is.False);
+            Assert.That(restored.LargeMediaWarningThresholdMb.Value, Is.EqualTo(125));
         });
     }
 
@@ -58,7 +58,7 @@ public class VersionControlConfigTests
         int raised = 0;
         config.ConfigurationChanged += (_, _) => raised++;
 
-        config.AutoCommitOnSave = false;
+        config.AutoCommitOnSave.Value = false;
 
         Assert.That(raised, Is.EqualTo(1));
     }

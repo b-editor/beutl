@@ -162,7 +162,7 @@ public sealed class EditorProjectSessionGateway(
             throw new ReconcileException(new ToolError(
                 ErrorCode.NoActiveEditorSession,
                 "The Beutl editor could not obtain an editor context for the project's scene.",
-                scene.Id.ToString()));
+                scene.Id.Value.ToString()));
         }
 
         return LiveEditingSession.Create(new EditViewModelLiveBinding(editViewModel, follower));
@@ -183,11 +183,11 @@ public sealed class EditorProjectSessionGateway(
         var sceneIds = new HashSet<Guid>();
         foreach (Scene scene in scenes)
         {
-            if (!sceneIds.Add(scene.Id))
+            if (!sceneIds.Add(scene.Id.Value))
             {
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"Multiple available scenes share sceneId '{scene.Id}'; live MCP cannot select a unique target.",
+                    $"Multiple available scenes share sceneId '{scene.Id.Value}'; live MCP cannot select a unique target.",
                     "sceneId",
                     "Ensure all available scenes have unique persisted IDs, then call list_scenes again."));
             }
@@ -199,7 +199,7 @@ public sealed class EditorProjectSessionGateway(
     public LiveEditingSession ResolveScene(Guid sceneId)
         => Dispatcher.UIThread.Invoke(() =>
         {
-            Scene scene = GetScenes().FirstOrDefault(scene => scene.Id == sceneId)
+            Scene scene = GetScenes().FirstOrDefault(scene => scene.Id.Value == sceneId)
                 ?? throw new ReconcileException(new ToolError(
                     ErrorCode.StaleHandle,
                     $"Scene '{sceneId}' is not available in this Beutl instance.",

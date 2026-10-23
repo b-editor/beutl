@@ -1,5 +1,4 @@
 ﻿using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Globalization;
 using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
@@ -36,8 +35,8 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
         _settings = (FFmpegVideoEncoderSettings)property.Object;
         Extension = extension;
         _subscriptions.Add(property.GetObservable().Subscribe(ObserveList));
-        _subscriptions.Add(_settings.CodecProperty.GetObservable().Subscribe(_ => RequestUpdate()));
-        _subscriptions.Add(_settings.FormatProperty.GetObservable().Subscribe(_ => RequestUpdate()));
+        _subscriptions.Add(_settings.Codec.GetObservable().Subscribe(_ => RequestUpdate()));
+        _subscriptions.Add(_settings.Format.GetObservable().Subscribe(_ => RequestUpdate()));
     }
 
     public PropertyEditorExtension Extension { get; }
@@ -52,23 +51,23 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
         => $"{CodecOptionQuery.BuildCacheKey(query)}\0{pixelFormat.ToString(CultureInfo.InvariantCulture)}";
 
     public IEnumerable<EncoderOptionInfo> ActiveDescriptors
-        => Descriptors.Where(d => Options.Any(o => o.Name == d.Name));
+        => Descriptors.Where(d => Options.Any(o => o.Name.Value == d.Name));
 
-    public string? GetValue(string name) => Options.FirstOrDefault(o => o.Name == name)?.Value;
+    public string? GetValue(string name) => Options.FirstOrDefault(o => o.Name.Value == name)?.Value.Value;
 
     public void SetValue(string name, string? value)
     {
         if (_disposed || IsReadOnly) return;
         Mutate(() =>
         {
-            AdditionalOption[] matches = Options.Where(o => o.Name == name).ToArray();
+            AdditionalOption[] matches = Options.Where(o => o.Name.Value == name).ToArray();
             if (value == null)
             {
                 foreach (AdditionalOption option in matches) _list?.Remove(option);
             }
             else if (matches.Length > 0)
             {
-                matches[0].Value = value;
+                matches[0].Value.Value = value;
                 foreach (AdditionalOption duplicate in matches.Skip(1)) _list?.Remove(duplicate);
             }
             else
@@ -81,7 +80,7 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
     public bool AddOption(string? name)
     {
         name = name?.Trim();
-        if (_disposed || IsReadOnly || string.IsNullOrEmpty(name) || Options.Any(o => o.Name == name)) return false;
+        if (_disposed || IsReadOnly || string.IsNullOrEmpty(name) || Options.Any(o => o.Name.Value == name)) return false;
         string? defaultValue = Descriptors.FirstOrDefault(o => o.Name == name)?.DefaultValue;
         SetValue(name, defaultValue ?? "");
         return true;
@@ -96,13 +95,13 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
     {
         if (_disposed || IsReadOnly) return;
         name = name.Trim();
-        if (Options.Any(o => o != option && o.Name == name)) return;
-        option.Name = name;
+        if (Options.Any(o => o != option && o.Name.Value == name)) return;
+        option.Name.Value = name;
     }
 
     public void SetValue(AdditionalOption option, string value)
     {
-        if (!_disposed && !IsReadOnly) option.Value = value;
+        if (!_disposed && !IsReadOnly) option.Value.Value = value;
     }
 
     public string? GetWarning(EncoderOptionInfo descriptor, string? value)
@@ -153,7 +152,7 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
     private void ObserveList(CoreList<AdditionalOption>? list)
     {
         if (_list != null) _list.CollectionChanged -= OnCollectionChanged;
-        foreach (AdditionalOption option in _observedOptions) option.PropertyChanged -= OnOptionChanged;
+        foreach (AdditionalOption option in _observedOptions) Forget(option);
         _observedOptions.Clear();
         _list = list;
         if (_list != null) _list.CollectionChanged += OnCollectionChanged;
@@ -165,11 +164,11 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
     {
         foreach (AdditionalOption option in _observedOptions.Where(o => !Options.Contains(o)).ToArray())
         {
-            option.PropertyChanged -= OnOptionChanged;
+            Forget(option);
             _observedOptions.Remove(option);
         }
         foreach (AdditionalOption option in Options)
-            if (_observedOptions.Add(option)) option.PropertyChanged += OnOptionChanged;
+            if (_observedOptions.Add(option)) Observe(option);
     }
 
     private void OnCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -178,7 +177,19 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
         if (!_mutating) ValuesChanged?.Invoke();
     }
 
-    private void OnOptionChanged(object? sender, PropertyChangedEventArgs e)
+    private void Observe(AdditionalOption option)
+    {
+        option.Name.ValueChanged += OnOptionChanged;
+        option.Value.ValueChanged += OnOptionChanged;
+    }
+
+    private void Forget(AdditionalOption option)
+    {
+        option.Name.ValueChanged -= OnOptionChanged;
+        option.Value.ValueChanged -= OnOptionChanged;
+    }
+
+    private void OnOptionChanged(object? sender, PropertyValueChangedEventArgs<string> e)
     {
         if (!_mutating) ValuesChanged?.Invoke();
     }
@@ -186,8 +197,8 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
     private void RequestUpdate()
     {
         if (_disposed) return;
-        CodecQueryParams query = CodecOptionQuery.Create(_settings.Codec, _settings.OutputFile);
-        int pixelFormat = _settings.Format;
+        CodecQueryParams query = CodecOptionQuery.Create(_settings.Codec.Value, _settings.OutputFile);
+        int pixelFormat = _settings.Format.Value;
         string key = BuildCacheKey(query, pixelFormat);
         if (FFmpegOptionsCaches.EncoderOptions.TryGetCached(key, out EncoderOptionInfo[]? cached))
         {
@@ -253,7 +264,7 @@ internal sealed class EncoderOptionsEditorViewModel : IPropertyEditorContext
         _refresh.Dispose();
         _subscriptions.Dispose();
         if (_list != null) _list.CollectionChanged -= OnCollectionChanged;
-        foreach (AdditionalOption option in _observedOptions) option.PropertyChanged -= OnOptionChanged;
+        foreach (AdditionalOption option in _observedOptions) Forget(option);
         _observedOptions.Clear();
         SchemaChanged = null;
         ValuesChanged = null;

@@ -425,7 +425,7 @@ public sealed class EqualizerCurveEditor : Control
             for (int i = 0; i < _bandViewModels.Count; i++)
             {
                 var vm = _bandViewModels[i];
-                if (!vm.Band.IsEnabled) continue;
+                if (!vm.Band.IsEnabled.Value) continue;
 
                 Point center = GetHandleCenter(vm);
                 bool isSelected = i == SelectedBandIndex;
@@ -445,7 +445,7 @@ public sealed class EqualizerCurveEditor : Control
         for (int i = 0; i < _bandViewModels.Count; i++)
         {
             var vm = _bandViewModels[i];
-            if (!vm.Band.IsEnabled) continue;
+            if (!vm.Band.IsEnabled.Value) continue;
 
             Point center = GetHandleCenter(vm);
             double dx = point.X - center.X;
@@ -502,7 +502,7 @@ public sealed class EqualizerCurveEditor : Control
         {
             if (i == excludeIndex) continue;
             var vm = _bandViewModels[i];
-            if (!vm.Band.IsEnabled) continue;
+            if (!vm.Band.IsEnabled.Value) continue;
             total += CalculateBandResponseDb(frequency, vm);
         }
         return (float)total;

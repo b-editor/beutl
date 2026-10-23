@@ -42,7 +42,7 @@ public static partial class ProxySourceEnumerator
         {
             foreach (IInputPort port in node.EnumerateMembers().OfType<IInputPort>())
             {
-                if (port.Connection.Value != null && node.CanConnectInput(port)
+                if (port.Connection.Value.Value != null && node.CanConnectInput(port)
                     && port.Property?.GetEngineProperty() is { } property)
                     connectedInputs.Add(property);
             }
@@ -61,9 +61,9 @@ public static partial class ProxySourceEnumerator
                     yield return source;
 
                 // Reuse the complete input set without rescanning each descendant subtree.
-                if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group))
+                if (node is GroupNode groupNode && visitedGraphGroups.Add(groupNode.Group.Value))
                 {
-                    foreach (IFileSource source in WalkGraph(groupNode.Group)) yield return source;
+                    foreach (IFileSource source in WalkGraph(groupNode.Group.Value)) yield return source;
                 }
             }
         }
@@ -87,13 +87,13 @@ public static partial class ProxySourceEnumerator
                 continue;
 
             if (member is LayerInputNode.ILayerInputPort output
-                && !output.Connections.Any(reference => reference.Value?.Input.Value is IInputPort consumer
+                && !output.Connections.Any(reference => reference.Value?.Input.Value.Value is IInputPort consumer
                     && consumer.FindHierarchicalParent<GraphNode>()?.CanConnectInput(consumer) == true))
                 continue;
 
             // Accepted connections supply the input from upstream. Rejected retained connections
             // use local values again, just as GraphSnapshot does.
-            if (member is IInputPort inputPort && inputPort.Connection.Value is not null && node.CanConnectInput(inputPort)
+            if (member is IInputPort inputPort && inputPort.Connection.Value.Value is not null && node.CanConnectInput(inputPort)
                 || property.GetEngineProperty() is { } engineProperty
                 && walkContext.ConnectedNodeInputs?.Contains(engineProperty) == true)
                 continue;
@@ -153,7 +153,7 @@ public static partial class ProxySourceEnumerator
 
         // FilterEffectRenderNode returns its input unchanged for a disabled effect, so a source inside
         // a disabled filter (or filter group) never renders; export preflight must not demand its file.
-        if (skipDisabledElements && !effect.IsEnabled)
+        if (skipDisabledElements && !effect.IsEnabled.Value)
             yield break;
 
         switch (effect)
@@ -161,7 +161,7 @@ public static partial class ProxySourceEnumerator
             case FilterEffectGroup group:
                 foreach (FilterEffect child in group.Children)
                 {
-                    if (skipDisabledElements && !child.IsEnabled)
+                    if (skipDisabledElements && !child.IsEnabled.Value)
                         continue;
 
                     // A child effect can carry an ordinary file-source property (LutEffect.Source) the

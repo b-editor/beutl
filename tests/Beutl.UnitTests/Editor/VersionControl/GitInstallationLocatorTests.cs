@@ -25,7 +25,7 @@ public class GitInstallationLocatorTests
                 await release.Task.WaitAsync(token);
             }
         };
-        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = path }, probe, GitHostPlatform.Linux);
+        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = { Value = path } }, probe, GitHostPlatform.Linux);
         using var firstCancellation = new CancellationTokenSource();
         using var secondCancellation = new CancellationTokenSource();
         Task<GitAvailability>[] calls = [locator.LocateAsync(firstCancellation.Token), locator.LocateAsync(secondCancellation.Token)];
@@ -60,7 +60,7 @@ public class GitInstallationLocatorTests
                 await release.Task.WaitAsync(token);
             }
         };
-        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = path }, probe, GitHostPlatform.Linux);
+        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = { Value = path } }, probe, GitHostPlatform.Linux);
         using var cancellation = new CancellationTokenSource();
         Task<GitAvailability> abandoned = locator.LocateAsync(cancellation.Token);
         cancellation.Cancel();
@@ -85,10 +85,10 @@ public class GitInstallationLocatorTests
         {
             if (path == firstPath) await release.Task.WaitAsync(token);
         };
-        var config = new VersionControlConfig { GitExecutablePath = firstPath };
+        var config = new VersionControlConfig { GitExecutablePath = { Value = firstPath } };
         var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
         Task<GitAvailability> first = locator.LocateAsync();
-        config.GitExecutablePath = secondPath;
+        config.GitExecutablePath.Value = secondPath;
         Assert.That((await locator.LocateAsync().WaitAsync(TimeSpan.FromSeconds(2))).GitPath, Is.EqualTo(secondPath));
         Assert.That(first.IsCompleted, Is.False);
         release.SetResult();
@@ -104,7 +104,7 @@ public class GitInstallationLocatorTests
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var probe = CreateInstalledProbe(path);
         probe.BeforeRun = (_, _, token) => release.Task.WaitAsync(token);
-        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = path }, probe, GitHostPlatform.Linux);
+        var locator = new GitInstallationLocator(new VersionControlConfig { GitExecutablePath = { Value = path } }, probe, GitHostPlatform.Linux);
         Task<GitAvailability> first = locator.LocateAsync();
         Task<GitAvailability> second = locator.LocateAsync();
         release.SetException(new IOException("probe failed"));
@@ -131,7 +131,7 @@ public class GitInstallationLocatorTests
     public async Task Mac_system_git_uses_the_selected_implementation_only_for_automatic_discovery(bool explicitOverride)
     {
         string selected = Path.GetFullPath(Path.Combine("Xcode.app", "Contents", "Developer", "usr", "bin", "git"));
-        var config = new VersionControlConfig { GitExecutablePath = explicitOverride ? "/usr/bin/git" : null };
+        var config = new VersionControlConfig { GitExecutablePath = { Value = explicitOverride ? "/usr/bin/git" : null } };
         var probe = new FakeProbe
         {
             Paths = ["/usr/bin/git"],
@@ -165,7 +165,7 @@ public class GitInstallationLocatorTests
     {
         string firstPath = Path.GetFullPath(Path.Combine("custom", "git"));
         string secondPath = Path.GetFullPath(Path.Combine("other", "git"));
-        var config = new VersionControlConfig { GitExecutablePath = firstPath };
+        var config = new VersionControlConfig { GitExecutablePath = { Value = firstPath } };
         var probe = new FakeProbe();
         foreach (string path in new[] { firstPath, secondPath })
         {
@@ -181,7 +181,7 @@ public class GitInstallationLocatorTests
         clock.Advance(GitInstallationLocator.DiscoveryCacheLifetime);
         await locator.LocateAsync();
         Assert.That(probe.RunCalls, Has.Count.EqualTo(4));
-        config.GitExecutablePath = secondPath;
+        config.GitExecutablePath.Value = secondPath;
         Assert.That((await locator.LocateAsync()).GitPath, Is.EqualTo(secondPath));
         Assert.That(probe.RunCalls, Has.Count.EqualTo(6));
         probe.Environment["PATH"] = "different search path";
@@ -193,7 +193,7 @@ public class GitInstallationLocatorTests
     public async Task Missing_git_and_failed_lfs_probes_are_not_cached()
     {
         string path = Path.GetFullPath(Path.Combine("custom", "git"));
-        var config = new VersionControlConfig { GitExecutablePath = path };
+        var config = new VersionControlConfig { GitExecutablePath = { Value = path } };
         var probe = new FakeProbe();
         var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
         Assert.That((await locator.LocateAsync()).State, Is.EqualTo(GitAvailabilityState.NotInstalled));
@@ -209,7 +209,7 @@ public class GitInstallationLocatorTests
     public async Task Override_path_is_authoritative_and_lfs_is_probed()
     {
         string overridePath = Path.GetFullPath(Path.Combine("custom", "git"));
-        var config = new VersionControlConfig { GitExecutablePath = overridePath };
+        var config = new VersionControlConfig { GitExecutablePath = { Value = overridePath } };
         var probe = new FakeProbe();
         probe.Results[(overridePath, "--version")] = new GitProbeResult(0, "git version 2.43.1\n", "");
         probe.Results[(overridePath, "lfs version")] = new GitProbeResult(0, "git-lfs/3.5.1", "");
@@ -317,7 +317,7 @@ public class GitInstallationLocatorTests
     public async Task Timed_out_override_probe_is_reported_as_not_installed()
     {
         string overridePath = Path.GetFullPath(Path.Combine("hanging", "git"));
-        var config = new VersionControlConfig { GitExecutablePath = overridePath };
+        var config = new VersionControlConfig { GitExecutablePath = { Value = overridePath } };
         var probe = new FakeProbe();
         probe.Results[(overridePath, "--version")] = new GitProbeResult(-1, "", "");
         var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);

@@ -14,38 +14,38 @@ public sealed class TelemetrySettingsPageViewModel : BasePageViewModel
     {
         _config = GlobalConfiguration.Instance.TelemetryConfig;
 
-        Beutl_Application = _config.Beutl_ApplicationProperty.GetObservable()
+        Beutl_Application = _config.Beutl_Application.GetObservable()
             .Select(v => v == true)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Beutl_PackageManagement = _config.Beutl_PackageManagementProperty.GetObservable()
+        Beutl_PackageManagement = _config.Beutl_PackageManagement.GetObservable()
             .Select(v => v == true)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Beutl_Api_Client = _config.Beutl_Api_ClientProperty.GetObservable()
+        Beutl_Api_Client = _config.Beutl_Api_Client.GetObservable()
             .Select(v => v == true)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Beutl_Logging = _config.Beutl_LoggingProperty.GetObservable()
+        Beutl_Logging = _config.Beutl_Logging.GetObservable()
             .Select(v => v == true)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Beutl_Application.Subscribe(b => _config.Beutl_Application = b);
-        Beutl_PackageManagement.Subscribe(b => _config.Beutl_PackageManagement = b);
-        Beutl_Api_Client.Subscribe(b => _config.Beutl_Api_Client = b);
+        Beutl_Application.Subscribe(b => _config.Beutl_Application.Value = b);
+        Beutl_PackageManagement.Subscribe(b => _config.Beutl_PackageManagement.Value = b);
+        Beutl_Api_Client.Subscribe(b => _config.Beutl_Api_Client.Value = b);
         Beutl_Logging.Subscribe(b =>
         {
-            _config.Beutl_Logging = b;
+            _config.Beutl_Logging.Value = b;
 
             if (b)
             {
-                _config.Beutl_Application = true;
-                _config.Beutl_PackageManagement = true;
-                _config.Beutl_Api_Client = true;
+                _config.Beutl_Application.Value = true;
+                _config.Beutl_PackageManagement.Value = true;
+                _config.Beutl_Api_Client.Value = true;
             }
         });
     }

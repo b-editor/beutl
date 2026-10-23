@@ -24,9 +24,9 @@ public class ViewSettingsPagePaletteTests
         // ViewSettingsPageViewModel reads the ViewConfig singleton, so reset it here (not in
         // SetUp/TearDown, which run off the UI thread) and hand it back unchanged.
         ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
-        bool useCustomAccent = config.UseCustomAccentColor;
-        string? customAccentColor = config.CustomAccentColor;
-        config.UseCustomAccentColor = true;
+        bool useCustomAccent = config.UseCustomAccentColor.Value;
+        string? customAccentColor = config.CustomAccentColor.Value;
+        config.UseCustomAccentColor.Value = true;
 
         try
         {
@@ -34,8 +34,8 @@ public class ViewSettingsPagePaletteTests
         }
         finally
         {
-            config.UseCustomAccentColor = useCustomAccent;
-            config.CustomAccentColor = customAccentColor;
+            config.UseCustomAccentColor.Value = useCustomAccent;
+            config.CustomAccentColor.Value = customAccentColor;
         }
     }
 

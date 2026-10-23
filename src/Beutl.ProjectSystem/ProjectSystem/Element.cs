@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Collections.Specialized;
-using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
 using Beutl.Composition;
@@ -18,107 +17,67 @@ namespace Beutl.ProjectSystem;
 [DroppedMembers("Operation", "UseNode", "NodeTree")]
 public class Element : Hierarchical, INotifyEdited
 {
-    private readonly HierarchicalList<EngineObject> _objects;
-
     public Element()
     {
-        _objects = new HierarchicalList<EngineObject>(this);
-        // The list is a value rather than a default, as its CoreProperty form had no default.
-        ObjectsProperty.Value = _objects;
         ScanProperties<Element>();
-        StartProperty.ValueChanged += (_, e) => OnRangeChanged(nameof(Start), new TimeRange(e.OldValue, Length));
-        LengthProperty.ValueChanged += (_, e) => OnRangeChanged(nameof(Length), new TimeRange(Start, e.OldValue));
-        ZIndexProperty.ValueChanged += (_, _) =>
+        Start.ValueChanged += (_, e) => OnRangeChanged(new TimeRange(e.OldValue, Length.Value));
+        Length.ValueChanged += (_, e) => OnRangeChanged(new TimeRange(Start.Value, e.OldValue));
+        ZIndex.ValueChanged += (_, _) =>
         {
-            OnPropertyChanged(new PropertyChangedEventArgs(nameof(ZIndex)));
-            foreach (EngineObject obj in _objects)
+            foreach (EngineObject obj in Objects)
             {
-                obj.ZIndex = ZIndex;
+                obj.ZIndex.Value = ZIndex.Value;
             }
 
             Edited?.Invoke(this, EventArgs.Empty);
         };
-        AccentColorProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(AccentColor)));
-        IsEnabledProperty.ValueChanged += (_, _) =>
-        {
-            OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsEnabled)));
-            Edited?.Invoke(this, EventArgs.Empty);
-        };
-        IsLockedProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsLocked)));
-        EnterTransitionProperty.ValueChanged += (_, e) => OnTransitionChanged(nameof(EnterTransition), e);
-        ExitTransitionProperty.ValueChanged += (_, e) => OnTransitionChanged(nameof(ExitTransition), e);
-        _objects.Attached += OnObjectAttached;
-        _objects.Detached += OnObjectDetached;
-        _objects.CollectionChanged += OnObjectsCollectionChanged;
+        IsEnabled.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        EnterTransition.ValueChanged += (_, e) => OnTransitionChanged(e);
+        ExitTransition.ValueChanged += (_, e) => OnTransitionChanged(e);
+        Objects.Attached += OnObjectAttached;
+        Objects.Detached += OnObjectDetached;
+        Objects.CollectionChanged += OnObjectsCollectionChanged;
     }
 
     public event EventHandler? Edited;
 
     [Display(Name = nameof(Strings.StartTime), ResourceType = typeof(Strings))]
-    public IProperty<MediaTime> StartProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero);
+    public IProperty<MediaTime> Start { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero);
 
     [Display(Name = nameof(Strings.DurationTime), ResourceType = typeof(Strings))]
-    public IProperty<MediaTime> LengthProperty { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero);
+    public IProperty<MediaTime> Length { get; } = new ValueOnlyProperty<MediaTime>(MediaTime.Zero);
 
-    public IProperty<int> ZIndexProperty { get; } = new ValueOnlyProperty<int>(0);
+    public IProperty<int> ZIndex { get; } = new ValueOnlyProperty<int>(0);
 
-    public IProperty<Color> AccentColorProperty { get; } = new ValueOnlyProperty<Color>(Colors.Teal);
+    public IProperty<Color> AccentColor { get; } = new ValueOnlyProperty<Color>(Colors.Teal);
 
-    public IProperty<bool> IsEnabledProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> IsEnabled { get; } = new ValueOnlyProperty<bool>(true);
 
     // Editor-only; does not affect composition. Timeline and property editors refuse
     // edits when this is true or its TimelineLayer.IsLocked is.
-    public IProperty<bool> IsLockedProperty { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> IsLocked { get; } = new ValueOnlyProperty<bool>(false);
 
     // Serialize and Deserialize write and read the objects and transitions themselves.
     [NotAutoSerialized]
-    public IProperty<ICoreList<EngineObject>> ObjectsProperty { get; } = new ValueOnlyProperty<ICoreList<EngineObject>>(null!) { KeepsList = true };
+    public IListProperty<EngineObject> Objects { get; } = new ListProperty<EngineObject> { AffectsRender = false };
 
+    /// <summary>
+    /// Gets or sets this element's side of the transition at its start: how it blends in from the adjacent
+    /// element before it on the same layer, or from nothing when there is none.
+    /// </summary>
     [NotAutoSerialized]
     [Display(Name = nameof(Strings.EnterTransition), ResourceType = typeof(Strings))]
-    public IProperty<ClipTransition?> EnterTransitionProperty { get; } = new ValueOnlyProperty<ClipTransition?>(null);
+    public IProperty<ClipTransition?> EnterTransition { get; } = new ValueOnlyProperty<ClipTransition?>(null);
 
+    /// <summary>
+    /// Gets or sets this element's side of the transition at its end: how it blends out into the adjacent
+    /// element after it on the same layer, or into nothing when there is none.
+    /// </summary>
     [NotAutoSerialized]
     [Display(Name = nameof(Strings.ExitTransition), ResourceType = typeof(Strings))]
-    public IProperty<ClipTransition?> ExitTransitionProperty { get; } = new ValueOnlyProperty<ClipTransition?>(null);
+    public IProperty<ClipTransition?> ExitTransition { get; } = new ValueOnlyProperty<ClipTransition?>(null);
 
-    public MediaTime Start
-    {
-        get => StartProperty.Value;
-        set => StartProperty.Value = value;
-    }
-
-    public MediaTime Length
-    {
-        get => LengthProperty.Value;
-        set => LengthProperty.Value = value;
-    }
-
-    public TimeRange Range => new(Start, Length);
-
-    public int ZIndex
-    {
-        get => ZIndexProperty.Value;
-        set => ZIndexProperty.Value = value;
-    }
-
-    public Color AccentColor
-    {
-        get => AccentColorProperty.Value;
-        set => AccentColorProperty.Value = value;
-    }
-
-    public bool IsEnabled
-    {
-        get => IsEnabledProperty.Value;
-        set => IsEnabledProperty.Value = value;
-    }
-
-    public bool IsLocked
-    {
-        get => IsLockedProperty.Value;
-        set => IsLockedProperty.Value = value;
-    }
+    public TimeRange Range => new(Start.Value, Length.Value);
 
     // True while recovery keeps this element's original file because saving would lose part of
     // what it was read with, for example a keyframe easing from a plugin that is not installed (an
@@ -135,28 +94,6 @@ public class Element : Hierarchical, INotifyEdited
     {
         base.OnStorageSuppressionChanged();
         RecoveryProtectionChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    public ICoreList<EngineObject> Objects => _objects;
-
-    /// <summary>
-    /// Gets or sets this element's side of the transition at its start: how it blends in from the adjacent
-    /// element before it on the same layer, or from nothing when there is none.
-    /// </summary>
-    public ClipTransition? EnterTransition
-    {
-        get => EnterTransitionProperty.Value;
-        set => EnterTransitionProperty.Value = value;
-    }
-
-    /// <summary>
-    /// Gets or sets this element's side of the transition at its end: how it blends out into the adjacent
-    /// element after it on the same layer, or into nothing when there is none.
-    /// </summary>
-    public ClipTransition? ExitTransition
-    {
-        get => ExitTransitionProperty.Value;
-        set => ExitTransitionProperty.Value = value;
     }
 
     public void AddObject(EngineObject obj)
@@ -188,7 +125,7 @@ public class Element : Hierarchical, INotifyEdited
 
     public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
     {
-        foreach (EngineObject item in _objects)
+        foreach (EngineObject item in Objects)
         {
             if (item is ISplittable splittable)
                 splittable.NotifySplitted(backward, startDelta, durationDelta);
@@ -197,7 +134,7 @@ public class Element : Hierarchical, INotifyEdited
 
     public bool HasOriginalDuration()
     {
-        foreach (EngineObject item in _objects)
+        foreach (EngineObject item in Objects)
         {
             if (item is IOriginalDurationProvider provider && provider.HasOriginalDuration())
                 return true;
@@ -208,7 +145,7 @@ public class Element : Hierarchical, INotifyEdited
 
     public bool TryGetOriginalDuration(out MediaTime timeSpan)
     {
-        foreach (EngineObject item in _objects)
+        foreach (EngineObject item in Objects)
         {
             if (item is IOriginalDurationProvider provider && provider.TryGetOriginalDuration(out timeSpan))
                 return true;
@@ -221,23 +158,23 @@ public class Element : Hierarchical, INotifyEdited
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(Length), MediaTimeJsonConverter.LengthToWrite(Start, Length));
+        context.SetValue(nameof(Length), MediaTimeJsonConverter.LengthToWrite(Start.Value, Length.Value));
         context.SetValue(nameof(Objects), Objects);
-        if (EnterTransition != null)
+        if (EnterTransition.Value != null)
         {
-            context.SetValue(nameof(EnterTransition), EnterTransition);
+            context.SetValue(nameof(EnterTransition), EnterTransition.Value);
         }
 
-        if (ExitTransition != null)
+        if (ExitTransition.Value != null)
         {
-            context.SetValue(nameof(ExitTransition), ExitTransition);
+            context.SetValue(nameof(ExitTransition), ExitTransition.Value);
         }
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        Length = MediaTimeJsonConverter.LengthRead(context, nameof(Start), nameof(Length), Start, Length);
+        Length.Value = MediaTimeJsonConverter.LengthRead(context, nameof(Start), nameof(Length), Start.Value, Length.Value);
         if (context.GetValue<EngineObject[]>(nameof(Objects)) is { } objects)
         {
             Objects.Replace(objects);
@@ -257,32 +194,31 @@ public class Element : Hierarchical, INotifyEdited
             }
         }
 
-        EnterTransition = context.GetValue<ClipTransition>(nameof(EnterTransition));
-        ExitTransition = context.GetValue<ClipTransition>(nameof(ExitTransition));
+        EnterTransition.Value = context.GetValue<ClipTransition>(nameof(EnterTransition));
+        ExitTransition.Value = context.GetValue<ClipTransition>(nameof(ExitTransition));
     }
 
     public void CollectObjects(CompositionTarget target, IList<EngineObject> objects)
     {
-        foreach (EngineObject obj in _objects)
+        foreach (EngineObject obj in Objects)
         {
-            if (!obj.IsEnabled) continue;
+            if (!obj.IsEnabled.Value) continue;
             CompositionTarget t = obj.GetCompositionTarget();
             if (t != CompositionTarget.Unknown && t != target) continue;
             objects.Add(obj);
         }
     }
 
-    private void OnRangeChanged(string propertyName, TimeRange oldRange)
+    private void OnRangeChanged(TimeRange oldRange)
     {
-        OnPropertyChanged(new PropertyChangedEventArgs(propertyName));
         TimeRange newRange = Range;
-        foreach (EngineObject obj in _objects)
+        foreach (EngineObject obj in Objects)
         {
-            obj.TimeRange = newRange;
+            obj.TimeRange.Value = newRange;
         }
 
-        if (EnterTransition != null) EnterTransition.TimeRange = newRange;
-        if (ExitTransition != null) ExitTransition.TimeRange = newRange;
+        if (EnterTransition.Value != null) EnterTransition.Value.TimeRange.Value = newRange;
+        if (ExitTransition.Value != null) ExitTransition.Value.TimeRange.Value = newRange;
 
         Edited?.Invoke(this, new ElementEditedEventArgs
         {
@@ -290,9 +226,8 @@ public class Element : Hierarchical, INotifyEdited
         });
     }
 
-    private void OnTransitionChanged(string propertyName, PropertyValueChangedEventArgs<ClipTransition?> change)
+    private void OnTransitionChanged(PropertyValueChangedEventArgs<ClipTransition?> change)
     {
-        OnPropertyChanged(new PropertyChangedEventArgs(propertyName));
         if (change.OldValue != null)
         {
             change.OldValue.Edited -= OnObjectEdited;
@@ -303,7 +238,7 @@ public class Element : Hierarchical, INotifyEdited
             // Animations evaluate against the owner's range, as they do for the element's objects.
             // The transition is not made a time anchor, so its range is not saved under the key its
             // own Duration property uses.
-            change.NewValue.TimeRange = Range;
+            change.NewValue.TimeRange.Value = Range;
             change.NewValue.Edited += OnObjectEdited;
         }
 
@@ -328,9 +263,9 @@ public class Element : Hierarchical, INotifyEdited
 
     private void UpdateObjectFromElement(EngineObject obj)
     {
-        obj.IsTimeAnchor = true;
-        obj.ZIndex = ZIndex;
-        obj.TimeRange = new TimeRange(Start, Length);
+        obj.IsTimeAnchor.Value = true;
+        obj.ZIndex.Value = ZIndex.Value;
+        obj.TimeRange.Value = new TimeRange(Start.Value, Length.Value);
     }
 
     private void OnObjectAttached(EngineObject obj)
@@ -361,9 +296,9 @@ public class Element : Hierarchical, INotifyEdited
             Element? tmp = null;
             foreach (Element? item in scene.Children.AsSpan())
             {
-                if (item != this && item.ZIndex == zindex && item.Start < start)
+                if (item != this && item.ZIndex.Value == zindex && item.Start.Value < start)
                 {
-                    if (tmp == null || tmp.Start <= item.Start)
+                    if (tmp == null || tmp.Start.Value <= item.Start.Value)
                     {
                         tmp = item;
                     }
@@ -382,7 +317,7 @@ public class Element : Hierarchical, INotifyEdited
             Element? tmp = null;
             foreach (Element? item in scene.Children.AsSpan())
             {
-                if (item != this && item.ZIndex == zindex && item.Range.End > end)
+                if (item != this && item.ZIndex.Value == zindex && item.Range.End > end)
                 {
                     if (tmp == null || tmp.Range.End >= item.Range.End)
                     {
@@ -407,7 +342,7 @@ public class Element : Hierarchical, INotifyEdited
 
             foreach (Element? item in scene.Children.AsSpan())
             {
-                if (item != this && item.ZIndex == zindex)
+                if (item != this && item.ZIndex.Value == zindex)
                 {
                     AccumulateNeighbor(item, range, ref beforeTmp, ref afterTmp, ref coverTmp);
                 }
@@ -425,11 +360,11 @@ public class Element : Hierarchical, INotifyEdited
             Element? beforeTmp = null;
             Element? afterTmp = null;
             Element? coverTmp = null;
-            var range = new TimeRange(start, Length);
+            var range = new TimeRange(start, Length.Value);
 
             foreach (Element? item in scene.Children.Except(excludes))
             {
-                if (item != this && item.ZIndex == zindex)
+                if (item != this && item.ZIndex.Value == zindex)
                 {
                     AccumulateNeighbor(item, range, ref beforeTmp, ref afterTmp, ref coverTmp);
                 }
@@ -449,8 +384,8 @@ public class Element : Hierarchical, INotifyEdited
         ref Element? after,
         ref Element? cover)
     {
-        if (item.Start < range.Start
-            && (before == null || before.Start <= item.Start))
+        if (item.Start.Value < range.Start
+            && (before == null || before.Start.Value <= item.Start.Value))
         {
             before = item;
         }

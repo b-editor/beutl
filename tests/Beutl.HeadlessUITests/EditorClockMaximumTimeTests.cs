@@ -89,11 +89,11 @@ public sealed class EditorClockMaximumTimeTests
         scene.Children.AddRange([Clip(10), last]);
         using var clock = new EditorClockImpl(scene);
 
-        last.Length = MediaTime.FromSeconds(5);
+        last.Length.Value = MediaTime.FromSeconds(5);
 
         Assert.That(clock.MaximumTime.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
     }
 
     private static Element Clip(int endSeconds)
-        => new() { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(endSeconds) };
+        => new() { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(endSeconds) } };
 }

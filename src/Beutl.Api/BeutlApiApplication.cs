@@ -97,7 +97,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         Ai = RestService.For<IAiClient>(_httpClient);
 
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        string culture = viewConfig.UICulture.Name;
+        string culture = viewConfig.UICulture.Value.Name;
         if (!string.IsNullOrWhiteSpace(culture))
         {
             _httpClient.DefaultRequestHeaders.AcceptLanguage.Clear();

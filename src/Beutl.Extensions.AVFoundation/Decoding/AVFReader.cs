@@ -24,10 +24,10 @@ public sealed class AVFReader : MediaReader
 
         var opts = new BeutlReaderOptions
         {
-            MaxVideoBufferSize = extension.Settings.MaxVideoBufferSize,
-            MaxAudioBufferSize = extension.Settings.MaxAudioBufferSize,
-            ThresholdFrameCount = extension.Settings.ThresholdFrameCount,
-            ThresholdSampleCount = extension.Settings.ThresholdSampleCount,
+            MaxVideoBufferSize = extension.Settings.MaxVideoBufferSize.Value,
+            MaxAudioBufferSize = extension.Settings.MaxAudioBufferSize.Value,
+            ThresholdFrameCount = extension.Settings.ThresholdFrameCount.Value,
+            ThresholdSampleCount = extension.Settings.ThresholdSampleCount.Value,
         };
 
         bool wantsVideo = options.StreamsToLoad.HasFlag(MediaMode.Video);

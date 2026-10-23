@@ -100,8 +100,8 @@ public class SubFrameResizeClampTests
             $"The resize must be clamped at the service boundary instead of escaping to the dispatcher, but got: {surfaced}");
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
-            Assert.That(element.Length, Is.EqualTo(OneFrameAt30),
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(element.Length.Value, Is.EqualTo(OneFrameAt30),
                 "the sub-frame original duration is floored to one frame at the project rate");
         });
     }
@@ -135,7 +135,7 @@ public class SubFrameResizeClampTests
         // The drag visual collapsed the clip to zero width; keep the left edge pinned at the
         // element's start so the submission only degenerates the length.
         float scale = timeline.Options.Value.Scale;
-        viewModel!.BorderMargin.Value = new Thickness(element.Start.TimeToPixel(scale), 0, 0, 0);
+        viewModel!.BorderMargin.Value = new Thickness(element.Start.Value.TimeToPixel(scale), 0, 0, 0);
         viewModel.Width.Value = 0;
 
         Exception? surfaced = null;
@@ -153,8 +153,8 @@ public class SubFrameResizeClampTests
             $"A zero-length resize submission must be floored at the service boundary, but got: {surfaced}");
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(OneFrameAt30),
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Length.Value, Is.EqualTo(OneFrameAt30),
                 "the zero-frame width is floored to one frame at the project rate");
         });
     }
@@ -184,7 +184,7 @@ public class SubFrameResizeClampTests
         await viewModel.SubmitViewModelChanges(ripple, leftEdge: true);
 
         Assert.That(element.Range.End, Is.EqualTo(end));
-        Assert.That(element.Length, Is.GreaterThanOrEqualTo(OneFrameAt30));
+        Assert.That(element.Length.Value, Is.GreaterThanOrEqualTo(OneFrameAt30));
     }
 
     private static Exception Unwrap(Exception ex)

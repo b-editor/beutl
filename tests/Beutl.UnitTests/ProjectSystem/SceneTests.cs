@@ -12,28 +12,28 @@ public class SceneTests
 {
     private string _tempDirectory = null!;
 
-    // As the CoreProperty setters did, setting a kept list replaces its items, so what is saved is what is shown.
+    // As the CoreProperty setters did, setting a list property replaces its items, so what is saved is what is shown.
     [Test]
-    public void SettingAKeptListReplacesItsItems()
+    public void SettingAListPropertyReplacesItsItems()
     {
         var element = new Element();
-        ICoreList<EngineObject> objects = element.Objects;
+        ICoreList<EngineObject> objects = element.Objects.Value;
         var shape = new RectShape();
         var scene = new Scene();
-        CoreList<TimelineLayer> layers = scene.Layers;
+        ICoreList<TimelineLayer> layers = scene.Layers.Value;
         var layer = new TimelineLayer();
 
-        element.ObjectsProperty.Value = new HierarchicalList<EngineObject> { shape };
-        scene.LayersProperty.Value = [layer];
+        element.Objects.Value = new CoreList<EngineObject> { shape };
+        scene.Layers.Value = new CoreList<TimelineLayer> { layer };
         JsonObject json = CoreSerializer.SerializeToJsonObject(element);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(element.ObjectsProperty.Value, Is.SameAs(objects));
+            Assert.That(element.Objects.Value, Is.SameAs(objects));
             Assert.That(element.Objects, Is.EqualTo(new EngineObject[] { shape }));
             Assert.That(json["Objects"]!.AsArray().Select(item => Guid.Parse(item!["Id"]!.GetValue<string>())),
-                Is.EqualTo(new[] { shape.Id }));
-            Assert.That(scene.LayersProperty.Value, Is.SameAs(layers));
+                Is.EqualTo(new[] { shape.Id.Value }));
+            Assert.That(scene.Layers.Value, Is.SameAs(layers));
             Assert.That(scene.Layers, Is.EqualTo(new[] { layer }));
         }
     }
@@ -46,7 +46,7 @@ public class SceneTests
         string directory = Path.Combine(_tempDirectory, "scene");
         Directory.CreateDirectory(directory);
         string outside = Path.Combine(_tempDirectory, "private.belm");
-        CoreSerializer.StoreToUri(new Element { Name = "outside" }, new Uri(outside));
+        CoreSerializer.StoreToUri(new Element { Name = { Value = "outside" } }, new Uri(outside));
         byte[] original = File.ReadAllBytes(outside);
         var scene = new Scene { Uri = new Uri(Path.Combine(directory, "main.scene")) };
         JsonObject json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions { BaseUri = scene.Uri });
@@ -89,7 +89,7 @@ public class SceneTests
         string scenePath = Path.Combine(_tempDirectory, "project.scene");
         string elementPath = Path.Combine(_tempDirectory, "elements", "child.belm");
         var scene = new Scene { Uri = new Uri(scenePath) };
-        scene.Children.Add(new Element { Uri = new Uri(elementPath), Name = "child" });
+        scene.Children.Add(new Element { Uri = new Uri(elementPath), Name = { Value = "child" } });
 
         CoreSerializer.StoreToUri(scene, scene.Uri!);
 
@@ -118,7 +118,7 @@ public class SceneTests
 
         CoreSerializer.StoreToUri(element, element.Uri);
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
-        Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { element.Id }));
+        Assert.That(restored.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { element.Id.Value }));
     }
 
     [Test]
@@ -144,7 +144,7 @@ public class SceneTests
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(excluded.Uri.LocalPath), Is.True);
-            Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { element.Id }));
+            Assert.That(restored.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { element.Id.Value }));
             Assert.That(patterns["Include"]!.GetValue<string>(), Is.EqualTo("**/*.belm"));
             Assert.That(patterns["Exclude"]!.GetValue<string>(), Is.EqualTo("elements/excluded.belm"));
         });
@@ -184,7 +184,7 @@ public class SceneTests
         Assert.Multiple(() =>
         {
             Assert.That(ReadExclude(scene), Is.EqualTo(pattern));
-            Assert.That(reloaded.Children.Select(child => child.Id), Is.EqualTo(new[] { retained.Id }));
+            Assert.That(reloaded.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { retained.Id.Value }));
         });
     }
 
@@ -202,7 +202,7 @@ public class SceneTests
         Assert.Multiple(() =>
         {
             Assert.That(ReadExclude(scene), Is.EqualTo("absent"));
-            Assert.That(reloaded.Children.Select(child => child.Id), Has.No.Member(returned.Id));
+            Assert.That(reloaded.Children.Select(child => child.Id.Value), Has.No.Member(returned.Id.Value));
         });
     }
 
@@ -254,7 +254,7 @@ public class SceneTests
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(element.Uri.LocalPath), Is.True);
-            Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { element.Id }));
+            Assert.That(restored.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { element.Id.Value }));
             Assert.That(patterns["Exclude"], Is.Null);
         });
     }
@@ -283,7 +283,7 @@ public class SceneTests
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(excluded.Uri.LocalPath), Is.True);
-            Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { retained.Id }));
+            Assert.That(restored.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { retained.Id.Value }));
             Assert.That(patterns["Exclude"]!.GetValue<string>(), Is.EqualTo("elements/child.belm"));
         });
     }
@@ -309,7 +309,7 @@ public class SceneTests
 
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
 
-        Assert.That(restored.Children.Select(child => child.Id), Is.EqualTo(new[] { retained.Id }));
+        Assert.That(restored.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { retained.Id.Value }));
     }
 
     [Test]

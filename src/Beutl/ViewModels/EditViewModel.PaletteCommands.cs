@@ -34,7 +34,7 @@ public partial class EditViewModel
         SceneMarker? marker = await PickMarkerAsync(interaction);
         if (marker is null || !Scene.Markers.Contains(marker)) return;
 
-        await SeekFromPaletteAsync(marker.Time, interaction.CancellationToken);
+        await SeekFromPaletteAsync(marker.Time.Value, interaction.CancellationToken);
     }
 
     internal async Task AddMarkerAsync(IContextCommandInteraction interaction)
@@ -44,10 +44,10 @@ public partial class EditViewModel
 
         // A frame keeps one marker: Toggle marker removes only one of two markers sharing a frame,
         // so an existing one is renamed instead of duplicated.
-        SceneMarker? FindMarkerOnFrame() => Scene.Markers.FirstOrDefault(m => m.Time.RoundToFrame(rate, MidpointRounding.AwayFromZero) == time);
+        SceneMarker? FindMarkerOnFrame() => Scene.Markers.FirstOrDefault(m => m.Time.Value.RoundToFrame(rate, MidpointRounding.AwayFromZero) == time);
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            Value = FindMarkerOnFrame()?.Name ?? defaultName,
+            Value = FindMarkerOnFrame()?.Name.Value ?? defaultName,
             Validate = CommandPaletteInput.Required
         });
         if (name is null) return;
@@ -70,7 +70,7 @@ public partial class EditViewModel
 
         string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
-            Value = marker.Name,
+            Value = marker.Name.Value,
             Validate = CommandPaletteInput.Required
         });
         if (name is null || !Scene.Markers.Contains(marker)) return;
@@ -81,21 +81,21 @@ public partial class EditViewModel
     private void RenameMarkerCore(SceneMarker marker, string name)
     {
         name = name.Trim();
-        if (marker.Name == name) return;
+        if (marker.Name.Value == name) return;
 
-        marker.Name = name;
+        marker.Name.Value = name;
         HistoryManager.Commit(CommandNames.EditMarker);
     }
 
     private async Task<SceneMarker?> PickMarkerAsync(IContextCommandInteraction interaction)
     {
         ContextCommandPickItem<SceneMarker>[] items = Scene.Markers
-            .OrderBy(m => m.Time)
+            .OrderBy(m => m.Time.Value)
             .Select(m =>
             {
-                string time = CommandPaletteInput.FormatTimecode(m.Time);
+                string time = CommandPaletteInput.FormatTimecode(m.Time.Value);
                 return new ContextCommandPickItem<SceneMarker>(
-                    string.IsNullOrWhiteSpace(m.Name) ? time : m.Name, m, time);
+                    string.IsNullOrWhiteSpace(m.Name.Value) ? time : m.Name.Value, m, time);
             })
             .ToArray();
 

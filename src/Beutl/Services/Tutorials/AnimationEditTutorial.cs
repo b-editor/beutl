@@ -191,12 +191,12 @@ public static class AnimationEditTutorial
                         // Move playhead forward
                         if (animation.KeyFrames.Count >= 2)
                         {
-                            editorClock.Seek(animation.KeyFrames[1].KeyTime + element.Start);
+                            editorClock.Seek(animation.KeyFrames[1].KeyTime.Value + element.Start.Value);
                             Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
                         }
                         else
                         {
-                            editorClock.Seek(element.Start + MediaTime.FromSeconds(2));
+                            editorClock.Seek(element.Start.Value + MediaTime.FromSeconds(2));
                             step4Subscription.Current = TutorialHelpers.SubscribeToKeyFrameAdded(
                                 animation,
                                 2,
@@ -378,7 +378,7 @@ public static class AnimationEditTutorial
                         var clock = editVm?.GetService<IEditorClock>();
                         if (editVm != null && element != null && clock != null)
                         {
-                            clock.Seek(element.Start);
+                            clock.Seek(element.Start.Value);
                         }
                     },
                 },

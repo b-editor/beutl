@@ -17,16 +17,16 @@ public class ProjectLifecyclePerformanceTests
         var config = GlobalConfiguration.Instance.VersionControlConfig;
         string? oldGlobal = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
         string? oldNoSystem = Environment.GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM");
-        string? oldGitPath = config.GitExecutablePath;
-        bool oldLfs = config.UseLfsWhenAvailable;
-        bool oldClose = config.AutoCommitOnClose;
+        string? oldGitPath = config.GitExecutablePath.Value;
+        bool oldLfs = config.UseLfsWhenAvailable.Value;
+        bool oldClose = config.AutoCommitOnClose.Value;
         Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", OperatingSystem.IsWindows() ? "NUL" : "/dev/null");
         Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "1");
         try
         {
-            config.GitExecutablePath = null;
-            config.UseLfsWhenAvailable = false;
-            config.AutoCommitOnClose = true;
+            config.GitExecutablePath.Value = null;
+            config.UseLfsWhenAvailable.Value = false;
+            config.AutoCommitOnClose.Value = true;
             if (trackHistory && (await TestShell.VersionControl.GetAvailabilityAsync(CancellationToken.None)).State
                 != GitAvailabilityState.Installed)
             {
@@ -55,9 +55,9 @@ public class ProjectLifecyclePerformanceTests
         finally
         {
             await TestShell.Project.CloseProjectAsync();
-            config.GitExecutablePath = oldGitPath;
-            config.UseLfsWhenAvailable = oldLfs;
-            config.AutoCommitOnClose = oldClose;
+            config.GitExecutablePath.Value = oldGitPath;
+            config.UseLfsWhenAvailable.Value = oldLfs;
+            config.AutoCommitOnClose.Value = oldClose;
             Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", oldGlobal);
             Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", oldNoSystem);
         }

@@ -36,7 +36,7 @@ public class ClipboardPipelineTests
     public async Task Copy_then_paste_adds_a_cloned_element_at_the_clicked_position()
     {
         Element original = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
-        original.AccentColor = Color.FromArgb(255, 5, 6, 7);
+        original.AccentColor.Value = Color.FromArgb(255, 5, 6, 7);
 
         bool copied = await _service.CopyAsync([original]);
         Assert.That(copied, Is.True);
@@ -50,9 +50,9 @@ public class ClipboardPipelineTests
             Assert.That(outcome.Pasted, Is.True);
             Assert.That(added, Has.Length.EqualTo(1));
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
-            Assert.That(added[0].Start, Is.EqualTo(MediaTime.FromSeconds(30)));
-            Assert.That(added[0].ZIndex, Is.EqualTo(2));
-            Assert.That(added[0].Id, Is.Not.EqualTo(original.Id));
+            Assert.That(added[0].Start.Value, Is.EqualTo(MediaTime.FromSeconds(30)));
+            Assert.That(added[0].ZIndex.Value, Is.EqualTo(2));
+            Assert.That(added[0].Id.Value, Is.Not.EqualTo(original.Id.Value));
         });
     }
 
@@ -76,7 +76,7 @@ public class ClipboardPipelineTests
         {
             Assert.That(outcome.Pasted, Is.True);
             Assert.That(_scene.Children, Has.Count.EqualTo(1));
-            Assert.That(_scene.Children.Single().Length, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(_scene.Children.Single().Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 

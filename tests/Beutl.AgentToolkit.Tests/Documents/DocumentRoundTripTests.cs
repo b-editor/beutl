@@ -23,8 +23,8 @@ public class DocumentRoundTripTests
     {
         var text = new TextBlock { Text = { Value = "Title" } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0 }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100 }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 } }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 100 } }, out _);
         text.Opacity.SetKeyFrameAnimation(animation);
         var adapter = new DocumentAdapter();
 
@@ -45,11 +45,11 @@ public class DocumentRoundTripTests
         string dir = TestWorkspace.CreateDirectory();
         var rate = new Rational(30000, 1001);
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        _ = new Project { FrameRate = rate, Items = { scene } };
+        _ = new Project { FrameRate = { Value = rate }, Items = { scene } };
         var element = new Element
         {
-            Start = MediaTime.FromFrames(37, rate),
-            Length = MediaTime.FromFrames(41, rate),
+            Start = { Value = MediaTime.FromFrames(37, rate) },
+            Length = { Value = MediaTime.FromFrames(41, rate) },
             Uri = new Uri(Path.Combine(dir, "first.belm")),
         };
         scene.Children.Add(element);
@@ -62,9 +62,9 @@ public class DocumentRoundTripTests
         JsonObject shown = document["Elements"]!.AsArray()[0]!.AsObject();
         Assert.Multiple(() =>
         {
-            Assert.That((string?)shown["Start"], Is.EqualTo(TimeSpan.FromTicks(element.Start.ToTicks(MidpointRounding.ToNegativeInfinity)).ToString("c")));
+            Assert.That((string?)shown["Start"], Is.EqualTo(TimeSpan.FromTicks(element.Start.Value.ToTicks(MidpointRounding.ToNegativeInfinity)).ToString("c")));
             Assert.That(element.Range, Is.EqualTo(new TimeRange(MediaTime.FromFrames(37, rate), MediaTime.FromFrames(41, rate))));
-            Assert.That(File.ReadAllText(element.Uri!.LocalPath), Does.Contain($"\"Start\": {element.Start.Flicks}"));
+            Assert.That(File.ReadAllText(element.Uri!.LocalPath), Does.Contain($"\"Start\": {element.Start.Value.Flicks}"));
         });
     }
 
@@ -73,7 +73,7 @@ public class DocumentRoundTripTests
     {
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        scene.Children.Add(new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) });
+        scene.Children.Add(new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(dir, "first.belm")) });
         var adapter = new DocumentAdapter();
 
         JsonObject document = adapter.Read(scene);
@@ -146,7 +146,7 @@ public class DocumentRoundTripTests
     [Test]
     public void WriteThenRead_EmitsOnlyCurrentSerializedContent()
     {
-        var root = new TestModel { Value = 3 };
+        var root = new TestModel { Value = { Value = 3 } };
         var adapter = new DocumentAdapter();
 
         var document = adapter.Read(root);
@@ -157,7 +157,7 @@ public class DocumentRoundTripTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(root.Value, Is.EqualTo(3));
+            Assert.That(root.Value.Value, Is.EqualTo(3));
             Assert.That(reread.ContainsKey("FutureField"), Is.False);
         });
     }
@@ -166,14 +166,14 @@ public class DocumentRoundTripTests
     public void Write_of_a_group_nodes_own_document_keeps_its_inner_graph()
     {
         var group = new GroupNode();
-        GraphGroup inner = group.Group;
+        GraphGroup inner = group.Group.Value;
         inner.Nodes.Add(new RectGeometryNode());
         var adapter = new DocumentAdapter();
 
         // GroupNode saves Group as node-tree, so a document without "Group" does not ask to clear it.
         adapter.Write(group, adapter.Read(group));
 
-        Assert.That(group.Group, Is.SameAs(inner));
+        Assert.That(group.Group.Value, Is.SameAs(inner));
         Assert.That(inner.Nodes, Has.Count.EqualTo(1));
         Assert.DoesNotThrow(() => adapter.Read(group));
     }

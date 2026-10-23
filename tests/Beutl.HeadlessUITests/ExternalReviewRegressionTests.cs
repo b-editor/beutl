@@ -43,9 +43,9 @@ public sealed class ExternalReviewRegressionTests
         try
         {
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
-            editor.Scene.Duration = MediaTime.FromSeconds(73);
+            editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
             await TestShell.Project.OpenProject(project.Uri!.LocalPath);
-            Assert.That(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().First().Duration,
+            Assert.That(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>().First().Duration.Value,
                 Is.EqualTo(MediaTime.FromSeconds(73)));
         }
         finally
@@ -70,7 +70,7 @@ public sealed class ExternalReviewRegressionTests
         // Let the save queued by the add land first, so only the rename's own save can write the name.
         Assert.That(WaitForSavedName(element, n => n != null), Is.Not.Null);
 
-        element.Name = "auto-saved";
+        element.Name.Value = "auto-saved";
         editor.HistoryManager.Commit();
 
         string? saved = WaitForSavedName(element, n => n == "auto-saved");
@@ -85,7 +85,7 @@ public sealed class ExternalReviewRegressionTests
         {
             HeadlessTestHelpers.Settle();
             saved = File.Exists(element.Uri!.LocalPath)
-                ? CoreSerializer.RestoreFromUri<Element>(element.Uri).Name
+                ? CoreSerializer.RestoreFromUri<Element>(element.Uri).Name.Value
                 : null;
         } while (!done(saved) && DateTime.UtcNow < deadline);
 

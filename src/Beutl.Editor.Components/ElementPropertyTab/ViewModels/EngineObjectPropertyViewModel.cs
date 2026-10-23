@@ -31,20 +31,20 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
         CanToggleEnabled = model is IFallback fallback && !fallback.SavesItsMembers()
             ? new ReactivePropertySlim<bool>(false)
             : CanEdit;
-        IsEnabled = model.IsEnabledProperty.GetObservable()
+        IsEnabled = model.IsEnabled.GetObservable()
             .ToReactiveProperty();
         _enabledSubscription = IsEnabled.Skip(1).Subscribe(v =>
         {
-            if (v == Model.IsEnabled) return;
+            if (v == Model.IsEnabled.Value) return;
             if (!CanToggleEnabled.Value)
             {
-                IsEnabled.Value = Model.IsEnabled;
+                IsEnabled.Value = Model.IsEnabled.Value;
                 return;
             }
 
             IElementObjectService? service = this.GetService<IElementObjectService>();
             if (service?.SetEnabled(Model, v) != true)
-                IsEnabled.Value = Model.IsEnabled;
+                IsEnabled.Value = Model.IsEnabled.Value;
         });
 
         Init();

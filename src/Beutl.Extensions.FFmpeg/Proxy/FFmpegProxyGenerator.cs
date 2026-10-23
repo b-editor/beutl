@@ -148,15 +148,15 @@ public sealed partial class FFmpegProxyGenerator(IProxyStore store) : IProxyGene
     {
         ProxyEncodeParameters parameters = ProxyPresetDefinitions.Get(preset);
         var videoSettings = controller.VideoSettings;
-        videoSettings.SourceSize = videoInfo.FrameSize;
-        videoSettings.DestinationSize = proxySize;
-        videoSettings.FrameRate = videoInfo.FrameRate;
-        videoSettings.Codec = new CodecRecord("libx264", "H.264 / AVC");
-        videoSettings.Options.Clear();
-        videoSettings.Options.Add(new AdditionalOption("preset", parameters.Preset));
-        videoSettings.Options.Add(new AdditionalOption("crf", parameters.Crf.ToString()));
-        videoSettings.Options.Add(new AdditionalOption("tune", parameters.Tune));
-        videoSettings.Options.Add(new AdditionalOption("profile", "high"));
+        videoSettings.SourceSize.Value = videoInfo.FrameSize;
+        videoSettings.DestinationSize.Value = proxySize;
+        videoSettings.FrameRate.Value = videoInfo.FrameRate;
+        videoSettings.Codec.Value = new CodecRecord("libx264", "H.264 / AVC");
+        videoSettings.Options.Value.Clear();
+        videoSettings.Options.Value.Add(new AdditionalOption("preset", parameters.Preset));
+        videoSettings.Options.Value.Add(new AdditionalOption("crf", parameters.Crf.ToString()));
+        videoSettings.Options.Value.Add(new AdditionalOption("tune", parameters.Tune));
+        videoSettings.Options.Value.Add(new AdditionalOption("profile", "high"));
         // No fixed level: a hard cap (e.g. 4.0) rejects legal high-FPS proxies such as 1080p60 from a
         // 4K60 source. libx264 derives a valid level from the frame size and rate.
     }

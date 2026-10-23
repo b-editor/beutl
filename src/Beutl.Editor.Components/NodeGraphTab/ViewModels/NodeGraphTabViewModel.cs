@@ -197,7 +197,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
             NodeGraphNavigationItem? foundItem = FindItem(item);
 
             foundItem ??= new NodeGraphNavigationItem(
-                item.NameProperty.GetObservable().ToReadOnlyReactivePropertySlim()!,
+                item.Name.GetObservable().ToReadOnlyReactivePropertySlim()!,
                 item,
                 _editorContext);
 
@@ -233,22 +233,22 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
         {
             var itemJson = new JsonObject();
             item.WriteToJson(itemJson);
-            itemsJson[item.NodeGraph.Id.ToString()] = itemJson;
+            itemsJson[item.NodeGraph.Id.Value.ToString()] = itemJson;
         }
 
         var json = new JsonObject { [nameof(Items)] = itemsJson };
         if (NodeGraph.Value != null)
         {
-            json["Selected"] = NodeGraph.Value.NodeGraph.Id;
+            json["Selected"] = NodeGraph.Value.NodeGraph.Id.Value;
         }
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{model.Id}.nodetree.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{model.Id.Value}.nodetree.config"));
     }
 
     private void RestoreState(GraphModel model)
     {
         string viewStateDir = ViewStateDirectory();
-        string viewStateFile = Path.Combine(viewStateDir, $"{model.Id}.nodetree.config");
+        string viewStateFile = Path.Combine(viewStateDir, $"{model.Id.Value}.nodetree.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -265,7 +265,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
 
             foreach (NodeGraphNavigationItem item in Items)
             {
-                if (itemsJson.TryGetPropertyValue(item.NodeGraph.Id.ToString(), out JsonNode? itemJson))
+                if (itemsJson.TryGetPropertyValue(item.NodeGraph.Id.Value.ToString(), out JsonNode? itemJson))
                 {
                     item.ReadFromJson(itemJson!.AsObject());
                 }
@@ -290,7 +290,7 @@ public sealed class NodeGraphTabViewModel : IPinnableToolContext
     {
         if (Model.Value != null)
         {
-            json["ModelId"] = Model.Value.Id;
+            json["ModelId"] = Model.Value.Id.Value;
             SaveState(Model.Value);
         }
 

@@ -35,7 +35,7 @@ public partial class EditViewModel
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
-            ["selected-object"] = _editorSelection.SelectedObject.Value?.Id,
+            ["selected-object"] = _editorSelection.SelectedObject.Value?.Id.Value,
             ["max-layer-count"] = _timelineOptionsProvider.Options.Value.MaxLayerCount,
             ["scale"] = _timelineOptionsProvider.Options.Value.Scale,
             ["offset"] = new JsonObject { ["x"] = _timelineOptionsProvider.Options.Value.Offset.X, ["y"] = _timelineOptionsProvider.Options.Value.Offset.Y, },
@@ -115,7 +115,7 @@ public partial class EditViewModel
             Guid? id = (Guid?)json["selected-object"];
             if (id.HasValue)
             {
-                var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id == id.Value);
+                var searcher = new ObjectSearcher(Scene, o => o is CoreObject obj && obj.Id.Value == id.Value);
                 _editorSelection.Select(searcher.Search() as CoreObject);
             }
         }

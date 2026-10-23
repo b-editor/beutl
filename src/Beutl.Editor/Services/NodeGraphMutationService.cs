@@ -22,7 +22,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
         if (!IsEditable(graph) || !CanAddNode(graph, node)) return false;
 
-        node.Position = (x, y);
+        node.Position.Value = (x, y);
         graph.Nodes.Add(node);
         _historyManager.Commit(CommandNames.AddNode);
         return true;
@@ -40,14 +40,14 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             || existingPort.FindHierarchicalParent<GraphNode>() is not { } existingNode
             || existingNode.FindHierarchicalParent<GraphModel>() != graph
             || newPort != null && newPort.FindHierarchicalParent<GraphNode>() != node
-            || existingPort is IInputPort { Connection.IsNull: false } and not IListInputPort)
+            || existingPort is IInputPort { Connection.Value.IsNull: false } and not IListInputPort)
             return false;
 
         try
         {
             _historyManager.ExecuteInTransaction(() =>
             {
-                node.Position = (x, y);
+                node.Position.Value = (x, y);
                 graph.Nodes.Add(node);
                 if (ConnectCore(graph, existingNode, existingPort, node, newPort) == NodeConnectOutcome.None)
                     throw new NodeConnectionRejectedException();
@@ -83,21 +83,21 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         // Snapshot touching connections first so disconnect calls don't
         // invalidate the iteration.
         Connection[] touching = node.EnumerateMembers()
-            .SelectMany(i => i switch
+            .SelectMany<INodeMember, Reference<Connection>>(i => i switch
             {
                 IOutputPort output => output.Connections,
                 IListPort list => list.Connections,
-                IInputPort { Connection: var connection } => [connection],
+                IInputPort { Connection.Value: var connection } => [connection],
                 _ => [],
             })
-            .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
+            .Select(conn => graph.AllConnections.FirstOrDefault(a => a.Id.Value == conn.Id))
             .Where(a => a is not null)
             .ToArray()!;
         // A missing plugin's node has no ports; its connections name the ports it was saved with.
         if (node is FallbackGraphNode fallback)
         {
             HashSet<Guid> ports = [.. fallback.SavedPortIds()];
-            touching = [.. graph.AllConnections.Where(c => ports.Contains(c.Input.Id) || ports.Contains(c.Output.Id))];
+            touching = [.. graph.AllConnections.Where(c => ports.Contains(c.Input.Value.Id) || ports.Contains(c.Output.Value.Id))];
         }
 
         foreach (Connection connection in touching)
@@ -118,7 +118,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
         foreach ((GraphNode node, double x, double y) in moves)
         {
-            node.Position = (x, y);
+            node.Position.Value = (x, y);
         }
 
         _historyManager.Commit(CommandNames.MoveNode);
@@ -128,9 +128,9 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(newName);
-        if (node.Name == newName || !IsEditable(node)) return false;
+        if (node.Name.Value == newName || !IsEditable(node)) return false;
 
-        node.Name = newName;
+        node.Name.Value = newName;
         _historyManager.Commit(CommandNames.RenameNode);
         return true;
     }
@@ -148,7 +148,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         {
             IOutputPort output => [.. output.Connections],
             IListPort list => [.. list.Connections],
-            IInputPort { Connection: var connection } => [connection],
+            IInputPort { Connection.Value: var connection } => [connection],
             _ => [],
         };
 
@@ -176,9 +176,9 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(port);
         ArgumentNullException.ThrowIfNull(newName);
-        if (port.Name == newName || !IsEditable(port)) return false;
+        if (port.Name.Value == newName || !IsEditable(port)) return false;
 
-        port.Name = newName;
+        port.Name.Value = newName;
         _historyManager.Commit(CommandNames.RenamePort);
         return true;
     }
@@ -247,7 +247,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
     private static bool CanAcceptConnection(IInputPort input)
     {
-        if (input is not IListInputPort && !input.Connection.IsNull)
+        if (input is not IListInputPort && !input.Connection.Value.IsNull)
             return false;
         return input.FindHierarchicalParent<GraphNode>() is not { } owner || owner.CanConnectInput(input);
     }
@@ -264,7 +264,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             && SortPortDirection(port1, port2, out IInputPort? input, out IOutputPort? output))
         {
             connection = graph.AllConnections.FirstOrDefault(
-                c => c.Input.Id == input.Id && c.Output.Id == output.Id);
+                c => c.Input.Value.Id == input.Id.Value && c.Output.Value.Id == output.Id.Value);
         }
 
         if (connection is null) return false;
@@ -308,7 +308,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
             return false;
         }
 
-        if (port is IInputPort { Connection.Value: { } singleConnection })
+        if (port is IInputPort { Connection.Value.Value: { } singleConnection })
         {
             graph.Disconnect(singleConnection);
             _historyManager.Commit(CommandNames.DisconnectPort);

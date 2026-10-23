@@ -52,12 +52,7 @@ public class NodeMemberOperationObserverTests
             ScanProperties<TestCoreObject>();
         }
 
-        public IProperty<string?> NameValueProperty { get; } = new ValueOnlyProperty<string?>(null);
-        public string? NameValue
-        {
-            get => NameValueProperty.Value;
-            set => NameValueProperty.Value = value;
-        }
+        public IProperty<string?> NameValue { get; } = new ValueOnlyProperty<string?>(null);
     }
 
     #endregion
@@ -67,14 +62,14 @@ public class NodeMemberOperationObserverTests
     [Test]
     public void Constructor_ShouldCreateChildObserver_WhenPropertyValueIsCoreObject()
     {
-        var coreObject = new TestCoreObject { NameValue = "Initial" };
+        var coreObject = new TestCoreObject { NameValue = { Value = "Initial" } };
         var nodeMember = new TestNodeMember<TestCoreObject>("TestProperty", coreObject);
         var receivedOperations = new List<ChangeOperation>();
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
 
-        coreObject.NameValue = "Changed";
+        coreObject.NameValue.Value = "Changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
@@ -155,23 +150,23 @@ public class NodeMemberOperationObserverTests
     [Test]
     public void OnChanged_ShouldRecreateChildObserver_WhenCoreObjectValueChanges()
     {
-        var initialObject = new TestCoreObject { NameValue = "Initial" };
+        var initialObject = new TestCoreObject { NameValue = { Value = "Initial" } };
         var nodeMember = new TestNodeMember<TestCoreObject>("TestProperty", initialObject);
         var receivedOperations = new List<ChangeOperation>();
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
 
-        var newObject = new TestCoreObject { NameValue = "New" };
+        var newObject = new TestCoreObject { NameValue = { Value = "New" } };
         nodeMember.SetPropertyValue(newObject);
 
         receivedOperations.Clear();
 
-        initialObject.NameValue = "Old Changed";
+        initialObject.NameValue.Value = "Old Changed";
 
         Assert.That(receivedOperations, Is.Empty);
 
-        newObject.NameValue = "New Changed";
+        newObject.NameValue.Value = "New Changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
@@ -179,7 +174,7 @@ public class NodeMemberOperationObserverTests
     [Test]
     public void OnChanged_ShouldDisposeOldChildObserver_WhenValueChanges()
     {
-        var initialObject = new TestCoreObject { NameValue = "Initial" };
+        var initialObject = new TestCoreObject { NameValue = { Value = "Initial" } };
         var nodeMember = new TestNodeMember<TestCoreObject>("TestProperty", initialObject);
         var receivedOperations = new List<ChangeOperation>();
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -190,7 +185,7 @@ public class NodeMemberOperationObserverTests
 
         receivedOperations.Clear();
 
-        initialObject.NameValue = "Changed";
+        initialObject.NameValue.Value = "Changed";
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -204,14 +199,14 @@ public class NodeMemberOperationObserverTests
 
         using var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
 
-        var newObject = new TestCoreObject { NameValue = "New" };
+        var newObject = new TestCoreObject { NameValue = { Value = "New" } };
         nodeMember.SetPropertyValue(newObject);
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
 
         receivedOperations.Clear();
 
-        newObject.NameValue = "Changed";
+        newObject.NameValue.Value = "Changed";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
@@ -275,7 +270,7 @@ public class NodeMemberOperationObserverTests
 
         receivedOperations.Clear();
 
-        newAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0f });
+        newAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0f } });
 
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
     }
@@ -372,7 +367,7 @@ public class NodeMemberOperationObserverTests
     [Test]
     public void Dispose_ShouldDisposeChildObserver()
     {
-        var coreObject = new TestCoreObject { NameValue = "Initial" };
+        var coreObject = new TestCoreObject { NameValue = { Value = "Initial" } };
         var nodeMember = new TestNodeMember<TestCoreObject>("TestProperty", coreObject);
         var receivedOperations = new List<ChangeOperation>();
         var observer = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
@@ -380,7 +375,7 @@ public class NodeMemberOperationObserverTests
         var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
         sut.Dispose();
 
-        coreObject.NameValue = "Changed";
+        coreObject.NameValue.Value = "Changed";
 
         Assert.That(receivedOperations, Is.Empty);
         // A child observer that is still subscribed numbers the change even though nobody receives it.
@@ -398,7 +393,7 @@ public class NodeMemberOperationObserverTests
         var sut = new NodeMemberOperationObserver(observer, nodeMember, _sequenceGenerator);
         sut.Dispose();
 
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0f } });
 
         Assert.That(receivedOperations, Is.Empty);
         Assert.That(_sequenceGenerator.GetNext(), Is.EqualTo(1));

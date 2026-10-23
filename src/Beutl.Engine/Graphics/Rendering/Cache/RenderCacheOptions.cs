@@ -12,7 +12,7 @@ public record RenderCacheOptions(bool IsEnabled, RenderCacheRules Rules)
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
         return new RenderCacheOptions(
-            config.IsNodeCacheEnabled,
-            RenderCacheRules.Create(config.NodeCacheMaxPixels, config.NodeCacheMinPixels));
+            config.IsNodeCacheEnabled.Value,
+            RenderCacheRules.Create(config.NodeCacheMaxPixels.Value, config.NodeCacheMinPixels.Value));
     }
 }

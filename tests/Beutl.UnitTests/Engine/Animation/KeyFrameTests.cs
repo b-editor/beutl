@@ -14,9 +14,9 @@ public class KeyFrameTests
     [Test]
     public void ReplaceValue_NullableValueAcceptsNull()
     {
-        var keyFrame = new KeyFrame<Guid?> { Value = Guid.NewGuid() };
+        var keyFrame = new KeyFrame<Guid?> { Value = { Value = Guid.NewGuid() } };
         ((IKeyFrame)keyFrame).ReplaceValue(null);
-        Assert.That(keyFrame.Value, Is.Null);
+        Assert.That(keyFrame.Value.Value, Is.Null);
     }
 
     [TestCase("null")]
@@ -26,7 +26,7 @@ public class KeyFrameTests
     {
         JsonNode? original = JsonNode.Parse(easingJson);
         KeyFrame<int> keyFrame = Deserialize(original);
-        Easing fallback = keyFrame.Easing;
+        Easing fallback = keyFrame.Easing.Value;
         if (original is JsonObject sourceObject) sourceObject["X1"] = "mutated";
 
         JsonObject serialized = CoreSerializer.SerializeToJsonObject(keyFrame);
@@ -35,10 +35,10 @@ public class KeyFrameTests
         if (serialized["Easing"] is JsonObject serializedObject) serializedObject["X1"] = "mutated again";
         Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(keyFrame)["Easing"], JsonNode.Parse(easingJson)), Is.True);
 
-        keyFrame.Easing = new LinearEasing();
+        keyFrame.Easing.Value = new LinearEasing();
         Assert.That(CoreSerializer.SerializeToJsonObject(keyFrame)["Easing"]!.GetValue<string>(),
             Is.EqualTo(TypeFormat.ToString(typeof(LinearEasing))));
-        keyFrame.Easing = fallback;
+        keyFrame.Easing.Value = fallback;
         Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(keyFrame)["Easing"], JsonNode.Parse(easingJson)), Is.True);
     }
 
@@ -100,7 +100,7 @@ public class KeyFrameTests
     [Test]
     public void Serialize_ShouldCorrectlySerializeLinearEasing()
     {
-        var keyFrame = new KeyFrame<int> { Easing = new LinearEasing(), KeyTime = MediaTime.FromSeconds(1) };
+        var keyFrame = new KeyFrame<int> { Easing = { Value = new LinearEasing() }, KeyTime = { Value = MediaTime.FromSeconds(1) } };
         var context = new Mock<ICoreSerializationContext>();
         var jsonObject = new JsonObject();
 
@@ -118,8 +118,8 @@ public class KeyFrameTests
     {
         var keyFrame = new KeyFrame<int>
         {
-            Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f),
-            KeyTime = MediaTime.FromSeconds(1)
+            Easing = { Value = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f) },
+            KeyTime = { Value = MediaTime.FromSeconds(1) }
         };
         var context = new Mock<ICoreSerializationContext>();
         var jsonObject = new JsonObject();
@@ -149,7 +149,7 @@ public class KeyFrameTests
         keyFrame.Deserialize(context.Object);
 
         // LinearEasing is also the fallback, so the type alone cannot tell a read name from a failed one.
-        Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+        Assert.That(keyFrame.Easing.Value, Is.InstanceOf<LinearEasing>());
         Assert.That(keyFrame.HasLossyEasing, Is.False);
     }
 
@@ -168,7 +168,7 @@ public class KeyFrameTests
 
         keyFrame.Deserialize(context.Object);
 
-        var easing = keyFrame.Easing as SplineEasing;
+        var easing = keyFrame.Easing.Value as SplineEasing;
         Assert.That(easing, Is.Not.Null);
         Assert.That(easing!.X1, Is.EqualTo(0.1f));
         Assert.That(easing.Y1, Is.EqualTo(0.2f));
@@ -196,8 +196,8 @@ public class KeyFrameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.Easing, Is.InstanceOf<SplineEasing>());
-            Assert.That(((SplineEasing)keyFrame.Easing).X1, Is.EqualTo(0.1f));
+            Assert.That(keyFrame.Easing.Value, Is.InstanceOf<SplineEasing>());
+            Assert.That(((SplineEasing)keyFrame.Easing.Value).X1, Is.EqualTo(0.1f));
             Assert.That(keyFrame.HasLossyEasing, Is.False);
         });
     }
@@ -207,7 +207,7 @@ public class KeyFrameTests
     {
         var current = new EqualityValue("same", "old");
         var replacement = new EqualityValue("same", "new");
-        IKeyFrame keyFrame = new KeyFrame<EqualityValue> { Value = current };
+        IKeyFrame keyFrame = new KeyFrame<EqualityValue> { Value = { Value = current } };
         int changes = 0;
         ((CoreObject)keyFrame).PropertyChanged += (_, e) =>
             changes += e.PropertyName == nameof(IKeyFrame.Value) ? 1 : 0;
@@ -232,7 +232,7 @@ public class KeyFrameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.Easing.Value, Is.InstanceOf<LinearEasing>());
             Assert.That(keyFrame.HasLossyEasing, Is.True);
             Assert.That(incidents.Count, Is.EqualTo(1));
         });
@@ -247,7 +247,7 @@ public class KeyFrameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.Easing.Value, Is.InstanceOf<LinearEasing>());
             Assert.That(keyFrame.HasLossyEasing, Is.True);
             Assert.That(incidents.Count, Is.EqualTo(1));
         });
@@ -261,7 +261,7 @@ public class KeyFrameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.Easing.Value, Is.InstanceOf<LinearEasing>());
             Assert.That(keyFrame.HasLossyEasing, Is.True);
             Assert.That(incidents.Count, Is.EqualTo(1));
         });
@@ -275,7 +275,7 @@ public class KeyFrameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.Easing.Value, Is.InstanceOf<LinearEasing>());
             Assert.That(keyFrame.HasLossyEasing, Is.True);
             Assert.That(incidents.Count, Is.EqualTo(1));
         });
@@ -286,7 +286,7 @@ public class KeyFrameTests
     {
         KeyFrame<int> keyFrame = Deserialize("[Missing.Assembly]Missing.Namespace:MissingEasing");
 
-        keyFrame.Easing = new SplineEasing();
+        keyFrame.Easing.Value = new SplineEasing();
 
         Assert.That(keyFrame.HasLossyEasing, Is.False);
     }
@@ -295,15 +295,15 @@ public class KeyFrameTests
     public void RestoringLossyFallbackEasingViaSetter_RestoresMarker()
     {
         KeyFrame<int> keyFrame = Deserialize("[Missing.Assembly]Missing.Namespace:MissingEasing");
-        Easing lossyFallback = keyFrame.Easing;
+        Easing lossyFallback = keyFrame.Easing.Value;
         Assert.That(keyFrame.HasLossyEasing, Is.True);
 
         // Simulates the undo path: UpdatePropertyValueOperation routes the old value back
         // through the Easing setter, which must restore the lossy marker by identity.
-        keyFrame.Easing = new SplineEasing();
+        keyFrame.Easing.Value = new SplineEasing();
         Assert.That(keyFrame.HasLossyEasing, Is.False);
 
-        keyFrame.Easing = lossyFallback;
+        keyFrame.Easing.Value = lossyFallback;
 
         Assert.That(keyFrame.HasLossyEasing, Is.True);
     }
@@ -333,7 +333,7 @@ public class KeyFrameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(keyFrame.Easing.Value, Is.InstanceOf<LinearEasing>());
             Assert.That(keyFrame.HasLossyEasing, Is.True);
             Assert.That(incidents.Count, Is.EqualTo(1));
         });
@@ -353,8 +353,8 @@ public class KeyFrameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(keyFrame.Easing, Is.InstanceOf<SplineEasing>());
-            var spline = (SplineEasing)keyFrame.Easing;
+            Assert.That(keyFrame.Easing.Value, Is.InstanceOf<SplineEasing>());
+            var spline = (SplineEasing)keyFrame.Easing.Value;
             Assert.That(spline.X1, Is.EqualTo(0.1f));
             Assert.That(spline.Y1, Is.EqualTo(0.2f));
             Assert.That(spline.X2, Is.EqualTo(1f));
@@ -381,7 +381,7 @@ public class KeyFrameTests
 
         ((IKeyFrame)keyFrame).Value = null;
 
-        Assert.That(keyFrame.Value, Is.EqualTo("fallback"));
+        Assert.That(keyFrame.Value.Value, Is.EqualTo("fallback"));
     }
 
     private sealed class NullDefaultValidator : IValidator<string>

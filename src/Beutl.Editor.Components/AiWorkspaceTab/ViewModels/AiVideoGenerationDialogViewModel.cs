@@ -153,7 +153,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
         AspectRatioOptions.Replace(
             DefaultAspectRatios.Select(value => new AiVideoAspectRatioOption(value)));
         SelectedAspectRatio = new ReactivePropertySlim<AiVideoAspectRatioOption>(
-                AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, editor?.Scene.FrameSize))
+                AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, editor?.Scene.FrameSize.Value))
             .DisposeWith(_disposables);
         // On by default: the model produces sound and the plan is priced for it.
         GenerateAudio = new ReactivePropertySlim<bool>(true)
@@ -386,7 +386,7 @@ internal sealed partial class AiVideoGenerationDialogViewModel : IDisposable, IA
             AspectRatioOptions.FirstOrDefault(option => option.Value == _chosenAspectRatio?.Value)
             // The shape it would have started on, which is the one nearest the
             // scene rather than whichever the model happens to list first.
-            ?? AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, _editor?.Scene.FrameSize);
+            ?? AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, _editor?.Scene.FrameSize.Value);
 
         SupportsAudio.Value = IsGeneration && video.SupportsAudio;
         GenerateAudio.Value = SupportsAudio.Value && _chosenAudio;

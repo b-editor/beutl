@@ -378,8 +378,8 @@ public class PreviewRenderErrorTests
     private static PlaybackRange PlaybackRangeOf(EditViewModel editor)
         => PlaybackRange.From(
             editor.GetRequiredService<IEditorClock>().CurrentTime.Value,
-            editor.Scene.Start,
-            editor.Scene.Duration,
+            editor.Scene.Start.Value,
+            editor.Scene.Duration.Value,
             editor.Player.GetFrameRate());
 }
 

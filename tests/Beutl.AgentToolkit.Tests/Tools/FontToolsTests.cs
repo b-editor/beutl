@@ -206,7 +206,7 @@ public sealed class FontToolsTests
     {
         var objectPatch = new JsonObject
         {
-            [nameof(CoreObject.Id)] = element.Objects.Single().Id.ToString()
+            [nameof(CoreObject.Id)] = element.Objects.Single().Id.Value.ToString()
         };
         if (familyName is not null)
         {
@@ -227,7 +227,7 @@ public sealed class FontToolsTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(objectPatch)
             })
         };
@@ -239,11 +239,11 @@ public sealed class FontToolsTests
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
-        element.AddObject(new TextBlock { Name = "title", Text = { Value = "Launch" } });
+        element.AddObject(new TextBlock { Name = { Value = "title" }, Text = { Value = "Launch" } });
         scene.Children.Add(element);
 
         var session = new AgentToolkitTestSession(scene);

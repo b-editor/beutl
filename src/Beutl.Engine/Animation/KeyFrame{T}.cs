@@ -16,18 +16,12 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
     public KeyFrame()
     {
-        ValueProperty = new ValueOnlyProperty<T?>(s_animator.DefaultValue()) { Coerce = s_coerceValue };
+        Value = new ValueOnlyProperty<T?>(s_animator.DefaultValue()) { Coerce = s_coerceValue };
         ScanProperties<KeyFrame<T>>();
-        ValueProperty.ValueChanged += s_valueChanged;
+        Value.ValueChanged += s_valueChanged;
     }
 
-    public IProperty<T?> ValueProperty { get; }
-
-    public T? Value
-    {
-        get => ValueProperty.Value;
-        set => ValueProperty.Value = value;
-    }
+    public IProperty<T?> Value { get; }
 
     // The animation's validator adjusts each value set, whichever way it is set.
     private T? CoerceValue(T? value)
@@ -46,17 +40,17 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
     object? IKeyFrame.Value
     {
-        get => Value;
+        get => Value.Value;
         set
         {
             if (value is T t)
             {
-                Value = t;
+                Value.Value = t;
             }
             else if (value is null
                      && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
             {
-                Value = default;
+                Value.Value = default;
             }
         }
     }
@@ -65,11 +59,11 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
     {
         if (value is T typed)
         {
-            ValueProperty.SetValueEvenIfEqual(typed);
+            Value.SetValueEvenIfEqual(typed);
         }
         else if (value is null && (!typeof(T).IsValueType || Nullable.GetUnderlyingType(typeof(T)) is not null))
         {
-            ValueProperty.SetValueEvenIfEqual(default);
+            Value.SetValueEvenIfEqual(default);
         }
         else
         {
@@ -89,19 +83,18 @@ public sealed class KeyFrame<T> : KeyFrame, IKeyFrame
 
     private protected override void OnEasingChanged()
     {
-        base.OnEasingChanged();
         Edited?.Invoke(this, EventArgs.Empty);
     }
 
     private protected override void OnKeyTimeChanged()
     {
-        base.OnKeyTimeChanged();
         Edited?.Invoke(this, EventArgs.Empty);
         KeyTimeChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnValueChanged(PropertyValueChangedEventArgs<T?> e)
     {
+        // For IKeyFrame.Value, which reads the value as an object.
         OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
         Edited?.Invoke(this, EventArgs.Empty);
 

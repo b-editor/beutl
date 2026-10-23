@@ -14,10 +14,10 @@ internal static class SceneDrawableTestHelpers
     {
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
-            IsEnabled = true,
-            ZIndex = zIndex,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            IsEnabled = { Value = true },
+            ZIndex = { Value = zIndex },
             Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer"))
         };
         element.AddObject(obj);
@@ -30,7 +30,7 @@ internal static class SceneDrawableTestHelpers
         => new(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
-            TargetDomain = new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height),
+            TargetDomain = new Rect(0, 0, inner.FrameSize.Value.Width, inner.FrameSize.Value.Height),
             CacheOptions = RenderCacheOptions.Disabled,
         });
 }

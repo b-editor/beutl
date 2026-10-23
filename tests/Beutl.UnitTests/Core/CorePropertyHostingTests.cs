@@ -23,7 +23,7 @@ public class CorePropertyHostingTests
         using (Assert.EnterMultipleScope())
         {
             // Id and Name, which every object has, come after the type's own properties.
-            Assert.That(host.Properties, Is.EqualTo(new IProperty[] { host.Value, host.Items, host.IdProperty, host.NameProperty }));
+            Assert.That(host.Properties, Is.EqualTo(new IProperty[] { host.Value, host.Items, host.Id, host.Name }));
             Assert.That(host.Value.Name, Is.EqualTo(nameof(Host.Value)));
             Assert.That(host.Value.GetOwnerObject(), Is.SameAs(host));
             Assert.That(host.Items.GetOwnerObject(), Is.SameAs(host));

@@ -41,12 +41,12 @@ public class JsonHelperTests
             UnixFileMode initialMode = File.GetUnixFileMode(path);
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
 
-            config.AiAgentConfig.LiveMcpToken = "synthetic-test-token";
+            config.AiAgentConfig.LiveMcpToken.Value = "synthetic-test-token";
             UnixFileMode legacyMode = File.GetUnixFileMode(path);
             Assert.That(File.ReadAllText(path), Does.Contain("synthetic-test-token"));
 
-            string token = Beutl.Configuration.LiveMcpTokenStore.GetOrCreate(directory, config.AiAgentConfig.LiveMcpToken);
-            config.AiAgentConfig.LiveMcpToken = "";
+            string token = Beutl.Configuration.LiveMcpTokenStore.GetOrCreate(directory, config.AiAgentConfig.LiveMcpToken.Value);
+            config.AiAgentConfig.LiveMcpToken.Value = "";
             UnixFileMode migratedMode = File.GetUnixFileMode(path);
             JsonObject settings = JsonHelper.JsonRestore(path)!.AsObject();
 

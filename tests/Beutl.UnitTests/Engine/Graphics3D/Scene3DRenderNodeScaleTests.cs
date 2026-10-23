@@ -249,7 +249,7 @@ public class Scene3DRenderNodeScaleTests
         texture.TextureHeight.Value = 7;
         var material = new BasicMaterial();
         var cube = new Cube3D();
-        var disabledGroup = new Group3D { IsEnabled = false };
+        var disabledGroup = new Group3D { IsEnabled = { Value = false } };
         var outerGroup = new Group3D();
 
         var sceneResource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);

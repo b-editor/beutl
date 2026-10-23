@@ -56,10 +56,10 @@ public sealed class UsageTelemetryTests
         _previous = UsageTelemetry.Current;
         _config = new TelemetryConfig
         {
-            Beutl_Application = true,
-            Beutl_Api_Client = false,
-            Beutl_PackageManagement = false,
-            Beutl_Logging = false
+            Beutl_Application = { Value = true },
+            Beutl_Api_Client = { Value = false },
+            Beutl_PackageManagement = { Value = false },
+            Beutl_Logging = { Value = false }
         };
         _time = new ManualTime();
         UsageTelemetry.Current = _usage = new(_config, _time, _summaries.Add);
@@ -76,7 +76,7 @@ public sealed class UsageTelemetryTests
     [TestCase(false)]
     public void Missing_or_disabled_consent_records_nothing(bool? consent)
     {
-        _config.Beutl_Application = consent;
+        _config.Beutl_Application.Value = consent;
         _usage.Record("tool.command", "Timeline", "Paste");
         Assert.That(_usage.Begin("export"), Is.Null);
         _usage.Flush();
@@ -87,7 +87,7 @@ public sealed class UsageTelemetryTests
     public void Incomplete_consent_drops_queued_events()
     {
         _usage.Record("tool.command", "Timeline", "Paste");
-        _config.Beutl_Logging = null;
+        _config.Beutl_Logging.Value = null;
         _usage.Flush();
         Assert.That(_summaries, Is.Empty);
     }
@@ -115,9 +115,9 @@ public sealed class UsageTelemetryTests
         using UsageTelemetry.Operation operation = _usage.Begin("export")!;
         _usage.Record("tool.command", "Timeline", "Paste");
         _time.Advance(TimeSpan.FromSeconds(10));
-        _config.Beutl_Application = false;
+        _config.Beutl_Application.Value = false;
         _time.Advance(TimeSpan.FromHours(1));
-        _config.Beutl_Application = true;
+        _config.Beutl_Application.Value = true;
         operation.Complete();
         operation.Dispose();
         _time.Advance(TimeSpan.FromSeconds(5));
@@ -159,7 +159,7 @@ public sealed class UsageTelemetryTests
         using var usage = new UsageTelemetry(_config, _time, _ =>
         {
             calls++;
-            _config.Beutl_Application = false;
+            _config.Beutl_Application.Value = false;
             throw new InvalidOperationException("unavailable exporter");
         });
         usage.Record("tool.command", "Timeline", "Paste");
@@ -257,7 +257,7 @@ public sealed class UsageTelemetryTests
     {
         var scene = new Scene(640, 480, "usage-test");
         using var tracked = new TrackedHistory(scene);
-        scene.Name = "secret project title";
+        scene.Name.Value = "secret project title";
         tracked.History.Commit("secret command", "secret expression");
         tracked.History.Undo();
         tracked.History.Redo();
@@ -278,18 +278,18 @@ public sealed class UsageTelemetryTests
         video.Source.Value = new VideoSource();
         var sound = new Beutl.Audio.SourceSound();
         sound.Source.Value = new SoundSource();
-        var element = new Element { Length = MediaTime.FromSeconds(5) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(5) } };
         element.Objects.Add(video);
         element.Objects.Add(sound);
         scene.Children.Add(element);
-        var application = new BeutlApplication { Project = new Project() };
-        application.Project!.Items.Add(scene);
+        var application = new BeutlApplication { Project = { Value = new Project() } };
+        application.Project.Value!.Items.Add(scene);
         TimeRange originalRange = element.Range;
         using var tracked = new TrackedHistory(scene);
         tracked.Tracker.ActivateTool(new object(), "Timeline");
 
-        if (property == nameof(Element.Start)) element.Start = MediaTime.FromSeconds(1);
-        else element.Length = MediaTime.FromSeconds(10);
+        if (property == nameof(Element.Start)) element.Start.Value = MediaTime.FromSeconds(1);
+        else element.Length.Value = MediaTime.FromSeconds(10);
         tracked.History.Commit();
         _usage.Flush();
 
@@ -298,14 +298,14 @@ public sealed class UsageTelemetryTests
         UsageSummary edit = _summaries.Single(s => s.Key.Event == "editor.edit");
         Assert.That(edit.Key.Tool, Is.EqualTo("Timeline"));
         Assert.That(edit.Count, Is.EqualTo(1));
-        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
+        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange.Value),
             Is.All.EqualTo(element.Range));
 
         tracked.History.Undo();
-        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
+        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange.Value),
             Is.All.EqualTo(originalRange));
         tracked.History.Redo();
-        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange),
+        Assert.That(scene.EnumerateAllChildren<EngineObject>().Select(o => o.TimeRange.Value),
             Is.All.EqualTo(element.Range));
         _usage.Flush();
         Assert.That(_summaries.Single(s => s.Key.Event == "editor.edit").Count, Is.EqualTo(1));
@@ -363,10 +363,10 @@ public sealed class UsageTelemetryTests
         var group = new FilterEffectGroup();
         group.Children.Add(new Blur());
         group.Children.Add(new Blur());
-        group.Children.Add(new DropShadow { IsEnabled = false });
+        group.Children.Add(new DropShadow { IsEnabled = { Value = false } });
         (Scene scene, _, _) = CreateShapeScene(group);
         using var tracked = new TrackedHistory(scene);
-        scene.Name = "changed";
+        scene.Name.Value = "changed";
         tracked.History.Commit();
         _usage.Flush();
         Assert.That(_summaries.Where(s => s.Key.Event == "effect.used").Select(s => (s.Key.Feature, s.Count)),
@@ -383,8 +383,8 @@ public sealed class UsageTelemetryTests
         scene.HierarchyReads = 0;
         for (int i = 0; i < 4; i++)
         {
-            element.IsLocked = !element.IsLocked;
-            shape.IsTimeAnchor = !shape.IsTimeAnchor;
+            element.IsLocked.Value = !element.IsLocked.Value;
+            shape.IsTimeAnchor.Value = !shape.IsTimeAnchor.Value;
             tracked.History.Commit();
         }
         _usage.Flush();
@@ -409,10 +409,10 @@ public sealed class UsageTelemetryTests
         (_, var shape, var element) = CreateShapeScene(group, scene);
         Action<bool> setEnabled = target switch
         {
-            "effect" => enabled => blur.IsEnabled = enabled,
-            "group" => enabled => group.IsEnabled = enabled,
-            "object" => enabled => shape.IsEnabled = enabled,
-            _ => enabled => element.IsEnabled = enabled
+            "effect" => enabled => blur.IsEnabled.Value = enabled,
+            "group" => enabled => group.IsEnabled.Value = enabled,
+            "object" => enabled => shape.IsEnabled.Value = enabled,
+            _ => enabled => element.IsEnabled.Value = enabled
         };
         setEnabled(false);
         using var tracked = new TrackedHistory(scene);
@@ -447,13 +447,13 @@ public sealed class UsageTelemetryTests
         _usage.Flush(); // Blur is already emitted and must never be counted twice.
         group.Children.Add(new DropShadow());
         tracked.History.Commit(); // DropShadow is still pending when collection is revoked.
-        _config.Beutl_Application = false;
-        if (fromBackground) Task.Run(() => _config.Beutl_Application = true).GetAwaiter().GetResult();
-        else _config.Beutl_Application = true;
+        _config.Beutl_Application.Value = false;
+        if (fromBackground) Task.Run(() => _config.Beutl_Application.Value = true).GetAwaiter().GetResult();
+        else _config.Beutl_Application.Value = true;
         HeadlessTestHelpers.Settle();
         _usage.Flush();
-        _config.Beutl_Application = false;
-        _config.Beutl_Application = true;
+        _config.Beutl_Application.Value = false;
+        _config.Beutl_Application.Value = true;
         _usage.Flush();
         Assert.That(_summaries.Where(s => s.Key.Event == "effect.used").Select(s => (s.Key.Feature, s.Count)),
             Is.EquivalentTo(new[] { ("Blur", 1L), ("DropShadow", 1L) }));
@@ -467,8 +467,8 @@ public sealed class UsageTelemetryTests
         {
             _summaries.Add(summary);
             if (summary.Key.Event != "effect.used") return;
-            _config.Beutl_Application = false;
-            _config.Beutl_Application = true;
+            _config.Beutl_Application.Value = false;
+            _config.Beutl_Application.Value = true;
         });
         UsageTelemetry.Current = usage;
         using var history = new HistoryManager(new OperationSequenceGenerator());
@@ -608,22 +608,22 @@ public sealed class UsageTelemetryTests
     [TestCase(true)]
     public void Opting_in_records_existing_effects_without_an_edit_and_does_not_double_count(bool fromBackground)
     {
-        _config.Beutl_Application = false;
+        _config.Beutl_Application.Value = false;
         (Scene scene, _, _) = CreateShapeScene(new Blur());
         using var history = new HistoryManager(new OperationSequenceGenerator());
         using var tracker = new EditorUsageTracker(scene, history);
         _usage.Flush();
         Assert.That(_summaries, Is.Empty);
 
-        if (fromBackground) Task.Run(() => _config.Beutl_Application = true).GetAwaiter().GetResult();
-        else _config.Beutl_Application = true;
+        if (fromBackground) Task.Run(() => _config.Beutl_Application.Value = true).GetAwaiter().GetResult();
+        else _config.Beutl_Application.Value = true;
         HeadlessTestHelpers.Settle();
         _usage.Flush();
         Assert.That(_summaries.Single(s => s.Key.Event == "effect.used").Key.Feature, Is.EqualTo("Blur"));
         Assert.That(history.UndoCount, Is.Zero);
 
-        _config.Beutl_Application = false;
-        _config.Beutl_Application = true;
+        _config.Beutl_Application.Value = false;
+        _config.Beutl_Application.Value = true;
         _usage.Flush();
         Assert.That(_summaries.Count(s => s.Key.Event == "effect.used"), Is.EqualTo(1));
     }
@@ -631,15 +631,15 @@ public sealed class UsageTelemetryTests
     [AvaloniaTest]
     public void Closing_an_editor_before_queued_opt_in_does_not_scan_it()
     {
-        _config.Beutl_Application = false;
+        _config.Beutl_Application.Value = false;
         (Scene scene, _, _) = CreateShapeScene(new Blur());
         using var history = new HistoryManager(new OperationSequenceGenerator());
         var tracker = new EditorUsageTracker(scene, history);
-        Task.Run(() => _config.Beutl_Application = true).GetAwaiter().GetResult();
+        Task.Run(() => _config.Beutl_Application.Value = true).GetAwaiter().GetResult();
         tracker.Dispose();
         HeadlessTestHelpers.Settle();
-        _config.Beutl_Application = false;
-        _config.Beutl_Application = true;
+        _config.Beutl_Application.Value = false;
+        _config.Beutl_Application.Value = true;
         _usage.Flush();
         Assert.That(_summaries.Any(s => s.Key.Event == "effect.used"), Is.False);
     }
@@ -647,16 +647,16 @@ public sealed class UsageTelemetryTests
     [Test]
     public void Failing_opt_in_observer_does_not_block_other_observers_or_configuration()
     {
-        _config.Beutl_Application = false;
-        _config.Beutl_Logging = null;
+        _config.Beutl_Application.Value = false;
+        _config.Beutl_Logging.Value = null;
         int notifications = 0;
         _usage.CollectionEnabled += () => throw new InvalidOperationException("failed observer");
         _usage.CollectionEnabled += () => notifications++;
-        _config.Beutl_Application = true;
+        _config.Beutl_Application.Value = true;
         Assert.That(notifications, Is.Zero, "Incomplete consent must not trigger collection.");
-        Assert.DoesNotThrow(() => _config.Beutl_Logging = false);
+        Assert.DoesNotThrow(() => _config.Beutl_Logging.Value = false);
         Assert.That(notifications, Is.EqualTo(1));
-        _config.Beutl_Logging = true;
+        _config.Beutl_Logging.Value = true;
         Assert.That(notifications, Is.EqualTo(1), "Unchanged application consent must not rescan.");
     }
 
@@ -680,8 +680,8 @@ public sealed class UsageTelemetryTests
     public void Tab_interaction_captured_before_revoke_is_not_recorded_after_reenable()
     {
         Assert.That(_usage.TryGetCollectionEpoch(out long previous), Is.True);
-        _config.Beutl_Application = false;
-        _config.Beutl_Application = true;
+        _config.Beutl_Application.Value = false;
+        _config.Beutl_Application.Value = true;
         _usage.Record("tool.activated", "Timeline", epoch: previous);
         _usage.Flush();
         Assert.That(_summaries.Any(s => s.Key.Event == "tool.activated"), Is.False);
@@ -700,7 +700,7 @@ public sealed class UsageTelemetryTests
     [TestCase(true, true)]
     public void First_tab_interaction_in_each_enabled_period_is_recorded_once(bool previouslyEnabled, bool fromBackground)
     {
-        _config.Beutl_Application = previouslyEnabled;
+        _config.Beutl_Application.Value = previouslyEnabled;
         var scene = new Scene(640, 480, "usage-test");
         using var history = new HistoryManager(new OperationSequenceGenerator());
         using var tracker = new EditorUsageTracker(scene, history);
@@ -709,13 +709,13 @@ public sealed class UsageTelemetryTests
         _usage.Flush();
         _summaries.Clear();
 
-        _config.Beutl_Application = false;
+        _config.Beutl_Application.Value = false;
         tracker.ActivateTool(timeline, "Timeline");
         Assert.That(tracker.ActiveTool, Is.EqualTo("Timeline"));
         _usage.Flush();
         Assert.That(_summaries, Is.Empty);
-        if (fromBackground) Task.Run(() => _config.Beutl_Application = true).GetAwaiter().GetResult();
-        else _config.Beutl_Application = true;
+        if (fromBackground) Task.Run(() => _config.Beutl_Application.Value = true).GetAwaiter().GetResult();
+        else _config.Beutl_Application.Value = true;
         _usage.Flush();
         Assert.That(_summaries.Any(s => s.Key.Event == "tool.activated"), Is.False,
             "Enabling collection alone is not a tab interaction.");
@@ -726,7 +726,7 @@ public sealed class UsageTelemetryTests
         _usage.Flush();
         Assert.That(_summaries.Single(s => s.Key.Event == "tool.activated").Count, Is.EqualTo(1));
         HeadlessTestHelpers.Settle();
-        _config.Beutl_Logging = true;
+        _config.Beutl_Logging.Value = true;
         tracker.ActivateTool(timeline, "Timeline");
         _usage.Flush();
         Assert.That(_summaries.Where(s => s.Key.Event == "tool.activated").Sum(s => s.Count), Is.EqualTo(1),
@@ -783,11 +783,11 @@ public sealed class UsageTelemetryTests
         var gate = (SemaphoreSlim)typeof(LibraryTabViewModel)
             .GetField("_asyncLock", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(library)!;
         await gate.WaitAsync();
-        _config.Beutl_Application = initiallyEnabled;
+        _config.Beutl_Application.Value = initiallyEnabled;
         Task search = library.Search("private search", CancellationToken.None);
         Assert.That(search.IsCompleted, Is.False);
-        _config.Beutl_Application = false;
-        _config.Beutl_Application = true;
+        _config.Beutl_Application.Value = false;
+        _config.Beutl_Application.Value = true;
         gate.Release();
         await search;
         _usage.Flush();
@@ -878,18 +878,18 @@ public sealed class UsageTelemetryTests
         try
         {
             (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("usage-history");
-            scene.Name = "changed";
+            scene.Name.Value = "changed";
             editor.HistoryManager.Commit();
             var guard = (HistoryMutationPlaybackGuard)typeof(EditViewModel)
                 .GetField("_historyMutationPlaybackGuard", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(editor)!;
             var gate = (SemaphoreSlim)typeof(HistoryMutationPlaybackGuard)
                 .GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(guard)!;
             await gate.WaitAsync();
-            _config.Beutl_Application = initiallyEnabled;
+            _config.Beutl_Application.Value = initiallyEnabled;
             ValueTask<bool> undo = editor.UndoAsync();
             Assert.That(undo.IsCompleted, Is.False);
-            _config.Beutl_Application = false;
-            _config.Beutl_Application = true;
+            _config.Beutl_Application.Value = false;
+            _config.Beutl_Application.Value = true;
             gate.Release();
             Assert.That(await undo, Is.True);
             _usage.Flush();

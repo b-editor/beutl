@@ -247,8 +247,8 @@ public class FileBrowserAutoSaveTests
         var element = new Element
         {
             Uri = new Uri(Path.Combine(root, "clip.belm")),
-            Name = "Clip",
-            Length = MediaTime.FromSeconds(3)
+            Name = { Value = "Clip" },
+            Length = { Value = MediaTime.FromSeconds(3) }
         };
         scene.Children.Add(element);
         using var autoSave = new AutoSaveService();
@@ -278,7 +278,7 @@ public class FileBrowserAutoSaveTests
 
             for (int i = 0; i < 3; i++)
             {
-                element.ZIndex++;
+                element.ZIndex.Value++;
                 autoSave.SaveObjects([element, scene]);
                 await SettleWatcherAsync();
             }
@@ -304,7 +304,7 @@ public class FileBrowserAutoSaveTests
             await SettleWatcherAsync();
             FileSystemItemViewModel[] homeItems = browser.ProjectDirectoryItems.ToArray();
             FileSystemItemViewModel[] favoriteItems = browser.FavoriteItems.ToArray();
-            element.ZIndex++;
+            element.ZIndex.Value++;
             autoSave.SaveObjects([element, scene]);
             await SettleWatcherAsync();
             Assert.That(browser.ProjectDirectoryItems, Is.EqualTo(homeItems));

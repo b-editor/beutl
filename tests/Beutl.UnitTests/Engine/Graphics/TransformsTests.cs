@@ -160,7 +160,7 @@ public class TransformsTests
     {
         var group = new TransformGroup();
         var child = new TranslateTransform(5f, 5f);
-        child.IsEnabled = false;
+        child.IsEnabled.Value = false;
         group.Children.Add(child);
 
         Assert.That(group.CreateMatrix(Context), Is.EqualTo(Matrix.Identity));

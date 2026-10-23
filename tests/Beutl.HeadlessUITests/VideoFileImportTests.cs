@@ -59,7 +59,7 @@ public class VideoFileImportTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(editor.Scene.Children, Has.Count.EqualTo(2));
-            Assert.That(editor.Scene.Children.Select(element => element.Length),
+            Assert.That(editor.Scene.Children.Select(element => element.Length.Value),
                 Is.All.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
@@ -182,7 +182,7 @@ public class VideoFileImportTests
         string path = CreateImportFile("locked", withAudio: true);
         using (editor.HistoryManager.SuppressRecording())
         {
-            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsLocked = { Value = true } });
         }
 
         string sceneDirectory = Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!;

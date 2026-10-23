@@ -68,12 +68,12 @@ public class SceneSettingsLayoutTests
             HeadlessTestHelpers.Render();
             Assert.That(apply.IsEffectivelyEnabled, Is.False);
 
-            MediaTime originalStart = scene.Start;
+            MediaTime originalStart = scene.Start.Value;
             start.Text = "00:00:02";
             duration.Text = "00:00:12";
             layers.Value = 60;
             HeadlessTestHelpers.Render();
-            Assert.That(scene.Start, Is.EqualTo(originalStart), "Edits remain drafts until Apply is clicked.");
+            Assert.That(scene.Start.Value, Is.EqualTo(originalStart), "Edits remain drafts until Apply is clicked.");
             Assert.That(apply.IsEffectivelyEnabled, Is.True);
             FocusAndClick(apply);
             for (int attempt = 0; attempt < 500 && options.Options.Value.MaxLayerCount != 60; attempt++)
@@ -83,8 +83,8 @@ public class SceneSettingsLayoutTests
             }
             Assert.Multiple(() =>
             {
-                Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-                Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(12)));
+                Assert.That(scene.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+                Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(12)));
                 Assert.That(options.Options.Value.MaxLayerCount, Is.EqualTo(60));
             });
 

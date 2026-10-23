@@ -268,7 +268,7 @@ public sealed class GpuPassFusion3DBoundaryTests
         var light = new DirectionalLight3D();
         light.Direction.Value = new Vector3(0, 0, 1);
         light.Intensity.Value = 1;
-        light.IsEnabled = true;
+        light.IsEnabled.Value = true;
 
         var scene = new Scene3D();
         scene.RenderWidth.Value = 48;

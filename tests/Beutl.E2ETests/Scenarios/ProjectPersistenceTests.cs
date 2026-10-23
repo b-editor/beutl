@@ -31,14 +31,14 @@ public class ProjectPersistenceTests
         var sceneUri = new Uri(Path.Combine(_baseDir, "scene0", "scene0.scene"));
         var elementUri = new Uri(Path.Combine(_baseDir, "scene0", "clip.belm"));
 
-        var project = new Project { Uri = projectUri, FrameRate = new Rational(30000, 1001), SampleRate = 48000 };
+        var project = new Project { Uri = projectUri, FrameRate = { Value = new Rational(30000, 1001) }, SampleRate = { Value = 48000 } };
 
         var scene = new Scene(1920, 1080, "scene0") { Uri = sceneUri };
         var element = new Element
         {
-            Start = MediaTime.FromSeconds(2),
-            Length = MediaTime.FromSeconds(4),
-            ZIndex = 1,
+            Start = { Value = MediaTime.FromSeconds(2) },
+            Length = { Value = MediaTime.FromSeconds(4) },
+            ZIndex = { Value = 1 },
             Uri = elementUri,
         };
         scene.Children.Add(element);
@@ -59,24 +59,24 @@ public class ProjectPersistenceTests
         Assert.Multiple(() =>
         {
             Assert.That(restored.Items, Has.Count.EqualTo(1));
-            Assert.That(restored.FrameRate, Is.EqualTo(new Rational(30000, 1001)));
-            Assert.That(restored.SampleRate, Is.EqualTo(48000));
+            Assert.That(restored.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(restored.SampleRate.Value, Is.EqualTo(48000));
         });
 
         var restoredScene = (Scene)restored.Items[0];
         Assert.Multiple(() =>
         {
-            Assert.That(restoredScene.FrameSize, Is.EqualTo(new PixelSize(1920, 1080)));
-            Assert.That(restoredScene.Name, Is.EqualTo("scene0"));
+            Assert.That(restoredScene.FrameSize.Value, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(restoredScene.Name.Value, Is.EqualTo("scene0"));
             Assert.That(restoredScene.Children, Has.Count.EqualTo(1));
         });
 
         Element restoredElement = restoredScene.Children[0];
         Assert.Multiple(() =>
         {
-            Assert.That(restoredElement.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(restoredElement.Length, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(restoredElement.ZIndex, Is.EqualTo(1));
+            Assert.That(restoredElement.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(restoredElement.Length.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(restoredElement.ZIndex.Value, Is.EqualTo(1));
             Assert.That(restoredElement.Objects.OfType<RectShape>().Count(), Is.EqualTo(1));
         });
     }
@@ -107,10 +107,10 @@ public class ProjectPersistenceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restoredFirst.Id, Is.EqualTo(first.Id));
-            Assert.That(restoredFirst.FrameSize, Is.EqualTo(new PixelSize(800, 600)));
-            Assert.That(restoredSecond.Id, Is.EqualTo(second.Id));
-            Assert.That(restoredSecond.FrameSize, Is.EqualTo(new PixelSize(400, 300)));
+            Assert.That(restoredFirst.Id.Value, Is.EqualTo(first.Id.Value));
+            Assert.That(restoredFirst.FrameSize.Value, Is.EqualTo(new PixelSize(800, 600)));
+            Assert.That(restoredSecond.Id.Value, Is.EqualTo(second.Id.Value));
+            Assert.That(restoredSecond.FrameSize.Value, Is.EqualTo(new PixelSize(400, 300)));
         });
     }
 
@@ -123,7 +123,7 @@ public class ProjectPersistenceTests
 
         var project = new Project { Uri = projectUri };
         var scene = new Scene(1024, 768, "s") { Uri = sceneUri };
-        scene.Children.Add(new Element { Length = MediaTime.FromSeconds(3), Uri = elementUri });
+        scene.Children.Add(new Element { Length = { Value = MediaTime.FromSeconds(3) }, Uri = elementUri });
         project.Items.Add(scene);
         CoreSerializer.StoreToUri(project, projectUri);
 
@@ -135,9 +135,9 @@ public class ProjectPersistenceTests
         Assert.Multiple(() =>
         {
             Assert.That(secondRestore.Items, Has.Count.EqualTo(1));
-            Assert.That(secondScene.FrameSize, Is.EqualTo(new PixelSize(1024, 768)));
+            Assert.That(secondScene.FrameSize.Value, Is.EqualTo(new PixelSize(1024, 768)));
             Assert.That(secondScene.Children, Has.Count.EqualTo(1));
-            Assert.That(secondScene.Children[0].Length, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(secondScene.Children[0].Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 

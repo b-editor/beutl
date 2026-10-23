@@ -126,7 +126,7 @@ public sealed class CreateNewProjectViewModel
                 CancellationToken.None);
             bool isAvailable = availability.State == GitAvailabilityState.Installed;
             TrackHistory.Value = isAvailable
-                                 && GlobalConfiguration.Instance.VersionControlConfig.EnableForNewProjects;
+                                 && GlobalConfiguration.Instance.VersionControlConfig.EnableForNewProjects.Value;
             IsGitAvailable.Value = isAvailable;
         }
         catch (OperationCanceledException)

@@ -47,8 +47,8 @@ public class SplineEasingHelperTests
     public void Remove_NonNumberType_FallsBackToRemoveAt()
     {
         var animation = new KeyFrameAnimation<bool>();
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(0), Value = false });
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(1), Value = true });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.FromSeconds(0) }, Value = { Value = false } });
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = true } });
 
         SplineEasingHelper.Remove(animation, 1);
 
@@ -59,13 +59,13 @@ public class SplineEasingHelperTests
     public void Move_NonNumberType_OnlyAdjustsKeyTime()
     {
         var animation = new KeyFrameAnimation<bool>();
-        var kf = new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(1), Value = true };
-        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(0), Value = false });
+        var kf = new KeyFrame<bool> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = true } };
+        animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.FromSeconds(0) }, Value = { Value = false } });
         animation.KeyFrames.Add(kf);
 
         SplineEasingHelper.Move(animation, kf, MediaTime.FromSeconds(2));
 
-        Assert.That(kf.KeyTime, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(kf.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
@@ -76,7 +76,7 @@ public class SplineEasingHelperTests
             var animation = (IKeyFrameAnimation)Activator.CreateInstance(typeof(KeyFrameAnimation<>).MakeGenericType(valueType))!;
             var keyFrame = (IKeyFrame)Activator.CreateInstance(typeof(KeyFrame<>).MakeGenericType(valueType))!;
             animation.KeyFrames.Add(keyFrame);
-            SplineEasingHelper.Move(animation, keyFrame, keyFrame.KeyTime);
+            SplineEasingHelper.Move(animation, keyFrame, keyFrame.KeyTime.Value);
             SplineEasingHelper.Remove(animation, 0);
         });
 

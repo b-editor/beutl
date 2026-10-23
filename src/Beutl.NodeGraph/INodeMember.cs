@@ -6,7 +6,7 @@ namespace Beutl.NodeGraph;
 
 public interface INodeMember : ICoreObject, IHierarchical, INotifyEdited
 {
-    DisplayAttribute? Display { get; }
+    IProperty<DisplayAttribute?> Display { get; }
 
     IPropertyAdapter? Property { get; }
 

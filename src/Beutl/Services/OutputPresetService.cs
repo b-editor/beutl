@@ -128,12 +128,12 @@ public sealed class OutputPresetService : IOutputPresetStore
     private void CreateDefaultPresets()
     {
         var vid = new FFmpegVideoEncoderSettings();
-        vid.Format = FFPixelFormat.YUV420P;
-        vid.Bitrate = 15000000;
-        vid.KeyframeRate = 12;
-        vid.Codec = FindVideoCodec("libx264");
-        vid.Options.Clear();
-        vid.Options.AddRange(
+        vid.Format.Value = FFPixelFormat.YUV420P;
+        vid.Bitrate.Value = 15000000;
+        vid.KeyframeRate.Value = 12;
+        vid.Codec.Value = FindVideoCodec("libx264");
+        vid.Options.Value.Clear();
+        vid.Options.Value.AddRange(
         [
             new AdditionalOption("preset", "veryslow"),
             new AdditionalOption("crf", "18"),
@@ -141,30 +141,30 @@ public sealed class OutputPresetService : IOutputPresetStore
             new AdditionalOption("level", "4.0"),
         ]);
         var aud = new FFmpegAudioEncoderSettings();
-        aud.Bitrate = 320000;
-        aud.Codec = FindAudioCodec("aac");
+        aud.Bitrate.Value = 320000;
+        aud.Codec.Value = FindAudioCodec("aac");
 
         _items.Add(CreateFFmpegPreset(vid, aud, "High Quality"));
 
         ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
         ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
 
-        vid.Bitrate = 8000000;
-        vid.KeyframeRate = 30;
-        vid.Options.First(i => i.Name == "preset").Value = "medium";
-        vid.Options.First(i => i.Name == "crf").Value = "23";
-        aud.Bitrate = 128000;
+        vid.Bitrate.Value = 8000000;
+        vid.KeyframeRate.Value = 30;
+        vid.Options.Value.First(i => i.Name.Value == "preset").Value.Value = "medium";
+        vid.Options.Value.First(i => i.Name.Value == "crf").Value.Value = "23";
+        aud.Bitrate.Value = 128000;
 
         _items.Add(CreateFFmpegPreset(vid, aud, "Medium Quality"));
 
         ObjectRegenerator.Regenerate<FFmpegVideoEncoderSettings>(vid, out vid);
         ObjectRegenerator.Regenerate<FFmpegAudioEncoderSettings>(aud, out aud);
 
-        vid.Bitrate = 3000000;
-        vid.KeyframeRate = 60;
-        vid.Options.First(i => i.Name == "preset").Value = "ultrafast";
-        vid.Options.First(i => i.Name == "crf").Value = "28";
-        aud.Bitrate = 128000;
+        vid.Bitrate.Value = 3000000;
+        vid.KeyframeRate.Value = 60;
+        vid.Options.Value.First(i => i.Name.Value == "preset").Value.Value = "ultrafast";
+        vid.Options.Value.First(i => i.Name.Value == "crf").Value.Value = "28";
+        aud.Bitrate.Value = 128000;
 
         _items.Add(CreateFFmpegPreset(vid, aud, "Low Quality"));
 
@@ -203,24 +203,24 @@ public sealed class OutputPresetService : IOutputPresetStore
         FFColorTransfer transfer,
         string x265Params)
     {
-        vid.Format = FFPixelFormat.YUV420P10LE;
-        vid.Bitrate = 20000000;
-        vid.KeyframeRate = 24;
-        vid.Codec = FindVideoCodec("libx265");
-        vid.ColorPrimaries = FFColorPrimaries.BT2020;
-        vid.ColorTrc = transfer;
-        vid.ColorSpace = FFColorSpace.BT2020_NCL;
-        vid.ColorRange = FFColorRange.MPEG;
-        vid.Options.Clear();
-        vid.Options.AddRange(
+        vid.Format.Value = FFPixelFormat.YUV420P10LE;
+        vid.Bitrate.Value = 20000000;
+        vid.KeyframeRate.Value = 24;
+        vid.Codec.Value = FindVideoCodec("libx265");
+        vid.ColorPrimaries.Value = FFColorPrimaries.BT2020;
+        vid.ColorTrc.Value = transfer;
+        vid.ColorSpace.Value = FFColorSpace.BT2020_NCL;
+        vid.ColorRange.Value = FFColorRange.MPEG;
+        vid.Options.Value.Clear();
+        vid.Options.Value.AddRange(
         [
             new AdditionalOption("preset", "medium"),
             new AdditionalOption("crf", "20"),
             new AdditionalOption("profile", "main10"),
             new AdditionalOption("x265-params", x265Params),
         ]);
-        aud.Bitrate = 192000;
-        aud.Codec = FindAudioCodec("aac");
+        aud.Bitrate.Value = 192000;
+        aud.Codec.Value = FindAudioCodec("aac");
     }
 
     private void AddPlatformPresets()
@@ -379,16 +379,16 @@ public sealed class OutputPresetService : IOutputPresetStore
 
         var vid = new FFmpegVideoEncoderSettings
         {
-            Format = FFPixelFormat.YUV420P,
-            Bitrate = videoBitrate,
-            KeyframeRate = (int)Math.Round((double)frameRate.Numerator / Math.Max(1, frameRate.Denominator) * 2),
-            Codec = videoCodec,
-            SourceSize = destinationSize,
-            DestinationSize = destinationSize,
-            FrameRate = frameRate
+            Format = { Value = FFPixelFormat.YUV420P },
+            Bitrate = { Value = videoBitrate },
+            KeyframeRate = { Value = (int)Math.Round((double)frameRate.Numerator / Math.Max(1, frameRate.Denominator) * 2) },
+            Codec = { Value = videoCodec },
+            SourceSize = { Value = destinationSize },
+            DestinationSize = { Value = destinationSize },
+            FrameRate = { Value = frameRate }
         };
-        vid.Options.Clear();
-        vid.Options.AddRange(
+        vid.Options.Value.Clear();
+        vid.Options.Value.AddRange(
         [
             new AdditionalOption("preset", preset),
             new AdditionalOption("crf", crf),
@@ -398,9 +398,9 @@ public sealed class OutputPresetService : IOutputPresetStore
 
         var aud = new FFmpegAudioEncoderSettings
         {
-            Bitrate = audioBitrate,
-            SampleRate = audioSampleRate,
-            Codec = audioCodec
+            Bitrate = { Value = audioBitrate },
+            SampleRate = { Value = audioSampleRate },
+            Codec = { Value = audioCodec }
         };
 
         OutputPresetItem item = CreateFFmpegPreset(vid, aud, name, presetKey);

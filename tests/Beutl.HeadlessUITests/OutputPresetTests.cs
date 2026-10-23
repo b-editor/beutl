@@ -34,11 +34,11 @@ public sealed class OutputPresetTests
         EncodingController controller = output.Controller.Value!;
         Assert.Multiple(() =>
         {
-            Assert.That(controller.VideoSettings.SourceSize, Is.EqualTo(s_sceneSize));
-            Assert.That(controller.VideoSettings.DestinationSize, Is.EqualTo(new PixelSize(3840, 2160)));
-            Assert.That(controller.VideoSettings.FrameRate, Is.EqualTo(new Rational(60, 1)));
-            Assert.That(controller.VideoSettings.KeyframeRate, Is.EqualTo(120));
-            Assert.That(controller.AudioSettings.SampleRate, Is.EqualTo(48000));
+            Assert.That(controller.VideoSettings.SourceSize.Value, Is.EqualTo(s_sceneSize));
+            Assert.That(controller.VideoSettings.DestinationSize.Value, Is.EqualTo(new PixelSize(3840, 2160)));
+            Assert.That(controller.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(60, 1)));
+            Assert.That(controller.VideoSettings.KeyframeRate.Value, Is.EqualTo(120));
+            Assert.That(controller.AudioSettings.SampleRate.Value, Is.EqualTo(48000));
         });
     }
 
@@ -50,10 +50,10 @@ public sealed class OutputPresetTests
         using (OutputViewModel saved = CreateOutput(editor))
         {
             EncodingController source = saved.Controller.Value!;
-            source.VideoSettings.DestinationSize = new PixelSize(3840, 2160);
-            source.VideoSettings.FrameRate = new Rational(60, 1);
-            source.VideoSettings.Bitrate = 45_000_000;
-            source.AudioSettings.SampleRate = 48000;
+            source.VideoSettings.DestinationSize.Value = new PixelSize(3840, 2160);
+            source.VideoSettings.FrameRate.Value = new Rational(60, 1);
+            source.VideoSettings.Bitrate.Value = 45_000_000;
+            source.AudioSettings.SampleRate.Value = 48000;
             preset = saved.ToPreset();
         }
 
@@ -63,10 +63,10 @@ public sealed class OutputPresetTests
         EncodingController controller = output.Controller.Value!;
         Assert.Multiple(() =>
         {
-            Assert.That(controller.VideoSettings.DestinationSize, Is.EqualTo(s_sceneSize));
-            Assert.That(controller.VideoSettings.FrameRate, Is.EqualTo(new Rational(30, 1)));
-            Assert.That(controller.AudioSettings.SampleRate, Is.EqualTo(44100));
-            Assert.That(controller.VideoSettings.Bitrate, Is.EqualTo(45_000_000), "the rest of the preset still applies");
+            Assert.That(controller.VideoSettings.DestinationSize.Value, Is.EqualTo(s_sceneSize));
+            Assert.That(controller.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(30, 1)));
+            Assert.That(controller.AudioSettings.SampleRate.Value, Is.EqualTo(44100));
+            Assert.That(controller.VideoSettings.Bitrate.Value, Is.EqualTo(45_000_000), "the rest of the preset still applies");
         });
     }
 
@@ -78,9 +78,9 @@ public sealed class OutputPresetTests
         EditViewModel editor = await OpenEditor();
         using var output = CreateOutput(editor);
         EncodingController original = output.Controller.Value!;
-        original.VideoSettings.DestinationSize = new PixelSize(1280, 720);
-        original.VideoSettings.FrameRate = new Rational(24000, 1001);
-        original.AudioSettings.SampleRate = 96000;
+        original.VideoSettings.DestinationSize.Value = new PixelSize(1280, 720);
+        original.VideoSettings.FrameRate.Value = new Rational(24000, 1001);
+        original.AudioSettings.SampleRate.Value = 96000;
 
         output.DestinationFile.Value = Path.Combine(Path.GetDirectoryName(original.OutputFile)!, "renamed.mp4");
 
@@ -88,10 +88,10 @@ public sealed class OutputPresetTests
         Assert.Multiple(() =>
         {
             Assert.That(renamed, Is.Not.SameAs(original));
-            Assert.That(renamed.VideoSettings.DestinationSize, Is.EqualTo(new PixelSize(1280, 720)));
-            Assert.That(renamed.VideoSettings.FrameRate, Is.EqualTo(new Rational(24000, 1001)));
-            Assert.That(renamed.AudioSettings.SampleRate, Is.EqualTo(96000));
-            Assert.That(renamed.VideoSettings.SourceSize, Is.EqualTo(s_sceneSize));
+            Assert.That(renamed.VideoSettings.DestinationSize.Value, Is.EqualTo(new PixelSize(1280, 720)));
+            Assert.That(renamed.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(24000, 1001)));
+            Assert.That(renamed.AudioSettings.SampleRate.Value, Is.EqualTo(96000));
+            Assert.That(renamed.VideoSettings.SourceSize.Value, Is.EqualTo(s_sceneSize));
         });
     }
 
@@ -105,16 +105,16 @@ public sealed class OutputPresetTests
         using var output = new OutputViewModel(editor);
         output.DestinationFile.Value = Path.Combine(Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!, "new.mp4");
         output.SelectedEncoder.Value = sized;
-        PixelSize created = output.Controller.Value!.VideoSettings.DestinationSize;
+        PixelSize created = output.Controller.Value!.VideoSettings.DestinationSize.Value;
 
         output.SelectedEncoder.Value = new TestEncoder();
-        output.Controller.Value!.VideoSettings.DestinationSize = new PixelSize(1280, 720);
+        output.Controller.Value!.VideoSettings.DestinationSize.Value = new PixelSize(1280, 720);
         output.SelectedEncoder.Value = sized;
 
         Assert.Multiple(() =>
         {
             Assert.That(created, Is.EqualTo(s_sceneSize), "a new output");
-            Assert.That(output.Controller.Value!.VideoSettings.DestinationSize, Is.EqualTo(s_sceneSize),
+            Assert.That(output.Controller.Value!.VideoSettings.DestinationSize.Value, Is.EqualTo(s_sceneSize),
                 "another encoder");
         });
     }
@@ -144,10 +144,10 @@ public sealed class OutputPresetTests
         EncodingController controller = output.Controller.Value!;
         Assert.Multiple(() =>
         {
-            Assert.That(controller.VideoSettings.DestinationSize, Is.EqualTo(new PixelSize(3840, 2160)));
-            Assert.That(controller.VideoSettings.FrameRate, Is.EqualTo(new Rational(60, 1)));
-            Assert.That(controller.VideoSettings.KeyframeRate, Is.EqualTo(120), "two seconds at 60 fps");
-            Assert.That(controller.AudioSettings.SampleRate, Is.EqualTo(48000));
+            Assert.That(controller.VideoSettings.DestinationSize.Value, Is.EqualTo(new PixelSize(3840, 2160)));
+            Assert.That(controller.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(60, 1)));
+            Assert.That(controller.VideoSettings.KeyframeRate.Value, Is.EqualTo(120), "two seconds at 60 fps");
+            Assert.That(controller.AudioSettings.SampleRate.Value, Is.EqualTo(48000));
         });
     }
 
@@ -245,13 +245,13 @@ public sealed class OutputPresetTests
     {
         var video = new VideoEncoderSettings
         {
-            SourceSize = size,
-            DestinationSize = size,
-            FrameRate = frameRate,
-            KeyframeRate = keyframeRate,
-            Bitrate = 45_000_000
+            SourceSize = { Value = size },
+            DestinationSize = { Value = size },
+            FrameRate = { Value = frameRate },
+            KeyframeRate = { Value = keyframeRate },
+            Bitrate = { Value = 45_000_000 }
         };
-        var audio = new AudioEncoderSettings { SampleRate = sampleRate };
+        var audio = new AudioEncoderSettings { SampleRate = { Value = sampleRate } };
         return new JsonObject
         {
             [nameof(OutputViewModel.VideoSettings)] = EncoderSettingsJson.Serialize(video),

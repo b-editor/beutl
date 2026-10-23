@@ -77,7 +77,7 @@ public sealed partial class GraphEditorViewModel
         clipboard ??= ClipboardHelper.GetClipboard();
         if (!IsClipboardContextActive || clipboard == null || SelectedView.Value == null) return;
         var canPaste = CapturePasteContext();
-        MediaTime start = target?.KeyTime ?? ConvertKeyTime(CurrentTime.Value);
+        MediaTime start = target?.KeyTime.Value ?? ConvertKeyTime(CurrentTime.Value);
         try
         {
             string? json = await clipboard.TryGetValueAsync(BeutlDataFormats.KeyFrameSelection)
@@ -108,7 +108,7 @@ public sealed partial class GraphEditorViewModel
         {
             if (target != null && copied.Length == 1)
             {
-                HistoryManager.ExecuteInTransaction(() => target.Easing = copied[0].Easing, CommandNames.PasteKeyFrame);
+                HistoryManager.ExecuteInTransaction(() => target.Easing.Value = copied[0].Easing.Value, CommandNames.PasteKeyFrame);
                 NotificationService.ShowWarning(Strings.GraphEditor, MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
             }
             else NotificationService.ShowWarning(Strings.Paste, MessageStrings.InvalidKeyframeDataFormat);

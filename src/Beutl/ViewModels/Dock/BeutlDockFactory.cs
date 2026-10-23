@@ -56,7 +56,7 @@ public class BeutlDockFactory(EditViewModel editViewModel) : Factory
 
     private bool IsPortraitScene()
     {
-        var frameSize = editViewModel.Scene.FrameSize;
+        var frameSize = editViewModel.Scene.FrameSize.Value;
         return frameSize.Height > frameSize.Width;
     }
 

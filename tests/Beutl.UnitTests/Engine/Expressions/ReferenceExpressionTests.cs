@@ -130,7 +130,7 @@ public class ReferenceExpressionTests
         var root = new TestEngineObject();
         var target = new TestEngineObject();
         root.AddChild(target);
-        var objectId = target.Id;
+        var objectId = target.Id.Value;
         var expression = new ReferenceExpression<TestEngineObject>(objectId);
         var propertyLookup = new PropertyLookup(root);
         var context = new ExpressionContext(MediaTime.Zero, Property.CreateExpression(0.0), propertyLookup);
@@ -150,7 +150,7 @@ public class ReferenceExpressionTests
         var target = new TestEngineObject();
         target.Value.Value = 42.0;
         root.AddChild(target);
-        var objectId = target.Id;
+        var objectId = target.Id.Value;
         var expression = new ReferenceExpression<double>(objectId, "Value");
         var propertyLookup = new PropertyLookup(root);
         var context = new ExpressionContext(MediaTime.Zero, Property.CreateExpression(0.0), propertyLookup);
@@ -169,7 +169,7 @@ public class ReferenceExpressionTests
         var root = new TestEngineObject();
         var target = new TestEngineObject();
         root.AddChild(target);
-        var objectId = target.Id;
+        var objectId = target.Id.Value;
         var expression = new ReferenceExpression<double>(objectId, "NonExistentProperty");
         var propertyLookup = new PropertyLookup(root);
         var context = new ExpressionContext(MediaTime.Zero, Property.CreateExpression(0.0), propertyLookup);
@@ -188,7 +188,7 @@ public class ReferenceExpressionTests
         var root = new TestEngineObject();
         var target = new TestEngineObject();
         root.AddChild(target);
-        var objectId = target.Id;
+        var objectId = target.Id.Value;
         // Try to get TestEngineObject as string
         var expression = new ReferenceExpression<string>(objectId);
         var propertyLookup = new PropertyLookup(root);

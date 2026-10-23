@@ -12,7 +12,7 @@ internal static class CoreObjectHelper
         var element = GetOwnerElement(obj);
         var typeName = TypeDisplayHelpers.GetLocalizedName(obj.GetType());
 
-        return element != null ? $"{element.Name} - {typeName}" : typeName;
+        return element != null ? $"{element.Name.Value} - {typeName}" : typeName;
     }
 
     public static Element? GetOwnerElement(CoreObject obj)

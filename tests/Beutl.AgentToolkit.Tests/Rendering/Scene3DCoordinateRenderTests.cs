@@ -131,12 +131,12 @@ public sealed class Scene3DCoordinateRenderTests
         {
             var scene = new Scene(1920, 1080, "coordinates")
             {
-                Duration = MediaTime.FromSeconds(1),
+                Duration = { Value = MediaTime.FromSeconds(1) },
                 Uri = new Uri(Path.Combine(dir, "Scene.scene"))
             };
             var element = new Element
             {
-                Length = MediaTime.FromSeconds(1),
+                Length = { Value = MediaTime.FromSeconds(1) },
                 Uri = new Uri(Path.Combine(dir, "element.belm"))
             };
             foreach (EngineObject obj in objects)

@@ -117,7 +117,7 @@ public class TrimGroupCollectorTests
         AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 0);
         Element frontB = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 1);
         Element lockedBack = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 1);
-        lockedBack.IsLocked = true;
+        lockedBack.IsLocked.Value = true;
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [frontA, frontB], MediaTime.FromSeconds(2));
@@ -132,7 +132,7 @@ public class TrimGroupCollectorTests
         AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 0);
         Element lockedFront = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 1);
         AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 1);
-        lockedFront.IsLocked = true;
+        lockedFront.IsLocked.Value = true;
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [frontA, lockedFront], MediaTime.FromSeconds(2));
@@ -143,7 +143,7 @@ public class TrimGroupCollectorTests
     [Test]
     public void CollectRollPairs_OffSceneMember_IsExcluded()
     {
-        var offScene = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(2) };
+        var offScene = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(2) } };
 
         IReadOnlyList<ElementTrimPair>? pairs = TrimGroupCollector.CollectRollPairs(
             _scene, [offScene], MediaTime.FromSeconds(2));
@@ -250,7 +250,7 @@ public class TrimGroupCollectorTests
         AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
         Element middle = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
         AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(3));
-        middle.IsLocked = true;
+        middle.IsLocked.Value = true;
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(_scene, [middle]);
 
@@ -263,7 +263,7 @@ public class TrimGroupCollectorTests
         AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
         Element middle = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1));
         Element back = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(3));
-        back.IsLocked = true;
+        back.IsLocked.Value = true;
 
         IReadOnlyList<ElementSlideLane>? lanes = TrimGroupCollector.CollectSlideLanes(_scene, [middle]);
 

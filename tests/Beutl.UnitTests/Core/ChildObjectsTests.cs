@@ -30,9 +30,9 @@ public class ChildObjectsTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(first.FindById(shape.Id), Is.Null);
-            Assert.That(second.FindById(shape.Id), Is.SameAs(shape));
-            Assert.That(project.FindById(shape.Id), Is.SameAs(shape));
+            Assert.That(first.FindById(shape.Id.Value), Is.Null);
+            Assert.That(second.FindById(shape.Id.Value), Is.SameAs(shape));
+            Assert.That(project.FindById(shape.Id.Value), Is.SameAs(shape));
         }
     }
 
@@ -53,7 +53,7 @@ public class ChildObjectsTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(new ObjectSearcher(graph, v => v is Pen).Search(), Is.SameAs(pen));
-            Assert.That(graph.FindById(pen.Id), Is.SameAs(pen));
+            Assert.That(graph.FindById(pen.Id.Value), Is.SameAs(pen));
             Assert.That(new ObjectSearcher(graph, v => v is IKeyFrameAnimation).Search(), Is.SameAs(portKeyFrames));
             Assert.That(new ObjectSearcher(element, v => v is IKeyFrameAnimation).Search(), Is.SameAs(keyFrames));
             Assert.That(new ObjectSearcher(element, v => v is Beutl.IProperty { Name: "Width" }).Search(),
@@ -72,6 +72,6 @@ public class ChildObjectsTests
         var copied = (Pen?)new ObjectSearcher(copy, v => v is Pen).Search();
 
         Assert.That(copied, Is.Not.Null);
-        Assert.That(copied!.Id, Is.Not.EqualTo(pen.Id));
+        Assert.That(copied!.Id.Value, Is.Not.EqualTo(pen.Id.Value));
     }
 }

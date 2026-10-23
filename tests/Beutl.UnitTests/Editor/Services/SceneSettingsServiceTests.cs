@@ -19,8 +19,8 @@ public class SceneSettingsServiceTests
     {
         _scene = new Scene(640, 480, string.Empty)
         {
-            Start = MediaTime.FromSeconds(1),
-            Duration = MediaTime.FromSeconds(5),
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Duration = { Value = MediaTime.FromSeconds(5) },
         };
         _harness = new HistoryHarness(_scene);
         _history = _harness.History;
@@ -44,7 +44,7 @@ public class SceneSettingsServiceTests
     {
         int before = _history.UndoCount;
 
-        bool changed = _service.Apply(_scene, _scene.FrameSize, _scene.Start, _scene.Duration);
+        bool changed = _service.Apply(_scene, _scene.FrameSize.Value, _scene.Start.Value, _scene.Duration.Value);
 
         Assert.Multiple(() =>
         {
@@ -57,8 +57,8 @@ public class SceneSettingsServiceTests
     public void Apply_OnlyFrameSizeChanged_AppliesAndCommitsOnce()
     {
         int before = _history.UndoCount;
-        MediaTime keepStart = _scene.Start;
-        MediaTime keepDuration = _scene.Duration;
+        MediaTime keepStart = _scene.Start.Value;
+        MediaTime keepDuration = _scene.Duration.Value;
         var newSize = new PixelSize(1920, 1080);
 
         bool changed = _service.Apply(_scene, newSize, keepStart, keepDuration);
@@ -66,9 +66,9 @@ public class SceneSettingsServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.True);
-            Assert.That(_scene.FrameSize, Is.EqualTo(newSize));
-            Assert.That(_scene.Start, Is.EqualTo(keepStart));
-            Assert.That(_scene.Duration, Is.EqualTo(keepDuration));
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(newSize));
+            Assert.That(_scene.Start.Value, Is.EqualTo(keepStart));
+            Assert.That(_scene.Duration.Value, Is.EqualTo(keepDuration));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -86,9 +86,9 @@ public class SceneSettingsServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.True);
-            Assert.That(_scene.FrameSize, Is.EqualTo(newSize));
-            Assert.That(_scene.Start, Is.EqualTo(newStart));
-            Assert.That(_scene.Duration, Is.EqualTo(newDuration));
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(newSize));
+            Assert.That(_scene.Start.Value, Is.EqualTo(newStart));
+            Assert.That(_scene.Duration.Value, Is.EqualTo(newDuration));
             // The field writes must collapse into one entry, so one Undo reverts the Apply.
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -97,9 +97,9 @@ public class SceneSettingsServiceTests
     [Test]
     public void Apply_AfterUndo_RestoresAllFields()
     {
-        PixelSize originalSize = _scene.FrameSize;
-        MediaTime originalStart = _scene.Start;
-        MediaTime originalDuration = _scene.Duration;
+        PixelSize originalSize = _scene.FrameSize.Value;
+        MediaTime originalStart = _scene.Start.Value;
+        MediaTime originalDuration = _scene.Duration.Value;
 
         _service.Apply(
             _scene,
@@ -110,9 +110,9 @@ public class SceneSettingsServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.FrameSize, Is.EqualTo(originalSize));
-            Assert.That(_scene.Start, Is.EqualTo(originalStart));
-            Assert.That(_scene.Duration, Is.EqualTo(originalDuration));
+            Assert.That(_scene.FrameSize.Value, Is.EqualTo(originalSize));
+            Assert.That(_scene.Start.Value, Is.EqualTo(originalStart));
+            Assert.That(_scene.Duration.Value, Is.EqualTo(originalDuration));
         });
     }
 }

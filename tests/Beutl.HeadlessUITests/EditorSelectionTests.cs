@@ -21,7 +21,7 @@ public sealed class EditorSelectionTests
     {
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenAsync("editor-selection", 3);
         IEditorSelection selection = editor.GetRequiredService<IEditorSelection>();
-        ElementViewModel[] items = [.. timeline.Elements.OrderBy(item => item.Model.ZIndex)];
+        ElementViewModel[] items = [.. timeline.Elements.OrderBy(item => item.Model.ZIndex.Value)];
 
         timeline.SelectElement(items[0]);
         timeline.SelectElement(items[1]);
@@ -48,9 +48,9 @@ public sealed class EditorSelectionTests
     public async Task Delete_removes_the_selection_and_the_groups_of_every_selected_element(bool fromTimeline)
     {
         (EditViewModel editor, TimelineTabViewModel timeline) = await OpenAsync("editor-selection-delete", 5);
-        Element[] elements = [.. editor.Scene.Children.OrderBy(element => element.ZIndex)];
-        editor.Scene.Groups.Add([elements[0].Id, elements[1].Id]);
-        editor.Scene.Groups.Add([elements[2].Id, elements[3].Id]);
+        Element[] elements = [.. editor.Scene.Children.OrderBy(element => element.ZIndex.Value)];
+        editor.Scene.Groups.Add([elements[0].Id.Value, elements[1].Id.Value]);
+        editor.Scene.Groups.Add([elements[2].Id.Value, elements[3].Id.Value]);
         editor.GetRequiredService<IEditorSelection>().SelectedElements.AddRange([elements[0], elements[2]]);
 
         if (fromTimeline)

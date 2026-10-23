@@ -22,11 +22,11 @@ public class FallbackGraphNodeTests
         json["Nodes"]![1]!["$type"] = "[Missing.Plugin]Missing:Node";
         var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         Connection connection = restored.AllConnections.Single();
-        connection.Status = ConnectionStatus.Success;
+        connection.Status.Value = ConnectionStatus.Success;
 
         restored.Disconnect(connection);
 
-        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Disconnected));
+        Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Disconnected));
         Assert.That(((RandomSingleNode)restored.Nodes[0]).Value.Connections, Is.Empty);
     }
 
@@ -34,7 +34,7 @@ public class FallbackGraphNodeTests
     [TestCase(true)]
     public void GraphRetainsUnavailableNodeAndDisplaysSavedMetadata(bool failed)
     {
-        var source = new RandomSingleNode { Name = "Unavailable", Position = (120, 80), IsExpanded = false };
+        var source = new RandomSingleNode { Name = { Value = "Unavailable" }, Position = { Value = (120, 80) }, IsExpanded = { Value = false } };
         var output = new OutputNode();
         var graph = new GraphModel();
         graph.Nodes.AddRange([source, output]);
@@ -50,25 +50,25 @@ public class FallbackGraphNodeTests
         var fallback = (FallbackGraphNode)restored.Nodes[0];
         Assert.Multiple(() =>
         {
-            Assert.That(fallback.Id, Is.EqualTo(source.Id));
-            Assert.That(fallback.Name, Is.EqualTo(source.Name));
-            Assert.That(fallback.Position, Is.EqualTo(source.Position));
-            Assert.That(fallback.IsExpanded, Is.False);
+            Assert.That(fallback.Id.Value, Is.EqualTo(source.Id.Value));
+            Assert.That(fallback.Name.Value, Is.EqualTo(source.Name.Value));
+            Assert.That(fallback.Position.Value, Is.EqualTo(source.Position.Value));
+            Assert.That(fallback.IsExpanded.Value, Is.False);
             Assert.That(fallback.Reason, Is.EqualTo(failed ? FallbackReason.DeserializationFailed : FallbackReason.TypeNotFound));
             Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(restored)["Nodes"]![0], original), Is.True);
-            Assert.That(restored.AllConnections.Single().Output.Id, Is.EqualTo(source.Value.Id));
+            Assert.That(restored.AllConnections.Single().Output.Value.Id, Is.EqualTo(source.Value.Id.Value));
         });
         using var snapshot = new GraphSnapshot();
         snapshot.Build(restored, CompositionContext.Default);
         Assert.DoesNotThrow(() => snapshot.Evaluate(CompositionContext.Default));
         // A healthy endpoint must still be able to disconnect an unresolved peer.
         Assert.DoesNotThrow(() => restored.Disconnect(restored.AllConnections.Single()));
-        Assert.That(((OutputNode)restored.Nodes[1]).InputPort.Connection.IsNull, Is.True);
+        Assert.That(((OutputNode)restored.Nodes[1]).InputPort.Connection.Value.IsNull, Is.True);
         Guid recoveredId = Guid.NewGuid();
-        fallback.Id = recoveredId;
+        fallback.Id.Value = recoveredId;
         restored.Nodes.Remove(fallback);
         restored.Nodes.Add(fallback);
-        Assert.That(fallback.Id, Is.EqualTo(recoveredId));
+        Assert.That(fallback.Id.Value, Is.EqualTo(recoveredId));
     }
 
     // A missing plugin's node saves the metadata every node has, and writes back its ports, its payload and the type it
@@ -76,7 +76,7 @@ public class FallbackGraphNodeTests
     [Test]
     public void MovedRenamedAndCollapsedUnavailableNode_SavesThemAndKeepsTheRest()
     {
-        var source = new RandomSingleNode { Name = "Unavailable", Position = (120, 80) };
+        var source = new RandomSingleNode { Name = { Value = "Unavailable" }, Position = { Value = (120, 80) } };
         var output = new OutputNode();
         var graph = new GraphModel();
         graph.Nodes.AddRange([source, output]);
@@ -92,9 +92,9 @@ public class FallbackGraphNodeTests
 
         var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         var fallback = (FallbackGraphNode)restored.Nodes[0];
-        fallback.Position = (300, 40);
-        fallback.Name = "Renamed";
-        fallback.IsExpanded = false;
+        fallback.Position.Value = (300, 40);
+        fallback.Name.Value = "Renamed";
+        fallback.IsExpanded.Value = false;
         JsonObject saved = CoreSerializer.SerializeToJsonObject(restored);
         var reopened = (GraphModel)CoreSerializer.DeserializeFromJsonObject(saved, typeof(GraphModel));
 
@@ -102,10 +102,10 @@ public class FallbackGraphNodeTests
         {
             Assert.That(JsonNode.DeepEquals(saved["Nodes"]![0], expected), Is.True);
             Assert.That(reopened.Nodes[0], Is.InstanceOf<FallbackGraphNode>());
-            Assert.That(reopened.Nodes[0].Position, Is.EqualTo((300d, 40d)));
-            Assert.That(reopened.Nodes[0].Name, Is.EqualTo("Renamed"));
-            Assert.That(reopened.Nodes[0].IsExpanded, Is.False);
-            Assert.That(reopened.AllConnections.Single().Output.Id, Is.EqualTo(source.Value.Id));
+            Assert.That(reopened.Nodes[0].Position.Value, Is.EqualTo((300d, 40d)));
+            Assert.That(reopened.Nodes[0].Name.Value, Is.EqualTo("Renamed"));
+            Assert.That(reopened.Nodes[0].IsExpanded.Value, Is.False);
+            Assert.That(reopened.AllConnections.Single().Output.Value.Id, Is.EqualTo(source.Value.Id.Value));
         });
     }
 }

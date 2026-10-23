@@ -228,7 +228,7 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
         if (ToolTabPin.WasPinned(json)
             && json.TryGetPropertyValueAsJsonValue(PinnedObjectJsonKey, out Guid id)
             && _editorContext.GetService<Scene>() is { } scene
-            && new ObjectSearcher(scene, o => o is CoreObject obj && obj.Id == id).Search() is ICoreObject target)
+            && new ObjectSearcher(scene, o => o is CoreObject obj && obj.Id.Value == id).Search() is ICoreObject target)
         {
             NavigateCore(target, false, null);
             _pin.IsPinned.Value = true;
@@ -239,7 +239,7 @@ public sealed class ObjectPropertyTabViewModel : IPinnableToolContext
     {
         _pin.WriteToJson(json);
         if (IsPinned.Value && ChildContext.Value?.Target is { } target)
-            json[PinnedObjectJsonKey] = target.Id;
+            json[PinnedObjectJsonKey] = target.Id.Value;
         else
             json.Remove(PinnedObjectJsonKey);
     }

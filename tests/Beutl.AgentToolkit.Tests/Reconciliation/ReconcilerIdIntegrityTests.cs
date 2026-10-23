@@ -51,7 +51,7 @@ public sealed class ReconcilerIdIntegrityTests
         JsonObject desired = session.Documents.Read(recovered);
         JsonObject repairedJson = CoreSerializer.SerializeToJsonObject(new RectShape
         {
-            Name = "Repaired shape",
+            Name = { Value = "Repaired shape" },
         });
         // Omit the Id: the reconciler mints one for the inserted entity and treats the
         // subtree as new, which replaces the shape that holds the unreadable easing.
@@ -103,7 +103,7 @@ public sealed class ReconcilerIdIntegrityTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
-        var rect = new RectShape { Name = "mark", Width = { Value = 100 }, Height = { Value = 100 } };
+        var rect = new RectShape { Name = { Value = "mark" }, Width = { Value = 100 }, Height = { Value = 100 } };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
@@ -112,7 +112,7 @@ public sealed class ReconcilerIdIntegrityTests
         JsonObject desired = session.Documents.Read(session.Root);
         var elementJson = (JsonObject)((JsonArray)desired["Elements"]!)
             .OfType<JsonObject>()
-            .Single(item => item["Id"]!.GetValue<string>() == element.Id.ToString());
+            .Single(item => item["Id"]!.GetValue<string>() == element.Id.Value.ToString());
         var objects = (JsonArray)elementJson["Objects"]!;
         objects.Add(objects.OfType<JsonObject>().Single().DeepClone());
 
@@ -133,12 +133,12 @@ public sealed class ReconcilerIdIntegrityTests
         Element firstElement = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var secondElement = new Element
         {
-            Start = MediaTime.FromSeconds(4),
-            Length = MediaTime.FromSeconds(4),
+            Start = { Value = MediaTime.FromSeconds(4) },
+            Length = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "second.belm"))
         };
         scene.Children.Add(secondElement);
-        var rect = new RectShape { Name = "mark", Width = { Value = 100 }, Height = { Value = 100 } };
+        var rect = new RectShape { Name = { Value = "mark" }, Width = { Value = 100 }, Height = { Value = 100 } };
         firstElement.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
@@ -148,11 +148,11 @@ public sealed class ReconcilerIdIntegrityTests
         var elements = (JsonArray)desired["Elements"]!;
         var secondElementJson = elements
             .OfType<JsonObject>()
-            .Single(item => item["Id"]!.GetValue<string>() == secondElement.Id.ToString());
+            .Single(item => item["Id"]!.GetValue<string>() == secondElement.Id.Value.ToString());
         secondElementJson["Objects"] = new JsonArray(new JsonObject
         {
             ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)),
-            ["Id"] = rect.Id.ToString(),
+            ["Id"] = rect.Id.Value.ToString(),
             ["Name"] = "duplicate mark"
         });
 
@@ -178,8 +178,8 @@ public sealed class ReconcilerIdIntegrityTests
         JsonObject desired = session.Documents.Read(session.Root);
         var elementJson = (JsonObject)((JsonArray)desired["Elements"]!)
             .OfType<JsonObject>()
-            .Single(item => item["Id"]!.GetValue<string>() == element.Id.ToString());
-        elementJson["Id"] = scene.Id.ToString();
+            .Single(item => item["Id"]!.GetValue<string>() == element.Id.Value.ToString());
+        elementJson["Id"] = scene.Id.Value.ToString();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
 
@@ -198,10 +198,10 @@ public sealed class ReconcilerIdIntegrityTests
         Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var rotationA = new RotationTransform { Rotation = { Value = -18 } };
         var rotationB = new RotationTransform { Rotation = { Value = -18 } };
-        rotationB.Id = rotationA.Id;
+        rotationB.Id.Value = rotationA.Id.Value;
         var rect = new RectShape
         {
-            Name = "pane",
+            Name = { Value = "pane" },
             Width = { Value = 100 },
             Height = { Value = 100 },
             Transform =
@@ -221,7 +221,7 @@ public sealed class ReconcilerIdIntegrityTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = element.Id.ToString(),
+                ["Id"] = element.Id.Value.ToString(),
                 ["Name"] = "[role:decorative] pane (converge sweep)"
             })
         };
@@ -231,7 +231,7 @@ public sealed class ReconcilerIdIntegrityTests
         Assert.Multiple(() =>
         {
             Assert.That(renamed.IsSuccess, Is.True, renamed.Error?.Message);
-            Assert.That(element.Name, Is.EqualTo("[role:decorative] pane (converge sweep)"));
+            Assert.That(element.Name.Value, Is.EqualTo("[role:decorative] pane (converge sweep)"));
         });
     }
 
@@ -243,8 +243,8 @@ public sealed class ReconcilerIdIntegrityTests
         string directory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         var carrier = new Element
         {
-            Start = MediaTime.FromSeconds(4),
-            Length = MediaTime.FromSeconds(4),
+            Start = { Value = MediaTime.FromSeconds(4) },
+            Length = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(directory, "carrier.belm")),
         };
         var holder = new NonHierarchicalValueHolder();
@@ -261,7 +261,7 @@ public sealed class ReconcilerIdIntegrityTests
         File.WriteAllText(carrier.Uri.LocalPath, carrierJson.ToJsonString());
 
         Scene recovered = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
-        Element recoveredHealthy = recovered.Children.Single(item => item.Id == healthy.Id);
+        Element recoveredHealthy = recovered.Children.Single(item => item.Id.Value == healthy.Id.Value);
 
         using var session = new AgentToolkitTestSession(recovered);
         EditTools tools = session.CreateEditTools();
@@ -269,7 +269,7 @@ public sealed class ReconcilerIdIntegrityTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = healthy.Id.ToString(),
+                ["Id"] = healthy.Id.Value.ToString(),
                 ["Name"] = "Renamed healthy element",
             }),
         };
@@ -281,7 +281,7 @@ public sealed class ReconcilerIdIntegrityTests
         Assert.Multiple(() =>
         {
             Assert.That(renamed.IsSuccess, Is.True, renamed.Error?.Message);
-            Assert.That(recoveredHealthy.Name, Is.EqualTo("Renamed healthy element"));
+            Assert.That(recoveredHealthy.Name.Value, Is.EqualTo("Renamed healthy element"));
         });
     }
 

@@ -152,7 +152,7 @@ public class VersionControlRestoreTests
         var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnSave = { Value = false }, AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : backend);
         coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -200,8 +200,8 @@ public class VersionControlRestoreTests
             VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
-                    AutoCommitOnSave = false,
-                    AutoCommitOnClose = false,
+                    AutoCommitOnSave = { Value = false },
+                    AutoCommitOnClose = { Value = false },
                 },
                 candidate => candidate is null ? discovery : backend);
             coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
@@ -254,7 +254,7 @@ public class VersionControlRestoreTests
 
         try
         {
-            session.Project.Variables[RestoreStateKey] = "original-state";
+            session.Project.Variables.Value[RestoreStateKey] = "original-state";
             var createdTip = new CheckedOutBranchTip(
                 "refs/heads/restored-version",
                 "3333333333333333333333333333333333333333");
@@ -275,8 +275,8 @@ public class VersionControlRestoreTests
             VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
-                    AutoCommitOnSave = false,
-                    AutoCommitOnClose = false,
+                    AutoCommitOnSave = { Value = false },
+                    AutoCommitOnClose = { Value = false },
                 },
                 candidate => candidate is null ? discovery : backend);
             coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
@@ -320,7 +320,7 @@ public class VersionControlRestoreTests
                 {
                     Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
                     Assert.That(
-                        TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                        TestShell.Project.CurrentProject.Value!.Variables.Value[RestoreStateKey],
                         Is.EqualTo("original-state"));
                     Assert.That(
                         notifications.All.Count(item =>
@@ -373,14 +373,14 @@ public class VersionControlRestoreTests
         // they see, not the state saved before the identity was asked for.
         TestShell.VersionControl.RequestIdentityAsync = _ =>
         {
-            project.Variables["identity-prompt-edit"] = "typed while prompting";
+            project.Variables.Value["identity-prompt-edit"] = "typed while prompting";
             return Task.FromResult<GitIdentity?>(
                 new GitIdentity("Manual Commit Test", "manual@example.invalid"));
         };
 
         // Something has to be pending before the commit, or the clean tree short-circuits the
         // whole attempt and the identity is never requested.
-        project.Variables["pre-prompt-edit"] = "typed before prompting";
+        project.Variables.Value["pre-prompt-edit"] = "typed before prompting";
 
         CommitResult result = await TestShell.VersionControl.CommitManualAsync("prompted cut");
         string committedProjectFile = await RunGitAsync(
@@ -461,8 +461,8 @@ public class VersionControlRestoreTests
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         var config = new VersionControlConfig
         {
-            AutoCommitOnSave = true,
-            AutoCommitOnClose = false,
+            AutoCommitOnSave = { Value = true },
+            AutoCommitOnClose = { Value = false },
         };
         VersionControlCoordinator coordinator = session.Start(config, _ => backend);
         await WaitUntilAsync(() =>
@@ -498,8 +498,8 @@ public class VersionControlRestoreTests
         };
         var config = new VersionControlConfig
         {
-            AutoCommitOnSave = true,
-            AutoCommitOnClose = false,
+            AutoCommitOnSave = { Value = true },
+            AutoCommitOnClose = { Value = false },
         };
         VersionControlCoordinator coordinator = session.Start(config, _ => backend);
         await WaitUntilAsync(() =>
@@ -566,8 +566,8 @@ public class VersionControlRestoreTests
             VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
-                    AutoCommitOnSave = true,
-                    AutoCommitOnClose = false,
+                    AutoCommitOnSave = { Value = true },
+                    AutoCommitOnClose = { Value = false },
                 },
                 _ => backend);
             await WaitUntilAsync(() =>
@@ -662,8 +662,8 @@ public class VersionControlRestoreTests
             VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
-                    AutoCommitOnSave = false,
-                    AutoCommitOnClose = false,
+                    AutoCommitOnSave = { Value = false },
+                    AutoCommitOnClose = { Value = false },
                 },
                 _ => backend);
             await WaitUntilAsync(() =>
@@ -713,7 +713,7 @@ public class VersionControlRestoreTests
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         var config = new VersionControlConfig
         {
-            AutoCommitOnClose = true,
+            AutoCommitOnClose = { Value = true },
         };
         VersionControlCoordinator coordinator = session.Start(config, _ => backend);
         await WaitUntilAsync(() =>
@@ -748,7 +748,7 @@ public class VersionControlRestoreTests
         VersionControlCoordinator coordinator = session.Start(
             new VersionControlConfig
             {
-                AutoCommitOnClose = true,
+                AutoCommitOnClose = { Value = true },
             },
             _ => backend);
         await WaitUntilAsync(() =>
@@ -822,7 +822,7 @@ public class VersionControlRestoreTests
             };
 
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnClose = true },
+                new VersionControlConfig { AutoCommitOnClose = { Value = true } },
                 candidate => candidate is null ? discovery : tracked);
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
@@ -883,7 +883,7 @@ public class VersionControlRestoreTests
             var discovery = new PullCycleTestBackend(repository: null, session.Repository, MainTip);
             var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnClose = true },
+                new VersionControlConfig { AutoCommitOnClose = { Value = true } },
                 candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
 
@@ -930,7 +930,7 @@ public class VersionControlRestoreTests
             RetirementResult = new CommitResult.SkippedNoIdentity(),
         };
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = true },
+            new VersionControlConfig { AutoCommitOnClose = { Value = true } },
             candidate => candidate is null ? discovery : backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
         using var notifications = new NotificationCapture();
@@ -967,7 +967,7 @@ public class VersionControlRestoreTests
                 throw new InvalidOperationException("simulated retirement failure"),
         };
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = true },
+            new VersionControlConfig { AutoCommitOnClose = { Value = true } },
             candidate => candidate is null ? discovery : backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
         using var notifications = new NotificationCapture();
@@ -1005,7 +1005,7 @@ public class VersionControlRestoreTests
             MainTip);
 
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = true },
+            new VersionControlConfig { AutoCommitOnClose = { Value = true } },
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -1038,7 +1038,7 @@ public class VersionControlRestoreTests
             var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             var config = new VersionControlConfig
             {
-                AutoCommitOnClose = true,
+                AutoCommitOnClose = { Value = true },
             };
 
             cancelAfterCommitPoint = (_, finalizerCancellation) =>
@@ -1573,7 +1573,7 @@ public class VersionControlRestoreTests
             session.EditorService.TabItems.Add(new EditorTabItem(context));
             using var presentation = new EditorPresentationRecorder(session.EditorService, context);
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnClose = true },
+                new VersionControlConfig { AutoCommitOnClose = { Value = true } },
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
 
@@ -2384,7 +2384,7 @@ public class VersionControlRestoreTests
         };
         var config = new VersionControlConfig
         {
-            AutoCommitOnClose = true,
+            AutoCommitOnClose = { Value = true },
         };
         VersionControlCoordinator coordinator = session.Start(config, _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -2625,7 +2625,7 @@ public class VersionControlRestoreTests
         var probe = new ConfigurableGitInstallationProbe(validGitPath);
         var config = new VersionControlConfig
         {
-            GitExecutablePath = invalidGitPath,
+            GitExecutablePath = { Value = invalidGitPath },
         };
         var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
         var createdBackends = new List<PullCycleTestBackend>();
@@ -2647,11 +2647,11 @@ public class VersionControlRestoreTests
             && !coordinator.IsTracked.Value);
         IProjectVersionControlService unavailableService = coordinator.CurrentService!;
 
-        config.AutoCommitOnSave = !config.AutoCommitOnSave;
+        config.AutoCommitOnSave.Value = !config.AutoCommitOnSave.Value;
         HeadlessTestHelpers.Settle();
         Assert.That(coordinator.CurrentService, Is.SameAs(unavailableService));
 
-        config.GitExecutablePath = validGitPath;
+        config.GitExecutablePath.Value = validGitPath;
         await WaitUntilAsync(() =>
             coordinator.CurrentService?.Repository is not null
             && coordinator.IsGitAvailable.Value
@@ -2662,7 +2662,7 @@ public class VersionControlRestoreTests
         IProjectVersionControlService trackedService = coordinator.CurrentService!;
 
         int backendCountAfterTracking = createdBackends.Count;
-        config.GitExecutablePath = invalidGitPath;
+        config.GitExecutablePath.Value = invalidGitPath;
         await WaitUntilAsync(() => !coordinator.IsGitAvailable.Value);
 
         Assert.Multiple(() =>
@@ -2689,7 +2689,7 @@ public class VersionControlRestoreTests
             "version-control-lfs-config-hygiene");
         var config = new VersionControlConfig
         {
-            UseLfsWhenAvailable = false,
+            UseLfsWhenAvailable = { Value = false },
         };
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
@@ -2697,7 +2697,7 @@ public class VersionControlRestoreTests
             {
                 lock (appliedValues)
                 {
-                    appliedValues.Add(config.UseLfsWhenAvailable);
+                    appliedValues.Add(config.UseLfsWhenAvailable.Value);
                 }
 
                 return Task.CompletedTask;
@@ -2712,7 +2712,7 @@ public class VersionControlRestoreTests
             appliedValues.Clear();
         }
 
-        config.UseLfsWhenAvailable = true;
+        config.UseLfsWhenAvailable.Value = true;
         await WaitUntilAsync(() =>
         {
             lock (appliedValues)
@@ -2721,7 +2721,7 @@ public class VersionControlRestoreTests
             }
         });
 
-        config.UseLfsWhenAvailable = false;
+        config.UseLfsWhenAvailable.Value = false;
         await WaitUntilAsync(() =>
         {
             lock (appliedValues)
@@ -2761,7 +2761,7 @@ public class VersionControlRestoreTests
         {
             var config = new VersionControlConfig
             {
-                UseLfsWhenAvailable = false,
+                UseLfsWhenAvailable = { Value = false },
             };
             var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
             var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
@@ -2771,7 +2771,7 @@ public class VersionControlRestoreTests
                     bool first;
                     lock (appliedValues)
                     {
-                        appliedValues.Add(config.UseLfsWhenAvailable);
+                        appliedValues.Add(config.UseLfsWhenAvailable.Value);
                         first = appliedValues.Count == 1;
                     }
 
@@ -2787,7 +2787,7 @@ public class VersionControlRestoreTests
                 candidate => candidate is null ? discovery : backend);
             await firstHygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            config.UseLfsWhenAvailable = true;
+            config.UseLfsWhenAvailable.Value = true;
             releaseFirstHygiene.TrySetResult();
             await WaitUntilAsync(() =>
             {
@@ -2822,7 +2822,7 @@ public class VersionControlRestoreTests
             "version-control-lfs-hygiene-retry");
         var config = new VersionControlConfig
         {
-            UseLfsWhenAvailable = false,
+            UseLfsWhenAvailable = { Value = false },
         };
         var backend = new PullCycleTestBackend(session.Repository, session.Repository, MainTip)
         {
@@ -2830,7 +2830,7 @@ public class VersionControlRestoreTests
             {
                 lock (appliedValues)
                 {
-                    appliedValues.Add(config.UseLfsWhenAvailable);
+                    appliedValues.Add(config.UseLfsWhenAvailable.Value);
                     if (!failNextHygiene)
                     {
                         return Task.CompletedTask;
@@ -2852,7 +2852,7 @@ public class VersionControlRestoreTests
             failNextHygiene = true;
         }
 
-        config.UseLfsWhenAvailable = true;
+        config.UseLfsWhenAvailable.Value = true;
         await WaitUntilAsync(() =>
         {
             lock (appliedValues)
@@ -2860,7 +2860,7 @@ public class VersionControlRestoreTests
                 return appliedValues.Count >= 1;
             }
         });
-        config.GitExecutablePath = Path.Combine(Path.GetTempPath(), "beutl-retry-git");
+        config.GitExecutablePath.Value = Path.Combine(Path.GetTempPath(), "beutl-retry-git");
         await WaitUntilAsync(() =>
         {
             lock (appliedValues)
@@ -2892,7 +2892,7 @@ public class VersionControlRestoreTests
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
-                GitExecutablePath = invalidGitPath,
+                GitExecutablePath = { Value = invalidGitPath },
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var events = new List<string>();
@@ -2932,9 +2932,9 @@ public class VersionControlRestoreTests
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
 
-            config.GitExecutablePath = Path.Combine(Path.GetTempPath(), "beutl-newer-other-invalid-git");
+            config.GitExecutablePath.Value = Path.Combine(Path.GetTempPath(), "beutl-newer-other-invalid-git");
             await firstProbeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            config.GitExecutablePath = validGitPath;
+            config.GitExecutablePath.Value = validGitPath;
             releaseFirstProbe.TrySetResult();
             await WaitUntilAsync(() => coordinator.IsTracked.Value);
 
@@ -2985,7 +2985,7 @@ public class VersionControlRestoreTests
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
-                GitExecutablePath = invalidGitPath,
+                GitExecutablePath = { Value = invalidGitPath },
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             int untrackedBackends = 0;
@@ -3032,14 +3032,14 @@ public class VersionControlRestoreTests
                 coordinator.CurrentService is { Repository: null }
                 && !coordinator.IsGitAvailable.Value);
 
-            config.GitExecutablePath = Path.Combine(Path.GetTempPath(), "beutl-runs-other-invalid-git");
+            config.GitExecutablePath.Value = Path.Combine(Path.GetTempPath(), "beutl-runs-other-invalid-git");
             await firstProbeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
                 TestShell.Project.CurrentProject.Value!);
             Assert.That(initialization.IsCompleted, Is.False);
 
-            config.GitExecutablePath = invalidGitPath;
+            config.GitExecutablePath.Value = invalidGitPath;
             releaseFirstProbe.TrySetResult();
             Task firstActivation = await Task.WhenAny(
                     latestActivationStarted.Task,
@@ -3092,7 +3092,7 @@ public class VersionControlRestoreTests
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
-                GitExecutablePath = invalidGitPath,
+                GitExecutablePath = { Value = invalidGitPath },
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             int factoryCalls = 0;
@@ -3116,7 +3116,7 @@ public class VersionControlRestoreTests
 
             disposal = coordinator.DisposeAsync().AsTask();
             await retirementStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            config.GitExecutablePath = validGitPath;
+            config.GitExecutablePath.Value = validGitPath;
 
             Assert.Multiple(() =>
             {
@@ -3156,7 +3156,7 @@ public class VersionControlRestoreTests
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
-                GitExecutablePath = invalidGitPath,
+                GitExecutablePath = { Value = invalidGitPath },
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var createdBackends = new List<PullCycleTestBackend>();
@@ -3184,7 +3184,7 @@ public class VersionControlRestoreTests
                 TestShell.Project.CurrentProject.Value!);
             await initializeStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            config.GitExecutablePath = validGitPath;
+            config.GitExecutablePath.Value = validGitPath;
 
             Assert.Multiple(() =>
             {
@@ -3232,7 +3232,7 @@ public class VersionControlRestoreTests
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
-                GitExecutablePath = invalidGitPath,
+                GitExecutablePath = { Value = invalidGitPath },
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var createdBackends = new List<PullCycleTestBackend>();
@@ -3255,7 +3255,7 @@ public class VersionControlRestoreTests
                 && !coordinator.IsGitAvailable.Value
                 && !coordinator.IsTracked.Value);
 
-            config.GitExecutablePath = validGitPath;
+            config.GitExecutablePath.Value = validGitPath;
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task<bool> initialization = coordinator.InitializeCurrentProjectAsync(
@@ -3303,7 +3303,7 @@ public class VersionControlRestoreTests
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
-                GitExecutablePath = invalidGitPath,
+                GitExecutablePath = { Value = invalidGitPath },
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var createdBackends = new List<PullCycleTestBackend>();
@@ -3333,7 +3333,7 @@ public class VersionControlRestoreTests
                 && !coordinator.IsGitAvailable.Value
                 && !coordinator.IsTracked.Value);
 
-            config.GitExecutablePath = validGitPath;
+            config.GitExecutablePath.Value = validGitPath;
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
             Task<bool> branch = coordinator.SwitchBranchAsync("configuration-ready");
@@ -3381,8 +3381,8 @@ public class VersionControlRestoreTests
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
-                GitExecutablePath = validGitPath,
-                UseLfsWhenAvailable = false,
+                GitExecutablePath = { Value = validGitPath },
+                UseLfsWhenAvailable = { Value = false },
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             int hygieneCalls = 0;
@@ -3401,7 +3401,7 @@ public class VersionControlRestoreTests
                 {
                     Volatile.Write(
                         ref appliedUseLfsWhenAvailable,
-                        config.UseLfsWhenAvailable);
+                        config.UseLfsWhenAvailable.Value);
                     Interlocked.Increment(ref hygieneCalls);
                     return Task.CompletedTask;
                 },
@@ -3427,8 +3427,8 @@ public class VersionControlRestoreTests
             await branchStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
 
-            config.GitExecutablePath = invalidGitPath;
-            config.UseLfsWhenAvailable = true;
+            config.GitExecutablePath.Value = invalidGitPath;
+            config.UseLfsWhenAvailable.Value = true;
 
             Assert.Multiple(() =>
             {
@@ -3493,8 +3493,8 @@ public class VersionControlRestoreTests
             var probe = new ConfigurableGitInstallationProbe(validGitPath);
             var config = new VersionControlConfig
             {
-                GitExecutablePath = invalidGitPath,
-                AutoCommitOnClose = true,
+                GitExecutablePath = { Value = invalidGitPath },
+                AutoCommitOnClose = { Value = true },
             };
             var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
             var createdBackends = new List<PullCycleTestBackend>();
@@ -3533,7 +3533,7 @@ public class VersionControlRestoreTests
             abortedClose = TestShell.Project.CloseProjectAsync(closeCancellation.Token);
             await closingStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            config.GitExecutablePath = validGitPath;
+            config.GitExecutablePath.Value = validGitPath;
 
             Assert.Multiple(() =>
             {
@@ -3561,7 +3561,7 @@ public class VersionControlRestoreTests
             Task successfulClose = TestShell.Project.CloseProjectAsync();
             await trackedRetirementStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-            config.GitExecutablePath = invalidGitPath;
+            config.GitExecutablePath.Value = invalidGitPath;
 
             Assert.Multiple(() =>
             {
@@ -3634,7 +3634,7 @@ public class VersionControlRestoreTests
             await Assert.CatchAsync<OperationCanceledException>(async () => await explicitProbe);
 
             int publicationsAfterDisposal = servicePublications;
-            config.GitExecutablePath = "/git-after-disposal";
+            config.GitExecutablePath.Value = "/git-after-disposal";
             HeadlessTestHelpers.Settle();
             Assert.Multiple(() =>
             {
@@ -3901,14 +3901,14 @@ public class VersionControlRestoreTests
             (Project project, _) = await CreateTrackedProjectAsync(
                 "version-control-restore-in-memory-save");
             IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
-            project.Variables[RestoreStateKey] = "version-one";
+            project.Variables.Value[RestoreStateKey] = "version-one";
             await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
             HeadlessTestHelpers.Settle();
             CommitInfo target = (await service.GetHistoryAsync(0, 10, CancellationToken.None))
                 .First(commit => commit.Kind == SnapshotKind.Save);
 
             // Only mutate the in-memory project — nothing reaches the worktree until a save runs.
-            project.Variables[RestoreStateKey] = "unsaved-state";
+            project.Variables.Value[RestoreStateKey] = "unsaved-state";
             WorkspaceStatus beforeRestore = await service.GetStatusAsync(CancellationToken.None);
             Assert.That(
                 beforeRestore.IsClean,
@@ -3932,7 +3932,7 @@ public class VersionControlRestoreTests
             HeadlessTestHelpers.Settle();
 
             Assert.That(
-                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                TestShell.Project.CurrentProject.Value!.Variables.Value[RestoreStateKey],
                 Is.EqualTo("unsaved-state"),
                 "The safety snapshot must contain the edit that only existed in memory.");
         }
@@ -4013,7 +4013,7 @@ public class VersionControlRestoreTests
                 Avalonia.Threading.Dispatcher.UIThread.CheckAccess());
             TestShell.Project.TransitionCommitted += recordTransition;
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 _ => backend);
             coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
             coordinator.ConfirmSwitchBranchAsync = (_, _) => Task.FromResult(true);
@@ -4250,7 +4250,7 @@ public class VersionControlRestoreTests
         (Project project, _) = await CreateTrackedProjectAsync("version-control-branch");
         string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
         await RunGitAsync(git.GitPath, projectRoot, "branch", "experiment");
-        project.Variables[RestoreStateKey] = "before-switch";
+        project.Variables.Value[RestoreStateKey] = "before-switch";
         CoreSerializer.StoreToUri(project, project.Uri!);
         Assert.That(
             (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
@@ -4287,7 +4287,7 @@ public class VersionControlRestoreTests
             Assert.That(mainSubject, Is.EqualTo("beutl: safety snapshot before switch"));
         });
 
-        experimentProject.Variables[RestoreStateKey] = "experiment-only";
+        experimentProject.Variables.Value[RestoreStateKey] = "experiment-only";
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
         Assert.That(
             await TestShell.VersionControl.SwitchBranchAsync("main"),
@@ -4302,7 +4302,7 @@ public class VersionControlRestoreTests
         {
             Assert.That(mainStatus.Branch, Is.EqualTo("main"));
             Assert.That(
-                mainProject.Variables[RestoreStateKey],
+                mainProject.Variables.Value[RestoreStateKey],
                 Is.EqualTo("before-switch"));
             Assert.That(confirmations, Is.EqualTo(2));
         });
@@ -4319,7 +4319,7 @@ public class VersionControlRestoreTests
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
             Assert.That(recoveredStatus.Branch, Is.EqualTo("main"));
             Assert.That(
-                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                TestShell.Project.CurrentProject.Value!.Variables.Value[RestoreStateKey],
                 Is.EqualTo("before-switch"));
         });
     }
@@ -4340,7 +4340,7 @@ public class VersionControlRestoreTests
         await RunGitAsync(git.GitPath, projectRoot, "switch", "main");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await AddRectangleAsync(adder, layer: 0);
-        project.Variables[RestoreStateKey] = "unsaved-state";
+        project.Variables.Value[RestoreStateKey] = "unsaved-state";
         CoreSerializer.StoreToUri(project, project.Uri!);
         Assert.That(
             (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
@@ -4633,7 +4633,7 @@ public class VersionControlRestoreTests
         await File.WriteAllTextAsync(
             Path.Combine(projectRoot, "local-marker.txt"),
             "local safety state\n");
-        project.Variables["unsavedPullState"] = "persisted before pull";
+        project.Variables.Value["unsavedPullState"] = "persisted before pull";
         Project beforePull = TestShell.Project.CurrentProject.Value!;
         TestShell.VersionControl.ConfirmPullAsync = _ => Task.FromResult(true);
         RemoteOpResult pullResult = await TestShell.VersionControl.PullAsync();
@@ -4663,7 +4663,7 @@ public class VersionControlRestoreTests
                 File.ReadAllText(Path.Combine(projectRoot, "local-marker.txt")),
                 Is.EqualTo("local safety state\n"));
             Assert.That(
-                TestShell.Project.CurrentProject.Value!.Variables["unsavedPullState"],
+                TestShell.Project.CurrentProject.Value!.Variables.Value["unsavedPullState"],
                 Is.EqualTo("persisted before pull"));
             Assert.That(
                 status.Changes.Select(static change => change.Path),
@@ -4681,7 +4681,7 @@ public class VersionControlRestoreTests
 
         (Project project, _) = await CreateTrackedProjectAsync(
             "version-control-pull-recovery");
-        project.Variables[RestoreStateKey] = "valid-local-state";
+        project.Variables.Value[RestoreStateKey] = "valid-local-state";
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
         string projectFile = project.Uri!.LocalPath;
         string projectRoot = Path.GetDirectoryName(projectFile)!;
@@ -4741,7 +4741,7 @@ public class VersionControlRestoreTests
             };
 
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnSave = { Value = false }, AutoCommitOnClose = { Value = false } },
                 candidate => candidate is null ? discovery : backend);
             coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -4786,7 +4786,7 @@ public class VersionControlRestoreTests
             var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
             var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
             coordinator.ConfirmPullAsync = confirmation.AnswerAsync;
@@ -4829,7 +4829,7 @@ public class VersionControlRestoreTests
                 PreflightRelease = releasePreflight.Task,
             };
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
             int confirmations = 0;
@@ -4870,7 +4870,7 @@ public class VersionControlRestoreTests
             var discovery = new PullCycleTestBackend(null, session.Repository, MainTip);
             var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 candidate => candidate is null ? discovery : tracked);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, tracked));
             coordinator.ConfirmPullAsync = confirmation.AnswerAsync;
@@ -4915,7 +4915,7 @@ public class VersionControlRestoreTests
             HasVersionTrackingOptIn = false,
         };
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
         int confirmations = 0;
         coordinator.ConfirmUseEnclosingRepositoryAsync = (candidate, _) =>
@@ -4965,8 +4965,8 @@ public class VersionControlRestoreTests
                 new EditorService(new ExtensionProvider()),
                 new VersionControlConfig
                 {
-                    AutoCommitOnSave = true,
-                    AutoCommitOnClose = false,
+                    AutoCommitOnSave = { Value = true },
+                    AutoCommitOnClose = { Value = false },
                 },
                 installationLocator: null,
                 serviceFactory: candidate => candidate is null ? discovery : tracked);
@@ -5029,7 +5029,7 @@ public class VersionControlRestoreTests
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider()),
-                new VersionControlConfig { AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
@@ -5116,7 +5116,7 @@ public class VersionControlRestoreTests
             coordinator = new VersionControlCoordinator(
                 projectService,
                 editorService,
-                new VersionControlConfig { AutoCommitOnClose = true },
+                new VersionControlConfig { AutoCommitOnClose = { Value = true } },
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
@@ -5240,7 +5240,7 @@ public class VersionControlRestoreTests
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider()),
-                new VersionControlConfig { AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
@@ -5356,7 +5356,7 @@ public class VersionControlRestoreTests
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider()),
-                new VersionControlConfig { AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
@@ -5435,7 +5435,7 @@ public class VersionControlRestoreTests
             coordinator = new VersionControlCoordinator(
                 projectService,
                 editorService,
-                new VersionControlConfig { AutoCommitOnClose = true },
+                new VersionControlConfig { AutoCommitOnClose = { Value = true } },
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
@@ -5509,7 +5509,7 @@ public class VersionControlRestoreTests
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider()),
-                new VersionControlConfig { AutoCommitOnClose = true },
+                new VersionControlConfig { AutoCommitOnClose = { Value = true } },
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
@@ -5621,7 +5621,7 @@ public class VersionControlRestoreTests
             coordinator = new VersionControlCoordinator(
                 projectService,
                 new EditorService(new ExtensionProvider()),
-                new VersionControlConfig { AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnClose = { Value = false } },
                 installationLocator: null,
                 serviceFactory: candidate =>
                 {
@@ -5703,7 +5703,7 @@ public class VersionControlRestoreTests
             var context = new SavableEditorContext(session.Project, commands);
             session.EditorService.TabItems.Add(new EditorTabItem(context));
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnClose = true },
+                new VersionControlConfig { AutoCommitOnClose = { Value = true } },
                 _ => backend);
             await WaitUntilAsync(() =>
                 ReferenceEquals(coordinator.CurrentService, backend)
@@ -5782,8 +5782,8 @@ public class VersionControlRestoreTests
             VersionControlCoordinator coordinator = session.Start(
                 new VersionControlConfig
                 {
-                    AutoCommitOnSave = true,
-                    AutoCommitOnClose = true,
+                    AutoCommitOnSave = { Value = true },
+                    AutoCommitOnClose = { Value = true },
                 },
                 _ => backend);
             await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -5847,8 +5847,8 @@ public class VersionControlRestoreTests
         VersionControlCoordinator coordinator = session.Start(
             new VersionControlConfig
             {
-                AutoCommitOnSave = true,
-                AutoCommitOnClose = true,
+                AutoCommitOnSave = { Value = true },
+                AutoCommitOnClose = { Value = true },
             },
             _ => backend);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -5899,7 +5899,7 @@ public class VersionControlRestoreTests
             HasVersionTrackingOptIn = true,
         };
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
         int confirmations = 0;
         coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
@@ -5936,7 +5936,7 @@ public class VersionControlRestoreTests
             PullResult = new RemoteOpResult.Success(),
         };
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnSave = { Value = false }, AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : backend);
         coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -6089,7 +6089,7 @@ public class VersionControlRestoreTests
         };
         configure?.Invoke(backend);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnSave = { Value = false }, AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : backend);
         int confirmations = 0;
         coordinator.ConfirmPullAsync = async _ =>
@@ -6140,7 +6140,7 @@ public class VersionControlRestoreTests
             discoveredRepository: null,
             MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             _ => discovery);
         var menu = new MenuBarViewModel(TestShell.Project, session.EditorService, coordinator);
 
@@ -6160,7 +6160,7 @@ public class VersionControlRestoreTests
 
         (Project project, _) = await CreateTrackedProjectAsync(
             "version-control-restore-recovery");
-        project.Variables[RestoreStateKey] = "original-state";
+        project.Variables.Value[RestoreStateKey] = "original-state";
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
 
         string projectFile = project.Uri!.LocalPath;
@@ -6182,7 +6182,7 @@ public class VersionControlRestoreTests
         Assert.Multiple(() =>
         {
             Assert.That(reopened, Is.Not.Null);
-            Assert.That(reopened.Variables[RestoreStateKey], Is.EqualTo("original-state"));
+            Assert.That(reopened.Variables.Value[RestoreStateKey], Is.EqualTo("original-state"));
             Assert.That(history[0].Kind, Is.EqualTo(SnapshotKind.Recovery));
             Assert.That(
                 history[0].Subject,
@@ -6203,7 +6203,7 @@ public class VersionControlRestoreTests
 
         (Project project, _) = await CreateTrackedProjectAsync(
             "version-control-restore-branch-recovery-cleanup");
-        project.Variables[RestoreStateKey] = "original-state";
+        project.Variables.Value[RestoreStateKey] = "original-state";
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
 
         string projectFile = project.Uri!.LocalPath;
@@ -6241,7 +6241,7 @@ public class VersionControlRestoreTests
             Assert.That(failedBranch, Does.Contain(FailedBranch));
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
             Assert.That(
-                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                TestShell.Project.CurrentProject.Value!.Variables.Value[RestoreStateKey],
                 Is.EqualTo("original-state"));
             Assert.That(
                 notifications.All.Count(item =>
@@ -6261,7 +6261,7 @@ public class VersionControlRestoreTests
 
         (Project project, _) = await CreateTrackedProjectAsync(
             "version-control-switch-reopen-failure");
-        project.Variables[RestoreStateKey] = "original-state";
+        project.Variables.Value[RestoreStateKey] = "original-state";
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
 
         string projectFile = project.Uri!.LocalPath;
@@ -6308,7 +6308,7 @@ public class VersionControlRestoreTests
             Assert.That(currentBranch, Is.EqualTo("main"));
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
             Assert.That(
-                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                TestShell.Project.CurrentProject.Value!.Variables.Value[RestoreStateKey],
                 Is.EqualTo("original-state"));
         });
     }
@@ -6456,7 +6456,7 @@ public class VersionControlRestoreTests
         await RunGitAsync(git.GitPath, projectRoot, "switch", "main");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await AddRectangleAsync(adder, layer: 0);
-        project.Variables[RestoreStateKey] = "unsaved-state";
+        project.Variables.Value[RestoreStateKey] = "unsaved-state";
         CoreSerializer.StoreToUri(project, project.Uri!);
         Assert.That(
             (await TestShell.VersionControl.CurrentService!.GetStatusAsync(
@@ -6619,18 +6619,18 @@ public class VersionControlRestoreTests
         string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
         IProjectVersionControlService service = TestShell.VersionControl.CurrentService!;
 
-        project.Variables[RestoreStateKey] = "version-one";
+        project.Variables.Value[RestoreStateKey] = "version-one";
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
         CommitInfo target = (await service.GetHistoryAsync(0, 10, CancellationToken.None))
             .First(commit => commit.Kind == SnapshotKind.Save);
 
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         await AddRectangleAsync(adder, layer: 0);
-        project.Variables[RestoreStateKey] = "version-two";
+        project.Variables.Value[RestoreStateKey] = "version-two";
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
 
         await AddRectangleAsync(adder, layer: 1);
-        project.Variables[RestoreStateKey] = "pre-restore";
+        project.Variables.Value[RestoreStateKey] = "pre-restore";
         CoreSerializer.StoreToUri(project, project.Uri!);
         Scene preRestoreScene = project.Items.OfType<Scene>().Single();
         CoreSerializer.StoreToUri(preRestoreScene, preRestoreScene.Uri!);
@@ -6691,7 +6691,7 @@ public class VersionControlRestoreTests
         {
             Assert.That(confirmationCount, Is.EqualTo(2));
             Assert.That(restoredProject, Is.Not.SameAs(project));
-            Assert.That(restoredProject.Variables[RestoreStateKey], Is.EqualTo("version-one"));
+            Assert.That(restoredProject.Variables.Value[RestoreStateKey], Is.EqualTo("version-one"));
             Assert.That(restoredScene.Children, Is.Empty);
             Assert.That(restoredEditor.HistoryManager.CanUndo, Is.False);
         });
@@ -6727,7 +6727,7 @@ public class VersionControlRestoreTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                recoveredProject.Variables[RestoreStateKey],
+                recoveredProject.Variables.Value[RestoreStateKey],
                 Is.EqualTo("pre-restore"),
                 "The safety snapshot must remain reachable after a restore.");
             Assert.That(restoredElementFiles, Has.Length.EqualTo(2));
@@ -6745,7 +6745,7 @@ public class VersionControlRestoreTests
         {
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Not.Null);
             Assert.That(
-                TestShell.Project.CurrentProject.Value!.Variables[RestoreStateKey],
+                TestShell.Project.CurrentProject.Value!.Variables.Value[RestoreStateKey],
                 Is.EqualTo("pre-restore"),
                 "A failed restore must reopen the original project state.");
         });
@@ -6764,7 +6764,7 @@ public class VersionControlRestoreTests
         Assert.Multiple(() =>
         {
             Assert.That(branchStatus.Branch, Is.EqualTo(branchName));
-            Assert.That(branchedProject.Variables[RestoreStateKey], Is.EqualTo("version-one"));
+            Assert.That(branchedProject.Variables.Value[RestoreStateKey], Is.EqualTo("version-one"));
             Assert.That(branchedProject.Items.OfType<Scene>().Single().Children, Is.Empty);
         });
     }
@@ -6797,7 +6797,7 @@ public class VersionControlRestoreTests
             },
         };
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnSave = false, AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnSave = { Value = false }, AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : backend);
         coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
         await WaitUntilAsync(() => ReferenceEquals(coordinator.CurrentService, backend));
@@ -6840,8 +6840,8 @@ public class VersionControlRestoreTests
         VersionControlCoordinator coordinator = session.Start(
             new VersionControlConfig
             {
-                AutoCommitOnSave = false,
-                AutoCommitOnClose = false,
+                AutoCommitOnSave = { Value = false },
+                AutoCommitOnClose = { Value = false },
             },
             candidate => candidate is null ? discovery : backend);
         coordinator.ConfirmPullAsync = _ => Task.FromResult(true);
@@ -6883,8 +6883,8 @@ public class VersionControlRestoreTests
         VersionControlCoordinator coordinator = session.Start(
             new VersionControlConfig
             {
-                AutoCommitOnSave = false,
-                AutoCommitOnClose = false,
+                AutoCommitOnSave = { Value = false },
+                AutoCommitOnClose = { Value = false },
             },
             candidate => candidate is null ? discovery : backend);
         coordinator.ConfirmRestoreAsync = _ => Task.FromResult(true);
@@ -6934,7 +6934,7 @@ public class VersionControlRestoreTests
             };
 
             VersionControlCoordinator coordinator = session.Start(
-                new VersionControlConfig { AutoCommitOnSave = true, AutoCommitOnClose = false },
+                new VersionControlConfig { AutoCommitOnSave = { Value = true }, AutoCommitOnClose = { Value = false } },
                 candidate => candidate is null ? discovery : tracked);
             await hygieneStarted.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
@@ -6989,7 +6989,7 @@ public class VersionControlRestoreTests
         };
         var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
         using var notifications = new NotificationCapture();
 
@@ -7019,7 +7019,7 @@ public class VersionControlRestoreTests
         };
         var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
         int adoptionPrompts = 0;
         coordinator.ConfirmAdoptExistingRepositoryAsync = (candidate, _) =>
@@ -7055,7 +7055,7 @@ public class VersionControlRestoreTests
         };
         var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
         int adoptionPrompts = 0;
         coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
@@ -7092,7 +7092,7 @@ public class VersionControlRestoreTests
         };
         var tracked = new PullCycleTestBackend(repository, repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
         int confirmations = 0;
         coordinator.ConfirmUseEnclosingRepositoryAsync = (_, _) =>
@@ -7127,7 +7127,7 @@ public class VersionControlRestoreTests
         };
         var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
         int adoptionPrompts = 0;
         coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>
@@ -7167,7 +7167,7 @@ public class VersionControlRestoreTests
             if (editor.FindToolTab<Beutl.Editor.Components.VersionControlTab.ViewModels.VersionControlTabViewModel>() is { } previousTab)
                 editor.CloseToolTab(previousTab);
             coordinator = new VersionControlCoordinator(session.ProjectService,
-                editors, new VersionControlConfig { AutoCommitOnClose = false }, installationLocator: null,
+                editors, new VersionControlConfig { AutoCommitOnClose = { Value = false } }, installationLocator: null,
                 serviceFactory: candidate => candidate is null ? discovery : tracked);
             using var service = new ReactivePropertySlim<IProjectVersionControlService?>();
             var tab = new Beutl.Editor.Components.VersionControlTab.ViewModels.VersionControlTabViewModel(
@@ -7214,7 +7214,7 @@ public class VersionControlRestoreTests
         };
         var tracked = new PullCycleTestBackend(session.Repository, session.Repository, MainTip);
         VersionControlCoordinator coordinator = session.Start(
-            new VersionControlConfig { AutoCommitOnClose = false },
+            new VersionControlConfig { AutoCommitOnClose = { Value = false } },
             candidate => candidate is null ? discovery : tracked);
         int adoptionPrompts = 0;
         coordinator.ConfirmAdoptExistingRepositoryAsync = (_, _) =>

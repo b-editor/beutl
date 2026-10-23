@@ -45,12 +45,12 @@ internal sealed class AgentHostInstanceRouter
             Project? project = _projects.CurrentProject.Value;
             var editor = _editors.SelectedTabItem.Value?.Context.Value as EditViewModel;
             string? projectPath = project?.Uri is { IsFile: true } uri ? uri.LocalPath : null;
-            string? projectName = string.IsNullOrWhiteSpace(project?.Name)
+            string? projectName = string.IsNullOrWhiteSpace(project?.Name.Value)
                 ? Path.GetFileNameWithoutExtension(projectPath)
-                : project.Name;
+                : project.Name.Value;
             return new AgentHostInstanceInfo(
                 InstanceId, Environment.ProcessId, projectName, projectPath,
-                editor?.Scene.Id.ToString(), editor?.Scene.Name);
+                editor?.Scene.Id.Value.ToString(), editor?.Scene.Name.Value);
         }, DispatcherPriority.Normal, cancellationToken);
 
     public async Task<ListAgentHostInstancesResponse> ListAsync(CancellationToken cancellationToken)

@@ -148,11 +148,11 @@ internal sealed class EncoderOptionsEditor : UserControl
         _advancedRows.Children.Clear();
         _advancedRefreshers.Clear();
         _advancedPendingEdits.Clear();
-        _advancedSignature = _model.Options.Select(o => (o, o.Name)).ToArray();
+        _advancedSignature = _model.Options.Select(o => (o, o.Name.Value)).ToArray();
         foreach (AdditionalOption option in _model.Options)
         {
-            EncoderOptionInfo? descriptor = _model.Descriptors.FirstOrDefault(d => d.Name == option.Name);
-            var name = new StringEditor { Header = Strings.EncoderOptionsOptionName, Text = option.Name };
+            EncoderOptionInfo? descriptor = _model.Descriptors.FirstOrDefault(d => d.Name == option.Name.Value);
+            var name = new StringEditor { Header = Strings.EncoderOptionsOptionName, Text = option.Name.Value };
             var renameWarning = new TextBlock
             {
                 Text = Strings.EncoderOptionsDuplicate,
@@ -161,18 +161,18 @@ internal sealed class EncoderOptionsEditor : UserControl
                 TextWrapping = TextWrapping.Wrap,
             };
             renameWarning.Bind(ThemeProperty, new DynamicResourceExtension("ErrorTextBlockStyle"));
-            CommitText(name, () => option.Name, value =>
+            CommitText(name, () => option.Name.Value, value =>
             {
                 _model.RenameOption(option, value);
-                name.Text = option.Name;
-                renameWarning.IsVisible = option.Name != value.Trim();
+                name.Text = option.Name.Value;
+                renameWarning.IsVisible = option.Name.Value != value.Trim();
             });
-            TrackPendingEdit(name, () => option.Name, value => _model.RenameOption(option, value), _advancedPendingEdits);
+            TrackPendingEdit(name, () => option.Name.Value, value => _model.RenameOption(option, value), _advancedPendingEdits);
             var remove = IconButton(Icon.Delete, Strings.EncoderOptionsRemove);
             remove.Click += (_, _) => _model.RemoveOption(option);
             name.MenuContent = remove;
-            var input = CreateInput(descriptor ?? new EncoderOptionInfo { Name = option.Name },
-                () => option.Value, value =>
+            var input = CreateInput(descriptor ?? new EncoderOptionInfo { Name = option.Name.Value },
+                () => option.Value.Value, value =>
                 {
                     if (value == null) _model.RemoveOption(option);
                     else _model.SetValue(option, value);
@@ -182,7 +182,7 @@ internal sealed class EncoderOptionsEditor : UserControl
             _advancedRows.Children.Add(new StackPanel { Margin = new Thickness(0, 0, 0, 4), Children = { name, renameWarning, input } });
         }
         _optionName.ItemsSource = _model.Descriptors.Select(d => d.Name)
-            .Where(name => !_model.Options.Any(o => o.Name == name)).Order().ToArray();
+            .Where(name => !_model.Options.Any(o => o.Name.Value == name)).Order().ToArray();
     }
 
     private void RefreshValues()
@@ -197,14 +197,14 @@ internal sealed class EncoderOptionsEditor : UserControl
         _updating = true;
         try
         {
-            if (!_advancedSignature.SequenceEqual(_model.Options.Select(o => (o, o.Name)))) RebuildAdvanced();
+            if (!_advancedSignature.SequenceEqual(_model.Options.Select(o => (o, o.Name.Value)))) RebuildAdvanced();
             foreach (Action refresh in _primaryRefreshers) refresh();
             foreach (Action refresh in _advancedRefreshers) refresh();
             var warnings = _model.Options.Select(option =>
-                _model.Descriptors.FirstOrDefault(d => d.Name == option.Name) is { } descriptor
-                    ? _model.GetWarning(descriptor, option.Value) : null).OfType<string>().Distinct().ToList();
-            if (_model.Options.GroupBy(o => o.Name).Any(g => g.Count() > 1)) warnings.Add(Strings.EncoderOptionsDuplicate);
-            if (_model.Options.Any(o => string.IsNullOrWhiteSpace(o.Name))) warnings.Add(Strings.EncoderOptionsEmptyName);
+                _model.Descriptors.FirstOrDefault(d => d.Name == option.Name.Value) is { } descriptor
+                    ? _model.GetWarning(descriptor, option.Value.Value) : null).OfType<string>().Distinct().ToList();
+            if (_model.Options.GroupBy(o => o.Name.Value).Any(g => g.Count() > 1)) warnings.Add(Strings.EncoderOptionsDuplicate);
+            if (_model.Options.Any(o => string.IsNullOrWhiteSpace(o.Name.Value))) warnings.Add(Strings.EncoderOptionsEmptyName);
             _warning.Text = string.Join("\n", warnings);
             _warning.IsVisible = warnings.Count > 0;
             UpdateAddButton();
@@ -215,7 +215,7 @@ internal sealed class EncoderOptionsEditor : UserControl
     private void UpdateAddButton()
     {
         string? name = _optionName.Text?.Trim();
-        _add.IsEnabled = !string.IsNullOrEmpty(name) && !_model.Options.Any(o => o.Name == name);
+        _add.IsEnabled = !string.IsNullOrEmpty(name) && !_model.Options.Any(o => o.Name.Value == name);
     }
 
     private (string Name, bool Invalid)[] GetNumericSignature()

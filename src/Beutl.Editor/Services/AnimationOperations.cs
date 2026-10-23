@@ -24,8 +24,8 @@ internal static class AnimationOperations
     // The animation's key time at a time on the timeline, rounded to the frames of the scene.
     internal static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, Element? element, Scene? scene)
     {
-        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
-        MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start.Value : globalkeyTime;
+        MediaTime keyTime = animation.UseGlobalClock.Value ? globalkeyTime : localKeyTime;
 
         return keyTime.RoundToFrame(GetFrameRate(scene), MidpointRounding.AwayFromZero);
     }
@@ -37,7 +37,7 @@ internal static class AnimationOperations
     internal static IKeyFrame? FindKeyFrameOnFrame(IEnumerable<IKeyFrame> keyFrames, MediaTime keyTime, Rational rate)
     {
         MediaTime at = MediaTimeJsonConverter.SnapToFrame(keyTime, rate);
-        return keyFrames.FirstOrDefault(k => MediaTimeJsonConverter.SnapToFrame(k.KeyTime, rate) == at);
+        return keyFrames.FirstOrDefault(k => MediaTimeJsonConverter.SnapToFrame(k.KeyTime.Value, rate) == at);
     }
 
     // InsertKeyFrame<T> for an animation whose value type is known only at run time.
@@ -62,10 +62,10 @@ internal static class AnimationOperations
             if (defaultEasing
                 && nextIKeyFrame is KeyFrame<T> nextKeyFrame
                 && prevIKeyFrame is KeyFrame<T> prevKeyFrame
-                && nextKeyFrame.Easing is SplineEasing existingEasing)
+                && nextKeyFrame.Easing.Value is SplineEasing existingEasing)
             {
-                var duration = nextKeyFrame.KeyTime - prevKeyFrame.KeyTime;
-                float t = (float)((double)(keyTime - prevKeyFrame.KeyTime).Flicks / duration.Flicks);
+                var duration = nextKeyFrame.KeyTime.Value - prevKeyFrame.KeyTime.Value;
+                float t = (float)((double)(keyTime - prevKeyFrame.KeyTime.Value).Flicks / duration.Flicks);
                 (easing, SplineEasing right) = SplineEasingHelper.SplitByT(existingEasing, t);
                 split = (nextKeyFrame, right);
             }
@@ -76,14 +76,14 @@ internal static class AnimationOperations
 
             createdKeyFrame = new KeyFrame<T>
             {
-                Value = animation.Interpolate(keyTime),
-                Easing = easing,
-                KeyTime = keyTime
+                Value = { Value = animation.Interpolate(keyTime) },
+                Easing = { Value = easing },
+                KeyTime = { Value = keyTime }
             };
 
             animation.KeyFrames.Add(createdKeyFrame, out _);
             if (split is { } s)
-                s.Next.Easing = s.Right;
+                s.Next.Easing.Value = s.Right;
         }
 
         return createdKeyFrame;
@@ -98,7 +98,7 @@ internal static class AnimationOperations
 
     public static void RemoveKeyFrame(IKeyFrameAnimation animation, IKeyFrame keyframe, ILogger logger)
     {
-        logger.LogInformation("Removing key frame at {KeyTime}", keyframe.KeyTime);
+        logger.LogInformation("Removing key frame at {KeyTime}", keyframe.KeyTime.Value);
 
         var index = animation.KeyFrames.IndexOf(keyframe);
 

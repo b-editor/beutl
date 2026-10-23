@@ -70,7 +70,7 @@ public sealed partial class GraphEditorTabViewModel
                 {
                     item.Object.DetachedFromHierarchy += OnAnimationDetached;
                     _animationDisposables.Add(Disposable.Create(item.Object, obj => obj.DetachedFromHierarchy -= OnAnimationDetached));
-                    item.Object.ObserveUseGlobalClock().Skip(1)
+                    item.Object.UseGlobalClock.GetObservable().Skip(1)
                         .Subscribe(_ => UpdateKeyFrameStates()).DisposeWith(_animationDisposables);
                     item.Object.KeyFrames.CollectionChangedAsObservable()
                         .Subscribe(_ => UpdateKeyFrameStates()).DisposeWith(_animationDisposables);
@@ -110,15 +110,15 @@ public sealed partial class GraphEditorTabViewModel
         {
             if (value is INodeMember { Property: { } adapter } member)
             {
-                var item = GetTreeItem($"{path}/port:{member.Id}", adapter.DisplayName, parent, used);
+                var item = GetTreeItem($"{path}/port:{member.Id.Value}", adapter.DisplayName, parent, used);
                 item.Adapter = adapter;
                 UpdatePropertyItem(item, adapter is IAnimatablePropertyAdapter && !adapter.IsReadOnly, used, ancestors);
                 result.Add(item);
             }
             else if (value is EngineObject obj)
             {
-                var item = GetTreeItem($"{path}/object:{obj.Id}", string.IsNullOrWhiteSpace(obj.Name)
-                    ? TypeDisplayHelpers.GetLocalizedName(obj.GetType()) : obj.Name, parent, used);
+                var item = GetTreeItem($"{path}/object:{obj.Id.Value}", string.IsNullOrWhiteSpace(obj.Name.Value)
+                    ? TypeDisplayHelpers.GetLocalizedName(obj.GetType()) : obj.Name.Value, parent, used);
                 UpdateObjectChildren(obj, item, used, ancestors);
                 result.Add(item);
             }
@@ -245,7 +245,7 @@ public sealed partial class GraphEditorTabViewModel
                 item.HasKeyFrame.Value = false;
                 continue;
             }
-            MediaTime keyTime = (animation.UseGlobalClock ? globalTime : globalTime - (element?.Start ?? MediaTime.Zero)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime keyTime = (animation.UseGlobalClock.Value ? globalTime : globalTime - (element?.Start.Value ?? MediaTime.Zero)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             item.HasKeyFrame.Value = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) != null;
         }
     }
@@ -297,8 +297,8 @@ public sealed partial class GraphEditorTabViewModel
             var animation = (IKeyFrameAnimation)Activator.CreateInstance(typeof(KeyFrameAnimation<>).MakeGenericType(type))!;
             var key = (IKeyFrame)Activator.CreateInstance(typeof(KeyFrame<>).MakeGenericType(type))!;
             key.Value = property.Value;
-            key.Easing = new SplineEasing();
-            key.KeyTime = MediaTime.Zero;
+            key.Easing.Value = new SplineEasing();
+            key.KeyTime.Value = MediaTime.Zero;
             animation.KeyFrames.Add(key);
             _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() =>
             {

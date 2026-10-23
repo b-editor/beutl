@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.ComponentModel;
+using System.Text.Json.Nodes;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Serialization;
@@ -48,6 +49,26 @@ public class ValueOnlyPropertyTests
             Assert.That(owner.Count.Value, Is.EqualTo(10), "An out-of-range value is coerced to the maximum.");
             Assert.That(owner.Count.IsValueSet, Is.True);
             Assert.That(changed, Is.EqualTo(1));
+        }
+    }
+
+    // A binding to Value follows the property itself; the owner raises nothing for it.
+    [Test]
+    public void SettingTheValue_RaisesPropertyChangedForValueOnTheProperty()
+    {
+        var owner = new Owner();
+        var propertyNames = new List<string?>();
+        var ownerNames = new List<string?>();
+        ((INotifyPropertyChanged)owner.Count).PropertyChanged += (_, e) => propertyNames.Add(e.PropertyName);
+        owner.PropertyChanged += (_, e) => ownerNames.Add(e.PropertyName);
+
+        owner.Count.Value = 3;
+        owner.Count.Value = 3;
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(propertyNames, Is.EqualTo(new[] { nameof(IProperty<int>.Value) }));
+            Assert.That(ownerNames, Is.Empty);
         }
     }
 

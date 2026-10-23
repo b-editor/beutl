@@ -76,7 +76,7 @@ public class GitCliRunnerTests : RealGitTestRepository
             Environment.SetEnvironmentVariable("PATH", appPath);
             var locator = new GitInstallationLocator(new VersionControlConfig
             {
-                GitExecutablePath = "/usr/bin/git",
+                GitExecutablePath = { Value = "/usr/bin/git" },
             });
             GitAvailability availability = await locator.LocateAsync();
             Assert.That(availability.LfsInstalled, Is.True,

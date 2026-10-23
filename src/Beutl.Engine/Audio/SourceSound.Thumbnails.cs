@@ -67,7 +67,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
         if (resource.Source.Duration <= MediaTime.Zero)
             yield break;
 
-        var duration = TimeRange.Duration;
+        var duration = TimeRange.Value.Duration;
 
         // TimeRange.Duration is unnormalized; a non-positive span has no waveform and would drive
         // totalSamples negative (GetWaveformChunkSamplePosition then throws). Bail out instead.
@@ -84,7 +84,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
         using var composer = new Composer { SampleRate = sampleRate };
         var frame = new CompositionFrame(
             [resource],
-            TimeRange,
+            TimeRange.Value,
             default,
             new CompositionEligibility([resource.RequireOriginal()]));
 
@@ -99,7 +99,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
             // Long clips are approximated: capping at samplesPerChunk resets the effect state per chunk.
             int sampleCount = (int)Math.Min(fullSpan, samplesPerChunk);
             var chunkTime = MediaTime.FromSamples(startSample, sampleRate);
-            MediaTime startTime = TimeRange.Start + chunkTime;
+            MediaTime startTime = TimeRange.Value.Start + chunkTime;
             MediaTime durationTime = GetWaveformChunkDuration(sampleCount, sampleRate);
 
             if (sampleCount <= 0)

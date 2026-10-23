@@ -141,7 +141,7 @@ internal static class ElementMigration
                         && enabled.TryGetValue(out bool isEnabled)
                         && !isEnabled)
                     {
-                        migrated.IsEnabled = false;
+                        migrated.IsEnabled.Value = false;
                     }
 
                     return migrated;

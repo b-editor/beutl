@@ -29,7 +29,7 @@ public sealed partial class Reconciler
         }
 
         Element[] lockedElements = scene.Children.Where(scene.IsElementLockedByUser).ToArray();
-        TimelineLayer[] lockedLayers = scene.Layers.Where(layer => layer.IsLocked).ToArray();
+        TimelineLayer[] lockedLayers = scene.Layers.Where(layer => layer.IsLocked.Value).ToArray();
         Element[] protectedElements = scene.Children
             .Where(element => element.IsRecoveryProtected && !scene.IsElementLockedByUser(element))
             .ToArray();
@@ -66,7 +66,7 @@ public sealed partial class Reconciler
         Dictionary<Guid, int> appliedCounts = CountIds(sandbox.Children);
         foreach (Element locked in lockedElements)
         {
-            if (currentCounts.GetValueOrDefault(locked.Id) > 1 || appliedCounts.GetValueOrDefault(locked.Id) > 1)
+            if (currentCounts.GetValueOrDefault(locked.Id.Value) > 1 || appliedCounts.GetValueOrDefault(locked.Id.Value) > 1)
             {
                 return new ToolError(
                     ErrorCode.ValidationRejected,
@@ -89,11 +89,11 @@ public sealed partial class Reconciler
             return null;
         }
 
-        HashSet<Guid> remaining = sandbox.Children.Select(element => element.Id).ToHashSet();
+        HashSet<Guid> remaining = sandbox.Children.Select(element => element.Id.Value).ToHashSet();
         foreach (Element locked in lockedElements)
         {
-            ImmutableHashSet<Guid>[] before = scene.Groups.Where(group => group.Contains(locked.Id)).ToArray();
-            ImmutableHashSet<Guid>[] after = sandbox.Groups.Where(group => group.Contains(locked.Id)).ToArray();
+            ImmutableHashSet<Guid>[] before = scene.Groups.Where(group => group.Contains(locked.Id.Value)).ToArray();
+            ImmutableHashSet<Guid>[] after = sandbox.Groups.Where(group => group.Contains(locked.Id.Value)).ToArray();
             // The editor never puts an element in two groups, so that comes from a corrupted project, whose
             // groups cannot be matched before and after the edit. Refuse until the project is repaired.
             if (before.Length > 1)
@@ -108,7 +108,7 @@ public sealed partial class Reconciler
             ImmutableHashSet<Guid>? original = before.FirstOrDefault();
             bool kept = after.Length switch
             {
-                0 => original is null || !original.Any(id => id != locked.Id && remaining.Contains(id)),
+                0 => original is null || !original.Any(id => id != locked.Id.Value && remaining.Contains(id)),
                 1 => original is not null && after[0].IsSubsetOf(original),
                 _ => false,
             };
@@ -144,7 +144,7 @@ public sealed partial class Reconciler
         Dictionary<Guid, (int Index, Element Element)> applied = IndexElementsById(sandbox.Children);
         foreach (Element locked in lockedElements)
         {
-            if (!applied.TryGetValue(locked.Id, out (int Index, Element Element) match)
+            if (!applied.TryGetValue(locked.Id.Value, out (int Index, Element Element) match)
                 || (!before.Contains(locked) && !after.Contains(match.Element)))
             {
                 continue;
@@ -195,21 +195,21 @@ public sealed partial class Reconciler
         }
 
         Dictionary<Guid, (int Index, Element Element)> current = IndexElementsById(scene.Children);
-        ILookup<int, Element> layers = sandbox.Children.ToLookup(element => element.ZIndex);
+        ILookup<int, Element> layers = sandbox.Children.ToLookup(element => element.ZIndex.Value);
         foreach (Element locked in lockedElements)
         {
-            foreach (Element placed in layers[locked.ZIndex])
+            foreach (Element placed in layers[locked.ZIndex.Value])
             {
-                if (placed.Id == locked.Id
+                if (placed.Id.Value == locked.Id.Value
                     || !Overlaps(placed, locked)
-                    || (current.TryGetValue(placed.Id, out (int Index, Element Element) before) && Overlaps(before.Element, locked)))
+                    || (current.TryGetValue(placed.Id.Value, out (int Index, Element Element) before) && Overlaps(before.Element, locked)))
                 {
                     continue;
                 }
 
                 return new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"Element {DescribeElement(placed)} would overlap locked element {DescribeElement(locked)} on layer {locked.ZIndex}.",
+                    $"Element {DescribeElement(placed)} would overlap locked element {DescribeElement(locked)} on layer {locked.ZIndex.Value}.",
                     ElementTarget(placed),
                     $"Place it at another time or on another layer, or ask the user to unlock the locked element in the timeline. {LockHint}");
             }
@@ -230,20 +230,20 @@ public sealed partial class Reconciler
         Dictionary<Guid, (int Index, Element Element)> applied = IndexElementsById(sandbox.Children);
         ILookup<int, (Element Element, int Index)> layers = scene.Children
             .Select((element, index) => (element, index))
-            .ToLookup(pair => pair.element.ZIndex);
+            .ToLookup(pair => pair.element.ZIndex.Value);
         foreach (Element locked in lockedElements)
         {
-            if (!applied.TryGetValue(locked.Id, out (int Index, Element Element) lockedAfter))
+            if (!applied.TryGetValue(locked.Id.Value, out (int Index, Element Element) lockedAfter))
             {
                 continue;
             }
 
-            int lockedBefore = current[locked.Id].Index;
-            foreach ((Element other, int otherBefore) in layers[locked.ZIndex])
+            int lockedBefore = current[locked.Id.Value].Index;
+            foreach ((Element other, int otherBefore) in layers[locked.ZIndex.Value])
             {
                 if (other == locked
                     || !Overlaps(other, locked)
-                    || !applied.TryGetValue(other.Id, out (int Index, Element Element) otherAfter)
+                    || !applied.TryGetValue(other.Id.Value, out (int Index, Element Element) otherAfter)
                     || !Overlaps(otherAfter.Element, locked)
                     || (otherBefore > lockedBefore) == (otherAfter.Index > lockedAfter.Index))
                 {
@@ -252,7 +252,7 @@ public sealed partial class Reconciler
 
                 return new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"Element {DescribeElement(other)} overlaps locked element {DescribeElement(locked)} on layer {locked.ZIndex}, so their order in Elements, which decides the one drawn on top, cannot change.",
+                    $"Element {DescribeElement(other)} overlaps locked element {DescribeElement(locked)} on layer {locked.ZIndex.Value}, so their order in Elements, which decides the one drawn on top, cannot change.",
                     ElementTarget(other),
                     $"Keep both elements in their order in Elements, or ask the user to unlock the locked element in the timeline. {LockHint}");
             }
@@ -262,7 +262,7 @@ public sealed partial class Reconciler
     }
 
     private static bool Overlaps(Element element, Element other)
-        => element.ZIndex == other.ZIndex && element.Range.Intersects(other.Range);
+        => element.ZIndex.Value == other.ZIndex.Value && element.Range.Intersects(other.Range);
 
     // The elements by Id with their index in Elements; a repeated Id keeps its first element.
     private static Dictionary<Guid, (int Index, Element Element)> IndexElementsById(IList<Element> elements)
@@ -270,7 +270,7 @@ public sealed partial class Reconciler
         var indexed = new Dictionary<Guid, (int Index, Element Element)>(elements.Count);
         for (int i = 0; i < elements.Count; i++)
         {
-            indexed.TryAdd(elements[i].Id, (i, elements[i]));
+            indexed.TryAdd(elements[i].Id.Value, (i, elements[i]));
         }
 
         return indexed;
@@ -281,7 +281,7 @@ public sealed partial class Reconciler
         var counts = new Dictionary<Guid, int>();
         foreach (Element element in elements)
         {
-            counts[element.Id] = counts.GetValueOrDefault(element.Id) + 1;
+            counts[element.Id.Value] = counts.GetValueOrDefault(element.Id.Value) + 1;
         }
 
         return counts;
@@ -290,7 +290,7 @@ public sealed partial class Reconciler
     internal static ToolError CreateLockedElementError(Scene scene, Element element, string target)
     {
         string identity = DescribeElement(element);
-        if (element.IsLocked)
+        if (element.IsLocked.Value)
         {
             return new ToolError(
                 ErrorCode.ValidationRejected,
@@ -299,13 +299,13 @@ public sealed partial class Reconciler
                 $"Leave this element out of the edit, or ask the user to unlock it in the timeline. {LockHint}");
         }
 
-        if (scene.IsLayerLocked(element.ZIndex))
+        if (scene.IsLayerLocked(element.ZIndex.Value))
         {
             return new ToolError(
                 ErrorCode.ValidationRejected,
-                $"Element {identity} is on locked layer {element.ZIndex}, so an agent cannot change, delete or move it.",
+                $"Element {identity} is on locked layer {element.ZIndex.Value}, so an agent cannot change, delete or move it.",
                 target,
-                $"Leave this element out of the edit, or ask the user to unlock layer {element.ZIndex} in the timeline. {LockHint}");
+                $"Leave this element out of the edit, or ask the user to unlock layer {element.ZIndex.Value} in the timeline. {LockHint}");
         }
 
         return new ToolError(
@@ -333,8 +333,8 @@ public sealed partial class Reconciler
         Dictionary<Guid, JsonObject> applied = IndexSerializedElements(session.Documents.Read(sandbox));
         foreach (Element element in protectedElements)
         {
-            if (!applied.TryGetValue(element.Id, out JsonObject? after)
-                || (current.TryGetValue(element.Id, out JsonObject? before) && JsonNode.DeepEquals(before, after)))
+            if (!applied.TryGetValue(element.Id.Value, out JsonObject? after)
+                || (current.TryGetValue(element.Id.Value, out JsonObject? before) && JsonNode.DeepEquals(before, after)))
             {
                 continue;
             }
@@ -343,12 +343,12 @@ public sealed partial class Reconciler
             HashSet<Guid> blockers = SerializedGraphTraversal.Enumerate(element)
                 .Where(SceneRecovery.IsRecoveryBlocker)
                 .OfType<EngineObject>()
-                .Select(blocker => blocker.Id)
+                .Select(blocker => blocker.Id.Value)
                 .ToHashSet();
             if (SceneRecovery.IsRecoveryBlocker(element)
-                || sandbox.Children.FirstOrDefault(child => child.Id == element.Id) is not { } repaired
+                || sandbox.Children.FirstOrDefault(child => child.Id.Value == element.Id.Value) is not { } repaired
                 || SceneRecovery.HoldsUnresolvedRecoveryBlocker(repaired)
-                || SerializedGraphTraversal.Enumerate(repaired).OfType<EngineObject>().Any(item => blockers.Contains(item.Id)))
+                || SerializedGraphTraversal.Enumerate(repaired).OfType<EngineObject>().Any(item => blockers.Contains(item.Id.Value)))
             {
                 return CreateLockedElementError(scene, element, ElementTarget(element));
             }
@@ -375,9 +375,9 @@ public sealed partial class Reconciler
         Dictionary<Guid, JsonObject> applied = IndexSerializedElements(session.Documents.Read(sandbox));
         foreach (Element locked in lockedElements)
         {
-            if (!current.TryGetValue(locked.Id, out JsonObject? before)
-                || !applied.TryGetValue(locked.Id, out JsonObject? after)
-                || (locked.IsLocked && !IsTrue(after[nameof(Element.IsLocked)]))
+            if (!current.TryGetValue(locked.Id.Value, out JsonObject? before)
+                || !applied.TryGetValue(locked.Id.Value, out JsonObject? after)
+                || (locked.IsLocked.Value && !IsTrue(after[nameof(Element.IsLocked)]))
                 || !JsonNode.DeepEquals(WithoutLock(before), WithoutLock(after)))
             {
                 return CreateLockedElementError(scene, locked, ElementTarget(locked));
@@ -395,22 +395,22 @@ public sealed partial class Reconciler
         {
             // As with duplicate element Ids, only a corrupted project repeats a layer Id, and then one copy
             // could vouch for another that the edit removed. Refuse until the project is repaired.
-            if (scene.Layers.Count(layer => layer.Id == locked.Id) > 1
-                || sandbox.Layers.Count(layer => layer.Id == locked.Id) > 1)
+            if (scene.Layers.Count(layer => layer.Id.Value == locked.Id.Value) > 1
+                || sandbox.Layers.Count(layer => layer.Id.Value == locked.Id.Value) > 1)
             {
                 return new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"Layer {locked.ZIndex} is locked and shares its Id with another layer, so its lock cannot be checked.",
-                    $"$/Layers[Id={locked.Id}]",
+                    $"Layer {locked.ZIndex.Value} is locked and shares its Id with another layer, so its lock cannot be checked.",
+                    $"$/Layers[Id={locked.Id.Value}]",
                     "The project has duplicate layer Ids that must be repaired before an agent can edit this scene.");
             }
 
-            if (!sandbox.Layers.Any(layer => layer.Id == locked.Id && layer.IsLocked && layer.ZIndex == locked.ZIndex))
+            if (!sandbox.Layers.Any(layer => layer.Id.Value == locked.Id.Value && layer.IsLocked.Value && layer.ZIndex.Value == locked.ZIndex.Value))
             {
                 return new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"Layer {locked.ZIndex} is locked, so an agent cannot unlock, move or remove it.",
-                    $"$/Layers[Id={locked.Id}]",
+                    $"Layer {locked.ZIndex.Value} is locked, so an agent cannot unlock, move or remove it.",
+                    $"$/Layers[Id={locked.Id.Value}]",
                     $"Keep the layer's IsLocked, ZIndex and its entry in Layers unchanged; only the user can unlock it in the timeline. {LockHint}");
             }
         }
@@ -422,7 +422,7 @@ public sealed partial class Reconciler
     // above keeps it unchanged. A new element, or one moved onto the layer, is refused.
     private static ToolError? FindElementPlacedOnLockedLayer(Scene scene, Scene sandbox)
     {
-        if (!scene.Layers.Any(layer => layer.IsLocked))
+        if (!scene.Layers.Any(layer => layer.IsLocked.Value))
         {
             return null;
         }
@@ -430,19 +430,19 @@ public sealed partial class Reconciler
         var currentZIndices = new Dictionary<Guid, int>();
         foreach (Element element in scene.Children)
         {
-            currentZIndices.TryAdd(element.Id, element.ZIndex);
+            currentZIndices.TryAdd(element.Id.Value, element.ZIndex.Value);
         }
 
         foreach (Element placed in sandbox.Children)
         {
-            if (scene.IsLayerLocked(placed.ZIndex)
-                && (!currentZIndices.TryGetValue(placed.Id, out int zIndex) || zIndex != placed.ZIndex))
+            if (scene.IsLayerLocked(placed.ZIndex.Value)
+                && (!currentZIndices.TryGetValue(placed.Id.Value, out int zIndex) || zIndex != placed.ZIndex.Value))
             {
                 return new ToolError(
                     ErrorCode.ValidationRejected,
-                    $"Layer {placed.ZIndex} is locked, so element {DescribeElement(placed)} cannot be placed on it.",
+                    $"Layer {placed.ZIndex.Value} is locked, so element {DescribeElement(placed)} cannot be placed on it.",
                     ElementTarget(placed),
-                    $"Use an unlocked layer (ZIndex), or ask the user to unlock layer {placed.ZIndex} in the timeline. {LockHint}");
+                    $"Use an unlocked layer (ZIndex), or ask the user to unlock layer {placed.ZIndex.Value} in the timeline. {LockHint}");
             }
         }
 
@@ -473,7 +473,7 @@ public sealed partial class Reconciler
         return copy;
     }
 
-    private static string ElementTarget(Element element) => $"$/Elements[Id={element.Id}]";
+    private static string ElementTarget(Element element) => $"$/Elements[Id={element.Id.Value}]";
 
     private static bool IsTrue(JsonNode? node)
     {
@@ -482,8 +482,8 @@ public sealed partial class Reconciler
 
     private static string DescribeElement(Element element)
     {
-        return string.IsNullOrWhiteSpace(element.Name)
-            ? element.Id.ToString()
-            : $"'{element.Name}' ({element.Id})";
+        return string.IsNullOrWhiteSpace(element.Name.Value)
+            ? element.Id.Value.ToString()
+            : $"'{element.Name.Value}' ({element.Id.Value})";
     }
 }

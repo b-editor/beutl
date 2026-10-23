@@ -67,7 +67,7 @@ public sealed class CurveEditorDragTests
         shape.FilterEffect.Value = curves;
         await TestShell.AddElementAsync(editor, () => shape, MediaTime.Zero, MediaTime.FromSeconds(2));
         Element element = scene.Children.Single();
-        editor.HistoryManager.ExecuteInTransaction(() => element.Name = "earlier", "Earlier");
+        editor.HistoryManager.ExecuteInTransaction(() => element.Name.Value = "earlier", "Earlier");
         int undoCount = editor.HistoryManager.UndoCount;
         using var model = new CurvesTabViewModel(editor);
         model.Effect.Value = curves;
@@ -129,7 +129,7 @@ public sealed class CurveEditorDragTests
                     Assert.That(points[1].Point.Y, Is.EqualTo(0.5f).Within(0.01f));
                 }
                 Assert.That(model.MasterCurve.Value!.Points, Has.Count.EqualTo(points.Length));
-                Assert.That(element.Name, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
+                Assert.That(element.Name.Value, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + (kept ? 1 : 0)));
                 Assert.That(editor.HistoryManager.IsEditing, Is.False);
             });

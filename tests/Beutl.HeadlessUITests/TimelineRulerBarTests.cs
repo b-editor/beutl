@@ -46,7 +46,7 @@ public class TimelineRulerBarTests
         var marker = new SceneMarker(MediaTime.FromSeconds(0.8), name: "Cue");
         scene.Markers.Add(marker);
         history.Commit();
-        history.ExecuteInTransaction(() => marker.Note = "earlier", "Earlier");
+        history.ExecuteInTransaction(() => marker.Note.Value = "earlier", "Earlier");
         HeadlessTestHelpers.Render();
         int undoCount = history.UndoCount;
         IPointer? pointer = null;
@@ -104,8 +104,8 @@ public class TimelineRulerBarTests
         Assert.Multiple(() =>
         {
             Assert.That(Value(), Is.EqualTo(kept ? reached : initial));
-            Assert.That(scene.Start + scene.Duration, Is.EqualTo(MediaTime.FromSeconds(target == "end" && kept ? 1.8 : 2)));
-            Assert.That(marker.Note, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
+            Assert.That(scene.Start.Value + scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(target == "end" && kept ? 1.8 : 2)));
+            Assert.That(marker.Note.Value, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
             Assert.That(history.UndoCount, Is.EqualTo(undoCount + (kept ? 1 : 0)));
             Assert.That(history.IsEditing, Is.False);
             Assert.That(host.View._mouseFlag, Is.EqualTo(TimelineHelper.MouseFlags.Free));
@@ -119,9 +119,9 @@ public class TimelineRulerBarTests
 
         MediaTime Value() => target switch
         {
-            "marker" => marker.Time,
-            "end" => scene.Duration,
-            _ => scene.Start
+            "marker" => marker.Time.Value,
+            "end" => scene.Duration.Value,
+            _ => scene.Start.Value
         };
     }
 
@@ -159,14 +159,14 @@ public class TimelineRulerBarTests
         Assert.That(model.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.6)));
 
         Drag(ruler, new Point(120, 8), new Point(180, 8), TimelineHelper.MouseFlags.MarkerPressed);
-        Assert.That(marker.Time, Is.EqualTo(MediaTime.FromSeconds(1.2)));
+        Assert.That(marker.Time.Value, Is.EqualTo(MediaTime.FromSeconds(1.2)));
 
         // Playback range handles are hit in the ruler's own coordinates.
         Drag(ruler, new Point(298, 8), new Point(270, 8), TimelineHelper.MouseFlags.EndingBarMarkerPressed);
-        Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.8)));
+        Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1.8)));
         Drag(ruler, new Point(2, 8), new Point(30, 8), TimelineHelper.MouseFlags.StartingBarMarkerPressed);
-        Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(0.2)));
-        Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.6)));
+        Assert.That(scene.Start.Value, Is.EqualTo(MediaTime.FromSeconds(0.2)));
+        Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1.6)));
 
         model.Options.Value = model.Options.Value with { Offset = new System.Numerics.Vector2(75, 0) };
         HeadlessTestHelpers.Render();

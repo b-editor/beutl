@@ -20,7 +20,7 @@ public sealed class MissingMediaRowViewModel : IDisposable
     public MissingMediaRowViewModel(MissingMedia media)
     {
         Media = media;
-        Elements = string.Join(", ", media.References.Select(reference => reference.Element?.Name)
+        Elements = string.Join(", ", media.References.Select(reference => reference.Element?.Name.Value)
             .Where(name => !string.IsNullOrWhiteSpace(name)).Distinct());
         IsReady = ReplacementPath.CombineLatest(IsOffline, (path, offline) => path != null && !offline)
             .ToReadOnlyReactivePropertySlim();
@@ -214,7 +214,7 @@ public sealed class MissingMediaViewModel : IToolContext
             if (row.ReplacementPath.Value != null)
             {
                 string directory = Path.GetDirectoryName(Path.GetFullPath(path))!;
-                GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory = directory;
+                GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value = directory;
                 _candidateCancellation?.Cancel();
                 _candidateCancellation?.Dispose();
                 _candidateCancellation = CancellationTokenSource.CreateLinkedTokenSource(_token);

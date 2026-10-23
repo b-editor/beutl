@@ -17,14 +17,14 @@ public static class TimelineHelper
         ReadOnlyReactivePropertySlim<double> PanelWidth) CreateSceneBarMargins(
             Scene scene, IEditorClock clock, IObservable<float> scale, CompositeDisposable disposables)
     {
-        ReadOnlyReactivePropertySlim<Thickness> startingBarMargin = scene.StartProperty.GetObservable()
+        ReadOnlyReactivePropertySlim<Thickness> startingBarMargin = scene.Start.GetObservable()
             .CombineLatest(scale)
             .Select(item => item.First.TimeToPixel(item.Second))
             .Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(disposables);
 
-        ReadOnlyReactivePropertySlim<Thickness> endingBarMargin = scene.DurationProperty.GetObservable()
+        ReadOnlyReactivePropertySlim<Thickness> endingBarMargin = scene.Duration.GetObservable()
             .CombineLatest(scale, startingBarMargin)
             .Select(item => item.First.TimeToPixel(item.Second) + item.Third.Left)
             .Select(p => new Thickness(p, 0, 0, 0))
@@ -33,8 +33,8 @@ public static class TimelineHelper
 
         ReadOnlyReactivePropertySlim<double> panelWidth = clock.MaximumTime
             .CombineLatest(
-                scene.DurationProperty.GetObservable(),
-                scene.StartProperty.GetObservable(),
+                scene.Duration.GetObservable(),
+                scene.Start.GetObservable(),
                 clock.CurrentTime)
             .Select(i => new MediaTime(
                 Math.Max(
@@ -53,7 +53,7 @@ public static class TimelineHelper
         ScrollViewer scrollViewer, IEditorContext editorContext, IReactiveProperty<TimelineOptions> options,
         MediaTime currentTime)
     {
-        var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode;
+        var mode = GlobalConfiguration.Instance.EditorConfig.TimelineAutoScrollMode.Value;
         if (mode == TimelineAutoScrollMode.None) return;
 
         var previewPlayer = editorContext.GetService<IPreviewPlayer>();

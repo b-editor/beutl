@@ -174,7 +174,7 @@ public class ExpressionGlobalsTests
         var globals = new ExpressionGlobals(context);
 
         // Act
-        double result = globals.GetProperty<double>($"{child.Id}.Value");
+        double result = globals.GetProperty<double>($"{child.Id.Value}.Value");
 
         // Assert
         Assert.That(result, Is.EqualTo(42.0));
@@ -195,7 +195,7 @@ public class ExpressionGlobalsTests
         var globals = new ExpressionGlobals(context);
 
         // Act - Using GUID + property name overload
-        double result = globals.GetProperty<double>(child.Id, "Value");
+        double result = globals.GetProperty<double>(child.Id.Value, "Value");
 
         // Assert
         Assert.That(result, Is.EqualTo(123.5));

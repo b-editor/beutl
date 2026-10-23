@@ -28,7 +28,7 @@ public class NodeMonitorViewModel : NodeMemberViewModel
         previewPlayer.IsPlaying.CombineLatest(nodeViewModel.IsExpanded)
             .Select(t => t is { First: false, Second: true })
             .DistinctUntilChanged()
-            .Do(enabled => model.IsEnabled = enabled)
+            .Do(enabled => model.IsEnabled.Value = enabled)
             .ObserveOnUIDispatcher()
             .Where(v => v)
             .Subscribe(_ => UpdateDisplay())

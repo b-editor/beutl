@@ -36,7 +36,7 @@ public class ElementMigrationTests
         Assert.Multiple(() =>
         {
             Assert.That(element.Objects.Single(), Is.TypeOf(migratedType));
-            Assert.That(element.Objects.Single().IsEnabled, Is.EqualTo(migratedEnabled));
+            Assert.That(element.Objects.Single().IsEnabled.Value, Is.EqualTo(migratedEnabled));
         });
     }
 }

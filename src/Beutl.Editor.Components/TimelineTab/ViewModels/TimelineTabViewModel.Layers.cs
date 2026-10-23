@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Avalonia;
+﻿using Avalonia;
 using Beutl.Editor.Components.Helpers;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
@@ -59,29 +58,25 @@ public sealed partial class TimelineTabViewModel
     {
         var tracked = new List<TimelineLayer>();
 
-        void OnLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
-        {
-            if (e.PropertyName == nameof(TimelineLayer.ZIndex))
-                ResyncLayerHeaderModels();
-        }
+        void OnLayerZIndexChanged(object? sender, PropertyValueChangedEventArgs<int> e) => ResyncLayerHeaderModels();
 
         void Untrack()
         {
             foreach (TimelineLayer layer in tracked)
-                layer.PropertyChanged -= OnLayerPropertyChanged;
+                layer.ZIndex.ValueChanged -= OnLayerZIndexChanged;
             tracked.Clear();
         }
 
         IDisposable items = Scene.Layers.ForEachItem(
             layer =>
             {
-                layer.PropertyChanged += OnLayerPropertyChanged;
+                layer.ZIndex.ValueChanged += OnLayerZIndexChanged;
                 tracked.Add(layer);
                 ResyncLayerHeaderModels();
             },
             layer =>
             {
-                layer.PropertyChanged -= OnLayerPropertyChanged;
+                layer.ZIndex.ValueChanged -= OnLayerZIndexChanged;
                 tracked.Remove(layer);
                 ResyncLayerHeaderModels();
             },
@@ -100,7 +95,7 @@ public sealed partial class TimelineTabViewModel
         // model on a row wins, as in ResyncModel.
         var modelsByRow = new Dictionary<int, TimelineLayer>();
         foreach (TimelineLayer layer in Scene.Layers)
-            modelsByRow.TryAdd(layer.ZIndex, layer);
+            modelsByRow.TryAdd(layer.ZIndex.Value, layer);
 
         // A snapshot: a header's new model must not be able to change the list under this loop.
         foreach (LayerHeaderViewModel header in LayerHeaders.ToArray())
@@ -138,8 +133,8 @@ public sealed partial class TimelineTabViewModel
     }
 
     private bool HasFlaggedLayerModel(int zIndex)
-        => Scene.Layers.Any(l => l.ZIndex == zIndex
-                                 && (l.IsLocked || l.IsAudioMuted || l.IsVideoMuted || l.IsSolo));
+        => Scene.Layers.Any(l => l.ZIndex.Value == zIndex
+                                 && (l.IsLocked.Value || l.IsAudioMuted.Value || l.IsVideoMuted.Value || l.IsSolo.Value));
 
     public IObservable<double> GetTrackedLayerTopObservable(IObservable<int> layer)
     {

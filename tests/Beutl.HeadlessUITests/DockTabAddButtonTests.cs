@@ -470,7 +470,7 @@ public class DockTabAddButtonTests
     {
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-add-pins");
-        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
         pins.Clear();
 
         var view = new EditView { DataContext = editor };
@@ -876,7 +876,7 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public void A_pin_saved_under_a_former_name_pins_the_tool_until_it_is_unpinned()
     {
-        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
         string[] saved = [.. pins];
         var extension = new RenamedToolTabExtension();
         var newTab = new NewToolTabDockable();
@@ -907,7 +907,7 @@ public class DockTabAddButtonTests
     [AvaloniaTest]
     public void Unpinning_removes_every_pin_of_the_tool()
     {
-        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
         string[] saved = [.. pins];
         var extension = new RenamedToolTabExtension();
         var newTab = new NewToolTabDockable();

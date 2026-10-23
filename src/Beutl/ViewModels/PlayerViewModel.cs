@@ -145,7 +145,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
                         : _editorClock.CurrentTime.Value < endTime
                             ? endTime
                             : Scene.Children.Count > 0
-                                ? Scene.Children.Max(i => i.Start + i.Length) - frame
+                                ? Scene.Children.Max(i => i.Start.Value + i.Length.Value) - frame
                                 : MediaTime.Zero);
             })
             .DisposeWith(_disposables);
@@ -167,7 +167,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         _currentFrameSubscription = CurrentFrame.Subscribe(UpdateCurrentFrame);
 
         Duration = _editorClock.MaximumTime
-            .CombineLatest(Scene.DurationProperty.GetObservable(), Scene.StartProperty.GetObservable(),
+            .CombineLatest(Scene.Duration.GetObservable(), Scene.Start.GetObservable(),
                 CurrentFrame)
             .Select(i =>
             {
@@ -201,23 +201,23 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             })
             .DisposeWith(_disposables);
 
-        ToneMappingMode = GlobalConfiguration.Instance.EditorConfig.ToneMappingModeProperty.GetObservable()
+        ToneMappingMode = GlobalConfiguration.Instance.EditorConfig.ToneMappingMode.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        ToneMappingExposure = GlobalConfiguration.Instance.EditorConfig.ToneMappingExposureProperty.GetObservable()
+        ToneMappingExposure = GlobalConfiguration.Instance.EditorConfig.ToneMappingExposure.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
         // Re-render when an onion-skin setting changes.
-        editorConfig.IsOnionSkinEnabledProperty.GetObservable()
+        editorConfig.IsOnionSkinEnabled.GetObservable()
             .CombineLatest(
-                editorConfig.OnionSkinPrevCountProperty.GetObservable(),
-                editorConfig.OnionSkinNextCountProperty.GetObservable(),
-                editorConfig.OnionSkinPrevOpacityProperty.GetObservable(),
-                editorConfig.OnionSkinNextOpacityProperty.GetObservable())
+                editorConfig.OnionSkinPrevCount.GetObservable(),
+                editorConfig.OnionSkinNextCount.GetObservable(),
+                editorConfig.OnionSkinPrevOpacity.GetObservable(),
+                editorConfig.OnionSkinNextOpacity.GetObservable())
             .Skip(1)
             .Subscribe(_ =>
             {
@@ -245,7 +245,9 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
 
     private void ClearAllGizmoTargets()
     {
-        foreach (var element in Scene?.Children ?? [])
+        if (Scene == null) return;
+
+        foreach (var element in Scene.Children)
         {
             foreach (var obj in element.Objects)
             {
@@ -316,16 +318,16 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     {
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
         Scene? scene = Scene;
-        bool onionSkinEnabled = editorConfig.IsOnionSkinEnabled && !IsPlaying.Value && scene is not null;
+        bool onionSkinEnabled = editorConfig.IsOnionSkinEnabled.Value && !IsPlaying.Value && scene is not null;
 
         return OnionSkinHelper.IsEditAffectingPreview(
             affectedRange,
             _editorClock.CurrentTime.Value,
             onionSkinEnabled,
-            editorConfig.OnionSkinPrevCount, editorConfig.OnionSkinPrevOpacity,
-            editorConfig.OnionSkinNextCount, editorConfig.OnionSkinNextOpacity,
+            editorConfig.OnionSkinPrevCount.Value, editorConfig.OnionSkinPrevOpacity.Value,
+            editorConfig.OnionSkinNextCount.Value, editorConfig.OnionSkinNextOpacity.Value,
             GetFrameRate(),
-            scene?.Start ?? default, scene?.Duration ?? default);
+            scene?.Start.Value ?? default, scene?.Duration.Value ?? default);
     }
 
     public Subject<Unit> AfterRendered { get; } = new();
@@ -524,7 +526,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
             rate = GetFrameRate();
             startTime = _editorClock.CurrentTime.Value;
             // Computed once for the producer and the ticker, rounded as the paused preview rounds the playhead.
-            range = PlaybackRange.From(startTime, scene.Start, scene.Duration, rate);
+            range = PlaybackRange.From(startTime, scene.Start.Value, scene.Duration.Value, rate);
             scene.Edited -= OnSceneEdited;
             _currentFrameSubscription?.Dispose();
             _currentFrameSubscription = null;
@@ -597,7 +599,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         if (_sessionGuard.Owns(generation) && IsLoopEnabled.Value && ticker is { ReachedNaturalEnd: true }
             && Scene is { } loopScene)
         {
-            return await TryApplyOnUIThreadAsync(generation, () => _editorClock.Seek(loopScene.Start));
+            return await TryApplyOnUIThreadAsync(generation, () => _editorClock.Seek(loopScene.Start.Value));
         }
 
         return false;
@@ -651,8 +653,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     {
         Rational rate = GetFrameRate();
         Scene scene = Scene!;
-        MediaTime end = MediaTimeJsonConverter.SnapToFrame(scene.Start + scene.Duration, rate);
-        return (MediaTimeJsonConverter.SnapToFrame(scene.Start, rate), end - MediaTime.FromFrames(1, rate));
+        MediaTime end = MediaTimeJsonConverter.SnapToFrame(scene.Start.Value + scene.Duration.Value, rate);
+        return (MediaTimeJsonConverter.SnapToFrame(scene.Start.Value, rate), end - MediaTime.FromFrames(1, rate));
     }
 
     public void ToggleLoop()

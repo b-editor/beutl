@@ -298,9 +298,9 @@ public class SelectedDrawableRenderTests
         var capture = new SelectedDrawableScaleCaptureDrawable();
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
-            IsEnabled = true,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            IsEnabled = { Value = true },
             Uri = new Uri(Path.Combine(location, "nested.layer"))
         };
         element.AddObject(capture);

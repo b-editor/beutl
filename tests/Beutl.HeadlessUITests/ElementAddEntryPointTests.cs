@@ -62,13 +62,13 @@ public class ElementAddEntryPointTests
         Element created = editor.Scene.Children.Single();
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(created.Start, Is.EqualTo(description.Start));
-            Assert.That(created.Length, Is.EqualTo(description.Length));
-            Assert.That(created.ZIndex, Is.EqualTo(description.Layer));
+            Assert.That(created.Start.Value, Is.EqualTo(description.Start));
+            Assert.That(created.Length.Value, Is.EqualTo(description.Length));
+            Assert.That(created.ZIndex.Value, Is.EqualTo(description.Layer));
             Assert.That(created.Objects.OfType<RectShape>().Count(), Is.EqualTo(1));
             Assert.That(scrolls, Has.Count.EqualTo(1));
             Assert.That(scrolls[0].Range, Is.EqualTo(created.Range));
-            Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex));
+            Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex.Value));
             Assert.That(notifications.All, Is.Empty);
         }
     }
@@ -81,7 +81,7 @@ public class ElementAddEntryPointTests
             await OpenEditorForNewScene("timeline-add-entry-locked");
         using (editor.HistoryManager.SuppressRecording())
         {
-            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
         }
 
         using var notifications = new NotificationCapture();
@@ -176,14 +176,14 @@ public class ElementAddEntryPointTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(args.Handled, Is.True);
-                Assert.That(created.Start, Is.EqualTo(timeline.ClickedFrame));
-                Assert.That(created.Length, Is.EqualTo(MediaTime.FromSeconds(7)));
-                Assert.That(created.ZIndex, Is.EqualTo(expectedLayer));
-                Assert.That(created.Name, Is.EqualTo("Dropped template"));
+                Assert.That(created.Start.Value, Is.EqualTo(timeline.ClickedFrame));
+                Assert.That(created.Length.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
+                Assert.That(created.ZIndex.Value, Is.EqualTo(expectedLayer));
+                Assert.That(created.Name.Value, Is.EqualTo("Dropped template"));
                 Assert.That(created.Objects.OfType<RectShape>().Count(), Is.EqualTo(1));
                 Assert.That(scrolls, Has.Count.EqualTo(1));
                 Assert.That(scrolls[0].Range, Is.EqualTo(created.Range));
-                Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex));
+                Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex.Value));
                 Assert.That(notifications.All, Is.Empty);
             }
         }
@@ -205,14 +205,14 @@ public class ElementAddEntryPointTests
         string imagePath = CreatePngFile(editor, "dropped-image.png");
         editor.Player.CurrentFrame.Value = MediaTime.FromSeconds(4);
         editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(
-            editor.Scene.FrameSize.Width,
-            editor.Scene.FrameSize.Height));
+            editor.Scene.FrameSize.Value.Width,
+            editor.Scene.FrameSize.Value.Height));
         using var notifications = new NotificationCapture();
         var scrolls = new List<(TimeRange Range, int ZIndex)>();
         using IDisposable subscription = timeline.ScrollTo.Subscribe(scrolls.Add);
         var view = new PlayerView { DataContext = editor.Player };
-        view.image.Width = editor.Scene.FrameSize.Width;
-        view.image.Height = editor.Scene.FrameSize.Height;
+        view.image.Width = editor.Scene.FrameSize.Value.Width;
+        view.image.Height = editor.Scene.FrameSize.Value.Height;
         var window = new Window { Content = view, Width = 800, Height = 600 };
 
         try
@@ -221,7 +221,7 @@ public class ElementAddEntryPointTests
             HeadlessTestHelpers.Render();
             Panel framePanel = view.FindControl<Panel>("framePanel")!;
             Assert.That(framePanel, Is.Not.Null);
-            var previewSize = new Avalonia.Size(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height);
+            var previewSize = new Avalonia.Size(editor.Scene.FrameSize.Value.Width, editor.Scene.FrameSize.Value.Height);
             view.image.Measure(previewSize);
             view.image.Arrange(new Avalonia.Rect(0, 0, previewSize.Width, previewSize.Height));
             Assert.That(view.image.Bounds.Width, Is.GreaterThan(0));
@@ -245,13 +245,13 @@ public class ElementAddEntryPointTests
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(args.Handled, Is.True);
-                Assert.That(created.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-                Assert.That(created.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
-                Assert.That(created.ZIndex, Is.Zero);
+                Assert.That(created.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+                Assert.That(created.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(created.ZIndex.Value, Is.Zero);
                 Assert.That(created.Objects.OfType<SourceImage>().Count(), Is.EqualTo(1));
                 Assert.That(scrolls, Has.Count.EqualTo(1));
                 Assert.That(scrolls[0].Range, Is.EqualTo(created.Range));
-                Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex));
+                Assert.That(scrolls[0].ZIndex, Is.EqualTo(created.ZIndex.Value));
                 Assert.That(notifications.All, Is.Empty);
             }
         }
@@ -272,7 +272,7 @@ public class ElementAddEntryPointTests
         Assert.That(editor.FindToolTab<TimelineTabViewModel>(), Is.Null);
         using (editor.HistoryManager.SuppressRecording())
         {
-            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsLocked = true });
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
         }
         string imagePath = CreatePngFile(editor, "locked-image.png");
         string unsupportedPath = Path.Combine(
@@ -281,12 +281,12 @@ public class ElementAddEntryPointTests
         await File.WriteAllTextAsync(unsupportedPath, "unsupported");
         editor.Player.CurrentFrame.Value = MediaTime.Zero;
         editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(
-            editor.Scene.FrameSize.Width,
-            editor.Scene.FrameSize.Height));
+            editor.Scene.FrameSize.Value.Width,
+            editor.Scene.FrameSize.Value.Height));
         using var notifications = new NotificationCapture();
         var view = new PlayerView { DataContext = editor.Player };
-        view.image.Width = editor.Scene.FrameSize.Width;
-        view.image.Height = editor.Scene.FrameSize.Height;
+        view.image.Width = editor.Scene.FrameSize.Value.Width;
+        view.image.Height = editor.Scene.FrameSize.Value.Height;
         var window = new Window { Content = view, Width = 800, Height = 600 };
 
         try
@@ -294,7 +294,7 @@ public class ElementAddEntryPointTests
             window.Show();
             HeadlessTestHelpers.Render();
             Panel framePanel = view.FindControl<Panel>("framePanel")!;
-            var previewSize = new Avalonia.Size(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height);
+            var previewSize = new Avalonia.Size(editor.Scene.FrameSize.Value.Width, editor.Scene.FrameSize.Value.Height);
             view.image.Measure(previewSize);
             view.image.Arrange(new Avalonia.Rect(0, 0, previewSize.Width, previewSize.Height));
             var imageCenter = new AvaPoint(view.image.Bounds.Width / 2, view.image.Bounds.Height / 2);
@@ -311,7 +311,7 @@ public class ElementAddEntryPointTests
             framePanel.RaiseEvent(lockedDrop);
             await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Count >= 1);
 
-            editor.Scene.Layers.Single(layer => layer.ZIndex == 0).IsLocked = false;
+            editor.Scene.Layers.Single(layer => layer.ZIndex.Value == 0).IsLocked.Value = false;
             using IStorageFile unsupportedFile = await GetStorageFile(window, unsupportedPath);
             using var unsupportedTransfer = new DataTransfer();
             unsupportedTransfer.Add(DataTransferItem.CreateFile(unsupportedFile));
@@ -364,7 +364,7 @@ public class ElementAddEntryPointTests
         string unsupported = Path.ChangeExtension(image, ".drop-test");
         await File.WriteAllTextAsync(unsupported, "unsupported");
         if (outcome == "locked")
-            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsLocked = true });
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
         if (target == "player-without-timeline") editor.CloseToolTab(timeline);
         using var notifications = new NotificationCapture();
         var view = target == "timeline" ? (Control)new TimelineTabView { DataContext = timeline } : new PlayerView { DataContext = editor.Player };
@@ -373,9 +373,9 @@ public class ElementAddEntryPointTests
         {
             if (view is PlayerView player)
             {
-                editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height));
-                player.image.Width = editor.Scene.FrameSize.Width;
-                player.image.Height = editor.Scene.FrameSize.Height;
+                editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Value.Width, editor.Scene.FrameSize.Value.Height));
+                player.image.Width = editor.Scene.FrameSize.Value.Width;
+                player.image.Height = editor.Scene.FrameSize.Value.Height;
             }
             window.Show();
             HeadlessTestHelpers.Render();
@@ -428,8 +428,8 @@ public class ElementAddEntryPointTests
             int count = companions ? 4 : 2;
             await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == count);
             HeadlessTestHelpers.Settle();
-            Assert.That(editor.Scene.Children.Select(element => element.ZIndex).Order(), Is.EqualTo(Enumerable.Range(0, count)));
-            Assert.That(editor.Scene.Children.All(element => element.Start == timeline.ClickedFrame), Is.True);
+            Assert.That(editor.Scene.Children.Select(element => element.ZIndex.Value).Order(), Is.EqualTo(Enumerable.Range(0, count)));
+            Assert.That(editor.Scene.Children.All(element => element.Start.Value == timeline.ClickedFrame), Is.True);
             Assert.That(handler.RequestedLayers, Is.EqualTo(rejectFirst ? new[] { 0, 0, 2 } : new[] { 0, companions ? 2 : 1 }));
             Assert.That(notifications.All, Has.Count.EqualTo(rejectFirst ? 1 : 0));
         }
@@ -464,9 +464,9 @@ public class ElementAddEntryPointTests
         editor.Player.CurrentFrame.Value = MediaTime.FromSeconds(4);
         if (target is PlayerView player)
         {
-            editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height));
-            player.image.Width = editor.Scene.FrameSize.Width;
-            player.image.Height = editor.Scene.FrameSize.Height;
+            editor.Player.PreviewImage.Value = Ref<Bitmap>.Create(new Bitmap(editor.Scene.FrameSize.Value.Width, editor.Scene.FrameSize.Value.Height));
+            player.image.Width = editor.Scene.FrameSize.Value.Width;
+            player.image.Height = editor.Scene.FrameSize.Value.Height;
         }
         var layout = new Grid { ColumnDefinitions = new ColumnDefinitions("300,*") };
         Grid.SetColumn(target, 1);
@@ -517,7 +517,7 @@ public class ElementAddEntryPointTests
             if (outcome == "success")
             {
                 await HeadlessTestHelpers.WaitUntilAsync(() => editor.Scene.Children.Count == 1);
-                Assert.That(editor.Scene.Children[0].Start, Is.EqualTo(droppedFrame));
+                Assert.That(editor.Scene.Children[0].Start.Value, Is.EqualTo(droppedFrame));
                 Assert.That(File.ReadAllText(Directory.GetFiles(storage, "*.bin", SearchOption.AllDirectories).Single()), Is.EqualTo("exported"));
             }
             else
@@ -591,10 +591,10 @@ public class ElementAddEntryPointTests
     {
         var source = new Element
         {
-            Start = MediaTime.FromSeconds(20),
-            Length = MediaTime.FromSeconds(7),
-            ZIndex = 8,
-            Name = "Dropped template",
+            Start = { Value = MediaTime.FromSeconds(20) },
+            Length = { Value = MediaTime.FromSeconds(7) },
+            ZIndex = { Value = 8 },
+            Name = { Value = "Dropped template" },
         };
         source.AddObject(new RectShape());
         ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(source, "Drop template");
@@ -673,7 +673,7 @@ public class ElementAddEntryPointTests
 
         public ValueTask<ElementSourceMaterializationResult> MaterializeAsync(ElementSourceMaterializationContext context, IElementSourcePreflight preflight, CancellationToken cancellationToken)
         {
-            Element Create(int layer) => new() { Start = context.Description.Start, Length = context.Description.Length!.Value, ZIndex = layer };
+            Element Create(int layer) => new() { Start = { Value = context.Description.Start }, Length = { Value = context.Description.Length!.Value }, ZIndex = { Value = layer } };
             int layer = context.Description.Layer;
             return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(new ElementMaterialization(Create(layer), companions ? [Create(layer + 1)] : [])));
         }

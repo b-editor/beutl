@@ -2,7 +2,7 @@
 
 public interface IInputPort : INodePort
 {
-    Reference<Connection> Connection { get; }
+    IProperty<Reference<Connection>> Connection { get; }
 
     internal IObservable<Reference<Connection>> GetConnectionObservable()
     {

@@ -43,7 +43,7 @@ internal static class FallbackDeserializationHelper
             && Guid.TryParse(idText, out Guid id)
             && id != Guid.Empty)
         {
-            coreObject.Id = id;
+            coreObject.Id.Value = id;
         }
 
         DeserializationIncidents.RecordFallback(fallback, json);

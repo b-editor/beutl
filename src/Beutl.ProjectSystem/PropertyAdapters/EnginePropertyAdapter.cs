@@ -40,8 +40,7 @@ public class EnginePropertyAdapter<T> : IPropertyAdapter<T>, IChildObjectSource
 
     public string? Description => _displayAttribute.Value?.GetDescription();
 
-    // A list its object keeps is changed item by item, never replaced, like Element.Objects was.
-    public bool IsReadOnly => Property is IValueOnlyProperty { KeepsList: true };
+    public bool IsReadOnly => false;
 
     IProperty IPropertyAdapter.GetEngineProperty() => Property;
 

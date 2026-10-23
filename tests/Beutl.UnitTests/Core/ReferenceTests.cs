@@ -28,7 +28,7 @@ public class ReferenceTests
     {
         var obj = new TestObject();
         var reference = new Reference<TestObject>(obj);
-        Assert.That(reference.Id, Is.EqualTo(obj.Id));
+        Assert.That(reference.Id, Is.EqualTo(obj.Id.Value));
         Assert.That(reference.Value, Is.SameAs(obj));
     }
 
@@ -36,19 +36,19 @@ public class ReferenceTests
     public void Resolved_AttachesObject_KeepsIdConsistent()
     {
         var obj = new TestObject();
-        var reference = new Reference<TestObject>(obj.Id);
+        var reference = new Reference<TestObject>(obj.Id.Value);
 
         Reference<TestObject> resolved = reference.Resolved(obj);
 
         Assert.That(resolved.Value, Is.SameAs(obj));
-        Assert.That(resolved.Id, Is.EqualTo(obj.Id));
+        Assert.That(resolved.Id, Is.EqualTo(obj.Id.Value));
     }
 
     [Test]
     public void IReferenceResolved_DelegatesToTyped()
     {
         var obj = new TestObject();
-        IReference reference = new Reference<TestObject>(obj.Id);
+        IReference reference = new Reference<TestObject>(obj.Id.Value);
         IReference resolved = reference.Resolved(obj);
         Assert.That(resolved.Value, Is.SameAs(obj));
         Assert.That(resolved.ObjectType, Is.EqualTo(typeof(TestObject)));
@@ -80,7 +80,7 @@ public class ReferenceTests
         var obj = new TestObject();
         var reference = new Reference<TestObject>(obj);
         var (id, value) = reference;
-        Assert.That(id, Is.EqualTo(obj.Id));
+        Assert.That(id, Is.EqualTo(obj.Id.Value));
         Assert.That(value, Is.SameAs(obj));
     }
 

@@ -102,7 +102,7 @@ public class ElementClipboardServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(_scene.Children, Does.Contain(element));
-            Assert.That(element.ZIndex, Is.EqualTo(2));
+            Assert.That(element.ZIndex.Value, Is.EqualTo(2));
         });
     }
 
@@ -112,7 +112,7 @@ public class ElementClipboardServiceTests
         Element e1 = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         Element e2 = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         Element e3 = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2));
-        _scene.Groups.Add([e1.Id, e2.Id, e3.Id]);
+        _scene.Groups.Add([e1.Id.Value, e2.Id.Value, e3.Id.Value]);
 
         bool result = await _service.CutAsync(_scene, [e1]);
 
@@ -120,8 +120,8 @@ public class ElementClipboardServiceTests
         {
             Assert.That(result, Is.True);
             Assert.That(_scene.Groups, Has.Count.EqualTo(1));
-            Assert.That(_scene.Groups[0], Does.Not.Contain(e1.Id));
-            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e2.Id, e3.Id }));
+            Assert.That(_scene.Groups[0], Does.Not.Contain(e1.Id.Value));
+            Assert.That(_scene.Groups[0], Is.EquivalentTo(new[] { e2.Id.Value, e3.Id.Value }));
         });
     }
 
@@ -129,7 +129,7 @@ public class ElementClipboardServiceTests
     public async Task CutAsync_LockedElement_IsPreserved()
     {
         Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         int before = _history.UndoCount;
 
         bool result = await _service.CutAsync(_scene, [locked]);
@@ -148,7 +148,7 @@ public class ElementClipboardServiceTests
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         int before = _history.UndoCount;
         // The clip is locked while the clipboard write is in-flight, after the pre-await filter.
-        _clipboard.OnSetAsync = () => element.IsLocked = true;
+        _clipboard.OnSetAsync = () => element.IsLocked.Value = true;
 
         bool result = await _service.CutAsync(_scene, [element]);
 
@@ -168,7 +168,7 @@ public class ElementClipboardServiceTests
         _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
         int childrenBefore = _scene.Children.Count;
         // The destination row is locked while the clipboard read is in-flight, after the pre-await guard.
-        _clipboard.OnTryGetString = () => _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        _clipboard.OnTryGetString = () => _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsLocked = { Value = true } });
 
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(10), 1);
 
@@ -185,7 +185,7 @@ public class ElementClipboardServiceTests
         _clipboard.SetBitmap([1, 2, 3, 4]);
         int childrenBefore = _scene.Children.Count;
         // The destination row is locked while the clipboard read is in-flight, after the pre-await guard.
-        _clipboard.OnTryGetBitmap = () => _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        _clipboard.OnTryGetBitmap = () => _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
 
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(5), 2);
 
@@ -237,15 +237,15 @@ public class ElementClipboardServiceTests
         [
             new Element
             {
-                Start = MediaTime.FromSeconds(12),
-                Length = MediaTime.FromSeconds(5),
-                ZIndex = 4,
+                Start = { Value = MediaTime.FromSeconds(12) },
+                Length = { Value = MediaTime.FromSeconds(5) },
+                ZIndex = { Value = 4 },
             },
             new Element
             {
-                Start = MediaTime.FromSeconds(12),
-                Length = MediaTime.FromSeconds(7),
-                ZIndex = 5,
+                Start = { Value = MediaTime.FromSeconds(12) },
+                Length = { Value = MediaTime.FromSeconds(7) },
+                ZIndex = { Value = 5 },
             },
         ];
         var elementAdder = new StubElementAdder(created);
@@ -261,7 +261,7 @@ public class ElementClipboardServiceTests
         {
             Assert.That(outcome.Pasted, Is.True);
             Assert.That(outcome.ScrollTo, Is.EqualTo(created[^1].Range));
-            Assert.That(outcome.ScrollToZIndex, Is.EqualTo(created[^1].ZIndex));
+            Assert.That(outcome.ScrollToZIndex, Is.EqualTo(created[^1].ZIndex.Value));
             Assert.That(elementAdder.CallCount, Is.EqualTo(1));
         });
     }
@@ -284,10 +284,10 @@ public class ElementClipboardServiceTests
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore.Length + 1));
             Assert.That(_history.UndoCount, Is.EqualTo(historyBefore + 1));
             Assert.That(added, Has.Length.EqualTo(1));
-            Assert.That(added[0].Start, Is.EqualTo(MediaTime.FromSeconds(10)));
-            Assert.That(added[0].ZIndex, Is.EqualTo(1));
+            Assert.That(added[0].Start.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+            Assert.That(added[0].ZIndex.Value, Is.EqualTo(1));
             // The next save of the scene writes the file.
-            Assert.That(added[0].Uri, Is.EqualTo(ElementFileNaming.GetUri(_scene.Uri!, added[0].Id)));
+            Assert.That(added[0].Uri, Is.EqualTo(ElementFileNaming.GetUri(_scene.Uri!, added[0].Id.Value)));
             Assert.That(File.Exists(added[0].Uri!.LocalPath), Is.False);
         });
     }
@@ -298,7 +298,7 @@ public class ElementClipboardServiceTests
         Element original = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         string json = CoreSerializer.SerializeToJsonString(original);
         _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
-        _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsLocked = { Value = true } });
         int childrenBefore = _scene.Children.Count;
 
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(10), 1);
@@ -364,7 +364,7 @@ public class ElementClipboardServiceTests
             CoreSerializer.SerializeToJsonObject(e1),
             CoreSerializer.SerializeToJsonObject(e2));
         _clipboard.SetSingle(BeutlClipboardFormats.Elements, array.ToJsonString());
-        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 3 }, IsLocked = { Value = true } });
         int childrenBefore = _scene.Children.Count;
 
         ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(20), 3);

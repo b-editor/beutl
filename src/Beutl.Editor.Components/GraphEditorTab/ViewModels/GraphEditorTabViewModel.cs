@@ -186,7 +186,7 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
                 }
                 else if (json.TryGetPropertyValueAsJsonValue("animationId", out Guid anmId))
                 {
-                    Select(Items.FirstOrDefault(i => i.Object.Id == anmId)?.Object);
+                    Select(Items.FirstOrDefault(i => i.Object.Id.Value == anmId)?.Object);
                 }
             }
         }
@@ -197,9 +197,9 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
 
     public void WriteToJson(JsonObject json)
     {
-        if (Element.Value is { } element) json["elementId"] = element.Id;
+        if (Element.Value is { } element) json["elementId"] = element.Id.Value;
         else json.Remove("elementId");
-        if (SelectedAnimation.Value is { Animation: ICoreObject { Id: var anmId } }) json["animationId"] = anmId;
+        if (SelectedAnimation.Value is { Animation: ICoreObject { Id.Value: var anmId } }) json["animationId"] = anmId;
         else json.Remove("animationId");
         if (SelectedTreeItem.Value is { } item) json["propertyPath"] = item.Key;
         else json.Remove("propertyPath");

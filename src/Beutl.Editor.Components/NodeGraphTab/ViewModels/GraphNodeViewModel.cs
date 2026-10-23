@@ -56,19 +56,19 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
 
         CanEdit = IsReadOnly ? new ReactivePropertySlim<bool>(false) : nodeGraphViewModel.CanEdit;
 
-        NodeName = node.NameProperty.GetObservable()
+        NodeName = node.Name.GetObservable()
             .Select(x => string.IsNullOrWhiteSpace(x) ? _defaultName : x)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables)!;
 
-        IsExpanded = node.IsExpandedProperty.GetObservable()
+        IsExpanded = node.IsExpanded.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        IsExpanded.Where(_ => CanEdit.Value).Subscribe(v => GraphNode.IsExpanded = v)
+        IsExpanded.Where(_ => CanEdit.Value).Subscribe(v => GraphNode.IsExpanded.Value = v)
             .DisposeWith(_disposables);
 
-        Position = node.PositionProperty.GetObservable()
+        Position = node.Position.GetObservable()
             .Select(x => new Point(x.X, x.Y))
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -214,7 +214,7 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             || services.GetService(typeof(IPropertyAdapter)) is not IPropertyAdapter adapter
             || adapter.GetEngineProperty() is not { } property) return editor;
         InputPortViewModel? port = NestedItems.FirstOrDefault(p =>
-            p.Model is INestedInputPort nested && nested.RootMember.Id == root.Id
+            p.Model is INestedInputPort nested && nested.RootMember.Id == root.Id.Value
             && nested.PropertyPath.SequenceEqual(path)
             && ReferenceEquals(nested.Property?.GetEngineProperty(), property));
         if (port == null) return editor;
@@ -327,7 +327,7 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
         // A refused move leaves the model as it was, so the nodes go back to where it has them.
         foreach (GraphNodeViewModel item in moved)
         {
-            item.Position.Value = new Point(item.GraphNode.Position.X, item.GraphNode.Position.Y);
+            item.Position.Value = new Point(item.GraphNode.Position.Value.X, item.GraphNode.Position.Value.Y);
         }
     }
 
@@ -350,7 +350,7 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
                 var itemJson = new JsonObject();
                 item.PropertyEditorContext.WriteToJson(itemJson);
 
-                itemsJson[item.Model.Id.ToString()] = itemJson;
+                itemsJson[item.Model.Id.Value.ToString()] = itemJson;
             }
         }
 
@@ -366,7 +366,7 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
         {
             if (item.Model != null
                 && item.PropertyEditorContext != null
-                && itemsJson.TryGetPropertyValue(item.Model.Id.ToString(), out JsonNode? itemJson))
+                && itemsJson.TryGetPropertyValue(item.Model.Id.Value.ToString(), out JsonNode? itemJson))
             {
                 item.PropertyEditorContext.ReadFromJson(itemJson!.AsObject());
             }

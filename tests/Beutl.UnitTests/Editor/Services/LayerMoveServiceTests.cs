@@ -69,10 +69,10 @@ public class LayerMoveServiceTests
         Assert.Multiple(() =>
         {
             // l1 moves to layer 3; l2 and l3 shift down by 1.
-            Assert.That(l0.ZIndex, Is.EqualTo(0));
-            Assert.That(l1.ZIndex, Is.EqualTo(3));
-            Assert.That(l2.ZIndex, Is.EqualTo(1));
-            Assert.That(l3.ZIndex, Is.EqualTo(2));
+            Assert.That(l0.ZIndex.Value, Is.EqualTo(0));
+            Assert.That(l1.ZIndex.Value, Is.EqualTo(3));
+            Assert.That(l2.ZIndex.Value, Is.EqualTo(1));
+            Assert.That(l3.ZIndex.Value, Is.EqualTo(2));
             Assert.That(plan.ShiftedElements, Does.Contain(l2));
             Assert.That(plan.ShiftedElements, Does.Contain(l3));
             Assert.That(plan.ShiftedElements, Does.Not.Contain(l0));
@@ -95,10 +95,10 @@ public class LayerMoveServiceTests
         Assert.Multiple(() =>
         {
             // l3 moves to layer 1; l1 and l2 shift up by 1.
-            Assert.That(l0.ZIndex, Is.EqualTo(0));
-            Assert.That(l1.ZIndex, Is.EqualTo(2));
-            Assert.That(l2.ZIndex, Is.EqualTo(3));
-            Assert.That(l3.ZIndex, Is.EqualTo(1));
+            Assert.That(l0.ZIndex.Value, Is.EqualTo(0));
+            Assert.That(l1.ZIndex.Value, Is.EqualTo(2));
+            Assert.That(l2.ZIndex.Value, Is.EqualTo(3));
+            Assert.That(l3.ZIndex.Value, Is.EqualTo(1));
             Assert.That(plan.ShiftedElements, Does.Contain(l1));
             Assert.That(plan.ShiftedElements, Does.Contain(l2));
             Assert.That(plan.ShiftedElements, Does.Not.Contain(l0));
@@ -119,9 +119,9 @@ public class LayerMoveServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(l0.ZIndex, Is.EqualTo(0));
-            Assert.That(l1.ZIndex, Is.EqualTo(1));
-            Assert.That(l2.ZIndex, Is.EqualTo(2));
+            Assert.That(l0.ZIndex.Value, Is.EqualTo(0));
+            Assert.That(l1.ZIndex.Value, Is.EqualTo(1));
+            Assert.That(l2.ZIndex.Value, Is.EqualTo(2));
         });
     }
 
@@ -141,9 +141,9 @@ public class LayerMoveServiceTests
         Assert.Multiple(() =>
         {
             // The header models track their elements: layer1 -> 3, layer2/3 shift down.
-            Assert.That(layer1.ZIndex, Is.EqualTo(3));
-            Assert.That(layer2.ZIndex, Is.EqualTo(1));
-            Assert.That(layer3.ZIndex, Is.EqualTo(2));
+            Assert.That(layer1.ZIndex.Value, Is.EqualTo(3));
+            Assert.That(layer2.ZIndex.Value, Is.EqualTo(1));
+            Assert.That(layer3.ZIndex.Value, Is.EqualTo(2));
             // TimelineLayer writes share the Element transaction: still one entry.
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -166,10 +166,10 @@ public class LayerMoveServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(layer1.ZIndex, Is.EqualTo(1));
-            Assert.That(layer2.ZIndex, Is.EqualTo(2));
-            Assert.That(layer3.ZIndex, Is.EqualTo(3));
-            Assert.That(e1.ZIndex, Is.EqualTo(1));
+            Assert.That(layer1.ZIndex.Value, Is.EqualTo(1));
+            Assert.That(layer2.ZIndex.Value, Is.EqualTo(2));
+            Assert.That(layer3.ZIndex.Value, Is.EqualTo(3));
+            Assert.That(e1.ZIndex.Value, Is.EqualTo(1));
         });
     }
 
@@ -178,7 +178,7 @@ public class LayerMoveServiceTests
     {
         Element e1 = AddElement(1);
         Element e2 = AddElement(2);
-        AddLayer(2).IsLocked = true;
+        AddLayer(2).IsLocked.Value = true;
         int before = _history.UndoCount;
 
         LayerMovePlan plan = _service.ApplyMove(_scene, 1, 3, [e1]);
@@ -187,8 +187,8 @@ public class LayerMoveServiceTests
         {
             Assert.That(plan.IsNoop, Is.True);
             Assert.That(_history.UndoCount, Is.EqualTo(before));
-            Assert.That(e1.ZIndex, Is.EqualTo(1));
-            Assert.That(e2.ZIndex, Is.EqualTo(2));
+            Assert.That(e1.ZIndex.Value, Is.EqualTo(1));
+            Assert.That(e2.ZIndex.Value, Is.EqualTo(2));
         });
     }
 
@@ -197,7 +197,7 @@ public class LayerMoveServiceTests
     {
         Element e1 = AddElement(1);
         Element e2 = AddElement(2);
-        e2.IsLocked = true;
+        e2.IsLocked.Value = true;
         int before = _history.UndoCount;
 
         LayerMovePlan plan = _service.ApplyMove(_scene, 1, 3, [e1]);
@@ -206,8 +206,8 @@ public class LayerMoveServiceTests
         {
             Assert.That(plan.IsNoop, Is.True);
             Assert.That(_history.UndoCount, Is.EqualTo(before));
-            Assert.That(e1.ZIndex, Is.EqualTo(1));
-            Assert.That(e2.ZIndex, Is.EqualTo(2));
+            Assert.That(e1.ZIndex.Value, Is.EqualTo(1));
+            Assert.That(e2.ZIndex.Value, Is.EqualTo(2));
         });
     }
 
@@ -215,7 +215,7 @@ public class LayerMoveServiceTests
     public void ApplyMove_SourceLayerLocked_IsBlocked()
     {
         Element e1 = AddElement(1);
-        AddLayer(1).IsLocked = true;
+        AddLayer(1).IsLocked.Value = true;
         int before = _history.UndoCount;
 
         LayerMovePlan plan = _service.ApplyMove(_scene, 1, 3, [e1]);
@@ -224,7 +224,7 @@ public class LayerMoveServiceTests
         {
             Assert.That(plan.IsNoop, Is.True);
             Assert.That(_history.UndoCount, Is.EqualTo(before));
-            Assert.That(e1.ZIndex, Is.EqualTo(1));
+            Assert.That(e1.ZIndex.Value, Is.EqualTo(1));
         });
     }
 }

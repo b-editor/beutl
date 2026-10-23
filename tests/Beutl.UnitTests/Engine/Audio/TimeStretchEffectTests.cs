@@ -186,11 +186,11 @@ public class TimeStretchEffectTests
     [TestCase(true)]
     public void Process_AnimatedSpeedPreservesPitchAndSeekMapping(bool useGlobalClock)
     {
-        var effect = new TimeStretchEffect { TimeRange = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2)) };
-        var animation = new KeyFrameAnimation<float> { UseGlobalClock = useGlobalClock };
-        MediaTime offset = useGlobalClock ? effect.TimeRange.Start : MediaTime.Zero;
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = 50f, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + MediaTime.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
+        var effect = new TimeStretchEffect { TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2)) } };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = useGlobalClock } };
+        MediaTime offset = useGlobalClock ? effect.TimeRange.Value.Start : MediaTime.Zero;
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = offset }, Value = { Value = 50f }, Easing = { Value = new LinearEasing() } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = offset + MediaTime.FromSeconds(2) }, Value = { Value = 200f }, Easing = { Value = new LinearEasing() } });
         effect.Speed.SetKeyFrameAnimation(animation);
         var source = ToneSource();
         using var node = new TimeStretchNode { Speed = effect.Speed };
@@ -214,15 +214,15 @@ public class TimeStretchEffectTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 50f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 50f },
+            Easing = { Value = new LinearEasing() }
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(1),
-            Value = 200f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = 200f },
+            Easing = { Value = new LinearEasing() }
         });
         effect.Speed.SetKeyFrameAnimation(animation);
         using var node = new TimeStretchNode { Speed = effect.Speed };
@@ -254,16 +254,16 @@ public class TimeStretchEffectTests
         const int frames = 1024;
         var effect = new TimeStretchEffect
         {
-            TimeRange = new TimeRange(globalClock ? MediaTime.FromSeconds(3) : MediaTime.Zero, MediaTime.FromSeconds(1))
+            TimeRange = { Value = new TimeRange(globalClock ? MediaTime.FromSeconds(3) : MediaTime.Zero, MediaTime.FromSeconds(1)) }
         };
-        var animation = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
-        MediaTime offset = globalClock ? effect.TimeRange.Start : MediaTime.Zero;
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = 50f, Easing = new LinearEasing() });
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = globalClock } };
+        MediaTime offset = globalClock ? effect.TimeRange.Value.Start : MediaTime.Zero;
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = offset }, Value = { Value = 50f }, Easing = { Value = new LinearEasing() } });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = offset + MediaTime.FromSeconds(frames / (double)sampleRate),
-            Value = 200f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = offset + MediaTime.FromSeconds(frames / (double)sampleRate) },
+            Value = { Value = 200f },
+            Easing = { Value = new LinearEasing() }
         });
         effect.Speed.SetKeyFrameAnimation(animation);
         using var wholeNode = new TimeStretchNode { Speed = effect.Speed };
@@ -287,7 +287,7 @@ public class TimeStretchEffectTests
 
         double expected = 0;
         for (int i = 0; i < frames; i++)
-            expected += animation.GetAnimatedValue(effect.TimeRange.Start + MediaTime.FromSeconds(i / (double)sampleRate)) / 100d;
+            expected += animation.GetAnimatedValue(effect.TimeRange.Value.Start + MediaTime.FromSeconds(i / (double)sampleRate)) / 100d;
         double position = StretcherSourcePosition(chunkedNode);
         Assert.That(position, Is.EqualTo(expected).Within(1e-8),
             "Tick quantization must not repeat the previous output sample's speed.");
@@ -312,12 +312,12 @@ public class TimeStretchEffectTests
     {
         var effect = new TimeStretchEffect();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 25f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 25f } });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(1),
-            Value = 400f,
-            Easing = new BackEaseIn()
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = 400f },
+            Easing = { Value = new BackEaseIn() }
         });
         effect.Speed.SetKeyFrameAnimation(animation);
         Assert.That(animation.Interpolate(MediaTime.FromSeconds(0.4)), Is.LessThan(0),
@@ -364,7 +364,7 @@ public class TimeStretchEffectTests
             effect.Speed.Value = speed;
             var sound = new SourceSound
             {
-                TimeRange = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1)),
+                TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1)) },
                 Source = { Value = source },
                 Effect = { Value = effect }
             };
@@ -397,14 +397,14 @@ public class TimeStretchEffectTests
             effect.Speed.Value = speed;
             var sound = new SourceSound
             {
-                TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
+                TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) },
                 Source = { Value = source },
                 Effect = { Value = effect },
                 Gain = { Value = 75f }
             };
             using var resource = sound.ToResource(CompositionContext.Default);
             using var composer = new Composer { SampleRate = outputRate };
-            var range = sound.TimeRange;
+            var range = sound.TimeRange.Value;
             var frame = new CompositionFrame(ImmutableArray.Create<EngineObject.Resource>(resource),
                 range, default, new CompositionEligibility([sound]));
 
@@ -478,12 +478,12 @@ public class TimeStretchEffectTests
         var effect = new TimeStretchEffect();
         effect.Speed.Value = 200f;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 50f } });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(1),
-            Value = 200f,
-            Easing = unknownRange ? new UnknownRangeEasing() : new LinearEasing()
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = 200f },
+            Easing = { Value = unknownRange ? new UnknownRangeEasing() : new LinearEasing() }
         });
         effect.Speed.SetKeyFrameAnimation(animation);
         using var context = new AudioContext(SampleRate, 2);
@@ -597,8 +597,8 @@ public class TimeStretchEffectTests
         var effect = new TimeStretchEffect();
         effect.Speed.Value = 150f;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50f });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 200f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 50f } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 200f } });
         effect.Speed.SetKeyFrameAnimation(animation);
         var group = new AudioEffectGroup();
         group.Children.Add(effect);

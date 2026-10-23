@@ -49,7 +49,7 @@ internal class Program
     {
         return AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .With(UiFonts.CreateFontManagerOptions(GlobalConfiguration.Instance.ViewConfig.UICulture))
+            .With(UiFonts.CreateFontManagerOptions(GlobalConfiguration.Instance.ViewConfig.UICulture.Value))
             .LogToTrace();
     }
 }

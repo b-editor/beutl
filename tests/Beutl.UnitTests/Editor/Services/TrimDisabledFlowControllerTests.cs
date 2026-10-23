@@ -48,7 +48,7 @@ public class TrimDisabledFlowControllerTests
         int history = _harness.History.UndoCount;
 
         bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(1));
-        controller.IsEnabled = true;
+        controller.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         double position = Position(Videos(compositor.EvaluateGraphics(Seconds(3.9)).Objects.Single()).Single());
 
@@ -75,7 +75,7 @@ public class TrimDisabledFlowControllerTests
         bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(requested));
         using var compositor = CreateCompositor(_harness.Scene);
         double plainPosition = Position(Videos(compositor.EvaluateGraphics(Seconds(length - 0.1)).Objects.Single()).Single());
-        controller.IsEnabled = true;
+        controller.IsEnabled.Value = true;
         double controlledPosition = Position(Videos(compositor.EvaluateGraphics(Seconds(length - 0.1)).Objects.Single()).Single());
 
         Assert.Multiple(() =>
@@ -99,15 +99,15 @@ public class TrimDisabledFlowControllerTests
         MediaTime preview = leftEdge ? constraints.ClampStart(Seconds(-0.5)) : constraints.ClampLength(Seconds(4.5));
         new ElementResizeService(_harness.History).Resize(_harness.Scene,
             [new(element, Seconds(leftEdge ? -0.5 : 0), Seconds(4.5), 0)]);
-        controller.IsEnabled = true;
+        controller.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(element.Range.End - Seconds(0.1)).Objects.Single()).Single();
 
         Assert.Multiple(() =>
         {
             Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 0 : 4)));
-            Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
-            Assert.That(element.Length, Is.EqualTo(Seconds(4)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(4)));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(Position(resource), Is.EqualTo(4.9).Within(0.000001));
         });
@@ -128,7 +128,7 @@ public class TrimDisabledFlowControllerTests
         bool applied = slide
             ? service.Slide(_harness.Scene, [new(front, [middle!], back)], Seconds(2))
             : service.Roll(_harness.Scene, pairs, Seconds(2));
-        controller.IsEnabled = true;
+        controller.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(Seconds(3.9)).Objects.Single()).Single();
 
@@ -136,8 +136,8 @@ public class TrimDisabledFlowControllerTests
         {
             Assert.That(applied, Is.True);
             Assert.That(preview, Is.EqualTo(Seconds(1)));
-            Assert.That(front.Length, Is.EqualTo(Seconds(4)));
-            Assert.That(back.Start, Is.EqualTo(Seconds(slide ? 5 : 4)));
+            Assert.That(front.Length.Value, Is.EqualTo(Seconds(4)));
+            Assert.That(back.Start.Value, Is.EqualTo(Seconds(slide ? 5 : 4)));
             Assert.That(Position(resource), Is.EqualTo(4.9).Within(0.000001));
         });
     }
@@ -145,7 +145,7 @@ public class TrimDisabledFlowControllerTests
     [Test]
     public void Slip_DisabledUnconsumedExpression_DoesNotRejectLaterVideo()
     {
-        var controller = new DrawableTimeController { IsEnabled = false };
+        var controller = new DrawableTimeController { IsEnabled = { Value = false } };
         controller.Speed.Expression = Expression.Create<float>("200");
         Element element = AddElement(0, 2, controller);
         var video = CreateVideo(10);
@@ -170,7 +170,7 @@ public class TrimDisabledFlowControllerTests
         // the final controller consumes the second video instead.
         MediaTime preview = SlippableMedia.ClampSharedDelta(SlippableMedia.Collect(element), Seconds(2));
         bool applied = new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2));
-        disabled.IsEnabled = true;
+        disabled.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         var frames = compositor.EvaluateGraphics(Seconds(1.9)).Objects.SelectMany(Videos).ToArray();
         var secondFrame = frames.Single(resource => ReferenceEquals(resource.RequireOriginal(), second));
@@ -194,8 +194,8 @@ public class TrimDisabledFlowControllerTests
         var second = AddDisabledController(element, offset: 0.5);
 
         Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2)), Is.True);
-        first.IsEnabled = true;
-        second.IsEnabled = true;
+        first.IsEnabled.Value = true;
+        second.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(Seconds(2.9)).Objects.Single()).Single();
 
@@ -217,7 +217,7 @@ public class TrimDisabledFlowControllerTests
         var controller = AddDisabledController(element, speed: 200);
 
         Assert.That(new ElementSlipService(_harness.History).Slip(_harness.Scene, [element], Seconds(2)), Is.True);
-        controller.IsEnabled = true;
+        controller.IsEnabled.Value = true;
         using var compositor = CreateCompositor(_harness.Scene);
         var resources = compositor.EvaluateGraphics(Seconds(1.9)).Objects.SelectMany(Videos).ToArray();
 
@@ -417,7 +417,7 @@ public class TrimDisabledFlowControllerTests
     {
         var controller = new DrawableTimeController
         {
-            IsEnabled = false,
+            IsEnabled = { Value = false },
             Speed = { Value = speed },
             OffsetPosition = { Value = Seconds(offset) }
         };

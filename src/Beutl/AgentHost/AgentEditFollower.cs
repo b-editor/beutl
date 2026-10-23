@@ -26,7 +26,7 @@ namespace Beutl.AgentHost;
 // scroll, property editor), so the user can watch the agent work.
 public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig config)
 {
-    public bool IsEnabled => config.FollowLiveMcpEdits;
+    public bool IsEnabled => config.FollowLiveMcpEdits.Value;
 
     // The undo stack top and redo depth, taken on the UI thread before an agent call runs.
     internal readonly record struct HistoryMark(HistoryTransaction? UndoTop, int RedoCount);
@@ -138,9 +138,9 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
 
             Scene scene = editor.Scene;
             Rational rate = editor.Player.GetFrameRate();
-            MediaTime last = (scene.Start + scene.Duration - new MediaTime(1)).RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
-            MediaTime time = (scene.Start + sceneTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-            editor.SeekAndScroll(Clamp(time, scene.Start, last));
+            MediaTime last = (scene.Start.Value + scene.Duration.Value - new MediaTime(1)).RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
+            MediaTime time = (scene.Start.Value + sceneTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            editor.SeekAndScroll(Clamp(time, scene.Start.Value, last));
             return true;
         }, DispatcherPriority.Normal);
     }
@@ -152,7 +152,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         => editorService.TabItems
             .Select(item => item.Context.Value)
             .OfType<EditViewModel>()
-            .FirstOrDefault(editor => !editor.IsDisposingOrDisposed && editor.Scene?.Id == sceneId);
+            .FirstOrDefault(editor => !editor.IsDisposingOrDisposed && editor.Scene?.Id.Value == sceneId);
 
     // Live MCP binds closed scenes to unselected background tabs; bring the edited one forward.
     private void Activate(EditViewModel editor)
@@ -189,14 +189,14 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
             Rational rate = editor.Player.GetFrameRate();
             MediaTime last = (element.Range.End - new MediaTime(1)).RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
             // Keep the playhead when it already shows the element; otherwise move it the least.
-            MediaTime time = Clamp(target.Time ?? clock.CurrentTime.Value, element.Start, last);
+            MediaTime time = Clamp(target.Time ?? clock.CurrentTime.Value, element.Start.Value, last);
             if (clock.CurrentTime.Value != time)
                 clock.Seek(time);
         }
 
         if (timeline is not null)
         {
-            timeline.ScrollTo.Execute((element.Range, element.ZIndex));
+            timeline.ScrollTo.Execute((element.Range, element.ZIndex.Value));
             timeline.HighlightElement.Execute(element);
         }
 
@@ -245,7 +245,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
                         if (item is CoreObject child && CreateTarget(scene, child, null) is { } inserted)
                             return inserted;
                         if (item is Element gone)
-                            removed ??= new EditTarget(null, null, null, null, gone.Range, gone.ZIndex);
+                            removed ??= new EditTarget(null, null, null, null, gone.Range, gone.ZIndex.Value);
                     }
 
                     if (CreateTarget(scene, collection.Object, PropertyNameOf(collection.PropertyPath)) is { } owner)
@@ -294,7 +294,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
             return null;
         }
 
-        return animation.UseGlobalClock ? keyFrame.KeyTime : element.Start + keyFrame.KeyTime;
+        return animation.UseGlobalClock.Value ? keyFrame.KeyTime.Value : element.Start.Value + keyFrame.KeyTime.Value;
     }
 
     private static string PropertyNameOf(string propertyPath) => PropertyPathHelper.Parse(propertyPath).Name;

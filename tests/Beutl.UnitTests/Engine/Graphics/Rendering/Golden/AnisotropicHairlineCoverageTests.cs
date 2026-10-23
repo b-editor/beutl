@@ -130,10 +130,10 @@ public class AnisotropicHairlineCoverageTests
         var scene = new Scene(640, 360, "hairline") { Uri = new Uri("file:///hairline/scene") };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(4),
-            ZIndex = 0,
-            IsEnabled = true,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(4) },
+            ZIndex = { Value = 0 },
+            IsEnabled = { Value = true },
             Uri = new Uri("file:///hairline/element"),
         };
         element.AddObject(rectangle);

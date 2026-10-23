@@ -23,7 +23,7 @@ public sealed partial class SceneSound : Sound
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
-        if (!IsEnabled)
+        if (!IsEnabled.Value)
         {
             context.Clear();
             return;
@@ -54,12 +54,12 @@ public sealed partial class SceneSound : Sound
 
         AudioNode currentNode = gainNode;
 
-        if (Effect.Value != null && Effect.Value.IsEnabled)
+        if (Effect.Value != null && Effect.Value.IsEnabled.Value)
         {
             currentNode = Effect.Value.CreateNode(context, currentNode);
         }
 
-        var clipNode = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var clipNode = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(currentNode, clipNode);
         context.MarkAsOutput(clipNode);
     }

@@ -41,11 +41,11 @@ public static class TrimGroupCollector
             Element? back = null;
             if (member.Range.End == boundary)
             {
-                (front, back) = (member, FindStartingAt(scene, member.ZIndex, boundary, member));
+                (front, back) = (member, FindStartingAt(scene, member.ZIndex.Value, boundary, member));
             }
-            else if (member.Start == boundary)
+            else if (member.Start.Value == boundary)
             {
-                (front, back) = (FindEndingAt(scene, member.ZIndex, boundary, member), member);
+                (front, back) = (FindEndingAt(scene, member.ZIndex.Value, boundary, member), member);
             }
 
             if (front is null || back is null) continue;
@@ -75,10 +75,10 @@ public static class TrimGroupCollector
 
         var lanes = new List<ElementSlideLane>();
         foreach (IGrouping<int, Element> lane in members.Distinct()
-                     .GroupBy(m => m.ZIndex)
+                     .GroupBy(m => m.ZIndex.Value)
                      .OrderBy(g => g.Key))
         {
-            Element[] middles = lane.OrderBy(m => m.Start).ToArray();
+            Element[] middles = lane.OrderBy(m => m.Start.Value).ToArray();
             foreach (Element middle in middles)
             {
                 if (!scene.Children.Contains(middle)) return null;
@@ -87,10 +87,10 @@ public static class TrimGroupCollector
 
             for (int i = 1; i < middles.Length; i++)
             {
-                if (middles[i - 1].Range.End != middles[i].Start) return null;
+                if (middles[i - 1].Range.End != middles[i].Start.Value) return null;
             }
 
-            Element? front = FindEndingAt(scene, lane.Key, middles[0].Start, middles[0]);
+            Element? front = FindEndingAt(scene, lane.Key, middles[0].Start.Value, middles[0]);
             Element? back = FindStartingAt(scene, lane.Key, middles[^1].Range.End, middles[^1]);
             if (front is null || back is null) return null;
             if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return null;
@@ -105,7 +105,7 @@ public static class TrimGroupCollector
     {
         foreach (Element item in scene.Children)
         {
-            if (item != exclude && item.ZIndex == zIndex && item.Start == start) return item;
+            if (item != exclude && item.ZIndex.Value == zIndex && item.Start.Value == start) return item;
         }
 
         return null;
@@ -115,7 +115,7 @@ public static class TrimGroupCollector
     {
         foreach (Element item in scene.Children)
         {
-            if (item != exclude && item.ZIndex == zIndex && item.Range.End == end) return item;
+            if (item != exclude && item.ZIndex.Value == zIndex && item.Range.End == end) return item;
         }
 
         return null;

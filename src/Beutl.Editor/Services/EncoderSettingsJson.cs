@@ -36,9 +36,9 @@ public static class EncoderSettingsJson
     /// </param>
     public static void PopulateVideoPreset(VideoEncoderSettings settings, JsonObject json, bool appliesFrameSizeAndRate)
     {
-        PixelSize sourceSize = settings.SourceSize;
-        PixelSize destinationSize = settings.DestinationSize;
-        Rational frameRate = settings.FrameRate;
+        PixelSize sourceSize = settings.SourceSize.Value;
+        PixelSize destinationSize = settings.DestinationSize.Value;
+        Rational frameRate = settings.FrameRate.Value;
         bool applied = false;
 
         try
@@ -48,11 +48,11 @@ public static class EncoderSettingsJson
         }
         finally
         {
-            settings.SourceSize = sourceSize;
+            settings.SourceSize.Value = sourceSize;
             if (!appliesFrameSizeAndRate || !applied)
             {
-                settings.DestinationSize = destinationSize;
-                settings.FrameRate = frameRate;
+                settings.DestinationSize.Value = destinationSize;
+                settings.FrameRate.Value = frameRate;
             }
         }
     }
@@ -66,7 +66,7 @@ public static class EncoderSettingsJson
     /// </param>
     public static void PopulateAudioPreset(AudioEncoderSettings settings, JsonObject json, bool appliesSampleRate)
     {
-        int sampleRate = settings.SampleRate;
+        int sampleRate = settings.SampleRate.Value;
         bool applied = false;
 
         try
@@ -77,7 +77,7 @@ public static class EncoderSettingsJson
         finally
         {
             if (!appliesSampleRate || !applied)
-                settings.SampleRate = sampleRate;
+                settings.SampleRate.Value = sampleRate;
         }
     }
 }

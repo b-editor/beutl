@@ -48,7 +48,7 @@ public sealed class ProjectFrameGridReadTests
         Element clip = NewElement(80, 31, rate);
         scene.AddChild(clip);
 
-        scene.MoveChildren(0, MediaTime.FromFrames(29, rate) - clip.Start, [clip]);
+        scene.MoveChildren(0, MediaTime.FromFrames(29, rate) - clip.Start.Value, [clip]);
 
         AssertFillsTheGap(scene, clip, rate);
     }
@@ -68,7 +68,7 @@ public sealed class ProjectFrameGridReadTests
     public void An_element_read_again_into_a_reopened_project_reads_on_its_frame_grid(string rateText)
     {
         (Scene scene, Rational rate) = Reopen(rateText);
-        Element after = scene.Children.Single(element => element.Start > MediaTime.Zero);
+        Element after = scene.Children.Single(element => element.Start.Value > MediaTime.Zero);
 
         CoreSerializer.PopulateFromUri(after, after.Uri!);
 
@@ -86,14 +86,14 @@ public sealed class ProjectFrameGridReadTests
         WriteAsEarlier(first, "Length", frameTicks, frameTicks - 1);
 
         Project reopened = CoreSerializer.RestoreFromUri<Project>(uri);
-        Element read = ((Scene)reopened.Items.Single()).Children.Single(element => element.Id == first.Id);
+        Element read = ((Scene)reopened.Items.Single()).Children.Single(element => element.Id.Value == first.Id.Value);
         CoreSerializer.StoreToUri(reopened, uri);
 
         Assert.Multiple(() =>
         {
-            Assert.That(read.Length, Is.EqualTo(MediaTime.FromFrames(30, rate)));
+            Assert.That(read.Length.Value, Is.EqualTo(MediaTime.FromFrames(30, rate)));
             Assert.That(File.ReadAllText(first.Uri!.LocalPath), Does.Contain($"\"Length\": {MediaTime.FromFrames(30, rate).Flicks}"));
-            Assert.That(reopened.FrameRate, Is.EqualTo(rate));
+            Assert.That(reopened.FrameRate.Value, Is.EqualTo(rate));
         });
     }
 
@@ -108,8 +108,8 @@ public sealed class ProjectFrameGridReadTests
         WriteAsEarlier(moved, "Length", 666_667, 666_666);
 
         var scene = (Scene)CoreSerializer.RestoreFromUri<Project>(uri).Items.Single();
-        Element front = scene.Children.Single(element => element.Id == moved.Id);
-        Element after = scene.Children.Single(element => element.Id == next.Id);
+        Element front = scene.Children.Single(element => element.Id.Value == moved.Id.Value);
+        Element after = scene.Children.Single(element => element.Id.Value == next.Id.Value);
         using var history = new HistoryHarness(scene);
         new ElementStructureService(history.History).Split(scene, [front], MediaTime.FromFrames(3, rate));
 
@@ -118,7 +118,7 @@ public sealed class ProjectFrameGridReadTests
         Assert.Multiple(() =>
         {
             Assert.That(front.Range, Is.EqualTo(new TimeRange(MediaTime.FromFrames(2, rate), MediaTime.FromFrames(1, rate))));
-            Assert.That(back.Range.End, Is.EqualTo(MediaTime.FromFrames(4, rate)).And.EqualTo(after.Start));
+            Assert.That(back.Range.End, Is.EqualTo(MediaTime.FromFrames(4, rate)).And.EqualTo(after.Start.Value));
         });
     }
 
@@ -211,20 +211,20 @@ public sealed class ProjectFrameGridReadTests
 
     private Element NewElement(int frame, int count, Rational rate) => new()
     {
-        Start = MediaTime.FromFrames(frame, rate),
-        Length = MediaTime.FromFrames(count, rate),
+        Start = { Value = MediaTime.FromFrames(frame, rate) },
+        Length = { Value = MediaTime.FromFrames(count, rate) },
         Uri = new Uri(Path.Combine(_directory, "scene", $"{Guid.NewGuid():N}.belm")),
     };
 
     private static void AssertFillsTheGap(Scene scene, Element clip, Rational rate)
     {
-        Element before = scene.Children.Single(element => element != clip && element.Start == MediaTime.Zero);
-        Element after = scene.Children.Single(element => element != clip && element.Start > MediaTime.Zero);
+        Element before = scene.Children.Single(element => element != clip && element.Start.Value == MediaTime.Zero);
+        Element after = scene.Children.Single(element => element != clip && element.Start.Value > MediaTime.Zero);
         Assert.Multiple(() =>
         {
-            Assert.That(clip.ZIndex, Is.Zero);
-            Assert.That(clip.Start, Is.EqualTo(MediaTime.FromFrames(30, rate)).And.EqualTo(before.Range.End));
-            Assert.That(clip.Range.End, Is.EqualTo(MediaTime.FromFrames(61, rate)).And.EqualTo(after.Start));
+            Assert.That(clip.ZIndex.Value, Is.Zero);
+            Assert.That(clip.Start.Value, Is.EqualTo(MediaTime.FromFrames(30, rate)).And.EqualTo(before.Range.End));
+            Assert.That(clip.Range.End, Is.EqualTo(MediaTime.FromFrames(61, rate)).And.EqualTo(after.Start.Value));
         });
     }
 }

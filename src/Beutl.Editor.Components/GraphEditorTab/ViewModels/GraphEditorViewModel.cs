@@ -49,30 +49,30 @@ public sealed partial class GraphEditorViewModel : IDisposable
             .DisposeWith(_disposables);
         _canEdit.DisposeWith(_disposables);
 
-        UseGlobalClock = animation.ObserveUseGlobalClock()
+        UseGlobalClock = animation.UseGlobalClock.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementMargin = (Element?.StartProperty.GetObservable() ?? Observable.ReturnThenNever<MediaTime>(default))
+        ElementMargin = (Element?.Start.GetObservable() ?? Observable.ReturnThenNever<MediaTime>(default))
             .CombineLatest(timelineOptions.Scale)
             .Select(t => new Thickness(t.First.TimeToPixel(t.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementWidth = (Element?.LengthProperty.GetObservable() ?? Observable.ReturnThenNever<MediaTime>(default))
+        ElementWidth = (Element?.Length.GetObservable() ?? Observable.ReturnThenNever<MediaTime>(default))
             .CombineLatest(timelineOptions.Scale)
             .Select(t => t.First.TimeToPixel(t.Second))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ElementColor = (Element?.AccentColorProperty.GetObservable() ??
+        ElementColor = (Element?.AccentColor.GetObservable() ??
                         Observable.ReturnThenNever(Media.Colors.Transparent))
             .Select(v => (IBrush)new ImmutableSolidColorBrush(v.ToAvaColor()))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         Margin = UseGlobalClock.Select(v => !v
-                ? Element?.StartProperty.GetObservable()
+                ? Element?.Start.GetObservable()
                     .CombineLatest(Options)
                     .Select(item => new Thickness(item.First.TimeToPixel(item.Second.Scale), 0, 0, 0))
                 : null)
@@ -259,7 +259,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
         if (!CanEdit.Value) return;
         var newValue = !UseGlobalClock.Value;
         _logger.LogInformation("Updating UseGlobalClock to {Value}", newValue);
-        ((IKeyFrameAnimation)Animation).UseGlobalClock = newValue;
+        ((IKeyFrameAnimation)Animation).UseGlobalClock.Value = newValue;
         HistoryManager.Commit(CommandNames.ChangeUseGlobalClock);
     }
 

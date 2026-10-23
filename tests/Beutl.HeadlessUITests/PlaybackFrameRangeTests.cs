@@ -64,14 +64,14 @@ public class PlaybackFrameRangeTests
         // start and adding the length rounded up gave frames 0 to 3.
         Scene scene = editor.Scene;
         MediaTime end = MediaTime.FromSeconds(4d / Rate).RoundToFrame(new Rational(Rate), MidpointRounding.AwayFromZero);
-        scene.Start = MediaTime.FromSeconds(1d / Rate).RoundToFrame(new Rational(Rate), MidpointRounding.AwayFromZero);
-        scene.Duration = end - scene.Start;
+        scene.Start.Value = MediaTime.FromSeconds(1d / Rate).RoundToFrame(new Rational(Rate), MidpointRounding.AwayFromZero);
+        scene.Duration.Value = end - scene.Start.Value;
         RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
 
         using var isPlaying = new ReactivePropertySlim<bool>(true);
         using var player = new BufferedPlayer(editor, isPlaying, new Rational(Rate), CancellationToken.None);
 
-        player.Start(PlaybackRange.From(scene.Start, scene.Start, scene.Duration, new Rational(Rate)));
+        player.Start(PlaybackRange.From(scene.Start.Value, scene.Start.Value, scene.Duration.Value, new Rational(Rate)));
         await HeadlessTestHelpers.WaitUntilAsync(() => player.QueuedFrames >= 3, TimeSpan.FromSeconds(120), pump: false);
         // The producer then waits at the end of the range for an edit that drops frames, rendering nothing past it.
         await Task.Delay(TimeSpan.FromMilliseconds(300));

@@ -30,12 +30,12 @@ public partial class PropertyConversionGoldenTests
     {
         var element = new Element
         {
-            Name = "golden",
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = 3,
+            Name = { Value = "golden" },
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = 3 },
         };
-        element.AddObject(new RectShape { IsEnabled = false });
+        element.AddObject(new RectShape { IsEnabled = { Value = false } });
         var text = new TextBlock();
         // The default family is the platform's.
         text.FontFamily.Value = new FontFamily("Golden Sans");
@@ -55,35 +55,35 @@ public partial class PropertyConversionGoldenTests
     {
         var scene = new Scene(1280, 720, "golden")
         {
-            Start = MediaTime.FromSeconds(1),
-            Duration = MediaTime.FromSeconds(30),
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Duration = { Value = MediaTime.FromSeconds(30) },
             Uri = new Uri("file:///golden/scene/golden.scene"),
         };
         // Fixed Ids, as a group writes its members in the order of their hashes.
         Element first = CreateElement();
-        first.Id = new Guid("00000000-0000-0000-0000-0000000000f1");
+        first.Id.Value = new Guid("00000000-0000-0000-0000-0000000000f1");
         first.Uri = new Uri("file:///golden/scene/first.belm");
         var second = new Element
         {
-            Id = new Guid("00000000-0000-0000-0000-0000000000f2"),
-            Name = "second",
-            Length = MediaTime.FromSeconds(1),
+            Id = { Value = new Guid("00000000-0000-0000-0000-0000000000f2") },
+            Name = { Value = "second" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri("file:///golden/scene/second.belm"),
         };
         scene.Children.Add(first);
         scene.Children.Add(second);
-        scene.Groups.Add([first.Id, second.Id]);
+        scene.Groups.Add([first.Id.Value, second.Id.Value]);
         scene.Layers.Add(new TimelineLayer
         {
-            ZIndex = 2,
-            Color = Colors.Blue,
-            IsLocked = true,
-            IsAudioMuted = true,
-            IsVideoMuted = true,
-            IsSolo = true,
-            Name = "layer",
+            ZIndex = { Value = 2 },
+            Color = { Value = Colors.Blue },
+            IsLocked = { Value = true },
+            IsAudioMuted = { Value = true },
+            IsVideoMuted = { Value = true },
+            IsSolo = { Value = true },
+            Name = { Value = "layer" },
         });
-        scene.Markers.Add(new SceneMarker { Time = MediaTime.FromSeconds(3), Color = Colors.Green, Note = "note" });
+        scene.Markers.Add(new SceneMarker { Time = { Value = MediaTime.FromSeconds(3) }, Color = { Value = Colors.Green }, Note = { Value = "note" } });
 
         AssertGolden(CoreSerializer.SerializeToJsonObject(scene), "scene");
         AssertGolden(
@@ -96,8 +96,8 @@ public partial class PropertyConversionGoldenTests
     {
         var project = new Project { Uri = new Uri("file:///golden/golden.bproj") };
         project.Items.Add(new Scene(1920, 1080, "scene") { Uri = new Uri("file:///golden/scene/scene.scene") });
-        project.FrameRate = new Rational(30000, 1001);
-        project.Variables["author"] = "beutl";
+        project.FrameRate.Value = new Rational(30000, 1001);
+        project.Variables.Value["author"] = "beutl";
 
         AssertGolden(CoreSerializer.SerializeToJsonObject(project), "project");
     }
@@ -132,7 +132,7 @@ public partial class PropertyConversionGoldenTests
     {
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value = CreateGraph();
-        var element = new Element { Name = "graph" };
+        var element = new Element { Name = { Value = "graph" } };
         element.AddObject(drawable);
 
         var lines = new List<string>();
@@ -153,24 +153,24 @@ public partial class PropertyConversionGoldenTests
     {
         var element = new Element
         {
-            Name = "golden",
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(4),
-            ZIndex = 2,
-            AccentColor = Colors.Red,
-            IsEnabled = false,
-            IsLocked = true,
-            EnterTransition = new FadeTransition(),
-            ExitTransition = new SlideTransition(),
+            Name = { Value = "golden" },
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(4) },
+            ZIndex = { Value = 2 },
+            AccentColor = { Value = Colors.Red },
+            IsEnabled = { Value = false },
+            IsLocked = { Value = true },
+            EnterTransition = { Value = new FadeTransition() },
+            ExitTransition = { Value = new SlideTransition() },
         };
         var shape = new RectShape();
         var width = new KeyFrameAnimation<float>();
-        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 10, Easing = new LinearEasing() });
-        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 20, Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f) });
-        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = 30, Easing = new SineEaseIn() });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 10 }, Easing = { Value = new LinearEasing() } });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 20 }, Easing = { Value = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f) } });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = 30 }, Easing = { Value = new SineEaseIn() } });
         shape.Width.SetKeyFrameAnimation(width);
-        var height = new KeyFrameAnimation<float> { UseGlobalClock = true };
-        height.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 40 });
+        var height = new KeyFrameAnimation<float> { UseGlobalClock = { Value = true } };
+        height.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 40 } });
         shape.Height.SetKeyFrameAnimation(height);
         element.AddObject(shape);
         return element;
@@ -180,12 +180,12 @@ public partial class PropertyConversionGoldenTests
     {
         var graph = new GraphModel();
         var brush = new SolidColorBrush();
-        var factory = new FactoryNode<Pen> { Position = (120.5, 80.25), IsExpanded = false };
-        factory.Object.Brush.Value = brush;
+        var factory = new FactoryNode<Pen> { Position = { Value = (120.5, 80.25) }, IsExpanded = { Value = false } };
+        factory.Object.Value.Brush.Value = brush;
         graph.Nodes.Add(factory);
         graph.Connect(Find(factory, brush.Opacity), Source(graph, 42f, "Opacity"));
         var textNode = new TextNode();
-        textNode.Object.FontFamily.Value = new FontFamily("Golden Sans");
+        textNode.Object.Value.FontFamily.Value = new FontFamily("Golden Sans");
         graph.Nodes.Add(textNode);
         graph.Nodes.Add(new SceneNode());
         graph.Nodes.Add(new GroupNode());
@@ -194,16 +194,16 @@ public partial class PropertyConversionGoldenTests
         generative.Seed.Property!.SetValue(1234);
         var record = new GenerationRecord
         {
-            Fingerprint = "fingerprint",
-            ParameterFingerprint = "parameters",
-            ModelId = "model",
-            Seed = 7,
-            Summary = "kept result",
-            CreatedAt = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero),
-            IsPinned = true,
+            Fingerprint = { Value = "fingerprint" },
+            ParameterFingerprint = { Value = "parameters" },
+            ModelId = { Value = "model" },
+            Seed = { Value = 7 },
+            Summary = { Value = "kept result" },
+            CreatedAt = { Value = new DateTimeOffset(2026, 1, 2, 3, 4, 5, TimeSpan.Zero) },
+            IsPinned = { Value = true },
         };
         generative.Generations.Add(record);
-        generative.ActiveGenerationId = record.Id;
+        generative.ActiveGenerationId.Value = record.Id.Value;
         graph.Nodes.Add(generative);
         Evaluate(graph);
         return graph;

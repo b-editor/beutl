@@ -10,7 +10,7 @@ using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
-// The node graph members that were CoreProperty fields keep their lists and children as value-only properties.
+// The node graph members that were CoreProperty fields keep their lists and children as property objects.
 [TestFixture]
 public class NodeGraphValueOnlyPropertyTests
 {
@@ -20,46 +20,46 @@ public class NodeGraphValueOnlyPropertyTests
         var source = new GraphModel();
         var factory = new FactoryNode<Pen>();
         source.Nodes.Add(factory);
-        source.Connect(factory.Items.OfType<IInputPort>().First(port => port.Name == "Thickness"), Source(source, 1f, "Thickness"));
+        source.Connect(factory.Items.OfType<IInputPort>().First(port => port.Name.Value == "Thickness"), Source(source, 1f, "Thickness"));
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
 
         var graph = new GraphModel();
-        HierarchicalList<GraphNode> nodes = graph.Nodes;
-        HierarchicalList<Connection> connections = graph.AllConnections;
+        ICoreList<GraphNode> nodes = graph.Nodes.Value;
+        ICoreList<Connection> connections = graph.AllConnections.Value;
         CoreSerializer.PopulateFromJsonObject(graph, json);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(graph.NodesProperty.Value, Is.SameAs(nodes));
-            Assert.That(graph.AllConnectionsProperty.Value, Is.SameAs(connections));
+            Assert.That(graph.Nodes.Value, Is.SameAs(nodes));
+            Assert.That(graph.AllConnections.Value, Is.SameAs(connections));
             Assert.That(graph.Nodes, Has.Count.EqualTo(2));
             Assert.That(graph.AllConnections, Has.Count.EqualTo(1));
             Assert.That(graph.Nodes.All(node => node.HierarchicalParent == graph), Is.True);
         }
     }
 
-    // As the CoreProperty setters did, setting a kept list replaces its items, so the graph saves what it uses.
+    // As the CoreProperty setters did, setting a list property replaces its items, so the graph saves what it uses.
     [Test]
-    public void SettingAKeptListReplacesItsItems()
+    public void SettingAListPropertyReplacesItsItems()
     {
         var graph = new GraphModel();
-        HierarchicalList<GraphNode> nodes = graph.Nodes;
-        HierarchicalList<Connection> connections = graph.AllConnections;
+        ICoreList<GraphNode> nodes = graph.Nodes.Value;
+        ICoreList<Connection> connections = graph.AllConnections.Value;
         var factory = new FactoryNode<Pen>();
         var output = new OutputNode();
 
-        graph.NodesProperty.Value = [factory, output];
-        graph.AllConnectionsProperty.Value = [];
+        graph.Nodes.Value = new CoreList<GraphNode> { factory, output };
+        graph.AllConnections.Value = new CoreList<Connection>();
         JsonObject json = CoreSerializer.SerializeToJsonObject(graph);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(graph.NodesProperty.Value, Is.SameAs(nodes));
-            Assert.That(graph.AllConnectionsProperty.Value, Is.SameAs(connections));
+            Assert.That(graph.Nodes.Value, Is.SameAs(nodes));
+            Assert.That(graph.AllConnections.Value, Is.SameAs(connections));
             Assert.That(graph.Nodes, Is.EqualTo(new GraphNode[] { factory, output }));
             Assert.That(factory.HierarchicalParent, Is.SameAs(graph));
             Assert.That(json["Nodes"]!.AsArray().Select(node => Guid.Parse(node!["Id"]!.GetValue<string>())),
-                Is.EqualTo(new[] { factory.Id, output.Id }));
+                Is.EqualTo(new[] { factory.Id.Value, output.Id.Value }));
         }
     }
 
@@ -68,18 +68,18 @@ public class NodeGraphValueOnlyPropertyTests
     public void SettingAPortsConnectionsKeepsTheListItWatches()
     {
         var port = new ListInputPort<float>();
-        CoreList<Reference<Connection>> connections = port.Connections;
+        ICoreList<Reference<Connection>> connections = port.Connections.Value;
         Guid first = Guid.NewGuid();
         Guid second = Guid.NewGuid();
         int changes = 0;
 
-        port.ConnectionsProperty.Value = [new Reference<Connection>(first), new Reference<Connection>(second)];
+        port.Connections.Value = new CoreList<Reference<Connection>> { new(first), new(second) };
         port.TopologyChanged += (_, _) => changes++;
         port.MoveConnection(0, 1);
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(port.ConnectionsProperty.Value, Is.SameAs(connections));
+            Assert.That(port.Connections.Value, Is.SameAs(connections));
             Assert.That(connections.Select(reference => reference.Id), Is.EqualTo(new[] { second, first }));
             Assert.That(changes, Is.Positive);
         }
@@ -97,8 +97,8 @@ public class NodeGraphValueOnlyPropertyTests
         graph.Edited += (_, _) => edits++;
         scene.Scene.Edited += (_, _) => edits++;
 
-        node.Position = (10, 20);
-        node.IsExpanded = false;
+        node.Position.Value = (10, 20);
+        node.IsExpanded.Value = false;
         int editsByTheChanges = edits;
         scene.History.Commit("move");
         scene.History.Undo();
@@ -106,8 +106,8 @@ public class NodeGraphValueOnlyPropertyTests
         using (Assert.EnterMultipleScope())
         {
             Assert.That(editsByTheChanges, Is.Zero);
-            Assert.That(node.Position, Is.EqualTo((0d, 0d)));
-            Assert.That(node.IsExpanded, Is.True);
+            Assert.That(node.Position.Value, Is.EqualTo((0d, 0d)));
+            Assert.That(node.IsExpanded.Value, Is.True);
         }
     }
 
@@ -121,7 +121,7 @@ public class NodeGraphValueOnlyPropertyTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(group.Input, Is.SameAs(input));
+            Assert.That(group.Input.Value, Is.SameAs(input));
             Assert.That(((IHierarchical)group).HierarchicalChildren.Count(child => child == input), Is.EqualTo(1));
         }
     }
@@ -138,7 +138,7 @@ public class NodeGraphValueOnlyPropertyTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(group.Input, Is.SameAs(second));
+            Assert.That(group.Input.Value, Is.SameAs(second));
             Assert.That(group.Nodes, Is.EqualTo(new[] { second }));
             Assert.That(first.HierarchicalParent, Is.Null);
         }

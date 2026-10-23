@@ -17,7 +17,7 @@ public partial class ShakeEffect : FilterEffect
         ScanProperties<ShakeEffect>();
         UpdateOffset();
         // The shake follows the Id, so a new Id redraws it.
-        IdProperty.ValueChanged += (_, _) =>
+        Id.ValueChanged += (_, _) =>
         {
             UpdateOffset();
             RaiseEdited();
@@ -35,7 +35,7 @@ public partial class ShakeEffect : FilterEffect
 
     private void UpdateOffset()
     {
-        int hash = Id.GetHashCode();
+        int hash = Id.Value.GetHashCode();
         _offset = new Random(hash).NextSingle() * 1000 - 500;
     }
 
@@ -104,7 +104,7 @@ public partial class ShakeEffect : FilterEffect
             ResourceReconciler.ReconcileValue(this, context, ((ShakeEffect)obj).Speed, ref _speed, ref versionBumped);
 
             float oldTime = _time;
-            _time = (float)(context.Time - obj.TimeRange.Start).ToSeconds();
+            _time = (float)(context.Time - obj.TimeRange.Value.Start).ToSeconds();
             // ReSharper disable once CompareOfFloatsByEqualityOperator
             if (!versionBumped && oldTime != _time)
             {

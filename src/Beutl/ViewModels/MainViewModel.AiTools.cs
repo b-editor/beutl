@@ -76,10 +76,10 @@ public partial class MainViewModel : IAiWorkspaceHost
     private IObservable<CaptionDraftScope?> CreateCaptionDraftScopes(EditViewModel? editViewModel)
         => _beutlClients.AuthenticatedUser.Select(user =>
         {
-            Project? project = BeutlApplication.Current.Project;
+            Project? project = BeutlApplication.Current.Project.Value;
             return user is null || project is null || editViewModel is null
                 ? null
-                : new CaptionDraftScope(user.Profile.Id, project.Id, editViewModel.Scene.Id);
+                : new CaptionDraftScope(user.Profile.Id, project.Id.Value, editViewModel.Scene.Id.Value);
         });
 
     internal AiVideoGenerationDialogViewModel CreateAiVideoGenerationToolViewModel(EditViewModel editViewModel, AiSourceVideoMode? sourceMode = null)

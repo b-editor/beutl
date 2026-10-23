@@ -165,8 +165,8 @@ public class PathEditorInteractionTests
             else
             {
                 var animation = new KeyFrameAnimation<BtlPoint>();
-                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = source.Value });
-                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = MediaTime.FromSeconds(1), Value = new(100, 180) });
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = { Value = source.Value } });
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = new(100, 180) } });
                 source.SetKeyFrameAnimation(animation);
             }
         }
@@ -402,7 +402,7 @@ public class PathEditorInteractionTests
         if (animatedIncoming)
         {
             var animation = new KeyFrameAnimation<BtlPoint>();
-            animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = new(35, 85) });
+            animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = { Value = new(35, 85) } });
             first.ControlPoint2.SetKeyFrameAnimation(animation);
         }
         figure.Segments.Add(first);
@@ -454,7 +454,7 @@ public class PathEditorInteractionTests
             {
                 var property = kind == "animation" ? cubic.ControlPoint1 : figure.Segments[^1].GetEndPoint();
                 var animation = new KeyFrameAnimation<BtlPoint>();
-                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.Value });
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = { Value = property.Value } });
                 property.SetKeyFrameAnimation(animation);
             }
         }
@@ -564,8 +564,8 @@ public class PathEditorInteractionTests
             else
             {
                 var animation = new KeyFrameAnimation<bool>();
-                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.Zero, Value = false });
-                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = MediaTime.FromSeconds(1), Value = true });
+                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = false } });
+                animation.KeyFrames.Add(new KeyFrame<bool> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = true } });
                 figure.IsClosed.SetKeyFrameAnimation(animation);
             }
         }
@@ -608,7 +608,7 @@ public class PathEditorInteractionTests
             else
             {
                 var animation = new KeyFrameAnimation<BtlPoint>();
-                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = property.Value });
+                animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = { Value = property.Value } });
                 property.SetKeyFrameAnimation(animation);
             }
         }
@@ -779,7 +779,7 @@ public class PathEditorInteractionTests
                     editor.Figure.Segments.Add(new LineSegment(280, 100));
                     var animated = new LineSegment(280, 260);
                     var animation = new KeyFrameAnimation<BtlPoint>();
-                    animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = new(280, 260) });
+                    animation.KeyFrames.Add(new KeyFrame<BtlPoint> { Value = { Value = new(280, 260) } });
                     animated.GetEndPoint().SetKeyFrameAnimation(animation);
                     editor.Figure.Segments.Add(animated);
                     break;
@@ -931,9 +931,9 @@ public class PathEditorInteractionTests
     public async Task Animated_nudge_changes_the_current_keyframe_and_undo_restores_it()
     {
         using var editor = await Fixture.Create();
-        var first = new KeyFrame<BtlPoint> { KeyTime = MediaTime.Zero, Value = new(80, 100) };
-        var second = new KeyFrame<BtlPoint> { KeyTime = MediaTime.FromSeconds(1), Value = new(110, 130) };
-        var animation = new KeyFrameAnimation<BtlPoint> { UseGlobalClock = true };
+        var first = new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = new(80, 100) } };
+        var second = new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = new(110, 130) } };
+        var animation = new KeyFrameAnimation<BtlPoint> { UseGlobalClock = { Value = true } };
         animation.KeyFrames.Add(first);
         animation.KeyFrames.Add(second);
         using (editor.Editor.HistoryManager.SuppressRecording())
@@ -941,11 +941,11 @@ public class PathEditorInteractionTests
         HeadlessTestHelpers.Render(3);
         editor.Click(80, 100);
         editor.Key(Key.Right, RawInputModifiers.Shift);
-        Assert.That(first.Value, Is.EqualTo(new BtlPoint(90, 100)));
-        Assert.That(second.Value, Is.EqualTo(new BtlPoint(110, 130)));
+        Assert.That(first.Value.Value, Is.EqualTo(new BtlPoint(90, 100)));
+        Assert.That(second.Value.Value, Is.EqualTo(new BtlPoint(110, 130)));
         Assert.That(editor.Figure.Segments[0].GetEndPoint().GetKeyFrameAnimation(), Is.SameAs(animation));
         editor.Editor.HistoryManager.Undo();
-        Assert.That(first.Value, Is.EqualTo(new BtlPoint(80, 100)));
+        Assert.That(first.Value.Value, Is.EqualTo(new BtlPoint(80, 100)));
     }
 
     [AvaloniaTest]
@@ -961,9 +961,9 @@ public class PathEditorInteractionTests
         var singleKey = new KeyFrameAnimation<BtlPoint>();
         singleKey.KeyFrames.Add(new KeyFrame<BtlPoint>
         {
-            Value = new(571.368f, -123.206566f),
-            KeyTime = MediaTime.Zero,
-            Easing = new SplineEasing(0, 0, 1, 1)
+            Value = { Value = new(571.368f, -123.206566f) },
+            KeyTime = { Value = MediaTime.Zero },
+            Easing = { Value = new SplineEasing(0, 0, 1, 1) }
         });
         third.ControlPoint2.SetKeyFrameAnimation(singleKey);
         figure.Segments.Add(third);
@@ -983,8 +983,8 @@ public class PathEditorInteractionTests
             .Select(i => PathEditingOperations.Evaluate(start, baseCurve, i / 100f, context)).ToArray();
         var animation = ((CubicBezierSegment)figure.Segments[2]).ControlPoint2.GetKeyFrameAnimation()!;
         var key = (KeyFrame<BtlPoint>)((KeyFrameAnimation<BtlPoint>)animation).KeyFrames.Single();
-        var keyId = key.Id;
-        var easing = key.Easing;
+        var keyId = key.Id.Value;
+        var easing = key.Easing.Value;
         var before = CoreSerializer.SerializeToJsonObject(figure);
         Point click = editor.View.Matrix.Transform(new Point(expected[50].X, expected[50].Y));
         editor.Key(Key.P);
@@ -994,19 +994,19 @@ public class PathEditorInteractionTests
         Assert.That(editor.Model.SelectedOperation.Value, Is.SameAs(inserted));
         Assert.That(figure.Segments[index + 1], Is.SameAs(original));
         if (index == 2) Assert.That(original.ControlPoint2.GetKeyFrameAnimation(), Is.SameAs(animation));
-        Assert.That(key.Id, Is.EqualTo(keyId));
-        Assert.That(key.Easing, Is.SameAs(easing));
-        Assert.That(key.KeyTime, Is.EqualTo(MediaTime.Zero));
+        Assert.That(key.Id.Value, Is.EqualTo(keyId));
+        Assert.That(key.Easing.Value, Is.SameAs(easing));
+        Assert.That(key.KeyTime.Value, Is.EqualTo(MediaTime.Zero));
         var animatedProperties = figure.Segments.SelectMany(s => PathEditorHelper.GetControlPointProperties(s).Append(s.GetEndPoint()))
             .Select(p => p.GetKeyFrameAnimation()).OfType<KeyFrameAnimation<BtlPoint>>().ToArray();
-        Assert.That(animatedProperties.Select(a => a.Id).Distinct().Count(), Is.EqualTo(animatedProperties.Length));
-        Assert.That(animatedProperties.SelectMany(a => a.KeyFrames).Select(k => k.Id).Distinct().Count(), Is.EqualTo(animatedProperties.Length));
+        Assert.That(animatedProperties.Select(a => a.Id.Value).Distinct().Count(), Is.EqualTo(animatedProperties.Length));
+        Assert.That(animatedProperties.SelectMany(a => a.KeyFrames).Select(k => k.Id.Value).Distinct().Count(), Is.EqualTo(animatedProperties.Length));
         if (index == 2)
         {
             Assert.That(animatedProperties, Has.Length.EqualTo(4));
             var derived = ((KeyFrameAnimation<BtlPoint>)inserted.GetEndPoint().GetKeyFrameAnimation()!).KeyFrames[0];
-            Assert.That(derived.Easing, Is.Not.SameAs(easing));
-            Assert.That(derived.KeyTime, Is.EqualTo(key.KeyTime));
+            Assert.That(derived.Easing.Value, Is.Not.SameAs(easing));
+            Assert.That(derived.KeyTime.Value, Is.EqualTo(key.KeyTime.Value));
         }
         var leftBase = BaseCurve((CubicBezierSegment)inserted);
         var rightBase = BaseCurve(original);
@@ -1057,8 +1057,8 @@ public class PathEditorInteractionTests
     {
         using var editor = await Fixture.Create();
         var animation = new KeyFrameAnimation<BtlPoint>();
-        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = MediaTime.Zero, Value = new(180, 100) });
-        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = MediaTime.FromSeconds(1), Value = new(200, 120) });
+        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = new(180, 100) } });
+        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = new(200, 120) } });
         using (editor.Editor.HistoryManager.SuppressRecording())
             editor.Figure.Segments[1].GetEndPoint().SetKeyFrameAnimation(animation);
         editor.Key(Key.P);
@@ -1095,7 +1095,7 @@ public class PathEditorInteractionTests
     {
         using var editor = await Fixture.Create();
         Element element = editor.Editor.Scene.Children.Single();
-        MediaTime start = element.Start;
+        MediaTime start = element.Start.Value;
         Point from = pen ? new(350, 220) : new(80, 100);
         if (pen) editor.Key(Key.P);
 
@@ -1110,7 +1110,7 @@ public class PathEditorInteractionTests
         {
             Assert.That(editor.Figure.Segments, Has.Count.EqualTo(3));
             Assert.That(editor.Figure.Segments[0].GetEndPoint().Value, Is.EqualTo(new BtlPoint(80, 100)));
-            Assert.That(element.Start, Is.GreaterThan(start));
+            Assert.That(element.Start.Value, Is.GreaterThan(start));
             Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(1));
             Assert.That(editor.Editor.HistoryManager.PeekUndo()!.Name, Is.EqualTo("CommandNames.MoveElement"));
         });
@@ -1442,8 +1442,8 @@ public class PathEditorInteractionTests
         BtlPoint point = anchor.EndPoint.Value;
         var context = new CompositionContext(MediaTime.Zero);
         var animation = new KeyFrameAnimation<BtlPoint>();
-        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = MediaTime.Zero, Value = point });
-        var later = new KeyFrame<BtlPoint> { KeyTime = MediaTime.FromSeconds(1), Value = new(220, -70) };
+        animation.KeyFrames.Add(new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = point } });
+        var later = new KeyFrame<BtlPoint> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = new(220, -70) } };
         animation.KeyFrames.Add(later);
         using (editor.Editor.HistoryManager.SuppressRecording())
         {
@@ -1466,7 +1466,7 @@ public class PathEditorInteractionTests
         Assert.That(anchor.ControlPoint2.Evaluate(context), Is.Not.EqualTo(point), "incoming handle must expand");
         Assert.That(next.ControlPoint1.Evaluate(context), Is.Not.EqualTo(point), "outgoing handle must expand");
         Assert.That(anchor.EndPoint.Evaluate(context), Is.EqualTo(point));
-        Assert.That(later.Value, Is.EqualTo(new BtlPoint(220, -70)), "a different keyframe must stay unchanged");
+        Assert.That(later.Value.Value, Is.EqualTo(new BtlPoint(220, -70)), "a different keyframe must stay unchanged");
         foreach (var property in PathPointProperties.Get(editor.Figure, anchor, context).Skip(1))
         {
             var thumb = editor.View.FindThumb(property.Owner, property.Property)!;
@@ -1762,7 +1762,7 @@ public class PathEditorInteractionTests
     public async Task A_locked_clips_path_stays_as_it_is_under_drags_keys_tools_and_fields()
     {
         using var editor = await Fixture.Create();
-        editor.Model.Element.Value!.IsLocked = true;
+        editor.Model.Element.Value!.IsLocked.Value = true;
         editor.Editor.HistoryManager.Commit();
         int undoCount = editor.Editor.HistoryManager.UndoCount;
         string before = CoreSerializer.SerializeToJsonObject(editor.Figure).ToJsonString();
@@ -1931,7 +1931,7 @@ public class PathEditorInteractionTests
             var geometry = new PathGeometry();
             geometry.Figures.Add(figure);
             var shape = new GeometryShape { Data = { Value = geometry } };
-            var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(10) };
+            var element = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(10) } };
             element.AddObject(shape);
             scene.Children.Add(element);
             editor.HistoryManager.Commit();

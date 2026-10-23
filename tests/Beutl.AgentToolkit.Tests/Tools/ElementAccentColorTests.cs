@@ -39,7 +39,7 @@ public sealed class ElementAccentColorTests
             schemaVersion: SchemaVersion.Current);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        Assert.That(scene.Children.Single().AccentColor, Is.EqualTo(Color.Parse(expectedColor)));
+        Assert.That(scene.Children.Single().AccentColor.Value, Is.EqualTo(Color.Parse(expectedColor)));
     }
 
     [TestCase("#ff008080")]
@@ -58,7 +58,7 @@ public sealed class ElementAccentColorTests
             schemaVersion: SchemaVersion.Current);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        Assert.That(scene.Children.Single().AccentColor, Is.EqualTo(color));
+        Assert.That(scene.Children.Single().AccentColor.Value, Is.EqualTo(color));
     }
 
     [Test]
@@ -76,7 +76,7 @@ public sealed class ElementAccentColorTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = scene.Children.Single().Id.ToString(),
+                [nameof(CoreObject.Id)] = scene.Children.Single().Id.Value.ToString(),
                 [nameof(Element.AccentColor)] = CoreSerializer.SerializeToJsonNode(color)
             })
         };
@@ -90,8 +90,8 @@ public sealed class ElementAccentColorTests
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(scene.Children.Single().AccentColor, Is.EqualTo(color));
+            Assert.That(scene.Children.Single().Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(scene.Children.Single().AccentColor.Value, Is.EqualTo(color));
         });
     }
 
@@ -111,12 +111,12 @@ public sealed class ElementAccentColorTests
         Assert.That(session.History.Undo(), Is.True);
         Assert.That(scene.Children, Is.Empty);
         Assert.That(session.History.Redo(), Is.True);
-        Assert.That(scene.Children.Single().AccentColor, Is.EqualTo(color));
+        Assert.That(scene.Children.Single().AccentColor.Value, Is.EqualTo(color));
     }
 
     private static JsonObject CreateElementJson(EngineObject content)
     {
-        var element = new Element { Length = MediaTime.FromSeconds(1) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
         element.AddObject(content);
         JsonObject json = CoreSerializer.SerializeToJsonObject(element);
         CollectionReconciler.RemoveIds(json);

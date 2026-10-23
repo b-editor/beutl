@@ -28,7 +28,7 @@ internal sealed partial class SceneRecovery
                 .ToArray();
             foreach (CoreObject obj in saved.Objects)
             {
-                savedById[obj.Id] = savedById.ContainsKey(obj.Id) ? null : obj;
+                savedById[obj.Id.Value] = savedById.ContainsKey(obj.Id.Value) ? null : obj;
             }
         }
 

@@ -3,6 +3,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Collections;
 using Beutl.Engine;
 using Beutl.Serialization;
 
@@ -56,13 +57,13 @@ internal sealed partial class DeclarativeDocumentApplier
             // A different serialized value is an explicit repair, including a new Linear easing.
             if (!JsonNode.DeepEquals(current[nameof(KeyFrame.Easing)], easingNode))
             {
-                keyFrame.Easing = DeserializeEasing(easingNode);
+                keyFrame.Easing.Value = DeserializeEasing(easingNode);
             }
         }
 
         if (desired.TryGetPropertyValue(nameof(KeyFrame.KeyTime), out JsonNode? keyTimeNode) && keyTimeNode is not null)
         {
-            keyFrame.KeyTime = (MediaTime)CoreSerializer.DeserializeFromJsonNode(
+            keyFrame.KeyTime.Value = (MediaTime)CoreSerializer.DeserializeFromJsonNode(
                 keyTimeNode.DeepClone(),
                 typeof(MediaTime),
                 CreateOptions(keyFrame as CoreObject))!;
@@ -177,7 +178,7 @@ internal sealed partial class DeclarativeDocumentApplier
         CoreSerializerOptions options = CreateOptions(property.GetOwnerObject());
         foreach (IKeyFrame keyFrame in animation.KeyFrames)
         {
-            if (changedValueIds is not null && !changedValueIds.Contains(keyFrame.Id))
+            if (changedValueIds is not null && !changedValueIds.Contains(keyFrame.Id.Value))
             {
                 continue;
             }
@@ -267,7 +268,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
                     $"{memberKind} target property '{name}' does not exist on '{target.GetType().FullName}'.",
-                    target.Id.ToString()));
+                    target.Id.Value.ToString()));
             }
 
             if (!isSupported(property))
@@ -275,12 +276,12 @@ internal sealed partial class DeclarativeDocumentApplier
                 throw new ReconcileException(new ToolError(
                     ErrorCode.ValidationRejected,
                     $"Property '{name}' {unsupportedReason}.",
-                    target.Id.ToString()));
+                    target.Id.Value.ToString()));
             }
         }
     }
 
-    private void ApplyKeyFrameList(KeyFrames list, JsonArray desired, CoreObject? owner)
+    private void ApplyKeyFrameList(ICoreList<IKeyFrame> list, JsonArray desired, CoreObject? owner)
     {
         var desiredIds = new HashSet<Guid>();
         for (int index = 0; index < desired.Count; index++)
@@ -311,12 +312,12 @@ internal sealed partial class DeclarativeDocumentApplier
                 list.Add((IKeyFrame)item, out _);
             }
 
-            desiredIds.Add(item.Id);
+            desiredIds.Add(item.Id.Value);
         }
 
         for (int index = list.Count - 1; index >= 0; index--)
         {
-            if (!desiredIds.Contains(list[index].Id))
+            if (!desiredIds.Contains(list[index].Id.Value))
             {
                 list.RemoveAt(index);
             }
@@ -327,9 +328,9 @@ internal sealed partial class DeclarativeDocumentApplier
 
     // GetPreviousAndNextKeyFrame walks collection order, so a KeyTime edit on an existing frame that
     // now crosses a neighbour must re-sort the list or interpolation picks the wrong prev/next frames.
-    private static void SortKeyFramesByKeyTime(KeyFrames list)
+    private static void SortKeyFramesByKeyTime(ICoreList<IKeyFrame> list)
     {
-        List<IKeyFrame> sorted = list.OrderBy(frame => frame.KeyTime).ToList();
+        List<IKeyFrame> sorted = list.OrderBy(frame => frame.KeyTime.Value).ToList();
         for (int target = 0; target < sorted.Count; target++)
         {
             int current = list.IndexOf(sorted[target]);

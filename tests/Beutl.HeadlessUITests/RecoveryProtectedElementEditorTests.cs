@@ -65,7 +65,7 @@ public sealed class RecoveryProtectedElementEditorTests
                 Assert.That(notices[0].Type, Is.EqualTo(NotificationType.Warning));
                 Assert.That(notices[0].Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
                 Assert.That(notices[0].Message, Does.Contain(ElementName));
-                Assert.That(notices[0].Message, Does.Contain(editor.Scene.Name));
+                Assert.That(notices[0].Message, Does.Contain(editor.Scene.Name.Value));
                 Assert.That(notices[0].CancellationToken.IsCancellationRequested, Is.False);
             });
 
@@ -177,7 +177,7 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.That(tab.CanEdit.Value, Is.False);
             Assert.That(width.CanEdit.Value, Is.False);
             Assert.That(shape.Width.Value, Is.EqualTo(oldWidth));
-            Assert.That(shape.Transform.Value!.IsEnabled, Is.True, "Toggling the transform would not be saved.");
+            Assert.That(shape.Transform.Value!.IsEnabled.Value, Is.True, "Toggling the transform would not be saved.");
             Assert.That(tab.Items[0].CanReplace.Value, Is.True, "The shape holds the transform with the unreadable easing.");
             Assert.That(tab.Items[1].CanReplace.Value, Is.False);
             Assert.That(element.Objects, Does.Contain(healthy));
@@ -262,8 +262,8 @@ public sealed class RecoveryProtectedElementEditorTests
             Assert.That(element.SuppressedStorageSource, Is.Null);
             Assert.That(tab.CanEdit.Value, Is.True);
             Assert.That(shape.Width.Value, Is.EqualTo(oldWidth + 10));
-            Assert.That(shape.FilterEffect.Value!.IsEnabled, Is.False);
-            Assert.That(unavailable.IsEnabled, Is.False);
+            Assert.That(shape.FilterEffect.Value!.IsEnabled.Value, Is.False);
+            Assert.That(unavailable.IsEnabled.Value, Is.False);
             Assert.That(unavailableItem.CanToggleEnabled.Value, Is.True);
             Assert.That(element.Objects, Does.Not.Contain(healthy));
         });
@@ -387,10 +387,10 @@ public sealed class RecoveryProtectedElementEditorTests
                 Assert.That(healthyOffered, Is.False, "Removing a healthy animation would not be saved.");
             });
 
-            element.IsLocked = true;
+            element.IsLocked.Value = true;
             HeadlessTestHelpers.Settle();
             bool offeredWhileLocked = removeAnimation.IsEnabled;
-            element.IsLocked = false;
+            element.IsLocked.Value = false;
             HeadlessTestHelpers.Settle();
             removeAnimation.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
             HeadlessTestHelpers.Settle();
@@ -415,22 +415,22 @@ public sealed class RecoveryProtectedElementEditorTests
     // not loaded, as when the plugin that provides it is not installed.
     private static async Task<(string ProjectPath, string ElementPath)> CreateProjectWithUnreadableEasing(string name)
     {
-        var unreadable = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 200 };
+        var unreadable = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 200 } };
         (string projectPath, string elementPath) = await CreateSavedProjectAsync(name, () => new RectShape(), element =>
         {
             var shape = (RectShape)element.Objects.Single();
             var widthAnimation = new KeyFrameAnimation<float>();
-            widthAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
+            widthAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100 } });
             widthAnimation.KeyFrames.Add(unreadable);
             shape.Width.SetKeyFrameAnimation(widthAnimation);
             var heightAnimation = new KeyFrameAnimation<float>();
-            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50 });
-            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 80 });
+            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 50 } });
+            heightAnimation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 80 } });
             shape.Height.SetKeyFrameAnimation(heightAnimation);
         });
 
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-        FindById(json, unreadable.Id)![nameof(KeyFrame.Easing)] = MissingEasingType;
+        FindById(json, unreadable.Id.Value)![nameof(KeyFrame.Easing)] = MissingEasingType;
         File.WriteAllText(elementPath, json.ToJsonString());
         return (projectPath, elementPath);
     }
@@ -516,7 +516,7 @@ public sealed class RecoveryProtectedElementEditorTests
         JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         foreach (IKeyFrame keyFrame in unreadable)
         {
-            FindById(json, ((CoreObject)keyFrame).Id)![nameof(KeyFrame.Easing)] = MissingEasingType;
+            FindById(json, ((CoreObject)keyFrame).Id.Value)![nameof(KeyFrame.Easing)] = MissingEasingType;
         }
 
         File.WriteAllText(elementPath, json.ToJsonString());
@@ -531,7 +531,7 @@ public sealed class RecoveryProtectedElementEditorTests
         (Project project, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(name);
         await TestShell.AddElementAsync(editor, create, MediaTime.Zero, MediaTime.FromSeconds(2));
         Element element = scene.Children.Single();
-        element.Name = ElementName;
+        element.Name.Value = ElementName;
         configure(element);
         await editor.SaveAsync();
         string projectPath = project.Uri!.LocalPath;
@@ -543,7 +543,7 @@ public sealed class RecoveryProtectedElementEditorTests
     private static KeyFrameAnimation<float> CreateAnimation(float value)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = value });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = value } });
         return animation;
     }
 

@@ -22,7 +22,7 @@ internal static class DuplicateIds
         int count = 0;
         foreach (object obj in ChildObjects.Walk(root))
         {
-            if (obj is ICoreObject { Id: var id } && id != Guid.Empty && !ids.Add(id))
+            if (obj is ICoreObject { Id.Value: var id } && id != Guid.Empty && !ids.Add(id))
             {
                 count++;
                 if (types.Count < 5 && !types.Contains(obj.GetType()))

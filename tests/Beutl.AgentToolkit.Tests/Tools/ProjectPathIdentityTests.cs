@@ -29,12 +29,12 @@ public sealed class ProjectPathIdentityTests
                 Assert.Ignore("Requires a case-sensitive filesystem.");
             byte[] originalBytes = File.ReadAllBytes(original);
             var current = (FileEditingSession)source.CurrentSession!;
-            current.Project.Name = "Independent copy";
+            current.Project.Name.Value = "Independent copy";
             current.MarkDirty();
 
             if (destinationExists)
             {
-                CoreSerializer.StoreToUri(new Project { Name = "Existing destination" }, new Uri(destination));
+                CoreSerializer.StoreToUri(new Project { Name = { Value = "Existing destination" } }, new Uri(destination));
                 byte[] previousDestination = File.ReadAllBytes(destination);
                 var rejected = tools.SaveProject(path: destination);
                 Assert.That(rejected.IsSuccess, Is.False, "A distinct existing destination requires confirmation.");
@@ -50,7 +50,7 @@ public sealed class ProjectPathIdentityTests
                 Assert.That(File.ReadAllBytes(original), Is.EqualTo(originalBytes));
                 Assert.That(File.Exists(destination), Is.True);
                 Assert.That(FilePathComparison.AreSameCanonicalPath(saved.Value!.SavedPath, destination), Is.True);
-                Assert.That(CoreSerializer.RestoreFromUri<Project>(new Uri(destination)).Name, Is.EqualTo("Independent copy"));
+                Assert.That(CoreSerializer.RestoreFromUri<Project>(new Uri(destination)).Name.Value, Is.EqualTo("Independent copy"));
             });
         }
         finally

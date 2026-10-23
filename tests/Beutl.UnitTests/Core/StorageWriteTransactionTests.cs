@@ -51,7 +51,7 @@ public class StorageWriteTransactionTests
             return;
         }
         string path = PathOf("private.bep");
-        var project = new Project { Name = "before", Uri = new Uri(path) };
+        var project = new Project { Name = { Value = "before" }, Uri = new Uri(path) };
         CoreSerializer.StoreToUri(project, project.Uri);
         File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         bool inspected = false;
@@ -65,13 +65,13 @@ public class StorageWriteTransactionTests
             File.SetUnixFileMode(path, expectedMode);
             inspected = true;
         });
-        project.Name = "after";
+        project.Name.Value = "after";
 
         CoreSerializer.StoreToUri(project, project.Uri);
 
         Assert.That(inspected, Is.True);
         Assert.That(File.GetUnixFileMode(path), Is.EqualTo(expectedMode));
-        Assert.That(CoreSerializer.RestoreFromUri<Project>(project.Uri).Name, Is.EqualTo("after"));
+        Assert.That(CoreSerializer.RestoreFromUri<Project>(project.Uri).Name.Value, Is.EqualTo("after"));
         Assert.That(Directory.GetFiles(_directory, "*.tmp"), Is.Empty);
     }
 
@@ -109,18 +109,18 @@ public class StorageWriteTransactionTests
         }
         string path = PathOf("private.belm");
         var scene = new Beutl.ProjectSystem.Scene(64, 64, "scene");
-        var element = new Beutl.ProjectSystem.Element { Uri = new Uri(path), Length = MediaTime.FromSeconds(2) };
+        var element = new Beutl.ProjectSystem.Element { Uri = new Uri(path), Length = { Value = MediaTime.FromSeconds(2) } };
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(element, element.Uri);
         const UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         File.SetUnixFileMode(path, mode);
-        element.Start = MediaTime.FromSeconds(1);
+        element.Start.Value = MediaTime.FromSeconds(1);
         using var autoSave = new Beutl.Editor.AutoSaveService();
 
         autoSave.SaveObjects([element]);
 
         Assert.That(File.GetUnixFileMode(path), Is.EqualTo(mode));
-        Assert.That(CoreSerializer.RestoreFromUri<Beutl.ProjectSystem.Element>(element.Uri).Start,
+        Assert.That(CoreSerializer.RestoreFromUri<Beutl.ProjectSystem.Element>(element.Uri).Start.Value,
             Is.EqualTo(MediaTime.FromSeconds(1)));
     }
 

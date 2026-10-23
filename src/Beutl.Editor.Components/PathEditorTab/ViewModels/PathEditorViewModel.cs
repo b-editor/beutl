@@ -26,7 +26,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
         _clock = editorContext.GetRequiredService<IEditorClock>();
         _scene = editorContext.GetRequiredService<Scene>();
 
-        SceneWidth = _scene.FrameSizeProperty.GetObservable()
+        SceneWidth = _scene.FrameSize.GetObservable()
             .Select(v => v.Width)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -60,8 +60,8 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
         IsVisible = _clock.CurrentTime
             .CombineLatest(Element
-                .Select(e => e?.StartProperty.GetObservable()
-                    .CombineLatest(e.LengthProperty.GetObservable())
+                .Select(e => e?.Start.GetObservable()
+                    .CombineLatest(e.Length.GetObservable())
                     .Select(t => new TimeRange(t.First, t.Second)) ?? Observable.ReturnThenNever<TimeRange>(default))
                 .Switch())
             .Select(t => t.Second.Contains(t.First))
@@ -82,7 +82,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
 
     private Matrix CalculateMatrix(Drawable.Resource drawable)
     {
-        Size frameSize = _scene.FrameSize.ToSize(1);
+        Size frameSize = _scene.FrameSize.Value.ToSize(1);
         Matrix matrix = Graphics.Matrix.Identity;
 
         // Same transform as Shape's rendering.

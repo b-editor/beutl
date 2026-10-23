@@ -224,9 +224,9 @@ public class NodeGraphInputTests
         public static async Task<GraphSession> CreateAsync(Func<PointerWheelEventArgs, bool>? detector = null)
         {
             (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("node-input");
-            var expression = new ExpressionNode { Position = (24, 24) };
+            var expression = new ExpressionNode { Position = { Value = (24, 24) } };
             expression.Expression.Property!.SetValue("1");
-            var output = new OutputNode { Position = (320, 96) };
+            var output = new OutputNode { Position = { Value = (320, 96) } };
             var graph = new GraphModel();
             graph.Nodes.AddRange([expression, output]);
             graph.Connect(output.InputPort, expression.Output);

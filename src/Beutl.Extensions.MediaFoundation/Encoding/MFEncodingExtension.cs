@@ -29,22 +29,10 @@ public sealed class MFVideoEncoderSettings : VideoEncoderSettings
     }
 
     [Display(Name = nameof(Strings.Codec), Description = nameof(Strings.VideoCodecDescription), ResourceType = typeof(Strings))]
-    public IProperty<MFVideoCodec> CodecProperty { get; } = new ValueOnlyProperty<MFVideoCodec>(MFVideoCodec.Auto);
+    public IProperty<MFVideoCodec> Codec { get; } = new ValueOnlyProperty<MFVideoCodec>(MFVideoCodec.Auto);
 
     [Display(Name = nameof(Strings.UseHardwareAcceleration), ResourceType = typeof(Strings))]
-    public IProperty<bool> UseHardwareAccelerationProperty { get; } = new ValueOnlyProperty<bool>(true);
-
-    public MFVideoCodec Codec
-    {
-        get => CodecProperty.Value;
-        set => CodecProperty.Value = value;
-    }
-
-    public bool UseHardwareAcceleration
-    {
-        get => UseHardwareAccelerationProperty.Value;
-        set => UseHardwareAccelerationProperty.Value = value;
-    }
+    public IProperty<bool> UseHardwareAcceleration { get; } = new ValueOnlyProperty<bool>(true);
 }
 
 public enum MFVideoCodec
@@ -68,22 +56,10 @@ public sealed class MFAudioEncoderSettings : AudioEncoderSettings
     }
 
     [Display(Name = nameof(Strings.Codec), Description = nameof(Strings.AudioCodecDescription), ResourceType = typeof(Strings))]
-    public IProperty<MFAudioCodec> CodecProperty { get; } = new ValueOnlyProperty<MFAudioCodec>(MFAudioCodec.Auto);
+    public IProperty<MFAudioCodec> Codec { get; } = new ValueOnlyProperty<MFAudioCodec>(MFAudioCodec.Auto);
 
     [Display(Name = nameof(Strings.BitDepth), Description = nameof(Strings.BitDepthDescription), ResourceType = typeof(Strings))]
-    public IProperty<MFAudioBitDepth> BitDepthProperty { get; } = new ValueOnlyProperty<MFAudioBitDepth>(MFAudioBitDepth.Bit16);
-
-    public MFAudioCodec Codec
-    {
-        get => CodecProperty.Value;
-        set => CodecProperty.Value = value;
-    }
-
-    public MFAudioBitDepth BitDepth
-    {
-        get => BitDepthProperty.Value;
-        set => BitDepthProperty.Value = value;
-    }
+    public IProperty<MFAudioBitDepth> BitDepth { get; } = new ValueOnlyProperty<MFAudioBitDepth>(MFAudioBitDepth.Bit16);
 }
 
 public enum MFAudioCodec

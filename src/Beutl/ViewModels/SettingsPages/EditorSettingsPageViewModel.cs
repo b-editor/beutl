@@ -23,82 +23,82 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         _versionControlConfig = GlobalConfiguration.Instance.VersionControlConfig;
 
         AutoAdjustSceneDuration = CreateSetting(
-            _editorConfig.AutoAdjustSceneDurationProperty.GetObservable(),
-            b => _editorConfig.AutoAdjustSceneDuration = b);
+            _editorConfig.AutoAdjustSceneDuration.GetObservable(),
+            b => _editorConfig.AutoAdjustSceneDuration.Value = b);
 
         ShowExactBoundaries = CreateSetting(
-            _viewConfig.ShowExactBoundariesProperty.GetObservable(),
-            b => _viewConfig.ShowExactBoundaries = b);
+            _viewConfig.ShowExactBoundaries.GetObservable(),
+            b => _viewConfig.ShowExactBoundaries.Value = b);
 
         IsFrameCacheEnabled = CreateSetting(
-            _editorConfig.IsFrameCacheEnabledProperty.GetObservable(),
-            b => _editorConfig.IsFrameCacheEnabled = b);
+            _editorConfig.IsFrameCacheEnabled.GetObservable(),
+            b => _editorConfig.IsFrameCacheEnabled.Value = b);
 
         FrameCacheMaxSize = CreateSetting(
-            _editorConfig.FrameCacheMaxSizeProperty.GetObservable(),
-            b => _editorConfig.FrameCacheMaxSize = b);
+            _editorConfig.FrameCacheMaxSize.GetObservable(),
+            b => _editorConfig.FrameCacheMaxSize.Value = b);
 
         FrameCacheScale = CreateSetting(
-            _editorConfig.FrameCacheScaleProperty.GetObservable()
+            _editorConfig.FrameCacheScale.GetObservable()
                 .Select(v => (int)v),
-            b => _editorConfig.FrameCacheScale = (FrameCacheConfigScale)b);
+            b => _editorConfig.FrameCacheScale.Value = (FrameCacheConfigScale)b);
 
         FrameCacheColorType = CreateSetting(
-            _editorConfig.FrameCacheColorTypeProperty.GetObservable()
+            _editorConfig.FrameCacheColorType.GetObservable()
                 .Select(v => (int)v),
-            b => _editorConfig.FrameCacheColorType = (FrameCacheConfigColorType)b);
+            b => _editorConfig.FrameCacheColorType.Value = (FrameCacheConfigColorType)b);
 
         IsNodeCacheEnabled = CreateSetting(
-            _editorConfig.IsNodeCacheEnabledProperty.GetObservable(),
-            b => _editorConfig.IsNodeCacheEnabled = b);
+            _editorConfig.IsNodeCacheEnabled.GetObservable(),
+            b => _editorConfig.IsNodeCacheEnabled.Value = b);
 
         NodeCacheMaxPixels = CreateSetting(
-            _editorConfig.NodeCacheMaxPixelsProperty.GetObservable(),
-            b => _editorConfig.NodeCacheMaxPixels = b);
+            _editorConfig.NodeCacheMaxPixels.GetObservable(),
+            b => _editorConfig.NodeCacheMaxPixels.Value = b);
 
         NodeCacheMinPixels = CreateSetting(
-            _editorConfig.NodeCacheMinPixelsProperty.GetObservable(),
-            b => _editorConfig.NodeCacheMinPixels = b);
+            _editorConfig.NodeCacheMinPixels.GetObservable(),
+            b => _editorConfig.NodeCacheMinPixels.Value = b);
 
         EnablePointerLockInProperty = CreateSetting(
-            _editorConfig.EnablePointerLockInPropertyProperty.GetObservable(),
-            b => _editorConfig.EnablePointerLockInProperty = b);
+            _editorConfig.EnablePointerLockInProperty.GetObservable(),
+            b => _editorConfig.EnablePointerLockInProperty.Value = b);
 
         SwapTimelineScrollDirection = CreateSetting(
-            _editorConfig.SwapTimelineScrollDirectionProperty.GetObservable(),
-            b => _editorConfig.SwapTimelineScrollDirection = b);
+            _editorConfig.SwapTimelineScrollDirection.GetObservable(),
+            b => _editorConfig.SwapTimelineScrollDirection.Value = b);
 
         ClampResizeToOriginalLength = CreateSetting(
-            _editorConfig.ClampResizeToOriginalLengthProperty.GetObservable(),
-            b => _editorConfig.ClampResizeToOriginalLength = b);
+            _editorConfig.ClampResizeToOriginalLength.GetObservable(),
+            b => _editorConfig.ClampResizeToOriginalLength.Value = b);
 
         TimelineAutoScrollMode = CreateSetting(
-            _editorConfig.TimelineAutoScrollModeProperty.GetObservable()
+            _editorConfig.TimelineAutoScrollMode.GetObservable()
                 .Select(v => (int)v),
-            b => _editorConfig.TimelineAutoScrollMode = (TimelineAutoScrollMode)b);
+            b => _editorConfig.TimelineAutoScrollMode.Value = (TimelineAutoScrollMode)b);
 
         ToneMappingMode = CreateSetting(
-            _editorConfig.ToneMappingModeProperty.GetObservable()
+            _editorConfig.ToneMappingMode.GetObservable()
                 .Select(v => (int)v),
-            b => _editorConfig.ToneMappingMode = (UIToneMappingOperator)b);
+            b => _editorConfig.ToneMappingMode.Value = (UIToneMappingOperator)b);
 
         ToneMappingExposure = CreateSetting(
-            _editorConfig.ToneMappingExposureProperty.GetObservable()
+            _editorConfig.ToneMappingExposure.GetObservable()
                 .Select(v => (double)v),
-            b => _editorConfig.ToneMappingExposure = (float)b);
+            b => _editorConfig.ToneMappingExposure.Value = (float)b);
 
         UseHdrPreview = CreateSetting(
-            _editorConfig.UseHdrPreviewProperty.GetObservable(),
-            b => _editorConfig.UseHdrPreview = b);
+            _editorConfig.UseHdrPreview.GetObservable(),
+            b => _editorConfig.UseHdrPreview.Value = b);
 
         PreviewSourceMode = CreateSetting(
-            _editorConfig.PreviewSourceModeProperty.GetObservable()
+            _editorConfig.PreviewSourceMode.GetObservable()
                 .Select(v => (int)v),
             _editorConfig.SetPreviewSourceModeFromIndex);
 
-        ProxyStoreRootPath = new ReactiveProperty<string>(_proxyStoreConfig.StoreRootPath)
+        ProxyStoreRootPath = new ReactiveProperty<string>(_proxyStoreConfig.StoreRootPath.Value)
             .DisposeWith(_disposables);
-        _proxyStoreConfig.StoreRootPathProperty.GetObservable()
+        _proxyStoreConfig.StoreRootPath.GetObservable()
             .Subscribe(path =>
             {
                 string value = path ?? string.Empty;
@@ -114,21 +114,21 @@ public sealed class EditorSettingsPageViewModel : IDisposable
                 string normalized = string.IsNullOrWhiteSpace(path)
                     ? ProxyStoreConfig.DefaultStoreRootPath
                     : path;
-                if (_proxyStoreConfig.StoreRootPath != normalized)
+                if (_proxyStoreConfig.StoreRootPath.Value != normalized)
                 {
-                    _proxyStoreConfig.StoreRootPath = normalized;
+                    _proxyStoreConfig.StoreRootPath.Value = normalized;
                 }
             })
             .DisposeWith(_disposables);
 
-        ProxyStoreMaxTotalGiB = _proxyStoreConfig.MaxTotalBytesProperty.GetObservable()
+        ProxyStoreMaxTotalGiB = _proxyStoreConfig.MaxTotalBytes.GetObservable()
             .Select(static value => value / 1024d / 1024d / 1024d)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         ProxyStoreMaxTotalGiB.Subscribe(value =>
             {
                 long bytes = ProxyStoreConfig.ClampTotalBytesFromGiB(value);
-                _proxyStoreConfig.MaxTotalBytes = bytes;
+                _proxyStoreConfig.MaxTotalBytes.Value = bytes;
                 // If the clamp left the config unchanged (e.g. already at the cap), no change
                 // notification fires to drive the bound value back, so re-sync it here.
                 double clampedGiB = bytes / 1024d / 1024d / 1024d;
@@ -140,57 +140,57 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             .DisposeWith(_disposables);
 
         ProxyDefaultPreset = CreateSetting(
-            _proxyStoreConfig.DefaultPresetProperty.GetObservable()
+            _proxyStoreConfig.DefaultPreset.GetObservable()
                 .Select(static value => Enum.IsDefined(typeof(ProxyPreset), value)
                     ? (ProxyPreset)value
                     : ProxyPreset.Quarter),
-            preset => _proxyStoreConfig.DefaultPreset = (int)preset);
+            preset => _proxyStoreConfig.DefaultPreset.Value = (int)preset);
 
         EnableVersionControlForNewProjects = CreateSetting(
             _versionControlConfig
-                .EnableForNewProjectsProperty.GetObservable(),
-            value => _versionControlConfig.EnableForNewProjects = value);
+                .EnableForNewProjects.GetObservable(),
+            value => _versionControlConfig.EnableForNewProjects.Value = value);
 
         AutoCommitOnSave = CreateSetting(
             _versionControlConfig
-                .AutoCommitOnSaveProperty.GetObservable(),
-            value => _versionControlConfig.AutoCommitOnSave = value);
+                .AutoCommitOnSave.GetObservable(),
+            value => _versionControlConfig.AutoCommitOnSave.Value = value);
 
         AutoCommitOnClose = CreateSetting(
             _versionControlConfig
-                .AutoCommitOnCloseProperty.GetObservable(),
-            value => _versionControlConfig.AutoCommitOnClose = value);
+                .AutoCommitOnClose.GetObservable(),
+            value => _versionControlConfig.AutoCommitOnClose.Value = value);
 
         GitExecutablePath = _versionControlConfig
-            .GitExecutablePathProperty.GetObservable()
+            .GitExecutablePath.GetObservable()
             .Select(static value => value ?? string.Empty)
             .ToReactiveProperty(initialValue: string.Empty)
             .DisposeWith(_disposables);
         GitExecutablePath.Subscribe(value =>
             {
                 string? normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-                if (_versionControlConfig.GitExecutablePath != normalized)
+                if (_versionControlConfig.GitExecutablePath.Value != normalized)
                 {
-                    _versionControlConfig.GitExecutablePath = normalized;
+                    _versionControlConfig.GitExecutablePath.Value = normalized;
                 }
             })
             .DisposeWith(_disposables);
 
         UseLfsWhenAvailable = CreateSetting(
             _versionControlConfig
-                .UseLfsWhenAvailableProperty.GetObservable(),
-            value => _versionControlConfig.UseLfsWhenAvailable = value);
+                .UseLfsWhenAvailable.GetObservable(),
+            value => _versionControlConfig.UseLfsWhenAvailable.Value = value);
 
         LargeMediaWarningThresholdMb = _versionControlConfig
-            .LargeMediaWarningThresholdMbProperty.GetObservable()
+            .LargeMediaWarningThresholdMb.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         LargeMediaWarningThresholdMb.Subscribe(value =>
             {
                 int normalized = Math.Max(1, value);
-                if (_versionControlConfig.LargeMediaWarningThresholdMb != normalized)
+                if (_versionControlConfig.LargeMediaWarningThresholdMb.Value != normalized)
                 {
-                    _versionControlConfig.LargeMediaWarningThresholdMb = normalized;
+                    _versionControlConfig.LargeMediaWarningThresholdMb.Value = normalized;
                 }
 
                 if (LargeMediaWarningThresholdMb.Value != normalized)
@@ -222,7 +222,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         gpuItems.AddRange(availableGpus.Select(g => new GpuItem(g.Name, g.Name)));
         AvailableGpus = gpuItems;
 
-        string? savedGpuName = _graphicsConfig.SelectedGpuName;
+        string? savedGpuName = _graphicsConfig.SelectedGpuName.Value;
         int selectedIndex = 0;
         if (!string.IsNullOrEmpty(savedGpuName))
         {
@@ -238,7 +238,7 @@ public sealed class EditorSettingsPageViewModel : IDisposable
         {
             if (index >= 0 && index < AvailableGpus.Count)
             {
-                _graphicsConfig.SelectedGpuName = AvailableGpus[index].Name;
+                _graphicsConfig.SelectedGpuName.Value = AvailableGpus[index].Name;
             }
         }).DisposeWith(_disposables);
     }

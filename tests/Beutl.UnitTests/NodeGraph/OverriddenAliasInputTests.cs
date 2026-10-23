@@ -34,8 +34,8 @@ public class OverriddenAliasInputTests
         {
             var group = new GroupNode();
             graph.Nodes.Add(group);
-            if (rejectedFirst) acceptedGraph = group.Group;
-            else rejectedGraph = group.Group;
+            if (rejectedFirst) acceptedGraph = group.Group.Value;
+            else rejectedGraph = group.Group.Value;
         }
         var acceptedNode = new FactoryNode<OverridableBrushPair>();
         var rejectedNode = layout == "same" ? acceptedNode : new FactoryNode<OverridableBrushPair>();
@@ -50,8 +50,8 @@ public class OverriddenAliasInputTests
             acceptedGraph.Nodes.Add(acceptedNode);
             rejectedGraph.Nodes.Add(rejectedNode);
         }
-        IExpressionProperty<Brush?> acceptedParent = acceptedNode.Object.First;
-        IExpressionProperty<Brush?> rejectedParent = rejectedNode.Object.Second;
+        IExpressionProperty<Brush?> acceptedParent = acceptedNode.Object.Value.First;
+        IExpressionProperty<Brush?> rejectedParent = rejectedNode.Object.Value.Second;
         if (layout == "same" && rejectedFirst)
             (acceptedParent, rejectedParent) = (rejectedParent, acceptedParent);
         var shared = new SolidColorBrush(Colors.White, 35f);
@@ -70,7 +70,7 @@ public class OverriddenAliasInputTests
         else
         {
             var animation = new KeyFrameAnimation<Brush?>();
-            animation.KeyFrames.Add(new KeyFrame<Brush?> { Value = replacement });
+            animation.KeyFrames.Add(new KeyFrame<Brush?> { Value = { Value = replacement } });
             rejectedParent.SetKeyFrameAnimation(animation);
         }
         rejectedParent.Value = shared;
@@ -85,10 +85,10 @@ public class OverriddenAliasInputTests
             resource.Reconcile(shared, CompositionContext.Default, ref versionBumped);
             Assert.Multiple(() =>
             {
-                Assert.That(accepted.Status, Is.EqualTo(ConnectionStatus.Success));
-                Assert.That(rejected.Status, Is.EqualTo(ConnectionStatus.Error));
-                Assert.That(acceptedPort.Connection.Value, Is.SameAs(accepted));
-                Assert.That(rejectedPort.Connection.Value, Is.SameAs(rejected));
+                Assert.That(accepted.Status.Value, Is.EqualTo(ConnectionStatus.Success));
+                Assert.That(rejected.Status.Value, Is.EqualTo(ConnectionStatus.Error));
+                Assert.That(acceptedPort.Connection.Value.Value, Is.SameAs(accepted));
+                Assert.That(rejectedPort.Connection.Value.Value, Is.SameAs(rejected));
                 Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(12f));
                 Assert.That(resource.Opacity, Is.EqualTo(12f));
             });
@@ -97,8 +97,8 @@ public class OverriddenAliasInputTests
         CheckSingleWriter();
         Assert.That(history.History.Undo(), Is.True);
         Evaluate(graph);
-        Assert.That(accepted.Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(rejected.Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(accepted.Status.Value, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(rejected.Status.Value, Is.EqualTo(ConnectionStatus.Success));
         Assert.That(separate.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(90f));
         Assert.That(history.History.Redo(), Is.True);
         CheckSingleWriter();
@@ -109,8 +109,8 @@ public class OverriddenAliasInputTests
         Assert.That(acceptedNode.CanConnectInput(acceptedPort), Is.False);
         Assert.That(rejectedNode.CanConnectInput(rejectedPort), Is.False);
         Evaluate(graph);
-        Assert.That(accepted.Status, Is.EqualTo(ConnectionStatus.Error));
-        Assert.That(rejected.Status, Is.EqualTo(ConnectionStatus.Error));
+        Assert.That(accepted.Status.Value, Is.EqualTo(ConnectionStatus.Error));
+        Assert.That(rejected.Status.Value, Is.EqualTo(ConnectionStatus.Error));
         Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(35f));
         Assert.That(history.History.Undo(), Is.True);
         CheckSingleWriter();

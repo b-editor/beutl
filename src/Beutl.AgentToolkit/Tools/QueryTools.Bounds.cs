@@ -44,10 +44,10 @@ public sealed partial class QueryTools
         Element? selectedElement = ResolveSelectedElement(scene, elementGuid, elementId);
         Drawable? selectedDrawable = ResolveSelectedDrawable(scene, objectGuid, objectId);
 
-        Size canvasSize = new(scene.FrameSize.Width, scene.FrameSize.Height);
+        Size canvasSize = new(scene.FrameSize.Value.Width, scene.FrameSize.Value.Height);
         // timeSeconds is scene-relative like every other tool, but Element.Range and the engine's
         // composition clock live on the absolute timeline axis (renderers evaluate time + scene.Start).
-        MediaTime absoluteTime = time + scene.Start;
+        MediaTime absoluteTime = time + scene.Start.Value;
         // Auxiliary graph nodes (Measure / Preview) evaluate their own subtree during ToResource, before any
         // render request exists, and a bounds-unknown effect leaves them nothing finite to resolve against.
         // The frame is the domain the measurement itself composes into, so seed it the way SceneCompositor does.
@@ -82,10 +82,10 @@ public sealed partial class QueryTools
             SchemaVersion.Current,
             session.SessionId,
             session.Source.ToString(),
-            scene.Id.ToString(),
-            scene.FrameSize.Width,
-            scene.FrameSize.Height,
-            new ObjectBoundsPoint(scene.FrameSize.Width / 2d, scene.FrameSize.Height / 2d),
+            scene.Id.Value.ToString(),
+            scene.FrameSize.Value.Width,
+            scene.FrameSize.Value.Height,
+            new ObjectBoundsPoint(scene.FrameSize.Value.Width / 2d, scene.FrameSize.Value.Height / 2d),
             time.ToTimeSpan().ToString("c"),
             timeFiltered,
             "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space RenderNodeMeasurement.QueryBounds from contributing query fragments. LocalBounds are normalized from the query extents for size only and are not Drawable.MeasureCore results.",
@@ -100,7 +100,7 @@ public sealed partial class QueryTools
             return null;
         }
 
-        Element? selectedElement = scene.Children.FirstOrDefault(item => item.Id == elementGuidValue);
+        Element? selectedElement = scene.Children.FirstOrDefault(item => item.Id.Value == elementGuidValue);
         if (selectedElement is null)
         {
             throw new ReconcileException(new ToolError(
@@ -143,13 +143,13 @@ public sealed partial class QueryTools
     private static bool ShouldSkipElement(Element element, Element? selectedElement, bool timeFiltered, MediaTime absoluteTime)
     {
         return (selectedElement is not null && element != selectedElement)
-               || (timeFiltered && (!element.IsEnabled || !element.Range.Contains(absoluteTime)));
+               || (timeFiltered && (!element.IsEnabled.Value || !element.Range.Contains(absoluteTime)));
     }
 
     private static bool ShouldSkipDrawable(Drawable drawable, Drawable? selectedDrawable, bool timeFiltered)
     {
         return (selectedDrawable is not null && drawable != selectedDrawable)
-               || (timeFiltered && !drawable.IsEnabled);
+               || (timeFiltered && !drawable.IsEnabled.Value);
     }
 
     private static void ThrowIfSelectionUnmeasured(
@@ -256,15 +256,15 @@ public sealed partial class QueryTools
         }
 
         return new ObjectBoundsMeasurement(
-            element.Id.ToString(),
-            element.Name,
-            element.Start.ToTimeSpan().ToString("c"),
-            element.Length.ToTimeSpan().ToString("c"),
-            element.ZIndex,
-            drawable.Id.ToString(),
-            drawable.Name,
+            element.Id.Value.ToString(),
+            element.Name.Value,
+            element.Start.Value.ToTimeSpan().ToString("c"),
+            element.Length.Value.ToTimeSpan().ToString("c"),
+            element.ZIndex.Value,
+            drawable.Id.Value.ToString(),
+            drawable.Name.Value,
             drawable.GetType().FullName ?? drawable.GetType().Name,
-            drawable.IsEnabled,
+            drawable.IsEnabled.Value,
             alignmentX.ToString(),
             alignmentY.ToString(),
             "render-node-query-bounds",

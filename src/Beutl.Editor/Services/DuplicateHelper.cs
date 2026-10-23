@@ -44,13 +44,13 @@ public static class DuplicateHelper
 
         foreach (Element src in sourceElements)
         {
-            MediaTime newStart = src.Start - minStart + anchorStart;
-            int newZIndex = src.ZIndex - minZIndex + anchorZIndex;
-            var newRange = new TimeRange(newStart, src.Length);
+            MediaTime newStart = src.Start.Value - minStart + anchorStart;
+            int newZIndex = src.ZIndex.Value - minZIndex + anchorZIndex;
+            var newRange = new TimeRange(newStart, src.Length.Value);
 
             foreach (Element other in sourceElements)
             {
-                if (other.ZIndex == newZIndex && other.Range.Intersects(newRange))
+                if (other.ZIndex.Value == newZIndex && other.Range.Intersects(newRange))
                 {
                     return true;
                 }
@@ -80,11 +80,11 @@ public static class DuplicateHelper
         int maxZIndex = int.MinValue;
         foreach (Element e in elements)
         {
-            if (e.Start < minStart) minStart = e.Start;
+            if (e.Start.Value < minStart) minStart = e.Start.Value;
             MediaTime end = e.Range.End;
             if (end > maxEnd) maxEnd = end;
-            if (e.ZIndex < minZIndex) minZIndex = e.ZIndex;
-            if (e.ZIndex > maxZIndex) maxZIndex = e.ZIndex;
+            if (e.ZIndex.Value < minZIndex) minZIndex = e.ZIndex.Value;
+            if (e.ZIndex.Value > maxZIndex) maxZIndex = e.ZIndex.Value;
         }
 
         return (new TimeRange(minStart, maxEnd - minStart), minZIndex, maxZIndex);
@@ -96,8 +96,8 @@ public static class DuplicateHelper
         int minZIndex = int.MaxValue;
         foreach (Element e in elements)
         {
-            if (e.Start < minStart) minStart = e.Start;
-            if (e.ZIndex < minZIndex) minZIndex = e.ZIndex;
+            if (e.Start.Value < minStart) minStart = e.Start.Value;
+            if (e.ZIndex.Value < minZIndex) minZIndex = e.ZIndex.Value;
         }
 
         return (minStart, minZIndex);
@@ -142,15 +142,15 @@ public static class DuplicateHelper
 
         foreach (Element newElement in newElements)
         {
-            newElement.Start = newElement.Start - minStart + anchorStart;
-            newElement.ZIndex = newElement.ZIndex - minZIndex + anchorZIndex;
-            newElement.Uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id);
+            newElement.Start.Value = newElement.Start.Value - minStart + anchorStart;
+            newElement.ZIndex.Value = newElement.ZIndex.Value - minZIndex + anchorZIndex;
+            newElement.Uri = ElementFileNaming.GetUri(scene.Uri, newElement.Id.Value);
         }
 
         var idMapping = new Dictionary<Guid, Guid>(sourceElements.Length);
         for (int i = 0; i < sourceElements.Length; i++)
         {
-            idMapping[sourceElements[i].Id] = newElements[i].Id;
+            idMapping[sourceElements[i].Id.Value] = newElements[i].Id.Value;
         }
 
         List<ImmutableHashSet<Guid>> newGroups = scene.Groups

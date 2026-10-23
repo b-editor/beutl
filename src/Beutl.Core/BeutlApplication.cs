@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
@@ -34,17 +33,10 @@ public class BeutlApplication : Hierarchical, IHierarchicalRoot
     public BeutlApplication()
     {
         ScanProperties<BeutlApplication>();
-        ProjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Project)));
     }
 
     // The open project, which the property makes a child of the application.
-    public IProperty<Project?> ProjectProperty { get; } = new ValueOnlyProperty<Project?>(null);
-
-    public Project? Project
-    {
-        get => ProjectProperty.Value;
-        set => ProjectProperty.Value = value;
-    }
+    public IProperty<Project?> Project { get; } = new ValueOnlyProperty<Project?>(null);
 
     public event EventHandler<IHierarchical>? DescendantAttached;
 

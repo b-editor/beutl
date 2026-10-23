@@ -109,7 +109,7 @@ public partial class PlayerViewModel
                     Style = SKPaintStyle.Stroke,
                     StrokeWidth = strokeScale
                 };
-                bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries;
+                bool exactBounds = GlobalConfiguration.Instance.ViewConfig.ShowExactBoundaries.Value;
 
                 foreach (Rect item in boundary)
                 {
@@ -183,11 +183,11 @@ public partial class PlayerViewModel
         // Read the onion-skin settings here on the UI thread; reading them on the render thread
         // would race their UI-thread writes.
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        bool onionEnabled = editorConfig.IsOnionSkinEnabled;
-        int onionPrevCount = editorConfig.OnionSkinPrevCount;
-        int onionNextCount = editorConfig.OnionSkinNextCount;
-        float onionPrevOpacity = editorConfig.OnionSkinPrevOpacity;
-        float onionNextOpacity = editorConfig.OnionSkinNextOpacity;
+        bool onionEnabled = editorConfig.IsOnionSkinEnabled.Value;
+        int onionPrevCount = editorConfig.OnionSkinPrevCount.Value;
+        int onionNextCount = editorConfig.OnionSkinNextCount.Value;
+        float onionPrevOpacity = editorConfig.OnionSkinPrevOpacity.Value;
+        float onionNextOpacity = editorConfig.OnionSkinNextOpacity.Value;
 
         RenderThread.Dispatcher.Dispatch(
             () => RenderPreviewFrame(
@@ -239,7 +239,7 @@ public partial class PlayerViewModel
             if (useOnionSkin)
             {
                 onionSamples = OnionSkinHelper.EnumerateOnionSkinTimes(
-                    frame, Scene.Start, Scene.Duration, rate,
+                    frame, Scene.Start.Value, Scene.Duration.Value, rate,
                     effectivePrevCount, effectiveNextCount,
                     onionPrevOpacity, onionNextOpacity);
                 onionSampleCount = onionSamples.Count;

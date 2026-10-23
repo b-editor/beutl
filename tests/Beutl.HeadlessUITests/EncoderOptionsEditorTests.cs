@@ -33,9 +33,9 @@ public sealed class EncoderOptionsEditorTests
     {
         var settings = new FFmpegVideoEncoderSettings
         {
-            Codec = new CodecRecord("libx264", "H.264"),
+            Codec = { Value = new CodecRecord("libx264", "H.264") },
             OutputFile = UniqueOutputFile(".mp4"),
-            Options = [new("crf", "22")],
+            Options = { Value = [new("crf", "22")] },
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 51 }];
         var reply = new TaskCompletionSource<OptionsQueryResult<EncoderOptionInfo>>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -61,7 +61,7 @@ public sealed class EncoderOptionsEditorTests
                 input.SelectAll();
                 window.KeyTextInput(text);
             }
-            else settings.Options.Single().Value = text;
+            else settings.Options.Value.Single().Value.Value = text;
             Assert.That(model.GetValue("crf"), Is.EqualTo(edited ? "22" : text));
 
             reply.SetResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false));
@@ -69,8 +69,8 @@ public sealed class EncoderOptionsEditorTests
             await applied.Task.WaitAsync(TimeSpan.FromSeconds(5));
             HeadlessTestHelpers.Render(2);
 
-            Assert.That(settings.Options.Single().Name, Is.EqualTo(editName ? text : "crf"));
-            Assert.That(settings.Options.Single().Value, Is.EqualTo(editName ? "22" : text));
+            Assert.That(settings.Options.Value.Single().Name.Value, Is.EqualTo(editName ? text : "crf"));
+            Assert.That(settings.Options.Value.Single().Value.Value, Is.EqualTo(editName ? "22" : text));
             Assert.That(view.GetVisualDescendants().OfType<StringEditorBase>().Any(c => c.Text == text), Is.True);
         }
         finally
@@ -88,9 +88,9 @@ public sealed class EncoderOptionsEditorTests
     {
         var settings = new FFmpegVideoEncoderSettings
         {
-            Codec = new CodecRecord("libvpx-vp9", "VP9"),
+            Codec = { Value = new CodecRecord("libvpx-vp9", "VP9") },
             OutputFile = UniqueOutputFile(".webm"),
-            Options = [new("crf", "22")],
+            Options = { Value = [new("crf", "22")] },
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = minimum, Maximum = maximum }];
         await PrimeSchema(settings, schema);
@@ -134,10 +134,10 @@ public sealed class EncoderOptionsEditorTests
     {
         var settings = new FFmpegVideoEncoderSettings
         {
-            Codec = new CodecRecord("libx264", "H.264"),
+            Codec = { Value = new CodecRecord("libx264", "H.264") },
             OutputFile = UniqueOutputFile(".mp4"),
-            Format = FFPixelFormat.YUV420P,
-            Options = [new("crf", "22")],
+            Format = { Value = FFPixelFormat.YUV420P },
+            Options = { Value = [new("crf", "22")] },
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 51 }];
         foreach (int format in new[] { FFPixelFormat.YUV420P, FFPixelFormat.YUV420P10LE })
@@ -158,7 +158,7 @@ public sealed class EncoderOptionsEditorTests
             window.KeyTextInput(text);
             Assert.That(model.GetValue("crf"), Is.EqualTo("22"));
 
-            settings.Format = FFPixelFormat.YUV420P10LE;
+            settings.Format.Value = FFPixelFormat.YUV420P10LE;
             HeadlessTestHelpers.Render(2);
             Assert.That(model.GetValue("crf"), Is.EqualTo(text));
         }
@@ -170,9 +170,9 @@ public sealed class EncoderOptionsEditorTests
     {
         var settings = new FFmpegVideoEncoderSettings
         {
-            Codec = new CodecRecord("libx264", "H.264"),
+            Codec = { Value = new CodecRecord("libx264", "H.264") },
             OutputFile = UniqueOutputFile(".mp4"),
-            Options = [new("first", "one"), new("second", "two"), new("crf", "100")],
+            Options = { Value = [new("first", "one"), new("second", "two"), new("crf", "100")] },
         };
         EncoderOptionInfo[] schema = [new() { Name = "crf", Kind = EncoderOptionKind.Integer, Minimum = 0, Maximum = 63 }];
         await PrimeSchema(settings, schema);
@@ -197,7 +197,7 @@ public sealed class EncoderOptionsEditorTests
             Assert.That(valueWarning.IsEffectivelyVisible, Is.True);
             Assert.That(view.GetVisualDescendants().OfType<TextBlock>()
                 .Any(c => c.IsEffectivelyVisible && c.Text == Strings.EncoderOptionsDuplicate), Is.True);
-            Assert.DoesNotThrow(() => settings.Options.ToDictionary(o => o.Name, o => o.Value));
+            Assert.DoesNotThrow(() => settings.Options.Value.ToDictionary(o => o.Name.Value, o => o.Value.Value));
             Assert.That(model.GetValue("first"), Is.EqualTo("one"));
             Assert.That(model.GetValue("second"), Is.EqualTo("two"));
             Assert.That(model.GetValue("crf"), Is.EqualTo("100"));
@@ -222,9 +222,9 @@ public sealed class EncoderOptionsEditorTests
         System.Globalization.CultureInfo.CurrentUICulture = System.Globalization.CultureInfo.GetCultureInfo(culture);
         var settings = new FFmpegVideoEncoderSettings
         {
-            Codec = new CodecRecord("libx264", "H.264"),
+            Codec = { Value = new CodecRecord("libx264", "H.264") },
             OutputFile = UniqueOutputFile(".mp4"),
-            Options = [new(" ", "value")],
+            Options = { Value = [new(" ", "value")] },
         };
         await PrimeSchema(settings, []);
         using var model = CreateModel(settings);
@@ -248,9 +248,9 @@ public sealed class EncoderOptionsEditorTests
     {
         var settings = new FFmpegVideoEncoderSettings
         {
-            Codec = new CodecRecord("libvpx-vp9", "VP9"),
+            Codec = { Value = new CodecRecord("libvpx-vp9", "VP9") },
             OutputFile = UniqueOutputFile(".webm"),
-            Options = [new("deadline", "1000000"), new("cpu-used", "1")],
+            Options = { Value = [new("deadline", "1000000"), new("cpu-used", "1")] },
         };
         EncoderOptionInfo[] schema =
         [
@@ -287,12 +287,12 @@ public sealed class EncoderOptionsEditorTests
     {
         var settings = new FFmpegVideoEncoderSettings
         {
-            Codec = new CodecRecord("libx264", "H.264"),
+            Codec = { Value = new CodecRecord("libx264", "H.264") },
             OutputFile = UniqueOutputFile(".mp4"),
-            Format = FFPixelFormat.YUV420P,
+            Format = { Value = FFPixelFormat.YUV420P },
         };
-        settings.Options.Single(o => o.Name == "profile").Value = "main10";
-        settings.Options.Add(new AdditionalOption("x265-params", "repeat-headers=1"));
+        settings.Options.Value.Single(o => o.Name.Value == "profile").Value.Value = "main10";
+        settings.Options.Value.Add(new AdditionalOption("x265-params", "repeat-headers=1"));
         EncoderOptionInfo[] schema =
         [
             new() { Name = "preset", Kind = EncoderOptionKind.Choice, Choices = [new() { Value = "medium" }, new() { Value = "slow" }] },
@@ -301,7 +301,7 @@ public sealed class EncoderOptionsEditorTests
         ];
         await PrimeSchema(settings, schema);
         var extension = new FFmpegEncoderSpecializedPropertyExtension();
-        var adapter = new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.OptionsProperty, settings);
+        var adapter = new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.Options, settings);
         IPropertyEditorContext? context = PropertyEditorResolver.CreateContext(adapter, [extension], PropertyEditorSurface.Panel);
         using var model = (EncoderOptionsEditorViewModel)context!;
         Assert.That(PropertyEditorHost.TryCreateControl(model, PropertyEditorSurface.Panel, out var control), Is.True);
@@ -319,23 +319,23 @@ public sealed class EncoderOptionsEditorTests
             HeadlessTestHelpers.Render(3);
             var profile = view.GetVisualDescendants().OfType<EnumEditor>().Single(c => c.Name == "EncoderOption_profile");
             var quality = view.GetVisualDescendants().OfType<NumberEditor<decimal>>().Single(c => c.Name == "EncoderOption_crf");
-            Assert.That(settings.Options.Single(o => o.Name == "profile").Value, Is.EqualTo("main10"));
+            Assert.That(settings.Options.Value.Single(o => o.Name.Value == "profile").Value.Value, Is.EqualTo("main10"));
             Assert.That(profile.Items![profile.SelectedIndex].Value, Is.EqualTo("main10"));
             profile.SelectedIndex = 1;
             quality.Value = 18.5m;
             quality.RaiseEvent(new PropertyEditorValueChangedEventArgs<decimal>(18.5m, 22m, PropertyEditor.ValueConfirmedEvent));
-            Assert.That(settings.Options.Single(o => o.Name == "profile").Value, Is.EqualTo("high"));
-            Assert.That(settings.Options.Single(o => o.Name == "crf").Value, Is.EqualTo("18.5"));
-            Assert.That(settings.Options.Single(o => o.Name == "x265-params").Value, Is.EqualTo("repeat-headers=1"));
+            Assert.That(settings.Options.Value.Single(o => o.Name.Value == "profile").Value.Value, Is.EqualTo("high"));
+            Assert.That(settings.Options.Value.Single(o => o.Name.Value == "crf").Value.Value, Is.EqualTo("18.5"));
+            Assert.That(settings.Options.Value.Single(o => o.Name.Value == "x265-params").Value.Value, Is.EqualTo("repeat-headers=1"));
             HeadlessTestHelpers.Render(2);
             foreach (Control input in view.GetVisualDescendants().OfType<Control>().Where(c => c.IsEffectivelyVisible && c is ComboBox or TextBox or AutoCompleteBox))
                 Assert.That(input.Bounds.Width, Is.GreaterThan(80), input.Name);
 
-            settings.Options.Single(o => o.Name == "crf").Value = "999";
+            settings.Options.Value.Single(o => o.Name.Value == "crf").Value.Value = "999";
             HeadlessTestHelpers.Render(2);
             var invalidQuality = view.GetVisualDescendants().OfType<AutoCompleteStringEditor>().Single(c => c.Name == "EncoderOption_crf");
             Assert.That(invalidQuality.Text, Is.EqualTo("999"));
-            Assert.That(settings.Options.Single(o => o.Name == "crf").Value, Is.EqualTo("999"));
+            Assert.That(settings.Options.Value.Single(o => o.Name.Value == "crf").Value.Value, Is.EqualTo("999"));
             model.SetValue("crf", "18.5");
             HeadlessTestHelpers.Render(2);
             Assert.That(view.GetVisualDescendants().OfType<PropertyEditor>().Where(e => e.IsEffectivelyVisible)
@@ -359,7 +359,7 @@ public sealed class EncoderOptionsEditorTests
     }
 
     private static string CacheKey(FFmpegVideoEncoderSettings settings, int? format = null)
-        => EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec, settings.OutputFile), format ?? settings.Format);
+        => EncoderOptionsEditorViewModel.BuildCacheKey(CodecOptionQuery.Create(settings.Codec.Value, settings.OutputFile), format ?? settings.Format.Value);
 
     // Caches the schema as the options the worker reports for the settings' codec and format.
     private static async Task PrimeSchema(FFmpegVideoEncoderSettings settings, EncoderOptionInfo[] schema, int? format = null)
@@ -367,7 +367,7 @@ public sealed class EncoderOptionsEditorTests
             CacheKey(settings, format), () => Task.FromResult(new OptionsQueryResult<EncoderOptionInfo>(schema, false)));
 
     private static EncoderOptionsEditorViewModel CreateModel(FFmpegVideoEncoderSettings settings)
-        => new(new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.OptionsProperty, settings),
+        => new(new EnginePropertyAdapter<CoreList<AdditionalOption>>(settings.Options, settings),
             new FFmpegEncoderSpecializedPropertyExtension());
 
     private static ToggleButton ShowAdvanced(Control view)

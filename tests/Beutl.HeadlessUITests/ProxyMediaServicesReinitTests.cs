@@ -12,12 +12,12 @@ namespace Beutl.HeadlessUITests;
 [NonParallelizable] // drives the ProxyMediaServices.Current singleton + GlobalConfiguration.Instance
 public sealed class ProxyMediaServicesReinitTests
 {
-    private static (string Root, long Cap) Snapshot(ProxyStoreConfig config) => (config.StoreRootPath, config.MaxTotalBytes);
+    private static (string Root, long Cap) Snapshot(ProxyStoreConfig config) => (config.StoreRootPath.Value, config.MaxTotalBytes.Value);
 
     private static void Restore(ProxyStoreConfig config, (string Root, long Cap) prior)
     {
-        config.StoreRootPath = prior.Root;
-        config.MaxTotalBytes = prior.Cap;
+        config.StoreRootPath.Value = prior.Root;
+        config.MaxTotalBytes.Value = prior.Cap;
     }
 
     [AvaloniaTest]
@@ -28,7 +28,7 @@ public sealed class ProxyMediaServicesReinitTests
         IProxyStore facade = services.StoreFacade;
         Assert.That(facade.StoreRootPath, Is.EqualTo(Path.GetFullPath(fixture.First)));
 
-        fixture.Config.StoreRootPath = fixture.Second;
+        fixture.Config.StoreRootPath.Value = fixture.Second;
 
         Assert.Multiple(() =>
         {
@@ -50,7 +50,7 @@ public sealed class ProxyMediaServicesReinitTests
         ProxyStore storeBefore = services.Store;
         ProxyJobQueue queueBefore = services.Queue;
 
-        fixture.Config.MaxTotalBytes = 16L * 1024 * 1024 * 1024;
+        fixture.Config.MaxTotalBytes.Value = 16L * 1024 * 1024 * 1024;
 
         Assert.Multiple(() =>
         {
@@ -73,7 +73,7 @@ public sealed class ProxyMediaServicesReinitTests
         string sourceKey = Path.Combine(fixture.First, "clip.mov");
         long versionBefore = services.ResolverFacade.GetSourceVersion(sourceKey);
 
-        fixture.Config.StoreRootPath = fixture.Second;
+        fixture.Config.StoreRootPath.Value = fixture.Second;
 
         long versionAfter = services.ResolverFacade.GetSourceVersion(sourceKey);
         Assert.That(versionAfter, Is.GreaterThan(versionBefore));
@@ -88,7 +88,7 @@ public sealed class ProxyMediaServicesReinitTests
         void Handler(object? sender, ProxyStoreChangedEventArgs e) => changedCount++;
         fixture.OnStoreChanged(Handler);
 
-        fixture.Config.StoreRootPath = fixture.Second;
+        fixture.Config.StoreRootPath.Value = fixture.Second;
 
         // A subscriber bound to the facade before the rebuild must receive events from the new store.
         var fingerprint = new ProxyFingerprint(Path.Combine(fixture.Second, "source.mov"), 1, DateTime.UtcNow);
@@ -114,7 +114,7 @@ public sealed class ProxyMediaServicesReinitTests
 
         // The new store loads its index in the constructor (no Registered events), so a swap must
         // raise a Reset for open Proxies tabs / badges to refresh to the new store's state.
-        fixture.Config.StoreRootPath = fixture.Second;
+        fixture.Config.StoreRootPath.Value = fixture.Second;
 
         Assert.That(resetCount, Is.EqualTo(1));
     }
@@ -134,7 +134,7 @@ public sealed class ProxyMediaServicesReinitTests
 
         // Same directory, different case: on Windows/macOS this is the same filesystem location, so
         // the store/queue must not be torn down (which would cancel in-flight jobs).
-        fixture.Config.StoreRootPath = fixture.First.ToUpperInvariant();
+        fixture.Config.StoreRootPath.Value = fixture.First.ToUpperInvariant();
 
         Assert.Multiple(() =>
         {
@@ -162,7 +162,7 @@ public sealed class ProxyMediaServicesReinitTests
 
         fixture.OnStoreChanged(Handler);
 
-        fixture.Config.StoreRootPath = fixture.Second;
+        fixture.Config.StoreRootPath.Value = fixture.Second;
 
         Assert.That(versionAtReset, Is.GreaterThan(versionBefore));
     }
@@ -179,7 +179,7 @@ public sealed class ProxyMediaServicesReinitTests
         File.WriteAllBytes(badFile, [1]);
         ProxyStore storeBefore = services.Store;
 
-        Assert.DoesNotThrow(() => fixture.Config.StoreRootPath = badFile);
+        Assert.DoesNotThrow(() => fixture.Config.StoreRootPath.Value = badFile);
 
         Assert.Multiple(() =>
         {
@@ -187,7 +187,7 @@ public sealed class ProxyMediaServicesReinitTests
             Assert.That(services.Store.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
             Assert.That(services.StoreFacade.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
             // The rejected path must be reverted so GlobalConfiguration's auto-save does not persist it.
-            Assert.That(fixture.Config.StoreRootPath, Is.EqualTo(Path.GetFullPath(good)));
+            Assert.That(fixture.Config.StoreRootPath.Value, Is.EqualTo(Path.GetFullPath(good)));
         });
     }
 
@@ -200,7 +200,7 @@ public sealed class ProxyMediaServicesReinitTests
         // proxy services (on the default location) rather than leaving Current null until another restart.
         string badFile = Path.Combine(Path.GetTempPath(), $"proxy-init-file-{Guid.NewGuid():N}");
         File.WriteAllBytes(badFile, [1]);
-        config.StoreRootPath = badFile;
+        config.StoreRootPath.Value = badFile;
 
         ProxyMediaServices services = null!;
         try
@@ -212,7 +212,7 @@ public sealed class ProxyMediaServicesReinitTests
             {
                 Assert.That(ProxyMediaServices.Current, Is.Not.Null);
                 Assert.That(services.Store.StoreRootPath, Is.EqualTo(defaultRoot));
-                Assert.That(config.StoreRootPath, Is.EqualTo(defaultRoot), "the bad persisted path must be repaired to the default");
+                Assert.That(config.StoreRootPath.Value, Is.EqualTo(defaultRoot), "the bad persisted path must be repaired to the default");
             });
         }
         finally
@@ -234,7 +234,7 @@ public sealed class ProxyMediaServicesReinitTests
         fixture.OnStoreChanged(Throwing);
 
         // A throwing Reset subscriber must not abort the swap.
-        fixture.Config.StoreRootPath = fixture.Second;
+        fixture.Config.StoreRootPath.Value = fixture.Second;
 
         Assert.Multiple(() =>
         {
@@ -253,9 +253,9 @@ public sealed class ProxyMediaServicesReinitTests
         private ProxyServicesFixture(long? maxTotalBytes)
         {
             _prior = Snapshot(Config);
-            Config.StoreRootPath = First;
+            Config.StoreRootPath.Value = First;
             if (maxTotalBytes is { } cap)
-                Config.MaxTotalBytes = cap;
+                Config.MaxTotalBytes.Value = cap;
 
             Services = ProxyMediaServices.Initialize(GlobalConfiguration.Instance);
         }

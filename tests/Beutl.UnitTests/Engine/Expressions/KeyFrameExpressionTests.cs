@@ -25,7 +25,7 @@ public class KeyFrameExpressionTests
     [TestCase(true, new[] { 0.25, 0.5, 5.5 }, new[] { 25f, 50, 100 })]
     public void KeyFrames_GiveTheAnimatedValueAtEachTime(bool useGlobalClock, double[] seconds, float[] expected)
     {
-        var owner = new AnimationSamplerTestRoot { TimeRange = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2)) };
+        var owner = new AnimationSamplerTestRoot { TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2)) } };
         var property = Make();
         property.SetOwnerObject(owner);
         var keyFrames = TestAnimations.Linear(0f, 100f, MediaTime.FromSeconds(1), useGlobalClock);

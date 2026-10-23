@@ -108,7 +108,7 @@ public class PropertyHoverInfoTests
             .Returns(new Mock<IPropertyEditorFactory>().Object);
         using var graphModel = new NodeGraphViewModel(graph, services.Object);
         InputPortViewModel opacity = graphModel.Nodes.Single().Items.OfType<InputPortViewModel>()
-            .Single(item => item.Model?.Name == nameof(Drawable.Opacity));
+            .Single(item => item.Model?.Name.Value == nameof(Drawable.Opacity));
         var row = new NodePortView { DataContext = opacity };
         var window = new Window { Content = row, Width = 300, Height = 90 };
         try

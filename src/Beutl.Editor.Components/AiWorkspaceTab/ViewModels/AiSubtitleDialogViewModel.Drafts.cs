@@ -386,7 +386,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 RestoreTranslationResume(draft, translation, draftScopeRevision);
 
             if (draft.SceneTranscriptionResume is { } scene
-                && scene.SceneId == _editor?.Scene.Id)
+                && scene.SceneId == _editor?.Scene.Id.Value)
             {
                 RestoreSceneResume(scene, draftScopeRevision);
             }

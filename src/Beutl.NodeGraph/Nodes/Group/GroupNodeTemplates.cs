@@ -78,7 +78,7 @@ public sealed class GroupNodeTemplates(string directory)
     public static void RenewRequestKeys(GroupNode group)
     {
         ArgumentNullException.ThrowIfNull(group);
-        foreach (GenerativeNode node in group.Group.EnumerateGraphs().SelectMany(graph => graph.Nodes).OfType<GenerativeNode>())
+        foreach (GenerativeNode node in group.Group.Value.EnumerateGraphs().SelectMany(graph => graph.Nodes).OfType<GenerativeNode>())
             node.RenewRequestKey();
     }
 

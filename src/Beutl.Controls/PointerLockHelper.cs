@@ -16,7 +16,7 @@ internal class PointerLockHelper
     public static void Pressed(Visual visual, Point dragStart)
     {
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        if (!editorConfig.EnablePointerLockInProperty)
+        if (!editorConfig.EnablePointerLockInProperty.Value)
             return;
 
         if (OperatingSystem.IsWindows())
@@ -37,7 +37,7 @@ internal class PointerLockHelper
     public static void Released()
     {
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        if (!editorConfig.EnablePointerLockInProperty)
+        if (!editorConfig.EnablePointerLockInProperty.Value)
             return;
 
         if (OperatingSystem.IsWindows())
@@ -59,7 +59,7 @@ internal class PointerLockHelper
     public static Point Moved(Visual visual, Point point, ref Point dragStart)
     {
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        if (editorConfig.EnablePointerLockInProperty)
+        if (editorConfig.EnablePointerLockInProperty.Value)
         {
             if (OperatingSystem.IsWindows())
             {

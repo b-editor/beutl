@@ -15,8 +15,8 @@ public class SceneMoveChildrenTests
 
         scene.MoveChildren(0, MediaTime.FromSeconds(1), [element]);
 
-        Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-        Assert.That(element.ZIndex, Is.EqualTo(0));
+        Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+        Assert.That(element.ZIndex.Value, Is.EqualTo(0));
     }
 
     [Test]
@@ -38,8 +38,8 @@ public class SceneMoveChildrenTests
 
         scene.MoveChildren(+2, MediaTime.Zero, [element]);
 
-        Assert.That(element.ZIndex, Is.EqualTo(3));
-        Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(element.ZIndex.Value, Is.EqualTo(3));
+        Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
@@ -54,8 +54,8 @@ public class SceneMoveChildrenTests
         // 時間方向の自動補正は効かないので no-op になる契約。
         scene.MoveChildren(+1, MediaTime.Zero, [movable]);
 
-        Assert.That(movable.ZIndex, Is.EqualTo(0));
-        Assert.That(movable.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(movable.ZIndex.Value, Is.EqualTo(0));
+        Assert.That(movable.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
@@ -68,7 +68,7 @@ public class SceneMoveChildrenTests
 
         scene.MoveChildren(0, MediaTime.FromSeconds(1), [a, b]);
 
-        Assert.That(a.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-        Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+        Assert.That(a.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+        Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
     }
 }

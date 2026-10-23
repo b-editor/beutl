@@ -94,7 +94,7 @@ public class SourceVideoThumbnailStripGateTests
     // A strip without a source ends right after taking its slot, exercising the same release path as a
     // consumer that stops early (both leave through the iterator's finally block).
     private static SourceVideo CreateDrawable()
-        => new() { TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) };
+        => new() { TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) } };
 
     private static async Task<int> ConsumeStripAsync(SourceVideo drawable, CancellationToken cancellationToken)
     {

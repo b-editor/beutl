@@ -8,21 +8,14 @@ namespace Beutl.NodeGraph;
 [SuppressResourceClassGeneration]
 public partial class GraphModel : EngineObject
 {
-    private readonly HierarchicalList<GraphNode> _nodes;
-    private readonly HierarchicalList<Connection> _allConnections;
     private Dictionary<IProperty, (IInputPort Port, int Count)>? _connectedInputProperties;
 
     public event EventHandler? TopologyChanged;
 
     public GraphModel()
     {
-        _nodes = new HierarchicalList<GraphNode>(this);
-        _allConnections = new HierarchicalList<Connection>(this);
-        // The lists are values rather than defaults, as their CoreProperty forms had no default.
-        NodesProperty.Value = _nodes;
-        AllConnectionsProperty.Value = _allConnections;
         ScanProperties<GraphModel>();
-        HideProperties(NodesProperty, AllConnectionsProperty);
+        HideProperties(Nodes, AllConnections);
         Nodes.Attached += OnNodeAttached;
         Nodes.Detached += OnNodeDetached;
         AllConnections.Attached += OnConnectionAttached;
@@ -56,7 +49,7 @@ public partial class GraphModel : EngineObject
         obj.TopologyChanged -= OnTopologyChanged;
         obj.Edited -= OnNodeEdited;
         RaiseTopologyChanged();
-        if (obj is GroupNode group) group.Group.RaiseTopologyChanged();
+        if (obj is GroupNode group) group.Group.Value.RaiseTopologyChanged();
         RaiseEdited();
     }
 
@@ -68,27 +61,15 @@ public partial class GraphModel : EngineObject
         RaiseEdited();
     }
 
-    public IProperty<HierarchicalList<GraphNode>> NodesProperty { get; } = new ValueOnlyProperty<HierarchicalList<GraphNode>>(null!) { AffectsRender = false, KeepsList = true };
+    public IListProperty<GraphNode> Nodes { get; } = new ListProperty<GraphNode> { AffectsRender = false };
 
-    public IProperty<HierarchicalList<Connection>> AllConnectionsProperty { get; } = new ValueOnlyProperty<HierarchicalList<Connection>>(null!) { AffectsRender = false, KeepsList = true };
-
-    public HierarchicalList<GraphNode> Nodes
-    {
-        get => _nodes;
-        set => _nodes.Replace(value);
-    }
-
-    public HierarchicalList<Connection> AllConnections
-    {
-        get => _allConnections;
-        set => _allConnections.Replace(value);
-    }
+    public IListProperty<Connection> AllConnections { get; } = new ListProperty<Connection> { AffectsRender = false };
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         // The lists keep their instances, as the CoreProperty accessors did, and are read first, where those were.
-        KeptListReader.ReadInto<HierarchicalList<GraphNode>, GraphNode>(context, NodesProperty.Name, _nodes);
-        KeptListReader.ReadInto<HierarchicalList<Connection>, Connection>(context, AllConnectionsProperty.Name, _allConnections);
+        KeptListReader.ReadInto<CoreList<GraphNode>, GraphNode>(context, Nodes.Name, Nodes);
+        KeptListReader.ReadInto<CoreList<Connection>, Connection>(context, AllConnections.Name, AllConnections);
         base.Deserialize(context);
     }
 
@@ -140,7 +121,7 @@ public partial class GraphModel : EngineObject
             yield return graph;
             for (int i = graph.Nodes.Count - 1; i >= 0; i--)
             {
-                if (graph.Nodes[i] is GroupNode group) pending.Push(group.Group);
+                if (graph.Nodes[i] is GroupNode group) pending.Push(group.Group.Value);
             }
         }
     }
@@ -178,7 +159,7 @@ public partial class GraphModel : EngineObject
             foreach (INodeMember item in node.EnumerateMembers())
             {
                 if (item is INodePort port
-                    && port.Id == id)
+                    && port.Id.Value == id)
                 {
                     return port;
                 }

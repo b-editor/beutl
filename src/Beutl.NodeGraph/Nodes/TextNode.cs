@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -14,46 +13,39 @@ public partial class TextNode : GraphNode
     public TextNode()
     {
         ScanProperties<TextNode>();
-        HideProperty(ObjectProperty);
-        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
+        HideProperty(Object);
         Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
-        Object = new TextBlock();
-        Object.AlignmentX.Value = AlignmentX.Left;
-        Object.AlignmentY.Value = AlignmentY.Top;
-        AddInput(Object, Object.FontWeight);
-        AddInput(Object, Object.FontStyle);
-        AddInput(Object, Object.FontFamily);
-        AddInput(Object, Object.Size);
-        AddInput(Object, Object.Spacing);
-        AddInput(Object, Object.Text);
-        AddInput(Object, Object.Fill);
-        AddInput(Object, Object.Pen);
-        AddInput(Object, Object.SplitByCharacters);
-        AddInput(Object, Object.TextAlignment);
+        Object.Value = new TextBlock();
+        Object.Value.AlignmentX.Value = AlignmentX.Left;
+        Object.Value.AlignmentY.Value = AlignmentY.Top;
+        AddInput(Object.Value, Object.Value.FontWeight);
+        AddInput(Object.Value, Object.Value.FontStyle);
+        AddInput(Object.Value, Object.Value.FontFamily);
+        AddInput(Object.Value, Object.Value.Size);
+        AddInput(Object.Value, Object.Value.Spacing);
+        AddInput(Object.Value, Object.Value.Text);
+        AddInput(Object.Value, Object.Value.Fill);
+        AddInput(Object.Value, Object.Value.Pen);
+        AddInput(Object.Value, Object.Value.SplitByCharacters);
+        AddInput(Object.Value, Object.Value.TextAlignment);
     }
 
     public OutputPort<DrawableRenderNode?> Output { get; }
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<TextBlock> ObjectProperty { get; } = new ValueOnlyProperty<TextBlock>(null!) { AffectsRender = false };
-
-    public TextBlock Object
-    {
-        get => ObjectProperty.Value;
-        set => ObjectProperty.Value = value;
-    }
+    public IProperty<TextBlock> Object { get; } = new ValueOnlyProperty<TextBlock>(null!) { AffectsRender = false };
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue("Object", Object);
+        context.SetValue("Object", Object.Value);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        context.Populate("Object", Object);
+        context.Populate("Object", Object.Value);
     }
 
     public partial class Resource
@@ -64,12 +56,12 @@ public partial class TextNode : GraphNode
             var output = Output;
             if (output?.Drawable?.Resource is not TextBlock.Resource resource)
             {
-                resource = node.Object.ToResource(context);
+                resource = node.Object.Value.ToResource(context);
             }
             else
             {
                 bool versionBumped = false;
-                resource.Reconcile(node.Object, context, ref versionBumped);
+                resource.Reconcile(node.Object.Value, context, ref versionBumped);
             }
 
             if (output == null || output.IsDisposed)
@@ -81,10 +73,10 @@ public partial class TextNode : GraphNode
                 output.Update(resource);
             }
 
-            Size size = node.Object.MeasureInternal(Size.Infinity, resource);
+            Size size = node.Object.Value.MeasureInternal(Size.Infinity, resource);
             using (var gc2d = new GraphicsContext2D(output, size))
             {
-                node.Object.Render(gc2d, resource);
+                node.Object.Value.Render(gc2d, resource);
             }
 
             Output = output;

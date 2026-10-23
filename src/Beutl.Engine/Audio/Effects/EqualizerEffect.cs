@@ -98,7 +98,7 @@ public sealed partial class EqualizerEffect : AudioEffect
     {
         // Skip bands that are mathematically identity so the default flat preset — every band
         // Peak at 0 dB — does not force audio through N identity biquads per channel.
-        var activeBands = Bands.Where(band => band.IsEnabled && !IsNeutral(band)).ToList();
+        var activeBands = Bands.Where(band => band.IsEnabled.Value && !IsNeutral(band)).ToList();
 
         if (activeBands.Count == 0)
         {

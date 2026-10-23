@@ -31,7 +31,7 @@ public partial class MissingMediaTests
         editor.CaptureMediaFingerprints = (_, _) => { captures++; return Task.CompletedTask; };
         try
         {
-            element.Name = "Renamed clip"; element.Start = MediaTime.FromSeconds(2);
+            element.Name.Value = "Renamed clip"; element.Start.Value = MediaTime.FromSeconds(2);
             editor.HistoryManager.Commit();
             await editor.WaitForMediaFingerprintsAsync(); await editor.WaitForMissingMediaAsync();
             Assert.That(captures, Is.Zero);
@@ -211,7 +211,7 @@ public partial class MissingMediaTests
             string directory = NewDirectory(); var first = AddImage(editor.Scene, Path.Combine(directory, "first.png"));
             editor.HistoryManager.Commit(); await editor.WaitForMissingMediaAsync();
             handler.Notifications.Single().OnClose!();
-            first.Name = "Offline clip"; editor.HistoryManager.Commit(); await editor.WaitForMissingMediaAsync();
+            first.Name.Value = "Offline clip"; editor.HistoryManager.Commit(); await editor.WaitForMissingMediaAsync();
             var second = AddImage(editor.Scene, Path.Combine(directory, "second.png"));
             editor.HistoryManager.Commit(); await editor.WaitForMissingMediaAsync();
             Assert.That(handler.Notifications, Has.Count.EqualTo(1));

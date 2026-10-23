@@ -11,7 +11,7 @@ public interface IKeyFrame : ICoreObject, INotifyEdited, IHierarchical
 {
     event EventHandler? KeyTimeChanged;
 
-    MediaTime KeyTime { get; set; }
+    IProperty<MediaTime> KeyTime { get; }
 
     object? Value { get; set; }
 
@@ -21,5 +21,5 @@ public interface IKeyFrame : ICoreObject, INotifyEdited, IHierarchical
     /// </summary>
     void ReplaceValue(object? value);
 
-    Easing Easing { get; set; }
+    IProperty<Easing> Easing { get; }
 }

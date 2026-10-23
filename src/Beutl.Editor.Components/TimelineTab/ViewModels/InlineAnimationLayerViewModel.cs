@@ -110,7 +110,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
                     .Subscribe(_ => UpdateWidth()).DisposeWith(_innerDisposables);
             }
 
-            t.NewValue.ObserveUseGlobalClock()
+            t.NewValue.UseGlobalClock.GetObservable()
                 .Subscribe(v => _useGlobalClock.Value = v)
                 .DisposeWith(_innerDisposables);
 
@@ -303,7 +303,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             Index.Value = layerHeader.Inlines.IndexOf(this);
             double top = layerHeader.CalculateInlineTop(Index.Value) + FrameNumberHelper.LayerHeight;
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
-            Thickness newLeftMargin = Property.Animation?.UseGlobalClock == true ? default : leftMargin;
+            Thickness newLeftMargin = Property.Animation?.UseGlobalClock.Value == true ? default : leftMargin;
 
             Margin.Value = context.Margin;
             LeftMargin.Value = context.LeftMargin;

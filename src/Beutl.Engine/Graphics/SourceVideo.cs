@@ -176,19 +176,19 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
             var anm = obj.Speed.GetKeyFrameAnimation();
             if (anm is KeyFrameAnimation<float> keyFrameAnimation)
             {
-                if (keyFrameAnimation.UseGlobalClock)
+                if (keyFrameAnimation.UseGlobalClock.Value)
                 {
                     RequestedPosition = obj.CalculateVideoTime(time, this)
-                                      - obj.CalculateVideoTime(obj.TimeRange.Start, this);
+                                      - obj.CalculateVideoTime(obj.TimeRange.Value.Start, this);
                 }
                 else
                 {
-                    RequestedPosition = obj.CalculateVideoTime(time - obj.TimeRange.Start, this);
+                    RequestedPosition = obj.CalculateVideoTime(time - obj.TimeRange.Value.Start, this);
                 }
             }
             else
             {
-                RequestedPosition = new MediaTime((long)Math.Round((time - obj.TimeRange.Start).Flicks * (double)(_speed / 100)));
+                RequestedPosition = new MediaTime((long)Math.Round((time - obj.TimeRange.Value.Start).Flicks * (double)(_speed / 100)));
             }
 
             if (IsLoop && Source?.IsDisposed == false && Source.Duration > MediaTime.Zero)

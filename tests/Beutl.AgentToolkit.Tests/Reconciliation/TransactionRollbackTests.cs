@@ -25,7 +25,7 @@ public sealed class TransactionRollbackTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(root.First, Is.Zero);
+            Assert.That(root.First.Value, Is.Zero);
         });
     }
 
@@ -34,27 +34,15 @@ public sealed class TransactionRollbackTests
         public ThrowingCoreObject()
         {
             ScanProperties<ThrowingCoreObject>();
-            ThrowingProperty.ValueChanged += (_, e) =>
+            Throwing.ValueChanged += (_, e) =>
             {
                 if (e.NewValue != 0)
                     throw new InvalidOperationException("Injected patch failure.");
             };
         }
 
-        public IProperty<int> FirstProperty { get; } = new ValueOnlyProperty<int>(0);
+        public IProperty<int> First { get; } = new ValueOnlyProperty<int>(0);
 
-        public IProperty<int> ThrowingProperty { get; } = new ValueOnlyProperty<int>(0);
-
-        public int First
-        {
-            get => FirstProperty.Value;
-            set => FirstProperty.Value = value;
-        }
-
-        public int Throwing
-        {
-            get => ThrowingProperty.Value;
-            set => ThrowingProperty.Value = value;
-        }
+        public IProperty<int> Throwing { get; } = new ValueOnlyProperty<int>(0);
     }
 }

@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
 using Beutl.Engine;
@@ -33,7 +32,6 @@ public enum GenerativeNodeStatus
 /// </summary>
 public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
 {
-    private readonly HierarchicalList<GenerationRecord> _generations;
     private ActiveSnapshot? _active;
     private volatile string? _currentParameterFingerprint;
     private readonly object _previewLock = new();
@@ -44,47 +42,23 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
 
     protected GenerativeNode()
     {
-        _generations = new HierarchicalList<GenerationRecord>(this);
-        GenerationsProperty.Value = _generations;
         ScanProperties<GenerativeNode>();
-        HideProperties(GenerationsProperty, ActiveGenerationIdProperty, RequestKeySeedProperty);
-        ActiveGenerationIdProperty.ValueChanged += (_, _) =>
-        {
-            OnPropertyChanged(new PropertyChangedEventArgs(nameof(ActiveGenerationId)));
-            RefreshActive();
-        };
-        RequestKeySeedProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(RequestKeySeed)));
-        _generations.CollectionChanged += (_, _) => RefreshActive();
-        RequestKeySeed = Guid.NewGuid().ToString("N");
+        HideProperties(Generations, ActiveGenerationId, RequestKeySeed);
+        ActiveGenerationId.ValueChanged += (_, _) => RefreshActive();
+        Generations.CollectionChanged += (_, _) => RefreshActive();
+        RequestKeySeed.Value = Guid.NewGuid().ToString("N");
     }
 
     public abstract GenerativeOperation Operation { get; }
 
-    [NotAutoSerialized]
-    [SuppressResourceClassGeneration]
-    public IProperty<HierarchicalList<GenerationRecord>> GenerationsProperty { get; } = new ValueOnlyProperty<HierarchicalList<GenerationRecord>>(null!) { AffectsRender = false, KeepsList = true };
-
-    [NotAutoSerialized]
-    [SuppressResourceClassGeneration]
-    public IProperty<Guid> ActiveGenerationIdProperty { get; } = new ValueOnlyProperty<Guid>(default) { AffectsRender = false };
-
-    [NotAutoSerialized]
-    [NotTracked]
-    [SuppressResourceClassGeneration]
-    public IProperty<string> RequestKeySeedProperty { get; } = new ValueOnlyProperty<string>(string.Empty) { AffectsRender = false };
-
     /// <summary>Every generation this node has kept, oldest first.</summary>
-    public HierarchicalList<GenerationRecord> Generations => _generations;
+    [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IListProperty<GenerationRecord> Generations { get; } = new ListProperty<GenerationRecord> { AffectsRender = false };
 
-    public Guid ActiveGenerationId
-    {
-        get => ActiveGenerationIdProperty.Value;
-        set => ActiveGenerationIdProperty.Value = value;
-    }
-
-    /// <summary>The generation the node outputs.</summary>
-    public GenerationRecord? ActiveGeneration
-        => _generations.FirstOrDefault(record => record.Id == ActiveGenerationId);
+    [NotAutoSerialized]
+    [SuppressResourceClassGeneration]
+    public IProperty<Guid> ActiveGenerationId { get; } = new ValueOnlyProperty<Guid>(default) { AffectsRender = false };
 
     /// <summary>
     /// Saved with the node, so a request that never reported back is asked for again under the
@@ -92,11 +66,14 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
     /// the earlier job, so a copy of the node gets a seed of its own, and undo never brings back
     /// a seed that a request has already used.
     /// </summary>
-    public string RequestKeySeed
-    {
-        get => RequestKeySeedProperty.Value;
-        set => RequestKeySeedProperty.Value = value;
-    }
+    [NotAutoSerialized]
+    [NotTracked]
+    [SuppressResourceClassGeneration]
+    public IProperty<string> RequestKeySeed { get; } = new ValueOnlyProperty<string>(string.Empty) { AffectsRender = false };
+
+    /// <summary>The generation the node outputs.</summary>
+    public GenerationRecord? ActiveGeneration
+        => Generations.FirstOrDefault(record => record.Id.Value == ActiveGenerationId.Value);
 
     public GenerativeNodeStatus Status { get; private set; }
 
@@ -191,8 +168,8 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
     /// <summary>Makes a kept generation the one the node outputs.</summary>
     public void SelectGeneration(Guid id)
     {
-        if (_generations.Any(record => record.Id == id))
-            ActiveGenerationId = id;
+        if (Generations.Any(record => record.Id.Value == id))
+            ActiveGenerationId.Value = id;
     }
 
     /// <summary>
@@ -201,11 +178,11 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
     /// </summary>
     public int PruneGenerations()
     {
-        GenerationRecord[] removable = _generations
-            .Where(record => !record.IsPinned && record.Id != ActiveGenerationId)
+        GenerationRecord[] removable = Generations
+            .Where(record => !record.IsPinned.Value && record.Id.Value != ActiveGenerationId.Value)
             .ToArray();
         foreach (GenerationRecord record in removable)
-            _generations.Remove(record);
+            Generations.Remove(record);
         return removable.Length;
     }
 
@@ -214,7 +191,7 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
     /// seed and the request, so without this an identical request — a regeneration, or a retry
     /// after a refunded failure — would be answered with the old job instead of a new one.
     /// </summary>
-    internal void RenewRequestKey() => RequestKeySeed = Guid.NewGuid().ToString("N");
+    internal void RenewRequestKey() => RequestKeySeed.Value = Guid.NewGuid().ToString("N");
 
     void ICopyRenewable.RenewForCopy() => RenewRequestKey();
 
@@ -223,28 +200,28 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
     {
         var record = new GenerationRecord
         {
-            Fingerprint = request.Fingerprint,
-            ParameterFingerprint = request.ParameterFingerprint,
-            ModelId = result.ModelId,
-            Seed = result.Seed,
-            Summary = request.Summary,
-            CreatedAt = DateTimeOffset.Now,
+            Fingerprint = { Value = request.Fingerprint },
+            ParameterFingerprint = { Value = request.ParameterFingerprint },
+            ModelId = { Value = result.ModelId },
+            Seed = { Value = result.Seed },
+            Summary = { Value = request.Summary },
+            CreatedAt = { Value = DateTimeOffset.Now },
         };
         if (result.IsVideo)
         {
             var video = new VideoSource();
             video.ReadFrom(result.ResultFile);
-            record.Video = video;
+            record.Video.Value = video;
         }
         else
         {
             var image = new ImageSource();
             image.ReadFrom(result.ResultFile);
-            record.Image = image;
+            record.Image.Value = image;
         }
 
-        _generations.Add(record);
-        ActiveGenerationId = record.Id;
+        Generations.Add(record);
+        ActiveGenerationId.Value = record.Id.Value;
         return record;
     }
 
@@ -270,8 +247,8 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
         GenerationRecord? record = ActiveGeneration;
         Volatile.Write(
             ref _active,
-            record is not null && (record.Image ?? (MediaSource?)record.Video) is { } media
-                ? new ActiveSnapshot(record.Id, media, record.ParameterFingerprint)
+            record is not null && (record.Image.Value ?? (MediaSource?)record.Video.Value) is { } media
+                ? new ActiveSnapshot(record.Id.Value, media, record.ParameterFingerprint.Value)
                 : null);
         LoadActivePreview();
         UpdateBusy();
@@ -284,22 +261,22 @@ public abstract partial class GenerativeNode : GraphNode, ICopyRenewable
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(RequestKeySeed), RequestKeySeed);
-        if (_generations.Count > 0)
-            context.SetValue(nameof(Generations), _generations);
-        if (ActiveGenerationId != Guid.Empty)
-            context.SetValue(nameof(ActiveGenerationId), ActiveGenerationId);
+        context.SetValue(nameof(RequestKeySeed), RequestKeySeed.Value);
+        if (Generations.Count > 0)
+            context.SetValue(nameof(Generations), Generations);
+        if (ActiveGenerationId.Value != Guid.Empty)
+            context.SetValue(nameof(ActiveGenerationId), ActiveGenerationId.Value);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
         if (context.GetValue<string>(nameof(RequestKeySeed)) is { Length: > 0 } seed)
-            RequestKeySeed = seed;
+            RequestKeySeed.Value = seed;
         if (context.GetValue<GenerationRecord[]>(nameof(Generations)) is { } generations)
-            _generations.Replace(generations);
+            Generations.Replace(generations);
         if (context.Contains(nameof(ActiveGenerationId)))
-            ActiveGenerationId = context.GetValue<Guid>(nameof(ActiveGenerationId));
+            ActiveGenerationId.Value = context.GetValue<Guid>(nameof(ActiveGenerationId));
     }
 
     /// <summary>

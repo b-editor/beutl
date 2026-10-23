@@ -23,7 +23,7 @@ public sealed class CrashRecoveryPromptTask : StartupTask
                 return;
             }
 
-            string? lastProjectFile = GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile;
+            string? lastProjectFile = GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile.Value;
             bool canRestoreProject = !string.IsNullOrEmpty(lastProjectFile) && File.Exists(lastProjectFile);
             LastProjectFile = canRestoreProject ? lastProjectFile : null;
 
@@ -87,7 +87,7 @@ public sealed class CrashRecoveryPromptTask : StartupTask
 
             if (canRestoreProject && !restoreProject)
             {
-                GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile = null;
+                GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile.Value = null;
             }
         });
     }

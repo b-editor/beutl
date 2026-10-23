@@ -95,7 +95,7 @@ public sealed partial class AiVideoEditNode : GenerativeNode, IPromptInputNode
             Orientation = r.Orientation,
             Quality = r.Quality,
             ModelId = NormalizeModelId(r.Model),
-            RequestKeySeed = RequestKeySeed,
+            RequestKeySeed = RequestKeySeed.Value,
             ParameterFingerprint = r.ComputeParameterFingerprint(),
         };
     }

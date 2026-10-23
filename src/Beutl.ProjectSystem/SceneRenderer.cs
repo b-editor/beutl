@@ -15,7 +15,7 @@ public sealed class SceneRenderer : Renderer
         bool disableResourceShare = false,
         float maxWorkingScale = float.PositiveInfinity,
         bool forceOriginalSource = false)
-        : base(scene.FrameSize.Width, scene.FrameSize.Height, intent, renderScale, maxWorkingScale)
+        : base(scene.FrameSize.Value.Width, scene.FrameSize.Value.Height, intent, renderScale, maxWorkingScale)
     {
         _compositor = new SceneCompositor(scene)
         {

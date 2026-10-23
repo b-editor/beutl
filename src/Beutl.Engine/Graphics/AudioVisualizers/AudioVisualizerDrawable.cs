@@ -191,7 +191,7 @@ public abstract partial class AudioVisualizerDrawable : Drawable
 
             var frame = new CompositionFrame(
                 _frameObjects,
-                sound.TimeRange,
+                sound.TimeRange.Value,
                 default,
                 new CompositionEligibility([sound]));
 

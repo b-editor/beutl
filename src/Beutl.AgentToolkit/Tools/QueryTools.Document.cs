@@ -31,11 +31,11 @@ public sealed partial class QueryTools
                 return new DocumentSummaryResponse(
                     session.SessionId,
                     session.Source.ToString(),
-                    scene.Id.ToString(),
-                    scene.Name,
-                    scene.FrameSize.Width,
-                    scene.FrameSize.Height,
-                    scene.Duration.ToTimeSpan().ToString("c"),
+                    scene.Id.Value.ToString(),
+                    scene.Name.Value,
+                    scene.FrameSize.Value.Width,
+                    scene.FrameSize.Value.Height,
+                    scene.Duration.Value.ToTimeSpan().ToString("c"),
                     scene.Children.Count,
                     scene.Children.Select(CreateElementSummary).ToArray());
             });
@@ -77,11 +77,11 @@ public sealed partial class QueryTools
     private static ElementSummary CreateElementSummary(Element element)
     {
         return new ElementSummary(
-            element.Id.ToString(),
-            element.Name,
-            element.Start.ToTimeSpan().ToString("c"),
-            element.Length.ToTimeSpan().ToString("c"),
-            element.ZIndex,
+            element.Id.Value.ToString(),
+            element.Name.Value,
+            element.Start.Value.ToTimeSpan().ToString("c"),
+            element.Length.Value.ToTimeSpan().ToString("c"),
+            element.ZIndex.Value,
             element.Objects.Select(CreateObjectSummary).ToArray());
     }
 
@@ -100,8 +100,8 @@ public sealed partial class QueryTools
         }
 
         return new ObjectSummary(
-            obj.Id.ToString(),
-            obj.Name,
+            obj.Id.Value.ToString(),
+            obj.Name.Value,
             obj.GetType().FullName ?? obj.GetType().Name,
             IdentityHelper.WriteDiscriminator(obj.GetType()),
             properties.Where(property => property.GetKeyFrameAnimation() is not null).Select(property => property.Name).ToArray(),
@@ -126,7 +126,7 @@ public sealed partial class QueryTools
         switch (value)
         {
             case EngineObject engineObject:
-                if (!visited.Add(engineObject.Id))
+                if (!visited.Add(engineObject.Id.Value))
                 {
                     yield break;
                 }

@@ -62,7 +62,7 @@ public class HitTestRenderScaleTests
             keyLight.Direction.Value = Vector3.Normalize(new Vector3(0, 0, -1));
             keyLight.Color.Value = Colors.White;
             keyLight.Intensity.Value = 1f;
-            keyLight.IsEnabled = true;
+            keyLight.IsEnabled.Value = true;
             var lights = new List<Light3D.Resource> { (Light3D.Resource)keyLight.ToResource(context) };
 
             int deviceWidth = (int)MathF.Ceiling(LogicalWidth * scale);

@@ -36,60 +36,60 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void PropertyChange_ShouldBeRecorded_AndUndoable()
     {
-        _root.IntValue = 0;
+        _root.IntValue.Value = 0;
 
-        _root.IntValue = 100;
+        _root.IntValue.Value = 100;
         _historyManager.Commit("Change IntValue");
 
         Assert.That(_historyManager.CanUndo, Is.True);
-        Assert.That(_root.IntValue, Is.EqualTo(100));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(100));
 
         _historyManager.Undo();
-        Assert.That(_root.IntValue, Is.EqualTo(0));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(0));
     }
 
     [Test]
     public void PropertyChange_ShouldBeRedoable_AfterUndo()
     {
-        _root.IntValue = 0;
-        _root.IntValue = 100;
+        _root.IntValue.Value = 0;
+        _root.IntValue.Value = 100;
         _historyManager.Commit("Change IntValue");
         _historyManager.Undo();
 
         _historyManager.Redo();
 
-        Assert.That(_root.IntValue, Is.EqualTo(100));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(100));
     }
 
     [Test]
     public void StringPropertyChange_ShouldBeRecorded_AndUndoable()
     {
         // Set initial value and commit to establish baseline
-        _root.StringValue = "Initial";
+        _root.StringValue.Value = "Initial";
         _historyManager.Commit("Set initial");
 
-        _root.StringValue = "Modified";
+        _root.StringValue.Value = "Modified";
         _historyManager.Commit("Change StringValue");
 
         Assert.That(_historyManager.CanUndo, Is.True);
-        Assert.That(_root.StringValue, Is.EqualTo("Modified"));
+        Assert.That(_root.StringValue.Value, Is.EqualTo("Modified"));
 
         _historyManager.Undo();
-        Assert.That(_root.StringValue, Is.EqualTo("Initial"));
+        Assert.That(_root.StringValue.Value, Is.EqualTo("Initial"));
     }
 
     [Test]
     public void NullablePropertyChange_ShouldBeRecorded_AndUndoable()
     {
-        _root.NullableValue = null;
+        _root.NullableValue.Value = null;
 
-        _root.NullableValue = 42;
+        _root.NullableValue.Value = 42;
         _historyManager.Commit("Set NullableValue");
 
-        Assert.That(_root.NullableValue, Is.EqualTo(42));
+        Assert.That(_root.NullableValue.Value, Is.EqualTo(42));
 
         _historyManager.Undo();
-        Assert.That(_root.NullableValue, Is.Null);
+        Assert.That(_root.NullableValue.Value, Is.Null);
     }
 
     #endregion
@@ -100,14 +100,14 @@ public class HistoryManagerIntegrationTests
     public void MultiplePropertyChanges_InSingleTransaction_ShouldBeUndoneAtOnce()
     {
         // Set initial values and commit
-        _root.IntValue = 0;
-        _root.StringValue = "Initial";
-        _root.DoubleValue = 0.0;
+        _root.IntValue.Value = 0;
+        _root.StringValue.Value = "Initial";
+        _root.DoubleValue.Value = 0.0;
         _historyManager.Commit("Set initial values");
 
-        _root.IntValue = 100;
-        _root.StringValue = "Modified";
-        _root.DoubleValue = 3.14;
+        _root.IntValue.Value = 100;
+        _root.StringValue.Value = "Modified";
+        _root.DoubleValue.Value = 3.14;
         _historyManager.Commit("Multiple changes");
 
         Assert.That(_historyManager.UndoCount, Is.EqualTo(2));
@@ -115,37 +115,37 @@ public class HistoryManagerIntegrationTests
         _historyManager.Undo();
         Assert.Multiple(() =>
         {
-            Assert.That(_root.IntValue, Is.EqualTo(0));
-            Assert.That(_root.StringValue, Is.EqualTo("Initial"));
-            Assert.That(_root.DoubleValue, Is.EqualTo(0.0));
+            Assert.That(_root.IntValue.Value, Is.EqualTo(0));
+            Assert.That(_root.StringValue.Value, Is.EqualTo("Initial"));
+            Assert.That(_root.DoubleValue.Value, Is.EqualTo(0.0));
         });
     }
 
     [Test]
     public void MultipleTransactions_ShouldBeUndoneIndividually()
     {
-        _root.IntValue = 0;
+        _root.IntValue.Value = 0;
 
-        _root.IntValue = 10;
+        _root.IntValue.Value = 10;
         _historyManager.Commit("First");
 
-        _root.IntValue = 20;
+        _root.IntValue.Value = 20;
         _historyManager.Commit("Second");
 
-        _root.IntValue = 30;
+        _root.IntValue.Value = 30;
         _historyManager.Commit("Third");
 
         Assert.That(_historyManager.UndoCount, Is.EqualTo(3));
-        Assert.That(_root.IntValue, Is.EqualTo(30));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(30));
 
         _historyManager.Undo();
-        Assert.That(_root.IntValue, Is.EqualTo(20));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(20));
 
         _historyManager.Undo();
-        Assert.That(_root.IntValue, Is.EqualTo(10));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(10));
 
         _historyManager.Undo();
-        Assert.That(_root.IntValue, Is.EqualTo(0));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(0));
     }
 
     #endregion
@@ -155,37 +155,37 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void NestedObjectPropertyChange_ShouldBeRecorded()
     {
-        var nested = new TestNestedModel { NestedIntValue = 0 };
-        _root.NestedObject = nested;
+        var nested = new TestNestedModel { NestedIntValue = { Value = 0 } };
+        _root.NestedObject.Value = nested;
         _historyManager.Commit("Set nested object");
 
-        nested.NestedIntValue = 999;
+        nested.NestedIntValue.Value = 999;
         _historyManager.Commit("Change nested property");
 
         Assert.That(_historyManager.UndoCount, Is.EqualTo(2));
-        Assert.That(nested.NestedIntValue, Is.EqualTo(999));
+        Assert.That(nested.NestedIntValue.Value, Is.EqualTo(999));
 
         _historyManager.Undo();
-        Assert.That(nested.NestedIntValue, Is.EqualTo(0));
+        Assert.That(nested.NestedIntValue.Value, Is.EqualTo(0));
     }
 
     [Test]
     public void NestedObjectReplacement_ShouldBeRecorded()
     {
-        var nested1 = new TestNestedModel { NestedIntValue = 100 };
-        var nested2 = new TestNestedModel { NestedIntValue = 200 };
-        _root.NestedObject = nested1;
+        var nested1 = new TestNestedModel { NestedIntValue = { Value = 100 } };
+        var nested2 = new TestNestedModel { NestedIntValue = { Value = 200 } };
+        _root.NestedObject.Value = nested1;
         _historyManager.Commit("Set first nested");
 
-        _root.NestedObject = nested2;
+        _root.NestedObject.Value = nested2;
         _historyManager.Commit("Replace nested");
 
-        Assert.That(_root.NestedObject, Is.EqualTo(nested2));
-        Assert.That(_root.NestedObject!.NestedIntValue, Is.EqualTo(200));
+        Assert.That(_root.NestedObject.Value, Is.EqualTo(nested2));
+        Assert.That(_root.NestedObject.Value!.NestedIntValue.Value, Is.EqualTo(200));
 
         _historyManager.Undo();
-        Assert.That(_root.NestedObject, Is.EqualTo(nested1));
-        Assert.That(_root.NestedObject!.NestedIntValue, Is.EqualTo(100));
+        Assert.That(_root.NestedObject.Value, Is.EqualTo(nested1));
+        Assert.That(_root.NestedObject.Value!.NestedIntValue.Value, Is.EqualTo(100));
     }
 
     #endregion
@@ -195,26 +195,26 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void Rollback_ShouldRevertUncommittedChanges()
     {
-        _root.IntValue = 0;
+        _root.IntValue.Value = 0;
 
-        _root.IntValue = 100;
+        _root.IntValue.Value = 100;
         _historyManager.Rollback();
 
-        Assert.That(_root.IntValue, Is.EqualTo(0));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(0));
         Assert.That(_historyManager.CanUndo, Is.False);
     }
 
     [Test]
     public void Rollback_ShouldNotAffectCommittedChanges()
     {
-        _root.IntValue = 0;
-        _root.IntValue = 50;
+        _root.IntValue.Value = 0;
+        _root.IntValue.Value = 50;
         _historyManager.Commit("First change");
 
-        _root.IntValue = 100;
+        _root.IntValue.Value = 100;
         _historyManager.Rollback();
 
-        Assert.That(_root.IntValue, Is.EqualTo(50));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(50));
         Assert.That(_historyManager.CanUndo, Is.True);
     }
 
@@ -226,46 +226,46 @@ public class HistoryManagerIntegrationTests
     public void ExecuteInTransaction_ShouldRecordAllChanges()
     {
         // Set initial values
-        _root.IntValue = 0;
-        _root.StringValue = "Initial";
+        _root.IntValue.Value = 0;
+        _root.StringValue.Value = "Initial";
         _historyManager.Commit("Set initial");
 
         _historyManager.ExecuteInTransaction(() =>
         {
-            _root.IntValue = 100;
-            _root.StringValue = "Modified";
+            _root.IntValue.Value = 100;
+            _root.StringValue.Value = "Modified";
         }, "Transaction");
 
         Assert.Multiple(() =>
         {
-            Assert.That(_root.IntValue, Is.EqualTo(100));
-            Assert.That(_root.StringValue, Is.EqualTo("Modified"));
+            Assert.That(_root.IntValue.Value, Is.EqualTo(100));
+            Assert.That(_root.StringValue.Value, Is.EqualTo("Modified"));
             Assert.That(_historyManager.UndoCount, Is.EqualTo(2));
         });
 
         _historyManager.Undo();
         Assert.Multiple(() =>
         {
-            Assert.That(_root.IntValue, Is.EqualTo(0));
-            Assert.That(_root.StringValue, Is.EqualTo("Initial"));
+            Assert.That(_root.IntValue.Value, Is.EqualTo(0));
+            Assert.That(_root.StringValue.Value, Is.EqualTo("Initial"));
         });
     }
 
     [Test]
     public void ExecuteInTransaction_ShouldRollbackOnException()
     {
-        _root.IntValue = 0;
+        _root.IntValue.Value = 0;
 
         Assert.Throws<InvalidOperationException>(() =>
         {
             _historyManager.ExecuteInTransaction(() =>
             {
-                _root.IntValue = 100;
+                _root.IntValue.Value = 100;
                 throw new InvalidOperationException("Test exception");
             }, "Transaction");
         });
 
-        Assert.That(_root.IntValue, Is.EqualTo(0));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(0));
         Assert.That(_historyManager.CanUndo, Is.False);
     }
 
@@ -276,7 +276,7 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void StateChanged_ShouldNotify_AfterUndoRedo()
     {
-        _root.IntValue = 100;
+        _root.IntValue.Value = 100;
         _historyManager.Commit("Change");
 
         List<HistoryState> states = new();
@@ -295,12 +295,12 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void SameValueAssignment_ShouldNotCreateOperation()
     {
-        _root.IntValue = 100;
+        _root.IntValue.Value = 100;
         _historyManager.Commit("Initial");
         var initialCount = _historyManager.UndoCount;
 
         // Assign same value
-        _root.IntValue = 100;
+        _root.IntValue.Value = 100;
         _historyManager.Commit("Same value");
 
         Assert.That(_historyManager.UndoCount, Is.EqualTo(initialCount));
@@ -309,20 +309,20 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void Clear_ShouldRemoveAllHistory_ButKeepCurrentState()
     {
-        _root.IntValue = 100;
+        _root.IntValue.Value = 100;
         _historyManager.Commit("Change");
 
         _historyManager.Clear();
 
         Assert.That(_historyManager.CanUndo, Is.False);
-        Assert.That(_root.IntValue, Is.EqualTo(100));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(100));
     }
 
     [Test]
     public void UndoRedo_ShouldNotTriggerNewOperations()
     {
-        _root.IntValue = 0;
-        _root.IntValue = 100;
+        _root.IntValue.Value = 0;
+        _root.IntValue.Value = 100;
         _historyManager.Commit("Change");
         var undoCount = _historyManager.UndoCount;
 
@@ -341,8 +341,8 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void EditReturningToStartingValue_LeavesNothingToCommit()
     {
-        _root.IntValue = 5;
-        _root.IntValue = 0;
+        _root.IntValue.Value = 5;
+        _root.IntValue.Value = 0;
 
         Assert.That(_historyManager.HasPendingOperations, Is.False);
         _historyManager.Commit("Export");
@@ -352,12 +352,12 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void EditReturningToStartingValue_KeepsRedoHistory()
     {
-        _root.IntValue = 100;
+        _root.IntValue.Value = 100;
         _historyManager.Commit("Change IntValue");
         _historyManager.Undo();
 
-        _root.DoubleValue = 1.5;
-        _root.DoubleValue = 0.0;
+        _root.DoubleValue.Value = 1.5;
+        _root.DoubleValue.Value = 0.0;
         _historyManager.Commit("Export");
 
         Assert.Multiple(() =>
@@ -366,16 +366,16 @@ public class HistoryManagerIntegrationTests
             Assert.That(_historyManager.CanRedo, Is.True);
         });
         Assert.That(_historyManager.Redo(), Is.True);
-        Assert.That(_root.IntValue, Is.EqualTo(100));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(100));
     }
 
     [Test]
     public void EditReturningToStartingValue_KeepsEditsRecordedInBetween()
     {
-        _root.IntValue = 5;
-        _root.StringValue = "Nudged";
-        _root.DoubleValue = 2.0;
-        _root.IntValue = 0;
+        _root.IntValue.Value = 5;
+        _root.StringValue.Value = "Nudged";
+        _root.DoubleValue.Value = 2.0;
+        _root.IntValue.Value = 0;
 
         _historyManager.Commit("Nudge");
         Assert.That(_historyManager.UndoCount, Is.EqualTo(1));
@@ -383,43 +383,43 @@ public class HistoryManagerIntegrationTests
         _historyManager.Undo();
         Assert.Multiple(() =>
         {
-            Assert.That(_root.StringValue, Is.Null);
-            Assert.That(_root.DoubleValue, Is.EqualTo(0.0));
-            Assert.That(_root.IntValue, Is.Zero);
+            Assert.That(_root.StringValue.Value, Is.Null);
+            Assert.That(_root.DoubleValue.Value, Is.EqualTo(0.0));
+            Assert.That(_root.IntValue.Value, Is.Zero);
         });
 
         _historyManager.Redo();
         Assert.Multiple(() =>
         {
-            Assert.That(_root.StringValue, Is.EqualTo("Nudged"));
-            Assert.That(_root.DoubleValue, Is.EqualTo(2.0));
-            Assert.That(_root.IntValue, Is.Zero);
+            Assert.That(_root.StringValue.Value, Is.EqualTo("Nudged"));
+            Assert.That(_root.DoubleValue.Value, Is.EqualTo(2.0));
+            Assert.That(_root.IntValue.Value, Is.Zero);
         });
     }
 
     [Test]
     public void EditPassingThroughStartingValue_RecordsTheFinalValue()
     {
-        _root.IntValue = 5;
-        _root.IntValue = 0;
-        _root.IntValue = -3;
+        _root.IntValue.Value = 5;
+        _root.IntValue.Value = 0;
+        _root.IntValue.Value = -3;
         _historyManager.Commit("Change IntValue");
 
         _historyManager.Undo();
-        Assert.That(_root.IntValue, Is.Zero);
+        Assert.That(_root.IntValue.Value, Is.Zero);
         _historyManager.Redo();
-        Assert.That(_root.IntValue, Is.EqualTo(-3));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(-3));
     }
 
     [Test]
     public void TextTypedBackToStartingValue_LeavesNothingToCommit()
     {
-        _root.StringValue = "Title";
+        _root.StringValue.Value = "Title";
         _historyManager.Commit("Set title");
 
-        _root.StringValue = "Titl";
+        _root.StringValue.Value = "Titl";
         // A text box produces an equal string, not the same instance.
-        _root.StringValue = new string("Title".AsSpan());
+        _root.StringValue.Value = new string("Title".AsSpan());
 
         Assert.That(_historyManager.HasPendingOperations, Is.False);
         _historyManager.Commit("Export");
@@ -442,7 +442,7 @@ public class HistoryManagerIntegrationTests
     public void SplineHandleDraggedBackToStart_LeavesNothingToCommit()
     {
         var spline = new SplineEasing(0.25f, 0.1f, 0.25f, 1f);
-        using var harness = new HistoryHarness(new KeyFrame<float> { Easing = spline });
+        using var harness = new HistoryHarness(new KeyFrame<float> { Easing = { Value = spline } });
 
         spline.X1 = 0.6f;
         spline.Y1 = 0.4f;
@@ -494,28 +494,28 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void ComplexScenario_MultipleUndoRedoWithIntermediateChanges()
     {
-        _root.IntValue = 0;
+        _root.IntValue.Value = 0;
 
-        _root.IntValue = 10;
+        _root.IntValue.Value = 10;
         _historyManager.Commit("Step 1");
 
-        _root.IntValue = 20;
+        _root.IntValue.Value = 20;
         _historyManager.Commit("Step 2");
 
-        _root.IntValue = 30;
+        _root.IntValue.Value = 30;
         _historyManager.Commit("Step 3");
 
         // Undo twice
         _historyManager.Undo(); // 30 -> 20
         _historyManager.Undo(); // 20 -> 10
 
-        Assert.That(_root.IntValue, Is.EqualTo(10));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(10));
         Assert.That(_historyManager.RedoCount, Is.EqualTo(2));
 
-        _root.IntValue = 15;
+        _root.IntValue.Value = 15;
         _historyManager.Commit("New branch");
 
-        Assert.That(_root.IntValue, Is.EqualTo(15));
+        Assert.That(_root.IntValue.Value, Is.EqualTo(15));
         Assert.That(_historyManager.RedoCount, Is.EqualTo(0));
         Assert.That(_historyManager.UndoCount, Is.EqualTo(2)); // Step 1 + New branch
     }
@@ -523,12 +523,12 @@ public class HistoryManagerIntegrationTests
     [Test]
     public void ComplexScenario_NestedObjectWithMultipleProperties()
     {
-        var nested = new TestNestedModel { NestedIntValue = 0, NestedStringValue = "Initial" };
-        _root.NestedObject = nested;
+        var nested = new TestNestedModel { NestedIntValue = { Value = 0 }, NestedStringValue = { Value = "Initial" } };
+        _root.NestedObject.Value = nested;
         _historyManager.Commit("Set nested");
 
-        nested.NestedIntValue = 100;
-        nested.NestedStringValue = "Modified";
+        nested.NestedIntValue.Value = 100;
+        nested.NestedStringValue.Value = "Modified";
         _historyManager.Commit("Change nested properties");
 
         Assert.That(_historyManager.UndoCount, Is.EqualTo(2));
@@ -537,16 +537,16 @@ public class HistoryManagerIntegrationTests
         _historyManager.Undo();
         Assert.Multiple(() =>
         {
-            Assert.That(nested.NestedIntValue, Is.EqualTo(0));
-            Assert.That(nested.NestedStringValue, Is.EqualTo("Initial"));
+            Assert.That(nested.NestedIntValue.Value, Is.EqualTo(0));
+            Assert.That(nested.NestedStringValue.Value, Is.EqualTo("Initial"));
         });
 
         // Redo
         _historyManager.Redo();
         Assert.Multiple(() =>
         {
-            Assert.That(nested.NestedIntValue, Is.EqualTo(100));
-            Assert.That(nested.NestedStringValue, Is.EqualTo("Modified"));
+            Assert.That(nested.NestedIntValue.Value, Is.EqualTo(100));
+            Assert.That(nested.NestedStringValue.Value, Is.EqualTo("Modified"));
         });
     }
 
@@ -560,15 +560,15 @@ public class HistoryManagerIntegrationTests
         var modelWithList = new TestModelWithList();
         using var harness = new HistoryHarness(modelWithList);
 
-        modelWithList.Items.Add(new TestItem { Value = "Item1" });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item1" } });
         harness.History.Commit("Add item");
 
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(1));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(1));
         Assert.That(harness.History.CanUndo, Is.True);
 
         // Undo
         harness.History.Undo();
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(0));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(0));
     }
 
     [Test]
@@ -577,113 +577,113 @@ public class HistoryManagerIntegrationTests
         var modelWithList = new TestModelWithList();
         using var harness = new HistoryHarness(modelWithList);
 
-        modelWithList.Items.Add(new TestItem { Value = "Item1" });
-        modelWithList.Items.Add(new TestItem { Value = "Item2" });
-        modelWithList.Items.Add(new TestItem { Value = "Item3" });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item1" } });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item2" } });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item3" } });
         harness.History.Commit("Add items");
 
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(3));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(3));
 
         // Undo
         harness.History.Undo();
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(0));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(0));
     }
 
     [Test]
     public void CollectionRemove_ShouldBeRecorded_AndUndoable()
     {
         var modelWithList = new TestModelWithList();
-        var item1 = new TestItem { Value = "Item1" };
-        var item2 = new TestItem { Value = "Item2" };
-        modelWithList.Items.Add(item1);
-        modelWithList.Items.Add(item2);
+        var item1 = new TestItem { Value = { Value = "Item1" } };
+        var item2 = new TestItem { Value = { Value = "Item2" } };
+        modelWithList.Items.Value.Add(item1);
+        modelWithList.Items.Value.Add(item2);
 
         using var harness = new HistoryHarness(modelWithList);
 
-        modelWithList.Items.Remove(item1);
+        modelWithList.Items.Value.Remove(item1);
         harness.History.Commit("Remove item");
 
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(1));
-        Assert.That(modelWithList.Items[0].Value, Is.EqualTo("Item2"));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(1));
+        Assert.That(modelWithList.Items.Value[0].Value.Value, Is.EqualTo("Item2"));
 
         // Undo
         harness.History.Undo();
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(2));
-        Assert.That(modelWithList.Items[0].Value, Is.EqualTo("Item1"));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(2));
+        Assert.That(modelWithList.Items.Value[0].Value.Value, Is.EqualTo("Item1"));
     }
 
     [Test]
     public void CollectionInsertAt_ShouldBeRecorded_AndUndoable()
     {
         var modelWithList = new TestModelWithList();
-        modelWithList.Items.Add(new TestItem { Value = "Item1" });
-        modelWithList.Items.Add(new TestItem { Value = "Item3" });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item1" } });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item3" } });
 
         using var harness = new HistoryHarness(modelWithList);
 
-        modelWithList.Items.Insert(1, new TestItem { Value = "Item2" });
+        modelWithList.Items.Value.Insert(1, new TestItem { Value = { Value = "Item2" } });
         harness.History.Commit("Insert item");
 
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(3));
-        Assert.That(modelWithList.Items[1].Value, Is.EqualTo("Item2"));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(3));
+        Assert.That(modelWithList.Items.Value[1].Value.Value, Is.EqualTo("Item2"));
 
         // Undo
         harness.History.Undo();
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(2));
-        Assert.That(modelWithList.Items[1].Value, Is.EqualTo("Item3"));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(2));
+        Assert.That(modelWithList.Items.Value[1].Value.Value, Is.EqualTo("Item3"));
     }
 
     [Test]
     public void CollectionMove_ShouldBeRecorded_AndUndoable()
     {
         var modelWithList = new TestModelWithList();
-        modelWithList.Items.Add(new TestItem { Value = "Item1" });
-        modelWithList.Items.Add(new TestItem { Value = "Item2" });
-        modelWithList.Items.Add(new TestItem { Value = "Item3" });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item1" } });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item2" } });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item3" } });
 
         using var harness = new HistoryHarness(modelWithList);
 
-        modelWithList.Items.Move(0, 2);
+        modelWithList.Items.Value.Move(0, 2);
         harness.History.Commit("Move item");
 
-        Assert.That(modelWithList.Items[0].Value, Is.EqualTo("Item2"));
-        Assert.That(modelWithList.Items[1].Value, Is.EqualTo("Item3"));
-        Assert.That(modelWithList.Items[2].Value, Is.EqualTo("Item1"));
+        Assert.That(modelWithList.Items.Value[0].Value.Value, Is.EqualTo("Item2"));
+        Assert.That(modelWithList.Items.Value[1].Value.Value, Is.EqualTo("Item3"));
+        Assert.That(modelWithList.Items.Value[2].Value.Value, Is.EqualTo("Item1"));
 
         // Undo
         harness.History.Undo();
-        Assert.That(modelWithList.Items[0].Value, Is.EqualTo("Item1"));
-        Assert.That(modelWithList.Items[1].Value, Is.EqualTo("Item2"));
-        Assert.That(modelWithList.Items[2].Value, Is.EqualTo("Item3"));
+        Assert.That(modelWithList.Items.Value[0].Value.Value, Is.EqualTo("Item1"));
+        Assert.That(modelWithList.Items.Value[1].Value.Value, Is.EqualTo("Item2"));
+        Assert.That(modelWithList.Items.Value[2].Value.Value, Is.EqualTo("Item3"));
     }
 
     [Test]
     public void CollectionUndoRedo_FindsItemsThatAnUnrecordedChangeMoved()
     {
         var modelWithList = new TestModelWithList();
-        var a = new TestItem { Value = "A" };
-        var b = new TestItem { Value = "B" };
-        var c = new TestItem { Value = "C" };
-        modelWithList.Items.Add(a);
-        modelWithList.Items.Add(b);
+        var a = new TestItem { Value = { Value = "A" } };
+        var b = new TestItem { Value = { Value = "B" } };
+        var c = new TestItem { Value = { Value = "C" } };
+        modelWithList.Items.Value.Add(a);
+        modelWithList.Items.Value.Add(b);
         using var harness = new HistoryHarness(modelWithList);
 
-        modelWithList.Items.Insert(1, c);
+        modelWithList.Items.Value.Insert(1, c);
         harness.History.Commit("Insert");
-        modelWithList.Items.Move(0, 2);
+        modelWithList.Items.Value.Move(0, 2);
         harness.History.Commit("Move");
         using (harness.History.SuppressRecording())
         {
-            modelWithList.Items.Move(2, 0);
+            modelWithList.Items.Value.Move(2, 0);
         }
 
         Assert.That(harness.History.Undo(), Is.True);
-        Assert.That(modelWithList.Items, Is.EqualTo(new[] { a, c, b }));
+        Assert.That(modelWithList.Items.Value, Is.EqualTo(new[] { a, c, b }));
         Assert.That(harness.History.Undo(), Is.True);
-        Assert.That(modelWithList.Items, Is.EqualTo(new[] { a, b }));
+        Assert.That(modelWithList.Items.Value, Is.EqualTo(new[] { a, b }));
         Assert.That(harness.History.Redo(), Is.True);
         Assert.That(harness.History.Redo(), Is.True);
-        Assert.That(modelWithList.Items, Is.EqualTo(new[] { c, b, a }));
+        Assert.That(modelWithList.Items.Value, Is.EqualTo(new[] { c, b, a }));
     }
 
     [Test]
@@ -692,25 +692,25 @@ public class HistoryManagerIntegrationTests
         var modelWithList = new TestModelWithList();
         // With ResetBehavior.Remove, Clear() notifies the removed items. With ResetBehavior.Reset
         // (the default), it notifies a Reset without them. Both must be recorded.
-        modelWithList.Items.ResetBehavior = resetBehavior;
-        modelWithList.Items.Add(new TestItem { Value = "Item1" });
-        modelWithList.Items.Add(new TestItem { Value = "Item2" });
-        modelWithList.Items.Add(new TestItem { Value = "Item3" });
+        modelWithList.Items.Value.ResetBehavior = resetBehavior;
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item1" } });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item2" } });
+        modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item3" } });
 
         using var harness = new HistoryHarness(modelWithList);
 
-        modelWithList.Items.Clear();
+        modelWithList.Items.Value.Clear();
         harness.History.Commit("Clear items");
 
-        Assert.That(modelWithList.Items.Count, Is.EqualTo(0));
+        Assert.That(modelWithList.Items.Value.Count, Is.EqualTo(0));
 
         // Undo
         Assert.That(harness.History.Undo(), Is.True);
-        Assert.That(modelWithList.Items.Select(item => item.Value), Is.EqualTo(new[] { "Item1", "Item2", "Item3" }));
+        Assert.That(modelWithList.Items.Value.Select(item => item.Value.Value), Is.EqualTo(new[] { "Item1", "Item2", "Item3" }));
 
         // Redo
         Assert.That(harness.History.Redo(), Is.True);
-        Assert.That(modelWithList.Items, Is.Empty);
+        Assert.That(modelWithList.Items.Value, Is.Empty);
     }
 
     [Test]
@@ -718,95 +718,95 @@ public class HistoryManagerIntegrationTests
     {
         // The agent's document applier rebuilds Scene.Groups this way
         var modelWithList = new TestModelWithList();
-        modelWithList.Items.ResetBehavior = resetBehavior;
-        var item1 = new TestItem { Value = "Item1" };
-        var item2 = new TestItem { Value = "Item2" };
-        var item3 = new TestItem { Value = "Item3" };
-        modelWithList.Items.Add(item1);
-        modelWithList.Items.Add(item2);
+        modelWithList.Items.Value.ResetBehavior = resetBehavior;
+        var item1 = new TestItem { Value = { Value = "Item1" } };
+        var item2 = new TestItem { Value = { Value = "Item2" } };
+        var item3 = new TestItem { Value = { Value = "Item3" } };
+        modelWithList.Items.Value.Add(item1);
+        modelWithList.Items.Value.Add(item2);
 
         using var harness = new HistoryHarness(modelWithList);
 
         // Item2 is cleared and added back
         harness.History.ExecuteInTransaction(() =>
         {
-            modelWithList.Items.Clear();
-            modelWithList.Items.Add(item2);
-            modelWithList.Items.Add(item3);
+            modelWithList.Items.Value.Clear();
+            modelWithList.Items.Value.Add(item2);
+            modelWithList.Items.Value.Add(item3);
         }, "Rebuild items");
 
-        Assert.That(modelWithList.Items, Is.EqualTo(new[] { item2, item3 }));
+        Assert.That(modelWithList.Items.Value, Is.EqualTo(new[] { item2, item3 }));
 
         // Undo
         Assert.That(harness.History.Undo(), Is.True);
-        Assert.That(modelWithList.Items, Is.EqualTo(new[] { item1, item2 }));
+        Assert.That(modelWithList.Items.Value, Is.EqualTo(new[] { item1, item2 }));
 
         // Redo
         Assert.That(harness.History.Redo(), Is.True);
-        Assert.That(modelWithList.Items, Is.EqualTo(new[] { item2, item3 }));
+        Assert.That(modelWithList.Items.Value, Is.EqualTo(new[] { item2, item3 }));
     }
 
     [Test]
     public void CollectionClearThenAdd_ThatFails_ShouldBeRolledBack([Values] ResetBehavior resetBehavior)
     {
         var modelWithList = new TestModelWithList();
-        modelWithList.Items.ResetBehavior = resetBehavior;
-        var item1 = new TestItem { Value = "Item1" };
-        var item2 = new TestItem { Value = "Item2" };
-        modelWithList.Items.Add(item1);
-        modelWithList.Items.Add(item2);
+        modelWithList.Items.Value.ResetBehavior = resetBehavior;
+        var item1 = new TestItem { Value = { Value = "Item1" } };
+        var item2 = new TestItem { Value = { Value = "Item2" } };
+        modelWithList.Items.Value.Add(item1);
+        modelWithList.Items.Value.Add(item2);
 
         using var harness = new HistoryHarness(modelWithList);
 
         Assert.Throws<InvalidOperationException>(() => harness.History.ExecuteInTransaction(() =>
         {
-            modelWithList.Items.Clear();
-            modelWithList.Items.Add(new TestItem { Value = "Item3" });
+            modelWithList.Items.Value.Clear();
+            modelWithList.Items.Value.Add(new TestItem { Value = { Value = "Item3" } });
             throw new InvalidOperationException("Injected failure.");
         }, "Rebuild items"));
 
         // The rollback reverts the Clear as well as the Add
-        Assert.That(modelWithList.Items, Is.EqualTo(new[] { item1, item2 }));
+        Assert.That(modelWithList.Items.Value, Is.EqualTo(new[] { item1, item2 }));
     }
 
     [Test]
     public void CollectionItemPropertyChange_ShouldBeRecorded_AndUndoable()
     {
         var modelWithList = new TestModelWithList();
-        var item = new TestItem { Value = "Original" };
-        modelWithList.Items.Add(item);
+        var item = new TestItem { Value = { Value = "Original" } };
+        modelWithList.Items.Value.Add(item);
 
         using var harness = new HistoryHarness(modelWithList);
         harness.History.Commit("Add item");
 
-        item.Value = "Modified";
+        item.Value.Value = "Modified";
         harness.History.Commit("Modify item");
 
-        Assert.That(item.Value, Is.EqualTo("Modified"));
+        Assert.That(item.Value.Value, Is.EqualTo("Modified"));
 
         // Undo
         harness.History.Undo();
-        Assert.That(item.Value, Is.EqualTo("Original"));
+        Assert.That(item.Value.Value, Is.EqualTo("Original"));
     }
 
     [Test]
     public void CollectionReplace_ShouldBeRecorded_AndUndoable()
     {
         var modelWithList = new TestModelWithList();
-        var item1 = new TestItem { Value = "Item1" };
-        var item2 = new TestItem { Value = "NewItem" };
-        modelWithList.Items.Add(item1);
+        var item1 = new TestItem { Value = { Value = "Item1" } };
+        var item2 = new TestItem { Value = { Value = "NewItem" } };
+        modelWithList.Items.Value.Add(item1);
 
         using var harness = new HistoryHarness(modelWithList);
 
-        modelWithList.Items[0] = item2;
+        modelWithList.Items.Value[0] = item2;
         harness.History.Commit("Replace item");
 
-        Assert.That(modelWithList.Items[0].Value, Is.EqualTo("NewItem"));
+        Assert.That(modelWithList.Items.Value[0].Value.Value, Is.EqualTo("NewItem"));
 
         // Undo
         harness.History.Undo();
-        Assert.That(modelWithList.Items[0].Value, Is.EqualTo("Item1"));
+        Assert.That(modelWithList.Items.Value[0].Value.Value, Is.EqualTo("Item1"));
     }
 
     #endregion
@@ -820,45 +820,15 @@ public class HistoryManagerIntegrationTests
             ScanProperties<TestModel>();
         }
 
-        public IProperty<int> IntValueProperty { get; } = new ValueOnlyProperty<int>(0);
+        public IProperty<int> IntValue { get; } = new ValueOnlyProperty<int>(0);
 
-        public IProperty<string?> StringValueProperty { get; } = new ValueOnlyProperty<string?>(null);
+        public IProperty<string?> StringValue { get; } = new ValueOnlyProperty<string?>(null);
 
-        public IProperty<double> DoubleValueProperty { get; } = new ValueOnlyProperty<double>(0.0);
+        public IProperty<double> DoubleValue { get; } = new ValueOnlyProperty<double>(0.0);
 
-        public IProperty<int?> NullableValueProperty { get; } = new ValueOnlyProperty<int?>(null);
+        public IProperty<int?> NullableValue { get; } = new ValueOnlyProperty<int?>(null);
 
-        public IProperty<TestNestedModel?> NestedObjectProperty { get; } = new ValueOnlyProperty<TestNestedModel?>(null);
-
-        public int IntValue
-        {
-            get => IntValueProperty.Value;
-            set => IntValueProperty.Value = value;
-        }
-
-        public string? StringValue
-        {
-            get => StringValueProperty.Value;
-            set => StringValueProperty.Value = value;
-        }
-
-        public double DoubleValue
-        {
-            get => DoubleValueProperty.Value;
-            set => DoubleValueProperty.Value = value;
-        }
-
-        public int? NullableValue
-        {
-            get => NullableValueProperty.Value;
-            set => NullableValueProperty.Value = value;
-        }
-
-        public TestNestedModel? NestedObject
-        {
-            get => NestedObjectProperty.Value;
-            set => NestedObjectProperty.Value = value;
-        }
+        public IProperty<TestNestedModel?> NestedObject { get; } = new ValueOnlyProperty<TestNestedModel?>(null);
     }
 
     private class TestNestedModel : CoreObject
@@ -868,37 +838,19 @@ public class HistoryManagerIntegrationTests
             ScanProperties<TestNestedModel>();
         }
 
-        public IProperty<int> NestedIntValueProperty { get; } = new ValueOnlyProperty<int>(0);
+        public IProperty<int> NestedIntValue { get; } = new ValueOnlyProperty<int>(0);
 
-        public IProperty<string?> NestedStringValueProperty { get; } = new ValueOnlyProperty<string?>(null);
-
-        public int NestedIntValue
-        {
-            get => NestedIntValueProperty.Value;
-            set => NestedIntValueProperty.Value = value;
-        }
-
-        public string? NestedStringValue
-        {
-            get => NestedStringValueProperty.Value;
-            set => NestedStringValueProperty.Value = value;
-        }
+        public IProperty<string?> NestedStringValue { get; } = new ValueOnlyProperty<string?>(null);
     }
 
     private class TestModelWithList : CoreObject
     {
-        public IProperty<CoreList<TestItem>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<TestItem>>(null!);
+        public IProperty<CoreList<TestItem>> Items { get; } = new ValueOnlyProperty<CoreList<TestItem>>(null!);
 
         public TestModelWithList()
         {
             ScanProperties<TestModelWithList>();
-            Items = new CoreList<TestItem>();
-        }
-
-        public CoreList<TestItem> Items
-        {
-            get => ItemsProperty.Value;
-            set => ItemsProperty.Value = value;
+            Items.Value = new CoreList<TestItem>();
         }
     }
 
@@ -909,13 +861,7 @@ public class HistoryManagerIntegrationTests
             ScanProperties<TestItem>();
         }
 
-        public IProperty<string?> ValueProperty { get; } = new ValueOnlyProperty<string?>(null);
-
-        public string? Value
-        {
-            get => ValueProperty.Value;
-            set => ValueProperty.Value = value;
-        }
+        public IProperty<string?> Value { get; } = new ValueOnlyProperty<string?>(null);
     }
 
     [SuppressResourceClassGeneration]

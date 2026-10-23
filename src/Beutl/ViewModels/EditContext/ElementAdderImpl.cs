@@ -99,7 +99,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
 
         _logger.LogInformation("Adding {Count} new element descriptions.", descriptions.Count);
         Scene scene = _context.Scene;
-        Guid sceneId = scene.Id;
+        Guid sceneId = scene.Id.Value;
         var plans = new List<ElementCreationPlan>(descriptions.Count);
         ElementAddResult? preflightFailure = await PreflightAsync(
             scene, descriptions, plans, handlerLeases, preflightLeases, cancellationToken);
@@ -211,7 +211,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
     {
         var elementReferences = new HashSet<Element>(ReferenceEqualityComparer.Instance);
         var elementIds = _context.Scene.Children
-            .Select(element => element.Id)
+            .Select(element => element.Id.Value)
             .ToHashSet();
 
         foreach (ElementCreationPlan plan in plans)
@@ -294,11 +294,11 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         Uri? sceneUri = scene.Uri;
         string elementDirectory = sceneUri is not null
             ? Path.GetDirectoryName(sceneUri.LocalPath)!
-            : UnsavedSceneStorage.GetElementDirectory(scene.Id);
+            : UnsavedSceneStorage.GetElementDirectory(scene.Id.Value);
         foreach (Element element in materialization.Elements)
         {
             element.Uri = sceneUri is not null
-                ? ElementFileNaming.GetUri(sceneUri, element.Id)
+                ? ElementFileNaming.GetUri(sceneUri, element.Id.Value)
                 : RandomFileNameGenerator.GenerateUri(
                     elementDirectory,
                     EditorConstants.ElementFileExtension);
@@ -377,10 +377,10 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
     {
         Scene currentScene = _context.Scene;
         if (!ReferenceEquals(scene, currentScene)
-            || scene.Id != expectedSceneId)
+            || scene.Id.Value != expectedSceneId)
         {
             return new CommitValidationFailure(
-                new ElementSceneChangedFailure(expectedSceneId, currentScene.Id));
+                new ElementSceneChangedFailure(expectedSceneId, currentScene.Id.Value));
         }
 
         for (int index = 0; index < plans.Count; index++)
@@ -395,7 +395,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 }
             }
 
-            if (itemResults[index].Elements.Any(element => !plan.TargetLayers.Contains(element.ZIndex)))
+            if (itemResults[index].Elements.Any(element => !plan.TargetLayers.Contains(element.ZIndex.Value)))
             {
                 return new CommitValidationFailure(
                     new InvalidElementMaterializationFailure(
@@ -403,12 +403,12 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
             }
         }
 
-        var ids = scene.Children.Select(element => element.Id).ToHashSet();
+        var ids = scene.Children.Select(element => element.Id.Value).ToHashSet();
         foreach (ElementAddItemResult item in itemResults)
         {
             foreach (Element element in item.Elements)
             {
-                if (!ids.Add(element.Id))
+                if (!ids.Add(element.Id.Value))
                 {
                     return new CommitValidationFailure(
                         new InvalidElementMaterializationFailure(
@@ -441,15 +441,15 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
                 return new InvalidElementMaterializationFailure(
                     "A materialized element instance cannot appear more than once in a batch.");
             }
-            if (!localIds.Add(element.Id) || !knownElementIds.Add(element.Id))
+            if (!localIds.Add(element.Id.Value) || !knownElementIds.Add(element.Id.Value))
             {
                 return new InvalidElementMaterializationFailure(
                     "Materialized element identifiers must be unique within the scene and batch.");
             }
-            if (!targetLayers.Contains(element.ZIndex))
+            if (!targetLayers.Contains(element.ZIndex.Value))
             {
                 return new InvalidElementMaterializationFailure(
-                    $"Materialized layer {element.ZIndex} was not reserved during preflight.");
+                    $"Materialized layer {element.ZIndex.Value} was not reserved during preflight.");
             }
         }
 

@@ -202,7 +202,7 @@ public partial class JsonSerializationContext(
         if (IsRoot)
         {
             _objects ??= new Dictionary<Guid, ICoreSerializable>();
-            _objects[coreObject.Id] = coreObject;
+            _objects[coreObject.Id.Value] = coreObject;
         }
         else
         {

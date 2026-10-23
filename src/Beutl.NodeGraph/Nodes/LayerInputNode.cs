@@ -22,17 +22,17 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
         {
             Connections.Attached += conn =>
             {
-                if (conn is { Value.Input.Value: InputPort<T> inputNodePort })
+                if (conn is { Value.Input.Value.Value: InputPort<T> inputNodePort })
                 {
-                    Name = inputNodePort.Name;
-                    ReflectDisplay(inputNodePort.Display);
+                    Name.Value = inputNodePort.Name.Value;
+                    ReflectDisplay(inputNodePort.Display.Value);
                 }
             };
         }
 
         private void ReflectDisplay(DisplayAttribute? display)
         {
-            Display = display;
+            Display.Value = display;
 
             if (display?.GetName() is { } name)
             {
@@ -49,7 +49,7 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
         {
             SetPropertyAdapterCore(new NodePropertyAdapter<T>(propertyName));
 
-            ReflectDisplay(Display);
+            ReflectDisplay(Display.Value);
         }
 
         public override void Serialize(ICoreSerializationContext context)
@@ -82,7 +82,7 @@ public partial class LayerInputNode : GraphNode, IDynamicPortNode
 
             if (Activator.CreateInstance(type) is ILayerInputPort outputNodePort)
             {
-                outputNodePort.SetupProperty(inputNodePort.Name);
+                outputNodePort.SetupProperty(inputNodePort.Name.Value);
                 outputNodePort.Property?.SetValue(inputNodePort.Property?.GetValue());
 
                 connection = graphModel.Connect(inputNodePort, outputNodePort);

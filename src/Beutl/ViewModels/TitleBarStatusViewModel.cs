@@ -188,7 +188,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
     private async Task SampleFrameCacheAsync()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        if (!config.IsFrameCacheEnabled)
+        if (!config.IsFrameCacheEnabled.Value)
         {
             FrameCacheText.Value = StatusStrings.Disabled;
             return;
@@ -203,7 +203,7 @@ public sealed class TitleBarStatusViewModel : IDisposable
             .Select(editor => editor.FrameCacheManager.Value)
             .OfType<FrameCacheManager>()
             .ToArray();
-        string limit = StringFormats.ToHumanReadableSize(config.FrameCacheMaxSize * 1024 * 1024);
+        string limit = StringFormats.ToHumanReadableSize(config.FrameCacheMaxSize.Value * 1024 * 1024);
 
         _isSamplingFrameCache = true;
         try

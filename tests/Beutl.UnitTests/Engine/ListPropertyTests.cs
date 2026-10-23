@@ -8,6 +8,14 @@ namespace Beutl.UnitTests.Engine;
 [TestFixture]
 public class ListPropertyTests
 {
+    [SuppressResourceClassGeneration]
+    private sealed class Node : EngineObject
+    {
+        public Node() => ScanProperties<Node>();
+
+        public IListProperty<Node> Children { get; } = Property.CreateList<Node>();
+    }
+
     private static ListProperty<T> Make<T>(string name = "Items")
     {
         var property = new ListProperty<T>();
@@ -168,5 +176,40 @@ public class ListPropertyTests
         ((Beutl.Collections.ICoreList<int>)property).Clear();
 
         Assert.That(property.Count, Is.Zero);
+    }
+
+    // An item that holds the list's owner would become its own ancestor, as in a HierarchicalList.
+    [Test]
+    public void Adding_the_owner_or_its_ancestor_throws_and_keeps_the_list()
+    {
+        var root = new Node();
+        var child = new Node();
+        root.Children.Add(child);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.Throws<InvalidOperationException>(() => child.Children.Add(root));
+            Assert.Throws<InvalidOperationException>(() => child.Children.Add(child));
+            Assert.That(child.Children, Is.Empty);
+            Assert.That(child.HierarchicalParent, Is.SameAs(root));
+        }
+    }
+
+    // A list whose owner reports its changes, like GraphModel.Nodes, raises no Edited for a change or an item's edit.
+    [TestCase(true, 3)]
+    [TestCase(false, 0)]
+    public void Edited_follows_AffectsRender(bool affectsRender, int expected)
+    {
+        var property = new ListProperty<Node> { AffectsRender = affectsRender };
+        property.SetAttributes("Items", []);
+        int edited = 0;
+        property.Edited += (_, _) => edited++;
+        var item = new Node();
+
+        property.Add(item);
+        item.Children.Add(new Node());
+        property.Remove(item);
+
+        Assert.That(edited, Is.EqualTo(expected));
     }
 }

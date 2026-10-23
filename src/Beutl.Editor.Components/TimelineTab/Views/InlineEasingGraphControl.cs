@@ -128,7 +128,7 @@ public sealed class InlineEasingGraphControl : Control
 
             if (segmentWidth < 2) continue;
 
-            Easing easing = sorted[i + 1].model.Easing;
+            Easing easing = sorted[i + 1].model.Easing.Value;
             int comparison = Compare(sorted[i].model.Value, sorted[i + 1].model.Value);
 
             int sampleCount = Math.Clamp((int)segmentWidth, 2, 100);

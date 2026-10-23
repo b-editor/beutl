@@ -33,17 +33,17 @@ public class ElementViewDragCancellationTests
     [TestCase("move", false, true)]
     public async Task CaptureLost_ConfirmsTheDragWhereItReached(string kind, bool grouped, bool snapping)
     {
-        bool originalRipple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled;
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
-        GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled = false;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = snapping;
+        bool originalRipple = GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value;
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
+        GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = false;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = snapping;
         Window? window = null;
         TimelineTabView? view = null;
         try
         {
             (EditViewModel editor, ElementViewModel[] elements) = await OpenElements(grouped);
             TimelineTabViewModel timeline = elements[0].Timeline;
-            if (snapping) elements[0].Scene.Duration = MediaTime.FromSeconds(kind == "right" ? 4.5 : 6);
+            if (snapping) elements[0].Scene.Duration.Value = MediaTime.FromSeconds(kind == "right" ? 4.5 : 6);
             view = new TimelineTabView { DataContext = timeline };
             window = new Window { Content = view, Width = 1200, Height = 420 };
             window.Show();
@@ -52,7 +52,7 @@ public class ElementViewDragCancellationTests
             ElementView element = view.GetVisualDescendants().OfType<ElementView>()
                 .Single(v => ReferenceEquals(v.DataContext, elements[0]));
             Border border = element.FindControl<Border>("border")!;
-            var initial = elements.Select(vm => (vm.Model.Start, vm.Model.Length, vm.Model.ZIndex)).ToArray();
+            var initial = elements.Select(vm => (Start: vm.Model.Start.Value, Length: vm.Model.Length.Value, ZIndex: vm.Model.ZIndex.Value)).ToArray();
             int childCount = view.TimelinePanel.Children.Count;
             editor.HistoryManager.Commit();
             int undoCount = editor.HistoryManager.UndoCount;
@@ -79,9 +79,9 @@ public class ElementViewDragCancellationTests
             foreach (ElementViewModel vm in elements)
             {
                 if (kind is "left" or "right")
-                    Assert.That(vm.Width.Value, Is.Not.EqualTo(vm.Model.Length.TimeToPixel(scale)));
+                    Assert.That(vm.Width.Value, Is.Not.EqualTo(vm.Model.Length.Value.TimeToPixel(scale)));
                 else
-                    Assert.That(vm.BorderMargin.Value.Left, Is.Not.EqualTo(vm.Model.Start.TimeToPixel(scale)));
+                    Assert.That(vm.BorderMargin.Value.Left, Is.Not.EqualTo(vm.Model.Start.Value.TimeToPixel(scale)));
             }
             if (kind == "duplicate")
                 Assert.That(view.TimelinePanel.Children.Count, Is.GreaterThan(childCount), "The duplicate preview must include ghosts.");
@@ -120,17 +120,17 @@ public class ElementViewDragCancellationTests
                     Element model = elements[i].Model;
                     Assert.Multiple(() =>
                     {
-                        Assert.That(model.Start, Is.EqualTo(initial[i].Start + MediaTime.FromSeconds(kind == "left" ? -0.5 : kind == "move" ? 3 : 0)));
-                        Assert.That(model.Length, Is.EqualTo(initial[i].Length + MediaTime.FromSeconds(kind is "left" or "right" ? 0.5 : 0)));
-                        Assert.That(model.ZIndex, Is.EqualTo(initial[i].ZIndex + (kind == "move" ? 1 : 0)));
+                        Assert.That(model.Start.Value, Is.EqualTo(initial[i].Start + MediaTime.FromSeconds(kind == "left" ? -0.5 : kind == "move" ? 3 : 0)));
+                        Assert.That(model.Length.Value, Is.EqualTo(initial[i].Length + MediaTime.FromSeconds(kind is "left" or "right" ? 0.5 : 0)));
+                        Assert.That(model.ZIndex.Value, Is.EqualTo(initial[i].ZIndex + (kind == "move" ? 1 : 0)));
                     });
                 }
                 Assert.That(elements[0].Scene.Children.Count, Is.EqualTo(elements.Length * (kind == "duplicate" ? 2 : 1)));
                 if (kind == "duplicate")
                 {
                     Element[] copies = elements[0].Scene.Children.Except(elements.Select(vm => vm.Model)).ToArray();
-                    Assert.That(copies.Select(copy => copy.Start), Is.All.EqualTo(MediaTime.FromSeconds(5)));
-                    Assert.That(copies.Select(copy => copy.ZIndex).Order(), Is.EqualTo(initial.Select(item => item.ZIndex + 1).Order()));
+                    Assert.That(copies.Select(copy => copy.Start.Value), Is.All.EqualTo(MediaTime.FromSeconds(5)));
+                    Assert.That(copies.Select(copy => copy.ZIndex.Value).Order(), Is.EqualTo(initial.Select(item => item.ZIndex + 1).Order()));
                 }
             }
 
@@ -146,8 +146,8 @@ public class ElementViewDragCancellationTests
         finally
         {
             TimelineTestHost.Close(view, window);
-            GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled = originalRipple;
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            GlobalConfiguration.Instance.EditorConfig.IsRippleEnabled.Value = originalRipple;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
         }
     }
 
@@ -156,8 +156,8 @@ public class ElementViewDragCancellationTests
     [TestCase(RawInputModifiers.Shift)]
     public async Task CaptureLost_ModifierDrag_MovesTheSelectionAndKeepsTheUnselectedPressedClip(RawInputModifiers modifiers)
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -190,7 +190,7 @@ public class ElementViewDragCancellationTests
             Assert.That(pointer, Is.Not.Null);
             Assert.That(timeline.SelectedElements, Is.EqualTo(new[] { selected }), "Modifier drag must leave the pressed clip unselected.");
             foreach (ElementViewModel vm in elements)
-                Assert.That(vm.BorderMargin.Value.Left, Is.Not.EqualTo(vm.Model.Start.TimeToPixel(timeline.Options.Value.Scale)));
+                Assert.That(vm.BorderMargin.Value.Left, Is.Not.EqualTo(vm.Model.Start.Value.TimeToPixel(timeline.Options.Value.Scale)));
 
             pointer!.Capture(null);
             HeadlessTestHelpers.Settle(4);
@@ -199,9 +199,9 @@ public class ElementViewDragCancellationTests
             foreach (ElementViewModel vm in elements) AssertVisualMatchesModel(vm);
             Assert.Multiple(() =>
             {
-                Assert.That(selected.Model.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-                Assert.That(pressed.Model.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-                Assert.That(elements.Select(vm => vm.Model.ZIndex), Is.EqualTo(new[] { 0, 1 }));
+                Assert.That(selected.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(pressed.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+                Assert.That(elements.Select(vm => vm.Model.ZIndex.Value), Is.EqualTo(new[] { 0, 1 }));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
             });
@@ -214,7 +214,7 @@ public class ElementViewDragCancellationTests
         finally
         {
             TimelineTestHost.Close(view, window);
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
         }
     }
 
@@ -226,8 +226,8 @@ public class ElementViewDragCancellationTests
     [TestCase(DragEnd.Playback)]
     public async Task Escape_and_Undo_cancel_the_drag_and_playback_start_confirms_it(DragEnd end)
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -235,7 +235,7 @@ public class ElementViewDragCancellationTests
             (EditViewModel editor, ElementViewModel[] elements) = await OpenElements(grouped: false);
             ElementViewModel clip = elements[0];
             TimelineTabViewModel timeline = clip.Timeline;
-            editor.HistoryManager.ExecuteInTransaction(() => clip.Model.Name = "earlier", "Earlier");
+            editor.HistoryManager.ExecuteInTransaction(() => clip.Model.Name.Value = "earlier", "Earlier");
             int undoCount = editor.HistoryManager.UndoCount;
             view = new TimelineTabView { DataContext = timeline };
             window = new Window { Content = view, Width = 1200, Height = 420 };
@@ -275,8 +275,8 @@ public class ElementViewDragCancellationTests
             bool confirmed = end == DragEnd.Playback;
             Assert.Multiple(() =>
             {
-                Assert.That(clip.Model.Start, Is.EqualTo(MediaTime.FromSeconds(confirmed ? 5 : 2)));
-                Assert.That(clip.Model.Name, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
+                Assert.That(clip.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(confirmed ? 5 : 2)));
+                Assert.That(clip.Model.Name.Value, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + (confirmed ? 1 : 0)));
                 Assert.That(editor.HistoryManager.IsEditing, Is.False);
             });
@@ -285,7 +285,7 @@ public class ElementViewDragCancellationTests
         finally
         {
             TimelineTestHost.Close(view, window);
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
         }
     }
 
@@ -297,7 +297,7 @@ public class ElementViewDragCancellationTests
             .ToArray();
         (EditViewModel editor, TimelineTabViewModel timeline) = await TimelineTestHost.OpenTimelineAsync(
             $"element-drag-cancel-{Guid.NewGuid():N}", descriptions);
-        ElementViewModel[] elements = editor.Scene.Children.OrderBy(model => model.ZIndex)
+        ElementViewModel[] elements = editor.Scene.Children.OrderBy(model => model.ZIndex.Value)
             .Select(model => timeline.GetViewModelFor(model)!).ToArray();
         timeline.ClearSelected();
         foreach (ElementViewModel vm in elements) timeline.SelectElement(vm);
@@ -311,9 +311,9 @@ public class ElementViewDragCancellationTests
         float scale = vm.Timeline.Options.Value.Scale;
         Assert.Multiple(() =>
         {
-            Assert.That(vm.BorderMargin.Value.Left, Is.EqualTo(vm.Model.Start.TimeToPixel(scale)).Within(0.0001));
-            Assert.That(vm.Width.Value, Is.EqualTo(vm.Model.Length.TimeToPixel(scale)).Within(0.0001));
-            Assert.That(vm.Margin.Value.Top, Is.EqualTo(vm.Timeline.CalculateLayerTop(vm.Model.ZIndex)).Within(0.0001));
+            Assert.That(vm.BorderMargin.Value.Left, Is.EqualTo(vm.Model.Start.Value.TimeToPixel(scale)).Within(0.0001));
+            Assert.That(vm.Width.Value, Is.EqualTo(vm.Model.Length.Value.TimeToPixel(scale)).Within(0.0001));
+            Assert.That(vm.Margin.Value.Top, Is.EqualTo(vm.Timeline.CalculateLayerTop(vm.Model.ZIndex.Value)).Within(0.0001));
         });
     }
 }

@@ -29,15 +29,15 @@ public class NodeGraphNavigationLayoutTests
         var outer = new GroupNode();
         graph.Nodes.Add(outer);
         var inner = new GroupNode();
-        outer.Group.Nodes.Add(inner);
+        outer.Group.Value.Nodes.Add(inner);
         using var model = new NodeGraphTabViewModel(editor);
         model.Model.Value = graph;
 
-        model.NavigateTo(inner.Group);
+        model.NavigateTo(inner.Group.Value);
 
-        Assert.That(model.Items.Select(item => item.NodeGraph), Is.EqualTo(new GraphModel[] { graph, outer.Group, inner.Group }));
+        Assert.That(model.Items.Select(item => item.NodeGraph), Is.EqualTo(new GraphModel[] { graph, outer.Group.Value, inner.Group.Value }));
         model.NavigateTo(1);
-        Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(outer.Group));
+        Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(outer.Group.Value));
     }
 
     [AvaloniaTest]
@@ -49,9 +49,9 @@ public class NodeGraphNavigationLayoutTests
         var graph = new GraphModel();
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value = graph;
-        var element = new Element { Name = "Composition" };
+        var element = new Element { Name = { Value = "Composition" } };
         element.AddObject(drawable);
-        var group = new GroupNode { Position = (0, 0) };
+        var group = new GroupNode { Position = { Value = (0, 0) } };
         graph.Nodes.Add(group);
         using var model = new NodeGraphTabViewModel(editor);
         model.Model.Value = graph;
@@ -73,10 +73,10 @@ public class NodeGraphNavigationLayoutTests
             Assert.That(node.GetVisualDescendants().OfType<TextBlock>().Any(x => x.Text == NodeGraphStrings.Group), Is.True);
             Assert.That(ToolTip.GetTip(node.FindControl<Border>("handle")!), Is.EqualTo(NodeGraphStrings.Group));
             string longNodeName = string.Concat(Enumerable.Repeat("Long node name ", 8));
-            group.Name = longNodeName;
+            group.Name.Value = longNodeName;
             HeadlessTestHelpers.Render(3);
             Assert.That(ToolTip.GetTip(node.FindControl<Border>("handle")!), Is.EqualTo(longNodeName));
-            group.Name = "";
+            group.Name.Value = "";
             HeadlessTestHelpers.Render(3);
             double breadcrumbBottom = breadcrumb.TranslatePoint(new Point(0, breadcrumb.Bounds.Height), view)!.Value.Y;
             double graphTop = graphView.TranslatePoint(default, view)!.Value.Y;
@@ -94,7 +94,7 @@ public class NodeGraphNavigationLayoutTests
             Border handle = node.FindControl<Border>("handle")!;
             Point handlePoint = handle.TranslatePoint(new Point(95, 16), window)!.Value;
             Drag(handlePoint, new Vector(30, 20));
-            Assert.That(group.Position, Is.EqualTo((30d, 20d)));
+            Assert.That(group.Position.Value, Is.EqualTo((30d, 20d)));
 
             // Camera movement and zoom belong to the graph, not to the navigation band.
             Point emptyPoint = zoom.TranslatePoint(new Point(width - 40, 180), window)!.Value;
@@ -117,7 +117,7 @@ public class NodeGraphNavigationLayoutTests
             Button open = node.GetVisualDescendants().OfType<Button>()
                 .Single(x => x.Name != "expandToggle");
             HeadlessTestHelpers.Click(open, move: true, ticks: 3);
-            Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(group.Group));
+            Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(group.Group.Value));
             Assert.That(model.Items, Has.Count.EqualTo(2));
             FABreadcrumbBarItem parent = breadcrumb.GetVisualDescendants().OfType<FABreadcrumbBarItem>()
                 .First(x => ReferenceEquals(x.Content, model.Items[0]));
@@ -125,11 +125,11 @@ public class NodeGraphNavigationLayoutTests
             Assert.That(model.NodeGraph.Value!.NodeGraph, Is.SameAs(graph));
             Assert.That(model.Items, Has.Count.EqualTo(1));
 
-            element.Name = string.Concat(Enumerable.Repeat("Long composition name ", 12));
+            element.Name.Value = string.Concat(Enumerable.Repeat("Long composition name ", 12));
             HeadlessTestHelpers.Render(3);
             Assert.That(navigation.Bounds.Height, Is.EqualTo(navigationHeight));
-            TextBlock name = breadcrumb.GetVisualDescendants().OfType<TextBlock>().First(x => x.Text == element.Name);
-            Assert.That(ToolTip.GetTip(name), Is.EqualTo(element.Name));
+            TextBlock name = breadcrumb.GetVisualDescendants().OfType<TextBlock>().First(x => x.Text == element.Name.Value);
+            Assert.That(ToolTip.GetTip(name), Is.EqualTo(element.Name.Value));
             Assert.That(name.Bounds.Width, Is.LessThanOrEqualTo(breadcrumb.Bounds.Width));
             Assert.That(breadcrumb.Bounds.Right, Is.LessThanOrEqualTo(navigation.Bounds.Width));
 

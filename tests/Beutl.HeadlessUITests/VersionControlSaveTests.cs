@@ -46,7 +46,7 @@ public class VersionControlSaveTests
         };
         TestShell.Editor.TabItems.Add(new EditorTabItem(
             new FailedSaveEditorContext(failedItem, failedCommands.SaveAsync)));
-        project.Variables["partially-saved"] = "true";
+        project.Variables.Value["partially-saved"] = "true";
 
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
 
@@ -58,7 +58,7 @@ public class VersionControlSaveTests
         Assert.Multiple(() =>
         {
             Assert.That(failedCommands.SaveCalls, Is.EqualTo(1));
-            Assert.That(persisted.Variables["partially-saved"], Is.EqualTo("true"));
+            Assert.That(persisted.Variables.Value["partially-saved"], Is.EqualTo("true"));
             Assert.That(commitsAfterSave, Is.EqualTo(commitsBeforeSave));
             Assert.That(saveSnapshots, Is.Zero);
             Assert.That(status.IsClean, Is.False);
@@ -160,7 +160,7 @@ public class VersionControlSaveTests
             Assert.That(await CountSnapshotsAsync(git.GitPath, projectRoot, "save"), Is.EqualTo(1));
             // An ordinary auto-save must not cancel the explicit save that is
             // waiting for its media hash, nor request a snapshot of its own.
-            scene.Duration += MediaTime.FromSeconds(1);
+            scene.Duration.Value += MediaTime.FromSeconds(1);
             editor.HistoryManager.Commit("Edit while hashing");
             HeadlessTestHelpers.Settle();
             release.SetResult();
@@ -280,12 +280,12 @@ public class VersionControlSaveTests
             await AddRectangleAsync(adder);
             HeadlessTestHelpers.Settle();
             Element element = scene.Children.Single();
-            element.Name = "saved-without-auto-save";
+            element.Name.Value = "saved-without-auto-save";
 
             await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
 
             Element persisted = CoreSerializer.RestoreFromUri<Element>(element.Uri!);
-            Assert.That(persisted.Name, Is.EqualTo("saved-without-auto-save"));
+            Assert.That(persisted.Name.Value, Is.EqualTo("saved-without-auto-save"));
         }
         finally
         {
@@ -917,8 +917,8 @@ public class VersionControlSaveTests
             File.Copy(original.Uri.LocalPath, alternate);
 
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
-            scene.Duration = MediaTime.FromSeconds(73);
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.Not.EqualTo(scene.Duration));
+            scene.Duration.Value = MediaTime.FromSeconds(73);
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration.Value, Is.Not.EqualTo(scene.Duration.Value));
 
             await TestShell.Project.OpenProject(alternate);
             Project opened = TestShell.Project.CurrentProject.Value!;
@@ -931,8 +931,8 @@ public class VersionControlSaveTests
             {
                 Assert.That(opened.Uri!.LocalPath, Is.EqualTo(alternate));
                 Assert.That(openedScene.Uri, Is.EqualTo(scene.Uri));
-                Assert.That(openedScene.Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
-                Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration,
+                Assert.That(openedScene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
+                Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration.Value,
                     Is.EqualTo(MediaTime.FromSeconds(73)), "Saving the newly opened project must retain the close-time edits.");
             });
         }
@@ -947,11 +947,11 @@ public class VersionControlSaveTests
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose.Value;
 
         try
         {
-            config.AutoCommitOnClose = false;
+            config.AutoCommitOnClose.Value = false;
             string replacementLocation = Path.Combine(
                 BeutlHomeIsolation.CurrentHome!,
                 "version-control-expected-close-replacement");
@@ -1019,7 +1019,7 @@ public class VersionControlSaveTests
         finally
         {
             await TestReset.ResetShellAsync();
-            config.AutoCommitOnClose = oldAutoCommitOnClose;
+            config.AutoCommitOnClose.Value = oldAutoCommitOnClose;
         }
     }
 
@@ -1038,7 +1038,7 @@ public class VersionControlSaveTests
         string projectFile = project.Uri!.LocalPath;
         string projectRoot = Path.GetDirectoryName(projectFile)!;
         int commitsBefore = await CountCommitsAsync(git.GitPath, projectRoot);
-        project.Variables["package-discard"] = "must not be persisted";
+        project.Variables.Value["package-discard"] = "must not be persisted";
         var packageHandler = new PackageOperationHandler(
             TestShell.MainViewModel._beutlClients,
             TestShell.Editor,
@@ -1057,7 +1057,7 @@ public class VersionControlSaveTests
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
             Assert.That(commitsAfter, Is.EqualTo(commitsBefore));
             Assert.That(closeSnapshots, Is.Zero);
-            Assert.That(persisted.Variables.ContainsKey("package-discard"), Is.False);
+            Assert.That(persisted.Variables.Value.ContainsKey("package-discard"), Is.False);
         });
     }
 
@@ -1078,7 +1078,7 @@ public class VersionControlSaveTests
         int commitsBefore = await CountCommitsAsync(git.GitPath, projectRoot);
         // Autosave writes an edit the moment it is made, so the worktree already differs from
         // HEAD when the user picks the close path that keeps nothing.
-        project.Variables["package-discard"] = "autosaved before the close";
+        project.Variables.Value["package-discard"] = "autosaved before the close";
         CoreSerializer.StoreToUri(project, project.Uri, CoreSerializationMode.Write);
         var packageHandler = new PackageOperationHandler(
             TestShell.MainViewModel._beutlClients,
@@ -1121,7 +1121,7 @@ public class VersionControlSaveTests
 
         string projectRoot = Path.GetDirectoryName(project.Uri!.LocalPath)!;
         int commitsBefore = await CountCommitsAsync(git.GitPath, projectRoot);
-        project.Variables["package-save"] = "persisted before close";
+        project.Variables.Value["package-save"] = "persisted before close";
         var packageHandler = new PackageOperationHandler(
             TestShell.MainViewModel._beutlClients,
             TestShell.Editor,
@@ -1196,14 +1196,14 @@ public class VersionControlSaveTests
                 TestShell.MainViewModel._beutlClients,
                 TestShell.Editor,
                 TestShell.Project);
-            config.AutoCommitOnClose = false;
+            config.AutoCommitOnClose.Value = false;
             Assert.That(
                 await packageHandler.HandleProjectCloseChoice(
                     FAContentDialogResult.Secondary,
                     project),
                 Is.False);
             int commitsAfterFailedPackageSave = await CountCommitsAsync(git.GitPath, projectRoot);
-            config.AutoCommitOnClose = true;
+            config.AutoCommitOnClose.Value = true;
             Assert.Throws<ProjectCloseAbortedException>(TestShell.Project.CloseProjectOrThrow);
             Assert.Multiple(() =>
             {
@@ -1217,7 +1217,7 @@ public class VersionControlSaveTests
         {
             // Cleared before the reset: the tab that refuses to save is still open, so the reset's
             // own close would be refused too and leave the project open for the next case.
-            config.AutoCommitOnClose = false;
+            config.AutoCommitOnClose.Value = false;
         }
     }
 
@@ -1240,7 +1240,7 @@ public class VersionControlSaveTests
                 return new GitIdentity("Beutl Test", "beutl@example.invalid");
             });
         await promptEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        project.Variables["identity-race"] = "edited-during-prompt";
+        project.Variables.Value["identity-race"] = "edited-during-prompt";
         releasePrompt.SetResult();
         Assert.That(await initialization, Is.True);
 

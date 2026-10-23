@@ -80,18 +80,18 @@ public sealed class DrawableDecoratorReplayTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = scaleTransform ? 100 : 0 },
-                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = scaleTransform ? 150 : 30 },
-                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = scaleTransform ? 75 : -20 },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = scaleTransform ? 100 : 0 } },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = scaleTransform ? 150 : 30 } },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = scaleTransform ? 75 : -20 } },
             },
         });
 
         var scene = new Scene(256, 144, "decorator") { Uri = new Uri("file:///decorator/scene") };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(4),
-            ZIndex = 0,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(4) },
+            ZIndex = { Value = 0 },
             Uri = new Uri("file:///decorator/element"),
         };
         element.AddObject(decorator);

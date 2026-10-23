@@ -126,10 +126,10 @@ public sealed class StartupNotificationServiceTests
         using var notifications = new NotificationCapture();
         var config = new TelemetryConfig
         {
-            Beutl_Api_Client = true,
-            Beutl_Application = false,
-            Beutl_PackageManagement = true,
-            Beutl_Logging = false
+            Beutl_Api_Client = { Value = true },
+            Beutl_Application = { Value = false },
+            Beutl_PackageManagement = { Value = true },
+            Beutl_Logging = { Value = false }
         };
 
         StartupNotificationService.ShowTelemetryConsent(config);
@@ -142,14 +142,14 @@ public sealed class StartupNotificationServiceTests
     {
         var config = new TelemetryConfig
         {
-            Beutl_Api_Client = true,
-            Beutl_Application = false,
-            Beutl_PackageManagement = true
+            Beutl_Api_Client = { Value = true },
+            Beutl_Application = { Value = false },
+            Beutl_PackageManagement = { Value = true }
         };
 
         Assert.That(Telemetry.IsConsentConfigured(config), Is.False);
 
-        config.Beutl_Logging = false;
+        config.Beutl_Logging.Value = false;
 
         Assert.That(Telemetry.IsConsentConfigured(config), Is.True);
     }
@@ -333,9 +333,9 @@ public sealed class StartupNotificationServiceTests
 
     private static void AssertTelemetry(TelemetryConfig config, bool expected)
     {
-        Assert.That(config.Beutl_Api_Client, Is.EqualTo(expected));
-        Assert.That(config.Beutl_Application, Is.EqualTo(expected));
-        Assert.That(config.Beutl_PackageManagement, Is.EqualTo(expected));
-        Assert.That(config.Beutl_Logging, Is.EqualTo(expected));
+        Assert.That(config.Beutl_Api_Client.Value, Is.EqualTo(expected));
+        Assert.That(config.Beutl_Application.Value, Is.EqualTo(expected));
+        Assert.That(config.Beutl_PackageManagement.Value, Is.EqualTo(expected));
+        Assert.That(config.Beutl_Logging.Value, Is.EqualTo(expected));
     }
 }

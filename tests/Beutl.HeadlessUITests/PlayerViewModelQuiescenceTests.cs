@@ -64,7 +64,7 @@ public class PlayerViewModelQuiescenceTests
     {
         EditViewModel editor = await OpenEditor();
         var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
-        editor.Scene.Duration = MediaTime.FromSeconds(30);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(30);
         clock.Seek(MediaTime.FromSeconds(5));
         int startedBuffers = 0;
         using var subscription = editor.BufferStatus.StartTime.Subscribe(time =>
@@ -154,7 +154,7 @@ public class PlayerViewModelQuiescenceTests
     {
         EditViewModel editor = await OpenEditor();
         var clock = (IEditorClock)editor.GetService(typeof(IEditorClock))!;
-        editor.Scene.Duration = MediaTime.FromSeconds(20);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(20);
         clock.Seek(MediaTime.FromSeconds(5));
 
         await MoveAndPause(forward: true);
@@ -502,7 +502,7 @@ public class PlayerViewModelQuiescenceTests
     private static BlockingPlaybackSound AddBlockingSound(Scene scene)
     {
         var sound = new BlockingPlaybackSound();
-        var element = new Element { Length = MediaTime.FromSeconds(2) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(2) } };
         element.Objects.Add(sound);
         scene.Children.Add(element);
         return sound;

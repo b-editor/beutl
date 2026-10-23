@@ -13,7 +13,7 @@ public class PopulateUnchangedValuesTests
     // written by Serialize, including extension-defined keys, rather than reflect over properties.
     private sealed class CustomOwner : CoreObject
     {
-        public CoreObject? Child { get; set; } = new ValueObject { Name = "original" };
+        public CoreObject? Child { get; set; } = new ValueObject { Name = { Value = "original" } };
 
         public override void Serialize(ICoreSerializationContext context)
         {
@@ -44,8 +44,8 @@ public class PopulateUnchangedValuesTests
         Assert.Multiple(() =>
         {
             Assert.That(ReferenceEquals(owner.Child, original), Is.EqualTo(preserve));
-            Assert.That(owner.Child?.Name, Is.EqualTo("original"));
-            Assert.That(owner.Child?.Id, Is.EqualTo(original.Id));
+            Assert.That(owner.Child?.Name.Value, Is.EqualTo("original"));
+            Assert.That(owner.Child?.Id.Value, Is.EqualTo(original.Id.Value));
         });
     }
 
@@ -78,14 +78,14 @@ public class PopulateUnchangedValuesTests
         Assert.Multiple(() =>
         {
             Assert.That(owner.Child, Is.Not.SameAs(original));
-            Assert.That(owner.Child?.Name, Is.EqualTo(edit == "change" ? "changed" : null));
-            Assert.That(original.Name, Is.EqualTo("original"));
+            Assert.That(owner.Child?.Name.Value, Is.EqualTo(edit == "change" ? "changed" : null));
+            Assert.That(original.Name.Value, Is.EqualTo("original"));
         });
     }
 
     private sealed class CollectionOwner(bool readAsArray) : CoreObject
     {
-        public List<CoreObject> Children { get; } = [new ValueObject { Name = "child" }];
+        public List<CoreObject> Children { get; } = [new ValueObject { Name = { Value = "child" } }];
 
         public override void Serialize(ICoreSerializationContext context)
         {
@@ -109,7 +109,7 @@ public class PopulateUnchangedValuesTests
     public void Populate_preserves_collection_contents_when_the_reader_rebuilds_the_collection(bool readAsArray)
     {
         var owner = new CollectionOwner(readAsArray);
-        Guid childId = owner.Children[0].Id;
+        Guid childId = owner.Children[0].Id.Value;
         JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
 
         CoreSerializer.PopulateFromJsonObject(owner, document, new CoreSerializerOptions
@@ -119,8 +119,8 @@ public class PopulateUnchangedValuesTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(owner.Children.Select(child => child.Name), Is.EqualTo(new[] { "child" }));
-            Assert.That(owner.Children.Select(child => child.Id), Is.EqualTo(new[] { childId }));
+            Assert.That(owner.Children.Select(child => child.Name.Value), Is.EqualTo(new[] { "child" }));
+            Assert.That(owner.Children.Select(child => child.Id.Value), Is.EqualTo(new[] { childId }));
         });
     }
 
@@ -130,12 +130,12 @@ public class PopulateUnchangedValuesTests
         var project = new Project
         {
             Variables =
-            {
+            { Value = {
                 ["author"] = "beutl",
                 ["take"] = "2"
-            }
+            } }
         };
-        KeyValuePair<string, string>[] variables = project.Variables.ToArray();
+        KeyValuePair<string, string>[] variables = project.Variables.Value.ToArray();
         JsonObject document = CoreSerializer.SerializeToJsonObject(project);
 
         CoreSerializer.PopulateFromJsonObject(project, document, new CoreSerializerOptions
@@ -143,7 +143,7 @@ public class PopulateUnchangedValuesTests
             PreserveUnchangedValues = true
         });
 
-        Assert.That(project.Variables, Is.EquivalentTo(variables));
+        Assert.That(project.Variables.Value, Is.EquivalentTo(variables));
     }
 
     private sealed class RegisteredCollectionOwner : CoreObject
@@ -151,23 +151,17 @@ public class PopulateUnchangedValuesTests
         public RegisteredCollectionOwner()
         {
             ScanProperties<RegisteredCollectionOwner>();
-            Values = [1, 2];
+            Values.Value = [1, 2];
         }
 
-        public IProperty<List<int>> ValuesProperty { get; } = new ValueOnlyProperty<List<int>>(null!);
-
-        public List<int> Values
-        {
-            get => ValuesProperty.Value;
-            set => ValuesProperty.Value = value;
-        }
+        public IProperty<List<int>> Values { get; } = new ValueOnlyProperty<List<int>>(null!);
     }
 
     [Test]
     public void Populate_keeps_unchanged_registered_collections_without_invoking_their_setters()
     {
         var owner = new RegisteredCollectionOwner();
-        List<int> original = owner.Values;
+        List<int> original = owner.Values.Value;
         JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
 
         CoreSerializer.PopulateFromJsonObject(owner, document, new CoreSerializerOptions
@@ -177,8 +171,8 @@ public class PopulateUnchangedValuesTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(owner.Values, Is.SameAs(original));
-            Assert.That(owner.Values, Is.EqualTo(new[] { 1, 2 }));
+            Assert.That(owner.Values.Value, Is.SameAs(original));
+            Assert.That(owner.Values.Value, Is.EqualTo(new[] { 1, 2 }));
         });
     }
 
@@ -214,7 +208,7 @@ public class PopulateUnchangedValuesTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(owner.Name, Is.EqualTo("updated"));
+            Assert.That(owner.Name.Value, Is.EqualTo("updated"));
             Assert.That(owner.Values.Value, Is.SameAs(original));
             Assert.That(changed, Is.Zero);
         });

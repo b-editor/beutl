@@ -178,7 +178,7 @@ public sealed partial class ElementView : UserControl
 
         MediaTime duration = (_transitionDragStartDuration + delta.PixelToTime(scale)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         if (duration < MediaTime.Zero) duration = MediaTime.Zero;
-        if (duration > viewModel.Model.Length) duration = viewModel.Model.Length;
+        if (duration > viewModel.Model.Length.Value) duration = viewModel.Model.Length.Value;
         return duration;
     }
 
@@ -225,7 +225,7 @@ public sealed partial class ElementView : UserControl
         if (DataContext is not ElementViewModel viewModel) return;
         Element model = viewModel.Model;
         viewModel.Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
-            .SetLocked(model, !model.IsLocked);
+            .SetLocked(model, !model.IsLocked.Value);
     }
 
     private void OnDataContextDetached(ElementViewModel obj)
@@ -335,7 +335,7 @@ public sealed partial class ElementView : UserControl
 
         Element model = ViewModel.Model;
         ViewModel.Timeline.EditorContext.GetRequiredService<IElementAttributeService>()
-            .SetEnabled(model, !model.IsEnabled);
+            .SetEnabled(model, !model.IsEnabled.Value);
     }
 
     private void OnTextBoxLostFocus(object? sender, RoutedEventArgs e)

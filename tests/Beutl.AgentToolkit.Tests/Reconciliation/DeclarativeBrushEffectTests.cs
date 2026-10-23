@@ -48,20 +48,20 @@ public sealed class DeclarativeBrushEffectTests
             {
                 [nameof(Shape.Fill)] = new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = fill.Id.ToString(),
+                    [nameof(CoreObject.Id)] = fill.Id.Value.ToString(),
                     [nameof(GradientBrush.GradientStops)] = new JsonArray(new JsonObject
                     {
-                        [nameof(CoreObject.Id)] = firstStop.Id.ToString(),
+                        [nameof(CoreObject.Id)] = firstStop.Id.Value.ToString(),
                         [nameof(GradientStop.Offset)] = 0.2,
                         [nameof(GradientStop.Color)] = CoreSerializer.SerializeToJsonNode(Color.FromRgb(0x33, 0x66, 0xff))
                     })
                 },
                 [nameof(Drawable.FilterEffect)] = new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = effects.Id.ToString(),
+                    [nameof(CoreObject.Id)] = effects.Id.Value.ToString(),
                     [nameof(FilterEffectGroup.Children)] = new JsonArray(new JsonObject
                     {
-                        [nameof(CoreObject.Id)] = blur.Id.ToString(),
+                        [nameof(CoreObject.Id)] = blur.Id.Value.ToString(),
                         [nameof(Blur.Sigma)] = CoreSerializer.SerializeToJsonNode(new Size(12, 12))
                     })
                 }
@@ -73,8 +73,8 @@ public sealed class DeclarativeBrushEffectTests
 
         fill = (LinearGradientBrush)rect.Fill.Value!;
         effects = (FilterEffectGroup)rect.FilterEffect.Value!;
-        firstStop = fill.GradientStops.Single(stop => stop.Id == firstStop.Id);
-        blur = (Blur)effects.Children.Single(child => child.Id == blur.Id)!;
+        firstStop = fill.GradientStops.Single(stop => stop.Id.Value == firstStop.Id.Value);
+        blur = (Blur)effects.Children.Single(child => child.Id.Value == blur.Id.Value)!;
 
         Assert.Multiple(() =>
         {
@@ -144,7 +144,7 @@ public sealed class DeclarativeBrushEffectTests
         JsonObject desired = session.Documents.Read(session.Root);
         JsonArray objects = (JsonArray)((JsonObject)((JsonArray)desired["Elements"]!)[0]!)["Objects"]!;
         JsonObject equalizerJson = (JsonObject)objects.Single(node =>
-            node is JsonObject obj && (string?)obj[nameof(CoreObject.Id)] == equalizer.Id.ToString())!;
+            node is JsonObject obj && (string?)obj[nameof(CoreObject.Id)] == equalizer.Id.Value.ToString())!;
         equalizerJson[nameof(EqualizerEffect.Bands)] =
             replaceBands((JsonArray)equalizerJson[nameof(EqualizerEffect.Bands)]!);
 
@@ -189,12 +189,12 @@ public sealed class DeclarativeBrushEffectTests
 
     private static JsonObject PatchRectObject(Element element, RectShape rect, JsonObject rectPatch)
     {
-        rectPatch[nameof(CoreObject.Id)] = rect.Id.ToString();
+        rectPatch[nameof(CoreObject.Id)] = rect.Id.Value.ToString();
         return new JsonObject
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 [nameof(Element.Objects)] = new JsonArray(rectPatch)
             })
         };

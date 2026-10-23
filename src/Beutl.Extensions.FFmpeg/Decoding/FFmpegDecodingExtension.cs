@@ -67,7 +67,7 @@ public class FFmpegDecodingExtension : DecodingExtension
                     var connection = await worker.EnsureStartedAsync();
                     var request = new UpdateDecoderSettingsRequest
                     {
-                        ForceSrgbGamma = Settings.ForceSrgbGamma,
+                        ForceSrgbGamma = Settings.ForceSrgbGamma.Value,
                     };
 
                     await connection.SendAndReceiveAsync(IpcMessage.Create(connection.NextId(), MessageType.UpdateDecoderSettings, request));

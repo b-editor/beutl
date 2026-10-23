@@ -218,7 +218,7 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     private static async Task RenameAsync(
         IEditorContext editorContext, Scene scene, Element element, IContextCommandInteraction interaction)
     {
-        string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions { Value = element.Name });
+        string? name = await interaction.ShowInputAsync(new ContextCommandInputOptions { Value = element.Name.Value });
         if (name is null || !scene.Children.Contains(element) || scene.IsElementLocked(element)) return;
 
         // An empty name is kept: it leaves the element unnamed.
@@ -263,8 +263,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
                 .ToArray();
         }
 
-        ImmutableHashSet<Guid>? group = scene.Groups.FirstOrDefault(g => g.Contains(element.Id));
-        return (group is null ? [element] : scene.Children.Where(e => group.Contains(e.Id)))
+        ImmutableHashSet<Guid>? group = scene.Groups.FirstOrDefault(g => g.Contains(element.Id.Value));
+        return (group is null ? [element] : scene.Children.Where(e => group.Contains(e.Id.Value)))
             .Where(e => !scene.IsElementLocked(e))
             .ToArray();
     }
@@ -285,8 +285,8 @@ public sealed partial class TimelineTabExtension : IContextCommandEditorStateNot
     // The element's name, or its type's when it has none, made unique among the templates.
     internal static string GetDefaultTemplateName(Element element)
     {
-        string defaultName = !string.IsNullOrWhiteSpace(element.Name)
-            ? element.Name
+        string defaultName = !string.IsNullOrWhiteSpace(element.Name.Value)
+            ? element.Name.Value
             : TypeDisplayHelpers.GetLocalizedName(element.GetType());
         return ObjectTemplateService.Instance.GetUniqueName(defaultName);
     }

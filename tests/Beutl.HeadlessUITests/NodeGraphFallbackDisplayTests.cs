@@ -61,7 +61,7 @@ public class NodeGraphFallbackDisplayTests
             JsonObject saved = CoreSerializer.SerializeToJsonObject(graph)["Nodes"]![0]!.AsObject();
             Assert.Multiple(() =>
             {
-                Assert.That(graph.Nodes[0].Position, Is.EqualTo((74d, 24d)));
+                Assert.That(graph.Nodes[0].Position.Value, Is.EqualTo((74d, 24d)));
                 Assert.That(saved["Position"]!.GetValue<string>(), Is.EqualTo("74,24"));
                 Assert.That(saved[nameof(GraphNode.Name)]!.GetValue<string>(), Is.EqualTo("Changed"));
                 Assert.That(saved[nameof(GraphNode.IsExpanded)]!.GetValue<bool>(), Is.False);
@@ -109,11 +109,11 @@ public class NodeGraphFallbackDisplayTests
             Assert.That(vm.Nodes.All(item => item.IsSelected.Value), Is.True);
             Assert.That(vm.Nodes[1].Position.Value, Is.EqualTo(new Point(360, 24)));
             Assert.That(vm.Nodes[0].Position.Value, Is.EqualTo(new Point(24, 24)));
-            Assert.That(graph.Nodes[0].Name, Is.EqualTo("Unavailable node"));
+            Assert.That(graph.Nodes[0].Name.Value, Is.EqualTo("Unavailable node"));
             mutation.VerifyNoOtherCalls();
             vm.Nodes[0].IsExpanded.Value = false;
             HeadlessTestHelpers.Render(3);
-            Assert.That(graph.Nodes[0].IsExpanded, Is.True, "Collapsing it would not be saved.");
+            Assert.That(graph.Nodes[0].IsExpanded.Value, Is.True, "Collapsing it would not be saved.");
             var peer = ControlAutomationPeer.CreatePeerForElement(node.FindControl<Border>("handle")!);
             Assert.That(peer.GetHelpText(), Is.EqualTo(vm.Nodes[0].FallbackMessage));
         }
@@ -126,8 +126,8 @@ public class NodeGraphFallbackDisplayTests
     private static GraphModel RestoreGraph(bool failed)
     {
         var graph = new GraphModel();
-        var source = new RandomSingleNode { Name = "Unavailable node", Position = (24, 24) };
-        var output = new OutputNode { Position = (360, 24) };
+        var source = new RandomSingleNode { Name = { Value = "Unavailable node" }, Position = { Value = (24, 24) } };
+        var output = new OutputNode { Position = { Value = (360, 24) } };
         graph.Nodes.AddRange([source, output]);
         graph.Connect(output.InputPort, source.Value);
         JsonObject json = CoreSerializer.SerializeToJsonObject(graph);

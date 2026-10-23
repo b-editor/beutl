@@ -32,16 +32,16 @@ public sealed class ExportPreviewFrameParityTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("frame-parity", 16, 16);
         Scene scene = editor.Scene;
-        scene.FindHierarchicalParent<Project>()!.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        scene.FindHierarchicalParent<Project>()!.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
-        scene.Duration = ThroughFile(new Element { Length = MediaTime.FromFrames(9, rate) }).Length;
+        scene.Duration.Value = ThroughFile(new Element { Length = { Value = MediaTime.FromFrames(9, rate) } }).Length.Value;
         var starts = new List<MediaTime>();
         for (int i = 0; i < s_colors.Length; i++)
         {
             Element saved = ThroughFile(new Element
             {
-                Start = MediaTime.FromFrames(3 * i, rate),
-                Length = MediaTime.FromFrames(3, rate),
+                Start = { Value = MediaTime.FromFrames(3 * i, rate) },
+                Length = { Value = MediaTime.FromFrames(3, rate) },
             });
             Color color = s_colors[i];
             await TestShell.AddElementAsync(editor, () => new RectShape
@@ -49,8 +49,8 @@ public sealed class ExportPreviewFrameParityTests
                 Width = { Value = 16 },
                 Height = { Value = 16 },
                 Fill = { Value = new SolidColorBrush(color) },
-            }, saved.Start, saved.Length);
-            starts.Add(saved.Start);
+            }, saved.Start.Value, saved.Length.Value);
+            starts.Add(saved.Start.Value);
         }
 
         var exported = new List<int>();

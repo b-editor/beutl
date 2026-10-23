@@ -147,15 +147,15 @@ public sealed class GraphEditorViewViewModel : IDisposable
             double difference = ConvertToDouble(item.Model.Value) - start;
             if (Parent.IsSpeedGraph.Value)
             {
-                double duration = (item.Model.KeyTime - previous.KeyTime).ToSeconds();
+                double duration = (item.Model.KeyTime.Value - previous.KeyTime.Value).ToSeconds();
                 for (int sample = 0; sample <= 128; sample++)
                 {
-                    double velocity = GraphEditorCurveMath.Velocity(item.Model.Easing, sample / 128d, difference, duration);
+                    double velocity = GraphEditorCurveMath.Velocity(item.Model.Easing.Value, sample / 128d, difference, duration);
                     low = Math.Min(low, velocity);
                     high = Math.Max(high, velocity);
                 }
             }
-            else if (item.Model.Easing is Beutl.Animation.Easings.SplineEasing spline)
+            else if (item.Model.Easing.Value is Beutl.Animation.Easings.SplineEasing spline)
             {
                 double first = start + spline.Y1 * difference;
                 double second = start + spline.Y2 * difference;

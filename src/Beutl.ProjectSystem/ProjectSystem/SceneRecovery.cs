@@ -12,8 +12,8 @@ internal sealed partial class SceneRecovery(Scene scene)
 {
     private readonly Scene _scene = scene;
     private Uri? Uri => _scene.Uri;
-    private Guid Id => _scene.Id;
-    private Elements Children => _scene.Children;
+    private Guid Id => _scene.Id.Value;
+    private IListProperty<Element> Children => _scene.Children;
     private IEnumerable<TimelineLayer> Layers => _scene.Layers;
     private IEnumerable<SceneMarker> Markers => _scene.Markers;
 
@@ -125,7 +125,7 @@ internal sealed partial class SceneRecovery(Scene scene)
         var referenceTargets = new Dictionary<Guid, CoreObject>();
         foreach (CoreObject candidate in EnumerateSerializedGraphObjects(Children).OfType<CoreObject>())
         {
-            referenceTargets.TryAdd(candidate.Id, candidate);
+            referenceTargets.TryAdd(candidate.Id.Value, candidate);
         }
 
         var rewriter = new RecoveredReferenceRewriter(
@@ -228,25 +228,25 @@ internal sealed partial class SceneRecovery(Scene scene)
         foreach (Element child in recoveredChildren)
         {
             string relativePath = GetSceneRelativePath(sceneDirectory, child.Uri!);
-            elementIds[relativePath] = child.Id;
+            elementIds[relativePath] = child.Id.Value;
             foreach ((CoreObject descendant, SerializedGraphPath graphPath) in
                      SerializedGraphPaths.EnumerateSerializedGraphDescendantPaths(child))
             {
                 if (descendant is IFallback)
                 {
                     string identityKey = RecoveredIdentity.CreateRecoveredDescendantIdentityKey(relativePath, graphPath.Stable);
-                    descendantIdentities[identityKey] = descendant.Id;
+                    descendantIdentities[identityKey] = descendant.Id.Value;
                     if (graphPath.Positional != graphPath.Stable)
                     {
                         string positionalIdentityKey = RecoveredIdentity.CreateRecoveredDescendantIdentityKey(
                             relativePath,
                             graphPath.Positional);
-                        descendantIdentities[positionalIdentityKey] = descendant.Id;
+                        descendantIdentities[positionalIdentityKey] = descendant.Id.Value;
                     }
                 }
 
                 if (_recoveredDescendantRemaps.TryGetValue(descendant, out RecoveredDescendantRemap? remap)
-                    && descendant.Id == remap.AssignedId)
+                    && descendant.Id.Value == remap.AssignedId)
                 {
                     string remapKey = RecoveredIdentity.CreateRecoveredDescendantKey(
                         relativePath,

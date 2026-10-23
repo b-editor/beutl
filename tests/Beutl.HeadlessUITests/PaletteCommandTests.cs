@@ -178,7 +178,7 @@ public class PaletteCommandTests
             new ScriptedInteraction().Input(options => options.Value == "Opening" ? "Intro" : null)));
         SetPlayhead(editor, 3);
         await RunAsync(editor, Execution("editor.addMarker", editor, new ScriptedInteraction().Input("Outro")));
-        Assert.That(scene.Markers.Select(m => (m.Time, m.Name)), Is.EqualTo(new[]
+        Assert.That(scene.Markers.Select(m => (m.Time.Value, m.Name.Value)), Is.EqualTo(new[]
         {
             (MediaTime.FromSeconds(1), "Intro"),
             (MediaTime.FromSeconds(3), "Outro"),
@@ -202,12 +202,12 @@ public class PaletteCommandTests
             .Input(options => options.Value == "Intro" ? "Cold open" : null)));
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Markers[0].Name, Is.EqualTo("Cold open"));
+            Assert.That(scene.Markers[0].Name.Value, Is.EqualTo("Cold open"));
             Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.EditMarker));
         });
 
         await editor.UndoAsync();
-        Assert.That(scene.Markers[0].Name, Is.EqualTo("Intro"));
+        Assert.That(scene.Markers[0].Name.Value, Is.EqualTo("Intro"));
     }
 
     [AvaloniaTest]
@@ -221,10 +221,10 @@ public class PaletteCommandTests
 
         editor.GetService<IEditorSelection>()!.Select(element);
         await RunAsync(timeline, Execution("timeline.rename", editor, new ScriptedInteraction()
-            .Input(options => options.Value == element.Name ? "Title" : null)));
+            .Input(options => options.Value == element.Name.Value ? "Title" : null)));
         Assert.Multiple(() =>
         {
-            Assert.That(element.Name, Is.EqualTo("Title"));
+            Assert.That(element.Name.Value, Is.EqualTo("Title"));
             Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.RenameElement));
         });
 
@@ -232,7 +232,7 @@ public class PaletteCommandTests
         Assert.That(CanRun(timeline, Execution("timeline.split", editor)), Is.False, "The playhead is past the element.");
         SetPlayhead(editor, 1);
         await RunAsync(timeline, Execution("timeline.split", editor));
-        Assert.That(editor.Scene.Children.Select(e => (e.Start, e.Length)), Is.EquivalentTo(new[]
+        Assert.That(editor.Scene.Children.Select(e => (e.Start.Value, e.Length.Value)), Is.EquivalentTo(new[]
         {
             (MediaTime.Zero, MediaTime.FromSeconds(1)),
             (MediaTime.FromSeconds(1), MediaTime.FromSeconds(3)),
@@ -247,7 +247,7 @@ public class PaletteCommandTests
         })));
         Assert.That(ObjectTemplateService.Instance.FindByBaseType(typeof(Element)).Count(), Is.EqualTo(templates));
 
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         Assert.Multiple(() =>
         {
             Assert.That(CanRun(timeline, Execution("timeline.rename", editor)), Is.False);
@@ -287,14 +287,14 @@ public class PaletteCommandTests
             textBox.SelectAll();
             window.KeyTextInput("Ti");
             window.KeyTextInput("tle");
-            Assert.That(element.Name, Is.Not.EqualTo("Title"), "Each keystroke must not write the name.");
+            Assert.That(element.Name.Value, Is.Not.EqualTo("Title"), "Each keystroke must not write the name.");
 
             elsewhere.Focus();
             HeadlessTestHelpers.Render(2);
 
             Assert.Multiple(() =>
             {
-                Assert.That(element.Name, Is.EqualTo("Title"));
+                Assert.That(element.Name.Value, Is.EqualTo("Title"));
                 Assert.That(editor.HistoryManager.GetEntriesSnapshot(), Has.Length.EqualTo(entries + 1));
                 Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.RenameElement));
             });
@@ -332,7 +332,7 @@ public class PaletteCommandTests
         CloseTimeline(editor);
         editor.GetService<IEditorSelection>()!.Select(element);
         // Off the 30 fps grid, so the playhead's frame 31 lands inside the clip but under a frame from its start.
-        element.Start = MediaTime.FromSeconds(1.01);
+        element.Start.Value = MediaTime.FromSeconds(1.01);
         SetPlayhead(editor, 31 / 30d);
 
         Assert.That(CanRun(TimelineTabExtension.Instance, Execution("timeline.split", editor)), Is.False);
@@ -358,7 +358,7 @@ public class PaletteCommandTests
         await RunAsync(TimelineTabExtension.Instance, Execution("timeline.split", editor));
         HeadlessTestHelpers.Settle();
 
-        Assert.That(editor.Scene.Children.Where(e => e.ZIndex == 1).Select(e => (e.Start, e.Length)),
+        Assert.That(editor.Scene.Children.Where(e => e.ZIndex.Value == 1).Select(e => (e.Start.Value, e.Length.Value)),
             Is.EquivalentTo(new[]
             {
                 (MediaTime.FromSeconds(5), MediaTime.FromSeconds(1)),
@@ -438,8 +438,8 @@ public class PaletteCommandTests
         Element added = editor.Scene.Children.Single(e => e.Objects.OfType<EllipseShape>().Any());
         Assert.Multiple(() =>
         {
-            Assert.That(added.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(added.ZIndex, Is.EqualTo(1));
+            Assert.That(added.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(added.ZIndex.Value, Is.EqualTo(1));
             // The library group goes in the description, where the pick filter also searches.
             Assert.That(interaction.PickedFrom<Type>().Single(i => i.Value == typeof(AudioWaveformDrawable)).Description,
                 Is.EqualTo(GraphicsStrings.AudioVisualizer));
@@ -473,9 +473,9 @@ public class PaletteCommandTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.FrameSize, Is.EqualTo(new PixelSize(1280, 720)));
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(7)));
-            Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(scene.FrameSize.Value, Is.EqualTo(new PixelSize(1280, 720)));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(scene.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(LastHistoryName(editor), Is.EqualTo(CommandNames.ChangeSceneSettings));
         });
     }
@@ -486,23 +486,23 @@ public class PaletteCommandTests
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-scene-times");
         Scene scene = editor.Scene;
-        scene.FindHierarchicalParent<Project>()!.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        scene.FindHierarchicalParent<Project>()!.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
-        scene.Start = MediaTime.FromFrames(1, rate);
-        scene.Duration = MediaTime.FromFrames(301, rate);
+        scene.Start.Value = MediaTime.FromFrames(1, rate);
+        scene.Duration.Value = MediaTime.FromFrames(301, rate);
         SceneSettingsTabExtension settings = SceneSettingsTabExtension.Instance;
         string typed = TimeSpan.FromTicks(MediaTime.FromFrames(600, rate).ToTicks(MidpointRounding.ToNegativeInfinity)).ToString();
 
         await RunAsync(settings, Execution("sceneSettings.changeSceneStart", editor, new ScriptedInteraction().Input(options => options.Value)));
         await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input(typed)));
-        MediaTime typedDuration = scene.Duration;
+        MediaTime typedDuration = scene.Duration.Value;
         await RunAsync(settings, Execution("sceneSettings.changeSceneDuration", editor, new ScriptedInteraction().Input("00:00:00.0000001")));
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Start, Is.EqualTo(MediaTime.FromFrames(1, rate)));
+            Assert.That(scene.Start.Value, Is.EqualTo(MediaTime.FromFrames(1, rate)));
             Assert.That(typedDuration, Is.EqualTo(MediaTime.FromFrames(600, rate)));
-            Assert.That(scene.Duration, Is.EqualTo(typedDuration), "a tick snaps to frame zero, which is no duration");
+            Assert.That(scene.Duration.Value, Is.EqualTo(typedDuration), "a tick snaps to frame zero, which is no duration");
         });
     }
 
@@ -629,7 +629,7 @@ public class PaletteCommandTests
         Assert.Multiple(() =>
         {
             Assert.That(editor.HistoryManager.CurrentIndex, Is.Zero);
-            Assert.That(editor.Scene.Duration, Is.Not.EqualTo(MediaTime.FromSeconds(6)));
+            Assert.That(editor.Scene.Duration.Value, Is.Not.EqualTo(MediaTime.FromSeconds(6)));
             Assert.That(items, Has.Count.EqualTo(3));
             Assert.That(items[^1].Value.IsInitial, Is.True, "Newest first, so the initial state is last.");
             Assert.That(items[0].Description, Does.EndWith(Strings.Current));
@@ -676,7 +676,7 @@ public class PaletteCommandTests
         await TestReset.ResetShellAsync();
         MainViewModel main = TestShell.MainViewModel;
         ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
-        string original = config.Theme;
+        string original = config.Theme.Value;
         // Two of its own, since which themes the registry holds depends on the tests that ran before.
         var theme = new ThemeDescriptor("palette-test-theme", "Palette test theme", ThemeVariant.Dark);
         var other = new ThemeDescriptor("palette-test-theme-2", "Palette test theme 2", ThemeVariant.Light);
@@ -690,11 +690,11 @@ public class PaletteCommandTests
                 Interaction = new ScriptedInteraction().Pick<ThemeDescriptor>(item => item.Value == theme)
             });
 
-            Assert.That(config.Theme, Is.EqualTo(theme.Id));
+            Assert.That(config.Theme.Value, Is.EqualTo(theme.Id));
         }
         finally
         {
-            config.Theme = original;
+            config.Theme.Value = original;
             ThemeRegistry.Unregister(theme);
             ThemeRegistry.Unregister(other);
         }
@@ -749,7 +749,7 @@ public class PaletteCommandTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(editor.Scene.Duration, Is.EqualTo(MediaTime.FromSeconds(9)));
+                Assert.That(editor.Scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(9)));
                 Assert.That(editor.DockHost.FindToolContext(typeof(SceneSettingsTabExtension)), Is.Null);
                 Assert.That(palette.IsOpen.Value, Is.False);
             });

@@ -39,19 +39,19 @@ public class NestedInputPortOverrideTests
         scenario.SetOverride(true);
         history.History.Commit("Override parent");
         Evaluate(graph);
-        Assert.That(port.Connection.Value, Is.SameAs(connection));
-        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Error));
+        Assert.That(port.Connection.Value.Value, Is.SameAs(connection));
+        Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Error));
 
         Assert.That(history.History.Undo(), Is.True);
         Assert.That(node.CanConnectInput(port), Is.True);
         Evaluate(graph);
-        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Success));
         Assert.That(scenario.Connected.Evaluate(CompositionContext.Default), Is.EqualTo(42f));
 
         Assert.That(history.History.Redo(), Is.True);
         Assert.That(node.CanConnectInput(port), Is.False);
         Evaluate(graph);
-        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Error));
+        Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Error));
     }
 
     [TestCase("animation")]
@@ -72,7 +72,7 @@ public class NestedInputPortOverrideTests
         else
         {
             var factory = new FactoryNode<Pen>();
-            factory.Object.Brush.Value = brush;
+            factory.Object.Value.Brush.Value = brush;
             brush.Opacity.Expression = new ConstantExpression<float>(25f);
             node = factory;
             connected = brush.Opacity;
@@ -88,11 +88,11 @@ public class NestedInputPortOverrideTests
     {
         var pen = new Pen();
         var animation = new KeyFrameAnimation<Pen?>();
-        animation.KeyFrames.Add(new KeyFrame<Pen?> { Value = new Pen() });
+        animation.KeyFrames.Add(new KeyFrame<Pen?> { Value = { Value = new Pen() } });
         if (intermediate)
         {
             var factory = new FactoryNode<AnimatedPenHolder>();
-            var container = factory.Object.Value.Value;
+            var container = factory.Object.Value.Value.Value;
             container.Pen.Value = pen;
             return new Scenario(factory, Find(factory, container.Pen), pen.Thickness,
                 enabled => container.Pen.SetKeyFrameAnimation(enabled ? animation : null));
@@ -122,7 +122,7 @@ public class NestedInputPortOverrideTests
         else
         {
             var factory = new FactoryNode<Pen>();
-            property = factory.Object.Brush;
+            property = factory.Object.Value.Brush;
             property.Value = brush;
             node = factory;
         }

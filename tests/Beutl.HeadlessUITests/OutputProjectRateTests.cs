@@ -55,8 +55,8 @@ public sealed class OutputProjectRateTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(output.Controller.Value!.VideoSettings.FrameRate, Is.EqualTo(new Rational(60, 1)));
-            Assert.That(output.Controller.Value.AudioSettings.SampleRate, Is.EqualTo(48000));
+            Assert.That(output.Controller.Value!.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(60, 1)));
+            Assert.That(output.Controller.Value.AudioSettings.SampleRate.Value, Is.EqualTo(48000));
             Assert.That(editor.Composer.Value.SampleRate, Is.EqualTo(48000));
         });
     }
@@ -72,8 +72,8 @@ public sealed class OutputProjectRateTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(output.Controller.Value!.VideoSettings.FrameRate, Is.EqualTo(new Rational(60, 1)));
-            Assert.That(output.Controller.Value.AudioSettings.SampleRate, Is.EqualTo(48000));
+            Assert.That(output.Controller.Value!.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(60, 1)));
+            Assert.That(output.Controller.Value.AudioSettings.SampleRate.Value, Is.EqualTo(48000));
         });
     }
 
@@ -115,8 +115,8 @@ public sealed class OutputProjectRateTests
 
     private static void SetCustomRates(OutputViewModel output)
     {
-        output.Controller.Value!.VideoSettings.FrameRate = new Rational(24000, 1001);
-        output.Controller.Value.AudioSettings.SampleRate = 96000;
+        output.Controller.Value!.VideoSettings.FrameRate.Value = new Rational(24000, 1001);
+        output.Controller.Value.AudioSettings.SampleRate.Value = 96000;
     }
 
     private static void AssertCustomRates(OutputViewModel output)
@@ -124,8 +124,8 @@ public sealed class OutputProjectRateTests
         Assert.That(output.Controller.Value, Is.Not.Null);
         Assert.Multiple(() =>
         {
-            Assert.That(output.Controller.Value!.VideoSettings.FrameRate, Is.EqualTo(new Rational(24000, 1001)));
-            Assert.That(output.Controller.Value.AudioSettings.SampleRate, Is.EqualTo(96000));
+            Assert.That(output.Controller.Value!.VideoSettings.FrameRate.Value, Is.EqualTo(new Rational(24000, 1001)));
+            Assert.That(output.Controller.Value.AudioSettings.SampleRate.Value, Is.EqualTo(96000));
         });
     }
 

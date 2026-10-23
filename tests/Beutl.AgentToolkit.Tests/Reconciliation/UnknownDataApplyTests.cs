@@ -47,7 +47,7 @@ public sealed class UnknownDataApplyTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(documentElement.ContainsKey("FutureClip"), Is.False, "Documents leave out unknown members.");
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(savedObjects[0]![nameof(RectShape.Width)]!.GetValue<float>(), Is.EqualTo(50));
             Assert.That(JsonNode.DeepEquals(saved["FutureClip"], written["FutureClip"]), Is.True);
             Assert.That(savedObjects[0]!["FutureShape"]!.GetValue<int>(), Is.EqualTo(3));
@@ -160,7 +160,7 @@ public sealed class UnknownDataApplyTests
         (Scene scene, string elementPath, _) = CreateScene();
         var shape = (RectShape)scene.Children.Single().Objects[0];
         Brush brush = shape.Fill.Value!;
-        var animation = new KeyFrameAnimation<float> { KeyFrames = { new KeyFrame<float> { Value = 20 } } };
+        var animation = new KeyFrameAnimation<float> { KeyFrames = { new KeyFrame<float> { Value = { Value = 20 } } } };
         brush.Opacity.SetKeyFrameAnimation(animation);
         using var session = new AgentToolkitTestSession(scene);
         JsonObject document = session.Documents.Read(scene);
@@ -191,7 +191,7 @@ public sealed class UnknownDataApplyTests
         Brush brush = shape.Fill.Value!;
         using var session = new AgentToolkitTestSession(scene);
         JsonObject document = session.Documents.Read(scene);
-        Brush replacement = otherType ? new LinearGradientBrush { Id = brush.Id } : new SolidColorBrush(Colors.Red);
+        Brush replacement = otherType ? new LinearGradientBrush { Id = { Value = brush.Id.Value } } : new SolidColorBrush(Colors.Red);
         document["Elements"]![0]![nameof(Element.Objects)]![0]![nameof(Shape.Fill)] =
             CoreSerializer.SerializeToJsonObject(replacement);
 
@@ -203,7 +203,7 @@ public sealed class UnknownDataApplyTests
         {
             Assert.That(shape.Fill.Value, Is.Not.SameAs(brush));
             Assert.That(shape.Fill.Value, Is.InstanceOf(replacement.GetType()));
-            Assert.That(shape.Fill.Value!.Id, Is.EqualTo(replacement.Id));
+            Assert.That(shape.Fill.Value!.Id.Value, Is.EqualTo(replacement.Id.Value));
             Assert.That(savedFill.ContainsKey("FutureBrush"), Is.False);
         });
     }
@@ -283,18 +283,18 @@ public sealed class UnknownDataApplyTests
         string dir = TestWorkspace.CreateDirectory();
         var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
         string elementPath = Path.Combine(dir, "element.belm");
-        var scene = new Scene(1920, 1080, "Scene") { Uri = sceneUri, Duration = MediaTime.FromSeconds(10) };
+        var scene = new Scene(1920, 1080, "Scene") { Uri = sceneUri, Duration = { Value = MediaTime.FromSeconds(10) } };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(4),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(elementPath),
         };
         element.AddObject(new RectShape { Width = { Value = 10 } });
         var plugin = new RectShape();
         plugin.Width.SetKeyFrameAnimation(new Beutl.Animation.KeyFrameAnimation<float>
         {
-            KeyFrames = { new Beutl.Animation.KeyFrame<float> { Value = 5 } },
+            KeyFrames = { new Beutl.Animation.KeyFrame<float> { Value = { Value = 5 } } },
         });
         element.AddObject(plugin);
         scene.Children.Add(element);
@@ -319,11 +319,11 @@ public sealed class UnknownDataApplyTests
         var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
         string elementPath = Path.Combine(dir, "element.belm");
         string sidecarPath = Path.Combine(dir, "parts", "plugin.json");
-        var scene = new Scene(1920, 1080, "Scene") { Uri = sceneUri, Duration = MediaTime.FromSeconds(10) };
+        var scene = new Scene(1920, 1080, "Scene") { Uri = sceneUri, Duration = { Value = MediaTime.FromSeconds(10) } };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(4),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(elementPath),
         };
         element.AddObject(new RectShape { Width = { Value = 10 } });

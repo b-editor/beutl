@@ -68,7 +68,7 @@ public sealed class MediaTimeFileRoundTripTests
         {
             Assert.That(earlierFile, Does.Contain($"\"Start\": \"{TimeSpan.FromTicks(ticks[0]):c}\""));
             Assert.That(Describe(read), Is.EqualTo(Describe(scene)));
-            Assert.That(savedFile, Does.Contain($"\"Start\": {read.Children[0].Start.Flicks}"));
+            Assert.That(savedFile, Does.Contain($"\"Start\": {read.Children[0].Start.Value.Flicks}"));
             Assert.That(Describe(reread), Is.EqualTo(Describe(scene)));
         });
     }
@@ -87,12 +87,12 @@ public sealed class MediaTimeFileRoundTripTests
         var mismatches = new List<string>();
         foreach (Element element in restored.Children)
         {
-            int first = First(element.ZIndex);
-            int last = first + Count(element.ZIndex) - 1;
+            int first = First(element.ZIndex.Value);
+            int last = first + Count(element.ZIndex.Value) - 1;
             if (!Shows(element, first, rate) || Shows(element, first - 1, rate)
                 || !Shows(element, last, rate) || Shows(element, last + 1, rate))
             {
-                mismatches.Add($"frames {first} to {last} became {element.Start.Flicks} + {element.Length.Flicks} flicks");
+                mismatches.Add($"frames {first} to {last} became {element.Start.Value.Flicks} + {element.Length.Value.Flicks} flicks");
             }
         }
 
@@ -115,18 +115,18 @@ public sealed class MediaTimeFileRoundTripTests
         }
 
         Scene restored = SaveAndReload(harness);
-        Element[] ordered = [.. restored.Children.OrderBy(element => element.Start)];
+        Element[] ordered = [.. restored.Children.OrderBy(element => element.Start.Value)];
 
         var mismatches = new List<string>();
         for (int i = 1; i < ordered.Length; i++)
         {
             Element outgoing = ordered[i - 1];
             Element incoming = ordered[i];
-            if (outgoing.Range.End != incoming.Start
+            if (outgoing.Range.End != incoming.Start.Value
                 || !ElementTransitions.AreAdjacent(outgoing, incoming)
-                || TrimGroupCollector.CollectRollPairs(restored, [outgoing], incoming.Start) is not { Count: 1 })
+                || TrimGroupCollector.CollectRollPairs(restored, [outgoing], incoming.Start.Value) is not { Count: 1 })
             {
-                mismatches.Add($"{outgoing.Range.End.Flicks} and {incoming.Start.Flicks} flicks");
+                mismatches.Add($"{outgoing.Range.End.Flicks} and {incoming.Start.Value.Flicks} flicks");
             }
         }
 
@@ -174,7 +174,7 @@ public sealed class MediaTimeFileRoundTripTests
         var rate = new Rational(30000, 1001);
         using var harness = new SceneHistoryHarness("beutl_mediatime_copies", duration: MediaTime.FromFrames(900, rate));
         Element element = harness.AddElement(MediaTime.FromFrames(37, rate), MediaTime.FromFrames(41, rate));
-        Assert.That(element.Start.ToTicks(MidpointRounding.ToNegativeInfinity), Is.Not.EqualTo(element.Start.ToTicks(MidpointRounding.ToPositiveInfinity)));
+        Assert.That(element.Start.Value.ToTicks(MidpointRounding.ToNegativeInfinity), Is.Not.EqualTo(element.Start.Value.ToTicks(MidpointRounding.ToPositiveInfinity)));
 
         Scene snapshot = SceneSnapshot.Create(harness.Scene);
         ObjectRegenerator.Regenerate(element, out Element duplicate);
@@ -184,9 +184,9 @@ public sealed class MediaTimeFileRoundTripTests
         Assert.Multiple(() =>
         {
             Assert.That(snapshot.Children.Single().Range, Is.EqualTo(element.Range));
-            Assert.That(snapshot.Duration, Is.EqualTo(harness.Scene.Duration));
+            Assert.That(snapshot.Duration.Value, Is.EqualTo(harness.Scene.Duration.Value));
             Assert.That(duplicate.Range, Is.EqualTo(element.Range));
-            Assert.That(copy, Does.Contain($"\"Start\": {element.Start.Flicks}"));
+            Assert.That(copy, Does.Contain($"\"Start\": {element.Start.Value.Flicks}"));
             Assert.That(pasted.Range, Is.EqualTo(element.Range));
         });
     }
@@ -197,19 +197,19 @@ public sealed class MediaTimeFileRoundTripTests
     {
         Scene scene = harness.Scene;
         (MediaTime Start, MediaTime End, MediaTime Key)[] all = [.. ranges];
-        scene.Start = all[0].Start;
-        scene.Duration = all[^1].End - scene.Start;
+        scene.Start.Value = all[0].Start;
+        scene.Duration.Value = all[^1].End - scene.Start.Value;
         for (int i = 0; i < all.Length; i++)
         {
             Element element = harness.AddElement(all[i].Start, all[i].End - all[i].Start, i);
             var animation = new KeyFrameAnimation<float>();
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = all[i].Key, Value = 1 });
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = all[i].Key }, Value = { Value = 1 } });
             var shape = new RectShape();
             shape.Width.SetKeyFrameAnimation(animation);
             element.AddObject(shape);
         }
 
-        scene.Markers.Add(new SceneMarker { Time = all[1].Start });
+        scene.Markers.Add(new SceneMarker { Time = { Value = all[1].Start } });
         return scene;
     }
 
@@ -219,10 +219,10 @@ public sealed class MediaTimeFileRoundTripTests
     private static string[] Describe(Scene scene)
         =>
         [
-            $"scene {scene.Start.Flicks} + {scene.Duration.Flicks}, marker {scene.Markers.Single().Time.Flicks}",
-            .. scene.Children.OrderBy(element => element.ZIndex).Select(element =>
-                $"{element.Start.Flicks} + {element.Length.Flicks}, key "
-                + ((RectShape)element.Objects.Single()).Width.GetKeyFrameAnimation()!.KeyFrames.Single().KeyTime.Flicks),
+            $"scene {scene.Start.Value.Flicks} + {scene.Duration.Value.Flicks}, marker {scene.Markers.Single().Time.Value.Flicks}",
+            .. scene.Children.OrderBy(element => element.ZIndex.Value).Select(element =>
+                $"{element.Start.Value.Flicks} + {element.Length.Value.Flicks}, key "
+                + ((RectShape)element.Objects.Single()).Width.GetKeyFrameAnimation()!.KeyFrames.Single().KeyTime.Value.Flicks),
         ];
 
     private static MediaTime FromTicks(long ticks) => MediaTime.FromTicks(ticks, MidpointRounding.ToPositiveInfinity);

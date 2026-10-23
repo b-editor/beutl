@@ -39,12 +39,12 @@ public sealed class FileEditingSessionTests
             projectPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(2)));
         string elementPath = Path.Combine(Path.GetDirectoryName(session.Scene.Uri!.LocalPath)!, "clip.belm");
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 10 });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 10 } });
         var shape = new RectShape();
         shape.Width.SetKeyFrameAnimation(animation);
-        var element = new Element { Uri = new Uri(elementPath), Length = MediaTime.FromSeconds(1) };
+        var element = new Element { Uri = new Uri(elementPath), Length = { Value = MediaTime.FromSeconds(1) } };
         var holder = new WrappedKeyFrameHolder();
-        holder.Frames.Value = [new KeyFrameWrapper(new KeyFrame<float> { Value = 10 })];
+        holder.Frames.Value = [new KeyFrameWrapper(new KeyFrame<float> { Value = { Value = 10 } })];
         element.AddObject(wrapped ? holder : shape);
         session.Scene.Children.Add(element);
         session.Save(skipConflictCheck: true);
@@ -77,7 +77,7 @@ public sealed class FileEditingSessionTests
         IKeyFrame reopenedFrame = wrapped
             ? (KeyFrame<float>)((WrappedKeyFrameHolder)reopened).Frames.Value!.Single().Frame
             : ((KeyFrameAnimation<float>)((RectShape)reopened).Width.GetKeyFrameAnimation()!).KeyFrames.Single();
-        Assert.That(reopenedFrame.Easing, Is.TypeOf<LinearEasing>());
+        Assert.That(reopenedFrame.Easing.Value, Is.TypeOf<LinearEasing>());
         Assert.That(recovered.History.Undo(), Is.True);
         recovered.Save(skipConflictCheck: true);
         Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
@@ -139,8 +139,8 @@ public sealed class FileEditingSessionTests
         Scene scene = session.Project.Items.OfType<Scene>().Single();
         var element = new Element
         {
-            Name = "clip",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "clip" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
         };
         scene.Children.Add(element);
@@ -171,8 +171,8 @@ public sealed class FileEditingSessionTests
         string relativePath = Path.Combine("sub", "clip.belm");
         var element = new Element
         {
-            Name = "clip",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "clip" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, relativePath)),
         };
         scene.Children.Add(element);
@@ -197,8 +197,8 @@ public sealed class FileEditingSessionTests
         string relativePath = Path.Combine("..assets", "clip.belm");
         var element = new Element
         {
-            Name = "clip",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "clip" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, relativePath)),
         };
         scene.Children.Add(element);
@@ -226,15 +226,15 @@ public sealed class FileEditingSessionTests
         string secondPath = Path.Combine(sceneDirectory, "second", "clip.belm");
         scene.Children.Add(new Element
         {
-            Name = "First",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "First" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(firstPath),
         });
         scene.Children.Add(new Element
         {
-            Name = "Second",
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Second" },
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(secondPath),
         });
         session.Save(skipConflictCheck: true);
@@ -306,8 +306,8 @@ public sealed class FileEditingSessionTests
         string elementPath = Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm");
         scene.Children.Add(new Element
         {
-            Name = "clip",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "clip" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(elementPath),
             Objects = { new RectShape() },
         });
@@ -322,7 +322,7 @@ public sealed class FileEditingSessionTests
         JsonObject desired = recovered.Documents.Read(recovered.Scene);
         JsonObject repairedJson = CoreSerializer.SerializeToJsonObject(new RectShape
         {
-            Name = "Repaired shape",
+            Name = { Value = "Repaired shape" },
         });
         repairedJson.Remove(nameof(CoreObject.Id));
         desired["Elements"]!.AsArray()[0]!.AsObject()[nameof(Element.Objects)]

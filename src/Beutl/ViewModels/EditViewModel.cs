@@ -55,13 +55,13 @@ public sealed partial class EditViewModel
         ArgumentNullException.ThrowIfNull(extensionProvider);
         ArgumentNullException.ThrowIfNull(editorService);
 
-        _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id);
+        _logger.LogInformation("Initializing EditViewModel for Scene ({SceneId}).", scene.Id.Value);
 
         _services = CreateServices();
         Scene = scene;
         ExtensionProvider = extensionProvider;
         EditorService = editorService;
-        SceneId = scene.Id.ToString();
+        SceneId = scene.Id.Value.ToString();
 
         _timelineOptionsProvider = new TimelineOptionsProviderImpl(scene)
             .DisposeWith(_disposables);
@@ -78,7 +78,7 @@ public sealed partial class EditViewModel
             .DisposeWith(_disposables);
 
         IObservable<(PixelSize FrameSize, float OutputScale)> frameSizeAndScale =
-            scene.FrameSizeProperty.GetObservable()
+            scene.FrameSize.GetObservable()
                 .CombineLatest(PreviewScale, PreviewSurfaceSize,
                     (frameSize, scale, surface) => (FrameSize: frameSize, OutputScale: scale.ResolveOutputScale(frameSize, surface)))
                 .DistinctUntilChanged();
@@ -89,7 +89,7 @@ public sealed partial class EditViewModel
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
         // SceneComposer is scale-independent; rebuild only on frame-size changes.
-        Composer = scene.FrameSizeProperty.GetObservable()
+        Composer = scene.FrameSize.GetObservable()
             .Select(_ => new SceneComposer(Scene)
             {
                 SampleRate = Scene.FindHierarchicalParent<Project>().GetSampleRate()
@@ -104,14 +104,14 @@ public sealed partial class EditViewModel
         FrameCacheManager = Renderer
             .Select(r => new FrameCacheManager(r.FrameSize, CreateFrameCacheOptions(), CreateFrameCacheMaxSize())
             {
-                IsEnabled = config.IsFrameCacheEnabled
+                IsEnabled = config.IsFrameCacheEnabled.Value
             })
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables)!;
 
         Player = new PlayerViewModel(this);
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceModeProperty.GetObservable()
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.GetObservable()
             .Skip(1)
             .Subscribe(_ =>
             {
@@ -121,7 +121,7 @@ public sealed partial class EditViewModel
                 Player.QueuePreviewRender();
             })
             .DisposeWith(_disposables);
-        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPresetProperty.GetObservable()
+        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.GetObservable()
             .Skip(1)
             .Subscribe(_ =>
             {
@@ -197,15 +197,15 @@ public sealed partial class EditViewModel
     private static IObservable<long> CreateFrameCacheMaxSize()
     {
         return GlobalConfiguration.Instance.EditorConfig
-            .FrameCacheMaxSizeProperty.GetObservable()
+            .FrameCacheMaxSize.GetObservable()
             .Select(v => (long)(v * 1024 * 1024));
     }
 
     private static FrameCacheOptions CreateFrameCacheOptions()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        return new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale,
-            ColorType: (FrameCacheColorType)config.FrameCacheColorType);
+        return new FrameCacheOptions(Scale: (FrameCacheScale)config.FrameCacheScale.Value,
+            ColorType: (FrameCacheColorType)config.FrameCacheColorType.Value);
     }
 
     // Telemetryで使う
@@ -222,8 +222,8 @@ public sealed partial class EditViewModel
     int IAiJobResultEditorContext.GetNextLayer(MediaTime start)
     {
         return Scene.Children
-            .Where(item => item.Start <= start && start < item.Range.End)
-            .Select(item => item.ZIndex)
+            .Where(item => item.Start.Value <= start && start < item.Range.End)
+            .Select(item => item.ZIndex.Value)
             .DefaultIfEmpty(-1)
             .Max() + 1;
     }
@@ -353,7 +353,7 @@ public sealed partial class EditViewModel
 
             // Closing the editor discards every live and redoable owner of unsaved sidecars and AI
             // resources, so its scene-scoped temporary directory must not survive the tab.
-            Cleanup(() => UnsavedSceneStorage.Cleanup(scene.Id));
+            Cleanup(() => UnsavedSceneStorage.Cleanup(scene.Id.Value));
             Scene = null!;
             Cleanup(HistoryManager.Clear);
             Cleanup(() => FrameCacheManager.Value.Dispose());
@@ -516,7 +516,7 @@ public sealed partial class EditViewModel
     {
         using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("scene.save");
         Scene scene = Scene;
-        _logger.LogInformation("Saving scene ({SceneId}).", scene.Id);
+        _logger.LogInformation("Saving scene ({SceneId}).", scene.Id.Value);
         Uri sceneUri = scene.Uri
             ?? throw new InvalidOperationException("An unsaved scene needs a destination before it can be saved.");
         UnsavedSceneStorage.SaveRelocation relocation = new(scene, sceneUri);
@@ -549,7 +549,7 @@ public sealed partial class EditViewModel
             DuplicateIds.Report(project, "save");
 
         SaveState(isExplicitUserSave: true);
-        _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id);
+        _logger.LogInformation("Scene ({SceneId}) saved successfully.", scene.Id.Value);
         usage?.Complete();
 
         HasMediaRepairs.Value = false;

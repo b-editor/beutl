@@ -121,7 +121,7 @@ internal sealed class AgentHostAiTools(
             RequireSeed(seed, chosen?.Image?.SupportsSeed, chosen?.Id);
             string ratio = string.IsNullOrWhiteSpace(aspectRatio)
                 ? GenerativeShapeSuggestion.NearestAspectRatio(
-                    Offered(chosen?.Image?.AspectRatios, GenerativeImageCapabilities.DefaultAspectRatios), scene.FrameSize, "16:9")
+                    Offered(chosen?.Image?.AspectRatios, GenerativeImageCapabilities.DefaultAspectRatios), scene.FrameSize.Value, "16:9")
                 : aspectRatio.Trim();
             string[] referencePaths = referenceImagePaths ?? [];
             int maxReferences = Math.Min(AiRequestLimits.MaxImageReferences, chosen?.Image?.MaxReferenceImages ?? AiRequestLimits.MaxImageReferences);
@@ -251,11 +251,11 @@ internal sealed class AgentHostAiTools(
             int duration = durationSeconds ?? DefaultDuration(offered);
             string chosenResolution = string.IsNullOrWhiteSpace(resolution)
                 ? GenerativeShapeSuggestion.SuggestResolution(
-                    Offered(offered?.Resolutions, GenerativeVideoCapabilities.DefaultResolutions), scene.FrameSize)
+                    Offered(offered?.Resolutions, GenerativeVideoCapabilities.DefaultResolutions), scene.FrameSize.Value)
                 : resolution.Trim();
             string ratio = string.IsNullOrWhiteSpace(aspectRatio)
                 ? GenerativeShapeSuggestion.NearestAspectRatio(
-                    Offered(offered?.AspectRatios, GenerativeVideoCapabilities.DefaultAspectRatios), scene.FrameSize, "16:9")
+                    Offered(offered?.AspectRatios, GenerativeVideoCapabilities.DefaultAspectRatios), scene.FrameSize.Value, "16:9")
                 : aspectRatio.Trim();
             // Against the fallback lists too when the catalog names no model, as the executor checks them.
             GenerativeVideoCapabilities limits = offered ?? GenerativeVideoCapabilities.Unrestricted;
@@ -463,7 +463,7 @@ internal sealed class AgentHostAiTools(
                     result.IsVideo ? "video" : "image",
                     result.ModelId,
                     result.Seed);
-            }, scene.Id);
+            }, scene.Id.Value);
             return await WaitAsync(jobId, waitSeconds, cancellationToken).ConfigureAwait(false);
         });
     }

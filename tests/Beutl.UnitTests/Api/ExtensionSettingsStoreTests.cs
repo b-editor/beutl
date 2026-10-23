@@ -25,7 +25,7 @@ public class ExtensionSettingsStoreTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(extension.Settings.Count, Is.EqualTo(3));
+            Assert.That(extension.Settings.Count.Value, Is.EqualTo(3));
             Assert.That(
                 (int?)json[typeof(RenamedExtension).FullName!]?[nameof(CountSettings.Count)],
                 Is.EqualTo(3),
@@ -46,7 +46,7 @@ public class ExtensionSettingsStoreTests
 
         store.Restore(extension, extension.Settings);
 
-        Assert.That(extension.Settings.Count, Is.EqualTo(1));
+        Assert.That(extension.Settings.Count.Value, Is.EqualTo(1));
     }
 
     [FormerPersistedName("[Beutl.UnitTests]Former.Namespace:FormerExtension")]
@@ -62,12 +62,6 @@ public class ExtensionSettingsStoreTests
             ScanProperties<CountSettings>();
         }
 
-        public IProperty<int> CountProperty { get; } = new ValueOnlyProperty<int>(default);
-
-        public int Count
-        {
-            get => CountProperty.Value;
-            set => CountProperty.Value = value;
-        }
+        public IProperty<int> Count { get; } = new ValueOnlyProperty<int>(default);
     }
 }

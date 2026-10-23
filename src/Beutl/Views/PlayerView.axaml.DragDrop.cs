@@ -30,9 +30,9 @@ public partial class PlayerView
         MediaTime frame = viewModel.CurrentFrame.Value;
 
         AvaPoint position = e.GetPosition(image);
-        double scaleX = image.Bounds.Size.Width / scene.FrameSize.Width;
+        double scaleX = image.Bounds.Size.Width / scene.FrameSize.Value.Width;
         Point scaledPosition = (position / scaleX).ToBtlPoint();
-        Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Width / 2f, scene.FrameSize.Height / 2f);
+        Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Value.Width / 2f, scene.FrameSize.Value.Height / 2f);
 
         if (storage != null)
         {
@@ -72,7 +72,7 @@ public partial class PlayerView
             using var import = await storage.ImportToSceneAsync(scene);
             foreach (string path in import.Paths)
             {
-                int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
+                int layer = scene.Children.Select(element => element.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
                 ElementAddResult? result = await AddElement(editViewModel, new ElementDescription(frame, MediaTime.FromSeconds(5), layer,
                     new ElementSource.File(path), Position: centeredPosition));
                 if (result is { IsSuccess: true }) import.Retain(path);
@@ -102,7 +102,7 @@ public partial class PlayerView
         if (drawable != null)
         {
             // TODO: DrawableGroup以下のDrawableを拾った場合の対応
-            int zindex = drawable.ZIndex;
+            int zindex = drawable.ZIndex.Value;
 
             Element? element = FindEnabledElementAt(scene, zindex, frame);
 
@@ -145,9 +145,9 @@ public partial class PlayerView
         int CalculateZIndex(Scene scene)
         {
             Element[] elements = scene.Children
-                .Where(item => item.Start <= frame && frame < item.Range.End)
+                .Where(item => item.Start.Value <= frame && frame < item.Range.End)
                 .ToArray();
-            return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex) + 1;
+            return elements.Length == 0 ? 0 : elements.Max(v => v.ZIndex.Value) + 1;
         }
 
         ElementSource? source = null;
@@ -175,9 +175,9 @@ public partial class PlayerView
     private static Element? FindEnabledElementAt(Scene scene, int zIndex, MediaTime time)
     {
         return scene.Children.FirstOrDefault(v =>
-            v.IsEnabled
-            && v.ZIndex == zIndex
-            && v.Start <= time
+            v.IsEnabled.Value
+            && v.ZIndex.Value == zIndex
+            && v.Start.Value <= time
             && time < v.Range.End);
     }
 

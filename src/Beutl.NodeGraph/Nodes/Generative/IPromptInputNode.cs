@@ -11,7 +11,7 @@ internal interface IPromptInputNode : IPromptLibraryTarget
 
     GenerativeOperation IPromptLibraryTarget.PromptOperation => Operation;
 
-    bool IPromptLibraryTarget.CanApplyPrompt => Prompt.Connection.IsNull;
+    bool IPromptLibraryTarget.CanApplyPrompt => Prompt.Connection.Value.IsNull;
 
     string IPromptLibraryTarget.ComposePrompt() => Prompt.Property?.GetValue()?.Trim() ?? string.Empty;
 

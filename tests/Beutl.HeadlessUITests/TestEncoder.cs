@@ -16,7 +16,7 @@ internal class TestEncoder(PixelSize defaultSize = default, Func<TestController,
 internal sealed class TestController(string file, PixelSize defaultSize, Func<TestController, CancellationToken, Task>? encode)
     : EncodingController(file)
 {
-    public override VideoEncoderSettings VideoSettings { get; } = new() { DestinationSize = defaultSize };
+    public override VideoEncoderSettings VideoSettings { get; } = new() { DestinationSize = { Value = defaultSize } };
 
     public override AudioEncoderSettings AudioSettings { get; } = new();
 

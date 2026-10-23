@@ -41,14 +41,14 @@ public class HeaderScrubCancellationTests
     public void DisablePointerLock()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        _pointerLock = config.EnablePointerLockInProperty;
-        config.EnablePointerLockInProperty = false;
+        _pointerLock = config.EnablePointerLockInProperty.Value;
+        config.EnablePointerLockInProperty.Value = false;
     }
 
     [TearDown]
     public void RestorePointerLock()
     {
-        GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty = _pointerLock;
+        GlobalConfiguration.Instance.EditorConfig.EnablePointerLockInProperty.Value = _pointerLock;
     }
 
     [AvaloniaTest]

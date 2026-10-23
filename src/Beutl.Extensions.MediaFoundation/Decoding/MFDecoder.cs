@@ -44,8 +44,8 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
     public MFDecoder(string file, MFDecodingExtension extension, ILogger? logger = null)
     {
         _logger = logger ?? Log.CreateLogger<MFDecoder>();
-        _thresholdFrameCount = extension.Settings.ThresholdFrameCount;
-        _sampleCache = new MFSampleCache(new(extension.Settings.MaxVideoBufferSize));
+        _thresholdFrameCount = extension.Settings.ThresholdFrameCount.Value;
+        _sampleCache = new MFSampleCache(new(extension.Settings.MaxVideoBufferSize.Value));
 
         try
         {

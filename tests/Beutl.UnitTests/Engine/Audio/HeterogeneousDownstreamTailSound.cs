@@ -14,11 +14,11 @@ public sealed partial class HeterogeneousDownstreamTailSound : Sound
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
         var firstSource = context.AddNode(new FixedLatencyNode(20));
-        var firstClip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var firstClip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(firstSource, firstClip);
 
         var secondSource = context.AddNode(new FixedLatencyNode(0));
-        var secondClip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var secondClip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(secondSource, secondClip);
         var secondDownstream = context.AddNode(new ForwardingLatencyNode(30));
         context.Connect(secondClip, secondDownstream);

@@ -28,7 +28,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
         Timeline = parent.Timeline;
         Parent = parent;
 
-        Left = ((KeyFrame)keyframe).KeyTimeProperty.GetObservable()
+        Left = ((KeyFrame)keyframe).KeyTime.GetObservable()
             .CombineLatest(Timeline.Options)
             .Select(item => item.First.TimeToPixel(item.Second.Scale))
             .ToReactiveProperty()
@@ -90,7 +90,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
             {
                 if (!Parent.IsEditable || !ReferenceEquals(Parent.Property.Animation, Animation)
                     || !Animation.KeyFrames.Contains(Model)) return;
-                Parent.PasteSelection(selectionJson, Model.KeyTime);
+                Parent.PasteSelection(selectionJson, Model.KeyTime.Value);
                 return;
             }
 
@@ -127,14 +127,14 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         if (type.GenericTypeArguments[0] != Parent.Property.PropertyType)
         {
-            Model.Easing = newKeyFrame.Easing;
+            Model.Easing.Value = newKeyFrame.Easing.Value;
             history.Commit(CommandNames.ChangeEasing);
             NotificationService.ShowWarning(Strings.GraphEditor,
                 MessageStrings.KeyframePropertyTypeMismatch_EasingApplied);
         }
         else
         {
-            newKeyFrame.KeyTime = Model.KeyTime;
+            newKeyFrame.KeyTime.Value = Model.KeyTime.Value;
             int index = Animation.KeyFrames.IndexOf(Model);
             Animation.KeyFrames.Remove(Model);
             Animation.KeyFrames.Insert(index, (IKeyFrame)newKeyFrame);
@@ -171,7 +171,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
     public void RestoreVisualFromModel()
     {
         float scale = Timeline.Options.Value.Scale;
-        Left.Value = Model.KeyTime.TimeToPixel(scale);
+        Left.Value = Model.KeyTime.Value.TimeToPixel(scale);
     }
 
     public void ReflectModelKeyTime()
@@ -183,7 +183,7 @@ public sealed class InlineKeyFrameViewModel : IDisposable
 
         Left.Value = time.TimeToPixel(scale);
 
-        Model.KeyTime = time;
+        Model.KeyTime.Value = time;
     }
 
     public void Dispose()

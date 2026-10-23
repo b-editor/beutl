@@ -20,20 +20,20 @@ public class GraphTraversalTests
         var inner = new GroupNode();
         var graph = new GraphModel();
         graph.Nodes.Add(outer);
-        outer.Group.Nodes.Add(inner);
+        outer.Group.Value.Nodes.Add(inner);
         if (mutual)
         {
             var backReference = new GroupNode();
-            inner.Group.Nodes.Add(backReference);
-            SetGroup(backReference, outer.Group);
+            inner.Group.Value.Nodes.Add(backReference);
+            SetGroup(backReference, outer.Group.Value);
         }
         else
         {
-            SetGroup(inner, outer.Group);
+            SetGroup(inner, outer.Group.Value);
         }
         Assert.That(graph.EnumerateGraphs().Take(4), Is.EqualTo(mutual
-            ? new GraphModel[] { graph, outer.Group, inner.Group }
-            : new GraphModel[] { graph, outer.Group }));
+            ? new GraphModel[] { graph, outer.Group.Value, inner.Group.Value }
+            : new GraphModel[] { graph, outer.Group.Value }));
     }
 
     [TestCase(false)]
@@ -42,8 +42,8 @@ public class GraphTraversalTests
     {
         var outer = new GroupNode();
         var inner = new GroupNode();
-        outer.Group.Nodes.Add(inner);
-        GraphModel target = nested ? inner.Group : outer.Group;
+        outer.Group.Value.Nodes.Add(inner);
+        GraphModel target = nested ? inner.Group.Value : outer.Group.Value;
         GraphNode[] nodes = [.. target.Nodes];
 
         Assert.Throws<InvalidOperationException>(() => target.Nodes.Add(outer));
@@ -60,34 +60,34 @@ public class GraphTraversalTests
         var graph = new GraphModel();
         var first = new GroupNode();
         var second = new GroupNode();
-        SetGroup(second, first.Group);
+        SetGroup(second, first.Group.Value);
         var brush = new SolidColorBrush();
         var node = new GeometryShapeNode();
         node.Fill.Property!.SetValue(brush);
-        first.Group.Nodes.Add(node);
-        var output = Source(first.Group, 37f, "Opacity");
+        first.Group.Value.Nodes.Add(node);
+        var output = Source(first.Group.Value, 37f, "Opacity");
         graph.Nodes.AddRange([first, second]);
         var port = Find(node, brush.Opacity);
-        var connection = first.Group.Connect(port, output);
+        var connection = first.Group.Value.Connect(port, output);
         int notifications = 0;
-        first.Group.TopologyChanged += (_, _) => notifications++;
+        first.Group.Value.TopologyChanged += (_, _) => notifications++;
         graph.Nodes.Add(new LayerInputNode());
         int notificationsForOneEdit = notifications;
 
         using var snapshot = new GraphSnapshot();
-        snapshot.Build(first.Group, CompositionContext.Default);
+        snapshot.Build(first.Group.Value, CompositionContext.Default);
         snapshot.Evaluate(CompositionContext.Default);
 
         Assert.Multiple(() =>
         {
             Assert.That(notificationsForOneEdit, Is.EqualTo(1));
             Assert.That(node.CanConnectInput(port), Is.True);
-            Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Success));
+            Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Success));
             Assert.That(brush.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(37f));
         });
     }
 
     private static void SetGroup(GroupNode node, GraphGroup group)
         => typeof(ValueOnlyProperty<GraphGroup>).GetField("_currentValue", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(node.GroupProperty, group);
+            .SetValue(node.Group, group);
 }

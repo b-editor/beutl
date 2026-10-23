@@ -42,11 +42,11 @@ public sealed class MFEncoderSettingsTests
         await TestReset.ResetShellAsync();
         TestGpu.RequireAnyDevice();
         var editor = await TestShell.OpenNewSceneEditorAsync("mf-preflight", 64, 48);
-        editor.Scene.Duration = MediaTime.FromSeconds(0.2);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(0.2);
         var videoProbe = new ExportPassProbe { Target = CompositionTarget.Graphics };
         var audioProbe = new ExportPassProbe { Target = CompositionTarget.Audio };
-        await TestShell.AddElementAsync(editor, () => videoProbe, MediaTime.Zero, editor.Scene.Duration);
-        await TestShell.AddElementAsync(editor, () => audioProbe, MediaTime.Zero, editor.Scene.Duration);
+        await TestShell.AddElementAsync(editor, () => videoProbe, MediaTime.Zero, editor.Scene.Duration.Value);
+        await TestShell.AddElementAsync(editor, () => audioProbe, MediaTime.Zero, editor.Scene.Duration.Value);
         string missingPath = Path.Combine(TestShell.ProjectRoot(editor), missingVideo == true ? "missing.mov" : "missing.wav");
         if (missingVideo.HasValue)
         {
@@ -61,7 +61,7 @@ public sealed class MFEncoderSettingsTests
                 var sound = new SoundSource();
                 sound.ReadFrom(new Uri(missingPath));
                 return new SourceSound { Source = { Value = sound } };
-            }, MediaTime.Zero, editor.Scene.Duration);
+            }, MediaTime.Zero, editor.Scene.Duration.Value);
         }
 
         using var output = new OutputViewModel(editor);
@@ -69,12 +69,12 @@ public sealed class MFEncoderSettingsTests
         output.SelectedEncoder.Value = new MFEncodingExtension();
         HeadlessTestHelpers.Settle();
         var controller = (MFEncodingController)output.Controller.Value!;
-        controller.VideoSettings.UseHardwareAcceleration = false;
-        controller.VideoSettings.Codec = video;
-        controller.AudioSettings.Codec = audio;
+        controller.VideoSettings.UseHardwareAcceleration.Value = false;
+        controller.VideoSettings.Codec.Value = video;
+        controller.AudioSettings.Codec.Value = audio;
         if (!controller.IsVideoEnabled)
         {
-            editor.Scene.FrameSize = new Media.PixelSize(5000, 48);
+            editor.Scene.FrameSize.Value = new Media.PixelSize(5000, 48);
             output.SupersampleFactor.Value = 4;
             Assert.That(output.SupersampleWarning.Value, Is.Null);
             Assert.That(output.CanEncode.Value, Is.True);
@@ -93,7 +93,7 @@ public sealed class MFEncoderSettingsTests
                 Assert.That(videoProbe.EvaluationCount > 0, Is.EqualTo(controller.IsVideoEnabled));
                 Assert.That(audioProbe.EvaluationCount > 0, Is.EqualTo(controller.IsAudioEnabled));
                 Assert.That(hadIntermediateProgress, Is.True, "Progress must advance before completion.");
-                Assert.That(output.ProgressMax.Value, Is.EqualTo(editor.Scene.Duration.ToSeconds()
+                Assert.That(output.ProgressMax.Value, Is.EqualTo(editor.Scene.Duration.Value.ToSeconds()
                     * ((controller.IsVideoEnabled ? 1 : 0) + (controller.IsAudioEnabled ? 1 : 0))));
             });
         }
@@ -125,17 +125,17 @@ public sealed class MFEncoderSettingsTests
         AssertState(true);
         await Assert.ThatAsync(() => output.RunAsync(CancellationToken.None), Throws.TypeOf<InvalidOperationException>());
         var settings = ((MFEncodingController)output.Controller.Value!).VideoSettings;
-        settings.Codec = MFVideoCodec.None;
+        settings.Codec.Value = MFVideoCodec.None;
         AssertState(false);
         // Incompatible selections must not terminate the settings subscription.
-        settings.Codec = MFVideoCodec.WMV9;
+        settings.Codec.Value = MFVideoCodec.WMV9;
         AssertState(true);
-        settings.Codec = MFVideoCodec.Auto;
+        settings.Codec.Value = MFVideoCodec.Auto;
         output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".wav");
         AssertState(false);
         output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".mp4");
         AssertState(true);
-        settings.Codec = MFVideoCodec.None;
+        settings.Codec.Value = MFVideoCodec.None;
         AssertState(true); // The old controller is no longer observed.
         output.DestinationFile.Value = Path.ChangeExtension(output.DestinationFile.Value, ".tmp");
         AssertState(true);
@@ -145,9 +145,9 @@ public sealed class MFEncoderSettingsTests
         output.SupersampleFactor.Value = 1;
         AssertState(false);
         output.SupersampleFactor.Value = 4;
-        editor.Scene.FrameSize = new Media.PixelSize(64, 48);
+        editor.Scene.FrameSize.Value = new Media.PixelSize(64, 48);
         AssertState(false);
-        editor.Scene.FrameSize = new Media.PixelSize(5000, 48);
+        editor.Scene.FrameSize.Value = new Media.PixelSize(5000, 48);
         AssertState(true);
     }
 
@@ -158,7 +158,7 @@ public sealed class MFEncoderSettingsTests
     {
         var originalCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
-        var settings = new MFVideoEncoderSettings { DestinationSize = new Media.PixelSize(1920, 1080) };
+        var settings = new MFVideoEncoderSettings { DestinationSize = { Value = new Media.PixelSize(1920, 1080) } };
         using var videoModel = new EncoderSettingsViewModel(settings, TestShell.Extensions);
         var audioSettings = new MFAudioEncoderSettings();
         using var audioModel = new EncoderSettingsViewModel(audioSettings, TestShell.Extensions);
@@ -192,33 +192,33 @@ public sealed class MFEncoderSettingsTests
             Assert.That(hardware.Header, Is.EqualTo(language == "ja"
                 ? "ハードウェアアクセラレーションを使用" : "Use hardware acceleration"));
             HeadlessTestHelpers.Click(hardware.GetVisualDescendants().OfType<ToggleButton>().Single());
-            Assert.That(settings.UseHardwareAcceleration, Is.False);
+            Assert.That(settings.UseHardwareAcceleration.Value, Is.False);
 
             var videoCodec = video.GetVisualDescendants().OfType<EnumEditor>().Single();
             Assert.That(videoCodec.Items!.Select(item => item.Value), Does.Contain(MFVideoCodec.HEVC));
             videoCodec.GetVisualDescendants().OfType<ComboBox>().Single().SelectedIndex = (int)MFVideoCodec.HEVC;
-            Assert.That(settings.Codec, Is.EqualTo(MFVideoCodec.HEVC));
+            Assert.That(settings.Codec.Value, Is.EqualTo(MFVideoCodec.HEVC));
             var audioCodec = audio.GetVisualDescendants().OfType<EnumEditor>()
                 .Single(editor => editor.Items![0].Value is MFAudioCodec);
             Assert.That(audioCodec.Items!.Select(item => item.Value), Does.Contain(MFAudioCodec.ALAC));
             audioCodec.GetVisualDescendants().OfType<ComboBox>().Single().SelectedIndex = (int)MFAudioCodec.ALAC;
-            Assert.That(audioSettings.Codec, Is.EqualTo(MFAudioCodec.ALAC));
+            Assert.That(audioSettings.Codec.Value, Is.EqualTo(MFAudioCodec.ALAC));
             var bitDepth = audio.GetVisualDescendants().OfType<EnumEditor>()
                 .Single(editor => editor.Items![0].Value is MFAudioBitDepth);
             bitDepth.GetVisualDescendants().OfType<ComboBox>().Single().SelectedIndex = 2;
-            Assert.That(audioSettings.BitDepth, Is.EqualTo(MFAudioBitDepth.Bit24));
+            Assert.That(audioSettings.BitDepth.Value, Is.EqualTo(MFAudioBitDepth.Bit24));
             HeadlessTestHelpers.Render(3);
 
             var restored = new MFVideoEncoderSettings();
             EncoderSettingsJson.CopyTo(settings, restored);
-            Assert.That(restored.UseHardwareAcceleration, Is.False);
-            Assert.That(restored.Codec, Is.EqualTo(MFVideoCodec.HEVC));
-            Assert.That(restored.DestinationSize, Is.EqualTo(settings.DestinationSize));
-            Assert.That(restored.FrameRate, Is.EqualTo(settings.FrameRate));
+            Assert.That(restored.UseHardwareAcceleration.Value, Is.False);
+            Assert.That(restored.Codec.Value, Is.EqualTo(MFVideoCodec.HEVC));
+            Assert.That(restored.DestinationSize.Value, Is.EqualTo(settings.DestinationSize.Value));
+            Assert.That(restored.FrameRate.Value, Is.EqualTo(settings.FrameRate.Value));
             var restoredAudio = new MFAudioEncoderSettings();
             EncoderSettingsJson.CopyTo(audioSettings, restoredAudio);
-            Assert.That(restoredAudio.Codec, Is.EqualTo(MFAudioCodec.ALAC));
-            Assert.That(restoredAudio.BitDepth, Is.EqualTo(MFAudioBitDepth.Bit24));
+            Assert.That(restoredAudio.Codec.Value, Is.EqualTo(MFAudioCodec.ALAC));
+            Assert.That(restoredAudio.BitDepth.Value, Is.EqualTo(MFAudioBitDepth.Bit24));
             HeadlessCapture.SaveIfRequested(window, nameof(MFEncoderSettingsTests), $"settings-{language}");
         }
         finally

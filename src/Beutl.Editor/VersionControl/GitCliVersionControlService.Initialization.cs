@@ -25,7 +25,7 @@ internal sealed partial class GitCliVersionControlService
             throw;
         }
 
-        bool lfsRequested = _installationLocator.Config.UseLfsWhenAvailable;
+        bool lfsRequested = _installationLocator.Config.UseLfsWhenAvailable.Value;
         await EnsureRepositoryHygieneCoreAsync(
                 repository,
                 runner,

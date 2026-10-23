@@ -385,7 +385,7 @@ public sealed class FFmpegReader : MediaReader
     private int BytesPerPixel => FFmpegVideoSlotSizing.GetBytesPerPixel(_isHdr);
 
     private BitmapColorSpace ResolveFrameColorSpace()
-        => (!Settings.ForceSrgbGamma || _isHdr) ? _colorspace! : BitmapColorSpace.Srgb;
+        => (!Settings.ForceSrgbGamma.Value || _isHdr) ? _colorspace! : BitmapColorSpace.Srgb;
 
     private MediaFrame? ReadVideoCore(int frame)
     {
@@ -777,7 +777,7 @@ public sealed class FFmpegReader : MediaReader
     {
         if (!_hasVideo || _videoStream == null) return;
 
-        AVHWDeviceType? hwDeviceType = HardwareAcceleration.ToHWDeviceType((int)Settings.Acceleration);
+        AVHWDeviceType? hwDeviceType = HardwareAcceleration.ToHWDeviceType((int)Settings.Acceleration.Value);
 
         try
         {
@@ -788,7 +788,7 @@ public sealed class FFmpegReader : MediaReader
                 {
                     ApplyThreadCount(ctx);
 
-                    if (Settings.Acceleration != FFmpegDecodingSettings.AccelerationOptions.Software)
+                    if (Settings.Acceleration.Value != FFmpegDecodingSettings.AccelerationOptions.Software)
                     {
                         try
                         {
@@ -832,11 +832,11 @@ public sealed class FFmpegReader : MediaReader
 
     private void ApplyThreadCount(MediaCodecContext ctx)
     {
-        if (Settings.ThreadCount != 0)
+        if (Settings.ThreadCount.Value != 0)
         {
             ctx.ThreadCount = Math.Min(
                 Environment.ProcessorCount,
-                Settings.ThreadCount > 0 ? Settings.ThreadCount : AutoThreadCountLimit);
+                Settings.ThreadCount.Value > 0 ? Settings.ThreadCount.Value : AutoThreadCountLimit);
         }
         else
         {
@@ -913,7 +913,7 @@ public sealed class FFmpegReader : MediaReader
 
         _logger.LogInformation("Video color space: {ColorSpace} ({Hdr})", _colorspace, _isHdr ? "HDR" : "SDR");
 
-        if (Settings.ForceSrgbGamma && _colorspace != BitmapColorSpace.Srgb)
+        if (Settings.ForceSrgbGamma.Value && _colorspace != BitmapColorSpace.Srgb)
         {
             if (_isHdr)
             {

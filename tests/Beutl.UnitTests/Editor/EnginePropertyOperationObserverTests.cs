@@ -41,14 +41,14 @@ public class EnginePropertyOperationObserverTests
     [Test]
     public void Constructor_WithCoreObjectValue_ShouldInitializeChildPublisher()
     {
-        var childObj = new TestChildCoreObject { Title = "child" };
+        var childObj = new TestChildCoreObject { Title = { Value = "child" } };
         var engineObj = new TestEngineObjectWithCoreObject(childObj);
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<TestChildCoreObject>(
-            testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
-        childObj.Title = "modified";
+            testObserver, engineObj, engineObj.Child, _sequenceGenerator, "Child");
+        childObj.Title.Value = "modified";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -59,15 +59,15 @@ public class EnginePropertyOperationObserverTests
     public void Constructor_WithListValue_ShouldInitializeCollectionPublisher()
     {
         var list = new CoreList<TestChildCoreObject>();
-        var item = new TestChildCoreObject { Title = "item" };
+        var item = new TestChildCoreObject { Title = { Value = "item" } };
         list.Add(item);
         var engineObj = new TestEngineObjectWithList(list);
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<CoreList<TestChildCoreObject>>(
-            testObserver, engineObj, engineObj.ItemsProperty, _sequenceGenerator, "Items");
-        item.Title = "modified";
+            testObserver, engineObj, engineObj.Items, _sequenceGenerator, "Items");
+        item.Title.Value = "modified";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
     }
@@ -86,7 +86,7 @@ public class EnginePropertyOperationObserverTests
         using var observer = new EnginePropertyOperationObserver<float>(
             testObserver, engineObj, property, _sequenceGenerator, "FloatValue");
 
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = MediaTime.FromSeconds(1) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 1.0f }, KeyTime = { Value = MediaTime.FromSeconds(1) } });
 
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
     }
@@ -148,13 +148,13 @@ public class EnginePropertyOperationObserverTests
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<TestChildCoreObject>(
-            testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
+            testObserver, engineObj, engineObj.Child, _sequenceGenerator, "Child");
 
-        var newChild = new TestChildCoreObject { Title = "new" };
-        engineObj.ChildProperty.Value = newChild;
+        var newChild = new TestChildCoreObject { Title = { Value = "new" } };
+        engineObj.Child.Value = newChild;
         receivedOperations.Clear();
 
-        newChild.Title = "modified";
+        newChild.Title.Value = "modified";
 
         Assert.That(receivedOperations, Has.Count.EqualTo(1));
         var operation = (UpdatePropertyValueOperation<string>)receivedOperations[0];
@@ -164,19 +164,19 @@ public class EnginePropertyOperationObserverTests
     [Test]
     public void OnValueChanged_WithReplacedCoreObject_ShouldDisposeOldPublisher()
     {
-        var oldChild = new TestChildCoreObject { Title = "old" };
+        var oldChild = new TestChildCoreObject { Title = { Value = "old" } };
         var engineObj = new TestEngineObjectWithCoreObject(oldChild);
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         using var observer = new EnginePropertyOperationObserver<TestChildCoreObject>(
-            testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
+            testObserver, engineObj, engineObj.Child, _sequenceGenerator, "Child");
 
-        var newChild = new TestChildCoreObject { Title = "new" };
-        engineObj.ChildProperty.Value = newChild;
+        var newChild = new TestChildCoreObject { Title = { Value = "new" } };
+        engineObj.Child.Value = newChild;
         receivedOperations.Clear();
 
-        oldChild.Title = "should not be tracked";
+        oldChild.Title.Value = "should not be tracked";
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -272,7 +272,7 @@ public class EnginePropertyOperationObserverTests
         property.SetKeyFrameAnimation(newAnimation);
         receivedOperations.Clear();
 
-        newAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = MediaTime.FromSeconds(1) });
+        newAnimation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 1.0f }, KeyTime = { Value = MediaTime.FromSeconds(1) } });
 
         Assert.That(receivedOperations, Has.Count.GreaterThanOrEqualTo(1));
     }
@@ -295,7 +295,7 @@ public class EnginePropertyOperationObserverTests
         property.SetKeyFrameAnimation(newAnimation);
         receivedOperations.Clear();
 
-        oldAnimation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = MediaTime.FromSeconds(1) });
+        oldAnimation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 1.0f }, KeyTime = { Value = MediaTime.FromSeconds(1) } });
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -495,16 +495,16 @@ public class EnginePropertyOperationObserverTests
     [Test]
     public void Dispose_ShouldDisposeValuePublisher()
     {
-        var childObj = new TestChildCoreObject { Title = "child" };
+        var childObj = new TestChildCoreObject { Title = { Value = "child" } };
         var engineObj = new TestEngineObjectWithCoreObject(childObj);
         var receivedOperations = new List<ChangeOperation>();
         var testObserver = Observer.Create<ChangeOperation>(op => receivedOperations.Add(op));
 
         var observer = new EnginePropertyOperationObserver<TestChildCoreObject>(
-            testObserver, engineObj, engineObj.ChildProperty, _sequenceGenerator, "Child");
+            testObserver, engineObj, engineObj.Child, _sequenceGenerator, "Child");
 
         observer.Dispose();
-        childObj.Title = "modified";
+        childObj.Title.Value = "modified";
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -525,7 +525,7 @@ public class EnginePropertyOperationObserverTests
         receivedOperations.Clear();
 
         observer.Dispose();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 1.0f, KeyTime = MediaTime.FromSeconds(1) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 1.0f }, KeyTime = { Value = MediaTime.FromSeconds(1) } });
 
         Assert.That(receivedOperations, Is.Empty);
     }
@@ -658,13 +658,7 @@ public class EnginePropertyOperationObserverTests
             ScanProperties<TestChildCoreObject>();
         }
 
-        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
-
-        public string? Title
-        {
-            get => TitleProperty.Value;
-            set => TitleProperty.Value = value;
-        }
+        public IProperty<string?> Title { get; } = new ValueOnlyProperty<string?>(null);
     }
 
     [SuppressResourceClassGeneration]
@@ -696,11 +690,11 @@ public class EnginePropertyOperationObserverTests
     {
         public TestEngineObjectWithCoreObject(TestChildCoreObject? initialValue)
         {
-            ChildProperty = Property.CreateExpression(initialValue)!;
+            Child = Property.CreateExpression(initialValue)!;
             ScanProperties<TestEngineObjectWithCoreObject>();
         }
 
-        public IProperty<TestChildCoreObject> ChildProperty { get; }
+        public IProperty<TestChildCoreObject> Child { get; }
     }
 
     [SuppressResourceClassGeneration]
@@ -708,11 +702,11 @@ public class EnginePropertyOperationObserverTests
     {
         public TestEngineObjectWithList(CoreList<TestChildCoreObject>? initialValue)
         {
-            ItemsProperty = Property.CreateExpression(initialValue)!;
+            Items = Property.CreateExpression(initialValue)!;
             ScanProperties<TestEngineObjectWithList>();
         }
 
-        public IProperty<CoreList<TestChildCoreObject>> ItemsProperty { get; }
+        public IProperty<CoreList<TestChildCoreObject>> Items { get; }
     }
 
     private class TestExpression<T> : IExpression<T>

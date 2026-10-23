@@ -11,10 +11,10 @@ internal static class WindowPlacement
     public static void Restore(Window window)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        (int X, int Y)? pos = viewConfig.WindowPosition;
-        (int Width, int Height)? size = viewConfig.WindowSize;
+        (int X, int Y)? pos = viewConfig.WindowPosition.Value;
+        (int Width, int Height)? size = viewConfig.WindowSize.Value;
 
-        if (viewConfig.IsWindowMaximized == true)
+        if (viewConfig.IsWindowMaximized.Value == true)
         {
             window.WindowState = WindowState.Maximized;
         }
@@ -59,9 +59,9 @@ internal static class WindowPlacement
     public static void Save(Window window)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        viewConfig.WindowSize = ((int)window.ClientSize.Width, (int)window.ClientSize.Height);
-        viewConfig.WindowPosition = (window.Position.X, window.Position.Y);
-        viewConfig.IsWindowMaximized = window.WindowState == WindowState.Maximized;
+        viewConfig.WindowSize.Value = ((int)window.ClientSize.Width, (int)window.ClientSize.Height);
+        viewConfig.WindowPosition.Value = (window.Position.X, window.Position.Y);
+        viewConfig.IsWindowMaximized.Value = window.WindowState == WindowState.Maximized;
     }
 
     private static void SetRect(Window window, PixelRect rect)

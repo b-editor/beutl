@@ -100,12 +100,12 @@ public class ElementPropertyHeaderTests
             Click(visibility);
             Assert.Multiple(() =>
             {
-                Assert.That(firstObject.IsEnabled, Is.False);
+                Assert.That(firstObject.IsEnabled.Value, Is.False);
                 Assert.That(model.Items[0].IsExpanded.Value, Is.False,
                     "the visibility button must not toggle expansion");
             });
             Click(visibility);
-            Assert.That(firstObject.IsEnabled, Is.True);
+            Assert.That(firstObject.IsEnabled.Value, Is.True);
 
             string originalTitle = title.Text!;
             title.Text = string.Join(" ", Enumerable.Repeat(originalTitle, 20));

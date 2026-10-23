@@ -180,7 +180,7 @@ public class ObjectTemplateItemTests
     {
         var sceneNode = new SceneNode();
         var animation = new KeyFrameAnimation<MediaTime>();
-        animation.KeyFrames.Add(new KeyFrame<MediaTime> { KeyTime = MediaTime.FromSeconds(1), Value = MediaTime.FromSeconds(3) });
+        animation.KeyFrames.Add(new KeyFrame<MediaTime> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = MediaTime.FromSeconds(3) } });
         ((IAnimatablePropertyAdapter<MediaTime>)sceneNode.Time.Property!).Animation = animation;
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value!.Nodes.Add(sceneNode);
@@ -198,7 +198,7 @@ public class ObjectTemplateItemTests
         GraphModel graph = ((NodeGraphDrawable)instance.Objects.Single()).Model.Value!;
         var keyFrames = ((IAnimatablePropertyAdapter<MediaTime>)graph.Nodes.OfType<SceneNode>().Single().Time.Property!).Animation;
 
-        Assert.That(keyFrames?.KeyFrames.OfType<KeyFrame<MediaTime>>().Select(k => (k.KeyTime, k.Value)),
+        Assert.That(keyFrames?.KeyFrames.OfType<KeyFrame<MediaTime>>().Select(k => (k.KeyTime.Value, k.Value.Value)),
             Is.EqualTo(new[] { (MediaTime.FromSeconds(1), MediaTime.FromSeconds(3)) }));
     }
 }

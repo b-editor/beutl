@@ -124,7 +124,7 @@ public static class ScanPropertiesCoreEmitter
     {
         sb.Append(indent).AppendLine($"__validator_{propName} ??= {propName}.CreateValidator(__attrs_{propName});");
         sb.Append(indent).AppendLine($"{propName}.SetValidator(__validator_{propName});");
-        sb.Append(indent).AppendLine($"{propName}.SetAttributes(\"{EmitHelpers.ToPropertyName(propName)}\", __attrs_{propName});");
+        sb.Append(indent).AppendLine($"{propName}.SetAttributes(\"{propName}\", __attrs_{propName});");
         sb.Append(indent).AppendLine($"{propName}.SetOwnerObject(this);");
         sb.Append(indent).AppendLine($"yield return {propName};");
         sb.AppendLine();

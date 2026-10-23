@@ -47,10 +47,10 @@ public class HistoryToolBarTests
             Assert.That(afterEdit, Is.GreaterThan(beforeEdit));
             CheckBar(historyView);
             Click(historyView.FindControl<Button>("UndoButton")!);
-            await HeadlessTestHelpers.WaitUntilAsync(() => shape.IsEnabled && history.CurrentIndex.Value == beforeEdit);
+            await HeadlessTestHelpers.WaitUntilAsync(() => shape.IsEnabled.Value && history.CurrentIndex.Value == beforeEdit);
             Assert.That(historyView.FindControl<TextBlock>("CurrentIndexText")!.Text, Is.EqualTo($"#{beforeEdit}"));
             Click(historyView.FindControl<Button>("RedoButton")!);
-            await HeadlessTestHelpers.WaitUntilAsync(() => !shape.IsEnabled && history.CurrentIndex.Value == afterEdit);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !shape.IsEnabled.Value && history.CurrentIndex.Value == afterEdit);
             CheckBar(historyView);
 
         }

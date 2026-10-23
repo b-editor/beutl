@@ -25,21 +25,21 @@ public sealed class TickShortKeyFrameLookupTests
     {
         await TestReset.ResetShellAsync();
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("tick-short-keyframes");
-        scene.FindHierarchicalParent<Project>()!.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        scene.FindHierarchicalParent<Project>()!.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromFrames(30, rate));
         Element element = scene.Children.First();
         var shape = (RectShape)element.Objects[0];
         var saved = new KeyFrameAnimation<float>();
         for (int frame = 0; frame < 3; frame++)
-            saved.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromFrames(frame, rate), Value = 100 * (frame + 1) });
+            saved.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromFrames(frame, rate) }, Value = { Value = 100 * (frame + 1) } });
         // Written as TimeSpan strings, as earlier versions wrote templates.
         System.Text.Json.Nodes.JsonObject json;
         using (MediaTimeJsonConverter.WriteTimeSpanStrings())
             json = CoreSerializer.SerializeToJsonObject(saved);
         var animation = (KeyFrameAnimation<float>)CoreSerializer.DeserializeFromJsonObject(json, typeof(KeyFrameAnimation<float>));
         shape.Width.SetKeyFrameAnimation(animation);
-        Assert.That(animation.KeyFrames[1].KeyTime, Is.LessThan(MediaTime.FromFrames(1, rate)));
+        Assert.That(animation.KeyFrames[1].KeyTime.Value, Is.LessThan(MediaTime.FromFrames(1, rate)));
 
         ((IEditorSelection)editor.GetService(typeof(IEditorSelection))!).Select(element);
         HeadlessTestHelpers.Settle();

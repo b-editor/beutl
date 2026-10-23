@@ -28,7 +28,7 @@ public partial class GraphModelNodeMemberView : UserControl
         {
             var flyout = new RenameFlyout()
             {
-                Text = viewModel.GraphNode.Name
+                Text = viewModel.GraphNode.Name.Value
             };
 
             flyout.Confirmed += OnNameConfirmed;

@@ -185,9 +185,9 @@ public partial class PlayerViewPlaybackInputTests
                 RoutingStrategies.Bubble, handledEventsToo: true);
             point = PreviewCenter(view, window);
             if (handle)
-                point += new Vector(50 * view.image.Bounds.Width / editor.Scene.FrameSize.Width, 0);
+                point += new Vector(50 * view.image.Bounds.Width / editor.Scene.FrameSize.Value.Width, 0);
             else
-                point += new Vector(20, 15) * (view.image.Bounds.Width / editor.Scene.FrameSize.Width);
+                point += new Vector(20, 15) * (view.image.Bounds.Width / editor.Scene.FrameSize.Value.Width);
             window.MouseDown(point, MouseButton.Left);
             window.MouseMove(point + new Vector(20, 10), RawInputModifiers.LeftMouseButton);
             var pose = TransformPose(shape);

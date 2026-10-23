@@ -130,8 +130,8 @@ public class NumericEditorRangeTests
     public void Header_drag_clamps_live_values_and_confirms_once_on_release(EditorCase editorCase)
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool pointerLock = config.EnablePointerLockInProperty;
-        config.EnablePointerLockInProperty = false;
+        bool pointerLock = config.EnablePointerLockInProperty.Value;
+        config.EnablePointerLockInProperty.Value = false;
         try
         {
             using var editor = new BoundedEditor(editorCase);
@@ -156,7 +156,7 @@ public class NumericEditorRangeTests
         }
         finally
         {
-            config.EnablePointerLockInProperty = pointerLock;
+            config.EnablePointerLockInProperty.Value = pointerLock;
         }
     }
 
@@ -205,8 +205,8 @@ public class NumericEditorRangeTests
     public void Component_header_drag_changes_only_its_component(string kind)
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool pointerLock = config.EnablePointerLockInProperty;
-        config.EnablePointerLockInProperty = false;
+        bool pointerLock = config.EnablePointerLockInProperty.Value;
+        config.EnablePointerLockInProperty.Value = false;
         try
         {
             using var editor = new BoundedEditor(new EditorCase(kind));
@@ -229,7 +229,7 @@ public class NumericEditorRangeTests
         }
         finally
         {
-            config.EnablePointerLockInProperty = pointerLock;
+            config.EnablePointerLockInProperty.Value = pointerLock;
         }
     }
 

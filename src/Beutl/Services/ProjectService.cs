@@ -23,7 +23,7 @@ public sealed partial class ProjectService
 
     public ProjectService()
     {
-        CurrentProject = _app.ProjectProperty.GetObservable()
+        CurrentProject = _app.Project.GetObservable()
             .ToReadOnlyReactivePropertySlim();
         _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
@@ -142,7 +142,7 @@ public sealed partial class ProjectService
                 ProjectTransitionPurpose.Normal,
                 this,
                 cancellationToken);
-            if (!ReferenceEquals(_app.Project, expectedProject))
+            if (!ReferenceEquals(_app.Project.Value, expectedProject))
             {
                 return false;
             }
@@ -217,7 +217,7 @@ public sealed partial class ProjectService
 
             // Selecting the active project from Recents must not replace in-memory edits
             // with a snapshot read before the close path has saved them.
-            if (_app.Project?.Uri is { IsFile: true } currentUri
+            if (_app.Project.Value?.Uri is { IsFile: true } currentUri
                 && FilePathComparison.AreSameCanonicalPath(currentUri.LocalPath, file))
             {
                 TryAddToRecentProjects(file);
@@ -226,7 +226,7 @@ public sealed partial class ProjectService
             }
 
             Uri projectUri = UriHelper.CreateFromPath(file);
-            previousProject = _app.Project;
+            previousProject = _app.Project.Value;
             if (previousProject is not null)
             {
                 // Validate before closing so an invalid project, or one that needs a newer Beutl,
@@ -263,7 +263,7 @@ public sealed partial class ProjectService
                 _logger.LogInformation("Skipping project open: {Message}", unsupported.Message);
             }
 
-            if (previousProject is not null && _app.Project is null)
+            if (previousProject is not null && _app.Project.Value is null)
             {
                 try
                 {
@@ -305,7 +305,7 @@ public sealed partial class ProjectService
         Func<Task<bool>>? beforeCommit = null)
     {
         VerifyTransition(transition);
-        if (_app.Project is not { } closingProject)
+        if (_app.Project.Value is not { } closingProject)
         {
             if (beforeCommit is not null && !await beforeCommit())
                 throw new ProjectCloseAbortedException(MessageStrings.OperationFailed);
@@ -328,23 +328,23 @@ public sealed partial class ProjectService
         }
         finally
         {
-            bool projectClosed = !ReferenceEquals(_app.Project, closingProject);
+            bool projectClosed = !ReferenceEquals(_app.Project.Value, closingProject);
             await closeContext.CompleteAsync(projectClosed, _logger);
         }
     }
 
     internal void CloseProjectImmediately()
     {
-        if (_app.Project is { } project)
+        if (_app.Project.Value is { } project)
         {
             // Every close path ends here, while the project is still whole.
             DuplicateIds.Report(project, "close");
-            _app.Project = null;
+            _app.Project.Value = null;
             Interlocked.Exchange(ref _projectNoticeDismissal, null)?.Cancel();
             Media.FontManager.Instance.ClearProjectFonts(project);
             try
             {
-                GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile = null;
+                GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile.Value = null;
             }
             catch (Exception ex)
             {
@@ -388,8 +388,8 @@ public sealed partial class ProjectService
             {
                 Items = { scene },
                 Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{EditorConstants.ProjectFileExtension}")),
-                FrameRate = framerate,
-                SampleRate = samplerate,
+                FrameRate = { Value = framerate },
+                SampleRate = { Value = samplerate },
             };
 
             CoreSerializer.StoreToUri(scene, scene.Uri);
@@ -449,7 +449,7 @@ public sealed partial class ProjectService
             ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
             viewConfig.UpdateRecentProject(file);
             viewConfig.UpdateRecentFile(file);
-            viewConfig.LastOpenedProjectFile = file;
+            viewConfig.LastOpenedProjectFile.Value = file;
         }
         catch (Exception ex)
         {
@@ -468,7 +468,7 @@ public sealed partial class ProjectService
         try
         {
             Media.FontManager.Instance.LoadProjectFonts(project);
-            _app.Project = project;
+            _app.Project.Value = project;
             await NotifyOpenedAsync(project);
         }
         catch
@@ -501,7 +501,7 @@ public sealed partial class ProjectService
 
     private async Task RollBackFailedActivationAsync(Project project)
     {
-        if (!ReferenceEquals(_app.Project, project))
+        if (!ReferenceEquals(_app.Project.Value, project))
         {
             return;
         }
@@ -526,15 +526,15 @@ public sealed partial class ProjectService
 
             await NotifyClosingFinalizingAsync(closeContext);
 
-            if (ReferenceEquals(_app.Project, project))
+            if (ReferenceEquals(_app.Project.Value, project))
             {
-                _app.Project = null;
+                _app.Project.Value = null;
                 Media.FontManager.Instance.ClearProjectFonts(project);
             }
         }
         finally
         {
-            bool projectClosed = !ReferenceEquals(_app.Project, project);
+            bool projectClosed = !ReferenceEquals(_app.Project.Value, project);
             await closeContext.CompleteAsync(projectClosed, _logger);
         }
     }

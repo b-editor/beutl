@@ -19,7 +19,7 @@ public sealed record StorageDragData(string ProviderId, object AccountIdentity,
     public async Task<StorageSceneImport> ImportToSceneAsync(Scene scene, CancellationToken cancellationToken = default)
     {
         if (!IsCurrent()) return new StorageSceneImport(null, [], new Dictionary<string, string>());
-        string directory = Path.Combine(scene.Uri?.LocalPath is { } scenePath ? Path.GetDirectoryName(scenePath)! : Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "unsaved", scene.Id.ToString("N")), "resources", "storage", Guid.NewGuid().ToString("N"));
+        string directory = Path.Combine(scene.Uri?.LocalPath is { } scenePath ? Path.GetDirectoryName(scenePath)! : Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "unsaved", scene.Id.Value.ToString("N")), "resources", "storage", Guid.NewGuid().ToString("N"));
         var localPaths = PendingLocalPaths != null ? await PendingLocalPaths.WaitAsync(cancellationToken) : LocalPaths;
         cancellationToken.ThrowIfCancellationRequested();
         if (!IsCurrent()) throw new OperationCanceledException();

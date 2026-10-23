@@ -12,68 +12,32 @@ public sealed class AVFVideoEncoderSettings : VideoEncoderSettings
     }
 
     [Display(Name = "Codec")]
-    public IProperty<VideoCodec> CodecProperty { get; } = new ValueOnlyProperty<VideoCodec>(VideoCodec.H264);
+    public IProperty<VideoCodec> Codec { get; } = new ValueOnlyProperty<VideoCodec>(VideoCodec.H264);
 
     [Display(Name = "JPEG Quality")]
-    public IProperty<float> JPEGQualityProperty { get; } = new ValueOnlyProperty<float>(-1);
+    public IProperty<float> JPEGQuality { get; } = new ValueOnlyProperty<float>(-1);
 
     [Display(Name = "H.264 Profile/Level")]
-    public IProperty<VideoProfileLevelH264> ProfileLevelH264Property { get; } = new ValueOnlyProperty<VideoProfileLevelH264>(VideoProfileLevelH264.Default);
+    public IProperty<VideoProfileLevelH264> ProfileLevelH264 { get; } = new ValueOnlyProperty<VideoProfileLevelH264>(VideoProfileLevelH264.Default);
 
     [Display(Name = "Color Transfer",
         Description = "Pq / Hlg selects the HDR encoder path (HEVC Main10).")]
-    public IProperty<ColorTransferCharacteristic> ColorTransferProperty { get; } = new ValueOnlyProperty<ColorTransferCharacteristic>(ColorTransferCharacteristic.Default);
-
-    [Display(Name = "Color Primaries")]
-    public IProperty<ColorPrimariesType> ColorPrimariesProperty { get; } = new ValueOnlyProperty<ColorPrimariesType>(ColorPrimariesType.Default);
-
-    [Display(Name = "YCbCr Matrix")]
-    public IProperty<YCbCrMatrixType> YCbCrMatrixProperty { get; } = new ValueOnlyProperty<YCbCrMatrixType>(YCbCrMatrixType.Default);
-
-    public VideoCodec Codec
-    {
-        get => CodecProperty.Value;
-        set => CodecProperty.Value = value;
-    }
-
-    public float JPEGQuality
-    {
-        get => JPEGQualityProperty.Value;
-        set => JPEGQualityProperty.Value = value;
-    }
-
-    public VideoProfileLevelH264 ProfileLevelH264
-    {
-        get => ProfileLevelH264Property.Value;
-        set => ProfileLevelH264Property.Value = value;
-    }
-
     /// <summary>
     /// Transfer characteristic embedded in the encoded stream. Setting Pq or Hlg selects the
     /// HDR encoder path (HEVC Main10 profile, 16bpc pixel pipeline, matching AVVideoColor
     /// properties).
     /// </summary>
-    public ColorTransferCharacteristic ColorTransfer
-    {
-        get => ColorTransferProperty.Value;
-        set => ColorTransferProperty.Value = value;
-    }
+    public IProperty<ColorTransferCharacteristic> ColorTransfer { get; } = new ValueOnlyProperty<ColorTransferCharacteristic>(ColorTransferCharacteristic.Default);
 
-    public ColorPrimariesType ColorPrimaries
-    {
-        get => ColorPrimariesProperty.Value;
-        set => ColorPrimariesProperty.Value = value;
-    }
+    [Display(Name = "Color Primaries")]
+    public IProperty<ColorPrimariesType> ColorPrimaries { get; } = new ValueOnlyProperty<ColorPrimariesType>(ColorPrimariesType.Default);
 
-    public YCbCrMatrixType YCbCrMatrix
-    {
-        get => YCbCrMatrixProperty.Value;
-        set => YCbCrMatrixProperty.Value = value;
-    }
+    [Display(Name = "YCbCr Matrix")]
+    public IProperty<YCbCrMatrixType> YCbCrMatrix { get; } = new ValueOnlyProperty<YCbCrMatrixType>(YCbCrMatrixType.Default);
 
     public bool IsHdr =>
-        ColorTransfer == ColorTransferCharacteristic.Pq ||
-        ColorTransfer == ColorTransferCharacteristic.Hlg;
+        ColorTransfer.Value == ColorTransferCharacteristic.Pq ||
+        ColorTransfer.Value == ColorTransferCharacteristic.Hlg;
 
     public enum VideoCodec
     {

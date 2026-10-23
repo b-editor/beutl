@@ -164,7 +164,7 @@ public sealed partial class LayerHeader : UserControl
         foreach (Element shifted in plan.ShiftedElements)
         {
             ElementViewModel? shiftedVm = vm.Timeline.GetViewModelFor(shifted);
-            shiftedVm?.AnimationRequest(shifted.ZIndex);
+            shiftedVm?.AnimationRequest(shifted.ZIndex.Value);
         }
     }
 
@@ -173,7 +173,7 @@ public sealed partial class LayerHeader : UserControl
         vm.PosY.Value = 0;
         foreach (ElementViewModel item in directElements)
         {
-            item.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(item.Model.ZIndex), 0, 0);
+            item.Margin.Value = new Thickness(0, vm.Timeline.CalculateLayerTop(item.Model.ZIndex.Value), 0, 0);
         }
     }
 
@@ -189,7 +189,7 @@ public sealed partial class LayerHeader : UserControl
             _startRel = point.Position;
             _start = e.GetCurrentPoint(timeline.TimelinePanel).Position;
             _elements = ViewModel.Timeline.Elements
-                .Where(i => i.Model.ZIndex == ViewModel.Number && i.IsEditable.Value)
+                .Where(i => i.Model.ZIndex.Value == ViewModel.Number && i.IsEditable.Value)
                 .ToArray();
         }
     }

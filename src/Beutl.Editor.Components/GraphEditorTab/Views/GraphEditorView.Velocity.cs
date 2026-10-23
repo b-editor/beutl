@@ -22,8 +22,8 @@ public partial class GraphEditorView
         int index = channel.KeyFrames.IndexOf(first);
         bool hasIncoming = index > 0;
         bool hasOutgoing = index + 1 < channel.KeyFrames.Count;
-        double inInfluence = first.Model.Easing is SplineEasing incoming ? 1 - incoming.X2 : 1d / 3;
-        double outInfluence = hasOutgoing && channel.KeyFrames[index + 1].Model.Easing is SplineEasing outgoing
+        double inInfluence = first.Model.Easing.Value is SplineEasing incoming ? 1 - incoming.X2 : 1d / 3;
+        double outInfluence = hasOutgoing && channel.KeyFrames[index + 1].Model.Easing.Value is SplineEasing outgoing
             ? outgoing.X1 : 1d / 3;
         var flyout = new KeyFrameVelocityFlyout(
             new KeyFrameVelocityValues(GraphEditorCurveMath.KeyVelocity(first), inInfluence,
@@ -33,11 +33,11 @@ public partial class GraphEditorView
         foreach (var key in selection)
         {
             int current = channel.KeyFrames.IndexOf(key);
-            if (current > 0) originals.TryAdd(key.Model, key.Model.Easing);
+            if (current > 0) originals.TryAdd(key.Model, key.Model.Easing.Value);
             if (current + 1 < channel.KeyFrames.Count)
             {
                 var next = channel.KeyFrames[current + 1].Model;
-                originals.TryAdd(next, next.Easing);
+                originals.TryAdd(next, next.Easing.Value);
             }
         }
         EditSession? session = null;
@@ -100,7 +100,7 @@ public partial class GraphEditorView
 
         void Restore()
         {
-            foreach (var (key, easing) in originals) key.Easing = easing;
+            foreach (var (key, easing) in originals) key.Easing.Value = easing;
         }
 
         void Finish()
@@ -116,7 +116,7 @@ public partial class GraphEditorView
                     using (session)
                     {
                         InvalidateVelocityPreview(model);
-                        bool changed = originals.Any(pair => !SameEasing(pair.Value, pair.Key.Easing));
+                        bool changed = originals.Any(pair => !SameEasing(pair.Value, pair.Key.Easing.Value));
                         if (changed && flyout.IsConfirmed && DataContext == model && model.SelectedView.Value == channel)
                         {
                             using (session.Enter()) Apply(flyout.Values);
@@ -146,8 +146,8 @@ public partial class GraphEditorView
     {
         if (model.EditorContext.GetService<IBufferStatus>() is not { } buffer) return;
         Rational rate = SceneTimeRangeService.GetFrameRate(model.Scene);
-        MediaTime start = model.Element?.Start ?? model.Scene.Start;
-        MediaTime end = model.Element?.Range.End ?? model.Scene.Start + model.Scene.Duration;
+        MediaTime start = model.Element?.Start.Value ?? model.Scene.Start.Value;
+        MediaTime end = model.Element?.Range.End ?? model.Scene.Start.Value + model.Scene.Duration.Value;
         buffer.DeleteCache(
             (int)start.ToFrame(rate, MidpointRounding.ToNegativeInfinity), (int)end.ToFrame(rate, MidpointRounding.ToPositiveInfinity));
     }

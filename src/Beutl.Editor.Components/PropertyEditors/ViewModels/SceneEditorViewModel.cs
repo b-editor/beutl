@@ -11,7 +11,7 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
         : base(property)
     {
         CurrentTargetName = Value
-            .Select(scene => scene != null ? scene.Name : MessageStrings.PropertyUnset)
+            .Select(scene => scene != null ? scene.Name.Value : MessageStrings.PropertyUnset)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
     }
@@ -29,7 +29,7 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
 
         if (PropertyAdapter is IExpressionPropertyAdapter<Scene?> exp)
         {
-            exp.Expression = Expression.CreateReference<Scene>(target.Id);
+            exp.Expression = Expression.CreateReference<Scene>(target.Id.Value);
 
             Commit();
         }
@@ -57,6 +57,6 @@ public sealed class SceneEditorViewModel : ValueEditorViewModel<Scene?>
 
         return [.. project.Items
             .OfType<Scene>()
-            .Select(s => new TargetObjectInfo(s.Name, s))];
+            .Select(s => new TargetObjectInfo(s.Name.Value, s))];
     }
 }

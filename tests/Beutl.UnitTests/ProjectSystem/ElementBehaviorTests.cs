@@ -11,8 +11,8 @@ public class ElementBehaviorTests
     {
         var element = new Element
         {
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(2)
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) }
         };
 
         Assert.That(element.Range.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
@@ -22,30 +22,30 @@ public class ElementBehaviorTests
     [Test]
     public void Start_ChangePropagatesToObjectsAndRaisesEditedWithRanges()
     {
-        var element = new Element { Start = MediaTime.Zero, Length = MediaTime.FromSeconds(2) };
+        var element = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(2) } };
         var obj = new TestObject();
         element.AddObject(obj);
         ElementEditedEventArgs? args = null;
         element.Edited += (_, e) => args = e as ElementEditedEventArgs;
 
-        element.Start = MediaTime.FromSeconds(5);
+        element.Start.Value = MediaTime.FromSeconds(5);
 
         Assert.That(args, Is.Not.Null);
         Assert.That(args!.AffectedRange, Is.Not.Empty);
-        Assert.That(obj.TimeRange.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-        Assert.That(obj.TimeRange.Duration, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(obj.TimeRange.Value.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+        Assert.That(obj.TimeRange.Value.Duration, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
     public void Length_ChangePropagatesToObjects()
     {
-        var element = new Element { Start = MediaTime.FromSeconds(1) };
+        var element = new Element { Start = { Value = MediaTime.FromSeconds(1) } };
         var obj = new TestObject();
         element.AddObject(obj);
 
-        element.Length = MediaTime.FromSeconds(7);
+        element.Length.Value = MediaTime.FromSeconds(7);
 
-        Assert.That(obj.TimeRange.Duration, Is.EqualTo(MediaTime.FromSeconds(7)));
+        Assert.That(obj.TimeRange.Value.Duration, Is.EqualTo(MediaTime.FromSeconds(7)));
     }
 
     [Test]
@@ -55,9 +55,9 @@ public class ElementBehaviorTests
         var obj = new TestObject();
         element.AddObject(obj);
 
-        element.ZIndex = 4;
+        element.ZIndex.Value = 4;
 
-        Assert.That(obj.ZIndex, Is.EqualTo(4));
+        Assert.That(obj.ZIndex.Value, Is.EqualTo(4));
     }
 
     [Test]
@@ -65,7 +65,7 @@ public class ElementBehaviorTests
     {
         var element = new Element();
 
-        Assert.That(element.IsEnabled, Is.True);
+        Assert.That(element.IsEnabled.Value, Is.True);
     }
 
     [Test]
@@ -75,7 +75,7 @@ public class ElementBehaviorTests
         int count = 0;
         element.Edited += (_, _) => count++;
 
-        element.IsEnabled = false;
+        element.IsEnabled.Value = false;
 
         Assert.That(count, Is.EqualTo(1));
     }
@@ -83,11 +83,11 @@ public class ElementBehaviorTests
     [Test]
     public void IsEnabled_SetSameValueDoesNotRaiseEdited()
     {
-        var element = new Element { IsEnabled = true };
+        var element = new Element { IsEnabled = { Value = true } };
         int invocationCount = 0;
         element.Edited += (_, _) => invocationCount++;
 
-        element.IsEnabled = true;
+        element.IsEnabled.Value = true;
 
         Assert.That(invocationCount, Is.EqualTo(0));
     }
@@ -96,15 +96,15 @@ public class ElementBehaviorTests
     public void TimelineLayer_CompositionalChangeRaisesSceneEdited()
     {
         var scene = new Scene(1920, 1080, string.Empty);
-        var layer = new TimelineLayer { ZIndex = 2 };
+        var layer = new TimelineLayer { ZIndex = { Value = 2 } };
         scene.Layers.Add(layer);
         int count = 0;
         scene.Edited += (_, _) => count++;
 
-        layer.IsVideoMuted = true;
-        layer.IsAudioMuted = true;
-        layer.IsSolo = true;
-        layer.ZIndex = 3;
+        layer.IsVideoMuted.Value = true;
+        layer.IsAudioMuted.Value = true;
+        layer.IsSolo.Value = true;
+        layer.ZIndex.Value = 3;
 
         Assert.That(count, Is.EqualTo(4));
     }
@@ -113,14 +113,14 @@ public class ElementBehaviorTests
     public void TimelineLayer_EditorOnlyChangeDoesNotRaiseSceneEdited()
     {
         var scene = new Scene(1920, 1080, string.Empty);
-        var layer = new TimelineLayer { ZIndex = 2 };
+        var layer = new TimelineLayer { ZIndex = { Value = 2 } };
         scene.Layers.Add(layer);
         int count = 0;
         scene.Edited += (_, _) => count++;
 
-        layer.IsLocked = true;
-        layer.Color = Beutl.Media.Colors.Red;
-        layer.Name = "renamed";
+        layer.IsLocked.Value = true;
+        layer.Color.Value = Beutl.Media.Colors.Red;
+        layer.Name.Value = "renamed";
 
         Assert.That(count, Is.Zero);
     }
@@ -132,7 +132,7 @@ public class ElementBehaviorTests
         int count = 0;
         scene.Edited += (_, _) => count++;
 
-        var lockOnly = new TimelineLayer { ZIndex = 1, IsLocked = true };
+        var lockOnly = new TimelineLayer { ZIndex = { Value = 1 }, IsLocked = { Value = true } };
         scene.Layers.Add(lockOnly);
         scene.Layers.Remove(lockOnly);
 
@@ -146,7 +146,7 @@ public class ElementBehaviorTests
         int count = 0;
         scene.Edited += (_, _) => count++;
 
-        var soloed = new TimelineLayer { ZIndex = 1, IsSolo = true };
+        var soloed = new TimelineLayer { ZIndex = { Value = 1 }, IsSolo = { Value = true } };
         scene.Layers.Add(soloed);
         scene.Layers.Remove(soloed);
 
@@ -163,31 +163,31 @@ public class ElementBehaviorTests
         };
         var occupying = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(5),
-            ZIndex = 0,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(5) },
+            ZIndex = { Value = 0 },
             Uri = new Uri(Path.Combine(basePath, "a.belm")),
         };
         scene.Children.Add(occupying);
-        scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsLocked = { Value = true } });
         var added = new Element
         {
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = 0,
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = 0 },
             Uri = new Uri(Path.Combine(basePath, "b.belm")),
         };
 
         scene.AddChild(added);
 
-        Assert.That(added.ZIndex, Is.EqualTo(2));
+        Assert.That(added.ZIndex.Value, Is.EqualTo(2));
     }
 
     [Test]
     public void IsLayerLocked_ReflectsLayerModel()
     {
         var scene = new Scene(1920, 1080, string.Empty);
-        scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
 
         Assert.Multiple(() =>
         {
@@ -200,10 +200,10 @@ public class ElementBehaviorTests
     public void IsElementLocked_TrueWhenElementOrItsLayerIsLocked()
     {
         var scene = new Scene(1920, 1080, string.Empty);
-        var onLockedLayer = new Element { ZIndex = 2 };
-        var selfLocked = new Element { ZIndex = 0, IsLocked = true };
-        var free = new Element { ZIndex = 0 };
-        scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        var onLockedLayer = new Element { ZIndex = { Value = 2 } };
+        var selfLocked = new Element { ZIndex = { Value = 0 }, IsLocked = { Value = true } };
+        var free = new Element { ZIndex = { Value = 0 } };
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
 
         Assert.Multiple(() =>
         {

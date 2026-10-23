@@ -38,12 +38,12 @@ public class EncodingCancellationTests
         const int frameRateNum = 30;
         const int frameRateDen = 1;
 
-        controller.VideoSettings.DestinationSize = new PixelSize(width, height);
-        controller.VideoSettings.SourceSize = new PixelSize(width, height);
-        controller.VideoSettings.FrameRate = new Rational(frameRateNum, frameRateDen);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(width, height);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(width, height);
+        controller.VideoSettings.FrameRate.Value = new Rational(frameRateNum, frameRateDen);
 
-        controller.AudioSettings.SampleRate = sampleRate;
-        controller.AudioSettings.Channels = 2;
+        controller.AudioSettings.SampleRate.Value = sampleRate;
+        controller.AudioSettings.Channels.Value = 2;
 
         using var cts = new CancellationTokenSource();
         // Cancel mid-clip (after one frame) so the controller exits its loop on cancellation.

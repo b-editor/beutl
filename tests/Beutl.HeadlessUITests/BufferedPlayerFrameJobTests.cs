@@ -75,7 +75,7 @@ public class BufferedPlayerFrameJobTests
         };
 
     private static PlaybackRange RangeOf(EditViewModel editor)
-        => PlaybackRange.From(MediaTime.Zero, editor.Scene.Start, editor.Scene.Duration, new Rational(Rate));
+        => PlaybackRange.From(MediaTime.Zero, editor.Scene.Start.Value, editor.Scene.Duration.Value, new Rational(Rate));
 
     private static async Task<EditViewModel> OpenEditor()
     {

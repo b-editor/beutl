@@ -39,7 +39,7 @@ public sealed class EncoderDefaultOptionsTests
         // libopus takes neither 44.1 kHz nor fltp
         var controller = FFmpegTestHelpers.CreateController(
             outputPath, new PixelSize(64, 64), new Rational(30, 1), sampleRate: 48000, channels: 2);
-        controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.Default;
+        controller.AudioSettings.Format.Value = FFmpegAudioEncoderSettings.AudioFormat.Default;
         using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
         using var samples = new SineSampleProvider(4800, 48000);
 
@@ -55,7 +55,7 @@ public sealed class EncoderDefaultOptionsTests
         RequireDefaultEncoders(outputPath);
         var controller = FFmpegTestHelpers.CreateController(
             outputPath, new PixelSize(64, 64), new Rational(30, 1), sampleRate: 44100, channels: 2);
-        controller.VideoSettings.Options =
+        controller.VideoSettings.Options.Value =
         [
             new("preset", "medium"),
             new("crf", "22"),
@@ -85,8 +85,8 @@ public sealed class EncoderDefaultOptionsTests
         if (MediaCodec.FindEncoder("mpeg2video") == null) Assert.Ignore("This FFmpeg build has no mpeg2video encoder.");
         var controller = FFmpegTestHelpers.CreateController(
             outputPath, new PixelSize(64, 64), new Rational(30, 1), sampleRate: 44100, channels: 2);
-        controller.VideoSettings.Codec = new CodecRecord("mpeg2video", "MPEG-2 video");
-        controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.Default;
+        controller.VideoSettings.Codec.Value = new CodecRecord("mpeg2video", "MPEG-2 video");
+        controller.AudioSettings.Format.Value = FFmpegAudioEncoderSettings.AudioFormat.Default;
         using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
         using var samples = new SineSampleProvider(4410, 44100);
 
@@ -107,7 +107,7 @@ public sealed class EncoderDefaultOptionsTests
         if (codec == null) Assert.Ignore($"This FFmpeg build has no {encoder} encoder.");
 
         IEnumerable<KeyValuePair<string, string>> options =
-            FFmpegEncodingController.SelectVideoOptions(codec, new FFmpegVideoEncoderSettings().Options);
+            FFmpegEncodingController.SelectVideoOptions(codec, new FFmpegVideoEncoderSettings().Options.Value);
 
         Assert.That(options.Select(option => option.Key), Is.EqualTo(expected));
     }

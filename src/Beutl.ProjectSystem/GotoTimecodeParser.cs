@@ -257,10 +257,10 @@ public static class GotoTimecodeParser
         for (int i = 0; i < markers.Count; i++)
         {
             SceneMarker marker = markers[i];
-            if (!string.IsNullOrEmpty(marker.Name)
-                && marker.Name.StartsWith(name, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrEmpty(marker.Name.Value)
+                && marker.Name.Value.StartsWith(name, StringComparison.OrdinalIgnoreCase))
             {
-                result = marker.Time;
+                result = marker.Time.Value;
                 return true;
             }
         }

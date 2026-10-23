@@ -21,7 +21,7 @@ public sealed class ApplierReviewFollowupTests
         EditTools tools = session.CreateEditTools();
 
         JsonObject document = session.Documents.Read(session.Root);
-        JsonObject elementJson = FindById(document, element.Id)!;
+        JsonObject elementJson = FindById(document, element.Id.Value)!;
         elementJson["Uri"] = "/tmp/outside-workspace/redirected.belm";
 
         ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(desired: document, schemaVersion: SchemaVersion.Current);
@@ -38,8 +38,8 @@ public sealed class ApplierReviewFollowupTests
     {
         Scene scene = CreateSceneWithAnimatedText(out _, out TextBlock text);
         var animation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
-        Guid firstId = animation.KeyFrames[0].Id;
-        Guid secondId = animation.KeyFrames[1].Id;
+        Guid firstId = animation.KeyFrames[0].Id.Value;
+        Guid secondId = animation.KeyFrames[1].Id.Value;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -53,9 +53,9 @@ public sealed class ApplierReviewFollowupTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
-            Assert.That(animation.KeyFrames[0].Id, Is.EqualTo(secondId));
-            Assert.That(animation.KeyFrames[1].Id, Is.EqualTo(firstId));
-            Assert.That(animation.KeyFrames[0].KeyTime, Is.LessThan(animation.KeyFrames[1].KeyTime));
+            Assert.That(animation.KeyFrames[0].Id.Value, Is.EqualTo(secondId));
+            Assert.That(animation.KeyFrames[1].Id.Value, Is.EqualTo(firstId));
+            Assert.That(animation.KeyFrames[0].KeyTime.Value, Is.LessThan(animation.KeyFrames[1].KeyTime.Value));
         });
     }
 
@@ -70,17 +70,17 @@ public sealed class ApplierReviewFollowupTests
             var scene = new Scene(1920, 1080, "Scene") { Uri = sceneUri };
             var element = new Element
             {
-                Name = "Recovered",
-                Length = MediaTime.FromSeconds(2),
+                Name = { Value = "Recovered" },
+                Length = { Value = MediaTime.FromSeconds(2) },
                 Uri = new Uri(elementPath),
             };
             var text = new TextBlock { Text = { Value = "Title" } };
             var animation = new KeyFrameAnimation<float>();
             var keyFrame = new KeyFrame<float>
             {
-                KeyTime = MediaTime.Zero,
-                Value = 100,
-                Easing = new LinearEasing(),
+                KeyTime = { Value = MediaTime.Zero },
+                Value = { Value = 100 },
+                Easing = { Value = new LinearEasing() },
             };
             animation.KeyFrames.Add(keyFrame, out _);
             text.Opacity.SetKeyFrameAnimation(animation);
@@ -89,7 +89,7 @@ public sealed class ApplierReviewFollowupTests
             CoreSerializer.StoreToUri(scene, sceneUri);
 
             JsonObject elementJson = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
-            FindById(elementJson, keyFrame.Id)![nameof(KeyFrame.Easing)]
+            FindById(elementJson, keyFrame.Id.Value)![nameof(KeyFrame.Easing)]
                 = "[Missing.Plugin]Missing.Namespace:MissingEasing";
             File.WriteAllText(elementPath, elementJson.ToJsonString());
             byte[] originalBytes = File.ReadAllBytes(elementPath);
@@ -99,7 +99,7 @@ public sealed class ApplierReviewFollowupTests
             using var session = new AgentToolkitTestSession(recovered);
             EditTools tools = session.CreateEditTools();
             JsonObject desired = session.Documents.Read(session.Root);
-            FindById(desired, recoveredElement.Id)![nameof(CoreObject.Name)] = "Changed";
+            FindById(desired, recoveredElement.Id.Value)![nameof(CoreObject.Name)] = "Changed";
 
             ToolResult<ApplyEditResponse> apply = tools.ApplyEdit(
                 desired: desired,
@@ -111,7 +111,7 @@ public sealed class ApplierReviewFollowupTests
             {
                 Assert.That(apply.IsSuccess, Is.False);
                 Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-                Assert.That(recoveredElement.Name, Is.EqualTo("Recovered"));
+                Assert.That(recoveredElement.Name.Value, Is.EqualTo("Recovered"));
                 Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(originalBytes));
             });
         }
@@ -127,33 +127,33 @@ public sealed class ApplierReviewFollowupTests
         Scene scene = CreateSceneWithElement(out Element first);
         var second = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(4),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "second.belm"))
         };
         second.AddObject(new TextBlock { Text = { Value = "Second" } });
         scene.Children.Add(second);
-        scene.Groups.Add([first.Id, second.Id]);
+        scene.Groups.Add([first.Id.Value, second.Id.Value]);
         using var session = new AgentToolkitTestSession(scene);
 
         JsonObject document = session.Documents.Read(session.Root);
         JsonArray elements = (JsonArray)document["Elements"]!;
-        JsonObject firstJson = FindById(document, first.Id)!;
-        var third = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2) };
+        JsonObject firstJson = FindById(document, first.Id.Value)!;
+        var third = new Element { Start = { Value = MediaTime.FromSeconds(1) }, Length = { Value = MediaTime.FromSeconds(2) } };
         third.AddObject(new TextBlock { Text = { Value = "Third" } });
         JsonObject thirdJson = CoreSerializer.SerializeToJsonObject(third);
         elements.Clear();
         elements.Add(firstJson.DeepClone());
         elements.Add(thirdJson);
-        document["Groups"] = new JsonArray($"{first.Id}:{third.Id}");
+        document["Groups"] = new JsonArray($"{first.Id.Value}:{third.Id.Value}");
 
         session.Documents.Write(session.Root, document);
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Children.Select(element => element.Id), Is.EqualTo(new[] { first.Id, third.Id }));
+            Assert.That(scene.Children.Select(element => element.Id.Value), Is.EqualTo(new[] { first.Id.Value, third.Id.Value }));
             Assert.That(scene.Groups, Has.Count.EqualTo(1));
-            Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { first.Id, third.Id }));
+            Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { first.Id.Value, third.Id.Value }));
         });
     }
 
@@ -170,8 +170,8 @@ public sealed class ApplierReviewFollowupTests
         Scene scene = CreateSceneWithElement(out element);
         text = element.Objects.OfType<TextBlock>().Single();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0, Easing = new LinearEasing() }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100, Easing = new LinearEasing() }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 }, Easing = { Value = new LinearEasing() } }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 100 }, Easing = { Value = new LinearEasing() } }, out _);
         text.Opacity.SetKeyFrameAnimation(animation);
         return scene;
     }

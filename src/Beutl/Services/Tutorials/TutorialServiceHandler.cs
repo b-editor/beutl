@@ -166,7 +166,7 @@ public sealed class TutorialServiceHandler : ITutorialService
 
     public bool IsTutorialCompleted(string tutorialId)
     {
-        return GlobalConfiguration.Instance.TutorialConfig.CompletedTutorialIds.Contains(tutorialId);
+        return GlobalConfiguration.Instance.TutorialConfig.CompletedTutorialIds.Value.Contains(tutorialId);
     }
 
     public IReadOnlyList<TutorialDefinition> GetAvailableTutorials()

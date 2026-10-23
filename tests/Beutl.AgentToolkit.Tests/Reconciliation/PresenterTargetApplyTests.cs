@@ -19,7 +19,7 @@ public sealed class PresenterTargetApplyTests
         var scene = new Scene(1920, 1080, "scene") { Uri = new Uri(Path.Combine(dir, "scene.scene")) };
         var project = new Project();
         project.Items.Add(scene);
-        _ = new BeutlApplication { Project = project };
+        _ = new BeutlApplication { Project = { Value = project } };
 
         var target = new RectShape();
         var presenter = new DrawablePresenter();
@@ -32,10 +32,10 @@ public sealed class PresenterTargetApplyTests
     {
         var element = new Element
         {
-            Name = name,
-            ZIndex = zIndex,
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = name },
+            ZIndex = { Value = zIndex },
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, $"{name}.belm")),
         };
         element.AddObject(drawable);
@@ -82,12 +82,12 @@ public sealed class PresenterTargetApplyTests
             JsonObject desired = session.Documents.Read(scene);
             ObjectNode(desired, "presenter")["Expressions"] = new JsonObject
             {
-                ["Target"] = new JsonObject { ["ObjectId"] = JsonValue.Create(target.Id) },
+                ["Target"] = new JsonObject { ["ObjectId"] = JsonValue.Create(target.Id.Value) },
             };
 
             new Reconciler().Apply(session, desired);
 
-            Assert.That((presenter.Target.Expression as IReferenceExpression)?.ObjectId, Is.EqualTo(target.Id));
+            Assert.That((presenter.Target.Expression as IReferenceExpression)?.ObjectId, Is.EqualTo(target.Id.Value));
         }
     }
 }

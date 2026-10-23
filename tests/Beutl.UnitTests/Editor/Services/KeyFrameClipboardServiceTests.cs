@@ -98,7 +98,7 @@ public class KeyFrameClipboardServiceTests
         _history.Subscribe(observer);
 
         var source = new KeyFrameAnimation<double>();
-        source.KeyFrames.Add(new KeyFrame<double> { KeyTime = MediaTime.FromSeconds(1), Value = 0.5 }, out _);
+        source.KeyFrames.Add(new KeyFrame<double> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 0.5 } }, out _);
         string json = CoreSerializer.SerializeToJsonString(source);
         int before = _history.UndoCount;
 
@@ -130,9 +130,9 @@ public class KeyFrameClipboardServiceTests
         var animation = new KeyFrameAnimation<double>();
         var sourceKey = new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(1),
-            Value = 0f,
-            Easing = new LinearEasing(),
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = 0f },
+            Easing = { Value = new LinearEasing() },
         };
         string json = CoreSerializer.SerializeToJsonString(sourceKey);
         int before = _history.UndoCount;
@@ -157,9 +157,9 @@ public class KeyFrameClipboardServiceTests
 
         var sourceKey = new KeyFrame<double>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 0.75,
-            Easing = new LinearEasing(),
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 0.75 },
+            Easing = { Value = new LinearEasing() },
         };
         string json = CoreSerializer.SerializeToJsonString(sourceKey);
         int before = _history.UndoCount;
@@ -170,7 +170,7 @@ public class KeyFrameClipboardServiceTests
         {
             Assert.That(result.Outcome, Is.EqualTo(KeyFramePasteOutcome.Inserted));
             Assert.That(animation.KeyFrames.Count, Is.EqualTo(1));
-            Assert.That(animation.KeyFrames[0].KeyTime, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(animation.KeyFrames[0].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -185,9 +185,9 @@ public class KeyFrameClipboardServiceTests
         // Seed an existing keyframe at t=2s with a known value.
         var existing = new KeyFrame<double>
         {
-            KeyTime = MediaTime.FromSeconds(2),
-            Value = 0.0,
-            Easing = new LinearEasing(),
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 0.0 },
+            Easing = { Value = new LinearEasing() },
         };
         animation.KeyFrames.Add(existing, out _);
         _history.Commit("seed"); // seal so the next paste is a fresh entry
@@ -195,9 +195,9 @@ public class KeyFrameClipboardServiceTests
         // Paste a different value at the same time.
         var sourceKey = new KeyFrame<double>
         {
-            KeyTime = MediaTime.FromSeconds(99), // ignored — service uses keyTime arg
-            Value = 0.5,
-            Easing = new LinearEasing(),
+            KeyTime = { Value = MediaTime.FromSeconds(99) }, // ignored — service uses keyTime arg
+            Value = { Value = 0.5 },
+            Easing = { Value = new LinearEasing() },
         };
         string json = CoreSerializer.SerializeToJsonString(sourceKey);
         int before = _history.UndoCount;
@@ -208,7 +208,7 @@ public class KeyFrameClipboardServiceTests
         {
             Assert.That(result.Outcome, Is.EqualTo(KeyFramePasteOutcome.ReplacedExisting));
             Assert.That(animation.KeyFrames.Count, Is.EqualTo(1));
-            Assert.That(((KeyFrame<double>)animation.KeyFrames[0]).Value, Is.EqualTo(0.5));
+            Assert.That(((KeyFrame<double>)animation.KeyFrames[0]).Value.Value, Is.EqualTo(0.5));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }

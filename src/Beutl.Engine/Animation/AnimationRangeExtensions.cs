@@ -37,21 +37,21 @@ public static class AnimationRangeExtensions
     {
         if (animation.KeyFrames.Count == 0
             || animation.KeyFrames[0] is not KeyFrame<float> first
-            || !float.IsFinite(first.Value))
+            || !float.IsFinite(first.Value.Value))
         {
             minimum = default;
             maximum = default;
             return false;
         }
 
-        float minimumValue = first.Value;
-        float maximumValue = first.Value;
+        float minimumValue = first.Value.Value;
+        float maximumValue = first.Value.Value;
         var previous = first;
         for (int i = 1; i < animation.KeyFrames.Count; i++)
         {
             if (animation.KeyFrames[i] is not KeyFrame<float> next
-                || !float.IsFinite(next.Value)
-                || !next.Easing.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
+                || !float.IsFinite(next.Value.Value)
+                || !next.Easing.Value.TryGetOutputRange(out float easingMinimum, out float easingMaximum)
                 || !float.IsFinite(easingMinimum)
                 || !float.IsFinite(easingMaximum)
                 || easingMinimum > easingMaximum)
@@ -61,13 +61,13 @@ public static class AnimationRangeExtensions
                 return false;
             }
 
-            float delta = next.Value - previous.Value;
+            float delta = next.Value.Value - previous.Value.Value;
             float intervalMinimum = delta >= 0
-                ? previous.Value + easingMinimum * delta
-                : previous.Value + easingMaximum * delta;
+                ? previous.Value.Value + easingMinimum * delta
+                : previous.Value.Value + easingMaximum * delta;
             float intervalMaximum = delta >= 0
-                ? previous.Value + easingMaximum * delta
-                : previous.Value + easingMinimum * delta;
+                ? previous.Value.Value + easingMaximum * delta
+                : previous.Value.Value + easingMinimum * delta;
             if (!float.IsFinite(intervalMinimum) || !float.IsFinite(intervalMaximum))
             {
                 minimum = default;
@@ -75,8 +75,8 @@ public static class AnimationRangeExtensions
                 return false;
             }
 
-            minimumValue = Math.Min(minimumValue, Math.Min(next.Value, intervalMinimum));
-            maximumValue = Math.Max(maximumValue, Math.Max(next.Value, intervalMaximum));
+            minimumValue = Math.Min(minimumValue, Math.Min(next.Value.Value, intervalMinimum));
+            maximumValue = Math.Max(maximumValue, Math.Max(next.Value.Value, intervalMaximum));
             previous = next;
         }
 

@@ -99,7 +99,7 @@ public partial class PlayerViewPlaybackInputTests
         selection.Select(selectedScene ? editor.Scene.Children.Single() : null);
         if (scene != null)
         {
-            scene.GizmoTarget.Value = scene.Objects.Single().Id;
+            scene.GizmoTarget.Value = scene.Objects.Single().Id.Value;
             scene.GizmoMode.Value = GizmoMode.Translate;
         }
         var view = new PlayerView { DataContext = editor.Player };
@@ -410,7 +410,7 @@ public partial class PlayerViewPlaybackInputTests
             editor.Player.IsCameraMode.Value = true;
             point = PreviewCenter(view, window);
             window.MouseDown(point, MouseButton.Left);
-            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id), "The press must select the cube.");
+            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id.Value), "The press must select the cube.");
             Vector3 position = cube.Position.Value;
             PlayerView.RenderThreadWait = TimeSpan.FromMilliseconds(50);
             render = await BlockRenderThreadAsync(release);
@@ -457,7 +457,7 @@ public partial class PlayerViewPlaybackInputTests
             point = PreviewCenter(view, window);
 
             editor.GetRequiredService<IElementNudgeService>().Nudge(editor.Scene, [element], 1);
-            MediaTime nudged = element.Start;
+            MediaTime nudged = element.Start.Value;
             window.MouseDown(point, MouseButton.Left);
             window.MouseMove(point + new Vector(20, 10), RawInputModifiers.LeftMouseButton);
             Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1), "The move commits the nudge before it writes.");
@@ -467,7 +467,7 @@ public partial class PlayerViewPlaybackInputTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(element.Start, Is.EqualTo(nudged));
+                Assert.That(element.Start.Value, Is.EqualTo(nudged));
                 Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(index + 1));
                 Assert.That(editor.HistoryManager.PeekUndo()!.Name, Is.EqualTo("CommandNames.MoveElement"));
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
@@ -501,14 +501,14 @@ public partial class PlayerViewPlaybackInputTests
             point = PreviewCenter(view, window);
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
-            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id), "The first press must select the cube.");
+            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id.Value), "The first press must select the cube.");
             PlayerView.RenderThreadWait = TimeSpan.FromMilliseconds(50);
             render = await BlockRenderThreadAsync(release);
 
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
 
-            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id));
+            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id.Value));
         }
         finally
         {
@@ -575,7 +575,7 @@ public partial class PlayerViewPlaybackInputTests
             window.MouseDown(point, MouseButton.Left);
             window.MouseUp(point, MouseButton.Left);
 
-            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id));
+            Assert.That(scene.GizmoTarget.Value, Is.EqualTo(cube.Id.Value));
         }
         finally
         {

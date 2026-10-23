@@ -42,16 +42,16 @@ public interface IElementResizeService
         }
 
         MediaTime duration = originalDuration.RoundToFrame(SceneTimeRangeService.GetFrameRate(scene), MidpointRounding.ToNegativeInfinity);
-        if (!ripple && element.GetAfter(element.ZIndex, element.Range.End) is { } after)
+        if (!ripple && element.GetAfter(element.ZIndex.Value, element.Range.End) is { } after)
         {
-            MediaTime delta = after.Start - element.Start;
+            MediaTime delta = after.Start.Value - element.Start.Value;
             if (delta < duration)
             {
                 duration = delta;
             }
         }
 
-        var request = new ElementResizeRequest(element, element.Start, duration, element.ZIndex) { ClampToSource = true };
+        var request = new ElementResizeRequest(element, element.Start.Value, duration, element.ZIndex.Value) { ClampToSource = true };
         Resize(scene, [request], ripple);
         return true;
     }

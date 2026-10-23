@@ -26,15 +26,15 @@ public sealed class DuplicateObjectTests
         var group = new FilterEffectGroup { Children = { blur } };
         var rect = new RectShape
         {
-            Name = "Original rect",
+            Name = { Value = "Original rect" },
             Width = { Value = 200 },
             Height = { Value = 100 },
             FilterEffect = { Value = group }
         };
         element.AddObject(rect);
-        Guid originalRectId = rect.Id;
-        Guid originalGroupId = group.Id;
-        Guid originalBlurId = blur.Id;
+        Guid originalRectId = rect.Id.Value;
+        Guid originalGroupId = group.Id.Value;
+        Guid originalBlurId = blur.Id.Value;
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -49,14 +49,14 @@ public sealed class DuplicateObjectTests
         {
             Assert.That(result.Value!.Valid, Is.True);
             Assert.That(element.Objects, Has.Count.EqualTo(2));
-            Assert.That(element.Objects[0].Id, Is.EqualTo(originalRectId));
-            Assert.That(copy.Id, Is.Not.EqualTo(originalRectId));
-            Assert.That(result.Value.ObjectId, Is.EqualTo(copy.Id.ToString()));
-            Assert.That(result.Value.ElementId, Is.EqualTo(element.Id.ToString()));
-            Assert.That(copyGroup.Id, Is.Not.EqualTo(originalGroupId));
+            Assert.That(element.Objects[0].Id.Value, Is.EqualTo(originalRectId));
+            Assert.That(copy.Id.Value, Is.Not.EqualTo(originalRectId));
+            Assert.That(result.Value.ObjectId, Is.EqualTo(copy.Id.Value.ToString()));
+            Assert.That(result.Value.ElementId, Is.EqualTo(element.Id.Value.ToString()));
+            Assert.That(copyGroup.Id.Value, Is.Not.EqualTo(originalGroupId));
             Assert.That(copyGroup.Children, Has.Count.EqualTo(1));
             Assert.That(copyGroup.Children[0], Is.InstanceOf<Blur>());
-            Assert.That(copyGroup.Children[0].Id, Is.Not.EqualTo(originalBlurId));
+            Assert.That(copyGroup.Children[0].Id.Value, Is.Not.EqualTo(originalBlurId));
             Assert.That(result.Value.CreatedIds, Is.Not.Empty);
         });
     }
@@ -66,13 +66,13 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
+        var rect = new RectShape { Name = { Value = "Original rect" }, Width = { Value = 120 } };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString());
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString());
         int afterDuplicate = element.Objects.Count;
 
         bool undone = session.History.Undo();
@@ -83,7 +83,7 @@ public sealed class DuplicateObjectTests
             Assert.That(afterDuplicate, Is.EqualTo(2));
             Assert.That(undone, Is.True);
             Assert.That(element.Objects, Has.Count.EqualTo(1));
-            Assert.That(element.Objects[0].Id, Is.EqualTo(rect.Id));
+            Assert.That(element.Objects[0].Id.Value, Is.EqualTo(rect.Id.Value));
         });
     }
 
@@ -92,15 +92,15 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        var group = new DrawableGroup { Name = "Direct group" };
-        group.Children.Add(new RectShape { Name = "inner" });
+        var group = new DrawableGroup { Name = { Value = "Direct group" } };
+        group.Children.Add(new RectShape { Name = { Value = "inner" } });
         element.AddObject(group);
         int objectCountBefore = element.Objects.Count;
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(group.Id.ToString(), wrapInGroup: true);
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(group.Id.Value.ToString(), wrapInGroup: true);
 
         Assert.Multiple(() =>
         {
@@ -118,36 +118,36 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
+        var rect = new RectShape { Name = { Value = "Original rect" }, Width = { Value = 120 } };
         element.AddObject(rect);
-        Guid originalId = rect.Id;
+        Guid originalId = rect.Id.Value;
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         var group = element.Objects.OfType<DrawableGroup>().Single();
-        var copy = group.Children.Single(item => item.Id.ToString() == result.Value!.ObjectId);
+        var copy = group.Children.Single(item => item.Id.Value.ToString() == result.Value!.ObjectId);
 
         Assert.Multiple(() =>
         {
             Assert.That(result.Value!.Valid, Is.True);
-            Assert.That(result.Value.ElementId, Is.EqualTo(element.Id.ToString()));
-            Assert.That(result.Value.GroupId, Is.EqualTo(group.Id.ToString()));
+            Assert.That(result.Value.ElementId, Is.EqualTo(element.Id.Value.ToString()));
+            Assert.That(result.Value.GroupId, Is.EqualTo(group.Id.Value.ToString()));
             Assert.That(element.Objects.OfType<PortalObject>(), Has.Exactly(1).Items);
             Assert.That(element.Objects.OfType<DrawableGroup>(), Has.Exactly(1).Items);
             Assert.That(element.Objects.OfType<RectShape>(), Is.Empty);
             Assert.That(group.Children, Has.Count.EqualTo(2));
             Assert.That(group.Children[0], Is.SameAs(rect));
-            Assert.That(group.Children[0].Id, Is.EqualTo(originalId));
+            Assert.That(group.Children[0].Id.Value, Is.EqualTo(originalId));
             Assert.That(copy, Is.InstanceOf<RectShape>());
-            Assert.That(copy.Id, Is.Not.EqualTo(originalId));
-            Assert.That(group.Children.Select(item => item.Id), Is.Unique);
-            Assert.That(result.Value.ObjectId, Is.EqualTo(copy.Id.ToString()));
-            Assert.That(result.Value.CreatedIds.Select(item => item.Id), Does.Contain(copy.Id.ToString()));
-            Assert.That(result.Value.CreatedIds.Select(item => item.Id), Does.Contain(group.Id.ToString()));
+            Assert.That(copy.Id.Value, Is.Not.EqualTo(originalId));
+            Assert.That(group.Children.Select(item => item.Id.Value), Is.Unique);
+            Assert.That(result.Value.ObjectId, Is.EqualTo(copy.Id.Value.ToString()));
+            Assert.That(result.Value.CreatedIds.Select(item => item.Id), Does.Contain(copy.Id.Value.ToString()));
+            Assert.That(result.Value.CreatedIds.Select(item => item.Id), Does.Contain(group.Id.Value.ToString()));
         });
     }
 
@@ -156,20 +156,20 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
-        var group = new DrawableGroup { Name = "Existing group" };
+        var rect = new RectShape { Name = { Value = "Original rect" }, Width = { Value = 120 } };
+        var group = new DrawableGroup { Name = { Value = "Existing group" } };
         group.Children.Add(rect);
         element.AddObject(group);
-        Guid originalId = rect.Id;
-        Guid originalGroupId = group.Id;
+        Guid originalId = rect.Id.Value;
+        Guid originalGroupId = group.Id.Value;
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        var copy = group.Children.Single(item => item.Id.ToString() == result.Value!.ObjectId);
+        var copy = group.Children.Single(item => item.Id.Value.ToString() == result.Value!.ObjectId);
 
         Assert.Multiple(() =>
         {
@@ -178,11 +178,11 @@ public sealed class DuplicateObjectTests
             Assert.That(element.Objects.OfType<DrawableGroup>(), Has.Exactly(1).Items);
             Assert.That(group.Children, Has.Count.EqualTo(2));
             Assert.That(group.Children[0], Is.SameAs(rect));
-            Assert.That(group.Children[0].Id, Is.EqualTo(originalId));
-            Assert.That(copy.Id, Is.Not.EqualTo(originalId));
-            Assert.That(group.Children.Select(item => item.Id), Is.Unique);
-            Assert.That(result.Value.CreatedIds.Select(item => item.Id), Does.Contain(copy.Id.ToString()));
-            Assert.That(result.Value.CreatedIds.Select(item => item.Id), Does.Not.Contain(group.Id.ToString()));
+            Assert.That(group.Children[0].Id.Value, Is.EqualTo(originalId));
+            Assert.That(copy.Id.Value, Is.Not.EqualTo(originalId));
+            Assert.That(group.Children.Select(item => item.Id.Value), Is.Unique);
+            Assert.That(result.Value.CreatedIds.Select(item => item.Id), Does.Contain(copy.Id.Value.ToString()));
+            Assert.That(result.Value.CreatedIds.Select(item => item.Id), Does.Not.Contain(group.Id.Value.ToString()));
         });
     }
 
@@ -191,14 +191,14 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
+        var rect = new RectShape { Name = { Value = "Original rect" }, Width = { Value = 120 } };
         element.AddObject(rect);
-        Guid originalId = rect.Id;
+        Guid originalId = rect.Id.Value;
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
         int objectCountAfterDuplicate = element.Objects.Count;
 
         bool undone = session.History.Undo();
@@ -210,7 +210,7 @@ public sealed class DuplicateObjectTests
             Assert.That(undone, Is.True);
             Assert.That(element.Objects, Has.Count.EqualTo(1));
             Assert.That(element.Objects[0], Is.SameAs(rect));
-            Assert.That(element.Objects[0].Id, Is.EqualTo(originalId));
+            Assert.That(element.Objects[0].Id.Value, Is.EqualTo(originalId));
             Assert.That(rect.HierarchicalParent, Is.SameAs(element));
         });
     }
@@ -224,32 +224,32 @@ public sealed class DuplicateObjectTests
         var effect = new FilterEffectGroup { Children = { blur } };
         var rect = new RectShape
         {
-            Name = "Original rect",
+            Name = { Value = "Original rect" },
             Width = { Value = 120 },
             FilterEffect = { Value = effect }
         };
         element.AddObject(rect);
-        Guid originalEffectId = effect.Id;
-        Guid originalBlurId = blur.Id;
+        Guid originalEffectId = effect.Id.Value;
+        Guid originalBlurId = blur.Id.Value;
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         DrawableGroup wrapper = element.Objects.OfType<DrawableGroup>().Single();
-        var copy = (RectShape)wrapper.Children.Single(item => item.Id.ToString() == result.Value!.ObjectId);
+        var copy = (RectShape)wrapper.Children.Single(item => item.Id.Value.ToString() == result.Value!.ObjectId);
         var copyEffect = (FilterEffectGroup)copy.FilterEffect.Value!;
 
         Assert.Multiple(() =>
         {
-            Assert.That(copyEffect.Id, Is.Not.EqualTo(Guid.Empty));
-            Assert.That(copyEffect.Id, Is.Not.EqualTo(originalEffectId));
+            Assert.That(copyEffect.Id.Value, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(copyEffect.Id.Value, Is.Not.EqualTo(originalEffectId));
             Assert.That(copyEffect.Children, Has.Count.EqualTo(1));
             Assert.That(copyEffect.Children[0], Is.InstanceOf<Blur>());
-            Assert.That(copyEffect.Children[0].Id, Is.Not.EqualTo(Guid.Empty));
-            Assert.That(copyEffect.Children[0].Id, Is.Not.EqualTo(originalBlurId));
+            Assert.That(copyEffect.Children[0].Id.Value, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(copyEffect.Children[0].Id.Value, Is.Not.EqualTo(originalBlurId));
         });
     }
 
@@ -277,11 +277,11 @@ public sealed class DuplicateObjectTests
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(image.Id.ToString(), wrapInGroup: true);
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(image.Id.Value.ToString(), wrapInGroup: true);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         var copy = (SourceImage)element.Objects.OfType<DrawableGroup>().Single().Children
-            .Single(item => item.Id.ToString() == result.Value!.ObjectId);
+            .Single(item => item.Id.Value.ToString() == result.Value!.ObjectId);
         Assert.That(copy.Source.Value?.Uri?.LocalPath, Is.EqualTo(imagePath));
     }
 
@@ -291,13 +291,13 @@ public sealed class DuplicateObjectTests
         // The editor follows each dispatch that commits a transaction, so a second one would navigate twice.
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect", Width = { Value = 120 } };
+        var rect = new RectShape { Name = { Value = "Original rect" }, Width = { Value = 120 } };
         element.AddObject(rect);
 
         using var session = new DispatchingTestSession(scene);
         var tools = new EditTools(TestSessions.CreateManager(session));
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
 
         Assert.Multiple(() =>
         {
@@ -312,7 +312,7 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        element.AddObject(new RectShape { Name = "Original rect" });
+        element.AddObject(new RectShape { Name = { Value = "Original rect" } });
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -331,14 +331,14 @@ public sealed class DuplicateObjectTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        var rect = new RectShape { Name = "Original rect" };
+        var rect = new RectShape { Name = { Value = "Original rect" } };
         element.AddObject(rect);
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> result =
-            tools.DuplicateObject(rect.Id.ToString(), elementId: Guid.NewGuid().ToString());
+            tools.DuplicateObject(rect.Id.Value.ToString(), elementId: Guid.NewGuid().ToString());
 
         Assert.Multiple(() =>
         {
@@ -358,19 +358,19 @@ public sealed class DuplicateObjectTests
         var image = new AiImageGenerationNode();
         var group = new GroupNode();
         var nested = new AiImageGenerationNode();
-        group.Group.Nodes.Add(nested);
+        group.Group.Value.Nodes.Add(nested);
         drawable.Model.Value!.Nodes.Add(image);
         drawable.Model.Value.Nodes.Add(group);
         element.AddObject(drawable);
         using var session = new AgentToolkitTestSession(scene);
 
         ToolResult<DuplicateObjectResponse> result =
-            session.CreateEditTools().DuplicateObject(drawable.Id.ToString(), wrapInGroup: true);
+            session.CreateEditTools().DuplicateObject(drawable.Id.Value.ToString(), wrapInGroup: true);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         GraphModel graph = ((NodeGraphDrawable)FindCopy(element, result.Value!)).Model.Value!;
         var copiedImage = graph.Nodes.OfType<AiImageGenerationNode>().Single();
-        var copiedNested = graph.Nodes.OfType<GroupNode>().Single().Group.Nodes.OfType<AiImageGenerationNode>().Single();
+        var copiedNested = graph.Nodes.OfType<GroupNode>().Single().Group.Value.Nodes.OfType<AiImageGenerationNode>().Single();
         Assert.Multiple(() =>
         {
             Assert.That(copiedImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));
@@ -388,7 +388,7 @@ public sealed class DuplicateObjectTests
         element.AddObject(probe);
         using var session = new AgentToolkitTestSession(scene);
 
-        ToolResult<DuplicateObjectResponse> result = session.CreateEditTools().DuplicateObject(probe.Id.ToString());
+        ToolResult<DuplicateObjectResponse> result = session.CreateEditTools().DuplicateObject(probe.Id.Value.ToString());
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         Assert.That(((SeededCopyProbe)FindCopy(element, result.Value!)).Seed.Value, Is.Not.EqualTo(probe.Seed.Value));
@@ -403,13 +403,13 @@ public sealed class DuplicateObjectTests
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var file = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "width.json"));
         var rect = new RectShape();
-        var animation = new KeyFrameAnimation<float> { Uri = file, KeyFrames = { new KeyFrame<float> { Value = 50 } } };
+        var animation = new KeyFrameAnimation<float> { Uri = file, KeyFrames = { new KeyFrame<float> { Value = { Value = 50 } } } };
         rect.Width.SetKeyFrameAnimation(animation);
         element.AddObject(rect);
         using var session = new AgentToolkitTestSession(scene);
 
         ToolResult<DuplicateObjectResponse> result =
-            session.CreateEditTools().DuplicateObject(rect.Id.ToString(), wrapInGroup: wrapInGroup);
+            session.CreateEditTools().DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: wrapInGroup);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
         KeyFrameAnimation<float> copied = ((RectShape)FindCopy(element, result.Value!)).Width.GetKeyFrameAnimation()!;
@@ -426,7 +426,7 @@ public sealed class DuplicateObjectTests
     {
         return element.Objects
             .Concat(element.Objects.OfType<DrawableGroup>().SelectMany(group => group.Children))
-            .Single(item => item.Id.ToString() == response.ObjectId);
+            .Single(item => item.Id.Value.ToString() == response.ObjectId);
     }
 }
 

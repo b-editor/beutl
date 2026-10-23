@@ -9,9 +9,9 @@ public class KeyFrameDeltaHelperTests
     {
         return new KeyFrame<float>
         {
-            Value = value,
-            KeyTime = MediaTime.FromSeconds(seconds),
-            Easing = new LinearEasing(),
+            Value = { Value = value },
+            KeyTime = { Value = MediaTime.FromSeconds(seconds) },
+            Easing = { Value = new LinearEasing() },
         };
     }
 
@@ -33,8 +33,8 @@ public class KeyFrameDeltaHelperTests
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.True);
-            Assert.That(prev.Value, Is.EqualTo(125f));
-            Assert.That(next.Value, Is.EqualTo(225f));
+            Assert.That(prev.Value.Value, Is.EqualTo(125f));
+            Assert.That(next.Value.Value, Is.EqualTo(225f));
         });
     }
 
@@ -48,7 +48,7 @@ public class KeyFrameDeltaHelperTests
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.True);
-            Assert.That(prev.Value, Is.EqualTo(115f));
+            Assert.That(prev.Value.Value, Is.EqualTo(115f));
         });
     }
 
@@ -62,7 +62,7 @@ public class KeyFrameDeltaHelperTests
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.True);
-            Assert.That(next.Value, Is.EqualTo(170f));
+            Assert.That(next.Value.Value, Is.EqualTo(170f));
         });
     }
 
@@ -75,17 +75,17 @@ public class KeyFrameDeltaHelperTests
         var next = CreateKeyFrame(200f, 1);
 
         KeyFrameDeltaHelper.ApplyDelta(prev, next, 100f, 200f, 10f);
-        float firstPrev = prev.Value;
-        float firstNext = next.Value;
+        float firstPrev = prev.Value.Value;
+        float firstNext = next.Value.Value;
 
         KeyFrameDeltaHelper.ApplyDelta(prev, next, 100f, 200f, 10f);
 
         Assert.Multiple(() =>
         {
-            Assert.That(prev.Value, Is.EqualTo(firstPrev));
-            Assert.That(next.Value, Is.EqualTo(firstNext));
-            Assert.That(prev.Value, Is.EqualTo(110f));
-            Assert.That(next.Value, Is.EqualTo(210f));
+            Assert.That(prev.Value.Value, Is.EqualTo(firstPrev));
+            Assert.That(next.Value.Value, Is.EqualTo(firstNext));
+            Assert.That(prev.Value.Value, Is.EqualTo(110f));
+            Assert.That(next.Value.Value, Is.EqualTo(210f));
         });
     }
 

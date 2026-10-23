@@ -35,7 +35,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
         _progress = progress;
         _chunkSize = (int)sampleRate;
         // Fixed at the start, so a duration edited during the export cannot end the samples early.
-        _sampleCount = FrameProviderImpl.ToFrameCount(scene.Duration, new Rational(sampleRate));
+        _sampleCount = FrameProviderImpl.ToFrameCount(scene.Duration.Value, new Rational(sampleRate));
 
         int bufferSize = Preferences.Default.Get("Output.SampleBufferSize", 3);
         _channel = Channel.CreateBounded<AudioBuffer>(
@@ -150,7 +150,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
 
     private AudioBuffer ComposeCore(long offset, int length)
     {
-        AudioBuffer buffer = _composer.Compose(new(MediaTime.FromSamples(offset, (int)_sampleRate) + _scene.Start,
+        AudioBuffer buffer = _composer.Compose(new(MediaTime.FromSamples(offset, (int)_sampleRate) + _scene.Start.Value,
             MediaTime.FromSeconds(1)))
                      ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
         if (buffer.SampleCount == length)

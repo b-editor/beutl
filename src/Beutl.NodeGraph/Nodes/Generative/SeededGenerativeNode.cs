@@ -71,7 +71,7 @@ public abstract partial class SeededGenerativeNode : GenerativeNode
 
     protected internal override void ApplyRecordInputs(GenerationRecord record)
     {
-        ApplySeedInput(record.Seed);
+        ApplySeedInput(record.Seed.Value);
     }
 
     /// <summary>The seed of the <paramref name="index"/>th variation, wrapped into the seed range.</summary>
@@ -81,7 +81,7 @@ public abstract partial class SeededGenerativeNode : GenerativeNode
     /// <summary>Puts a reproduced seed on the seed input unless a connection drives it.</summary>
     private void ApplySeedInput(int? seed)
     {
-        if (seed is int value && Seed.Connection.IsNull)
+        if (seed is int value && Seed.Connection.Value.IsNull)
             Seed.Property?.SetValue(value);
     }
 

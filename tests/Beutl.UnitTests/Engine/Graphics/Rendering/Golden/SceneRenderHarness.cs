@@ -24,10 +24,10 @@ internal static class SceneRenderHarness
         var scene = new Scene(frame.Width, frame.Height, id) { Uri = new Uri($"file:///{id}/scene") };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(60),
-            ZIndex = 0,
-            IsEnabled = true,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(60) },
+            ZIndex = { Value = 0 },
+            IsEnabled = { Value = true },
             Uri = new Uri($"file:///{id}/element"),
         };
         element.AddObject(drawable);

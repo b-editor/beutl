@@ -35,7 +35,7 @@ public class DrawableObject3DTests
             var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(basePath, "test.scene")) };
             var element = new Element
             {
-                Length = MediaTime.FromSeconds(1),
+                Length = { Value = MediaTime.FromSeconds(1) },
                 Uri = new Uri(Path.Combine(basePath, "element.layer"))
             };
             var rect = CreateRect(0, 0);

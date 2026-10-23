@@ -23,7 +23,7 @@ public class NestedNodePortLayoutTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.Value = brush;
+        node.Object.Value.Brush.Value = brush;
         graph.Nodes.Add(node);
         using var vm = CreateViewModel(graph);
         GraphNodeViewModel nodeVm = vm.Nodes.Single();
@@ -40,12 +40,12 @@ public class NestedNodePortLayoutTests
                 .Single(p => ReferenceEquals(p.DataContext, member));
             Assert.That(point.IsEnabled, Is.True);
 
-            node.Object.Brush.Expression = Expression.CreateReference<Brush?>(Guid.NewGuid());
+            node.Object.Value.Brush.Expression = Expression.CreateReference<Brush?>(Guid.NewGuid());
             HeadlessTestHelpers.Render(3);
             Assert.That(member.CanConnect.Value, Is.False);
             Assert.That(point.IsEnabled, Is.False);
 
-            node.Object.Brush.Expression = null;
+            node.Object.Value.Brush.Expression = null;
             HeadlessTestHelpers.Render(3);
             Assert.That(member.CanConnect.Value, Is.True);
             Assert.That(point.IsEnabled, Is.True);
@@ -109,7 +109,7 @@ public class NestedNodePortLayoutTests
     {
         var graph = new GraphModel();
         var node = new FactoryNode<TransformGroup>();
-        node.Object.Children.AddRange(Enumerable.Range(0, itemCount).Select(i => (Transform)new TranslateTransform(i, 0)));
+        node.Object.Value.Children.AddRange(Enumerable.Range(0, itemCount).Select(i => (Transform)new TranslateTransform(i, 0)));
         graph.Nodes.Add(node);
         var port = node.NestedInputPorts.Last();
         graph.Connect(port, AddSource(graph, 42f));
@@ -145,7 +145,7 @@ public class NestedNodePortLayoutTests
     public void DeferredPortsUseTheirDeepestVisibleAncestorAndKeepSeparateRootAnchors()
     {
         var graph = new GraphModel();
-        var node = new GeometryShapeNode { Position = (20, 30) };
+        var node = new GeometryShapeNode { Position = { Value = (20, 30) } };
         var pen = new Pen();
         var brush = new SolidColorBrush();
         var fill = new SolidColorBrush();

@@ -29,13 +29,13 @@ public class ProjectPackageFontTests
             var text = new TextBlock();
             text.FontFamily.Value = new FontFamily("Beutl Test Variable");
             text.Text.Value = "IIII";
-            var element = new Element { Length = MediaTime.FromSeconds(1) };
+            var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
             element.Objects.Add(text);
             CoreSerializer.StoreToUri(element, new Uri(Path.Combine(projectRoot, "text.belm")));
-            var scene = new Scene(64, 64, "scene") { Duration = MediaTime.FromSeconds(1) };
+            var scene = new Scene(64, 64, "scene") { Duration = { Value = MediaTime.FromSeconds(1) } };
             scene.Children.Add(element);
             CoreSerializer.StoreToUri(scene, new Uri(Path.Combine(projectRoot, "scene.scene")));
-            var project = new Project { Name = "Font project" };
+            var project = new Project { Name = { Value = "Font project" } };
             project.Items.Add(scene);
             CoreSerializer.StoreToUri(project, new Uri(Path.Combine(projectRoot, "project.bep")));
             string package = Path.Combine(root, "font.beutlpkg");

@@ -10,8 +10,8 @@ public class ExpressionGlobals
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
         EngineObject? obj = _context.CurrentProperty.GetOwnerObject() as EngineObject;
-        Start = obj?.TimeRange.Start.ToSeconds() ?? 0;
-        Duration = obj?.TimeRange.Duration.ToSeconds() ?? 0;
+        Start = obj?.TimeRange.Value.Start.ToSeconds() ?? 0;
+        Duration = obj?.TimeRange.Value.Duration.ToSeconds() ?? 0;
         Time = _context.Time.ToSeconds() - Start;
     }
 

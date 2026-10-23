@@ -32,7 +32,7 @@ public class EditorCloseSaveTests
                 Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None);
             HeadlessTestHelpers.Settle();
             Element element = editor.Scene.Children.Single();
-            MediaTime originalStart = element.Start;
+            MediaTime originalStart = element.Start.Value;
             editor.HistoryManager.Record(() => { }, () => throw new IOException("Injected undo failure."));
             editor.HistoryManager.Commit("Failing operation");
             Assert.Throws<HistoryReplayException>(() => editor.HistoryManager.Undo());
@@ -44,7 +44,7 @@ public class EditorCloseSaveTests
                 playbackDuringFlush.Add(editor.Player.IsPlaying.Value));
 
             nudge.Nudge(editor.Scene, [element], 1);
-            MediaTime nudgedStart = element.Start;
+            MediaTime nudgedStart = element.Start.Value;
             Assert.That(editor.HistoryManager.HasPendingOperations, Is.True);
             editor.Player.IsPlaying.Value = true;
 
@@ -59,11 +59,11 @@ public class EditorCloseSaveTests
                 Assert.That(editor.Player.IsPlaying.Value, Is.False);
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);
                 Assert.That(editor.HistoryManager.CurrentIndex, Is.EqualTo(boundary + 1));
-                Assert.That(element.Start, Is.EqualTo(nudgedStart));
+                Assert.That(element.Start.Value, Is.EqualTo(nudgedStart));
             }
 
             Assert.That(await editor.UndoAsync(), Is.True);
-            Assert.That(element.Start, Is.EqualTo(originalStart));
+            Assert.That(element.Start.Value, Is.EqualTo(originalStart));
             Assert.That(await editor.UndoAsync(), Is.False);
         }
         finally
@@ -89,17 +89,17 @@ public class EditorCloseSaveTests
             using var notifications = new NotificationCapture();
             CultureInfo.CurrentUICulture = new CultureInfo(culture);
             using var history = new HistoryViewModel(editor);
-            editor.Scene.Duration = MediaTime.FromSeconds(10);
+            editor.Scene.Duration.Value = MediaTime.FromSeconds(10);
             editor.HistoryManager.Commit("Earlier edit");
             editor.HistoryManager.Record(
                 () =>
                 {
-                    editor.Scene.Duration = MediaTime.FromSeconds(13);
+                    editor.Scene.Duration.Value = MediaTime.FromSeconds(13);
                     if (redo) throw new IOException("Injected redo failure.");
                 },
                 () =>
                 {
-                    editor.Scene.Duration = MediaTime.FromSeconds(12);
+                    editor.Scene.Duration.Value = MediaTime.FromSeconds(12);
                     if (!redo) throw new IOException("Injected undo failure.");
                 });
             editor.HistoryManager.Commit("Failing operation");
@@ -122,28 +122,28 @@ public class EditorCloseSaveTests
 
             int stateChanges = 0;
             using var subscription = editor.HistoryManager.StateChanged.Subscribe(_ => stateChanges++);
-            MediaTime survivingDuration = editor.Scene.Duration;
-            editor.Scene.Duration = MediaTime.FromSeconds(73);
+            MediaTime survivingDuration = editor.Scene.Duration.Value;
+            editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
             Assert.DoesNotThrow(() => editor.HistoryManager.Commit("Edit after failed replay"));
             Assert.That(stateChanges, Is.EqualTo(1));
             Assert.That(history.Entries.Take(boundary + 1), Is.EqualTo(entries.Take(boundary + 1)));
             Assert.That(await editor.JumpToHistoryAsync(0), Is.False);
-            Assert.That(editor.Scene.Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+            Assert.That(editor.Scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
             Assert.That(await editor.UndoAsync(), Is.True);
-            Assert.That(editor.Scene.Duration, Is.EqualTo(survivingDuration));
+            Assert.That(editor.Scene.Duration.Value, Is.EqualTo(survivingDuration));
             Assert.That(await editor.UndoAsync(), Is.False);
             Assert.That(await editor.RedoAsync(), Is.True);
-            Assert.That(editor.Scene.Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+            Assert.That(editor.Scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
 
             // Check the actual auto-saved document before the close path can save it again.
             DateTime deadline = DateTime.UtcNow.AddSeconds(5);
-            while (CoreSerializer.RestoreFromUri<Scene>(uri).Duration != editor.Scene.Duration
+            while (CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value != editor.Scene.Duration.Value
                    && DateTime.UtcNow < deadline)
             {
                 await Task.Delay(10);
                 HeadlessTestHelpers.Settle();
             }
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(editor.Scene.Duration));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(editor.Scene.Duration.Value));
 
             if (closeProject)
                 await TestShell.Project.CloseProjectAsync();
@@ -151,7 +151,7 @@ public class EditorCloseSaveTests
                 await TestShell.Editor.CloseTabItem(tab);
 
             Assert.That(TestShell.Editor.TabItems, Does.Not.Contain(tab));
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
         }
         finally
         {
@@ -215,7 +215,7 @@ public class EditorCloseSaveTests
         var nudge = (IElementNudgeService)editor.GetService(typeof(IElementNudgeService))!;
 
         nudge.Nudge(editor.Scene, [element], 1);
-        MediaTime expected = element.Start;
+        MediaTime expected = element.Start.Value;
         if (closeProject)
             await TestShell.Project.CloseProjectAsync();
         else
@@ -224,7 +224,7 @@ public class EditorCloseSaveTests
 
         // The file keeps the start to a tick, which reads back onto the same frame.
         Assert.That(
-            CoreSerializer.RestoreFromUri<Element>(uri).Start.RoundToFrame(new Rational(30), MidpointRounding.AwayFromZero),
+            CoreSerializer.RestoreFromUri<Element>(uri).Start.Value.RoundToFrame(new Rational(30), MidpointRounding.AwayFromZero),
             Is.EqualTo(expected));
     }
 
@@ -238,7 +238,7 @@ public class EditorCloseSaveTests
         Task close;
         try
         {
-            editor.Scene.Duration = MediaTime.FromSeconds(73);
+            editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
             editor.HistoryManager.Commit();
             HeadlessTestHelpers.Settle();
             close = TestShell.Editor.CloseTabItem(tab).AsTask();
@@ -251,7 +251,7 @@ public class EditorCloseSaveTests
 
         await close.WaitAsync(TimeSpan.FromSeconds(10));
         HeadlessTestHelpers.Settle();
-        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
     }
 
     [AvaloniaTest]
@@ -262,7 +262,7 @@ public class EditorCloseSaveTests
         EditViewModel editor = await OpenEditorAsync();
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         Uri uri = editor.Scene.Uri!;
-        editor.Scene.Duration = MediaTime.FromSeconds(73);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
 
         using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
                {
@@ -287,10 +287,10 @@ public class EditorCloseSaveTests
             Assert.That(tab.Context.Value, Is.SameAs(editor));
             Assert.That(editor.IsDisposingOrDisposed, Is.False);
             Assert.That(editor.IsEnabled.Value, Is.True);
-            Assert.That(editor.Scene.Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+            Assert.That(editor.Scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
         });
         await TestShell.Editor.CloseTabItem(tab);
-        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
     }
 
     [AvaloniaTest]
@@ -298,13 +298,13 @@ public class EditorCloseSaveTests
     {
         EditViewModel editor = await OpenEditorAsync();
         Uri uri = editor.Scene.Uri!;
-        MediaTime original = editor.Scene.Duration;
-        editor.Scene.Duration = MediaTime.FromSeconds(73);
+        MediaTime original = editor.Scene.Duration.Value;
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
 
         Assert.That(await TestShell.Project.TryCloseProjectAsync(
             TestShell.Project.CurrentProject.Value!, ProjectService.ProjectCloseIntent.DiscardChanges), Is.True);
 
-        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(original));
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(original));
     }
 
     [AvaloniaTest]
@@ -313,7 +313,7 @@ public class EditorCloseSaveTests
         EditViewModel editor = await OpenEditorAsync();
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
         Uri uri = editor.Scene.Uri!;
-        editor.Scene.Duration = MediaTime.FromSeconds(73);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
         IDisposable writer = await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None);
         Task first;
         Task second;
@@ -327,7 +327,7 @@ public class EditorCloseSaveTests
         await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(10));
 
         Assert.That(TestShell.Editor.TabItems, Does.Not.Contain(tab));
-        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
     }
 
     [AvaloniaTest]
@@ -341,7 +341,7 @@ public class EditorCloseSaveTests
         TestShell.Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
         EditorTabItem tab = TestShell.Editor.SelectedTabItem.Value!;
-        scene.Duration = MediaTime.FromSeconds(73);
+        scene.Duration.Value = MediaTime.FromSeconds(73);
 
         using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
                {
@@ -362,8 +362,8 @@ public class EditorCloseSaveTests
     {
         EditViewModel editor = await OpenEditorAsync();
         Uri uri = editor.Scene.Uri!;
-        MediaTime original = editor.Scene.Duration;
-        editor.Scene.Duration = MediaTime.FromSeconds(73);
+        MediaTime original = editor.Scene.Duration.Value;
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
 
         using (IDisposable? mutation = TestShell.Editor.TryBeginWorktreeMutation())
         {
@@ -371,17 +371,17 @@ public class EditorCloseSaveTests
             await TestShell.Editor.CloseTabItem(TestShell.Editor.SelectedTabItem.Value!);
         }
 
-        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration, Is.EqualTo(original));
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(uri).Duration.Value, Is.EqualTo(original));
     }
 
     private static async Task<EditViewModel> OpenEditorAsync()
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool enable = config.EnableForNewProjects;
+        bool enable = config.EnableForNewProjects.Value;
         try
         {
-            config.EnableForNewProjects = false;
+            config.EnableForNewProjects.Value = false;
             EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(
                 "close-save-" + Guid.NewGuid().ToString("N"), 320, 180);
             await editor.SaveAsync();
@@ -389,7 +389,7 @@ public class EditorCloseSaveTests
         }
         finally
         {
-            config.EnableForNewProjects = enable;
+            config.EnableForNewProjects.Value = enable;
         }
     }
 }

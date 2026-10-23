@@ -65,11 +65,11 @@ public class NodeGraphGenerativeMenuTests
     {
         var graph = new GraphModel();
         var node = new AiImageGenerationNode();
-        var older = new GenerationRecord { Summary = "older", CreatedAt = DateTimeOffset.Now.AddMinutes(-5) };
-        var newer = new GenerationRecord { Summary = "newer", CreatedAt = DateTimeOffset.Now, IsPinned = true };
+        var older = new GenerationRecord { Summary = { Value = "older" }, CreatedAt = { Value = DateTimeOffset.Now.AddMinutes(-5) } };
+        var newer = new GenerationRecord { Summary = { Value = "newer" }, CreatedAt = { Value = DateTimeOffset.Now }, IsPinned = { Value = true } };
         node.Generations.Add(older);
         node.Generations.Add(newer);
-        node.SelectGeneration(newer.Id);
+        node.SelectGeneration(newer.Id.Value);
         graph.Nodes.Add(node);
         using var vm = new NodeGraphViewModel(graph, CreateEditor().Object);
         var view = new NodeGraphView { DataContext = vm };
@@ -91,7 +91,7 @@ public class NodeGraphGenerativeMenuTests
             Assert.That(entries[0].Text, Does.Contain("newer").And.Contain(NodeGraphStrings.Generative_Pinned));
             Assert.That(entries.Select(e => e.IsChecked), Is.EqualTo(new[] { true, false }));
 
-            ((GraphNodeViewModel)nodeView.DataContext!).SelectGeneration(older.Id);
+            ((GraphNodeViewModel)nodeView.DataContext!).SelectGeneration(older.Id.Value);
             Assert.That(node.ActiveGeneration, Is.SameAs(older));
             flyout.Hide();
         }
@@ -169,7 +169,7 @@ public class NodeGraphGenerativeMenuTests
             window.Show();
             HeadlessTestHelpers.Render(3);
             var preview = (NodeMonitor<Beutl.Media.Source.Ref<Beutl.Media.Bitmap>?>)node.Items.OfType<INodeMonitor>()
-                .Single(m => m.Name == "GenerationPreview");
+                .Single(m => m.Name.Value == "GenerationPreview");
             ProgressRing ring = view.GetVisualDescendants().OfType<ProgressRing>().Single();
             Assert.That(ring.IsEffectivelyVisible, Is.False);
 
@@ -212,10 +212,10 @@ public class NodeGraphGenerativeMenuTests
                     bitmap.Save(stream, Beutl.Graphics.EncodedImageFormat.Png);
                 var image = new Beutl.Media.Source.ImageSource();
                 image.ReadFrom(new Uri(path));
-                node.Generations.Add(new GenerationRecord { Image = image, Seed = seed, CreatedAt = DateTimeOffset.Now });
+                node.Generations.Add(new GenerationRecord { Image = { Value = image }, Seed = { Value = seed }, CreatedAt = { Value = DateTimeOffset.Now } });
             }
 
-            node.SelectGeneration(node.Generations[2].Id);
+            node.SelectGeneration(node.Generations[2].Id.Value);
             graph.Nodes.Add(node);
             using var vm = new NodeGraphViewModel(graph, CreateEditor().Object);
             GraphNodeViewModel nodeVm = vm.Nodes.Single();
@@ -256,7 +256,7 @@ public class NodeGraphGenerativeMenuTests
         {
             var graph = new GraphModel();
             var group = new Beutl.NodeGraph.Nodes.Group.GroupNode();
-            group.Group.Nodes.Add(new AiPromptNode());
+            group.Group.Value.Nodes.Add(new AiPromptNode());
             graph.Nodes.Add(group);
             var sequence = new Beutl.Editor.OperationSequenceGenerator();
             using var history = new Beutl.Editor.HistoryManager(sequence);
@@ -310,7 +310,7 @@ public class NodeGraphGenerativeMenuTests
     private static void GroupNodeCopyHasItsOwnPrompt(GraphModel graph)
     {
         var prompts = graph.Nodes.OfType<Beutl.NodeGraph.Nodes.Group.GroupNode>()
-            .Select(g => g.Group.Nodes.OfType<AiPromptNode>().Single().Id)
+            .Select(g => g.Group.Value.Nodes.OfType<AiPromptNode>().Single().Id.Value)
             .ToArray();
         Assert.That(prompts.Distinct().Count(), Is.EqualTo(2));
     }

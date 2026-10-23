@@ -33,8 +33,8 @@ public class NodeGraphDragTests
     [TestCase(DragEnd.Undo)]
     public void Capture_loss_and_playback_connect_at_the_last_port_and_Escape_and_Undo_drop_the_wire(DragEnd end)
     {
-        var source = new ExpressionNode { Position = (20, 40) };
-        var output = new OutputNode { Position = (380, 40) };
+        var source = new ExpressionNode { Position = { Value = (20, 40) } };
+        var output = new OutputNode { Position = { Value = (380, 40) } };
         using var scope = PortScope.Create(source, output);
         NodePortPoint from = scope.Socket(source.Output);
         NodePortPoint to = scope.Socket(output.InputPort);
@@ -76,9 +76,9 @@ public class NodeGraphDragTests
     [TestCase(DragEnd.Undo)]
     public void Capture_loss_and_playback_keep_a_reordered_list_slot_and_Escape_and_Undo_put_it_back(DragEnd end)
     {
-        var first = new ExpressionNode { Position = (20, 20) };
-        var second = new ExpressionNode { Position = (20, 220) };
-        var target = new ExpressionNode { Position = (380, 40) };
+        var first = new ExpressionNode { Position = { Value = (20, 20) } };
+        var second = new ExpressionNode { Position = { Value = (20, 220) } };
+        var target = new ExpressionNode { Position = { Value = (380, 40) } };
         using var scope = PortScope.Create(first, second, target);
         scope.Graph.Connect(target.InputPort, first.Output);
         scope.Graph.Connect(target.InputPort, second.Output);
@@ -109,7 +109,7 @@ public class NodeGraphDragTests
         bool kept = end is DragEnd.CaptureLoss or DragEnd.Playback;
         Assert.Multiple(() =>
         {
-            Assert.That(target.InputPort.Connections.Select(c => c.Value!.Output.Value),
+            Assert.That(target.InputPort.Connections.Select(c => c.Value!.Output.Value.Value),
                 Is.EqualTo(kept ? new object[] { second.Output, first.Output } : new object[] { first.Output, second.Output }));
             Assert.That(scope.History.UndoCount, Is.EqualTo(undoCount + (kept ? 1 : 0)));
             Assert.That(scope.History.IsEditing, Is.False);
@@ -125,8 +125,8 @@ public class NodeGraphDragTests
     [TestCase(DragEnd.Undo)]
     public void Capture_loss_and_playback_keep_moved_nodes_and_Escape_and_Undo_put_them_back(DragEnd end)
     {
-        var first = new ExpressionNode { Position = (20, 40) };
-        var second = new ExpressionNode { Position = (20, 260) };
+        var first = new ExpressionNode { Position = { Value = (20, 40) } };
+        var second = new ExpressionNode { Position = { Value = (20, 260) } };
         using var scope = PortScope.Create(first, second);
         foreach (GraphNodeViewModel node in scope.Model.Nodes)
             node.IsSelected.Value = true;
@@ -154,10 +154,10 @@ public class NodeGraphDragTests
         double dy = kept ? 30 : 0;
         Assert.Multiple(() =>
         {
-            Assert.That(first.Position, Is.EqualTo((20 + dx, 40 + dy)));
-            Assert.That(second.Position, Is.EqualTo((20 + dx, 260 + dy)));
+            Assert.That(first.Position.Value, Is.EqualTo((20 + dx, 40 + dy)));
+            Assert.That(second.Position.Value, Is.EqualTo((20 + dx, 260 + dy)));
             foreach (GraphNodeViewModel node in scope.Model.Nodes)
-                Assert.That(node.Position.Value, Is.EqualTo(new Point(node.GraphNode.Position.X, node.GraphNode.Position.Y)));
+                Assert.That(node.Position.Value, Is.EqualTo(new Point(node.GraphNode.Position.Value.X, node.GraphNode.Position.Value.Y)));
             Assert.That(scope.History.UndoCount, Is.EqualTo(kept ? 1 : 0));
             Assert.That(scope.History.IsEditing, Is.False);
         });

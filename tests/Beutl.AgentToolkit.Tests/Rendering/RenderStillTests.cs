@@ -60,7 +60,7 @@ public sealed class RenderStillTests
         string output = Path.Combine(dir, "empty.png");
         var scene = new Scene(160, 90, "empty")
         {
-            Duration = MediaTime.FromSeconds(1),
+            Duration = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
 
@@ -129,7 +129,7 @@ public sealed class RenderStillTests
     {
         string staticDir = TestWorkspace.CreateDirectory();
         Scene staticScene = CreateScene(staticDir, new RectShape());
-        staticScene.Duration = MediaTime.FromSeconds(3);
+        staticScene.Duration.Value = MediaTime.FromSeconds(3);
 
         string changingDir = TestWorkspace.CreateDirectory();
         Scene changingScene = CreateChangingScene(changingDir);
@@ -186,7 +186,7 @@ public sealed class RenderStillTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(160, 90, "dark-steps")
         {
-            Duration = MediaTime.FromSeconds(3),
+            Duration = { Value = MediaTime.FromSeconds(3) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         AddColorRectElement(scene, dir, "16.belm", MediaTime.Zero, MediaTime.FromSeconds(1), 160, 90, Color.FromRgb(16, 16, 16));
@@ -221,7 +221,7 @@ public sealed class RenderStillTests
         string withoutTextPath = Path.Combine(dir, "without-text.png");
         var scene = new Scene(640, 360, "example")
         {
-            Duration = MediaTime.FromSeconds(8),
+            Duration = { Value = MediaTime.FromSeconds(8) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         using var session = new AgentToolkitTestSession(scene);
@@ -259,21 +259,21 @@ public sealed class RenderStillTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(160, 90, "text-owner")
         {
-            Duration = MediaTime.FromSeconds(1),
+            Duration = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var text = new TextBlock
         {
-            Name = "headline",
+            Name = { Value = "headline" },
             Text = { Value = "HELLO" },
             Size = { Value = 48 },
             Fill = { Value = new SolidColorBrush(Colors.White) }
         };
         var element = new Element
         {
-            Name = "owner",
-            Length = MediaTime.FromSeconds(1),
-            ZIndex = 7,
+            Name = { Value = "owner" },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            ZIndex = { Value = 7 },
             Uri = new Uri(Path.Combine(dir, "owner.belm"))
         };
         element.AddObject(text);
@@ -286,7 +286,7 @@ public sealed class RenderStillTests
         RenderedTextBounds bound = frame.TextBounds.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(bound.TextBlock.Name, Is.EqualTo("headline"));
+            Assert.That(bound.TextBlock.Name.Value, Is.EqualTo("headline"));
             // The bound is attributed via textBlock.FindHierarchicalParent<Element>(), which must
             // resolve to the owning element rather than falling back or naming a different one.
             Assert.That(bound.Element, Is.SameAs(element));
@@ -298,7 +298,7 @@ public sealed class RenderStillTests
     {
         string dir = TestWorkspace.CreateDirectory();
         Scene enabled = CreateScene(dir, new Scene3D());
-        Scene disabled = CreateScene(dir, new Scene3D { IsEnabled = false });
+        Scene disabled = CreateScene(dir, new Scene3D { IsEnabled = { Value = false } });
 
         Assert.Multiple(() =>
         {
@@ -312,12 +312,12 @@ public sealed class RenderStillTests
     {
         var scene = new Scene(160, 90, "still")
         {
-            Duration = MediaTime.FromSeconds(1),
+            Duration = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var element = new Element
         {
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
         element.AddObject(drawable);
@@ -329,7 +329,7 @@ public sealed class RenderStillTests
     {
         var scene = new Scene(160, 90, "motion-check")
         {
-            Duration = MediaTime.FromSeconds(3),
+            Duration = { Value = MediaTime.FromSeconds(3) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         AddColorRectElement(scene, dir, "red.belm", MediaTime.Zero, MediaTime.FromSeconds(1), 160, 90, Colors.Red);
@@ -342,7 +342,7 @@ public sealed class RenderStillTests
     {
         var scene = new Scene(160, 90, "confined-motion")
         {
-            Duration = MediaTime.FromSeconds(3),
+            Duration = { Value = MediaTime.FromSeconds(3) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
 
@@ -366,8 +366,8 @@ public sealed class RenderStillTests
     {
         var element = new Element
         {
-            Start = start,
-            Length = length,
+            Start = { Value = start },
+            Length = { Value = length },
             Uri = new Uri(Path.Combine(dir, fileName))
         };
         var rect = new RectShape

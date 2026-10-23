@@ -11,8 +11,8 @@ public class MFDecodingSettingsTests
         var settings = new MFDecodingSettings();
         Assert.Multiple(() =>
         {
-            Assert.That(settings.ThresholdFrameCount, Is.EqualTo(30));
-            Assert.That(settings.MaxVideoBufferSize, Is.EqualTo(4));
+            Assert.That(settings.ThresholdFrameCount.Value, Is.EqualTo(30));
+            Assert.That(settings.MaxVideoBufferSize.Value, Is.EqualTo(4));
         });
     }
 
@@ -28,9 +28,9 @@ public class MFDecodingSettingsTests
         settings.ConfigurationChanged += (_, _) => raised++;
 
         if (setting == nameof(MFDecodingSettings.ThresholdFrameCount))
-            settings.ThresholdFrameCount += 1;
+            settings.ThresholdFrameCount.Value += 1;
         else
-            settings.MaxVideoBufferSize += 1;
+            settings.MaxVideoBufferSize.Value += 1;
 
         Assert.That(raised, Is.GreaterThan(0));
     }

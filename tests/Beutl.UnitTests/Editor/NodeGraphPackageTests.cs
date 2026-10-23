@@ -60,16 +60,16 @@ public class NodeGraphPackageTests
                 if (kind == "animated")
                 {
                     var animation = new KeyFrameAnimation<ImageSource?>();
-                    animation.KeyFrames.Add(new KeyFrame<ImageSource?> { KeyTime = MediaTime.Zero, Value = first });
-                    animation.KeyFrames.Add(new KeyFrame<ImageSource?> { KeyTime = MediaTime.FromSeconds(1), Value = second });
+                    animation.KeyFrames.Add(new KeyFrame<ImageSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = first } });
+                    animation.KeyFrames.Add(new KeyFrame<ImageSource?> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = second } });
                     ((IAnimatablePropertyAdapter<ImageSource?>)node.Source.Property).Animation = animation;
                 }
                 graph.Nodes.Add(node); graph.Connect(output.InputPort, node.Output);
             }
 
-            var element = new Element { Uri = new Uri(Path.Combine(projectDirectory, "image.belm")), Length = MediaTime.FromSeconds(2) };
+            var element = new Element { Uri = new Uri(Path.Combine(projectDirectory, "image.belm")), Length = { Value = MediaTime.FromSeconds(2) } };
             element.Objects.Add(drawable);
-            var scene = new Scene(64, 64, "Nodes") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")), Duration = MediaTime.FromSeconds(2) };
+            var scene = new Scene(64, 64, "Nodes") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")), Duration = { Value = MediaTime.FromSeconds(2) } };
             scene.Children.Add(element);
             var project = new Project { Uri = new Uri(Path.Combine(projectDirectory, "main.bep")) };
             project.Items.Add(scene);

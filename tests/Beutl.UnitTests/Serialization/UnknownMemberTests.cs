@@ -32,12 +32,12 @@ public class UnknownMemberTests
     [Test]
     public void CoreObject_KeepsTheMembersItDoesNotRead_AndWritesThemBackAfterItsOwn()
     {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(new PlainObject { Value = 1 });
+        JsonObject json = CoreSerializer.SerializeToJsonObject(new PlainObject { Value = { Value = 1 } });
         json["Future"] = new JsonObject { ["Nested"] = new JsonArray(1, 2) };
         json["Later"] = "text";
 
         var restored = (PlainObject)CoreSerializer.DeserializeFromJsonObject(json, typeof(PlainObject));
-        restored.Value = 2;
+        restored.Value.Value = 2;
         JsonObject written = CoreSerializer.SerializeToJsonObject(restored);
         string[] keys = written.Select(static pair => pair.Key).ToArray();
 
@@ -124,7 +124,7 @@ public class UnknownMemberTests
     [Test]
     public void MembersReadUnderAFormerName_AreNotKeptAsUnknown()
     {
-        var source = new RenamedHolder { Title = "title" };
+        var source = new RenamedHolder { Title = { Value = "title" } };
         source.Amount.Value = 3;
         source.Amount.SetKeyFrameAnimation(CreateAnimation(4f));
         source.Amount.Expression = Expression.Create<float>("5");
@@ -148,7 +148,7 @@ public class UnknownMemberTests
             Assert.That(restored.Amount.Value, Is.EqualTo(3));
             Assert.That(restored.Amount.GetKeyFrameAnimation(), Is.Not.Null);
             Assert.That(restored.Amount.Expression?.ExpressionString, Is.EqualTo("5"));
-            Assert.That(restored.Title, Is.EqualTo("title"));
+            Assert.That(restored.Title.Value, Is.EqualTo("title"));
             Assert.That(written.ContainsKey(RenamedHolder.FormerAmount), Is.False);
             Assert.That(written.ContainsKey(RenamedHolder.FormerTitle), Is.False);
             Assert.That(written["Animations"]!.AsObject().Select(static pair => pair.Key),
@@ -167,7 +167,7 @@ public class UnknownMemberTests
         var sceneUri = new Uri(Path.Combine(_root, "scene.scene"));
         string elementPath = Path.Combine(_root, "element.belm");
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
-        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(elementPath) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(elementPath) };
         element.AddObject(new RectShape { Fill = { Value = new SolidColorBrush(Colors.Red) } });
         scene.Children.Add(element);
         CoreSerializer.StoreToUri(scene, sceneUri);
@@ -180,7 +180,7 @@ public class UnknownMemberTests
 
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element restoredElement = restored.Children.Single();
-        restoredElement.Start = MediaTime.FromSeconds(2);
+        restoredElement.Start.Value = MediaTime.FromSeconds(2);
         CoreSerializer.StoreToUri(restored, sceneUri);
         JsonObject saved = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
         JsonObject savedShape = saved[nameof(Element.Objects)]![0]!.AsObject();
@@ -188,7 +188,7 @@ public class UnknownMemberTests
         Assert.Multiple(() =>
         {
             Assert.That(restoredElement.SuppressedStorageSource, Is.Null);
-            Assert.That(CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath)).Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(JsonNode.DeepEquals(saved["FutureClip"], json["FutureClip"]), Is.True);
             Assert.That(savedShape["FutureShape"]!.GetValue<int>(), Is.EqualTo(3));
             Assert.That(JsonNode.DeepEquals(savedShape[nameof(RectShape.Fill)]!["FutureBrush"],
@@ -297,7 +297,7 @@ public class UnknownMemberTests
         Assert.Multiple(() =>
         {
             Assert.That(fallback, Is.InstanceOf<FallbackTransform>());
-            Assert.That(fallback.Id.ToString(), Is.EqualTo(json[nameof(CoreObject.Id)]!.GetValue<string>()));
+            Assert.That(fallback.Id.Value.ToString(), Is.EqualTo(json[nameof(CoreObject.Id)]!.GetValue<string>()));
             Assert.That(json.All(member => JsonNode.DeepEquals(written[member.Key], member.Value)), Is.True);
         });
     }
@@ -316,7 +316,7 @@ public class UnknownMemberTests
         };
 
         var fallback = (Transform)CoreSerializer.DeserializeFromJsonObject(json, typeof(Transform));
-        fallback.IsEnabled = false;
+        fallback.IsEnabled.Value = false;
         JsonObject written = CoreSerializer.SerializeToJsonObject(fallback);
 
         Assert.Multiple(() =>
@@ -342,7 +342,7 @@ public class UnknownMemberTests
         json.WriteDiscriminator(typeof(UnreadableEngineObject));
 
         var fallback = (EngineObject)CoreSerializer.DeserializeFromJsonObject(json, typeof(EngineObject));
-        fallback.Name = "Edited";
+        fallback.Name.Value = "Edited";
         JsonObject written = CoreSerializer.SerializeToJsonObject(fallback);
 
         Assert.Multiple(() =>
@@ -356,7 +356,7 @@ public class UnknownMemberTests
     private static KeyFrameAnimation<float> CreateAnimation(float value)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = value });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = value } });
         return animation;
     }
 
@@ -374,13 +374,7 @@ public class UnknownMemberTests
             ScanProperties<PlainObject>();
         }
 
-        public IProperty<int> ValueProperty { get; } = new ValueOnlyProperty<int>(default);
-
-        public int Value
-        {
-            get => ValueProperty.Value;
-            set => ValueProperty.Value = value;
-        }
+        public IProperty<int> Value { get; } = new ValueOnlyProperty<int>(default);
     }
 
     // An engine object with a property that is not animatable.
@@ -414,13 +408,7 @@ public class UnknownMemberTests
         public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(1f);
 
         [FormerPersistedName(FormerTitle)]
-        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
-
-        public string? Title
-        {
-            get => TitleProperty.Value;
-            set => TitleProperty.Value = value;
-        }
+        public IProperty<string?> Title { get; } = new ValueOnlyProperty<string?>(null);
     }
 
     [DroppedMembers("Retired")]

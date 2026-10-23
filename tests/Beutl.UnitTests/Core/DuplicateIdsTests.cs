@@ -36,16 +36,16 @@ public class DuplicateIdsTests
     {
         var element = new Element();
         var first = new RectShape();
-        var second = new RectShape { Id = first.Id };
+        var second = new RectShape { Id = { Value = first.Id.Value } };
         var width = new KeyFrameAnimation<float>();
-        var key = new KeyFrame<float> { KeyTime = MediaTime.Zero };
+        var key = new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero } };
         width.KeyFrames.Add(key);
-        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Id = key.Id });
+        width.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Id = { Value = key.Id.Value } });
         second.Width.SetKeyFrameAnimation(width);
         element.AddObject(first);
         element.AddObject(second);
-        element.AddObject(new PortalObject { Id = Guid.Empty });
-        element.AddObject(new PortalObject { Id = Guid.Empty });
+        element.AddObject(new PortalObject { Id = { Value = Guid.Empty } });
+        element.AddObject(new PortalObject { Id = { Value = Guid.Empty } });
         var shared = new PortalObject();
         var holder = new SharedHolder { First = { Value = shared }, Second = { Value = shared } };
 
@@ -75,8 +75,8 @@ public class DuplicateIdsTests
         Assert.Multiple(() =>
         {
             Assert.That(elements, Has.Length.EqualTo(2));
-            Assert.That(elements[1].Id, Is.EqualTo(elements[0].Id), "a duplicate is not given a new Id");
-            Assert.That(elements[1].Objects[0].Id, Is.EqualTo(elements[0].Objects[0].Id));
+            Assert.That(elements[1].Id.Value, Is.EqualTo(elements[0].Id.Value), "a duplicate is not given a new Id");
+            Assert.That(elements[1].Objects[0].Id.Value, Is.EqualTo(elements[0].Objects[0].Id.Value));
             Assert.That(_logs.Messages, Has.Count.EqualTo(1), "the same duplicates are reported once");
             Assert.That(_logs.Messages.Single(), Does.Contain("on load: 2 object(s)")
                 .And.Contain(nameof(Element)).And.Contain(nameof(PortalObject)));
@@ -90,9 +90,9 @@ public class DuplicateIdsTests
         var scene = (Scene)project.Items.Single();
         scene.Children.Add(new Element
         {
-            Id = element.Id,
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(1),
+            Id = { Value = element.Id.Value },
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(_root, "scene", "second.belm")),
         });
 
@@ -120,7 +120,7 @@ public class DuplicateIdsTests
     {
         var project = new Project { Uri = new Uri(Path.Combine(_root, "project.bep")) };
         var scene = new Scene(64, 64, "Scene") { Uri = new Uri(Path.Combine(_root, "scene", "scene.scene")) };
-        element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(_root, "scene", "element.belm")) };
+        element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(_root, "scene", "element.belm")) };
         element.AddObject(new PortalObject());
         scene.Children.Add(element);
         project.Items.Add(scene);

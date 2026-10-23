@@ -206,7 +206,7 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
     {
         foreach (var obj in objects)
         {
-            if (obj.GetOriginal()?.Id == targetId)
+            if (obj.GetOriginal()?.Id.Value == targetId)
                 return obj;
 
             var children = obj.GetChildResources();

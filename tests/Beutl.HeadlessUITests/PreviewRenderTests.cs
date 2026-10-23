@@ -99,7 +99,7 @@ public class PreviewRenderTests
         editor.Player.QueuePreviewRender();
         RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
 
-        Assert.That(connections.Select(connection => connection.Status), Is.All.EqualTo(ConnectionStatus.Success));
+        Assert.That(connections.Select(connection => connection.Status.Value), Is.All.EqualTo(ConnectionStatus.Success));
     }
 
     // The scene holds only an opaque red rectangle, so a red pixel proves the frame was drawn.

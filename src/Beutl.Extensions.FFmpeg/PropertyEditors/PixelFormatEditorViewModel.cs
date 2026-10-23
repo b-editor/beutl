@@ -29,7 +29,7 @@ internal sealed class PixelFormatEditorViewModel
         : base(property, extension, FFmpegOptionsCaches.PixelFormats, s_logger, "pixel formats")
     {
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(Disposables);
-        Initialize(settings => settings.CodecProperty);
+        Initialize(settings => settings.Codec);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -52,7 +52,7 @@ internal sealed class PixelFormatEditorViewModel
     }
 
     protected override CodecQueryParams CreateQuery(FFmpegVideoEncoderSettings settings)
-        => CodecOptionQuery.Create(settings.Codec, settings.OutputFile);
+        => CodecOptionQuery.Create(settings.Codec.Value, settings.OutputFile);
 
     protected override async Task<OptionsQueryResult<PixelFormatInfo>> QueryAsync(CodecQueryParams query)
     {

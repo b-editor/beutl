@@ -18,11 +18,11 @@ public sealed partial class HeterogeneousWrappedOutputTailSound : Sound
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
         var shortSource = context.AddNode(new FixedLatencyNode(240));
-        var shortClip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var shortClip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(shortSource, shortClip);
 
         var longSource = context.AddNode(new FixedLatencyNode(960));
-        var longClip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var longClip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(longSource, longClip);
 
         var mixer = context.CreateMixerNode();

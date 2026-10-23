@@ -28,12 +28,12 @@ public sealed partial class FallbackGraphNode : GraphNode, IFallback
     {
         if (_metadataRestored || json == null) return;
         _metadataRestored = true;
-        if (json[nameof(Id)] is JsonValue id && Guid.TryParse(id.ToString(), out Guid value)) Id = value;
-        if (json[nameof(Name)] is JsonValue name && name.TryGetValue<string>(out var text)) Name = text;
-        if (json[nameof(IsExpanded)] is JsonValue expanded && expanded.TryGetValue<bool>(out var state)) IsExpanded = state;
+        if (json[nameof(Id)] is JsonValue id && Guid.TryParse(id.ToString(), out Guid value)) Id.Value = value;
+        if (json[nameof(Name)] is JsonValue name && name.TryGetValue<string>(out var text)) Name.Value = text;
+        if (json[nameof(IsExpanded)] is JsonValue expanded && expanded.TryGetValue<bool>(out var state)) IsExpanded.Value = state;
         if (json[nameof(Position)] is JsonValue position && position.TryGetValue<string>(out var coordinates))
         {
-            if (TryParsePosition(coordinates, out var parsed)) Position = parsed;
+            if (TryParsePosition(coordinates, out var parsed)) Position.Value = parsed;
         }
     }
 

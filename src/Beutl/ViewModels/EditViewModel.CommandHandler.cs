@@ -66,7 +66,7 @@ public partial class EditViewModel : IContextCommandStateNotifier
         (Rational rate, MediaTime time, string defaultName) = GetMarkerPlacement();
 
         SceneMarker? existing = Scene.Markers
-            .FirstOrDefault(m => m.Time.RoundToFrame(rate, MidpointRounding.AwayFromZero) == time);
+            .FirstOrDefault(m => m.Time.Value.RoundToFrame(rate, MidpointRounding.AwayFromZero) == time);
         if (existing != null)
         {
             Scene.Markers.Remove(existing);
@@ -87,7 +87,7 @@ public partial class EditViewModel : IContextCommandStateNotifier
         MediaTime? target = null;
         Rational rate = Player.GetFrameRate();
         // A marker or scene bound within a tick of a frame, as one written by hand can be, counts as that frame.
-        foreach (MediaTime marker in Scene.Markers.Select(m => m.Time).Union([MediaTime.Zero, Scene.Start, Scene.Duration + Scene.Start])
+        foreach (MediaTime marker in Scene.Markers.Select(m => m.Time.Value).Union([MediaTime.Zero, Scene.Start.Value, Scene.Duration.Value + Scene.Start.Value])
                      .Select(time => MediaTimeJsonConverter.SnapToFrame(time, rate)))
         {
             if (forward)

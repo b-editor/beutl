@@ -1,10 +1,8 @@
-﻿using Beutl.Collections;
-
-namespace Beutl.NodeGraph;
+﻿namespace Beutl.NodeGraph;
 
 public interface IListPort : INodePort
 {
-    CoreList<Reference<Connection>> Connections { get; }
+    IListProperty<Reference<Connection>> Connections { get; }
 
     void MoveConnection(int oldIndex, int newIndex);
 }

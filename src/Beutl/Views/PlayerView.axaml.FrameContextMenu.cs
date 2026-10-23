@@ -166,7 +166,7 @@ public partial class PlayerView
         {
             try
             {
-                if (await PromptSaveScale(scene.FrameSize) is not { } scale) return;
+                if (await PromptSaveScale(scene.FrameSize.Value) is not { } scale) return;
 
                 string additional = Path.GetFileNameWithoutExtension(scene.Uri!.LocalPath);
                 IStorageFile? file = await SaveImageFilePicker(additional, storage);

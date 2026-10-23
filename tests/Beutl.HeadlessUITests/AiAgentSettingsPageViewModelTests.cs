@@ -118,15 +118,15 @@ public sealed class AiAgentSettingsPageViewModelTests
         {
             var config = new AiAgentConfig
             {
-                AgentId = AiAgentSettingsPageViewModel.CustomAgentId,
-                InstallScope = scope.ToString(),
-                ProjectRoot = root,
-                McpConfigFileName = "other-mcp.json",
-                McpServersPropertyName = "mcpServers",
-                InstallSkills = false,
-                InstallSubagents = false,
-                InstallMcp = true,
-                StdioCommand = "beutl-mcp",
+                AgentId = { Value = AiAgentSettingsPageViewModel.CustomAgentId },
+                InstallScope = { Value = scope.ToString() },
+                ProjectRoot = { Value = root },
+                McpConfigFileName = { Value = "other-mcp.json" },
+                McpServersPropertyName = { Value = "mcpServers" },
+                InstallSkills = { Value = false },
+                InstallSubagents = { Value = false },
+                InstallMcp = { Value = true },
+                StdioCommand = { Value = "beutl-mcp" },
             };
             using var viewModel = new AiAgentSettingsPageViewModel(config);
             viewModel.SelectedAgent.Value = Choice(viewModel, "codex");
@@ -144,8 +144,8 @@ public sealed class AiAgentSettingsPageViewModelTests
 
             viewModel.SelectedAgent.Value = Choice(viewModel, AiAgentSettingsPageViewModel.CustomAgentId);
             Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.EqualTo(Path.Combine(root, "other-mcp.json")));
-            Assert.That(config.McpConfigFileName, Is.EqualTo("other-mcp.json"));
-            Assert.That(config.McpServersPropertyName, Is.EqualTo("mcpServers"));
+            Assert.That(config.McpConfigFileName.Value, Is.EqualTo("other-mcp.json"));
+            Assert.That(config.McpServersPropertyName.Value, Is.EqualTo("mcpServers"));
         }
         finally
         {
@@ -164,13 +164,13 @@ public sealed class AiAgentSettingsPageViewModelTests
         {
             var config = new AiAgentConfig
             {
-                AgentId = "codex",
-                InstallScope = nameof(AgentInstallScope.Global),
-                ProjectRoot = Path.Combine(BeutlHomeIsolation.CurrentHome!, relativeHome),
-                InstallSkills = false,
-                InstallSubagents = false,
-                InstallMcp = true,
-                StdioCommand = "beutl-mcp",
+                AgentId = { Value = "codex" },
+                InstallScope = { Value = nameof(AgentInstallScope.Global) },
+                ProjectRoot = { Value = Path.Combine(BeutlHomeIsolation.CurrentHome!, relativeHome) },
+                InstallSkills = { Value = false },
+                InstallSubagents = { Value = false },
+                InstallMcp = { Value = true },
+                StdioCommand = { Value = "beutl-mcp" },
             };
             using var viewModel = new AiAgentSettingsPageViewModel(config);
             Assert.Multiple(() =>
@@ -205,7 +205,7 @@ public sealed class AiAgentSettingsPageViewModelTests
 
             viewModel.SelectedScope.Value = viewModel.ScopeChoices.Single(s => s.Scope == AgentInstallScope.Project);
             Assert.That(viewModel.CanInstallMcp.Value, Is.True);
-            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.EqualTo(Path.Combine(config.ProjectRoot, ".codex", "config.toml")));
+            Assert.That(viewModel.ResolvedMcpConfigPath.Value, Is.EqualTo(Path.Combine(config.ProjectRoot.Value, ".codex", "config.toml")));
         }
         finally
         {
@@ -227,13 +227,13 @@ public sealed class AiAgentSettingsPageViewModelTests
         {
             var config = new AiAgentConfig
             {
-                AgentId = "codex",
-                InstallScope = nameof(AgentInstallScope.Global),
-                SkillsDirectory = Path.Combine(temporaryDirectory, "skills"),
-                SubagentsDirectory = Path.Combine(temporaryDirectory, "agents"),
-                InstallSkills = installSkills,
-                InstallSubagents = installSubagents,
-                InstallMcp = true,
+                AgentId = { Value = "codex" },
+                InstallScope = { Value = nameof(AgentInstallScope.Global) },
+                SkillsDirectory = { Value = Path.Combine(temporaryDirectory, "skills") },
+                SubagentsDirectory = { Value = Path.Combine(temporaryDirectory, "agents") },
+                InstallSkills = { Value = installSkills },
+                InstallSubagents = { Value = installSubagents },
+                InstallMcp = { Value = true },
             };
             using var viewModel = new AiAgentSettingsPageViewModel(config);
             Assert.That(viewModel.CanInstallMcp.Value, Is.False);
@@ -259,7 +259,7 @@ public sealed class AiAgentSettingsPageViewModelTests
     [TestCase(AgentInstallScope.Project)]
     public void Codex_mcp_is_available_in_both_scopes(AgentInstallScope scope)
     {
-        var config = new AiAgentConfig { AgentId = "codex", InstallScope = scope.ToString(), ProjectRoot = "/repo" };
+        var config = new AiAgentConfig { AgentId = { Value = "codex" }, InstallScope = { Value = scope.ToString() }, ProjectRoot = { Value = "/repo" } };
         using var viewModel = new AiAgentSettingsPageViewModel(config);
 
         string root = scope == AgentInstallScope.Project
@@ -295,13 +295,13 @@ public sealed class AiAgentSettingsPageViewModelTests
         string root = Path.Combine(BeutlHomeIsolation.CurrentHome!, "codex-install-" + Guid.NewGuid().ToString("N"));
         var config = new AiAgentConfig
         {
-            AgentId = "codex",
-            InstallScope = nameof(AgentInstallScope.Project),
-            ProjectRoot = root,
-            McpConfigFileName = "legacy-mcp.json",
-            McpServersPropertyName = "mcpServers",
-            InstallSkills = false,
-            InstallSubagents = false,
+            AgentId = { Value = "codex" },
+            InstallScope = { Value = nameof(AgentInstallScope.Project) },
+            ProjectRoot = { Value = root },
+            McpConfigFileName = { Value = "legacy-mcp.json" },
+            McpServersPropertyName = { Value = "mcpServers" },
+            InstallSkills = { Value = false },
+            InstallSubagents = { Value = false },
         };
         CultureInfo previousCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("ja-JP");
@@ -606,10 +606,10 @@ public sealed class AiAgentSettingsPageViewModelTests
         AgentToolkitInstallManifestStore.Save(manifestPath, new AgentToolkitInstallManifest("stale", []));
         var config = new AiAgentConfig
         {
-            AgentId = "cline",
-            InstallScope = nameof(AgentInstallScope.Project),
-            ProjectRoot = root,
-            InstallSubagents = false,
+            AgentId = { Value = "cline" },
+            InstallScope = { Value = nameof(AgentInstallScope.Project) },
+            ProjectRoot = { Value = root },
+            InstallSubagents = { Value = false },
         };
         using var viewModel = new AiAgentSettingsPageViewModel(config);
         Assert.That(viewModel.CanInstallMcp.Value, Is.False);
@@ -638,12 +638,12 @@ public sealed class AiAgentSettingsPageViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.AgentId, Is.EqualTo("cursor"));
-            Assert.That(config.InstallScope, Is.EqualTo(nameof(AgentInstallScope.Project)));
-            Assert.That(config.ProjectRoot, Is.EqualTo("/repo"));
-            Assert.That(config.InstallMcp, Is.False);
-            Assert.That(config.McpConfigFileName, Is.EqualTo("custom-mcp.json"));
-            Assert.That(config.FollowLiveMcpEdits, Is.True);
+            Assert.That(config.AgentId.Value, Is.EqualTo("cursor"));
+            Assert.That(config.InstallScope.Value, Is.EqualTo(nameof(AgentInstallScope.Project)));
+            Assert.That(config.ProjectRoot.Value, Is.EqualTo("/repo"));
+            Assert.That(config.InstallMcp.Value, Is.False);
+            Assert.That(config.McpConfigFileName.Value, Is.EqualTo("custom-mcp.json"));
+            Assert.That(config.FollowLiveMcpEdits.Value, Is.True);
         });
 
         using var restored = new AiAgentSettingsPageViewModel(config);
@@ -672,8 +672,8 @@ public sealed class AiAgentSettingsPageViewModelTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.StdioCommand, Is.EqualTo("/custom/beutl-agent"));
-            Assert.That(config.StdioArguments, Is.EqualTo("mcp\n--flag"));
+            Assert.That(config.StdioCommand.Value, Is.EqualTo("/custom/beutl-agent"));
+            Assert.That(config.StdioArguments.Value, Is.EqualTo("mcp\n--flag"));
         });
 
         // A fresh view model (reopen, or the reinstall update-prompt path) must keep the override

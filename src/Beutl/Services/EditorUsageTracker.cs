@@ -113,9 +113,9 @@ internal sealed class EditorUsageTracker : IDisposable
         {
             if (effect is not (FilterEffect or AudioEffect)
                 || effect is FilterEffectGroup or AudioEffectGroup
-                || !effect.IsEnabled
-                || effect.EnumerateAncestors<Element>().Any(parent => !parent.IsEnabled)
-                || effect.EnumerateAncestors<EngineObject>().Any(parent => !parent.IsEnabled)) continue;
+                || !effect.IsEnabled.Value
+                || effect.EnumerateAncestors<Element>().Any(parent => !parent.IsEnabled.Value)
+                || effect.EnumerateAncestors<EngineObject>().Any(parent => !parent.IsEnabled.Value)) continue;
             Type type = effect.GetType();
             string category = effect is FilterEffect ? "Video" : "Audio";
             string id = type.Assembly == typeof(FilterEffect).Assembly ? type.Name : "Extension";

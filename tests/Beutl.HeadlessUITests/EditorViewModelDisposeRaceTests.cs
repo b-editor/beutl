@@ -33,7 +33,7 @@ public class EditorViewModelDisposeRaceTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dispose-race");
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
-        var adapter = new EnginePropertyAdapter<MediaTime>(editor.Scene.DurationProperty, editor.Scene);
+        var adapter = new EnginePropertyAdapter<MediaTime>(editor.Scene.Duration, editor.Scene);
         var viewModel = new ValueEditorViewModel<MediaTime>(adapter);
         viewModel.Accept(new ServiceVisitor(editor, clock));
         var bridged = new List<(MediaTime Time, bool OnUIThread)>();

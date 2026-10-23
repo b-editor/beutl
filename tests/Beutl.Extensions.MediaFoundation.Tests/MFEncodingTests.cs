@@ -31,10 +31,10 @@ public class MFEncodingTests
     public async Task Encode_RoundTripsScaledVideoAndConvertedAudio(bool hardware, int sampleRate, int channels)
     {
         var controller = CreateController();
-        controller.VideoSettings.UseHardwareAcceleration = hardware;
-        controller.VideoSettings.DestinationSize = new PixelSize(128, 96);
-        controller.AudioSettings.SampleRate = sampleRate;
-        controller.AudioSettings.Channels = channels;
+        controller.VideoSettings.UseHardwareAcceleration.Value = hardware;
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(128, 96);
+        controller.AudioSettings.SampleRate.Value = sampleRate;
+        controller.AudioSettings.Channels.Value = channels;
         File.WriteAllText(controller.OutputFile, "replace only after encoding succeeds");
         using var frames = new GradientFrameProvider(30, new Rational(30, 1), 64, 48);
         // Deliberately differs from the output rate, and ends in a partial 1024-sample block.
@@ -95,8 +95,8 @@ public class MFEncodingTests
     {
         const int frameCount = 120;
         var controller = CreateController(extension);
-        controller.VideoSettings.Codec = codec;
-        controller.VideoSettings.KeyframeRate = interval;
+        controller.VideoSettings.Codec.Value = codec;
+        controller.VideoSettings.KeyframeRate.Value = interval;
         // A static scene avoids additional scene-change keyframes.
         using var frames = new SolidFrameProvider(new PixelSize(64, 48), frameCount);
         using var samples = new TrackedSamples(0, 0);
@@ -133,8 +133,8 @@ public class MFEncodingTests
     public async Task Encode_VideoOnly_UsesFractionalFrameRateAndDoesNotReadAudio()
     {
         var controller = CreateController();
-        controller.VideoSettings.FrameRate = new Rational(30000, 1001);
-        using var frames = new GradientFrameProvider(30, controller.VideoSettings.FrameRate, 64, 48);
+        controller.VideoSettings.FrameRate.Value = new Rational(30000, 1001);
+        using var frames = new GradientFrameProvider(30, controller.VideoSettings.FrameRate.Value, 64, 48);
         using var samples = new TrackedSamples(0, 0);
         await controller.Encode(frames, samples, CancellationToken.None);
         using var reader = new MFDecoderInfo(new MFDecodingExtension())
@@ -166,10 +166,10 @@ public class MFEncodingTests
         string extension, MFAudioCodec codec, MFAudioCodec expected, MFAudioBitDepth bitDepth)
     {
         var controller = CreateController(extension);
-        controller.AudioSettings.Codec = codec;
-        controller.AudioSettings.BitDepth = bitDepth;
+        controller.AudioSettings.Codec.Value = codec;
+        controller.AudioSettings.BitDepth.Value = bitDepth;
         // These settings and the non-empty frame provider must be ignored for audio-only output.
-        controller.VideoSettings.DestinationSize = default;
+        controller.VideoSettings.DestinationSize.Value = default;
         using var frames = new FailingFrames();
         // Keep codec-frame allowances small relative to the input, with a partial final block.
         using var samples = new TrackedSamples(5 * 44100 + 137, 44100);
@@ -188,7 +188,7 @@ public class MFEncodingTests
                 Assert.That(audio.GetUInt32(MediaTypeAttributeKeys.AudioBitsPerSample),
                     Is.EqualTo(expected == MFAudioCodec.Float ? 32 : (int)bitDepth));
         });
-        AssertAudioSignal(controller.OutputFile, expected, samples, controller.AudioSettings.SampleRate);
+        AssertAudioSignal(controller.OutputFile, expected, samples, controller.AudioSettings.SampleRate.Value);
     }
 
     [TestCase(".wmv", MFVideoCodec.Auto, MFVideoCodec.WMV9, MFAudioCodec.Auto, MFAudioCodec.WMA)]
@@ -212,10 +212,10 @@ public class MFEncodingTests
             Assert.Ignore("No HEVC encoder is installed on this system.");
 
         var controller = CreateController(extension);
-        controller.VideoSettings.Codec = codec;
-        controller.VideoSettings.UseHardwareAcceleration = expectedVideo == MFVideoCodec.HEVC;
-        controller.VideoSettings.DestinationSize = new PixelSize(320, 240);
-        controller.AudioSettings.Codec = audioCodec;
+        controller.VideoSettings.Codec.Value = codec;
+        controller.VideoSettings.UseHardwareAcceleration.Value = expectedVideo == MFVideoCodec.HEVC;
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(320, 240);
+        controller.AudioSettings.Codec.Value = audioCodec;
         using var frames = new GradientFrameProvider(30, new Rational(30, 1), 64, 48);
         using var samples = new TrackedSamples(44100 + 137, 44100);
         await controller.Encode(frames, samples, CancellationToken.None);
@@ -250,7 +250,7 @@ public class MFEncodingTests
             Assert.That(data[top + 200 * stride + 40 * 4 + 1], Is.GreaterThan(data[top + 40 * stride + 40 * 4 + 1] + 80));
             Assert.That(data[top + 40 * stride + 250 * 4], Is.GreaterThan(data[top + 40 * stride + 40 * 4] + 100));
         });
-        AssertAudioSignal(controller.OutputFile, expectedAudio, samples, controller.AudioSettings.SampleRate);
+        AssertAudioSignal(controller.OutputFile, expectedAudio, samples, controller.AudioSettings.SampleRate.Value);
     }
 
     // The MP4 source reports ALAC using its sample-entry FourCC rather than the WAVEFORMAT GUID.
@@ -323,7 +323,7 @@ public class MFEncodingTests
     public async Task Encode_DisabledVideo_DoesNotRenderFrames()
     {
         var controller = CreateController();
-        controller.VideoSettings.Codec = MFVideoCodec.None;
+        controller.VideoSettings.Codec.Value = MFVideoCodec.None;
         using var frames = new FailingFrames();
         using var samples = new TrackedSamples(44100, 44100);
         await controller.Encode(frames, samples, CancellationToken.None);
@@ -337,7 +337,7 @@ public class MFEncodingTests
     public async Task Encode_DisabledAudio_DoesNotRequestSamples()
     {
         var controller = CreateController();
-        controller.AudioSettings.Codec = MFAudioCodec.None;
+        controller.AudioSettings.Codec.Value = MFAudioCodec.None;
         using var frames = new GradientFrameProvider(1, new Rational(30, 1), 64, 48);
         using var samples = new TrackedSamples(44100, 0);
         await controller.Encode(frames, samples, CancellationToken.None);
@@ -357,8 +357,8 @@ public class MFEncodingTests
         string extension, MFVideoCodec videoCodec, MFAudioCodec audioCodec)
     {
         var controller = CreateController(extension);
-        controller.VideoSettings.Codec = videoCodec;
-        controller.AudioSettings.Codec = audioCodec;
+        controller.VideoSettings.Codec.Value = videoCodec;
+        controller.AudioSettings.Codec.Value = audioCodec;
         File.WriteAllText(controller.OutputFile, "keep existing file");
         using var frames = new FailingFrames();
         using var samples = new TrackedSamples(44100, 44100);
@@ -370,7 +370,7 @@ public class MFEncodingTests
     public void Encode_UnsupportedAudioRate_DoesNotTruncateExistingFile()
     {
         var controller = CreateController(".mp3");
-        controller.AudioSettings.SampleRate = 12345;
+        controller.AudioSettings.SampleRate.Value = 12345;
         File.WriteAllText(controller.OutputFile, "keep existing file");
         using var frames = new FailingFrames();
         using var samples = new TrackedSamples(44100, 44100);
@@ -408,7 +408,7 @@ public class MFEncodingTests
     public void Encode_UnsupportedVideoSize_DoesNotTruncateExistingFile()
     {
         var controller = CreateController();
-        controller.VideoSettings.DestinationSize = new PixelSize(2, 2);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(2, 2);
         File.WriteAllText(controller.OutputFile, "keep existing file");
         using var frames = new FailingFrames();
         using var samples = new TrackedSamples(0, 0);
@@ -422,7 +422,7 @@ public class MFEncodingTests
     public void Encode_InvalidSettingsDoNotTruncateExistingFile()
     {
         var controller = CreateController();
-        controller.VideoSettings.DestinationSize = new PixelSize(63, 48);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(63, 48);
         File.WriteAllText(controller.OutputFile, "keep existing file");
         using var frames = new GradientFrameProvider(1, new Rational(30, 1), 64, 48);
         using var samples = new TrackedSamples(0, 0);
@@ -452,9 +452,9 @@ public class MFEncodingTests
     private MFEncodingController CreateController(string extension = ".mp4")
     {
         var controller = new MFEncodingController(Path.Combine(_directory, "output" + extension));
-        controller.VideoSettings.UseHardwareAcceleration = false;
-        controller.VideoSettings.SourceSize = new PixelSize(64, 48);
-        controller.VideoSettings.DestinationSize = new PixelSize(64, 48);
+        controller.VideoSettings.UseHardwareAcceleration.Value = false;
+        controller.VideoSettings.SourceSize.Value = new PixelSize(64, 48);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 48);
         return controller;
     }
 

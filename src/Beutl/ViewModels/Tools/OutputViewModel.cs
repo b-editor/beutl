@@ -68,11 +68,11 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
                 var controller = newEncoder.CreateController(newFile);
                 Project? project = Model.FindHierarchicalParent<Project>();
-                controller.VideoSettings.FrameRate = project.GetFrameRate();
-                controller.AudioSettings.SampleRate = project.GetSampleRate();
+                controller.VideoSettings.FrameRate.Value = project.GetFrameRate();
+                controller.AudioSettings.SampleRate.Value = project.GetSampleRate();
                 // A new controller starts at the scene's size, whatever default its encoder gives. Settings copied
                 // above, because only the destination changed, keep their output size like everything else.
-                controller.VideoSettings.DestinationSize = Model.FrameSize;
+                controller.VideoSettings.DestinationSize.Value = Model.FrameSize.Value;
                 return controller;
             })
             .ToReadOnlyReactivePropertySlim()
@@ -84,7 +84,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             {
                 if (s == null) return null;
 
-                s.SourceSize = Model.FrameSize;
+                s.SourceSize.Value = Model.FrameSize.Value;
                 return new EncoderSettingsViewModel(s, _editViewModel.ExtensionProvider);
             })
             .DisposePreviousValue()
@@ -110,7 +110,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         // Pre-validate the render surface only when the output uses video.
         SupersampleWarning = SupersampleFactor
-            .CombineLatest(Model.FrameSizeProperty.GetObservable(), videoEnabled, (factor, frameSize, enabled) =>
+            .CombineLatest(Model.FrameSize.GetObservable(), videoEnabled, (factor, frameSize, enabled) =>
             {
                 if (!enabled) return null;
                 BufferDimensionBudget budget = BufferDimensionBudget.Resolve(BufferBudgetScope.Prediction);
@@ -287,7 +287,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         // Collect sources on the UI thread and check File.Exists off-thread; scan [Start, Start + Duration),
         // the range export renders.
         IReadOnlySet<string> referencedSources =
-            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(scene.Start, scene.Duration),
+            ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(scene.Start.Value, scene.Duration.Value),
                 videoEnabled, audioEnabled);
         IReadOnlyList<string> missingSources;
         try
@@ -368,7 +368,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             NotificationService.ShowError(Strings.Supersampling, supersampleWarning);
             _logger.LogWarning(
                 "Encoding blocked: supersampling factor {Factor} exceeds the device buffer limit for frame size {FrameSize}.",
-                SupersampleFactor.Value, Model.FrameSize);
+                SupersampleFactor.Value, Model.FrameSize.Value);
             throw CreateReportedFailure(supersampleWarning);
         }
     }
@@ -418,13 +418,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         Stopwatch stopwatch,
         CancellationToken cancellationToken)
     {
-        videoSettings.SourceSize = scene.FrameSize;
+        videoSettings.SourceSize.Value = scene.FrameSize.Value;
 
-        ProgressMax.Value = scene.Duration.ToSeconds() * ((videoEnabled ? 1 : 0) + (audioEnabled ? 1 : 0));
+        ProgressMax.Value = scene.Duration.Value.ToSeconds() * ((videoEnabled ? 1 : 0) + (audioEnabled ? 1 : 0));
 
-        double frameRate = videoSettings.FrameRate.ToDouble();
+        double frameRate = videoSettings.FrameRate.Value.ToDouble();
         if (!double.IsFinite(frameRate) || frameRate <= 0) frameRate = 30;
-        long totalFrames = videoEnabled ? FrameProviderImpl.ToFrameCount(scene.Duration, videoSettings.FrameRate) : 0;
+        long totalFrames = videoEnabled ? FrameProviderImpl.ToFrameCount(scene.Duration.Value, videoSettings.FrameRate.Value) : 0;
         _totalFrames = totalFrames;
         FrameProgressText.Value = $"0 / {totalFrames}";
 
@@ -437,15 +437,15 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         using var renderer = videoEnabled ? ExportRendererFactory.Create(scene, renderScale) : null;
         using var frameProgress = new Subject<MediaTime>();
         using IFrameProvider frameProvider = renderer != null
-            ? new FrameProviderImpl(scene, videoSettings.FrameRate, renderer, frameProgress)
+            ? new FrameProviderImpl(scene, videoSettings.FrameRate.Value, renderer, frameProgress)
             : DisabledMediaProvider.Instance;
         using var composer = audioEnabled ? new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
         {
-            SampleRate = audioSettings.SampleRate
+            SampleRate = audioSettings.SampleRate.Value
         } : null;
         using var sampleProgress = new Subject<MediaTime>();
         using ISampleProvider sampleProvider = composer != null
-            ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate, sampleProgress)
+            ? new SampleProviderImpl(scene, composer, audioSettings.SampleRate.Value, sampleProgress)
             : DisabledMediaProvider.Instance;
 
         IObservable<MediaTime> progress = videoEnabled && audioEnabled

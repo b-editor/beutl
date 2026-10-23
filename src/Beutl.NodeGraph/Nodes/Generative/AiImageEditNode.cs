@@ -67,7 +67,7 @@ public sealed partial class AiImageEditNode : GenerativeNode, IPromptInputNode
             OutpaintExpansionPercent = task == AiImageEditTask.Outpaint ? r.OutpaintExpansion.ToPercent() : null,
             Image = image,
             ModelId = NormalizeModelId(r.Model),
-            RequestKeySeed = RequestKeySeed,
+            RequestKeySeed = RequestKeySeed.Value,
             ParameterFingerprint = r.ComputeParameterFingerprint(),
         };
     }

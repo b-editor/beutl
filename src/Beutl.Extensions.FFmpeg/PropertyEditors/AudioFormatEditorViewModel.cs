@@ -29,7 +29,7 @@ internal sealed class AudioFormatEditorViewModel
         : base(property, extension, FFmpegOptionsCaches.AudioFormats, s_logger, "audio formats")
     {
         _selectedIndex = new ReactivePropertySlim<int>(-1).DisposeWith(Disposables);
-        Initialize(settings => settings.CodecProperty);
+        Initialize(settings => settings.Codec);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -52,7 +52,7 @@ internal sealed class AudioFormatEditorViewModel
     }
 
     protected override CodecQueryParams CreateQuery(FFmpegAudioEncoderSettings settings)
-        => CodecOptionQuery.Create(settings.Codec, settings.OutputFile);
+        => CodecOptionQuery.Create(settings.Codec.Value, settings.OutputFile);
 
     protected override async Task<OptionsQueryResult<AudioFormat>> QueryAsync(CodecQueryParams query)
     {

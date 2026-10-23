@@ -60,7 +60,7 @@ public sealed class AutoSaveService : IDisposable
                 _logger.LogTrace(
                     "Auto-saving object ({TypeName}, {ObjectId}).",
                     TypeFormat.ToString(obj.GetType()),
-                    obj.Id);
+                    obj.Id.Value);
                 CoreSerializer.StoreToUri(obj, obj.Uri!, CoreSerializationMode.Write);
             }
             catch (Exception ex)

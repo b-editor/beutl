@@ -201,7 +201,7 @@ public sealed class SKSLScriptEffectShaderTests
     {
         var effect = new SKSLScriptEffect
         {
-            TimeRange = TimeRange.FromSeconds(8),
+            TimeRange = { Value = TimeRange.FromSeconds(8) },
             Script =
             {
                 Value =

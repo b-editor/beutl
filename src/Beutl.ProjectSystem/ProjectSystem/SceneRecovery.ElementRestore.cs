@@ -67,7 +67,7 @@ internal sealed partial class SceneRecovery
             {
                 if (RecoveredElementJsonScanner.TryGetSerializedId(fallback.Json, out Guid serializedId))
                 {
-                    fallbackObject.Id = serializedId;
+                    fallbackObject.Id.Value = serializedId;
                 }
                 else
                 {
@@ -129,7 +129,7 @@ internal sealed partial class SceneRecovery
             && fallback.Json is { } json
             && !json.ContainsKey(nameof(CoreObject.Id)))
         {
-            json[nameof(CoreObject.Id)] = coreObject.Id.ToString();
+            json[nameof(CoreObject.Id)] = coreObject.Id.Value.ToString();
         }
     }
 
@@ -144,10 +144,10 @@ internal sealed partial class SceneRecovery
         JsonObject? root = RecoveredElementJsonScanner.TryParseTopLevelObject(rawText);
         var element = new Element
         {
-            Id = ResolveRecoveredElementId(metadataBytes, rawText, root, uri),
-            Name = Path.GetFileNameWithoutExtension(uri.LocalPath),
+            Id = { Value = ResolveRecoveredElementId(metadataBytes, rawText, root, uri) },
+            Name = { Value = Path.GetFileNameWithoutExtension(uri.LocalPath) },
             Uri = uri,
-            IsEnabled = false,
+            IsEnabled = { Value = false },
         };
         string? topLevelTypeName = RecoveredElementJsonScanner.TryGetTopLevelTypeName(metadataBytes, rawText, root);
         FallbackReason fallbackReason = topLevelTypeName is not null
@@ -156,7 +156,7 @@ internal sealed partial class SceneRecovery
             : FallbackReason.DeserializationFailed;
         var fallback = new FallbackEngineObject
         {
-            Name = "Unreadable element data",
+            Name = { Value = "Unreadable element data" },
             Reason = fallbackReason,
             ErrorMessage = fallbackReason == FallbackReason.DeserializationFailed
                 ? $"{ex.GetType().Name}: {ex.Message}"
@@ -350,7 +350,7 @@ internal sealed partial class SceneRecovery
             json.WriteDiscriminator(coreObject.GetType());
         }
 
-        json[nameof(CoreObject.Id)] = coreObject.Id.ToString();
+        json[nameof(CoreObject.Id)] = coreObject.Id.Value.ToString();
         fallback.Json = json;
     }
 
@@ -358,8 +358,8 @@ internal sealed partial class SceneRecovery
     {
         var json = new JsonObject
         {
-            [nameof(CoreObject.Id)] = fallback.Id.ToString(),
-            [nameof(CoreObject.Name)] = fallback.Name,
+            [nameof(CoreObject.Id)] = fallback.Id.Value.ToString(),
+            [nameof(CoreObject.Name)] = fallback.Name.Value,
         };
         if (typeName is not null)
         {

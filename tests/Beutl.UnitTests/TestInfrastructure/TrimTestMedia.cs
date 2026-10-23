@@ -65,7 +65,7 @@ internal static class TrimTestMedia
             case nameof(SceneSound):
                 var sceneSound = new SceneSound
                 {
-                    ReferencedScene = { Value = new Scene { Duration = Seconds(durationSeconds) } }
+                    ReferencedScene = { Value = new Scene { Duration = { Value = Seconds(durationSeconds) } } }
                 };
                 media = sceneSound;
                 speedProperty = sceneSound.Speed;
@@ -89,18 +89,18 @@ internal static class TrimTestMedia
     // Speed rising linearly from 100% at 0s to 200% at 10s.
     public static KeyFrameAnimation<float> CreateSpeedRamp(bool useGlobalClock)
     {
-        var animation = new KeyFrameAnimation<float> { UseGlobalClock = useGlobalClock };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = useGlobalClock } };
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 100,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 100 },
+            Easing = { Value = new LinearEasing() }
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = Seconds(10),
-            Value = 200,
-            Easing = new LinearEasing()
+            KeyTime = { Value = Seconds(10) },
+            Value = { Value = 200 },
+            Easing = { Value = new LinearEasing() }
         });
         return animation;
     }
@@ -116,9 +116,9 @@ internal sealed class ClampResizeToOriginalLengthScope : IDisposable
 
     public ClampResizeToOriginalLengthScope(bool value)
     {
-        _original = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = value;
+        _original = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = value;
     }
 
-    public void Dispose() => GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = _original;
+    public void Dispose() => GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = _original;
 }

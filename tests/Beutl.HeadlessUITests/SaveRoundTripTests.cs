@@ -48,8 +48,8 @@ public class SaveRoundTripTests
         HeadlessTestHelpers.Settle();
 
         Element element = editor.Scene.Children.Single();
-        Guid elementId = element.Id;
-        element.ZIndex = 4;
+        Guid elementId = element.Id.Value;
+        element.ZIndex.Value = 4;
         editor.HistoryManager.Commit("EditZIndex");
         HeadlessTestHelpers.Settle();
 
@@ -63,11 +63,11 @@ public class SaveRoundTripTests
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
-        Scene reopenedScene = BeutlApplication.Current.Project!.Items.OfType<Scene>().Single();
-        Element reopenedElement = reopenedScene.Children.Single(e => e.Id == elementId);
-        Assert.That(reopenedElement.Name, Is.EqualTo("RoundTripRect"));
-        Assert.That(reopenedElement.ZIndex, Is.EqualTo(4));
-        Assert.That(reopenedElement.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Scene reopenedScene = BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single();
+        Element reopenedElement = reopenedScene.Children.Single(e => e.Id.Value == elementId);
+        Assert.That(reopenedElement.Name.Value, Is.EqualTo("RoundTripRect"));
+        Assert.That(reopenedElement.ZIndex.Value, Is.EqualTo(4));
+        Assert.That(reopenedElement.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
 
         RectShape reopenedRect = reopenedElement.Objects.OfType<RectShape>().Single();
         Assert.That(reopenedRect.Width.Value, Is.EqualTo(321));
@@ -230,12 +230,12 @@ public class SaveRoundTripTests
         string elementFile = sourceScene.Children.Single().Uri!.LocalPath;
         var unrelatedScene = new Scene
         {
-            Name = "unrelated-original",
+            Name = { Value = "unrelated-original" },
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(projectFile)!,
                 "unrelated.scene")),
         };
-        Guid unrelatedSceneId = unrelatedScene.Id;
+        Guid unrelatedSceneId = unrelatedScene.Id.Value;
         project.Items.Add(unrelatedScene);
         CoreSerializer.StoreToUri(unrelatedScene, unrelatedScene.Uri);
         CoreSerializer.StoreToUri(
@@ -256,11 +256,11 @@ public class SaveRoundTripTests
         Project reopened = TestShell.Project.CurrentProject.Value!;
         Scene migratedScene = reopened.Items
             .OfType<Scene>()
-            .Single(scene => scene.Id == sourceScene.Id);
+            .Single(scene => scene.Id.Value == sourceScene.Id.Value);
         Scene unrelated = reopened.Items
             .OfType<Scene>()
-            .Single(scene => scene.Id == unrelatedSceneId);
-        unrelated.Name = "unrelated-unsaved";
+            .Single(scene => scene.Id.Value == unrelatedSceneId);
+        unrelated.Name.Value = "unrelated-unsaved";
         TestShell.Editor.ActivateTabItem(migratedScene);
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
@@ -317,7 +317,7 @@ public class SaveRoundTripTests
             File.ReadAllBytes(ElementFile));
 
         public string ReadPersistedUnrelatedSceneName()
-            => CoreSerializer.RestoreFromUri<Scene>(UnrelatedSceneUri).Name;
+            => CoreSerializer.RestoreFromUri<Scene>(UnrelatedSceneUri).Name.Value;
 
         public string[] FindTemporaryFiles() => Directory.GetFiles(
             Path.GetDirectoryName(ProjectFile)!,

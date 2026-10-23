@@ -29,9 +29,9 @@ public static class KeyFrameNavigationHelper
             {
                 if (property.GetKeyFrameAnimation() is { } kfa && visited.Add(kfa))
                 {
-                    MediaTime offset = kfa.UseGlobalClock
+                    MediaTime offset = kfa.UseGlobalClock.Value
                         ? MediaTime.Zero
-                        : obj.TimeRange.Start;
+                        : obj.TimeRange.Value.Start;
                     yield return (kfa, offset);
                 }
             }
@@ -47,7 +47,7 @@ public static class KeyFrameNavigationHelper
                 && visited.Add(kfa))
             {
                 MediaTime offset;
-                if (kfa.UseGlobalClock)
+                if (kfa.UseGlobalClock.Value)
                 {
                     offset = MediaTime.Zero;
                 }
@@ -78,7 +78,7 @@ public static class KeyFrameNavigationHelper
                 foreach (IKeyFrame kf in anim.KeyFrames)
                 {
                     // Times within a tick of a frame, as a template's key times can be, count as that frame.
-                    MediaTime time = MediaTimeJsonConverter.SnapToFrame(kf.KeyTime, rate)
+                    MediaTime time = MediaTimeJsonConverter.SnapToFrame(kf.KeyTime.Value, rate)
                                      + MediaTimeJsonConverter.SnapToFrame(offset, rate);
                     bool inDirection = forward ? time > current : time < current;
                     bool isCloser = target == null

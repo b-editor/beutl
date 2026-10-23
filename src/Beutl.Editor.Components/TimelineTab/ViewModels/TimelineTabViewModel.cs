@@ -70,7 +70,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
             .Select(num => new LayerHeaderViewModel(num, this)));
         if (Scene.Children.Count > 0)
         {
-            AddLayerHeaders(Scene.Children.Max(i => i.ZIndex) + 1);
+            AddLayerHeaders(Scene.Children.Max(i => i.ZIndex.Value) + 1);
             Elements.EnsureCapacity(Scene.Children.Count);
             Elements.AddRange(Scene.Children.Select(item => new ElementViewModel(item, this)));
         }
@@ -79,20 +79,20 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         // feeds the compositor, so it needs a header to show and clear its flags.
         if (Scene.Layers.Count > 0)
         {
-            AddLayerHeaders(Scene.Layers.Max(l => l.ZIndex) + 1);
+            AddLayerHeaders(Scene.Layers.Max(l => l.ZIndex.Value) + 1);
         }
 
         Scene.Children.TrackCollectionChanged(
                 (idx, item) =>
                 {
-                    _logger.LogDebug("Element added {Id}.", item.Id);
-                    AddLayerHeaders(item.ZIndex + 1);
+                    _logger.LogDebug("Element added {Id}.", item.Id.Value);
+                    AddLayerHeaders(item.ZIndex.Value + 1);
                     Elements.Insert(idx, new ElementViewModel(item, this));
                 },
                 (idx, _) =>
                 {
                     ElementViewModel element = Elements[idx];
-                    _logger.LogDebug("Element removed {Id}.", element.Model.Id);
+                    _logger.LogDebug("Element removed {Id}.", element.Model.Id.Value);
                     SelectedElements.Remove(element);
                     Elements.RemoveAt(idx);
                     element.Dispose();
@@ -140,25 +140,25 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         GoToPreviousGap = new ReactiveCommandSlim().WithSubscribe(() => GoToGap(forward: false)).DisposeWith(_disposables);
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
 
-        AutoAdjustSceneDuration = editorConfig.AutoAdjustSceneDurationProperty.GetObservable()
+        AutoAdjustSceneDuration = editorConfig.AutoAdjustSceneDuration.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         AutoAdjustSceneDuration.Subscribe(b =>
         {
             _logger.LogDebug("AutoAdjustSceneDuration changed to {Value}.", b);
-            editorConfig.AutoAdjustSceneDuration = b;
+            editorConfig.AutoAdjustSceneDuration.Value = b;
         });
 
-        IsSnapEnabled = editorConfig.IsTimelineSnapEnabledProperty.GetObservable()
+        IsSnapEnabled = editorConfig.IsTimelineSnapEnabled.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        IsSnapEnabled.Subscribe(b => editorConfig.IsTimelineSnapEnabled = b)
+        IsSnapEnabled.Subscribe(b => editorConfig.IsTimelineSnapEnabled.Value = b)
             .DisposeWith(_disposables);
 
-        IsRippleEnabled = editorConfig.IsRippleEnabledProperty.GetObservable()
+        IsRippleEnabled = editorConfig.IsRippleEnabled.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        IsRippleEnabled.Subscribe(b => editorConfig.IsRippleEnabled = b)
+        IsRippleEnabled.Subscribe(b => editorConfig.IsRippleEnabled.Value = b)
             .DisposeWith(_disposables);
 
         DeleteAllFrameCache = new ReactiveCommandSlim()
@@ -216,7 +216,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         if (result.IsSuccess)
         {
             Element scrollTarget = result.Items[^1].PrimaryElement;
-            ScrollTo.Execute((scrollTarget.Range, scrollTarget.ZIndex));
+            ScrollTo.Execute((scrollTarget.Range, scrollTarget.ZIndex.Value));
             return result;
         }
 
@@ -314,7 +314,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
 
     public ReactiveCommandSlim GoToPreviousGap { get; }
 
-    public CoreList<SceneMarker> Markers => Scene.Markers;
+    public IListProperty<SceneMarker> Markers => Scene.Markers;
 
     public ReactiveCommandSlim DeleteAllFrameCache { get; }
 
@@ -417,11 +417,11 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         }
 
         HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
-            SelectedElements.Select(s => s.Model.Id),
+            SelectedElements.Select(s => s.Model.Id.Value),
             Scene.Groups);
 
         var sources = Elements
-            .Where(x => ids.Contains(x.Model.Id))
+            .Where(x => ids.Contains(x.Model.Id.Value))
             .Select(x => x.Model)
             .ToArray();
 
@@ -490,26 +490,26 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
     public void AttachInline(IAnimatablePropertyAdapter property, Element element)
     {
         _logger.LogInformation("Attaching inline animation for element {ElementId} and property {Property}.",
-            element.Id, property);
+            element.Id.Value, property);
         if (Inlines.Any(x => x.Element.Model == element && x.Property == property))
         {
-            _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id);
+            _logger.LogWarning("Inline animation already attached for element {ElementId}.", element.Id.Value);
             return;
         }
 
         if (GetViewModelFor(element) is not { } viewModel)
         {
-            _logger.LogError("Failed to attach inline animation for element {ElementId}.", element.Id);
+            _logger.LogError("Failed to attach inline animation for element {ElementId}.", element.Id.Value);
             return;
         }
 
         Inlines.Add(new InlineAnimationLayerViewModel(property, this, viewModel));
-        _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id);
+        _logger.LogInformation("Inline animation attached successfully for element {ElementId}.", element.Id.Value);
     }
 
     public void DetachInline(InlineAnimationLayerViewModel item)
     {
-        _logger.LogInformation("Detaching inline animation for element {ElementId}.", item.Element.Model.Id);
+        _logger.LogInformation("Detaching inline animation for element {ElementId}.", item.Element.Model.Id.Value);
         if (item.LayerHeader.Value is { } layerHeader)
         {
             layerHeader.Inlines.Remove(item);
@@ -518,7 +518,7 @@ public sealed partial class TimelineTabViewModel : IToolContext, IContextCommand
         Inlines.Remove(item);
         item.Dispose();
         _logger.LogInformation("Inline animation detached successfully for element {ElementId}.",
-            item.Element.Model.Id);
+            item.Element.Model.Id.Value);
     }
 
     public void ClearSelected()

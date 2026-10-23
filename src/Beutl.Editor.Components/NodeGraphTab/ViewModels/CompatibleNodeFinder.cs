@@ -57,7 +57,7 @@ internal static class CompatibleNodeFinder
     {
         var result = new Dictionary<GraphNodeRegistry.RegistryItem, Candidate>(ReferenceEqualityComparer.Instance);
         if (source.AssociatedType == null) return result;
-        if (source is IInputPort input && (input is not IListInputPort && !input.Connection.IsNull
+        if (source is IInputPort input && (input is not IListInputPort && !input.Connection.Value.IsNull
                                            || input.FindHierarchicalParent<GraphNode>() is { } owner
                                            && !owner.CanConnectInput(input)))
             return result;
@@ -132,11 +132,11 @@ internal static class CompatibleNodeFinder
                 {
                     NodeMember? root = (port as INestedInputPort)?.RootMember.Value;
                     bool canConnectInput = port is IInputPort input
-                        && (input is IListInputPort || input.Connection.IsNull)
+                        && (input is IListInputPort || input.Connection.Value.IsNull)
                         && node.CanConnectInput(input);
-                    return new PortChoice(index, port.Name, port.AssociatedType,
+                    return new PortChoice(index, port.Name.Value, port.AssociatedType,
                         port is IInputPort, port is IOutputPort, canConnectInput,
-                        port.Display, root?.Name, root?.Display);
+                        port.Display.Value, root?.Name.Value, root?.Display.Value);
                 }).ToArray();
             return new NodeDescriptor(ports, (node as IDynamicPortNode)?.PossibleLocation);
         }
@@ -159,7 +159,7 @@ internal static class CompatibleNodeFinder
             if (choice == null) return selected = node is IDynamicPortNode;
 
             port = node.EnumerateMembers().OfType<INodePort>().ElementAtOrDefault(choice.Index);
-            return selected = port != null && port.Name == choice.Name
+            return selected = port != null && port.Name.Value == choice.Name
                 && port.AssociatedType == choice.AssociatedType && CanConnect(source, port);
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -220,7 +220,7 @@ internal static class CompatibleNodeFinder
             return false;
         }
 
-        if (input is not IListInputPort && !input.Connection.IsNull) return false;
+        if (input is not IListInputPort && !input.Connection.Value.IsNull) return false;
         if (input.FindHierarchicalParent<GraphNode>() is { } owner && !owner.CanConnectInput(input))
             return false;
         if (output.AssociatedType is not { } outputType || input.AssociatedType is not { } inputType)

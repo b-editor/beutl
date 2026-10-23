@@ -24,20 +24,20 @@ internal sealed class GraphEditorDragSnapshot
         _channel = channel;
         InitialBaseline = channel.Parent.Baseline.Value;
         Entries = channel.KeyFrames.Where(x => x.IsSelected.Value)
-            .Select(x => new Entry(x.Model, x.Model.KeyTime, x.Model.Value, channel.ConvertToDouble(x.Model.Value)))
+            .Select(x => new Entry(x.Model, x.Model.KeyTime.Value, x.Model.Value, channel.ConvertToDouble(x.Model.Value)))
             .ToArray();
         foreach (var key in channel.KeyFrames)
-            _originalEasings[key.Model] = key.Model.Easing;
+            _originalEasings[key.Model] = key.Model.Easing.Value;
         foreach (var key in channel.KeyFrames.Where(x => x.IsSelected.Value))
             Velocities[key.Model] = (GraphEditorCurveMath.KeyVelocity(key), GraphEditorCurveMath.KeyVelocity(key, true));
         for (int i = 1; i < channel.KeyFrames.Count; i++)
         {
             var item = channel.KeyFrames[i];
             var previous = channel.KeyFrames[i - 1];
-            Easing original = item.Model.Easing;
+            Easing original = item.Model.Easing.Value;
             _reversedSegments[(item.Model, previous.Model)] = ReverseEasing(original);
             if (original is not SplineEasing spline) continue;
-            double duration = (item.Model.KeyTime - previous.Model.KeyTime).ToSeconds();
+            double duration = (item.Model.KeyTime.Value - previous.Model.KeyTime.Value).ToSeconds();
             double difference = channel.ConvertToDouble(item.Model.Value) - channel.ConvertToDouble(previous.Model.Value);
             var incoming = new Point((spline.X2 - 1) * duration, (spline.Y2 - 1) * difference);
             var outgoing = new Point(spline.X1 * duration, spline.Y1 * difference);
@@ -73,7 +73,7 @@ internal sealed class GraphEditorDragSnapshot
         // part of the transform changes the animation, retaining the last valid preview.
         if (timeScale < 0 && _reversedSegments.Any(segment => segment.Value == null
                 && selected.Contains(segment.Key.Start) && selected.Contains(segment.Key.End))) return false;
-        var occupied = editor.Animation.KeyFrames.Where(key => !selected.Contains(key)).Select(key => key.KeyTime).ToHashSet();
+        var occupied = editor.Animation.KeyFrames.Where(key => !selected.Contains(key)).Select(key => key.KeyTime.Value).ToHashSet();
         // Reject the whole proposal before changing values or tangents. A drag can continue
         // past the occupied frame while retaining its last valid state at a collision.
         if (times.Distinct().Count() != times.Length || times.Any(occupied.Contains)) return false;
@@ -107,7 +107,7 @@ internal sealed class GraphEditorDragSnapshot
     {
         foreach (var (entry, time) in changes.Select((change, index) => (change.Entry, Time: times[index])).OrderByDescending(x => x.Time))
         {
-            entry.Model.KeyTime = time;
+            entry.Model.KeyTime.Value = time;
         }
     }
 
@@ -161,11 +161,11 @@ internal sealed class GraphEditorDragSnapshot
             if (!selected.Contains(item.Model) && !selected.Contains(previous.Model)) continue;
             if (timeScale < 0 && selected.Contains(item.Model) && selected.Contains(previous.Model)
                 && _reversedSegments.TryGetValue((previous.Model, item.Model), out var reversed) && reversed != null)
-                item.Model.Easing = reversed;
+                item.Model.Easing.Value = reversed;
             else if (_originalEasings.TryGetValue(item.Model, out var original))
-                item.Model.Easing = original;
-            if (item.Model.Easing is not SplineEasing spline) continue;
-            double duration = (item.Model.KeyTime - previous.Model.KeyTime).ToSeconds();
+                item.Model.Easing.Value = original;
+            if (item.Model.Easing.Value is not SplineEasing spline) continue;
+            double duration = (item.Model.KeyTime.Value - previous.Model.KeyTime.Value).ToSeconds();
             double difference = _channel.ConvertToDouble(item.Model.Value) - _channel.ConvertToDouble(previous.Model.Value);
             if (handles.GetValueOrDefault(previous.Model).Outgoing is { } first)
                 SetHandle(spline, false, first, duration, difference);

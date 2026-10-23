@@ -42,14 +42,14 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
     private void Subscribe(Element element)
     {
-        element.StartProperty.ValueChanged += OnElementStartChanged;
-        element.LengthProperty.ValueChanged += OnElementLengthChanged;
+        element.Start.ValueChanged += OnElementStartChanged;
+        element.Length.ValueChanged += OnElementLengthChanged;
     }
 
     private void Unsubscribe(Element element)
     {
-        element.StartProperty.ValueChanged -= OnElementStartChanged;
-        element.LengthProperty.ValueChanged -= OnElementLengthChanged;
+        element.Start.ValueChanged -= OnElementStartChanged;
+        element.Length.ValueChanged -= OnElementLengthChanged;
     }
 
     private void OnElementAttached(Element obj)

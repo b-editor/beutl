@@ -36,9 +36,9 @@ public class ScenePackageTests
                 Directory.CreateDirectory(elementsDirectory);
                 string imagePath = Path.Combine(directory, "image.png");
                 ImageSource image = TestImages.WriteImage(imagePath);
-                var element = new Element { Name = "Clip-" + name, Uri = new Uri(Path.Combine(elementsDirectory, "shared.belm")), Length = MediaTime.FromSeconds(1) };
+                var element = new Element { Name = { Value = "Clip-" + name }, Uri = new Uri(Path.Combine(elementsDirectory, "shared.belm")), Length = { Value = MediaTime.FromSeconds(1) } };
                 element.Objects.Add(new SourceImage { Source = { Value = image } });
-                expected.Add(name, element.Id);
+                expected.Add(name, element.Id.Value);
                 var scene = new Scene(64, 64, name) { Uri = new Uri(Path.Combine(directory, "shared.scene")) };
                 scene.Children.Add(element);
                 var removed = new Element { Uri = new Uri(Path.Combine(elementsDirectory, "removed.belm")) };
@@ -53,7 +53,7 @@ public class ScenePackageTests
                 }
                 else
                 {
-                    var parent = new Element { Uri = new Uri(Path.Combine(mainDirectory, name + ".belm")), Length = MediaTime.FromSeconds(1) };
+                    var parent = new Element { Uri = new Uri(Path.Combine(mainDirectory, name + ".belm")), Length = { Value = MediaTime.FromSeconds(1) } };
                     parent.Objects.Add(new SceneDrawable { ReferencedScene = { Value = scene } });
                     main.Children.Add(parent);
                 }
@@ -81,13 +81,13 @@ public class ScenePackageTests
             Assert.That(imported, Is.Not.Null);
             string importedRoot = Path.GetDirectoryName(imported!.Uri!.LocalPath)!;
             Scene[] scenes = GetScenes(imported, topLevel).ToArray();
-            Assert.That(scenes.Select(scene => scene.Name), Is.EquivalentTo(expected.Keys));
+            Assert.That(scenes.Select(scene => scene.Name.Value), Is.EquivalentTo(expected.Keys));
             foreach (Scene scene in scenes)
             {
-                Assert.That(scene.Children, Has.Count.EqualTo(1), scene.Name);
+                Assert.That(scene.Children, Has.Count.EqualTo(1), scene.Name.Value);
                 Element element = scene.Children.Single();
-                Assert.That(element.Id, Is.EqualTo(expected[scene.Name]));
-                Assert.That(element.Name, Is.EqualTo("Clip-" + scene.Name));
+                Assert.That(element.Id.Value, Is.EqualTo(expected[scene.Name.Value]));
+                Assert.That(element.Name.Value, Is.EqualTo("Clip-" + scene.Name.Value));
                 Assert.That(scene.Uri!.LocalPath, Does.StartWith(importedRoot + Path.DirectorySeparatorChar));
                 Assert.That(Path.GetRelativePath(Path.GetDirectoryName(scene.Uri.LocalPath)!, element.Uri!.LocalPath),
                     Is.EqualTo(nestedElements ? Path.Combine("clips", "shared.belm") : "shared.belm"));
@@ -106,6 +106,6 @@ public class ScenePackageTests
 
     private static IEnumerable<Scene> GetScenes(Project project, bool topLevel)
         => topLevel
-            ? project.Items.OfType<Scene>().Where(scene => scene.Name != "Main")
+            ? project.Items.OfType<Scene>().Where(scene => scene.Name.Value != "Main")
             : project.Items.OfType<Scene>().Single().Children.Select(element => element.Objects.OfType<SceneDrawable>().Single().ReferencedScene.Value!);
 }

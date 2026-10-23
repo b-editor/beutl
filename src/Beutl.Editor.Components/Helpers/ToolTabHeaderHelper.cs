@@ -26,7 +26,7 @@ internal static class ToolTabHeaderHelper
     {
         return element is null
             ? Observable.ReturnThenNever(string.Empty)
-            : element.NameProperty.GetObservable().Select(n => ElementLabel(n, element));
+            : element.Name.GetObservable().Select(n => ElementLabel(n, element));
     }
 
     // The object's own name, or the label of the element it belongs to.
@@ -38,7 +38,7 @@ internal static class ToolTabHeaderHelper
         IObservable<string> elementLabel = ObserveElementLabel(
             (obj as IHierarchical)?.FindHierarchicalParent<Element>(includeSelf: true));
 
-        return obj.NameProperty.GetObservable()
+        return obj.Name.GetObservable()
             .CombineLatest(elementLabel, (name, element) => string.IsNullOrWhiteSpace(name) ? element : name);
     }
 }

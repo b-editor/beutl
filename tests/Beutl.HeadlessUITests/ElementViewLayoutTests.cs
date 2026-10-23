@@ -84,7 +84,7 @@ public class ElementViewLayoutTests
     {
         using ElementScope scope = await ElementScope.CreateAsync("elementview-locked");
         var viewModel = (ElementViewModel)scope.Element.DataContext!;
-        viewModel.Model.IsLocked = true;
+        viewModel.Model.IsLocked.Value = true;
         HeadlessTestHelpers.Render(5);
         Assert.That(viewModel.IsEditable.Value, Is.False, "Locking the element must make it non-editable.");
 

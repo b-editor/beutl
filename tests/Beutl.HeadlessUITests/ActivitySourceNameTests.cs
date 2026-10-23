@@ -34,10 +34,10 @@ public sealed class ActivitySourceNameTests
 
         List<string> subscribed = Telemetry.GetActivitySourceNames(new TelemetryConfig
         {
-            Beutl_Application = true,
-            Beutl_PackageManagement = true,
-            Beutl_Api_Client = true,
-            Beutl_Logging = true,
+            Beutl_Application = { Value = true },
+            Beutl_PackageManagement = { Value = true },
+            Beutl_Api_Client = { Value = true },
+            Beutl_Logging = { Value = true },
         });
 
         Assert.Multiple(() =>

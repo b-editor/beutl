@@ -25,7 +25,7 @@ internal sealed class ExpressionEvaluationState<T>(IExpression<T> expression)
             {
                 Log.CreateLogger("PropertyExpression").LogWarning(exception,
                     "Expression for {OwnerType} ({OwnerId}).{PropertyName} failed; using the animation or current value.",
-                    owner?.GetType().Name, owner?.Id, propertyName);
+                    owner?.GetType().Name, owner?.Id.Value, propertyName);
             }
             catch
             {

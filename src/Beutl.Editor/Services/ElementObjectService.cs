@@ -118,9 +118,9 @@ public sealed class ElementObjectService : IElementObjectService
         // A fallback that saves the JSON it was read from as it is would lose the change on save.
         if (obj is IFallback fallback && !fallback.SavesItsMembers()) return false;
         if (!ElementEditability.IsEditable(obj.FindHierarchicalParent<Element>())) return false;
-        if (obj.IsEnabled == isEnabled) return false;
+        if (obj.IsEnabled.Value == isEnabled) return false;
 
-        obj.IsEnabled = isEnabled;
+        obj.IsEnabled.Value = isEnabled;
         _historyManager.Commit(CommandNames.ChangeObjectEnabled);
         return true;
     }

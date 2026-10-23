@@ -35,13 +35,13 @@ public class CollectionJsonConverterSerializationTests
     [Test]
     public void KeyFrameValue_WritesTheValueWithItsConverterAndReadsItBack()
     {
-        var keyFrame = new KeyFrame<PointList?> { Value = new PointList(s_points) };
+        var keyFrame = new KeyFrame<PointList?> { Value = { Value = new PointList(s_points) } };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(keyFrame);
         var restored = (KeyFrame<PointList?>)CoreSerializer.DeserializeFromJsonObject(json, typeof(KeyFrame<PointList?>));
 
         Assert.That(json[nameof(KeyFrame<PointList?>.Value)]!.ToJsonString(), Is.EqualTo(ConverterJson));
-        Assert.That(restored.Value, Is.EqualTo(s_points));
+        Assert.That(restored.Value.Value, Is.EqualTo(s_points));
     }
 
     // Node graph properties are written as object and read back as their property type.

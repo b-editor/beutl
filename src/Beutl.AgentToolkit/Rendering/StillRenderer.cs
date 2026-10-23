@@ -99,8 +99,8 @@ public sealed partial class StillRenderer
         {
             using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
 
-            ThrowIfSourcesMissing(scene, time + scene.Start);
-            var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start);
+            ThrowIfSourcesMissing(scene, time + scene.Start.Value);
+            var frame = renderer.Compositor.EvaluateGraphics(time + scene.Start.Value);
             renderer.Render(frame);
             return project(scene, renderer, time);
         }, ct: cancellationToken).ConfigureAwait(false);
@@ -111,14 +111,14 @@ public sealed partial class StillRenderer
     // A Scene3D on a disabled or never-rendered element must not force the GPU requirement.
     internal static bool ContainsGpuOnlyContent(Scene scene, MediaTime? relativeTime = null)
     {
-        MediaTime windowStart = scene.Start;
-        MediaTime windowEnd = scene.Start + scene.Duration;
+        MediaTime windowStart = scene.Start.Value;
+        MediaTime windowEnd = scene.Start.Value + scene.Duration.Value;
         return scene.Children
-            .Where(element => element.IsEnabled)
+            .Where(element => element.IsEnabled.Value)
             .Where(element => relativeTime is { } time
-                ? element.Range.Contains(time + scene.Start)
-                : scene.Duration <= MediaTime.Zero
-                  || (element.Start < windowEnd && element.Start + element.Length > windowStart))
+                ? element.Range.Contains(time + scene.Start.Value)
+                : scene.Duration.Value <= MediaTime.Zero
+                  || (element.Start.Value < windowEnd && element.Start.Value + element.Length.Value > windowStart))
             .SelectMany(element => element.Objects)
             .Any(ContainsEnabledGpuContent);
     }
@@ -152,7 +152,7 @@ public sealed partial class StillRenderer
             return false;
         }
 
-        if (node is EngineObject { IsEnabled: false })
+        if (node is EngineObject { IsEnabled.Value: false })
         {
             return false;
         }
@@ -216,16 +216,16 @@ public sealed partial class StillRenderer
     {
         // The frame is rendered at time + scene.Start (EvaluateGraphics), so element activity must be
         // filtered at the same absolute time or a non-zero Scene.Start reports the wrong elements.
-        MediaTime renderTime = time + scene.Start;
+        MediaTime renderTime = time + scene.Start.Value;
         return scene.Children
-            .Where(element => element.IsEnabled && element.Range.Contains(renderTime))
-            .OrderBy(element => element.ZIndex)
+            .Where(element => element.IsEnabled.Value && element.Range.Contains(renderTime))
+            .OrderBy(element => element.ZIndex.Value)
             .Select(element => new RenderStillActiveElement(
-                element.Id.ToString(),
-                element.Name,
-                element.Start.ToTimeSpan().ToString("c"),
-                element.Length.ToTimeSpan().ToString("c"),
-                element.ZIndex,
+                element.Id.Value.ToString(),
+                element.Name.Value,
+                element.Start.Value.ToTimeSpan().ToString("c"),
+                element.Length.Value.ToTimeSpan().ToString("c"),
+                element.ZIndex.Value,
                 element.Objects.Count))
             .ToArray();
     }
@@ -235,11 +235,11 @@ public sealed partial class StillRenderer
         SceneRenderer renderer,
         MediaTime time)
     {
-        MediaTime renderTime = time + scene.Start;
+        MediaTime renderTime = time + scene.Start.Value;
         var result = new List<RenderedTextBounds>();
         foreach (Element element in scene.Children)
         {
-            if (!element.IsEnabled || !element.Range.Contains(renderTime))
+            if (!element.IsEnabled.Value || !element.Range.Contains(renderTime))
             {
                 continue;
             }
@@ -262,7 +262,7 @@ public sealed partial class StillRenderer
         SceneRenderer renderer,
         List<RenderedTextBounds> result)
     {
-        if (obj is TextBlock textBlock && textBlock.IsEnabled
+        if (obj is TextBlock textBlock && textBlock.IsEnabled.Value
             && renderer.GetBoundary(textBlock) is { } bounds
             && bounds.Width > 0
             && bounds.Height > 0)

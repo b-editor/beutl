@@ -33,11 +33,11 @@ public sealed class LiveSessionTests
             Assert.That(result.IsSuccess, Is.True);
             // One dispatch for the apply.
             Assert.That(binding.InvokeCount, Is.EqualTo(1));
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(8)));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(8)));
         });
 
         session.History.Undo();
-        Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(300)));
+        Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(300)));
     }
 
     [Test]

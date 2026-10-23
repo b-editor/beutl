@@ -53,8 +53,8 @@ public sealed class ElementDuplicateService : IElementDuplicateService
             // Only rows a duplicate actually lands on matter — a sparse selection
             // (layers 0 and 2) must not be blocked by content or a lock on layer 1.
             // Snapshot once: the bounded spiral search probes these per candidate.
-            var rowOffsets = regenerated.Select(r => r.ZIndex - minZIndex).ToHashSet();
-            HashSet<int> lockedRows = scene.Layers.Where(l => l.IsLocked).Select(l => l.ZIndex).ToHashSet();
+            var rowOffsets = regenerated.Select(r => r.ZIndex.Value - minZIndex).ToHashSet();
+            HashSet<int> lockedRows = scene.Layers.Where(l => l.IsLocked.Value).Select(l => l.ZIndex.Value).ToHashSet();
             (anchorStart, anchorZIndex) =
                 CorrectPosition(scene, seedRange, rowOffsets, lockedRows, clickedFrame, clickedLayer);
 
@@ -195,7 +195,7 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     {
         foreach (Element child in scene.Children)
         {
-            if (!rowOffsets.Contains(child.ZIndex - anchorZIndex)) continue;
+            if (!rowOffsets.Contains(child.ZIndex.Value - anchorZIndex)) continue;
             TimeRange other = child.Range;
             if (other == range || other.Intersects(range) || other.Contains(range) || range.Contains(other))
             {

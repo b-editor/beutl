@@ -99,9 +99,9 @@ public sealed class FFmpegDecoderInfo : IDecoderInfo
         {
             FilePath = file,
             StreamsToLoad = (int)options.StreamsToLoad,
-            ThreadCount = _settings.ThreadCount,
-            Acceleration = (int)_settings.Acceleration,
-            ForceSrgbGamma = _settings.ForceSrgbGamma,
+            ThreadCount = _settings.ThreadCount.Value,
+            Acceleration = (int)_settings.Acceleration.Value,
+            ForceSrgbGamma = _settings.ForceSrgbGamma.Value,
         };
 
         // Nothing uses a reader the worker opens after the time limit, so close it rather than leave its decoder

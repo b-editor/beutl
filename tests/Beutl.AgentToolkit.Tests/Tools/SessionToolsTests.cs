@@ -28,13 +28,7 @@ public sealed class SessionToolsTests
             ScanProperties<RegisteredOptionalTransformElement>();
         }
 
-        public IProperty<Optional<Transform>> PluginTransformProperty { get; } = new ValueOnlyProperty<Optional<Transform>>(default);
-
-        public Optional<Transform> PluginTransform
-        {
-            get => PluginTransformProperty.Value;
-            set => PluginTransformProperty.Value = value;
-        }
+        public IProperty<Optional<Transform>> PluginTransform { get; } = new ValueOnlyProperty<Optional<Transform>>(default);
     }
 
     [Test]
@@ -51,8 +45,8 @@ public sealed class SessionToolsTests
         Scene scene = project.Items.OfType<Scene>().Single();
         var element = new Element
         {
-            Name = "Corrupt element",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Corrupt element" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(scene.Uri!.LocalPath)!,
                 "corrupt-element.belm"))
@@ -157,8 +151,8 @@ public sealed class SessionToolsTests
         Scene scene = project.Items.OfType<Scene>().Single();
         var element = new Element
         {
-            Name = "Clip",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Clip" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
         };
         element.AddObject(new RectShape());
@@ -195,14 +189,14 @@ public sealed class SessionToolsTests
         var animation = new KeyFrameAnimation<EngineObject?>();
         animation.KeyFrames.Add(new KeyFrame<EngineObject?>
         {
-            KeyTime = MediaTime.Zero,
-            Value = new RectShape(),
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = new RectShape() },
         }, out _);
         holder.AnimatedValue.SetKeyFrameAnimation(animation);
         var element = new Element
         {
-            Name = "Animated fallback",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Animated fallback" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(scene.Uri!.LocalPath)!,
                 "animation-fallback.belm")),
@@ -264,14 +258,14 @@ public sealed class SessionToolsTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 32,
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 32 },
         });
         shape.Width.SetKeyFrameAnimation(animation);
         var element = new Element
         {
-            Name = "Easing replacement",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Easing replacement" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(
                 Path.GetDirectoryName(scene.Uri!.LocalPath)!,
                 "easing-replacement.belm")),
@@ -328,8 +322,8 @@ public sealed class SessionToolsTests
         string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         var healthy = new Element
         {
-            Name = "Healthy element",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Healthy element" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(sceneDirectory, "healthy-element.belm")),
         };
         healthy.AddObject(new RectShape
@@ -340,8 +334,8 @@ public sealed class SessionToolsTests
         });
         var malformed = new Element
         {
-            Name = "Malformed element",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Malformed element" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(sceneDirectory, "malformed-element.belm")),
         };
         malformed.AddObject(new RectShape
@@ -422,7 +416,7 @@ public sealed class SessionToolsTests
         var fallback = new FallbackTransform();
         var element = new RegisteredOptionalTransformElement
         {
-            PluginTransform = new Optional<Transform>(fallback),
+            PluginTransform = { Value = new Optional<Transform>(fallback) },
         };
         IFallback[] fallbacks = SerializedGraphTraversal.Enumerate(element)
             .OfType<IFallback>()
@@ -448,14 +442,14 @@ public sealed class SessionToolsTests
         string secondPath = Path.Combine(sceneDirectory, "second", "clip.belm");
         scene.Children.Add(new Element
         {
-            Name = "First clip",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "First clip" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(firstPath),
         });
         scene.Children.Add(new Element
         {
-            Name = "Second clip",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Second clip" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(secondPath),
         });
         ProjectOperations.Save(project);
@@ -501,8 +495,8 @@ public sealed class SessionToolsTests
         {
             scene.Children.Add(new Element
             {
-                Name = "Clip",
-                Length = MediaTime.FromSeconds(1),
+                Name = { Value = "Clip" },
+                Length = { Value = MediaTime.FromSeconds(1) },
                 Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "clip.belm")),
             });
         }
@@ -513,7 +507,7 @@ public sealed class SessionToolsTests
             Element element = scene.Children.Single();
             File.WriteAllText(
                 element.Uri!.LocalPath,
-                $$"""{"\u0024type":"{{MissingType}}","Id":"{{element.Id}}","Name":"Clip"}""");
+                $$"""{"\u0024type":"{{MissingType}}","Id":"{{element.Id.Value}}","Name":"Clip"}""");
         }
 
         var manager = new AgentSessionManager();
@@ -529,7 +523,7 @@ public sealed class SessionToolsTests
             Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.ElementFile),
                 Is.All.EqualTo("clip.belm"));
             Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.SceneId),
-                Is.EquivalentTo(scenes.Select(static scene => scene.Id.ToString())));
+                Is.EquivalentTo(scenes.Select(static scene => scene.Id.Value.ToString())));
             Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.SceneName),
                 Is.EquivalentTo(new[] { "First scene", "Second scene" }));
             Assert.That(opened.Value.RecoveryIncidents.Select(static incident => incident.TypeName),
@@ -572,7 +566,7 @@ public sealed class SessionToolsTests
             Assert.That(saved.IsSuccess, Is.True, saved.Error?.Message);
             Assert.That(File.ReadAllBytes(fixture.MalformedPath), Is.EqualTo(fixture.MalformedBytes));
             Assert.That(
-                ((Scene)manager.CurrentSession!.Root).Children.Single(item => item.Id == fixture.HealthyId).Name,
+                ((Scene)manager.CurrentSession!.Root).Children.Single(item => item.Id.Value == fixture.HealthyId).Name.Value,
                 Is.EqualTo("Renamed healthy element"));
         });
     }
@@ -612,8 +606,8 @@ public sealed class SessionToolsTests
             Assert.That(File.ReadAllBytes(fixture.MalformedPath), Is.EqualTo(fixture.MalformedBytes),
                 "Declarative deletion excludes the recovered sidecar; it does not destroy the opaque source file.");
             Assert.That(File.ReadAllBytes(fixture.HealthyPath), Is.EqualTo(healthyBytes));
-            Assert.That(reopenedScene.Children.Select(static item => item.Id), Does.Not.Contain(fixture.MalformedId));
-            Assert.That(reopenedScene.Children.Select(static item => item.Id), Does.Contain(fixture.HealthyId));
+            Assert.That(reopenedScene.Children.Select(static item => item.Id.Value), Does.Not.Contain(fixture.MalformedId));
+            Assert.That(reopenedScene.Children.Select(static item => item.Id.Value), Does.Contain(fixture.HealthyId));
         });
     }
 
@@ -675,7 +669,7 @@ public sealed class SessionToolsTests
         JsonObject file = JsonNode.Parse(File.ReadAllText(created.Value!.SavedPath))!.AsObject();
         Assert.Multiple(() =>
         {
-            Assert.That(project.FrameRate.ToString(), Is.EqualTo(saved));
+            Assert.That(project.FrameRate.Value.ToString(), Is.EqualTo(saved));
             Assert.That((string?)file["FrameRate"], Is.EqualTo(saved));
         });
     }
@@ -775,8 +769,8 @@ public sealed class SessionToolsTests
         {
             Assert.That(added.IsSuccess, Is.True, added.Error?.Message);
             Assert.That(session.Project.Items.OfType<Scene>().Count(), Is.EqualTo(2));
-            Assert.That(session.Scene.Id.ToString(), Is.EqualTo(added.Value!.SceneId));
-            Assert.That(session.Scene.Name, Is.EqualTo("second"));
+            Assert.That(session.Scene.Id.Value.ToString(), Is.EqualTo(added.Value!.SceneId));
+            Assert.That(session.Scene.Name.Value, Is.EqualTo("second"));
         });
     }
 
@@ -1086,8 +1080,8 @@ public sealed class SessionToolsTests
         string sceneDirectory = Path.GetDirectoryName(scene.Uri!.LocalPath)!;
         var healthy = new Element
         {
-            Name = "Healthy element",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Healthy element" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(sceneDirectory, "healthy-element.belm")),
         };
         healthy.AddObject(new RectShape
@@ -1098,8 +1092,8 @@ public sealed class SessionToolsTests
         });
         var malformed = new Element
         {
-            Name = "Malformed element",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "Malformed element" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(sceneDirectory, "malformed-element.belm")),
         };
         malformed.AddObject(new RectShape
@@ -1113,14 +1107,14 @@ public sealed class SessionToolsTests
         ProjectOperations.Save(project);
 
         byte[] malformedBytes = System.Text.Encoding.UTF8.GetBytes(
-            $"{{\"Id\":\"{malformed.Id}\",\"Name\":\"Malformed element\",\"Objects\":[");
+            $"{{\"Id\":\"{malformed.Id.Value}\",\"Name\":\"Malformed element\",\"Objects\":[");
         File.WriteAllBytes(malformed.Uri!.LocalPath, malformedBytes);
         return new RecoveredProjectFixture(
             projectPath,
             healthy.Uri!.LocalPath,
-            healthy.Id,
+            healthy.Id.Value,
             malformed.Uri.LocalPath,
-            malformed.Id,
+            malformed.Id.Value,
             malformedBytes);
     }
 

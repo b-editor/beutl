@@ -56,8 +56,8 @@ public sealed class AgentHostSceneRoutingTests
         Assert.Multiple(() =>
         {
             Assert.That(listing["scenes"]!.AsArray().Select(scene => scene!["sceneId"]!.GetValue<string>()),
-                Is.EquivalentTo(new[] { first.Id.ToString(), second.Id.ToString() }));
-            Assert.That(listing["activeSceneId"]!.GetValue<string>(), Is.EqualTo(first.Id.ToString()));
+                Is.EquivalentTo(new[] { first.Id.Value.ToString(), second.Id.Value.ToString() }));
+            Assert.That(listing["activeSceneId"]!.GetValue<string>(), Is.EqualTo(first.Id.Value.ToString()));
             Assert.That(TestShell.Editor.TryGetTabItem(second, out _), Is.False);
         });
 
@@ -68,15 +68,15 @@ public sealed class AgentHostSceneRoutingTests
         };
         AssertError(await client.CallToolAsync("apply_edit", missingTarget), ErrorCode.ValidationRejected);
         AssertError(await client.CallToolAsync("read_document", Target(Guid.NewGuid())), ErrorCode.StaleHandle);
-        var unknown = Target(second.Id);
+        var unknown = Target(second.Id.Value);
         unknown["unexpected"] = true;
         AssertError(await client.CallToolAsync("read_document", unknown), ErrorCode.ValidationRejected);
-        var legacy = Target(second.Id);
-        legacy["session"] = first.Id.ToString();
+        var legacy = Target(second.Id.Value);
+        legacy["session"] = first.Id.Value.ToString();
         AssertError(await client.CallToolAsync("save_project", legacy), ErrorCode.ValidationRejected);
         Assert.That(SelectedScene(), Is.SameAs(first), "Rejected calls must not activate another tab.");
 
-        Success(await client.CallToolAsync("read_document", Target(second.Id)));
+        Success(await client.CallToolAsync("read_document", Target(second.Id.Value)));
         Assert.Multiple(() =>
         {
             Assert.That(SelectedScene(), Is.SameAs(first));
@@ -84,7 +84,7 @@ public sealed class AgentHostSceneRoutingTests
             Assert.That(TestShell.Editor.TryGetTabItem(second, out var backgroundTab), Is.True);
             Assert.That(backgroundTab!.IsSelected.Value, Is.False);
         });
-        Success(await client.CallToolAsync("read_document_summary", Target(first.Id)));
+        Success(await client.CallToolAsync("read_document_summary", Target(first.Id.Value)));
         Assert.That(SelectedScene(), Is.SameAs(first));
         JsonObject status = Success(await client.CallToolAsync("read_operation_status"));
         Assert.That(status["hasActiveSession"]!.GetValue<bool>(), Is.False,
@@ -117,12 +117,12 @@ public sealed class AgentHostSceneRoutingTests
         Assert.Multiple(() =>
         {
             Assert.That(copied, Is.Not.SameAs(original));
-            Assert.That(copied.Id, Is.EqualTo(original.Id), "Reproduce an imported copy's persisted ID collision.");
+            Assert.That(copied.Id.Value, Is.EqualTo(original.Id.Value), "Reproduce an imported copy's persisted ID collision.");
             Assert.That(SelectedScene(), Is.SameAs(copied));
         });
-        Guid sharedId = original.Id;
-        string originalName = original.Name;
-        string copiedName = copied.Name;
+        Guid sharedId = original.Id.Value;
+        string originalName = original.Name.Value;
+        string copiedName = copied.Name.Value;
         var visibleTab = TestShell.Editor.SelectedTabItem.Value;
         await using var host = CreateHost();
         await host.StartAsync();
@@ -136,10 +136,10 @@ public sealed class AgentHostSceneRoutingTests
         AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.ValidationRejected);
         Assert.Multiple(() =>
         {
-            Assert.That(original.Name, Is.EqualTo(originalName));
-            Assert.That(copied.Name, Is.EqualTo(copiedName));
-            Assert.That(original.Id, Is.EqualTo(sharedId));
-            Assert.That(copied.Id, Is.EqualTo(sharedId));
+            Assert.That(original.Name.Value, Is.EqualTo(originalName));
+            Assert.That(copied.Name.Value, Is.EqualTo(copiedName));
+            Assert.That(original.Id.Value, Is.EqualTo(sharedId));
+            Assert.That(copied.Id.Value, Is.EqualTo(sharedId));
             Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(visibleTab));
         });
 
@@ -151,7 +151,7 @@ public sealed class AgentHostSceneRoutingTests
         Assert.That(listing["scenes"]!.AsArray().Count(scene => scene!["sceneId"]!.GetValue<string>() == sharedId.ToString()),
             Is.EqualTo(1));
         await RenameAsync(client, original, "Original edited after removing the copy");
-        Assert.That(original.Name, Is.EqualTo("Original edited after removing the copy"));
+        Assert.That(original.Name.Value, Is.EqualTo("Original edited after removing the copy"));
     }
 
     [AvaloniaTest]
@@ -193,8 +193,8 @@ public sealed class AgentHostSceneRoutingTests
                 Assert.That(TestShell.Editor.TabItems, Is.Empty);
             });
 
-            AssertError(await client.CallToolAsync("read_document", Target(second.Id)), ErrorCode.NoActiveEditorSession);
-            var arguments = Target(first.Id);
+            AssertError(await client.CallToolAsync("read_document", Target(second.Id.Value)), ErrorCode.NoActiveEditorSession);
+            var arguments = Target(first.Id.Value);
             arguments["schemaVersion"] = "1";
             arguments["patch"] = new JsonObject { ["Name"] = "Edit during close" };
             AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
@@ -210,7 +210,7 @@ public sealed class AgentHostSceneRoutingTests
         {
             Assert.That(TestShell.Project.CurrentProject.Value, Is.Null);
             Assert.That(TestShell.Editor.TabItems, Is.Empty);
-            Assert.That(first.Name, Is.EqualTo("First"));
+            Assert.That(first.Name.Value, Is.EqualTo("First"));
         });
     }
 
@@ -231,15 +231,15 @@ public sealed class AgentHostSceneRoutingTests
             Assert.That(mutation, Is.Not.Null);
             Assert.That(TestShell.Project.CurrentTransition, Is.Null,
                 "Exercise editor-open admission independently of the project-transition check.");
-            AssertError(await client.CallToolAsync("read_document", Target(second.Id)), ErrorCode.NoActiveEditorSession);
-            var arguments = Target(second.Id);
+            AssertError(await client.CallToolAsync("read_document", Target(second.Id.Value)), ErrorCode.NoActiveEditorSession);
+            var arguments = Target(second.Id.Value);
             arguments["schemaVersion"] = "1";
             arguments["patch"] = new JsonObject { ["Name"] = "Lost edit" };
             AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
             Assert.Multiple(() =>
             {
                 Assert.That(TestShell.Editor.TryGetTabItem(second, out _), Is.False);
-                Assert.That(second.Name, Is.EqualTo("Second"));
+                Assert.That(second.Name.Value, Is.EqualTo("Second"));
                 Assert.That(TestShell.Editor.SelectedTabItem.Value, Is.SameAs(visibleTab));
             });
         }
@@ -247,7 +247,7 @@ public sealed class AgentHostSceneRoutingTests
         await RenameAsync(client, second, "Second edited");
         Assert.Multiple(() =>
         {
-            Assert.That(second.Name, Is.EqualTo("Second edited"));
+            Assert.That(second.Name.Value, Is.EqualTo("Second edited"));
             Assert.That(SelectedScene(), Is.SameAs(first));
         });
     }
@@ -271,7 +271,7 @@ public sealed class AgentHostSceneRoutingTests
         AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.ValidationRejected);
         Assert.Multiple(() =>
         {
-            Assert.That(first.Name, Is.EqualTo("First"));
+            Assert.That(first.Name.Value, Is.EqualTo("First"));
             Assert.That(SelectedScene(), Is.SameAs(first));
         });
     }
@@ -288,24 +288,24 @@ public sealed class AgentHostSceneRoutingTests
         await Task.WhenAll(RenameAsync(client, first, "First edited"), RenameAsync(otherClient, second, "Second edited"));
         Assert.Multiple(() =>
         {
-            Assert.That(first.Name, Is.EqualTo("First edited"));
-            Assert.That(second.Name, Is.EqualTo("Second edited"));
+            Assert.That(first.Name.Value, Is.EqualTo("First edited"));
+            Assert.That(second.Name.Value, Is.EqualTo("Second edited"));
             Assert.That(SelectedScene(), Is.SameAs(first));
         });
 
         TestShell.Editor.ActivateTabItem(first);
-        Success(await otherClient.CallToolAsync("undo", Target(second.Id)));
+        Success(await otherClient.CallToolAsync("undo", Target(second.Id.Value)));
         Assert.Multiple(() =>
         {
-            Assert.That(first.Name, Is.EqualTo("First edited"));
-            Assert.That(second.Name, Is.EqualTo("Second"));
+            Assert.That(first.Name.Value, Is.EqualTo("First edited"));
+            Assert.That(second.Name.Value, Is.EqualTo("Second"));
             Assert.That(SelectedScene(), Is.SameAs(first));
         });
-        Success(await client.CallToolAsync("redo", Target(second.Id)));
-        Success(await otherClient.CallToolAsync("read_history", Target(first.Id)));
+        Success(await client.CallToolAsync("redo", Target(second.Id.Value)));
+        Success(await otherClient.CallToolAsync("read_history", Target(first.Id.Value)));
         Assert.Multiple(() =>
         {
-            Assert.That(second.Name, Is.EqualTo("Second edited"));
+            Assert.That(second.Name.Value, Is.EqualTo("Second edited"));
             Assert.That(SelectedScene(), Is.SameAs(first));
         });
 
@@ -313,11 +313,11 @@ public sealed class AgentHostSceneRoutingTests
         editor.IsEnabled.Value = false;
         try
         {
-            var arguments = Target(first.Id);
+            var arguments = Target(first.Id.Value);
             arguments["schemaVersion"] = "1";
             arguments["patch"] = new JsonObject { ["Name"] = "Disabled edit" };
             AssertError(await client.CallToolAsync("apply_edit", arguments), ErrorCode.NoActiveEditorSession);
-            Assert.That(first.Name, Is.EqualTo("First edited"));
+            Assert.That(first.Name.Value, Is.EqualTo("First edited"));
         }
         finally { editor.IsEnabled.Value = true; }
     }
@@ -353,7 +353,7 @@ public sealed class AgentHostSceneRoutingTests
         AssertError(await client.CallToolAsync("read_document"), ErrorCode.ValidationRejected);
 
         Success(await client.CallToolAsync("open_project", new Dictionary<string, object?> { ["path"] = path }));
-        Assert.That(SelectedScene().Id.ToString(), Is.EqualTo(firstId));
+        Assert.That(SelectedScene().Id.Value.ToString(), Is.EqualTo(firstId));
         var planArguments = Target(secondId);
         planArguments["name"] = "kinetic-ribbon-title";
         JsonObject plan = Success(await client.CallToolAsync("plan_composition", planArguments));
@@ -368,7 +368,7 @@ public sealed class AgentHostSceneRoutingTests
         {
             Assert.That(SelectedScene(), Is.SameAs(firstScene));
             Assert.That(TestShell.Project.CurrentProject.Value!.Items.OfType<Scene>()
-                .Single(scene => scene.Id == secondId).Children, Is.Not.Empty);
+                .Single(scene => scene.Id.Value == secondId).Children, Is.Not.Empty);
             Assert.That(firstScene.Children, Is.Empty);
         });
         JsonObject save = Success(await client.CallToolAsync("save_project", Target(secondId)));
@@ -385,7 +385,7 @@ public sealed class AgentHostSceneRoutingTests
         await host.StartAsync();
         await using McpClient client = await ConnectAsync(host);
         string output = Path.Combine(directory, "second.png");
-        var arguments = Target(second.Id);
+        var arguments = Target(second.Id.Value);
         arguments["outputPath"] = output;
         arguments["returnImageContent"] = false;
         JsonObject rendered = Payload(await client.CallToolAsync("render_still", arguments));
@@ -420,7 +420,7 @@ public sealed class AgentHostSceneRoutingTests
         Directory.CreateDirectory(directory);
         Project project = (await TestShell.Project.CreateProject(640, 360, new Rational(30), 44100, "First", directory))!;
         Scene first = project.Items.OfType<Scene>().Single();
-        first.Name = "First";
+        first.Name.Value = "First";
         Scene second = ProjectOperations.AddScene(project, new SceneCreateOptions(
             640, 360, TimeSpan.Zero, TimeSpan.FromSeconds(5), "Second"));
         ProjectOperations.Save(project);
@@ -431,7 +431,7 @@ public sealed class AgentHostSceneRoutingTests
 
     private static void AddRectangle(Scene scene, Brush fill)
     {
-        var element = new Element { Name = scene.Name + " rectangle", Length = scene.Duration };
+        var element = new Element { Name = { Value = scene.Name.Value + " rectangle" }, Length = { Value = scene.Duration.Value } };
         element.AddObject(new RectShape
         {
             Width = { Value = 640 },
@@ -452,7 +452,7 @@ public sealed class AgentHostSceneRoutingTests
 
     private static async Task RenameAsync(McpClient client, Scene scene, string name)
     {
-        var arguments = Target(scene.Id);
+        var arguments = Target(scene.Id.Value);
         arguments["schemaVersion"] = "1";
         arguments["patch"] = new JsonObject { ["Name"] = name };
         Success(await client.CallToolAsync("apply_edit", arguments));

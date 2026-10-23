@@ -278,7 +278,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
         _pin.WriteToJson(json);
         if (IsPinned.Value && Element.Value is { } element)
-            json[PinnedElementJsonKey] = element.Id;
+            json[PinnedElementJsonKey] = element.Id.Value;
         else
             json.Remove(PinnedElementJsonKey);
     }

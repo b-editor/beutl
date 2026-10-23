@@ -44,7 +44,7 @@ public class AudioLatencyCompensationTests
         {
             LimiterAfterClip = true,
             LookaheadMs = 5f,
-            TimeRange = new TimeRange(MediaTime.Zero, duration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, duration) },
         };
         using var resource = Setup(sound, out var eligibility);
         using var composer = new Composer { SampleRate = SampleRate };
@@ -370,15 +370,15 @@ public class AudioLatencyCompensationTests
                 {
                     new KeyFrame<float>
                     {
-                        KeyTime = MediaTime.Zero,
-                        Value = 50f,
-                        Easing = new LinearEasing(),
+                        KeyTime = { Value = MediaTime.Zero },
+                        Value = { Value = 50f },
+                        Easing = { Value = new LinearEasing() },
                     },
                     new KeyFrame<float>
                     {
-                        KeyTime = MediaTime.FromSeconds(10),
-                        Value = 50f,
-                        Easing = new LinearEasing(),
+                        KeyTime = { Value = MediaTime.FromSeconds(10) },
+                        Value = { Value = 50f },
+                        Easing = { Value = new LinearEasing() },
                     },
                 },
             });
@@ -592,8 +592,8 @@ public class AudioLatencyCompensationTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 20f, Easing = new LinearEasing() },
-                new KeyFrame<float> { KeyTime = branchEnd - oneSample, Value = 0f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 20f }, Easing = { Value = new LinearEasing() } },
+                new KeyFrame<float> { KeyTime = { Value = branchEnd - oneSample }, Value = { Value = 0f }, Easing = { Value = new LinearEasing() } },
             },
         });
         limiter.AddInput(source);
@@ -1246,8 +1246,8 @@ public class AudioLatencyCompensationTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0f, Easing = new LinearEasing() },
-                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 20f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0f }, Easing = { Value = new LinearEasing() } },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 20f }, Easing = { Value = new LinearEasing() } },
             },
         };
         var lookahead = Property.CreateAnimatable(0f);
@@ -1288,9 +1288,9 @@ public class AudioLatencyCompensationTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = lookaheadMs, Easing = new LinearEasing() },
-                new KeyFrame<float> { KeyTime = clipDuration, Value = lookaheadMs, Easing = new LinearEasing() },
-                new KeyFrame<float> { KeyTime = clipDuration + oneSample, Value = 0f, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = lookaheadMs }, Easing = { Value = new LinearEasing() } },
+                new KeyFrame<float> { KeyTime = { Value = clipDuration }, Value = { Value = lookaheadMs }, Easing = { Value = new LinearEasing() } },
+                new KeyFrame<float> { KeyTime = { Value = clipDuration + oneSample }, Value = { Value = 0f }, Easing = { Value = new LinearEasing() } },
             },
         };
         var lookahead = Property.CreateAnimatable(lookaheadMs);
@@ -1333,9 +1333,9 @@ public class AudioLatencyCompensationTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0f, Easing = new LinearEasing() },
-                new KeyFrame<float> { KeyTime = clipDuration - oneSample, Value = 0f, Easing = new LinearEasing() },
-                new KeyFrame<float> { KeyTime = clipDuration, Value = makeupDb, Easing = new LinearEasing() },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0f }, Easing = { Value = new LinearEasing() } },
+                new KeyFrame<float> { KeyTime = { Value = clipDuration - oneSample }, Value = { Value = 0f }, Easing = { Value = new LinearEasing() } },
+                new KeyFrame<float> { KeyTime = { Value = clipDuration }, Value = { Value = makeupDb }, Easing = { Value = new LinearEasing() } },
             },
         };
         var makeup = Property.CreateAnimatable(0f);
@@ -1372,7 +1372,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1402,7 +1402,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1437,7 +1437,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterDelayTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1468,7 +1468,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterDelayTailSound
         {
             LookaheadMs = 5f,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1499,7 +1499,7 @@ public class AudioLatencyCompensationTests
             LimiterBeforeClip = false,
             LimiterAfterClip = true,
             LookaheadMs = 5f,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1531,7 +1531,7 @@ public class AudioLatencyCompensationTests
             LimiterBeforeClip = false,
             LimiterAfterClip = true,
             LookaheadMs = 5f,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1559,7 +1559,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new MixedInlineUnknownTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
         MixedInlineUnknownTailSound.ResetFlushCount();
@@ -1584,7 +1584,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new HeterogeneousOutputTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
         HeterogeneousOutputTailSound.ResetFlushCounts();
@@ -1623,7 +1623,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new UnboundedSpeedTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
@@ -1664,7 +1664,7 @@ public class AudioLatencyCompensationTests
         {
             LookaheadMs = 20f,
             LookaheadRampEnd = clipDuration,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1692,7 +1692,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new UnboundedSpeedTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
@@ -1725,7 +1725,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new UnboundedSpeedTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
         UnboundedSpeedTailSound.ResetFlushCount();
@@ -1761,7 +1761,7 @@ public class AudioLatencyCompensationTests
         {
             WrapOutput = true,
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
         LimiterTailSound.ResetFlushState();
@@ -1791,7 +1791,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1814,7 +1814,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new HeterogeneousWrappedOutputTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
         HeterogeneousWrappedOutputTailSound.ResetFlushState();
@@ -1843,7 +1843,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new HeterogeneousDownstreamTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1865,7 +1865,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new SharedClipFanOutTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1889,7 +1889,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new ResampledInlineTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1911,7 +1911,7 @@ public class AudioLatencyCompensationTests
 
         var sound = new SpeedInlineTailSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1934,7 +1934,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1966,7 +1966,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -1993,7 +1993,7 @@ public class AudioLatencyCompensationTests
     {
         var sound = new NegativeLatencySound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) },
         };
         using var resource = Setup(sound, out var eligibility);
         var range = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
@@ -2018,7 +2018,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2060,7 +2060,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, clipDuration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, clipDuration) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2091,7 +2091,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2121,7 +2121,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2148,7 +2148,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2174,7 +2174,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2202,7 +2202,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2229,7 +2229,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2238,7 +2238,7 @@ public class AudioLatencyCompensationTests
         var window1 = new TimeRange(MediaTime.Zero, oneSecond);
         using var buffer1 = ComposeWindow(composer, window1, eligibility, resource);
 
-        sound.TimeRange = new TimeRange(MediaTime.FromSeconds(10), oneSecond);
+        sound.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(10), oneSecond);
 
         var window2 = new TimeRange(oneSecond, oneSecond);
         using var buffer2 = ComposeWindow(composer, window2, eligibility);
@@ -2258,7 +2258,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2288,7 +2288,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, twoSeconds),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, twoSeconds) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2315,7 +2315,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2342,7 +2342,7 @@ public class AudioLatencyCompensationTests
         var sound = new LimiterTailSound
         {
             LookaheadMs = lookaheadMs,
-            TimeRange = new TimeRange(MediaTime.Zero, oneSecond),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, oneSecond) },
         };
         using var resource = Setup(sound, out var eligibility);
 
@@ -2450,15 +2450,15 @@ public class AudioLatencyCompensationTests
             {
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.Zero,
-                    Value = speed,
-                    Easing = new LinearEasing(),
+                    KeyTime = { Value = MediaTime.Zero },
+                    Value = { Value = speed },
+                    Easing = { Value = new LinearEasing() },
                 },
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.FromSeconds(10),
-                    Value = speed,
-                    Easing = new LinearEasing(),
+                    KeyTime = { Value = MediaTime.FromSeconds(10) },
+                    Value = { Value = speed },
+                    Easing = { Value = new LinearEasing() },
                 },
             },
         };

@@ -35,10 +35,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var bufferSrc = new MediaFilter(MediaFilter.VideoSources.Buffer);
         var bufferSink = new MediaFilter(MediaFilter.VideoSinks.Buffersink);
 
-        int width = VideoSettings.SourceSize.Width;
-        int height = VideoSettings.SourceSize.Height;
+        int width = VideoSettings.SourceSize.Value.Width;
+        int height = VideoSettings.SourceSize.Value.Height;
         var srcPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
-        var fps = VideoSettings.FrameRate;
+        var fps = VideoSettings.FrameRate.Value;
         var timeBase = new AVRational { num = (int)fps.Denominator, den = (int)fps.Numerator };
         var sar = new AVRational { num = 1, den = 1 };
         var frameRate = new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
@@ -49,7 +49,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
         // An output of another aspect ratio gets the whole frame with black bars rather than a stretched one.
         (string scaleStr, string? padStr) = FrameFit.GetFilterArguments(
-            VideoSettings.SourceSize, VideoSettings.DestinationSize);
+            VideoSettings.SourceSize.Value, VideoSettings.DestinationSize.Value);
         var scaleFilter = new MediaFilter("scale");
         var scaleCtx = _filterGraph.AddFilter(scaleFilter, scaleStr);
 
@@ -78,13 +78,13 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         OutputFormat outFormat, MediaMuxer muxer,
         MediaFrame audioFrame, out MediaEncoder encoder, out MediaStream stream, out SampleConverter swr)
     {
-        var codec = AudioSettings.Codec.Equals(CodecRecord.Default)
+        var codec = AudioSettings.Codec.Value.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.AudioCodec)
-            : MediaCodec.FindEncoder(AudioSettings.Codec.Name);
-        AVChannelLayout channelLayout = SelectChannelLayout(codec, AudioSettings.Channels);
-        int sampleRate = AudioSettings.SampleRate;
-        var format = (AVSampleFormat)AudioSettings.Format;
-        int bitRate = AudioSettings.Bitrate;
+            : MediaCodec.FindEncoder(AudioSettings.Codec.Value.Name);
+        AVChannelLayout channelLayout = SelectChannelLayout(codec, AudioSettings.Channels.Value);
+        int sampleRate = AudioSettings.SampleRate.Value;
+        var format = (AVSampleFormat)AudioSettings.Format.Value;
+        int bitRate = AudioSettings.Bitrate.Value;
         encoder = MediaEncoder.Create(codec, codecContext =>
         {
             int[] supportedSampleRates = codec.GetSupportedSamplerates().ToArray();
@@ -129,7 +129,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.SampleFmt = format;
             codecContext.BitRate = bitRate;
             codecContext.TimeBase = new AVRational { num = 1, den = sampleRate };
-            codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount);
+            codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount.Value);
 
             if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
             {
@@ -176,7 +176,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
 
     // New settings start with these H.264 options. Only an H.264 encoder gets them, and only the ones it parses (#3434).
     private static bool IsH264Default(AdditionalOption option) =>
-        (option.Name, option.Value) is ("profile", "high") or ("preset", "medium") or ("level", "4.0");
+        (option.Name.Value, option.Value.Value) is ("profile", "high") or ("preset", "medium") or ("level", "4.0");
 
     // The options the encoder is opened with: the ones the user set as they are, and the H.264 defaults it takes.
     internal static IEnumerable<KeyValuePair<string, string>> SelectVideoOptions(
@@ -184,9 +184,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     {
         bool isH264 = codec.Id == AVCodecID.AV_CODEC_ID_H264;
         return options
-            .Where(item => !string.IsNullOrWhiteSpace(item.Name))
-            .Where(item => !IsH264Default(item) || (isH264 && ParsesOption(codec, item.Name, item.Value)))
-            .Select(item => new KeyValuePair<string, string>(item.Name, item.Value))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name.Value))
+            .Where(item => !IsH264Default(item) || (isH264 && ParsesOption(codec, item.Name.Value, item.Value.Value)))
+            .Select(item => new KeyValuePair<string, string>(item.Name.Value, item.Value.Value))
             .ToArray();
     }
 
@@ -209,15 +209,15 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         OutputFormat outFormat, MediaMuxer muxer,
         MediaFrame videoFrame, out MediaEncoder encoder, out MediaStream stream)
     {
-        var codec = VideoSettings.Codec.Equals(CodecRecord.Default)
+        var codec = VideoSettings.Codec.Value.Equals(CodecRecord.Default)
             ? MediaCodec.FindEncoder(outFormat.VideoCodec)
-            : MediaCodec.FindEncoder(VideoSettings.Codec.Name);
-        int width = VideoSettings.DestinationSize.Width;
-        int height = VideoSettings.DestinationSize.Height;
-        var fps = VideoSettings.FrameRate;
-        var format = (AVPixelFormat)VideoSettings.Format;
-        int bitRate = VideoSettings.Bitrate;
-        var options = new MediaDictionary(SelectVideoOptions(codec, VideoSettings.Options));
+            : MediaCodec.FindEncoder(VideoSettings.Codec.Value.Name);
+        int width = VideoSettings.DestinationSize.Value.Width;
+        int height = VideoSettings.DestinationSize.Value.Height;
+        var fps = VideoSettings.FrameRate.Value;
+        var format = (AVPixelFormat)VideoSettings.Format.Value;
+        int bitRate = VideoSettings.Bitrate.Value;
+        var options = new MediaDictionary(SelectVideoOptions(codec, VideoSettings.Options.Value));
 
         encoder = MediaEncoder.Create(codec, codecContext =>
         {
@@ -241,15 +241,15 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
                 new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
             codecContext.PixFmt = format;
             codecContext.BitRate = bitRate;
-            codecContext.GopSize = VideoSettings.KeyframeRate;
-            codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount);
+            codecContext.GopSize = VideoSettings.KeyframeRate.Value;
+            codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount.Value);
 
-            codecContext.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries;
-            codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
-            codecContext.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace;
-            codecContext.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange;
+            codecContext.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries.Value;
+            codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value;
+            codecContext.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace.Value;
+            codecContext.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange.Value;
 
-            var hwType = HardwareAcceleration.ToHWDeviceType((int)settings.Acceleration);
+            var hwType = HardwareAcceleration.ToHWDeviceType((int)settings.Acceleration.Value);
             codecContext.InitHWDeviceContext(hwType);
 
             if ((outFormat.Flags & ffmpeg.AVFMT_GLOBALHEADER) != 0)
@@ -266,22 +266,22 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             stream.Codecpar->codec_tag = 0x31637668;
         }
 
-        _isHdr = ColorSpaceHelper.IsHdrTransfer((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc);
+        _isHdr = ColorSpaceHelper.IsHdrTransfer((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value);
         _targetColorSpace = _isHdr
-            ? ColorSpaceHelper.BuildHdrColorSpace((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc, (AVColorPrimaries)(int)VideoSettings.ColorPrimaries)
+            ? ColorSpaceHelper.BuildHdrColorSpace((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value, (AVColorPrimaries)(int)VideoSettings.ColorPrimaries.Value)
             : null;
 
         InitEncodeFilterGraph(encoder);
 
-        videoFrame.Width = VideoSettings.SourceSize.Width;
-        videoFrame.Height = VideoSettings.SourceSize.Height;
+        videoFrame.Width = VideoSettings.SourceSize.Value.Width;
+        videoFrame.Height = VideoSettings.SourceSize.Value.Height;
         videoFrame.Format = _isHdr
             ? (int)AVPixelFormat.AV_PIX_FMT_RGBA64LE
             : (int)AVPixelFormat.AV_PIX_FMT_BGRA;
-        videoFrame.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries;
-        videoFrame.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc;
-        videoFrame.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace;
-        videoFrame.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange;
+        videoFrame.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries.Value;
+        videoFrame.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value;
+        videoFrame.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace.Value;
+        videoFrame.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange.Value;
         videoFrame.AllocateBuffer();
     }
 

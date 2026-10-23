@@ -233,23 +233,23 @@ public sealed class AgentHostInstanceTests
                 RenameAsync(otherClient, first, firstScene, "first-edited"));
             Assert.Multiple(() =>
             {
-                Assert.That(firstScene.Name, Is.EqualTo("first-edited"));
-                Assert.That(secondScene.Name, Is.EqualTo("second-edited"));
+                Assert.That(firstScene.Name.Value, Is.EqualTo("first-edited"));
+                Assert.That(secondScene.Name.Value, Is.EqualTo("second-edited"));
             });
 
             Success(await client.CallToolAsync("undo", Target(second, secondScene)));
             Assert.Multiple(() =>
             {
-                Assert.That(firstScene.Name, Is.EqualTo("first-edited"));
-                Assert.That(secondScene.Name, Is.EqualTo("second"));
+                Assert.That(firstScene.Name.Value, Is.EqualTo("first-edited"));
+                Assert.That(secondScene.Name.Value, Is.EqualTo("second"));
             });
             Success(await client.CallToolAsync("redo", Target(second, secondScene)));
             JsonObject remote = Payload(await client.CallToolAsync("read_document_summary", Target(second, secondScene)));
             JsonObject local = Payload(await client.CallToolAsync("read_document_summary", Target(first, firstScene)));
             Assert.Multiple(() =>
             {
-                Assert.That(remote["value"]!["rootId"]!.GetValue<string>(), Is.EqualTo(secondScene.Id.ToString()));
-                Assert.That(local["value"]!["rootId"]!.GetValue<string>(), Is.EqualTo(firstScene.Id.ToString()));
+                Assert.That(remote["value"]!["rootId"]!.GetValue<string>(), Is.EqualTo(secondScene.Id.Value.ToString()));
+                Assert.That(local["value"]!["rootId"]!.GetValue<string>(), Is.EqualTo(firstScene.Id.Value.ToString()));
             });
         }
         finally
@@ -290,10 +290,10 @@ public sealed class AgentHostInstanceTests
             File.WriteAllText(registrationPath, staleRegistration); // Simulate a crashed host's leftover entry.
             Success(await client.CallToolAsync("list_scenes", Target(replacement)));
             var arguments = Target(second, scene);
-            arguments["patch"] = new JsonObject { ["Id"] = scene.Id.ToString(), ["Name"] = "wrong-instance" };
+            arguments["patch"] = new JsonObject { ["Id"] = scene.Id.Value.ToString(), ["Name"] = "wrong-instance" };
             arguments["schemaVersion"] = "1";
             AssertError(await client.CallToolAsync("apply_edit", arguments), "instance_unavailable");
-            Assert.That(scene.Name, Is.EqualTo("replacement"));
+            Assert.That(scene.Name.Value, Is.EqualTo("replacement"));
             Assert.That(File.Exists(registrationPath), Is.False);
             JsonArray instances = Payload(await client.CallToolAsync("list_instances"))["value"]!["instances"]!.AsArray();
             Assert.That(instances.Select(info => info!["instanceId"]!.GetValue<string>()),
@@ -446,14 +446,14 @@ public sealed class AgentHostInstanceTests
     {
         var arguments = new Dictionary<string, object?> { ["instanceId"] = endpoint.InstanceId };
         if (scene is not null)
-            arguments["sceneId"] = scene.Id.ToString();
+            arguments["sceneId"] = scene.Id.Value.ToString();
         return arguments;
     }
 
     private static async Task RenameAsync(McpClient client, AgentHostEndpoint endpoint, Scene scene, string name)
     {
         var arguments = Target(endpoint, scene);
-        arguments["patch"] = new JsonObject { ["Id"] = scene.Id.ToString(), ["Name"] = name };
+        arguments["patch"] = new JsonObject { ["Id"] = scene.Id.Value.ToString(), ["Name"] = name };
         arguments["schemaVersion"] = "1";
         Success(await client.CallToolAsync("apply_edit", arguments));
     }

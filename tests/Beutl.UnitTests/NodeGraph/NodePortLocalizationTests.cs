@@ -28,14 +28,14 @@ public class NodePortLocalizationTests
             var rectangle = new Beutl.NodeGraph.Nodes.Utilities.Struct.RectNode();
             Assert.Multiple(() =>
             {
-                Assert.That(random.Value.Name, Is.EqualTo("Value"));
-                Assert.That(random.Value.Display?.GetName(), Is.EqualTo(value));
-                Assert.That(random.Maximum.Name, Is.EqualTo("Maximum"));
-                Assert.That(random.Maximum.Display?.GetName(), Is.EqualTo(maximum));
-                Assert.That(random.Minimum.Name, Is.EqualTo("Minimum"));
-                Assert.That(random.Minimum.Display?.GetName(), Is.EqualTo(minimum));
-                Assert.That(rectangle.Position.Name, Is.EqualTo("TopLeft"));
-                Assert.That(rectangle.Position.Display?.GetName(), Is.EqualTo(topLeft));
+                Assert.That(random.Value.Name.Value, Is.EqualTo("Value"));
+                Assert.That(random.Value.Display.Value?.GetName(), Is.EqualTo(value));
+                Assert.That(random.Maximum.Name.Value, Is.EqualTo("Maximum"));
+                Assert.That(random.Maximum.Display.Value?.GetName(), Is.EqualTo(maximum));
+                Assert.That(random.Minimum.Name.Value, Is.EqualTo("Minimum"));
+                Assert.That(random.Minimum.Display.Value?.GetName(), Is.EqualTo(minimum));
+                Assert.That(rectangle.Position.Name.Value, Is.EqualTo("TopLeft"));
+                Assert.That(rectangle.Position.Display.Value?.GetName(), Is.EqualTo(topLeft));
             });
         }
         finally
@@ -61,8 +61,8 @@ public class NodePortLocalizationTests
 
             Assert.That(added, Is.True);
             INodeMember port = groupInput.Items.Single();
-            Assert.That(port.Name, Is.EqualTo("Maximum"));
-            Assert.That(port.Display?.GetName(), Is.EqualTo("最大値"));
+            Assert.That(port.Name.Value, Is.EqualTo("Maximum"));
+            Assert.That(port.Display.Value?.GetName(), Is.EqualTo("最大値"));
         }
         finally
         {
@@ -83,34 +83,34 @@ public class NodePortLocalizationTests
             root.Nodes.Add(group);
             var source = new RandomSingleNode();
             var innerOutput = new GroupOutput();
-            group.Group.Nodes.Add(source);
-            group.Group.Nodes.Add(innerOutput);
+            group.Group.Value.Nodes.Add(source);
+            group.Group.Value.Nodes.Add(innerOutput);
 
             Assert.That(innerOutput.AddNodePort(source.Value, out _), Is.True);
             INodeMember outerPort = group.Items.Single();
-            Assert.That(outerPort.Name, Is.EqualTo("Value"));
-            Assert.That(outerPort.Display?.GetName(), Is.EqualTo("値"));
+            Assert.That(outerPort.Name.Value, Is.EqualTo("Value"));
+            Assert.That(outerPort.Display.Value?.GetName(), Is.EqualTo("値"));
 
-            ((NodeMember)innerOutput.Items.Single()).Display = new DisplayAttribute
+            ((NodeMember)innerOutput.Items.Single()).Display.Value = new DisplayAttribute
             {
                 Name = nameof(NodeGraphStrings.Port_Maximum),
                 ResourceType = typeof(NodeGraphStrings)
             };
-            Assert.That(outerPort.Display?.GetName(), Is.EqualTo("最大値"));
+            Assert.That(outerPort.Display.Value?.GetName(), Is.EqualTo("最大値"));
 
             var consumer = new RandomSingleNode();
             var innerInput = new GroupInput();
-            group.Group.Nodes.Add(consumer);
-            group.Group.Nodes.Add(innerInput);
+            group.Group.Value.Nodes.Add(consumer);
+            group.Group.Value.Nodes.Add(innerInput);
             Assert.That(innerInput.AddNodePort(consumer.Maximum, out _), Is.True);
             INodeMember outerInput = group.Items.OfType<IInputPort>().Single();
-            Assert.That(outerInput.Display?.GetName(), Is.EqualTo("最大値"));
-            ((NodeMember)innerInput.Items.Single()).Display = new DisplayAttribute
+            Assert.That(outerInput.Display.Value?.GetName(), Is.EqualTo("最大値"));
+            ((NodeMember)innerInput.Items.Single()).Display.Value = new DisplayAttribute
             {
                 Name = nameof(NodeGraphStrings.Port_Minimum),
                 ResourceType = typeof(NodeGraphStrings)
             };
-            Assert.That(outerInput.Display?.GetName(), Is.EqualTo("最小値"));
+            Assert.That(outerInput.Display.Value?.GetName(), Is.EqualTo("最小値"));
         }
         finally
         {
@@ -129,8 +129,8 @@ public class NodePortLocalizationTests
             var restored = (RandomSingleNode)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphNode));
 
             Assert.That(json.ToJsonString(), Does.Not.Contain("Port_Maximum"));
-            Assert.That(restored.Maximum.Name, Is.EqualTo("Maximum"));
-            Assert.That(restored.Maximum.Display?.GetName(), Is.EqualTo("最大値"));
+            Assert.That(restored.Maximum.Name.Value, Is.EqualTo("Maximum"));
+            Assert.That(restored.Maximum.Display.Value?.GetName(), Is.EqualTo("最大値"));
         }
         finally
         {
@@ -148,9 +148,9 @@ public class NodePortLocalizationTests
             .SelectMany(Leaves)
             .Where(item => item.Type.Assembly == typeof(NodesRegistrar).Assembly)
             .SelectMany(item => ((GraphNode)Activator.CreateInstance(item.Type)!).EnumerateMembers()
-                .Where(member => member.Display is not { ResourceType: not null } display
+                .Where(member => member.Display.Value is not { ResourceType: not null } display
                     || string.IsNullOrWhiteSpace(display.GetName()))
-                .Select(member => $"{item.Type.Name}.{member.Name}"))
+                .Select(member => $"{item.Type.Name}.{member.Name.Value}"))
             .ToArray();
 
         Assert.That(missing, Is.Empty, string.Join(", ", missing));

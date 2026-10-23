@@ -255,7 +255,7 @@ public class AiSubtitleTemplateTests
             Assert.That(bitmapView.Source!.Value, Is.Not.SameAs(pagePreview));
 
             Beutl.Media.Bitmap initialPreview = bitmapView.Source.Value;
-            editor.Scene.FrameSize = new Beutl.Media.PixelSize(640, 800);
+            editor.Scene.FrameSize.Value = new Beutl.Media.PixelSize(640, 800);
             using (Assert.EnterMultipleScope())
             {
                 Assert.That(bitmapView.Source, Is.Null);
@@ -285,7 +285,7 @@ public class AiSubtitleTemplateTests
             viewModel.BeforeTemplatePreviewAdmission = window.Close;
             try
             {
-                editor.Scene.FrameSize = new Beutl.Media.PixelSize(640, 900);
+                editor.Scene.FrameSize.Value = new Beutl.Media.PixelSize(640, 900);
             }
             finally
             {
@@ -679,18 +679,18 @@ public class AiSubtitleTemplateTests
 
         Element[] elements = editor.Scene.Children.ToArray();
         TextBlock[] subtitles = elements.Select(element => element.Objects.OfType<TextBlock>().Single()).ToArray();
-        float expectedY = editor.Scene.FrameSize.Height * 0.85f - editor.Scene.FrameSize.Height / 2f;
+        float expectedY = editor.Scene.FrameSize.Value.Height * 0.85f - editor.Scene.FrameSize.Value.Height / 2f;
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(elements, Has.Length.EqualTo(2));
-            Assert.That(elements.Select(element => element.Start),
+            Assert.That(elements.Select(element => element.Start.Value),
                 Is.EqualTo(new[] { MediaTime.Zero, MediaTime.FromSeconds(2) }));
-            Assert.That(elements.Select(element => element.Length),
+            Assert.That(elements.Select(element => element.Length.Value),
                 Is.EqualTo(new[] { MediaTime.FromSeconds(1.25), MediaTime.FromSeconds(0.5) }));
             Assert.That(subtitles.Select(subtitle => subtitle.Text.Value),
                 Is.EqualTo(new[] { "First", "Second" }));
-            Assert.That(subtitles.Select(subtitle => subtitle.Id).Distinct().Count(), Is.EqualTo(2));
+            Assert.That(subtitles.Select(subtitle => subtitle.Id.Value).Distinct().Count(), Is.EqualTo(2));
             Assert.That(subtitles.All(subtitle => subtitle.Size.Value == 48), Is.True);
             Assert.That(subtitles.All(subtitle =>
                 subtitle.FontFamily.Value?.Name == CaptionPresentationDefaults.FontFamilyName), Is.True);
@@ -742,14 +742,14 @@ public class AiSubtitleTemplateTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(subtitle.Text.Value, Is.EqualTo("Generated text"));
             Assert.That(subtitle.Size.Value, Is.EqualTo(72));
             Assert.That(subtitle.FontWeight.Value, Is.EqualTo(FontWeight.Bold));
             Assert.That(translate.X.Value, Is.EqualTo(45));
             Assert.That(translate.Y.Value, Is.EqualTo(60));
-            Assert.That(subtitle.Id, Is.Not.EqualTo(source.Id));
+            Assert.That(subtitle.Id.Value, Is.Not.EqualTo(source.Id.Value));
         }
     }
 

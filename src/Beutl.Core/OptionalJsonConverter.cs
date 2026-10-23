@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
@@ -32,7 +33,7 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
                 goto Return;
             }
 
-            instance = typeof(ICoreSerializable).IsAssignableFrom(valueType)
+            instance = typeof(ICoreSerializable).IsAssignableFrom(valueType) || HoldsCoreSerializableItems(valueType)
                 ? CoreSerializer.DeserializeFromJsonNode(jsonNode, valueType)
                 : JsonSerializer.Deserialize(jsonNode, valueType, options);
 
@@ -42,6 +43,13 @@ public sealed class OptionalJsonConverter : JsonConverter<IOptional>
         }
 
         throw new Exception("Invalid Optional<T>");
+    }
+
+    // A list of core objects, such as FFmpegVideoEncoderSettings.Options, was written item by item as core objects.
+    private static bool HoldsCoreSerializableItems(Type valueType)
+    {
+        return valueType.IsAssignableTo(typeof(IEnumerable))
+               && ArrayTypeHelpers.GetElementType(valueType)?.IsAssignableTo(typeof(ICoreSerializable)) == true;
     }
 
     // Write stores a core-serializable value as a core object and anything else, such as an easing, with

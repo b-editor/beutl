@@ -45,7 +45,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
         _renderer = renderer;
         _progress = progress;
         // Fixed at the start, so a duration edited during the export cannot end the frames early.
-        _frameCount = ToFrameCount(scene.Duration, rate);
+        _frameCount = ToFrameCount(scene.Duration.Value, rate);
         _retentionCheckpoint = new RetainedRenderTargetCheckpoint(retainedRenderTargetReleaseInterval);
 
         // A buffered frame is an RgbaF16 snapshot at the frame size, so by default the buffer holds what fits the
@@ -70,7 +70,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     private Bitmap RenderCore(MediaTime time)
     {
-        var frame = _renderer.Compositor.EvaluateGraphics(time + _scene.Start);
+        var frame = _renderer.Compositor.EvaluateGraphics(time + _scene.Start.Value);
         _renderer.Render(frame);
         Bitmap snapshot = _renderer.Snapshot();
 

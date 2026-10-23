@@ -6,9 +6,9 @@ namespace Beutl.Animation;
 // A KeyFrameAnimation<T> seen without its value type.
 public interface IKeyFrameAnimation : IExpression, ICoreObject, INotifyEdited, IHierarchical
 {
-    KeyFrames KeyFrames { get; }
+    IListProperty<IKeyFrame> KeyFrames { get; }
 
-    bool UseGlobalClock { get; set; }
+    IProperty<bool> UseGlobalClock { get; }
 
     Type ValueType { get; }
 

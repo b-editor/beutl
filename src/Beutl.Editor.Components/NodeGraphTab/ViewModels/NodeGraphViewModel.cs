@@ -65,7 +65,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
                 item =>
                 {
                     // NodePortViewModel側が既に追加している場合はスキップする
-                    if (AllConnections.Any(i => i.Connection.Id == item.Id)) return;
+                    if (AllConnections.Any(i => i.Connection.Id.Value == item.Id.Value)) return;
 
                     var viewModel = new ConnectionViewModel(this, item);
                     AllConnections.Add(viewModel);
@@ -254,7 +254,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         {
             var nodeJson = new JsonObject();
             item.WriteToJson(nodeJson);
-            nodesJson[item.GraphNode.Id.ToString()] = nodeJson;
+            nodesJson[item.GraphNode.Id.Value.ToString()] = nodeJson;
         }
 
         json[nameof(Nodes)] = nodesJson;
@@ -268,7 +268,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         JsonObject nodesJson = json[nameof(Nodes)]!.AsObject();
         foreach (GraphNodeViewModel item in Nodes)
         {
-            if (nodesJson.TryGetPropertyValue(item.GraphNode.Id.ToString(), out JsonNode? nodeJson))
+            if (nodesJson.TryGetPropertyValue(item.GraphNode.Id.Value.ToString(), out JsonNode? nodeJson))
             {
                 item.ReadFromJson(nodeJson!.AsObject());
             }

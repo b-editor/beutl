@@ -68,7 +68,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             hasExpression && PropertyAdapter is EnginePropertyAdapter<TValue> { Property: var engineProperty }
                 ? CurrentTime.Select(t => new CompositionContext(t).Get(engineProperty))
                 : EditingKeyFrame
-                    .Select(x => (x as KeyFrame<TValue>)?.ValueProperty.GetObservable())
+                    .Select(x => (x as KeyFrame<TValue>)?.Value.GetObservable())
                     .Select(x => x ?? PropertyAdapter.GetObservable())
                     .Switch())
         .Switch()
@@ -114,14 +114,14 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     // The value of the keyframe being edited, or of the property itself when no keyframe is.
     protected internal TValue? GetEditingValue()
-        => EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value : PropertyAdapter.GetValue();
+        => EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value.Value : PropertyAdapter.GetValue();
 
     // Writes to the keyframe being edited, or to the property itself when no keyframe is.
     private void WriteValue(TValue? newValue)
     {
         if (EditingKeyFrame.Value is { } kf)
         {
-            kf.Value = newValue!;
+            kf.Value.Value = newValue!;
         }
         else
         {
@@ -137,9 +137,9 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             return GetEditingValue();
         if (EditingKeyFrame.Value != null)
         {
-            EditingKeyFrame.Value.Value = value!;
+            EditingKeyFrame.Value.Value.Value = value!;
             InvalidateFrameCache();
-            return EditingKeyFrame.Value.Value;
+            return EditingKeyFrame.Value.Value.Value;
         }
         else
         {
@@ -196,9 +196,9 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
             TValue initialValue = animatableProperty.GetValue()!;
             newAnimation.KeyFrames.Add(new KeyFrame<TValue>
             {
-                Value = initialValue,
-                Easing = new SplineEasing(),
-                KeyTime = MediaTime.Zero
+                Value = { Value = initialValue },
+                Easing = { Value = new SplineEasing() },
+                KeyTime = { Value = MediaTime.Zero }
             });
 
             animatableProperty.Animation = newAnimation;

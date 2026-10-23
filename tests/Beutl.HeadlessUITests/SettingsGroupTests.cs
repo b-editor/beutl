@@ -179,7 +179,7 @@ public class SettingsGroupTests
             input.Text = "changed";
             rows[1].GetVisualDescendants().OfType<TextBox>().First().Focus();
             HeadlessTestHelpers.Render();
-            Assert.That(extension.Settings.General, Is.EqualTo("changed"));
+            Assert.That(extension.Settings.General.Value, Is.EqualTo("changed"));
             Capture(window, "extension-properties");
 
             var list = new ExtensionsSettingsPage { DataContext = listModel };
@@ -218,13 +218,10 @@ public class SettingsGroupTests
     public sealed class SampleSettings : ExtensionSettings
     {
         public SampleSettings() => ScanProperties<SampleSettings>();
-        public IProperty<string> GeneralProperty { get; } = new ValueOnlyProperty<string>("initial");
+        public IProperty<string> General { get; } = new ValueOnlyProperty<string>("initial");
         [Display(GroupName = "Paths")]
-        public IProperty<string> FirstPathProperty { get; } = new ValueOnlyProperty<string>("first");
+        public IProperty<string> FirstPath { get; } = new ValueOnlyProperty<string>("first");
         [Display(GroupName = "Paths")]
-        public IProperty<string> SecondPathProperty { get; } = new ValueOnlyProperty<string>("second");
-        public string General { get => GeneralProperty.Value; set => GeneralProperty.Value = value; }
-        public string FirstPath { get => FirstPathProperty.Value; set => FirstPathProperty.Value = value; }
-        public string SecondPath { get => SecondPathProperty.Value; set => SecondPathProperty.Value = value; }
+        public IProperty<string> SecondPath { get; } = new ValueOnlyProperty<string>("second");
     }
 }

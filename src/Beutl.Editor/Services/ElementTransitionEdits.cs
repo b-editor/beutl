@@ -33,7 +33,7 @@ public static class ElementTransitionEdits
     public static ClipTransition? GetTransition(Element element, ElementEdge edge)
     {
         ArgumentNullException.ThrowIfNull(element);
-        return edge == ElementEdge.Start ? element.EnterTransition : element.ExitTransition;
+        return edge == ElementEdge.Start ? element.EnterTransition.Value : element.ExitTransition.Value;
     }
 
     // Returns whether the side changed.
@@ -43,9 +43,9 @@ public static class ElementTransitionEdits
         if (ReferenceEquals(GetTransition(element, edge), transition)) return false;
 
         if (edge == ElementEdge.Start)
-            element.EnterTransition = transition;
+            element.EnterTransition.Value = transition;
         else
-            element.ExitTransition = transition;
+            element.ExitTransition.Value = transition;
         return true;
     }
 
@@ -87,7 +87,7 @@ public static class ElementTransitionEdits
         ClipTransition transition = CreateTransition(transitionType, source.Duration.Value);
         transition.Easing.Value = source.Easing.Value;
         transition.Easing.Expression = source.Easing.Expression;
-        transition.IsEnabled = source.IsEnabled;
+        transition.IsEnabled.Value = source.IsEnabled.Value;
         return transition;
     }
 
@@ -111,7 +111,7 @@ public static class ElementTransitionEdits
     {
         ArgumentNullException.ThrowIfNull(element);
         return FindLockedPartner(element, edge) is { } partner
-               && GetTransition(partner, Opposite(edge)) is { IsEnabled: true };
+               && GetTransition(partner, Opposite(edge)) is { IsEnabled.Value: true };
     }
 
     /// <summary>
@@ -123,7 +123,7 @@ public static class ElementTransitionEdits
     {
         ArgumentNullException.ThrowIfNull(element);
         return edge == ElementEdge.End
-               && FindLockedPartner(element, edge) is { EnterTransition.IsEnabled: true };
+               && FindLockedPartner(element, edge) is { EnterTransition.Value.IsEnabled.Value: true };
     }
 
     private static Element? FindLockedPartner(Element element, ElementEdge edge)

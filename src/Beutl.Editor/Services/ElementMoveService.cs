@@ -54,8 +54,8 @@ public sealed class ElementMoveService : IElementMoveService
         int minSourceZIndex = int.MaxValue;
         foreach (Element e in source)
         {
-            if (e.Start < minSourceStart) minSourceStart = e.Start;
-            if (e.ZIndex < minSourceZIndex) minSourceZIndex = e.ZIndex;
+            if (e.Start.Value < minSourceStart) minSourceStart = e.Start.Value;
+            if (e.ZIndex.Value < minSourceZIndex) minSourceZIndex = e.ZIndex.Value;
         }
 
         MediaTime anchorStart = minSourceStart + deltaStart;
@@ -95,7 +95,7 @@ public sealed class ElementMoveService : IElementMoveService
     {
         foreach (Element e in elements)
         {
-            if (scene.IsLayerLocked(Math.Max(e.ZIndex + deltaZIndex, 0))) return true;
+            if (scene.IsLayerLocked(Math.Max(e.ZIndex.Value + deltaZIndex, 0))) return true;
         }
 
         return false;

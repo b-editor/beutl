@@ -173,7 +173,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         {
             Source = { Value = soundSource },
             // Sound.Compose clips to TimeRange, so the range has to cover the sample window.
-            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)) },
         };
     }
 

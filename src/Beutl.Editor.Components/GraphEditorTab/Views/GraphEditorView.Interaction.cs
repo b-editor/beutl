@@ -234,10 +234,10 @@ public partial class GraphEditorView
     {
         if (DataContext is not GraphEditorViewModel model) return delta;
         var selected = snapshot.Entries.Select(x => x.Model).ToHashSet();
-        double offset = model.UseGlobalClock.Value ? 0 : model.Element?.Start.ToSeconds() ?? 0;
-        var targets = model.Animation.KeyFrames.Where(x => !selected.Contains(x)).Select(x => x.KeyTime.ToSeconds())
-            .Concat([model.CurrentTime.Value.ToSeconds() - offset, model.Scene.Start.ToSeconds() - offset,
-                (model.Scene.Start + model.Scene.Duration).ToSeconds() - offset, 0]);
+        double offset = model.UseGlobalClock.Value ? 0 : model.Element?.Start.Value.ToSeconds() ?? 0;
+        var targets = model.Animation.KeyFrames.Where(x => !selected.Contains(x)).Select(x => x.KeyTime.Value.ToSeconds())
+            .Concat([model.CurrentTime.Value.ToSeconds() - offset, model.Scene.Start.Value.ToSeconds() - offset,
+                (model.Scene.Start.Value + model.Scene.Duration.Value).ToSeconds() - offset, 0]);
         double tolerance = 6d.PixelToTime(model.Options.Value.Scale).ToSeconds();
         double best = tolerance;
         double correction = 0;
@@ -343,7 +343,7 @@ public partial class GraphEditorView
         var model = item.Parent.Parent;
         double value = model.IsSpeedGraph.Value
             ? GraphEditorCurveMath.KeyVelocity(item) : item.Parent.ConvertToDouble(item.Model.Value);
-        return new Point(item.Model.KeyTime.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
+        return new Point(item.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
             model.Baseline.Value - value * model.ScaleY.Value);
     }
 
@@ -432,7 +432,7 @@ public partial class GraphEditorView
     // J jumps back to the previous keyframe, K forward to the next one.
     private static void JumpToAdjacentKeyFrame(GraphEditorViewModel model, GraphEditorViewViewModel channel, Key key)
     {
-        var times = channel.KeyFrames.Select(x => x.Model.KeyTime + (model.UseGlobalClock.Value ? MediaTime.Zero : model.Element?.Start ?? MediaTime.Zero));
+        var times = channel.KeyFrames.Select(x => x.Model.KeyTime.Value + (model.UseGlobalClock.Value ? MediaTime.Zero : model.Element?.Start.Value ?? MediaTime.Zero));
         var target = key == Key.J ? times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (MediaTime?)x).FirstOrDefault()
             : times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (MediaTime?)x).FirstOrDefault();
         if (target.HasValue) model.Seek(target.Value);
@@ -452,7 +452,7 @@ public partial class GraphEditorView
         model.Animation.KeyFrames.CollectionChangedAsObservable()
             .Subscribe(_ => edited = true).DisposeWith(pendingEdits);
         // Spline handles can change without replacing the key's Easing property.
-        foreach (var spline in copied.Select(key => key.Easing).OfType<SplineEasing>().Distinct())
+        foreach (var spline in copied.Select(key => key.Easing.Value).OfType<SplineEasing>().Distinct())
         {
             spline.Changed += onEdited;
             Disposable.Create(() => spline.Changed -= onEdited).DisposeWith(pendingEdits);
@@ -490,14 +490,14 @@ public partial class GraphEditorView
                 var item = channel.KeyFrames[i];
                 if (mode == "Hold")
                 {
-                    if (channel.KeyFrames[i - 1].IsSelected.Value) item.Model.Easing = new HoldEasing();
+                    if (channel.KeyFrames[i - 1].IsSelected.Value) item.Model.Easing.Value = new HoldEasing();
                     continue;
                 }
                 bool incoming = item.IsSelected.Value;
                 bool outgoing = channel.KeyFrames[i - 1].IsSelected.Value;
                 if (!incoming && !outgoing) continue;
-                var spline = GraphEditorCurveMath.ToSpline(item.Model.Easing);
-                item.Model.Easing = spline;
+                var spline = GraphEditorCurveMath.ToSpline(item.Model.Easing.Value);
+                item.Model.Easing.Value = spline;
                 if (outgoing) { spline.X1 = 1f / 3; spline.Y1 = mode is "Ease" or "EaseOut" ? 0 : 1f / 3; }
                 if (incoming) { spline.X2 = 2f / 3; spline.Y2 = mode is "Ease" or "EaseIn" ? 1 : 2f / 3; }
             }

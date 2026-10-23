@@ -30,7 +30,7 @@ public class GraphEditorTangentTests
         {
             ChoosePreset(graph, "Linear", false);
             ChoosePreset(graph, mode, false);
-            midpointValues[mode] = graph.Second.Easing.Ease(0.5f);
+            midpointValues[mode] = graph.Second.Easing.Value.Ease(0.5f);
             graph.View.Focus();
             graph.FitAll();
             HeadlessTestHelpers.Render(3);
@@ -57,7 +57,7 @@ public class GraphEditorTangentTests
         SetMode(graph, mode);
         channel.SetSelection([graph.Second, kf3]);
         HeadlessTestHelpers.Render(3);
-        var easing = (SplineEasing)graph.Second.Easing;
+        var easing = (SplineEasing)graph.Second.Easing.Value;
         float x1 = easing.X1, y1 = easing.Y1, x2 = easing.X2, y2 = easing.Y2;
         Point originalCp2 = Incoming(graph, graph.Second);
         Point kf2Position = graph.Position(graph.Second), kf3Position = graph.Position(kf3);
@@ -69,8 +69,8 @@ public class GraphEditorTangentTests
         {
             graph.Window.MouseMove(rightEdge + new Vector(distance, 0), RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Render(3);
-            Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
-            Assert.That(graph.Second.Value, Is.EqualTo(300));
+            Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(graph.Second.Value.Value, Is.EqualTo(300));
             AssertCoupling(mode, speed, Outgoing(graph, graph.Second), originalCp2, Incoming(graph, graph.Second));
             Assert.That(easing.X1, Is.EqualTo(x1), "Kf1's outgoing handle must stay unchanged.");
             Assert.That(easing.Y1, Is.EqualTo(y1));
@@ -82,13 +82,13 @@ public class GraphEditorTangentTests
         }
         graph.Window.MouseUp(rightEdge + new Vector(30, 0), MouseButton.Left);
         HeadlessTestHelpers.Render(3);
-        Assert.That(kf3.KeyTime.ToSeconds(), Is.EqualTo(2.8333333).Within(0.00001));
+        Assert.That(kf3.KeyTime.Value.ToSeconds(), Is.EqualTo(2.8333333).Within(0.00001));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
-        Assert.That(kf3.KeyTime, Is.EqualTo(MediaTime.FromSeconds(2.5)));
-        Assert.That(((SplineEasing)graph.Second.Easing).X2, Is.EqualTo(x2));
-        Assert.That(((SplineEasing)graph.Second.Easing).Y2, Is.EqualTo(y2));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(kf3.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+        Assert.That(((SplineEasing)graph.Second.Easing.Value).X2, Is.EqualTo(x2));
+        Assert.That(((SplineEasing)graph.Second.Easing.Value).Y2, Is.EqualTo(y2));
     }
 
     [AvaloniaTest]
@@ -117,8 +117,8 @@ public class GraphEditorTangentTests
         AssertCoupling(mode, speed, Incoming(graph, next), rightOutside, Outgoing(graph, next));
         AssertPoint(Outgoing(graph, graph.First), firstFar, "The unselected starting key's handle must not move.");
         AssertPoint(Incoming(graph, last), lastFar, "The unselected ending key's handle must not move.");
-        Assert.That(middle.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
-        Assert.That(next.KeyTime.ToSeconds(), Is.EqualTo(2.8333333).Within(0.00001));
+        Assert.That(middle.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(next.KeyTime.Value.ToSeconds(), Is.EqualTo(2.8333333).Within(0.00001));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
         AssertPoint(Incoming(graph, middle), leftOutside, "Undo must restore the incoming handle.");
@@ -175,10 +175,10 @@ public class GraphEditorTangentTests
         if (!speed)
         {
             // Reproduce the vertical handles in the report, with unequal lengths to test Asymmetry.
-            ((SplineEasing)left.Model.Easing).X2 = 1;
-            ((SplineEasing)left.Model.Easing).Y2 = 1.5f;
-            ((SplineEasing)right.Model.Easing).X1 = 0;
-            ((SplineEasing)right.Model.Easing).Y1 = -0.4f;
+            ((SplineEasing)left.Model.Easing.Value).X2 = 1;
+            ((SplineEasing)left.Model.Easing.Value).Y2 = 1.5f;
+            ((SplineEasing)right.Model.Easing.Value).X1 = 0;
+            ((SplineEasing)right.Model.Easing.Value).Y1 = -0.4f;
         }
         channel.SetSelection([graph.Second]);
         graph.Model.HistoryManager.Commit();
@@ -232,8 +232,8 @@ public class GraphEditorTangentTests
         AssertDraggedHandle(incoming, to);
         AssertPoint(Outgoing(graph, graph.First), farLeft, "The previous key's handle must not change.");
         AssertPoint(Incoming(graph, right.Model), farRight, "The next key's handle must not change.");
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
-        Assert.That(graph.Second.Value, Is.EqualTo(300));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(graph.Second.Value.Value, Is.EqualTo(300));
         graph.Window.MouseUp(to, MouseButton.Left, modifiers);
         var after = SplineCoordinates(graph);
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
@@ -289,9 +289,9 @@ public class GraphEditorTangentTests
     public async Task Linear_preset_resets_custom_tangent_influence_and_time_mapping()
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        graph.Second.Easing = new SplineEasing(0.05f, -0.3f, 0.4f, 1.7f);
+        graph.Second.Easing.Value = new SplineEasing(0.05f, -0.3f, 0.4f, 1.7f);
         ChoosePreset(graph, "Linear", false);
-        var spline = (SplineEasing)graph.Second.Easing;
+        var spline = (SplineEasing)graph.Second.Easing.Value;
         Assert.That(spline.X1, Is.EqualTo(1f / 3));
         Assert.That(spline.X2, Is.EqualTo(2f / 3));
         for (int i = 0; i <= 20; i++)
@@ -314,11 +314,11 @@ public class GraphEditorTangentTests
         Point from = HandlePosition(graph, item, incoming, speed);
         Point key = graph.Position(incoming ? graph.Second : graph.First);
         graph.Drag(from, new Point(key.X + (incoming ? 20 : -20), from.Y));
-        var spline = (SplineEasing)graph.Second.Easing;
+        var spline = (SplineEasing)graph.Second.Easing.Value;
         Assert.That(incoming ? spline.X2 : spline.X1,
             Is.EqualTo(incoming ? (speed ? 0.999 : 1) : (speed ? 0.001 : 0)).Within(0.00001));
-        Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.5)));
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(graph.First.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
     }
 
     private static Point HandlePosition(GraphScope graph, GraphEditorKeyFrameViewModel item, bool incoming, bool speed)
@@ -332,7 +332,7 @@ public class GraphEditorTangentTests
     }
 
     private static (float, float, float, float)[] SplineCoordinates(GraphScope graph) => graph.Animation.KeyFrames
-        .Select(x => x.Easing).OfType<SplineEasing>().Select(x => (x.X1, x.Y1, x.X2, x.Y2)).ToArray();
+        .Select(x => x.Easing.Value).OfType<SplineEasing>().Select(x => (x.X1, x.Y1, x.X2, x.Y2)).ToArray();
 
     [AvaloniaTest]
     public async Task Transform_box_keeps_the_opposite_corner_fixed_across_layout_updates()
@@ -346,12 +346,12 @@ public class GraphEditorTangentTests
         graph.Window.MouseDown(from, MouseButton.Left);
         graph.Window.MouseMove(from + new Vector(0, -20), RawInputModifiers.LeftMouseButton);
         HeadlessTestHelpers.Render(3);
-        Assert.That(graph.First.Value, Is.EqualTo(100).Within(0.001));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(100).Within(0.001));
         graph.Window.MouseMove(from + new Vector(0, -40), RawInputModifiers.LeftMouseButton);
         graph.Window.MouseUp(from + new Vector(0, -40), MouseButton.Left);
         HeadlessTestHelpers.Render();
-        Assert.That(graph.First.Value, Is.EqualTo(100).Within(0.001));
-        Assert.That(graph.Second.Value, Is.EqualTo(580).Within(0.001));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(100).Within(0.001));
+        Assert.That(graph.Second.Value.Value, Is.EqualTo(580).Within(0.001));
     }
 
     [AvaloniaTest]
@@ -366,20 +366,20 @@ public class GraphEditorTangentTests
         HeadlessTestHelpers.Render(3);
         foreach (string mode in new[] { "Ease", "EaseIn", "EaseOut", "Linear", "EaseOut", "EaseIn", "Ease" })
         {
-            float before = graph.Second.Easing.Ease(0.25f);
+            float before = graph.Second.Easing.Value.Ease(0.25f);
             int undo = graph.Model.HistoryManager.UndoCount;
             ChoosePreset(graph, mode, keyboard);
-            double start = GraphEditorCurveMath.Velocity(graph.Second.Easing, 0, 1, 1);
-            double end = GraphEditorCurveMath.Velocity(graph.Second.Easing, 1, 1, 1);
+            double start = GraphEditorCurveMath.Velocity(graph.Second.Easing.Value, 0, 1, 1);
+            double end = GraphEditorCurveMath.Velocity(graph.Second.Easing.Value, 1, 1, 1);
             double expectedStart = mode is "Ease" or "EaseOut" ? 0 : 1;
             double expectedEnd = mode is "Ease" or "EaseIn" ? 0 : 1;
             Assert.That(start, Is.EqualTo(expectedStart).Within(0.001), mode);
             Assert.That(end, Is.EqualTo(expectedEnd).Within(0.001), mode);
-            if (mode == "EaseIn") Assert.That(graph.Second.Easing.Ease(0.25f), Is.GreaterThan(0.25f));
-            if (mode == "EaseOut") Assert.That(graph.Second.Easing.Ease(0.25f), Is.LessThan(0.25f));
+            if (mode == "EaseIn") Assert.That(graph.Second.Easing.Value.Ease(0.25f), Is.GreaterThan(0.25f));
+            if (mode == "EaseOut") Assert.That(graph.Second.Easing.Value.Ease(0.25f), Is.LessThan(0.25f));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
             graph.Model.HistoryManager.Undo();
-            Assert.That(graph.Second.Easing.Ease(0.25f), Is.EqualTo(before).Within(0.0001));
+            Assert.That(graph.Second.Easing.Value.Ease(0.25f), Is.EqualTo(before).Within(0.0001));
             graph.Model.HistoryManager.Redo();
             HeadlessTestHelpers.Render(3);
             if (!keyboard && mode is "EaseIn" or "EaseOut")
@@ -397,15 +397,15 @@ public class GraphEditorTangentTests
         using var graph = await CreateChain(false);
         var next = graph.Animation.KeyFrames[2];
         graph.Model.SelectedView.Value!.SetSelection([graph.Second]);
-        var before = ((SplineEasing)graph.Second.Easing).X1;
-        var after = ((SplineEasing)next.Easing).X2;
+        var before = ((SplineEasing)graph.Second.Easing.Value).X1;
+        var after = ((SplineEasing)next.Easing.Value).X2;
         foreach (string mode in new[] { "EaseIn", "EaseOut" })
         {
             ChoosePreset(graph, mode, false);
-            Assert.That(((SplineEasing)graph.Second.Easing).X1, Is.EqualTo(before));
-            Assert.That(((SplineEasing)graph.Second.Easing).Y1, Is.EqualTo(0.25f));
-            Assert.That(((SplineEasing)next.Easing).X2, Is.EqualTo(after));
-            Assert.That(((SplineEasing)next.Easing).Y2, Is.EqualTo(0.8f));
+            Assert.That(((SplineEasing)graph.Second.Easing.Value).X1, Is.EqualTo(before));
+            Assert.That(((SplineEasing)graph.Second.Easing.Value).Y1, Is.EqualTo(0.25f));
+            Assert.That(((SplineEasing)next.Easing.Value).X2, Is.EqualTo(after));
+            Assert.That(((SplineEasing)next.Easing.Value).Y2, Is.EqualTo(0.8f));
         }
     }
 
@@ -433,18 +433,18 @@ public class GraphEditorTangentTests
     private static async Task<GraphScope> CreateChain(bool speed)
     {
         var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
-        graph.Second.Value = 300;
+        graph.Second.Value.Value = 300;
         graph.Animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(2.5),
-            Value = 450,
-            Easing = new SplineEasing(0.2f, 0.1f, 0.7f, 0.8f)
+            KeyTime = { Value = MediaTime.FromSeconds(2.5) },
+            Value = { Value = 450 },
+            Easing = { Value = new SplineEasing(0.2f, 0.1f, 0.7f, 0.8f) }
         });
         graph.Animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(4.5),
-            Value = 750,
-            Easing = new SplineEasing(0.2f, 0.2f, 0.8f, 0.9f)
+            KeyTime = { Value = MediaTime.FromSeconds(4.5) },
+            Value = { Value = 750 },
+            Easing = { Value = new SplineEasing(0.2f, 0.2f, 0.8f, 0.9f) }
         });
         graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 0.6f };
         graph.Model.ScaleY.Value = 0.3;

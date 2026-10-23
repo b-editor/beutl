@@ -61,7 +61,7 @@ public class SourceSoundThumbnailTests
         var sound = new SourceSound
         {
             Source = { Value = soundSource },
-            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)) },
         };
 
         // Cold run: empty cache. Every chunk is a miss, computed from audio and saved.
@@ -103,7 +103,7 @@ public class SourceSoundThumbnailTests
         var sound = new SourceSound
         {
             Source = { Value = soundSource },
-            TimeRange = new TimeRange(MediaTime.Zero, duration),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, duration) },
         };
 
         var chunks = await CollectAsync(sound, chunkCount, samplesPerChunk, new FakeWaveformCache());

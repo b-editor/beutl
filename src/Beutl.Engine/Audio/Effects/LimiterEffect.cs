@@ -86,7 +86,7 @@ public sealed partial class LimiterEffect : AudioEffect
     public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
     {
         base.GetLatencySamples(sampleRate, inputLatency);
-        if (!IsEnabled)
+        if (!IsEnabled.Value)
             return inputLatency;
 
         // Reserve the worst-case lookahead when automation is present.

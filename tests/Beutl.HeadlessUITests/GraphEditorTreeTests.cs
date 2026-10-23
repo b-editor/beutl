@@ -109,7 +109,7 @@ public class GraphEditorTreeTests
     {
         using var scope = await TreeScope.CreateAsync(light: light);
         var animation = new KeyFrameAnimation<AlignmentX>();
-        animation.KeyFrames.Add(new KeyFrame<AlignmentX> { Value = AlignmentX.Left });
+        animation.KeyFrames.Add(new KeyFrame<AlignmentX> { Value = { Value = AlignmentX.Left } });
         scope.Shape.AlignmentX.SetKeyFrameAnimation(animation);
         scope.Base.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render(3);
@@ -231,7 +231,7 @@ public class GraphEditorTreeTests
         var animation = (KeyFrameAnimation<float>)scope.Shape.Width.GetKeyFrameAnimation()!;
         Assert.That(animation.KeyFrames, Has.Count.EqualTo(1));
         Assert.That(animation.KeyFrames[0].Value, Is.EqualTo(240));
-        Assert.That(animation.KeyFrames[0].KeyTime, Is.EqualTo(MediaTime.Zero));
+        Assert.That(animation.KeyFrames[0].KeyTime.Value, Is.EqualTo(MediaTime.Zero));
         Assert.That(scope.Model.SelectedAnimation.Value!.Animation, Is.SameAs(animation));
         Assert.That(scope.Model.SelectedTreeItem.Value, Is.SameAs(item));
         Assert.That(scope.Base.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
@@ -266,15 +266,15 @@ public class GraphEditorTreeTests
         var icon = button.GetVisualDescendants().OfType<FluentIcon>().Single();
         Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.EnableAnimation));
         Assert.That(icon.Icon, Is.EqualTo(Icon.Timer));
-        scope.Base.Model.Element!.Start = MediaTime.FromSeconds(2);
+        scope.Base.Model.Element!.Start.Value = MediaTime.FromSeconds(2);
         double origin = globalClock ? 2 : 0;
-        var animation = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(origin), Value = 100 });
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = globalClock } };
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(origin) }, Value = { Value = 100 } });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(origin + 2),
-            Value = 500,
-            Easing = new SplineEasing(1f / 3, 0, 2f / 3, 1)
+            KeyTime = { Value = MediaTime.FromSeconds(origin + 2) },
+            Value = { Value = 500 },
+            Easing = { Value = new SplineEasing(1f / 3, 0, 2f / 3, 1) }
         });
         scope.Shape.Width.SetKeyFrameAnimation(animation);
         scope.Base.Model.Seek(MediaTime.FromSeconds(3.007));
@@ -290,7 +290,7 @@ public class GraphEditorTreeTests
         button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
         HeadlessTestHelpers.Render(3);
         Assert.That(animation.KeyFrames, Has.Count.EqualTo(3));
-        Assert.That(animation.KeyFrames[1].KeyTime, Is.EqualTo(keyTime));
+        Assert.That(animation.KeyFrames[1].KeyTime.Value, Is.EqualTo(keyTime));
         Assert.That(animation.KeyFrames[1].Value, Is.EqualTo(samples[1]).Within(0.001));
         Assert.That(animation.Interpolate(MediaTime.FromSeconds(origin + 0.5)), Is.EqualTo(samples[0]).Within(0.001));
         Assert.That(animation.Interpolate(MediaTime.FromSeconds(origin + 1.5)), Is.EqualTo(samples[2]).Within(0.001));
@@ -368,13 +368,13 @@ public class GraphEditorTreeTests
         var item = scope.Find(scope.Shape.Width);
         scope.Model.EnableAnimation(item);
         var animation = (KeyFrameAnimation<float>)scope.Shape.Width.GetKeyFrameAnimation()!;
-        scope.Base.Model.Element!.Start = MediaTime.FromSeconds(1);
+        scope.Base.Model.Element!.Start.Value = MediaTime.FromSeconds(1);
         scope.Base.Model.Seek(MediaTime.FromSeconds(1));
         HeadlessTestHelpers.Render(3);
         Assert.That(item.HasKeyFrame.Value, Is.True);
-        animation.UseGlobalClock = true;
+        animation.UseGlobalClock.Value = true;
         Assert.That(item.HasKeyFrame.Value, Is.False);
-        animation.UseGlobalClock = false;
+        animation.UseGlobalClock.Value = false;
         Assert.That(item.HasKeyFrame.Value, Is.True);
         scope.Base.Model.HistoryManager.Commit();
         scope.AnimationButton(item).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));

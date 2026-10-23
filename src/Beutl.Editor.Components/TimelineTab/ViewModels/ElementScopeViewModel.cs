@@ -34,7 +34,7 @@ public sealed class ElementScopeViewModel : IDisposable
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        IObservable<int> zIndex = element.ZIndexProperty.GetObservable();
+        IObservable<int> zIndex = element.ZIndex.GetObservable();
         IObservable<(int EndZIndex, int ZIndex, int Count)> zIndexTuple = zIndex
             .CombineLatest(Count)
             .Select(t => (t.First + t.Second + 1, t.First, t.Second));
@@ -162,15 +162,15 @@ public sealed class ElementScopeViewModel : IDisposable
     {
         TimelineTabViewModel timeline = Parent.Timeline;
         var margin = new Thickness(
-            Model.Start.TimeToPixel(timeline.Options.Value.Scale),
-            timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
+            Model.Start.Value.TimeToPixel(timeline.Options.Value.Scale),
+            timeline.CalculateLayerTop(Model.ZIndex.Value), 0, 0);
 
-        double width = Model.Length.TimeToPixel(timeline.Options.Value.Scale);
+        double width = Model.Length.Value.TimeToPixel(timeline.Options.Value.Scale);
         double height = 0;
 
         if (Count.Value > 0)
         {
-            height = timeline.CalculateLayerTop(Model.ZIndex + Count.Value + 1) - margin.Top;
+            height = timeline.CalculateLayerTop(Model.ZIndex.Value + Count.Value + 1) - margin.Top;
         }
 
         Margin.Value = context.Margin;

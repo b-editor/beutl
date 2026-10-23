@@ -16,13 +16,13 @@ public class AVFSettingsGoldenTests
     {
         var json = new JsonObject
         {
-            ["Video"] = CoreSerializer.SerializeToJsonObject(new AVFVideoEncoderSettings { JPEGQuality = 0.5f }),
+            ["Video"] = CoreSerializer.SerializeToJsonObject(new AVFVideoEncoderSettings { JPEGQuality = { Value = 0.5f } }),
             ["Audio"] = CoreSerializer.SerializeToJsonObject(new AVFAudioEncoderSettings
             {
-                LinearPcmFloat = true,
-                SampleRate = 48000,
+                LinearPcmFloat = { Value = true },
+                SampleRate = { Value = 48000 },
             }),
-            ["Decoding"] = CoreSerializer.SerializeToJsonObject(new AVFDecodingSettings { MaxVideoBufferSize = 8 }),
+            ["Decoding"] = CoreSerializer.SerializeToJsonObject(new AVFDecodingSettings { MaxVideoBufferSize = { Value = 8 } }),
         };
 
         AssertGolden(json, "avf-settings");

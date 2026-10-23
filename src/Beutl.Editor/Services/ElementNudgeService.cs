@@ -57,13 +57,13 @@ public sealed class ElementNudgeService : IElementNudgeService
         // Anchor on the leftmost element so the delta lands on the frame grid
         // even when callers have off-grid starts.
         Element anchor = targets
-            .OrderBy(e => e.Start)
-            .ThenBy(e => e.ZIndex)
+            .OrderBy(e => e.Start.Value)
+            .ThenBy(e => e.ZIndex.Value)
             .First();
-        MediaTime anchoredStart = anchor.Start.RoundToFrame(rate, MidpointRounding.AwayFromZero) + MediaTime.FromFrames(frames, rate);
+        MediaTime anchoredStart = anchor.Start.Value.RoundToFrame(rate, MidpointRounding.AwayFromZero) + MediaTime.FromFrames(frames, rate);
         if (anchoredStart < MediaTime.Zero) return;
 
-        MediaTime delta = anchoredStart - anchor.Start;
+        MediaTime delta = anchoredStart - anchor.Start.Value;
         if (delta == MediaTime.Zero) return;
 
         if (_session is not { IsOpen: true })

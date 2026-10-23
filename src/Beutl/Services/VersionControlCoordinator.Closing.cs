@@ -66,7 +66,7 @@ internal partial class VersionControlCoordinator
 
             close.HoldsOperationGate = true;
             if (closeContext.CloseIntent == ProjectService.ProjectCloseIntent.SaveChanges
-                && _config.AutoCommitOnClose
+                && _config.AutoCommitOnClose.Value
                 && _state.OwnedService?.Repository is not null
                 && _projectService.CurrentProject.Value is not null)
             {
@@ -100,7 +100,7 @@ internal partial class VersionControlCoordinator
         PreparedClose close,
         CancellationToken cancellationToken)
     {
-        if (!_config.AutoCommitOnClose
+        if (!_config.AutoCommitOnClose.Value
             || _state.OwnedService?.Repository is null
             || _projectService.CurrentProject.Value is not { } project)
         {
@@ -219,7 +219,7 @@ internal partial class VersionControlCoordinator
             // A discard close saves nothing, so it must not commit what autosave or another
             // tool already wrote either. Nor may a close the user continued after its save
             // failed, since the project on disk may be half-saved.
-            bool finalSnapshotRequested = _config.AutoCommitOnClose
+            bool finalSnapshotRequested = _config.AutoCommitOnClose.Value
                                           && closeIntent == ProjectService.ProjectCloseIntent.SaveChanges
                                           && allowCloseSnapshot;
 

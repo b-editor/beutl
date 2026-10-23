@@ -60,7 +60,7 @@ public sealed partial class Model3D : Group3D
     {
         if (Source.Value is not { } source) return;
         MeshObject3D[] previous = Children.OfType<MeshObject3D>().ToArray();
-        static int Origin(MeshObject3D child) => child.Mesh.Value is ModelMesh mesh && mesh.SourceChildId == child.Id
+        static int Origin(MeshObject3D child) => child.Mesh.Value is ModelMesh mesh && mesh.SourceChildId == child.Id.Value
             ? mesh.SourceMeshIndex : -1;
         bool hasOrigins = previous.Any(child => Origin(child) >= 0);
         // Legacy scenes have no provenance. Position matching is best-effort;
@@ -79,7 +79,7 @@ public sealed partial class Model3D : Group3D
             }
             mesh.Vertices.Value = data.Vertices;
             mesh.Indices.Value = data.Indices;
-            mesh.SourceChildId = child.Id;
+            mesh.SourceChildId = child.Id.Value;
             mesh.SourceMeshIndex = i;
             // A new child is filled in before it is added, so history records only the addition.
             if (created)

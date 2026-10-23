@@ -8,7 +8,7 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
     public ListInputPort()
     {
         ScanProperties<ListInputPort<T>>();
-        HideProperty(ConnectionsProperty);
+        HideProperty(Connections);
         Connections.CollectionChanged += (_, _) =>
         {
             RaiseTopologyChanged();
@@ -16,24 +16,21 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
         };
     }
 
-    public Reference<Connection> Connection => default;
+    // A list port holds its connections in Connections, so its single connection stays empty.
+    private readonly ValueOnlyProperty<Reference<Connection>> _connection = new(default) { AffectsRender = false };
 
-    [NotAutoSerialized]
-    public IProperty<CoreList<Reference<Connection>>> ConnectionsProperty { get; } = new ValueOnlyProperty<CoreList<Reference<Connection>>>([]) { AffectsRender = false, KeepsList = true };
+    IProperty<Reference<Connection>> IInputPort.Connection => _connection;
 
     // IListPort
-    public CoreList<Reference<Connection>> Connections
-    {
-        get => ConnectionsProperty.Value;
-        set => ConnectionsProperty.Value.Replace(value);
-    }
+    [NotAutoSerialized]
+    public IListProperty<Reference<Connection>> Connections { get; } = new ListProperty<Reference<Connection>> { AffectsRender = false };
 
     public override void NotifyConnected(Connection connection)
     {
         base.NotifyConnected(connection);
         if (ConnectionReferenceList.AddIfMissing(Connections, connection))
         {
-            connection.Status = ConnectionStatus.Connected;
+            connection.Status.Value = ConnectionStatus.Connected;
         }
     }
 
@@ -42,7 +39,7 @@ public class ListInputPort<T> : NodePort<T>, IListInputPort
         base.NotifyDisconnected(connection);
         if (ConnectionReferenceList.RemoveIfPresent(Connections, connection))
         {
-            connection.Status = ConnectionStatus.Disconnected;
+            connection.Status.Value = ConnectionStatus.Disconnected;
         }
     }
 

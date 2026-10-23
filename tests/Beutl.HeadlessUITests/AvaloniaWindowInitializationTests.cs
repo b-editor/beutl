@@ -18,7 +18,7 @@ public class AvaloniaWindowInitializationTests
     public async Task Editor_windows_can_be_constructed_and_closed_before_being_shown()
     {
         ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
-        var previous = (config.WindowPosition, config.WindowSize, config.IsWindowMaximized);
+        var previous = (WindowPosition: config.WindowPosition.Value, WindowSize: config.WindowSize.Value, IsWindowMaximized: config.IsWindowMaximized.Value);
         Func<Window>[] factories =
         [
             () => HeadlessAppWindow.Create(() => new Beutl.Views.MainWindow()),
@@ -45,9 +45,9 @@ public class AvaloniaWindowInitializationTests
         }
         finally
         {
-            config.WindowPosition = previous.WindowPosition;
-            config.WindowSize = previous.WindowSize;
-            config.IsWindowMaximized = previous.IsWindowMaximized;
+            config.WindowPosition.Value = previous.WindowPosition;
+            config.WindowSize.Value = previous.WindowSize;
+            config.IsWindowMaximized.Value = previous.IsWindowMaximized;
         }
     }
 

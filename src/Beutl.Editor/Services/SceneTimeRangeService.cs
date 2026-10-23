@@ -55,15 +55,15 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     private static void ApplyStart(Scene scene, MediaTime newStart)
     {
         MediaTime frame = GetFrameDuration(scene);
-        MediaTime sceneEnd = scene.Start + scene.Duration;
+        MediaTime sceneEnd = scene.Start.Value + scene.Duration.Value;
         MediaTime gridEnd = SnapToFrame(scene, sceneEnd);
 
         if (newStart > gridEnd)
         {
             // Start past end: shift end forward one frame, snap start to old end.
             MediaTime shift = newStart - sceneEnd + frame;
-            scene.Duration = shift;
-            scene.Start = sceneEnd;
+            scene.Duration.Value = shift;
+            scene.Start.Value = sceneEnd;
             return;
         }
 
@@ -77,8 +77,8 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         }
 
         MediaTime newDuration = sceneEnd - newStart > frame ? sceneEnd - newStart : frame;
-        scene.Duration = newDuration;
-        scene.Start = newStart;
+        scene.Duration.Value = newDuration;
+        scene.Start.Value = newStart;
     }
 
     /// <summary>
@@ -89,19 +89,19 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     {
         MediaTime frame = GetFrameDuration(scene);
 
-        if (newEnd < scene.Start)
+        if (newEnd < scene.Start.Value)
         {
             // End dragged before the start: shift both back one frame.
             MediaTime shifted = newEnd - frame;
             if (shifted < MediaTime.Zero) shifted = MediaTime.Zero;
-            scene.Duration = scene.Start - shifted;
-            scene.Start = shifted;
+            scene.Duration.Value = scene.Start.Value - shifted;
+            scene.Start.Value = shifted;
             return;
         }
 
-        MediaTime duration = newEnd - scene.Start;
+        MediaTime duration = newEnd - scene.Start.Value;
         if (duration <= MediaTime.Zero) duration = frame;
-        scene.Duration = duration;
+        scene.Duration.Value = duration;
     }
 
     /// <summary>
@@ -118,8 +118,8 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
         if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
         if (newStart > sceneEnd - frame) newStart = sceneEnd - frame;
 
-        scene.Start = newStart;
-        scene.Duration = sceneEnd - newStart;
+        scene.Start.Value = newStart;
+        scene.Duration.Value = sceneEnd - newStart;
     }
 
     /// <summary>
@@ -131,8 +131,8 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     {
         MediaTime frame = GetFrameDuration(scene);
 
-        MediaTime duration = pointerTime - scene.Start;
+        MediaTime duration = pointerTime - scene.Start.Value;
         if (duration < frame) duration = frame;
-        scene.Duration = duration;
+        scene.Duration.Value = duration;
     }
 }

@@ -222,7 +222,7 @@ public partial class GraphNodeView : UserControl
         foreach (NodePortView view in portViews)
         {
             if (!view.IsEffectivelyVisible || view.DataContext is not NodeMemberViewModel { Model: { } model }) continue;
-            Guid rootId = model is INestedInputPort nested ? nested.RootMember.Id : model.Id;
+            Guid rootId = model is INestedInputPort nested ? nested.RootMember.Id : model.Id.Value;
             if (!roots.TryGetValue(rootId, out PortAnchor? anchor)) roots[rootId] = anchor = new PortAnchor();
             if (model is INestedInputPort child)
             {
@@ -376,7 +376,7 @@ public partial class GraphNodeView : UserControl
         {
             if (item.DataContext is GraphNodeViewModel { IsReadOnly: false } itemViewModel)
             {
-                (double x, double y) = itemViewModel.GraphNode.Position;
+                (double x, double y) = itemViewModel.GraphNode.Position.Value;
                 itemViewModel.Position.Value = new Point(x, y);
             }
         }

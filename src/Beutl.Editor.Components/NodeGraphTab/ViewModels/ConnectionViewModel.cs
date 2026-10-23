@@ -13,19 +13,19 @@ public class ConnectionViewModel : IDisposable
     {
         _nodeGraph = nodeGraph;
         Connection = connection;
-        InputPortVM = connection.InputProperty.GetObservable()
+        InputPortVM = connection.Input.GetObservable()
             .Select(i => i.Value is IInputPort input
                 ? _nodeGraph.FindNodePortViewModel(input) as InputPortViewModel
                 : null)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        OutputPortVM = connection.OutputProperty.GetObservable()
+        OutputPortVM = connection.Output.GetObservable()
             .Select(i => i.Value is IOutputPort output
                 ? _nodeGraph.FindNodePortViewModel(output) as OutputPortViewModel
                 : null)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        Status = connection.StatusProperty.GetObservable()
+        Status = connection.Status.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -47,7 +47,7 @@ public class ConnectionViewModel : IDisposable
 
                 if (tuple.NewValue != null && !tuple.NewValue.Connections.Contains(this))
                 {
-                    int index = tuple.NewValue.GetInsertionIndex(Connection.Id);
+                    int index = tuple.NewValue.GetInsertionIndex(Connection.Id.Value);
                     tuple.NewValue.Connections.Insert(index, this);
                 }
             })

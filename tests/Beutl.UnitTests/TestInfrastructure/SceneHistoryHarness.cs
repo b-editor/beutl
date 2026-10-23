@@ -57,8 +57,8 @@ public sealed class SceneHistoryHarness : IDisposable
         {
             Uri = new Uri(Path.Combine(BasePath, "test.scene")),
         };
-        if (start is { } s) Scene.Start = s;
-        if (duration is { } d) Scene.Duration = d;
+        if (start is { } s) Scene.Start.Value = s;
+        if (duration is { } d) Scene.Duration.Value = d;
 
         _history = new HistoryHarness(Scene);
     }
@@ -78,10 +78,10 @@ public sealed class SceneHistoryHarness : IDisposable
     {
         var element = new Element
         {
-            Start = start,
-            Length = length,
-            ZIndex = zIndex,
-            IsEnabled = isEnabled,
+            Start = { Value = start },
+            Length = { Value = length },
+            ZIndex = { Value = zIndex },
+            IsEnabled = { Value = isEnabled },
             Uri = new Uri(Path.Combine(BasePath, $"{Guid.NewGuid():N}.belm")),
         };
         Scene.Children.Add(element);
@@ -104,7 +104,7 @@ public sealed class SceneHistoryHarness : IDisposable
 
     public TimelineLayer AddLayer(int zIndex)
     {
-        var layer = new TimelineLayer { ZIndex = zIndex };
+        var layer = new TimelineLayer { ZIndex = { Value = zIndex } };
         Scene.Layers.Add(layer);
         return layer;
     }

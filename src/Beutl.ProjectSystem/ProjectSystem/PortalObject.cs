@@ -30,22 +30,22 @@ public sealed partial class PortalObject : EngineObject
                     context.Flow?.Clear();
                 }
 
-                int start = obj.ZIndex + 1;
-                int end = obj.ZIndex + Count;
+                int start = obj.ZIndex.Value + 1;
+                int end = obj.ZIndex.Value + Count;
 
                 IList<Element> elements = ctx.CurrentElements;
 
                 for (int i = 0; i < elements.Count; i++)
                 {
                     Element item = elements[i];
-                    if (item.ZIndex >= start && item.ZIndex <= end)
+                    if (item.ZIndex.Value >= start && item.ZIndex.Value <= end)
                     {
                         elements.RemoveAt(i);
                         i--;
                         // Evaluate another element and get flow-processed results
                         ctx.EvaluateElementIntoFlow(item);
                     }
-                    else if (item.ZIndex > end) break;
+                    else if (item.ZIndex.Value > end) break;
                 }
             }
         }

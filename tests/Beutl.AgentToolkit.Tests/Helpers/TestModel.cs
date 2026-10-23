@@ -7,11 +7,5 @@ internal sealed class TestModel : CoreObject
         ScanProperties<TestModel>();
     }
 
-    public IProperty<int> ValueProperty { get; } = new ValueOnlyProperty<int>(0);
-
-    public int Value
-    {
-        get => ValueProperty.Value;
-        set => ValueProperty.Value = value;
-    }
+    public IProperty<int> Value { get; } = new ValueOnlyProperty<int>(0);
 }

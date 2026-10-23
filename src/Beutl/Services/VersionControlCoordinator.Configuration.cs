@@ -90,7 +90,7 @@ internal partial class VersionControlCoordinator
 
     private bool TryCaptureGitExecutablePathChange()
     {
-        string? executablePath = NormalizeGitExecutablePath(_config.GitExecutablePath);
+        string? executablePath = NormalizeGitExecutablePath(_config.GitExecutablePath.Value);
         if (NullablePathsEqual(executablePath, _observedGitExecutablePath))
         {
             return false;
@@ -102,7 +102,7 @@ internal partial class VersionControlCoordinator
 
     private void CaptureUseLfsWhenAvailableChange()
     {
-        bool useLfsWhenAvailable = _config.UseLfsWhenAvailable;
+        bool useLfsWhenAvailable = _config.UseLfsWhenAvailable.Value;
         if (useLfsWhenAvailable == _observedUseLfsWhenAvailable)
         {
             return;

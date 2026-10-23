@@ -49,7 +49,7 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.IsEnabled, Is.False);
+            Assert.That(element.IsEnabled.Value, Is.False);
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -60,7 +60,7 @@ public class ElementAttributeServiceTests
         Element element = AddElement();
         int before = _history.UndoCount;
 
-        _service.SetEnabled(element, element.IsEnabled);
+        _service.SetEnabled(element, element.IsEnabled.Value);
 
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
@@ -76,7 +76,7 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.AccentColor, Is.EqualTo(target));
+            Assert.That(element.AccentColor.Value, Is.EqualTo(target));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -85,15 +85,15 @@ public class ElementAttributeServiceTests
     public void SetAccentColor_LockedElement_IsIgnored()
     {
         Element element = AddElement();
-        Color initial = element.AccentColor;
-        element.IsLocked = true;
+        Color initial = element.AccentColor.Value;
+        element.IsLocked.Value = true;
         int before = _history.UndoCount;
 
         _service.SetAccentColor(element, Color.FromArgb(255, 10, 20, 30));
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.AccentColor, Is.EqualTo(initial), "a locked clip's color must not change");
+            Assert.That(element.AccentColor.Value, Is.EqualTo(initial), "a locked clip's color must not change");
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -102,7 +102,7 @@ public class ElementAttributeServiceTests
     public void SetAccentColor_NoChange_NoCommit()
     {
         Element element = AddElement();
-        Color initial = element.AccentColor;
+        Color initial = element.AccentColor.Value;
         int before = _history.UndoCount;
 
         _service.SetAccentColor(element, initial);
@@ -120,7 +120,7 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.IsLocked, Is.True);
+            Assert.That(element.IsLocked.Value, Is.True);
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -131,7 +131,7 @@ public class ElementAttributeServiceTests
         Element element = AddElement();
         int before = _history.UndoCount;
 
-        _service.SetLocked(element, element.IsLocked);
+        _service.SetLocked(element, element.IsLocked.Value);
 
         Assert.That(_history.UndoCount, Is.EqualTo(before));
     }
@@ -152,17 +152,17 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
-            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
-            Assert.That(incoming.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
+            Assert.That(incoming.EnterTransition.Value?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+            Assert.That(outgoing.ExitTransition.Value?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition.Value, Is.TypeOf<CrossDissolveTransition>());
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
 
         _history.Undo();
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition, Is.Null);
-            Assert.That(outgoing.ExitTransition, Is.Null);
+            Assert.That(incoming.EnterTransition.Value, Is.Null);
+            Assert.That(outgoing.ExitTransition.Value, Is.Null);
         });
     }
 
@@ -175,8 +175,8 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.ExitTransition?.Duration.Value, Is.EqualTo(ClipTransition.DefaultDuration));
-            Assert.That(element.ExitTransition, Is.TypeOf<FadeTransition>());
+            Assert.That(element.ExitTransition.Value?.Duration.Value, Is.EqualTo(ClipTransition.DefaultDuration));
+            Assert.That(element.ExitTransition.Value, Is.TypeOf<FadeTransition>());
         });
     }
 
@@ -185,7 +185,7 @@ public class ElementAttributeServiceTests
     {
         (Element outgoing, Element incoming) = AddCut();
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
-        ClipTransition enter = incoming.EnterTransition!;
+        ClipTransition enter = incoming.EnterTransition.Value!;
         var easing = new CubicEaseInOut();
         enter.Duration.Value = MediaTime.FromSeconds(1);
         enter.Easing.Value = easing;
@@ -196,16 +196,16 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition, Is.TypeOf<WipeTransition>());
-            Assert.That(outgoing.ExitTransition, Is.TypeOf<WipeTransition>());
-            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
-            Assert.That(incoming.EnterTransition?.Easing.Value, Is.SameAs(easing));
+            Assert.That(incoming.EnterTransition.Value, Is.TypeOf<WipeTransition>());
+            Assert.That(outgoing.ExitTransition.Value, Is.TypeOf<WipeTransition>());
+            Assert.That(incoming.EnterTransition.Value?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(outgoing.ExitTransition.Value?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition.Value?.Easing.Value, Is.SameAs(easing));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
 
         _history.Undo();
-        Assert.That(incoming.EnterTransition, Is.SameAs(enter), "undo brings back the transition it replaced");
+        Assert.That(incoming.EnterTransition.Value, Is.SameAs(enter), "undo brings back the transition it replaced");
     }
 
     [Test]
@@ -214,11 +214,11 @@ public class ElementAttributeServiceTests
         (_, Element incoming) = AddCut();
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
         var expression = new ConstantEasingExpression(new CubicEaseInOut());
-        incoming.EnterTransition!.Easing.Expression = expression;
+        incoming.EnterTransition.Value!.Easing.Expression = expression;
 
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(WipeTransition));
 
-        Assert.That(incoming.EnterTransition?.Easing.Expression, Is.SameAs(expression));
+        Assert.That(incoming.EnterTransition.Value?.Easing.Expression, Is.SameAs(expression));
     }
 
     // The element after a cut decides how the boundary blends, so when it is locked with an enter
@@ -227,8 +227,8 @@ public class ElementAttributeServiceTests
     public void ApplyTransition_AtAnEndBeforeALockedDecidingSide_ChangesNothing()
     {
         (Element outgoing, Element incoming) = AddCut();
-        incoming.EnterTransition = new WipeTransition();
-        incoming.IsLocked = true;
+        incoming.EnterTransition.Value = new WipeTransition();
+        incoming.IsLocked.Value = true;
         _history.Commit("lock");
         int before = _history.UndoCount;
 
@@ -236,8 +236,8 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(outgoing.ExitTransition, Is.Null);
-            Assert.That(incoming.EnterTransition, Is.TypeOf<WipeTransition>());
+            Assert.That(outgoing.ExitTransition.Value, Is.Null);
+            Assert.That(incoming.EnterTransition.Value, Is.TypeOf<WipeTransition>());
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -247,14 +247,14 @@ public class ElementAttributeServiceTests
     {
         (_, Element incoming) = AddCut();
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
-        ClipTransition enter = incoming.EnterTransition!;
+        ClipTransition enter = incoming.EnterTransition.Value!;
         int before = _history.UndoCount;
 
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition, Is.SameAs(enter));
+            Assert.That(incoming.EnterTransition.Value, Is.SameAs(enter));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -280,8 +280,8 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition, Is.Null);
-            Assert.That(outgoing.ExitTransition, Is.Null);
+            Assert.That(incoming.EnterTransition.Value, Is.Null);
+            Assert.That(outgoing.ExitTransition.Value, Is.Null);
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -292,7 +292,7 @@ public class ElementAttributeServiceTests
     {
         (Element outgoing, Element incoming) = AddCut();
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
-        incoming.IsLocked = true;
+        incoming.IsLocked.Value = true;
         _history.Commit("lock");
         int before = _history.UndoCount;
 
@@ -301,8 +301,8 @@ public class ElementAttributeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(ElementTransitionEdits.HasLockedSideAcross(outgoing, ElementEdge.End), Is.True);
-            Assert.That(outgoing.ExitTransition, Is.Not.Null);
-            Assert.That(incoming.EnterTransition, Is.Not.Null);
+            Assert.That(outgoing.ExitTransition.Value, Is.Not.Null);
+            Assert.That(incoming.EnterTransition.Value, Is.Not.Null);
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -313,8 +313,8 @@ public class ElementAttributeServiceTests
     {
         (Element outgoing, Element incoming) = AddCut();
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
-        incoming.EnterTransition!.IsEnabled = false;
-        incoming.IsLocked = true;
+        incoming.EnterTransition.Value!.IsEnabled.Value = false;
+        incoming.IsLocked.Value = true;
         _history.Commit("lock");
 
         _service.RemoveTransition(outgoing, ElementEdge.End);
@@ -322,8 +322,8 @@ public class ElementAttributeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(ElementTransitionEdits.HasLockedSideAcross(outgoing, ElementEdge.End), Is.False);
-            Assert.That(outgoing.ExitTransition, Is.Null);
-            Assert.That(incoming.EnterTransition, Is.Not.Null, "the locked element is left alone");
+            Assert.That(outgoing.ExitTransition.Value, Is.Null);
+            Assert.That(incoming.EnterTransition.Value, Is.Not.Null, "the locked element is left alone");
         });
     }
 
@@ -331,15 +331,15 @@ public class ElementAttributeServiceTests
     public void ApplyTransition_LeavesALockedPartnerAlone()
     {
         (Element outgoing, Element incoming) = AddCut();
-        outgoing.IsLocked = true;
+        outgoing.IsLocked.Value = true;
         _history.Commit("lock");
 
         _service.ApplyTransition(incoming, ElementEdge.Start, typeof(CrossDissolveTransition));
 
         Assert.Multiple(() =>
         {
-            Assert.That(outgoing.ExitTransition, Is.Null);
-            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(ClipTransition.DefaultDuration));
+            Assert.That(outgoing.ExitTransition.Value, Is.Null);
+            Assert.That(incoming.EnterTransition.Value?.Duration.Value, Is.EqualTo(ClipTransition.DefaultDuration));
         });
     }
 
@@ -347,7 +347,7 @@ public class ElementAttributeServiceTests
     public void ApplyTransition_LockedElement_IsIgnored()
     {
         Element element = AddElement();
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         _history.Commit("lock");
         int before = _history.UndoCount;
 
@@ -355,7 +355,7 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.EnterTransition, Is.Null);
+            Assert.That(element.EnterTransition.Value, Is.Null);
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -372,8 +372,8 @@ public class ElementAttributeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(incoming.EnterTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(outgoing.ExitTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+            Assert.That(incoming.EnterTransition.Value?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(outgoing.ExitTransition.Value?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1), "an unchanged duration must not commit");
         });
     }

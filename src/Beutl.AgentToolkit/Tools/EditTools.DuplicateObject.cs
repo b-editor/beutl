@@ -107,9 +107,9 @@ public sealed partial class EditTools
 
             group = new DrawableGroup
             {
-                Name = string.IsNullOrWhiteSpace(source.Name)
+                Name = { Value = string.IsNullOrWhiteSpace(source.Name.Value)
                     ? "Drawable bloom group"
-                    : $"{source.Name} bloom group"
+                    : $"{source.Name.Value} bloom group" }
             };
 
             location.Element.InsertObject(sourceIndex, group);
@@ -127,10 +127,10 @@ public sealed partial class EditTools
         List<AppliedEntityId> createdIds = CreateWrapCreatedIds(location, portal, group, clone);
         return new DuplicateObjectResponse(
             true,
-            location.Element.Id.ToString(),
-            clone.Id.ToString(),
+            location.Element.Id.Value.ToString(),
+            clone.Id.Value.ToString(),
             createdIds,
-            group.Id.ToString());
+            group.Id.Value.ToString());
     }
 
     private static (Guid SourceId, Guid? ScopedElementId) ParseDuplicateTarget(string objectId, string? elementId)
@@ -193,27 +193,27 @@ public sealed partial class EditTools
         {
             createdIds.Add(CreateAppliedEntityId(
                 portal,
-                $"$/Elements[Id={location.Element.Id}]/Objects[Id={portal.Id}]"));
+                $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={portal.Id.Value}]"));
         }
 
         if (location.ParentGroup is null)
         {
             createdIds.Add(CreateAppliedEntityId(
                 group,
-                $"$/Elements[Id={location.Element.Id}]/Objects[Id={group.Id}]"));
+                $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={group.Id.Value}]"));
         }
 
         createdIds.Add(CreateAppliedEntityId(
             clone,
-            $"$/Elements[Id={location.Element.Id}]/Objects[Id={group.Id}]/Children[Id={clone.Id}]"));
+            $"$/Elements[Id={location.Element.Id.Value}]/Objects[Id={group.Id.Value}]/Children[Id={clone.Id.Value}]"));
         return createdIds;
     }
 
     // The editor's copy of an element's object, written as the document writes the element's objects.
     private static JsonObject CopyObject(CoreObject root, string elementId, string objectId)
     {
-        Element element = ((Scene)root).Children.First(item => item.Id == Guid.Parse(elementId));
-        EngineObject source = element.Objects.First(item => item.Id == Guid.Parse(objectId));
+        Element element = ((Scene)root).Children.First(item => item.Id.Value == Guid.Parse(elementId));
+        EngineObject source = element.Objects.First(item => item.Id.Value == Guid.Parse(objectId));
         ObjectRegenerator.Regenerate(source, source.GetType(), out ICoreSerializable copy);
         // Written as flick counts, so the copy keeps exact times, as the editor's duplicates do.
         return CoreSerializer.SerializeToJsonObject(
@@ -224,10 +224,10 @@ public sealed partial class EditTools
     private static AppliedEntityId CreateAppliedEntityId(CoreObject obj, string path)
     {
         return new AppliedEntityId(
-            obj.Id.ToString(),
+            obj.Id.Value.ToString(),
             path,
             IdentityHelper.WriteDiscriminator(obj.GetType()),
-            string.IsNullOrWhiteSpace(obj.Name) ? null : obj.Name);
+            string.IsNullOrWhiteSpace(obj.Name.Value) ? null : obj.Name.Value);
     }
 
     private static DuplicateObjectLocation FindObjectLocation(
@@ -238,14 +238,14 @@ public sealed partial class EditTools
     {
         foreach (Element element in scene.Children)
         {
-            if (elementId is not null && element.Id != elementId)
+            if (elementId is not null && element.Id.Value != elementId)
             {
                 continue;
             }
 
             foreach (EngineObject obj in element.Objects)
             {
-                if (obj.Id == objectId)
+                if (obj.Id.Value == objectId)
                 {
                     return new DuplicateObjectLocation(element, obj, null);
                 }
@@ -269,7 +269,7 @@ public sealed partial class EditTools
     {
         foreach (Drawable child in group.Children)
         {
-            if (child.Id == objectId)
+            if (child.Id.Value == objectId)
             {
                 location = new DuplicateObjectLocation(element, child, group);
                 return true;

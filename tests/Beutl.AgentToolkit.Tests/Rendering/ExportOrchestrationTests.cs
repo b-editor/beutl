@@ -25,7 +25,7 @@ public sealed class ExportOrchestrationTests
     [Test]
     public void Export_composer_forces_original_source_for_audio()
     {
-        var scene = new Scene(64, 64, "export") { Duration = MediaTime.FromSeconds(1) };
+        var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
 
         using SceneComposer composer = VideoExporter.CreateExportComposer(scene, 44100);
 
@@ -41,7 +41,7 @@ public sealed class ExportOrchestrationTests
     public async Task Missing_encoder_surfaces_codec_unavailable()
     {
         var exporter = new VideoExporter(new EncoderRegistration());
-        var scene = new Scene(64, 64, "export") { Duration = MediaTime.FromSeconds(1) };
+        var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
 
         await Assert.ThrowsAsync<CodecUnavailableException>(async () =>
             await exporter.ExportAsync(
@@ -57,7 +57,7 @@ public sealed class ExportOrchestrationTests
     public async Task Missing_ffmpeg_libraries_surface_codec_unavailable_without_starting_worker()
     {
         var exporter = new VideoExporter(new EncoderRegistration());
-        var scene = new Scene(64, 64, "export") { Duration = MediaTime.FromSeconds(1) };
+        var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
         FFmpegLibraryState.MarkMissing();
 
         try
@@ -95,7 +95,7 @@ public sealed class ExportOrchestrationTests
             await File.WriteAllTextAsync(controller.OutputFile, "encoded output", token);
         });
         var exporter = new VideoExporter(new EncoderRegistration(encoder));
-        var scene = new Scene(64, 64, "progress") { Duration = MediaTime.FromSeconds(0.1) };
+        var scene = new Scene(64, 64, "progress") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
 
         ExportVideoResponse response = await exporter.ExportAsync(
             scene,
@@ -151,7 +151,7 @@ public sealed class ExportOrchestrationTests
         }
 
         var exporter = new VideoExporter(new EncoderRegistration());
-        var scene = new Scene(64, 64, "export") { Duration = MediaTime.FromSeconds(1) };
+        var scene = new Scene(64, 64, "export") { Duration = { Value = MediaTime.FromSeconds(1) } };
         string output = Path.Combine(TestWorkspace.CreateDirectory(), "movie.mov");
 
         // Only the export call may ignore environment failures: assertions run outside the try so

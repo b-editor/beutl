@@ -41,7 +41,7 @@ public sealed class FormerPersistedNameContractTests
 
         CoreSerializer.PopulateFromJsonObject(settings, new JsonObject { [RenamedPluginSettings.FormerLimitKey] = 3 });
 
-        Assert.That(settings.Limit, Is.EqualTo(3));
+        Assert.That(settings.Limit.Value, Is.EqualTo(3));
     }
 }
 
@@ -64,11 +64,5 @@ public sealed class RenamedPluginSettings : ExtensionSettings
     public RenamedPluginSettings() => ScanProperties<RenamedPluginSettings>();
 
     [FormerPersistedName(FormerLimitKey)]
-    public IProperty<int> LimitProperty { get; } = new ValueOnlyProperty<int>(0);
-
-    public int Limit
-    {
-        get => LimitProperty.Value;
-        set => LimitProperty.Value = value;
-    }
+    public IProperty<int> Limit { get; } = new ValueOnlyProperty<int>(0);
 }

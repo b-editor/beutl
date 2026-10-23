@@ -4,7 +4,7 @@ public interface INodeMonitor : INodeMember
 {
     NodeMonitorContentKind ContentKind { get; }
 
-    bool IsEnabled { get; set; }
+    IProperty<bool> IsEnabled { get; }
 
     bool IsBusy { get; }
 

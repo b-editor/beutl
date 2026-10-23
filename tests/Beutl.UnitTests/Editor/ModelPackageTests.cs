@@ -83,9 +83,9 @@ public class ModelPackageTests
             child.Position.Value = new Vector3(10, 20, 30);
             ((PBRMaterial)child.Material.Value!).Albedo.Value = Beutl.Media.Colors.Red;
             var scene3D = new Scene3D(); scene3D.Objects.Add(model);
-            var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(projectDirectory, "model.belm")) };
+            var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(projectDirectory, "model.belm")) };
             element.Objects.Add(scene3D);
-            var scene = new Scene(64, 64, "Model") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")), Duration = MediaTime.FromSeconds(1) };
+            var scene = new Scene(64, 64, "Model") { Uri = new Uri(Path.Combine(projectDirectory, "main.scene")), Duration = { Value = MediaTime.FromSeconds(1) } };
             scene.Children.Add(element);
             var project = new Project { Uri = new Uri(Path.Combine(projectDirectory, "main.bep")) };
             project.Items.Add(scene);
@@ -119,7 +119,7 @@ public class ModelPackageTests
             string importedRoot = Path.GetDirectoryName(imported.Uri!.LocalPath)!;
             Assert.Multiple(() =>
             {
-                Assert.That(importedChild.Id, Is.EqualTo(child.Id));
+                Assert.That(importedChild.Id.Value, Is.EqualTo(child.Id.Value));
                 Assert.That(importedChild.Position.Value, Is.EqualTo(new Vector3(10, 20, 30)));
                 Assert.That(((PBRMaterial)importedChild.Material.Value!).Albedo.Value, Is.EqualTo(Beutl.Media.Colors.Red));
                 Assert.That(importedModel.Source.Value!.MeshCount, Is.EqualTo(1));

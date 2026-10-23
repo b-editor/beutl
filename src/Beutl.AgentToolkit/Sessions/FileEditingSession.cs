@@ -20,7 +20,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
         SessionId = sessionId;
         Project = project;
         Scene = scene;
-        _hierarchyRoot.Project = project;
+        _hierarchyRoot.Project.Value = project;
         _projectLastWriteUtc = projectLastWriteUtc;
         _recording = RecordingPipeline.Create(scene);
     }
@@ -130,7 +130,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
             // A project loaded from disk can carry a scene name that was never validated (e.g.
             // "../../outside"); fall back to a safe segment so the rehomed sidecar stays under the
             // new project directory.
-            string sceneName = ProjectOperations.IsValidSceneName(scene.Name) ? scene.Name : $"Scene{index}";
+            string sceneName = ProjectOperations.IsValidSceneName(scene.Name.Value) ? scene.Name.Value : $"Scene{index}";
 
             string scenePath = ProjectOperations.ReserveUniqueScenePath(
                 Path.Combine(projectDirectory, projectName),
@@ -264,7 +264,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
 
             _disposed = true;
             _recording.Dispose();
-            _hierarchyRoot.Project = null;
+            _hierarchyRoot.Project.Value = null;
         }
     }
 }

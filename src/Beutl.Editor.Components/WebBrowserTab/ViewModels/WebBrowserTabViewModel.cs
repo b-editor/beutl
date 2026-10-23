@@ -95,7 +95,7 @@ internal sealed class WebBrowserTabViewModel : IToolContext
             throw new InvalidOperationException(Strings.WebBrowserActionFailed);
         }
 
-        int layer = scene.Children.Select(element => element.ZIndex).DefaultIfEmpty(-1).Max() + 1;
+        int layer = scene.Children.Select(element => element.ZIndex.Value).DefaultIfEmpty(-1).Max() + 1;
         while (layer < 10_000 && (scene.IsLayerLocked(layer) || scene.IsLayerLocked(layer + 1))) layer++;
         if (layer >= 10_000) throw new InvalidOperationException(Strings.WebBrowserActionFailed);
         MediaTime start = (_editorContext.GetService(typeof(IEditorClock)) as IEditorClock)?.CurrentTime.Value ?? MediaTime.Zero;

@@ -147,7 +147,7 @@ public sealed partial class AiSubtitleDialogViewModel
         }
         CaptionTemplateId templateId = template.Id;
         Beutl.Media.PixelSize frameSize = _editor is { } editor
-            ? new Beutl.Media.PixelSize(editor.Scene.FrameSize.Width, editor.Scene.FrameSize.Height)
+            ? new Beutl.Media.PixelSize(editor.Scene.FrameSize.Value.Width, editor.Scene.FrameSize.Value.Height)
             : new Beutl.Media.PixelSize(1920, 1080);
         _ = RenderTemplatePreviewImageAsync(cue, templateId, frameSize, cts, operation);
     }
@@ -246,19 +246,19 @@ public sealed partial class AiSubtitleDialogViewModel
                 case ElementSource.EngineObject source:
                     element = new Element
                     {
-                        Start = description.Start,
-                        Length = description.Length ?? MediaTime.FromSeconds(2),
-                        ZIndex = description.Layer,
+                        Start = { Value = description.Start },
+                        Length = { Value = description.Length ?? MediaTime.FromSeconds(2) },
+                        ZIndex = { Value = description.Layer },
                     };
                     element.AddObject(source.Factory());
                     break;
                 case ElementSource.ElementTemplate source:
                     element = source.Factory()
                         ?? throw new InvalidOperationException("The element-template factory returned null.");
-                    element.Start = description.Start;
+                    element.Start.Value = description.Start;
                     if (description.Length is { } length)
-                        element.Length = length;
-                    element.ZIndex = description.Layer;
+                        element.Length.Value = length;
+                    element.ZIndex.Value = description.Layer;
                     break;
                 default:
                     return null;

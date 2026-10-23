@@ -172,15 +172,15 @@ public class SpeedNodeTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 200f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 200f },
+            Easing = { Value = new LinearEasing() }
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(1),
-            Value = 50f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = 50f },
+            Easing = { Value = new LinearEasing() }
         });
 
         KeyFrameAnimation<float> source = animation;
@@ -202,21 +202,21 @@ public class SpeedNodeTests
             {
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.Zero,
-                    Value = 50f,
-                    Easing = new LinearEasing()
+                    KeyTime = { Value = MediaTime.Zero },
+                    Value = { Value = 50f },
+                    Easing = { Value = new LinearEasing() }
                 },
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.FromSeconds((double)sampleCount / sampleRate),
-                    Value = 50f,
-                    Easing = new LinearEasing()
+                    KeyTime = { Value = MediaTime.FromSeconds((double)sampleCount / sampleRate) },
+                    Value = { Value = 50f },
+                    Easing = { Value = new LinearEasing() }
                 },
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.FromSeconds(1),
-                    Value = 200f,
-                    Easing = new LinearEasing()
+                    KeyTime = { Value = MediaTime.FromSeconds(1) },
+                    Value = { Value = 200f },
+                    Easing = { Value = new LinearEasing() }
                 }
             }
         });

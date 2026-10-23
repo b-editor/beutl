@@ -38,7 +38,7 @@ public sealed class NodeGraphApplyTests
         GraphNode node = drawable.Model.Value!.Nodes.Single();
         using var session = new AgentToolkitTestSession(scene);
         JsonObject document = session.Documents.Read(scene);
-        FindObject(document, drawable.Id)[nameof(CoreObject.Name)] = "Renamed";
+        FindObject(document, drawable.Id.Value)[nameof(CoreObject.Name)] = "Renamed";
 
         ToolResult<ApplyEditResponse> result = session.CreateEditTools()
             .ApplyEdit(desired: document, schemaVersion: SchemaVersion.Current);
@@ -46,7 +46,7 @@ public sealed class NodeGraphApplyTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(drawable.Name, Is.EqualTo("Renamed"));
+            Assert.That(drawable.Name.Value, Is.EqualTo("Renamed"));
             Assert.That(drawable.Model.Value!.Nodes.Single(), Is.SameAs(node));
         });
     }
@@ -60,7 +60,7 @@ public sealed class NodeGraphApplyTests
         (Scene scene, NodeGraphDrawable drawable) = CreateScene(typeof(TransformNode));
         using var session = new AgentToolkitTestSession(scene);
         JsonObject document = session.Documents.Read(scene);
-        JsonObject target = FindObject(document, drawable.Id).AsObject();
+        JsonObject target = FindObject(document, drawable.Id.Value).AsObject();
         if (place == "new object")
         {
             target = new JsonObject { ["$type"] = IdentityHelper.WriteDiscriminator(typeof(RectShape)) };
@@ -96,10 +96,10 @@ public sealed class NodeGraphApplyTests
         Matrix matrix = SetMatrix(drawable);
         using var session = new AgentToolkitTestSession(scene);
 
-        ToolResult<DuplicateObjectResponse> result = session.CreateEditTools().DuplicateObject(drawable.Id.ToString());
+        ToolResult<DuplicateObjectResponse> result = session.CreateEditTools().DuplicateObject(drawable.Id.Value.ToString());
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        var copy = (NodeGraphDrawable)scene.Children.Single().Objects.Single(item => item.Id.ToString() == result.Value!.ObjectId);
+        var copy = (NodeGraphDrawable)scene.Children.Single().Objects.Single(item => item.Id.Value.ToString() == result.Value!.ObjectId);
         Assert.That(MatrixOf(copy), Is.EqualTo(matrix));
     }
 
@@ -126,7 +126,7 @@ public sealed class NodeGraphApplyTests
     private static (Scene Scene, NodeGraphDrawable Drawable) CreateScene(Type nodeType)
     {
         Scene scene = TestWorkspace.CreateScene();
-        Element element = TestWorkspace.AddElement(scene, default, scene.Duration);
+        Element element = TestWorkspace.AddElement(scene, default, scene.Duration.Value);
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value!.Nodes.Add((GraphNode)Activator.CreateInstance(nodeType)!);
         element.AddObject(drawable);
@@ -148,7 +148,7 @@ public sealed class NodeGraphApplyTests
     // Adds a copy of the graph's node to the document, as a new node without Ids.
     private static JsonObject AddCopyOfTheNode(JsonObject document, NodeGraphDrawable drawable)
     {
-        JsonArray nodes = FindObject(document, drawable.Model.Value!.Id)[nameof(GraphModel.Nodes)]!.AsArray();
+        JsonArray nodes = FindObject(document, drawable.Model.Value!.Id.Value)[nameof(GraphModel.Nodes)]!.AsArray();
         JsonNode copy = nodes[0]!.DeepClone();
         RemoveIds(copy);
         nodes.Add(copy);

@@ -64,15 +64,15 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(first);
         element.Objects.Add(second);
         element.Objects.Add(new DrawableGroup());
-        var controller = new DrawableTimeController { IsEnabled = false, OffsetPosition = { Value = Seconds(1) } };
+        var controller = new DrawableTimeController { IsEnabled = { Value = false }, OffsetPosition = { Value = Seconds(1) } };
         element.Objects.Add(controller);
         using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
         var producerGroup = (DrawableGroup.Resource)compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single();
         var producer = Videos(producerGroup).First();
-        controller.IsEnabled = true;
+        controller.IsEnabled.Value = true;
         var firstReplay = Videos(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single()).First();
         double producerPosition = producer.RequestedPosition.ToSeconds();
-        first.IsEnabled = false;
+        first.IsEnabled.Value = false;
         var replacement = Videos(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single()).Single();
 
         Assert.Multiple(() =>
@@ -158,7 +158,7 @@ public class DrawableTimeControllerFlowTests
         element.Objects.Add(new DrawableTimeController());
         using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
         var before = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(0.5)).Objects.Single())!;
-        first.IsEnabled = false;
+        first.IsEnabled.Value = false;
         var after = FlowNode.Capture(compositor.EvaluateGraphics(Seconds(1)).Objects.Single())!;
 
         Assert.Multiple(() =>

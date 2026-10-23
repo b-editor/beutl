@@ -94,9 +94,9 @@ public sealed class Scene3DGizmoStateTests
             scene3D.Objects.Add(cube);
             var element = new Element
             {
-                Start = MediaTime.Zero,
-                Length = MediaTime.FromSeconds(1),
-                IsEnabled = true,
+                Start = { Value = MediaTime.Zero },
+                Length = { Value = MediaTime.FromSeconds(1) },
+                IsEnabled = { Value = true },
             };
             element.AddObject(scene3D);
             var scene = new Scene(160, 120, string.Empty);
@@ -105,7 +105,7 @@ public sealed class Scene3DGizmoStateTests
             string previewWithout = RenderAndHash(new SceneRenderer(scene, RenderIntent.Preview));
             string exportWithout = RenderAndHash(ExportRendererFactory.Create(scene));
 
-            scene3D.GizmoTarget.Value = cube.Id;
+            scene3D.GizmoTarget.Value = cube.Id.Value;
             scene3D.GizmoMode.Value = GizmoMode.Translate;
             string previewWith = RenderAndHash(new SceneRenderer(scene, RenderIntent.Preview));
             string exportWith = RenderAndHash(ExportRendererFactory.Create(scene));

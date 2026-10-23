@@ -213,7 +213,7 @@ public partial class EditorHostFallback : UserControl
 
         IObservable<int> filter = FilterComboBox.GetObservable(SelectingItemsControl.SelectedIndexProperty);
 
-        viewConfig.RecentFiles.ToObservableChangeSet<CoreList<string>, string>()
+        viewConfig.RecentFiles.ToObservableChangeSet<IListProperty<string>, string>()
             .Filter(filter.Select<int, Func<string, bool>>(
                 f => (x) => f == 0
                         || (f == 1 && IsProjectFile(x))
