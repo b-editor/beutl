@@ -27,11 +27,7 @@ public partial class DirectionalLight3D : Light3D
     /// <summary>
     /// Gets the normalized light direction for use in shaders.
     /// </summary>
-    public Vector3 GetNormalizedDirection(Resource resource)
-    {
-        var dir = resource.Direction;
-        return dir == Vector3.Zero ? Vector3.UnitY : Vector3.Normalize(dir);
-    }
+    public Vector3 GetNormalizedDirection(Resource resource) => LightData.NormalizeDirection(resource.Direction);
 
     /// <summary>
     /// Gets the maximum distance from the camera at which shadows are rendered.

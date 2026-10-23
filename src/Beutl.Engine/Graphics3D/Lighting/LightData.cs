@@ -94,14 +94,16 @@ public struct LightData
     private int _pad1;
     private int _pad2;
 
+    // Shading, shadows and transparent materials all treat a zero direction as +Y.
+    internal static Vector3 NormalizeDirection(Vector3 direction)
+        => direction == Vector3.Zero ? Vector3.UnitY : Vector3.Normalize(direction);
+
     /// <summary>
     /// Creates light data from a DirectionalLight3D resource.
     /// </summary>
     public static LightData FromDirectional(DirectionalLight3D.Resource light)
     {
-        var direction = light.Direction;
-        if (direction != Vector3.Zero)
-            direction = Vector3.Normalize(direction);
+        var direction = NormalizeDirection(light.Direction);
 
         return new LightData
         {
@@ -147,9 +149,7 @@ public struct LightData
     /// </summary>
     public static LightData FromSpot(SpotLight3D.Resource light)
     {
-        var direction = light.Direction;
-        if (direction != Vector3.Zero)
-            direction = Vector3.Normalize(direction);
+        var direction = NormalizeDirection(light.Direction);
 
         return new LightData
         {
