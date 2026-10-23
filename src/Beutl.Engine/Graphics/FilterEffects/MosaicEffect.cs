@@ -13,18 +13,21 @@ namespace Beutl.Graphics.Effects;
 public partial class MosaicEffect : FilterEffect
 {
     // The centre of an even tile is a pixel corner, where nearest sampling took either neighbour depending on
-    // the texture size on AMD Radeon and Apple's Metal, so the centre of the pixel starting there is sampled.
-    // The snap is in this stage's device grid; an input at another density can still land on a corner (#2723).
+    // the texture size on AMD Radeon and Apple's Metal, so the centre of the source texel starting there is sampled,
+    // snapped in the source's own grid, which an input at another density or grid phase does not share (#2723).
     private const string ShaderSource =
         """
         uniform shader src;
         uniform float2 origin;
         uniform float2 tileSize;
+        uniform float2 sourceRatio;
+        uniform float2 sourceOffset;
 
         half4 main(float2 fragCoord) {
             float2 blockIndex = floor((fragCoord - origin) / tileSize);
             float2 sampleCoord = (blockIndex * tileSize + tileSize * 0.5) + origin;
-            return src.eval(floor(sampleCoord) + 0.5);
+            float2 texel = floor(sampleCoord * sourceRatio + sourceOffset) + 0.5;
+            return src.eval((texel - sourceOffset) / sourceRatio);
         }
         """;
 
@@ -61,6 +64,8 @@ public partial class MosaicEffect : FilterEffect
                     "tileSize",
                     tileSize,
                     static (writer, tile, execution) => writer.Set(tile * execution.WorkingScale));
+                bindings.Uniform("sourceRatio", Vector2.One, BindSourceRatio);
+                bindings.Uniform("sourceOffset", Vector2.Zero, BindSourceOffset);
                 if (r.Origin.Unit == RelativeUnit.Relative)
                 {
                     bindings.Uniform(
@@ -114,6 +119,26 @@ public partial class MosaicEffect : FilterEffect
         writer.Set(new Vector2(
             (value.X + semanticOrigin.X) * context.WorkingScale,
             (value.Y + semanticOrigin.Y) * context.WorkingScale));
+    }
+
+    // Source texels per stage pixel; without a source grid the stage's own grid is snapped instead.
+    private static void BindSourceRatio(ShaderUniformWriter writer, Vector2 unit, ShaderExecutionContext context)
+        => writer.Set(context.InputRasterOrigin is null
+            ? unit
+            : unit * (context.InputEffectiveScale.Value / context.WorkingScale));
+
+    // The source texel coordinate of stage pixel 0.
+    private static void BindSourceOffset(ShaderUniformWriter writer, Vector2 none, ShaderExecutionContext context)
+    {
+        if (context.InputRasterOrigin is not { } inputOrigin)
+        {
+            writer.Set(none);
+            return;
+        }
+
+        float scale = context.InputEffectiveScale.Value;
+        Point logicalOrigin = context.LogicalOrigin;
+        writer.Set(new Vector2((logicalOrigin.X - inputOrigin.X) * scale, (logicalOrigin.Y - inputOrigin.Y) * scale));
     }
 
     /// <summary>Answers a hit test the way the entry point resolves a fragment: at its tile's centre.</summary>
