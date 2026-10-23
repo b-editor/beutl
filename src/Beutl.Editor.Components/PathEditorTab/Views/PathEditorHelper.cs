@@ -104,8 +104,8 @@ public static class PathEditorHelper
             BtlPoint lastPoint = default;
             if (index > 0)
             {
-                PathSegment lastOp = figure.Segments[index - 1];
-                lastPoint = lastOp.GetEndPoint().Evaluate(new CompositionContext(clock.CurrentTime.Value));
+                lastPoint = PathEditingOperations.EndPoint(figure, index - 1)
+                    .Evaluate(new CompositionContext(clock.CurrentTime.Value));
             }
 
             BtlPoint point = (click / scale).ToBtlPoint();
@@ -114,7 +114,9 @@ public static class PathEditorHelper
                 point = mat.ToBtlMatrix().Transform(point);
             }
 
-            PathSegment? obj = CreateSegment(tag, point, lastPoint);
+            // Segments that did not load can leave an implicit start with no point to draw from, so the controls
+            // sit on the new point rather than becoming NaN.
+            PathSegment? obj = CreateSegment(tag, point, lastPoint.IsInvalid ? point : lastPoint);
 
             if (obj != null)
             {

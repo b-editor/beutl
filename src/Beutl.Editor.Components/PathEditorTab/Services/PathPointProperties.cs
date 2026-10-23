@@ -16,7 +16,8 @@ internal static class PathPointProperties
     public static PathPointProperty[] Get(PathFigure figure, PathSegment anchor, CompositionContext context)
     {
         int index = figure.Segments.IndexOf(anchor);
-        if (index < 0) return [];
+        // A segment whose type did not load is left out of path editing.
+        if (index < 0 || anchor is FallbackPathSegment) return [];
         var result = new List<PathPointProperty>(3)
         {
             new(anchor, anchor.GetEndPoint(), PathPointPropertyRole.Position)
