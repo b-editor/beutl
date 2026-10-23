@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The warnings of Beutl.Engine.SourceGenerators that hold in every project, for those that do not take the generator (#3482). -->
+  <PropertyGroup>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\Beutl.Engine.SourceGenerators\Diagnostics\DiagnosticDescriptors.cs" Link="DiagnosticDescriptors.cs" />
+    <Compile Include="..\Beutl.Engine.SourceGenerators\Analyzers\PropertyReferenceComparisonAnalyzer.cs" Link="PropertyReferenceComparisonAnalyzer.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- The rules are released with Beutl.Engine.SourceGenerators, whose release files track them. -->
+  <ItemGroup>
+    <AdditionalFiles Include="..\Beutl.Engine.SourceGenerators\AnalyzerReleases.Shipped.md" Link="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="..\Beutl.Engine.SourceGenerators\AnalyzerReleases.Unshipped.md" Link="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+</Project>
