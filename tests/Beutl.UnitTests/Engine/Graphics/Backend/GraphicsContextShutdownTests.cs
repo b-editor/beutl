@@ -156,13 +156,19 @@ public sealed class GraphicsContextShutdownTests
         });
     }
 
-    [Test]
-    public void AFailingPooledTargetRetirement_StillReleasesTheContextItCouldNotRetire()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AFailingPooledTargetRetirement_StillReleasesTheContextItCouldNotRetire(bool releaseFails)
     {
         var retirementFailure = new InvalidOperationException("The pooled target could not be destroyed.");
         bool disposed = false;
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
-        context.Setup(value => value.Dispose()).Callback(() => disposed = true);
+        context.Setup(value => value.Dispose()).Callback(() =>
+        {
+            disposed = true;
+            if (releaseFails)
+                throw new InvalidOperationException("The graphics context could not be released.");
+        });
 
         RenderThread.Dispatcher.Invoke(() =>
         {
@@ -190,29 +196,6 @@ public sealed class GraphicsContextShutdownTests
                     Is.Null,
                     "a context that survives its own shutdown is handed straight back to the next caller");
             });
-        });
-    }
-
-    [Test]
-    public void TwoFailingTeardownSteps_RethrowTheFirstAndStillClearTheInstalledState()
-    {
-        var retirementFailure = new InvalidOperationException("The pooled target could not be destroyed.");
-        var releaseFailure = new InvalidOperationException("The graphics context could not be released.");
-        var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
-        context.Setup(value => value.Dispose()).Throws(releaseFailure);
-
-        RenderThread.Dispatcher.Invoke(() =>
-        {
-            var factory = new RetirementObservingTargetFactory(() => throw retirementFailure);
-            using var pool = new RenderTargetPool(factory);
-            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Preview))
-            {
-                request.Acquire(new PixelSize(4, 4)).Dispose();
-            }
-
-            using var scope = InstalledGraphicsScope.StandIn(context.Object);
-            Assert.That(GraphicsContextFactory.Shutdown, Throws.Exception.SameAs(retirementFailure));
-            Assert.That(GraphicsContextFactory.SharedContext, Is.Null);
         });
     }
 
