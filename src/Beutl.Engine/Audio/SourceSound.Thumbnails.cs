@@ -100,7 +100,7 @@ public sealed partial class SourceSound : IThumbnailsProvider
             int sampleCount = (int)Math.Min(fullSpan, samplesPerChunk);
             var chunkTime = MediaTime.FromSamples(startSample, sampleRate);
             MediaTime startTime = TimeRange.Value.Start + chunkTime;
-            MediaTime durationTime = GetWaveformChunkDuration(sampleCount, sampleRate);
+            MediaTime durationTime = AudioProcessContext.GetDurationForSampleCount(sampleCount, sampleRate);
 
             if (sampleCount <= 0)
                 continue;
@@ -175,15 +175,5 @@ public sealed partial class SourceSound : IThumbnailsProvider
         long quotient = totalSamples / chunkCount;
         long remainder = totalSamples % chunkCount;
         return chunkIndex * quotient + chunkIndex * remainder / chunkCount;
-    }
-
-    internal static MediaTime GetWaveformChunkDuration(int sampleCount, int sampleRate)
-    {
-        if (sampleCount < 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleCount));
-        if (sampleRate <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sampleRate));
-
-        return MediaTime.FromSamples(sampleCount, sampleRate);
     }
 }
