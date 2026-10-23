@@ -78,7 +78,7 @@ public sealed partial class EditViewModel : IMediaRepairHost
         var cancellation = _missingMediaNotification;
         NotificationService.Show(new Beutl.Services.Notification(
             MissingMediaStrings.Title,
-            string.Format(MissingMediaStrings.NotificationMessage, Scene.Name, count),
+            string.Format(MissingMediaStrings.NotificationMessage, Scene.Name.Value, count),
             NotificationType.Warning,
             Expiration: Timeout.InfiniteTimeSpan,
             OnClose: () =>

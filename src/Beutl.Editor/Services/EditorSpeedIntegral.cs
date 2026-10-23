@@ -23,7 +23,7 @@ internal sealed class EditorSpeedIntegral(KeyFrameAnimation<float> animation, in
     private long _first;
     private long _end;
     private readonly bool _customInterpolation
-        = animation.KeyFrames.Any(k => k.Easing.GetType().Assembly != typeof(Easing).Assembly);
+        = animation.KeyFrames.Any(k => k.Easing.Value.GetType().Assembly != typeof(Easing).Assembly);
 
     public bool HasCustomInterpolation => _customInterpolation;
 
@@ -61,7 +61,7 @@ internal sealed class EditorSpeedIntegral(KeyFrameAnimation<float> animation, in
             boundaries.Add(_end);
         }
         foreach (IKeyFrame key in animation.KeyFrames)
-            boundaries.Add((long)Math.Ceiling(key.KeyTime.ToSeconds() * sampleRate));
+            boundaries.Add((long)Math.Ceiling(key.KeyTime.Value.ToSeconds() * sampleRate));
         boundaries.Add(0);
         _segments.Clear();
         _samples.Clear();

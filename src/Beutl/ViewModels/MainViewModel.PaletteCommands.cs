@@ -39,7 +39,7 @@ public sealed partial class MainViewModel
     internal static async Task ChangeThemeAsync(IContextCommandInteraction interaction)
     {
         ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
-        string? currentId = ThemeRegistry.ResolveOrDefault(config.Theme)?.Id;
+        string? currentId = ThemeRegistry.ResolveOrDefault(config.Theme.Value)?.Id;
         ContextCommandPickItem<ThemeDescriptor>[] items = ThemeRegistry.Enumerate()
             .Select(theme => new ContextCommandPickItem<ThemeDescriptor>(
                 theme.DisplayName, theme, CommandPaletteInput.DescribeCurrent(theme.Id == currentId)))
@@ -47,7 +47,7 @@ public sealed partial class MainViewModel
         if (await interaction.ShowQuickPickAsync(items) is { } picked)
         {
             // ThemeService applies the theme when the setting changes.
-            config.Theme = picked.Value.Id;
+            config.Theme.Value = picked.Value.Id;
         }
     }
 

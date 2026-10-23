@@ -105,7 +105,7 @@ public partial class PlayerView
         private Control Image => View.image;
 
         private KeyFrameState<float>? FindKf(IProperty<float> property)
-            => FindKeyFramePair(property, Clock, EditViewModel.Scene, _press?.Element?.Start);
+            => FindKeyFramePair(property, Clock, EditViewModel.Scene, _press?.Element?.Start.Value);
 
         private static bool ApplyDelta(KeyFrameState<float>? kf, (float prev, float next) start, float delta)
             => KeyFrameDeltaHelper.ApplyDelta(kf?.Previous, kf?.Next, start.prev, start.next, delta);
@@ -192,13 +192,13 @@ public partial class PlayerView
         {
             Scene scene = EditViewModel.Scene;
             AvaPoint imagePos = pp.Position;
-            double frameScale = Image.Bounds.Size.Width / scene.FrameSize.Width;
+            double frameScale = Image.Bounds.Size.Width / scene.FrameSize.Value.Width;
             if (frameScale <= 0)
             {
                 // Click arrived before framePanel laid out the image (layout race) — swallow it.
                 _logger.LogDebug(
                     "OnPressedHitTest: frameScale={FrameScale} <= 0 (imageBounds={ImageBounds}, frameSize={FrameSize}), swallowing click.",
-                    frameScale, Image.Bounds.Size, scene.FrameSize);
+                    frameScale, Image.Bounds.Size, scene.FrameSize.Value);
                 _press = null;
                 e.Handled = true;
                 return;
@@ -258,7 +258,7 @@ public partial class PlayerView
             Element? element = drawable.FindHierarchicalParent<Element>();
             if (element == null || !scene.Children.Contains(element))
             {
-                int zindex = drawable.ZIndex;
+                int zindex = drawable.ZIndex.Value;
                 MediaTime time = Clock.CurrentTime.Value;
                 element = FindEnabledElementAt(scene, zindex, time);
             }
@@ -691,7 +691,7 @@ public partial class PlayerView
             foreach (Transform child in group.Children)
             {
                 if (ReferenceEquals(child, transform)) break;
-                if (child.IsEnabled) after = child.CreateMatrix(ctx) * after;
+                if (child.IsEnabled.Value) after = child.CreateMatrix(ctx) * after;
             }
 
             return after;
@@ -825,7 +825,7 @@ public partial class PlayerView
             Element? element = _press?.Element;
             if (element == null) return;
             Rational rate = EditViewModel.Player.GetFrameRate();
-            int st = (int)element.Start.ToFrame(rate, MidpointRounding.ToNegativeInfinity);
+            int st = (int)element.Start.Value.ToFrame(rate, MidpointRounding.ToNegativeInfinity);
             int ed = (int)element.Range.End.ToFrame(rate, MidpointRounding.ToPositiveInfinity);
             EditViewModel.FrameCacheManager.Value.DeleteAndUpdateBlocks([(st, ed)]);
         }

@@ -24,7 +24,7 @@ public sealed class ElementStructureService : IElementStructureService
 
         RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
 
-        scene.RemoveElementsFromGroups(editable.Select(e => e.Id).ToArray());
+        scene.RemoveElementsFromGroups(editable.Select(e => e.Id.Value).ToArray());
 
         _historyManager.Commit(CommandNames.DeleteElement);
     }
@@ -45,29 +45,29 @@ public sealed class ElementStructureService : IElementStructureService
             {
                 if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
 
-                MediaTime forwardDuration = at - target.Start;
-                MediaTime backwardDuration = target.Length - forwardDuration;
+                MediaTime forwardDuration = at - target.Start.Value;
+                MediaTime backwardDuration = target.Length.Value - forwardDuration;
 
                 ObjectRegenerator.Regenerate(target, out Element backward);
 
-                backward.Start = at;
-                backward.Length = backwardDuration;
+                backward.Start.Value = at;
+                backward.Length.Value = backwardDuration;
                 // The cut joins the two halves directly: the front keeps the clip's start transition and
                 // the back its end transition.
-                backward.EnterTransition = null;
+                backward.EnterTransition.Value = null;
 
                 ShiftLocalKeyFrames(backward, -forwardDuration);
 
                 // The back half's file is written when the scene is next saved.
-                backward.Uri = ElementFileNaming.GetUri(scene.Uri, backward.Id);
-                target.ExitTransition = null;
-                scene.MoveChild(target.ZIndex, target.Start, forwardDuration, target);
+                backward.Uri = ElementFileNaming.GetUri(scene.Uri, backward.Id.Value);
+                target.ExitTransition.Value = null;
+                scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target);
                 scene.AddChild(backward);
                 backward.NotifySplitted(true, forwardDuration, -forwardDuration);
                 target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
 
                 // Track group membership so back-clips stay in their source's group.
-                int groupIndex = FindGroupIndex(scene, target.Id);
+                int groupIndex = FindGroupIndex(scene, target.Id.Value);
                 if (groupIndex >= 0)
                 {
                     if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
@@ -76,7 +76,7 @@ public sealed class ElementStructureService : IElementStructureService
                         groupUpdates.Add(groupIndex, newIds);
                     }
 
-                    newIds.Add(backward.Id);
+                    newIds.Add(backward.Id.Value);
                 }
             }
 
@@ -88,7 +88,7 @@ public sealed class ElementStructureService : IElementStructureService
     internal static bool LeavesAFrameOnEachSide(Scene scene, Element target, MediaTime at)
     {
         MediaTime frame = SceneTimeRangeService.GetFrameDuration(scene);
-        return at - SceneTimeRangeService.SnapToFrame(scene, target.Start) >= frame
+        return at - SceneTimeRangeService.SnapToFrame(scene, target.Start.Value) >= frame
                && SceneTimeRangeService.SnapToFrame(scene, target.Range.End) - at >= frame;
     }
 
@@ -219,7 +219,7 @@ public sealed class ElementStructureService : IElementStructureService
         HashSet<Guid>? lockedIds = null;
         foreach (Element child in scene.Children)
         {
-            if (scene.IsElementLocked(child)) (lockedIds ??= []).Add(child.Id);
+            if (scene.IsElementLocked(child)) (lockedIds ??= []).Add(child.Id.Value);
         }
 
         return lockedIds;
@@ -230,11 +230,11 @@ public sealed class ElementStructureService : IElementStructureService
         // A scene the element draws keeps its own time.
         foreach (IKeyFrameAnimation anim in ChildObjects.Walk(element, static obj => obj is ProjectItem)
                      .OfType<IKeyFrameAnimation>()
-                     .Where(anim => !anim.UseGlobalClock))
+                     .Where(anim => !anim.UseGlobalClock.Value))
         {
             foreach (IKeyFrame keyframe in anim.KeyFrames)
             {
-                keyframe.KeyTime += delta;
+                keyframe.KeyTime.Value += delta;
             }
         }
     }

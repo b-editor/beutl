@@ -293,7 +293,7 @@ public partial class NodePortView : UserControl
         {
             var flyout = new RenameFlyout()
             {
-                Text = viewModel.Model?.Name
+                Text = viewModel.Model?.Name.Value
             };
 
             flyout.Confirmed += OnNameConfirmed;
@@ -362,7 +362,7 @@ public partial class NodePortView : UserControl
             {
                 INodeMember member = obj.Model;
                 IPropertyAdapter? property = member.Property;
-                string? description = member.Display?.GetDescription();
+                string? description = member.Display.Value?.GetDescription();
                 if (string.IsNullOrWhiteSpace(description)) description = property?.Description;
                 ToolTip.SetTip(label, PropertyHoverInfoFormatter.Format(
                     member.AssociatedType ?? property?.PropertyType, description, property?.GetAttributes()));
@@ -371,7 +371,7 @@ public partial class NodePortView : UserControl
             UpdateHoverInfo();
             if (obj.Model is NodeMember nodeMember)
             {
-                nodeMember.DisplayProperty.GetObservable().Skip(1)
+                nodeMember.Display.GetObservable().Skip(1)
                     .Subscribe(_ => UpdateHoverInfo())
                     .DisposeWith(_disposables);
             }

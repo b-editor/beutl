@@ -35,16 +35,16 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
             _defaultName = nodeType.Name;
         }
 
-        NodeName = node.NameProperty.GetObservable()
+        NodeName = node.Name.GetObservable()
             .Select(x => string.IsNullOrWhiteSpace(x) ? _defaultName : x)
             .ToReadOnlyReactiveProperty()
             .DisposeWith(_disposables)!;
 
-        IsExpanded = node.IsExpandedProperty.GetObservable()
+        IsExpanded = node.IsExpanded.GetObservable()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         IsExpanded
-            .Subscribe(v => GraphNode.IsExpanded = v)
+            .Subscribe(v => GraphNode.IsExpanded.Value = v)
             .DisposeWith(_disposables);
 
         InitializeProperties();
@@ -68,14 +68,14 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
         var historyManager = _parent.GetRequiredService<HistoryManager>();
 
         Connection[] allConnections = GraphNode.EnumerateMembers()
-            .SelectMany(i => i switch
+            .SelectMany<INodeMember, Reference<Connection>>(i => i switch
             {
                 IOutputPort outputNodePort => outputNodePort.Connections,
                 IListPort listNodePort => listNodePort.Connections,
-                IInputPort { Connection: var connection } => [connection],
+                IInputPort { Connection.Value: var connection } => [connection],
                 _ => []
             })
-            .Select(conn => _graphModel.AllConnections.FirstOrDefault(a => a.Id == conn.Id))
+            .Select(conn => _graphModel.AllConnections.FirstOrDefault(a => a.Id.Value == conn.Id))
             .Where(a => a != null)
             .ToArray()!;
         foreach (Connection connection in allConnections)
@@ -89,7 +89,7 @@ public sealed class GraphModelNodeMemberViewModel : IDisposable, IPropertyEditor
     public void UpdateName(string? name)
     {
         if (!_parent.IsElementEditable) return;
-        GraphNode.Name = name!;
+        GraphNode.Name.Value = name!;
         _parent.GetRequiredService<HistoryManager>().Commit(CommandNames.RenameNode);
     }
 

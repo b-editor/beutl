@@ -88,8 +88,8 @@ public sealed partial class TimelineTabViewModel
         // Anchor on the leftmost selected element so the resulting delta lands
         // on the frame grid regardless of HashSet iteration order.
         ElementViewModel? first = SelectedElements
-            .OrderBy(e => e.Model.Start)
-            .ThenBy(e => e.Model.ZIndex)
+            .OrderBy(e => e.Model.Start.Value)
+            .ThenBy(e => e.Model.ZIndex.Value)
             .FirstOrDefault();
         if (first is null) return;
 

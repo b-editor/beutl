@@ -20,8 +20,8 @@ public sealed class AgentHostTools(
     public ToolResult<ListScenesResponse> ListScenes()
         => Execute(() => Dispatcher.UIThread.Invoke(() => new ListScenesResponse(
             projects.CurrentProject.Value?.Uri?.LocalPath,
-            (editors.SelectedTabItem.Value?.Context.Value as EditViewModel)?.Scene?.Id.ToString(),
+            (editors.SelectedTabItem.Value?.Context.Value as EditViewModel)?.Scene?.Id.Value.ToString(),
             gateway.GetScenes().Select(scene => new SceneSummary(
-                scene.Id.ToString(), scene.Name, scene.FrameSize.Width, scene.FrameSize.Height,
-                scene.Start.ToTimeSpan().ToString("c"), scene.Duration.ToTimeSpan().ToString("c"), scene.Children.Count)).ToArray())));
+                scene.Id.Value.ToString(), scene.Name.Value, scene.FrameSize.Value.Width, scene.FrameSize.Value.Height,
+                scene.Start.Value.ToTimeSpan().ToString("c"), scene.Duration.Value.ToTimeSpan().ToString("c"), scene.Children.Count)).ToArray())));
 }

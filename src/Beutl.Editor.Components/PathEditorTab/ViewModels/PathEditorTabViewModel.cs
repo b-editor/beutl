@@ -295,7 +295,7 @@ public sealed class PathEditorTabViewModel : IDisposable, IPathEditorContext, IP
     {
         _pin.WriteToJson(json);
         if (IsPinned.Value && PathFigure.Value is { } figure)
-            json[PinnedFigureJsonKey] = figure.Id;
+            json[PinnedFigureJsonKey] = figure.Id.Value;
         else
             json.Remove(PinnedFigureJsonKey);
     }

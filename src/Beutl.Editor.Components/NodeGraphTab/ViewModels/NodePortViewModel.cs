@@ -59,7 +59,7 @@ public class NodePortViewModel : NodeMemberViewModel
     }
 
     // Output and list ports own their connection list; input ports observe a single connection.
-    private CoreList<Reference<Connection>>? ModelConnections => Model switch
+    private IListProperty<Reference<Connection>>? ModelConnections => Model switch
     {
         IOutputPort outputNodePort => outputNodePort.Connections,
         IListPort outputNodePort => outputNodePort.Connections,
@@ -71,7 +71,7 @@ public class NodePortViewModel : NodeMemberViewModel
     private ConnectionViewModel? AttachConnection(Reference<Connection> connection)
     {
         var graph = GraphNodeViewModel.NodeGraphViewModel;
-        var connVM = graph.AllConnections.FirstOrDefault(i => i.Connection.Id == connection.Id);
+        var connVM = graph.AllConnections.FirstOrDefault(i => i.Connection.Id.Value == connection.Id);
         if (connVM == null)
         {
             if (connection.Value == null) return null;
@@ -102,7 +102,7 @@ public class NodePortViewModel : NodeMemberViewModel
                     },
                     connection =>
                     {
-                        var connVM = Connections.FirstOrDefault(c => c.Connection.Id == connection.Id);
+                        var connVM = Connections.FirstOrDefault(c => c.Connection.Id.Value == connection.Id);
                         if (connVM != null)
                         {
                             Connections.Remove(connVM);

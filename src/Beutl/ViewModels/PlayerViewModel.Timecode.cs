@@ -51,11 +51,11 @@ public partial class PlayerViewModel
         }
 
         MediaTime endTime = GetFirstAndLastFrames().Last;
-        if (target < Scene.Start || target > endTime)
+        if (target < Scene.Start.Value || target > endTime)
         {
             _logger.LogDebug(
                 "Goto-timecode target out of scene range. ({SceneId}, Target={Target}, Range=[{Start}, {End}])",
-                _editViewModel.SceneId, target, Scene.Start, endTime);
+                _editViewModel.SceneId, target, Scene.Start.Value, endTime);
             error = GotoTimecodeError.OutOfRange;
             return false;
         }

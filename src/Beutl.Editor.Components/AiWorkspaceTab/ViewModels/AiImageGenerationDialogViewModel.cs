@@ -104,7 +104,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
         AspectRatioOptions.Replace(
             DefaultAspectRatios.Select(value => new AiImageAspectRatioOption(value)));
         SelectedAspectRatio = new ReactivePropertySlim<AiImageAspectRatioOption>(
-                AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, editor?.Scene.FrameSize))
+                AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, editor?.Scene.FrameSize.Value))
             .DisposeWith(_disposables);
         BackgroundOptions.Replace(
             DefaultBackgrounds.Select(value => new AiImageBackgroundOption(value)));
@@ -384,7 +384,7 @@ internal sealed partial class AiImageGenerationDialogViewModel : IDisposable, IA
                 aspectRatios.Select(value => new AiImageAspectRatioOption(value)));
             SelectedAspectRatio.Value =
                 AspectRatioOptions.FirstOrDefault(option => option.Value == _chosenAspectRatio?.Value)
-                ?? AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, _editor?.Scene.FrameSize);
+                ?? AiAspectRatioSuggestion.Choose(AspectRatioOptions, option => option.Value, _editor?.Scene.FrameSize.Value);
 
             IEnumerable<string> backgrounds = !image.Backgrounds.IsSpecified
                 ? DefaultBackgrounds

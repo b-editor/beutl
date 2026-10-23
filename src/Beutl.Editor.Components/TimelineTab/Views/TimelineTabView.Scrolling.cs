@@ -73,7 +73,7 @@ public sealed partial class TimelineTabView
             }
 
             // Touchpad gestures already follow the gesture axes and OS direction.
-            if (gestureAxes || GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+            if (gestureAxes || GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value)
             {
                 offset.Y -= (float)(delta.Y * 50);
                 offset.X -= (float)(delta.X * 50);

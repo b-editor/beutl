@@ -35,7 +35,7 @@ public sealed partial class SceneSettingsTabExtension
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = "1920x1080",
-            Value = $"{scene.FrameSize.Width}x{scene.FrameSize.Height}",
+            Value = $"{scene.FrameSize.Value.Width}x{scene.FrameSize.Value.Height}",
             Validate = value => TryParseSize(value, out _) ? null : Strings.CommandPalette_SceneSizeInvalid
         });
         if (input is not null && TryParseSize(input, out PixelSize size))
@@ -44,7 +44,7 @@ public sealed partial class SceneSettingsTabExtension
 
     private static async Task ChangeStartAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
-        MediaTime shown = scene.Start;
+        MediaTime shown = scene.Start.Value;
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = Strings.CommandPalette_TimeSpanHint,
@@ -58,7 +58,7 @@ public sealed partial class SceneSettingsTabExtension
 
     private static async Task ChangeDurationAsync(IEditorContext editorContext, Scene scene, IContextCommandInteraction interaction)
     {
-        MediaTime shown = scene.Duration;
+        MediaTime shown = scene.Duration.Value;
         string? input = await interaction.ShowInputAsync(new ContextCommandInputOptions
         {
             Placeholder = Strings.CommandPalette_TimeSpanHint,
@@ -93,9 +93,9 @@ public sealed partial class SceneSettingsTabExtension
         IEditorContext editorContext, Scene scene, CancellationToken cancellationToken,
         PixelSize? frameSize = null, MediaTime? start = null, MediaTime? duration = null)
     {
-        bool changes = frameSize is { } f && f != scene.FrameSize
-            || start is { } s && s != scene.Start
-            || duration is { } d && d != scene.Duration;
+        bool changes = frameSize is { } f && f != scene.FrameSize.Value
+            || start is { } s && s != scene.Start.Value
+            || duration is { } d && d != scene.Duration.Value;
         if (!changes) return;
 
         // Applying rebuilds the renderer, which must not happen mid-playback. Pause also returns a pause
@@ -110,9 +110,9 @@ public sealed partial class SceneSettingsTabExtension
 
         editorContext.GetRequiredService<ISceneSettingsService>().Apply(
             scene,
-            frameSize ?? scene.FrameSize,
-            start ?? scene.Start,
-            duration ?? scene.Duration);
+            frameSize ?? scene.FrameSize.Value,
+            start ?? scene.Start.Value,
+            duration ?? scene.Duration.Value);
     }
 
     [GeneratedRegex(@"^\s*(\d+)\s*[xX×,]\s*(\d+)\s*$")]

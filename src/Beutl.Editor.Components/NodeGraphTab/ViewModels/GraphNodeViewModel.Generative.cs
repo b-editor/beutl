@@ -40,7 +40,7 @@ public sealed partial class GraphNodeViewModel
 
     public void SelectGeneration(Guid id)
     {
-        if (GraphNode is GenerativeNode node && node.ActiveGenerationId != id)
+        if (GraphNode is GenerativeNode node && node.ActiveGenerationId.Value != id)
         {
             node.SelectGeneration(id);
             CommitGenerationEdit();
@@ -51,7 +51,7 @@ public sealed partial class GraphNodeViewModel
     {
         if (GraphNode is GenerativeNode { ActiveGeneration: { } active })
         {
-            active.IsPinned = !active.IsPinned;
+            active.IsPinned.Value = !active.IsPinned.Value;
             CommitGenerationEdit();
         }
     }
@@ -103,7 +103,7 @@ public sealed partial class GraphNodeViewModel
             }
 
             GenerationRecord chosen = records[list.SelectedIndex];
-            node.SelectGeneration(chosen.Id);
+            node.SelectGeneration(chosen.Id.Value);
             node.ApplyRecordInputs(chosen);
             CommitGenerationEdit();
         }
@@ -140,9 +140,9 @@ public sealed partial class GraphNodeViewModel
                 });
             }
 
-            string caption = records[i].Seed is int seed
-                ? $"{records[i].CreatedAt.LocalDateTime:g} · {seed}"
-                : $"{records[i].CreatedAt.LocalDateTime:g}";
+            string caption = records[i].Seed.Value is int seed
+                ? $"{records[i].CreatedAt.Value.LocalDateTime:g} · {seed}"
+                : $"{records[i].CreatedAt.Value.LocalDateTime:g}";
             content.Children.Add(new TextBlock { Text = caption, TextTrimming = TextTrimming.CharacterEllipsis });
             list.Items.Add(new ListBoxItem { Content = content });
         }

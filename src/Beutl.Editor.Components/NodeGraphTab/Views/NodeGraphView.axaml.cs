@@ -410,8 +410,8 @@ public partial class NodeGraphView : UserControl
         {
             if (child is GraphNodeView { DataContext: GraphNodeViewModel nodeVM } nodeView)
             {
-                bool hasInput = nodeVM.GraphNode.EnumerateMembers().Any(i => i.Id == connVM.Connection.Input.Id);
-                bool hasOutput = nodeVM.GraphNode.EnumerateMembers().Any(i => i.Id == connVM.Connection.Output.Id);
+                bool hasInput = nodeVM.GraphNode.EnumerateMembers().Any(i => i.Id.Value == connVM.Connection.Input.Value.Id);
+                bool hasOutput = nodeVM.GraphNode.EnumerateMembers().Any(i => i.Id.Value == connVM.Connection.Output.Value.Id);
 
                 if (hasInput || hasOutput)
                 {

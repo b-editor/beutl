@@ -38,27 +38,27 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
 
         // Each group's "enabled" ToggleSwitch (bound two-way below) gates its dependent rows,
         // which reuse the standard property editors. EditorConfig stays the single source of truth.
-        IsOnionSkinEnabled = BindToggle(config.IsOnionSkinEnabledProperty);
+        IsOnionSkinEnabled = BindToggle(config.IsOnionSkinEnabled);
         AddEditors(factory, OnionSkinProperties,
-            new EnginePropertyAdapter<int>(config.OnionSkinPrevCountProperty, config),
-            new EnginePropertyAdapter<int>(config.OnionSkinNextCountProperty, config),
-            new EnginePropertyAdapter<float>(config.OnionSkinPrevOpacityProperty, config),
-            new EnginePropertyAdapter<float>(config.OnionSkinNextOpacityProperty, config));
+            new EnginePropertyAdapter<int>(config.OnionSkinPrevCount, config),
+            new EnginePropertyAdapter<int>(config.OnionSkinNextCount, config),
+            new EnginePropertyAdapter<float>(config.OnionSkinPrevOpacity, config),
+            new EnginePropertyAdapter<float>(config.OnionSkinNextOpacity, config));
 
-        IsFrameCacheEnabled = BindToggle(config.IsFrameCacheEnabledProperty);
+        IsFrameCacheEnabled = BindToggle(config.IsFrameCacheEnabled);
         AddEditors(factory, FrameCacheProperties,
-            new EnginePropertyAdapter<double>(config.FrameCacheMaxSizeProperty, config),
-            new EnginePropertyAdapter<FrameCacheConfigScale>(config.FrameCacheScaleProperty, config),
-            new EnginePropertyAdapter<FrameCacheConfigColorType>(config.FrameCacheColorTypeProperty, config));
+            new EnginePropertyAdapter<double>(config.FrameCacheMaxSize, config),
+            new EnginePropertyAdapter<FrameCacheConfigScale>(config.FrameCacheScale, config),
+            new EnginePropertyAdapter<FrameCacheConfigColorType>(config.FrameCacheColorType, config));
 
-        IsNodeCacheEnabled = BindToggle(config.IsNodeCacheEnabledProperty);
+        IsNodeCacheEnabled = BindToggle(config.IsNodeCacheEnabled);
         AddEditors(factory, NodeCacheProperties,
-            new EnginePropertyAdapter<int>(config.NodeCacheMaxPixelsProperty, config),
-            new EnginePropertyAdapter<int>(config.NodeCacheMinPixelsProperty, config));
+            new EnginePropertyAdapter<int>(config.NodeCacheMaxPixels, config),
+            new EnginePropertyAdapter<int>(config.NodeCacheMinPixels, config));
 
         // int-backed so ComboBox.SelectedIndex (an int) round-trips: binding SelectedIndex directly to an
         // enum-typed ReactiveProperty writes the index back untranslated and the setting never updates.
-        PreviewSourceMode = config.PreviewSourceModeProperty.GetObservable()
+        PreviewSourceMode = config.PreviewSourceMode.GetObservable()
             .Select(v => (int)v)
             .ToReactiveProperty()
             .DisposeWith(_disposables);

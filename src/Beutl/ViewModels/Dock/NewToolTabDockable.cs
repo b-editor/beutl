@@ -113,7 +113,7 @@ public sealed class NewToolTabDockable : Tool
         }
         else
         {
-            CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+            IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
             ToolTabExtension[] extensions = factory.EnumerateToolTabExtensions().ToArray();
             // Drop what a removed package left behind, so the page does not keep its tools alive.
             PruneCache(_icons, extensions);
@@ -135,7 +135,7 @@ public sealed class NewToolTabDockable : Tool
     /// <remarks>Pins are a user preference, so they persist across projects.</remarks>
     public void TogglePin(ToolTabExtension extension)
     {
-        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
         if (IndexOfPin(pins, extension) < 0)
         {
             pins.Add(GetPinKey(extension));
@@ -234,7 +234,7 @@ public sealed class NewToolTabDockable : Tool
         NewToolTabItem[] matches = query.Length == 0
             ? _items
             : _items.Where(item => Matches(item, query)).ToArray();
-        CoreList<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
+        IListProperty<string> pins = GlobalConfiguration.Instance.ViewConfig.PinnedToolTabs;
         PinnedItems = matches
             .Where(item => item.IsEnabled && item.IsPinned)
             .OrderBy(item => IndexOfPin(pins, item.Extension))

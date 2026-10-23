@@ -28,7 +28,7 @@ internal static class GraphEditorTangentCoupling
     {
         if (!(incoming ? offsetX > 0 : offsetX < 0)) return null;
         var opposite = OppositeSegment(segment, incoming);
-        return opposite is { Model.Easing: SplineEasing } && opposite.Width.Value > 0 ? opposite : null;
+        return opposite is { Model.Easing.Value: SplineEasing } && opposite.Width.Value > 0 ? opposite : null;
     }
 
     public static Point Vector(GraphEditorKeyFrameViewModel segment, bool incoming)
@@ -37,8 +37,8 @@ internal static class GraphEditorTangentCoupling
         int index = keys.IndexOf(segment);
         if (index <= 0) return default;
         var previous = keys[index - 1].Model;
-        var spline = GraphEditorCurveMath.ToSpline(segment.Model.Easing);
-        double duration = (segment.Model.KeyTime - previous.KeyTime).ToSeconds();
+        var spline = GraphEditorCurveMath.ToSpline(segment.Model.Easing.Value);
+        double duration = (segment.Model.KeyTime.Value - previous.KeyTime.Value).ToSeconds();
         double difference = segment.Parent.ConvertToDouble(segment.Model.Value) - segment.Parent.ConvertToDouble(previous.Value);
         return incoming ? new Point((spline.X2 - 1) * duration, (spline.Y2 - 1) * difference)
             : new Point(spline.X1 * duration, spline.Y1 * difference);

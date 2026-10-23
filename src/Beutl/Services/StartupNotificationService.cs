@@ -155,9 +155,9 @@ internal static class StartupNotificationService
 
     private static void SetTelemetryEnabled(TelemetryConfig config, bool value)
     {
-        config.Beutl_Api_Client = value;
-        config.Beutl_Application = value;
-        config.Beutl_PackageManagement = value;
-        config.Beutl_Logging = value;
+        config.Beutl_Api_Client.Value = value;
+        config.Beutl_Application.Value = value;
+        config.Beutl_PackageManagement.Value = value;
+        config.Beutl_Logging.Value = value;
     }
 }

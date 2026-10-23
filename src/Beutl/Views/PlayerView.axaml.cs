@@ -123,16 +123,16 @@ public partial class PlayerView : UserControl
     {
         var config = GlobalConfiguration.Instance.EditorConfig;
         // A view attached again keeps its image control unless the preview mode changed while it was detached.
-        if (image == null || (image is HdrBitmapView) != config.UseHdrPreview)
+        if (image == null || (image is HdrBitmapView) != config.UseHdrPreview.Value)
         {
-            SwapImageControl(config.UseHdrPreview);
+            SwapImageControl(config.UseHdrPreview.Value);
         }
         else
         {
             SubscribeImageBounds();
         }
 
-        _imageConfigSubscription = config.UseHdrPreviewProperty.GetObservable()
+        _imageConfigSubscription = config.UseHdrPreview.GetObservable()
             .Skip(1)
             .Subscribe(useHdr => Dispatcher.UIThread.InvokeAsync(() => SwapImageControl(useHdr)));
     }
@@ -313,7 +313,7 @@ public partial class PlayerView : UserControl
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
                 if (DataContext is PlayerViewModel { Scene: { } } vm)
                 {
-                    int width = vm.Scene.FrameSize.Width;
+                    int width = vm.Scene.FrameSize.Value.Width;
                     if (width == 0) return;
                     double actualWidth = image.Bounds.Width * matrix.M11;
                     double pixelSize = actualWidth / width;
@@ -382,7 +382,7 @@ public partial class PlayerView : UserControl
         }
 
         MediaTime time = clock.CurrentTime.Value;
-        if (time < element.Start || time >= element.Range.End)
+        if (time < element.Start.Value || time >= element.Range.End)
         {
             ClearTransformHandleOverlay();
             return;
@@ -390,13 +390,13 @@ public partial class PlayerView : UserControl
 
         var renderer = vm.EditViewModel.Renderer.Value;
         var scene = vm.EditViewModel.Scene;
-        if (image.Bounds.Width <= 0 || scene.FrameSize.Width <= 0)
+        if (image.Bounds.Width <= 0 || scene.FrameSize.Value.Width <= 0)
         {
             ClearTransformHandleOverlay();
             return;
         }
 
-        double frameScale = image.Bounds.Width / scene.FrameSize.Width;
+        double frameScale = image.Bounds.Width / scene.FrameSize.Value.Width;
         BtlDrawable? drawable = ResolveOverlayDrawable(element);
         if (drawable == null)
         {
@@ -408,7 +408,7 @@ public partial class PlayerView : UserControl
         try
         {
             BtlDrawable target = drawable;
-            BtlSize availableSize = scene.FrameSize.ToSize(1.0f);
+            BtlSize availableSize = scene.FrameSize.Value.ToSize(1.0f);
             MediaTime ctxTime = time;
             snap = QueryRenderThread(() => ComputeOverlayGeometry(renderer, target, availableSize, ctxTime), null);
         }
@@ -417,7 +417,7 @@ public partial class PlayerView : UserControl
             _logger.LogError(
                 ex,
                 "Unexpected exception while querying transform overlay geometry (drawable={DrawableType}, element='{Element}').",
-                drawable.GetType().Name, element.Name);
+                drawable.GetType().Name, element.Name.Value);
             // Partially-updated cache may remain — dispose and let it rebuild.
             ClearTransformHandleOverlay();
             return;
@@ -547,9 +547,9 @@ public partial class PlayerView : UserControl
             {
                 SceneMarker m = scene.Markers[i];
                 snapshot[i] = new PlayerMarkerEntry(
-                    m.Name ?? string.Empty,
+                    m.Name.Value ?? string.Empty,
                     // Player の CurrentTime 表示 (hh\:mm\:ss\.ff) と桁を揃える。
-                    m.Time.ToTimeSpan().ToString(@"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture));
+                    m.Time.Value.ToTimeSpan().ToString(@"hh\:mm\:ss\.ff", CultureInfo.InvariantCulture));
             }
             Player.Markers = snapshot;
         }
@@ -557,17 +557,15 @@ public partial class PlayerView : UserControl
         void Subscribe(SceneMarker marker)
         {
             if (markerSubscriptions.ContainsKey(marker)) return;
-            void OnMarkerPropertyChanged(object? s, PropertyChangedEventArgs e)
+            void OnNameChanged(object? s, PropertyValueChangedEventArgs<string> e) => Refresh();
+            void OnTimeChanged(object? s, PropertyValueChangedEventArgs<MediaTime> e) => Refresh();
+            marker.Name.ValueChanged += OnNameChanged;
+            marker.Time.ValueChanged += OnTimeChanged;
+            markerSubscriptions[marker] = Disposable.Create(() =>
             {
-                if (e.PropertyName == nameof(SceneMarker.Name)
-                    || e.PropertyName == nameof(SceneMarker.Time))
-                {
-                    Refresh();
-                }
-            }
-            marker.PropertyChanged += OnMarkerPropertyChanged;
-            markerSubscriptions[marker] = Disposable.Create(
-                () => marker.PropertyChanged -= OnMarkerPropertyChanged);
+                marker.Name.ValueChanged -= OnNameChanged;
+                marker.Time.ValueChanged -= OnTimeChanged;
+            });
         }
 
         void Unsubscribe(SceneMarker marker)

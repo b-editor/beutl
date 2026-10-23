@@ -47,14 +47,14 @@ internal static partial class SceneSnapshot
     private static List<CoreObject> CloneReferencedObjects(Scene scene)
     {
         var clones = new List<CoreObject>();
-        var scanned = new HashSet<Guid> { scene.Id };
+        var scanned = new HashSet<Guid> { scene.Id.Value };
         var queue = new Queue<IHierarchical>();
         queue.Enqueue(scene);
         while (queue.TryDequeue(out IHierarchical? root))
         {
             foreach (CoreObject target in EnumerateReferenceTargets(root))
             {
-                if (!scanned.Add(target.Id))
+                if (!scanned.Add(target.Id.Value))
                     continue;
 
                 clones.Add(CloneDetached(target));
@@ -124,11 +124,11 @@ internal static partial class SceneSnapshot
         var project = new Project();
         if (source.FindHierarchicalParent<Project>() is { } sourceProject)
         {
-            project.FrameRate = sourceProject.FrameRate;
-            project.SampleRate = sourceProject.SampleRate;
-            foreach ((string key, string value) in sourceProject.Variables)
+            project.FrameRate.Value = sourceProject.FrameRate.Value;
+            project.SampleRate.Value = sourceProject.SampleRate.Value;
+            foreach ((string key, string value) in sourceProject.Variables.Value)
             {
-                project.Variables[key] = value;
+                project.Variables.Value[key] = value;
             }
         }
 
@@ -139,6 +139,6 @@ internal static partial class SceneSnapshot
         }
 
         project.Items.Add(clone);
-        _ = new BeutlApplication { Project = project };
+        _ = new BeutlApplication { Project = { Value = project } };
     }
 }

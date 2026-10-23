@@ -32,7 +32,7 @@ public partial class PlayerView
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<T> animation)
         {
-            MediaTime keyTime = animation.UseGlobalClock ? globalKeyTime : localKeyTime;
+            MediaTime keyTime = animation.UseGlobalClock.Value ? globalKeyTime : localKeyTime;
             keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
             if (AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) is KeyFrame<T> atFrame)

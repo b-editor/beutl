@@ -264,16 +264,16 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     {
                         if (keyframe == null) return;
 
-                        MediaTime keyTime = keyframe.KeyTime;
+                        MediaTime keyTime = keyframe.KeyTime.Value;
 
-                        if (!c.Animation.UseGlobalClock)
+                        if (!c.Animation.UseGlobalClock.Value)
                         {
-                            keyTime += element.Start;
+                            keyTime += element.Start.Value;
                         }
 
                         var ctx = new CompositionContext(keyTime);
-                        keyframe.Value = Mirror(anchor.GetEndPoint().Evaluate(ctx),
-                            _dragState!.GetInterpolatedValue(keyTime), keyframe.Value, viewModel.Symmetry.Value);
+                        keyframe.Value.Value = Mirror(anchor.GetEndPoint().Evaluate(ctx),
+                            _dragState!.GetInterpolatedValue(keyTime), keyframe.Value.Value, viewModel.Symmetry.Value);
                     }
 
                     Set(c.Previous);
@@ -490,11 +490,11 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         ProjectSystem.Element? element = viewModel.Element.Value;
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         MediaTime globalkeyTime = clock.CurrentTime.Value;
-        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start : globalkeyTime;
+        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start.Value : globalkeyTime;
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<BtlPoint> animation)
         {
-            MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+            MediaTime keyTime = animation.UseGlobalClock.Value ? globalkeyTime : localKeyTime;
             keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
             if (AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) is KeyFrame<BtlPoint> atFrame)

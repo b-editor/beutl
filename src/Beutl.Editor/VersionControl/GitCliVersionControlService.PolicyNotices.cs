@@ -65,7 +65,7 @@ internal sealed partial class GitCliVersionControlService
 
         long thresholdBytes = Math.Max(
             0L,
-            (long)_installationLocator.Config.LargeMediaWarningThresholdMb * 1024 * 1024);
+            (long)_installationLocator.Config.LargeMediaWarningThresholdMb.Value * 1024 * 1024);
         var candidates = new List<(FileChange Change, string Path)>();
         foreach (FileChange change in status.Changes)
         {

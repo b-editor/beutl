@@ -44,7 +44,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
         if (obj is KeyFrame keyFrame)
         {
-            keyFrame.EasingProperty.ValueChanged += OnEasingChanged;
+            keyFrame.Easing.ValueChanged += OnEasingChanged;
         }
 
         if (obj is CoreObject coreObject)
@@ -59,7 +59,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
     {
         if (_object is KeyFrame keyFrame)
         {
-            keyFrame.EasingProperty.ValueChanged -= OnEasingChanged;
+            keyFrame.Easing.ValueChanged -= OnEasingChanged;
         }
 
         foreach (IOperationObserver enginePublisher in _enginePropertyPublishers.Values)
@@ -90,7 +90,7 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         _splineEasingPublisher?.Dispose();
         _splineEasingPublisher = null;
 
-        if (_object is KeyFrame { Easing: SplineEasing splineEasing } keyFrame)
+        if (_object is KeyFrame { Easing.Value: SplineEasing splineEasing } keyFrame)
         {
             string easingPath = BuildPropertyPath(nameof(KeyFrame.Easing));
             _splineEasingPublisher = new SplineEasingOperationObserver(

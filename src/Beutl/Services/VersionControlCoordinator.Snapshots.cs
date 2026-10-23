@@ -157,7 +157,7 @@ internal partial class VersionControlCoordinator
         {
             // A save from here on defers a snapshot of its own, which runs after this one.
             _saveSnapshotDeferred = false;
-            if (!_config.AutoCommitOnSave
+            if (!_config.AutoCommitOnSave.Value
                 || !ReferenceEquals(_projectService.CurrentProject.Value, savedProject))
             {
                 return;

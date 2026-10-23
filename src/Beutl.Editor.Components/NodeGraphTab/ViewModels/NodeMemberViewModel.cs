@@ -12,16 +12,16 @@ public class NodeMemberViewModel : IDisposable
     {
         if (nodeMember is NodeMember nodeMemberObj)
         {
-            Name = nodeMemberObj.DisplayProperty.GetObservable().Skip(1)
-                .Select(_ => nodeMemberObj.Display?.GetName()
-                    ?? nodeMemberObj.Name
+            Name = nodeMemberObj.Display.GetObservable().Skip(1)
+                .Select(_ => nodeMemberObj.Display.Value?.GetName()
+                    ?? nodeMemberObj.Name.Value
                     ?? string.Empty)
                 .ToReadOnlyReactiveProperty(
-                    nodeMemberObj.Display?.GetName() ?? nodeMemberObj.Name ?? string.Empty)!;
+                    nodeMemberObj.Display.Value?.GetName() ?? nodeMemberObj.Name.Value ?? string.Empty)!;
         }
         else
         {
-            Name = Observable.ReturnThenNever(nodeMember?.Name ?? string.Empty).ToReadOnlyReactiveProperty()!;
+            Name = Observable.ReturnThenNever(nodeMember?.Name.Value ?? string.Empty).ToReadOnlyReactiveProperty()!;
         }
 
         Model = nodeMember;

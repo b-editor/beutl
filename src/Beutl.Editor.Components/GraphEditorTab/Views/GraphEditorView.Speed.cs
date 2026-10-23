@@ -18,10 +18,10 @@ public partial class GraphEditorView
         var channel = item.Parent;
         var model = channel.Parent;
         int index = channel.KeyFrames.IndexOf(item);
-        if (index <= 0 || item.Model.Easing is not SplineEasing spline) return default;
+        if (index <= 0 || item.Model.Easing.Value is not SplineEasing spline) return default;
         var previous = channel.KeyFrames[index - 1];
-        double left = previous.Model.KeyTime.TimeToPixel(model.Options.Value.Scale);
-        double right = item.Model.KeyTime.TimeToPixel(model.Options.Value.Scale);
+        double left = previous.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale);
+        double right = item.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale);
         double velocity = incoming
             ? GraphEditorCurveMath.KeyVelocity(item) : GraphEditorCurveMath.KeyVelocity(previous, true);
         return new Point(left + (right - left) * (incoming ? spline.X2 : spline.X1) + model.Margin.Value.Left,
@@ -60,8 +60,8 @@ public partial class GraphEditorView
         int index = channel.KeyFrames.IndexOf(state.Item);
         if (index <= 0) return;
         var previous = channel.KeyFrames[index - 1];
-        double left = previous.Model.KeyTime.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left;
-        double width = state.Item.Model.KeyTime.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left - left;
+        double left = previous.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left;
+        double width = state.Item.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left - left;
         if (width <= 0) return;
         double fraction = Math.Clamp((position.X - left) / width, 0.001, 0.999);
         SetVelocity(state.Item, state.Incoming, velocity, state.Incoming ? 1 - fraction : fraction);
@@ -73,7 +73,7 @@ public partial class GraphEditorView
                 Point vector = GraphEditorTangentCoupling.Opposite(model,
                     GraphEditorTangentCoupling.Vector(state.Item, state.Incoming), state.OppositeVector);
                 int oppositeIndex = channel.KeyFrames.IndexOf(opposite);
-                double duration = (opposite.Model.KeyTime - channel.KeyFrames[oppositeIndex - 1].Model.KeyTime).ToSeconds();
+                double duration = (opposite.Model.KeyTime.Value - channel.KeyFrames[oppositeIndex - 1].Model.KeyTime.Value).ToSeconds();
                 if (duration > 0 && Math.Abs(vector.X) > 1e-9)
                     SetVelocity(opposite, !state.Incoming, vector.Y / vector.X, Math.Abs(vector.X) / duration);
             }
@@ -88,9 +88,9 @@ public partial class GraphEditorView
         if (index <= 0) return;
         var previous = item.Parent.KeyFrames[index - 1].Model;
         double difference = item.Parent.ConvertToDouble(item.Model.Value) - item.Parent.ConvertToDouble(previous.Value);
-        double duration = (item.Model.KeyTime - previous.KeyTime).ToSeconds();
+        double duration = (item.Model.KeyTime.Value - previous.KeyTime.Value).ToSeconds();
         if (duration <= 0) return;
-        var spline = GraphEditorCurveMath.ToSpline(item.Model.Easing);
+        var spline = GraphEditorCurveMath.ToSpline(item.Model.Easing.Value);
         if (replaceEasing) spline = new SplineEasing(spline.X1, spline.Y1, spline.X2, spline.Y2);
         double fraction = Math.Clamp(influence ?? (incoming ? 1 - spline.X2 : spline.X1), 0.001, 0.999);
         double slope = difference == 0 ? 0 : velocity * duration / difference;
@@ -98,7 +98,7 @@ public partial class GraphEditorView
         if (!double.IsFinite(y) || Math.Abs(y) > float.MaxValue) return;
         if (incoming) { spline.X2 = (float)(1 - fraction); spline.Y2 = (float)y; }
         else { spline.X1 = (float)fraction; spline.Y1 = (float)y; }
-        item.Model.Easing = spline;
+        item.Model.Easing.Value = spline;
     }
 
     private void ApplyVelocityDelta(GraphEditorDragSnapshot snapshot, double delta)

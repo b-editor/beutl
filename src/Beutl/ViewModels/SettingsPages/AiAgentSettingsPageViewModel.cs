@@ -32,31 +32,31 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
             new InstallScopeItem(AgentInstallScope.Project, SettingsStrings.AiAgents_Scope_Project),
         ];
 
-        AgentChoiceItem initialAgent = AgentChoices.FirstOrDefault(a => a.Id == _config.AgentId)
+        AgentChoiceItem initialAgent = AgentChoices.FirstOrDefault(a => a.Id == _config.AgentId.Value)
                                        ?? AgentChoices[0];
-        InstallScopeItem initialScope = ScopeChoices.FirstOrDefault(s => s.Scope.ToString() == _config.InstallScope)
+        InstallScopeItem initialScope = ScopeChoices.FirstOrDefault(s => s.Scope.ToString() == _config.InstallScope.Value)
                                         ?? ScopeChoices[0];
 
         SelectedAgent = new ReactivePropertySlim<AgentChoiceItem>(initialAgent).DisposeWith(_disposables);
         SelectedScope = new ReactivePropertySlim<InstallScopeItem>(initialScope).DisposeWith(_disposables);
-        ProjectRoot = new ReactivePropertySlim<string>(_config.ProjectRoot).DisposeWith(_disposables);
-        SkillsDirectory = new ReactivePropertySlim<string>(_config.SkillsDirectory).DisposeWith(_disposables);
-        SubagentsDirectory = new ReactivePropertySlim<string>(_config.SubagentsDirectory).DisposeWith(_disposables);
-        McpConfigFileName = new ReactivePropertySlim<string>(_config.McpConfigFileName).DisposeWith(_disposables);
-        McpServersPropertyName = new ReactivePropertySlim<string>(_config.McpServersPropertyName).DisposeWith(_disposables);
+        ProjectRoot = new ReactivePropertySlim<string>(_config.ProjectRoot.Value).DisposeWith(_disposables);
+        SkillsDirectory = new ReactivePropertySlim<string>(_config.SkillsDirectory.Value).DisposeWith(_disposables);
+        SubagentsDirectory = new ReactivePropertySlim<string>(_config.SubagentsDirectory.Value).DisposeWith(_disposables);
+        McpConfigFileName = new ReactivePropertySlim<string>(_config.McpConfigFileName.Value).DisposeWith(_disposables);
+        McpServersPropertyName = new ReactivePropertySlim<string>(_config.McpServersPropertyName.Value).DisposeWith(_disposables);
         // Prefer the user's saved override; fall back to the detected launcher so a fresh view model
         // (reopen, or the reinstall update-prompt path) does not silently revert a customized command.
         McpCommand = new ReactivePropertySlim<string>(
-            FirstNonEmpty(_config.StdioCommand, command?.Command ?? "")).DisposeWith(_disposables);
+            FirstNonEmpty(_config.StdioCommand.Value, command?.Command ?? "")).DisposeWith(_disposables);
         McpArguments = new ReactivePropertySlim<string>(
             FirstNonEmpty(
-                _config.StdioArguments,
+                _config.StdioArguments.Value,
                 command is null ? "" : string.Join(Environment.NewLine, command.Arguments)))
             .DisposeWith(_disposables);
-        InstallSkills = new ReactivePropertySlim<bool>(_config.InstallSkills).DisposeWith(_disposables);
-        InstallSubagents = new ReactivePropertySlim<bool>(_config.InstallSubagents).DisposeWith(_disposables);
-        InstallMcp = new ReactivePropertySlim<bool>(_config.InstallMcp).DisposeWith(_disposables);
-        FollowLiveMcpEdits = new ReactivePropertySlim<bool>(_config.FollowLiveMcpEdits).DisposeWith(_disposables);
+        InstallSkills = new ReactivePropertySlim<bool>(_config.InstallSkills.Value).DisposeWith(_disposables);
+        InstallSubagents = new ReactivePropertySlim<bool>(_config.InstallSubagents.Value).DisposeWith(_disposables);
+        InstallMcp = new ReactivePropertySlim<bool>(_config.InstallMcp.Value).DisposeWith(_disposables);
+        FollowLiveMcpEdits = new ReactivePropertySlim<bool>(_config.FollowLiveMcpEdits.Value).DisposeWith(_disposables);
         IsScopeSelectable = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         IsProjectFolderVisible = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
         CanInstallSubagents = new ReactivePropertySlim<bool>().DisposeWith(_disposables);
@@ -293,19 +293,19 @@ public sealed class AiAgentSettingsPageViewModel : IDisposable
 
     private void PersistOnChange()
     {
-        SelectedAgent.Skip(1).Subscribe(v => _config.AgentId = v.Id).DisposeWith(_disposables);
-        SelectedScope.Skip(1).Subscribe(v => _config.InstallScope = v.Scope.ToString()).DisposeWith(_disposables);
-        ProjectRoot.Skip(1).Subscribe(v => _config.ProjectRoot = v).DisposeWith(_disposables);
-        SkillsDirectory.Skip(1).Subscribe(v => _config.SkillsDirectory = v).DisposeWith(_disposables);
-        SubagentsDirectory.Skip(1).Subscribe(v => _config.SubagentsDirectory = v).DisposeWith(_disposables);
-        McpConfigFileName.Skip(1).Subscribe(v => _config.McpConfigFileName = v).DisposeWith(_disposables);
-        McpServersPropertyName.Skip(1).Subscribe(v => _config.McpServersPropertyName = v).DisposeWith(_disposables);
-        InstallSkills.Skip(1).Subscribe(v => _config.InstallSkills = v).DisposeWith(_disposables);
-        InstallSubagents.Skip(1).Subscribe(v => _config.InstallSubagents = v).DisposeWith(_disposables);
-        InstallMcp.Skip(1).Subscribe(v => _config.InstallMcp = v).DisposeWith(_disposables);
-        FollowLiveMcpEdits.Skip(1).Subscribe(v => _config.FollowLiveMcpEdits = v).DisposeWith(_disposables);
-        McpCommand.Skip(1).Subscribe(v => _config.StdioCommand = v).DisposeWith(_disposables);
-        McpArguments.Skip(1).Subscribe(v => _config.StdioArguments = v).DisposeWith(_disposables);
+        SelectedAgent.Skip(1).Subscribe(v => _config.AgentId.Value = v.Id).DisposeWith(_disposables);
+        SelectedScope.Skip(1).Subscribe(v => _config.InstallScope.Value = v.Scope.ToString()).DisposeWith(_disposables);
+        ProjectRoot.Skip(1).Subscribe(v => _config.ProjectRoot.Value = v).DisposeWith(_disposables);
+        SkillsDirectory.Skip(1).Subscribe(v => _config.SkillsDirectory.Value = v).DisposeWith(_disposables);
+        SubagentsDirectory.Skip(1).Subscribe(v => _config.SubagentsDirectory.Value = v).DisposeWith(_disposables);
+        McpConfigFileName.Skip(1).Subscribe(v => _config.McpConfigFileName.Value = v).DisposeWith(_disposables);
+        McpServersPropertyName.Skip(1).Subscribe(v => _config.McpServersPropertyName.Value = v).DisposeWith(_disposables);
+        InstallSkills.Skip(1).Subscribe(v => _config.InstallSkills.Value = v).DisposeWith(_disposables);
+        InstallSubagents.Skip(1).Subscribe(v => _config.InstallSubagents.Value = v).DisposeWith(_disposables);
+        InstallMcp.Skip(1).Subscribe(v => _config.InstallMcp.Value = v).DisposeWith(_disposables);
+        FollowLiveMcpEdits.Skip(1).Subscribe(v => _config.FollowLiveMcpEdits.Value = v).DisposeWith(_disposables);
+        McpCommand.Skip(1).Subscribe(v => _config.StdioCommand.Value = v).DisposeWith(_disposables);
+        McpArguments.Skip(1).Subscribe(v => _config.StdioArguments.Value = v).DisposeWith(_disposables);
     }
 
     public async Task InstallAsync()

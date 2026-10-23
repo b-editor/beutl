@@ -61,7 +61,7 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
                 .DisposeWith(Disposables))
             .DisposeWith(Disposables);
 
-        IsEnabled = Value.Select(x => x?.IsEnabledProperty.GetObservable() ?? Observable.ReturnThenNever(x?.IsEnabled ?? false))
+        IsEnabled = Value.Select(x => x?.IsEnabled.GetObservable() ?? Observable.ReturnThenNever(x?.IsEnabled.Value ?? false))
             .Switch()
             .ToReactiveProperty()
             .DisposeWith(Disposables);
@@ -69,15 +69,15 @@ public abstract class GroupableEditorViewModel<T, TGroup, TFallback> : ValueEdit
         IsEnabled.Skip(1)
             .Subscribe(v =>
             {
-                if (Value.Value is { } value && value.IsEnabled != v)
+                if (Value.Value is { } value && value.IsEnabled.Value != v)
                 {
                     // A fallback that saves the JSON it was read from as it is would lose the change.
                     if (!IsElementEditable || value is IFallback fallback && !fallback.SavesItsMembers())
                     {
-                        IsEnabled.Value = value.IsEnabled;
+                        IsEnabled.Value = value.IsEnabled.Value;
                         return;
                     }
-                    value.IsEnabled = v;
+                    value.IsEnabled.Value = v;
                     Commit();
                 }
             })

@@ -299,7 +299,7 @@ internal sealed class AiResultImporter
     {
         string projectDirectory = scene.Uri?.LocalPath is { } scenePath
             ? Path.GetDirectoryName(scenePath)!
-            : UnsavedSceneStorage.GetDirectory(scene.Id);
+            : UnsavedSceneStorage.GetDirectory(scene.Id.Value);
         return GetResourceDirectoryIn(projectDirectory);
     }
 

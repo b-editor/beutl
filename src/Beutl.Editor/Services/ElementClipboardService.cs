@@ -83,7 +83,7 @@ public sealed class ElementClipboardService : IElementClipboardService
 
         RippleHelper.RemoveAndShiftAfter(scene, editable, ripple, scene.RemoveChild);
 
-        scene.RemoveElementsFromGroups(editable.Select(e => e.Id).ToArray());
+        scene.RemoveElementsFromGroups(editable.Select(e => e.Id.Value).ToArray());
 
         _historyManager.Commit(CommandNames.CutElement);
         return true;
@@ -197,8 +197,8 @@ public sealed class ElementClipboardService : IElementClipboardService
         CoreSerializer.PopulateFromJsonObject(oldElement, obj);
 
         ObjectRegenerator.Regenerate(oldElement, out Element newElement);
-        newElement.Start = clickedFrame;
-        newElement.ZIndex = clickedLayer;
+        newElement.Start.Value = clickedFrame;
+        newElement.ZIndex.Value = clickedLayer;
 
         return AddPastedElement(scene, newElement);
     }
@@ -230,7 +230,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         return new ElementPasteOutcome(
             Pasted: true,
             ScrollTo: scrollTarget.Range,
-            ScrollToZIndex: scrollTarget.ZIndex,
+            ScrollToZIndex: scrollTarget.ZIndex.Value,
             AddFailure: null);
     }
 
@@ -287,11 +287,11 @@ public sealed class ElementClipboardService : IElementClipboardService
         sourceImage.Source.Value = ImageSource.Open(imageFile);
         var newElement = new Element
         {
-            Start = clickedFrame,
-            Length = MediaTime.FromSeconds(5),
-            ZIndex = clickedLayer,
-            AccentColor = _imageAccentColorFactory(),
-            Name = Path.GetFileName(imageFile),
+            Start = { Value = clickedFrame },
+            Length = { Value = MediaTime.FromSeconds(5) },
+            ZIndex = { Value = clickedLayer },
+            AccentColor = { Value = _imageAccentColorFactory() },
+            Name = { Value = Path.GetFileName(imageFile) },
         };
         newElement.AddObject(sourceImage);
 
@@ -301,14 +301,14 @@ public sealed class ElementClipboardService : IElementClipboardService
     // The element's file is written when the scene is next saved.
     private ElementPasteOutcome AddPastedElement(Scene scene, Element newElement)
     {
-        newElement.Uri = ElementFileNaming.GetUri(scene.Uri!, newElement.Id);
+        newElement.Uri = ElementFileNaming.GetUri(scene.Uri!, newElement.Id.Value);
         scene.AddChild(newElement);
         _historyManager.Commit(CommandNames.PasteElement);
 
         return new ElementPasteOutcome(
             Pasted: true,
             ScrollTo: newElement.Range,
-            ScrollToZIndex: newElement.ZIndex,
+            ScrollToZIndex: newElement.ZIndex.Value,
             AddFailure: null);
     }
 }

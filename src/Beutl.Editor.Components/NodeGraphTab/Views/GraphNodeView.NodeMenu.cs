@@ -15,7 +15,7 @@ public partial class GraphNodeView
         if (DataContext is GraphNodeViewModel { GraphNode: GroupNode groupNode }
             && this.FindAncestorOfType<NodeGraphTabView>()?.DataContext is NodeGraphTabViewModel tabViewModel)
         {
-            tabViewModel.NavigateTo(groupNode.Group);
+            tabViewModel.NavigateTo(groupNode.Group.Value);
         }
     }
 
@@ -33,9 +33,9 @@ public partial class GraphNodeView
         Beutl.NodeGraph.Generative.GenerationRecord? active = node.ActiveGeneration;
         foreach (Beutl.NodeGraph.Generative.GenerationRecord record in node.Generations.Reverse())
         {
-            Guid id = record.Id;
-            string text = $"{record.CreatedAt.LocalDateTime:g}  {record.Summary}";
-            if (record.IsPinned)
+            Guid id = record.Id.Value;
+            string text = $"{record.CreatedAt.Value.LocalDateTime:g}  {record.Summary.Value}";
+            if (record.IsPinned.Value)
                 text += $"  ({NodeGraphStrings.Generative_Pinned})";
             var item = new FAToggleMenuFlyoutItem { Text = text, IsChecked = ReferenceEquals(record, active) };
             item.Click += (_, _) => viewModel.SelectGeneration(id);
@@ -48,7 +48,7 @@ public partial class GraphNodeView
         items.Add(new FAMenuFlyoutSeparator());
         var pin = new FAMenuFlyoutItem
         {
-            Text = active?.IsPinned == true ? NodeGraphStrings.Generative_Unpin : NodeGraphStrings.Generative_Pin,
+            Text = active?.IsPinned.Value == true ? NodeGraphStrings.Generative_Unpin : NodeGraphStrings.Generative_Pin,
             IsEnabled = active is not null,
         };
         pin.Click += (_, _) => viewModel.ToggleActivePinned();
@@ -56,7 +56,7 @@ public partial class GraphNodeView
         var prune = new FAMenuFlyoutItem
         {
             Text = NodeGraphStrings.Generative_PruneHistory,
-            IsEnabled = node.Generations.Any(record => !record.IsPinned && !ReferenceEquals(record, active)),
+            IsEnabled = node.Generations.Any(record => !record.IsPinned.Value && !ReferenceEquals(record, active)),
         };
         prune.Click += (_, _) => viewModel.PruneGenerations();
         items.Add(prune);
@@ -157,7 +157,7 @@ public partial class GraphNodeView
         {
             var flyout = new RenameFlyout()
             {
-                Text = viewModel.GraphNode.Name
+                Text = viewModel.GraphNode.Name.Value
             };
 
             flyout.Confirmed += OnNameConfirmed;

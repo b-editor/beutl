@@ -22,8 +22,8 @@ internal static class RippleHelper
         Element[] lockedOnLayer = LockedOnLayer(scene, zIndex);
 
         Element[] candidates = scene.Children
-            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && !scene.IsElementLocked(e) && e.Start >= anchorEnd)
-            .OrderBy(e => e.Start)
+            .Where(e => e.ZIndex.Value == zIndex && !except.Contains(e) && !scene.IsElementLocked(e) && e.Start.Value >= anchorEnd)
+            .OrderBy(e => e.Start.Value)
             .ToArray();
 
         ShiftUntilBlocked(candidates, delta, lockedOnLayer);
@@ -42,7 +42,7 @@ internal static class RippleHelper
         if (scene.IsLayerLocked(zIndex)) return;
 
         IEnumerable<Element> toShift = scene.Children
-            .Where(e => e.ZIndex == zIndex && !except.Contains(e) && e.Range.End <= anchorStart
+            .Where(e => e.ZIndex.Value == zIndex && !except.Contains(e) && e.Range.End <= anchorStart
                         && !scene.IsElementLocked(e));
 
         Element[] lockedOnLayer = LockedOnLayer(scene, zIndex);
@@ -52,8 +52,8 @@ internal static class RippleHelper
         // leftmost first for a left push (delta < 0) — so a block also halts the clips behind it.
         // The timeline floor for a left push is enforced by the caller's ClampRippleStart.
         toShift = delta > MediaTime.Zero
-            ? toShift.OrderByDescending(e => e.Start)
-            : toShift.OrderBy(e => e.Start);
+            ? toShift.OrderByDescending(e => e.Start.Value)
+            : toShift.OrderBy(e => e.Start.Value);
 
         ShiftUntilBlocked(toShift, delta, lockedOnLayer);
     }
@@ -61,17 +61,17 @@ internal static class RippleHelper
     // Includes elements whose file recovery keeps: shifting one would not be saved.
     private static Element[] LockedOnLayer(Scene scene, int zIndex)
         => scene.Children
-            .Where(e => e.ZIndex == zIndex && scene.IsElementLocked(e))
+            .Where(e => e.ZIndex.Value == zIndex && scene.IsElementLocked(e))
             .ToArray();
 
     private static void ShiftUntilBlocked(IEnumerable<Element> candidates, MediaTime delta, Element[] lockedOnLayer)
     {
         foreach (Element e in candidates)
         {
-            TimeRange shifted = e.Range.WithStart(e.Start + delta);
+            TimeRange shifted = e.Range.WithStart(e.Start.Value + delta);
             if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
 
-            e.Start += delta;
+            e.Start.Value += delta;
         }
     }
 
@@ -99,7 +99,7 @@ internal static class RippleHelper
         ArgumentNullException.ThrowIfNull(removeElement);
 
         (int ZIndex, MediaTime End, MediaTime Length)[] removed = ripple
-            ? elements.Select(e => (e.ZIndex, e.Range.End, e.Length)).ToArray()
+            ? elements.Select(e => (e.ZIndex.Value, e.Range.End, e.Length.Value)).ToArray()
             : [];
 
         foreach (Element element in elements.ToArray())

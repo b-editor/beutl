@@ -65,7 +65,7 @@ public partial class PlayerView
 
         private KeyFrameState<Vector3>? FindKeyFramePairOrNull(IProperty<Vector3> property)
         {
-            return FindKeyFramePair(property, Clock, EditViewModel.Scene, _scene3D?.TimeRange.Start);
+            return FindKeyFramePair(property, Clock, EditViewModel.Scene, _scene3D?.TimeRange.Value.Start);
         }
 
         // キーフレームがない場合はfalseを返す
@@ -77,16 +77,16 @@ public partial class PlayerView
                     return false;
 
                 case ({ } prev, { } next):
-                    prev.Value += delta;
-                    next.Value += delta;
+                    prev.Value.Value += delta;
+                    next.Value.Value += delta;
                     break;
 
                 case ({ } prev, null):
-                    prev.Value += delta;
+                    prev.Value.Value += delta;
                     break;
 
                 case (null, { } next):
-                    next.Value += delta;
+                    next.Value.Value += delta;
                     break;
             }
 
@@ -140,7 +140,7 @@ public partial class PlayerView
                 return;
 
             Scene scene = EditViewModel.Scene;
-            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
+            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Value.Width;
             var scaledPos = _lastPosition / scaleX;
             var screenPoint = new Point((float)scaledPos.X, (float)scaledPos.Y);
 
@@ -190,7 +190,7 @@ public partial class PlayerView
 
                 if (_selectedObject != null)
                 {
-                    _scene3D.GizmoTarget.Value = _selectedObject.Id;
+                    _scene3D.GizmoTarget.Value = _selectedObject.Id.Value;
 
                     _currentGizmoMode = ViewModel.SelectedGizmoMode.Value;
                     _scene3D.GizmoMode.Value = _currentGizmoMode;
@@ -217,7 +217,7 @@ public partial class PlayerView
             {
                 for (int i = 0; i < hitPath.Count; i++)
                 {
-                    if (hitPath[i].GetOriginal()?.Id == currentGizmoTarget.Value)
+                    if (hitPath[i].GetOriginal()?.Id.Value == currentGizmoTarget.Value)
                     {
                         currentIndex = i;
                         break;
@@ -645,7 +645,7 @@ public partial class PlayerView
         // The pointer's move in the scene's render pixels, through the preview's fit and the scene's 2D transform.
         private AvaPoint ToRenderDelta(AvaPoint from, AvaPoint to)
         {
-            double frameScale = Image.Bounds.Size.Width / EditViewModel.Scene.FrameSize.Width;
+            double frameScale = Image.Bounds.Size.Width / EditViewModel.Scene.FrameSize.Value.Width;
             if (!(frameScale > 0) || _scene3D is not { } scene3D)
                 return default;
 
@@ -696,7 +696,7 @@ public partial class PlayerView
                 : RenderThread.Dispatcher.Invoke(() =>
                 {
                     if (FindScene3DResource() is not { } sceneResource
-                        || FindObjectResource(sceneResource.Objects, obj.Id) is not { } target)
+                        || FindObjectResource(sceneResource.Objects, obj.Id.Value) is not { } target)
                     {
                         return (Vector3?)null;
                     }
@@ -714,7 +714,7 @@ public partial class PlayerView
                 return worldDelta;
 
             Matrix4x4 parent = RenderThread.Dispatcher.Invoke(() =>
-                FindScene3DResource() is { } sceneResource && FindObjectResource(sceneResource.Objects, obj.Id) is { } target
+                FindScene3DResource() is { } sceneResource && FindObjectResource(sceneResource.Objects, obj.Id.Value) is { } target
                     ? Renderer3D.GetParentWorldMatrix(sceneResource.Objects, target)
                     : Matrix4x4.Identity, RenderThreadWait);
 
@@ -732,7 +732,7 @@ public partial class PlayerView
                 if (!item.IsEnabled)
                     continue;
 
-                if (item.GetOriginal()?.Id == id)
+                if (item.GetOriginal()?.Id.Value == id)
                     return item;
 
                 if (FindObjectResource(item.GetChildResources(), id) is { } child)
@@ -760,7 +760,7 @@ public partial class PlayerView
 
             Scene scene = EditViewModel.Scene;
             AvaPoint pos = _lastPosition;
-            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Width;
+            double scaleX = Image.Bounds.Size.Width / scene.FrameSize.Value.Width;
             var scaledPos = pos / scaleX;
 
             var drawable = QueryRenderThread<Drawable?>(() =>

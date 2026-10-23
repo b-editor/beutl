@@ -35,17 +35,17 @@ public static class SnapHelper
         foreach (Element item in elements)
         {
             if (item == exclude) continue;
-            if (sameZIndex is { } z && item.ZIndex != z) continue;
+            if (sameZIndex is { } z && item.ZIndex.Value != z) continue;
 
-            yield return item.Start;
-            yield return item.Start + item.Length;
+            yield return item.Start.Value;
+            yield return item.Start.Value + item.Length.Value;
         }
     }
 
     public static IEnumerable<MediaTime> CollectSceneCandidates(Scene scene, MediaTime currentTime)
     {
-        yield return scene.Start;
-        yield return scene.Start + scene.Duration;
+        yield return scene.Start.Value;
+        yield return scene.Start.Value + scene.Duration.Value;
         yield return currentTime;
         if (currentTime != MediaTime.Zero) yield return MediaTime.Zero;
     }

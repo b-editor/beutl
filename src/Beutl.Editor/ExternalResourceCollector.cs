@@ -73,7 +73,7 @@ public sealed class ExternalResourceCollector
             switch (adapter.GetValue())
             {
                 case IFileSource source when RequiresRelocation(source, projectDirectory):
-                    _fileSources.Add((obj.Id, nameof(INodeMember.Property), source.Uri));
+                    _fileSources.Add((obj.Id.Value, nameof(INodeMember.Property), source.Uri));
                     break;
                 case FontFamily font:
                     _fontFamilies.Add(font);
@@ -85,7 +85,7 @@ public sealed class ExternalResourceCollector
 
         if (obj.Uri != null && IsExternalFile(obj.Uri, projectDirectory))
         {
-            _fileSources.Add((obj.Id, "Uri", obj.Uri));
+            _fileSources.Add((obj.Id.Value, "Uri", obj.Uri));
         }
     }
 
@@ -98,7 +98,7 @@ public sealed class ExternalResourceCollector
                 case IFileSource fileSource:
                     if (RequiresRelocation(fileSource, projectDirectory))
                     {
-                        _fileSources.Add((obj.Id, property.Name, fileSource.Uri));
+                        _fileSources.Add((obj.Id.Value, property.Name, fileSource.Uri));
                     }
 
                     break;

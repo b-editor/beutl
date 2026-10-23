@@ -12,7 +12,7 @@ public sealed class CubeSourceEditorViewModel(IPropertyAdapter<CubeSource?> prop
         {
             if (EditingKeyFrame.Value is { } kf)
             {
-                kf.Value = newValue;
+                kf.Value.Value = newValue;
             }
             else
             {

@@ -262,9 +262,11 @@ public sealed class TimelineScale : TimelineBarsControl
     {
         if (_markerSubscriptions.ContainsKey(marker)) return;
 
-        System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => InvalidateVisual();
-        marker.PropertyChanged += handler;
-        _markerSubscriptions[marker] = Disposable.Create(() => marker.PropertyChanged -= handler);
+        // The values DrawMarkers draws.
+        _markerSubscriptions[marker] = new CompositeDisposable(
+            marker.Time.GetObservable().Subscribe(_ => InvalidateVisual()),
+            marker.Color.GetObservable().Subscribe(_ => InvalidateVisual()),
+            marker.Name.GetObservable().Subscribe(_ => InvalidateVisual()));
     }
 
     public override void Render(DrawingContext context)
@@ -392,16 +394,16 @@ public sealed class TimelineScale : TimelineBarsControl
         {
             if (obj is not SceneMarker marker) continue;
 
-            double x = marker.Time.TimeToPixel(Scale);
+            double x = marker.Time.Value.TimeToPixel(Scale);
             if (x < viewport.X - 8 || x > viewport.X + viewport.Width + 8) continue;
 
-            var fillBrush = new ImmutableSolidColorBrush(marker.Color.ToAvaColor());
+            var fillBrush = new ImmutableSolidColorBrush(marker.Color.Value.ToAvaColor());
             using (context.PushTransform(Matrix.CreateTranslation(x, 0)))
             {
                 context.DrawGeometry(fillBrush, null, _pointMarker);
             }
 
-            string label = marker.Name;
+            string label = marker.Name.Value;
             if (!string.IsNullOrEmpty(label))
             {
                 IBrush? labelBrush = MarkerLabelForeground ?? ScaleBrush;
@@ -429,7 +431,7 @@ public sealed class TimelineScale : TimelineBarsControl
         foreach (object? obj in Markers)
         {
             if (obj is not SceneMarker marker) continue;
-            double mx = marker.Time.TimeToPixel(Scale);
+            double mx = marker.Time.Value.TimeToPixel(Scale);
             double dist = Math.Abs(mx - x);
             if (dist <= 6 && dist < bestDist)
             {

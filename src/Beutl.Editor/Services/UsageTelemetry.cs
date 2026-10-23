@@ -37,9 +37,9 @@ internal sealed class UsageTelemetry : IDisposable
         _timer = _time.CreateTimer(_ => Flush(), null, s_interval, s_interval);
     }
 
-    internal static bool HasConsent(TelemetryConfig config) => config.Beutl_Application == true
-        && config.Beutl_Api_Client.HasValue && config.Beutl_PackageManagement.HasValue
-        && config.Beutl_Logging.HasValue;
+    internal static bool HasConsent(TelemetryConfig config) => config.Beutl_Application.Value == true
+        && config.Beutl_Api_Client.Value.HasValue && config.Beutl_PackageManagement.Value.HasValue
+        && config.Beutl_Logging.Value.HasValue;
 
     internal bool TryGetCollectionEpoch(out long epoch)
     {

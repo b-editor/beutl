@@ -19,9 +19,9 @@ public sealed class ElementAttributeService : IElementAttributeService
         ArgumentNullException.ThrowIfNull(element);
         // Same backstop as SetAccentColor: the timeline menu already refuses this on a read-only clip.
         if (IsReadOnly(element)) return;
-        if (element.IsEnabled == isEnabled) return;
+        if (element.IsEnabled.Value == isEnabled) return;
 
-        element.IsEnabled = isEnabled;
+        element.IsEnabled.Value = isEnabled;
         _historyManager.Commit(CommandNames.ChangeElementEnabled);
     }
 
@@ -32,21 +32,21 @@ public sealed class ElementAttributeService : IElementAttributeService
         // confirmed after the clip was locked). Layer-lock is enforced by the caller's IsEditable,
         // which has the scene the element alone lacks.
         if (IsReadOnly(element)) return;
-        if (element.AccentColor == color) return;
+        if (element.AccentColor.Value == color) return;
 
-        element.AccentColor = color;
+        element.AccentColor.Value = color;
         _historyManager.Commit(CommandNames.ChangeElementColor);
     }
 
     public void SetLocked(Element element, bool isLocked)
     {
         ArgumentNullException.ThrowIfNull(element);
-        if (element.IsLocked == isLocked) return;
+        if (element.IsLocked.Value == isLocked) return;
         // Locking a clip whose file recovery keeps would not be saved, and it would block repairing or
         // deleting the clip until it is unlocked again. Unlocking one stays allowed.
         if (isLocked && element.IsRecoveryProtected) return;
 
-        element.IsLocked = isLocked;
+        element.IsLocked.Value = isLocked;
         _historyManager.Commit(CommandNames.ChangeElementLocked);
     }
 
@@ -56,9 +56,9 @@ public sealed class ElementAttributeService : IElementAttributeService
         ArgumentNullException.ThrowIfNull(name);
         // Same backstop as SetAccentColor; the caller enforces the layer lock.
         if (IsReadOnly(element)) return;
-        if (element.Name == name) return;
+        if (element.Name.Value == name) return;
 
-        element.Name = name;
+        element.Name.Value = name;
         _historyManager.Commit(CommandNames.RenameElement);
     }
 
@@ -155,7 +155,7 @@ public sealed class ElementAttributeService : IElementAttributeService
     }
 
     // The clip's own lock, or recovery keeping its file (saving would not write the edit).
-    private static bool IsReadOnly(Element element) => element.IsLocked || element.IsRecoveryProtected;
+    private static bool IsReadOnly(Element element) => element.IsLocked.Value || element.IsRecoveryProtected;
 
     private static ElementEdge Opposite(ElementEdge edge) => edge == ElementEdge.Start ? ElementEdge.End : ElementEdge.Start;
 }

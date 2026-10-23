@@ -64,37 +64,37 @@ public sealed partial class ElementViewModel : IDisposable
 
         InitializeElementGroup();
 
-        IsEnabled = element.IsEnabledProperty.GetObservable()
+        IsEnabled = element.IsEnabled.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        IsLocked = element.IsLockedProperty.GetObservable()
+        IsLocked = element.IsLocked.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Name = element.NameProperty.GetObservable()
+        Name = element.Name.GetObservable()
             .ToReactiveProperty()
             .AddTo(_disposables)!;
 
-        IObservable<int> zIndexSubject = element.ZIndexProperty.GetObservable();
+        IObservable<int> zIndexSubject = element.ZIndex.GetObservable();
         Margin = Timeline.GetTrackedLayerTopObservable(zIndexSubject)
             .Select(item => new Thickness(0, item, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        BorderMargin = element.StartProperty.GetObservable()
+        BorderMargin = element.Start.GetObservable()
             .CombineLatest(timeline.Scale)
             .Select(item => new Thickness(item.First.TimeToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Width = element.LengthProperty.GetObservable()
+        Width = element.Length.GetObservable()
             .CombineLatest(timeline.Scale)
             .Select(item => item.First.TimeToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Color = element.AccentColorProperty.GetObservable()
+        Color = element.AccentColor.GetObservable()
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty()
             .AddTo(_disposables);
@@ -195,7 +195,7 @@ public sealed partial class ElementViewModel : IDisposable
             {
                 if (IsEditable.Value)
                     Timeline.EditorContext.GetRequiredService<IElementAttributeService>().SetName(Model, v);
-                else if (v != Model.Name) Name.Value = Model.Name;
+                else if (v != Model.Name.Value) Name.Value = Model.Name.Value;
             })
             .AddTo(_disposables);
 
@@ -227,7 +227,7 @@ public sealed partial class ElementViewModel : IDisposable
 
     private void InitializeElementGroup()
     {
-        _elementGroup = Scene.Groups.FirstOrDefault(x => x.Contains(Model.Id));
+        _elementGroup = Scene.Groups.FirstOrDefault(x => x.Contains(Model.Id.Value));
 
         Scene.Groups.Attached += OnSetAttached;
         Scene.Groups.Detached += OnSetDetached;
@@ -354,7 +354,7 @@ public sealed partial class ElementViewModel : IDisposable
 
         foreach (ElementViewModel item in Timeline.SelectedElements)
         {
-            ids.Add(item.Model.Id);
+            ids.Add(item.Model.Id.Value);
         }
 
         if (ids.Count == 0)
@@ -363,7 +363,7 @@ public sealed partial class ElementViewModel : IDisposable
         }
 
         return Timeline.Elements
-            .Where(x => ids.Contains(x.Model.Id))
+            .Where(x => ids.Contains(x.Model.Id.Value))
             .ToArray();
     }
 
@@ -440,9 +440,9 @@ public sealed partial class ElementViewModel : IDisposable
 
     public async Task AnimationRequest(PrepareAnimationContext context, CancellationToken cancellationToken = default)
     {
-        var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex), 0, 0);
-        var borderMargin = new Thickness(Model.Start.TimeToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
-        double width = Model.Length.TimeToPixel(Timeline.Options.Value.Scale);
+        var margin = new Thickness(0, Timeline.CalculateLayerTop(Model.ZIndex.Value), 0, 0);
+        var borderMargin = new Thickness(Model.Start.Value.TimeToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
+        double width = Model.Length.Value.TimeToPixel(Timeline.Options.Value.Scale);
 
         BorderMargin.Value = context.BorderMargin;
         Margin.Value = context.Margin;
@@ -482,7 +482,7 @@ public sealed partial class ElementViewModel : IDisposable
         MediaTime roundedStart = BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         MediaTime roundedLength = Width.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         (MediaTime start, MediaTime length) = ripple || leftEdge
-            ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start, Model.Range.End)
+            ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End)
             : (roundedStart, roundedLength);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
@@ -553,11 +553,11 @@ public sealed partial class ElementViewModel : IDisposable
     {
         var ids = new HashSet<Guid>(Timeline.SelectedElements
             .Where(x => x.IsEditable.Value)
-            .Select(x => x.Model.Id));
+            .Select(x => x.Model.Id.Value));
 
         if (ids.Count == 0 && IsEditable.Value)
         {
-            ids.Add(Model.Id);
+            ids.Add(Model.Id.Value);
         }
 
         return ids;
@@ -581,7 +581,7 @@ public sealed partial class ElementViewModel : IDisposable
 
     private void OnSetAttached(ImmutableHashSet<Guid> group)
     {
-        if (group.Contains(Model.Id))
+        if (group.Contains(Model.Id.Value))
         {
             _elementGroup = group;
         }

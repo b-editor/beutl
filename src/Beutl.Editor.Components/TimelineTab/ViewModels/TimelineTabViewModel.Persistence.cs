@@ -29,7 +29,7 @@ public sealed partial class TimelineTabViewModel
                 if (item is JsonValue value
                     && value.TryGetValue(out string? guidStr)
                     && Guid.TryParse(guidStr, out Guid id)
-                    && Scene.Children.Any(e => e.Id == id))
+                    && Scene.Children.Any(e => e.Id.Value == id))
                 {
                     ThumbnailsDisabledElements.Add(id);
                 }
@@ -56,7 +56,7 @@ public sealed partial class TimelineTabViewModel
                      .Where(x => x.AnimationId != Guid.Empty && x.ElementId != Guid.Empty)
                      .Join(Scene.Children,
                          x => x.ElementId,
-                         y => y.Id,
+                         y => y.Id.Value,
                          (x, y) => (y, x.AnimationId)))
         {
             IAnimatablePropertyAdapter? anmProp = null;
@@ -80,7 +80,7 @@ public sealed partial class TimelineTabViewModel
 
             bool Predicate(Stack<object> stack, object obj)
             {
-                if (obj is IProperty property && property.GetKeyFrameAnimation() is { } kfAnm && kfAnm.Id == anmId)
+                if (obj is IProperty property && property.GetKeyFrameAnimation() is { } kfAnm && kfAnm.Id.Value == anmId)
                 {
                     using var pooledArray = new PooledArray<object>(stack.Count);
                     // Walk up the stack to the adapter that holds the animation or to the EngineObject.
@@ -102,7 +102,7 @@ public sealed partial class TimelineTabViewModel
                 {
                     AttachInline(anmProp, element);
                     _logger.LogDebug("Inline animation attached for element {ElementId} and animation {AnimationId}.",
-                        element.Id, anmId);
+                        element.Id.Value, anmId);
                 }
                 else if (engineObject != null)
                 {
@@ -114,13 +114,13 @@ public sealed partial class TimelineTabViewModel
                         AttachInline(createdProp, element);
                         _logger.LogDebug(
                             "Inline animation created and attached for element {ElementId} and animation {AnimationId}.",
-                            element.Id, anmId);
+                            element.Id.Value, anmId);
                     }
                     catch (Exception ex)
                     {
                         _logger.LogError(ex,
                             "An exception occurred while restoring the inline animation for element {ElementId} and animation {AnimationId}.",
-                            element.Id, anmId);
+                            element.Id.Value, anmId);
                     }
                 }
             }
@@ -136,9 +136,9 @@ public sealed partial class TimelineTabViewModel
         var inlines = new JsonArray();
         foreach (InlineAnimationLayerViewModel item in Inlines.OrderBy(v => v.Index.Value))
         {
-            if (item.Property.Animation is IKeyFrameAnimation { Id: Guid anmId })
+            if (item.Property.Animation is IKeyFrameAnimation { Id.Value: Guid anmId })
             {
-                Guid elementId = item.Element.Model.Id;
+                Guid elementId = item.Element.Model.Id.Value;
 
                 inlines.Add(new JsonObject { ["AnimationId"] = anmId, ["ElementId"] = elementId });
                 _logger.LogDebug(

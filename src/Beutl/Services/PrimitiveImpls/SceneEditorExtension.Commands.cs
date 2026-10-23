@@ -115,6 +115,6 @@ public sealed partial class SceneEditorExtension
     private static void ToggleOnionSkin()
     {
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
-        editorConfig.IsOnionSkinEnabled = !editorConfig.IsOnionSkinEnabled;
+        editorConfig.IsOnionSkinEnabled.Value = !editorConfig.IsOnionSkinEnabled.Value;
     }
 }

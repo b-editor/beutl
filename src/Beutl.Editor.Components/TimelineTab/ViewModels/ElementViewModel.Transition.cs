@@ -194,6 +194,6 @@ public sealed partial class ElementViewModel
             Math.Clamp(endFraction, 0, 1),
             transition.Easing.Value,
             toolTip,
-            ElementTransitionEdits.GetTransition(Model, edge) is { IsEnabled: true });
+            ElementTransitionEdits.GetTransition(Model, edge) is { IsEnabled.Value: true });
     }
 }

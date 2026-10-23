@@ -26,10 +26,10 @@ internal sealed partial class ElementAdderImpl
             description.Layer);
         return new Element
         {
-            Start = description.Start,
-            Length = description.Length
-                     ?? throw new InvalidOperationException("A non-template element source requires a length."),
-            ZIndex = description.Layer,
+            Start = { Value = description.Start },
+            Length = { Value = description.Length
+                     ?? throw new InvalidOperationException("A non-template element source requires a length.") },
+            ZIndex = { Value = description.Layer },
         };
     }
 
@@ -52,9 +52,9 @@ internal sealed partial class ElementAdderImpl
     private Element CreateElementFor(ElementDescription description, EngineObject value, string name)
     {
         Element element = CreateElement(description);
-        element.Name = name;
+        element.Name.Value = name;
         Type type = value.GetType();
-        element.AccentColor = ElementAccentColorGenerator.GenerateColor(type.FullName ?? type.Name);
+        element.AccentColor.Value = ElementAccentColorGenerator.GenerateColor(type.FullName ?? type.Name);
         element.AddObject(value);
         if (value is Drawable drawable)
         {
@@ -80,7 +80,7 @@ internal sealed partial class ElementAdderImpl
         try
         {
             state = initialize();
-            element.Length = getDuration(state);
+            element.Length.Value = getDuration(state);
             return state;
         }
         catch
@@ -243,15 +243,15 @@ internal sealed partial class ElementAdderImpl
                     new ElementMaterializationFailure("The element-template factory failed.", ex)));
             }
 
-            element.Start = context.Description.Start;
+            element.Start.Value = context.Description.Start;
             if (context.Description.Length is { } length)
             {
-                element.Length = length;
+                element.Length.Value = length;
             }
-            element.ZIndex = context.Description.Layer;
+            element.ZIndex.Value = context.Description.Layer;
             if (!string.IsNullOrWhiteSpace(context.Description.Name))
             {
-                element.Name = context.Description.Name;
+                element.Name.Value = context.Description.Name;
             }
             if (context.Description.Position is not null)
             {
@@ -357,7 +357,7 @@ internal sealed partial class ElementAdderImpl
                             context.Description,
                             fileName,
                             out SourceSound sourceSound);
-                        soundElement.ZIndex++;
+                        soundElement.ZIndex.Value++;
                         owner.BeforeCompanionAudioMaterialization?.Invoke();
                         SoundSource sound = SoundSource.Open(fileName);
                         sourceSound.Source.Value = sound;
@@ -371,7 +371,7 @@ internal sealed partial class ElementAdderImpl
                             new ElementMaterialization(
                                 videoElement,
                                 [soundElement],
-                                [ImmutableHashSet.Create(videoElement.Id, soundElement.Id)],
+                                [ImmutableHashSet.Create(videoElement.Id.Value, soundElement.Id.Value)],
                                 resources));
 
                     case FileSourceKind.Audio:

@@ -23,7 +23,7 @@ public sealed partial class EditorService
         IEnumerable<CoreObject> objects = _tabItems
             .Select(item => item.Context.Value?.Object)
             .OfType<CoreObject>();
-        if (BeutlApplication.Current.Project is { } project)
+        if (BeutlApplication.Current.Project.Value is { } project)
             objects = objects.Concat(project.Items).Prepend(project);
         foreach (CoreObject obj in objects
                      .SelectMany(Beutl.ProjectSystem.SerializedGraphTraversal.Enumerate)

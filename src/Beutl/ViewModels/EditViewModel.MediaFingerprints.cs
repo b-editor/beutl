@@ -96,7 +96,7 @@ public sealed partial class EditViewModel
                 if (_fingerprintScanRequested) continue;
                 MergeSavedMediaFingerprints(scene);
                 // Write the fingerprint file only; never serialize unsaved scene or element edits.
-                bool changed = MediaFingerprintFile.Update(uri, scene.Id, _savedMediaFingerprints);
+                bool changed = MediaFingerprintFile.Update(uri, scene.Id.Value, _savedMediaFingerprints);
                 bool finishSaveSnapshot = _finishFingerprintSaveSnapshot;
                 _finishFingerprintSaveSnapshot = false;
                 if (changed && finishSaveSnapshot && EditorService.ProjectVersionControlSession is { } session)

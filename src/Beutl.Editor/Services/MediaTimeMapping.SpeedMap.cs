@@ -42,8 +42,8 @@ internal sealed partial class MediaTimeMapping
             {
                 if (_animation is KeyFrameAnimation<float> keys && keys.KeyFrames.Count > 0
                     && keys.KeyFrames[0] is KeyFrame<float> first
-                    && keys.KeyFrames.All(k => k is KeyFrame<float> value && value.Value == first.Value))
-                    _constantAnimation = first.Value;
+                    && keys.KeyFrames.All(k => k is KeyFrame<float> value && value.Value.Value == first.Value.Value))
+                    _constantAnimation = first.Value.Value;
                 else
                     _editorIntegral = new EditorSpeedIntegral(_animation, sampleRate);
             }
@@ -80,7 +80,7 @@ internal sealed partial class MediaTimeMapping
 
         private Interval DeclaredBounds(MediaTime localTime, MediaTime ownerStart, bool extrapolate)
         {
-            MediaTime from = _animation!.UseGlobalClock ? ownerStart : MediaTime.Zero;
+            MediaTime from = _animation!.UseGlobalClock.Value ? ownerStart : MediaTime.Zero;
             MediaTime to = from + localTime;
             if (!extrapolate) { from = Max(from, MediaTime.Zero); to = Max(to, MediaTime.Zero); }
             MediaTime duration = to - from;
@@ -98,13 +98,13 @@ internal sealed partial class MediaTimeMapping
             error = MediaTime.Zero;
             if (_animation == null) return Scale(localTime, _constant);
             if (localTime == MediaTime.Zero) return MediaTime.Zero;
-            if (!_animation.UseGlobalClock) return Integrate(localTime, extrapolate, out error);
+            if (!_animation.UseGlobalClock.Value) return Integrate(localTime, extrapolate, out error);
             if (_editorIntegral != null && _animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } keys)
             {
                 MediaTime from = extrapolate ? ownerStart : Max(ownerStart, MediaTime.Zero);
                 MediaTime to = extrapolate ? localTime + ownerStart : Max(localTime + ownerStart, MediaTime.Zero);
-                MediaTime first = Min(MediaTime.Zero, keys.KeyFrames[0].KeyTime);
-                MediaTime last = Max(MediaTime.Zero, keys.KeyFrames[^1].KeyTime);
+                MediaTime first = Min(MediaTime.Zero, keys.KeyFrames[0].KeyTime.Value);
+                MediaTime last = Max(MediaTime.Zero, keys.KeyFrames[^1].KeyTime.Value);
                 if (from >= first && from <= last && to >= first && to <= last)
                 {
                     EditorSpeedIntegral.Estimate estimate = _editorIntegral.Integrate(from, to);
@@ -127,10 +127,10 @@ internal sealed partial class MediaTimeMapping
             // constant tail when finding an inverse, especially at audio sample rates.
             if (_animation is KeyFrameAnimation<float> { KeyFrames.Count: > 0 } keys)
             {
-                MediaTime last = Max(MediaTime.Zero, keys.KeyFrames[^1].KeyTime);
+                MediaTime last = Max(MediaTime.Zero, keys.KeyFrames[^1].KeyTime.Value);
                 if (time > last)
                     return Add(Integrate(last, extrapolate, out error), Scale(time - last, keys.Interpolate(last)));
-                MediaTime first = Min(MediaTime.Zero, keys.KeyFrames[0].KeyTime);
+                MediaTime first = Min(MediaTime.Zero, keys.KeyFrames[0].KeyTime.Value);
                 if (time < first)
                     return Add(Integrate(first, extrapolate, out error), Scale(time - first, keys.Interpolate(first)));
             }

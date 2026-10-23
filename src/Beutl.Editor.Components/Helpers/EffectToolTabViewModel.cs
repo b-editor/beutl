@@ -90,7 +90,7 @@ public abstract class EffectToolTabViewModel<TEffect> : IPinnableToolContext
 
     private protected void WriteEffectToJson(JsonObject json)
     {
-        json["effectId"] = Effect.Value?.Id;
+        json["effectId"] = Effect.Value?.Id.Value;
     }
 
     private protected void ReadPinFromJson(JsonObject json) => _pin.ReadFromJson(json);

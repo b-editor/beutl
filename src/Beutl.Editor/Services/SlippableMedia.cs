@@ -181,8 +181,8 @@ internal static partial class SlippableMedia
     {
         List<Target> targets = Collect(element, timingPeers);
         MediaTime? duration = GetProviderDuration(element);
-        if (element.HierarchicalParent is not Scene scene || !element.Objects.OfType<PortalObject>().Any(p => p.IsEnabled))
-            return new(element.Start, element.Length, targets, duration);
+        if (element.HierarchicalParent is not Scene scene || !element.Objects.OfType<PortalObject>().Any(p => p.IsEnabled.Value))
+            return new(element.Start.Value, element.Length.Value, targets, duration);
 
         TimeRange original = element.Range;
         var ranges = scene.Children.Select(child => (Element: child, child.Range)).ToArray();
@@ -239,13 +239,13 @@ internal static partial class SlippableMedia
     {
         List<Target> mapped = Collect(element);
         if (mapped.Any(t => !t.IsSupported)) return null;
-        MediaTime? maximum = new ResizeConstraints(element.Start, element.Length, mapped,
+        MediaTime? maximum = new ResizeConstraints(element.Start.Value, element.Length.Value, mapped,
             GetProviderDuration(element)).GetMaximumDuration();
         if (maximum.HasValue) return maximum;
         // Repetition can be unbounded while the underlying source still has an
         // original length. Offer one cycle; a frozen source falls back to source time.
         List<Target> targets = Collect(element, ignoreLoops: true);
-        MediaTime? duration = new ResizeConstraints(element.Start, element.Length, targets,
+        MediaTime? duration = new ResizeConstraints(element.Start.Value, element.Length.Value, targets,
             GetProviderDuration(element)).GetMaximumDuration();
         if (duration.HasValue) return duration;
         foreach (Target target in targets)

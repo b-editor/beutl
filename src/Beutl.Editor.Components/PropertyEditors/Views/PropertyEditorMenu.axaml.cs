@@ -188,7 +188,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             && engineProperty.GetOwnerObject() is { } engineObject
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
-            string propertyPath = $"{{{engineObject.Id}}}.{engineProperty.Name}";
+            string propertyPath = $"{{{engineObject.Id.Value}}}.{engineProperty.Name}";
             await clipboard.SetTextAsync(propertyPath);
         }
     }
@@ -201,7 +201,7 @@ public sealed partial class PropertyEditorMenu : UserControl
             && TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
         {
             string typeName = GetTypeAlias(engineProperty.ValueType);
-            string code = $"GetProperty<{typeName}>(\"{{{engineObject.Id}}}.{engineProperty.Name}\")";
+            string code = $"GetProperty<{typeName}>(\"{{{engineObject.Id.Value}}}.{engineProperty.Name}\")";
             await clipboard.SetTextAsync(code);
         }
     }

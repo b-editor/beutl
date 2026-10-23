@@ -22,8 +22,8 @@ public sealed class PathPointDragState
         Next = next;
         Property = property;
         Target = target;
-        OldPreviousValue = previous?.Value ?? default;
-        OldNextValue = next?.Value ?? default;
+        OldPreviousValue = previous?.Value.Value ?? default;
+        OldNextValue = next?.Value.Value ?? default;
         OldValue = property.Value;
         Animation = property.GetKeyFrameAnimation() as KeyFrameAnimation<BtlPoint>;
     }
@@ -58,8 +58,8 @@ public sealed class PathPointDragState
             Property.Value = PathEditorHelper.Round(OldValue + delta);
         else
         {
-            if (Previous != null) Previous.Value = OldPreviousValue + delta;
-            if (Next != null) Next.Value = OldNextValue + delta;
+            if (Previous != null) Previous.Value.Value = OldPreviousValue + delta;
+            if (Next != null) Next.Value.Value = OldNextValue + delta;
         }
     }
 
@@ -74,9 +74,9 @@ public sealed class PathPointDragState
         }
         else
         {
-            if (Previous != null) Previous.Value += delta;
+            if (Previous != null) Previous.Value.Value += delta;
 
-            if (Next != null) Next.Value += delta;
+            if (Next != null) Next.Value.Value += delta;
         }
     }
 }

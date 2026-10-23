@@ -179,28 +179,11 @@ public static class ObjectRegenerator
 
     public sealed class ListWrapper<T> : CoreObject
     {
-        private readonly CoreList<T> _items = new();
-
         public ListWrapper()
         {
-            // The list is a value rather than a default, as its CoreProperty form had no default.
-            ItemsProperty.Value = _items;
             ScanProperties<ListWrapper<T>>();
         }
 
-        public IProperty<CoreList<T>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<T>>(null!) { KeepsList = true };
-
-        public CoreList<T> Items
-        {
-            get => _items;
-            set => _items.Replace(value);
-        }
-
-        // Items keeps its list, as its CoreProperty accessor did.
-        public override void Deserialize(ICoreSerializationContext context)
-        {
-            base.Deserialize(context);
-            KeptListReader.ReadInto<CoreList<T>, T>(context, nameof(Items), _items);
-        }
+        public IListProperty<T> Items { get; } = new ListProperty<T> { AffectsRender = false };
     }
 }

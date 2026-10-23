@@ -127,7 +127,7 @@ public sealed class DisplacementMapTransformEditorViewModel : ValueEditorViewMod
         IsExpanded.Value = true;
         if (EditingKeyFrame.Value is { } kf)
         {
-            kf.Value = pasted;
+            kf.Value.Value = pasted;
         }
         else
         {

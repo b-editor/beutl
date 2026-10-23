@@ -153,7 +153,7 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
         {
             if (EditingKeyFrame.Value is KeyFrame<Brush?> keyFrame)
             {
-                keyFrame.Value = newValue;
+                keyFrame.Value.Value = newValue;
             }
             else
             {
@@ -168,7 +168,7 @@ public sealed class BrushEditorViewModel : PropertyEditorViewModel, IFallbackObj
     private Brush? GetEditingValue()
     {
         return EditingKeyFrame.Value is KeyFrame<Brush?> keyFrame
-            ? keyFrame.Value
+            ? keyFrame.Value.Value
             : (Brush?)PropertyAdapter.GetValue();
     }
 

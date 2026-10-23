@@ -44,7 +44,7 @@ internal static class Program
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);
         ViewConfig view = config.ViewConfig;
-        CultureInfo.CurrentUICulture = view.UICulture;
+        CultureInfo.CurrentUICulture = view.UICulture.Value;
 
         using IDisposable _ = Telemetry.GetDisposable();
         config.LogRestoreFailures();
@@ -73,7 +73,7 @@ internal static class Program
             {
                 WinUICompositionBackdropCornerRadius = 8f
             })
-            .With(UiFonts.CreateFontManagerOptions(GlobalConfiguration.Instance.ViewConfig.UICulture))
+            .With(UiFonts.CreateFontManagerOptions(GlobalConfiguration.Instance.ViewConfig.UICulture.Value))
             .AfterSetup(_ => Telemetry.CompressLogFiles())
 #if DEBUG
             .LogToTrace();

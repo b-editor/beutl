@@ -134,8 +134,8 @@ public partial class PlayerViewModel
                     MediaTime sceneStart = default, sceneEnd = default;
                     if (!_sessionGuard.TryApply(generation, () =>
                         {
-                            sceneStart = scene.Start;
-                            sceneEnd = sceneStart + scene.Duration;
+                            sceneStart = scene.Start.Value;
+                            sceneEnd = sceneStart + scene.Duration.Value;
                         }))
                         break;
 

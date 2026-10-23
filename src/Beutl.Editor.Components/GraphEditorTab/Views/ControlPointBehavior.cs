@@ -81,7 +81,7 @@ public class ControlPointBehavior : GraphEditorPathBehavior
         if (!editorViewModel.Separately.Value && !e.KeyModifiers.HasFlag(KeyModifiers.Alt))
         {
             var opposite = GraphEditorTangentCoupling.OppositeSegment(state.Segment, state.Incoming);
-            if (opposite?.Model.Easing is Animation.Easings.SplineEasing)
+            if (opposite?.Model.Easing.Value is Animation.Easings.SplineEasing)
             {
                 Point vector = GraphEditorTangentCoupling.Opposite(editorViewModel,
                     GraphEditorTangentCoupling.Vector(state.Segment, state.Incoming), state.OppositeVector);
@@ -103,7 +103,7 @@ public class ControlPointBehavior : GraphEditorPathBehavior
         if (!TryGetValues(out var view, out var editorViewModel, out var viewModel))
             return;
 
-        if (viewModel.Model.Easing is not Animation.Easings.SplineEasing)
+        if (viewModel.Model.Easing.Value is not Animation.Easings.SplineEasing)
             return;
 
         if (AssociatedObject == null)

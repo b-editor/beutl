@@ -50,7 +50,7 @@ public static class ExportSourceValidator
         SceneLayerSkipModel layerSkip = SceneLayerSkipModel.Build(scene);
         foreach (Element element in scene.Children)
         {
-            if (!element.IsEnabled || !inRange(element))
+            if (!element.IsEnabled.Value || !inRange(element))
                 continue;
 
             // The render window in element-local time; a range window is first clamped to the element's
@@ -58,14 +58,14 @@ public static class ExportSourceValidator
             TimeRange elementLocalWindow = sceneWindow.Duration <= MediaTime.Zero
                 ? sceneWindow
                 : ClampToElement(sceneWindow, element.Range);
-            TimeRange localRange = elementLocalWindow.SubtractStart(element.Start);
+            TimeRange localRange = elementLocalWindow.SubtractStart(element.Start.Value);
 
             foreach (CompositionTarget target in targets)
             {
                 // SceneCompositor.SortLayers drops a muted / non-solo element from this pass, so the
                 // renderer never reads its sources; preflight must match or a missing file on such an
                 // element would block an export that would render fine without it.
-                if (layerSkip.ShouldSkip(element.ZIndex, target))
+                if (layerSkip.ShouldSkip(element.ZIndex.Value, target))
                     continue;
 
                 foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(

@@ -61,7 +61,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Right = ((KeyFrame)keyframe).KeyTimeProperty.GetObservable()
+        Right = ((KeyFrame)keyframe).KeyTime.GetObservable()
             .CombineLatest(parent.Parent.Options)
             .Select(item => item.First.TimeToPixel(item.Second.Scale))
             .ToReactiveProperty()
@@ -85,7 +85,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsSplineEasing = ((KeyFrame)keyframe).EasingProperty.GetObservable()
+        IsSplineEasing = ((KeyFrame)keyframe).Easing.GetObservable()
             .Select(v => v is SplineEasing)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -97,7 +97,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
                 (selected, spline, previous) => selected && spline && previous != null)
             .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
 
-        IObservable<(Vector, Vector)> controlPointObservable = ((KeyFrame)keyframe).EasingProperty.GetObservable()
+        IObservable<(Vector, Vector)> controlPointObservable = ((KeyFrame)keyframe).Easing.GetObservable()
             .Select(v =>
             {
                 if (v is SplineEasing splineEasing)
@@ -136,7 +136,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        ((KeyFrame)keyframe).EasingProperty.GetObservable().Skip(1)
+        ((KeyFrame)keyframe).Easing.GetObservable().Skip(1)
             .Subscribe(_ => Parent.NotifyGraphChanged()).DisposeWith(_disposables);
 
         CopyCommand = new AsyncReactiveCommand()
@@ -240,7 +240,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public void UpdateControlPoint1(Point point)
     {
-        if (Model.Easing is SplineEasing splineEasing)
+        if (Model.Easing.Value is SplineEasing splineEasing)
         {
             (double x, double y) = CoerceControlPoint(point);
 
@@ -258,7 +258,7 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     public void UpdateControlPoint2(Point point)
     {
-        if (Model.Easing is SplineEasing splineEasing)
+        if (Model.Easing.Value is SplineEasing splineEasing)
         {
             (double x, double y) = CoerceControlPoint(point);
 

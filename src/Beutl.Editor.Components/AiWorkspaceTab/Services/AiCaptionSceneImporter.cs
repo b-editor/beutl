@@ -24,10 +24,10 @@ internal static class AiCaptionSceneImporter
         ArgumentNullException.ThrowIfNull(template);
 
         int layer = scene.Children
-            .Select(item => item.ZIndex)
+            .Select(item => item.ZIndex.Value)
             .DefaultIfEmpty(-1)
             .Max() + 1;
-        Point defaultPosition = new(0, scene.FrameSize.Height * 0.35f);
+        Point defaultPosition = new(0, scene.FrameSize.Value.Height * 0.35f);
         var context = new CaptionElementContext(
             layer,
             Beutl.Language.Strings.AiSubtitle,

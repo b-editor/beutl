@@ -84,7 +84,7 @@ public static partial class ProxySourceEnumerator
             {
                 if (item is Drawable drawable)
                 {
-                    if (skipDisabledElements && !drawable.IsEnabled
+                    if (skipDisabledElements && !drawable.IsEnabled.Value
                         || !TryVisitGraphDrawable(drawable, localRange, walkContext)) continue;
                     foreach (IFileSource source in EnumerateObjectFileSources(
                         drawable, walkContext, skipDisabledElements, localRange))
@@ -104,7 +104,7 @@ public static partial class ProxySourceEnumerator
         // stops a structurally-reached drawable being walked twice.
         if (walkContext is not null
             && ResolveNestedDrawable(value, walkContext) is { } nestedDrawable
-            && (!skipDisabledElements || nestedDrawable.IsEnabled)
+            && (!skipDisabledElements || nestedDrawable.IsEnabled.Value)
             && walkContext.VisitedTargets.Add(nestedDrawable))
         {
             foreach (IFileSource source in EnumerateObjectFileSources(
@@ -137,7 +137,7 @@ public static partial class ProxySourceEnumerator
 
             foreach (Sound child in soundGroup.Children)
             {
-                if (skipDisabledElements && !child.IsEnabled)
+                if (skipDisabledElements && !child.IsEnabled.Value)
                     continue;
 
                 foreach (IFileSource source in EnumeratePropertyValueFileSources(child, localRange, skipDisabledElements, visitedValues, walkContext))
@@ -149,7 +149,7 @@ public static partial class ProxySourceEnumerator
 
         if (value is not EngineObject engineObject
             || value is Drawable or SceneSound or Scene or Element or GraphNode
-            || (skipDisabledElements && !engineObject.IsEnabled)
+            || (skipDisabledElements && !engineObject.IsEnabled.Value)
             || !visitedValues.Add(engineObject))
         {
             yield break;
@@ -290,7 +290,7 @@ public static partial class ProxySourceEnumerator
         // Global-clock keyframes are sampled at scene time, element-local keyframes at localRange. Pick
         // the matching window; a null sceneWindow (descent crossed a time remap, so scene time is no
         // longer known) falls back to the broad walk for global-clock keyframes.
-        TimeRange? window = keyFrameAnimation.UseGlobalClock ? sceneWindow : localRange;
+        TimeRange? window = keyFrameAnimation.UseGlobalClock.Value ? sceneWindow : localRange;
 
         IReadOnlyList<IKeyFrame> keyFrames = keyFrameAnimation.KeyFrames;
         for (int i = 0; i < keyFrames.Count; i++)
@@ -305,8 +305,8 @@ public static partial class ProxySourceEnumerator
             // checked as a point.
             if (window is { } range)
             {
-                MediaTime spanStart = i > 0 ? keyFrames[i - 1].KeyTime : MediaTime.MinValue;
-                MediaTime spanEnd = i < keyFrames.Count - 1 ? keyFrames[i].KeyTime : MediaTime.MaxValue;
+                MediaTime spanStart = i > 0 ? keyFrames[i - 1].KeyTime.Value : MediaTime.MinValue;
+                MediaTime spanEnd = i < keyFrames.Count - 1 ? keyFrames[i].KeyTime.Value : MediaTime.MaxValue;
                 bool keep = range.Duration <= MediaTime.Zero
                     ? spanStart < range.Start && range.Start <= spanEnd
                     : spanStart < range.End && range.Start <= spanEnd;

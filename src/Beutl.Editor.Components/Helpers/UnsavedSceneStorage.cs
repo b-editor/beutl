@@ -56,7 +56,7 @@ internal static class UnsavedSceneStorage
             var paths = FilePathComparison.CreateResolutionContext();
             // Resolve the owned root strictly, so ownership lookups can skip listing the
             // ancestors of referenced files that the user can traverse but not list.
-            string ownedRoot = paths.ResolveCanonicalPath(GetDirectory(scene.Id));
+            string ownedRoot = paths.ResolveCanonicalPath(GetDirectory(scene.Id.Value));
             _elements = CreateElementRehomes(scene, sceneUri, paths, ownedRoot);
             _resources = CreateResourceRehomes(scene, sceneUri, paths, ownedRoot);
         }
@@ -116,7 +116,7 @@ internal static class UnsavedSceneStorage
                 TryDelete(rehome.Original.LocalPath);
             // Distinct source instances in undo/redo may still reference the original resource.
             // The editor's terminal cleanup removes these copies when history is retired.
-            TryPruneDirectories(GetDirectory(_scene.Id));
+            TryPruneDirectories(GetDirectory(_scene.Id.Value));
         }
 
         private static List<ElementRehome> CreateElementRehomes(

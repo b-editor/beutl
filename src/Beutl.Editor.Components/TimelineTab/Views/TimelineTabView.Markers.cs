@@ -23,33 +23,33 @@ public sealed partial class TimelineTabView
     {
         if (ViewModel == null) return;
 
-        var initialName = marker.Name;
-        var initialNote = marker.Note;
-        var initialColor = marker.Color;
+        var initialName = marker.Name.Value;
+        var initialNote = marker.Note.Value;
+        var initialColor = marker.Color.Value;
         bool deleted = false;
 
         var flyout = new MarkerEditFlyout
         {
-            MarkerName = marker.Name,
-            Note = marker.Note,
-            Color = marker.Color.ToAvaColor(),
+            MarkerName = marker.Name.Value,
+            Note = marker.Note.Value,
+            Color = marker.Color.Value.ToAvaColor(),
         };
 
         flyout.ValuesChanged += (_, values) =>
         {
             if (deleted) return;
-            marker.Name = values.Name;
-            marker.Note = values.Note;
-            marker.Color = values.Color.ToBtlColor();
+            marker.Name.Value = values.Name;
+            marker.Note.Value = values.Note;
+            marker.Color.Value = values.Color.ToBtlColor();
         };
 
         flyout.DeleteRequested += (_, _) =>
         {
             if (ViewModel == null) return;
             // 削除前にプロパティ変更が残っていれば確定しない（Removeコマンドだけを履歴に残す）
-            marker.Name = initialName;
-            marker.Note = initialNote;
-            marker.Color = initialColor;
+            marker.Name.Value = initialName;
+            marker.Note.Value = initialNote;
+            marker.Color.Value = initialColor;
             deleted = true;
             ViewModel.Scene.Markers.Remove(marker);
             ViewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.RemoveMarker);
@@ -58,9 +58,9 @@ public sealed partial class TimelineTabView
         flyout.Closed += (_, _) =>
         {
             if (deleted || ViewModel == null) return;
-            if (marker.Name != initialName
-                || marker.Note != initialNote
-                || marker.Color != initialColor)
+            if (marker.Name.Value != initialName
+                || marker.Note.Value != initialNote
+                || marker.Color.Value != initialColor)
             {
                 ViewModel.EditorContext.GetRequiredService<HistoryManager>().Commit(CommandNames.EditMarker);
             }

@@ -17,17 +17,17 @@ public sealed class SceneSettingsService : ISceneSettingsService
     {
         ArgumentNullException.ThrowIfNull(scene);
 
-        if (scene.FrameSize == frameSize
-            && scene.Start == start
-            && scene.Duration == duration)
+        if (scene.FrameSize.Value == frameSize
+            && scene.Start.Value == start
+            && scene.Duration.Value == duration)
         {
             return false;
         }
 
         // These writes batch into one transaction, collapsing to a single history entry on Commit.
-        scene.FrameSize = frameSize;
-        scene.Start = start;
-        scene.Duration = duration;
+        scene.FrameSize.Value = frameSize;
+        scene.Start.Value = start;
+        scene.Duration.Value = duration;
 
         _historyManager.Commit(CommandNames.ChangeSceneSettings);
         return true;

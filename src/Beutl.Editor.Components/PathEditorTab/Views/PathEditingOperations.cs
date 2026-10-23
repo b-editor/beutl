@@ -193,7 +193,7 @@ internal static class PathEditingOperations
     {
         var animation = property.GetKeyFrameAnimation() as KeyFrameAnimation<Point>;
         return new(property.Value, animation?.KeyFrames[0] is KeyFrame<Point> key
-            ? key.Value : property.Value, animation);
+            ? key.Value.Value : property.Value, animation);
     }
 
     private static SplitPoint Blend(SplitPoint a, SplitPoint b, float t) =>
@@ -209,7 +209,7 @@ internal static class PathEditingOperations
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<Point> { KeyFrames.Count: 1 } existing
             && existing.KeyFrames[0] is KeyFrame<Point> key)
         {
-            key.Value = point.Value;
+            key.Value.Value = point.Value;
             return;
         }
 
@@ -217,11 +217,11 @@ internal static class PathEditingOperations
         JsonObject json = CoreSerializer.SerializeToJsonObject((KeyFrame<Point>)point.Animation.KeyFrames[0]);
         json.Remove(nameof(CoreObject.Id));
         var derived = (KeyFrame<Point>)CoreSerializer.DeserializeFromJsonObject(json, typeof(KeyFrame<Point>));
-        derived.Value = point.Value;
+        derived.Value.Value = point.Value;
         var animation = new KeyFrameAnimation<Point>
         {
-            UseGlobalClock = point.Animation.UseGlobalClock,
-            Name = point.Animation.Name
+            UseGlobalClock = { Value = point.Animation.UseGlobalClock.Value },
+            Name = { Value = point.Animation.Name.Value }
         };
         animation.KeyFrames.Add(derived);
         property.SetKeyFrameAnimation(animation);

@@ -26,7 +26,7 @@ internal readonly struct SceneLayerSkipModel
         bool hasSolo = false;
         foreach (TimelineLayer layer in scene.Layers)
         {
-            if (byZIndex.TryAdd(layer.ZIndex, layer) && layer.IsSolo)
+            if (byZIndex.TryAdd(layer.ZIndex.Value, layer) && layer.IsSolo.Value)
                 hasSolo = true;
         }
 
@@ -36,8 +36,8 @@ internal readonly struct SceneLayerSkipModel
     public bool ShouldSkip(int zIndex, CompositionTarget target)
     {
         _byZIndex.TryGetValue(zIndex, out TimelineLayer? layer);
-        if (_hasSolo && (layer is null || !layer.IsSolo)) return true;
+        if (_hasSolo && (layer is null || !layer.IsSolo.Value)) return true;
         if (layer is null) return false;
-        return target == CompositionTarget.Graphics ? layer.IsVideoMuted : layer.IsAudioMuted;
+        return target == CompositionTarget.Graphics ? layer.IsVideoMuted.Value : layer.IsAudioMuted.Value;
     }
 }

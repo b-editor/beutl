@@ -19,7 +19,7 @@ public partial class MissingMediaView : UserControl
         if (DataContext is not MissingMediaViewModel vm || sender is not Control { DataContext: MissingMediaRowViewModel row }
             || TopLevel.GetTopLevel(this)?.StorageProvider is not { } storage) return;
         var options = new FilePickerOpenOptions { Title = MissingMediaStrings.Replace, AllowMultiple = false };
-        string? directory = GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory;
+        string? directory = GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value;
         if (directory != null && Directory.Exists(directory))
             options.SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(directory);
         var result = await storage.OpenFilePickerAsync(options);

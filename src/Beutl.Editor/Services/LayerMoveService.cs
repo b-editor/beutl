@@ -31,7 +31,7 @@ public sealed class LayerMoveService : ILayerMoveService
         var shifted = new List<Element>();
         foreach (Element child in scene.Children)
         {
-            if (InShiftRange(child.ZIndex, oldLayer, newLayer))
+            if (InShiftRange(child.ZIndex.Value, oldLayer, newLayer))
             {
                 shifted.Add(child);
             }
@@ -44,11 +44,11 @@ public sealed class LayerMoveService : ILayerMoveService
         var shiftedLayers = new List<TimelineLayer>();
         foreach (TimelineLayer layer in scene.Layers)
         {
-            if (layer.ZIndex == oldLayer)
+            if (layer.ZIndex.Value == oldLayer)
             {
                 directLayers.Add(layer);
             }
-            else if (InShiftRange(layer.ZIndex, oldLayer, newLayer))
+            else if (InShiftRange(layer.ZIndex.Value, oldLayer, newLayer))
             {
                 shiftedLayers.Add(layer);
             }
@@ -57,20 +57,20 @@ public sealed class LayerMoveService : ILayerMoveService
         int shiftDelta = oldLayer < newLayer ? -1 : 1;
         foreach (Element e in directElements)
         {
-            e.ZIndex = newLayer;
+            e.ZIndex.Value = newLayer;
         }
         foreach (Element e in shifted)
         {
-            e.ZIndex += shiftDelta;
+            e.ZIndex.Value += shiftDelta;
         }
 
         foreach (TimelineLayer layer in directLayers)
         {
-            layer.ZIndex = newLayer;
+            layer.ZIndex.Value = newLayer;
         }
         foreach (TimelineLayer layer in shiftedLayers)
         {
-            layer.ZIndex += shiftDelta;
+            layer.ZIndex.Value += shiftDelta;
         }
 
         _historyManager.Commit(CommandNames.MoveLayer);
@@ -81,7 +81,7 @@ public sealed class LayerMoveService : ILayerMoveService
     {
         foreach (Element child in scene.Children)
         {
-            if ((child.ZIndex == oldLayer || InShiftRange(child.ZIndex, oldLayer, newLayer))
+            if ((child.ZIndex.Value == oldLayer || InShiftRange(child.ZIndex.Value, oldLayer, newLayer))
                 && scene.IsElementLocked(child))
             {
                 return true;
@@ -90,8 +90,8 @@ public sealed class LayerMoveService : ILayerMoveService
 
         foreach (TimelineLayer layer in scene.Layers)
         {
-            if (layer.IsLocked
-                && (layer.ZIndex == oldLayer || InShiftRange(layer.ZIndex, oldLayer, newLayer)))
+            if (layer.IsLocked.Value
+                && (layer.ZIndex.Value == oldLayer || InShiftRange(layer.ZIndex.Value, oldLayer, newLayer)))
             {
                 return true;
             }

@@ -146,9 +146,9 @@ public sealed partial class ElementView
                     MediaTime minFrame = SceneTimeRangeService.GetFrameDuration(viewModel.Scene);
                     MediaTime modelStart = viewModel.BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
                     // A start within a tick of a frame, as one written by hand can be, counts from that frame.
-                    MediaTime deltaStart = modelStart - MediaTimeJsonConverter.SnapToFrame(viewModel.Model.Start, rate);
+                    MediaTime deltaStart = modelStart - MediaTimeJsonConverter.SnapToFrame(viewModel.Model.Start.Value, rate);
                     int modelIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
-                    int deltaIndex = modelIndex - viewModel.Model.ZIndex;
+                    int deltaIndex = modelIndex - viewModel.Model.ZIndex.Value;
                     if (Math.Abs(deltaStart.Flicks) >= minFrame.Flicks || deltaIndex != 0)
                     {
                         SpawnGhostsForRelatedElements(_relatedElements, timeline);
@@ -291,9 +291,9 @@ public sealed partial class ElementView
             float scale = viewModel.Timeline.Options.Value.Scale;
             Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
             MediaTime newStart = viewModel.BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-            MediaTime deltaStart = newStart - viewModel.Model.Start;
+            MediaTime deltaStart = newStart - viewModel.Model.Start.Value;
             int newIndex = viewModel.Timeline.ToLayerNumber(viewModel.Margin.Value);
-            int deltaIndex = newIndex - viewModel.Model.ZIndex;
+            int deltaIndex = newIndex - viewModel.Model.ZIndex.Value;
             // Selection modifiers can leave the pressed clip out of the participant list; it stays where it was.
             bool pressedMoves = relatedElements.Contains(viewModel);
             if (!pressedMoves)
@@ -391,9 +391,9 @@ public sealed partial class ElementView
             foreach (ElementViewModel vm in related)
             {
                 float scale = vm.Timeline.Options.Value.Scale;
-                double left = vm.Model.Start.TimeToPixel(scale);
-                double top = vm.Timeline.CalculateLayerTop(vm.Model.ZIndex);
-                double width = vm.Model.Length.TimeToPixel(scale);
+                double left = vm.Model.Start.Value.TimeToPixel(scale);
+                double top = vm.Timeline.CalculateLayerTop(vm.Model.ZIndex.Value);
+                double width = vm.Model.Length.Value.TimeToPixel(scale);
 
                 var ghost = new Border
                 {

@@ -49,12 +49,12 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
         {
             // Keep the target's Id so id-based observers stay subscribed across
             // paste; mint fresh ids for the keyframes so they don't alias the source.
-            Guid id = target.Id;
+            Guid id = target.Id.Value;
             CoreSerializer.PopulateFromJsonObject(target, newJson);
-            target.Id = id;
+            target.Id.Value = id;
             foreach (IKeyFrame item in target.KeyFrames)
             {
-                item.Id = Guid.NewGuid();
+                item.Id.Value = Guid.NewGuid();
             }
 
             _historyManager.Commit(CommandNames.PasteAnimation);
@@ -106,7 +106,7 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
             // the service lacks the View's property-value accessor for the typed value.
             return new KeyFramePasteResult(
                 KeyFramePasteOutcome.GenericTypeMismatch,
-                EasingForFallback: newKeyFrame.Easing);
+                EasingForFallback: newKeyFrame.Easing.Value);
         }
 
         try
@@ -114,13 +114,13 @@ public sealed class KeyFrameClipboardService : IKeyFrameClipboardService
             Rational rate = AnimationOperations.GetFrameRate(target.FindHierarchicalParent<Scene>());
             if (AnimationOperations.FindKeyFrameOnFrame(target.KeyFrames, keyTime, rate) is { } existing)
             {
-                existing.Easing = newKeyFrame.Easing;
+                existing.Easing.Value = newKeyFrame.Easing.Value;
                 existing.Value = ((IKeyFrame)newKeyFrame).Value;
                 _historyManager.Commit(CommandNames.PasteKeyFrame);
                 return new KeyFramePasteResult(KeyFramePasteOutcome.ReplacedExisting);
             }
 
-            newKeyFrame.KeyTime = keyTime;
+            newKeyFrame.KeyTime.Value = keyTime;
             target.KeyFrames.Add((IKeyFrame)newKeyFrame, out _);
             _historyManager.Commit(CommandNames.PasteKeyFrame);
             return new KeyFramePasteResult(KeyFramePasteOutcome.Inserted);

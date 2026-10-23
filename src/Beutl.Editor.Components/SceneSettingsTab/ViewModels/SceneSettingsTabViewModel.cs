@@ -25,18 +25,18 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         _editorContext = editorContext;
         _scene = editorContext.GetService<Scene>()!;
         _optionsProvider = editorContext.GetService<ITimelineOptionsProvider>()!;
-        IObservable<Media.PixelSize> frameSize = _scene.FrameSizeProperty.GetObservable();
+        IObservable<Media.PixelSize> frameSize = _scene.FrameSize.GetObservable();
         Width = frameSize.Select(v => v.Width)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
         Height = frameSize.Select(v => v.Height)
             .ToReactiveProperty()
             .DisposeWith(_disposable);
-        StartInput = _scene.StartProperty.GetObservable()
+        StartInput = _scene.Start.GetObservable()
             .Select(TimeText.Format)
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
-        DurationInput = _scene.DurationProperty.GetObservable()
+        DurationInput = _scene.Duration.GetObservable()
             .Select(TimeText.Format)
             .ToReactiveProperty()
             .DisposeWith(_disposable)!;
@@ -71,9 +71,9 @@ public sealed class SceneSettingsTabViewModel : IToolContext
         {
             // Pause playback before rebuilding the renderer to avoid UI freeze. Pause also returns a pause
             // still draining the last frame, which IsPlaying no longer shows.
-            if ((frameSize != _scene.FrameSize
-                    || start != _scene.Start
-                    || duration != _scene.Duration)
+            if ((frameSize != _scene.FrameSize.Value
+                    || start != _scene.Start.Value
+                    || duration != _scene.Duration.Value)
                 && _editorContext.GetService<IPreviewPlayer>() is { } player)
             {
                 await player.Pause();
@@ -104,10 +104,10 @@ public sealed class SceneSettingsTabViewModel : IToolContext
 
     private void RevertInputs()
     {
-        Width.Value = _scene.FrameSize.Width;
-        Height.Value = _scene.FrameSize.Height;
-        StartInput.Value = TimeText.Format(_scene.Start);
-        DurationInput.Value = TimeText.Format(_scene.Duration);
+        Width.Value = _scene.FrameSize.Value.Width;
+        Height.Value = _scene.FrameSize.Value.Height;
+        StartInput.Value = TimeText.Format(_scene.Start.Value);
+        DurationInput.Value = TimeText.Format(_scene.Duration.Value);
         LayerCount.Value = _optionsProvider.Options.Value.MaxLayerCount;
     }
 
@@ -180,8 +180,8 @@ public sealed class SceneSettingsTabViewModel : IToolContext
     {
         frameSize = new Media.PixelSize(Width.Value, Height.Value);
         Rational rate = SceneTimeRangeService.GetFrameRate(_scene);
-        bool hasStart = TimeText.TryParse(StartInput.Value, _scene.Start, rate, out start);
-        bool hasDuration = TimeText.TryParse(DurationInput.Value, _scene.Duration, rate, out duration);
+        bool hasStart = TimeText.TryParse(StartInput.Value, _scene.Start.Value, rate, out start);
+        bool hasDuration = TimeText.TryParse(DurationInput.Value, _scene.Duration.Value, rate, out duration);
         return Width.Value > 0
             && Height.Value > 0
             && hasStart && start >= MediaTime.Zero

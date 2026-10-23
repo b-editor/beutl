@@ -89,13 +89,13 @@ internal class Telemetry : IDisposable
     {
         var list = new List<string>(4);
         bool configured = IsConsentConfigured(t);
-        if (configured && t.Beutl_Application == true)
+        if (configured && t.Beutl_Application.Value == true)
             list.Add("Beutl.Application");
 
-        if (configured && t.Beutl_PackageManagement == true)
+        if (configured && t.Beutl_PackageManagement.Value == true)
             list.Add(Api.Services.PackageManagementActivitySource.Name);
 
-        if (configured && t.Beutl_Api_Client == true)
+        if (configured && t.Beutl_Api_Client.Value == true)
             list.Add("Beutl.Api.Client");
 #if !Beutl_PackageTools
         // Keep the usage listener installed so consent can change without a restart.
@@ -156,10 +156,10 @@ internal class Telemetry : IDisposable
 
     internal static bool IsConsentConfigured(TelemetryConfig config)
     {
-        return config.Beutl_Api_Client.HasValue
-            && config.Beutl_Application.HasValue
-            && config.Beutl_PackageManagement.HasValue
-            && config.Beutl_Logging.HasValue;
+        return config.Beutl_Api_Client.Value.HasValue
+            && config.Beutl_Application.Value.HasValue
+            && config.Beutl_PackageManagement.Value.HasValue
+            && config.Beutl_Logging.Value.HasValue;
     }
 
     public void Dispose()
@@ -214,7 +214,7 @@ internal class Telemetry : IDisposable
             builder.AddSerilog(Log.Logger, true);
 
             TelemetryConfig telemetryConfig = GlobalConfiguration.Instance.TelemetryConfig;
-            if (IsConsentConfigured(telemetryConfig) && telemetryConfig.Beutl_Logging == true)
+            if (IsConsentConfigured(telemetryConfig) && telemetryConfig.Beutl_Logging.Value == true)
             {
                 builder.SetMinimumLevel(LogLevel.Information);
                 builder.AddOpenTelemetry(o =>

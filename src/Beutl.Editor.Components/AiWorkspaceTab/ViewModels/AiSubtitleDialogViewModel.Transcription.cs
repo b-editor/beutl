@@ -545,7 +545,7 @@ public sealed partial class AiSubtitleDialogViewModel
             CaptionDraftEntry? retained = _retainedCaptionRecoveries.FirstOrDefault(entry =>
                 CanUseSceneTranscriptionDraft(
                     entry.Draft,
-                    editor.Scene.Id,
+                    editor.Scene.Id.Value,
                     language,
                     rangeStart,
                     duration,
@@ -578,7 +578,7 @@ public sealed partial class AiSubtitleDialogViewModel
                     Interlocked.Read(ref _captionDocumentRevision),
                     draftScopeRevision,
                     Interlocked.Read(ref _sceneAudioRevision),
-                    editor.Scene.Id,
+                    editor.Scene.Id.Value,
                     _sceneAudioSessionId);
             }
         }
@@ -676,7 +676,7 @@ public sealed partial class AiSubtitleDialogViewModel
                 || operation.ExpectedSceneAudioRevision == Interlocked.Read(ref _sceneAudioRevision)
                 && (operation.CompletedChunkCount == 0
                     || operation.AudioSessionId == _sceneAudioSessionId))
-            && operation.SceneId == _editor?.Scene.Id;
+            && operation.SceneId == _editor?.Scene.Id.Value;
 
     private bool CanUseSceneTranscriptionDraft(
         CaptionDraft draft,
@@ -997,16 +997,16 @@ public sealed partial class AiSubtitleDialogViewModel
     // Ranges, chunks and drafts of a run are request times and stay TimeSpan.
     private bool TryGetSceneRange(out TimeSpan start, out TimeSpan duration)
     {
-        start = _editor?.Scene.Start.ToTimeSpan() ?? TimeSpan.Zero;
-        duration = _editor?.Scene.Duration.ToTimeSpan() ?? TimeSpan.Zero;
+        start = _editor?.Scene.Start.Value.ToTimeSpan() ?? TimeSpan.Zero;
+        duration = _editor?.Scene.Duration.Value.ToTimeSpan() ?? TimeSpan.Zero;
         return _editor is not null && start >= TimeSpan.Zero && duration > TimeSpan.Zero;
     }
 
     private IObservable<TimeSpan> CreateSceneRangeObservable()
         => _editor is { } editor
-            ? editor.Scene.StartProperty.GetObservable()
+            ? editor.Scene.Start.GetObservable()
                 .CombineLatest(
-                    editor.Scene.DurationProperty.GetObservable(),
+                    editor.Scene.Duration.GetObservable(),
                     (start, duration) => start < MediaTime.Zero ? TimeSpan.Zero : duration.ToTimeSpan())
             : Observable.Return(TimeSpan.Zero);
 

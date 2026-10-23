@@ -12,7 +12,7 @@ public sealed partial class ElementViewModel
 {
     private void InitializeThumbnails()
     {
-        IsThumbnailsDisabled.Value = Timeline.ThumbnailsDisabledElements.Contains(Model.Id);
+        IsThumbnailsDisabled.Value = Timeline.ThumbnailsDisabledElements.Contains(Model.Id.Value);
 
         Timeline.ThumbnailsDisabledElements.Attached += OnThumbnailsDisabledElementsAttached;
         Timeline.ThumbnailsDisabledElements.Detached += OnThumbnailsDisabledElementsDetached;
@@ -22,14 +22,14 @@ public sealed partial class ElementViewModel
             {
                 if (isDisabled)
                 {
-                    if (!Timeline.ThumbnailsDisabledElements.Contains(Model.Id))
+                    if (!Timeline.ThumbnailsDisabledElements.Contains(Model.Id.Value))
                     {
-                        Timeline.ThumbnailsDisabledElements.Add(Model.Id);
+                        Timeline.ThumbnailsDisabledElements.Add(Model.Id.Value);
                     }
                 }
                 else
                 {
-                    Timeline.ThumbnailsDisabledElements.Remove(Model.Id);
+                    Timeline.ThumbnailsDisabledElements.Remove(Model.Id.Value);
                 }
 
                 UpdateThumbnailsAsync();
@@ -53,17 +53,17 @@ public sealed partial class ElementViewModel
 
         // Switching PreviewSourceMode changes the decode path (proxy vs original), so an already
         // rendered filmstrip is stale until an unrelated invalidation; drop its cache and re-render.
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceModeProperty.GetObservable()
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.GetObservable()
             .Skip(1)
             .DistinctUntilChanged()
             .ObserveOnUIDispatcher()
             .Subscribe(_ => InvalidateAndUpdateThumbnails())
             .AddTo(_disposables);
 
-        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPresetProperty.GetObservable()
+        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.GetObservable()
             .Skip(1)
             .DistinctUntilChanged()
-            .Where(_ => ShouldRefreshThumbnailsForDefaultPresetChange(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode))
+            .Where(_ => ShouldRefreshThumbnailsForDefaultPresetChange(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value))
             .ObserveOnUIDispatcher()
             .Subscribe(_ => InvalidateAndUpdateThumbnails())
             .AddTo(_disposables);
@@ -90,7 +90,7 @@ public sealed partial class ElementViewModel
 
     private void OnThumbnailsDisabledElementsAttached(Guid id)
     {
-        if (id == Model.Id && !IsThumbnailsDisabled.Value)
+        if (id == Model.Id.Value && !IsThumbnailsDisabled.Value)
         {
             IsThumbnailsDisabled.Value = true;
         }
@@ -98,7 +98,7 @@ public sealed partial class ElementViewModel
 
     private void OnThumbnailsDisabledElementsDetached(Guid id)
     {
-        if (id == Model.Id && IsThumbnailsDisabled.Value)
+        if (id == Model.Id.Value && IsThumbnailsDisabled.Value)
         {
             IsThumbnailsDisabled.Value = false;
         }
@@ -207,9 +207,9 @@ public sealed partial class ElementViewModel
         return null;
     }
 
-    private bool PreferProxyForThumbnails => GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode == PreviewSourceMode.PreferProxy;
+    private bool PreferProxyForThumbnails => GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
 
-    private ProxyPreset PreferredProxyPresetForThumbnails => ToProxyPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset);
+    private ProxyPreset PreferredProxyPresetForThumbnails => ToProxyPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
 
     private IAsyncEnumerable<(int Index, int Count, Beutl.Media.Bitmap Thumbnail)> GetVideoThumbnailStrip(
         IThumbnailsProvider provider, int width, int height, CancellationToken ct, int start, int end)

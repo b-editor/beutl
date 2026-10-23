@@ -26,12 +26,12 @@ public sealed class GraphEditorSpeedGraph : Control
     internal StreamGeometry GetCurveGeometry(GraphEditorKeyFrameViewModel previous, GraphEditorKeyFrameViewModel item)
     {
         var model = item.Parent.Parent;
-        var easing = item.Model.Easing;
+        var easing = item.Model.Easing.Value;
         var spline = easing as SplineEasing;
         var state = new CurveState(easing,
-            previous.Model.KeyTime.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
-            item.Model.KeyTime.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
-            (item.Model.KeyTime - previous.Model.KeyTime).ToSeconds(),
+            previous.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
+            item.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale) + model.Margin.Value.Left,
+            (item.Model.KeyTime.Value - previous.Model.KeyTime.Value).ToSeconds(),
             item.Parent.ConvertToDouble(item.Model.Value) - item.Parent.ConvertToDouble(previous.Model.Value),
             model.Baseline.Value, model.ScaleY.Value,
             spline?.X1 ?? 0, spline?.Y1 ?? 0, spline?.X2 ?? 0, spline?.Y2 ?? 0);
@@ -84,9 +84,9 @@ public sealed class GraphEditorSpeedGraph : Control
             {
                 var item = channel.KeyFrames[i];
                 var previous = channel.KeyFrames[i - 1];
-                if (item.Model.KeyTime <= previous.Model.KeyTime) continue;
+                if (item.Model.KeyTime.Value <= previous.Model.KeyTime.Value) continue;
                 context.DrawGeometry(null, pen, GetCurveGeometry(previous, item));
-                if (channel.IsSelected.Value && item.Model.Easing is SplineEasing)
+                if (channel.IsSelected.Value && item.Model.Easing.Value is SplineEasing)
                 {
                     if (previous.IsSelected.Value) DrawHandle(item, false);
                     if (item.IsSelected.Value) DrawHandle(item, true);
@@ -103,8 +103,8 @@ public sealed class GraphEditorSpeedGraph : Control
         void DrawHandle(GraphEditorKeyFrameViewModel item, bool incoming)
         {
             Point handle = GraphEditorView.GetSpeedHandlePoint(item, incoming);
-            double x = incoming ? item.Model.KeyTime.TimeToPixel(model.Options.Value.Scale)
-                : item.Parent.KeyFrames[item.Parent.KeyFrames.IndexOf(item) - 1].Model.KeyTime.TimeToPixel(model.Options.Value.Scale);
+            double x = incoming ? item.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale)
+                : item.Parent.KeyFrames[item.Parent.KeyFrames.IndexOf(item) - 1].Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale);
             context.DrawLine(new Pen(selectedBrush, 1), new Point(x + model.Margin.Value.Left, handle.Y), handle);
             context.DrawEllipse(selectedBrush, null, handle, 3.5, 3.5);
         }
@@ -125,7 +125,7 @@ public sealed class GraphEditorSpeedGraph : Control
         for (int i = 1; i < channel.KeyFrames.Count; i++)
         {
             var item = channel.KeyFrames[i];
-            if (item.Model.Easing is not SplineEasing) continue;
+            if (item.Model.Easing.Value is not SplineEasing) continue;
             if (item.IsSelected.Value && Near(position, GraphEditorView.GetSpeedHandlePoint(item, true), 7))
             {
                 owner.StartSpeedHandleDrag(item, true, e); return;

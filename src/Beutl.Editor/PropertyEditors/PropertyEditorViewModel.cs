@@ -109,7 +109,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
                         .Select(_ => x)
                         .Publish(x)
                         .RefCount())
-                    .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
+                    .Select(x => x ?? Observable.ReturnThenNever<IListProperty<IKeyFrame>?>(default))
                     .Switch())
                 .CombineWithPrevious()
                 .Subscribe(SyncEditingKeyFrame)
@@ -234,12 +234,12 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     // Follows the keyframe index slider: edits the keyframe it points at and, when the user moved it,
     // seeks the clock to that keyframe.
-    private void SyncEditingKeyFrame(((float First, KeyFrames? Second) OldValue, (float First, KeyFrames? Second) NewValue) t)
+    private void SyncEditingKeyFrame(((float First, IListProperty<IKeyFrame>? Second) OldValue, (float First, IListProperty<IKeyFrame>? Second) NewValue) t)
     {
         if (GetAnimation() is { } animation)
         {
             (float oldIndex, _) = t.OldValue;
-            (float newIndex, KeyFrames? keyframes) = t.NewValue;
+            (float newIndex, IListProperty<IKeyFrame>? keyframes) = t.NewValue;
 
             if (_clock != null && keyframes is { Count: > 0 })
             {
@@ -248,10 +248,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
                 if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
                 {
-                    MediaTime start = _element?.Start ?? default;
-                    MediaTime keyTime = EditingKeyFrame.Value.KeyTime;
+                    MediaTime start = _element?.Start.Value ?? default;
+                    MediaTime keyTime = EditingKeyFrame.Value.KeyTime.Value;
 
-                    _clock.Seek(animation.UseGlobalClock ? keyTime : keyTime + start);
+                    _clock.Seek(animation.UseGlobalClock.Value ? keyTime : keyTime + start);
                 }
             }
             else
@@ -268,7 +268,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     }
 
     // Marks the playhead sitting on a keyframe, and moves the index slider to it.
-    private void UpdateKeyFrameIndicator((MediaTime First, KeyFrames? Second) t)
+    private void UpdateKeyFrameIndicator((MediaTime First, IListProperty<IKeyFrame>? Second) t)
     {
         if (GetAnimation() is { } animation)
         {
@@ -276,8 +276,8 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
             MediaTime globalkeyTime = t.First;
             MediaTime localKeyTime =
-                _element != null ? globalkeyTime - _element.Start : globalkeyTime;
-            MediaTime keyTime = animation.UseGlobalClock ? globalkeyTime : localKeyTime;
+                _element != null ? globalkeyTime - _element.Start.Value : globalkeyTime;
+            MediaTime keyTime = animation.UseGlobalClock.Value ? globalkeyTime : localKeyTime;
             keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
             IKeyFrame? atFrame = t.Second != null ? AnimationOperations.FindKeyFrameOnFrame(t.Second, keyTime, rate) : null;
@@ -329,7 +329,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
                                 .Select(_ => x)
                                 .Publish(x)
                                 .RefCount())
-                            .Select(x => x ?? Observable.ReturnThenNever<KeyFrames?>(default))
+                            .Select(x => x ?? Observable.ReturnThenNever<IListProperty<IKeyFrame>?>(default))
                             .Switch())
                         .Subscribe(UpdateKeyFrameIndicator);
                 }

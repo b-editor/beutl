@@ -131,12 +131,12 @@ public static class ObjectTemplatePreviewRenderer
             cancellationToken.ThrowIfCancellationRequested();
             if (Clone(element, typeof(Element)) is not Element copy)
                 return null;
-            copy.Start = MediaTime.Zero;
+            copy.Start.Value = MediaTime.Zero;
             copies.Add(copy);
         }
         cancellationToken.ThrowIfCancellationRequested();
 
-        MediaTime duration = copies.Select(item => item.Length)
+        MediaTime duration = copies.Select(item => item.Length.Value)
             .Where(item => item > MediaTime.Zero).DefaultIfEmpty(MediaTime.Zero).Min();
         MediaTime time = duration > MediaTime.Zero
             ? new MediaTime(duration.Flicks / 2)
@@ -154,12 +154,12 @@ public static class ObjectTemplatePreviewRenderer
         string directory = Path.Combine(Path.GetTempPath(), "beutl-template-preview");
         var scene = new Scene(frameSize.Width, frameSize.Height, string.Empty)
         {
-            Duration = duration > MediaTime.Zero ? duration : MediaTime.FromSeconds(1),
+            Duration = { Value = duration > MediaTime.Zero ? duration : MediaTime.FromSeconds(1) },
             Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, "preview.scene"))
         };
         foreach (Element copy in copies)
         {
-            copy.Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, $"{copy.Id}.belm"));
+            copy.Uri = ObjectTemplateItem.ToFileUri(Path.Combine(directory, $"{copy.Id.Value}.belm"));
             scene.Children.Add(copy);
         }
 
@@ -167,7 +167,7 @@ public static class ObjectTemplatePreviewRenderer
         // may carry (DrawableGroup / DrawableDecorator populate their children from the flow).
         // Its resources are owned by it, so nothing here disposes them.
         using var compositor = new SceneCompositor(scene) { DisableResourceShare = true };
-        CompositionFrame frame = compositor.EvaluateGraphics(time + scene.Start);
+        CompositionFrame frame = compositor.EvaluateGraphics(time + scene.Start.Value);
 
         return RenderResources(
             [.. frame.Objects.OfType<Drawable.Resource>()],
@@ -179,7 +179,7 @@ public static class ObjectTemplatePreviewRenderer
     // template loaded from disk has no scene either, so it falls back to the default project frame.
     private static PixelSize ResolveFrameSize(Element element)
     {
-        PixelSize frameSize = element.FindHierarchicalParent<Scene>()?.FrameSize ?? default;
+        PixelSize frameSize = element.FindHierarchicalParent<Scene>()?.FrameSize.Value ?? default;
         return frameSize.Width > 0 && frameSize.Height > 0 ? frameSize : DefaultFrameSize;
     }
 

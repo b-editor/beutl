@@ -72,7 +72,7 @@ public partial class GraphEditorView
             Vector plotDelta = e.Delta;
             if (OperatingSystem.IsWindows() && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
                 plotDelta = new Vector(plotDelta.Y, plotDelta.X);
-            if (!GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection)
+            if (!GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value)
                 plotDelta = new Vector(plotDelta.Y, plotDelta.X);
             Vector movement = target switch
             {
@@ -138,15 +138,15 @@ public partial class GraphEditorView
             model.RefreshVerticalRange();
             if (!heightOnly)
             {
-                double first = keys.Min(x => x.Model.KeyTime.ToSeconds());
-                double last = keys.Max(x => x.Model.KeyTime.ToSeconds());
+                double first = keys.Min(x => x.Model.KeyTime.Value.ToSeconds());
+                double last = keys.Max(x => x.Model.KeyTime.Value.ToSeconds());
                 double duration = Math.Max(last - first, 1d / SceneTimeRangeService.GetFrameRate(model.Scene).ToDouble());
                 float scale = (float)Math.Clamp(Math.Max(1, scroll.Viewport.Width - padding * 2)
                     / MediaTime.FromSeconds(duration).TimeToPixel(1), 0.001, 100);
                 model.Options.Value = model.Options.Value with { Scale = scale };
             }
             graphPanel.UpdateLayout();
-            double x = heightOnly ? scroll.Offset.X : keys.Min(x => x.Model.KeyTime.TimeToPixel(model.Options.Value.Scale))
+            double x = heightOnly ? scroll.Offset.X : keys.Min(x => x.Model.KeyTime.Value.TimeToPixel(model.Options.Value.Scale))
                 + model.Margin.Value.Left - padding;
             double y = model.Baseline.Value - ((min + max) / 2) * model.ScaleY.Value - scroll.Viewport.Height / 2;
             SetScrollOffset(model, new Vector(x, y));

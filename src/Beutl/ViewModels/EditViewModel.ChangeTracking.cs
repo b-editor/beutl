@@ -29,15 +29,15 @@ public partial class EditViewModel
                 _logger.LogInformation("Updating FrameCacheManager options due to EditorConfig change.");
                 FrameCacheManager.Value.Options = FrameCacheManager.Value.Options with
                 {
-                    ColorType = (FrameCacheColorType)config.FrameCacheColorType,
-                    Scale = (FrameCacheScale)config.FrameCacheScale
+                    ColorType = (FrameCacheColorType)config.FrameCacheColorType.Value,
+                    Scale = (FrameCacheScale)config.FrameCacheScale.Value
                 };
             }
             else if (e.PropertyName is nameof(EditorConfig.IsFrameCacheEnabled))
             {
                 _logger.LogInformation("Updating FrameCacheManager IsEnabled due to EditorConfig change.");
-                FrameCacheManager.Value.IsEnabled = config.IsFrameCacheEnabled;
-                if (!config.IsFrameCacheEnabled)
+                FrameCacheManager.Value.IsEnabled = config.IsFrameCacheEnabled.Value;
+                if (!config.IsFrameCacheEnabled.Value)
                 {
                     FrameCacheManager.Value.Clear();
                 }
@@ -365,7 +365,7 @@ public partial class EditViewModel
             TimeRange? union = null;
             foreach (Element el in Scene.Children)
             {
-                if (!soloChanged && el.ZIndex != layer.ZIndex) continue;
+                if (!soloChanged && el.ZIndex.Value != layer.ZIndex.Value) continue;
                 union = union is { } u ? u.Union(el.Range) : el.Range;
             }
 

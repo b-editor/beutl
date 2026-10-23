@@ -23,7 +23,7 @@ internal static class KeyFrameSelectionClipboard
     {
         if (copied.Length == 0) return [];
         if (start < MediaTime.Zero) start = MediaTime.Zero;
-        double first = copied.Min(x => x.KeyTime.ToSeconds());
+        double first = copied.Min(x => x.KeyTime.Value.ToSeconds());
         Rational rate = AnimationOperations.GetFrameRate(animation.FindHierarchicalParent<Scene>());
         var pasted = new List<IKeyFrame>();
         history.ExecuteInTransaction(() =>
@@ -32,12 +32,12 @@ internal static class KeyFrameSelectionClipboard
             {
                 ObjectRegenerator.Regenerate(key, key.GetType(), out var cloned);
                 var clone = (IKeyFrame)cloned;
-                clone.KeyTime = start + MediaTime.FromSeconds(key.KeyTime.ToSeconds() - first);
-                IKeyFrame? existing = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, clone.KeyTime, rate);
+                clone.KeyTime.Value = start + MediaTime.FromSeconds(key.KeyTime.Value.ToSeconds() - first);
+                IKeyFrame? existing = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, clone.KeyTime.Value, rate);
                 if (existing != null)
                 {
                     existing.Value = clone.Value;
-                    existing.Easing = clone.Easing;
+                    existing.Easing.Value = clone.Easing.Value;
                     pasted.Add(existing);
                 }
                 else

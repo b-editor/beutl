@@ -12,8 +12,8 @@ public sealed partial class TimelineTabViewModel
     private void CloseSelectedGap()
     {
         Element? anchor = SelectedElements
-            .OrderBy(e => e.Model.Start)
-            .ThenBy(e => e.Model.ZIndex)
+            .OrderBy(e => e.Model.Start.Value)
+            .ThenBy(e => e.Model.ZIndex.Value)
             .Select(e => e.Model)
             .FirstOrDefault();
         if (anchor is null)
@@ -53,9 +53,9 @@ public sealed partial class TimelineTabViewModel
     // boundary; closing that raw gap would shift clips by off-scene space the user cannot see.
     internal static SceneGap? ResolvePointerGapToClose(Scene scene, MediaTime clickedTime, int layer)
     {
-        MediaTime sceneEnd = scene.Start + scene.Duration;
+        MediaTime sceneEnd = scene.Start.Value + scene.Duration.Value;
         return scene.FindGapAt(clickedTime, layer) is { } gap
-               && gap.Range.Start >= scene.Start && gap.Range.End <= sceneEnd
+               && gap.Range.Start >= scene.Start.Value && gap.Range.End <= sceneEnd
             ? gap
             : null;
     }
@@ -116,9 +116,9 @@ public sealed partial class TimelineTabViewModel
     internal static (MediaTime Target, int ZIndex, Element? Anchor)? FindGapNavigationTarget(
         Scene scene, MediaTime currentTime, bool forward)
     {
-        MediaTime sceneStart = scene.Start;
-        MediaTime sceneEnd = scene.Start + scene.Duration;
-        var range = new TimeRange(sceneStart, scene.Duration);
+        MediaTime sceneStart = scene.Start.Value;
+        MediaTime sceneEnd = scene.Start.Value + scene.Duration.Value;
+        var range = new TimeRange(sceneStart, scene.Duration.Value);
         SceneGap? gap = forward
             ? scene.FindNextGap(currentTime, range)
             : scene.FindPreviousGap(currentTime, range);

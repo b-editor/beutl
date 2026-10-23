@@ -18,26 +18,26 @@ public sealed class LayerHeaderViewModel : IDisposable
     public LayerHeaderViewModel(int num, TimelineTabViewModel timeline)
     {
         Timeline = timeline;
-        _model.Value = timeline.Scene.Layers.FirstOrDefault(i => i.ZIndex == num);
+        _model.Value = timeline.Scene.Layers.FirstOrDefault(i => i.ZIndex.Value == num);
 
         // A header is a fixed row: Number is its index in the timeline's LayerHeaders, and it shows the
         // TimelineLayer whose ZIndex is that row. The timeline has every header look its model up again when a
         // model changes rows or is added or removed, as a layer move and its undo and redo do.
         Number = num;
-        Name = _model.Select(i => i?.NameProperty.GetObservable() ?? Observable.Return(num.ToString()))
+        Name = _model.Select(i => i?.Name.GetObservable() ?? Observable.Return(num.ToString()))
             .Switch()
             .Select(s => string.IsNullOrEmpty(s) ? $"{num}" : s)
             .ToReactiveProperty($"{num}");
         Color = _model.Select(i =>
-                i?.ColorProperty.GetObservable() ?? Observable.ReturnThenNever(Media.Colors.Transparent))
+                i?.Color.GetObservable() ?? Observable.ReturnThenNever(Media.Colors.Transparent))
             .Switch()
             .Select(c => c.ToAvaColor())
             .ToReactiveProperty(Colors.Transparent);
 
-        IsLocked = ObserveLayerFlag(layer => layer.IsLockedProperty);
-        IsAudioMuted = ObserveLayerFlag(layer => layer.IsAudioMutedProperty);
-        IsVideoMuted = ObserveLayerFlag(layer => layer.IsVideoMutedProperty);
-        IsSolo = ObserveLayerFlag(layer => layer.IsSoloProperty);
+        IsLocked = ObserveLayerFlag(layer => layer.IsLocked);
+        IsAudioMuted = ObserveLayerFlag(layer => layer.IsAudioMuted);
+        IsVideoMuted = ObserveLayerFlag(layer => layer.IsVideoMuted);
+        IsSolo = ObserveLayerFlag(layer => layer.IsSolo);
 
         ToggleLockCommand = new ReactiveCommand()
             .WithSubscribe(() => ToggleLayerFlag(IsLocked, (s, scene, n, v) => s.SetLocked(scene, n, v)));
@@ -191,7 +191,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     private void ResyncModel()
     {
-        _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex == Number);
+        _model.Value = Timeline.Scene.Layers.FirstOrDefault(l => l.ZIndex.Value == Number);
     }
 
     // The timeline passes the model on this header's row whenever the models change rows.

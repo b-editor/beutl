@@ -15,8 +15,8 @@ internal static class RecoveryProtectionNotice
         ArgumentNullException.ThrowIfNull(scene);
         if (ElementNoticeFormatting.FormatNames(scene.Children
                 .Where(static element => element.IsRecoveryProtected)
-                .OrderBy(static element => element.Start)
-                .ThenBy(static element => element.ZIndex)) is not { } listed)
+                .OrderBy(static element => element.Start.Value)
+                .ThenBy(static element => element.ZIndex.Value)) is not { } listed)
         {
             return null;
         }
@@ -26,7 +26,7 @@ internal static class RecoveryProtectionNotice
             string.Format(
                 CultureInfo.CurrentCulture,
                 MessageStrings.RecoveryProtectedElementsMessage,
-                scene.Name,
+                scene.Name.Value,
                 listed),
             NotificationType.Warning,
             Expiration: Timeout.InfiniteTimeSpan)

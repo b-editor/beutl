@@ -68,7 +68,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(config);
 
         return LiveMcpTokenStore.GetOrCreate(
-            tokenStoreDirectory ?? BeutlEnvironment.GetHomeDirectoryPath(), config.LiveMcpToken);
+            tokenStoreDirectory ?? BeutlEnvironment.GetHomeDirectoryPath(), config.LiveMcpToken.Value);
     }
 
     internal AgentHostEndpoint(
@@ -222,11 +222,11 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             // Store failures are observed by StartInBackground without stopping the editor.
             string token = tokenFactory();
             cancellationToken.ThrowIfCancellationRequested();
-            if (!string.IsNullOrWhiteSpace(_config.LiveMcpToken))
+            if (!string.IsNullOrWhiteSpace(_config.LiveMcpToken.Value))
             {
                 // Only remove the legacy copy after durable publication. Configuration events
                 // and their auto-save must stay on the UI thread with other settings changes.
-                await Dispatcher.UIThread.InvokeAsync(() => _config.LiveMcpToken = "",
+                await Dispatcher.UIThread.InvokeAsync(() => _config.LiveMcpToken.Value = "",
                     DispatcherPriority.Normal, cancellationToken);
             }
             Token = token;

@@ -24,8 +24,8 @@ internal sealed class TimelineRulerDrag(Action ended)
 
         if (TimelineHelper.IsPointInTimelineScaleStartingMarker(x, y, startingBarX))
         {
-            _initialStart = scene.Start;
-            _initialDuration = scene.Duration;
+            _initialStart = scene.Start.Value;
+            _initialDuration = scene.Duration.Value;
             return MouseFlags.StartingBarMarkerPressed;
         }
 

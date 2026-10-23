@@ -19,7 +19,7 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
         _config = GlobalConfiguration.Instance.ViewConfig;
 
         // Created before the first refresh: RefreshAvailableThemes restores the selection through it.
-        SelectedThemeDescriptor = new ReactiveProperty<ThemeDescriptor?>(ThemeRegistry.Resolve(_config.Theme))
+        SelectedThemeDescriptor = new ReactiveProperty<ThemeDescriptor?>(ThemeRegistry.Resolve(_config.Theme.Value))
             .DisposeWith(_disposables);
 
         RefreshAvailableThemes();
@@ -27,14 +27,14 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
 
         SelectedThemeDescriptor.Subscribe(d =>
             {
-                if (d is { } descriptor && _config.Theme != descriptor.Id)
+                if (d is { } descriptor && _config.Theme.Value != descriptor.Id)
                 {
-                    _config.Theme = descriptor.Id;
+                    _config.Theme.Value = descriptor.Id;
                 }
             })
             .DisposeWith(_disposables);
 
-        _config.ThemeProperty.GetObservable()
+        _config.Theme.GetObservable()
             .Subscribe(id =>
             {
                 if (ThemeRegistry.Resolve(id) is { } descriptor
@@ -48,18 +48,18 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
         // The combo box matches items by CultureInfo equality, so a stored es-MX has to be mapped
         // onto the neutral "es" entry or the box renders with nothing selected. Skip(1) keeps that
         // display-only mapping from being written back as if the user had chosen it.
-        SelectedLanguage = _config.UICultureProperty.GetObservable()
+        SelectedLanguage = _config.UICulture.GetObservable()
             .Select(x => LocalizeService.Instance.ResolveSupportedCulture(x) ?? x)
             .ToReactiveProperty()
             .DisposeWith(_disposables)!;
 
         SelectedLanguage.Skip(1)
-            .Subscribe(ci => _config.UICulture = ci)
+            .Subscribe(ci => _config.UICulture.Value = ci)
             .DisposeWith(_disposables);
 
-        bool result = Color.TryParse(_config.CustomAccentColor, out Color customColor);
+        bool result = Color.TryParse(_config.CustomAccentColor.Value, out Color customColor);
 
-        UseCustomAccent = new ReactiveProperty<bool>(_config.UseCustomAccentColor);
+        UseCustomAccent = new ReactiveProperty<bool>(_config.UseCustomAccentColor.Value);
         ListBoxColor = new ReactiveProperty<Color?>(result ? customColor : null);
         CustomAccentColor = new ReactiveProperty<Color>(customColor);
 
@@ -191,7 +191,7 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
         // Clearing the collection makes the bound ComboBox push null into the selection, and a theme
         // registered after this page was constructed never resolved in the first place. Re-resolve
         // from the config so the picker keeps showing the configured theme.
-        SelectedThemeDescriptor.Value = ThemeRegistry.Resolve(_config.Theme);
+        SelectedThemeDescriptor.Value = ThemeRegistry.Resolve(_config.Theme.Value);
     }
 
     // ThemeRegistry.Changed fires synchronously on whichever thread registered the theme, and
@@ -211,8 +211,8 @@ public sealed class ViewSettingsPageViewModel : PageContext, IDisposable
     private static void UpdateAppAccentColor(Color? color)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        viewConfig.UseCustomAccentColor = color.HasValue;
-        viewConfig.CustomAccentColor = color?.ToString();
+        viewConfig.UseCustomAccentColor.Value = color.HasValue;
+        viewConfig.CustomAccentColor.Value = color?.ToString();
     }
 
     public void Dispose()

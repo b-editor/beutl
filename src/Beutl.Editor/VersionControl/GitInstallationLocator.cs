@@ -214,7 +214,7 @@ internal sealed partial class GitInstallationLocator
 
     private DiscoveryKey GetDiscoveryKey()
     {
-        string? configured = _config.GitExecutablePath;
+        string? configured = _config.GitExecutablePath.Value;
         return new DiscoveryKey(
             string.IsNullOrWhiteSpace(configured) ? null : Path.GetFullPath(configured),
             _probe.GetEnvironmentVariable("PATH"),

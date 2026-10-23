@@ -33,7 +33,7 @@ internal sealed class NodePropertyEditorHost(
         // List item contexts survive moves and replacements. Resolve the current persistent ID
         // when wrapping their children, rather than capturing an index or the previous item's ID.
         if (parentValue is IList && property.GetEngineProperty() == null && property.GetValue() is EngineObject item)
-            return [.. parentPath, "i:" + item.Id];
+            return [.. parentPath, "i:" + item.Id.Value];
 
         return null;
     }

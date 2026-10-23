@@ -57,11 +57,11 @@ internal sealed class ThemeService : IDisposable
         // which flashes another theme (#2134). Its later load registers the same instance: no re-apply.
         DarkBorderThemeExtension.Instance.Load();
 
-        _themeSubscription = _viewConfig.ThemeProperty.GetObservable()
+        _themeSubscription = _viewConfig.Theme.GetObservable()
             .Subscribe(_ => ScheduleApply());
-        _useCustomAccentSubscription = _viewConfig.UseCustomAccentColorProperty.GetObservable()
+        _useCustomAccentSubscription = _viewConfig.UseCustomAccentColor.GetObservable()
             .Subscribe(_ => ScheduleApply());
-        _customAccentColorSubscription = _viewConfig.CustomAccentColorProperty.GetObservable()
+        _customAccentColorSubscription = _viewConfig.CustomAccentColor.GetObservable()
             .Subscribe(_ => ScheduleApply());
         ThemeRegistry.Changed += OnThemeRegistryChanged;
 
@@ -149,7 +149,7 @@ internal sealed class ThemeService : IDisposable
 
     private void ApplySelectedTheme()
     {
-        if (ThemeRegistry.ResolveOrDefault(_viewConfig.Theme) is not { } descriptor)
+        if (ThemeRegistry.ResolveOrDefault(_viewConfig.Theme.Value) is not { } descriptor)
         {
             return; // nothing registered yet (very early startup)
         }
@@ -178,7 +178,7 @@ internal sealed class ThemeService : IDisposable
     private Color? ApplyAccent()
     {
         Color? accent = AccentResolution.Normalize(
-            _viewConfig.UseCustomAccentColor && Color.TryParse(_viewConfig.CustomAccentColor, out Color custom)
+            _viewConfig.UseCustomAccentColor.Value && Color.TryParse(_viewConfig.CustomAccentColor.Value, out Color custom)
                 ? custom
                 : _appliedDescriptor?.AccentColor);
 

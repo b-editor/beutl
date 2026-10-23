@@ -51,7 +51,7 @@
 
     <DataTemplate x:Key="GraphEditorEaseLineTemplate" x:DataType="viewModel:GraphEditorKeyFrameViewModel">
         <view:EaseLine Baseline="{Binding Baseline.Value}"
-                       Easing="{Binding Model.Easing}"
+                       Easing="{Binding Model.Easing.Value}"
                        EndX="{Binding Right.Value}"
                        EndY="{Binding EndY.Value}"
                        StartX="{Binding Left.Value}"

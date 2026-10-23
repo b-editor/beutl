@@ -92,7 +92,7 @@ internal static class KeyFrameClipboardCommands
         if (keyFrame != null)
         {
             logger?.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
-            keyFrame.Easing = easing;
+            keyFrame.Easing.Value = easing;
             history.Commit(CommandNames.ChangeEasing);
         }
         else
@@ -199,6 +199,6 @@ internal static class KeyFrameClipboardCommands
     {
         MediaTime threshold = MediaTime.FromFrames(3, SceneTimeRangeService.GetFrameRate(scene));
 
-        return animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Flicks - keyTime.Flicks) <= threshold.Flicks);
+        return animation.KeyFrames.FirstOrDefault(v => Math.Abs(v.KeyTime.Value.Flicks - keyTime.Flicks) <= threshold.Flicks);
     }
 }

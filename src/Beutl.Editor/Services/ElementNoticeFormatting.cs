@@ -21,7 +21,7 @@ internal static class ElementNoticeFormatting
     // The element's name, or its file name when it has none.
     private static string GetLabel(Element element)
     {
-        if (!string.IsNullOrWhiteSpace(element.Name)) return element.Name;
+        if (!string.IsNullOrWhiteSpace(element.Name.Value)) return element.Name.Value;
 
         return element.Uri is { } uri ? Path.GetFileNameWithoutExtension(uri.LocalPath) : string.Empty;
     }

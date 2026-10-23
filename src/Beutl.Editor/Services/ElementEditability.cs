@@ -14,7 +14,7 @@ internal static class ElementEditability
         if (element is null) return true;
 
         scene ??= element.FindHierarchicalParent<Scene>();
-        return !(scene?.IsElementLocked(element) ?? (element.IsLocked || element.IsRecoveryProtected));
+        return !(scene?.IsElementLocked(element) ?? (element.IsLocked.Value || element.IsRecoveryProtected));
     }
 
     // Whether an edit removing or replacing content of the element is allowed: besides an editable element, one that
@@ -25,7 +25,7 @@ internal static class ElementEditability
 
         scene ??= element!.FindHierarchicalParent<Scene>();
         return element!.IsRecoveryProtected
-               && !(scene?.IsElementLockedByUser(element) ?? element.IsLocked)
+               && !(scene?.IsElementLockedByUser(element) ?? element.IsLocked.Value)
                && (SceneRecovery.HoldsRecoveryBlocker(content) || !SceneRecovery.HasUnresolvedRecoveryBlocker(element));
     }
 
@@ -58,7 +58,7 @@ internal static class ElementEditability
     // of the layer it is on may have changed.
     private static IObservable<Unit> ObserveChanges(Element element, Scene? scene)
     {
-        IObservable<Unit> elementChanges = element.IsLockedProperty.GetObservable()
+        IObservable<Unit> elementChanges = element.IsLocked.GetObservable()
             .Select(_ => Unit.Default)
             .Merge(Observable.FromEventPattern(
                     handler => element.RecoveryProtectionChanged += handler,
@@ -79,14 +79,14 @@ internal static class ElementEditability
             .Select(_ => owner.Layers.Count == 0
                 ? Observable.Return(Unit.Default)
                 : owner.Layers
-                    .Select(layer => layer.IsLockedProperty.GetObservable()
-                        .CombineLatest(layer.ZIndexProperty.GetObservable(), (_, _) => Unit.Default))
+                    .Select(layer => layer.IsLocked.GetObservable()
+                        .CombineLatest(layer.ZIndex.GetObservable(), (_, _) => Unit.Default))
                     .CombineLatest()
                     .Select(_ => Unit.Default))
             .Switch();
 
         return elementChanges
-            .Merge(element.ZIndexProperty.GetObservable().Select(_ => Unit.Default))
+            .Merge(element.ZIndex.GetObservable().Select(_ => Unit.Default))
             .CombineLatest(layerChanges, (_, _) => Unit.Default);
     }
 }

@@ -45,7 +45,7 @@ internal static class PresenterEditorHelper
     {
         if (target != null)
         {
-            presenter.Target.Expression = Expression.CreateReference<T>(target.Id);
+            presenter.Target.Expression = Expression.CreateReference<T>(target.Id.Value);
         }
         else
         {

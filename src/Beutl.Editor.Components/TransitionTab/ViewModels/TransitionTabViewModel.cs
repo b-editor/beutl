@@ -223,7 +223,7 @@ public sealed class TransitionTabViewModel : IPinnableToolContext
         _pin.WriteToJson(json);
         if (IsPinned.Value && _element is { } element)
         {
-            json[PinnedElementJsonKey] = element.Id;
+            json[PinnedElementJsonKey] = element.Id.Value;
             json[PinnedEdgeJsonKey] = _edge.ToString();
         }
         else

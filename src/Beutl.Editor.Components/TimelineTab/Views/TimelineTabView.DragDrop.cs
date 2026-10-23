@@ -107,7 +107,7 @@ public sealed partial class TimelineTabView
                         dropLayer, new ElementSource.File(path)));
                     if (result.IsSuccess) import.Retain(path);
                 }
-                if (result.IsSuccess) dropLayer = checked(result.Elements.Max(element => element.ZIndex) + 1);
+                if (result.IsSuccess) dropLayer = checked(result.Elements.Max(element => element.ZIndex.Value) + 1);
             }
         }
         catch (OperationCanceledException) { }
@@ -170,13 +170,13 @@ public sealed partial class TimelineTabView
         {
             int layer = viewModel.ToLayerNumber(position.Y);
             element = viewModel.Elements.FirstOrDefault(
-                item => item.Model.ZIndex == layer && item.Model.Range.Contains(time));
+                item => item.Model.ZIndex.Value == layer && item.Model.Range.Contains(time));
         }
 
         if (element == null) return null;
 
         Element model = element.Model;
-        MediaTime middle = model.Start + new MediaTime(model.Length.Flicks / 2);
+        MediaTime middle = model.Start.Value + new MediaTime(model.Length.Value.Flicks / 2);
         return (element, time < middle ? ElementEdge.Start : ElementEdge.End);
     }
 }

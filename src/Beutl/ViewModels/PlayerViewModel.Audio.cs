@@ -157,7 +157,7 @@ public partial class PlayerViewModel
             if (_isPausing || playbackToken.IsCancellationRequested || !_sessionGuard.Owns(generation))
                 return ((AudioBuffer?)null, MediaTime.Zero);
 
-            MediaTime sceneEnd = scene.Start + scene.Duration;
+            MediaTime sceneEnd = scene.Start.Value + scene.Duration.Value;
             SceneComposer composer = EditViewModel.Composer.Value;
             AudioBuffer? audio = composer.Compose(new TimeRange(time, s_second));
             if (audio is not null)

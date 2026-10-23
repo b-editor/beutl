@@ -56,7 +56,7 @@ public sealed partial class TimelineTabView
 
             using (_markerDrag.Enter())
             {
-                draggingMarker.Time = _pointerFrame;
+                draggingMarker.Time.Value = _pointerFrame;
             }
         }
         else if (!_rulerDrag.Move(_mouseFlag, viewModel.EditorContext, RulerBar, viewModel.Scene, _pointerFrame))
@@ -185,7 +185,7 @@ public sealed partial class TimelineTabView
         foreach (ElementViewModel item in viewModel.Elements)
         {
             if (timeRange.Intersects(item.Model.Range)
-                && startLayer <= item.Model.ZIndex && item.Model.ZIndex <= endLayer)
+                && startLayer <= item.Model.ZIndex.Value && item.Model.ZIndex.Value <= endLayer)
             {
                 viewModel.SelectElement(item);
             }

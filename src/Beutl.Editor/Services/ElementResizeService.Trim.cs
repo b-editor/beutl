@@ -28,9 +28,9 @@ public sealed partial class ElementResizeService
             // Bypass Scene.MoveChild's overlap handling: Roll intentionally keeps the
             // two clips exactly adjacent (front.End == back.Start), which MoveCommand
             // treats as overlap and refuses. Direct property setters still record.
-            front.Length += clamped;
-            back.Start += clamped;
-            back.Length -= clamped;
+            front.Length.Value += clamped;
+            back.Start.Value += clamped;
+            back.Length.Value -= clamped;
         }
         SlippableMedia.ApplyOffsetChanges(changes);
 
@@ -60,14 +60,14 @@ public sealed partial class ElementResizeService
         {
             (Element front, IReadOnlyList<Element> middles, Element back) = lanes[i];
             // Invariant per lane: front.Length + Σ middles.Length + back.Length is unchanged.
-            front.Length += clamped;
+            front.Length.Value += clamped;
             foreach (Element middle in middles)
             {
-                middle.Start += clamped;
+                middle.Start.Value += clamped;
             }
 
-            back.Start += clamped;
-            back.Length -= clamped;
+            back.Start.Value += clamped;
+            back.Length.Value -= clamped;
         }
         SlippableMedia.ApplyOffsetChanges(changes);
 
@@ -159,7 +159,7 @@ public sealed partial class ElementResizeService
             fixedOffsets.UnionWith(middles.Select(t => t.Offset));
         }
         return new TrimConstraints(min, max, fronts, backs, middles, fixedOffsets,
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength);
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value);
     }
 
     private static void ThrowIfAnyNullParticipant(IReadOnlyList<ElementTrimPair> pairs)
@@ -180,9 +180,9 @@ public sealed partial class ElementResizeService
             // Coincidental time adjacency across layers is not an editable cut, and elements
             // outside the supplied scene must not be mutated through this public seam — the
             // UI guarantees both, direct service callers may not.
-            if (front.ZIndex != back.ZIndex) return false;
+            if (front.ZIndex.Value != back.ZIndex.Value) return false;
             if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
-            if (front.Range.End != back.Start) return false;
+            if (front.Range.End != back.Start.Value) return false;
             // Roll writes both clips, so a locked side blocks the whole op rather than being filtered.
             if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
             // An element in two pairs would take two geometry writes and break the invariant.
@@ -214,7 +214,7 @@ public sealed partial class ElementResizeService
         foreach ((Element front, IReadOnlyList<Element> middles, Element back) in lanes)
         {
             if (!used.Add(front) || !used.Add(back)) return false;
-            if (front.ZIndex != back.ZIndex) return false;
+            if (front.ZIndex.Value != back.ZIndex.Value) return false;
             if (!scene.Children.Contains(front) || !scene.Children.Contains(back)) return false;
             if (scene.IsElementLocked(front) || scene.IsElementLocked(back)) return false;
 
@@ -222,14 +222,14 @@ public sealed partial class ElementResizeService
             foreach (Element middle in middles)
             {
                 if (!used.Add(middle)) return false;
-                if (middle.ZIndex != front.ZIndex) return false;
+                if (middle.ZIndex.Value != front.ZIndex.Value) return false;
                 if (!scene.Children.Contains(middle)) return false;
                 if (scene.IsElementLocked(middle)) return false;
-                if (middle.Start != expectedStart) return false;
+                if (middle.Start.Value != expectedStart) return false;
                 expectedStart = middle.Range.End;
             }
 
-            if (back.Start != expectedStart) return false;
+            if (back.Start.Value != expectedStart) return false;
         }
 
         return true;
@@ -249,9 +249,9 @@ public sealed partial class ElementResizeService
         MediaTime minDuration = SceneTimeRangeService.GetFrameDuration(scene);
         // Clip ends within a tick of a frame, as a template's can be, count from that frame.
         MediaTime frontLength = SceneTimeRangeService.SnapToFrame(scene, front.Range.End)
-                                - SceneTimeRangeService.SnapToFrame(scene, front.Start);
+                                - SceneTimeRangeService.SnapToFrame(scene, front.Start.Value);
         MediaTime backLength = SceneTimeRangeService.SnapToFrame(scene, back.Range.End)
-                               - SceneTimeRangeService.SnapToFrame(scene, back.Start);
+                               - SceneTimeRangeService.SnapToFrame(scene, back.Start.Value);
 
         if (frontLength < minDuration || backLength < minDuration)
             return (MediaTime.Zero, MediaTime.Zero);
@@ -259,14 +259,14 @@ public sealed partial class ElementResizeService
         MediaTime min = minDuration - frontLength;
         MediaTime max = backLength - minDuration;
 
-        if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength
+        if (GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value
             && frontTargets.All(t => !t.HasVariableDuration))
         {
-            MediaTime outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length, max);
+            MediaTime outRoom = SlippableMedia.OutPointRoom(frontTargets, front.Length.Value, max);
             if (outRoom < max) max = outRoom;
         }
 
-        bool clampEnd = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
+        bool clampEnd = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
         if (backTargets.All(t => !t.HasVariableDuration))
         {
             min = SlippableMedia.ClampInPointDelta(backTargets, min, clampEnd);

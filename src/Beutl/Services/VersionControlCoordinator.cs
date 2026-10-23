@@ -92,8 +92,8 @@ internal sealed partial class VersionControlCoordinator :
         _projectService = projectService ?? throw new ArgumentNullException(nameof(projectService));
         _editorService = editorService ?? throw new ArgumentNullException(nameof(editorService));
         _config = config ?? throw new ArgumentNullException(nameof(config));
-        _observedGitExecutablePath = NormalizeGitExecutablePath(config.GitExecutablePath);
-        _observedUseLfsWhenAvailable = config.UseLfsWhenAvailable;
+        _observedGitExecutablePath = NormalizeGitExecutablePath(config.GitExecutablePath.Value);
+        _observedUseLfsWhenAvailable = config.UseLfsWhenAvailable.Value;
         _installationLocator = installationLocator ?? new GitInstallationLocator(config);
         _serviceFactory = serviceFactory;
         _dispatcher = Dispatcher.UIThread;
@@ -186,7 +186,7 @@ internal sealed partial class VersionControlCoordinator :
     {
         return RunOnUiThreadAsync(async () =>
         {
-            if (!_config.AutoCommitOnSave)
+            if (!_config.AutoCommitOnSave.Value)
             {
                 return;
             }

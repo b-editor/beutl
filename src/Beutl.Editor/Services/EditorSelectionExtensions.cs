@@ -8,7 +8,7 @@ public static class EditorSelectionExtensions
     public static Element[] GetTargetElements(this IEditorSelection selection, Scene scene)
     {
         HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
-            selection.SelectedElements.Select(element => element.Id), scene.Groups);
-        return [.. scene.Children.Where(element => ids.Contains(element.Id))];
+            selection.SelectedElements.Select(element => element.Id.Value), scene.Groups);
+        return [.. scene.Children.Where(element => ids.Contains(element.Id.Value))];
     }
 }
