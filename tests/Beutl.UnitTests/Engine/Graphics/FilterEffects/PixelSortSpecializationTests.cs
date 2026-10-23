@@ -120,7 +120,7 @@ public sealed class PixelSortSpecializationTests
         float delta = max - min;
         float hue = delta == 0 ? 0 : max == r ? ((g - b) / delta + 6) % 6
             : max == g ? (b - r) / delta + 2 : (r - g) / delta + 4;
-        return key switch
+        float value = key switch
         {
             PixelSortKey.Luminance => 0.2126f * r + 0.7152f * g + 0.0722f * b,
             PixelSortKey.Hue => hue / 6,
@@ -130,6 +130,8 @@ public sealed class PixelSortSpecializationTests
             PixelSortKey.Blue => b,
             _ => throw new ArgumentOutOfRangeException(nameof(key)),
         };
+        // Rank compares the encoded key stored in an RGBA16Float texture.
+        return (float)(Half)Math.Max(1f / 255, value * 0.998f + 0.001f);
     }
 
     private static RenderTarget ApplySpecializedPixelSort(
@@ -191,5 +193,14 @@ public sealed class PixelSortSpecializationTests
                 canvas.DrawRect(SKRect.Create(x, y, 1, 1), paint);
             }
         }
+
+        // Distinct saturation keys in this column collide when encoded into the half-float scratch texture.
+        target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+        Half[] pixels = MemoryMarshal.Cast<byte, Half>(target.Texture!.DownloadPixels()).ToArray();
+        pixels[5 * 4] = pixels[9 * 4] = (Half)1;
+        pixels[5 * 4 + 1] = pixels[9 * 4 + 1] = (Half)0.5f;
+        pixels[5 * 4 + 2] = (Half)0.03724f;
+        pixels[9 * 4 + 2] = (Half)0.03732f;
+        target.Texture.Upload(MemoryMarshal.AsBytes(pixels.AsSpan()));
     }
 }
