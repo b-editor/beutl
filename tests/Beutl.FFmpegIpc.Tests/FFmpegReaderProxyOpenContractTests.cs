@@ -43,7 +43,7 @@ public class FFmpegReaderProxyOpenContractTests
     }
 
     [Test]
-    public void Open_Mp4WithoutMoovAtom_ReturnsNullAndWorkerReportsInvalidData()
+    public void Open_Mp4WithoutMoovAtom_ReturnsNull()
     {
         DecodingWorkerTestHelpers.RequireDecodingWorker();
 
