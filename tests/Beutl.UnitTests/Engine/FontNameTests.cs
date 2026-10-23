@@ -35,22 +35,6 @@ public class FontNameTests
         Assert.That(FontName.ReadUInt16(reader), Is.EqualTo(expected));
     }
 
-    [TestCaseSource(nameof(UInt16Patterns))]
-    public void ReadUInt16_AgreesWithTheReversedBitConverterItReplaced(byte[] bytes, ushort expected)
-    {
-        Assume.That(BitConverter.IsLittleEndian);
-
-        using var stream = new MemoryStream(bytes, writable: false);
-        using var reader = new BinaryReader(stream);
-
-        ushort legacy = BitConverter.ToUInt16(bytes.Reverse().ToArray(), 0);
-        Assert.Multiple(() =>
-        {
-            Assert.That(legacy, Is.EqualTo(expected));
-            Assert.That(FontName.ReadUInt16(reader), Is.EqualTo(legacy));
-        });
-    }
-
     [Test]
     public void ReadUInt16_ThrowsWhenTheTableIsTruncated()
     {
