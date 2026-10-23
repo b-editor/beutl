@@ -189,6 +189,27 @@ public class FFmpegOptionsCacheTests
         Assert.That(replays, Is.Zero, "A finished query stayed in flight and replayed its degraded result.");
     }
 
+    // The editor reads the cache right after its query. A result that finished inline must therefore be cached too:
+    // the cache of Beutl at #2909's commit skipped that write, so the editor showed no options.
+    [Test]
+    public async Task GetOrQueryAsync_ResultThatFinishedInline_IsCached()
+    {
+        var cache = new FFmpegOptionsCache<int>(maxCachedEntries: 40_000);
+        int misses = 0;
+
+        await Task.WhenAll(Enumerable.Range(0, 4).Select(loop => Task.Run(async () =>
+        {
+            for (int i = 0; i < 10_000; i++)
+            {
+                string key = $"{loop}:{i}";
+                await cache.GetOrQueryAsync(key, () => Ok(i));
+                if (!cache.TryGetCached(key, out _)) Interlocked.Increment(ref misses);
+            }
+        })));
+
+        Assert.That(misses, Is.Zero, "A result that finished before its query was registered was not cached.");
+    }
+
     [Test]
     public async Task Cache_EvictsLeastRecentlyUsed_WhenOverCapacity()
     {
