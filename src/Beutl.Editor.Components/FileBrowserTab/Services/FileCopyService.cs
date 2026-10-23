@@ -2,19 +2,23 @@
 
 internal static class FileCopyService
 {
-    // 既に存在するファイルはスキップされる。
+    // 既に存在するファイルはスキップし、コピー元とコピー先のフォルダーへのリンクはたどらずにスキップして、その数を返す。
     // キャンセルは次のファイルかフォルダーの前に反映される。
-    public static void CopyDirectoryRecursive(
+    public static int CopyDirectoryRecursive(
         string sourceDir,
         string destDir,
         Action<string, string> copyFile,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        string fullSource = Path.GetFullPath(sourceDir) + Path.DirectorySeparatorChar;
-        string fullDest = Path.GetFullPath(destDir) + Path.DirectorySeparatorChar;
+        // リンクになったコピー先に書くと、ドロップ先の外に書き込んでしまう
+        if (new DirectoryInfo(destDir).LinkTarget is not null)
+        {
+            return 1;
+        }
 
-        if (fullDest.StartsWith(fullSource, StringComparison.OrdinalIgnoreCase))
+        // リンクを解決して比べるので、コピー元の中を指すリンクの下へのコピーも防げる
+        if (FilePathComparison.IsSameOrDescendant(sourceDir, destDir))
         {
             throw new IOException("Cannot copy a directory into itself or a descendant directory.");
         }
@@ -31,10 +35,19 @@ internal static class FileCopyService
             }
         }
 
+        int skippedLinks = 0;
         foreach (string dir in Directory.GetDirectories(sourceDir))
         {
+            if (new DirectoryInfo(dir).LinkTarget is not null)
+            {
+                skippedLinks++;
+                continue;
+            }
+
             string destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
-            CopyDirectoryRecursive(dir, destSubDir, copyFile, cancellationToken);
+            skippedLinks += CopyDirectoryRecursive(dir, destSubDir, copyFile, cancellationToken);
         }
+
+        return skippedLinks;
     }
 }

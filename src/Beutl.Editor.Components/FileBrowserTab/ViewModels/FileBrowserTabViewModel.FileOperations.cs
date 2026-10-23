@@ -247,13 +247,14 @@ public sealed partial class FileBrowserTabViewModel
     public Task TransferFilesToDirectoryAsync(
         IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir, bool move)
     {
-        return TransferFilesAsync(move, files, () => targetDir);
+        return TransferFilesAsync(move, files, targetDir, () => targetDir);
     }
 
     // Runs on the thread pool. A failure is logged and counted, so the caller reports it on the UI thread.
     private int CopyFilesToDirectoryCore(
         IReadOnlyList<(string LocalPath, bool IsDirectory)> files,
         string targetDir,
+        IReadOnlySet<string> merging,
         CancellationToken cancellationToken)
     {
         int failures = 0;
@@ -275,9 +276,15 @@ public sealed partial class FileBrowserTabViewModel
                 }
                 else if (Directory.Exists(localPath))
                 {
-                    if (!Directory.Exists(destPath))
+                    // A folder that is already there is copied into only when the user chose to merge.
+                    if (!Directory.Exists(destPath) || merging.Contains(localPath))
                     {
-                        FileCopyService.CopyDirectoryRecursive(localPath, destPath, CopyFile, cancellationToken);
+                        int skippedLinks = FileCopyService.CopyDirectoryRecursive(localPath, destPath, CopyFile, cancellationToken);
+                        if (skippedLinks > 0)
+                        {
+                            _logger.LogWarning("Skipped {Count} folder links copying {Source} to {Dest}", skippedLinks, localPath, destPath);
+                            failures += skippedLinks;
+                        }
                     }
                 }
             }
@@ -301,13 +308,15 @@ public sealed partial class FileBrowserTabViewModel
             return Task.CompletedTask;
 
         string projectDirectory = _projectDirectory;
-        return TransferFilesAsync(move, files, () => EnsureResourcesDirectory(projectDirectory));
+        return TransferFilesAsync(
+            move, files, Path.Combine(projectDirectory, ResourcesDirectoryName), () => EnsureResourcesDirectory(projectDirectory));
     }
 
     // Runs on the thread pool. A failure is logged and counted, so the caller reports it on the UI thread.
     private int MoveFilesToDirectoryCore(
         IReadOnlyList<(string LocalPath, bool IsDirectory)> files,
         string targetDir,
+        List<string> notMoved,
         CancellationToken cancellationToken)
     {
         string normalizedTargetDir = Path.GetFullPath(targetDir);
@@ -362,6 +371,10 @@ public sealed partial class FileBrowserTabViewModel
                     {
                         Directory.Move(normalizedSource, destPath);
                     }
+                    else
+                    {
+                        notMoved.Add(Path.GetFileName(normalizedSource));
+                    }
                 }
             }
             catch (Exception ex)
@@ -386,22 +399,42 @@ public sealed partial class FileBrowserTabViewModel
     private async Task TransferFilesAsync(
         bool move,
         IEnumerable<(string LocalPath, bool IsDirectory)> files,
+        string plannedTargetDir,
         Func<string> getTargetDirectory)
     {
         string operation = move ? Strings.Move : Strings.Copy;
         string runningMessage = move ? Strings.FileBrowser_MovingFiles : Strings.FileBrowser_CopyingFiles;
-        Func<IReadOnlyList<(string LocalPath, bool IsDirectory)>, string, CancellationToken, int> transfer =
-            move ? MoveFilesToDirectoryCore : CopyFilesToDirectoryCore;
+        (string LocalPath, bool IsDirectory)[] entries = files.ToArray();
+        HashSet<string> merging = [];
+        if (!move)
+        {
+            // Asked before the write starts, as the dialog can stay open, so Cancel copies nothing.
+            foreach ((string localPath, bool isDir) in entries)
+            {
+                string name = Path.GetFileName(localPath);
+                if (!isDir || !Directory.Exists(localPath) || !Directory.Exists(Path.Combine(plannedTargetDir, name)))
+                    continue;
+
+                FAContentDialogResult answer = await ConfirmAsync(CreateFolderConflictDialog(name));
+                if (answer == FAContentDialogResult.None)
+                    return;
+                if (answer == FAContentDialogResult.Primary)
+                    merging.Add(localPath);
+            }
+        }
+
+        var notMoved = new List<string>();
+        Func<IReadOnlyList<(string LocalPath, bool IsDirectory)>, string, CancellationToken, int> transfer = move
+            ? (items, target, token) => MoveFilesToDirectoryCore(items, target, notMoved, token)
+            : (items, target, token) => CopyFilesToDirectoryCore(items, target, merging, token);
         if (!TryBeginProjectFileWrite(operation, out IProjectFileWriteLease? fileWrite))
             return;
 
         int failures;
-        (string LocalPath, bool IsDirectory)[] entries;
         string? targetDir = null;
         using (fileWrite)
         using (var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_transferCancellation.Token))
         {
-            entries = files.ToArray();
             Task<int> work = Task.Run(
                 () =>
                 {
@@ -423,8 +456,25 @@ public sealed partial class FileBrowserTabViewModel
         if (targetDir is not null && !_disposed)
             ReloadTransferredItems(entries, targetDir);
 
+        foreach (string name in notMoved)
+            NotificationService.ShowWarning(operation, string.Format(Strings.FileBrowser_FolderNotMoved, name));
+
         if (failures > 0)
             NotificationService.ShowError(operation, MessageStrings.OperationFailed);
+    }
+
+    // Merge copies only the files the folder is missing; Skip leaves it; Cancel copies nothing.
+    internal static FAContentDialog CreateFolderConflictDialog(string folderName)
+    {
+        return new FAContentDialog
+        {
+            Title = Strings.Copy,
+            Content = string.Format(Strings.FileBrowser_FolderExists, folderName),
+            PrimaryButtonText = Strings.FileBrowser_MergeFolder,
+            SecondaryButtonText = Strings.FileBrowser_SkipFolder,
+            CloseButtonText = Strings.Cancel,
+            DefaultButton = FAContentDialogButton.Primary
+        };
     }
 
     private async Task<int> WaitShowingCancellationAsync(
@@ -499,9 +549,11 @@ public sealed partial class FileBrowserTabViewModel
         }
     }
 
+    private const string ResourcesDirectoryName = "resources";
+
     private static string EnsureResourcesDirectory(string projectDirectory)
     {
-        string resourcesDir = Path.Combine(projectDirectory, "resources");
+        string resourcesDir = Path.Combine(projectDirectory, ResourcesDirectoryName);
         Directory.CreateDirectory(resourcesDir);
         return resourcesDir;
     }

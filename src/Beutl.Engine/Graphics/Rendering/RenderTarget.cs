@@ -11,6 +11,10 @@ public partial class RenderTarget : IDisposable
 {
     private static Func<IGraphicsContext?> s_allocationContext = GraphicsContextFactory.GetOrCreateShared;
 
+    // Why the last Create on this thread returned null, which the allocation error carries (#3285).
+    [ThreadStatic]
+    private static (int Width, int Height, Exception Reason)? t_lastRefusal;
+
     private readonly SKSurfaceCounter<SKSurface> _surface;
     private readonly SKSurfaceCounter<ITexture2D>? _texture;
     private readonly Dispatcher? _dispatcher = Dispatcher.Current;
@@ -145,6 +149,7 @@ public partial class RenderTarget : IDisposable
     /// </exception>
     public static RenderTarget? Create(int width, int height)
     {
+        t_lastRefusal = null;
         try
         {
             ITexture2D? sharedTexture = null;
@@ -163,7 +168,7 @@ public partial class RenderTarget : IDisposable
                 // BufferBudgetScope.Allocation, which would resolve a second one that may answer differently.
                 var deviceSize = new PixelSize(width, height);
                 if (!BufferDimensionBudget.ForDevice(context).Fits(deviceSize))
-                    return null;
+                    return Refuse(width, height, new InvalidOperationException("The device cannot attach a target this large."));
 
                 surface = CreateSharedSurface(context, width, height, out sharedTexture);
             }
@@ -174,7 +179,7 @@ public partial class RenderTarget : IDisposable
             }
 
             if (surface == null)
-                return null;
+                return Refuse(width, height, new InvalidOperationException("Skia made no surface for the target."));
 
             // Skia refcounts the surface itself and only borrows the image behind it, so the
             // backend texture is the one resource that can outlive its last managed reference.
@@ -214,8 +219,22 @@ public partial class RenderTarget : IDisposable
         {
             // A device that is lost, or one that declines the allocation, surfaces as whatever the driver
             // and the Skia binding raise, so the refusal cannot be caught by type.
-            return null;
+            return Refuse(width, height, ex);
         }
+    }
+
+    private static RenderTarget? Refuse(int width, int height, Exception reason)
+    {
+        t_lastRefusal = (width, height, reason);
+        return null;
+    }
+
+    // Why the last Create of this size on this thread returned null, if it did; taking it clears it.
+    internal static Exception? TakeRefusalReason(PixelSize size)
+    {
+        (int Width, int Height, Exception Reason)? refusal = t_lastRefusal;
+        t_lastRefusal = null;
+        return refusal is { } last && last.Width == size.Width && last.Height == size.Height ? last.Reason : null;
     }
 
     /// <summary>
