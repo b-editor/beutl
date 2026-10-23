@@ -23,6 +23,7 @@ namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 public sealed partial class GraphEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = [];
+    private readonly ReactivePropertySlim<bool> _canEdit = new(true);
     private readonly IEditorClock _editorClock;
     private readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
     private bool _editting;
@@ -42,6 +43,11 @@ public sealed partial class GraphEditorViewModel : IDisposable
         Options = timelineOptions.Options;
         Scene = timelineOptions.Scene;
         HistoryManager = editorContext.GetRequiredService<HistoryManager>();
+        // Set before the channel and keyframe view models, which read it.
+        ElementEditability.Observe(element, Scene)
+            .Subscribe(editable => _canEdit.Value = editable)
+            .DisposeWith(_disposables);
+        _canEdit.DisposeWith(_disposables);
 
         UseGlobalClock = animation.UseGlobalClock.GetObservable()
             .ToReadOnlyReactivePropertySlim()
@@ -96,8 +102,12 @@ public sealed partial class GraphEditorViewModel : IDisposable
         SelectedView.Skip(1).Subscribe(_ => _clipboardContextVersion++).DisposeWith(_disposables);
         var selectionCount = SelectedView.Select(view => (IObservable<int>?)view?.SelectionCount ?? Observable.ReturnThenNever(0)).Switch();
         HasSelection = selectionCount.Select(count => count > 0).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
-        CanDistributeSelection = selectionCount.Select(count => count >= 3).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
-        CanReverseSelection = selectionCount.Select(count => count >= 2).ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+        CanEditSelection = selectionCount.CombineLatest(_canEdit, (count, editable) => count > 0 && editable)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+        CanDistributeSelection = selectionCount.CombineLatest(_canEdit, (count, editable) => count >= 3 && editable)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
+        CanReverseSelection = selectionCount.CombineLatest(_canEdit, (count, editable) => count >= 2 && editable)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
 
         CalculateMaxHeight();
 
@@ -108,7 +118,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
             .WithSubscribe(CopyAllKeyFramesAsync)
             .DisposeWith(_disposables);
 
-        PasteKeyFrameAtCurrentPositionCommand = new AsyncReactiveCommand()
+        PasteKeyFrameAtCurrentPositionCommand = new AsyncReactiveCommand(_canEdit)
             .WithSubscribe(() => PasteKeyFrameAtPositionAsync(_pointerPosition))
             .DisposeWith(_disposables);
     }
@@ -151,6 +161,11 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public ReactivePropertySlim<GraphEditorViewViewModel?> SelectedView { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> HasSelection { get; }
+
+    // False while the clip is locked or recovery keeps its file: the editor is then read-only.
+    public IReadOnlyReactiveProperty<bool> CanEdit => _canEdit;
+
+    public ReadOnlyReactivePropertySlim<bool> CanEditSelection { get; }
 
     public ReadOnlyReactivePropertySlim<bool> CanDistributeSelection { get; }
 
@@ -198,10 +213,14 @@ public sealed partial class GraphEditorViewModel : IDisposable
         _pointerPosition = positionX.PixelToTime(scale);
     }
 
-    internal void DeleteKeyFrames(IEnumerable<IKeyFrame> keyFrames)
+    // On a recovery-protected clip only keys whose easing could not be read may go, as removing each repairs it.
+    internal bool CanDeleteKeyFrames(IEnumerable<IKeyFrame> keyFrames)
+        => keyFrames.All(key => ElementEditability.CanRepair(Element, key, Scene));
+
+    internal bool DeleteKeyFrames(IEnumerable<IKeyFrame> keyFrames)
     {
         var selected = keyFrames.Where(Animation.KeyFrames.Contains).ToArray();
-        if (selected.Length == 0) return;
+        if (selected.Length == 0 || !CanDeleteKeyFrames(selected)) return false;
         var selection = Views.Select(view => (view.Name, Keys: view.KeyFrames.Where(key => key.IsSelected.Value)
             .Select(key => key.Model).ToArray())).ToArray();
         var owner = new WeakReference<GraphEditorViewModel>(this);
@@ -216,7 +235,9 @@ public sealed partial class GraphEditorViewModel : IDisposable
             });
             foreach (var key in selected.Reverse())
                 AnimationOperations.RemoveKeyFrame(Animation, key, _logger);
+            if (Element != null) ElementRecoveryService.TryCompleteRepair(Element, HistoryManager);
         }, CommandNames.RemoveKeyFrame);
+        return true;
     }
 
     public void BeginEditing()
@@ -235,6 +256,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
 
     public void ToggleUseGlobalClock()
     {
+        if (!CanEdit.Value) return;
         var newValue = !UseGlobalClock.Value;
         _logger.LogInformation("Updating UseGlobalClock to {Value}", newValue);
         ((IKeyFrameAnimation)Animation).UseGlobalClock.Value = newValue;
@@ -294,13 +316,21 @@ public sealed partial class GraphEditorViewModel : IDisposable
 
     public void DropEasing(Easing easing, MediaTime keyTime)
     {
+        MediaTime converted = ConvertKeyTime(keyTime);
+        // Replacing an easing that could not be read repairs a recovery-protected clip, so it stays allowed there.
+        if (KeyFrameClipboardCommands.FindEasingDropTarget(Animation, converted, Scene) is { } target
+                ? !ElementEditability.CanRepair(Element, target, Scene)
+                : !CanEdit.Value)
+            return;
+
         _logger.LogInformation("Dropping easing at key time {KeyTime}", keyTime);
         KeyFrameClipboardCommands.DropEasing(
-            Animation, Scene, HistoryManager, easing, keyTime, ConvertKeyTime(keyTime), InsertKeyFrame, _logger);
+            Animation, Scene, HistoryManager, easing, keyTime, converted, InsertKeyFrame, _logger, Element);
     }
 
     public void InsertKeyFrame(Easing easing, MediaTime keyTime)
     {
+        if (!CanEdit.Value) return;
         AnimationOperations.InsertKeyFrame(
             animation: Animation,
             easing: easing,

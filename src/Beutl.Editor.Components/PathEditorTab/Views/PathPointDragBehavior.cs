@@ -392,7 +392,8 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
         PathSegment segment)
     {
         IExpressionProperty<BtlPoint>? prop = PathEditorHelper.GetProperty(thumb);
-        if (prop != null)
+        // A point of a read-only clip stays where it is; the press only selected it.
+        if (prop != null && ElementEditability.IsEditable(viewModel.Element.Value))
         {
             HistoryManager history = viewModel.EditorContext.GetRequiredService<HistoryManager>();
             // Commits a pending nudge on its own and stops its timer, so Escape reverts only this drag.

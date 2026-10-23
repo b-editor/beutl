@@ -15,7 +15,7 @@ public partial class GraphEditorView
     internal void ShowVelocityFlyout()
     {
         if (VelocityFlyout?.IsOpen == true) return;
-        if (DataContext is not GraphEditorViewModel { SelectedView.Value: { } channel } model) return;
+        if (DataContext is not GraphEditorViewModel { CanEdit.Value: true, SelectedView.Value: { } channel } model) return;
         var selection = channel.KeyFrames.Where(x => x.IsSelected.Value).ToArray();
         if (selection.Length == 0) return;
         var first = selection[0];

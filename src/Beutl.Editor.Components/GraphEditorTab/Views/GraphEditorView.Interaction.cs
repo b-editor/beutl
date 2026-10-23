@@ -170,6 +170,12 @@ public partial class GraphEditorView
             e.Handled = true;
             return;
         }
+        // On a read-only clip the press only selects.
+        if (!model.CanEdit.Value)
+        {
+            e.Handled = true;
+            return;
+        }
         BeginGraphEdit(model);
         if (state.TransformHandle >= 0)
         {
@@ -419,7 +425,7 @@ public partial class GraphEditorView
         double frames = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10 : 1;
         double delta = (e.Key == Key.Left ? -frames : frames) / SceneTimeRangeService.GetFrameRate(model.Scene).ToDouble();
         var snapshot = new GraphEditorDragSnapshot(channel);
-        if (snapshot.Entries.Length > 0)
+        if (snapshot.Entries.Length > 0 && model.CanEdit.Value)
             model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(entry => (entry.Time.ToSeconds() + delta, entry.Number)), CommandNames.MoveKeyFrame);
     }
 
@@ -469,14 +475,13 @@ public partial class GraphEditorView
     {
         if (DataContext is not GraphEditorViewModel { SelectedView.Value: { } channel } model) return;
         var selected = channel.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
-        if (selected.Length == 0) return;
-        model.DeleteKeyFrames(selected);
-        channel.SetSelection([]);
+        if (selected.Length > 0 && model.DeleteKeyFrames(selected))
+            channel.SetSelection([]);
     }
 
     private void ApplyEasing(string mode)
     {
-        if (DataContext is not GraphEditorViewModel { SelectedView.Value: { } channel } model) return;
+        if (DataContext is not GraphEditorViewModel { CanEdit.Value: true, SelectedView.Value: { } channel } model) return;
         if (!channel.KeyFrames.Any(x => x.IsSelected.Value)) return;
         model.HistoryManager.ExecuteInTransaction(() =>
         {

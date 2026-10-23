@@ -248,7 +248,8 @@ internal sealed partial class DeclarativeDocumentApplier
         payload.Remove("Expressions");
         payload.Remove("Uri");
 
-        foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>())
+        // A list saved as a base field, like GraphNode.Items, stays in the payload: its owner reads it, as a node its ports by name.
+        foreach (IListProperty listProperty in target.Properties.OfType<IListProperty>().Where(list => !target.IsBaseField(list)))
         {
             payload.Remove(listProperty.Name);
         }

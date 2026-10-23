@@ -69,6 +69,16 @@ public class ObjectTemplateItemTests
             Is.EqualTo(Encoding.UTF8.GetBytes("png")));
     }
 
+    // The template file's references resolve against this URI, so a folder named with "%XX" keeps its name (#3407).
+    [TestCase("pkg%41")]
+    [TestCase("50%20off")]
+    public void ToFileUri_KeepsPercentInThePath(string templateDirectory)
+    {
+        string path = Path.Combine(_root, "templates", templateDirectory, "title.json");
+
+        Assert.That(ObjectTemplateItem.ToFileUri(path).LocalPath, Is.EqualTo(path));
+    }
+
     // Templates saved before previews existed, and packages authored against the old schema,
     // must keep loading.
     [Test]

@@ -402,6 +402,27 @@ public class RippleEditTests
     }
 
     [Test]
+    public void Delete_RippleOn_SeveralGaps_DoesNotMoveAFollowerPastALockedClip()
+    {
+        var structure = new ElementStructureService(_history);
+        Element first = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(8));
+        Element locked = AddElement(MediaTime.FromSeconds(9), MediaTime.FromSeconds(1));
+        Element second = AddElement(MediaTime.FromSeconds(11), MediaTime.FromSeconds(8));
+        Element follower = AddElement(MediaTime.FromSeconds(20), MediaTime.FromSeconds(1));
+        locked.IsLocked.Value = true;
+
+        // Closing the gap after the second clip moves the follower to [12, 13]; closing the first would take it
+        // to [4, 5], across the locked clip.
+        structure.Delete(_scene, [first, second], ripple: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(locked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(9)));
+            Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(12)), "the follower stays on its side of the lock");
+        });
+    }
+
+    [Test]
     public void ShiftBefore_LeftPush_StopsFreeClipAtLockedUpstream()
     {
         Element locked = AddElement(MediaTime.FromSeconds(0), MediaTime.FromSeconds(2));

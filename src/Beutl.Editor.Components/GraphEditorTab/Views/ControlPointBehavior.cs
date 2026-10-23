@@ -120,7 +120,12 @@ public class ControlPointBehavior : GraphEditorPathBehavior
 
         PointerPoint point = e.GetCurrentPoint(view.grid);
 
-        if (point.Properties.IsLeftButtonPressed)
+        if (point.Properties.IsLeftButtonPressed && !editorViewModel.CanEdit.Value)
+        {
+            // On a read-only clip the handle stays where it is.
+            e.Handled = true;
+        }
+        else if (point.Properties.IsLeftButtonPressed)
         {
             bool incoming = AssociatedObject.Tag is "ControlPoint2";
             view.ControlPointMoveState = new ControlPointMoveState

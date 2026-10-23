@@ -29,6 +29,15 @@ internal static class ElementEditability
                && (SceneRecovery.HoldsRecoveryBlocker(content) || !SceneRecovery.HasUnresolvedRecoveryBlocker(element));
     }
 
+    // Whether an edit of property repairs an element that only recovery protects, because loading dropped its value.
+    public static bool CanRepairDroppedValue(Element? element, IProperty? property, Scene? scene = null)
+    {
+        if (element is not { IsRecoveryProtected: true } || !SceneRecovery.HeldDroppedValue(property)) return false;
+
+        scene ??= element.FindHierarchicalParent<Scene>();
+        return !(scene?.IsElementLockedByUser(element) ?? element.IsLocked.Value);
+    }
+
     public static IObservable<bool> Observe(Element? element, Scene? scene = null)
     {
         if (element is null) return Observable.Return(true);

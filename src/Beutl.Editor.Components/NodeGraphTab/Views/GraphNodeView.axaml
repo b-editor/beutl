@@ -59,13 +59,15 @@
                     </ui:FAMenuFlyoutItem>
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Regenerate"
                                          Click="RegenerateClick"
+                                         IsEnabled="{Binding CanEdit.Value}"
                                          IsVisible="{Binding IsGenerative}"
                                          Text="{x:Static lang:NodeGraphStrings.Generative_RegenerateNode}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Sparkle" />
                         </ui:FAMenuFlyoutItem.IconSource>
                     </ui:FAMenuFlyoutItem>
-                    <ui:FAMenuFlyoutSubItem IsVisible="{Binding IsGenerative}"
+                    <ui:FAMenuFlyoutSubItem IsEnabled="{Binding CanEdit.Value}"
+                                            IsVisible="{Binding IsGenerative}"
                                             Text="{x:Static lang:NodeGraphStrings.Generative_Variations}">
                         <ui:FAMenuFlyoutSubItem.IconSource>
                             <icons:FluentIconSource Icon="Grid" />
@@ -110,7 +112,7 @@
                     </ui:FAMenuFlyoutItem>
                     <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="NodeGraph.Rename"
                                          Click="RenameClick"
-                                         IsEnabled="{Binding !IsReadOnly}"
+                                         IsEnabled="{Binding CanEdit.Value}"
                                          Text="{x:Static lang:Strings.Rename}">
                         <ui:FAMenuFlyoutItem.IconSource>
                             <icons:FluentIconSource Icon="Rename" />

@@ -2,9 +2,14 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Beutl.AgentToolkit.Common;
+using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Graphics.Transitions;
+using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Reconciliation;
 
@@ -37,6 +42,9 @@ public sealed partial class Reconciler
                            ?? FindChangedLockedElement(session, scene, sandbox, lockedElements, currentDocument)
                            ?? FindUnrepairedProtectedElement(session, scene, sandbox, protectedElements, currentDocument)
                            ?? FindRegroupedLockedElement(scene, sandbox, lockedElements)
+                           ?? FindChangedTransitionAtLockedElement(scene, sandbox, lockedElements)
+                           ?? FindElementPlacedOverLockedElement(scene, sandbox, lockedElements)
+                           ?? FindRestackedLockedElement(scene, sandbox, lockedElements)
                            ?? FindUnlockedLayer(scene, sandbox, lockedLayers)
                            ?? FindElementPlacedOnLockedLayer(scene, sandbox);
         if (error is not null)
@@ -117,6 +125,157 @@ public sealed partial class Reconciler
         return null;
     }
 
+    // A locked element's blend at each edge stays: the deciding transition, even the neighbour's, and its time range.
+    private static ToolError? FindChangedTransitionAtLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+    {
+        if (lockedElements.Length == 0)
+        {
+            return null;
+        }
+
+        // Only these have a boundary at either end; any other element blends with nothing.
+        HashSet<Element> before = ElementTransitions.GetParticipants(scene);
+        HashSet<Element> after = ElementTransitions.GetParticipants(sandbox);
+        if (before.Count == 0 && after.Count == 0)
+        {
+            return null;
+        }
+
+        Dictionary<Guid, (int Index, Element Element)> applied = IndexElementsById(sandbox.Children);
+        foreach (Element locked in lockedElements)
+        {
+            if (!applied.TryGetValue(locked.Id.Value, out (int Index, Element Element) match)
+                || (!before.Contains(locked) && !after.Contains(match.Element)))
+            {
+                continue;
+            }
+
+            foreach (ElementEdge edge in (ElementEdge[])[ElementEdge.Start, ElementEdge.End])
+            {
+                if (BlendsTheSame(scene, locked, sandbox, match.Element, edge))
+                {
+                    continue;
+                }
+
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(locked)} is locked, so the transition at its {(edge == ElementEdge.Start ? "start" : "end")} and the time it blends over cannot change, also when the element next to it sets them.",
+                    ElementTarget(locked),
+                    $"Keep the transitions and the timing of the elements next to it as they are, or ask the user to unlock the element in the timeline. {LockHint}");
+            }
+        }
+
+        return null;
+    }
+
+    private static bool BlendsTheSame(Scene scene, Element locked, Scene sandbox, Element applied, ElementEdge edge)
+    {
+        ClipTransition? before = ElementTransitionEdits.GetDecidingTransition(locked, edge);
+        ClipTransition? after = ElementTransitionEdits.GetDecidingTransition(applied, edge);
+        bool sameTransition = before is null || after is null
+            ? before is null && after is null
+            : JsonNode.DeepEquals(SerializeTransition(scene, before), SerializeTransition(sandbox, after));
+        return sameTransition && BoundaryRegion(locked, edge) == BoundaryRegion(applied, edge);
+    }
+
+    private static TimeRange? BoundaryRegion(Element element, ElementEdge edge)
+        => (edge == ElementEdge.Start
+            ? ElementTransitions.GetBoundaryAtStart(element)
+            : ElementTransitions.GetBoundaryAtEnd(element))?.Region;
+
+    private static JsonObject SerializeTransition(Scene scene, ClipTransition transition)
+        => CoreSerializer.SerializeToJsonObject(transition, DocumentAdapter.CreateOptions(scene));
+
+    // No element comes to overlap a locked element on its layer, as in placement; one that already did may stay.
+    private static ToolError? FindElementPlacedOverLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+    {
+        if (lockedElements.Length == 0)
+        {
+            return null;
+        }
+
+        Dictionary<Guid, (int Index, Element Element)> current = IndexElementsById(scene.Children);
+        ILookup<int, Element> layers = sandbox.Children.ToLookup(element => element.ZIndex.Value);
+        foreach (Element locked in lockedElements)
+        {
+            foreach (Element placed in layers[locked.ZIndex.Value])
+            {
+                if (placed.Id.Value == locked.Id.Value
+                    || !Overlaps(placed, locked)
+                    || (current.TryGetValue(placed.Id.Value, out (int Index, Element Element) before) && Overlaps(before.Element, locked)))
+                {
+                    continue;
+                }
+
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(placed)} would overlap locked element {DescribeElement(locked)} on layer {locked.ZIndex.Value}.",
+                    ElementTarget(placed),
+                    $"Place it at another time or on another layer, or ask the user to unlock the locked element in the timeline. {LockHint}");
+            }
+        }
+
+        return null;
+    }
+
+    // Elements on one layer draw in Elements order, so one that overlaps a locked element keeps its side of it.
+    private static ToolError? FindRestackedLockedElement(Scene scene, Scene sandbox, Element[] lockedElements)
+    {
+        if (lockedElements.Length == 0)
+        {
+            return null;
+        }
+
+        Dictionary<Guid, (int Index, Element Element)> current = IndexElementsById(scene.Children);
+        Dictionary<Guid, (int Index, Element Element)> applied = IndexElementsById(sandbox.Children);
+        ILookup<int, (Element Element, int Index)> layers = scene.Children
+            .Select((element, index) => (element, index))
+            .ToLookup(pair => pair.element.ZIndex.Value);
+        foreach (Element locked in lockedElements)
+        {
+            if (!applied.TryGetValue(locked.Id.Value, out (int Index, Element Element) lockedAfter))
+            {
+                continue;
+            }
+
+            int lockedBefore = current[locked.Id.Value].Index;
+            foreach ((Element other, int otherBefore) in layers[locked.ZIndex.Value])
+            {
+                if (other == locked
+                    || !Overlaps(other, locked)
+                    || !applied.TryGetValue(other.Id.Value, out (int Index, Element Element) otherAfter)
+                    || !Overlaps(otherAfter.Element, locked)
+                    || (otherBefore > lockedBefore) == (otherAfter.Index > lockedAfter.Index))
+                {
+                    continue;
+                }
+
+                return new ToolError(
+                    ErrorCode.ValidationRejected,
+                    $"Element {DescribeElement(other)} overlaps locked element {DescribeElement(locked)} on layer {locked.ZIndex.Value}, so their order in Elements, which decides the one drawn on top, cannot change.",
+                    ElementTarget(other),
+                    $"Keep both elements in their order in Elements, or ask the user to unlock the locked element in the timeline. {LockHint}");
+            }
+        }
+
+        return null;
+    }
+
+    private static bool Overlaps(Element element, Element other)
+        => element.ZIndex.Value == other.ZIndex.Value && element.Range.Intersects(other.Range);
+
+    // The elements by Id with their index in Elements; a repeated Id keeps its first element.
+    private static Dictionary<Guid, (int Index, Element Element)> IndexElementsById(IList<Element> elements)
+    {
+        var indexed = new Dictionary<Guid, (int Index, Element Element)>(elements.Count);
+        for (int i = 0; i < elements.Count; i++)
+        {
+            indexed.TryAdd(elements[i].Id.Value, (i, elements[i]));
+        }
+
+        return indexed;
+    }
+
     private static Dictionary<Guid, int> CountIds(IEnumerable<Element> elements)
     {
         var counts = new Dictionary<Guid, int>();
@@ -186,7 +345,8 @@ public sealed partial class Reconciler
                 .OfType<EngineObject>()
                 .Select(blocker => blocker.Id.Value)
                 .ToHashSet();
-            if (sandbox.Children.FirstOrDefault(child => child.Id.Value == element.Id.Value) is not { } repaired
+            if (SceneRecovery.IsRecoveryBlocker(element)
+                || sandbox.Children.FirstOrDefault(child => child.Id.Value == element.Id.Value) is not { } repaired
                 || SceneRecovery.HoldsUnresolvedRecoveryBlocker(repaired)
                 || SerializedGraphTraversal.Enumerate(repaired).OfType<EngineObject>().Any(item => blockers.Contains(item.Id.Value)))
             {

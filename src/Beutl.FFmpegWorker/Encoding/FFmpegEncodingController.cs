@@ -174,9 +174,36 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         return layout;
     }
 
-    // New settings start with these H.264 options, which most other encoders reject (#2898).
-    private static bool IsH264OnlyDefault(AdditionalOption option) =>
-        (option.Name.Value, option.Value.Value) is ("profile", "high") or ("preset", "medium");
+    // New settings start with these H.264 options. Only an H.264 encoder gets them, and only the ones it parses (#3434).
+    private static bool IsH264Default(AdditionalOption option) =>
+        (option.Name.Value, option.Value.Value) is ("profile", "high") or ("preset", "medium") or ("level", "4.0");
+
+    // The options the encoder is opened with: the ones the user set as they are, and the H.264 defaults it takes.
+    internal static IEnumerable<KeyValuePair<string, string>> SelectVideoOptions(
+        MediaCodec codec, IEnumerable<AdditionalOption> options)
+    {
+        bool isH264 = codec.Id == AVCodecID.AV_CODEC_ID_H264;
+        return options
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name.Value))
+            .Where(item => !IsH264Default(item) || (isH264 && ParsesOption(codec, item.Name.Value, item.Value.Value)))
+            .Select(item => new KeyValuePair<string, string>(item.Name.Value, item.Value.Value))
+            .ToArray();
+    }
+
+    // Whether codec parses value for name as avcodec_open2 would, on a context that is never opened.
+    private static unsafe bool ParsesOption(MediaCodec codec, string name, string value)
+    {
+        AVCodecContext* context = ffmpeg.avcodec_alloc_context3(codec);
+        if (context == null) return false;
+        try
+        {
+            return ffmpeg.av_opt_set(context, name, value, ffmpeg.AV_OPT_SEARCH_CHILDREN) >= 0;
+        }
+        finally
+        {
+            ffmpeg.avcodec_free_context(&context);
+        }
+    }
 
     private unsafe void ConfigureVideoStream(
         OutputFormat outFormat, MediaMuxer muxer,
@@ -190,11 +217,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         var fps = VideoSettings.FrameRate.Value;
         var format = (AVPixelFormat)VideoSettings.Format.Value;
         int bitRate = VideoSettings.Bitrate.Value;
-        bool isH264 = codec.Id == AVCodecID.AV_CODEC_ID_H264;
-        var options = new MediaDictionary(VideoSettings.Options.Value
-            .Where(item => !string.IsNullOrWhiteSpace(item.Name.Value))
-            .Where(item => isH264 || !IsH264OnlyDefault(item))
-            .Select(item => new KeyValuePair<string, string>(item.Name.Value, item.Value.Value)));
+        var options = new MediaDictionary(SelectVideoOptions(codec, VideoSettings.Options.Value));
 
         encoder = MediaEncoder.Create(codec, codecContext =>
         {

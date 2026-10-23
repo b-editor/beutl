@@ -243,8 +243,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
                 ap.Animation = null;
             }
 
-            // Also after a non-animatable property: when loading dropped what could not be read,
-            // any replacement repairs the element.
+            // Also for a property that cannot be animated: an expression replaces a value that loading dropped.
             CompleteElementRepair();
             Commit();
         }

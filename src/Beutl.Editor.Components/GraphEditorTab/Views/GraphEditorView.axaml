@@ -88,18 +88,22 @@
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Ease"
                                              Click="GraphActionClick"
                                              Text="{x:Static lang:Strings.GraphEasyEase}"
+                                             IsEnabled="{Binding CanEdit.Value}"
                                              Tag="Ease" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.EaseIn"
                                              Click="GraphActionClick"
                                              Text="{x:Static lang:Strings.GraphEasyEaseIn}"
+                                             IsEnabled="{Binding CanEdit.Value}"
                                              Tag="EaseIn" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.EaseOut"
                                              Click="GraphActionClick"
                                              Text="{x:Static lang:Strings.GraphEasyEaseOut}"
+                                             IsEnabled="{Binding CanEdit.Value}"
                                              Tag="EaseOut" />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.Velocity"
                                              Click="GraphActionClick"
                                              Text="{x:Static lang:Strings.GraphVelocity}"
+                                             IsEnabled="{Binding CanEdit.Value}"
                                              Tag="Velocity" />
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.DistributeEvenly"
@@ -115,7 +119,7 @@
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.ScaleValues"
                                              Click="GraphActionClick"
                                              Text="{x:Static lang:Strings.GraphScaleValues}"
-                                             IsEnabled="{Binding HasSelection.Value}"
+                                             IsEnabled="{Binding CanEditSelection.Value}"
                                              Tag="ScaleValues" />
                         <ui:FAMenuFlyoutSeparator />
                         <ui:FAMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.CopyAllKeyFramesCommand"
@@ -205,6 +209,7 @@
                         </ui:FAMenuFlyoutItem>
                         <ui:FAToggleMenuFlyoutItem usage:UsageTracking.Feature="GraphEditor.ToggleUseGlobalClock"
                                                    Command="{Binding ToggleUseGlobalClock}"
+                                                   IsEnabled="{Binding CanEdit.Value}"
                                                    Text="{x:Static lang:Strings.UseGlobalClock}"
                                                    IsChecked="{Binding UseGlobalClock.Value, Mode=OneWay}" />
                     </ui:FAMenuFlyout>
@@ -383,7 +388,7 @@
                     <Button usage:UsageTracking.Feature="GraphEditor.Linear"
                             AutomationProperties.Name="{x:Static lang:Strings.Linear}"
                             Click="GraphActionClick"
-                            IsEnabled="{Binding HasSelection.Value}"
+                            IsEnabled="{Binding CanEditSelection.Value}"
                             Tag="Linear"
                             ToolTip.Tip="{x:Static lang:Strings.Linear}">
                         <Path Data="M2,13 L14,3 M1,12 L3,12 3,14 1,14 Z M13,2 L15,2 15,4 13,4 Z" />
@@ -391,7 +396,7 @@
                     <Button usage:UsageTracking.Feature="GraphEditor.Ease"
                             AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEase}"
                             Click="GraphActionClick"
-                            IsEnabled="{Binding HasSelection.Value}"
+                            IsEnabled="{Binding CanEditSelection.Value}"
                             Tag="Ease"
                             ToolTip.Tip="{x:Static lang:Strings.GraphEasyEase}">
                         <Path Data="M1,13 C12,13 4,3 15,3 M1,11 L1,15 M15,1 L15,5" />
@@ -399,7 +404,7 @@
                     <Button usage:UsageTracking.Feature="GraphEditor.EaseIn"
                             AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEaseIn}"
                             Click="GraphActionClick"
-                            IsEnabled="{Binding HasSelection.Value}"
+                            IsEnabled="{Binding CanEditSelection.Value}"
                             Tag="EaseIn"
                             ToolTip.Tip="{x:Static lang:Strings.GraphEasyEaseIn}">
                         <Path Data="M1,13 C5,7 8,3 15,3 M15,1 L15,5" />
@@ -407,7 +412,7 @@
                     <Button usage:UsageTracking.Feature="GraphEditor.EaseOut"
                             AutomationProperties.Name="{x:Static lang:Strings.GraphEasyEaseOut}"
                             Click="GraphActionClick"
-                            IsEnabled="{Binding HasSelection.Value}"
+                            IsEnabled="{Binding CanEditSelection.Value}"
                             Tag="EaseOut"
                             ToolTip.Tip="{x:Static lang:Strings.GraphEasyEaseOut}">
                         <Path Data="M1,13 C8,13 11,9 15,3 M1,11 L1,15" />
@@ -415,7 +420,7 @@
                     <Button usage:UsageTracking.Feature="GraphEditor.Hold"
                             AutomationProperties.Name="{x:Static lang:Strings.Hold}"
                             Click="GraphActionClick"
-                            IsEnabled="{Binding HasSelection.Value}"
+                            IsEnabled="{Binding CanEditSelection.Value}"
                             Tag="Hold"
                             ToolTip.Tip="{x:Static lang:Strings.Hold}">
                         <Path Data="M1,13 L8,13 8,3 15,3" />
@@ -427,7 +432,7 @@
                             usage:UsageTracking.Feature="GraphEditor.Velocity"
                             AutomationProperties.Name="{x:Static lang:Strings.GraphVelocity}"
                             Click="GraphActionClick"
-                            IsEnabled="{Binding HasSelection.Value}"
+                            IsEnabled="{Binding CanEditSelection.Value}"
                             Tag="Velocity"
                             ToolTip.Tip="{x:Static lang:Strings.GraphVelocity}">
                         <Path Data="M2,14 L2,2 M2,12 C8,12 6,4 12,4 M10,7 L14,7 M12,5 L12,9" />
