@@ -24,6 +24,7 @@ public sealed partial class AiSubtitleDialogViewModel
     private readonly ReactivePropertySlim<long> _transcriptionEstimateRevision = new();
     // The span of the selected file that the transcription estimate last priced, in seconds of the file.
     private double? _estimatedSourceSeconds;
+    private long _sourceSpanRecomputations;
     private readonly ReactivePropertySlim<long> _translationEstimateRevision = new();
     private readonly ReactivePropertySlim<bool> _canDeleteCue = new();
     private readonly ReactivePropertySlim<bool> _canSplitCue = new();
@@ -47,6 +48,9 @@ public sealed partial class AiSubtitleDialogViewModel
 
     // Test seam: only tests read the revision.
     internal long SceneAudioRevision => Interlocked.Read(ref _sceneAudioRevision);
+
+    // Test seam: how many scene edits made the tab integrate the selected file's speed again.
+    internal long SourceSpanRecomputations => _sourceSpanRecomputations;
 
     public ReadOnlyObservableCollection<EditableCaptionCueViewModel> Cues { get; private set; } = null!;
 
@@ -347,11 +351,12 @@ public sealed partial class AiSubtitleDialogViewModel
     {
         Interlocked.Increment(ref _sceneAudioRevision);
         LoadAudioSources();
-        // A speed keyframe edit keeps the selected item, so check again only when the priced span changed (#3228).
-        if (SelectedAudioSource.Value is { IsSceneMix: false } source
-            && source.GetSourceElapsedSeconds() != _estimatedSourceSeconds)
+        // Of the edits that keep the selected item, only one of its speed keyframes changes its span (#3228).
+        if (SelectedAudioSource.Value is { } source && source.ReadsSpeedFrom(sender))
         {
-            _transcriptionEstimateRevision.Value++;
+            _sourceSpanRecomputations++;
+            if (source.GetSourceElapsedSeconds() != _estimatedSourceSeconds)
+                _transcriptionEstimateRevision.Value++;
         }
     }
 

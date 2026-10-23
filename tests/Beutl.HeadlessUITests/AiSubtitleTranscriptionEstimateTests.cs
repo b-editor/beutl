@@ -52,7 +52,8 @@ public sealed partial class AiDialogWorkflowTests
     }
 
     // The tab stays open while the clip is edited. An edit of its speed keyframes keeps the selected item, and the
-    // estimate must still price the span the run sends; an unrelated edit must not check availability again (#3228).
+    // estimate must still price the span the run sends. An edit of another element neither integrates the speed again
+    // nor checks availability again (#3228).
     [AvaloniaTest]
     public async Task Transcription_estimate_follows_an_edit_of_the_clip_speed_keyframes()
     {
@@ -84,10 +85,21 @@ public sealed partial class AiDialogWorkflowTests
                 $"speed-estimate-{Guid.NewGuid():N}.belm")),
         };
         element.Objects.Add(sound);
+        var other = new Element
+        {
+            Name = "Title",
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(10),
+            ZIndex = 1,
+            Uri = new Uri(Path.Combine(
+                Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!,
+                $"speed-estimate-other-{Guid.NewGuid():N}.belm")),
+        };
 
         try
         {
             editor.Scene.AddChild(element, ElementOverlapHandling.Allow);
+            editor.Scene.AddChild(other, ElementOverlapHandling.Allow);
             await WaitUntilAsync(() => viewModel.AudioSources.Value.Count == 2);
             viewModel.SelectedAudioSource.Value = viewModel.AudioSources.Value.Single(item => !item.IsSceneMix);
             await WaitUntilAsync(() => LastTranscriptionSeconds() is > 9.99 and < 10.01);
@@ -96,9 +108,19 @@ public sealed partial class AiDialogWorkflowTests
             ((KeyFrame<float>)animation.KeyFrames[1]).Value = 300;
             await WaitUntilAsync(() => LastTranscriptionSeconds() is > 19.99 and < 20.01);
             int checks = TranscriptionChecks().Length;
-            element.Name = "Renamed voice";
+            long recomputations = viewModel.SourceSpanRecomputations;
+            long sceneEdits = viewModel.SceneAudioRevision;
+            other.ZIndex = 2;
+            // Past the 250 ms the availability tracker waits before it checks.
+            await Task.Delay(TimeSpan.FromMilliseconds(750));
 
-            Assert.That(TranscriptionChecks(), Has.Length.EqualTo(checks));
+            Assert.Multiple(() =>
+            {
+                Assert.That(recomputations, Is.GreaterThan(0));
+                Assert.That(viewModel.SceneAudioRevision, Is.GreaterThan(sceneEdits));
+                Assert.That(viewModel.SourceSpanRecomputations, Is.EqualTo(recomputations));
+                Assert.That(TranscriptionChecks(), Has.Length.EqualTo(checks));
+            });
         }
         finally
         {
