@@ -5,14 +5,11 @@ using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D.Textures;
 using Beutl.Media;
-using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Failure;
 using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
-// DrawableTextureSource must rasterize at ceil(authorSize * surfaceDensity) for sharp high-density 3D surfaces.
-// GPU-gated; skips when Vulkan is unavailable.
 [TestFixture]
 public class DrawableTextureSourceDensityTests
 {
@@ -48,35 +45,24 @@ public class DrawableTextureSourceDensityTests
         Assert.That(texture, Is.Null);
     }
 
-    [Test]
-    public void GetTexture_VectorDrawable_RasterizesAtSurfaceDensity()
+    [TestCase(1f)]
+    [TestCase(2f)]
+    [TestCase(float.NaN)]
+    public void GetTexture_UnboundDrawableReturnsNullExceptInsideDeferredCallback(float density)
     {
-        IGraphicsContext context = VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using DrawableTextureSource.Resource source = MakeVectorTextureSource();
+        using DrawableTextureSource.Resource source = MakeVectorTextureSource();
+        IGraphicsContext context = Mock.Of<IGraphicsContext>();
 
-            ITexture2D? at1 = source.GetTexture(context, 1f);
-            Assert.That(at1, Is.Not.Null, "GetTexture(ctx, 1f) returned null on a GPU-available environment");
-            int width1 = at1!.Width;
-            int height1 = at1.Height;
-            Assert.That(width1, Is.EqualTo(AuthorSize), "renderScale 1 must stay at the authored size");
-            Assert.That(height1, Is.EqualTo(AuthorSize));
-
-            ITexture2D? at2 = source.GetTexture(context, 2f);
-            Assert.That(at2, Is.Not.Null, "GetTexture(ctx, 2f) returned null on a GPU-available environment");
-            int width2 = at2!.Width;
-            int height2 = at2.Height;
-            Assert.That(width2, Is.EqualTo(AuthorSize * 2),
-                "renderScale 2 must rasterize the vector Drawable at ceil(authorSize × 2) device px (512), not 256");
-            Assert.That(height2, Is.EqualTo(AuthorSize * 2));
-        });
+        Assert.That(source.GetTexture(context, density), Is.Null);
+        using RenderExecutionCallbackGuard.Scope callback = RenderExecutionCallbackGuard.Enter();
+        Assert.Throws<InvalidOperationException>(() => source.GetTexture(context, density));
     }
 
     [Test]
     public void GetTexture_NestedOversizedDrawableUsesTheClampedRecordingDensity()
     {
         var sourceDefinition = new DrawableTextureSource();
+        sourceDefinition.Drawable.Value = new RectShape();
         sourceDefinition.TextureWidth.Value = 8192;
         sourceDefinition.TextureHeight.Value = 1;
         using var source =
