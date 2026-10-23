@@ -50,7 +50,7 @@ public class StoragePickerWindowTests
         await TestReset.ResetShellAsync();
         string projectPath = Path.Combine(BeutlHomeIsolation.CurrentHome!, "picker-project", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(projectPath);
-        await TestShell.Project.CreateProject(640, 480, 30, 44100, "picker-project", projectPath);
+        await TestShell.Project.CreateProject(640, 480, new Rational(30), 44100, "picker-project", projectPath);
         var storage = new Mock<IStorageProvider>(MockBehavior.Strict);
         storage.Setup(x => x.OpenFilePickerAsync(It.IsAny<FilePickerOpenOptions>()))
             .ReturnsAsync(Array.Empty<IStorageFile>());

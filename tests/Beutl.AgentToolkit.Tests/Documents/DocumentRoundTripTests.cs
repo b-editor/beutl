@@ -6,6 +6,7 @@ using Beutl.Animation;
 using Beutl.Audio.Effects;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
+using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
@@ -34,6 +35,37 @@ public class DocumentRoundTripTests
 
         Assert.Throws<ReconcileException>(() => adapter.Write(text, document));
         Assert.That(text.Opacity.GetKeyFrameAnimation(), Is.SameAs(animation));
+    }
+
+    // A document shows times as TimeSpan strings, while files hold flicks, and reads them on the project's frame grid,
+    // so writing it back unchanged keeps a frame that falls between ticks.
+    [Test]
+    public void A_document_shows_times_as_TimeSpan_strings_and_an_unchanged_write_keeps_exact_times()
+    {
+        string dir = TestWorkspace.CreateDirectory();
+        var rate = new Rational(30000, 1001);
+        var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
+        _ = new Project { FrameRate = rate, Items = { scene } };
+        var element = new Element
+        {
+            Start = MediaTime.FromFrames(37, rate),
+            Length = MediaTime.FromFrames(41, rate),
+            Uri = new Uri(Path.Combine(dir, "first.belm")),
+        };
+        scene.Children.Add(element);
+        var adapter = new DocumentAdapter();
+
+        JsonObject document = adapter.Read(scene);
+        adapter.Write(scene, document);
+        CoreSerializer.StoreToUri(element, element.Uri!);
+
+        JsonObject shown = document["Elements"]!.AsArray()[0]!.AsObject();
+        Assert.Multiple(() =>
+        {
+            Assert.That((string?)shown["Start"], Is.EqualTo(TimeSpan.FromTicks(element.Start.ToTicks(MidpointRounding.ToNegativeInfinity)).ToString("c")));
+            Assert.That(element.Range, Is.EqualTo(new TimeRange(MediaTime.FromFrames(37, rate), MediaTime.FromFrames(41, rate))));
+            Assert.That(File.ReadAllText(element.Uri!.LocalPath), Does.Contain($"\"Start\": {element.Start.Flicks}"));
+        });
     }
 
     [Test]

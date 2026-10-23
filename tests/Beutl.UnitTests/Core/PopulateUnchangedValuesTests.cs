@@ -131,8 +131,8 @@ public class PopulateUnchangedValuesTests
         {
             Variables =
             {
-                [ProjectVariableKeys.FrameRate] = "30",
-                [ProjectVariableKeys.SampleRate] = "48000"
+                ["author"] = "beutl",
+                ["take"] = "2"
             }
         };
         KeyValuePair<string, string>[] variables = project.Variables.ToArray();

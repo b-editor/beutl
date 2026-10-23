@@ -15,7 +15,7 @@ public sealed class ConcurrentAccessTests
             projectPath,
             320,
             180,
-            30,
+            new Rational(30),
             TimeSpan.FromSeconds(1),
             Name: "conflict"));
         session.Save(skipConflictCheck: true);

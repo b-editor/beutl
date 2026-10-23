@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Beutl.Editor.Services;
 using Beutl.JsonConverters;
 using Beutl.Media;
@@ -9,7 +10,7 @@ using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
-// A project's files keep TimeSpan strings, which fall short of most frames. Read into the project, a time less than two
+// Earlier versions wrote TimeSpan strings, which fall short of most frames. Read into the project, a time less than two
 // ticks from one of its frames reads as that frame, so reopened clips meet clips made in the session (#2885).
 [TestFixture]
 public sealed class ProjectFrameGridReadTests
@@ -74,14 +75,13 @@ public sealed class ProjectFrameGridReadTests
         Assert.That(after.Range, Is.EqualTo(new TimeRange(MediaTime.FromFrames(61, rate), MediaTime.FromFrames(9, rate))));
     }
 
-    // Saving writes back what it read; a frame written a tick early reads as the frame and is saved on its tick.
+    // A frame written a tick early reads as the frame, which a save keeps in flicks.
     [TestCaseSource(nameof(s_rates))]
-    public void A_reopened_project_saves_its_strings_and_a_frame_written_a_tick_early_on_its_tick(string rateText)
+    public void A_frame_an_earlier_version_wrote_a_tick_early_reads_and_saves_as_the_frame(string rateText)
     {
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         Element first = NewElement(0, 30, rate);
         Uri uri = Save(rateText, first, NewElement(61, 9, rate));
-        Dictionary<string, byte[]> saved = ReadFiles();
         long frameTicks = MediaTime.FromFrames(30, rate).ToTicks(MidpointRounding.ToNegativeInfinity);
         WriteAsEarlier(first, "Length", frameTicks, frameTicks - 1);
 
@@ -92,7 +92,8 @@ public sealed class ProjectFrameGridReadTests
         Assert.Multiple(() =>
         {
             Assert.That(read.Length, Is.EqualTo(MediaTime.FromFrames(30, rate)));
-            Assert.That(ReadFiles(), Is.EqualTo(saved));
+            Assert.That(File.ReadAllText(first.Uri!.LocalPath), Does.Contain($"\"Length\": {MediaTime.FromFrames(30, rate).Flicks}"));
+            Assert.That(reopened.FrameRate, Is.EqualTo(rate));
         });
     }
 
@@ -176,16 +177,24 @@ public sealed class ProjectFrameGridReadTests
         return ((Scene)CoreSerializer.RestoreFromUri<Project>(uri).Items.Single(), rate);
     }
 
+    // The files as 2.0.0-preview.8 wrote them: TimeSpan strings, and the rate as a project variable.
     private Uri Save(string rateText, params Element[] elements)
     {
         var uri = new Uri(Path.Combine(_directory, "project.bep"));
         var project = new Project { Uri = uri };
-        project.Variables[ProjectVariableKeys.FrameRate] = rateText;
         var scene = new Scene { Uri = new Uri(Path.Combine(_directory, "scene", "scene.scene")) };
         foreach (Element element in elements)
             scene.AddChild(element);
         project.Items.Add(scene);
-        CoreSerializer.StoreToUri(project, uri);
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            CoreSerializer.StoreToUri(project, uri);
+
+        JsonObject json = JsonNode.Parse(File.ReadAllText(uri.LocalPath))!.AsObject();
+        json.Remove(nameof(Project.FrameRate));
+        json.Remove(nameof(Project.SampleRate));
+        json["variables"] = new JsonObject { ["framerate"] = rateText, ["samplerate"] = "44100" };
+        json["minAppVersion"] = "2.0.0-preview.1";
+        File.WriteAllText(uri.LocalPath, json.ToJsonString());
         return uri;
     }
 
@@ -218,8 +227,4 @@ public sealed class ProjectFrameGridReadTests
             Assert.That(clip.Range.End, Is.EqualTo(MediaTime.FromFrames(61, rate)).And.EqualTo(after.Start));
         });
     }
-
-    private Dictionary<string, byte[]> ReadFiles()
-        => Directory.GetFiles(_directory, "*", SearchOption.AllDirectories)
-            .ToDictionary(path => Path.GetRelativePath(_directory, path), File.ReadAllBytes);
 }

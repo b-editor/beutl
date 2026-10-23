@@ -486,7 +486,7 @@ public class PaletteCommandTests
     {
         EditViewModel editor = await OpenEditorForNewScene("palette-scene-times");
         Scene scene = editor.Scene;
-        scene.FindHierarchicalParent<Project>()!.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        scene.FindHierarchicalParent<Project>()!.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         scene.Start = MediaTime.FromFrames(1, rate);
         scene.Duration = MediaTime.FromFrames(301, rate);
@@ -705,11 +705,11 @@ public class PaletteCommandTests
     {
         await TestReset.ResetShellAsync();
         Project first = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "palette-recent-a", TestShell.NewWorkspace("palette-recent-a")))!;
+            640, 480, new Rational(30), 44100, "palette-recent-a", TestShell.NewWorkspace("palette-recent-a")))!;
         string firstPath = first.Uri!.LocalPath;
         await TestShell.Project.CloseProjectAsync();
         await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "palette-recent-b", TestShell.NewWorkspace("palette-recent-b"));
+            640, 480, new Rational(30), 44100, "palette-recent-b", TestShell.NewWorkspace("palette-recent-b"));
         HeadlessTestHelpers.Settle();
 
         MainViewModel main = TestShell.MainViewModel;

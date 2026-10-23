@@ -29,8 +29,8 @@ public sealed class ExportVideoRateTests
         if (frameRate.HasValue && sampleRate.HasValue)
         {
             var project = new Project();
-            project.Variables[ProjectVariableKeys.FrameRate] = frameRate.Value.ToString();
-            project.Variables[ProjectVariableKeys.SampleRate] = sampleRate.Value.ToString();
+            project.FrameRate = new Rational(frameRate.Value);
+            project.SampleRate = sampleRate.Value;
             project.Items.Add(scene);
         }
 

@@ -541,7 +541,7 @@ public sealed class AgentHostAiToolsTests
         await TestReset.ResetShellAsync();
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "agent-ai-scene-target");
         Directory.CreateDirectory(workspace);
-        Project project = (await TestShell.Project.CreateProject(640, 360, 30, 44100, "agent-ai-scene-target", workspace))!;
+        Project project = (await TestShell.Project.CreateProject(640, 360, new Rational(30), 44100, "agent-ai-scene-target", workspace))!;
         Scene landscape = project.Items.OfType<Scene>().Single();
         Scene portrait = ProjectOperations.AddScene(project, new SceneCreateOptions(
             360, 640, TimeSpan.Zero, TimeSpan.FromSeconds(5), "Portrait"));

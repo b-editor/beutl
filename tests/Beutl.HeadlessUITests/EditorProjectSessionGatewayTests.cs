@@ -19,7 +19,7 @@ public class EditorProjectSessionGatewayTests
     {
         string path = Path.Combine(TestShell.NewWorkspace(name), $"{name}.bep");
         Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
-            path, 640, 360, 30, duration));
+            path, 640, 360, new Rational(30), duration));
         ProjectOperations.Save(project);
         return path;
     }
@@ -94,11 +94,11 @@ public class EditorProjectSessionGatewayTests
         string first = Path.Combine(root, "Project.bep");
         string second = Path.Combine(root, "project.bep");
         ProjectOperations.Save(ProjectOperations.CreateProject(new ProjectCreateOptions(
-            first, 64, 64, 30, TimeSpan.FromSeconds(1), Name: "First")));
+            first, 64, 64, new Rational(30), TimeSpan.FromSeconds(1), Name: "First")));
         if (File.Exists(second))
             Assert.Ignore("Requires a case-sensitive filesystem.");
         ProjectOperations.Save(ProjectOperations.CreateProject(new ProjectCreateOptions(
-            second, 64, 64, 30, TimeSpan.FromSeconds(1), Name: "Second")));
+            second, 64, 64, new Rational(30), TimeSpan.FromSeconds(1), Name: "Second")));
         EditorProjectSessionGateway gateway = CreateGateway();
         ProjectSessionResult opened = await gateway.OpenProjectAsync(first);
 
@@ -142,7 +142,7 @@ public class EditorProjectSessionGatewayTests
         EditorProjectSessionGateway gateway = CreateGateway();
 
         ProjectSessionResult result = await gateway.CreateProjectAsync(new ProjectCreateOptions(
-            path, 800, 450, 24, TimeSpan.FromSeconds(6)));
+            path, 800, 450, new Rational(24), TimeSpan.FromSeconds(6)));
         HeadlessTestHelpers.Settle();
 
         Assert.Multiple(() =>
@@ -168,7 +168,7 @@ public class EditorProjectSessionGatewayTests
 
         ReconcileException? rejection = await Assert.CatchAsync<ReconcileException>(async () =>
             await gateway.CreateProjectAsync(new ProjectCreateOptions(
-                second, 640, 360, 30, TimeSpan.FromSeconds(4))));
+                second, 640, 360, new Rational(30), TimeSpan.FromSeconds(4))));
 
         Assert.Multiple(() =>
         {
@@ -189,7 +189,7 @@ public class EditorProjectSessionGatewayTests
 
         ReconcileException? rejection = await Assert.CatchAsync<ReconcileException>(async () =>
             await gateway.CreateProjectAsync(new ProjectCreateOptions(
-                openPath, 640, 360, 30, TimeSpan.FromSeconds(4))));
+                openPath, 640, 360, new Rational(30), TimeSpan.FromSeconds(4))));
 
         Assert.Multiple(() =>
         {
@@ -293,7 +293,7 @@ public class EditorProjectSessionGatewayTests
         {
             string outsideProject = Path.Combine(outsideDir, "outside.bep");
             Project project = ProjectOperations.CreateProject(new ProjectCreateOptions(
-                outsideProject, 640, 360, 30, TimeSpan.FromSeconds(4)));
+                outsideProject, 640, 360, new Rational(30), TimeSpan.FromSeconds(4)));
             ProjectOperations.Save(project);
             EditorProjectSessionGateway gateway = CreateGateway();
             ProjectSessionResult opened = await gateway.OpenProjectAsync(outsideProject);

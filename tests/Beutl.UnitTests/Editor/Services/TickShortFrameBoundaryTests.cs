@@ -103,7 +103,7 @@ public sealed class TickShortFrameBoundaryTests
     {
         var harness = new SceneHistoryHarness("beutl_tick_short_frames", duration: MediaTime.FromSeconds(60));
         var project = new Project();
-        project.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         project.Items.Add(harness.Scene);
         rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         return harness;

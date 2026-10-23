@@ -39,7 +39,7 @@ public sealed class UnknownDataApplyTests
         JsonArray savedObjects = saved[nameof(Element.Objects)]!.AsArray();
         // The object whose type is missing moved with its element, which is a member it knows.
         JsonNode unavailable = writtenObjects[1]!.DeepClone();
-        unavailable[nameof(Element.Start)] = TimeSpan.FromSeconds(1).ToString("c");
+        unavailable[nameof(Element.Start)] = MediaTime.FromSeconds(1).Flicks;
 
         Assert.Multiple(() =>
         {

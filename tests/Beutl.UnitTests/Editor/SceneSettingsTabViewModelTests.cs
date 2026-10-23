@@ -112,7 +112,7 @@ public class SceneSettingsTabViewModelTests
             Duration = MediaTime.FromFrames(301, rate),
         };
         var project = new Project();
-        project.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         project.Items.Add(scene);
         using SceneSettingsTabViewModel viewModel = CreateViewModel(
             scene, out CaptureSceneSettingsService sceneSettingsService, out BlockingPreviewPlayer previewPlayer);

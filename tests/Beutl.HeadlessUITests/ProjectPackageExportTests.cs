@@ -146,7 +146,7 @@ public class ProjectPackageExportTests
         {
             config.EnableForNewProjects = false;
             string root = TestShell.NewWorkspace("package-export-" + Guid.NewGuid().ToString("N"));
-            Project project = (await TestShell.Project.CreateProject(64, 64, 30, 44100, "Project", root))!;
+            Project project = (await TestShell.Project.CreateProject(64, 64, new Rational(30), 44100, "Project", root))!;
             TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
             HeadlessTestHelpers.Settle();
             var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;

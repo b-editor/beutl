@@ -29,13 +29,6 @@ public sealed class NestedInputPort<T> : EnginePropertyBackedInputPort<T>, INest
         PropertyPath = path;
     }
 
-    // A port that Bind binds, as a TimeSpan port is bound to a MediaTime property.
-    internal NestedInputPort(NodeMember root, string[] path)
-    {
-        RootMember = new(root);
-        PropertyPath = path;
-    }
-
     [NotAutoSerialized]
     [NotTracked]
     public Reference<NodeMember> RootMember { get; private set; }
@@ -44,14 +37,7 @@ public sealed class NestedInputPort<T> : EnginePropertyBackedInputPort<T>, INest
     [NotTracked]
     public IReadOnlyList<string> PropertyPath { get; private set; } = [];
 
-    public void Bind(EngineObject owner, IProperty property)
-    {
-        // Until #2885 step 4, a MediaTime property takes a TimeSpan port, the type files name.
-        if (typeof(T) == typeof(TimeSpan) && property is IExpressionProperty<MediaTime> time)
-            BindTimeProperty(owner, time);
-        else
-            BindProperty(owner, (IProperty<T>)property);
-    }
+    public void Bind(EngineObject owner, IProperty property) => BindProperty(owner, (IProperty<T>)property);
 
     public void Unbind() => UnbindProperty();
 

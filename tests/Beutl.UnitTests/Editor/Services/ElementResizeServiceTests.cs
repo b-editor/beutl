@@ -1,4 +1,5 @@
-﻿using Beutl.Audio;
+﻿using System.Globalization;
+using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Configuration;
 using Beutl.Editor;
@@ -162,7 +163,7 @@ public class ElementResizeServiceTests
 
     [TestCase("0", 23_520_000)]
     [TestCase("-1", 23_520_000)]
-    [TestCase("invalid", 23_520_000)]
+    [TestCase("30/0", 23_520_000)]
     [TestCase("24", 29_400_000)]
     [TestCase("30", 23_520_000)]
     [TestCase("60", 11_760_000)]
@@ -170,7 +171,7 @@ public class ElementResizeServiceTests
     public void Resize_FrameRate_AlwaysProducesPositiveLength(string rate, long expectedFlicks)
     {
         var project = new Project();
-        project.Variables[ProjectVariableKeys.FrameRate] = rate;
+        project.FrameRate = Rational.Parse(rate, CultureInfo.InvariantCulture);
         project.Items.Add(_scene);
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 

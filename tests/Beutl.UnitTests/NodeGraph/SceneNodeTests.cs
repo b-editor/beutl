@@ -33,10 +33,10 @@ public sealed class SceneNodeTests
         Scene referenced = CreateScene(new RectShape());
         var (model, node) = CreateGraph(referenced);
 
-        node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
+        node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
         Assert.That(Evaluate(model, node, MediaTime.FromSeconds(2)), Is.EqualTo(1), "The element is on screen at 0.5 s.");
 
-        node.Time.Property!.SetValue(TimeSpan.FromSeconds(2));
+        node.Time.Property!.SetValue(MediaTime.FromSeconds(2));
         Assert.That(Evaluate(model, node, MediaTime.FromSeconds(0.5)), Is.EqualTo(0), "The element has ended at 2 s.");
         Assert.That(node.ErrorMonitor.Value, Is.Null);
     }
@@ -60,7 +60,7 @@ public sealed class SceneNodeTests
     {
         Scene referenced = CreateScene(CreateRedSquare());
         var (model, node) = CreateGraph(referenced);
-        node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
+        node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
 
         using var snapshot = new GraphSnapshot();
         var context = new CompositionContext(MediaTime.FromSeconds(3));
@@ -87,7 +87,7 @@ public sealed class SceneNodeTests
         HostGraph(model, referenced);
         Assert.That(node.Object.Start, Is.EqualTo(MediaTime.Zero), "The scene's time does not follow the hosting element.");
 
-        node.Time.Property!.SetValue(TimeSpan.FromSeconds(0.5));
+        node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
 
         Assert.That(Evaluate(model, node, MediaTime.FromSeconds(6)), Is.EqualTo(1),
             "0.5 s of the referenced scene is drawn, not 0.5 s minus the element's start.");
@@ -104,7 +104,7 @@ public sealed class SceneNodeTests
         {
             Scene referenced = CreateScene(CreateRedSquare());
             var (model, node) = CreateGraph(referenced);
-            node.Time.Property!.SetValue(TimeSpan.FromSeconds(seconds));
+            node.Time.Property!.SetValue(MediaTime.FromSeconds(seconds));
             var output = new OutputNode();
             model.Nodes.Add(output);
             model.Connect(output.InputPort, node.Output);

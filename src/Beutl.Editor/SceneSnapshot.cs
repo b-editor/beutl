@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Beutl.Engine;
-using Beutl.JsonConverters;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
@@ -13,16 +12,12 @@ internal static partial class SceneSnapshot
     // Call on the thread that owns the scene. The copy keeps the Ids of the scene and of the scenes it references.
     internal static Scene Create(Scene scene)
     {
-        JsonObject json;
-        using (MediaTimeJsonConverter.WriteFlicks())
+        JsonObject json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions
         {
-            json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions
-            {
-                BaseUri = scene.Uri,
-                Mode = CoreSerializationMode.EmbedReferencedObjects,
-                KeepUnknownMembers = false
-            });
-        }
+            BaseUri = scene.Uri,
+            Mode = CoreSerializationMode.EmbedReferencedObjects,
+            KeepUnknownMembers = false
+        });
 
         var clone = (Scene)DeserializeDetached(json, typeof(Scene), scene.Uri);
         AttachRoot(scene, clone, CloneReferencedObjects(scene));
@@ -114,15 +109,11 @@ internal static partial class SceneSnapshot
 
     private static CoreObject CloneDetached(CoreObject source)
     {
-        JsonObject json;
-        using (MediaTimeJsonConverter.WriteFlicks())
+        JsonObject json = CoreSerializer.SerializeToJsonObject(source, new CoreSerializerOptions
         {
-            json = CoreSerializer.SerializeToJsonObject(source, new CoreSerializerOptions
-            {
-                BaseUri = source.Uri,
-                Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
-            });
-        }
+            BaseUri = source.Uri,
+            Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
+        });
 
         return DeserializeDetached(json, source.GetType(), source.Uri);
     }
@@ -133,12 +124,12 @@ internal static partial class SceneSnapshot
         var project = new Project();
         if (source.FindHierarchicalParent<Project>() is { } sourceProject)
         {
-#pragma warning disable RS0030 // Copies every variable, not only the rates, into the detached project.
+            project.FrameRate = sourceProject.FrameRate;
+            project.SampleRate = sourceProject.SampleRate;
             foreach ((string key, string value) in sourceProject.Variables)
             {
                 project.Variables[key] = value;
             }
-#pragma warning restore RS0030
         }
 
         foreach (CoreObject reference in references)

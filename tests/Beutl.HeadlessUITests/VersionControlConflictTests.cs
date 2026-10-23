@@ -17,7 +17,7 @@ public class VersionControlConflictTests
         Project project = (await TestShell.Project.CreateProject(
             640,
             480,
-            30,
+            new Rational(30),
             44100,
             "project",
             location))!;

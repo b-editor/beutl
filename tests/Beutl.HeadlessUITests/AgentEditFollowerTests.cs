@@ -308,7 +308,7 @@ public sealed class AgentEditFollowerTests
         await TestReset.ResetShellAsync();
         string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "follow-" + Guid.NewGuid().ToString("N"));
         System.IO.Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 360, 30, 44100, "Follow", directory))!;
+        Project project = (await TestShell.Project.CreateProject(640, 360, new Rational(30), 44100, "Follow", directory))!;
         Scene scene = project.Items.OfType<Scene>().Single();
         scene.Duration = MediaTime.FromSeconds(20);
         Element near = AddRectangle(scene, directory, "near", MediaTime.Zero, 0);

@@ -180,7 +180,7 @@ internal sealed class RealGitScope : IAsyncDisposable
         Project project = (await TestShell.Project.CreateProject(
             width,
             height,
-            30,
+            new Rational(30),
             44100,
             projectName,
             location))!;

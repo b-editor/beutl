@@ -9,6 +9,7 @@ using Beutl.Animation;
 using Beutl.Collections;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.JsonConverters;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -24,7 +25,15 @@ internal sealed partial class DeclarativeDocumentApplier
     public void Apply(CoreObject root, JsonObject document)
     {
         _documentBaseUri = ResolveBaseUri(root);
-        ApplyCoreObject(root, document);
+        // The live objects are compared with the document as DocumentAdapter.Read wrote it, and its times read on the
+        // frame grid of the project, as the project's files do.
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+        using ((root as IHierarchical)?.FindHierarchicalParent<Project>() is { } project
+                   ? MediaTimeJsonConverter.ReadOnFrameGrid(project.GetFrameRate())
+                   : null)
+        {
+            ApplyCoreObject(root, document);
+        }
     }
 
     private void ApplyCoreObject(CoreObject target, JsonObject desired)

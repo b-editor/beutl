@@ -11,6 +11,7 @@ using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.Utilities;
 using ModelContextProtocol.Server;
 
 namespace Beutl.AgentToolkit.Tools;
@@ -205,12 +206,14 @@ public sealed class SessionTools(
         int height,
         int frameRate,
         string duration,
+        [Description("Frame-rate denominator: frameRate 30000 with 1001 makes 29.97 fps.")]
+        int frameRateDenominator = 1,
         bool confirmOverwrite = false,
         CancellationToken cancellationToken = default)
     {
         return ExecuteAsync(async () =>
         {
-            ValidateProjectSettings(width, height, frameRate);
+            ValidateProjectSettings(width, height, frameRate, frameRateDenominator);
             string writePath = NormalizeProjectPath(path, nameof(path));
             destructiveGuard.EnsureOverwriteAllowed(writePath, confirmOverwrite);
 
@@ -219,7 +222,7 @@ public sealed class SessionTools(
                     writePath,
                     width,
                     height,
-                    frameRate,
+                    ReduceFrameRate(frameRate, frameRateDenominator),
                     ParsePositiveTimeSpan(duration, nameof(duration))),
                 cancellationToken).ConfigureAwait(false);
             return new CreateProjectResponse(
@@ -443,14 +446,21 @@ public sealed class SessionTools(
         return result;
     }
 
-    private static void ValidateProjectSettings(int width, int height, int frameRate)
+    private static void ValidateProjectSettings(int width, int height, int frameRate, int frameRateDenominator = 1)
     {
-        if (width <= 0 || height <= 0 || frameRate <= 0)
+        if (width <= 0 || height <= 0 || frameRate <= 0 || frameRateDenominator <= 0)
         {
             throw new ReconcileException(new ToolError(
                 ErrorCode.ValidationRejected,
                 "Width, height, and frame rate must be positive."));
         }
+    }
+
+    // Reduced, since a whole rate such as 60/2 is written as its numerator.
+    private static Rational ReduceFrameRate(long numerator, long denominator)
+    {
+        long divisor = MathUtilities.GreatestCommonDivisor(numerator, denominator);
+        return new Rational(numerator / divisor, denominator / divisor);
     }
 
     internal static string NormalizeProjectPath(string requestedPath, string target)

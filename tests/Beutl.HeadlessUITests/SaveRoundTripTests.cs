@@ -27,7 +27,7 @@ public class SaveRoundTripTests
         await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, "saveroundtrip", TestShell.NewWorkspace("saveroundtrip")))!;
+            640, 480, new Rational(30), 44100, "saveroundtrip", TestShell.NewWorkspace("saveroundtrip")))!;
         HeadlessTestHelpers.Settle();
         string projectFile = project.Uri!.LocalPath;
         Scene scene = project.Items.OfType<Scene>().First();
@@ -212,7 +212,7 @@ public class SaveRoundTripTests
         await TestReset.ResetShellAsync();
 
         Project project = (await TestShell.Project.CreateProject(
-            640, 480, 30, 44100, name, TestShell.NewWorkspace(name)))!;
+            640, 480, new Rational(30), 44100, name, TestShell.NewWorkspace(name)))!;
         string projectFile = project.Uri!.LocalPath;
         Scene sourceScene = project.Items.OfType<Scene>().Single();
         TestShell.Editor.ActivateTabItem(sourceScene);

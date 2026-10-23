@@ -18,7 +18,7 @@ public sealed class MediaTimeAdjacencyTests
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         using var harness = new SceneHistoryHarness("beutl_adjacency", duration: MediaTime.FromSeconds(600));
         var project = new Project();
-        project.Variables[ProjectVariableKeys.FrameRate] = rateText;
+        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         project.Items.Add(harness.Scene);
         var service = new ElementResizeService(harness.History);
         var mismatches = new List<string>();

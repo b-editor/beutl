@@ -47,7 +47,7 @@ public static class TutorialHelpers
             currentProject = await projectService.CreateProject(
                 width: 1920,
                 height: 1080,
-                framerate: 30,
+                framerate: new Rational(30),
                 samplerate: 44100,
                 name: fullProjectName,
                 location: tutorialDir);

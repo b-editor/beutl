@@ -27,14 +27,14 @@ public partial class SceneNode : GraphNode
         Object.AlignmentY.Value = Media.AlignmentY.Top;
         PinTimeToReferencedScene();
         AddInput(Object, Object.ReferencedScene);
-        Time = AddInput<TimeSpan>("Time", NodePortDisplays.Time);
+        Time = AddInput<MediaTime>("Time", NodePortDisplays.Time);
         ErrorMonitor = AddTextMonitor("Error", NodePortDisplays.Error);
     }
 
     public OutputPort<DrawableRenderNode?> Output { get; }
 
     /// <summary>The moment of the referenced scene to draw; animate it to play the scene.</summary>
-    public InputPort<TimeSpan> Time { get; }
+    public InputPort<MediaTime> Time { get; }
 
     public NodeMonitor<string?> ErrorMonitor { get; }
 
@@ -84,8 +84,7 @@ public partial class SceneNode : GraphNode
             var node = RequireOriginal();
             // The referenced scene is evaluated at the absolute time Time names, with this
             // render's settings, whether Time is typed or comes from another node.
-            // The port stays TimeSpan until #2885 step 4; a time past the range of MediaTime clamps.
-            var sceneContext = new CompositionContext(MediaTime.FromTicks(((TimeSpan)Time).Ticks, MidpointRounding.AwayFromZero))
+            var sceneContext = new CompositionContext(Time)
             {
                 DisableResourceShare = context.DisableResourceShare,
                 PreferProxy = context.PreferProxy,

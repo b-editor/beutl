@@ -57,7 +57,7 @@ public sealed class MainViewModelShutdownTests
         window.Content = null;
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "window-veto-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
-        await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "veto", location);
+        await viewModel.ProjectService.CreateProject(640, 480, new Rational(30), 44100, "veto", location);
         Func<Beutl.Services.ProjectService.ProjectCloseContext, CancellationToken, Task> veto = (_, _) =>
             Task.FromException(new Beutl.Services.ProjectCloseAbortedException("veto"));
         viewModel.ProjectService.ClosingPreparing += veto;
@@ -176,7 +176,7 @@ public sealed class MainViewModelShutdownTests
         string workspace = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-editor");
         Directory.CreateDirectory(workspace);
         Project project = (await viewModel.ProjectService.CreateProject(
-            640, 480, 30, 44_100, "shutdown-editor", workspace))!;
+            640, 480, new Rational(30), 44_100, "shutdown-editor", workspace))!;
         Scene scene = project.Items.OfType<Scene>().Single();
         viewModel.EditorService.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
@@ -211,7 +211,7 @@ public sealed class MainViewModelShutdownTests
         var viewModel = new MainViewModel(_ => handoffs++);
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-request-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
-        await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "drain", location);
+        await viewModel.ProjectService.CreateProject(640, 480, new Rational(30), 44100, "drain", location);
         var closeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseClose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int closeCalls = 0;
@@ -278,7 +278,7 @@ public sealed class MainViewModelShutdownTests
         var viewModel = new MainViewModel();
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-veto-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
-        await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "veto", location);
+        await viewModel.ProjectService.CreateProject(640, 480, new Rational(30), 44100, "veto", location);
         Func<Beutl.Services.ProjectService.ProjectCloseContext, CancellationToken, Task> veto = (_, _) =>
             Task.FromException(new Beutl.Services.ProjectCloseAbortedException("veto"));
         viewModel.ProjectService.ClosingPreparing += veto;
@@ -333,7 +333,7 @@ public sealed class MainViewModelShutdownTests
         window.Content = null;
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-window-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
-        await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "window", location);
+        await viewModel.ProjectService.CreateProject(640, 480, new Rational(30), 44100, "window", location);
         var closeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseClose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int closeCalls = 0;
@@ -428,7 +428,7 @@ public sealed class MainViewModelShutdownTests
         var viewModel = new MainViewModel();
         string location = Path.Combine(BeutlHomeIsolation.CurrentHome!, "shutdown-join-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(location);
-        await viewModel.ProjectService.CreateProject(640, 480, 30, 44100, "join", location);
+        await viewModel.ProjectService.CreateProject(640, 480, new Rational(30), 44100, "join", location);
         var releaseClose = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int closeCalls = 0;
         Func<Beutl.Services.ProjectService.ProjectCloseContext, CancellationToken, Task> vetoAfterRelease = async (_, _) =>

@@ -418,7 +418,7 @@ public sealed class AgentHostSceneRoutingTests
         await TestReset.ResetShellAsync();
         string directory = Path.Combine(BeutlHomeIsolation.CurrentHome!, "scene-routing-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
-        Project project = (await TestShell.Project.CreateProject(640, 360, 30, 44100, "First", directory))!;
+        Project project = (await TestShell.Project.CreateProject(640, 360, new Rational(30), 44100, "First", directory))!;
         Scene first = project.Items.OfType<Scene>().Single();
         first.Name = "First";
         Scene second = ProjectOperations.AddScene(project, new SceneCreateOptions(

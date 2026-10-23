@@ -224,8 +224,12 @@ public sealed partial class SchemaGenerator
         ];
 
         static FieldDescriptor ToField(IProperty property)
-            => new(property.Name, property.ValueType.FullName ?? property.ValueType.Name, property.DefaultValue);
+            => new(property.Name, property.ValueType.FullName ?? property.ValueType.Name, DocumentDefault(property));
     }
+
+    // Documents show times as TimeSpan strings, while files hold flicks.
+    private static object? DocumentDefault(IProperty property)
+        => property.DefaultValue is MediaTime time ? time.ToTimeSpan().ToString("c") : property.DefaultValue;
 
     private static IReadOnlyList<PropertyDescriptor> CreateProperties(Type type)
     {
@@ -252,7 +256,7 @@ public sealed partial class SchemaGenerator
         return new PropertyDescriptor(
             property.Name,
             property.ValueType.FullName ?? property.ValueType.Name,
-            property.DefaultValue,
+            DocumentDefault(property),
             property is IExpressionProperty { IsAnimatable: true },
             property is IExpressionProperty,
             display is null ? null : new DisplayDescriptor(display.GetName(), display.GetDescription(), display.GetGroupName()),
