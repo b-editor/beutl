@@ -71,7 +71,7 @@ internal sealed partial class RenderRequestExecutor
             catch (InvalidOperationException) when (_shaderBackendPreference == ShaderBackendPreference.Auto)
             {
                 // The SkSL lowering is the compatibility contract. A native compile/resource failure must not
-                // change existing output. A short failure cooldown permits a later SPIR-V retry.
+                // change existing output. A failed program stays on the SkSL path for this renderer.
                 return false;
             }
             using (lease)

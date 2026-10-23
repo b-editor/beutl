@@ -201,10 +201,8 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         s_logger.LogDebug("Swapchain resized to {Width}x{Height}", width, height);
     }
 
-    private void ExecuteRender(Ref<Bitmap> bitmapRef, RenderParams renderParams, int retryCount = 0)
+    private void ExecuteRender(Ref<Bitmap> bitmapRef, RenderParams renderParams, bool redrawIfOutOfDate = true)
     {
-        if (retryCount > 10) return;
-
         if (_faulted || _swapchain == null || _pipeline == null)
             return;
 
@@ -247,7 +245,9 @@ internal sealed unsafe partial class VulkanSwapchainRenderer : IDisposable
         if (presentResult is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
         {
             ExecuteResize(_swapchain.Extent.Width, _swapchain.Extent.Height);
-            ExecuteRender(bitmapRef, renderParams, ++retryCount); // Retry render after resize
+            // A suboptimal frame was still shown; an out-of-date one was not, so it is drawn once more.
+            if (presentResult == Result.ErrorOutOfDateKhr && redrawIfOutOfDate)
+                ExecuteRender(bitmapRef, renderParams, redrawIfOutOfDate: false);
             return;
         }
 

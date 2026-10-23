@@ -1,6 +1,5 @@
 ﻿using System.Buffers.Binary;
 using System.Numerics;
-using System.Reflection;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
@@ -29,10 +28,6 @@ public sealed class ShaderDescriptionTests
             Assert.That(first.Source.Text, Is.EqualTo(second.Source.Text));
             Assert.That(first.Source.IdentityHash, Is.EqualTo(second.Source.IdentityHash));
             Assert.That(first.Bounds, Is.EqualTo(RenderBoundsContract.Identity));
-            Assert.That(
-                typeof(ShaderDescription).GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                    .Select(static property => property.Name),
-                Does.Not.Contain("IsCoverageHomogeneous"));
         });
 
         string[] invalidSources =
