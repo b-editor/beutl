@@ -1,6 +1,8 @@
 ﻿using System.Runtime.ExceptionServices;
 
 using Beutl.Graphics.Effects;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -12,6 +14,7 @@ namespace Beutl.Graphics.Shaders;
 internal sealed class ProgramCache<TProgram> : IDisposable
     where TProgram : class, IDisposable
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<ProgramCache<TProgram>>();
     private readonly object _gate = new();
     private readonly Func<TProgram, long> _retainedByteSize;
     private readonly long _maxRetainedBytes;
@@ -23,7 +26,6 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     private long _misses;
     private long _creations;
     private long _evictions;
-    private ExceptionDispatchInfo? _deferredCleanupFailure;
     private bool _disposed;
 
     public ProgramCache(
@@ -125,7 +127,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             _entries.Add(key, inserted);
             _retainedBytes = checked(_retainedBytes + retainedBytes);
             List<TProgram>? evicted = TrimToBudget();
-            RecordCleanupFailure(DisposeProgramsBestEffort(evicted));
+            LogCleanupFailure(DisposeProgramsBestEffort(evicted));
             return new ProgramCacheLease<TProgram>(
                 this,
                 inserted,
@@ -183,7 +185,6 @@ internal sealed class ProgramCache<TProgram> : IDisposable
     public void Dispose()
     {
         List<TProgram> disposable;
-        ExceptionDispatchInfo? firstFailure;
         lock (_gate)
         {
             if (_disposed)
@@ -193,13 +194,9 @@ internal sealed class ProgramCache<TProgram> : IDisposable
             _activeContexts.Clear();
             Entry[] entries = [.. _lru];
             disposable = DetachEntries(entries);
-
-            firstFailure = _deferredCleanupFailure;
-            _deferredCleanupFailure = null;
         }
 
-        ExceptionDispatchInfo? disposalFailure = DisposeProgramsBestEffort(disposable);
-        (firstFailure ?? disposalFailure)?.Throw();
+        DisposeProgramsBestEffort(disposable)?.Throw();
     }
 
     internal void Release(Entry? entry, TProgram program)
@@ -256,7 +253,7 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         }
         catch
         {
-            RecordCleanupFailure(DisposeProgramsBestEffort([program]));
+            LogCleanupFailure(DisposeProgramsBestEffort([program]));
             throw;
         }
     }
@@ -347,10 +344,11 @@ internal sealed class ProgramCache<TProgram> : IDisposable
         _evictions++;
     }
 
-    private void RecordCleanupFailure(ExceptionDispatchInfo? failure)
+    // Logged rather than thrown, so a lookup reports only its own failure.
+    private static void LogCleanupFailure(ExceptionDispatchInfo? failure)
     {
-        if (failure is not null && _deferredCleanupFailure is null)
-            _deferredCleanupFailure = failure;
+        if (failure is not null)
+            s_logger.LogError(failure.SourceException, "Failed to dispose a shader program the cache released.");
     }
 
     private static ExceptionDispatchInfo? DisposeProgramsBestEffort(IEnumerable<TProgram>? programs)
