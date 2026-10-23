@@ -7,9 +7,9 @@ namespace Beutl.NodeGraph;
 // "Connections" serialized form.
 internal static class ConnectionReferenceList
 {
-    public static bool AddIfMissing(CoreList<Reference<Connection>> connections, Connection connection)
+    public static bool AddIfMissing(ICoreList<Reference<Connection>> connections, Connection connection)
     {
-        if (connections.All(r => r.Id != connection.Id))
+        if (connections.All(r => r.Id != connection.Id.Value))
         {
             connections.Add(connection);
             return true;
@@ -18,9 +18,9 @@ internal static class ConnectionReferenceList
         return false;
     }
 
-    public static bool RemoveIfPresent(CoreList<Reference<Connection>> connections, Connection connection)
+    public static bool RemoveIfPresent(ICoreList<Reference<Connection>> connections, Connection connection)
     {
-        if (connections.Any(r => r.Id == connection.Id))
+        if (connections.Any(r => r.Id == connection.Id.Value))
         {
             connections.Remove(connection);
             return true;
@@ -29,12 +29,12 @@ internal static class ConnectionReferenceList
         return false;
     }
 
-    public static void Write(ICoreSerializationContext context, CoreList<Reference<Connection>> connections)
+    public static void Write(ICoreSerializationContext context, ICoreList<Reference<Connection>> connections)
     {
         context.SetValue("Connections", connections.Select(v => v.Id).ToArray());
     }
 
-    public static void Read(ICoreSerializationContext context, CoreList<Reference<Connection>> connections)
+    public static void Read(ICoreSerializationContext context, ICoreList<Reference<Connection>> connections)
     {
         if (context.GetValue<List<Guid>>("Connections") is { } srcArray)
         {

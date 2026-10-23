@@ -1,53 +1,41 @@
-﻿using System.ComponentModel;
-
-namespace Beutl.NodeGraph;
+﻿namespace Beutl.NodeGraph;
 
 public class InputPort<T> : NodePort<T>, IInputPort
 {
     public InputPort()
     {
         ScanProperties<InputPort<T>>();
-        HideProperty(ConnectionProperty);
-        ConnectionProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Connection)));
+        HideProperty(Connection);
+        Connection.ValueChanged += (_, _) => OnConnectionChanged();
     }
 
-    public IProperty<Reference<Connection>> ConnectionProperty { get; } = new ValueOnlyProperty<Reference<Connection>>(default) { AffectsRender = false };
-
-    public Reference<Connection> Connection
-    {
-        get => ConnectionProperty.Value;
-        set => ConnectionProperty.Value = value;
-    }
+    public IProperty<Reference<Connection>> Connection { get; } = new ValueOnlyProperty<Reference<Connection>>(default) { AffectsRender = false };
 
     IObservable<Reference<Connection>> IInputPort.GetConnectionObservable()
     {
-        return ConnectionProperty.GetObservable();
+        return Connection.GetObservable();
     }
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    private protected virtual void OnConnectionChanged()
     {
-        base.OnPropertyChanged(args);
-        if (args.PropertyName == nameof(Connection))
-        {
-            RaiseTopologyChanged();
-            RaiseEdited();
-        }
+        RaiseTopologyChanged();
+        RaiseEdited();
     }
 
     public override void NotifyConnected(Connection connection)
     {
         base.NotifyConnected(connection);
-        if (!Connection.IsNull) throw new InvalidOperationException("This input port is already connected.");
-        Connection = connection;
-        connection.Status = ConnectionStatus.Connected;
+        if (!Connection.Value.IsNull) throw new InvalidOperationException("This input port is already connected.");
+        Connection.Value = connection;
+        connection.Status.Value = ConnectionStatus.Connected;
     }
 
     public override void NotifyDisconnected(Connection connection)
     {
         base.NotifyDisconnected(connection);
-        if (Connection.IsNull || Connection.Id != connection.Id)
+        if (Connection.Value.IsNull || Connection.Value.Id != connection.Id.Value)
             throw new InvalidOperationException("This input port is not connected to the specified connection.");
-        Connection = default;
-        connection.Status = ConnectionStatus.Disconnected;
+        Connection.Value = default;
+        connection.Status.Value = ConnectionStatus.Disconnected;
     }
 }

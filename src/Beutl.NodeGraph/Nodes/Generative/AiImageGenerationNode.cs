@@ -74,7 +74,7 @@ public sealed partial class AiImageGenerationNode : SeededGenerativeNode, IPromp
             Seed = r.RequestSeed,
             ModelId = NormalizeModelId(r.Model),
             References = references,
-            RequestKeySeed = RequestKeySeed,
+            RequestKeySeed = RequestKeySeed.Value,
             ParameterFingerprint = r.ComputeParameterFingerprint(),
         };
     }

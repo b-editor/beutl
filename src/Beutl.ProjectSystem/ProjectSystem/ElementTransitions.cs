@@ -16,11 +16,11 @@ internal static class ElementTransitions
     public static bool AreAdjacent(Element outgoing, Element incoming)
     {
         return outgoing != incoming
-               && outgoing.IsEnabled
-               && incoming.IsEnabled
-               && outgoing.ZIndex == incoming.ZIndex
-               && outgoing.Start < incoming.Start
-               && incoming.Start <= outgoing.Range.End + AdjacencyTolerance
+               && outgoing.IsEnabled.Value
+               && incoming.IsEnabled.Value
+               && outgoing.ZIndex.Value == incoming.ZIndex.Value
+               && outgoing.Start.Value < incoming.Start.Value
+               && incoming.Start.Value <= outgoing.Range.End + AdjacencyTolerance
                && outgoing.Range.End <= incoming.Range.End + AdjacencyTolerance;
     }
 
@@ -64,7 +64,7 @@ internal static class ElementTransitions
         Element? next = null;
         foreach (Element item in scene.Children.AsSpan())
         {
-            if (AreAdjacent(element, item) && (next == null || item.Start < next.Start))
+            if (AreAdjacent(element, item) && (next == null || item.Start.Value < next.Start.Value))
             {
                 next = item;
             }
@@ -76,7 +76,7 @@ internal static class ElementTransitions
     // The transition at element's start, shared with the element before it when there is one.
     public static TransitionBoundary? GetBoundaryAtStart(Element element, TransitionDurationOverride? durationOverride = null)
     {
-        if (!element.IsEnabled) return null;
+        if (!element.IsEnabled.Value) return null;
 
         return CreateBoundary(FindPrevious(element), element, durationOverride);
     }
@@ -84,7 +84,7 @@ internal static class ElementTransitions
     // The transition at element's end, shared with the element after it when there is one.
     public static TransitionBoundary? GetBoundaryAtEnd(Element element, TransitionDurationOverride? durationOverride = null)
     {
-        if (!element.IsEnabled) return null;
+        if (!element.IsEnabled.Value) return null;
 
         return CreateBoundary(element, FindNext(element), durationOverride);
     }
@@ -119,8 +119,8 @@ internal static class ElementTransitions
         ReadOnlySpan<Element> children = scene.Children.AsSpan();
         foreach (Element element in children)
         {
-            bool enter = IsActive(element.EnterTransition);
-            bool exit = IsActive(element.ExitTransition);
+            bool enter = IsActive(element.EnterTransition.Value);
+            bool exit = IsActive(element.ExitTransition.Value);
             if (!enter && !exit) continue;
 
             participants ??= [];
@@ -160,7 +160,7 @@ internal static class ElementTransitions
             // shrink anywhere in the element. The scene has already changed by now, so the span it had
             // cannot be recovered; the whole element counts instead.
             if ((Reaches(range, element.Range.End) && HasStartTransition(element, null))
-                || (Reaches(range, element.Start) && HasEndTransition(element, null)))
+                || (Reaches(range, element.Start.Value) && HasEndTransition(element, null)))
             {
                 regions.Add(element.Range);
             }
@@ -174,7 +174,7 @@ internal static class ElementTransitions
     public static MediaTime GetLastFrameTime(Element element)
     {
         MediaTime time = element.Range.End - MediaTime.FromFrames(1, GetFrameRate(element));
-        return time < element.Start ? element.Start : time;
+        return time < element.Start.Value ? element.Start.Value : time;
     }
 
     private static bool Touches(TimeRange a, TimeRange b)
@@ -188,7 +188,7 @@ internal static class ElementTransitions
         return range.Start <= time + AdjacencyTolerance && time - AdjacencyTolerance <= range.End;
     }
 
-    private static bool IsActive(ClipTransition? transition) => transition is { IsEnabled: true };
+    private static bool IsActive(ClipTransition? transition) => transition is { IsEnabled.Value: true };
 
     // An element's start counts as transitioning when the boundary there spans some time: a side adds a
     // duration, or the element before it overlaps it while either side sets a transition. Likewise for
@@ -196,13 +196,13 @@ internal static class ElementTransitions
     private static bool HasStartTransition(Element element, TransitionDurationOverride? durationOverride)
     {
         Element? previous = FindPrevious(element);
-        return HasSpan(previous, element, previous?.ExitTransition, element.EnterTransition, durationOverride);
+        return HasSpan(previous, element, previous?.ExitTransition.Value, element.EnterTransition.Value, durationOverride);
     }
 
     private static bool HasEndTransition(Element element, TransitionDurationOverride? durationOverride)
     {
         Element? next = FindNext(element);
-        return HasSpan(element, next, element.ExitTransition, next?.EnterTransition, durationOverride);
+        return HasSpan(element, next, element.ExitTransition.Value, next?.EnterTransition.Value, durationOverride);
     }
 
     private static bool HasSpan(
@@ -216,7 +216,7 @@ internal static class ElementTransitions
 
         return GetDuration(exit, durationOverride) > MediaTime.Zero
                || GetDuration(enter, durationOverride) > MediaTime.Zero
-               || (outgoing != null && incoming != null && incoming.Start < outgoing.Range.End);
+               || (outgoing != null && incoming != null && incoming.Start.Value < outgoing.Range.End);
     }
 
     private static MediaTime GetDuration(ClipTransition? transition, TransitionDurationOverride? durationOverride)
@@ -232,8 +232,8 @@ internal static class ElementTransitions
     private static TransitionBoundary? CreateBoundary(
         Element? outgoing, Element? incoming, TransitionDurationOverride? durationOverride)
     {
-        ClipTransition? exit = outgoing?.ExitTransition;
-        ClipTransition? enter = incoming?.EnterTransition;
+        ClipTransition? exit = outgoing?.ExitTransition.Value;
+        ClipTransition? enter = incoming?.EnterTransition.Value;
         // The incoming side decides how the two blend; the outgoing side then only adds its duration.
         ClipTransition? transition = IsActive(enter) ? enter : IsActive(exit) ? exit : null;
         if (transition == null) return null;
@@ -244,8 +244,8 @@ internal static class ElementTransitions
         {
             // Centred on the cut when both sides add the same duration, ahead of or behind it when only
             // one does, and covering the overlap when the two elements overlap.
-            start = Min(outgoing.Range.End - GetDuration(exit, durationOverride), incoming.Start);
-            end = Max(incoming.Start + GetDuration(enter, durationOverride), outgoing.Range.End);
+            start = Min(outgoing.Range.End - GetDuration(exit, durationOverride), incoming.Start.Value);
+            end = Max(incoming.Start.Value + GetDuration(enter, durationOverride), outgoing.Range.End);
         }
         else if (outgoing != null)
         {
@@ -254,18 +254,18 @@ internal static class ElementTransitions
         }
         else
         {
-            start = incoming!.Start;
-            end = incoming.Start + GetDuration(enter, durationOverride);
+            start = incoming!.Start.Value;
+            end = incoming.Start.Value + GetDuration(enter, durationOverride);
         }
 
         // A span never leaves its elements, and stops at the middle of an element that also transitions
         // at its other end, so the spans at an element's two ends never overlap.
         if (outgoing != null)
         {
-            start = Max(start, outgoing.Start);
+            start = Max(start, outgoing.Start.Value);
             if (HasStartTransition(outgoing, durationOverride))
             {
-                start = Max(start, outgoing.Start + new MediaTime(outgoing.Length.Flicks / 2));
+                start = Max(start, outgoing.Start.Value + new MediaTime(outgoing.Length.Value.Flicks / 2));
             }
         }
 
@@ -274,7 +274,7 @@ internal static class ElementTransitions
             end = Min(end, incoming.Range.End);
             if (HasEndTransition(incoming, durationOverride))
             {
-                end = Min(end, incoming.Start + new MediaTime(incoming.Length.Flicks / 2));
+                end = Min(end, incoming.Start.Value + new MediaTime(incoming.Length.Value.Flicks / 2));
             }
         }
 
@@ -324,8 +324,8 @@ internal readonly record struct TransitionBoundary(
     // ahead of its start.
     public MediaTime GetIncomingTime(MediaTime time)
     {
-        if (Incoming == null || time >= Incoming.Start) return time;
+        if (Incoming == null || time >= Incoming.Start.Value) return time;
 
-        return Incoming.Start;
+        return Incoming.Start.Value;
     }
 }

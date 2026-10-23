@@ -23,7 +23,7 @@ public partial class PreviewNode : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             var node = RequireOriginal();
-            if (!node._preview.IsEnabled)
+            if (!node._preview.IsEnabled.Value)
                 return;
 
             if (FilterEffectInputBinding.TryGetCurrent(out FilterEffectInputBinding binding))

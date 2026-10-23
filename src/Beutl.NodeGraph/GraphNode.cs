@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Beutl.Collections;
@@ -14,29 +13,21 @@ namespace Beutl.NodeGraph;
 [FallbackType(typeof(FallbackGraphNode))]
 public abstract partial class GraphNode : EngineObject
 {
-    private readonly HierarchicalList<INodeMember> _items;
-    private readonly HierarchicalList<INestedInputPort> _nestedInputPorts;
-    private readonly ValueOnlyProperty<ICoreList<INestedInputPort>> _nestedInputPortsProperty = new(null!) { AffectsRender = false, KeepsList = true };
+    private readonly ListProperty<INestedInputPort> _nestedInputPorts = new() { AffectsRender = false };
     private readonly NestedInputPortManager _nestedPortManager;
     private IInputPort[]? _connectedInputs;
 
     public GraphNode()
     {
-        _items = new(this);
-        _nestedInputPorts = new(this);
         _nestedPortManager = new(this);
-        ItemsProperty.Value = _items;
-        _nestedInputPortsProperty.Value = _nestedInputPorts;
-        // Reading the ports through the property brings them up to date first, as NestedInputPorts does.
-        _nestedInputPortsProperty.BeforeRead = () => _nestedPortManager.EnsureSynchronized();
+        // Each use of the ports brings them up to date first, as the NestedInputPorts accessor did.
+        _nestedInputPorts.BeforeAccess = () => _nestedPortManager.EnsureSynchronized();
         ScanProperties<GraphNode>();
-        HideProperties(IsExpandedProperty, PositionProperty, ItemsProperty, NestedInputPortsProperty);
-        IsExpandedProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsExpanded)));
-        PositionProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Position)));
+        HideProperties(IsExpanded, Position, Items, NestedInputPorts);
 
-        _items.Attached += OnItemAttached;
-        _items.Detached += OnItemDetached;
-        _items.CollectionChanged += (_, _) => _nestedPortManager.Synchronize();
+        Items.Attached += OnItemAttached;
+        Items.Detached += OnItemDetached;
+        Items.CollectionChanged += (_, _) => _nestedPortManager.Synchronize();
         _nestedInputPorts.Attached += port =>
         {
             OnItemAttached(port);
@@ -78,30 +69,19 @@ public abstract partial class GraphNode : EngineObject
     }
 
     [SuppressResourceClassGeneration]
-    public IProperty<bool> IsExpandedProperty { get; } = new ValueOnlyProperty<bool>(true) { AffectsRender = false };
+    public IProperty<bool> IsExpanded { get; } = new ValueOnlyProperty<bool>(true) { AffectsRender = false };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<(double X, double Y)> PositionProperty { get; } = new ValueOnlyProperty<(double X, double Y)>((0, 0)) { AffectsRender = false };
+    public IProperty<(double X, double Y)> Position { get; } = new ValueOnlyProperty<(double X, double Y)>((0, 0)) { AffectsRender = false };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<ICoreList<INodeMember>> ItemsProperty { get; } = new ValueOnlyProperty<ICoreList<INodeMember>>(null!) { AffectsRender = false, KeepsList = true };
+    public IListProperty<INodeMember> Items { get; } = new ListProperty<INodeMember> { AffectsRender = false };
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<ICoreList<INestedInputPort>> NestedInputPortsProperty => _nestedInputPortsProperty;
-
-    public ICoreList<INodeMember> Items => _items;
-
-    public ICoreList<INestedInputPort> NestedInputPorts
-    {
-        get
-        {
-            _nestedPortManager.EnsureSynchronized();
-            return _nestedInputPorts;
-        }
-    }
+    public IListProperty<INestedInputPort> NestedInputPorts => _nestedInputPorts;
 
     public event EventHandler? NestedInputPortsChanged;
 
@@ -118,14 +98,14 @@ public abstract partial class GraphNode : EngineObject
     public IEnumerable<INodeMember> EnumerateMembers()
     {
         _nestedPortManager.EnsureSynchronized();
-        return _items.Concat<INodeMember>(_nestedInputPorts);
+        return Items.Concat<INodeMember>(_nestedInputPorts);
     }
 
     internal IInputPort[] GetConnectedInputs()
     {
         _nestedPortManager.EnsureSynchronized();
-        return _connectedInputs ??= _items.Concat<INodeMember>(_nestedInputPorts)
-            .OfType<IInputPort>().Where(p => !p.Connection.IsNull).ToArray();
+        return _connectedInputs ??= Items.Concat<INodeMember>(_nestedInputPorts)
+            .OfType<IInputPort>().Where(p => !p.Connection.Value.IsNull).ToArray();
     }
 
     // Check binding and ancestor overrides without consulting other connections. Alias indexing
@@ -155,7 +135,7 @@ public abstract partial class GraphNode : EngineObject
             {
                 if (ConflictsWithNestedInput(nested, other)) return false;
             }
-            else if (other is INestedInputPort descendant && descendant.RootMember.Id == input.Id)
+            else if (other is INestedInputPort descendant && descendant.RootMember.Id == input.Id.Value)
             {
                 return false;
             }
@@ -167,7 +147,7 @@ public abstract partial class GraphNode : EngineObject
     // contains or lies inside the nested port's.
     private static bool ConflictsWithNestedInput(INestedInputPort nested, IInputPort other)
     {
-        return other.Id == nested.RootMember.Id
+        return other.Id.Value == nested.RootMember.Id
                || other is INestedInputPort child && child.RootMember.Id == nested.RootMember.Id
                && (IsPathPrefix(child.PropertyPath, nested.PropertyPath)
                    || IsPathPrefix(nested.PropertyPath, child.PropertyPath));
@@ -191,29 +171,6 @@ public abstract partial class GraphNode : EngineObject
 
     internal static bool IsPathPrefix(IReadOnlyList<string> prefix, IReadOnlyList<string> path)
         => prefix.Count <= path.Count && prefix.SequenceEqual(path.Take(prefix.Count));
-
-    public bool IsExpanded
-    {
-        get => IsExpandedProperty.Value;
-        set => IsExpandedProperty.Value = value;
-    }
-
-    public (double X, double Y) Position
-    {
-        get => PositionProperty.Value;
-        set
-        {
-            double x = value.X;
-            double y = value.Y;
-
-            if (double.IsNaN(x))
-                x = 0;
-            if (double.IsNaN(y))
-                y = 0;
-
-            PositionProperty.Value = (x, y);
-        }
-    }
 
     public event EventHandler? TopologyChanged;
 
@@ -247,7 +204,7 @@ public abstract partial class GraphNode : EngineObject
 
     protected ListInputPort<T> AddListInput<T>(string name, DisplayAttribute? display = null)
     {
-        var port = new ListInputPort<T>() { Name = name, Display = display };
+        var port = new ListInputPort<T>() { Name = { Value = name }, Display = { Value = display } };
         Items.Add(port);
         return port;
     }
@@ -270,7 +227,7 @@ public abstract partial class GraphNode : EngineObject
         NodeMonitorContentKind contentKind = NodeMonitorContentKind.Text,
         DisplayAttribute? display = null)
     {
-        var monitor = new NodeMonitor<T>() { Name = name, Display = display, ContentKind = contentKind };
+        var monitor = new NodeMonitor<T>() { Name = { Value = name }, Display = { Value = display }, ContentKind = contentKind };
         Items.Add(monitor);
         return monitor;
     }
@@ -297,8 +254,8 @@ public abstract partial class GraphNode : EngineObject
         var adapter = new NodePropertyAdapter<T>(name);
         var port = new DefaultInputPort<T>();
         port.SetPropertyAdapter(adapter);
-        port.Name = name;
-        port.Display = display;
+        port.Name.Value = name;
+        port.Display.Value = display;
         return port;
     }
 
@@ -307,10 +264,10 @@ public abstract partial class GraphNode : EngineObject
         var adapter = Activator.CreateInstance(typeof(NodePropertyAdapter<>).MakeGenericType(type), name)!;
         var port = (IDefaultInputPort)Activator.CreateInstance(typeof(DefaultInputPort<>).MakeGenericType(type))!;
         port.SetPropertyAdapter(adapter);
-        port.Name = name;
+        port.Name.Value = name;
         if (port is NodeMember nodeMember)
         {
-            nodeMember.Display = display;
+            nodeMember.Display.Value = display;
         }
 
         return port;
@@ -318,7 +275,7 @@ public abstract partial class GraphNode : EngineObject
 
     protected OutputPort<T> CreateOutput<T>(string name, DisplayAttribute? display = null)
     {
-        return new OutputPort<T>() { Name = name, Display = display };
+        return new OutputPort<T>() { Name = { Value = name }, Display = { Value = display } };
     }
 
     protected IOutputPort CreateOutput(string name, Type type, DisplayAttribute? display = null)
@@ -326,8 +283,8 @@ public abstract partial class GraphNode : EngineObject
         var port = (IOutputPort)Activator.CreateInstance(typeof(OutputPort<>).MakeGenericType(type))!;
         if (port is NodeMember nodeMember)
         {
-            nodeMember.Name = name;
-            nodeMember.Display = display;
+            nodeMember.Name.Value = name;
+            nodeMember.Display.Value = display;
         }
 
         return port;
@@ -338,8 +295,8 @@ public abstract partial class GraphNode : EngineObject
         var adapter = new NodePropertyAdapter<T>(name);
         var port = new DefaultNodeMember<T>();
         port.SetProperty(adapter);
-        port.Name = name;
-        port.Display = display;
+        port.Name.Value = name;
+        port.Display.Value = display;
         return port;
     }
 
@@ -349,7 +306,7 @@ public abstract partial class GraphNode : EngineObject
         if (context.GetValue<string>(nameof(Position)) is { } posStr
             && TryParsePosition(posStr, out var position))
         {
-            Position = position;
+            Position.Value = position;
         }
 
         // A missing plugin's node reads what every node has. Its ports stay unknown members and are written back.
@@ -368,7 +325,7 @@ public abstract partial class GraphNode : EngineObject
                     && nameNode is JsonValue nameValue
                     && nameValue.TryGetValue(out string? itemName))
                 {
-                    INodeMember? nodeMember = Items.FirstOrDefault(x => x.Name == itemName);
+                    INodeMember? nodeMember = Items.FirstOrDefault(x => x.Name.Value == itemName);
                     if (nodeMember is ICoreSerializable serializable)
                     {
                         CoreSerializer.PopulateFromJsonObject(serializable, itemObj);
@@ -386,7 +343,7 @@ public abstract partial class GraphNode : EngineObject
     {
         _nestedPortManager.EnsureSynchronized(force: true);
         base.Serialize(context);
-        context.SetValue(nameof(Position), string.Create(CultureInfo.InvariantCulture, $"{Position.X:R},{Position.Y:R}"));
+        context.SetValue(nameof(Position), string.Create(CultureInfo.InvariantCulture, $"{Position.Value.X:R},{Position.Value.Y:R}"));
         // A fallback with saved ports writes them back as they were read.
         if (this is FallbackGraphNode { Json: not null }) return;
 

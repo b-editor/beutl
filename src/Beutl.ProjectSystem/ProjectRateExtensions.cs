@@ -6,5 +6,5 @@ public static class ProjectRateExtensions
     public static Rational GetFrameRate(this Project? project) => Project.ReadFrameRate(project);
 
     // The project's sample rate, or 44100 when it is not positive or there is no project.
-    public static int GetSampleRate(this Project? project) => project?.SampleRate is > 0 and var rate ? rate : 44100;
+    public static int GetSampleRate(this Project? project) => project?.SampleRate.Value is > 0 and var rate ? rate : 44100;
 }

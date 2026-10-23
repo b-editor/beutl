@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Media.Source;
+﻿using Beutl.Media.Source;
 
 namespace Beutl.NodeGraph.Generative;
 
@@ -16,96 +15,33 @@ public sealed class GenerationRecord : Hierarchical
     public GenerationRecord()
     {
         ScanProperties<GenerationRecord>();
-        ImageProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Image)));
-        VideoProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Video)));
-        FingerprintProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Fingerprint)));
-        ParameterFingerprintProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(ParameterFingerprint)));
-        ModelIdProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(ModelId)));
-        SeedProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Seed)));
-        SummaryProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Summary)));
-        CreatedAtProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(CreatedAt)));
-        IsPinnedProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsPinned)));
     }
 
     // The sources are not made children, as their CoreProperty forms did not make them.
-    public IProperty<ImageSource?> ImageProperty { get; } = new ValueOnlyProperty<ImageSource?>(null) { OwnsValue = false };
-
-    public IProperty<VideoSource?> VideoProperty { get; } = new ValueOnlyProperty<VideoSource?>(null) { OwnsValue = false };
-
-    public IProperty<string> FingerprintProperty { get; } = new ValueOnlyProperty<string>(string.Empty);
-
-    public IProperty<string> ParameterFingerprintProperty { get; } = new ValueOnlyProperty<string>(string.Empty);
-
-    public IProperty<string?> ModelIdProperty { get; } = new ValueOnlyProperty<string?>(null);
-
-    public IProperty<int?> SeedProperty { get; } = new ValueOnlyProperty<int?>(null);
-
-    public IProperty<string?> SummaryProperty { get; } = new ValueOnlyProperty<string?>(null);
-
-    public IProperty<DateTimeOffset> CreatedAtProperty { get; } = new ValueOnlyProperty<DateTimeOffset>(default);
-
-    public IProperty<bool> IsPinnedProperty { get; } = new ValueOnlyProperty<bool>(false);
-
     /// <summary>The generated picture, stored as a file next to the project.</summary>
-    public ImageSource? Image
-    {
-        get => ImageProperty.Value;
-        set => ImageProperty.Value = value;
-    }
+    public IProperty<ImageSource?> Image { get; } = new ValueOnlyProperty<ImageSource?>(null) { OwnsValue = false };
 
     /// <summary>The generated clip, for a video generation.</summary>
-    public VideoSource? Video
-    {
-        get => VideoProperty.Value;
-        set => VideoProperty.Value = value;
-    }
+    public IProperty<VideoSource?> Video { get; } = new ValueOnlyProperty<VideoSource?>(null) { OwnsValue = false };
 
     /// <summary>Identifies the complete request, reference pictures included.</summary>
-    public string Fingerprint
-    {
-        get => FingerprintProperty.Value;
-        set => FingerprintProperty.Value = value;
-    }
+    public IProperty<string> Fingerprint { get; } = new ValueOnlyProperty<string>(string.Empty);
 
     /// <summary>
     /// Identifies the scalar inputs only. Cheap enough to compare every frame, so it is
     /// what the stale indicator uses; <see cref="Fingerprint"/> decides at queue time.
     /// </summary>
-    public string ParameterFingerprint
-    {
-        get => ParameterFingerprintProperty.Value;
-        set => ParameterFingerprintProperty.Value = value;
-    }
+    public IProperty<string> ParameterFingerprint { get; } = new ValueOnlyProperty<string>(string.Empty);
 
-    public string? ModelId
-    {
-        get => ModelIdProperty.Value;
-        set => ModelIdProperty.Value = value;
-    }
+    public IProperty<string?> ModelId { get; } = new ValueOnlyProperty<string?>(null);
 
-    public int? Seed
-    {
-        get => SeedProperty.Value;
-        set => SeedProperty.Value = value;
-    }
+    public IProperty<int?> Seed { get; } = new ValueOnlyProperty<int?>(null);
 
     /// <summary>A short description of what was asked for, shown in the history.</summary>
-    public string? Summary
-    {
-        get => SummaryProperty.Value;
-        set => SummaryProperty.Value = value;
-    }
+    public IProperty<string?> Summary { get; } = new ValueOnlyProperty<string?>(null);
 
-    public DateTimeOffset CreatedAt
-    {
-        get => CreatedAtProperty.Value;
-        set => CreatedAtProperty.Value = value;
-    }
+    public IProperty<DateTimeOffset> CreatedAt { get; } = new ValueOnlyProperty<DateTimeOffset>(default);
 
     /// <summary>A pinned generation is kept when older ones are pruned.</summary>
-    public bool IsPinned
-    {
-        get => IsPinnedProperty.Value;
-        set => IsPinnedProperty.Value = value;
-    }
+    public IProperty<bool> IsPinned { get; } = new ValueOnlyProperty<bool>(false);
 }

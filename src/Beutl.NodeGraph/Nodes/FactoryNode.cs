@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using Beutl.NodeGraph.Composition;
 using Beutl.Serialization;
 
@@ -11,39 +10,32 @@ public partial class FactoryNode<T> : GraphNode
     public FactoryNode()
     {
         ScanProperties<FactoryNode<T>>();
-        HideProperty(ObjectProperty);
-        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
-        Object = new T();
+        HideProperty(Object);
+        Object.Value = new T();
         OutputPort = AddOutput<T>("Output", NodePortDisplays.Output);
         // The object's base fields, such as IsEnabled, are not inputs.
-        foreach (IProperty property in Object.Properties.Where(property => !Object.IsBaseField(property)))
+        foreach (IProperty property in Object.Value.Properties.Where(property => !Object.Value.IsBaseField(property)))
         {
-            AddInput(Object, property);
+            AddInput(Object.Value, property);
         }
     }
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<T> ObjectProperty { get; } = new ValueOnlyProperty<T>(null!) { AffectsRender = false };
-
-    public T Object
-    {
-        get => ObjectProperty.Value;
-        set => ObjectProperty.Value = value;
-    }
+    public IProperty<T> Object { get; } = new ValueOnlyProperty<T>(null!) { AffectsRender = false };
 
     protected OutputPort<T> OutputPort { get; }
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue("Object", Object);
+        context.SetValue("Object", Object.Value);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        context.Populate("Object", Object);
+        context.Populate("Object", Object.Value);
     }
 
     public partial class Resource
@@ -51,7 +43,7 @@ public partial class FactoryNode<T> : GraphNode
         public override void Update(GraphCompositionContext context)
         {
             var node = RequireOriginal();
-            OutputPort = node.Object;
+            OutputPort = node.Object.Value;
         }
     }
 }

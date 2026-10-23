@@ -1,8 +1,6 @@
-﻿using Beutl.Collections;
-
-namespace Beutl.NodeGraph;
+﻿namespace Beutl.NodeGraph;
 
 public interface IOutputPort : INodePort
 {
-    CoreList<Reference<Connection>> Connections { get; }
+    IListProperty<Reference<Connection>> Connections { get; }
 }

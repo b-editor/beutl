@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
@@ -19,14 +18,13 @@ public partial class SceneNode : GraphNode
     public SceneNode()
     {
         ScanProperties<SceneNode>();
-        HideProperty(ObjectProperty);
-        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
+        HideProperty(Object);
         Output = AddOutput<DrawableRenderNode?>("Output", NodePortDisplays.Output);
-        Object = new SceneDrawable();
-        Object.AlignmentX.Value = Media.AlignmentX.Left;
-        Object.AlignmentY.Value = Media.AlignmentY.Top;
+        Object.Value = new SceneDrawable();
+        Object.Value.AlignmentX.Value = Media.AlignmentX.Left;
+        Object.Value.AlignmentY.Value = Media.AlignmentY.Top;
         PinTimeToReferencedScene();
-        AddInput(Object, Object.ReferencedScene);
+        AddInput(Object.Value, Object.Value.ReferencedScene);
         Time = AddInput<MediaTime>("Time", NodePortDisplays.Time);
         ErrorMonitor = AddTextMonitor("Error", NodePortDisplays.Error);
     }
@@ -40,24 +38,18 @@ public partial class SceneNode : GraphNode
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<SceneDrawable> ObjectProperty { get; } = new ValueOnlyProperty<SceneDrawable>(null!) { AffectsRender = false };
-
-    public SceneDrawable Object
-    {
-        get => ObjectProperty.Value;
-        set => ObjectProperty.Value = value;
-    }
+    public IProperty<SceneDrawable> Object { get; } = new ValueOnlyProperty<SceneDrawable>(null!) { AffectsRender = false };
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue("Object", Object);
+        context.SetValue("Object", Object.Value);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        context.Populate("Object", Object);
+        context.Populate("Object", Object.Value);
         PinTimeToReferencedScene();
     }
 
@@ -68,8 +60,8 @@ public partial class SceneNode : GraphNode
     /// </summary>
     private void PinTimeToReferencedScene()
     {
-        Object.IsTimeAnchor = true;
-        Object.TimeRange = new Media.TimeRange(MediaTime.Zero, MediaTime.FromSeconds(3650 * 86400));
+        Object.Value.IsTimeAnchor.Value = true;
+        Object.Value.TimeRange.Value = new Media.TimeRange(MediaTime.Zero, MediaTime.FromSeconds(3650 * 86400));
     }
 
     public partial class Resource
@@ -96,12 +88,12 @@ public partial class SceneNode : GraphNode
             {
                 if (_sceneResource is null)
                 {
-                    _sceneResource = (SceneDrawable.Resource)node.Object.ToResource(sceneContext);
+                    _sceneResource = (SceneDrawable.Resource)node.Object.Value.ToResource(sceneContext);
                 }
                 else
                 {
                     bool versionBumped = false;
-                    _sceneResource.Reconcile(node.Object, sceneContext, ref versionBumped);
+                    _sceneResource.Reconcile(node.Object.Value, sceneContext, ref versionBumped);
                 }
             }
             catch (InvalidOperationException)
@@ -120,10 +112,10 @@ public partial class SceneNode : GraphNode
             else
                 output.Update(_sceneResource);
 
-            Size size = node.Object.MeasureInternal(Size.Infinity, _sceneResource);
+            Size size = node.Object.Value.MeasureInternal(Size.Infinity, _sceneResource);
             using (var gc2d = new GraphicsContext2D(output, size))
             {
-                node.Object.Render(gc2d, _sceneResource);
+                node.Object.Value.Render(gc2d, _sceneResource);
             }
 
             Output = output;

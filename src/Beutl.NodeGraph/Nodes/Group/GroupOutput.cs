@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using Beutl.Serialization;
 
 namespace Beutl.NodeGraph.Nodes.Group;
@@ -10,22 +9,19 @@ public partial class GroupOutput : GraphNode, IDynamicPortNode
 
     public class GroupOutputPort<T> : InputPort<T>, IDynamicPort, IGroupPort
     {
-        protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+        private protected override void OnConnectionChanged()
         {
-            base.OnPropertyChanged(args);
-            if (args.PropertyName == nameof(Connection))
+            base.OnConnectionChanged();
+            if (Connection.Value.Value?.Output.Value.Value is OutputPort<T> outputNodePort)
             {
-                if (Connection.Value?.Output.Value is OutputPort<T> outputNodePort)
-                {
-                    ReflectDisplay(outputNodePort);
-                }
+                ReflectDisplay(outputNodePort);
             }
         }
 
         private void ReflectDisplay(OutputPort<T> outputNodePort)
         {
-            Name = outputNodePort.Name;
-            Display = outputNodePort.Display;
+            Name.Value = outputNodePort.Name.Value;
+            Display.Value = outputNodePort.Display.Value;
         }
     }
 

@@ -1,6 +1,5 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Beutl.Collections.Pooled;
 using Beutl.Composition;
@@ -40,7 +39,7 @@ public sealed class SceneCompositor : ICompositor
         Scene.Layers.Detached += OnLayerDetached;
         foreach (TimelineLayer layer in Scene.Layers)
         {
-            layer.PropertyChanged += OnLayerPropertyChanged;
+            ObserveLayer(layer);
         }
     }
 
@@ -90,9 +89,9 @@ public sealed class SceneCompositor : ICompositor
             Flow = flow;
             DisableResourceShare = compositor.DisableResourceShare;
             PreferProxy = !compositor.ForceOriginalSource
-                && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode == PreviewSourceMode.PreferProxy;
-            PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset);
-            TargetDomain = new Rect(default, compositor.Scene.FrameSize.ToSize(1));
+                && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
+            PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
+            TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1));
         }
 
         public IList<Element> CurrentElements { get; set; }
@@ -150,7 +149,7 @@ public sealed class SceneCompositor : ICompositor
         return new CompositionFrame(
             [.. allResources],
             new(time, new MediaTime(1)),
-            Scene.FrameSize,
+            Scene.FrameSize.Value,
             null);
     }
 
@@ -161,9 +160,9 @@ public sealed class SceneCompositor : ICompositor
         LayerSnapshot snapshot = GetLayerSnapshot();
         foreach (Element item in Scene.Children)
         {
-            if (!item.IsEnabled) continue;
-            if (ShouldSkipLayer(item.ZIndex, CompositionTarget.Audio, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            eligibleElements.OrderedAdd(item, x => x.ZIndex);
+            if (!item.IsEnabled.Value) continue;
+            if (ShouldSkipLayer(item.ZIndex.Value, CompositionTarget.Audio, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            eligibleElements.OrderedAdd(item, x => x.ZIndex.Value);
         }
 
         using var currentElements = new PooledList<Element>();
@@ -205,7 +204,7 @@ public sealed class SceneCompositor : ICompositor
         return new CompositionFrame(
             [.. allResources],
             timeRange,
-            Scene.FrameSize,
+            Scene.FrameSize.Value,
             new CompositionEligibility(eligibleObjects));
     }
 
@@ -275,10 +274,10 @@ public sealed class SceneCompositor : ICompositor
         ClipTransitionPresenter presenter = _transitionPresenters.GetValue(
             boundary.Transition,
             static _ => new ClipTransitionPresenter());
-        int zIndex = (boundary.Incoming ?? boundary.Outgoing)!.ZIndex;
-        if (presenter.ZIndex != zIndex)
+        int zIndex = (boundary.Incoming ?? boundary.Outgoing)!.ZIndex.Value;
+        if (presenter.ZIndex.Value != zIndex)
         {
-            presenter.ZIndex = zIndex;
+            presenter.ZIndex.Value = zIndex;
         }
 
         var presenterResource = (ClipTransitionPresenter.Resource)GetOrCreateResource(presenter, context);
@@ -373,9 +372,9 @@ public sealed class SceneCompositor : ICompositor
         bool graphics = target == CompositionTarget.Graphics;
         foreach (Element item in Scene.Children)
         {
-            if (!item.IsEnabled || !CoversTime(item, time, graphics)) continue;
-            if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            currentElements.OrderedAdd(item, x => x.ZIndex);
+            if (!item.IsEnabled.Value || !CoversTime(item, time, graphics)) continue;
+            if (ShouldSkipLayer(item.ZIndex.Value, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            currentElements.OrderedAdd(item, x => x.ZIndex.Value);
         }
 
         if (graphics)
@@ -392,7 +391,7 @@ public sealed class SceneCompositor : ICompositor
         if (!graphics) return false;
 
         MediaTime tolerance = ElementTransitions.AdjacencyTolerance;
-        return time >= item.Start - tolerance
+        return time >= item.Start.Value - tolerance
                && time < item.Range.End + tolerance
                && ElementTransitions.TryGetActive(item, time, out _);
     }
@@ -440,9 +439,9 @@ public sealed class SceneCompositor : ICompositor
         LayerSnapshot snapshot = GetLayerSnapshot();
         foreach (Element item in Scene.Children)
         {
-            if (!item.IsEnabled || !item.Range.Intersects(timeRange)) continue;
-            if (ShouldSkipLayer(item.ZIndex, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
-            currentElements.OrderedAdd(item, x => x.ZIndex);
+            if (!item.IsEnabled.Value || !item.Range.Intersects(timeRange)) continue;
+            if (ShouldSkipLayer(item.ZIndex.Value, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            currentElements.OrderedAdd(item, x => x.ZIndex.Value);
         }
     }
 
@@ -467,7 +466,7 @@ public sealed class SceneCompositor : ICompositor
         bool hasSolo = false;
         foreach (TimelineLayer layer in Scene.Layers)
         {
-            if (byZIndex.TryAdd(layer.ZIndex, layer) && layer.IsSolo)
+            if (byZIndex.TryAdd(layer.ZIndex.Value, layer) && layer.IsSolo.Value)
             {
                 hasSolo = true;
             }
@@ -501,23 +500,31 @@ public sealed class SceneCompositor : ICompositor
 
     private void OnLayerAttached(TimelineLayer layer)
     {
-        layer.PropertyChanged += OnLayerPropertyChanged;
+        ObserveLayer(layer);
         _layerSnapshot = null;
     }
 
     private void OnLayerDetached(TimelineLayer layer)
     {
-        layer.PropertyChanged -= OnLayerPropertyChanged;
+        ForgetLayer(layer);
         _layerSnapshot = null;
     }
 
-    private void OnLayerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void ObserveLayer(TimelineLayer layer)
     {
-        if (e.PropertyName is nameof(TimelineLayer.ZIndex) or nameof(TimelineLayer.IsSolo))
-        {
-            _layerSnapshot = null;
-        }
+        layer.ZIndex.ValueChanged += OnLayerZIndexChanged;
+        layer.IsSolo.ValueChanged += OnLayerSoloChanged;
     }
+
+    private void ForgetLayer(TimelineLayer layer)
+    {
+        layer.ZIndex.ValueChanged -= OnLayerZIndexChanged;
+        layer.IsSolo.ValueChanged -= OnLayerSoloChanged;
+    }
+
+    private void OnLayerZIndexChanged(object? sender, PropertyValueChangedEventArgs<int> e) => _layerSnapshot = null;
+
+    private void OnLayerSoloChanged(object? sender, PropertyValueChangedEventArgs<bool> e) => _layerSnapshot = null;
 
     // A layer without a TimelineLayer model cannot be soloed, so it is excluded
     // under solo mode. Mute is independent per target (audio vs video).
@@ -528,9 +535,9 @@ public sealed class SceneCompositor : ICompositor
         Dictionary<int, TimelineLayer> layersByZIndex)
     {
         layersByZIndex.TryGetValue(zIndex, out TimelineLayer? layer);
-        if (hasSolo && (layer is null || !layer.IsSolo)) return true;
+        if (hasSolo && (layer is null || !layer.IsSolo.Value)) return true;
         if (layer is null) return false;
-        return target == CompositionTarget.Graphics ? layer.IsVideoMuted : layer.IsAudioMuted;
+        return target == CompositionTarget.Graphics ? layer.IsVideoMuted.Value : layer.IsAudioMuted.Value;
     }
 
     public void Dispose()
@@ -542,7 +549,7 @@ public sealed class SceneCompositor : ICompositor
         Scene.Layers.Detached -= OnLayerDetached;
         foreach (TimelineLayer layer in Scene.Layers)
         {
-            layer.PropertyChanged -= OnLayerPropertyChanged;
+            ForgetLayer(layer);
         }
 
         lock (_resourceCacheLock)

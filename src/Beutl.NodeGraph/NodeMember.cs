@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.NodeGraph.Composition;
@@ -12,19 +11,12 @@ public abstract class NodeMember : EngineObject
     protected NodeMember()
     {
         ScanProperties<NodeMember>();
-        HideProperty(DisplayProperty);
-        DisplayProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Display)));
+        HideProperty(Display);
     }
 
     [NotAutoSerialized]
     [NotTracked]
-    public IProperty<DisplayAttribute?> DisplayProperty { get; } = new ValueOnlyProperty<DisplayAttribute?>(null) { AffectsRender = false };
-
-    public DisplayAttribute? Display
-    {
-        get => DisplayProperty.Value;
-        set => DisplayProperty.Value = value;
-    }
+    public IProperty<DisplayAttribute?> Display { get; } = new ValueOnlyProperty<DisplayAttribute?>(null) { AffectsRender = false };
 
     public event EventHandler? TopologyChanged;
 

@@ -62,9 +62,9 @@ public partial class Scene
     {
         base.Serialize(context);
 
-        context.SetValue(nameof(Duration), MediaTimeJsonConverter.LengthToWrite(Start, Duration));
-        context.SetValue("Width", FrameSize.Width);
-        context.SetValue("Height", FrameSize.Height);
+        context.SetValue(nameof(Duration), MediaTimeJsonConverter.LengthToWrite(Start.Value, Duration.Value));
+        context.SetValue("Width", FrameSize.Value.Width);
+        context.SetValue("Height", FrameSize.Value.Height);
         context.SetValue("Groups", Groups.Select(ids => string.Join(':', ids)).ToArray());
         context.SetValue(nameof(Markers), Markers);
         Recovery.WriteMetadata(context);
@@ -123,13 +123,13 @@ public partial class Scene
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        Duration = MediaTimeJsonConverter.LengthRead(context, nameof(Start), nameof(Duration), Start, Duration);
+        Duration.Value = MediaTimeJsonConverter.LengthRead(context, nameof(Start), nameof(Duration), Start.Value, Duration.Value);
         // Layers keeps its list, as its CoreProperty accessor did.
-        KeptListReader.ReadInto<CoreList<TimelineLayer>, TimelineLayer>(context, nameof(Layers), _layers);
+        KeptListReader.ReadInto<CoreList<TimelineLayer>, TimelineLayer>(context, nameof(Layers), Layers);
 
         if (context.Contains("Width") && context.Contains("Height"))
         {
-            FrameSize = new PixelSize(context.GetValue<int>("Width"), context.GetValue<int>("Height"));
+            FrameSize.Value = new PixelSize(context.GetValue<int>("Width"), context.GetValue<int>("Height"));
         }
 
         Recovery.ReadMetadata(context);
@@ -144,7 +144,7 @@ public partial class Scene
             Markers.AddRange(markers);
         }
 
-        if (context.GetValue<JsonNode>(nameof(Elements)) is { } elementsJson)
+        if (context.GetValue<JsonNode>("Elements") is { } elementsJson)
         {
             if (elementsJson is JsonObject elementsObject)
             {
@@ -168,7 +168,7 @@ public partial class Scene
             }
             else
             {
-                Children.Replace(context.GetValue<Elements>(nameof(Elements))!);
+                Children.Replace(context.GetValue<Element[]>("Elements")!);
             }
         }
         else
@@ -185,7 +185,7 @@ public partial class Scene
                 var ids = group.Split(':')
                     .Select(s => Guid.TryParse(s, out Guid id) ? id : Guid.Empty)
                     .Select(id => Recovery.MapElementId(id))
-                    .Where(i => i != Guid.Empty && Children.Any(e => e.Id == i))
+                    .Where(i => i != Guid.Empty && Children.Any(e => e.Id.Value == i))
                     .ToImmutableHashSet();
                 if (ids.Count >= 2)
                 {

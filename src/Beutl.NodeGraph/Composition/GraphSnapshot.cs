@@ -125,12 +125,12 @@ public sealed class GraphSnapshot : IDisposable
                     foreach (var connection in listInputPort.Connections)
                     {
                         AddEdge(
-                            connection.Value?.Output.Value?.FindHierarchicalParent<GraphNode>(),
+                            connection.Value?.Output.Value.Value?.FindHierarchicalParent<GraphNode>(),
                             node);
                     }
                 }
                 else if (item is IInputPort inputNodePort
-                         && inputNodePort.Connection.Value?.Output.Value is { } outputNodePort)
+                         && inputNodePort.Connection.Value.Value?.Output.Value.Value is { } outputNodePort)
                 {
                     AddEdge(outputNodePort.FindHierarchicalParent<GraphNode>(), node);
                 }
@@ -242,8 +242,8 @@ public sealed class GraphSnapshot : IDisposable
 
         foreach (Connection connection in allConnections)
         {
-            if (connection.Output.Value is not { } outputSock
-                || connection.Input.Value is not { } inputSock)
+            if (connection.Output.Value.Value is not { } outputSock
+                || connection.Input.Value.Value is not { } inputSock)
                 continue;
 
             GraphNode? outputNode = outputSock.FindHierarchicalParent<GraphNode>();
@@ -461,7 +461,7 @@ public sealed class GraphSnapshot : IDisposable
 
             if (item.Property is IAnimatablePropertyAdapter { Animation: { } animation })
             {
-                if (!animation.UseGlobalClock)
+                if (!animation.UseGlobalClock.Value)
                 {
                     resource.ItemValues[i].TryLoadFromAnimation(animation, time - node.Start);
                 }
@@ -499,7 +499,7 @@ public sealed class GraphSnapshot : IDisposable
                     _ => ConnectionStatus.Error
                 };
 
-                if (conn is { OriginalConnection.Input.Value: IEnginePropertyBackedInputPort inputNodePort })
+                if (conn is { OriginalConnection.Input.Value.Value: IEnginePropertyBackedInputPort inputNodePort })
                 {
                     inputNodePort.CopyFrom(inputValue);
                 }
@@ -532,7 +532,7 @@ public sealed class GraphSnapshot : IDisposable
             {
                 // A connection removed meanwhile keeps the Disconnected that its removal set.
                 if (connection.HierarchicalParent != null)
-                    connection.Status = status;
+                    connection.Status.Value = status;
             }
         }
 

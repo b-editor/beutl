@@ -14,7 +14,7 @@ public partial class GroupInput : GraphNode, IDynamicPortNode
         {
             Connections.Attached += conn =>
             {
-                if (conn is { Value.Input.Value: InputPort<T> inputNodePort })
+                if (conn is { Value.Input.Value.Value: InputPort<T> inputNodePort })
                 {
                     ReflectDisplay(inputNodePort);
                 }
@@ -23,8 +23,8 @@ public partial class GroupInput : GraphNode, IDynamicPortNode
 
         private void ReflectDisplay(InputPort<T> inputNodePort)
         {
-            Name = inputNodePort.Name;
-            Display = inputNodePort.Display;
+            Name.Value = inputNodePort.Name.Value;
+            Display.Value = inputNodePort.Display.Value;
         }
     }
 

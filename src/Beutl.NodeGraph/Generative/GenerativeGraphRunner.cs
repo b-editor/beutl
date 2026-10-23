@@ -90,7 +90,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
                 GenerativeRequest request = await host.InvokeOnRenderThreadAsync(() => CaptureRequest(model, node));
                 if (!forced.Contains(node)
                     && node.ActiveGeneration is { } active
-                    && active.Fingerprint == request.Fingerprint)
+                    && active.Fingerprint.Value == request.Fingerprint)
                 {
                     await host.InvokeOnUIThreadAsync(() => node.SetStatus(GenerativeNodeStatus.Idle));
                     continue;
@@ -308,7 +308,7 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         GraphModel[] graphs = model.EnumerateGraphs().ToArray();
         foreach (Connection connection in graphs.SelectMany(graph => graph.AllConnections))
         {
-            if (connection.Input.Value is not { } input || connection.Output.Value is not { } output)
+            if (connection.Input.Value.Value is not { } input || connection.Output.Value.Value is not { } output)
                 continue;
             object? target = Vertex(input);
             object? source = Vertex(output);
@@ -320,14 +320,14 @@ public sealed class GenerativeGraphRunner(IGenerativeNodeExecutor executor, IGen
         foreach (GroupNode group in graphs.SelectMany(graph => graph.Nodes).OfType<GroupNode>())
         {
             // The group's items are its outputs, in its output node's order, then its inputs.
-            int outputs = group.Group.Output?.Items.Count ?? 0;
-            if (group.Group.Output is { } groupOutput)
+            int outputs = group.Group.Value.Output.Value?.Items.Count ?? 0;
+            if (group.Group.Value.Output.Value is { } groupOutput)
             {
                 for (int i = 0; i < groupOutput.Items.Count && i < group.Items.Count; i++)
                     ParentsOf(group.Items[i]).Add(groupOutput.Items[i]);
             }
 
-            if (group.Group.Input is { } groupInput)
+            if (group.Group.Value.Input.Value is { } groupInput)
             {
                 for (int i = 0; i < groupInput.Items.Count && outputs + i < group.Items.Count; i++)
                     ParentsOf(groupInput.Items[i]).Add(group.Items[outputs + i]);

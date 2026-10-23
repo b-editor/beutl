@@ -108,7 +108,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
     {
         foreach (INestedInputPort port in remaining.ToArray())
         {
-            if (unresolved.Any(subtree => subtree.Root.Id == port.RootMember.Id
+            if (unresolved.Any(subtree => subtree.Root.Id.Value == port.RootMember.Id
                 && GraphNode.IsPathPrefix(subtree.Path, port.PropertyPath)))
             {
                 // A missing plugin cannot tell us which of its properties still exist. Keep
@@ -127,7 +127,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
         {
             foreach (INestedInputPort port in remaining)
             {
-                if (port.Connection.Value is { } connection
+                if (port.Connection.Value.Value is { } connection
                     && node.FindHierarchicalParent<GraphModel>() is { } graph)
                     graph.Disconnect(connection);
             }
@@ -138,7 +138,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
 
     public void Bind(INestedInputPort port)
     {
-        INodeMember? root = node.Items.FirstOrDefault(m => m.Id == port.RootMember.Id);
+        INodeMember? root = node.Items.FirstOrDefault(m => m.Id.Value == port.RootMember.Id);
         object? value = root?.Property?.GetValue();
         EngineObject? owner = null;
         IProperty? property = null;
@@ -247,7 +247,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
 
     private static Guid GetItemId(EngineObject item)
         => item is IFallback { Json: { } json } && json[nameof(CoreObject.Id)] is JsonValue value
-            && value.TryGetValue<Guid>(out Guid id) ? id : item.Id;
+            && value.TryGetValue<Guid>(out Guid id) ? id : item.Id.Value;
 
     private sealed record Target(NodeMember Root, string[] Path, EngineObject Owner, IProperty Property, bool HasOverridingAncestor);
     private sealed record UnresolvedSubtree(NodeMember Root, string[] Path);
@@ -258,7 +258,7 @@ internal sealed class NestedInputPortManager(GraphNode node)
             => new(port.RootMember.Id, port.PropertyPath, port.AssociatedType);
 
         public static PortKey Of(Target target)
-            => new(target.Root.Id, target.Path, target.Property.ValueType);
+            => new(target.Root.Id.Value, target.Path, target.Property.ValueType);
 
         public bool Equals(PortKey other)
             => RootId == other.RootId && Type == other.Type && Path.SequenceEqual(other.Path);

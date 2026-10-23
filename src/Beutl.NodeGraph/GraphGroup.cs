@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.NodeGraph.Nodes.Group;
+﻿using Beutl.NodeGraph.Nodes.Group;
 
 namespace Beutl.NodeGraph;
 
@@ -8,9 +7,7 @@ public class GraphGroup : GraphModel
     public GraphGroup()
     {
         ScanProperties<GraphGroup>();
-        HideProperties(InputProperty, OutputProperty);
-        InputProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Input)));
-        OutputProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Output)));
+        HideProperties(Input, Output);
         Nodes.Attached += OnNodeAttached;
         Nodes.Detached += OnNodeDetached;
     }
@@ -18,37 +15,33 @@ public class GraphGroup : GraphModel
     // Input and Output name nodes that Nodes holds, so they do not take them as children.
     [NotAutoSerialized]
     [NotTracked]
-    public IProperty<GroupInput?> InputProperty { get; } = new ValueOnlyProperty<GroupInput?>(null) { OwnsValue = false, AffectsRender = false };
+    public IProperty<GroupInput?> Input { get; } = new ValueOnlyProperty<GroupInput?>(null) { OwnsValue = false, AffectsRender = false };
 
     [NotAutoSerialized]
     [NotTracked]
-    public IProperty<GroupOutput?> OutputProperty { get; } = new ValueOnlyProperty<GroupOutput?>(null) { OwnsValue = false, AffectsRender = false };
-
-    public GroupInput? Input => InputProperty.Value;
-
-    public GroupOutput? Output => OutputProperty.Value;
+    public IProperty<GroupOutput?> Output { get; } = new ValueOnlyProperty<GroupOutput?>(null) { OwnsValue = false, AffectsRender = false };
 
     private void OnNodeAttached(GraphNode obj)
     {
         if (obj is GroupInput groupInput)
         {
-            TakePlace(InputProperty, groupInput);
+            TakePlace(Input, groupInput);
         }
         if (obj is GroupOutput groupOutput)
         {
-            TakePlace(OutputProperty, groupOutput);
+            TakePlace(Output, groupOutput);
         }
     }
 
     private void OnNodeDetached(GraphNode obj)
     {
-        if (obj == Input)
+        if (obj == Input.Value)
         {
-            InputProperty.Value = null;
+            Input.Value = null;
         }
-        if (obj == Output)
+        if (obj == Output.Value)
         {
-            OutputProperty.Value = null;
+            Output.Value = null;
         }
     }
 

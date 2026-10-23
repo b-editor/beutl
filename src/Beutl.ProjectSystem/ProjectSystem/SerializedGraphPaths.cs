@@ -172,7 +172,7 @@ internal static class SerializedGraphPaths
     {
         string indexText = index.ToString(System.Globalization.CultureInfo.InvariantCulture);
         string positional = AppendSerializedGraphPath(path.Positional, "index", indexText);
-        if (item is CoreObject { Id: var id } && id != Guid.Empty)
+        if (item is CoreObject { Id.Value: var id } && id != Guid.Empty)
         {
             int occurrence = occurrences.TryGetValue(id, out int value) ? value : 0;
             occurrences[id] = occurrence + 1;

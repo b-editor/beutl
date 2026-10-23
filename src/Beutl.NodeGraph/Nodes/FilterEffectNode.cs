@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Engine;
+﻿using Beutl.Engine;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.NodeGraph.Composition;
@@ -13,36 +12,29 @@ public partial class FilterEffectNode<T> : ConfigureNode
     public FilterEffectNode()
     {
         ScanProperties<FilterEffectNode<T>>();
-        HideProperty(ObjectProperty);
-        ObjectProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Object)));
-        Object = new T();
+        HideProperty(Object);
+        Object.Value = new T();
         // The object's base fields, such as IsEnabled, are not inputs.
-        foreach (IProperty property in Object.Properties.Where(property => !Object.IsBaseField(property)))
+        foreach (IProperty property in Object.Value.Properties.Where(property => !Object.Value.IsBaseField(property)))
         {
-            AddInput(Object, property);
+            AddInput(Object.Value, property);
         }
     }
 
     [NotAutoSerialized]
     [SuppressResourceClassGeneration]
-    public IProperty<T> ObjectProperty { get; } = new ValueOnlyProperty<T>(null!) { AffectsRender = false };
-
-    public T Object
-    {
-        get => ObjectProperty.Value;
-        set => ObjectProperty.Value = value;
-    }
+    public IProperty<T> Object { get; } = new ValueOnlyProperty<T>(null!) { AffectsRender = false };
 
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue("Object", Object);
+        context.SetValue("Object", Object.Value);
     }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
-        context.Populate("Object", Object);
+        context.Populate("Object", Object.Value);
     }
 
     public partial class Resource
@@ -55,14 +47,14 @@ public partial class FilterEffectNode<T> : ConfigureNode
 
             if (output == null || output.IsDisposed)
             {
-                resource = node.Object.ToResource(context);
+                resource = node.Object.Value.ToResource(context);
                 OutputPort = resource.CreateRenderNode();
             }
             else if (output is FilterEffectRenderNode { FilterEffect.Resource: { } filterEffect } fen)
             {
                 resource = filterEffect;
                 bool versionBumped = false;
-                resource.Reconcile(node.Object, context, ref versionBumped);
+                resource.Reconcile(node.Object.Value, context, ref versionBumped);
                 fen.Update(resource);
             }
         }

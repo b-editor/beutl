@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
@@ -40,8 +39,8 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
     {
         if (ReferenceEquals(_property, property)) return;
         UnbindProperty();
-        Name = property.Name;
-        Display = property.GetAttributes()?.OfType<DisplayAttribute>().FirstOrDefault();
+        Name.Value = property.Name;
+        Display.Value = property.GetAttributes()?.OfType<DisplayAttribute>().FirstOrDefault();
         _property = property;
         property.Edited += OnTargetEdited;
         IPropertyAdapter<T> adapter;
@@ -59,7 +58,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         }
 
         Property = adapter;
-        if (!Connection.IsNull) UpdateExpression();
+        if (!Connection.Value.IsNull) UpdateExpression();
     }
 
     protected void UnbindProperty()
@@ -67,7 +66,7 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         if (_property != null)
         {
             _property.Edited -= OnTargetEdited;
-            if (!Connection.IsNull
+            if (!Connection.Value.IsNull
                 && _property is IExpressionProperty<T> { Expression: NodePortExpression<T> expression } property
                 && !HasOtherConnectedInput())
             {
@@ -100,9 +99,9 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
         // be recorded separately from the connection (or replayed on a replaced object). The user's
         // expression rides along in the port expression, so undoing the connection gives it back.
         using var suppression = HistoryReplay.Enter();
-        if (!Connection.IsNull && property.Expression is not NodePortExpression<T>)
+        if (!Connection.Value.IsNull && property.Expression is not NodePortExpression<T>)
             property.Expression = new NodePortExpression<T> { Replaced = property.Expression };
-        else if (Connection.IsNull && property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
+        else if (Connection.Value.IsNull && property.Expression is NodePortExpression<T> expression && !HasOtherConnectedInput())
             property.Expression = expression.Replaced;
     }
 
@@ -123,19 +122,16 @@ public class EnginePropertyBackedInputPort<T> : InputPort<T>, IEnginePropertyBac
     public void CopyFrom(IItemValue itemValue)
     {
         if (itemValue is not ItemValue<T> typed) return;
-        if (!Connection.IsNull && _property is IExpressionProperty<T> { Expression: NodePortExpression<T> exp })
+        if (!Connection.Value.IsNull && _property is IExpressionProperty<T> { Expression: NodePortExpression<T> exp })
         {
             exp.Value = typed.Value;
         }
     }
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    private protected override void OnConnectionChanged()
     {
-        base.OnPropertyChanged(args);
-        if (args.PropertyName == nameof(Connection))
-        {
-            UpdateExpression();
-        }
+        base.OnConnectionChanged();
+        UpdateExpression();
     }
 }
 

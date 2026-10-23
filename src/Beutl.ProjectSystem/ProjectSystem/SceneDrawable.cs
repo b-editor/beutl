@@ -25,7 +25,7 @@ public sealed partial class SceneDrawable : Drawable
         var r = (Resource)resource;
         if (r.ReferencedScene != null)
         {
-            return new Size(r.ReferencedScene.FrameSize.Width, r.ReferencedScene.FrameSize.Height);
+            return new Size(r.ReferencedScene.FrameSize.Value.Width, r.ReferencedScene.FrameSize.Value.Height);
         }
 
         return Size.Empty;

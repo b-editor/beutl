@@ -8,7 +8,7 @@ public class OutputPort<T> : NodePort<T>, IOutputPort
     public OutputPort()
     {
         ScanProperties<OutputPort<T>>();
-        HideProperty(ConnectionsProperty);
+        HideProperty(Connections);
         Connections.CollectionChanged += (_, _) =>
         {
             RaiseTopologyChanged();
@@ -17,13 +17,7 @@ public class OutputPort<T> : NodePort<T>, IOutputPort
     }
 
     [NotAutoSerialized]
-    public IProperty<CoreList<Reference<Connection>>> ConnectionsProperty { get; } = new ValueOnlyProperty<CoreList<Reference<Connection>>>([]) { AffectsRender = false, KeepsList = true };
-
-    public CoreList<Reference<Connection>> Connections
-    {
-        get => ConnectionsProperty.Value;
-        set => ConnectionsProperty.Value.Replace(value);
-    }
+    public IListProperty<Reference<Connection>> Connections { get; } = new ListProperty<Reference<Connection>> { AffectsRender = false };
 
     public override void NotifyConnected(Connection connection)
     {

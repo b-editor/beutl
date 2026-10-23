@@ -10,7 +10,7 @@ internal sealed partial class SceneRecovery
         (Element Child, string RelativePath)[] recoveredChildren = GetChildPaths(sceneDirectory, recovered: true);
 
         var claimedIds = new HashSet<Guid> { Guid.Empty, Id };
-        claimedIds.UnionWith(EnumerateSceneOwnedObjects().Select(static obj => obj.Id));
+        claimedIds.UnionWith(EnumerateSceneOwnedObjects().Select(static obj => obj.Id.Value));
 
         var claims = new RecoveredIdClaims(
             claimedIds,
@@ -44,17 +44,17 @@ internal sealed partial class SceneRecovery
         foreach ((Element child, string relativePath) in healthyChildren
                      .Where(item => !_recoveredElementIds.ContainsKey(item.RelativePath)))
         {
-            claims.ClaimedIds.Add(child.Id);
+            claims.ClaimedIds.Add(child.Id.Value);
             ClaimHealthyDescendants(child, claims);
         }
 
         foreach ((Element child, string relativePath) in healthyChildren
                      .Where(item => _recoveredElementIds.ContainsKey(item.RelativePath)))
         {
-            if (!claims.ClaimedIds.Add(child.Id))
+            if (!claims.ClaimedIds.Add(child.Id.Value))
             {
                 Guid placeholderId = _recoveredElementIds[relativePath];
-                child.Id = claims.ClaimedIds.Add(placeholderId)
+                child.Id.Value = claims.ClaimedIds.Add(placeholderId)
                     ? placeholderId
                     : RecoveredIdentity.ClaimRecoveredElementId(relativePath, claims.ClaimedIds);
             }
@@ -68,7 +68,7 @@ internal sealed partial class SceneRecovery
         foreach (CoreObject descendant in EnumerateSerializedGraphDescendants(child))
         {
             claims.SeenDescendants.Add(descendant);
-            claims.ClaimedIds.Add(descendant.Id);
+            claims.ClaimedIds.Add(descendant.Id.Value);
         }
     }
 
@@ -86,7 +86,7 @@ internal sealed partial class SceneRecovery
                 continue;
             }
 
-            Guid originalId = descendant.Id;
+            Guid originalId = descendant.Id.Value;
             int occurrence = occurrences.GetValueOrDefault(originalId);
             occurrences[originalId] = occurrence + 1;
             string remapKey = RecoveredIdentity.CreateRecoveredDescendantKey(relativePath, originalId, occurrence);
@@ -109,7 +109,7 @@ internal sealed partial class SceneRecovery
             Guid assignedId = hasPreviousAssignedId && claims.ClaimedIds.Add(previousAssignedId)
                 ? previousAssignedId
                 : RecoveredIdentity.ClaimRecoveredDescendantId(relativePath, remapKey, claims.ClaimedIds);
-            descendant.Id = assignedId;
+            descendant.Id.Value = assignedId;
             // A fallback that saves the JSON it was read from as it is gets the new Id in that JSON too.
             if (descendant is IFallback { Json: { } fallbackJson })
             {
@@ -128,7 +128,7 @@ internal sealed partial class SceneRecovery
         {
             if (_recoveredElementIds.Remove(relativePath, out Guid placeholderId))
             {
-                _pendingRecoveredElementIdMigrations.TryAdd(placeholderId, child.Id);
+                _pendingRecoveredElementIdMigrations.TryAdd(placeholderId, child.Id.Value);
             }
         }
     }
@@ -157,7 +157,7 @@ internal sealed partial class SceneRecovery
                 // derivation loop assigns a fresh deterministic identity instead of a duplicate.
                 if (claimedIds.Add(persistedId))
                 {
-                    child.Id = persistedId;
+                    child.Id.Value = persistedId;
                     persistedChildren.Add(child);
                 }
                 else
@@ -174,17 +174,17 @@ internal sealed partial class SceneRecovery
                 continue;
             }
 
-            if (claimedIds.Add(child.Id))
+            if (claimedIds.Add(child.Id.Value))
             {
                 continue;
             }
 
-            child.Id = RecoveredIdentity.ClaimRecoveredElementId(relativePath, claimedIds);
+            child.Id.Value = RecoveredIdentity.ClaimRecoveredElementId(relativePath, claimedIds);
         }
 
         foreach ((Element child, string relativePath) in recoveredChildren)
         {
-            _recoveredElementIds[relativePath] = child.Id;
+            _recoveredElementIds[relativePath] = child.Id.Value;
         }
     }
 
@@ -217,7 +217,7 @@ internal sealed partial class SceneRecovery
                     relativePath,
                     remap.RemapKey,
                     claims.ClaimedIds);
-                descendant.Id = candidate;
+                descendant.Id.Value = candidate;
                 RecordRecoveredDescendantRemap(
                     descendant,
                     remap.RemapKey,
@@ -245,7 +245,7 @@ internal sealed partial class SceneRecovery
             }
 
             bool idless = _idlessRecoveredDescendants.TryGetValue(descendant, out _);
-            Guid originalId = idless ? Guid.Empty : descendant.Id;
+            Guid originalId = idless ? Guid.Empty : descendant.Id.Value;
             int occurrence = idless
                 ? idlessOccurrence++
                 : occurrences.GetValueOrDefault(originalId);
@@ -259,7 +259,7 @@ internal sealed partial class SceneRecovery
             {
                 if (claims.ClaimedIds.Add(persistedId))
                 {
-                    descendant.Id = persistedId;
+                    descendant.Id.Value = persistedId;
                     RecordRecoveredDescendantRemap(
                         descendant,
                         remapKey,
@@ -286,10 +286,10 @@ internal sealed partial class SceneRecovery
         var retainedIds = new HashSet<Guid> { Guid.Empty, Id };
         foreach (CoreObject graphObject in EnumerateSerializedGraphObjects(Children).OfType<CoreObject>())
         {
-            retainedIds.Add(graphObject.Id);
+            retainedIds.Add(graphObject.Id.Value);
         }
 
-        retainedIds.UnionWith(EnumerateSceneOwnedObjects().Select(static obj => obj.Id));
+        retainedIds.UnionWith(EnumerateSceneOwnedObjects().Select(static obj => obj.Id.Value));
 
         RemoveMigrationsOfRetainedIds(_pendingRecoveredElementIdMigrations, retainedIds);
         RemoveMigrationsOfRetainedIds(_pendingRecoveredDescendantIdMigrations, retainedIds);
@@ -358,7 +358,7 @@ internal sealed partial class SceneRecovery
 
         foreach (IProperty property in _scene.Properties)
         {
-            if (property == _scene.ChildrenProperty || property == _scene.LayersProperty || property == _scene.MarkersProperty
+            if (property == _scene.Children || property == _scene.Layers || property == _scene.Markers
                 || !CoreObject.IsAutoSerialized(property)
                 || property.Value is not { } value)
             {
