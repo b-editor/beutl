@@ -13,8 +13,8 @@ using FluentAvalonia.UI.Controls;
 
 namespace Beutl.HeadlessUITests;
 
-// A copied folder that meets one of the same name asks what to do, a link in it is not followed, and a copy never
-// lands inside its own source (#2947).
+// A copied folder that meets one of the same name asks what to do, no folder link on either side is followed, and a
+// copy never lands inside its own source (#2947).
 [TestFixture]
 public sealed class FileBrowserFolderCopyTests
 {
@@ -116,21 +116,57 @@ public sealed class FileBrowserFolderCopyTests
     }
 
     [AvaloniaTest]
-    public async Task A_destination_that_links_into_the_source_is_refused()
+    public async Task A_drop_target_that_links_into_the_source_is_refused()
     {
         IgnoreUnlessLinksCanBeCreated();
         (FileBrowserTabViewModel browser, string footage, string target) = await OpenAsync("into");
         using var _ = browser;
         string sub = Directory.CreateDirectory(Path.Combine(footage, "sub")).FullName;
-        Directory.CreateSymbolicLink(Path.Combine(target, "footage"), sub);
-        Answer(browser, FAContentDialogResult.Primary);
+        string intoSource = Path.Combine(target, "into-source");
+        Directory.CreateSymbolicLink(intoSource, sub);
+        using var notifications = new NotificationCapture();
+
+        await browser.TransferFilesToDirectoryAsync([(footage, true)], intoSource, move: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(Directory.EnumerateFileSystemEntries(sub), Is.Empty, "nothing nests inside the source");
+            Assert.That(notifications.Single().Message, Is.EqualTo(MessageStrings.OperationFailed));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Merging_writes_nothing_through_a_destination_link(bool linkedSubfolder)
+    {
+        IgnoreUnlessLinksCanBeCreated();
+        (FileBrowserTabViewModel browser, string footage, string target) = await OpenAsync(linkedSubfolder ? "sub-link" : "dest-link");
+        using var _ = browser;
+        // Stands for a folder outside the project, such as ~/.ssh.
+        string outside = Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(target)!, "outside")).FullName;
+        string destination = Path.Combine(target, "footage");
+        if (linkedSubfolder)
+        {
+            WriteFile(Directory.CreateDirectory(Path.Combine(footage, "sub")).FullName, "c.txt", "c");
+            Directory.CreateDirectory(destination);
+            Directory.CreateSymbolicLink(Path.Combine(destination, "sub"), outside);
+        }
+        else
+        {
+            Directory.CreateSymbolicLink(destination, outside);
+        }
+
+        var shown = Answer(browser, FAContentDialogResult.Primary);
         using var notifications = new NotificationCapture();
 
         await browser.TransferFilesToDirectoryAsync([(footage, true)], target, move: false);
 
         Assert.Multiple(() =>
         {
-            Assert.That(Directory.EnumerateFileSystemEntries(sub), Is.Empty, "nothing nests inside the source");
+            Assert.That(shown, Has.Count.EqualTo(1));
+            Assert.That(Directory.EnumerateFileSystemEntries(outside), Is.Empty);
+            Assert.That(File.Exists(Path.Combine(destination, "b.txt")), Is.EqualTo(linkedSubfolder), "a real folder still merges");
             Assert.That(notifications.Single().Message, Is.EqualTo(MessageStrings.OperationFailed));
         });
     }

@@ -282,7 +282,7 @@ public sealed partial class FileBrowserTabViewModel
                         int skippedLinks = FileCopyService.CopyDirectoryRecursive(localPath, destPath, CopyFile, cancellationToken);
                         if (skippedLinks > 0)
                         {
-                            _logger.LogWarning("Skipped {Count} folder links in {Source}", skippedLinks, localPath);
+                            _logger.LogWarning("Skipped {Count} folder links copying {Source} to {Dest}", skippedLinks, localPath, destPath);
                             failures += skippedLinks;
                         }
                     }
