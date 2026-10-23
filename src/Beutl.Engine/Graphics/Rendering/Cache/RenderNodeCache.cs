@@ -20,11 +20,6 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     private int _successfulStableRequests;
 
-    ~RenderNodeCache()
-    {
-        Dispose(disposing: false);
-    }
-
     // Test seam: only tests read this.
     internal bool IsCached => _storage.Identity is not null || _storage.Values.Length != 0;
 
@@ -61,37 +56,11 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     public void Dispose()
     {
-        try
-        {
-            Dispose(disposing: true);
-        }
-        finally
-        {
-            GC.SuppressFinalize(this);
-        }
-    }
-
-    private void Dispose(bool disposing)
-    {
         if (IsDisposed)
             return;
 
         IsDisposed = true;
-        CacheStorage storage = DetachStorage();
-        if (disposing)
-        {
-            DisposeStorage(storage);
-            return;
-        }
-
-        try
-        {
-            DisposeStorage(storage);
-        }
-        catch
-        {
-            // Finalizers must never let cleanup failures terminate the process.
-        }
+        DisposeStorage(DetachStorage());
     }
 
     internal bool TryGetCachedOutput(
