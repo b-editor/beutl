@@ -104,8 +104,8 @@ public static class PathEditorHelper
             BtlPoint lastPoint = default;
             if (index > 0)
             {
-                PathSegment lastOp = figure.Segments[index - 1];
-                lastPoint = lastOp.GetEndPoint().Evaluate(new CompositionContext(clock.CurrentTime.Value));
+                lastPoint = PathEditingOperations.EndPoint(figure, index - 1)
+                    .Evaluate(new CompositionContext(clock.CurrentTime.Value));
             }
 
             BtlPoint point = (click / scale).ToBtlPoint();

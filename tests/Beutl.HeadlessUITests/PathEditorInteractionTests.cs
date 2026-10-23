@@ -1756,6 +1756,41 @@ public class PathEditorInteractionTests
         Assert.That(figure.Segments, Has.Count.EqualTo(3));
     }
 
+    // A segment whose type did not load is left out of path editing: it gets no anchor, and the points around it are
+    // edited as if it were not there, as it draws nothing.
+    [AvaloniaTest]
+    public async Task A_segment_whose_type_did_not_load_is_left_out_of_path_editing()
+    {
+        using var editor = await Fixture.Create();
+        using (editor.Editor.HistoryManager.SuppressRecording())
+        {
+            editor.Figure.Segments.Insert(1, new FallbackPathSegment());
+            editor.Figure.Segments.Add(new FallbackPathSegment());
+        }
+        HeadlessTestHelpers.Render(3);
+
+        editor.MouseMove(new Point(130, 104));
+        editor.Key(Key.P);
+        editor.Click(130, 100);
+        editor.Click(300, 300);
+        var appended = (CubicBezierSegment)editor.Figure.Segments[^1];
+        FallbackPathSegment unloaded = editor.Figure.Segments.OfType<FallbackPathSegment>().First();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(editor.View.FindControl<Canvas>("canvas")!.Children.OfType<Thumb>()
+                .Any(thumb => thumb.DataContext is FallbackPathSegment), Is.False, "No anchor or handle for it.");
+            Assert.That(editor.Figure.Segments.OfType<FallbackPathSegment>().Count(), Is.EqualTo(2));
+            Assert.That(editor.Figure.Segments[2], Is.TypeOf<LineSegment>(), "The pen inserted a point on the edge past it.");
+            Assert.That(editor.Figure.Segments[2].GetEndPoint().Value, Is.EqualTo(new BtlPoint(130, 100)));
+            Assert.That(appended.ControlPoint1.Value,
+                Is.EqualTo(PathEditingOperations.Lerp(new BtlPoint(280, 180), new BtlPoint(300, 300), 1f / 3)),
+                "The pen continued from the last point that loaded.");
+            Assert.That(PathPointProperties.Get(editor.Figure, unloaded, new CompositionContext(MediaTime.Zero)), Is.Empty,
+                "A handle drag looking for its anchor passes over it.");
+        });
+    }
+
     private sealed class Fixture : IDisposable
     {
         public required EditViewModel Editor { get; init; }
