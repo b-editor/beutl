@@ -693,6 +693,9 @@ public sealed class AudioSourceItem
 
     internal MediaTime SourceOffset => _sourceOffset;
 
+    // Whether obj is the speed animation this item reads its span from. A scene edit of it has that animation as sender.
+    internal bool ReadsSpeedFrom(object? obj) => obj is not null && ReferenceEquals(obj, _speedAnimation);
+
     internal double GetSourceElapsedSeconds()
     {
         if (_speedAnimation is null)
