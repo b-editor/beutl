@@ -142,12 +142,7 @@ internal sealed partial class RenderRequestExecutor
         {
             long actualPixels = 0;
             foreach (MaterializedRenderValue value in values)
-            {
-                long valuePixels = (long)value.DeviceBounds.Width * value.DeviceBounds.Height;
-                actualPixels = actualPixels > long.MaxValue - valuePixels
-                    ? long.MaxValue
-                    : actualPixels + valuePixels;
-            }
+                actualPixels += (long)value.DeviceBounds.Width * value.DeviceBounds.Height;
 
             return actualPixels;
         }

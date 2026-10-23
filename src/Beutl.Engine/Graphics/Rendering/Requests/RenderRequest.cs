@@ -23,13 +23,7 @@ internal sealed class RenderRequest : IDisposable
                 nameof(options));
         }
 
-        long value = Interlocked.Increment(ref s_nextRequestId);
-        if (value <= 0)
-        {
-            throw new InvalidOperationException("The render request ID space was exhausted.");
-        }
-
-        Id = new RenderRequestId(value);
+        Id = new RenderRequestId(Interlocked.Increment(ref s_nextRequestId));
         ParentId = parent?.Id;
         Options = options;
         State = RenderRequestState.Created;
