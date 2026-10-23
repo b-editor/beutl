@@ -247,8 +247,9 @@ public sealed class FilterEffectRecordingTransactionTests
         });
     }
 
-    [Test]
-    public void ApplyTransaction_RenderNodeBoundaryContinuesCleanupAndPreservesPrimaryFailure()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ApplyTransaction_ContinuesCleanupAndSurfacesCleanupFailure(bool recorded)
     {
         using var owner = new RenderRequestOwner();
         var options = new RenderRequestOptions(
@@ -259,7 +260,7 @@ public sealed class FilterEffectRecordingTransactionTests
         var recorder = new RenderRequestRecorder(request);
         var transaction = new NodeRecordingTransaction(recorder, new object(), []);
         var renderContext = new RenderNodeContext(transaction);
-        using var context = new FilterEffectContext(new Rect(0, 0, 10, 10), 1, 1, renderContext);
+        using var context = new FilterEffectContext(new Rect(0, 0, 10, 10), 1, 1, recorded ? renderContext : null);
         var earlier = new TrackingDisposable();
         var later = new ThrowingDisposable();
         var primary = new InvalidOperationException("primary-apply-failure");
@@ -272,21 +273,18 @@ public sealed class FilterEffectRecordingTransactionTests
         });
         FilterEffect.Resource resource = new Blur().ToResource(CompositionContext.Default);
 
-        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(
+        AggregateException? thrown = Assert.Throws<AggregateException>(
             () => context.ApplyTransactional(effect, resource));
 
         Assert.Multiple(() =>
         {
-            Assert.That(thrown, Is.SameAs(primary));
+            Assert.That(thrown!.Flatten().InnerExceptions.Select(e => e.Message),
+                Is.EqualTo(new[] { "cleanup-failure" }));
             Assert.That(context.GetOrderedItems(), Is.Empty);
             Assert.That(context.Bounds, Is.EqualTo(new Rect(0, 0, 10, 10)));
             Assert.That(earlier.DisposeCount, Is.EqualTo(1));
             Assert.That(later.DisposeCount, Is.EqualTo(1));
-            Assert.That(
-                primary.Data["FilterEffectResourceRollbackFailure"],
-                Is.TypeOf<AggregateException>());
-            Assert.That(owner.CleanupFailures, Has.Length.EqualTo(1));
-            Assert.That(owner.CleanupFailures[0].Message, Is.EqualTo("cleanup-failure"));
+            Assert.That(owner.CleanupFailures, Is.Empty);
         });
 
         Assert.That(() => transaction.Commit(), Throws.Nothing);

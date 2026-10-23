@@ -1,5 +1,4 @@
 ﻿using System.ComponentModel;
-using System.Runtime.ExceptionServices;
 using Beutl.Collections.Pooled;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
@@ -361,30 +360,15 @@ public sealed partial class FilterEffectContext : IDisposable
         {
             apply();
         }
-        catch (Exception ex)
+        catch
         {
-            ExceptionDispatchInfo primary = ExceptionDispatchInfo.Capture(ex);
             while (_items.Count > itemCount)
                 _items.RemoveAt(_items.Count - 1);
             while (_renderTimeItems.Count > renderTimeItemCount)
                 _renderTimeItems.RemoveAt(_renderTimeItems.Count - 1);
             _bounds = bounds;
-            try
-            {
-                _resourceState.RollbackTo(resourceCount, ex);
-            }
-            catch (Exception cleanupFailure)
-            {
-                const string key = "FilterEffectResourceRollbackFailure";
-                ex.Data[key] = ex.Data[key] is Exception previousFailure
-                    ? new AggregateException(
-                        "Multiple filter-effect resource rollback failures occurred.",
-                        previousFailure,
-                        cleanupFailure)
-                    : cleanupFailure;
-            }
-
-            primary.Throw();
+            _resourceState.RollbackTo(resourceCount);
+            throw;
         }
     }
 
