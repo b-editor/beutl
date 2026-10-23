@@ -77,11 +77,14 @@ public class DelayAnimationScaleTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap wrapped1 = GoldenImageHarness.RenderAtScale(MakeDelayWrappedMosaic(), Frame, 1f);
-            using Bitmap wrappedHi = GoldenImageHarness.RenderAtScale(MakeDelayWrappedMosaic(), Frame, 2f);
+            using Drawable.Resource wrapped1Resource = MakeDelayWrappedMosaic();
+            using Bitmap wrapped1 = GoldenImageHarness.RenderAtScale(wrapped1Resource, Frame, 1f);
+            using Drawable.Resource wrappedHiResource = MakeDelayWrappedMosaic();
+            using Bitmap wrappedHi = GoldenImageHarness.RenderAtScale(wrappedHiResource, Frame, 2f);
             using Bitmap wrappedDelivered = GoldenImageHarness.MitchellResampleTo(wrappedHi, Frame);
 
-            using Bitmap directHi = GoldenImageHarness.RenderAtScale(MakeDirectMosaic(), Frame, 2f);
+            using Drawable.Resource directHiResource = MakeDirectMosaic();
+            using Bitmap directHi = GoldenImageHarness.RenderAtScale(directHiResource, Frame, 2f);
             using Bitmap directDelivered = GoldenImageHarness.MitchellResampleTo(directHi, Frame);
 
             // (1) Supersampled-then-downscaled must match the wrapped 1:1 render.
@@ -102,8 +105,10 @@ public class DelayAnimationScaleTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap r1 = GoldenImageHarness.RenderAtScale(MakeDelayWrappedDropShadow(), Frame, 1f);
-            using Bitmap hi = GoldenImageHarness.RenderAtScale(MakeDelayWrappedDropShadow(), Frame, 2f);
+            using Drawable.Resource r1Resource = MakeDelayWrappedDropShadow();
+            using Bitmap r1 = GoldenImageHarness.RenderAtScale(r1Resource, Frame, 1f);
+            using Drawable.Resource hiResource = MakeDelayWrappedDropShadow();
+            using Bitmap hi = GoldenImageHarness.RenderAtScale(hiResource, Frame, 2f);
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
 
             // Supersampled result must keep the same logical size as 1:1 (no enlargement/clipping).

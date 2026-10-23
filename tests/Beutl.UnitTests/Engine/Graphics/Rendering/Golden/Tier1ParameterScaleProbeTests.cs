@@ -40,8 +40,10 @@ public class Tier1ParameterScaleProbeTests
                 return shape.ToResource(CompositionContext.Default);
             }
 
-            using Bitmap full = GoldenImageHarness.RenderAtScale(Make(), Frame, 1f);
-            using Bitmap doubled = GoldenImageHarness.RenderAtScale(Make(), Frame, 2f);
+            using Drawable.Resource fullResource = Make();
+            using Bitmap full = GoldenImageHarness.RenderAtScale(fullResource, Frame, 1f);
+            using Drawable.Resource doubledResource = Make();
+            using Bitmap doubled = GoldenImageHarness.RenderAtScale(doubledResource, Frame, 2f);
             using Bitmap downscaled = GoldenImageHarness.MitchellResampleTo(doubled, new PixelSize(full.Width, full.Height));
             double ssim = ImageMetrics.Ssim(full, downscaled);
             double mae = ImageMetrics.MeanAbsoluteError(full, downscaled);
@@ -76,8 +78,10 @@ public class Tier1ParameterScaleProbeTests
                 return shape.ToResource(CompositionContext.Default);
             }
 
-            using Bitmap full = GoldenImageHarness.RenderAtScale(Make(), Frame, 1f);
-            using Bitmap half = GoldenImageHarness.RenderAtScale(Make(), Frame, 0.5f);
+            using Drawable.Resource fullResource = Make();
+            using Bitmap full = GoldenImageHarness.RenderAtScale(fullResource, Frame, 1f);
+            using Drawable.Resource halfResource = Make();
+            using Bitmap half = GoldenImageHarness.RenderAtScale(halfResource, Frame, 0.5f);
             using Bitmap upscaled = GoldenImageHarness.MitchellResampleTo(half, new PixelSize(full.Width, full.Height));
             double ssim = ImageMetrics.Ssim(full, upscaled);
             double mae = ImageMetrics.MeanAbsoluteError(full, upscaled);
@@ -106,7 +110,7 @@ public class Tier1ParameterScaleProbeTests
             shake.StrengthX.Value = 30f;
             shake.StrengthY.Value = 30f;
             shape.FilterEffect.Value = shake;
-            Drawable.Resource res = shape.ToResource(CompositionContext.Default);
+            using Drawable.Resource res = shape.ToResource(CompositionContext.Default);
 
             using Bitmap full = GoldenImageHarness.RenderAtScale(res, Frame, 1f);
             using Bitmap half = GoldenImageHarness.RenderAtScale(res, Frame, 0.5f);

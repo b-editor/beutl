@@ -389,8 +389,8 @@ public class GraphicsContext2DTests
     [Test]
     public void Clear_ShouldCreateClearRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.Clear();
 
@@ -445,8 +445,8 @@ public class GraphicsContext2DTests
     [Test]
     public void ClearWithColor_ShouldCreateClearRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.Clear(Colors.White);
 
@@ -458,8 +458,8 @@ public class GraphicsContext2DTests
     [Test]
     public void DrawImageSource_ShouldCreateImageSourceRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         var imageUri = TestMediaHelper.CreateTestImageUri(100, 100, Colors.White);
         var imageSource = new ImageSource();
@@ -475,8 +475,8 @@ public class GraphicsContext2DTests
     [Test]
     public void DrawVideoSource_ShouldCreateVideoSourceRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         var videoPath = TestMediaHelper.CreateTestVideoFile(100, 100, new Rational(30), 300);
         var videoSource = new VideoSource();
@@ -492,8 +492,8 @@ public class GraphicsContext2DTests
     [Test]
     public void DrawEllipse_ShouldCreateEllipseRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.DrawEllipse(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
 
@@ -504,8 +504,8 @@ public class GraphicsContext2DTests
     [Test]
     public void DrawGeometry_ShouldCreateGeometryRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var geometry = new EllipseGeometry();
         geometry.Width.Value = 100;
         geometry.Height.Value = 100;
@@ -520,8 +520,8 @@ public class GraphicsContext2DTests
     [Test]
     public void DrawRectangle_ShouldCreateRectangleRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.DrawRectangle(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
 
@@ -533,9 +533,9 @@ public class GraphicsContext2DTests
     public void DrawDrawable_ShouldCreateDrawableRenderNode()
     {
         var drawable = new RectShape();
-        var resource = drawable.ToResource(CompositionContext.Default);
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var resource = drawable.ToResource(CompositionContext.Default);
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.DrawDrawable(resource);
 
@@ -546,8 +546,8 @@ public class GraphicsContext2DTests
     [Test]
     public void DrawNode_ShouldAddPassedNodeDirectly()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var child = new ContainerRenderNode();
 
         context.DrawNode(child);
@@ -559,8 +559,8 @@ public class GraphicsContext2DTests
     [Test]
     public void DrawBackdrop_ShouldCreateDrawBackdropRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var backdrop = new Mock<IBackdrop>();
 
         context.DrawBackdrop(backdrop.Object);
@@ -572,8 +572,8 @@ public class GraphicsContext2DTests
     [Test]
     public void Snapshot_ShouldCreateSnapshotBackdropRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         _ = context.Snapshot();
 
@@ -584,8 +584,8 @@ public class GraphicsContext2DTests
     [Test]
     public void Push_ShouldCreatePushRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.Push().Dispose();
 
@@ -596,8 +596,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushLayer_ShouldCreateLayerRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.PushLayer().Dispose();
 
@@ -608,8 +608,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushBlendMode_ShouldCreateBlendModeRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.PushBlendMode(BlendMode.Clear).Dispose();
 
@@ -620,8 +620,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushClip_ShouldCreateRectClipRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.PushClip(new Rect(0, 0, 100, 100)).Dispose();
 
@@ -632,8 +632,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushClipGeometry_ShouldCreateGeometryClipRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var geometry = new EllipseGeometry();
         geometry.Width.Value = 100;
         geometry.Height.Value = 100;
@@ -648,8 +648,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushOpacity_ShouldCreateOpacityRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
 
         context.PushOpacity(0.5f).Dispose();
 
@@ -660,8 +660,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushFilterEffect_ShouldCreateFilterEffectRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var effect = new Blur();
         var resource = effect.ToResource(CompositionContext.Default);
 
@@ -674,8 +674,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushOpacityMask_ShouldCreateOpacityMaskRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var mask = Brushes.Resource.White;
 
         context.PushOpacityMask(mask, new Rect(0, 0, 100, 100)).Dispose();
@@ -687,8 +687,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushTransform_ShouldCreateTransformRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var transform = new RotationTransform();
         var resource = transform.ToResource(CompositionContext.Default);
 
@@ -701,8 +701,8 @@ public class GraphicsContext2DTests
     [Test]
     public void PushMatrixTransform_ShouldCreateTransformRenderNode()
     {
-        var node = new ContainerRenderNode();
-        var context = new GraphicsContext2D(node, new Size(1920, 1080));
+        using var node = new ContainerRenderNode();
+        using var context = new GraphicsContext2D(node, new Size(1920, 1080));
         var matrix = Matrix.CreateRotation(45);
 
         context.PushTransform(matrix).Dispose();
