@@ -67,8 +67,7 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
         _createImage = GetDeviceDelegate<VkCreateImageDelegate>("vkCreateImage");
         _destroyImage = GetDeviceDelegate<VkDestroyImageDelegate>("vkDestroyImage");
         _bindImageMemory = GetDeviceDelegate<VkBindImageMemoryDelegate>("vkBindImageMemory");
-        // Skia binds through the core 1.1 entry point as well, never the KHR one, so it has to carry the
-        // initialization contract of the 1.0 one.
+        // Skia uses core 1.1 image binding, which needs the same initialization as the 1.0 entry point.
         _bindImageMemory2 = TryGetDeviceDelegate<VkBindImageMemory2Delegate>("vkBindImageMemory2");
         // Ganesh creates its filter layers and scratch images through these callbacks. Vulkan
         // leaves a newly bound image undefined, and SwiftShader can expose bytes from a previously

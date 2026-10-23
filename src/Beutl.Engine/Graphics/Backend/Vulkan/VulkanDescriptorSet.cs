@@ -80,7 +80,12 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        _bindings.ValidateWrite(binding, Silk.NET.Vulkan.DescriptorType.UniformBuffer, nameof(binding));
+        _bindings.ValidateWrite(
+            binding,
+            Silk.NET.Vulkan.DescriptorType.UniformBuffer,
+            FirstArrayElement,
+            SingleDescriptor,
+            nameof(binding));
         VulkanBuffer vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
 
         var bufferInfo = new DescriptorBufferInfo
@@ -132,7 +137,12 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        _bindings.ValidateWrite(binding, Silk.NET.Vulkan.DescriptorType.CombinedImageSampler, nameof(binding));
+        _bindings.ValidateWrite(
+            binding,
+            Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
+            FirstArrayElement,
+            SingleDescriptor,
+            nameof(binding));
         VulkanSampler vulkanSampler = _context.RequireOwned<VulkanSampler>(sampler, nameof(sampler));
 
         var imageInfo = new DescriptorImageInfo

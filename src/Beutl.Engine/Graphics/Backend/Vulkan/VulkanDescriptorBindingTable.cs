@@ -11,28 +11,59 @@ namespace Beutl.Graphics.Backend.Vulkan;
 /// </summary>
 internal sealed class VulkanDescriptorBindingTable
 {
+    /// <summary>
+    /// The largest binding number the dense table covers. Above it the declarations are searched linearly,
+    /// so an absurd binding number cannot turn into an absurd allocation.
+    /// </summary>
+    private const uint MaxDenseBinding = 1023;
+
     private readonly Declaration[] _declarations;
+    private readonly Entry[] _dense;
 
     public VulkanDescriptorBindingTable(DescriptorSetLayoutBinding[] bindings)
     {
         _declarations = bindings
             .Select(binding => new Declaration(binding.Binding, binding.DescriptorType, binding.DescriptorCount))
             .ToArray();
+
+        uint maxBinding = _declarations.Length == 0 ? 0 : _declarations.Max(d => d.Binding);
+        if (_declarations.Length != 0 && maxBinding <= MaxDenseBinding)
+        {
+            _dense = new Entry[maxBinding + 1];
+            foreach (Declaration declaration in _declarations)
+            {
+                _dense[declaration.Binding] = new Entry(true, declaration.Type, declaration.Count);
+            }
+        }
+        else
+        {
+            _dense = [];
+        }
     }
 
     /// <summary>
-    /// Rejects a write of one descriptor at array element 0 that the pipeline layout does not describe.
+    /// Rejects a descriptor write the pipeline layout does not describe.
     /// </summary>
+    /// <remarks>
+    /// On the per-draw path, so the declared binding is reached by a bounds check and one array index
+    /// whenever the layout's binding numbers are compact - which every pipeline in the tree is.
+    /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="binding"/> is negative.</exception>
     /// <exception cref="ArgumentException">
-    /// The layout declares no such binding, declares it as a different descriptor type, or declares no
-    /// descriptor for it.
+    /// The layout declares no such binding, declares it as a different descriptor type, or declares fewer
+    /// descriptors than the write covers.
     /// </exception>
-    public void ValidateWrite(int binding, VkDescriptorType descriptorType, string parameterName)
+    public void ValidateWrite(
+        int binding,
+        VkDescriptorType descriptorType,
+        uint arrayElement,
+        uint descriptorCount,
+        string parameterName)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(binding, parameterName);
 
-        if (Find((uint)binding) is not { } entry)
+        Entry entry = Find((uint)binding);
+        if (!entry.IsDeclared)
         {
             throw new ArgumentException(
                 $"Binding {binding} is not declared by the pipeline layout this descriptor set was allocated "
@@ -48,24 +79,27 @@ internal sealed class VulkanDescriptorBindingTable
                 parameterName);
         }
 
-        if (entry.Count == 0)
+        if (arrayElement >= entry.Count || descriptorCount > entry.Count - arrayElement)
         {
             throw new ArgumentException(
-                $"Binding {binding} declares {entry.Count} descriptor(s), so writing 1 at "
-                + "array element 0 runs past the declared array.",
+                $"Binding {binding} declares {entry.Count} descriptor(s), so writing {descriptorCount} at "
+                + $"array element {arrayElement} runs past the declared array.",
                 parameterName);
         }
     }
 
-    private Declaration? Find(uint binding)
+    private Entry Find(uint binding)
     {
+        if (binding < (uint)_dense.Length)
+            return _dense[binding];
+
         foreach (Declaration declaration in _declarations)
         {
             if (declaration.Binding == binding)
-                return declaration;
+                return new Entry(true, declaration.Type, declaration.Count);
         }
 
-        return null;
+        return default;
     }
 
     private string DescribeDeclarations()
@@ -79,4 +113,6 @@ internal sealed class VulkanDescriptorBindingTable
     }
 
     private readonly record struct Declaration(uint Binding, VkDescriptorType Type, uint Count);
+
+    private readonly record struct Entry(bool IsDeclared, VkDescriptorType Type, uint Count);
 }
