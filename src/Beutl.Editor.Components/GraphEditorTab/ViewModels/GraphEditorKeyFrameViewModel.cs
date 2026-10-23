@@ -148,12 +148,14 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .WithSubscribe(() => PasteAsync())
             .DisposeWith(_disposables);
 
-        // Remove takes the selection when this key is in it, so the menu checks every key it would take.
-        RemoveCommand = new ReactiveCommand(editor.CanEdit
-                .Merge(Observable.FromEventPattern(
-                    handler => parent.SelectionChanged += handler,
-                    handler => parent.SelectionChanged -= handler).Select(_ => true))
-                .Select(_ => editor.CanDeleteKeyFrames(RemovedKeys())))
+        // Remove takes the selection when this key is in it, so a selected key reads the channel's answer for it.
+        ReadOnlyReactivePropertySlim<bool> canRemoveAlone = editor.CanEdit
+            .Select(editable => editable || ElementEditability.CanRepair(editor.Element, keyframe, editor.Scene))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        RemoveCommand = new ReactiveCommand(IsSelected
+                .Select(selected => selected ? parent.CanDeleteSelection : (IObservable<bool>)canRemoveAlone)
+                .Switch())
             .WithSubscribe(Remove)
             .DisposeWith(_disposables);
     }
