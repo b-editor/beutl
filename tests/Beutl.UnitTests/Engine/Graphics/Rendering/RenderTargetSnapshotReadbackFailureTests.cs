@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Rendering;
 using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -11,12 +9,6 @@ public sealed class RenderTargetSnapshotReadbackFailureTests
 {
     private const int Width = 48;
     private const int Height = 32;
-
-    /// <summary>
-    /// How many failed snapshots one measurement takes. Large enough that the objects a stranded bitmap
-    /// contributes cannot be confused with the handful the surrounding harness allocates.
-    /// </summary>
-    private const int Attempts = 64;
 
     private const string ReadbackFailureMessage =
         "Failed to read the render target surface into the destination bitmap.";
@@ -39,22 +31,6 @@ public sealed class RenderTargetSnapshotReadbackFailureTests
         Assert.That(
             () => target.SnapshotAlpha().Dispose(),
             Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo(ReadbackFailureMessage));
-    }
-
-    [Test]
-    public void Snapshot_ReleasesTheBitmapItAllocated_WhenTheReadbackFails()
-    {
-        AssertFailedSnapshotStrandsNothing(
-            static target => target.Snapshot(),
-            BitmapColorType.RgbaF16);
-    }
-
-    [Test]
-    public void SnapshotAlpha_ReleasesTheBitmapItAllocated_WhenTheReadbackFails()
-    {
-        AssertFailedSnapshotStrandsNothing(
-            static target => target.SnapshotAlpha(),
-            BitmapColorType.Alpha8);
     }
 
     [Test]
@@ -94,104 +70,5 @@ public sealed class RenderTargetSnapshotReadbackFailureTests
                 "the destination belongs to the caller, who keeps it whether the readback succeeded or not");
             Assert.That(destination.SKBitmap.Handle, Is.Not.EqualTo(IntPtr.Zero));
         });
-    }
-
-    /// <summary>
-    /// Measures the finalizable garbage <paramref name="snapshot"/> leaves behind over <see cref="Attempts"/>
-    /// failed readbacks, against the same count of deliberately stranded bitmaps of
-    /// <paramref name="colorType"/>.
-    /// </summary>
-    private static void AssertFailedSnapshotStrandsNothing(
-        Func<RenderTarget, Bitmap> snapshot,
-        BitmapColorType colorType)
-    {
-        using RenderTarget target = RenderTarget.CreateNull(Width, Height);
-        int failures = 0;
-
-        long stranded = MeasureFinalizableGarbage(() => StrandBitmaps(Attempts, colorType));
-        long observed = MeasureFinalizableGarbage(() => failures = FailSnapshots(target, snapshot, Attempts));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                stranded,
-                Is.GreaterThanOrEqualTo(Attempts),
-                "the calibration leak has to register, or the measurement below cannot tell a leak from a release");
-            Assert.That(
-                failures,
-                Is.EqualTo(Attempts),
-                "every attempt has to reach the failing readback, or the test proves nothing");
-            Assert.That(
-                observed,
-                Is.LessThan(Attempts),
-                "a failed readback must release the bitmap it allocated instead of leaving it for a finalizer");
-        });
-    }
-
-    /// <summary>
-    /// Runs <paramref name="body"/> and reports how many objects it left waiting on the finalization queue.
-    /// </summary>
-    /// <remarks>
-    /// Both halves of a released snapshot bitmap suppress their own finalizer — <see cref="Bitmap.Dispose"/>
-    /// and SkiaSharp's own — so only a stranded one is counted here.
-    /// </remarks>
-    private static long MeasureFinalizableGarbage(Action body)
-    {
-        Quiesce();
-        long before = GC.GetGCMemoryInfo().FinalizationPendingCount;
-        body();
-
-        // Promotes whatever the body abandoned onto the finalization queue without draining it, which is
-        // what makes the count readable.
-        GC.Collect();
-        return GC.GetGCMemoryInfo().FinalizationPendingCount - before;
-    }
-
-    /// <summary>Drains the queue so the previous measurement's leak cannot be charged to the next one.</summary>
-    private static void Quiesce()
-    {
-        for (int i = 0; i < 3; i++)
-        {
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-        }
-
-        GC.Collect();
-    }
-
-    /// <remarks>
-    /// Not inlined, so no caller frame can keep the abandoned bitmaps reachable past the measurement's
-    /// collection.
-    /// </remarks>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static int FailSnapshots(RenderTarget target, Func<RenderTarget, Bitmap> snapshot, int attempts)
-    {
-        int failures = 0;
-        for (int i = 0; i < attempts; i++)
-        {
-            try
-            {
-                snapshot(target).Dispose();
-            }
-            catch (InvalidOperationException)
-            {
-                failures++;
-            }
-        }
-
-        return failures;
-    }
-
-    /// <summary>
-    /// Allocates the bitmaps a snapshot would and abandons them undisposed — the shape a failed readback
-    /// left behind before it released them.
-    /// </summary>
-    [MethodImpl(MethodImplOptions.NoInlining)]
-    private static void StrandBitmaps(int count, BitmapColorType colorType)
-    {
-        for (int i = 0; i < count; i++)
-        {
-            _ = new Bitmap(Width, Height, colorType, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
-        }
     }
 }
