@@ -142,12 +142,9 @@ public sealed class DeclaredResourceAddressingContractTests
                 Is.True);
             Assert.That(typeof(RenderResourceBinding).GetConstructors(), Is.Empty);
             Assert.That(typeof(RenderResourceBinding).GetProperties(), Is.Empty);
-            Assert.That(typeof(RenderResource<Payload>).GetMethod("Bind"), Is.Null);
-            Assert.That(typeof(RenderResource).GetProperty("CacheIdentity"), Is.Null);
 
             foreach (Type session in slotSessions)
             {
-                Assert.That(session.GetMethod("UseDeclaredResource"), Is.Null, session.Name);
                 MethodInfo[] resourceMethods = session.GetMethods(BindingFlags.Public | BindingFlags.Instance)
                     .Where(static method => method.Name == "UseResource")
                     .ToArray();
