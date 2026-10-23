@@ -192,14 +192,9 @@ internal sealed unsafe class VulkanInstance : IDisposable
     /// <summary>Reads which driver implements <paramref name="device"/>, or <see langword="default"/> when it cannot say.</summary>
     private DriverId GetDriverId(PhysicalDevice device, uint apiVersion)
     {
-        // The driver properties are core from Vulkan 1.2 and come from VK_KHR_driver_properties on a 1.1 device.
-        // A device with neither does not know the structure, and chaining it anyway is not valid usage.
-        if (apiVersion < Vk.Version12
-            && (apiVersion < Vk.Version11
-                || !VulkanPhysicalDeviceQueries.GetDeviceExtensionNames(_vk, device).Contains("VK_KHR_driver_properties")))
-        {
+        // Core from Vulkan 1.2; the bundled MoltenVK, the only driver whose ID decides anything, reports later.
+        if (apiVersion < Vk.Version12)
             return default;
-        }
 
         var driverProperties = new PhysicalDeviceDriverProperties
         {
