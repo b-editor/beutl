@@ -427,6 +427,32 @@ public sealed class RenderTargetPoolTests
         Assert.DoesNotThrow(second.Dispose);
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void StaleLease_ThrowsTheBookkeepingFailureDirectly(bool disposeSession)
+    {
+        using var pool = new RenderTargetPool(new TrackingTargetFactory());
+        using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Delivery);
+        RenderTargetLease remaining = session.Acquire(new PixelSize(4, 4));
+        RenderTargetLease lease = session.Acquire(new PixelSize(4, 4));
+        lease.Slot.ActiveLease = null;
+        try
+        {
+            Assert.That(() =>
+            {
+                if (disposeSession)
+                    session.Dispose();
+                else
+                    lease.Dispose();
+            }, Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("The render-target lease is stale."));
+            Assert.That(remaining.IsReleased, Is.False);
+        }
+        finally
+        {
+            lease.Slot.ActiveLease = lease;
+        }
+    }
+
     [Test]
     public void CleanupFailureCheckpoint_ReturnsOnlyLaterFailuresInOrder()
     {
