@@ -114,6 +114,27 @@ public class PropertyExpressionTests
         }
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void FailedExpression_WhenLoggingThrows_PropagatesTheLogFailure(bool animated)
+    {
+        if (!Log.IsLoggerFactoryConfigured)
+            Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
+        using var logs = new CapturingLoggerProvider(category => category == "PropertyExpression", throwOnLog: true);
+        Log.LoggerFactory.AddProvider(logs);
+        IExpressionProperty<float> property = animated ? new AnimatableProperty<float>(7) : new SimpleProperty<float>(7);
+        property.Expression = new TestExpression(() => throw new ExpressionException("Evaluation failed"));
+        var context = TestHelper.CreateExpressionContext(MediaTime.Zero, property);
+
+        Assert.That(() => property.Evaluate(context), Throws.Exception);
+        Assert.Multiple(() =>
+        {
+            Assert.That(property.ExpressionError, Is.EqualTo("Evaluation failed"));
+            Assert.That(context.IsEvaluating(property), Is.False);
+            Assert.That(logs.Entries, Has.Count.EqualTo(1));
+        });
+    }
+
     [Test]
     public void FailedExpression_FallsBackToAnimationAtTheRequestedTime()
     {
