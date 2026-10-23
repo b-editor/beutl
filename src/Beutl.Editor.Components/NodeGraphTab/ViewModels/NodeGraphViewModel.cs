@@ -28,6 +28,8 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
             .Subscribe(editable => _canEdit.Value = editable)
             .DisposeWith(_disposables);
         _canEdit.DisposeWith(_disposables);
+        // A run stops when the clip gets locked, so it spends no more requests.
+        _canEdit.Where(editable => !editable).Subscribe(_ => CancelGenerative()).DisposeWith(_disposables);
         graph.Nodes.ForEachItem(
                 (idx, item) =>
                 {
@@ -126,7 +128,7 @@ public sealed class NodeGraphViewModel : IDisposable, IJsonSerializable
         _generativeCts = cts;
         try
         {
-            var runner = new GenerativeGraphRunner(executor, new EditorGenerativeRunHost(EditorContext));
+            var runner = new GenerativeGraphRunner(executor, new EditorGenerativeRunHost(EditorContext, CanEdit));
             await runner.RunAsync(NodeGraph, targets, force, cts.Token, variations);
         }
         catch (OperationCanceledException) when (cts.IsCancellationRequested)

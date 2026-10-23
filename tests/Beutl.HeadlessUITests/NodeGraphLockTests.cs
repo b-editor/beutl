@@ -207,6 +207,70 @@ public class NodeGraphLockTests
         nodeMenu.Hide();
     }
 
+    // A result the server sends after the clip was locked is dropped, and the lock stops the run.
+    [AvaloniaTest]
+    [TestCase(1)]
+    [TestCase(2)]
+    public async Task A_generation_that_returns_after_the_clip_is_locked_leaves_it_as_it_is(int variations)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"beutl-locked-generation-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var image = new AiImageGenerationNode { Position = (20, 40) };
+        image.Prompt.Property!.SetValue("a cat");
+        using var scope = new LockedGraphScope(protect: false, [image], lockClip: false);
+        var executor = new WaitingExecutor(directory);
+        scope.Editor.Setup(x => x.GetService(typeof(IGenerativeNodeExecutor))).Returns(executor);
+        scope.History.Commit("Setup");
+        int undoCount = scope.History.UndoCount;
+        try
+        {
+            Task run = scope.Model.RunGenerativeAsync([image], force: true, variations);
+            await executor.Started.Task.WaitAsync(TimeSpan.FromMinutes(1));
+            scope.Element.IsLocked = true;
+            executor.Release();
+            await run.WaitAsync(TimeSpan.FromMinutes(1));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(image.Generations, Is.Empty);
+                Assert.That(image.ActiveGeneration, Is.Null);
+                Assert.That(scope.History.UndoCount, Is.EqualTo(undoCount));
+                Assert.That(image.Status, Is.Not.EqualTo(GenerativeNodeStatus.Running));
+                Assert.That(scope.Model.IsGenerating.Value, Is.False);
+                Assert.That(executor.Calls, Is.EqualTo(1), "No more requests after the lock.");
+            });
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    // Answers once released, whatever its token says, as a server that has taken the job does.
+    private sealed class WaitingExecutor(string directory) : IGenerativeNodeExecutor
+    {
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int Calls { get; private set; }
+
+        public void Release() => _release.TrySetResult();
+
+        public async Task<GenerativeExecutionResult> ExecuteAsync(
+            GenerativeRequest request, IProgress<GenerativeProgress> progress, CancellationToken cancellationToken)
+        {
+            Calls++;
+            Started.TrySetResult();
+            await _release.Task;
+            string path = Path.Combine(directory, $"{Guid.NewGuid():N}.png");
+            using (var bitmap = new Bitmap(8, 8))
+            using (FileStream stream = File.Create(path))
+                bitmap.Save(stream, Beutl.Graphics.EncodedImageFormat.Png);
+            return new GenerativeExecutionResult(new Uri(path), request.ModelId, (request as AiImageGenerationNodeRequest)?.Seed);
+        }
+    }
+
     // A graph in a clip on a scene, with the history and editor services a NodeGraphView asks for.
     private sealed class LockedGraphScope : IDisposable
     {
