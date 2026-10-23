@@ -89,7 +89,7 @@ public class BitmapColorSpaceTests
     {
         byte[] profile = CreateCmykProfile();
         using (SKColorSpaceIccProfile? parsed = SKColorSpaceIccProfile.Create(profile))
-            Assume.That(parsed, Is.Not.Null, "Skia must read the profile for this to reach the color-space check.");
+            Assert.That(parsed, Is.Not.Null, "Skia must read the profile for this to reach the color-space check.");
 
         Assert.That(BitmapColorSpace.CreateIcc(profile), Is.Null);
     }
