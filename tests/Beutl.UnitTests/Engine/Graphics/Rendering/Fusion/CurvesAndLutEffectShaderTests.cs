@@ -4,7 +4,6 @@ using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -117,7 +116,7 @@ public sealed class CurvesAndLutEffectShaderTests
             Assert.Multiple(() =>
             {
                 Assert.That(description.Uniforms.Select(static uniform => uniform.Name),
-                    Is.EqualTo(new[] { "lutSize", "lutWidth", "strength" }));
+                    Is.EqualTo(new[] { "lutSize", "lutWidth", "domainMin", "domainMax", "strength" }));
                 Assert.That(binding.Name, Is.EqualTo("lut"));
                 Assert.That(binding.CoordinateSpace, Is.EqualTo(ShaderResourceCoordinateSpace.Value));
                 Assert.That(lutResource.Strength, Is.EqualTo(100f));
@@ -184,7 +183,7 @@ public sealed class CurvesAndLutEffectShaderTests
 
     [TestCase(CubeFileDimension.OneDimension)]
     [TestCase(CubeFileDimension.ThreeDimension)]
-    public void LutEffect_DeferredBindingUsesTheRecordedCubeSnapshot(CubeFileDimension dimension)
+    public void LutEffect_KeepsTheSnapshotItTookOfACubeFile(CubeFileDimension dimension)
     {
         var effect = new LutEffect
         {
@@ -206,56 +205,9 @@ public sealed class CurvesAndLutEffectShaderTests
         SKColor first = ExecuteRecordedLut(firstContext);
         SKColor second = ExecuteRecordedLut(secondContext);
 
+        // The file is snapshotted once, so writing its data in place reaches neither recording.
         AssertCyan(first);
-        AssertRed(second);
-    }
-
-    // CubeFile.Data writes bump no version, so the frame sees them only because LutEffect records again every
-    // request. If this goes red, check what reuses its recording, not the effect.
-    [TestCase(CubeFileDimension.OneDimension, true)]
-    [TestCase(CubeFileDimension.OneDimension, false)]
-    [TestCase(CubeFileDimension.ThreeDimension, true)]
-    [TestCase(CubeFileDimension.ThreeDimension, false)]
-    public void MutatedCubeData_ReachesTheNextFrame(
-        CubeFileDimension dimension,
-        bool renderCacheEnabled)
-    {
-        var effect = new LutEffect
-        {
-            Source = { Value = CreateRedToCyanLutSource(dimension) },
-        };
-        var effectResource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
-        CubeFile cube = effectResource.Source!.Cube!;
-        var lutNode = new FilterEffectRenderNode(effectResource);
-        lutNode.AddChild(new RectangleRenderNode(s_bounds, Brushes.Resource.Red, null));
-        // Under a container, so an ancestor whose own recording is replayable is in play too.
-        using var root = new ContainerRenderNode();
-        root.AddChild(lutNode);
-        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
-        {
-            Intent = RenderIntent.Preview,
-            TargetDomain = s_bounds,
-            CacheOptions = renderCacheEnabled
-                ? RenderCacheOptions.Default
-                : RenderCacheOptions.Disabled,
-        }, new CpuRenderTargetFactory());
-
-        // Past RenderNodeCache.StableRequestCount, so the warmed-up render cache is live by the time
-        // the cube data is mutated and cannot be what carries the change through.
-        for (int frame = 0; frame < RenderNodeCache.StableRequestCount + 1; frame++)
-        {
-            using RenderNodeRasterization warmFrame = renderer.Rasterize();
-            AssertCyan(ReadCenterPixel(warmFrame));
-        }
-
-        for (int i = 0; i < cube.Data.Length; i++)
-        {
-            cube.Data[i] = Vector3.One - cube.Data[i];
-        }
-
-        using RenderNodeRasterization mutatedFrame = renderer.Rasterize();
-
-        AssertRed(ReadCenterPixel(mutatedFrame));
+        AssertCyan(second);
     }
 
     [TestCaseSource(nameof(ResourceBackedEffects))]
@@ -437,17 +389,6 @@ public sealed class CurvesAndLutEffectShaderTests
             Assert.That(color.Red, Is.LessThan(16));
             Assert.That(color.Green, Is.GreaterThan(239));
             Assert.That(color.Blue, Is.GreaterThan(239));
-            Assert.That(color.Alpha, Is.GreaterThan(239));
-        });
-    }
-
-    private static void AssertRed(SKColor color)
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(color.Red, Is.GreaterThan(239));
-            Assert.That(color.Green, Is.LessThan(16));
-            Assert.That(color.Blue, Is.LessThan(16));
             Assert.That(color.Alpha, Is.GreaterThan(239));
         });
     }
