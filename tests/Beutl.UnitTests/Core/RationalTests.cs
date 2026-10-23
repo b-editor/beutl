@@ -62,6 +62,10 @@ public class RationalTests
     [TestCase(5, -1, "-5")]
     [TestCase(60, 1, "60")]
     [TestCase(30000, 1001, "30000/1001")]
+    // Only rounds to a whole number as a double.
+    [TestCase(long.MaxValue, 2, "9223372036854775807/2")]
+    // Its whole value overflows.
+    [TestCase(long.MinValue, -1, "-9223372036854775808/-1")]
     public void ToString_WritesAWholeValueAsItsValue(long num, long den, string expected)
     {
         var value = new Rational(num, den);
