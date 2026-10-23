@@ -177,6 +177,49 @@ public class EngineObjectHelperTests
         Assert.That(reported, Is.SameAs(failure));
     }
 
+    [Test]
+    public void Shutdown_drops_a_release_queued_behind_a_running_operation()
+    {
+        using var published = new ManualResetEventSlim();
+        using var blockerEntered = new ManualResetEventSlim();
+        using var releaseBlocker = new ManualResetEventSlim();
+        Dispatcher dispatcher = Dispatcher.Spawn();
+        CountingResource? created = null;
+        IDisposable? subscription = null;
+        try
+        {
+            subscription = _probe
+                .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
+                    _time, (_, _) => new CountingResource(), dispatcher)
+                .Subscribe(handle =>
+                {
+                    handle.Read(resource => created = resource);
+                    published.Set();
+                });
+            Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True);
+            dispatcher.Dispatch(() =>
+            {
+                blockerEntered.Set();
+                releaseBlocker.Wait();
+            }, DispatchPriority.High);
+            Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(30)), Is.True);
+
+            subscription.Dispose();
+            dispatcher.Shutdown();
+            Assert.That(created!.DisposeCalls, Is.Zero);
+            releaseBlocker.Set();
+            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            Assert.That(created.DisposeCalls, Is.Zero);
+        }
+        finally
+        {
+            releaseBlocker.Set();
+            subscription?.Dispose();
+            ShutDownAndJoin(dispatcher);
+            created?.Dispose();
+        }
+    }
+
     // A published resource is rebuilt in place on the render dispatcher, so a reader on another thread could land
     // midway through a rebuild, as the path editor's "Collection was modified" faults did.
     [Test]
