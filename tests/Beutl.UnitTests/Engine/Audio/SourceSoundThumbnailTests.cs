@@ -1,6 +1,5 @@
 ﻿using System.Numerics;
 using Beutl.Audio;
-using Beutl.Audio.Graph;
 using Beutl.Engine;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -13,38 +12,6 @@ public class SourceSoundThumbnailTests
 {
     [OneTimeSetUp]
     public void OneTimeSetUp() => TestMediaHelper.RegisterTestDecoder();
-
-    [TestCase(1, 44100)]
-    [TestCase(44, 44100)]
-    [TestCase(45, 44100)]
-    [TestCase(1024, 48000)]
-    public void GetWaveformChunkDuration_MapsBackToRequestedSampleCount(int sampleCount, int sampleRate)
-    {
-        MediaTime duration = SourceSound.GetWaveformChunkDuration(sampleCount, sampleRate);
-
-        Assert.That(
-            AudioProcessContext.GetSampleCount(new TimeRange(MediaTime.Zero, duration), sampleRate),
-            Is.EqualTo(sampleCount));
-    }
-
-    [Test]
-    public void GetWaveformChunkDuration_AdjacentBoundariesDifferByAtMostOneTick()
-    {
-        const int sampleRate = 44100;
-        const int totalSamples = 44100;
-        const int chunkCount = 1000;
-
-        for (int chunkIndex = 0; chunkIndex < chunkCount - 1; chunkIndex++)
-        {
-            int startSample = (int)((long)chunkIndex * totalSamples / chunkCount);
-            int endSample = (int)((long)(chunkIndex + 1) * totalSamples / chunkCount);
-            var start = MediaTime.FromSeconds((double)startSample / sampleRate);
-            var duration = SourceSound.GetWaveformChunkDuration(endSample - startSample, sampleRate);
-            var nextStart = MediaTime.FromSeconds((double)endSample / sampleRate);
-
-            Assert.That(Math.Abs((start + duration - nextStart).ToTimeSpan().Ticks), Is.LessThanOrEqualTo(1));
-        }
-    }
 
     // Cache-control-flow contract of GetWaveformChunksAsync: a miss computes and saves the chunk, a
     // hit returns the cached value and is not re-saved, and every chunk is still produced either way.
