@@ -9,28 +9,34 @@ namespace Beutl.UnitTests.Engine.Graphics;
 [TestFixture]
 public sealed class BrushConstructorShaderTests
 {
-    // Displacement maps sample the bare shader, so it has to carry the opacity a painted fill gets from the paint.
-    [TestCase(100f, 255)]
-    [TestCase(50f, 127)]
-    [TestCase(0f, 0)]
-    public void CreateShader_ScalesAGradientByItsOpacity(float opacity, int alpha)
+    // Displacement maps read all four channels of the bare shader, including the brush opacity.
+    [TestCase(100f)]
+    [TestCase(50f)]
+    [TestCase(0f)]
+    public void CreateShader_MatchesThePremultipliedPaintChannels(float opacity)
     {
         var gradient = new LinearGradientBrush();
-        gradient.GradientStops.Add(new GradientStop(Colors.White, 0));
-        gradient.GradientStops.Add(new GradientStop(Colors.White, 1));
+        gradient.GradientStops.Add(new GradientStop(Color.FromArgb(160, 64, 128, 192), 0));
+        gradient.GradientStops.Add(new GradientStop(Color.FromArgb(80, 200, 90, 50), 1));
         gradient.Opacity.Value = opacity;
         using Brush.Resource resource = gradient.ToResource(CompositionContext.Default);
-        using SKShader? shader = new BrushConstructor(
-                new Rect(0, 0, 4, 4), resource, BlendMode.SrcOver, RenderIntent.Preview, drawableBrushMaterializer: null)
-            .CreateShader();
-
-        using var bitmap = new SKBitmap(new SKImageInfo(1, 1, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var constructor = new BrushConstructor(
+            new Rect(0, 0, 4, 1), resource, BlendMode.Src, RenderIntent.Preview, drawableBrushMaterializer: null);
+        using SKShader? shader = constructor.CreateShader();
+        using var bitmap = new SKBitmap(new SKImageInfo(4, 2, SKColorType.Rgba8888, SKAlphaType.Premul));
         using (var canvas = new SKCanvas(bitmap))
         using (var paint = new SKPaint { Shader = shader, BlendMode = SKBlendMode.Src })
+        using (var configuredPaint = new SKPaint())
         {
-            canvas.DrawRect(new SKRect(0, 0, 1, 1), paint);
+            canvas.DrawRect(SKRect.Create(4, 1), paint);
+            constructor.ConfigurePaint(configuredPaint);
+            configuredPaint.IsAntialias = false;
+            canvas.Translate(0, 1);
+            canvas.DrawRect(SKRect.Create(4, 1), configuredPaint);
         }
 
-        Assert.That(bitmap.GetPixel(0, 0).Alpha, Is.EqualTo(alpha));
+        using SKPixmap pixels = bitmap.PeekPixels();
+        Assert.That(pixels.GetPixelSpan().Slice(0, 16).ToArray(),
+            Is.EqualTo(pixels.GetPixelSpan().Slice(pixels.RowBytes, 16).ToArray()));
     }
 }
