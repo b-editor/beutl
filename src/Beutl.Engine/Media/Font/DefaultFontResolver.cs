@@ -1,4 +1,5 @@
-﻿using System.Runtime.Versioning;
+﻿using System.Diagnostics;
+using System.Runtime.Versioning;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
@@ -13,10 +14,14 @@ internal static class DefaultFontResolver
     public static SKTypeface Resolve(string executable = "fc-match")
     {
         using var cancellation = new CancellationTokenSource(TimeoutMilliseconds);
-        LinuxFontMatchProcess? process = null;
+        Process? process = null;
         try
         {
-            process = new LinuxFontMatchProcess(executable);
+            process = Process.Start(new ProcessStartInfo(executable, ["--format", "%{file}"])
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            })!;
 
             // Drain both pipes while waiting, and bound the entire query, including output reads.
             Task<string> output = process.StandardOutput.ReadToEndAsync(cancellation.Token);
@@ -24,7 +29,6 @@ internal static class DefaultFontResolver
             Task.WhenAll(process.WaitForExitAsync(cancellation.Token), output, error)
                 .WaitAsync(cancellation.Token).GetAwaiter().GetResult();
 
-            process.Stop();
             string file = output.GetAwaiter().GetResult().TrimEnd('\r', '\n');
             SKTypeface? face = process.ExitCode == 0 && !string.IsNullOrEmpty(file) ? SKTypeface.FromFile(file) : null;
             if (face is not null)
@@ -47,13 +51,17 @@ internal static class DefaultFontResolver
             {
                 try
                 {
-                    process.Dispose();
+                    // A query that timed out is still running, with any children it started.
+                    if (!process.HasExited)
+                        process.Kill(entireProcessTree: true);
                 }
                 catch (Exception ex)
                 {
                     Log.CreateLogger(typeof(DefaultFontResolver)).LogWarning(ex,
                         "Failed to stop the default font query {Executable}", executable);
                 }
+
+                process.Dispose();
             }
         }
 
