@@ -9,7 +9,7 @@ internal sealed record ReferencePropertyDescriptor(string Name, Type ReferencedT
 internal static class ReferenceProperties
 {
     // Weak-keyed so caching a plugin-defined owner type never roots its collectible AssemblyLoadContext.
-    private static readonly ConditionalWeakTable<Type, ReferencePropertyDescriptor[]> s_byOwnerType = new();
+    private static readonly ConditionalWeakTable<Type, ReferencePropertyDescriptor[]?> s_byOwnerType = new();
 
     static ReferenceProperties()
     {
@@ -21,25 +21,29 @@ internal static class ReferenceProperties
             ? new ReferencePropertyDescriptor(property.Name, Nullable.GetUnderlyingType(property.ValueType) ?? property.ValueType)
             : null;
 
-    public static IReadOnlyList<ReferencePropertyDescriptor> ForOwner(Type ownerType)
+    // Null for a type without a public parameterless constructor: only an instance of it can tell.
+    public static IReadOnlyList<ReferencePropertyDescriptor>? ForOwner(Type ownerType)
         => s_byOwnerType.GetValue(ownerType, static type =>
         {
-            if (type.IsAbstract
-                || !typeof(EngineObject).IsAssignableFrom(type)
-                || Activator.CreateInstance(type) is not EngineObject engineObject)
+            if (type.IsAbstract || !typeof(EngineObject).IsAssignableFrom(type))
             {
                 return [];
             }
 
-            return engineObject.Properties
-                .Select(Describe)
-                .OfType<ReferencePropertyDescriptor>()
-                .ToArray();
+            if (type.GetConstructor(Type.EmptyTypes) is null)
+            {
+                return null;
+            }
+
+            return Activator.CreateInstance(type) is EngineObject engineObject ? Of(engineObject) : [];
         });
+
+    public static ReferencePropertyDescriptor[] Of(EngineObject obj)
+        => [.. obj.Properties.Select(Describe).OfType<ReferencePropertyDescriptor>()];
 
     private static void Evict(Type[] types)
     {
-        foreach (KeyValuePair<Type, ReferencePropertyDescriptor[]> entry in s_byOwnerType.ToArray())
+        foreach (KeyValuePair<Type, ReferencePropertyDescriptor[]?> entry in s_byOwnerType.ToArray())
         {
             if (Array.Exists(types, type => TypeUnloadNotifier.ContainsTypeRecursive(entry.Key, type)))
             {

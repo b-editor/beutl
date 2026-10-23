@@ -274,12 +274,13 @@ public class DecoderRegistryProxyRoutingTests
         }
     }
 
-    // new Uri(rawPath) parses URI-reserved chars (#, ?) in a filename as delimiters, dropping
-    // them from LocalPath so it no longer matches the path ProxyFingerprint stored; the escaped file
-    // URI must round-trip the full path so those clips still resolve their proxy.
+    // The file URI must round-trip the full path, so that a clip named with '#', '?' or "%XX" still
+    // matches the path ProxyFingerprint stored and resolves its proxy.
     [Test]
     [TestCase("clip#1.mov")]
     [TestCase("clip?1.mov")]
+    [TestCase("clip%41.mov")]
+    [TestCase("50%20off.mov")]
     [TestCase("plain.mov")]
     public void ToFileUri_RoundTripsReservedCharsInLocalPath(string fileName)
     {

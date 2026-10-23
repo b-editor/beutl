@@ -143,11 +143,19 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
             .WithSubscribe(CopyAsync)
             .DisposeWith(_disposables);
 
-        PasteCommand = new AsyncReactiveCommand()
+        GraphEditorViewModel editor = parent.Parent;
+        PasteCommand = new AsyncReactiveCommand(editor.CanEdit)
             .WithSubscribe(() => PasteAsync())
             .DisposeWith(_disposables);
 
-        RemoveCommand = new ReactiveCommand()
+        // Remove takes the selection when this key is in it, so a selected key reads the channel's answer for it.
+        ReadOnlyReactivePropertySlim<bool> canRemoveAlone = editor.CanEdit
+            .Select(editable => editable || ElementEditability.CanRepair(editor.Element, keyframe, editor.Scene))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        RemoveCommand = new ReactiveCommand(IsSelected
+                .Select(selected => selected ? parent.CanDeleteSelection : (IObservable<bool>)canRemoveAlone)
+                .Switch())
             .WithSubscribe(Remove)
             .DisposeWith(_disposables);
     }
@@ -290,18 +298,9 @@ public sealed class GraphEditorKeyFrameViewModel : IDisposable
 
     internal Task PasteAsync(IClipboard? clipboard = null) => Parent.Parent.PasteSelectionAsync(clipboard, Model);
 
-    private void Remove()
-    {
-        if (IsSelected.Value)
-        {
-            var selected = Parent.KeyFrames.Where(x => x.IsSelected.Value).Select(x => x.Model).ToArray();
-            Parent.Parent.DeleteKeyFrames(selected);
-            return;
-        }
-        AnimationOperations.RemoveKeyFrame(
-            animation: Parent.Parent.Animation,
-            keyframe: Model,
-            logger: _logger);
-        Parent.Parent.HistoryManager.Commit(CommandNames.RemoveKeyFrame);
-    }
+    private void Remove() => Parent.Parent.DeleteKeyFrames(RemovedKeys());
+
+    // The selection when this key is in it, otherwise this key alone.
+    private IKeyFrame[] RemovedKeys()
+        => IsSelected.Value ? [.. Parent.Parent.Animation.KeyFrames.Where(Parent.IsKeyFrameSelected)] : [Model];
 }

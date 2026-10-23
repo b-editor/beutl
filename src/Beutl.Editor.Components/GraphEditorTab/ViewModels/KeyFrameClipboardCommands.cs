@@ -83,16 +83,17 @@ internal static class KeyFrameClipboardCommands
     }
 
     // The easing replaces that of the keyframe near keyTime, the drop position as a key time, or comes with a
-    // new keyframe inserted at dropTime.
+    // new keyframe inserted at dropTime. A given element completes the repair a replaced easing can make.
     internal static void DropEasing(
         IKeyFrameAnimation animation, Scene scene, HistoryManager history, Easing easing, MediaTime dropTime,
-        MediaTime keyTime, Action<Easing, MediaTime> insertKeyFrame, ILogger? logger)
+        MediaTime keyTime, Action<Easing, MediaTime> insertKeyFrame, ILogger? logger, Element? element = null)
     {
         IKeyFrame? keyFrame = FindEasingDropTarget(animation, keyTime, scene);
         if (keyFrame != null)
         {
             logger?.LogInformation("Editing existing key frame at {KeyTime}", keyTime);
             keyFrame.Easing.Value = easing;
+            if (element != null) ElementRecoveryService.TryCompleteRepair(element, history);
             history.Commit(CommandNames.ChangeEasing);
         }
         else

@@ -168,10 +168,14 @@ public class PlaybackEditTests
 
         using (frame.Bitmap)
         {
+            // A producer that stopped before the edit leaves the frames drawn without the clip queued (#3429).
+            Assert.That(player.Failure, Is.Null, $"Rendering failed at frame {player.Failure?.Frame}: {player.Failure?.Exception}");
+            Assert.That(player.ProducerStopped, Is.False, "The producer stopped, so the edit dropped no queued frame.");
             using Bitmap bgra = frame.Bitmap.Value.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul);
-            byte blue = bgra.GetRow(bgra.Height / 2)[(bgra.Width / 2) * 4];
+            Span<byte> center = bgra.GetRow(bgra.Height / 2).Slice(bgra.Width / 2 * 4, 4);
             Assert.That(frame.Time, Is.EqualTo(45));
-            Assert.That(blue, Is.GreaterThan(40), "Half way through the transition the incoming clip must show.");
+            Assert.That(center[0], Is.GreaterThan(40),
+                $"Half way through the transition the incoming clip must show (red {center[2]}).");
         }
     }
 

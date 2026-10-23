@@ -46,7 +46,7 @@ public partial class GraphEditorView
     {
         if (_speedHandle is not { } state || DataContext is not GraphEditorViewModel model) return;
         Point delta = e.GetPosition(grid) - state.Origin;
-        if (!_editStarted && Math.Abs(delta.X) + Math.Abs(delta.Y) < 3) return;
+        if (!_editStarted && Math.Abs(delta.X) + Math.Abs(delta.Y) < 3 || !model.CanEdit.Value) return;
         BeginGraphEdit(model);
         Point position = state.Handle + delta;
         double velocity = state.Velocity - (e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 0 : delta.Y / state.ScaleY);

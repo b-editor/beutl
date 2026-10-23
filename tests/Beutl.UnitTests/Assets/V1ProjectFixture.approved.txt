@@ -95,8 +95,8 @@ Layer 3: "Decorator" (DF8DDAUl.belm)
   [0] PortalObject
       Count = 1
   [1] DrawableDecorator
-      KNOWN GAP: 1.1.0 wrote this operator turned off, but the migrated object is enabled
       1.1.0 values not read: Child, Fill, OpacityMask, IsVisible, TimeRange
+      IsEnabled = false
       Transform.Children: 1 item(s)
       Transform.Children[0]: ScaleTransform
       Transform.Children[0].Scale = 150

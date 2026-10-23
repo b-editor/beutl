@@ -308,7 +308,9 @@ public sealed partial class Reconciler
             CoreSerializerOptions options = DeclarativeDocumentApplier.CreateOptions(
                 DeclarativeDocumentApplier.ResolveBaseUri(target) ?? root.Uri);
 
-            if (target.Properties.FirstOrDefault(p => p.Name == propertyName) is { } engineProperty)
+            // A member the type writes itself, such as a node's Position, is not in the property's own form.
+            if (target.Properties.FirstOrDefault(p => p.Name == propertyName) is { } engineProperty
+                && CoreObject.IsAutoSerialized(engineProperty))
             {
                 object? value = valueNode is null
                     ? null
