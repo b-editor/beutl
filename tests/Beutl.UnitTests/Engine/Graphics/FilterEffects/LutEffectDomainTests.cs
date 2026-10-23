@@ -9,29 +9,38 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 [TestFixture]
 public sealed class LutEffectDomainTests
 {
-    // An identity LUT over the domain 0 to 2 reads full red at its middle, 0.5 in sRGB; a domain that does not
-    // grow is not valid .cube and is read as the default 0 to 1.
-    [TestCase("2 2 2", 0.214f)]
-    [TestCase("0 0 0", 1f)]
-    public void TheLookupIsScaledToTheDeclaredDomain(string domainMax, float expectedRed)
+    // Domain mapping preserves the existing 3D grid spacing tracked in #3511.
+    [TestCase(1, "0", "2", 0.214f)]
+    [TestCase(3, "0", "2", 0.9912f)]
+    [TestCase(1, "0.25", "1.75", 0.214f)]
+    [TestCase(3, "0.25", "1.75", 0.9912f)]
+    [TestCase(1, "0", "0", 1f)]
+    [TestCase(3, "1", "0", 1f)]
+    [TestCase(1, "0", "Infinity", 1f)]
+    [TestCase(3, "NaN", "1", 1f)]
+    [TestCase(1, "-3.4e38", "3.4e38", 1f)]
+    public void TheLookupUsesTheDeclaredDomainOrDefaultsAnInvalidRange(
+        int dimension, string domainMin, string domainMax, float expectedRed)
     {
+        string data = dimension == 1
+            ? "0 0 0\n1 1 1"
+            : "0 0 0\n1 0 0\n0 1 0\n1 1 0\n0 0 1\n1 0 1\n0 1 1\n1 1 1";
         var effect = new LutEffect
         {
             Source =
             {
                 Value = CreateSource($"""
-                    LUT_1D_SIZE 2
-                    DOMAIN_MIN 0 0 0
-                    DOMAIN_MAX {domainMax}
-                    0 0 0
-                    1 1 1
+                    LUT_{dimension}D_SIZE 2
+                    DOMAIN_MIN {domainMin} {domainMin} {domainMin}
+                    DOMAIN_MAX {domainMax} {domainMax} {domainMax}
+                    {data}
                     """),
             },
         };
 
         (_, float[] after) = FilterEffectTestHarness.RunOnSolidTarget(effect, SKColors.Red, new PixelSize(2, 2));
 
-        Assert.That(after[0], Is.EqualTo(expectedRed).Within(0.01f));
+        Assert.That(after[0], Is.EqualTo(expectedRed).Within(0.001f));
     }
 
     private static CubeSource CreateSource(string cubeText)

@@ -197,8 +197,10 @@ public sealed partial class LutEffect : FilterEffect
 
         LutShaderResource lutSnapshot = s_lutSnapshots.GetValue(cube, static c => LutShaderResource.Create(c.Data));
         RenderResource<LutShaderResource> lut = context.Borrow(lutSnapshot);
-        // A domain that does not grow in every channel is not a valid .cube; it is read as the default 0 to 1.
-        bool validDomain = cube.Min.X < cube.Max.X && cube.Min.Y < cube.Max.Y && cube.Min.Z < cube.Max.Z;
+        // Non-finite or non-growing domains use the default 0 to 1.
+        Vector3 domainSize = cube.Max - cube.Min;
+        bool validDomain = domainSize.X > 0 && domainSize.Y > 0 && domainSize.Z > 0
+            && float.IsFinite(domainSize.X) && float.IsFinite(domainSize.Y) && float.IsFinite(domainSize.Z);
         SkslSource shaderSource = cube.Dimention == CubeFileDimension.OneDimension
             ? s_shaderSource1D
             : s_shaderSource3D;
