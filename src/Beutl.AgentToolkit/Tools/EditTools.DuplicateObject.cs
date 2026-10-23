@@ -5,6 +5,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Sessions;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.JsonConverters;
@@ -40,22 +41,21 @@ public sealed partial class EditTools
             // Read the source document, clone, and plan/apply all inside the reconcile dispatch so a
             // LiveEditor duplicate does not read the UI-owned scene on the MCP request thread.
             string elementId2 = string.Empty;
-            var newId = Guid.NewGuid();
+            string copyId = string.Empty;
             ReconcileResult result = _reconciler.ApplyFromCurrent(session, desired =>
             {
                 (JsonObject element, JsonArray objects, JsonObject source) = FindObjectInElements(desired, objectId, elementId);
-                var clone = (JsonObject)source.DeepClone();
-                CollectionReconciler.RemoveIds(clone);
-                clone[nameof(CoreObject.Id)] = newId.ToString();
-                objects.Add(clone);
                 elementId2 = ReadId(element) ?? string.Empty;
-                return (desired, new HashSet<Guid> { newId });
+                JsonObject copy = CopyObject(session.Root, elementId2, ReadId(source) ?? objectId);
+                copyId = ReadId(copy) ?? string.Empty;
+                objects.Add(copy);
+                return (desired, CollectionReconciler.CollectIds(copy));
             }, cancellationToken);
 
             return new DuplicateObjectResponse(
                 result.Plan.Valid,
                 elementId2,
-                newId.ToString(),
+                copyId,
                 CreateCreatedIdSummary(result.Plan));
         });
     }
@@ -85,14 +85,9 @@ public sealed partial class EditTools
 
         Drawable source = RequireWrappableDrawable(location, objectId);
 
-        // Only the source is serialized, against the scene Uri that CloneDrawable reads the copy back with,
-        // so its relative media paths resolve to the same files wherever the element's file sits.
-        JsonObject sourceJson;
-        // The copy keeps exact times, as the editor's duplicates do.
-        using (MediaTimeJsonConverter.WriteFlicks())
-            sourceJson = CoreSerializer.SerializeToJsonObject(source, DocumentAdapter.CreateOptions(session.Root));
-        var newId = Guid.NewGuid();
-        Drawable clone = CloneDrawable(sourceJson, newId, session.Root);
+        // The editor's copy: Ids of its own, its own file-backed objects and renewed values such as AI request keys.
+        ObjectRegenerator.Regenerate(source, source.GetType(), out ICoreSerializable copy);
+        var clone = (Drawable)copy;
         DrawableGroup group;
         PortalObject? portal = null;
 
@@ -215,16 +210,19 @@ public sealed partial class EditTools
         return createdIds;
     }
 
-    private static Drawable CloneDrawable(JsonObject sourceJson, Guid newId, CoreObject root)
+    // The editor's copy of an element's object, written as the document writes the element's objects.
+    private static JsonObject CopyObject(CoreObject root, string elementId, string objectId)
     {
-        var cloneJson = (JsonObject)sourceJson.DeepClone();
-        CollectionReconciler.RemoveIds(cloneJson);
-        cloneJson[nameof(CoreObject.Id)] = newId.ToString();
-
-        return (Drawable)CoreSerializer.DeserializeFromJsonObject(
-            cloneJson,
-            typeof(Drawable),
-            DeclarativeDocumentApplier.CreateOptions(root.Uri));
+        Element element = ((Scene)root).Children.First(item => item.Id == Guid.Parse(elementId));
+        EngineObject source = element.Objects.First(item => item.Id == Guid.Parse(objectId));
+        ObjectRegenerator.Regenerate(source, source.GetType(), out ICoreSerializable copy);
+        // The copy keeps exact times, as the editor's duplicates do.
+        using (MediaTimeJsonConverter.WriteFlicks())
+        {
+            return CoreSerializer.SerializeToJsonObject(
+                copy,
+                DocumentAdapter.CreateOptions(root) with { BaseUri = DeclarativeDocumentApplier.ResolveBaseUri(element) });
+        }
     }
 
     private static AppliedEntityId CreateAppliedEntityId(CoreObject obj, string path)

@@ -370,6 +370,13 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         DeviceMemory memory = _memory;
         _context.DeferRelease(() =>
         {
+            // Only the shared context's canvases and reclaim queue wait for Skia's queued work before a texture goes.
+            if (_context.SkiaContextOrNull is { } skia && !ReferenceEquals(GraphicsContextFactory.SharedContext, _context))
+            {
+                skia.Flush(true, true);
+                ImmediateCanvas.RecordFlush(ImmediateCanvasFlushKind.TextureRelease);
+            }
+
             var vk = _context.Vk;
             var device = _context.Device;
 
