@@ -348,7 +348,14 @@ internal sealed partial class RenderRequestExecutor
                         output.EffectiveScale.Value,
                         _options.MaxWorkingScale,
                         _options.Intent,
-                        _options.Purpose);
+                        _options.Purpose,
+                        description.Kind == ShaderDescriptionKind.WholeSource
+                            ? RasterShaderMapping.SemanticRasterOrigin(
+                                input.Bounds,
+                                input.EffectiveScale.Value,
+                                input.DeviceBounds,
+                                input.RasterBounds)
+                            : null);
                     BindStandaloneShaderCore(
                         description,
                         context,

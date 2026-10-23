@@ -482,7 +482,14 @@ internal sealed partial class RenderRequestExecutor
                 workingScale,
                 _options.MaxWorkingScale,
                 _options.Intent,
-                _options.Purpose);
+                _options.Purpose,
+                isFirst && description.Kind == ShaderDescriptionKind.WholeSource
+                    ? RasterShaderMapping.SemanticRasterOrigin(
+                        runInput.Bounds,
+                        runInput.EffectiveScale.Value,
+                        runInput.DeviceBounds,
+                        runInput.RasterBounds)
+                    : null);
         }
 
         private ProgramCacheLease<CachedSkRuntimeEffect> AcquireProgram(

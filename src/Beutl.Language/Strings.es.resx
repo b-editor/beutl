@@ -1789,6 +1789,18 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="FileBrowser_MovingFiles" xml:space="preserve">
     <value>Moviendo archivos…</value>
   </data>
+  <data name="FileBrowser_FolderExists" xml:space="preserve">
+    <value>Ya existe aquí una carpeta llamada «{0}». Combinar copia solo los archivos que le faltan y no reemplaza ninguno.</value>
+  </data>
+  <data name="FileBrowser_MergeFolder" xml:space="preserve">
+    <value>Combinar</value>
+  </data>
+  <data name="FileBrowser_SkipFolder" xml:space="preserve">
+    <value>Omitir</value>
+  </data>
+  <data name="FileBrowser_FolderNotMoved" xml:space="preserve">
+    <value>«{0}» no se movió porque ya existe aquí una carpeta con ese nombre.</value>
+  </data>
   <data name="PathEditor_ShowStroke" xml:space="preserve">
     <value>Mostrar contorno</value>
   </data>

@@ -1789,6 +1789,18 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="FileBrowser_MovingFiles" xml:space="preserve">
     <value>正在移动文件…</value>
   </data>
+  <data name="FileBrowser_FolderExists" xml:space="preserve">
+    <value>此处已存在名为“{0}”的文件夹。合并只会复制缺少的文件，不会替换任何文件。</value>
+  </data>
+  <data name="FileBrowser_MergeFolder" xml:space="preserve">
+    <value>合并</value>
+  </data>
+  <data name="FileBrowser_SkipFolder" xml:space="preserve">
+    <value>跳过</value>
+  </data>
+  <data name="FileBrowser_FolderNotMoved" xml:space="preserve">
+    <value>此处已存在同名文件夹，因此未移动“{0}”。</value>
+  </data>
   <data name="PathEditor_ShowStroke" xml:space="preserve">
     <value>显示轮廓</value>
   </data>

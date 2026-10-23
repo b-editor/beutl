@@ -48,14 +48,11 @@ internal static class RasterShaderMapping
         ArgumentNullException.ThrowIfNull(image);
         var imageBounds = new PixelRect(new PixelSize(image.Width, image.Height));
         Rect canonicalRasterBounds = sourceDeviceBounds.ToRect(sourceScale);
-
-        // Round the semantic extent on the shared device grid. Subtracting raster-local
-        // floating-point origins first can move an exact edge across a pixel boundary and
-        // include a transparent apron in the subset that Clamp treats as the source edge.
-        Vector deviceGridOffset = canonicalRasterBounds.Position - sourceRasterBounds.Position;
-        PixelRect semanticDeviceBounds = PixelRect.FromRect(
-            sourceBounds.Translate(deviceGridOffset),
-            sourceScale);
+        (PixelRect semanticDeviceBounds, Rect semanticRasterBounds) = ResolveSemanticSource(
+            sourceBounds,
+            sourceScale,
+            sourceDeviceBounds,
+            sourceRasterBounds);
         if (sourceRasterBounds == canonicalRasterBounds && !sourceDeviceBounds.Contains(semanticDeviceBounds))
         {
             throw new ArgumentException(
@@ -68,9 +65,6 @@ internal static class RasterShaderMapping
             semanticDeviceBounds.Y - sourceDeviceBounds.Y,
             semanticDeviceBounds.Width,
             semanticDeviceBounds.Height);
-        Rect semanticRasterBounds = semanticDeviceBounds
-            .ToRect(sourceScale)
-            .Translate(-deviceGridOffset);
 
         if (!imageBounds.Contains(semanticSubset))
         {
@@ -103,6 +97,31 @@ internal static class RasterShaderMapping
             tileMode,
             SKSamplingOptions.Default,
             localMatrix);
+    }
+
+    // Where the texel grid a semantic image shader samples starts, in the source's local logical coordinates.
+    public static Point SemanticRasterOrigin(
+        Rect sourceBounds,
+        float sourceScale,
+        PixelRect sourceDeviceBounds,
+        Rect sourceRasterBounds)
+        => ResolveSemanticSource(sourceBounds, sourceScale, sourceDeviceBounds, sourceRasterBounds)
+            .RasterBounds.Position;
+
+    private static (PixelRect DeviceBounds, Rect RasterBounds) ResolveSemanticSource(
+        Rect sourceBounds,
+        float sourceScale,
+        PixelRect sourceDeviceBounds,
+        Rect sourceRasterBounds)
+    {
+        // Round the semantic extent on the shared device grid. Subtracting raster-local
+        // floating-point origins first can move an exact edge across a pixel boundary and
+        // include a transparent apron in the subset that Clamp treats as the source edge.
+        Vector deviceGridOffset = sourceDeviceBounds.ToRect(sourceScale).Position - sourceRasterBounds.Position;
+        PixelRect semanticDeviceBounds = PixelRect.FromRect(
+            sourceBounds.Translate(deviceGridOffset),
+            sourceScale);
+        return (semanticDeviceBounds, semanticDeviceBounds.ToRect(sourceScale).Translate(-deviceGridOffset));
     }
 
     public static SKMatrix CreateLocalMatrix(
