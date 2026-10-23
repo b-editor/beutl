@@ -233,8 +233,8 @@ public class DeviceExtentLimitTests
                 Times.AtLeastOnce);
             device.Verify(
                 c => c.CreateTexture2D(
-                    PointShadowPass.DefaultCubeFaceSize, PointShadowPass.DefaultCubeFaceSize, It.IsAny<TextureFormat>()),
-                Times.AtLeastOnce);
+                    PointShadowPass.DefaultCubeFaceSize, PointShadowPass.DefaultCubeFaceSize, TextureFormat.Depth32Float),
+                Times.Exactly(6));
             device.Verify(
                 c => c.CreateTexture2D(AttachmentBudget + 1, AttachmentBudget + 1, It.IsAny<TextureFormat>()),
                 Times.Never);
@@ -299,7 +299,7 @@ public class DeviceExtentLimitTests
 
         pass.ResizeShadowMap(CubeBudget);
 
-        device.Verify(c => c.CreateTexture2D(CubeBudget, CubeBudget, It.IsAny<TextureFormat>()), Times.AtLeastOnce);
+        device.Verify(c => c.CreateTexture2D(CubeBudget, CubeBudget, TextureFormat.Depth32Float), Times.Exactly(6));
     }
 
     [Test]
