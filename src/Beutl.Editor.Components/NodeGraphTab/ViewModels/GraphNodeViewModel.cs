@@ -14,6 +14,7 @@ using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using FluentAvalonia.UI.Media;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,8 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             Color = Brushes.Transparent;
         }
 
+        CanEdit = IsReadOnly ? new ReactivePropertySlim<bool>(false) : nodeGraphViewModel.CanEdit;
+
         NodeName = node.NameProperty.GetObservable()
             .Select(x => string.IsNullOrWhiteSpace(x) ? _defaultName : x)
             .ToReadOnlyReactiveProperty()
@@ -62,7 +65,7 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        IsExpanded.Where(_ => !IsReadOnly).Subscribe(v => GraphNode.IsExpanded = v)
+        IsExpanded.Where(_ => CanEdit.Value).Subscribe(v => GraphNode.IsExpanded = v)
             .DisposeWith(_disposables);
 
         Position = node.PositionProperty.GetObservable()
@@ -70,7 +73,11 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        Delete = new ReactiveCommand(Observable.ReturnThenNever(!IsReadOnly)).DisposeWith(_disposables);
+        // Removing what could not be loaded repairs a recovery-protected clip, so it stays allowed there.
+        Delete = new ReactiveCommand(IsReadOnly
+                ? Observable.ReturnThenNever(false)
+                : ElementEditability.ObserveRepair(node.FindHierarchicalParent<Element>(), node))
+            .DisposeWith(_disposables);
         Delete.Subscribe(() =>
         {
             if (IsReadOnly) return;
@@ -103,6 +110,9 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
 
     // A fallback that saves the JSON it was read from as it is would not keep an edit.
     public bool IsReadOnly => GraphNode is IFallback fallback && !fallback.SavesItsMembers();
+
+    // False for a read-only node and while the clip holding the graph cannot be edited.
+    public IReadOnlyReactiveProperty<bool> CanEdit { get; }
 
     public string ActualTypeName => FallbackHelper.GetTypeName(GraphNode);
 
@@ -310,14 +320,15 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
     public void UpdatePosition(IEnumerable<GraphNodeViewModel> selection)
     {
         if (IsReadOnly) return;
-        var moves = new List<(GraphNode Node, double X, double Y)>();
-        foreach (GraphNodeViewModel item in selection.Where(item => !item.IsReadOnly))
-        {
-            moves.Add((item.GraphNode, item.Position.Value.X, item.Position.Value.Y));
-        }
-        moves.Add((GraphNode, Position.Value.X, Position.Value.Y));
+        GraphNodeViewModel[] moved = [.. selection.Where(item => !item.IsReadOnly), this];
+        EditorContext.GetRequiredService<INodeGraphMutationService>()
+            .MoveNodes([.. moved.Select(item => (item.GraphNode, item.Position.Value.X, item.Position.Value.Y))]);
 
-        EditorContext.GetRequiredService<INodeGraphMutationService>().MoveNodes(moves);
+        // A refused move leaves the model as it was, so the nodes go back to where it has them.
+        foreach (GraphNodeViewModel item in moved)
+        {
+            item.Position.Value = new Point(item.GraphNode.Position.X, item.GraphNode.Position.Y);
+        }
     }
 
     public void UpdateName(string? name)
@@ -373,6 +384,9 @@ public sealed partial class GraphNodeViewModel : IDisposable, IJsonSerializable,
         {
             return GraphNode;
         }
+
+        // Node property editors check the clip's lock and recovery protection, and its start for keyframe times.
+        if (serviceType == typeof(Element)) return GraphNode.FindHierarchicalParent<Element>();
 
         return EditorContext.GetService(serviceType);
     }

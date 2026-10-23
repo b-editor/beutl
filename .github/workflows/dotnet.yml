@@ -284,13 +284,13 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Preserve the required "build" check: it must include every test shard, even
-  # if compile fails or a dependency is skipped. A compile-only green check would
-  # let existing branch protection admit revisions whose tests failed.
+  # Preserve the required "build" check: every build, test shard, platform test
+  # and SDK check must succeed, including on the merge queue. Always run this
+  # gate so failed, cancelled or skipped dependencies cannot allow a merge.
   # Finalize coverage only after the build and test results have passed this gate.
   build:
     if: always()
-    needs: [compile, test]
+    needs: [compile, test, linux-arm64-tests, macos-tests, mediafoundation-tests, sdk-package]
     permissions:
       contents: read
       id-token: write
@@ -298,9 +298,10 @@ jobs:
     steps:
       - name: Require successful build and tests
         env:
-          COMPILE_RESULT: ${{ needs.compile.result }}
-          TEST_RESULT: ${{ needs.test.result }}
-        run: test "$COMPILE_RESULT" = success && test "$TEST_RESULT" = success
+          JOB_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$JOB_RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$JOB_RESULTS" | jq -e 'length > 0 and all(.[]; .result == "success")'
 
       - name: Checkout
         uses: actions/checkout@v7.0.1

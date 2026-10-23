@@ -68,8 +68,9 @@ internal static class RippleHelper
     {
         foreach (Element e in candidates)
         {
-            TimeRange shifted = e.Range.WithStart(e.Start + delta);
-            if (Array.Exists(lockedOnLayer, l => shifted.Intersects(l.Range))) break;
+            // A locked clip blocks a clip that would pass over it, not only one that would land on it.
+            TimeRange swept = e.Range.Union(e.Range.WithStart(e.Start + delta));
+            if (Array.Exists(lockedOnLayer, l => swept.Intersects(l.Range))) break;
 
             e.Start += delta;
         }

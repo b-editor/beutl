@@ -1,6 +1,5 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 using Beutl.Logging;
@@ -37,7 +36,6 @@ public class MFReader : MediaReader
     private readonly MediaFoundationReader? _audioReader;
     private readonly WaveFormat? _waveFormat;
     private readonly ISampleProvider? _provider;
-    private readonly long _audioStartSample;
 
     public MFReader(string file, MediaOptions options, MFDecodingExtension extension)
         : this(file, options, extension, CreateVideoDecoder, CreateAudioReader)
@@ -50,13 +48,11 @@ public class MFReader : MediaReader
         MFDecodingExtension extension,
         Func<string, MFDecodingExtension, IMediaFoundationVideoDecoder> createVideoDecoder,
         Func<string, MediaFoundationReaderSettings, MediaFoundationReader> createAudioReader,
-        Func<string, bool>? hasAudioStream = null,
-        Func<string, long>? getFirstVideoTimestamp = null)
+        Func<string, bool>? hasAudioStream = null)
     {
         ArgumentNullException.ThrowIfNull(createVideoDecoder);
         ArgumentNullException.ThrowIfNull(createAudioReader);
         hasAudioStream ??= MFStreamProbe.HasAudioStream;
-        getFirstVideoTimestamp ??= MFStreamProbe.GetFirstVideoTimestamp;
 
         _file = file;
         try
@@ -99,30 +95,11 @@ public class MFReader : MediaReader
                         RequestFloatOutput = true
                     });
                     _waveFormat = _audioReader.WaveFormat;
-
-                    long firstVideoTimestamp = _decoder?.FirstVideoTimestamp ?? 0;
-                    if (_decoder == null)
-                    {
-                        try
-                        {
-                            firstVideoTimestamp = getFirstVideoTimestamp(_file);
-                        }
-                        catch (Exception ex) when (ex is SharpGen.Runtime.SharpGenException or COMException)
-                        {
-                            // Timestamp calibration is optional. A broken video
-                            // stream must not discard an already usable audio reader.
-                            _logger.LogDebug(ex, "Failed to probe the video time origin; keeping the original audio origin.");
-                        }
-                    }
-                    long audioStartTime = MFVideoTimeOrigin.GetAudioStartTime(_file, firstVideoTimestamp);
-                    _audioStartSample = checked((long)((Int128)audioStartTime * _waveFormat.SampleRate / TimeSpan.TicksPerSecond));
-
                     _provider = _audioReader.ToSampleProvider().ToStereo();
 
                     _audioInfo = new AudioStreamInfo(
                         CodecName: _waveFormat.Encoding.ToString(),
-                        Duration: new Rational(Math.Max(0, _audioReader.Length - _audioStartSample * _waveFormat.BlockAlign),
-                            _waveFormat.AverageBytesPerSecond),
+                        Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
                         SampleRate: _waveFormat.SampleRate,
                         NumChannels: _waveFormat.Channels);
                     HasAudio = true;
@@ -252,11 +229,11 @@ public class MFReader : MediaReader
             return false;
 
         // Media Foundation can reject a seek past EOF instead of returning an empty read.
-        // Use the source position for EOF as well as seeking. Public sample
-        // positions start at the same normalized origin as video frame zero.
+        // Use the source position for EOF as well as seeking. Sample 0 is the
+        // container start, like video frame zero.
         // _audioReader.Length is PCM bytes; zero can also mean an unknown duration.
         // Like SampleProviderReader.ReadStereo, length <= 0 (a frame count) produces empty PCM.
-        long bytePosition = checked(((long)start + _audioStartSample) * _waveFormat.BlockAlign);
+        long bytePosition = checked((long)start * _waveFormat.BlockAlign);
         if (length <= 0 || (_audioReader.Length > 0 && bytePosition >= _audioReader.Length))
         {
             sound = new AudioBuffer(_waveFormat.SampleRate, 2, 0);

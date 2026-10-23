@@ -2,6 +2,7 @@
 using Beutl.Language;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes.Group;
+using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
 
@@ -19,7 +20,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(node);
 
-        if (!CanAddNode(graph, node)) return false;
+        if (!IsEditable(graph) || !CanAddNode(graph, node)) return false;
 
         node.Position = (x, y);
         graph.Nodes.Add(node);
@@ -34,7 +35,8 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(existingPort);
 
-        if (!CanAddNode(graph, node)
+        if (!IsEditable(graph)
+            || !CanAddNode(graph, node)
             || existingPort.FindHierarchicalParent<GraphNode>() is not { } existingNode
             || existingNode.FindHierarchicalParent<GraphModel>() != graph
             || newPort != null && newPort.FindHierarchicalParent<GraphNode>() != node
@@ -58,6 +60,10 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         }
     }
 
+    // Edits are refused while the clip holding the graph is locked or recovery keeps its file, as in the other services.
+    private static bool IsEditable(IHierarchical owner)
+        => ElementEditability.IsEditable(owner.FindHierarchicalParent<Element>());
+
     private static bool CanAddNode(GraphModel graph, GraphNode node)
     {
         // At most one GroupInput / GroupOutput per GraphGroup.
@@ -70,6 +76,9 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(node);
+        // Removing what could not be loaded repairs a recovery-protected clip, so it stays allowed.
+        Element? element = graph.FindHierarchicalParent<Element>();
+        if (!ElementEditability.CanRepair(element, node)) return;
 
         // Snapshot touching connections first so disconnect calls don't
         // invalidate the iteration.
@@ -97,13 +106,15 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         }
 
         graph.Nodes.Remove(node);
+        if (element != null) ElementRecoveryService.TryCompleteRepair(element, _historyManager);
+
         _historyManager.Commit(CommandNames.RemoveNode);
     }
 
     public void MoveNodes(IReadOnlyList<(GraphNode Node, double X, double Y)> moves)
     {
         ArgumentNullException.ThrowIfNull(moves);
-        if (moves.Count == 0) return;
+        if (moves.Count == 0 || moves.Any(move => !IsEditable(move.Node))) return;
 
         foreach ((GraphNode node, double x, double y) in moves)
         {
@@ -117,7 +128,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(node);
         ArgumentNullException.ThrowIfNull(newName);
-        if (node.Name == newName) return false;
+        if (node.Name == newName || !IsEditable(node)) return false;
 
         node.Name = newName;
         _historyManager.Commit(CommandNames.RenameNode);
@@ -128,7 +139,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(port);
-        if (port is not IDynamicPort dynamicPort) return false;
+        if (port is not IDynamicPort dynamicPort || !IsEditable(owner)) return false;
 
         GraphModel? graph = owner.FindHierarchicalParent<GraphModel>();
         if (graph is null) return false;
@@ -154,7 +165,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     public bool MoveConnectionSlot(INodePort port, int oldIndex, int newIndex)
     {
         ArgumentNullException.ThrowIfNull(port);
-        if (port is not IListPort listPort) return false;
+        if (port is not IListPort listPort || !IsEditable(port)) return false;
 
         listPort.MoveConnection(oldIndex, newIndex);
         _historyManager.Commit(CommandNames.MoveConnection);
@@ -165,7 +176,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(port);
         ArgumentNullException.ThrowIfNull(newName);
-        if (port.Name == newName) return false;
+        if (port.Name == newName || !IsEditable(port)) return false;
 
         port.Name = newName;
         _historyManager.Commit(CommandNames.RenamePort);
@@ -179,6 +190,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(node1);
         ArgumentNullException.ThrowIfNull(node2);
+        if (!IsEditable(graph)) return NodeConnectOutcome.None;
 
         NodeConnectOutcome outcome = ConnectCore(graph, node1, port1, node2, port2);
         if (outcome == NodeConnectOutcome.PortAdded) _historyManager.Commit(CommandNames.AddPort);
@@ -245,6 +257,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(port1);
         ArgumentNullException.ThrowIfNull(port2);
+        if (!IsEditable(graph)) return false;
 
         Connection? connection = hint;
         if (connection is null
@@ -265,6 +278,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(port);
+        if (!IsEditable(graph)) return false;
 
         Reference<Connection>[]? connections = port switch
         {
@@ -308,6 +322,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(connection);
+        if (!IsEditable(graph)) return;
 
         graph.Disconnect(connection);
         _historyManager.Commit(CommandNames.DisconnectPort);

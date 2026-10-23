@@ -165,13 +165,15 @@ public partial class NodePortView : UserControl
             Grid.SetColumn(portPt, 0);
             portPt.Margin = new Thickness(ProvidedEditor == null ? -6 : 0, 4, 0, 0);
             portPt.Bind(IsEnabledProperty, input.CanConnect
-                .CombineLatest(input.IsConnected, (canConnect, connected) => canConnect || connected).ToBinding())
+                .CombineLatest(input.IsConnected, obj.GraphNodeViewModel.CanEdit,
+                    (canConnect, connected, editable) => editable && (canConnect || connected)).ToBinding())
                 .DisposeWith(_disposables);
         }
         else
         {
             Grid.SetColumn(portPt, 2);
             portPt.Margin = new Thickness(6, 4, 0, 0);
+            BindCanEdit(portPt, obj);
         }
 
         AddContextFlyout(obj, portPt);
@@ -214,6 +216,7 @@ public partial class NodePortView : UserControl
         };
         placeholder.ConnectRequested += OnNodePortPointConnectRequested;
         placeholder.DisconnectRequested += OnNodePortPointDisconnectRequested;
+        BindCanEdit(placeholder, obj);
         AddContextFlyout(obj, placeholder);
         _listNodePortPanel.Children.Add(placeholder);
 
@@ -227,6 +230,7 @@ public partial class NodePortView : UserControl
                     Tag = connVM,
                 };
                 Interaction.GetBehaviors(portPt).Add(new ListPortDragBehavior());
+                BindCanEdit(portPt, obj);
                 _listNodePortPanel.Children.Insert(index, portPt);
                 Dispatcher.UIThread.Post(UpdateNodePortPosition, DispatcherPriority.Background);
             },
@@ -249,6 +253,10 @@ public partial class NodePortView : UserControl
 
         grid.Children.Add(_listNodePortPanel);
     }
+
+    // A disabled port point takes no drag, double click or menu, each of which edits the graph.
+    private void BindCanEdit(NodePortPoint portPt, NodePortViewModel obj)
+        => portPt.Bind(IsEnabledProperty, obj.GraphNodeViewModel.CanEdit.ToBinding()).DisposeWith(_disposables);
 
     private void AddContextFlyout(NodePortViewModel obj, NodePortPoint portPt)
     {

@@ -1,10 +1,13 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Editor.Services;
+using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.NodeGraph.Nodes.Utilities;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -344,5 +347,132 @@ public class NodeGraphMutationServiceTests
             Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
             Assert.That(healthy.InputPort.Connection.Id, Is.EqualTo(connection.Id));
         });
+    }
+
+    public enum Mutation
+    {
+        AddNode, AddNodeAndConnect, RemoveNode, MoveNodes, RenameNode, RemovePort,
+        MoveConnectionSlot, RenamePort, TryConnect, TryDisconnect, DisconnectAll, DisconnectConnection,
+    }
+
+    public enum ClipState { Editable, LockedClip, LockedLayer, Protected }
+
+    // Saving a protected clip would not write the edit, so it is refused there as on a locked clip.
+    [Test]
+    public void Mutations_OnALockedOrProtectedClip_ChangeNothingAndCommitNothing(
+        [Values] Mutation mutation, [Values] ClipState state)
+    {
+        using var harness = new SceneHistoryHarness("beutl_node_graph_lock");
+        Element element = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1));
+        var drawable = new NodeGraphDrawable();
+        element.AddObject(drawable);
+        GraphModel graph = drawable.Model.Value!;
+        var first = new ExpressionNode();
+        var second = new ExpressionNode();
+        var free = new ExpressionNode();
+        var list = new ExpressionNode();
+        var output = new OutputNode();
+        var group = new GroupInput();
+        graph.Nodes.AddRange([first, second, free, list, output, group]);
+        graph.Connect(list.InputPort, first.Output);
+        graph.Connect(list.InputPort, second.Output);
+        Assert.That(group.AddNodePort(output.InputPort, out Connection? groupConnection), Is.True);
+        var groupPort = (INodePort)group.Items.Single();
+        switch (state)
+        {
+            case ClipState.LockedClip:
+                element.IsLocked = true;
+                break;
+            case ClipState.LockedLayer:
+                harness.AddLayer(element.ZIndex).IsLocked = true;
+                break;
+            case ClipState.Protected:
+                // Something else in the clip could not be loaded, so removing a node repairs nothing either.
+                element.AddObject(RecoveryBlockers.CreateUnmigratedObject());
+                element.SuppressedStorageSource = new SuppressedStorageSource([], element.Uri!);
+                break;
+        }
+
+        harness.History.Commit("Setup");
+        string before = CoreSerializer.SerializeToJsonObject(graph).ToJsonString();
+        int undoCount = harness.History.UndoCount;
+        var service = new NodeGraphMutationService(harness.History);
+        var added = new OutputNode();
+
+        switch (mutation)
+        {
+            case Mutation.AddNode: service.AddNode(graph, new ExpressionNode(), 10, 10); break;
+            case Mutation.AddNodeAndConnect: service.AddNodeAndConnect(graph, added, 10, 10, free.Output, added.InputPort); break;
+            case Mutation.RemoveNode: service.RemoveNode(graph, first); break;
+            case Mutation.MoveNodes: service.MoveNodes([(first, 50, 60)]); break;
+            case Mutation.RenameNode: service.RenameNode(first, "Renamed"); break;
+            case Mutation.RemovePort: service.RemovePort(group, groupPort); break;
+            case Mutation.MoveConnectionSlot: service.MoveConnectionSlot(list.InputPort, 0, 1); break;
+            case Mutation.RenamePort: service.RenamePort(groupPort, "Renamed"); break;
+            case Mutation.TryConnect: service.TryConnect(graph, free, free.Output, list, list.InputPort); break;
+            case Mutation.TryDisconnect: service.TryDisconnect(graph, first.Output, list.InputPort); break;
+            case Mutation.DisconnectAll: service.DisconnectAll(graph, list.InputPort); break;
+            case Mutation.DisconnectConnection: service.DisconnectConnection(graph, groupConnection!); break;
+        }
+
+        string after = CoreSerializer.SerializeToJsonObject(graph).ToJsonString();
+        bool editable = state == ClipState.Editable;
+        Assert.Multiple(() =>
+        {
+            Assert.That(after == before, Is.EqualTo(!editable), editable ? "The edit applies to an editable clip." : "The graph must not change.");
+            Assert.That(harness.History.UndoCount, Is.EqualTo(undoCount + (editable ? 1 : 0)));
+        });
+    }
+
+    // A keyframe whose easing could not be read is the one thing in a node that protects its clip, so removing that
+    // node repairs the clip; any other node stays as it is while the clip is protected.
+    [Test]
+    public void RemoveNode_OnAProtectedClip_RemovesOnlyTheNodeHoldingWhatCouldNotBeLoadedAndCompletesTheRepair()
+    {
+        using var harness = new SceneHistoryHarness("beutl_node_graph_repair");
+        Element element = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(1));
+        var drawable = new NodeGraphDrawable();
+        element.AddObject(drawable);
+        GraphModel graph = drawable.Model.Value!;
+        var healthy = new ExpressionNode();
+        RectGeometryNode lossy = CreateNodeWithUnreadableEasing();
+        graph.Nodes.AddRange([healthy, lossy]);
+        element.SuppressedStorageSource = new SuppressedStorageSource([], element.Uri!);
+        harness.History.Commit("Setup");
+        int undoCount = harness.History.UndoCount;
+        var service = new NodeGraphMutationService(harness.History);
+        Assert.That(SceneRecovery.HoldsRecoveryBlocker(lossy), Is.True);
+
+        service.RemoveNode(graph, healthy);
+        Assert.That(graph.Nodes, Does.Contain(healthy), "Removing a node that holds nothing unreadable repairs nothing.");
+
+        service.RemoveNode(graph, lossy);
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.Nodes, Does.Not.Contain(lossy));
+            Assert.That(element.SuppressedStorageSource, Is.Null, "The repair completes.");
+            Assert.That(ElementEditability.IsEditable(element), Is.True);
+            Assert.That(harness.History.UndoCount, Is.EqualTo(undoCount + 1));
+        });
+
+        Assert.That(harness.History.Undo(), Is.True);
+        Assert.Multiple(() =>
+        {
+            Assert.That(graph.Nodes, Does.Contain(lossy));
+            Assert.That(element.SuppressedStorageSource, Is.Not.Null, "Undo puts the protection back.");
+        });
+    }
+
+    // Reads a node back from JSON whose width keyframe names an easing type that is not loaded.
+    private static RectGeometryNode CreateNodeWithUnreadableEasing()
+    {
+        var node = new RectGeometryNode();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 32 });
+        node.Object.Width.SetKeyFrameAnimation(animation);
+        JsonObject json = CoreSerializer.SerializeToJsonObject(node);
+        json["Object"]!["Animations"]![nameof(RectGeometry.Width)]![nameof(IKeyFrameAnimation.KeyFrames)]![0]![nameof(KeyFrame.Easing)] =
+            RecoveryBlockers.MissingEasingType;
+        return (RectGeometryNode)CoreSerializer.DeserializeFromJsonObject(json, typeof(RectGeometryNode));
     }
 }

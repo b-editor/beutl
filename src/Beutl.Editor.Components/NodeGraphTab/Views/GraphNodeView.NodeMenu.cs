@@ -25,7 +25,7 @@ public partial class GraphNodeView
         BuildPromptLibraryMenu();
         Variations2Item.Text = string.Format(NodeGraphStrings.Generative_VariationCount, 2);
         Variations4Item.Text = string.Format(NodeGraphStrings.Generative_VariationCount, 4);
-        CompareItem.IsEnabled = DataContext is GraphNodeViewModel { GraphNode: Beutl.NodeGraph.Generative.GenerativeNode { Generations.Count: > 1 } };
+        CompareItem.IsEnabled = DataContext is GraphNodeViewModel { CanEdit.Value: true, GraphNode: Beutl.NodeGraph.Generative.GenerativeNode { Generations.Count: > 1 } };
         if (DataContext is not GraphNodeViewModel { GraphNode: Beutl.NodeGraph.Generative.GenerativeNode node } viewModel)
             return;
 
@@ -37,7 +37,7 @@ public partial class GraphNodeView
             string text = $"{record.CreatedAt.LocalDateTime:g}  {record.Summary}";
             if (record.IsPinned)
                 text += $"  ({NodeGraphStrings.Generative_Pinned})";
-            var item = new FAToggleMenuFlyoutItem { Text = text, IsChecked = ReferenceEquals(record, active) };
+            var item = new FAToggleMenuFlyoutItem { Text = text, IsChecked = ReferenceEquals(record, active), IsEnabled = viewModel.CanEdit.Value };
             item.Click += (_, _) => viewModel.SelectGeneration(id);
             items.Add(item);
         }
@@ -49,14 +49,14 @@ public partial class GraphNodeView
         var pin = new FAMenuFlyoutItem
         {
             Text = active?.IsPinned == true ? NodeGraphStrings.Generative_Unpin : NodeGraphStrings.Generative_Pin,
-            IsEnabled = active is not null,
+            IsEnabled = viewModel.CanEdit.Value && active is not null,
         };
         pin.Click += (_, _) => viewModel.ToggleActivePinned();
         items.Add(pin);
         var prune = new FAMenuFlyoutItem
         {
             Text = NodeGraphStrings.Generative_PruneHistory,
-            IsEnabled = node.Generations.Any(record => !record.IsPinned && !ReferenceEquals(record, active)),
+            IsEnabled = viewModel.CanEdit.Value && node.Generations.Any(record => !record.IsPinned && !ReferenceEquals(record, active)),
         };
         prune.Click += (_, _) => viewModel.PruneGenerations();
         items.Add(prune);
@@ -108,7 +108,7 @@ public partial class GraphNodeView
                 var item = new FAMenuFlyoutItem
                 {
                     Text = entry.IsPinned ? $"{entry.Name}  ({NodeGraphStrings.Generative_Pinned})" : entry.Name,
-                    IsEnabled = target.CanApplyPrompt,
+                    IsEnabled = viewModel.CanEdit.Value && target.CanApplyPrompt,
                 };
                 ToolTip.SetTip(item, prompt);
                 item.Click += (_, _) => viewModel.ApplyPrompt(prompt);
