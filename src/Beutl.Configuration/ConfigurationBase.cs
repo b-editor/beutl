@@ -73,10 +73,11 @@ public abstract class ConfigurationBase : CoreObject
         if (valueType.IsValueType)
             return Nullable.GetUnderlyingType(valueType) is not null;
 
-        // The property's own annotation; one without a CLR property, or without annotations, takes null.
+        // The annotation of the value type in IProperty<T>; one without a CLR property, or without annotations, takes null.
         PropertyInfo? clrProperty = GetType().GetProperty(name);
         return clrProperty is null
-               || new NullabilityInfoContext().Create(clrProperty).WriteState != NullabilityState.NotNull;
+               || new NullabilityInfoContext().Create(clrProperty).GenericTypeArguments
+                   is not [{ ReadState: NullabilityState.NotNull }];
     }
 
     // Reads a value a section stores itself, with the same tolerance. False when it cannot be read,

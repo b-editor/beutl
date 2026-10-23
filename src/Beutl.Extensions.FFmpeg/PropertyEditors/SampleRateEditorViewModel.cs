@@ -27,7 +27,7 @@ internal sealed class SampleRateEditorViewModel
         : base(property, extension, FFmpegOptionsCaches.SampleRates, s_logger, "sample rates")
     {
         _text = new ReactivePropertySlim<string>(property.GetValue().ToString()).DisposeWith(Disposables);
-        Initialize(settings => settings.CodecProperty);
+        Initialize(settings => settings.Codec);
     }
 
     public override void Accept(IPropertyEditorContextVisitor visitor)
@@ -50,7 +50,7 @@ internal sealed class SampleRateEditorViewModel
     }
 
     protected override CodecQueryParams CreateQuery(FFmpegAudioEncoderSettings settings)
-        => CodecOptionQuery.Create(settings.Codec, settings.OutputFile);
+        => CodecOptionQuery.Create(settings.Codec.Value, settings.OutputFile);
 
     protected override async Task<OptionsQueryResult<int>> QueryAsync(CodecQueryParams query)
     {

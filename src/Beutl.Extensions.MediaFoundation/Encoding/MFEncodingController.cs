@@ -30,10 +30,10 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     public override MFAudioEncoderSettings AudioSettings { get; } = new();
 
     public override bool IsVideoEnabled
-        => MFEncodingFormat.FromFile(OutputFile).VideoCodecs.Length > 0 && VideoSettings.Codec != MFVideoCodec.None;
+        => MFEncodingFormat.FromFile(OutputFile).VideoCodecs.Length > 0 && VideoSettings.Codec.Value != MFVideoCodec.None;
 
     public override bool IsAudioEnabled
-        => MFEncodingFormat.FromFile(OutputFile).ResolveAudioCodec(AudioSettings.Codec) != MFAudioCodec.None;
+        => MFEncodingFormat.FromFile(OutputFile).ResolveAudioCodec(AudioSettings.Codec.Value) != MFAudioCodec.None;
 
     public override async ValueTask Encode(
         IFrameProvider frameProvider, ISampleProvider sampleProvider, CancellationToken cancellationToken)
@@ -43,8 +43,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             throw new PlatformNotSupportedException("Media Foundation encoding requires Windows.");
 
         var format = MFEncodingFormat.FromFile(OutputFile);
-        var videoCodec = format.ResolveVideoCodec(VideoSettings.Codec);
-        var audioCodec = format.ResolveAudioCodec(AudioSettings.Codec);
+        var videoCodec = format.ResolveVideoCodec(VideoSettings.Codec.Value);
+        var audioCodec = format.ResolveAudioCodec(AudioSettings.Codec.Value);
         long frameCount = videoCodec == MFVideoCodec.None ? 0 : frameProvider.FrameCount;
         long sampleCount = audioCodec == MFAudioCodec.None ? 0 : sampleProvider.SampleCount;
         ValidateSettings(format, videoCodec, audioCodec, frameCount, sampleCount, sampleProvider.SampleRate);
@@ -63,7 +63,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (frameCount > 0 && !IsVideoEncoderAvailable(videoCodec, VideoSettings.UseHardwareAcceleration))
+        if (frameCount > 0 && !IsVideoEncoderAvailable(videoCodec, VideoSettings.UseHardwareAcceleration.Value))
             throw new NotSupportedException($"No Media Foundation {videoCodec} video encoder is available with the current hardware acceleration setting. Enable hardware acceleration or install a compatible encoder.");
         // Negotiate audio before opening the file so an unsupported format cannot truncate it.
         using var audioType = sampleCount > 0 ? CreateAudioOutput(audioCodec, AudioSettings) : null;
@@ -71,7 +71,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         using var attributes = MediaFactory.MFCreateAttributes(2);
         attributes.Set(TranscodeAttributeKeys.TranscodeContainertype, format.ContainerType).CheckError();
         attributes.Set(SinkWriterAttributeKeys.ReadwriteEnableHardwareTransforms,
-            VideoSettings.UseHardwareAcceleration).CheckError();
+            VideoSettings.UseHardwareAcceleration.Value).CheckError();
         using var writer = MediaFactory.MFCreateSinkWriterFromURL(outputFile, null, attributes);
 
         int videoStream = frameCount > 0 ? AddVideoStream(writer, videoCodec) : -1;
@@ -80,8 +80,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
 
         long frame = 0;
         long sample = 0;
-        long rateNumerator = VideoSettings.FrameRate.Numerator;
-        long rateDenominator = VideoSettings.FrameRate.Denominator;
+        long rateNumerator = VideoSettings.FrameRate.Value.Numerator;
+        long rateDenominator = VideoSettings.FrameRate.Value.Denominator;
         while (frame < frameCount || sample < sampleCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -145,14 +145,14 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     {
         using var outputType = CreateVideoType(MFEncodingFormat.VideoSubtype(codec));
         if (codec != MFVideoCodec.RGB32)
-            outputType.Set(MediaTypeAttributeKeys.AvgBitrate, (uint)VideoSettings.Bitrate).CheckError();
+            outputType.Set(MediaTypeAttributeKeys.AvgBitrate, (uint)VideoSettings.Bitrate.Value).CheckError();
         int stream = writer.AddStream(outputType);
 
         using var inputType = CreateVideoType(VideoFormatGuids.Rgb32);
         using var parameters = MediaFactory.MFCreateAttributes(1);
         if (codec is MFVideoCodec.H264 or MFVideoCodec.HEVC)
         {
-            parameters.Set(typeof(CODECAPI_AVEncMPVGOPSize).GUID, (uint)VideoSettings.KeyframeRate).CheckError();
+            parameters.Set(typeof(CODECAPI_AVEncMPVGOPSize).GUID, (uint)VideoSettings.KeyframeRate.Value).CheckError();
         }
         else if (codec is MFVideoCodec.WMV7 or MFVideoCodec.WMV8 or MFVideoCodec.WMV9 or MFVideoCodec.VC1)
         {
@@ -162,8 +162,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             var key = new PropertyKey(new Guid("18d6f8c5-2416-4d7b-90d7-9f3f21e752b4"), 10);
             // Windows Media expects milliseconds, while KeyframeRate is measured in frames.
             int milliseconds = checked((int)Math.Max(1,
-                GetTimestamp(VideoSettings.KeyframeRate, VideoSettings.FrameRate.Numerator,
-                    VideoSettings.FrameRate.Denominator) / TimeSpan.TicksPerMillisecond));
+                GetTimestamp(VideoSettings.KeyframeRate.Value, VideoSettings.FrameRate.Value.Numerator,
+                    VideoSettings.FrameRate.Value.Denominator) / TimeSpan.TicksPerMillisecond));
             properties[key] = new Variant { Value = milliseconds };
             // Scope this to the video stream: WMA rejects video encoder properties.
             parameters.Set(SinkWriterAttributeKeys.EncoderConfig, properties).CheckError();
@@ -183,13 +183,13 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             type.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video).CheckError();
             type.Set(MediaTypeAttributeKeys.Subtype, subtype).CheckError();
             type.Set(MediaTypeAttributeKeys.FrameSize,
-                Pack(VideoSettings.DestinationSize.Width, VideoSettings.DestinationSize.Height)).CheckError();
+                Pack(VideoSettings.DestinationSize.Value.Width, VideoSettings.DestinationSize.Value.Height)).CheckError();
             type.Set(MediaTypeAttributeKeys.FrameRate,
-                Pack(VideoSettings.FrameRate.Numerator, VideoSettings.FrameRate.Denominator)).CheckError();
+                Pack(VideoSettings.FrameRate.Value.Numerator, VideoSettings.FrameRate.Value.Denominator)).CheckError();
             type.Set(MediaTypeAttributeKeys.PixelAspectRatio, Pack(1, 1)).CheckError();
             type.Set(MediaTypeAttributeKeys.InterlaceMode, (uint)VideoInterlaceMode.Progressive).CheckError();
             if (subtype == VideoFormatGuids.Rgb32)
-                type.Set(MediaTypeAttributeKeys.DefaultStride, checked((uint)VideoSettings.DestinationSize.Width * 4)).CheckError();
+                type.Set(MediaTypeAttributeKeys.DefaultStride, checked((uint)VideoSettings.DestinationSize.Value.Width * 4)).CheckError();
             return type;
         }
         catch
@@ -204,8 +204,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         Guid subtype = MFEncodingFormat.AudioSubtype(codec);
         if (codec is MFAudioCodec.PCM or MFAudioCodec.Float)
         {
-            int bits = codec == MFAudioCodec.Float ? 32 : (int)settings.BitDepth;
-            return CreatePcm(subtype, settings.SampleRate, settings.Channels, bits);
+            int bits = codec == MFAudioCodec.Float ? 32 : (int)settings.BitDepth.Value;
+            return CreatePcm(subtype, settings.SampleRate.Value, settings.Channels.Value, bits);
         }
 
         var result = MediaFactory.MFTranscodeGetAudioOutputAvailableTypes(subtype, (int)SoftwareEncoders,
@@ -228,18 +228,18 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 {
                     using var element = collection.GetElement(i);
                     using var candidate = ((ComObject)element).QueryInterface<IMFMediaType>();
-                    if (candidate.GetUInt32(MediaTypeAttributeKeys.AudioSamplesPerSecond) != settings.SampleRate
-                        || candidate.GetUInt32(MediaTypeAttributeKeys.AudioNumChannels) != settings.Channels)
+                    if (candidate.GetUInt32(MediaTypeAttributeKeys.AudioSamplesPerSecond) != settings.SampleRate.Value
+                        || candidate.GetUInt32(MediaTypeAttributeKeys.AudioNumChannels) != settings.Channels.Value)
                         continue;
 
                     uint bits = MediaFactory.MFGetAttributeUInt32(candidate, MediaTypeAttributeKeys.AudioBitsPerSample);
-                    if (lossless ? bits != (int)settings.BitDepth : bits is not (0 or 16))
+                    if (lossless ? bits != (int)settings.BitDepth.Value : bits is not (0 or 16))
                         continue;
 
                     // WMA bitrates include codec overhead (e.g. 128016 for a requested 128000).
                     // Preserve the full enumerated type, including required codec-specific data.
                     long distance = lossless ? 0 : Math.Abs(
-                        (long)candidate.GetUInt32(MediaTypeAttributeKeys.AudioAvgBytesPerSecond) * 8 - settings.Bitrate);
+                        (long)candidate.GetUInt32(MediaTypeAttributeKeys.AudioAvgBytesPerSecond) * 8 - settings.Bitrate.Value);
                     if (distance >= bestDistance)
                         continue;
 
@@ -249,8 +249,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 }
 
                 return best ?? throw new NotSupportedException(
-                    $"The installed {codec} encoder does not support {settings.SampleRate} Hz, {settings.Channels} channel(s)"
-                    + (lossless ? $", {(int)settings.BitDepth}-bit audio." : "."));
+                    $"The installed {codec} encoder does not support {settings.SampleRate.Value} Hz, {settings.Channels.Value} channel(s)"
+                    + (lossless ? $", {(int)settings.BitDepth.Value}-bit audio." : "."));
             }
             catch
             {
@@ -301,7 +301,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         if (!source.InstallPixels(sourceInfo, converted.Data, converted.RowBytes))
             throw new InvalidOperationException("Could not access the rendered frame.");
 
-        var size = VideoSettings.DestinationSize;
+        var size = VideoSettings.DestinationSize.Value;
         using var scaled = new SKBitmap(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Opaque);
         using (var canvas = new SKCanvas(scaled))
         {
@@ -372,16 +372,16 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
 
         if (frameCount > 0)
         {
-            var size = VideoSettings.DestinationSize;
+            var size = VideoSettings.DestinationSize.Value;
             if (size.Width <= 0 || size.Height <= 0
                 || (videoCodec != MFVideoCodec.RGB32 && (size.Width % 2 != 0 || size.Height % 2 != 0)))
                 throw new ArgumentException("Video output requires positive dimensions; compressed video requires even dimensions.");
             _ = checked(size.Width * size.Height * 4);
-            if (VideoSettings.FrameRate.Numerator <= 0 || VideoSettings.FrameRate.Numerator > uint.MaxValue
-                || VideoSettings.FrameRate.Denominator <= 0 || VideoSettings.FrameRate.Denominator > uint.MaxValue
-                || GetTimestamp(1, VideoSettings.FrameRate.Numerator, VideoSettings.FrameRate.Denominator) == 0)
+            if (VideoSettings.FrameRate.Value.Numerator <= 0 || VideoSettings.FrameRate.Value.Numerator > uint.MaxValue
+                || VideoSettings.FrameRate.Value.Denominator <= 0 || VideoSettings.FrameRate.Value.Denominator > uint.MaxValue
+                || GetTimestamp(1, VideoSettings.FrameRate.Value.Numerator, VideoSettings.FrameRate.Value.Denominator) == 0)
                 throw new ArgumentException("The video frame rate must be positive and representable in Media Foundation.");
-            if (videoCodec != MFVideoCodec.RGB32 && (VideoSettings.Bitrate <= 0 || VideoSettings.KeyframeRate <= 0))
+            if (videoCodec != MFVideoCodec.RGB32 && (VideoSettings.Bitrate.Value <= 0 || VideoSettings.KeyframeRate.Value <= 0))
                 throw new ArgumentException("The video bitrate and keyframe interval must be positive.");
         }
 
@@ -389,16 +389,16 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         {
             if (sourceSampleRate <= 0 || sourceSampleRate > int.MaxValue / 8)
                 throw new ArgumentException("The source sample rate must be positive and representable in Media Foundation.");
-            if (AudioSettings.SampleRate <= 0 || AudioSettings.SampleRate > int.MaxValue / 8)
+            if (AudioSettings.SampleRate.Value <= 0 || AudioSettings.SampleRate.Value > int.MaxValue / 8)
                 throw new ArgumentException("The output sample rate must be positive and representable in Media Foundation.");
-            if (AudioSettings.Channels is not (1 or 2))
+            if (AudioSettings.Channels.Value is not (1 or 2))
                 throw new ArgumentException("Media Foundation encoding supports mono or stereo output.");
             if (audioCodec is MFAudioCodec.PCM or MFAudioCodec.FLAC or MFAudioCodec.ALAC)
             {
-                if (!Enum.IsDefined(AudioSettings.BitDepth))
+                if (!Enum.IsDefined(AudioSettings.BitDepth.Value))
                     throw new ArgumentException("The audio bit depth must be 8, 16, 24, or 32 bits.");
             }
-            else if (audioCodec != MFAudioCodec.Float && AudioSettings.Bitrate <= 0)
+            else if (audioCodec != MFAudioCodec.Float && AudioSettings.Bitrate.Value <= 0)
             {
                 throw new ArgumentException("The audio bitrate must be positive.");
             }

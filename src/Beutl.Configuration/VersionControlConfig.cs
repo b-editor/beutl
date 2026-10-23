@@ -9,53 +9,17 @@ public sealed class VersionControlConfig : ConfigurationBase
         ScanProperties<VersionControlConfig>();
     }
 
-    public IProperty<bool> EnableForNewProjectsProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> EnableForNewProjects { get; } = new ValueOnlyProperty<bool>(true);
 
-    public IProperty<bool> AutoCommitOnSaveProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> AutoCommitOnSave { get; } = new ValueOnlyProperty<bool>(true);
 
-    public IProperty<bool> AutoCommitOnCloseProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> AutoCommitOnClose { get; } = new ValueOnlyProperty<bool>(true);
 
-    public IProperty<string?> GitExecutablePathProperty { get; } = new ValueOnlyProperty<string?>(null);
+    public IProperty<string?> GitExecutablePath { get; } = new ValueOnlyProperty<string?>(null);
 
-    public IProperty<bool> UseLfsWhenAvailableProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> UseLfsWhenAvailable { get; } = new ValueOnlyProperty<bool>(true);
 
-    public IProperty<int> LargeMediaWarningThresholdMbProperty { get; } = new ValueOnlyProperty<int>(50);
-
-    public bool EnableForNewProjects
-    {
-        get => EnableForNewProjectsProperty.Value;
-        set => EnableForNewProjectsProperty.Value = value;
-    }
-
-    public bool AutoCommitOnSave
-    {
-        get => AutoCommitOnSaveProperty.Value;
-        set => AutoCommitOnSaveProperty.Value = value;
-    }
-
-    public bool AutoCommitOnClose
-    {
-        get => AutoCommitOnCloseProperty.Value;
-        set => AutoCommitOnCloseProperty.Value = value;
-    }
-
-    public string? GitExecutablePath
-    {
-        get => GitExecutablePathProperty.Value;
-        set => GitExecutablePathProperty.Value = value;
-    }
-
-    public bool UseLfsWhenAvailable
-    {
-        get => UseLfsWhenAvailableProperty.Value;
-        set => UseLfsWhenAvailableProperty.Value = value;
-    }
-
-    public int LargeMediaWarningThresholdMb
-    {
-        get => LargeMediaWarningThresholdMbProperty.Value;
-        set => LargeMediaWarningThresholdMbProperty.Value = value;
-    }
+    public IProperty<int> LargeMediaWarningThresholdMb { get; } = new ValueOnlyProperty<int>(50);
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {

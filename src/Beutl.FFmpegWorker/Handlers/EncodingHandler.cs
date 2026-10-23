@@ -82,37 +82,37 @@ internal sealed class EncodingHandler
     private static FFmpegEncodingController CreateController(EncodeStartRequest request)
     {
         var encodingSettings = new FFmpegEncodingSettings();
-        encodingSettings.Acceleration = (FFmpegEncodingSettings.AccelerationOptions)request.Acceleration;
-        encodingSettings.ThreadCount = request.ThreadCount;
+        encodingSettings.Acceleration.Value = (FFmpegEncodingSettings.AccelerationOptions)request.Acceleration;
+        encodingSettings.ThreadCount.Value = request.ThreadCount;
 
         var controller = new FFmpegEncodingController(request.OutputFile, encodingSettings);
 
         // Video settings
-        controller.VideoSettings.SourceSize = new PixelSize(request.SourceWidth, request.SourceHeight);
-        controller.VideoSettings.DestinationSize = new PixelSize(request.DestWidth, request.DestHeight);
-        controller.VideoSettings.FrameRate = new Rational(request.FrameRateNum, request.FrameRateDen);
-        controller.VideoSettings.Bitrate = request.VideoBitrate;
-        controller.VideoSettings.KeyframeRate = request.KeyframeRate;
-        controller.VideoSettings.Format = request.PixelFormat;
-        controller.VideoSettings.Codec = ToCodecRecord(request.VideoCodecName);
-        controller.VideoSettings.ColorPrimaries = request.ColorPrimaries;
-        controller.VideoSettings.ColorTrc = request.ColorTrc;
-        controller.VideoSettings.ColorSpace = request.ColorSpace;
-        controller.VideoSettings.ColorRange = request.ColorRange;
+        controller.VideoSettings.SourceSize.Value = new PixelSize(request.SourceWidth, request.SourceHeight);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(request.DestWidth, request.DestHeight);
+        controller.VideoSettings.FrameRate.Value = new Rational(request.FrameRateNum, request.FrameRateDen);
+        controller.VideoSettings.Bitrate.Value = request.VideoBitrate;
+        controller.VideoSettings.KeyframeRate.Value = request.KeyframeRate;
+        controller.VideoSettings.Format.Value = request.PixelFormat;
+        controller.VideoSettings.Codec.Value = ToCodecRecord(request.VideoCodecName);
+        controller.VideoSettings.ColorPrimaries.Value = request.ColorPrimaries;
+        controller.VideoSettings.ColorTrc.Value = request.ColorTrc;
+        controller.VideoSettings.ColorSpace.Value = request.ColorSpace;
+        controller.VideoSettings.ColorRange.Value = request.ColorRange;
 
         // Video options
-        controller.VideoSettings.Options.Clear();
+        controller.VideoSettings.Options.Value.Clear();
         foreach (var kvp in request.VideoOptions)
         {
-            controller.VideoSettings.Options.Add(new AdditionalOption(kvp.Key, kvp.Value));
+            controller.VideoSettings.Options.Value.Add(new AdditionalOption(kvp.Key, kvp.Value));
         }
 
         // Audio settings
-        controller.AudioSettings.SampleRate = request.AudioSampleRate;
-        controller.AudioSettings.Channels = request.AudioChannels;
-        controller.AudioSettings.Bitrate = request.AudioBitrate;
-        controller.AudioSettings.Format = (FFmpegAudioEncoderSettings.AudioFormat)request.AudioFormat;
-        controller.AudioSettings.Codec = ToCodecRecord(request.AudioCodecName);
+        controller.AudioSettings.SampleRate.Value = request.AudioSampleRate;
+        controller.AudioSettings.Channels.Value = request.AudioChannels;
+        controller.AudioSettings.Bitrate.Value = request.AudioBitrate;
+        controller.AudioSettings.Format.Value = (FFmpegAudioEncoderSettings.AudioFormat)request.AudioFormat;
+        controller.AudioSettings.Codec.Value = ToCodecRecord(request.AudioCodecName);
 
         return controller;
     }

@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using Beutl.Collections;
+﻿using Beutl.Collections;
 using Beutl.FFmpegIpc;
 using Beutl.Media.Encoding;
 using Beutl.Serialization;
@@ -15,30 +14,23 @@ public sealed class AdditionalOption : CoreObject
     public AdditionalOption()
     {
         ScanProperties<AdditionalOption>();
-        ValueProperty.ValueChanged += (_, _) => OnPropertyChanged(new PropertyChangedEventArgs(nameof(Value)));
     }
 
     public AdditionalOption(string name, string value)
         : this()
     {
-        Name = name;
-        Value = value;
+        Name.Value = name;
+        Value.Value = value;
     }
 
-    public IProperty<string> ValueProperty { get; } = new ValueOnlyProperty<string>("");
-
-    public string Value
-    {
-        get => ValueProperty.Value;
-        set => ValueProperty.Value = value;
-    }
+    public IProperty<string> Value { get; } = new ValueOnlyProperty<string>("");
 
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
         if (context.Contains("Key"))
         {
-            Name = context.GetValue<string>("Key") ?? Name;
+            Name.Value = context.GetValue<string>("Key") ?? Name.Value;
         }
     }
 }
@@ -48,7 +40,7 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
     public FFmpegVideoEncoderSettings()
     {
         ScanProperties<FFmpegVideoEncoderSettings>();
-        Options =
+        Options.Value =
         [
             new("preset", "medium"),
             new("crf", "22"),
@@ -57,66 +49,24 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         ];
     }
 
-    public IProperty<int> FormatProperty { get; } = new ValueOnlyProperty<int>(FFPixelFormat.None);
+    public IProperty<int> Format { get; } = new ValueOnlyProperty<int>(FFPixelFormat.None);
 
     // Serialize and Deserialize write and read the codec by its name.
     [NotAutoSerialized]
     [ChoicesProvider(typeof(VideoCodecChoicesProvider))]
-    public IProperty<CodecRecord> CodecProperty { get; } = new ValueOnlyProperty<CodecRecord>(CodecRecord.Default);
+    public IProperty<CodecRecord> Codec { get; } = new ValueOnlyProperty<CodecRecord>(CodecRecord.Default);
 
-    public IProperty<FFColorPrimaries> ColorPrimariesProperty { get; } = new ValueOnlyProperty<FFColorPrimaries>(FFColorPrimaries.UNSPECIFIED);
+    public IProperty<FFColorPrimaries> ColorPrimaries { get; } = new ValueOnlyProperty<FFColorPrimaries>(FFColorPrimaries.UNSPECIFIED);
 
-    public IProperty<FFColorTransfer> ColorTrcProperty { get; } = new ValueOnlyProperty<FFColorTransfer>(FFColorTransfer.UNSPECIFIED);
+    public IProperty<FFColorTransfer> ColorTrc { get; } = new ValueOnlyProperty<FFColorTransfer>(FFColorTransfer.UNSPECIFIED);
 
-    public IProperty<FFColorSpace> ColorSpaceProperty { get; } = new ValueOnlyProperty<FFColorSpace>(FFColorSpace.UNSPECIFIED);
+    public IProperty<FFColorSpace> ColorSpace { get; } = new ValueOnlyProperty<FFColorSpace>(FFColorSpace.UNSPECIFIED);
 
-    public IProperty<FFColorRange> ColorRangeProperty { get; } = new ValueOnlyProperty<FFColorRange>(FFColorRange.UNSPECIFIED);
+    public IProperty<FFColorRange> ColorRange { get; } = new ValueOnlyProperty<FFColorRange>(FFColorRange.UNSPECIFIED);
 
-    public IProperty<CoreList<AdditionalOption>> OptionsProperty { get; } = new ValueOnlyProperty<CoreList<AdditionalOption>>(null!);
+    public IProperty<CoreList<AdditionalOption>> Options { get; } = new ValueOnlyProperty<CoreList<AdditionalOption>>(null!);
 
     public string? OutputFile { get; set; }
-
-    public int Format
-    {
-        get => FormatProperty.Value;
-        set => FormatProperty.Value = value;
-    }
-
-    public CodecRecord Codec
-    {
-        get => CodecProperty.Value;
-        set => CodecProperty.Value = value;
-    }
-
-    public FFColorPrimaries ColorPrimaries
-    {
-        get => ColorPrimariesProperty.Value;
-        set => ColorPrimariesProperty.Value = value;
-    }
-
-    public FFColorTransfer ColorTrc
-    {
-        get => ColorTrcProperty.Value;
-        set => ColorTrcProperty.Value = value;
-    }
-
-    public FFColorSpace ColorSpace
-    {
-        get => ColorSpaceProperty.Value;
-        set => ColorSpaceProperty.Value = value;
-    }
-
-    public FFColorRange ColorRange
-    {
-        get => ColorRangeProperty.Value;
-        set => ColorRangeProperty.Value = value;
-    }
-
-    public CoreList<AdditionalOption> Options
-    {
-        get => OptionsProperty.Value;
-        set => OptionsProperty.Value = value;
-    }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
@@ -124,7 +74,7 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         string? codecName = context.GetValue<string>(nameof(Codec));
         if (codecName != null)
         {
-            Codec = VideoCodecChoicesProvider.GetChoices()
+            Codec.Value = VideoCodecChoicesProvider.GetChoices()
                 .Cast<CodecRecord>()
                 .FirstOrDefault(i => i.Name == codecName, CodecRecord.Default);
         }
@@ -138,7 +88,7 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(Codec), Codec.Name);
+        context.SetValue(nameof(Codec), Codec.Value.Name);
     }
 
     private void SetOption(ICoreSerializationContext context, string key, string newKey)
@@ -149,22 +99,22 @@ public sealed class FFmpegVideoEncoderSettings : VideoEncoderSettings
         if (string.IsNullOrEmpty(value)) return;
         bool unset = value.Equals("(unset)", StringComparison.OrdinalIgnoreCase);
 
-        AdditionalOption? option = Options.FirstOrDefault(i => i.Name == newKey);
+        AdditionalOption? option = Options.Value.FirstOrDefault(i => i.Name.Value == newKey);
         if (option == null)
         {
             if (unset) return;
             option = new AdditionalOption(newKey, value);
-            Options.Add(option);
+            Options.Value.Add(option);
         }
         else
         {
             if (unset)
             {
-                Options.Remove(option);
+                Options.Value.Remove(option);
                 return;
             }
 
-            option.Value = value;
+            option.Value.Value = value;
         }
     }
 }

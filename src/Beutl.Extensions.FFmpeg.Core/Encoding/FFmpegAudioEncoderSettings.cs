@@ -17,23 +17,11 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
     // Serialize and Deserialize write and read the codec by its name.
     [ChoicesProvider(typeof(AudioCodecChoicesProvider))]
     [NotAutoSerialized]
-    public IProperty<CodecRecord> CodecProperty { get; } = new ValueOnlyProperty<CodecRecord>(CodecRecord.Default);
+    public IProperty<CodecRecord> Codec { get; } = new ValueOnlyProperty<CodecRecord>(CodecRecord.Default);
 
-    public IProperty<AudioFormat> FormatProperty { get; } = new ValueOnlyProperty<AudioFormat>(AudioFormat.Fltp);
+    public IProperty<AudioFormat> Format { get; } = new ValueOnlyProperty<AudioFormat>(AudioFormat.Fltp);
 
     public string? OutputFile { get; set; }
-
-    public CodecRecord Codec
-    {
-        get => CodecProperty.Value;
-        set => CodecProperty.Value = value;
-    }
-
-    public AudioFormat Format
-    {
-        get => FormatProperty.Value;
-        set => FormatProperty.Value = value;
-    }
 
     public override void Deserialize(ICoreSerializationContext context)
     {
@@ -41,7 +29,7 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
         string? codecName = context.GetValue<string>(nameof(Codec));
         if (codecName != null)
         {
-            Codec = AudioCodecChoicesProvider.GetChoices()
+            Codec.Value = AudioCodecChoicesProvider.GetChoices()
                 .Cast<CodecRecord>()
                 .FirstOrDefault(i => i.Name == codecName, CodecRecord.Default);
         }
@@ -50,7 +38,7 @@ public sealed class FFmpegAudioEncoderSettings : AudioEncoderSettings
     public override void Serialize(ICoreSerializationContext context)
     {
         base.Serialize(context);
-        context.SetValue(nameof(Codec), Codec.Name);
+        context.SetValue(nameof(Codec), Codec.Value.Name);
     }
 
     public enum AudioFormat

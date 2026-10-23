@@ -22,32 +22,18 @@ public sealed class ProxyStoreConfig : ConfigurationBase
         ScanProperties<ProxyStoreConfig>();
     }
 
-    public IProperty<string> StoreRootPathProperty { get; } = new ValueOnlyProperty<string>(DefaultStoreRootPath);
+    // Each value set, also when read, is made absolute, and a blank path is the default one.
+    public IProperty<string> StoreRootPath { get; } = new ValueOnlyProperty<string>(DefaultStoreRootPath)
+    {
+        Coerce = static (_, value) => NormalizeStoreRootPath(value)
+    };
 
+    // The ranges clamp each value set, also when read.
     [Range(MinTotalBytes, MaxTotalBytesLimit)]
-    public IProperty<long> MaxTotalBytesProperty { get; } = new ValueOnlyProperty<long>(DefaultTotalBytes);
+    public IProperty<long> MaxTotalBytes { get; } = new ValueOnlyProperty<long>(DefaultTotalBytes);
 
     [Range(MinPreset, MaxPreset)]
-    public IProperty<int> DefaultPresetProperty { get; } = new ValueOnlyProperty<int>(DefaultPresetValue);
-
-    public string StoreRootPath
-    {
-        // NormalizeStoreRootPath returns an absolute path; a second GetFullPath could throw for a malformed value.
-        get => NormalizeStoreRootPath(StoreRootPathProperty.Value);
-        set => StoreRootPathProperty.Value = NormalizeStoreRootPath(value);
-    }
-
-    public long MaxTotalBytes
-    {
-        get => Math.Clamp(MaxTotalBytesProperty.Value, MinTotalBytes, MaxTotalBytesLimit);
-        set => MaxTotalBytesProperty.Value = Math.Clamp(value, MinTotalBytes, MaxTotalBytesLimit);
-    }
-
-    public int DefaultPreset
-    {
-        get => Math.Clamp(DefaultPresetProperty.Value, MinPreset, MaxPreset);
-        set => DefaultPresetProperty.Value = Math.Clamp(value, MinPreset, MaxPreset);
-    }
+    public IProperty<int> DefaultPreset { get; } = new ValueOnlyProperty<int>(DefaultPresetValue);
 
     // gib comes from a free-form TextBox and may be huge, NaN, or infinite; clamp in GiB
     // space so the long cast never sees an out-of-range product.

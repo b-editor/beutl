@@ -263,7 +263,7 @@ internal sealed partial class DecodingHandler : IDisposable
                     state.RingBuffer.InvalidateAllSlots();
                 }
 
-                state.Reader.Settings.ForceSrgbGamma = request.ForceSrgbGamma;
+                state.Reader.Settings.ForceSrgbGamma.Value = request.ForceSrgbGamma;
             }
             finally
             {
@@ -298,8 +298,8 @@ internal sealed partial class DecodingHandler : IDisposable
     private static void ApplySettings(
         FFmpegDecodingSettings settings, int threadCount, int acceleration, bool forceSrgbGamma)
     {
-        settings.ThreadCount = threadCount;
-        settings.Acceleration = (FFmpegDecodingSettings.AccelerationOptions)acceleration;
-        settings.ForceSrgbGamma = forceSrgbGamma;
+        settings.ThreadCount.Value = threadCount;
+        settings.Acceleration.Value = (FFmpegDecodingSettings.AccelerationOptions)acceleration;
+        settings.ForceSrgbGamma.Value = forceSrgbGamma;
     }
 }

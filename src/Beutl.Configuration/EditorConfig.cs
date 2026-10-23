@@ -58,218 +58,80 @@ public sealed class EditorConfig : ConfigurationBase
         LibraryTabDisplayModes.CollectionChanged += (_, _) => OnChanged();
     }
 
-    public IProperty<string?> LastMediaDirectoryProperty { get; } = new ValueOnlyProperty<string?>(null);
+    public IProperty<string?> LastMediaDirectory { get; } = new ValueOnlyProperty<string?>(null);
 
-    public IProperty<bool> AutoAdjustSceneDurationProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> AutoAdjustSceneDuration { get; } = new ValueOnlyProperty<bool>(true);
 
-    public IProperty<bool> EnablePointerLockInPropertyProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> EnablePointerLockInProperty { get; } = new ValueOnlyProperty<bool>(true);
 
     [Display(Name = nameof(SettingsStrings.EnableFrameCache), ResourceType = typeof(SettingsStrings))]
-    public IProperty<bool> IsFrameCacheEnabledProperty { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> IsFrameCacheEnabled { get; } = new ValueOnlyProperty<bool>(false);
 
     [Range(0.0, double.MaxValue)]
     [Display(Name = nameof(SettingsStrings.FrameCacheMaxSize), ResourceType = typeof(SettingsStrings))]
-    public IProperty<double> FrameCacheMaxSizeProperty { get; } = new ValueOnlyProperty<double>(s_defaultFrameCacheMaxSize);
+    public IProperty<double> FrameCacheMaxSize { get; } = new ValueOnlyProperty<double>(s_defaultFrameCacheMaxSize);
 
     [Display(Name = nameof(SettingsStrings.FrameCacheScale), ResourceType = typeof(SettingsStrings))]
-    public IProperty<FrameCacheConfigScale> FrameCacheScaleProperty { get; } = new ValueOnlyProperty<FrameCacheConfigScale>(FrameCacheConfigScale.FitToPreviewer);
+    public IProperty<FrameCacheConfigScale> FrameCacheScale { get; } = new ValueOnlyProperty<FrameCacheConfigScale>(FrameCacheConfigScale.FitToPreviewer);
 
     [Display(Name = nameof(SettingsStrings.FrameCacheColorType), ResourceType = typeof(SettingsStrings))]
-    public IProperty<FrameCacheConfigColorType> FrameCacheColorTypeProperty { get; } = new ValueOnlyProperty<FrameCacheConfigColorType>(FrameCacheConfigColorType.RGBA);
+    public IProperty<FrameCacheConfigColorType> FrameCacheColorType { get; } = new ValueOnlyProperty<FrameCacheConfigColorType>(FrameCacheConfigColorType.RGBA);
 
     [Display(Name = nameof(SettingsStrings.EnableNodeCache), ResourceType = typeof(SettingsStrings))]
-    public IProperty<bool> IsNodeCacheEnabledProperty { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> IsNodeCacheEnabled { get; } = new ValueOnlyProperty<bool>(false);
 
     [Range(1, int.MaxValue)]
     [Display(Name = nameof(SettingsStrings.NodeCacheMaxPixels), ResourceType = typeof(SettingsStrings))]
-    public IProperty<int> NodeCacheMaxPixelsProperty { get; } = new ValueOnlyProperty<int>(1000 * 1000);
+    public IProperty<int> NodeCacheMaxPixels { get; } = new ValueOnlyProperty<int>(1000 * 1000);
 
     [Range(1, int.MaxValue)]
     [Display(Name = nameof(SettingsStrings.NodeCacheMinPixels), ResourceType = typeof(SettingsStrings))]
-    public IProperty<int> NodeCacheMinPixelsProperty { get; } = new ValueOnlyProperty<int>(1);
+    public IProperty<int> NodeCacheMinPixels { get; } = new ValueOnlyProperty<int>(1);
 
-    public IProperty<bool> SwapTimelineScrollDirectionProperty { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> SwapTimelineScrollDirection { get; } = new ValueOnlyProperty<bool>(false);
 
-    public IProperty<bool> ClampResizeToOriginalLengthProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> ClampResizeToOriginalLength { get; } = new ValueOnlyProperty<bool>(true);
 
-    public IProperty<bool> IsTimelineSnapEnabledProperty { get; } = new ValueOnlyProperty<bool>(true);
+    public IProperty<bool> IsTimelineSnapEnabled { get; } = new ValueOnlyProperty<bool>(true);
 
-    public IProperty<bool> IsRippleEnabledProperty { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> IsRippleEnabled { get; } = new ValueOnlyProperty<bool>(false);
 
-    public IProperty<TimelineAutoScrollMode> TimelineAutoScrollModeProperty { get; } = new ValueOnlyProperty<TimelineAutoScrollMode>(TimelineAutoScrollMode.PageScroll);
+    public IProperty<TimelineAutoScrollMode> TimelineAutoScrollMode { get; } = new ValueOnlyProperty<TimelineAutoScrollMode>(Configuration.TimelineAutoScrollMode.PageScroll);
 
-    public IProperty<UIToneMappingOperator> ToneMappingModeProperty { get; } = new ValueOnlyProperty<UIToneMappingOperator>(UIToneMappingOperator.None);
+    public IProperty<UIToneMappingOperator> ToneMappingMode { get; } = new ValueOnlyProperty<UIToneMappingOperator>(UIToneMappingOperator.None);
 
-    public IProperty<float> ToneMappingExposureProperty { get; } = new ValueOnlyProperty<float>(0f);
+    public IProperty<float> ToneMappingExposure { get; } = new ValueOnlyProperty<float>(0f);
 
-    public IProperty<bool> UseHdrPreviewProperty { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> UseHdrPreview { get; } = new ValueOnlyProperty<bool>(false);
 
     [Display(Name = nameof(Strings.OnionSkin), ResourceType = typeof(Strings))]
-    public IProperty<bool> IsOnionSkinEnabledProperty { get; } = new ValueOnlyProperty<bool>(false);
+    public IProperty<bool> IsOnionSkinEnabled { get; } = new ValueOnlyProperty<bool>(false);
 
     [Range(0, 10)]
     [Display(Name = nameof(Strings.OnionSkinPrevCount), ResourceType = typeof(Strings))]
-    public IProperty<int> OnionSkinPrevCountProperty { get; } = new ValueOnlyProperty<int>(1);
+    public IProperty<int> OnionSkinPrevCount { get; } = new ValueOnlyProperty<int>(1);
 
     [Range(0, 10)]
     [Display(Name = nameof(Strings.OnionSkinNextCount), ResourceType = typeof(Strings))]
-    public IProperty<int> OnionSkinNextCountProperty { get; } = new ValueOnlyProperty<int>(0);
+    public IProperty<int> OnionSkinNextCount { get; } = new ValueOnlyProperty<int>(0);
 
     [Range(0.0, 1.0)]
     [Display(Name = nameof(Strings.OnionSkinPrevOpacity), ResourceType = typeof(Strings))]
-    public IProperty<float> OnionSkinPrevOpacityProperty { get; } = new ValueOnlyProperty<float>(0.35f);
+    public IProperty<float> OnionSkinPrevOpacity { get; } = new ValueOnlyProperty<float>(0.35f);
 
     [Range(0.0, 1.0)]
     [Display(Name = nameof(Strings.OnionSkinNextOpacity), ResourceType = typeof(Strings))]
-    public IProperty<float> OnionSkinNextOpacityProperty { get; } = new ValueOnlyProperty<float>(0.35f);
+    public IProperty<float> OnionSkinNextOpacity { get; } = new ValueOnlyProperty<float>(0.35f);
 
     [Display(Name = nameof(Strings.PreviewSource), ResourceType = typeof(Strings))]
-    public IProperty<PreviewSourceMode> PreviewSourceModeProperty { get; } = new ValueOnlyProperty<PreviewSourceMode>(PreviewSourceMode.PreferProxy);
-
-    public bool AutoAdjustSceneDuration
-    {
-        get => AutoAdjustSceneDurationProperty.Value;
-        set => AutoAdjustSceneDurationProperty.Value = value;
-    }
-
-    public bool EnablePointerLockInProperty
-    {
-        get => EnablePointerLockInPropertyProperty.Value;
-        set => EnablePointerLockInPropertyProperty.Value = value;
-    }
-
-    public bool IsFrameCacheEnabled
-    {
-        get => IsFrameCacheEnabledProperty.Value;
-        set => IsFrameCacheEnabledProperty.Value = value;
-    }
-
-    public double FrameCacheMaxSize
-    {
-        get => FrameCacheMaxSizeProperty.Value;
-        set => FrameCacheMaxSizeProperty.Value = value;
-    }
-
-    public FrameCacheConfigScale FrameCacheScale
-    {
-        get => FrameCacheScaleProperty.Value;
-        set => FrameCacheScaleProperty.Value = value;
-    }
-
-    public FrameCacheConfigColorType FrameCacheColorType
-    {
-        get => FrameCacheColorTypeProperty.Value;
-        set => FrameCacheColorTypeProperty.Value = value;
-    }
-
-    public bool IsNodeCacheEnabled
-    {
-        get => IsNodeCacheEnabledProperty.Value;
-        set => IsNodeCacheEnabledProperty.Value = value;
-    }
-
-    public int NodeCacheMaxPixels
-    {
-        get => NodeCacheMaxPixelsProperty.Value;
-        set => NodeCacheMaxPixelsProperty.Value = value;
-    }
-
-    public int NodeCacheMinPixels
-    {
-        get => NodeCacheMinPixelsProperty.Value;
-        set => NodeCacheMinPixelsProperty.Value = value;
-    }
-
-    public bool SwapTimelineScrollDirection
-    {
-        get => SwapTimelineScrollDirectionProperty.Value;
-        set => SwapTimelineScrollDirectionProperty.Value = value;
-    }
-
-    public bool ClampResizeToOriginalLength
-    {
-        get => ClampResizeToOriginalLengthProperty.Value;
-        set => ClampResizeToOriginalLengthProperty.Value = value;
-    }
-
-    public bool IsTimelineSnapEnabled
-    {
-        get => IsTimelineSnapEnabledProperty.Value;
-        set => IsTimelineSnapEnabledProperty.Value = value;
-    }
-
-    public bool IsRippleEnabled
-    {
-        get => IsRippleEnabledProperty.Value;
-        set => IsRippleEnabledProperty.Value = value;
-    }
-
-    public TimelineAutoScrollMode TimelineAutoScrollMode
-    {
-        get => TimelineAutoScrollModeProperty.Value;
-        set => TimelineAutoScrollModeProperty.Value = value;
-    }
-
-    public UIToneMappingOperator ToneMappingMode
-    {
-        get => ToneMappingModeProperty.Value;
-        set => ToneMappingModeProperty.Value = value;
-    }
-
-    public float ToneMappingExposure
-    {
-        get => ToneMappingExposureProperty.Value;
-        set => ToneMappingExposureProperty.Value = value;
-    }
-
-    public bool UseHdrPreview
-    {
-        get => UseHdrPreviewProperty.Value;
-        set => UseHdrPreviewProperty.Value = value;
-    }
-
-    public bool IsOnionSkinEnabled
-    {
-        get => IsOnionSkinEnabledProperty.Value;
-        set => IsOnionSkinEnabledProperty.Value = value;
-    }
-
-    public int OnionSkinPrevCount
-    {
-        get => OnionSkinPrevCountProperty.Value;
-        set => OnionSkinPrevCountProperty.Value = value;
-    }
-
-    public int OnionSkinNextCount
-    {
-        get => OnionSkinNextCountProperty.Value;
-        set => OnionSkinNextCountProperty.Value = value;
-    }
-
-    public float OnionSkinPrevOpacity
-    {
-        get => OnionSkinPrevOpacityProperty.Value;
-        set => OnionSkinPrevOpacityProperty.Value = value;
-    }
-
-    public float OnionSkinNextOpacity
-    {
-        get => OnionSkinNextOpacityProperty.Value;
-        set => OnionSkinNextOpacityProperty.Value = value;
-    }
-
-    public PreviewSourceMode PreviewSourceMode
-    {
-        get => PreviewSourceModeProperty.Value;
-        set => PreviewSourceModeProperty.Value = value;
-    }
+    public IProperty<PreviewSourceMode> PreviewSourceMode { get; } = new ValueOnlyProperty<PreviewSourceMode>(Configuration.PreviewSourceMode.PreferProxy);
 
     /// <summary>Sets <see cref="PreviewSourceMode"/> from a <c>ComboBox.SelectedIndex</c>.</summary>
     /// <remarks>Out-of-range indices, such as the <c>-1</c> of a transient no-selection, are ignored.</remarks>
     public void SetPreviewSourceModeFromIndex(int index)
     {
         if (Enum.IsDefined(typeof(PreviewSourceMode), index))
-            PreviewSourceMode = (PreviewSourceMode)index;
+            PreviewSourceMode.Value = (PreviewSourceMode)index;
     }
 
     public CoreDictionary<string, LibraryTabDisplayMode> LibraryTabDisplayModes { get; } = new()
@@ -279,12 +141,6 @@ public sealed class EditorConfig : ConfigurationBase
         ["Library"] = LibraryTabDisplayMode.Show,
         ["Nodes"] = LibraryTabDisplayMode.Hide,
     };
-
-    public string? LastMediaDirectory
-    {
-        get => LastMediaDirectoryProperty.Value;
-        set => LastMediaDirectoryProperty.Value = value;
-    }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {

@@ -13,19 +13,13 @@ public sealed class TutorialConfig : ConfigurationBase
         ScanProperties<TutorialConfig>();
     }
 
-    public IProperty<CoreList<string>> CompletedTutorialIdsProperty { get; } = new ValueOnlyProperty<CoreList<string>>([]);
-
-    public CoreList<string> CompletedTutorialIds
-    {
-        get => CompletedTutorialIdsProperty.Value;
-        set => CompletedTutorialIdsProperty.Value = value;
-    }
+    public IProperty<CoreList<string>> CompletedTutorialIds { get; } = new ValueOnlyProperty<CoreList<string>>([]);
 
     public void MarkCompleted(string tutorialId)
     {
-        if (!CompletedTutorialIds.Contains(tutorialId))
+        if (!CompletedTutorialIds.Value.Contains(tutorialId))
         {
-            CompletedTutorialIds.Add(tutorialId);
+            CompletedTutorialIds.Value.Add(tutorialId);
             OnChanged();
         }
     }
