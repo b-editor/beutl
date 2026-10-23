@@ -78,7 +78,6 @@ public abstract partial class DisplacementMapTransform : EngineObject
     // assign; a binder read by a keyed recording callback needs a value nothing can write.
     private static readonly SKColor s_transparent = SKColors.Transparent;
 
-    private static readonly RenderResourceSlot<Brush.Resource> s_hitTestMapSlot = new();
     // The working format of every stage in the graph. A map sampled in any other space would report a
     // different displacement from the one the entry point read.
     private static readonly SKColorSpace s_workingColorSpace = SKColorSpace.CreateSrgbLinear();
@@ -132,16 +131,6 @@ public abstract partial class DisplacementMapTransform : EngineObject
         }
 
         RenderResource<Brush.Resource> map = context.Borrow(displacementMap);
-        var hitTest = DeclareSampling(
-            displacementMap,
-            map,
-            kind,
-            vector,
-            angle,
-            center,
-            spreadMethod,
-            channel,
-            signed);
         context.Shader(ShaderDescription.WholeSource(
             s_shaderSource,
             RenderBoundsContract.FullInput,
@@ -156,9 +145,7 @@ public abstract partial class DisplacementMapTransform : EngineObject
                 bindings.Uniform("uAngle", angle);
                 bindings.Uniform("uPivot", center, BindPivot);
             },
-            spreadMethod.ToSKShaderTileMode(),
-            hitTest: hitTest.Contract,
-            hitTestResources: hitTest.Resources));
+            spreadMethod.ToSKShaderTileMode()));
     }
 
     private protected static void AddDisplacementBindings(
