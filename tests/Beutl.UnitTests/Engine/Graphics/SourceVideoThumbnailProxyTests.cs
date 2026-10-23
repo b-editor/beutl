@@ -101,7 +101,6 @@ public class SourceVideoThumbnailProxyTests
                 cache.Invalidated,
                 Is.EquivalentTo(new[]
                 {
-                    "clip" + SourceVideo.ProxyThumbnailCacheKeySuffix,
                     "clip" + SourceVideo.GetProxyThumbnailCacheKeySuffix(ProxyPreset.Half),
                     "clip" + SourceVideo.GetProxyThumbnailCacheKeySuffix(ProxyPreset.Quarter),
                     "clip" + SourceVideo.GetProxyThumbnailCacheKeySuffix(ProxyPreset.Eighth),

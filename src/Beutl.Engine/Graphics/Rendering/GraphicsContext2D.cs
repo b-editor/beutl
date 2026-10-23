@@ -256,33 +256,13 @@ public sealed class GraphicsContext2D(
         return UseMemory<T?>(default);
     }
 
-    public void Clear()
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ClearRenderNode? next = Next<ClearRenderNode>();
-
-        if (next == null || !next.Equals(default))
-        {
-            Add(new ClearRenderNode(default));
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+    public void Clear() => Clear(default);
 
     public void Clear(Color color)
-    {
-        bool wasFaulted = BeginRecordingOperation();
-        ClearRenderNode? next = Next<ClearRenderNode>();
-
-        if (next == null || !next.Equals(color))
-        {
-            Add(new ClearRenderNode(color));
-        }
-
-        ++_drawOperationindex;
-        CompleteRecordingOperation(wasFaulted);
-    }
+        => DrawNode(
+            color,
+            static c => new ClearRenderNode(c),
+            static (node, c) => node.Update(c));
 
     public void DrawImageSource(ImageSource.Resource source, Brush.Resource? fill, Pen.Resource? pen)
         => DrawNode(
