@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using Beutl.Configuration;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
 
@@ -9,7 +8,6 @@ public static class TypefaceProvider
 {
     static TypefaceProvider()
     {
-        GlobalConfiguration.Instance.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "settings.json"));
         Assembly asm = typeof(TypefaceProvider).Assembly;
         string[] array =
         [
