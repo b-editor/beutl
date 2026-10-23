@@ -156,11 +156,12 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     // Replacing or removing content is how the user repairs a recovery-protected element, so those
     // edits check this instead of IsElementEditable: they stay allowed there while the content holds
-    // what could not be loaded (see ElementEditability.CanRepair).
+    // what could not be loaded, or while loading dropped the property's value (see ElementEditability).
     protected internal bool CanReplace(object? content)
     {
         if (IsDisposed) return false;
-        if (ElementEditability.CanRepair(_element, content, _scene)) return true;
+        if (ElementEditability.CanRepair(_element, content, _scene)
+            || ElementEditability.CanRepairDroppedValue(_element, PropertyAdapter.GetEngineProperty(), _scene)) return true;
 
         // An easing is a value, not an object of its own: the keyframe holds an easing that could not be read.
         return PropertyAdapter is EnginePropertyAdapter<Easing> { Object: KeyFrame keyFrame }

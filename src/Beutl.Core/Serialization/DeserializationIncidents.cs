@@ -1,4 +1,6 @@
-﻿namespace Beutl.Serialization;
+﻿using System.Text.Json.Nodes;
+
+namespace Beutl.Serialization;
 
 /// <summary>
 /// Thread-local capture of fallback substitutions, letting a caller detect fallbacks created in
@@ -12,9 +14,10 @@ internal static class DeserializationIncidents
 
     internal static Capture BeginCapture() => new(t_capture);
 
-    internal static void RecordFallback(IFallback? fallback = null)
+    // json is the JSON the fallback stands for, in the tree it was read from; a fallback for a missing type keeps that JSON.
+    internal static void RecordFallback(IFallback? fallback = null, JsonObject? json = null)
     {
-        Record(new DeserializationIncident(fallback, null, null, null));
+        Record(new DeserializationIncident(fallback, null, null, null, json ?? fallback?.Json));
         // A fallback keeps the JSON it stands in for, so a project read that made one kept data it cannot show.
         if (fallback is not null)
         {
@@ -79,5 +82,6 @@ internal static class DeserializationIncidents
         IFallback? Fallback,
         FallbackReason? Reason,
         string? TypeName,
-        string? Message);
+        string? Message,
+        JsonObject? Json = null);
 }

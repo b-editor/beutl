@@ -8,6 +8,7 @@ using Beutl.AgentToolkit.Tests.Helpers;
 using Beutl.AgentToolkit.Tools;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -774,6 +775,69 @@ public sealed class ApplyEditLockTests
                 Assert.That(element.IsRecoveryProtected, Is.False, "The repair completes, so later edits are saved.");
             }
         });
+    }
+
+    // Loading dropped the holder's unreadable transform, which the agent's copy of the scene cannot show, so only
+    // deleting the holder repairs the element; renaming the element is refused (#2974).
+    [TestCase("rename", false)]
+    [TestCase("delete-holder", true)]
+    public void Apply_edit_repairs_a_dropped_value_only_by_deleting_the_object_that_held_it(string edit, bool accepted)
+    {
+        Element element = CreateElementWithADroppedValue(out Scene scene);
+        EngineObject holder = element.Objects.Single();
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+        JsonObject members = edit == "rename"
+            ? new JsonObject { [nameof(CoreObject.Name)] = "Renamed" }
+            : new JsonObject
+            {
+                [nameof(Element.Objects)] = new JsonArray(
+                    new JsonObject { ["Id"] = holder.Id.ToString(), ["$delete"] = true }),
+            };
+
+        ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
+            patch: ElementPatch(element, members), schemaVersion: SchemaVersion.Current);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.IsSuccess, Is.EqualTo(accepted), result.Error?.Message);
+            Assert.That(element.IsRecoveryProtected, Is.EqualTo(!accepted));
+            Assert.That(element.Objects.Contains(holder), Is.EqualTo(!accepted));
+        });
+    }
+
+    // Reads its transform as any object and keeps it only as a transform, so loading drops the fallback for a missing one.
+    [SuppressResourceClassGeneration]
+    public sealed class DroppingTransformHolder : EngineObject
+    {
+        public DroppingTransformHolder() => ScanProperties<DroppingTransformHolder>();
+
+        public IExpressionProperty<DisplacementMapTransform?> Transform { get; } = Property.CreateExpression<DisplacementMapTransform?>();
+
+        public override void Deserialize(ICoreSerializationContext context)
+        {
+            Id = context.GetValue<Guid>(nameof(Id));
+            Transform.Value = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
+        }
+    }
+
+    private static Element CreateElementWithADroppedValue(out Scene scene)
+    {
+        Scene created = TestWorkspace.CreateScene();
+        var holder = new DroppingTransformHolder();
+        holder.Transform.Value = new DisplacementMapTranslateTransform();
+        AddElement(created, "Dropped", zIndex: 0).AddObject(holder);
+        CoreSerializer.StoreToUri(created, created.Uri!);
+        string elementPath = created.Children.Single().Uri!.LocalPath;
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json[nameof(Element.Objects)]![0]![nameof(DroppingTransformHolder.Transform)]!["$type"]
+            = "[Missing.Plugin]Missing.Namespace:MissingTransform";
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        scene = CoreSerializer.RestoreFromUri<Scene>(created.Uri!);
+        Element element = scene.Children.Single();
+        Assert.That(element.IsRecoveryProtected, Is.True);
+        return element;
     }
 
     // Protects the element with a keyframe easing from a missing assembly, or with an unreadable file, and reopens it.
