@@ -47,8 +47,7 @@ public static partial class CoreSerializer
         return new StoredVersion(appVersion, minAppVersion);
     }
 
-    // A file from before 2.0.0-preview.9 names the closed generic types of times over TimeSpan, such as the node time
-    // ports, their keyframes and the nested ports of time properties: they read over MediaTime.
+    // Files from before 2.0.0-preview.9 name the generic types of times over TimeSpan; they read over MediaTime.
     private static void ReadTimeTypesOfEarlierVersions(JsonObject json, StoredVersion version)
     {
         if (version.MinAppVersion is { } recorded && FileFormat.IsAtLeast(recorded, "2.0.0-preview.9"))
@@ -57,7 +56,8 @@ public static partial class CoreSerializer
         RenameTimeSpanTypeArguments(json);
     }
 
-    private static void RenameTimeSpanTypeArguments(JsonNode? node)
+    // Templates record no version, so their JSON gets this on every read; newer builds write no TimeSpan arguments.
+    internal static void RenameTimeSpanTypeArguments(JsonNode? node)
     {
         if (node is JsonArray array)
         {

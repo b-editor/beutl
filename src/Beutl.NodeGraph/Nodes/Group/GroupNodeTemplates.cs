@@ -63,6 +63,8 @@ public sealed class GroupNodeTemplates(string directory)
             // The files are the user's to edit: a root that is not an object is a load failure.
             if (JsonNode.Parse(File.ReadAllText(template.FilePath)) is not JsonObject json)
                 throw new JsonException("A node template must be a JSON object.");
+            // A template records no version; one saved before 2.0.0-preview.9 names its time ports over TimeSpan.
+            CoreSerializer.RenameTimeSpanTypeArguments(json);
             return CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphNode)) as GroupNode;
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)

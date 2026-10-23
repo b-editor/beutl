@@ -1,9 +1,14 @@
 ﻿using Beutl.Editor.Services;
+using Beutl.Graphics;
+using Beutl.JsonConverters;
+using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Generative;
 using Beutl.NodeGraph.Nodes.Generative;
+using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.Serialization;
+using static Beutl.UnitTests.NodeGraph.NodeGraphTestHelpers;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -85,6 +90,36 @@ public sealed class GroupNodeTemplatesTests
             .Select(match => match.Value)
             .Where(id => id != Guid.Empty.ToString())
             .ToHashSet();
+    }
+
+    // A template records no version, and one from before 2.0.0-preview.9 names a nested time port over TimeSpan (#2885).
+    [Test]
+    public void ATemplateSavedBeforeFlickCountsKeepsTheConnectionOfANestedTimePort()
+    {
+        var store = new GroupNodeTemplates(_directory);
+        var group = new GroupNode();
+        var factory = new FactoryNode<DrawableBrush>();
+        var video = new SourceVideo();
+        factory.Object.Drawable.Value = video;
+        group.Group.Nodes.Add(factory);
+        INestedInputPort port = Find(factory, video.OffsetPosition);
+        Connection connection = group.Group.Connect(port, Source(group.Group, 2f));
+        GroupNodeTemplate saved;
+        using (MediaTimeJsonConverter.WriteTimeSpanStrings())
+            saved = store.Save(group, "Video offset")!;
+        string text = File.ReadAllText(saved.FilePath);
+        Assert.That(text, Does.Contain("[Beutl.Core]Beutl:MediaTime"));
+        File.WriteAllText(saved.FilePath, text.Replace("[Beutl.Core]Beutl:MediaTime", "[System.Private.CoreLib]System:TimeSpan"));
+
+        GroupNode loaded = store.Load(saved)!;
+        var loadedVideo = (SourceVideo)loaded.Group.Nodes.OfType<FactoryNode<DrawableBrush>>().Single().Object.Drawable.Value!;
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(loaded.Group.AllConnections.Single().Id, Is.EqualTo(connection.Id));
+            Assert.That(loaded.Group.FindNodePort(port.Id), Is.InstanceOf<NestedInputPort<MediaTime>>());
+            Assert.That(loadedVideo.OffsetPosition.Expression, Is.InstanceOf<NodePortExpression<MediaTime>>());
+        });
     }
 
     [TestCase("")]
