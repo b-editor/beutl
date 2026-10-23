@@ -277,7 +277,14 @@ internal static class FilterEffectStageFallbackExecutor
                     output.Scale.Value,
                     environment.MaxWorkingScale,
                     environment.Intent,
-                    environment.Purpose);
+                    environment.Purpose,
+                    description.Kind == ShaderDescriptionKind.WholeSource
+                        ? RasterShaderMapping.SemanticRasterOrigin(
+                            input.Bounds,
+                            input.Scale.Value,
+                            input.DeviceBounds,
+                            input.RasterBounds)
+                        : null);
                 BindShaderStageCore(
                     description,
                     program,
