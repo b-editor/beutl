@@ -14,6 +14,7 @@ using Beutl.Editor.Components.MissingMediaTab.ViewModels;
 using Beutl.Editor.Components.MissingMediaTab.Views;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D.Models;
 using Beutl.IO;
@@ -481,7 +482,9 @@ public partial class MissingMediaTests
         var drawable = (SourceImage)element.Objects.Single();
         ImageSource source = drawable.Source.Value!;
         var compositor = editor.Renderer.Value.Compositor;
-        var initial = (SourceImage.Resource)compositor.EvaluateGraphics(MediaTime.Zero).Objects.Single();
+        // The app evaluates this compositor only on the render thread, so the preview cannot redraw at the same time.
+        var initial = await RenderThread.Dispatcher.InvokeAsync(
+            () => (SourceImage.Resource)compositor.EvaluateGraphics(MediaTime.Zero).Objects.Single());
         Assert.That(initial.Source!.IsOffline, Is.True);
         using var vm = new MissingMediaViewModel(editor);
         File.WriteAllBytes(path, s_png);
@@ -491,11 +494,17 @@ public partial class MissingMediaTests
         await vm.SetReplacementAsync(vm.Rows.Single(), path);
         await vm.WaitForCandidatesAsync();
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-        var repaired = (SourceImage.Resource)compositor.EvaluateGraphics(MediaTime.Zero).Objects.Single();
+        // After the redraw that the relink queues, read what the evaluation leaves before another one can change it.
+        RenderThreadDrain.Drain(TimeSpan.FromSeconds(120));
+        var (repaired, offline, bitmap, width) = await RenderThread.Dispatcher.InvokeAsync(() =>
+        {
+            var resource = (SourceImage.Resource)compositor.EvaluateGraphics(MediaTime.Zero).Objects.Single();
+            return (resource, resource.Source!.IsOffline, resource.Source.Bitmap, resource.Source.FrameSize.Width);
+        });
         Assert.That(repaired, Is.SameAs(initial));
-        Assert.That(repaired.Source!.IsOffline, Is.False);
-        Assert.That(repaired.Source.Bitmap, Is.Not.SameAs(shared.Bitmap), "Relinking must discard a live shared decode at the same URI.");
-        Assert.That(repaired.Source.FrameSize.Width, Is.EqualTo(1));
+        Assert.That(offline, Is.False);
+        Assert.That(bitmap, Is.Not.SameAs(shared.Bitmap), "Relinking must discard a live shared decode at the same URI.");
+        Assert.That(width, Is.EqualTo(1));
         Assert.That(drawable.Source.Value, Is.SameAs(source));
         await TestReset.ResetShellAsync();
     }
