@@ -126,9 +126,11 @@ public class PropertyExpressionTests
         property.Expression = new TestExpression(() => throw new ExpressionException("Evaluation failed"));
         var context = TestHelper.CreateExpressionContext(MediaTime.Zero, property);
 
-        Assert.That(() => property.Evaluate(context), Throws.Exception);
+        Exception exception = Assert.Catch(() => property.Evaluate(context))!.GetBaseException();
         Assert.Multiple(() =>
         {
+            Assert.That(exception, Is.TypeOf<InvalidOperationException>());
+            Assert.That(exception.Message, Is.EqualTo("Logging failed"));
             Assert.That(property.ExpressionError, Is.EqualTo("Evaluation failed"));
             Assert.That(context.IsEvaluating(property), Is.False);
             Assert.That(logs.Entries, Has.Count.EqualTo(1));
