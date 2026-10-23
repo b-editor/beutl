@@ -46,8 +46,8 @@ public sealed class GenerativeGraphRunnerTests
             Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { upstream, downstream }));
             var downstreamRequest = (AiImageGenerationNodeRequest)executor.Requests[1];
             Assert.That(downstreamRequest.References, Has.Count.EqualTo(1), "The upstream result is the downstream reference.");
-            Assert.That(upstream.ActiveGeneration?.Image, Is.Not.Null);
-            Assert.That(downstream.ActiveGeneration?.Image, Is.Not.Null);
+            Assert.That(upstream.ActiveGeneration?.Image.Value, Is.Not.Null);
+            Assert.That(downstream.ActiveGeneration?.Image.Value, Is.Not.Null);
             Assert.That(host.Commits, Is.EqualTo(2));
         });
     }
@@ -128,7 +128,7 @@ public sealed class GenerativeGraphRunnerTests
         await new GenerativeGraphRunner(new FakeExecutor(_directory), new InlineHost())
             .RunAsync(model, null, force: false, CancellationToken.None);
 
-        Assert.That(node.ActiveGeneration?.Seed, Is.EqualTo(10));
+        Assert.That(node.ActiveGeneration?.Seed.Value, Is.EqualTo(10));
         Assert.That(node.Seed.Property!.GetValue(), Is.EqualTo(11));
     }
 
@@ -148,10 +148,10 @@ public sealed class GenerativeGraphRunnerTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restoredNode.RequestKeySeed, Is.EqualTo(node.RequestKeySeed));
+            Assert.That(restoredNode.RequestKeySeed.Value, Is.EqualTo(node.RequestKeySeed.Value));
             Assert.That(restoredNode.Generations, Has.Count.EqualTo(1));
-            Assert.That(restoredNode.ActiveGeneration?.Fingerprint, Is.EqualTo(node.ActiveGeneration!.Fingerprint));
-            Assert.That(restoredNode.ActiveGeneration?.Image?.Uri, Is.EqualTo(node.ActiveGeneration.Image!.Uri));
+            Assert.That(restoredNode.ActiveGeneration?.Fingerprint.Value, Is.EqualTo(node.ActiveGeneration!.Fingerprint.Value));
+            Assert.That(restoredNode.ActiveGeneration?.Image.Value?.Uri, Is.EqualTo(node.ActiveGeneration.Image.Value!.Uri));
             Assert.That(restoredNode.IsStale, Is.False);
         });
     }
@@ -221,7 +221,7 @@ public sealed class GenerativeGraphRunnerTests
     {
         var (model, node) = await GenerateTimesAsync(3);
         GenerationRecord first = node.Generations[0];
-        first.IsPinned = true;
+        first.IsPinned.Value = true;
 
         int removed = node.PruneGenerations();
 
@@ -240,7 +240,7 @@ public sealed class GenerativeGraphRunnerTests
         GenerationRecord latest = node.Generations[1];
         using var harness = new HistoryHarness(model);
 
-        node.SelectGeneration(first.Id);
+        node.SelectGeneration(first.Id.Value);
         harness.History.Commit("select");
         Assert.That(node.ActiveGeneration, Is.SameAs(first));
 
@@ -269,14 +269,14 @@ public sealed class GenerativeGraphRunnerTests
         Assert.Multiple(() =>
         {
             Assert.That(node.ActiveGeneration, Is.Null, "undo takes the generation back");
-            Assert.That(node.RequestKeySeed, Is.Not.EqualTo(sent));
+            Assert.That(node.RequestKeySeed.Value, Is.Not.EqualTo(sent));
         });
 
         harness.History.Redo();
         Assert.Multiple(() =>
         {
             Assert.That(node.ActiveGeneration, Is.Not.Null, "redo brings the generation back");
-            Assert.That(node.RequestKeySeed, Is.Not.EqualTo(sent));
+            Assert.That(node.RequestKeySeed.Value, Is.Not.EqualTo(sent));
         });
     }
 
@@ -284,8 +284,8 @@ public sealed class GenerativeGraphRunnerTests
     public async Task PreviewMonitorShowsTheActiveGeneration()
     {
         var (model, node) = await GenerateTimesAsync(1);
-        INodeMonitor preview = node.Items.OfType<INodeMonitor>().Single(m => m.Name == "GenerationPreview");
-        preview.IsEnabled = true;
+        INodeMonitor preview = node.Items.OfType<INodeMonitor>().Single(m => m.Name.Value == "GenerationPreview");
+        preview.IsEnabled.Value = true;
 
         // Never evaluated: the preview must not wait for the graph to be rendered.
         await node.PreviewLoad;
@@ -302,8 +302,8 @@ public sealed class GenerativeGraphRunnerTests
         node.Prompt.Property!.SetValue("a cat");
         model.Nodes.Add(node);
         var preview = (NodeMonitor<Beutl.Media.Source.Ref<Bitmap>?>)node.Items.OfType<INodeMonitor>()
-            .Single(m => m.Name == "GenerationPreview");
-        preview.IsEnabled = true;
+            .Single(m => m.Name.Value == "GenerationPreview");
+        preview.IsEnabled.Value = true;
         var busyWhileRunning = new List<(bool, string?)>();
         var executor = new FakeExecutor(_directory)
         {
@@ -394,8 +394,8 @@ public sealed class GenerativeGraphRunnerTests
             Assert.That(request.Resolution, Is.EqualTo("720p"));
             Assert.That(request.AspectRatio, Is.EqualTo("16:9"));
             Assert.That(request.GenerateAudio, Is.True);
-            Assert.That(video.ActiveGeneration?.Video, Is.Not.Null);
-            Assert.That(video.ActiveGeneration?.Image, Is.Null);
+            Assert.That(video.ActiveGeneration?.Video.Value, Is.Not.Null);
+            Assert.That(video.ActiveGeneration?.Image.Value, Is.Null);
         });
     }
 
@@ -443,7 +443,7 @@ public sealed class GenerativeGraphRunnerTests
             Assert.That(request.SourceVideo.MediaType, Is.EqualTo("video/mp4"));
             Assert.That(request.Mode, Is.EqualTo(AiVideoEditMode.Extend));
             Assert.That(request.CatalogOperationId, Is.EqualTo("video.extend"));
-            Assert.That(extend.ActiveGeneration?.Video, Is.Not.Null);
+            Assert.That(extend.ActiveGeneration?.Video.Value, Is.Not.Null);
         });
     }
 
@@ -478,7 +478,7 @@ public sealed class GenerativeGraphRunnerTests
         Assert.That(edits, Is.GreaterThan(0), "A new result must reach the canvas.");
 
         edits = 0;
-        node.SelectGeneration(first.Id);
+        node.SelectGeneration(first.Id.Value);
         Assert.That(edits, Is.GreaterThan(0), "Switching results must reach the canvas.");
     }
 
@@ -487,15 +487,15 @@ public sealed class GenerativeGraphRunnerTests
     {
         var (_, node) = await GenerateTimesAsync(1);
         await node.PreviewLoad;
-        var record = new GenerationRecord { Image = new Beutl.Media.Source.ImageSource() };
-        record.Image.ReadFrom(new Uri(Path.Combine(_directory, "missing.png")));
+        var record = new GenerationRecord { Image = { Value = new Beutl.Media.Source.ImageSource() } };
+        record.Image.Value.ReadFrom(new Uri(Path.Combine(_directory, "missing.png")));
         node.Generations.Add(record);
 
-        node.SelectGeneration(record.Id);
+        node.SelectGeneration(record.Id.Value);
         await node.PreviewLoad;
 
         var preview = (NodeMonitor<Beutl.Media.Source.Ref<Bitmap>?>)node.Items.OfType<INodeMonitor>()
-            .Single(m => m.Name == "GenerationPreview");
+            .Single(m => m.Name.Value == "GenerationPreview");
         Assert.That(preview.IsBusy, Is.False);
         Assert.That(preview.Value, Is.Null);
     }
@@ -513,8 +513,8 @@ public sealed class GenerativeGraphRunnerTests
         rect.Fill.Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red);
         var element = new Beutl.ProjectSystem.Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(10),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(10) },
             Uri = new Uri(Path.Combine(_directory, "rect.layer")),
         };
         element.AddObject(rect);
@@ -522,7 +522,7 @@ public sealed class GenerativeGraphRunnerTests
 
         var model = new GraphModel();
         var scene = new Beutl.NodeGraph.Nodes.SceneNode();
-        scene.Object.ReferencedScene.Value = referenced;
+        scene.Object.Value.ReferencedScene.Value = referenced;
         var edit = new AiImageEditNode();
         model.Nodes.AddRange([scene, edit]);
         model.Connect(edit.Source, scene.Output);
@@ -551,14 +551,14 @@ public sealed class GenerativeGraphRunnerTests
         var node = new AiImageGenerationNode();
         node.Prompt.Property!.SetValue("a cat");
         model.Nodes.Add(node);
-        string before = node.RequestKeySeed;
+        string before = node.RequestKeySeed.Value;
         var executor = new FakeExecutor(_directory) { FailureSettles = failureSettles ?? false };
         if (failureSettles is not null)
             executor.FailFor = node;
 
         await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(model, null, force: false, CancellationToken.None);
 
-        Assert.That(node.RequestKeySeed != before, Is.EqualTo(renewed),
+        Assert.That(node.RequestKeySeed.Value != before, Is.EqualTo(renewed),
             "A success or a settled failure needs a new key; an unsettled one keeps the way back to a paid job.");
     }
 
@@ -581,7 +581,7 @@ public sealed class GenerativeGraphRunnerTests
                 Is.EqualTo(new int?[] { 100, 101, 102 }));
             Assert.That(executor.Requests.Select(r => r.RequestKeySeed).Distinct().Count(), Is.EqualTo(3),
                 "Each variation goes out under its own key.");
-            Assert.That(node.Generations.Select(g => g.Seed), Is.EqualTo(new int?[] { 100, 101, 102 }));
+            Assert.That(node.Generations.Select(g => g.Seed.Value), Is.EqualTo(new int?[] { 100, 101, 102 }));
             Assert.That(node.ActiveGeneration, Is.SameAs(node.Generations[2]));
             Assert.That(node.Seed.Property!.GetValue(), Is.EqualTo(102), "The inputs reproduce the kept variation.");
         });
@@ -616,7 +616,7 @@ public sealed class GenerativeGraphRunnerTests
         edit.Task.Property!.SetValue(AiImageEditTask.RemoveBackground);
         // Listed first so only the dependencies, not the node order, put it in the middle.
         model.Nodes.AddRange([downstream, group, upstream]);
-        group.Group.Nodes.AddRange([input, output, edit]);
+        group.Group.Value.Nodes.AddRange([input, output, edit]);
         input.AddNodePort(edit.Source, out _);
         output.AddNodePort(edit.Output, out _);
         model.Connect(group.Items.OfType<IInputPort>().Single(), upstream.Output);
@@ -628,14 +628,14 @@ public sealed class GenerativeGraphRunnerTests
         Assert.Multiple(() =>
         {
             Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { upstream, edit, downstream }));
-            Assert.That(edit.ActiveGeneration?.Image, Is.Not.Null);
+            Assert.That(edit.ActiveGeneration?.Image.Value, Is.Not.Null);
             Assert.That(((AiImageGenerationNodeRequest)executor.Requests[2]).References, Has.Count.EqualTo(1),
                 "The group's generated output reaches the node after it.");
         });
 
         // Run from the group's own graph, as its tab does: the graph around it still feeds it.
         executor.Requests.Clear();
-        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(group.Group, [edit], force: true, CancellationToken.None);
+        await new GenerativeGraphRunner(executor, new InlineHost()).RunAsync(group.Group.Value, [edit], force: true, CancellationToken.None);
         Assert.That(executor.Requests.Select(r => r.Node), Is.EqualTo(new GenerativeNode[] { edit }));
     }
 
@@ -653,7 +653,7 @@ public sealed class GenerativeGraphRunnerTests
         var edit = new AiImageEditNode();
         var other = new AiImageEditNode();
         model.Nodes.AddRange([used, unrelated, group]);
-        group.Group.Nodes.AddRange([input, edit, other]);
+        group.Group.Value.Nodes.AddRange([input, edit, other]);
         input.AddNodePort(edit.Source, out _);
         input.AddNodePort(other.Source, out _);
         IInputPort[] groupInputs = group.Items.OfType<IInputPort>().ToArray();

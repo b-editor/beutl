@@ -43,12 +43,12 @@ public class RecoveryProtectedElementTests
         byte[] original = File.ReadAllBytes(elementPath);
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
-        MediaTime start = element.Start;
+        MediaTime start = element.Start.Value;
         using var harness = new HistoryHarness(scene);
         var resize = new ElementResizeService(harness.History);
 
         resize.Resize(scene,
-            [new ElementResizeRequest(element, start + MediaTime.FromSeconds(1), element.Length, element.ZIndex)],
+            [new ElementResizeRequest(element, start + MediaTime.FromSeconds(1), element.Length.Value, element.ZIndex.Value)],
             ripple: false);
         CoreSerializer.StoreToUri(scene, sceneUri);
         Element reopened = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
@@ -58,10 +58,10 @@ public class RecoveryProtectedElementTests
             Assert.That(element.SuppressedStorageSource, Is.Not.Null, "The unreadable easing must keep the file protected.");
             Assert.That(scene.IsElementLocked(element), Is.True);
             Assert.That(ElementEditability.IsEditable(element), Is.False);
-            Assert.That(element.Start, Is.EqualTo(start), "The move must be refused, not accepted and then dropped.");
+            Assert.That(element.Start.Value, Is.EqualTo(start), "The move must be refused, not accepted and then dropped.");
             Assert.That(harness.History.CanUndo, Is.False);
             Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(original));
-            Assert.That(reopened.Start, Is.EqualTo(start));
+            Assert.That(reopened.Start.Value, Is.EqualTo(start));
         });
     }
 
@@ -78,8 +78,8 @@ public class RecoveryProtectedElementTests
         Assert.That(SceneRecovery.HoldsRecoveryBlocker(unavailable), Is.True);
 
         bool removed = objects.Remove(element, unavailable);
-        MediaTime moved = element.Start + MediaTime.FromSeconds(1);
-        resize.Resize(scene, [new ElementResizeRequest(element, moved, element.Length, element.ZIndex)], ripple: false);
+        MediaTime moved = element.Start.Value + MediaTime.FromSeconds(1);
+        resize.Resize(scene, [new ElementResizeRequest(element, moved, element.Length.Value, element.ZIndex.Value)], ripple: false);
         CoreSerializer.StoreToUri(scene, sceneUri);
         Element reopened = CoreSerializer.RestoreFromUri<Scene>(sceneUri).Children.Single();
 
@@ -88,7 +88,7 @@ public class RecoveryProtectedElementTests
             Assert.That(removed, Is.True);
             Assert.That(element.SuppressedStorageSource, Is.Null);
             Assert.That(ElementEditability.IsEditable(element), Is.True);
-            Assert.That(reopened.Start, Is.EqualTo(moved));
+            Assert.That(reopened.Start.Value, Is.EqualTo(moved));
             Assert.That(reopened.Objects, Is.Empty);
         });
     }
@@ -147,26 +147,26 @@ public class RecoveryProtectedElementTests
         using var harness = new HistoryHarness(scene);
         var objects = new ElementObjectService(harness.History);
         var attributes = new ElementAttributeService(harness.History);
-        string name = element.Name;
+        string name = element.Name.Value;
         string json = CoreSerializer.SerializeToJsonString(new RectShape());
 
         objects.Add(element, new RectShape());
         objects.InsertAt(element, 0, new RectShape());
         bool movedObject = objects.Move(element, 0, 1);
-        bool toggledUnavailable = objects.SetEnabled(unavailable, !unavailable.IsEnabled);
-        bool toggledHealthy = objects.SetEnabled(healthy, !healthy.IsEnabled);
+        bool toggledUnavailable = objects.SetEnabled(unavailable, !unavailable.IsEnabled.Value);
+        bool toggledHealthy = objects.SetEnabled(healthy, !healthy.IsEnabled.Value);
         bool removedHealthy = objects.Remove(element, healthy);
         ObjectPasteOutcome pastedOverHealthy = objects.PasteOver(element, 1, json);
         attributes.SetName(element, "renamed");
-        attributes.SetEnabled(element, !element.IsEnabled);
+        attributes.SetEnabled(element, !element.IsEnabled.Value);
 
         Assert.Multiple(() =>
         {
             Assert.That(element.Objects, Is.EqualTo(new[] { unavailable, healthy }));
             Assert.That(movedObject || toggledUnavailable || toggledHealthy || removedHealthy, Is.False);
             Assert.That(pastedOverHealthy, Is.EqualTo(ObjectPasteOutcome.NotEditable));
-            Assert.That(element.Name, Is.EqualTo(name));
-            Assert.That(element.IsEnabled, Is.True, "Disabling the clip would not be saved.");
+            Assert.That(element.Name.Value, Is.EqualTo(name));
+            Assert.That(element.IsEnabled.Value, Is.True, "Disabling the clip would not be saved.");
             Assert.That(element.SuppressedStorageSource, Is.Not.Null);
             Assert.That(harness.History.CanUndo, Is.False);
         });
@@ -207,9 +207,9 @@ public class RecoveryProtectedElementTests
         var attributes = new ElementAttributeService(harness.History);
 
         attributes.SetLocked(element, true);
-        bool locked = element.IsLocked;
+        bool locked = element.IsLocked.Value;
         bool recorded = harness.History.CanUndo;
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         harness.History.Commit("locked in the retained file");
         attributes.SetLocked(element, false);
 
@@ -217,7 +217,7 @@ public class RecoveryProtectedElementTests
         {
             Assert.That(locked, Is.False);
             Assert.That(recorded, Is.False);
-            Assert.That(element.IsLocked, Is.False, "Unlocking makes the repair and the delete possible again.");
+            Assert.That(element.IsLocked.Value, Is.False, "Unlocking makes the repair and the delete possible again.");
             Assert.That(element.SuppressedStorageSource, Is.Not.Null);
         });
     }
@@ -228,7 +228,7 @@ public class RecoveryProtectedElementTests
         (Uri sceneUri, _) = CreateProtectedScene();
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element element = scene.Children.Single();
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         using var harness = new HistoryHarness(scene);
         var structure = new ElementStructureService(harness.History);
         var objects = new ElementObjectService(harness.History);
@@ -284,7 +284,7 @@ public class RecoveryProtectedElementTests
             Assert.That(ElementEditability.CanRepair(element, null), Is.False);
         });
 
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         Assert.That(ElementEditability.CanRepair(element, unavailable), Is.False, "A lock refuses repairs too.");
     }
 
@@ -321,13 +321,13 @@ public class RecoveryProtectedElementTests
         new ElementStructureService(harness.History).Delete(harness.Scene, [removed], ripple: true);
         // Growing the right edge from 12 to 15 would overlap the protected follower at [12,14].
         new ElementResizeService(harness.History).Resize(harness.Scene,
-            [new ElementResizeRequest(grown, grown.Start, MediaTime.FromSeconds(5), grown.ZIndex)],
+            [new ElementResizeRequest(grown, grown.Start.Value, MediaTime.FromSeconds(5), grown.ZIndex.Value)],
             ripple: true);
 
         Assert.Multiple(() =>
         {
-            Assert.That(follower.Start, Is.EqualTo(MediaTime.FromSeconds(4)), "Shifting it would not be saved.");
-            Assert.That(secondFollower.Start, Is.EqualTo(MediaTime.FromSeconds(12)));
+            Assert.That(follower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)), "Shifting it would not be saved.");
+            Assert.That(secondFollower.Start.Value, Is.EqualTo(MediaTime.FromSeconds(12)));
             Assert.That(grown.Range.End, Is.EqualTo(MediaTime.FromSeconds(12)), "The grow stops at the protected follower.");
         });
     }
@@ -342,7 +342,7 @@ public class RecoveryProtectedElementTests
 
         harness.Scene.CloseAllGaps();
 
-        Assert.That(protectedElement.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
+        Assert.That(protectedElement.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
     }
 
     [Test]
@@ -351,8 +351,8 @@ public class RecoveryProtectedElementTests
         (Uri sceneUri, string[] elementPaths) = CreateProtectedScenes(2);
         Scene scene = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
         Element unnamed = scene.Children.Single(e => e.Uri!.LocalPath == elementPaths[1]);
-        unnamed.Name = string.Empty;
-        var healthy = new Element { Name = "Healthy", Uri = new Uri(Path.Combine(_root, "healthy.belm")) };
+        unnamed.Name.Value = string.Empty;
+        var healthy = new Element { Name = { Value = "Healthy" }, Uri = new Uri(Path.Combine(_root, "healthy.belm")) };
         scene.Children.Add(healthy);
         using var cancellation = new CancellationTokenSource();
 
@@ -364,7 +364,7 @@ public class RecoveryProtectedElementTests
             Assert.That(notice!.Type, Is.EqualTo(NotificationType.Warning));
             Assert.That(notice.Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
             Assert.That(notice.CancellationToken, Is.EqualTo(cancellation.Token));
-            Assert.That(notice.Message, Does.Contain(scene.Name));
+            Assert.That(notice.Message, Does.Contain(scene.Name.Value));
             Assert.That(notice.Message, Does.Contain("element0"));
             Assert.That(notice.Message, Does.Contain("element1"), "An unnamed element is named by its file.");
             Assert.That(notice.Message, Does.Not.Contain("Healthy"));
@@ -375,15 +375,15 @@ public class RecoveryProtectedElementTests
     public void Notice_IsNotShownWithoutProtectedElements_AndListsAtMostFiveNames()
     {
         var scene = new Scene(64, 64, "Plain");
-        scene.Children.Add(new Element { Name = "Healthy" });
+        scene.Children.Add(new Element { Name = { Value = "Healthy" } });
         Assert.That(RecoveryProtectionNotice.Create(scene), Is.Null);
 
         for (int i = 0; i < 7; i++)
         {
             var element = new Element
             {
-                Name = $"Protected{i}",
-                Start = MediaTime.FromSeconds(i),
+                Name = { Value = $"Protected{i}" },
+                Start = { Value = MediaTime.FromSeconds(i) },
                 Uri = new Uri(Path.Combine(_root, $"protected{i}.belm")),
             };
             element.SuppressedStorageSource = new SuppressedStorageSource([], element.Uri);
@@ -417,9 +417,9 @@ public class RecoveryProtectedElementTests
             elementPaths[i] = Path.Combine(_root, $"element{i}.belm");
             var element = new Element
             {
-                Name = $"element{i}",
-                Start = MediaTime.FromSeconds(i * 2),
-                Length = MediaTime.FromSeconds(1),
+                Name = { Value = $"element{i}" },
+                Start = { Value = MediaTime.FromSeconds(i * 2) },
+                Length = { Value = MediaTime.FromSeconds(1) },
                 Uri = new Uri(elementPaths[i]),
             };
             element.AddObject(new RectShape());

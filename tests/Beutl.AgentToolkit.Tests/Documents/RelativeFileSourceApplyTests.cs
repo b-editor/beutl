@@ -144,7 +144,7 @@ public class RelativeFileSourceApplyTests
     {
         var source = new ImageSource();
         source.ReadFrom(new Uri(imagePath));
-        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(belmPath) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(belmPath) };
         element.Objects.Add(new SourceImage { Source = { Value = source } });
         return element;
     }

@@ -15,12 +15,12 @@ public class BaseFieldTests
         public Owner()
         {
             ScanProperties<Owner>();
-            HideProperty(CountProperty);
+            HideProperty(Count);
         }
 
-        public IProperty<int> CountProperty { get; } = Property.CreateValue(0);
+        public IProperty<int> Count { get; } = Property.CreateValue(0);
 
-        public IProperty<int> ShownProperty { get; } = Property.CreateValue(0);
+        public IProperty<int> Shown { get; } = Property.CreateValue(0);
     }
 
     [SuppressResourceClassGeneration]
@@ -29,18 +29,18 @@ public class BaseFieldTests
         public ListOwner()
         {
             ScanProperties<ListOwner>();
-            HideProperty(NumbersProperty);
+            HideProperty(Numbers);
         }
 
-        public IProperty<CoreList<int>> NumbersProperty { get; } = Property.CreateValue<CoreList<int>>([]);
+        public IProperty<CoreList<int>> Numbers { get; } = Property.CreateValue<CoreList<int>>([]);
     }
 
     [Test]
     public void ABaseField_IsSavedBeforeTheCoreObjectMembers_AndReadBack()
     {
         var owner = new Owner();
-        owner.CountProperty.Value = 3;
-        owner.ShownProperty.Value = 4;
+        owner.Count.Value = 3;
+        owner.Shown.Value = 4;
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(owner);
         var restored = (Owner)CoreSerializer.DeserializeFromJsonObject(json, typeof(Owner));
@@ -50,35 +50,50 @@ public class BaseFieldTests
         {
             Assert.That(Array.IndexOf(keys, "Count"), Is.LessThan(Array.IndexOf(keys, "Id")));
             Assert.That(Array.IndexOf(keys, "Shown"), Is.GreaterThan(Array.IndexOf(keys, "Expressions")));
-            Assert.That(restored.CountProperty.Value, Is.EqualTo(3));
-            Assert.That(restored.ShownProperty.Value, Is.EqualTo(4));
+            Assert.That(restored.Count.Value, Is.EqualTo(3));
+            Assert.That(restored.Shown.Value, Is.EqualTo(4));
         }
     }
 
-    // Only a list that its owner keeps and reads itself is skipped when reading; another hidden list is read back.
+    // Only a list property saved as a base field is left to its owner to read; a hidden value-only list is read back.
     [Test]
     public void AHiddenListThatItsOwnerDoesNotRead_IsReadBack()
     {
         var owner = new ListOwner();
-        owner.NumbersProperty.Value = [1, 2];
+        owner.Numbers.Value = [1, 2];
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(owner);
         var restored = (ListOwner)CoreSerializer.DeserializeFromJsonObject(json, typeof(ListOwner));
 
-        Assert.That(restored.NumbersProperty.Value, Is.EqualTo(new[] { 1, 2 }));
+        Assert.That(restored.Numbers.Value, Is.EqualTo(new[] { 1, 2 }));
     }
 
     [Test]
     public void EngineObjectsOwnFields_AreBaseFields()
     {
         var owner = new Owner();
-        IProperty[] fields = [owner.IsTimeAnchorProperty, owner.IsEnabledProperty, owner.ZIndexProperty, owner.TimeRangeProperty];
+        IProperty[] fields = [owner.IsTimeAnchor, owner.IsEnabled, owner.ZIndex, owner.TimeRange];
 
         using (Assert.EnterMultipleScope())
         {
             Assert.That(fields.Select(field => field.Name), Is.EqualTo(new[] { "IsTimeAnchor", "IsEnabled", "ZIndex", "TimeRange" }));
             Assert.That(fields.All(owner.IsBaseField), Is.True);
-            Assert.That(owner.GetDisplayProperties(), Is.EqualTo(new IProperty[] { owner.ShownProperty }));
+            Assert.That(owner.GetDisplayProperties(), Is.EqualTo(new IProperty[] { owner.Shown }));
+        }
+    }
+
+    // A list an engine object hides, like GraphModel.Nodes, is a base field, as its value-only form was.
+    [Test]
+    public void AHiddenListProperty_IsABaseField_AndAShownOneIsNot()
+    {
+        var graph = new Beutl.NodeGraph.GraphModel();
+        var group = new Beutl.Graphics.DrawableGroup();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(graph.IsBaseField(graph.Nodes), Is.True);
+            Assert.That(graph.IsBaseField(graph.AllConnections), Is.True);
+            Assert.That(group.IsBaseField(group.Children), Is.False);
         }
     }
 }

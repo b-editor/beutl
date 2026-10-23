@@ -633,8 +633,8 @@ public class LimiterNodeTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            Value = value,
-            KeyTime = MediaTime.Zero,
+            Value = { Value = value },
+            KeyTime = { Value = MediaTime.Zero },
         });
         prop.SetKeyFrameAnimation(animation);
         return prop;
@@ -1456,9 +1456,9 @@ public class LimiterNodeTests
     private static KeyFrameAnimation<float> CreateAnimatedStep(float first, float second, MediaTime boundary)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = first, KeyTime = boundary - MediaTime.FromTimeSpan(TimeSpan.FromTicks(1)) });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = second, KeyTime = boundary });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = first }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = first }, KeyTime = { Value = boundary - MediaTime.FromTimeSpan(TimeSpan.FromTicks(1)) } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = second }, KeyTime = { Value = boundary } });
         return animation;
     }
 
@@ -1678,7 +1678,7 @@ public class LimiterNodeTests
         using var reference = CreateNode(thresholdDb: thresholdDb, releaseMs: releaseMs, lookaheadMs: lookMs);
 
         var constantAnim = new KeyFrameAnimation<float>();
-        constantAnim.KeyFrames.Add(new KeyFrame<float> { Value = lookMs, KeyTime = MediaTime.Zero });
+        constantAnim.KeyFrames.Add(new KeyFrame<float> { Value = { Value = lookMs }, KeyTime = { Value = MediaTime.Zero } });
 
         MediaTime start = MediaTime.Zero;
         for (int c = 0; c < 3; c++)

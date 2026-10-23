@@ -38,11 +38,11 @@ internal static class FFmpegTestHelpers
         string path, PixelSize size, Rational frameRate, int sampleRate, int channels)
     {
         var controller = new FFmpegEncodingController(path, new FFmpegEncodingSettings());
-        controller.VideoSettings.SourceSize = size;
-        controller.VideoSettings.DestinationSize = size;
-        controller.VideoSettings.FrameRate = frameRate;
-        controller.AudioSettings.SampleRate = sampleRate;
-        controller.AudioSettings.Channels = channels;
+        controller.VideoSettings.SourceSize.Value = size;
+        controller.VideoSettings.DestinationSize.Value = size;
+        controller.VideoSettings.FrameRate.Value = frameRate;
+        controller.AudioSettings.SampleRate.Value = sampleRate;
+        controller.AudioSettings.Channels.Value = channels;
         return controller;
     }
 
@@ -57,18 +57,18 @@ internal static class FFmpegTestHelpers
             Assert.Ignore($"The FFV1 encoder does not support {encodedFormat}.");
 
         var controller = new FFmpegEncodingController(path, new FFmpegEncodingSettings());
-        controller.VideoSettings.SourceSize = source;
-        controller.VideoSettings.DestinationSize = destination;
-        controller.VideoSettings.FrameRate = new Rational(30, 1);
-        controller.VideoSettings.Codec = new CodecRecord("ffv1", "FFV1");
-        controller.VideoSettings.Options.Clear();
-        controller.VideoSettings.Format = (int)encodedFormat;
-        controller.VideoSettings.ColorTrc = hdr ? FFColorTransfer.SMPTE2084 : FFColorTransfer.IEC61966_2_1;
-        controller.VideoSettings.ColorPrimaries = hdr ? FFColorPrimaries.BT2020 : FFColorPrimaries.BT709;
-        controller.VideoSettings.ColorSpace = FFColorSpace.RGB;
-        controller.VideoSettings.ColorRange = FFColorRange.JPEG;
-        controller.AudioSettings.Codec = new CodecRecord("pcm_s16le", "PCM");
-        controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.S16;
+        controller.VideoSettings.SourceSize.Value = source;
+        controller.VideoSettings.DestinationSize.Value = destination;
+        controller.VideoSettings.FrameRate.Value = new Rational(30, 1);
+        controller.VideoSettings.Codec.Value = new CodecRecord("ffv1", "FFV1");
+        controller.VideoSettings.Options.Value.Clear();
+        controller.VideoSettings.Format.Value = (int)encodedFormat;
+        controller.VideoSettings.ColorTrc.Value = hdr ? FFColorTransfer.SMPTE2084 : FFColorTransfer.IEC61966_2_1;
+        controller.VideoSettings.ColorPrimaries.Value = hdr ? FFColorPrimaries.BT2020 : FFColorPrimaries.BT709;
+        controller.VideoSettings.ColorSpace.Value = FFColorSpace.RGB;
+        controller.VideoSettings.ColorRange.Value = FFColorRange.JPEG;
+        controller.AudioSettings.Codec.Value = new CodecRecord("pcm_s16le", "PCM");
+        controller.AudioSettings.Format.Value = FFmpegAudioEncoderSettings.AudioFormat.S16;
         return controller;
     }
 

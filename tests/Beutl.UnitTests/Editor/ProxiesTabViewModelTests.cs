@@ -140,20 +140,20 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 2048);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        long originalCap = config.MaxTotalBytes;
+        long originalCap = config.MaxTotalBytes.Value;
         try
         {
-            config.MaxTotalBytes = 10L * 1024 * 1024 * 1024;
+            config.MaxTotalBytes.Value = 10L * 1024 * 1024 * 1024;
             using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
             Assert.That(viewModel.StoreCapText.Value, Is.EqualTo("10 GB"), "sanity: the tab shows the cap it was built with");
 
-            config.MaxTotalBytes = 20L * 1024 * 1024 * 1024;
+            config.MaxTotalBytes.Value = 20L * 1024 * 1024 * 1024;
 
             Assert.That(viewModel.StoreCapText.Value, Is.EqualTo("20 GB"));
         }
         finally
         {
-            config.MaxTotalBytes = originalCap;
+            config.MaxTotalBytes.Value = originalCap;
         }
     }
 
@@ -352,12 +352,12 @@ public sealed class ProxiesTabViewModelTests
         File.Delete(sourcePath);
 
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        int originalDefault = config.DefaultPreset;
+        int originalDefault = config.DefaultPreset.Value;
         try
         {
             // Default preset Half: the denser old Half is under the cap, so density-only ranking would
             // bind the old version; the newest-version filter must beat that and bind the new Quarter.
-            config.DefaultPreset = (int)ProxyPreset.Half;
+            config.DefaultPreset.Value = (int)ProxyPreset.Half;
             using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
             ProxyClipViewModel clip = viewModel.Clips.Single();
@@ -365,7 +365,7 @@ public sealed class ProxiesTabViewModelTests
         }
         finally
         {
-            config.DefaultPreset = originalDefault;
+            config.DefaultPreset.Value = originalDefault;
         }
     }
 
@@ -422,11 +422,11 @@ public sealed class ProxiesTabViewModelTests
         File.Delete(sourcePath);
 
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        int originalDefault = config.DefaultPreset;
+        int originalDefault = config.DefaultPreset.Value;
         try
         {
             // Cap at Quarter (density 0.25): the capped pick is the Quarter proxy, not the denser Half.
-            config.DefaultPreset = (int)ProxyPreset.Quarter;
+            config.DefaultPreset.Value = (int)ProxyPreset.Quarter;
             using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath));
 
             Assert.That(viewModel.Clips.Single().Preset.Value, Is.EqualTo(ProxyPreset.Quarter),
@@ -434,7 +434,7 @@ public sealed class ProxiesTabViewModelTests
         }
         finally
         {
-            config.DefaultPreset = originalDefault;
+            config.DefaultPreset.Value = originalDefault;
         }
     }
 
@@ -451,8 +451,8 @@ public sealed class ProxiesTabViewModelTests
         var animation = new KeyFrameAnimation<VideoSource?>();
         animation.KeyFrames.Add(new KeyFrame<VideoSource?>
         {
-            KeyTime = MediaTime.FromSeconds(1),
-            Value = CreateVideoSource(secondPath),
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = CreateVideoSource(secondPath) },
         });
         drawable.Source.SetKeyFrameAnimation(animation);
         AddObject(scene, root, drawable);
@@ -671,16 +671,16 @@ public sealed class ProxiesTabViewModelTests
         string secondPath = CreateSourceFile(root, "second.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        int originalDefault = config.DefaultPreset;
+        int originalDefault = config.DefaultPreset.Value;
         try
         {
-            config.DefaultPreset = (int)ProxyPreset.Quarter;
+            config.DefaultPreset.Value = (int)ProxyPreset.Quarter;
             using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, firstPath, secondPath));
             ProxyClipViewModel following = viewModel.Clips[0];
             ProxyClipViewModel explicitChoice = viewModel.Clips[1];
             explicitChoice.Preset.Value = ProxyPreset.Eighth;
 
-            config.DefaultPreset = (int)ProxyPreset.Half;
+            config.DefaultPreset.Value = (int)ProxyPreset.Half;
 
             Assert.Multiple(() =>
             {
@@ -690,7 +690,7 @@ public sealed class ProxiesTabViewModelTests
         }
         finally
         {
-            config.DefaultPreset = originalDefault;
+            config.DefaultPreset.Value = originalDefault;
         }
     }
 
@@ -705,10 +705,10 @@ public sealed class ProxiesTabViewModelTests
         string secondPath = CreateSourceFile(root, "second.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        int originalDefault = config.DefaultPreset;
+        int originalDefault = config.DefaultPreset.Value;
         try
         {
-            config.DefaultPreset = (int)ProxyPreset.Quarter;
+            config.DefaultPreset.Value = (int)ProxyPreset.Quarter;
             using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, firstPath, secondPath));
             ProxyClipViewModel following = viewModel.Clips[0];
             ProxyClipViewModel explicitEqual = viewModel.Clips[1];
@@ -717,7 +717,7 @@ public sealed class ProxiesTabViewModelTests
             explicitEqual.Preset.Value = ProxyPreset.Half;
             explicitEqual.Preset.Value = ProxyPreset.Quarter;
 
-            config.DefaultPreset = (int)ProxyPreset.Eighth;
+            config.DefaultPreset.Value = (int)ProxyPreset.Eighth;
 
             Assert.Multiple(() =>
             {
@@ -728,7 +728,7 @@ public sealed class ProxiesTabViewModelTests
         }
         finally
         {
-            config.DefaultPreset = originalDefault;
+            config.DefaultPreset.Value = originalDefault;
         }
     }
 
@@ -742,10 +742,10 @@ public sealed class ProxiesTabViewModelTests
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
         var store = new ProxyStore(Path.Combine(root, "proxies"));
         ProxyStoreConfig config = GlobalConfiguration.Instance.ProxyStoreConfig;
-        int originalDefault = config.DefaultPreset;
+        int originalDefault = config.DefaultPreset.Value;
         try
         {
-            config.DefaultPreset = (int)ProxyPreset.Quarter;
+            config.DefaultPreset.Value = (int)ProxyPreset.Quarter;
             ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
             RegisterProxyEntry(store, ReadyEntry(fingerprint));
 
@@ -762,14 +762,14 @@ public sealed class ProxiesTabViewModelTests
             Assume.That(viewModel.Clips.Single().IsFollowingDefault, Is.True,
                 "the rebuilt proxy-less row reverts to following the default");
 
-            config.DefaultPreset = (int)ProxyPreset.Half;
+            config.DefaultPreset.Value = (int)ProxyPreset.Half;
 
             Assert.That(viewModel.Clips.Single().Preset.Value, Is.EqualTo(ProxyPreset.Half),
                 "the reverted row tracks the new default instead of staying on the stale preset");
         }
         finally
         {
-            config.DefaultPreset = originalDefault;
+            config.DefaultPreset.Value = originalDefault;
         }
     }
 
@@ -1328,8 +1328,8 @@ public sealed class ProxiesTabViewModelTests
     {
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(root, $"{Guid.NewGuid():N}.layer")),
         };
         element.AddObject(obj);

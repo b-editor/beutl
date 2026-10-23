@@ -128,9 +128,9 @@ public sealed class ExportFrameCountTests
         MediaTime exact = MediaTime.FromFrames(frames, new Rational(rate));
         var scene = new Scene(32, 32, "FrameCount")
         {
-            Duration = MediaTime.FromTicks(exact.ToTicks(MidpointRounding.ToNegativeInfinity), MidpointRounding.ToPositiveInfinity),
+            Duration = { Value = MediaTime.FromTicks(exact.ToTicks(MidpointRounding.ToNegativeInfinity), MidpointRounding.ToPositiveInfinity) },
         };
-        Assert.That(scene.Duration, Is.LessThan(exact));
+        Assert.That(scene.Duration.Value, Is.LessThan(exact));
 
         using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
         using var frameProgress = new Subject<MediaTime>();
@@ -158,11 +158,11 @@ public sealed class ExportFrameCountTests
     public async Task Frame_provider_keeps_its_count_when_the_scene_length_changes()
     {
         VulkanTestEnvironment.EnsureAvailable();
-        var scene = new Scene(32, 32, "FixedCount") { Duration = MediaTime.FromSeconds(0.1) };
+        var scene = new Scene(32, 32, "FixedCount") { Duration = { Value = MediaTime.FromSeconds(0.1) } };
         using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
         using var frameProgress = new Subject<MediaTime>();
         using var frameProvider = new FrameProviderImpl(scene, new Rational(30), renderer, frameProgress);
-        scene.Duration = MediaTime.FromSeconds(1);
+        scene.Duration.Value = MediaTime.FromSeconds(1);
 
         int frames = 0;
         while (await frameProvider.ReadNextFrame() is { } bitmap)
@@ -179,14 +179,14 @@ public sealed class ExportFrameCountTests
     public async Task Sample_provider_reads_blocks_in_order_then_ends()
     {
         const int sampleRate = 8000;
-        var scene = new Scene(32, 32, "Samples") { Duration = MediaTime.FromSeconds(1.5) };
+        var scene = new Scene(32, 32, "Samples") { Duration = { Value = MediaTime.FromSeconds(1.5) } };
         using var composer = new SceneComposer(scene, disableResourceShare: true, forceOriginalSource: true)
         {
             SampleRate = sampleRate,
         };
         using var progress = new Subject<MediaTime>();
         using var provider = new SampleProviderImpl(scene, composer, sampleRate, progress);
-        scene.Duration = MediaTime.FromSeconds(3);
+        scene.Duration.Value = MediaTime.FromSeconds(3);
 
         long read = 0;
         while (await provider.ReadNextSamples(1024) is { } audio)

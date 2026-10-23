@@ -110,7 +110,7 @@ public class JsonSerializationTest
                 string json = System.Text.Json.JsonSerializer.Serialize<ICoreSerializable>(child);
                 var restored = (TestSerializable)System.Text.Json.JsonSerializer.Deserialize<ICoreSerializable>(json)!;
                 Assert.That(restored.Uri!.LocalPath, Is.EqualTo(Path.Combine(directory, fileName)));
-                Assert.That(restored.Id, Is.EqualTo(child.Id));
+                Assert.That(restored.Id.Value, Is.EqualTo(child.Id.Value));
             }
         }
         finally { Directory.Delete(directory, true); }
@@ -126,7 +126,7 @@ public class JsonSerializationTest
         {
             base.Serialize(context);
             context.SetValue(nameof(Instance), Instance);
-            context.SetValue(nameof(Reference), Reference?.Id);
+            context.SetValue(nameof(Reference), Reference?.Id.Value);
         }
 
         public override void Deserialize(ICoreSerializationContext context)
@@ -158,7 +158,7 @@ public class JsonSerializationTest
         var elm1 = new Element { Uri = UriHelper.CreateFromPath(layerPath) };
         scene.AddChild(elm1);
         proj.Items.Add(scene);
-        app.Project = proj;
+        app.Project.Value = proj;
 
         CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
 
@@ -176,7 +176,7 @@ public class JsonSerializationTest
         BeutlApplication app = BeutlApplication.Current;
 
         var proj = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(projPath));
-        app.Project = proj;
+        app.Project.Value = proj;
 
         Assert.That(proj.Items.Count, Is.EqualTo(1));
         var scene = proj.Items[0] as Scene;
@@ -202,7 +202,7 @@ public class JsonSerializationTest
             var proj = new Project { Uri = UriHelper.CreateFromPath(projPath) };
             var scene = new Scene { Uri = UriHelper.CreateFromPath(scenePath) };
             proj.Items.Add(scene);
-            app.Project = proj;
+            app.Project.Value = proj;
 
             CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects);
 
@@ -234,7 +234,7 @@ public class JsonSerializationTest
         var elm1 = new Element { Uri = UriHelper.CreateFromPath(layerPath) };
         scene.AddChild(elm1);
         proj.Items.Add(scene);
-        app.Project = proj;
+        app.Project.Value = proj;
 
         CoreSerializer.StoreToUri(proj, proj.Uri, CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects);
 
@@ -252,7 +252,7 @@ public class JsonSerializationTest
         BeutlApplication app = BeutlApplication.Current;
 
         var proj = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(projPath));
-        app.Project = proj;
+        app.Project.Value = proj;
 
         Assert.That(proj.Items.Count, Is.EqualTo(1));
         var scene = proj.Items[0] as Scene;
@@ -328,13 +328,13 @@ public class JsonSerializationTest
             context2.AfterDeserialized(restored);
         }
 
-        Assert.That(restored.Id, Is.EqualTo(original3.Id));
+        Assert.That(restored.Id.Value, Is.EqualTo(original3.Id.Value));
         Assert.That(restored.Instance, Is.Not.Null);
-        Assert.That(restored.Instance!.Id, Is.EqualTo(original1.Id));
+        Assert.That(restored.Instance!.Id.Value, Is.EqualTo(original1.Id.Value));
         Assert.That(restored.Instance.Reference, Is.Null);
         Assert.That(restored.Instance.Instance, Is.Not.Null);
-        Assert.That(restored.Instance.Instance!.Id, Is.EqualTo(original2.Id));
+        Assert.That(restored.Instance.Instance!.Id.Value, Is.EqualTo(original2.Id.Value));
         Assert.That(restored.Instance.Instance.Reference, Is.Not.Null);
-        Assert.That(restored.Instance.Instance.Reference!.Id, Is.EqualTo(original3.Id));
+        Assert.That(restored.Instance.Instance.Reference!.Id.Value, Is.EqualTo(original3.Id.Value));
     }
 }

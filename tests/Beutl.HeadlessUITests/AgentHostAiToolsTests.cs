@@ -568,7 +568,7 @@ public sealed class AgentHostAiToolsTests
                 {
                     ["prompt"] = "a lighthouse",
                     ["waitSeconds"] = 10,
-                    ["sceneId"] = portrait.Id.ToString(),
+                    ["sceneId"] = portrait.Id.Value.ToString(),
                 }));
             JsonObject selected = Success(await client.CallToolAsync(
                 "generate_image",
@@ -578,11 +578,11 @@ public sealed class AgentHostAiToolsTests
             Assert.Multiple(() =>
             {
                 Assert.That(targeted["status"]?.GetValue<string>(), Is.EqualTo("Succeeded"));
-                Assert.That(targeted["sceneId"]?.GetValue<string>(), Is.EqualTo(portrait.Id.ToString()));
+                Assert.That(targeted["sceneId"]?.GetValue<string>(), Is.EqualTo(portrait.Id.Value.ToString()));
                 Assert.That(targeted["output"]?["outputPath"]?.GetValue<string>(),
                     Does.StartWith(AiResultImporter.GetResourceDirectory(portrait)));
                 Assert.That(requests[0].AspectRatio, Is.EqualTo("9:16"));
-                Assert.That(selected["sceneId"]?.GetValue<string>(), Is.EqualTo(landscape.Id.ToString()));
+                Assert.That(selected["sceneId"]?.GetValue<string>(), Is.EqualTo(landscape.Id.Value.ToString()));
                 Assert.That(requests[1].AspectRatio, Is.EqualTo("16:9"));
                 Assert.That(backend.Scenes, Is.EqualTo(new[] { portrait, landscape }));
                 Assert.That(((EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value).Scene,

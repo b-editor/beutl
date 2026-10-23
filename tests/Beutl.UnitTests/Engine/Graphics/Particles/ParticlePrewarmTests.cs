@@ -64,7 +64,7 @@ public sealed class ParticlePrewarmTests
         var emitter = CreateEmitter();
         using var expected = emitter.ToResource(new CompositionContext(MediaTime.FromSeconds(duration)));
         emitter.PrewarmDuration.Value = MediaTime.FromSeconds(duration);
-        emitter.TimeRange = new TimeRange(MediaTime.FromSeconds(start), MediaTime.FromSeconds(10));
+        emitter.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(start), MediaTime.FromSeconds(10));
         using var actual = emitter.ToResource(new CompositionContext(emitter.Start));
 
         Assert.That(actual.GetAliveParticles().Length, Is.GreaterThan(0));
@@ -89,7 +89,7 @@ public sealed class ParticlePrewarmTests
     public void BeforeStart_RemainsEmptyEvenWithPrewarm()
     {
         var emitter = CreateEmitter();
-        emitter.TimeRange = new TimeRange(MediaTime.FromSeconds(7), MediaTime.FromSeconds(10));
+        emitter.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(7), MediaTime.FromSeconds(10));
         emitter.PrewarmDuration.Value = MediaTime.FromSeconds(2);
         using var resource = emitter.ToResource(new CompositionContext(emitter.Start));
         Assert.That(resource.GetAliveParticles().Length, Is.GreaterThan(0));
@@ -184,8 +184,8 @@ public sealed class ParticlePrewarmTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 20 },
-                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = 200 },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 20 } },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = 200 } },
             },
         });
         var context = new CompositionContext(MediaTime.Zero);

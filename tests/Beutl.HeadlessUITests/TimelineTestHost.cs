@@ -72,7 +72,7 @@ internal sealed class TimelineTestHost : IDisposable
         ThemeVariant? theme = null)
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(name);
-        scene.Duration = duration;
+        scene.Duration.Value = duration;
         if (clips is not null)
         {
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
@@ -99,7 +99,7 @@ internal sealed class TimelineTestHost : IDisposable
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name);
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         Assert.That((await adder.AddAsync(clips, CancellationToken.None)).IsSuccess, Is.True);
-        editor.Scene.Duration = MediaTime.FromSeconds(10);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(10);
         TimelineTabViewModel timeline = editor.FindToolTab<TimelineTabViewModel>()!;
         timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
         HeadlessTestHelpers.Settle();

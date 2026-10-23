@@ -96,7 +96,7 @@ public sealed class AbandonedRecordedSubtreeTests
         drawable.Fill.Value = Brushes.White;
         if (content == DegenerateBrushContent.DisabledDrawable)
         {
-            drawable.IsEnabled = false;
+            drawable.IsEnabled.Value = false;
         }
         else
         {

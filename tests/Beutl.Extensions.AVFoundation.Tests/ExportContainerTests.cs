@@ -39,11 +39,11 @@ public class ExportContainerTests
         string outputPath = Path.Combine(_workDir, "clip" + extension);
         var controller = new AVFEncodingController(outputPath);
         var frameRate = new Rational(30, 1);
-        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
-        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
-        controller.VideoSettings.FrameRate = frameRate;
-        controller.AudioSettings.SampleRate = 44100;
-        controller.AudioSettings.Channels = 2;
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate.Value = frameRate;
+        controller.AudioSettings.SampleRate.Value = 44100;
+        controller.AudioSettings.Channels.Value = 2;
 
         await controller.Encode(
             new GradientFrameProvider(3, frameRate, 64, 64),

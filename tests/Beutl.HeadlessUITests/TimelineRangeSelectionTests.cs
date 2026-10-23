@@ -129,7 +129,7 @@ public class TimelineRangeSelectionTests
             {
                 Window.MouseMove(to, modifier | RawInputModifiers.LeftMouseButton);
                 HeadlessTestHelpers.Render();
-                Assert.That(Model.SelectedElements.Select(e => e.Model.ZIndex), Is.EquivalentTo(expectedLayers));
+                Assert.That(Model.SelectedElements.Select(e => e.Model.ZIndex.Value), Is.EquivalentTo(expectedLayers));
                 Assert.That(Model.SelectedElements.All(e => e.IsSelected.Value), Is.True);
             }
             finally
@@ -142,7 +142,7 @@ public class TimelineRangeSelectionTests
             {
                 Assert.That(_host.View._mouseFlag, Is.EqualTo(TimelineHelper.MouseFlags.Free));
                 Assert.That(_overlay.SelectionRange, Is.EqualTo(default(Rect)));
-                Assert.That(Model.SelectedElements.Select(e => e.Model.ZIndex), Is.EquivalentTo(expectedLayers));
+                Assert.That(Model.SelectedElements.Select(e => e.Model.ZIndex.Value), Is.EquivalentTo(expectedLayers));
             });
         }
 

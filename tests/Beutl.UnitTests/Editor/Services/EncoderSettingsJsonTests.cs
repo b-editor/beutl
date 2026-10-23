@@ -20,19 +20,19 @@ public class EncoderSettingsJsonTests
     {
         var preset = new VideoEncoderSettings
         {
-            SourceSize = new PixelSize(640, 360),
-            DestinationSize = new PixelSize(640, 360),
-            FrameRate = new Rational(24, 1),
-            Bitrate = 2_000_000,
-            KeyframeRate = 8
+            SourceSize = { Value = new PixelSize(640, 360) },
+            DestinationSize = { Value = new PixelSize(640, 360) },
+            FrameRate = { Value = new Rational(24, 1) },
+            Bitrate = { Value = 2_000_000 },
+            KeyframeRate = { Value = 8 }
         };
         var target = new VideoEncoderSettings
         {
-            SourceSize = new PixelSize(3840, 2160),
-            DestinationSize = new PixelSize(1920, 1080),
-            FrameRate = new Rational(60, 1),
-            Bitrate = 5_000_000,
-            KeyframeRate = 12
+            SourceSize = { Value = new PixelSize(3840, 2160) },
+            DestinationSize = { Value = new PixelSize(1920, 1080) },
+            FrameRate = { Value = new Rational(60, 1) },
+            Bitrate = { Value = 5_000_000 },
+            KeyframeRate = { Value = 12 }
         };
 
         EncoderSettingsJson.PopulateVideoPreset(
@@ -40,11 +40,11 @@ public class EncoderSettingsJsonTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.SourceSize, Is.EqualTo(new PixelSize(3840, 2160)));
-            Assert.That(target.DestinationSize, Is.EqualTo(new PixelSize(1920, 1080)));
-            Assert.That(target.FrameRate, Is.EqualTo(new Rational(60, 1)));
-            Assert.That(target.Bitrate, Is.EqualTo(preset.Bitrate));
-            Assert.That(target.KeyframeRate, Is.EqualTo(preset.KeyframeRate));
+            Assert.That(target.SourceSize.Value, Is.EqualTo(new PixelSize(3840, 2160)));
+            Assert.That(target.DestinationSize.Value, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(target.FrameRate.Value, Is.EqualTo(new Rational(60, 1)));
+            Assert.That(target.Bitrate.Value, Is.EqualTo(preset.Bitrate.Value));
+            Assert.That(target.KeyframeRate.Value, Is.EqualTo(preset.KeyframeRate.Value));
         });
     }
 
@@ -53,19 +53,19 @@ public class EncoderSettingsJsonTests
     {
         var preset = new VideoEncoderSettings
         {
-            SourceSize = new PixelSize(640, 360),
-            DestinationSize = new PixelSize(640, 360),
-            FrameRate = new Rational(24, 1),
-            Bitrate = 2_000_000
+            SourceSize = { Value = new PixelSize(640, 360) },
+            DestinationSize = { Value = new PixelSize(640, 360) },
+            FrameRate = { Value = new Rational(24, 1) },
+            Bitrate = { Value = 2_000_000 }
         };
         JsonObject json = EncoderSettingsJson.Serialize(preset)!;
         json[nameof(VideoEncoderSettings.Bitrate)] = JsonValue.Create("invalid");
         var target = new VideoEncoderSettings
         {
-            SourceSize = new PixelSize(3840, 2160),
-            DestinationSize = new PixelSize(1920, 1080),
-            FrameRate = new Rational(60, 1),
-            Bitrate = 5_000_000
+            SourceSize = { Value = new PixelSize(3840, 2160) },
+            DestinationSize = { Value = new PixelSize(1920, 1080) },
+            FrameRate = { Value = new Rational(60, 1) },
+            Bitrate = { Value = 5_000_000 }
         };
 
         Assert.That(
@@ -74,9 +74,9 @@ public class EncoderSettingsJsonTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.SourceSize, Is.EqualTo(new PixelSize(3840, 2160)));
-            Assert.That(target.DestinationSize, Is.EqualTo(new PixelSize(1920, 1080)));
-            Assert.That(target.FrameRate, Is.EqualTo(new Rational(60, 1)));
+            Assert.That(target.SourceSize.Value, Is.EqualTo(new PixelSize(3840, 2160)));
+            Assert.That(target.DestinationSize.Value, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(target.FrameRate.Value, Is.EqualTo(new Rational(60, 1)));
         });
     }
 
@@ -87,19 +87,19 @@ public class EncoderSettingsJsonTests
     {
         var preset = new VideoEncoderSettings
         {
-            SourceSize = new PixelSize(3840, 2160),
-            DestinationSize = new PixelSize(3840, 2160),
-            FrameRate = new Rational(60, 1),
-            Bitrate = 45_000_000,
-            KeyframeRate = 120
+            SourceSize = { Value = new PixelSize(3840, 2160) },
+            DestinationSize = { Value = new PixelSize(3840, 2160) },
+            FrameRate = { Value = new Rational(60, 1) },
+            Bitrate = { Value = 45_000_000 },
+            KeyframeRate = { Value = 120 }
         };
         var target = new VideoEncoderSettings
         {
-            SourceSize = new PixelSize(1920, 1080),
-            DestinationSize = new PixelSize(1920, 1080),
-            FrameRate = new Rational(30, 1),
-            Bitrate = 5_000_000,
-            KeyframeRate = 12
+            SourceSize = { Value = new PixelSize(1920, 1080) },
+            DestinationSize = { Value = new PixelSize(1920, 1080) },
+            FrameRate = { Value = new Rational(30, 1) },
+            Bitrate = { Value = 5_000_000 },
+            KeyframeRate = { Value = 12 }
         };
 
         EncoderSettingsJson.PopulateVideoPreset(
@@ -107,11 +107,11 @@ public class EncoderSettingsJsonTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.SourceSize, Is.EqualTo(new PixelSize(1920, 1080)));
-            Assert.That(target.DestinationSize, Is.EqualTo(new PixelSize(3840, 2160)));
-            Assert.That(target.FrameRate, Is.EqualTo(new Rational(60, 1)));
-            Assert.That(target.KeyframeRate, Is.EqualTo(120));
-            Assert.That(target.Bitrate, Is.EqualTo(preset.Bitrate));
+            Assert.That(target.SourceSize.Value, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(target.DestinationSize.Value, Is.EqualTo(new PixelSize(3840, 2160)));
+            Assert.That(target.FrameRate.Value, Is.EqualTo(new Rational(60, 1)));
+            Assert.That(target.KeyframeRate.Value, Is.EqualTo(120));
+            Assert.That(target.Bitrate.Value, Is.EqualTo(preset.Bitrate.Value));
         });
     }
 
@@ -120,24 +120,24 @@ public class EncoderSettingsJsonTests
     {
         var preset = new AudioEncoderSettings
         {
-            SampleRate = 48000,
-            Channels = 1,
-            Bitrate = 96_000
+            SampleRate = { Value = 48000 },
+            Channels = { Value = 1 },
+            Bitrate = { Value = 96_000 }
         };
         var target = new AudioEncoderSettings
         {
-            SampleRate = 44100,
-            Channels = 2,
-            Bitrate = 128_000
+            SampleRate = { Value = 44100 },
+            Channels = { Value = 2 },
+            Bitrate = { Value = 128_000 }
         };
 
         EncoderSettingsJson.PopulateAudioPreset(target, EncoderSettingsJson.Serialize(preset)!, appliesSampleRate: true);
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.SampleRate, Is.EqualTo(48000));
-            Assert.That(target.Channels, Is.EqualTo(preset.Channels));
-            Assert.That(target.Bitrate, Is.EqualTo(preset.Bitrate));
+            Assert.That(target.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(target.Channels.Value, Is.EqualTo(preset.Channels.Value));
+            Assert.That(target.Bitrate.Value, Is.EqualTo(preset.Bitrate.Value));
         });
     }
 
@@ -148,16 +148,16 @@ public class EncoderSettingsJsonTests
     {
         var preset = new VideoEncoderSettings
         {
-            DestinationSize = new PixelSize(3840, 2160),
-            FrameRate = new Rational(60, 1),
+            DestinationSize = { Value = new PixelSize(3840, 2160) },
+            FrameRate = { Value = new Rational(60, 1) },
         };
         JsonObject json = EncoderSettingsJson.Serialize(preset)!;
         json[nameof(VideoEncoderSettings.Bitrate)] = JsonValue.Create("invalid");
         var target = new VideoEncoderSettings
         {
-            SourceSize = new PixelSize(1920, 1080),
-            DestinationSize = new PixelSize(1920, 1080),
-            FrameRate = new Rational(30, 1),
+            SourceSize = { Value = new PixelSize(1920, 1080) },
+            DestinationSize = { Value = new PixelSize(1920, 1080) },
+            FrameRate = { Value = new Rational(30, 1) },
         };
 
         Assert.That(
@@ -166,24 +166,24 @@ public class EncoderSettingsJsonTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.SourceSize, Is.EqualTo(new PixelSize(1920, 1080)));
-            Assert.That(target.DestinationSize, Is.EqualTo(new PixelSize(1920, 1080)));
-            Assert.That(target.FrameRate, Is.EqualTo(new Rational(30, 1)));
+            Assert.That(target.SourceSize.Value, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(target.DestinationSize.Value, Is.EqualTo(new PixelSize(1920, 1080)));
+            Assert.That(target.FrameRate.Value, Is.EqualTo(new Rational(30, 1)));
         });
     }
 
     [Test]
     public void PopulateAudioPreset_ThatAppliesSampleRate_WhenPopulateThrows_KeepsIt()
     {
-        JsonObject json = EncoderSettingsJson.Serialize(new AudioEncoderSettings { SampleRate = 48000 })!;
+        JsonObject json = EncoderSettingsJson.Serialize(new AudioEncoderSettings { SampleRate = { Value = 48000 } })!;
         json[nameof(AudioEncoderSettings.Channels)] = JsonValue.Create("invalid");
-        var target = new AudioEncoderSettings { SampleRate = 44100 };
+        var target = new AudioEncoderSettings { SampleRate = { Value = 44100 } };
 
         Assert.That(
             () => EncoderSettingsJson.PopulateAudioPreset(target, json, appliesSampleRate: true),
             Throws.Exception);
 
-        Assert.That(target.SampleRate, Is.EqualTo(44100));
+        Assert.That(target.SampleRate.Value, Is.EqualTo(44100));
     }
 
     [Test]
@@ -191,15 +191,15 @@ public class EncoderSettingsJsonTests
     {
         var preset = new AudioEncoderSettings
         {
-            SampleRate = 48000,
-            Channels = 1,
-            Bitrate = 96_000
+            SampleRate = { Value = 48000 },
+            Channels = { Value = 1 },
+            Bitrate = { Value = 96_000 }
         };
         var target = new AudioEncoderSettings
         {
-            SampleRate = 44100,
-            Channels = 2,
-            Bitrate = 128_000
+            SampleRate = { Value = 44100 },
+            Channels = { Value = 2 },
+            Bitrate = { Value = 128_000 }
         };
 
         EncoderSettingsJson.PopulateAudioPreset(
@@ -207,9 +207,9 @@ public class EncoderSettingsJsonTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(target.SampleRate, Is.EqualTo(44100));
-            Assert.That(target.Channels, Is.EqualTo(preset.Channels));
-            Assert.That(target.Bitrate, Is.EqualTo(preset.Bitrate));
+            Assert.That(target.SampleRate.Value, Is.EqualTo(44100));
+            Assert.That(target.Channels.Value, Is.EqualTo(preset.Channels.Value));
+            Assert.That(target.Bitrate.Value, Is.EqualTo(preset.Bitrate.Value));
         });
     }
 
@@ -218,24 +218,24 @@ public class EncoderSettingsJsonTests
     {
         var preset = new AudioEncoderSettings
         {
-            SampleRate = 48000,
-            Channels = 1,
-            Bitrate = 96_000
+            SampleRate = { Value = 48000 },
+            Channels = { Value = 1 },
+            Bitrate = { Value = 96_000 }
         };
         JsonObject json = EncoderSettingsJson.Serialize(preset)!;
         json[nameof(AudioEncoderSettings.Channels)] = JsonValue.Create("invalid");
         var target = new AudioEncoderSettings
         {
-            SampleRate = 44100,
-            Channels = 2,
-            Bitrate = 128_000
+            SampleRate = { Value = 44100 },
+            Channels = { Value = 2 },
+            Bitrate = { Value = 128_000 }
         };
 
         Assert.That(
             () => EncoderSettingsJson.PopulateAudioPreset(target, json, appliesSampleRate: false),
             Throws.Exception);
 
-        Assert.That(target.SampleRate, Is.EqualTo(44100));
+        Assert.That(target.SampleRate.Value, Is.EqualTo(44100));
     }
 
     [Test]
@@ -243,11 +243,11 @@ public class EncoderSettingsJsonTests
     {
         var source = new VideoEncoderSettings
         {
-            SourceSize = new PixelSize(1920, 1080),
-            DestinationSize = new PixelSize(1280, 720),
-            FrameRate = new Rational(60, 1),
-            Bitrate = 7_000_000,
-            KeyframeRate = 24
+            SourceSize = { Value = new PixelSize(1920, 1080) },
+            DestinationSize = { Value = new PixelSize(1280, 720) },
+            FrameRate = { Value = new Rational(60, 1) },
+            Bitrate = { Value = 7_000_000 },
+            KeyframeRate = { Value = 24 }
         };
         var destination = new VideoEncoderSettings();
 
@@ -255,24 +255,24 @@ public class EncoderSettingsJsonTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(destination.SourceSize, Is.EqualTo(source.SourceSize));
-            Assert.That(destination.DestinationSize, Is.EqualTo(source.DestinationSize));
-            Assert.That(destination.FrameRate, Is.EqualTo(source.FrameRate));
-            Assert.That(destination.Bitrate, Is.EqualTo(source.Bitrate));
-            Assert.That(destination.KeyframeRate, Is.EqualTo(source.KeyframeRate));
+            Assert.That(destination.SourceSize.Value, Is.EqualTo(source.SourceSize.Value));
+            Assert.That(destination.DestinationSize.Value, Is.EqualTo(source.DestinationSize.Value));
+            Assert.That(destination.FrameRate.Value, Is.EqualTo(source.FrameRate.Value));
+            Assert.That(destination.Bitrate.Value, Is.EqualTo(source.Bitrate.Value));
+            Assert.That(destination.KeyframeRate.Value, Is.EqualTo(source.KeyframeRate.Value));
         });
     }
 
     [Test]
     public void CopyTo_NullArguments_DoNotThrow()
     {
-        var settings = new VideoEncoderSettings { Bitrate = 7_000_000 };
+        var settings = new VideoEncoderSettings { Bitrate = { Value = 7_000_000 } };
 
         Assert.Multiple(() =>
         {
             Assert.That(() => EncoderSettingsJson.CopyTo(null, settings), Throws.Nothing);
             Assert.That(() => EncoderSettingsJson.CopyTo(settings, null), Throws.Nothing);
         });
-        Assert.That(settings.Bitrate, Is.EqualTo(7_000_000));
+        Assert.That(settings.Bitrate.Value, Is.EqualTo(7_000_000));
     }
 }

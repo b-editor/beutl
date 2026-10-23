@@ -24,21 +24,21 @@ public class ObjectRegeneratorTests
         // reference and hide child Ids. Embed mode expands them so Ids get rewritten.
         var src = new Element
         {
-            Start = MediaTime.FromSeconds(0),
-            Length = MediaTime.FromSeconds(1),
-            ZIndex = 0,
+            Start = { Value = MediaTime.FromSeconds(0) },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            ZIndex = { Value = 0 },
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
         var child = new PortalObject();
         src.AddObject(child);
-        Guid srcId = src.Id;
-        Guid childId = child.Id;
+        Guid srcId = src.Id.Value;
+        Guid childId = child.Id.Value;
 
         ObjectRegenerator.Regenerate(src, out Element regenerated);
 
-        Assert.That(regenerated.Id, Is.Not.EqualTo(srcId));
+        Assert.That(regenerated.Id.Value, Is.Not.EqualTo(srcId));
         Assert.That(regenerated.Objects.Count, Is.EqualTo(1), "Embed mode should re-materialize child objects.");
-        Guid regeneratedChildId = regenerated.Objects[0].Id;
+        Guid regeneratedChildId = regenerated.Objects[0].Id.Value;
         Assert.That(regeneratedChildId, Is.Not.EqualTo(Guid.Empty));
         Assert.That(regeneratedChildId, Is.Not.EqualTo(childId));
     }
@@ -50,37 +50,37 @@ public class ObjectRegeneratorTests
         // If Regenerate reorders the array, group remap silently corrupts.
         var a = new Element
         {
-            Start = MediaTime.FromSeconds(0),
-            Length = MediaTime.FromSeconds(1),
+            Start = { Value = MediaTime.FromSeconds(0) },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
         var b = new Element
         {
-            Start = MediaTime.FromSeconds(5),
-            Length = MediaTime.FromSeconds(2),
+            Start = { Value = MediaTime.FromSeconds(5) },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
         var c = new Element
         {
-            Start = MediaTime.FromSeconds(10),
-            Length = MediaTime.FromSeconds(3),
+            Start = { Value = MediaTime.FromSeconds(10) },
+            Length = { Value = MediaTime.FromSeconds(3) },
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
-        Guid[] originalIds = [a.Id, b.Id, c.Id];
+        Guid[] originalIds = [a.Id.Value, b.Id.Value, c.Id.Value];
 
         ObjectRegenerator.Regenerate([a, b, c], out Element[] regenerated);
 
         Assert.That(regenerated.Length, Is.EqualTo(3));
 
-        Assert.That(regenerated[0].Start, Is.EqualTo(a.Start));
-        Assert.That(regenerated[1].Start, Is.EqualTo(b.Start));
-        Assert.That(regenerated[2].Start, Is.EqualTo(c.Start));
+        Assert.That(regenerated[0].Start.Value, Is.EqualTo(a.Start.Value));
+        Assert.That(regenerated[1].Start.Value, Is.EqualTo(b.Start.Value));
+        Assert.That(regenerated[2].Start.Value, Is.EqualTo(c.Start.Value));
 
         for (int i = 0; i < regenerated.Length; i++)
         {
-            Assert.That(regenerated[i].Id, Is.Not.EqualTo(originalIds[i]));
+            Assert.That(regenerated[i].Id.Value, Is.Not.EqualTo(originalIds[i]));
         }
-        var idSet = new HashSet<Guid>(regenerated.Select(r => r.Id));
+        var idSet = new HashSet<Guid>(regenerated.Select(r => r.Id.Value));
         Assert.That(idSet.Count, Is.EqualTo(3));
     }
 
@@ -88,20 +88,20 @@ public class ObjectRegeneratorTests
     [Test]
     public void Regenerate_GivesAnIdInAScriptTheIdOfTheCopiedObject()
     {
-        var element = new Element { Length = MediaTime.FromSeconds(1) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
         var source = new RectShape();
         var follower = new RectShape();
-        follower.Width.Expression = new StringExpression<float>($"GetProperty<float>(\"{source.Id}.Width\") * 2");
+        follower.Width.Expression = new StringExpression<float>($"GetProperty<float>(\"{source.Id.Value}.Width\") * 2");
         element.AddObject(source);
         element.AddObject(follower);
 
         ObjectRegenerator.Regenerate(element, out Element copy);
 
-        Guid copiedSource = copy.Objects[0].Id;
+        Guid copiedSource = copy.Objects[0].Id.Value;
         string copiedScript = ((RectShape)copy.Objects[1]).Width.Expression!.ExpressionString;
         Assert.Multiple(() =>
         {
-            Assert.That(copiedSource, Is.Not.EqualTo(source.Id));
+            Assert.That(copiedSource, Is.Not.EqualTo(source.Id.Value));
             Assert.That(copiedScript, Is.EqualTo($"GetProperty<float>(\"{copiedSource}.Width\") * 2"));
         });
     }
@@ -110,13 +110,13 @@ public class ObjectRegeneratorTests
     public void Regenerate_KeepsTheIdOfAReferenceToAnObjectOutsideTheCopy()
     {
         var outside = new RectShape();
-        var element = new Element { Length = MediaTime.FromSeconds(1) };
-        element.AddObject(new DrawablePresenter { Target = { Expression = new ReferenceExpression<Drawable?>(outside.Id) } });
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
+        element.AddObject(new DrawablePresenter { Target = { Expression = new ReferenceExpression<Drawable?>(outside.Id.Value) } });
 
         ObjectRegenerator.Regenerate(element, out Element copy);
 
         var copied = (DrawablePresenter)copy.Objects[0];
-        Assert.That(((IReferenceExpression)copied.Target.Expression!).ObjectId, Is.EqualTo(outside.Id));
+        Assert.That(((IReferenceExpression)copied.Target.Expression!).ObjectId, Is.EqualTo(outside.Id.Value));
     }
 
     // One walk of the built copy runs the hook of every object in it, nested ones included, and of none in the original.
@@ -126,7 +126,7 @@ public class ObjectRegeneratorTests
         var outer = new CopyRenewalProbe();
         var inner = new CopyRenewalProbe();
         outer.Inner.Value = inner;
-        var element = new Element { Length = MediaTime.FromSeconds(1) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
         element.AddObject(outer);
 
         ObjectRegenerator.Regenerate(element, out Element copy);
@@ -152,9 +152,9 @@ public class ObjectRegeneratorTests
         var (copiedImage, copiedNested) = FindAiNodes(copy);
         Assert.Multiple(() =>
         {
-            Assert.That(copiedImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));
-            Assert.That(copiedNested.RequestKeySeed, Is.Not.EqualTo(nested.RequestKeySeed), "a node inside a group");
-            Assert.That(copiedImage.RequestKeySeed, Is.Not.Empty);
+            Assert.That(copiedImage.RequestKeySeed.Value, Is.Not.EqualTo(image.RequestKeySeed.Value));
+            Assert.That(copiedNested.RequestKeySeed.Value, Is.Not.EqualTo(nested.RequestKeySeed.Value), "a node inside a group");
+            Assert.That(copiedImage.RequestKeySeed.Value, Is.Not.Empty);
             Assert.That(copiedImage.Generations, Has.Count.EqualTo(1), "a copy still shows the result it was made from");
         });
     }
@@ -166,19 +166,19 @@ public class ObjectRegeneratorTests
         var first = CreateElementWithAiNodes();
         var second = CreateElementWithAiNodes();
         // As two clips duplicated before copies got keys of their own.
-        second.Image.RequestKeySeed = first.Image.RequestKeySeed;
+        second.Image.RequestKeySeed.Value = first.Image.RequestKeySeed.Value;
 
         ObjectRegenerator.Regenerate([first.Element, second.Element], out Element[] copies);
 
         string[] seeds = copies.Select(FindAiNodes)
-            .SelectMany(nodes => new[] { nodes.Image.RequestKeySeed, nodes.Nested.RequestKeySeed })
+            .SelectMany(nodes => new[] { nodes.Image.RequestKeySeed.Value, nodes.Nested.RequestKeySeed.Value })
             .ToArray();
         Assert.Multiple(() =>
         {
             Assert.That(seeds, Is.Unique);
-            Assert.That(seeds, Has.None.EqualTo(first.Image.RequestKeySeed));
-            Assert.That(seeds, Has.None.EqualTo(first.Nested.RequestKeySeed));
-            Assert.That(seeds, Has.None.EqualTo(second.Nested.RequestKeySeed));
+            Assert.That(seeds, Has.None.EqualTo(first.Image.RequestKeySeed.Value));
+            Assert.That(seeds, Has.None.EqualTo(first.Nested.RequestKeySeed.Value));
+            Assert.That(seeds, Has.None.EqualTo(second.Nested.RequestKeySeed.Value));
         });
     }
 
@@ -194,7 +194,7 @@ public class ObjectRegeneratorTests
 
         AiImageGenerationNode copiedImage = ((NodeGraphFilterEffect)copy).Model.Value!.Nodes
             .OfType<AiImageGenerationNode>().Single();
-        Assert.That(copiedImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));
+        Assert.That(copiedImage.RequestKeySeed.Value, Is.Not.EqualTo(image.RequestKeySeed.Value));
     }
 
     [Test]
@@ -212,8 +212,8 @@ public class ObjectRegeneratorTests
         var (backImage, backNested) = FindAiNodes(harness.Scene.Children.Except(childrenBefore).Single());
         Assert.Multiple(() =>
         {
-            Assert.That(backImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));
-            Assert.That(backNested.RequestKeySeed, Is.Not.EqualTo(nested.RequestKeySeed));
+            Assert.That(backImage.RequestKeySeed.Value, Is.Not.EqualTo(image.RequestKeySeed.Value));
+            Assert.That(backNested.RequestKeySeed.Value, Is.Not.EqualTo(nested.RequestKeySeed.Value));
         });
     }
 
@@ -231,14 +231,14 @@ public class ObjectRegeneratorTests
             .Select(_ => ElementTemplateResolver.CreateDescription(template, MediaTime.Zero, 0).Source)
             .Cast<ElementSource.ElementTemplate>()
             .Select(source => FindAiNodes(source.Factory()))
-            .SelectMany(nodes => new[] { nodes.Image.RequestKeySeed, nodes.Nested.RequestKeySeed })
+            .SelectMany(nodes => new[] { nodes.Image.RequestKeySeed.Value, nodes.Nested.RequestKeySeed.Value })
             .ToArray();
 
         Assert.Multiple(() =>
         {
             Assert.That(seeds, Is.Unique);
-            Assert.That(seeds, Has.None.EqualTo(image.RequestKeySeed));
-            Assert.That(seeds, Has.None.EqualTo(nested.RequestKeySeed));
+            Assert.That(seeds, Has.None.EqualTo(image.RequestKeySeed.Value));
+            Assert.That(seeds, Has.None.EqualTo(nested.RequestKeySeed.Value));
         });
     }
 
@@ -247,7 +247,7 @@ public class ObjectRegeneratorTests
     public void SavingAnElementTemplate_LeavesTheAiResultsAndRequestKeysBehind()
     {
         var (element, image, _) = CreateElementWithAiNodes();
-        image.ActiveGenerationId = image.Generations[0].Id;
+        image.ActiveGenerationId.Value = image.Generations[0].Id.Value;
 
         ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(element, "AI clip");
 
@@ -258,9 +258,9 @@ public class ObjectRegeneratorTests
             Assert.That(json, Does.Not.Contain($"\"{nameof(GenerativeNode.Generations)}\""));
             Assert.That(json, Does.Not.Contain($"\"{nameof(GenerativeNode.ActiveGenerationId)}\""));
             Assert.That(json, Does.Not.Contain($"\"{nameof(GenerativeNode.RequestKeySeed)}\""));
-            Assert.That(json, Does.Not.Contain(image.RequestKeySeed));
+            Assert.That(json, Does.Not.Contain(image.RequestKeySeed.Value));
             Assert.That(instanceImage.Generations, Is.Empty);
-            Assert.That(instanceImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));
+            Assert.That(instanceImage.RequestKeySeed.Value, Is.Not.EqualTo(image.RequestKeySeed.Value));
         });
     }
 
@@ -301,17 +301,17 @@ public class ObjectRegeneratorTests
         var template = new ObjectTemplateItem(
             Guid.NewGuid(), baseType, typeof(NodeGraphFilterEffect), CoreSerializer.SerializeToJsonObject(effect),
             "AI effect", format, null);
-        Assert.That(template.Json.ToJsonString(), Does.Contain(image.RequestKeySeed));
+        Assert.That(template.Json.ToJsonString(), Does.Contain(image.RequestKeySeed.Value));
 
         string[] seeds = Enumerable.Range(0, 2)
             .Select(_ => ((NodeGraphFilterEffect)template.CreateInstance()!).Model.Value!.Nodes
-                .OfType<AiImageGenerationNode>().Single().RequestKeySeed)
+                .OfType<AiImageGenerationNode>().Single().RequestKeySeed.Value)
             .ToArray();
 
         Assert.Multiple(() =>
         {
             Assert.That(seeds, Is.Unique);
-            Assert.That(seeds, Has.None.EqualTo(image.RequestKeySeed));
+            Assert.That(seeds, Has.None.EqualTo(image.RequestKeySeed.Value));
         });
     }
 
@@ -320,8 +320,8 @@ public class ObjectRegeneratorTests
     {
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(5),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(5) },
             Uri = new Uri(Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.belm")),
         };
         var (_, image, nested) = AddAiNodes(element);
@@ -334,10 +334,10 @@ public class ObjectRegeneratorTests
         var drawable = new NodeGraphDrawable();
         GraphModel graph = drawable.Model.Value!;
         var image = new AiImageGenerationNode();
-        image.Generations.Add(new GenerationRecord { Summary = "kept result" });
+        image.Generations.Add(new GenerationRecord { Summary = { Value = "kept result" } });
         var group = new GroupNode();
         var nested = new AiImageGenerationNode();
-        group.Group.Nodes.Add(nested);
+        group.Group.Value.Nodes.Add(nested);
         graph.Nodes.Add(image);
         graph.Nodes.Add(group);
         element.AddObject(drawable);
@@ -349,7 +349,7 @@ public class ObjectRegeneratorTests
         GraphModel graph = element.Objects.OfType<NodeGraphDrawable>().Single().Model.Value!;
         return (
             graph.Nodes.OfType<AiImageGenerationNode>().Single(),
-            graph.Nodes.OfType<GroupNode>().Single().Group.Nodes.OfType<AiImageGenerationNode>().Single());
+            graph.Nodes.OfType<GroupNode>().Single().Group.Value.Nodes.OfType<AiImageGenerationNode>().Single());
     }
 }
 

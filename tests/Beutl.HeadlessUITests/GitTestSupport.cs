@@ -115,10 +115,10 @@ internal sealed class RealGitScope : IAsyncDisposable
     {
         _environment = environment;
         GitPath = gitPath;
-        _oldGitPath = _config.GitExecutablePath;
-        _oldAutoCommitOnSave = _config.AutoCommitOnSave;
-        _oldAutoCommitOnClose = _config.AutoCommitOnClose;
-        _oldUseLfs = _config.UseLfsWhenAvailable;
+        _oldGitPath = _config.GitExecutablePath.Value;
+        _oldAutoCommitOnSave = _config.AutoCommitOnSave.Value;
+        _oldAutoCommitOnClose = _config.AutoCommitOnClose.Value;
+        _oldUseLfs = _config.UseLfsWhenAvailable.Value;
         _oldConfirmRestoreAsync = TestShell.VersionControl.ConfirmRestoreAsync;
         _oldConfirmSwitchBranchAsync = TestShell.VersionControl.ConfirmSwitchBranchAsync;
         _oldConfirmPullAsync = TestShell.VersionControl.ConfirmPullAsync;
@@ -147,20 +147,20 @@ internal sealed class RealGitScope : IAsyncDisposable
         }
 
         VersionControlConfig config = scope._config;
-        config.GitExecutablePath = scope.GitPath;
+        config.GitExecutablePath.Value = scope.GitPath;
         if (autoCommitOnSave is { } save)
         {
-            config.AutoCommitOnSave = save;
+            config.AutoCommitOnSave.Value = save;
         }
 
         if (autoCommitOnClose is { } close)
         {
-            config.AutoCommitOnClose = close;
+            config.AutoCommitOnClose.Value = close;
         }
 
         if (useLfsWhenAvailable is { } useLfs)
         {
-            config.UseLfsWhenAvailable = useLfs;
+            config.UseLfsWhenAvailable.Value = useLfs;
         }
 
         return scope;
@@ -209,10 +209,10 @@ internal sealed class RealGitScope : IAsyncDisposable
         }
         finally
         {
-            _config.GitExecutablePath = _oldGitPath;
-            _config.AutoCommitOnSave = _oldAutoCommitOnSave;
-            _config.AutoCommitOnClose = _oldAutoCommitOnClose;
-            _config.UseLfsWhenAvailable = _oldUseLfs;
+            _config.GitExecutablePath.Value = _oldGitPath;
+            _config.AutoCommitOnSave.Value = _oldAutoCommitOnSave;
+            _config.AutoCommitOnClose.Value = _oldAutoCommitOnClose;
+            _config.UseLfsWhenAvailable.Value = _oldUseLfs;
             _environment.Dispose();
         }
     }

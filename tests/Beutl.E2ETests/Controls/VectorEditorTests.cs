@@ -83,8 +83,8 @@ public class VectorEditorTests
     public void Vector3_list_item_x_header_drag_changes_x()
     {
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool pointerLock = config.EnablePointerLockInProperty;
-        config.EnablePointerLockInProperty = false;
+        bool pointerLock = config.EnablePointerLockInProperty.Value;
+        config.EnablePointerLockInProperty.Value = false;
         try
         {
             var editor = new Vector3Editor<float>
@@ -105,7 +105,7 @@ public class VectorEditorTests
         }
         finally
         {
-            config.EnablePointerLockInProperty = pointerLock;
+            config.EnablePointerLockInProperty.Value = pointerLock;
         }
     }
 
@@ -133,8 +133,8 @@ public class VectorEditorTests
     {
         // Pointer lock reads the real mouse on macOS and Windows, which a headless drag never moves.
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool pointerLock = config.EnablePointerLockInProperty;
-        config.EnablePointerLockInProperty = false;
+        bool pointerLock = config.EnablePointerLockInProperty.Value;
+        config.EnablePointerLockInProperty.Value = false;
         try
         {
             // Distinct, nonzero starting values: the old third and fourth values must be recorded at the press,
@@ -162,7 +162,7 @@ public class VectorEditorTests
         }
         finally
         {
-            config.EnablePointerLockInProperty = pointerLock;
+            config.EnablePointerLockInProperty.Value = pointerLock;
         }
     }
 

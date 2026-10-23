@@ -106,7 +106,7 @@ internal static partial class NativeTimelineTestHost
                     {
                         foreach (var sample in samples)
                         {
-                            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection = swap;
+                            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value = swap;
                             model.Options.Value = model.Options.Value with { Scale = 1, Offset = new System.Numerics.Vector2(300, 200) };
                             await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
                             Assert.That(content.Offset, Is.EqualTo(new Vector(300, 200)));

@@ -52,7 +52,7 @@ public class DarkBorderThemeExtensionTests
         {
             service.Start();
 
-            ThemeDescriptor? resolved = ThemeRegistry.Resolve(config.Theme);
+            ThemeDescriptor? resolved = ThemeRegistry.Resolve(config.Theme.Value);
             Assert.Multiple(() =>
             {
                 Assert.That(resolved, Is.Not.Null, "the configured default must resolve at the first apply");
@@ -87,7 +87,7 @@ public class DarkBorderThemeExtensionTests
         {
             service.Start();
             Dispatcher.UIThread.RunJobs();
-            ThemeDescriptor? applied = ThemeRegistry.Resolve(config.Theme);
+            ThemeDescriptor? applied = ThemeRegistry.Resolve(config.Theme.Value);
             IResourceProvider[] mergedAfterFirstLoad = [.. Application.Current.Resources.MergedDictionaries];
 
             DarkBorderThemeExtension.Instance.Load();
@@ -96,7 +96,7 @@ public class DarkBorderThemeExtensionTests
             Assert.Multiple(() =>
             {
                 Assert.That(applied, Is.Not.Null, "precondition: the default theme was registered and resolved");
-                Assert.That(ThemeRegistry.Resolve(config.Theme), Is.SameAs(applied),
+                Assert.That(ThemeRegistry.Resolve(config.Theme.Value), Is.SameAs(applied),
                     "a repeat Load must leave the registered descriptor instance untouched");
                 Assert.That(Application.Current.Resources.MergedDictionaries, Is.EqualTo(mergedAfterFirstLoad),
                     "a repeat Load must not swap the applied theme's resources");
@@ -129,7 +129,7 @@ public class DarkBorderThemeExtensionTests
         ClearRegistry();
         FluentAvaloniaTheme theme = Application.Current!.Styles.OfType<FluentAvaloniaTheme>().Single();
         ThemeVariant? variantOnEntry = Application.Current.RequestedThemeVariant;
-        var config = new ViewConfig { Theme = BuiltinThemeIds.Light };
+        var config = new ViewConfig { Theme = { Value = BuiltinThemeIds.Light } };
         var service = new ThemeService(theme, config);
         var extension = new DarkBorderThemeExtension();
         try

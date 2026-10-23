@@ -117,13 +117,13 @@ public class TimelineScrollTests
 
     private sealed class TimelineSession : IDisposable
     {
-        private readonly bool _originalSwap = GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection;
+        private readonly bool _originalSwap = GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value;
         private readonly TimelineTestHost _host;
 
         private TimelineSession(TimelineTestHost host, bool swap)
         {
             _host = host;
-            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection = swap;
+            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value = swap;
             Pane = host.View.FindControl<ScrollViewer>("PaneScroll")!;
             ResetOffset();
         }
@@ -157,7 +157,7 @@ public class TimelineScrollTests
         public void Dispose()
         {
             _host.Dispose();
-            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection = _originalSwap;
+            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value = _originalSwap;
         }
     }
 }

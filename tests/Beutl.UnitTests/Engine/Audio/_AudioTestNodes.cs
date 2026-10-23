@@ -186,8 +186,8 @@ internal static class AudioTestAnimations
     public static KeyFrameAnimation<float> Ramp(float from, float to, MediaTime end)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = from, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Easing = new LinearEasing(), Value = to, KeyTime = end });
+        animation.KeyFrames.Add(new KeyFrame<float> { Easing = { Value = new LinearEasing() }, Value = { Value = from }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Easing = { Value = new LinearEasing() }, Value = { Value = to }, KeyTime = { Value = end } });
         return animation;
     }
 }

@@ -33,7 +33,7 @@ public sealed partial class LimiterTailSound : Sound
             output = ConnectLimiter(context, output);
         }
 
-        var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var clip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(output, clip);
         output = clip;
 

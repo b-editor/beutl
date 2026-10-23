@@ -12,15 +12,15 @@ public class DuplicateHelperTests
     {
         var element = new Element
         {
-            Start = start,
-            Length = length,
-            ZIndex = zIndex,
+            Start = { Value = start },
+            Length = { Value = length },
+            ZIndex = { Value = zIndex },
         };
         if (basePath is not null)
         {
             element.Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.belm"));
         }
-        if (id.HasValue) element.Id = id.Value;
+        if (id.HasValue) element.Id.Value = id.Value;
         return element;
     }
 
@@ -113,17 +113,17 @@ public class DuplicateHelperTests
 
         ImmutableHashSet<Guid> newGroup = scene.Groups[1];
         Assert.That(newGroup.Count, Is.EqualTo(3));
-        Assert.That(newGroup.SetEquals([newA.Id, newB.Id, newC.Id]), Is.True);
+        Assert.That(newGroup.SetEquals([newA.Id.Value, newB.Id.Value, newC.Id.Value]), Is.True);
         Assert.That(newGroup.Overlaps([sourceA, sourceB, sourceC]), Is.False);
 
-        Assert.That(newA.Start, Is.EqualTo(MediaTime.FromSeconds(10)));
-        Assert.That(newB.Start, Is.EqualTo(MediaTime.FromSeconds(11)));
-        Assert.That(newC.Start, Is.EqualTo(MediaTime.FromSeconds(12)));
-        Assert.That(newA.ZIndex, Is.EqualTo(1));
-        Assert.That(newB.ZIndex, Is.EqualTo(1));
-        Assert.That(newC.ZIndex, Is.EqualTo(1));
+        Assert.That(newA.Start.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+        Assert.That(newB.Start.Value, Is.EqualTo(MediaTime.FromSeconds(11)));
+        Assert.That(newC.Start.Value, Is.EqualTo(MediaTime.FromSeconds(12)));
+        Assert.That(newA.ZIndex.Value, Is.EqualTo(1));
+        Assert.That(newB.ZIndex.Value, Is.EqualTo(1));
+        Assert.That(newC.ZIndex.Value, Is.EqualTo(1));
         // The next save of the scene writes the files.
-        Assert.That(newA.Uri, Is.EqualTo(ElementFileNaming.GetUri(scene.Uri!, newA.Id)));
+        Assert.That(newA.Uri, Is.EqualTo(ElementFileNaming.GetUri(scene.Uri!, newA.Id.Value)));
         Assert.That(File.Exists(newA.Uri!.LocalPath), Is.False);
     }
 
@@ -162,8 +162,8 @@ public class DuplicateHelperTests
             anchorZIndex: 0);
 
         Assert.That(scene.Groups.Count, Is.EqualTo(4));
-        Assert.That(scene.Groups[2].SetEquals([newX.Id, newY.Id]), Is.True);
-        Assert.That(scene.Groups[3].SetEquals([newZ.Id, newW.Id]), Is.True);
+        Assert.That(scene.Groups[2].SetEquals([newX.Id.Value, newY.Id.Value]), Is.True);
+        Assert.That(scene.Groups[3].SetEquals([newZ.Id.Value, newW.Id.Value]), Is.True);
     }
 
     [Test]

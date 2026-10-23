@@ -45,10 +45,10 @@ public class LayerAttributeServiceTests
     {
         return flag switch
         {
-            "locked" => layer.IsLocked,
-            "audio-muted" => layer.IsAudioMuted,
-            "video-muted" => layer.IsVideoMuted,
-            "solo" => layer.IsSolo,
+            "locked" => layer.IsLocked.Value,
+            "audio-muted" => layer.IsAudioMuted.Value,
+            "video-muted" => layer.IsVideoMuted.Value,
+            "solo" => layer.IsSolo.Value,
             _ => throw new ArgumentOutOfRangeException(nameof(flag), flag, null),
         };
     }
@@ -72,9 +72,9 @@ public class LayerAttributeServiceTests
         {
             Assert.That(changed, Is.True);
             Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers + 1));
-            TimelineLayer created = _scene.Layers.First(l => l.ZIndex == 3);
-            Assert.That(created.Color, Is.EqualTo(color));
-            Assert.That(created.Name, Is.EqualTo("Layer 3"));
+            TimelineLayer created = _scene.Layers.First(l => l.ZIndex.Value == 3);
+            Assert.That(created.Color.Value, Is.EqualTo(color));
+            Assert.That(created.Name.Value, Is.EqualTo("Layer 3"));
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
         });
     }
@@ -84,9 +84,9 @@ public class LayerAttributeServiceTests
     {
         var existing = new TimelineLayer
         {
-            Name = "Existing",
-            ZIndex = 7,
-            Color = Color.FromArgb(255, 1, 2, 3),
+            Name = { Value = "Existing" },
+            ZIndex = { Value = 7 },
+            Color = { Value = Color.FromArgb(255, 1, 2, 3) },
         };
         _scene.Layers.Add(existing);
         int beforeUndo = _history.UndoCount;
@@ -99,8 +99,8 @@ public class LayerAttributeServiceTests
         {
             Assert.That(changed, Is.True);
             Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers));
-            Assert.That(existing.Color, Is.EqualTo(target));
-            Assert.That(existing.Name, Is.EqualTo("Existing"));
+            Assert.That(existing.Color.Value, Is.EqualTo(target));
+            Assert.That(existing.Name.Value, Is.EqualTo("Existing"));
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
         });
     }
@@ -109,7 +109,7 @@ public class LayerAttributeServiceTests
     public void SetColor_NoChange_DoesNotCommit()
     {
         var color = Color.FromArgb(255, 50, 60, 70);
-        var existing = new TimelineLayer { Name = "L", ZIndex = 4, Color = color };
+        var existing = new TimelineLayer { Name = { Value = "L" }, ZIndex = { Value = 4 }, Color = { Value = color } };
         _scene.Layers.Add(existing);
         int before = _history.UndoCount;
 
@@ -137,7 +137,7 @@ public class LayerAttributeServiceTests
         {
             Assert.That(changed, Is.True);
             Assert.That(_scene.Layers.Count, Is.EqualTo(beforeLayers + 1));
-            Assert.That(GetFlag(_scene.Layers.First(l => l.ZIndex == 3), flag), Is.True);
+            Assert.That(GetFlag(_scene.Layers.First(l => l.ZIndex.Value == 3), flag), Is.True);
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
         });
     }
@@ -167,7 +167,7 @@ public class LayerAttributeServiceTests
     [TestCase("solo")]
     public void SetFlag_ExistingModel_UpdatesInPlaceAndCommits(string flag)
     {
-        var existing = new TimelineLayer { ZIndex = 7 };
+        var existing = new TimelineLayer { ZIndex = { Value = 7 } };
         _scene.Layers.Add(existing);
         int beforeUndo = _history.UndoCount;
         int beforeLayers = _scene.Layers.Count;
@@ -189,7 +189,7 @@ public class LayerAttributeServiceTests
     [TestCase("solo")]
     public void SetFlag_NoChange_DoesNotCommit(string flag)
     {
-        var existing = new TimelineLayer { ZIndex = 4 };
+        var existing = new TimelineLayer { ZIndex = { Value = 4 } };
         _scene.Layers.Add(existing);
         SetFlag(flag, zIndex: 4, value: true);
         int beforeUndo = _history.UndoCount;
@@ -213,7 +213,7 @@ public class LayerAttributeServiceTests
     public void SetFlag_ClearingLastFlag_PrunesEmptyModel(string flag)
     {
         SetFlag(flag, zIndex: 5, value: true);
-        Assert.That(_scene.Layers.Any(l => l.ZIndex == 5), Is.True);
+        Assert.That(_scene.Layers.Any(l => l.ZIndex.Value == 5), Is.True);
         int beforeUndo = _history.UndoCount;
 
         bool changed = SetFlag(flag, zIndex: 5, value: false);
@@ -221,7 +221,7 @@ public class LayerAttributeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.True);
-            Assert.That(_scene.Layers.Any(l => l.ZIndex == 5), Is.False);
+            Assert.That(_scene.Layers.Any(l => l.ZIndex.Value == 5), Is.False);
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
         });
     }
@@ -229,11 +229,11 @@ public class LayerAttributeServiceTests
     [Test]
     public void SetFlag_ClearingFlag_KeepsCustomizedModel()
     {
-        var named = new TimelineLayer { ZIndex = 5, Name = "BG" };
+        var named = new TimelineLayer { ZIndex = { Value = 5 }, Name = { Value = "BG" } };
         _scene.Layers.Add(named);
-        var colored = new TimelineLayer { ZIndex = 6, Color = Colors.Red };
+        var colored = new TimelineLayer { ZIndex = { Value = 6 }, Color = { Value = Colors.Red } };
         _scene.Layers.Add(colored);
-        var multiFlag = new TimelineLayer { ZIndex = 7, IsSolo = true };
+        var multiFlag = new TimelineLayer { ZIndex = { Value = 7 }, IsSolo = { Value = true } };
         _scene.Layers.Add(multiFlag);
         _service.SetLocked(_scene, zIndex: 5, isLocked: true);
         _service.SetLocked(_scene, zIndex: 6, isLocked: true);
@@ -248,7 +248,7 @@ public class LayerAttributeServiceTests
             Assert.That(_scene.Layers, Does.Contain(named));
             Assert.That(_scene.Layers, Does.Contain(colored));
             Assert.That(_scene.Layers, Does.Contain(multiFlag));
-            Assert.That(named.IsLocked, Is.False);
+            Assert.That(named.IsLocked.Value, Is.False);
         });
     }
 }

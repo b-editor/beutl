@@ -33,7 +33,7 @@ public class LayerHeaderDragTests
             [new ElementDescription(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0,
                 new ElementSource.EngineObject(() => new RectShape()))]);
         Element clip = editor.Scene.Children.Single();
-        editor.HistoryManager.ExecuteInTransaction(() => clip.Name = "earlier", "Earlier");
+        editor.HistoryManager.ExecuteInTransaction(() => clip.Name.Value = "earlier", "Earlier");
         int undoCount = editor.HistoryManager.UndoCount;
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 960, Height = 420 };
@@ -87,8 +87,8 @@ public class LayerHeaderDragTests
             bool moves = end is DragEnd.CaptureLoss or DragEnd.Playback;
             Assert.Multiple(() =>
             {
-                Assert.That(clip.ZIndex, Is.EqualTo(moves ? 2 : 0));
-                Assert.That(clip.Name, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
+                Assert.That(clip.ZIndex.Value, Is.EqualTo(moves ? 2 : 0));
+                Assert.That(clip.Name.Value, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + (moves ? 1 : 0)));
                 Assert.That(editor.HistoryManager.IsEditing, Is.False);
                 Assert.That(headerModel.PosY.Value, Is.Zero);

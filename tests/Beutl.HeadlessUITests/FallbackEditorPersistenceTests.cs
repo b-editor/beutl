@@ -57,7 +57,7 @@ public sealed class FallbackEditorPersistenceTests
 
         public override void Deserialize(ICoreSerializationContext context)
         {
-            Id = context.GetValue<Guid>(nameof(Id));
+            Id.Value = context.GetValue<Guid>(nameof(Id));
             Transform.Value = context.GetValue<EngineObject>(nameof(Transform)) as DisplacementMapTransform;
         }
     }
@@ -171,16 +171,16 @@ public sealed class FallbackEditorPersistenceTests
             var animation = (KeyFrameAnimation<float>)shape.Width.GetKeyFrameAnimation()!;
             var keyFrame = (KeyFrame<float>)animation.KeyFrames.Single();
             using var history = new HistoryScope(recoveredElement);
-            var adapter = new EnginePropertyAdapter<Easing>(keyFrame.EasingProperty, keyFrame);
+            var adapter = new EnginePropertyAdapter<Easing>(keyFrame.Easing, keyFrame);
             using var viewModel = new ValueEditorViewModel<Easing>(adapter);
             viewModel.Accept(Services(recoveredElement, history.History));
 
-            viewModel.SetValue(keyFrame.Easing, new SplineEasing());
+            viewModel.SetValue(keyFrame.Easing.Value, new SplineEasing());
             CoreSerializer.StoreToUri(recoveredElement, recoveredElement.Uri!);
 
             Assert.Multiple(() =>
             {
-                Assert.That(keyFrame.Easing, Is.InstanceOf<SplineEasing>());
+                Assert.That(keyFrame.Easing.Value, Is.InstanceOf<SplineEasing>());
                 Assert.That(history.History.CanUndo, Is.True);
                 Assert.That(File.ReadAllBytes(recovered.ElementPath), Is.Not.EqualTo(recovered.OriginalBytes));
             });
@@ -203,8 +203,8 @@ public sealed class FallbackEditorPersistenceTests
         {
             var shape = new RectShape();
             var animation = new KeyFrameAnimation<float>();
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 32 });
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.5), Value = 48 });
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 32 } });
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(0.5) }, Value = { Value = 48 } });
             shape.Width.SetKeyFrameAnimation(animation);
             Recovered recovered = StoreCorruptAndRestore(
                 root,
@@ -228,7 +228,7 @@ public sealed class FallbackEditorPersistenceTests
             Assert.Multiple(() =>
             {
                 Assert.That(countAfterHealthyRemoval, Is.EqualTo(2));
-                Assert.That(recoveredAnimation.KeyFrames.Single().KeyTime, Is.EqualTo(MediaTime.Zero));
+                Assert.That(recoveredAnimation.KeyFrames.Single().KeyTime.Value, Is.EqualTo(MediaTime.Zero));
                 Assert.That(recoveredElement.SuppressedStorageSource, Is.Null);
                 Assert.That(File.ReadAllBytes(recovered.ElementPath), Is.Not.EqualTo(recovered.OriginalBytes));
             });
@@ -297,7 +297,7 @@ public sealed class FallbackEditorPersistenceTests
             holder => holder.BrushValue, new SolidColorBrush(Colors.Red), new SolidColorBrush(Colors.Blue),
             adapter => new BrushEditorViewModel(adapter), new SolidColorBrush(Colors.Green), "Green");
 
-        Assert.That(((SolidColorBrush)keyFrame.Value!).Color.Value, Is.EqualTo(Colors.Green));
+        Assert.That(((SolidColorBrush)keyFrame.Value.Value!).Color.Value, Is.EqualTo(Colors.Green));
     }
 
     // A generic presenter editor that keeps the presenter replaces only its target. While the presenter's
@@ -855,7 +855,7 @@ public sealed class FallbackEditorPersistenceTests
         var holder = new EditorValueHolder();
         var property = (AnimatableProperty<T>)select(holder);
         property.Value = currentValue;
-        var keyFrame = new KeyFrame<T> { Value = keyFrameValue };
+        var keyFrame = new KeyFrame<T> { Value = { Value = keyFrameValue } };
         property.SetKeyFrameAnimation(CreateAnimation(keyFrame));
         var element = new Element { Uri = new Uri("file:///editor-test.belm") };
         element.AddObject(holder);
@@ -870,7 +870,7 @@ public sealed class FallbackEditorPersistenceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(property.Value, Is.SameAs(currentValue));
-            Assert.That(keyFrame.Value, Is.InstanceOf(template.GetType()));
+            Assert.That(keyFrame.Value.Value, Is.InstanceOf(template.GetType()));
         });
         return keyFrame;
     }
@@ -911,7 +911,7 @@ public sealed class FallbackEditorPersistenceTests
     {
         var sceneUri = new Uri(Path.Combine(root, "scene.scene"));
         string elementPath = Path.Combine(root, "element.belm");
-        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(elementPath) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(elementPath) };
         element.AddObject(obj);
         var scene = new Scene(64, 64, "Scene") { Uri = sceneUri };
         scene.Children.Add(element);
@@ -935,8 +935,8 @@ public sealed class FallbackEditorPersistenceTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 32,
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 32 },
         });
         shape.Width.SetKeyFrameAnimation(animation);
         return shape;
@@ -969,7 +969,7 @@ public sealed class FallbackEditorPersistenceTests
     {
         var obj = new T();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 1 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 1 } });
         obj.Properties.Single(property => property.Name == propertyName).SetKeyFrameAnimation(animation);
         JsonObject animationJson = CoreSerializer.SerializeToJsonObject(obj)["Animations"]![propertyName]!
             .DeepClone()

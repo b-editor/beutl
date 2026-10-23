@@ -329,7 +329,7 @@ public class Renderer3DTests
             light.Direction.Value = Vector3.Normalize(new Vector3(-1, -2, -1));
             light.Color.Value = Colors.White;
             light.Intensity.Value = 2.0f;
-            light.IsEnabled = true;
+            light.IsEnabled.Value = true;
             light.CastsShadow.Value = true;
             light.ShadowBias.Value = 0.005f;
             light.ShadowNormalBias.Value = 0.02f;
@@ -358,7 +358,7 @@ public class Renderer3DTests
             pointLight.Color.Value = new Color(255, 255, 240, 200);
             pointLight.Intensity.Value = 15f;
             pointLight.Range.Value = 15f;
-            pointLight.IsEnabled = true;
+            pointLight.IsEnabled.Value = true;
             pointLight.CastsShadow.Value = true;
             pointLight.ShadowBias.Value = 0.01f;
             pointLight.ShadowStrength.Value = 0.9f;
@@ -368,7 +368,7 @@ public class Renderer3DTests
             ambientFill.Direction.Value = Vector3.Normalize(new Vector3(0, -1, 0));
             ambientFill.Color.Value = new Color(255, 100, 120, 150);
             ambientFill.Intensity.Value = 0.3f;
-            ambientFill.IsEnabled = true;
+            ambientFill.IsEnabled.Value = true;
             ambientFill.CastsShadow.Value = false;
             lights.Add(ambientFill);
         }
@@ -393,7 +393,7 @@ public class Renderer3DTests
             spotLight.Range.Value = 15f;
             spotLight.InnerConeAngle.Value = 25f;
             spotLight.OuterConeAngle.Value = 50f;
-            spotLight.IsEnabled = true;
+            spotLight.IsEnabled.Value = true;
             spotLight.CastsShadow.Value = true;
             spotLight.ShadowBias.Value = 0.005f;
             spotLight.ShadowStrength.Value = 0.95f;
@@ -403,7 +403,7 @@ public class Renderer3DTests
             ambientFill.Direction.Value = Vector3.Normalize(new Vector3(0, -1, 0));
             ambientFill.Color.Value = new Color(255, 100, 120, 150);
             ambientFill.Intensity.Value = 0.3f;
-            ambientFill.IsEnabled = true;
+            ambientFill.IsEnabled.Value = true;
             ambientFill.CastsShadow.Value = false;
             lights.Add(ambientFill);
         }
@@ -424,7 +424,7 @@ public class Renderer3DTests
             mainLight.Direction.Value = Vector3.Normalize(new Vector3(-1, -1.5f, -0.5f));
             mainLight.Color.Value = new Color(255, 255, 250, 230);
             mainLight.Intensity.Value = 1.8f;
-            mainLight.IsEnabled = true;
+            mainLight.IsEnabled.Value = true;
             mainLight.CastsShadow.Value = true;
             mainLight.ShadowStrength.Value = 0.7f;
             lights.Add(mainLight);
@@ -437,7 +437,7 @@ public class Renderer3DTests
             secondarySpot.Range.Value = 15f;
             secondarySpot.InnerConeAngle.Value = 20f;
             secondarySpot.OuterConeAngle.Value = 40f;
-            secondarySpot.IsEnabled = true;
+            secondarySpot.IsEnabled.Value = true;
             secondarySpot.CastsShadow.Value = true;
             secondarySpot.ShadowStrength.Value = 0.6f;
             lights.Add(secondarySpot);
@@ -456,19 +456,19 @@ public class Renderer3DTests
         keyLight.Direction.Value = Vector3.Normalize(new Vector3(-1, -1, -1));
         keyLight.Color.Value = Colors.White;
         keyLight.Intensity.Value = 2.5f;
-        keyLight.IsEnabled = true;
+        keyLight.IsEnabled.Value = true;
 
         var fillLight = new DirectionalLight3D();
         fillLight.Direction.Value = Vector3.Normalize(new Vector3(0.8f, -0.3f, -0.5f));
         fillLight.Color.Value = new Color(255, 220, 200, 255);
         fillLight.Intensity.Value = 1.0f;
-        fillLight.IsEnabled = true;
+        fillLight.IsEnabled.Value = true;
 
         var rimLight = new DirectionalLight3D();
         rimLight.Direction.Value = Vector3.Normalize(new Vector3(0, 0, 1));
         rimLight.Color.Value = new Color(255, 180, 200, 255);
         rimLight.Intensity.Value = 0.6f;
-        rimLight.IsEnabled = true;
+        rimLight.IsEnabled.Value = true;
 
         return new List<Light3D.Resource>
         {

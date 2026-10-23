@@ -58,7 +58,7 @@ public partial class MissingMediaTests
             {
                 Assert.That(notification.Expiration, Is.EqualTo(Timeout.InfiniteTimeSpan));
                 Assert.That(notification.Type, Is.EqualTo(NotificationType.Warning));
-                Assert.That(notification.Message, Does.Contain(editor.Scene.Name));
+                Assert.That(notification.Message, Does.Contain(editor.Scene.Name.Value));
                 Assert.That(notification.Actions, Has.Count.EqualTo(1));
                 Assert.That(editor.FindToolTab<MissingMediaViewModel>(), Is.Null);
             });
@@ -221,8 +221,8 @@ public partial class MissingMediaTests
 
     private static Element AddImage(Scene scene, string path, string name = "Clip")
     {
-        var element = new Element { Name = name, Length = MediaTime.FromSeconds(3) };
-        if (scene.Uri != null) element.Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri.LocalPath)!, $"{element.Id}.belm"));
+        var element = new Element { Name = { Value = name }, Length = { Value = MediaTime.FromSeconds(3) } };
+        if (scene.Uri != null) element.Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri.LocalPath)!, $"{element.Id.Value}.belm"));
         element.Objects.Add(new SourceImage { Source = { Value = ImageSource.Open(path) } });
         scene.Children.Add(element);
         return element;
@@ -238,7 +238,7 @@ public partial class MissingMediaTests
         Element second = AddImage(scene, imagePath, "Second");
         var video = new SourceVideo();
         var animation = new KeyFrameAnimation<VideoSource?>();
-        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.Zero, Value = VideoSource.Open(Path.Combine(directory, "missing.mp4")) });
+        animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = VideoSource.Open(Path.Combine(directory, "missing.mp4")) } });
         video.Source.SetKeyFrameAnimation(animation);
         first.Objects.Add(video);
         first.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(Path.Combine(directory, "missing.wav")) } });
@@ -373,7 +373,7 @@ public partial class MissingMediaTests
         await TestReset.ResetShellAsync();
         await TestShell.Project.OpenProject(projectPath);
         Assert.That(FontManager.Instance.IsRegistered(family), Is.True);
-        Assert.That(new MissingMediaService().FindMissing(BeutlApplication.Current.Project!.Items.OfType<Scene>().Single()), Is.Empty);
+        Assert.That(new MissingMediaService().FindMissing(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single()), Is.Empty);
         await TestReset.ResetShellAsync();
     }
 
@@ -384,7 +384,7 @@ public partial class MissingMediaTests
         EditViewModel editor = await CreateEditorAsync();
         string directory = NewDirectory();
         string projectPath = editor.Scene.FindHierarchicalParent<Project>()!.Uri!.LocalPath;
-        Guid sceneId = editor.Scene.Id;
+        Guid sceneId = editor.Scene.Id.Value;
         using (editor.HistoryManager.SuppressRecording())
         {
             for (int i = 0; i < 300; i++)
@@ -403,7 +403,7 @@ public partial class MissingMediaTests
         Assert.That(vm.Rows.All(row => row.ReplacementPath.Value != null), Is.True, vm.Error.Value);
         Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
         Assert.That(editor.HistoryManager.UndoCount, Is.Zero, "Repairs are separate from editing history.");
-        Assert.That(GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory, Is.EqualTo(directory));
+        Assert.That(GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value, Is.EqualTo(directory));
         await editor.WaitForMediaFingerprintsAsync();
         // The repair saved the scene before the replacements were hashed, so the next save writes their fingerprints.
         Assert.That(editor.Scene.MediaFingerprints, Has.Count.EqualTo(300));
@@ -411,7 +411,7 @@ public partial class MissingMediaTests
         await editor.WaitForMediaFingerprintsAsync();
         await TestReset.ResetShellAsync();
         await TestShell.Project.OpenProject(projectPath);
-        Scene reopened = BeutlApplication.Current.Project!.Items.OfType<Scene>().Single(scene => scene.Id == sceneId);
+        Scene reopened = BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Single(scene => scene.Id.Value == sceneId);
         Assert.That(new MissingMediaService().FindMissing(reopened), Is.Empty);
         Assert.That(reopened.Children, Has.Count.EqualTo(300));
         Assert.That(reopened.MediaFingerprints, Has.Count.EqualTo(300));
@@ -452,7 +452,7 @@ public partial class MissingMediaTests
         var source = new ModelSource();
         source.ReadFrom(new Uri(path));
         var model = new Model3D { Source = { Value = source } };
-        model.Children.Single().Name = "Edited mesh";
+        model.Children.Single().Name.Value = "Edited mesh";
         var scene = new Scene { Uri = new Uri(Path.Combine(directory, "model.scene")) };
         var element = AddImage(scene, Path.Combine(directory, "offline.png"));
         element.Objects.Clear();
@@ -467,7 +467,7 @@ public partial class MissingMediaTests
         Assert.That(missing.Kind, Is.EqualTo(MissingMediaKind.Model));
         ResourceRelocationService.RelinkFileSource(restoredModel.Source.Value!, new Uri(moved));
         Assert.That(restoredModel.Children.Single(), Is.SameAs(child));
-        Assert.That(child.Name, Is.EqualTo("Edited mesh"));
+        Assert.That(child.Name.Value, Is.EqualTo("Edited mesh"));
     }
 
     [AvaloniaTest]
@@ -830,11 +830,11 @@ public partial class MissingMediaTests
             Assert.That(save.IsCompletedSuccessfully, Is.True, "Saving must not depend on a pending media read.");
             await save;
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-            using (editor.HistoryManager.SuppressRecording()) editor.Scene.Duration = MediaTime.FromSeconds(17);
+            using (editor.HistoryManager.SuppressRecording()) editor.Scene.Duration.Value = MediaTime.FromSeconds(17);
             release.SetResult();
             await editor.WaitForMediaFingerprintsAsync();
             var reopened = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);
-            Assert.That(reopened.Duration, Is.Not.EqualTo(MediaTime.FromSeconds(17)));
+            Assert.That(reopened.Duration.Value, Is.Not.EqualTo(MediaTime.FromSeconds(17)));
             // The scene file that the save wrote has no fingerprints and references no fingerprint file, so the
             // hash waits in the scene for the next save.
             Assert.That(reopened.MediaFingerprints, Is.Empty);
@@ -914,7 +914,7 @@ public partial class MissingMediaTests
             // The auto-save wrote the scene file before the hash, so it references no fingerprint file, and the hash
             // waits in the scene. The next auto-save of the scene writes the reference, and the update after it the file.
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).MediaFingerprints, Is.Empty);
-            editor.Scene.Duration += MediaTime.FromSeconds(1);
+            editor.Scene.Duration.Value += MediaTime.FromSeconds(1);
             editor.HistoryManager.Commit("Edit the scene");
             HeadlessTestHelpers.Settle();
             await editor.WaitForMediaFingerprintsAsync();
@@ -986,7 +986,7 @@ public partial class MissingMediaTests
         string different = WriteModel("search/different", 3);
         var source = new ModelSource(); source.ReadFrom(new Uri(original));
         var model = new Model3D { Source = { Value = source } };
-        var child = (MeshObject3D)model.Children.Single(); child.Name = "Edited child";
+        var child = (MeshObject3D)model.Children.Single(); child.Name.Value = "Edited child";
         var verticesBefore = ((ModelMesh)child.Mesh.Value!).Vertices.Value;
         using (editor.HistoryManager.SuppressRecording())
         {
@@ -1007,7 +1007,7 @@ public partial class MissingMediaTests
             Assert.That(vm.Rows.Single().ReplacementPath.Value, Is.EqualTo(chooseDifferentBundle ? different : identical));
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(model.Children.Single(), Is.SameAs(child));
-            Assert.That(child.Name, Is.EqualTo("Edited child"));
+            Assert.That(child.Name.Value, Is.EqualTo("Edited child"));
             var current = ((ModelMesh)child.Mesh.Value!).Vertices.Value;
             if (chooseDifferentBundle) Assert.That(current, Is.Not.EqualTo(verticesBefore));
             else Assert.That(current, Is.EqualTo(verticesBefore));
@@ -1053,12 +1053,12 @@ public partial class MissingMediaTests
         var source = new ModelSource(); source.ReadFrom(new Uri(original));
         var model = new Model3D { Source = { Value = source } };
         var child = (MeshObject3D)model.Children.Single();
-        child.Name = "User mesh"; var material = child.Material.Value;
+        child.Name.Value = "User mesh"; var material = child.Material.Value;
         var mesh = (ModelMesh)child.Mesh.Value!;
         var oldVertices = mesh.Vertices.Value;
         var extra = new MeshObject3D
         {
-            Name = "Added mesh",
+            Name = { Value = "Added mesh" },
             Mesh = { Value = new ModelMesh
         { Vertices = { Value = oldVertices }, Indices = { Value = mesh.Indices.Value } } }
         };
@@ -1078,7 +1078,7 @@ public partial class MissingMediaTests
             await vm.WaitForCandidatesAsync();
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
             Assert.That(model.Children, Is.EqualTo(new[] { child, extra }));
-            Assert.That(child.Name, Is.EqualTo("User mesh"));
+            Assert.That(child.Name.Value, Is.EqualTo("User mesh"));
             Assert.That(child.Material.Value, Is.SameAs(material));
             Assert.That(((ModelMesh)child.Mesh.Value!).Vertices.Value, Is.Not.EqualTo(oldVertices));
             Assert.That(CoreSerializer.SerializeToJsonObject(extra).ToJsonString(), Is.EqualTo(extraJson));
@@ -1131,7 +1131,7 @@ public partial class MissingMediaTests
         File.WriteAllText(path, "mtllib surface.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nusemtl surface\nf 1 2 3\n");
         var source = new ModelSource(); source.ReadFrom(new Uri(path));
         var model = new Model3D { Source = { Value = source } };
-        model.Children[0].Name = "Saved edit";
+        model.Children[0].Name.Value = "Saved edit";
         using (editor.HistoryManager.SuppressRecording())
         {
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
@@ -1156,7 +1156,7 @@ public partial class MissingMediaTests
             using (editor.HistoryManager.SuppressRecording())
             {
                 var result = await new ResourceRelocationService().RelocateFileSourcesAsync(
-                    [(model.Id, nameof(Model3D.Source), source.Uri)], project, NewDirectory());
+                    [(model.Id.Value, nameof(Model3D.Source), source.Uri)], project, NewDirectory());
                 Assert.That(result.FailedResources, Is.Empty);
             }
             Assert.That(File.Exists(Path.Combine(Path.GetDirectoryName(source.Uri.LocalPath)!, "surface.mtl")), Is.True);
@@ -1180,11 +1180,11 @@ public partial class MissingMediaTests
         var mesh = (ModelMesh)((MeshObject3D)first).Mesh.Value!;
         model.Children.Add(new MeshObject3D
         {
-            Name = "Added mesh",
+            Name = { Value = "Added mesh" },
             Mesh = { Value = new ModelMesh
             { Vertices = { Value = mesh.Vertices.Value }, Indices = { Value = mesh.Indices.Value } } }
         });
-        first.Name = "Edited first"; first.Position.Value = new System.Numerics.Vector3(7, 8, 9);
+        first.Name.Value = "Edited first"; first.Position.Value = new System.Numerics.Vector3(7, 8, 9);
         using (editor.HistoryManager.SuppressRecording())
         {
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png")); element.Objects.Clear();
@@ -1327,7 +1327,7 @@ public partial class MissingMediaTests
             Assert.That(vm.Rows.Where(row => row.Name is "ignored.png" or "invalid.png" or "ambiguous.png").Select(row => row.CandidatePath.Value), Is.All.Null);
             Assert.That(editor.Scene.Children.Select(element => ((SourceImage)element.Objects.Single()).Source.Value!.Uri.LocalPath),
                 Is.All.Contains(Path.Combine(directory, "old")));
-            Assert.That(GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory, Is.EqualTo(directory));
+            Assert.That(GlobalConfiguration.Instance.EditorConfig.LastMediaDirectory.Value, Is.EqualTo(directory));
             Assert.That(vm.CanUseCandidates.Value, Is.True);
             vm.UseCandidate(sibling);
             Assert.That(sibling.CandidatePath.Value, Is.Null);

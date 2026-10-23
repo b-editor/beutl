@@ -135,7 +135,7 @@ public class SourceVideoThumbnailProxyTests
         media.ReadFrom(new Uri(originalPath));
         var drawable = new SourceVideo
         {
-            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)) },
         };
         drawable.Source.Value = media;
 

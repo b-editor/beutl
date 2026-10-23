@@ -117,11 +117,11 @@ public class V1ProjectFixtureTests
         var text = new StringBuilder();
         void Line(string line = "") => text.Append(line).Append('\n');
 
-        Line($"Project rates: {project.FrameRate} fps, {project.SampleRate} Hz");
-        Line($"Project variables: {string.Join(", ", project.Variables.OrderBy(v => v.Key).Select(v => $"{v.Key}={v.Value}"))}".TrimEnd());
+        Line($"Project rates: {project.FrameRate.Value} fps, {project.SampleRate.Value} Hz");
+        Line($"Project variables: {string.Join(", ", project.Variables.Value.OrderBy(v => v.Key).Select(v => $"{v.Key}={v.Value}"))}".TrimEnd());
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
-            Line($"Scene \"{scene.Name}\": {scene.FrameSize.Width}x{scene.FrameSize.Height}, duration {scene.Duration.ToTimeSpan()}, {scene.Children.Count} elements");
+            Line($"Scene \"{scene.Name.Value}\": {scene.FrameSize.Value.Width}x{scene.FrameSize.Value.Height}, duration {scene.Duration.Value.ToTimeSpan()}, {scene.Children.Count} elements");
         }
 
         Line();
@@ -131,10 +131,10 @@ public class V1ProjectFixtureTests
         DescribeNotice(Line, "project's kept data", KeptUnknownDataNotice.Create(project));
         foreach (Scene scene in project.Items.OfType<Scene>())
         {
-            DescribeNotice(Line, $"scene \"{scene.Name}\"", RecoveryProtectionNotice.Create(scene));
+            DescribeNotice(Line, $"scene \"{scene.Name.Value}\"", RecoveryProtectionNotice.Create(scene));
         }
 
-        foreach (Element element in project.Items.OfType<Scene>().SelectMany(s => s.Children).OrderBy(e => e.ZIndex))
+        foreach (Element element in project.Items.OfType<Scene>().SelectMany(s => s.Children).OrderBy(e => e.ZIndex.Value))
         {
             Line();
             DescribeElement(Line, element);
@@ -161,8 +161,8 @@ public class V1ProjectFixtureTests
     private static void DescribeElement(Action<string> line, Element element)
     {
         string file = Path.GetFileName(element.Uri!.LocalPath);
-        line($"Layer {element.ZIndex}: \"{element.Name}\" ({file})");
-        line($"  start {element.Start.ToTimeSpan()}, length {element.Length.ToTimeSpan()}, enabled {element.IsEnabled}, accent color {element.AccentColor}");
+        line($"Layer {element.ZIndex.Value}: \"{element.Name.Value}\" ({file})");
+        line($"  start {element.Start.Value.ToTimeSpan()}, length {element.Length.Value.ToTimeSpan()}, enabled {element.IsEnabled.Value}, accent color {element.AccentColor.Value}");
 
         // What 1.1.0 wrote for the element, read from its file.
         JsonObject written = JsonNode.Parse(File.ReadAllText(element.Uri.LocalPath))!.AsObject();
@@ -211,7 +211,7 @@ public class V1ProjectFixtureTests
         }
 
         line($"  [{index}] {ShortTypeName(TypeFormat.ToString(obj.GetType()))}");
-        if ((bool?)writtenOperator?["IsEnabled"] == false && obj.IsEnabled)
+        if ((bool?)writtenOperator?["IsEnabled"] == false && obj.IsEnabled.Value)
         {
             // Pinned as it is: ElementMigration reads an operator's Value, not the operator's own
             // IsEnabled. 1.1.0 skipped a turned-off DecorateOperator or GroupOperator; 2.x applies it.

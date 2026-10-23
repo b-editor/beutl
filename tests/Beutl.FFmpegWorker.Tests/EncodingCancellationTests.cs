@@ -183,7 +183,7 @@ public class EncodingCancellationTests
         const int sampleCount = 4800;
         var controller = FFmpegTestHelpers.CreateController(
             outputPath, new PixelSize(64, 64), new Rational(30, 1), sampleRate, channels: 2);
-        controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.Default;
+        controller.AudioSettings.Format.Value = FFmpegAudioEncoderSettings.AudioFormat.Default;
         using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
         using var samples = new SineSampleProvider(sampleCount, sampleRate);
 

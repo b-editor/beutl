@@ -45,9 +45,9 @@ public class SceneCompositorTests
     {
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
-            IsEnabled = isEnabled,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            IsEnabled = { Value = isEnabled },
             Uri = new Uri(Path.Combine(basePath, $"{Guid.NewGuid():N}.layer"))
         };
         element.AddObject(obj);
@@ -58,10 +58,10 @@ public class SceneCompositorTests
     {
         return new TimelineLayer
         {
-            ZIndex = zIndex,
-            IsSolo = solo,
-            IsAudioMuted = audioMuted,
-            IsVideoMuted = videoMuted,
+            ZIndex = { Value = zIndex },
+            IsSolo = { Value = solo },
+            IsAudioMuted = { Value = audioMuted },
+            IsVideoMuted = { Value = videoMuted },
         };
     }
 
@@ -70,8 +70,8 @@ public class SceneCompositorTests
     public void DetachedGraphicsResource_KeepsItsPathAliveUntilTheNextEvaluation(bool reattach)
     {
         Scene scene = CreateScene(_basePath);
-        var application = new BeutlApplication { Project = new Project() };
-        application.Project!.Items.Add(scene);
+        var application = new BeutlApplication { Project = { Value = new Project() } };
+        application.Project.Value!.Items.Add(scene);
         var shape = new RectShape();
         Element element = CreateElement(_basePath, isEnabled: true, shape);
         scene.Children.Add(element);
@@ -118,8 +118,8 @@ public class SceneCompositorTests
     public void DetachedAudioResource_IsReleasedByTheNextEvaluationOrDisposal(bool disposeCompositor)
     {
         Scene scene = CreateScene(_basePath);
-        var application = new BeutlApplication { Project = new Project() };
-        application.Project!.Items.Add(scene);
+        var application = new BeutlApplication { Project = { Value = new Project() } };
+        application.Project.Value!.Items.Add(scene);
         Element element = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene);
@@ -143,8 +143,8 @@ public class SceneCompositorTests
         for (int iteration = 0; iteration < 128; iteration++)
         {
             Scene scene = CreateScene(_basePath);
-            var application = new BeutlApplication { Project = new Project() };
-            application.Project!.Items.Add(scene);
+            var application = new BeutlApplication { Project = { Value = new Project() } };
+            application.Project.Value!.Items.Add(scene);
             Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
             for (int index = 0; index < 127; index++)
                 element.Objects.Add(new TestGraphicsObject());
@@ -172,8 +172,8 @@ public class SceneCompositorTests
     public void DisposalCallbacks_CanDetachObjectsOnAnotherThread()
     {
         Scene scene = CreateScene(_basePath);
-        var application = new BeutlApplication { Project = new Project() };
-        application.Project!.Items.Add(scene);
+        var application = new BeutlApplication { Project = { Value = new Project() } };
+        application.Project.Value!.Items.Add(scene);
         Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
         element.Objects.Add(new DisposalCallbackObject(() =>
             Task.Run(() => element.Objects.Clear()).WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult()));
@@ -248,14 +248,14 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         var group = new SoundGroup();
         Element groupElement = CreateElement(_basePath, isEnabled: true, group);
-        groupElement.ZIndex = 0;
-        groupElement.Length = MediaTime.FromSeconds(1);
+        groupElement.ZIndex.Value = 0;
+        groupElement.Length.Value = MediaTime.FromSeconds(1);
         ((PortalObject)groupElement.Objects[0]).Count.Value = 1;
 
         var child = new LimiterTailSound();
         Element childElement = CreateElement(_basePath, isEnabled: true, child);
-        childElement.ZIndex = 1;
-        childElement.Length = MediaTime.FromSeconds(1);
+        childElement.ZIndex.Value = 1;
+        childElement.Length.Value = MediaTime.FromSeconds(1);
 
         scene.Children.Add(groupElement);
         scene.Children.Add(childElement);
@@ -278,9 +278,9 @@ public class SceneCompositorTests
         var group = new SoundGroup();
         var groupElement = new ValueEqualElement
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
-            ZIndex = 0,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            ZIndex = { Value = 0 },
             Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.group.layer")),
         };
         groupElement.AddObject(group);
@@ -289,9 +289,9 @@ public class SceneCompositorTests
         var child = new LimiterTailSound();
         var childElement = new ValueEqualElement
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
-            ZIndex = 1,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            ZIndex = { Value = 1 },
             Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.child.layer")),
         };
         childElement.AddObject(child);
@@ -343,15 +343,15 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         var group = new SoundGroup();
         Element groupElement = CreateElement(_basePath, isEnabled: true, group);
-        groupElement.Start = MediaTime.FromSeconds(2);
-        groupElement.ZIndex = 0;
-        groupElement.Length = MediaTime.FromSeconds(1);
+        groupElement.Start.Value = MediaTime.FromSeconds(2);
+        groupElement.ZIndex.Value = 0;
+        groupElement.Length.Value = MediaTime.FromSeconds(1);
         ((PortalObject)groupElement.Objects[0]).Count.Value = 1;
 
         var child = new LimiterTailSound();
         Element childElement = CreateElement(_basePath, isEnabled: true, child);
-        childElement.ZIndex = 1;
-        childElement.Length = MediaTime.FromSeconds(1);
+        childElement.ZIndex.Value = 1;
+        childElement.Length.Value = MediaTime.FromSeconds(1);
 
         scene.Children.Add(groupElement);
         scene.Children.Add(childElement);
@@ -377,15 +377,15 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         var group = new SoundGroup();
         Element groupElement = CreateElement(_basePath, isEnabled: true, group);
-        groupElement.Start = duration;
-        groupElement.Length = MediaTime.FromSeconds(1);
-        groupElement.ZIndex = 0;
+        groupElement.Start.Value = duration;
+        groupElement.Length.Value = MediaTime.FromSeconds(1);
+        groupElement.ZIndex.Value = 0;
         ((PortalObject)groupElement.Objects[0]).Count.Value = 1;
 
         var child = new LimiterTailSound { LookaheadMs = 5f };
         Element childElement = CreateElement(_basePath, isEnabled: true, child);
-        childElement.Length = duration;
-        childElement.ZIndex = 1;
+        childElement.Length.Value = duration;
+        childElement.ZIndex.Value = 1;
 
         scene.Children.Add(groupElement);
         scene.Children.Add(childElement);
@@ -417,8 +417,8 @@ public class SceneCompositorTests
         Scene scene = CreateScene(_basePath);
         var inactive = new CountingAudioObject();
         Element element = CreateElement(_basePath, isEnabled: true, inactive);
-        element.Start = MediaTime.FromSeconds(2);
-        element.Length = MediaTime.FromSeconds(1);
+        element.Start.Value = MediaTime.FromSeconds(2);
+        element.Length.Value = MediaTime.FromSeconds(1);
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene);
 
@@ -455,10 +455,10 @@ public class SceneCompositorTests
 
         Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
 
-        element.IsEnabled = false;
+        element.IsEnabled.Value = false;
         Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(0));
 
-        element.IsEnabled = true;
+        element.IsEnabled.Value = true;
         Assert.That(compositor.EvaluateGraphics(time).Objects.Length, Is.EqualTo(1));
     }
 
@@ -475,7 +475,7 @@ public class SceneCompositorTests
 
         Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(1));
 
-        element.IsEnabled = false;
+        element.IsEnabled.Value = false;
         Assert.That(compositor.EvaluateAudio(range).Objects.Length, Is.EqualTo(0));
     }
 
@@ -484,9 +484,9 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element layer0 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        layer0.ZIndex = 0;
+        layer0.ZIndex.Value = 0;
         Element layer1 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        layer1.ZIndex = 1;
+        layer1.ZIndex.Value = 1;
         scene.Children.Add(layer0);
         scene.Children.Add(layer1);
         scene.Layers.Add(CreateLayer(0));
@@ -504,11 +504,11 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element z0 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
-        z0.ZIndex = 0;
+        z0.ZIndex.Value = 0;
         Element z1 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
-        z1.ZIndex = 1;
+        z1.ZIndex.Value = 1;
         Element z2 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
-        z2.ZIndex = 2;
+        z2.ZIndex.Value = 2;
         scene.Children.Add(z0);
         scene.Children.Add(z1);
         scene.Children.Add(z2);
@@ -530,9 +530,9 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element soloed = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        soloed.ZIndex = 0;
+        soloed.ZIndex.Value = 0;
         Element modelless = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        modelless.ZIndex = 5;
+        modelless.ZIndex.Value = 5;
         scene.Children.Add(soloed);
         scene.Children.Add(modelless);
         scene.Layers.Add(CreateLayer(0, solo: true));
@@ -549,9 +549,9 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element z0 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        z0.ZIndex = 0;
+        z0.ZIndex.Value = 0;
         Element z1 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        z1.ZIndex = 1;
+        z1.ZIndex.Value = 1;
         scene.Children.Add(z0);
         scene.Children.Add(z1);
         scene.Layers.Add(CreateLayer(0, videoMuted: true));
@@ -569,7 +569,7 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element z0 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
-        z0.ZIndex = 0;
+        z0.ZIndex.Value = 0;
         scene.Children.Add(z0);
         scene.Layers.Add(CreateLayer(0, videoMuted: true));
         using var compositor = new SceneCompositor(scene);
@@ -586,9 +586,9 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element z0 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
-        z0.ZIndex = 0;
+        z0.ZIndex.Value = 0;
         Element z1 = CreateElement(_basePath, isEnabled: true, new TestAudioObject());
-        z1.ZIndex = 1;
+        z1.ZIndex.Value = 1;
         scene.Children.Add(z0);
         scene.Children.Add(z1);
         scene.Layers.Add(CreateLayer(0, audioMuted: true));
@@ -622,7 +622,7 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element z0 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        z0.ZIndex = 0;
+        z0.ZIndex.Value = 0;
         scene.Children.Add(z0);
         scene.Layers.Add(CreateLayer(0, audioMuted: true));
         using var compositor = new SceneCompositor(scene);
@@ -640,7 +640,7 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene);
 
@@ -655,9 +655,9 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element z0 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        z0.ZIndex = 0;
+        z0.ZIndex.Value = 0;
         Element z1 = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        z1.ZIndex = 1;
+        z1.ZIndex.Value = 1;
         scene.Children.Add(z0);
         scene.Children.Add(z1);
         TimelineLayer layer1 = CreateLayer(1);
@@ -667,7 +667,7 @@ public class SceneCompositorTests
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects.Length, Is.EqualTo(2));
 
-        layer1.IsSolo = true;
+        layer1.IsSolo.Value = true;
         CompositionFrame frame = compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5));
 
         Assert.That(frame.Objects.Length, Is.EqualTo(1));
@@ -686,7 +686,7 @@ public class SceneCompositorTests
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects.Length, Is.EqualTo(1));
 
-        layer.IsVideoMuted = true;
+        layer.IsVideoMuted.Value = true;
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects, Is.Empty);
     }
@@ -711,7 +711,7 @@ public class SceneCompositorTests
     {
         Scene scene = CreateScene(_basePath);
         Element element = CreateElement(_basePath, isEnabled: true, new TestGraphicsObject());
-        element.ZIndex = 1;
+        element.ZIndex.Value = 1;
         scene.Children.Add(element);
         TimelineLayer layer = CreateLayer(0, videoMuted: true);
         scene.Layers.Add(layer);
@@ -719,7 +719,7 @@ public class SceneCompositorTests
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects.Length, Is.EqualTo(1));
 
-        layer.ZIndex = 1;
+        layer.ZIndex.Value = 1;
 
         Assert.That(compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)).Objects, Is.Empty);
     }
@@ -746,10 +746,10 @@ public class SceneCompositorTests
     public void EvaluateGraphics_CompositorForceOriginalFalse_SeedsPreferProxyFromGlobalConfig(
         PreviewSourceMode mode, bool expectedPreferProxy)
     {
-        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
+        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = mode;
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = mode;
             Scene scene = CreateScene(_basePath);
             var capture = new SceneCompositorContextCaptureDrawable();
             scene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
@@ -765,7 +765,7 @@ public class SceneCompositorTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = original;
         }
     }
 
@@ -776,10 +776,10 @@ public class SceneCompositorTests
     [Test]
     public void EvaluateGraphics_ExportForceOriginal_OverridesPreferProxyConfigInReferencedScene()
     {
-        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
+        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
             Scene childScene = CreateScene(_basePath);
             var capture = new SceneCompositorContextCaptureDrawable();
             childScene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
@@ -799,17 +799,17 @@ public class SceneCompositorTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = original;
         }
     }
 
     [Test]
     public void EvaluateAudio_ExportForceOriginal_PropagatesIntoReferencedSceneSound()
     {
-        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
+        PreviewSourceMode original = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
         try
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
             Scene childScene = CreateScene(_basePath);
             Scene parentScene = CreateScene(_basePath);
             var sceneSound = new SceneSound();
@@ -829,7 +829,7 @@ public class SceneCompositorTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = original;
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = original;
         }
     }
 
@@ -839,7 +839,7 @@ public class SceneCompositorTests
         Scene childScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
         sceneSound.ReferencedScene.Value = childScene;
-        sceneSound.TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
+        sceneSound.TimeRange.Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         using var resource = (SceneSound.Resource)sceneSound.ToResource(CompositionContext.Default);
         using var context = new AudioContext(48000, 2);
 
@@ -865,14 +865,14 @@ public class SceneCompositorTests
         Scene childScene = CreateScene(_basePath);
         var childSound = new LimiterTailSound { LookaheadMs = 5f };
         Element childElement = CreateElement(_basePath, isEnabled: true, childSound);
-        childElement.Length = duration;
+        childElement.Length.Value = duration;
         childScene.Children.Add(childElement);
 
         Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
         sceneSound.ReferencedScene.Value = childScene;
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
-        parentElement.Length = duration;
+        parentElement.Length.Value = duration;
         parentScene.Children.Add(parentElement);
 
         using var compositor = new SceneCompositor(parentScene);
@@ -904,7 +904,7 @@ public class SceneCompositorTests
         Scene childScene = CreateScene(_basePath);
         var childSound = new LimiterTailSound { LookaheadMs = 5f };
         Element childElement = CreateElement(_basePath, isEnabled: true, childSound);
-        childElement.Length = duration;
+        childElement.Length.Value = duration;
         childScene.Children.Add(childElement);
         TimelineLayer childLayer = CreateLayer(0);
         childScene.Layers.Add(childLayer);
@@ -913,7 +913,7 @@ public class SceneCompositorTests
         var sceneSound = new SceneSound();
         sceneSound.ReferencedScene.Value = childScene;
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
-        parentElement.Length = duration;
+        parentElement.Length.Value = duration;
         parentScene.Children.Add(parentElement);
 
         using var compositor = new SceneCompositor(parentScene);
@@ -922,7 +922,7 @@ public class SceneCompositorTests
         var firstRange = new TimeRange(MediaTime.Zero, duration);
         using AudioBuffer? first = composer.Compose(firstRange, compositor.EvaluateAudio(firstRange));
 
-        childLayer.IsAudioMuted = true;
+        childLayer.IsAudioMuted.Value = true;
         var tailRange = new TimeRange(
             duration,
             MediaTime.FromSeconds((double)lookaheadSamples / sampleRate));
@@ -951,14 +951,14 @@ public class SceneCompositorTests
             LookaheadRampEnd = MediaTime.FromSeconds(0.5),
         };
         Element childElement = CreateElement(_basePath, isEnabled: true, childSound);
-        childElement.Length = childDuration;
+        childElement.Length.Value = childDuration;
         childScene.Children.Add(childElement);
 
         Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
         sceneSound.ReferencedScene.Value = childScene;
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
-        parentElement.Length = parentDuration;
+        parentElement.Length.Value = parentDuration;
         parentScene.Children.Add(parentElement);
 
         using var compositor = new SceneCompositor(parentScene);

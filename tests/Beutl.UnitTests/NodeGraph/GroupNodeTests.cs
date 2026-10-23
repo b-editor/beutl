@@ -15,7 +15,7 @@ public class GroupNodeTests
     {
         GroupNode group = CreateAttachedGroup();
         GraphNode ioNode = outputSide ? new GroupOutput() : new GroupInput();
-        group.Group.Nodes.Add(ioNode);
+        group.Group.Value.Nodes.Add(ioNode);
         string prefix = outputSide ? "Out" : "In";
         INodeMember[] ports = [.. Enumerable.Range(0, 3).Select(i => CreatePort(outputSide, $"{prefix}{i}"))];
         foreach (INodeMember port in ports)
@@ -23,16 +23,16 @@ public class GroupNodeTests
         INodeMember mirror = group.Items[2];
 
         ioNode.Items.RemoveAt(2);
-        ports[2].Name = "Renamed";
+        ports[2].Name.Value = "Renamed";
 
-        Assert.That(mirror.Name, Is.EqualTo($"{prefix}2"));
+        Assert.That(mirror.Name.Value, Is.EqualTo($"{prefix}2"));
     }
 
     [Test]
     public void ClearingPortsWithResetRemovesMirrorsAndSubscriptions([Values] bool outputSide)
     {
         GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
-        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items);
+        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items).Value;
         ports.ResetBehavior = ResetBehavior.Reset;
         INodeMember[] oldPorts = [.. ports];
         INodeMember[] oldMirrors = [.. group.Items.Skip(outputSide ? 0 : output.Items.Count).Take(ports.Count)];
@@ -56,7 +56,7 @@ public class GroupNodeTests
     {
         GroupNode group = CreateGroupWithPorts(outputSide ? oldCount : 2, outputSide ? 2 : oldCount,
             out GroupOutput output, out GroupInput input);
-        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items);
+        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items).Value;
         ports.ResetBehavior = ResetBehavior.Reset;
         INodeMember[] oldPorts = [.. ports];
         INodeMember[] oldMirrors = [.. group.Items.Skip(outputSide ? 0 : output.Items.Count).Take(ports.Count)];
@@ -71,8 +71,8 @@ public class GroupNodeTests
 
         foreach (INodeMember port in newPorts)
         {
-            port.Name += "Renamed";
-            ((NodeMember)port).Display = new DisplayAttribute { Name = port.Name };
+            port.Name.Value += "Renamed";
+            ((NodeMember)port).Display.Value = new DisplayAttribute { Name = port.Name.Value };
         }
         AssertMirrors(group, output, input);
 
@@ -86,8 +86,8 @@ public class GroupNodeTests
     public void EditingInputPortsAfterAnOutputResetKeepsBothSidesInOrder()
     {
         GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
-        ((CoreList<INodeMember>)output.Items).ResetBehavior = ResetBehavior.Reset;
-        ((CoreList<INodeMember>)input.Items).ResetBehavior = ResetBehavior.Reset;
+        ((CoreList<INodeMember>)output.Items.Value).ResetBehavior = ResetBehavior.Reset;
+        ((CoreList<INodeMember>)input.Items.Value).ResetBehavior = ResetBehavior.Reset;
         INodeMember survivingInputMirror = group.Items[3];
 
         output.Items.Clear();
@@ -97,10 +97,10 @@ public class GroupNodeTests
         AssertMirrors(group, output, input);
 
         output.Items.Add(CreatePort(true, "NewOutput"));
-        ((CoreList<INodeMember>)input.Items).Replace([CreatePort(false, "NewInput")]);
+        ((CoreList<INodeMember>)input.Items.Value).Replace([CreatePort(false, "NewInput")]);
         AssertMirrors(group, output, input);
 
-        ((CoreList<INodeMember>)output.Items).Replace([CreatePort(true, "Out0"), CreatePort(true, "Out1")]);
+        ((CoreList<INodeMember>)output.Items.Value).Replace([CreatePort(true, "Out0"), CreatePort(true, "Out1")]);
         input.Items.Add(CreatePort(false, "AddedInput"));
         input.Items.RemoveAt(0);
         AssertMirrors(group, output, input);
@@ -158,7 +158,7 @@ public class GroupNodeTests
     public void ClearingPortsAfterUndoingAnAdditionKeepsTheOtherSide([Values] bool outputSide)
     {
         GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
-        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items);
+        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items).Value;
         ports.ResetBehavior = ResetBehavior.Reset;
         INodeMember added = CreatePort(outputSide, "Added");
         using var harness = new HistoryHarness(group);
@@ -180,7 +180,7 @@ public class GroupNodeTests
         [Values] bool outputSide, [Values("Add", "Move", "Replace", "Reset")] string edit)
     {
         GroupNode group = CreateGroupWithPorts(2, 2, out GroupOutput output, out GroupInput input);
-        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items);
+        var ports = (CoreList<INodeMember>)(outputSide ? output.Items : input.Items).Value;
         ports.ResetBehavior = ResetBehavior.Reset;
         INodeMember[] originalMirrors = [.. group.Items];
         using var harness = new HistoryHarness(group);
@@ -245,7 +245,7 @@ public class GroupNodeTests
         using var harness = new HistoryHarness(group);
         var service = new NodeGraphMutationService(harness.History);
 
-        service.RemoveNode(group.Group, owner);
+        service.RemoveNode(group.Group.Value, owner);
         Assert.That(group.Items, Is.EqualTo(oppositeMirrors));
         harness.History.Undo();
         Assert.That(group.Items, Is.EqualTo(originalMirrors));
@@ -262,8 +262,8 @@ public class GroupNodeTests
     {
         foreach (INodeMember port in output.Items.Concat(input.Items))
         {
-            port.Name += "Renamed";
-            ((NodeMember)port).Display = new DisplayAttribute { Name = port.Name };
+            port.Name.Value += "Renamed";
+            ((NodeMember)port).Display.Value = new DisplayAttribute { Name = port.Name.Value };
         }
 
         AssertMirrors(group, output, input);
@@ -275,8 +275,8 @@ public class GroupNodeTests
         GroupNode group = CreateAttachedGroup();
         output = new GroupOutput();
         input = new GroupInput();
-        group.Group.Nodes.Add(output);
-        group.Group.Nodes.Add(input);
+        group.Group.Value.Nodes.Add(output);
+        group.Group.Value.Nodes.Add(input);
         for (int i = 0; i < outputCount; i++) output.Items.Add(CreatePort(true, $"Out{i}"));
         for (int i = 0; i < inputCount; i++) input.Items.Add(CreatePort(false, $"In{i}"));
         return group;
@@ -287,8 +287,8 @@ public class GroupNodeTests
         INodeMember port = outputSide
             ? new GroupOutput.GroupOutputPort<float>()
             : new GroupInput.GroupInputPort<float>();
-        port.Name = name;
-        ((NodeMember)port).Display = new DisplayAttribute { Name = name };
+        port.Name.Value = name;
+        ((NodeMember)port).Display.Value = new DisplayAttribute { Name = name };
         return port;
     }
 
@@ -300,9 +300,9 @@ public class GroupNodeTests
         {
             INodeMember mirror = group.Items[i];
             Assert.That(mirror, i < output.Items.Count ? Is.InstanceOf<IOutputPort>() : Is.InstanceOf<IInputPort>());
-            Assert.That(mirror.Name, Is.EqualTo(sources[i].Name));
+            Assert.That(mirror.Name.Value, Is.EqualTo(sources[i].Name.Value));
             Assert.That(mirror.AssociatedType, Is.EqualTo(sources[i].AssociatedType));
-            Assert.That(((NodeMember)mirror).Display, Is.SameAs(((NodeMember)sources[i]).Display));
+            Assert.That(((NodeMember)mirror).Display.Value, Is.SameAs(((NodeMember)sources[i]).Display.Value));
         }
     }
 
@@ -311,12 +311,12 @@ public class GroupNodeTests
         Assert.That(mirrors.Length, Is.EqualTo(ports.Length));
         for (int i = 0; i < ports.Length; i++)
         {
-            string name = mirrors[i].Name;
-            DisplayAttribute? display = ((NodeMember)mirrors[i]).Display;
-            ports[i].Name = $"Detached{i}";
-            ((NodeMember)ports[i]).Display = new DisplayAttribute { Name = $"Detached{i}" };
-            Assert.That(mirrors[i].Name, Is.EqualTo(name));
-            Assert.That(((NodeMember)mirrors[i]).Display, Is.SameAs(display));
+            string name = mirrors[i].Name.Value;
+            DisplayAttribute? display = ((NodeMember)mirrors[i]).Display.Value;
+            ports[i].Name.Value = $"Detached{i}";
+            ((NodeMember)ports[i]).Display.Value = new DisplayAttribute { Name = $"Detached{i}" };
+            Assert.That(mirrors[i].Name.Value, Is.EqualTo(name));
+            Assert.That(((NodeMember)mirrors[i]).Display.Value, Is.SameAs(display));
         }
     }
 

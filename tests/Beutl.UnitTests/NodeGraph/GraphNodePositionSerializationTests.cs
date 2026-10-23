@@ -20,13 +20,13 @@ public class GraphNodePositionSerializationTests
             JsonObject json = CreateGraphJson((120.5, 80.25));
 
             Assert.That(json["Nodes"]![0]!["Position"]!.GetValue<string>(), Is.EqualTo("120.5,80.25"));
-            Assert.That(RestoreGraph(json, unavailable: false).Nodes[0].Position, Is.EqualTo((120.5, 80.25)));
-            Assert.That(RestoreGraph(json, unavailable: true).Nodes[0].Position, Is.EqualTo((120.5, 80.25)));
+            Assert.That(RestoreGraph(json, unavailable: false).Nodes[0].Position.Value, Is.EqualTo((120.5, 80.25)));
+            Assert.That(RestoreGraph(json, unavailable: true).Nodes[0].Position.Value, Is.EqualTo((120.5, 80.25)));
 
             const double preciseX = 1.2345678901234567;
             JsonObject preciseJson = CreateGraphJson((preciseX, 80.25));
-            Assert.That(RestoreGraph(preciseJson, unavailable: false).Nodes[0].Position.X, Is.EqualTo(preciseX));
-            Assert.That(RestoreGraph(preciseJson, unavailable: true).Nodes[0].Position.X, Is.EqualTo(preciseX));
+            Assert.That(RestoreGraph(preciseJson, unavailable: false).Nodes[0].Position.Value.X, Is.EqualTo(preciseX));
+            Assert.That(RestoreGraph(preciseJson, unavailable: true).Nodes[0].Position.Value.X, Is.EqualTo(preciseX));
         }
         finally
         {
@@ -41,8 +41,8 @@ public class GraphNodePositionSerializationTests
         JsonObject json = CreateGraphJson(default);
         json["Nodes"]![0]!["Position"] = saved;
 
-        Assert.That(RestoreGraph(json, unavailable: false).Nodes[0].Position, Is.EqualTo((x, y)));
-        Assert.That(RestoreGraph(json, unavailable: true).Nodes[0].Position, Is.EqualTo((x, y)));
+        Assert.That(RestoreGraph(json, unavailable: false).Nodes[0].Position.Value, Is.EqualTo((x, y)));
+        Assert.That(RestoreGraph(json, unavailable: true).Nodes[0].Position.Value, Is.EqualTo((x, y)));
     }
 
     // A missing plugin's node writes the position it has, as any node does, and the rest as it was read.
@@ -57,11 +57,11 @@ public class GraphNodePositionSerializationTests
         expected["Nodes"]![0]!["$type"] = "[Missing.Plugin]Missing:Node";
         expected["Nodes"]![0]!["Position"] = "0,0";
 
-        Assert.That(RestoreGraph(json, unavailable: false).Nodes[0].Position, Is.EqualTo((0d, 0d)));
+        Assert.That(RestoreGraph(json, unavailable: false).Nodes[0].Position.Value, Is.EqualTo((0d, 0d)));
 
         GraphModel fallbackGraph = RestoreGraph(json, unavailable: true);
         Assert.That(fallbackGraph.Nodes[0], Is.InstanceOf<FallbackGraphNode>());
-        Assert.That(fallbackGraph.Nodes[0].Position, Is.EqualTo((0d, 0d)));
+        Assert.That(fallbackGraph.Nodes[0].Position.Value, Is.EqualTo((0d, 0d)));
         Assert.That(JsonNode.DeepEquals(CoreSerializer.SerializeToJsonObject(fallbackGraph)["Nodes"]![0],
             expected["Nodes"]![0]), Is.True);
     }
@@ -69,7 +69,7 @@ public class GraphNodePositionSerializationTests
     private static JsonObject CreateGraphJson((double X, double Y) position)
     {
         var graph = new GraphModel();
-        graph.Nodes.Add(new RandomSingleNode { Position = position });
+        graph.Nodes.Add(new RandomSingleNode { Position = { Value = position } });
         return CoreSerializer.SerializeToJsonObject(graph);
     }
 

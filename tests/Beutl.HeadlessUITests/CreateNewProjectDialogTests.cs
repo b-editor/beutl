@@ -105,7 +105,7 @@ public class CreateNewProjectDialogTests
             System.Text.Json.Nodes.JsonNode file = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(project.Uri!.LocalPath))!;
             Assert.Multiple(() =>
             {
-                Assert.That(project.FrameRate, Is.EqualTo(new Rational(30000, 1001)));
+                Assert.That(project.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
                 Assert.That((string?)file["FrameRate"], Is.EqualTo("30000/1001"));
             });
         }
@@ -134,10 +134,10 @@ public class CreateNewProjectDialogTests
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldValue = config.EnableForNewProjects;
+        bool oldValue = config.EnableForNewProjects.Value;
         try
         {
-            config.EnableForNewProjects = false;
+            config.EnableForNewProjects.Value = false;
             CreateNewProjectViewModel vm = CreateViewModel(new ProjectService());
             var dialog = new CreateNewProject { DataContext = vm };
             var carousel = (Carousel)dialog.Content!;
@@ -152,7 +152,7 @@ public class CreateNewProjectDialogTests
         }
         finally
         {
-            config.EnableForNewProjects = oldValue;
+            config.EnableForNewProjects.Value = oldValue;
             await TestReset.ResetShellAsync();
         }
     }
@@ -162,7 +162,7 @@ public class CreateNewProjectDialogTests
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? previousPath = config.GitExecutablePath;
+        string? previousPath = config.GitExecutablePath.Value;
         try
         {
             GitAvailability detected = await TestShell.VersionControl.GetAvailabilityAsync();
@@ -172,7 +172,7 @@ public class CreateNewProjectDialogTests
                 return;
             }
 
-            config.GitExecutablePath = gitPath;
+            config.GitExecutablePath.Value = gitPath;
             GitAvailability configured = await TestShell.VersionControl.GetAvailabilityAsync();
             Assert.That(configured.State, Is.EqualTo(GitAvailabilityState.Installed));
 
@@ -192,7 +192,7 @@ public class CreateNewProjectDialogTests
         }
         finally
         {
-            config.GitExecutablePath = previousPath;
+            config.GitExecutablePath.Value = previousPath;
             await TestShell.VersionControl.GetAvailabilityAsync();
             await TestReset.ResetShellAsync();
         }
@@ -203,10 +203,10 @@ public class CreateNewProjectDialogTests
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        string? previousPath = config.GitExecutablePath;
+        string? previousPath = config.GitExecutablePath.Value;
         try
         {
-            config.GitExecutablePath = Path.Combine(
+            config.GitExecutablePath.Value = Path.Combine(
                 Beutl.Testing.Headless.BeutlHomeIsolation.CurrentHome!,
                 "missing-git");
             GitAvailability availability
@@ -222,7 +222,7 @@ public class CreateNewProjectDialogTests
         }
         finally
         {
-            config.GitExecutablePath = previousPath;
+            config.GitExecutablePath.Value = previousPath;
             await TestShell.VersionControl.GetAvailabilityAsync();
             await TestReset.ResetShellAsync();
         }
@@ -233,12 +233,12 @@ public class CreateNewProjectDialogTests
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool previousDefault = config.EnableForNewProjects;
+        bool previousDefault = config.EnableForNewProjects.Value;
         var availabilitySource = new TaskCompletionSource<GitAvailability>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
-            config.EnableForNewProjects = true;
+            config.EnableForNewProjects.Value = true;
             var initializer = new TestVersionControlInitializer(
                 _ => availabilitySource.Task,
                 (_, _) => Task.FromResult(true));
@@ -260,7 +260,7 @@ public class CreateNewProjectDialogTests
         }
         finally
         {
-            config.EnableForNewProjects = previousDefault;
+            config.EnableForNewProjects.Value = previousDefault;
             availabilitySource.TrySetResult(GitAvailability.NotInstalled);
             await TestReset.ResetShellAsync();
         }
@@ -271,14 +271,14 @@ public class CreateNewProjectDialogTests
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool previousDefault = config.EnableForNewProjects;
+        bool previousDefault = config.EnableForNewProjects.Value;
         var availabilitySource = new TaskCompletionSource<GitAvailability>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         int initializationRequests = 0;
         Task? createTask = null;
         try
         {
-            config.EnableForNewProjects = true;
+            config.EnableForNewProjects.Value = true;
             var initializer = new TestVersionControlInitializer(
                 _ => availabilitySource.Task,
                 (_, _) =>
@@ -326,7 +326,7 @@ public class CreateNewProjectDialogTests
         }
         finally
         {
-            config.EnableForNewProjects = previousDefault;
+            config.EnableForNewProjects.Value = previousDefault;
             availabilitySource.TrySetResult(GitAvailability.NotInstalled);
             try
             {

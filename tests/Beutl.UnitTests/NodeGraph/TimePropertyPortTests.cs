@@ -26,15 +26,15 @@ public sealed class TimePropertyPortTests
         var graph = new GraphModel();
         var node = new FactoryNode<SourceVideo>();
         graph.Nodes.Add(node);
-        IInputPort input = node.Items.OfType<IInputPort>().Single(port => port.Name == nameof(SourceVideo.OffsetPosition));
+        IInputPort input = node.Items.OfType<IInputPort>().Single(port => port.Name.Value == nameof(SourceVideo.OffsetPosition));
         graph.Connect(input, Source(graph, 2.5f));
 
         Evaluate(graph);
 
         Assert.Multiple(() =>
         {
-            Assert.That(graph.AllConnections.Single().Status, Is.EqualTo(ConnectionStatus.Convert));
-            Assert.That(node.Object.OffsetPosition.Evaluate(CompositionContext.Default), Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(graph.AllConnections.Single().Status.Value, Is.EqualTo(ConnectionStatus.Convert));
+            Assert.That(node.Object.Value.OffsetPosition.Evaluate(CompositionContext.Default), Is.EqualTo(MediaTime.FromSeconds(2.5)));
         });
     }
 
@@ -47,13 +47,13 @@ public sealed class TimePropertyPortTests
         var node = new FactoryNode<DrawableBrush>();
         var video = new SourceVideo();
         video.OffsetPosition.Expression = Expression.Create<MediaTime>("TimeSpan.FromSeconds(3)");
-        node.Object.Drawable.Value = video;
+        node.Object.Value.Drawable.Value = video;
         graph.Nodes.Add(node);
         INestedInputPort port = Find(node, video.OffsetPosition);
         Connection connection = graph.Connect(port, Source(graph, 2f));
         var sceneNode = new SceneNode();
         var keyFrames = new KeyFrameAnimation<MediaTime>();
-        keyFrames.KeyFrames.Add(new KeyFrame<MediaTime> { KeyTime = MediaTime.FromSeconds(1), Value = MediaTime.FromSeconds(4) });
+        keyFrames.KeyFrames.Add(new KeyFrame<MediaTime> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = MediaTime.FromSeconds(4) } });
         ((IAnimatablePropertyAdapter<MediaTime>)sceneNode.Time.Property!).Animation = keyFrames;
         graph.Nodes.Add(sceneNode);
         string directory = Path.Combine(Path.GetTempPath(), $"beutl-time-ports-{Guid.NewGuid():N}");
@@ -65,19 +65,19 @@ public sealed class TimePropertyPortTests
             GraphModel restored = ((NodeGraphDrawable)element.Objects.Single()).Model.Value!;
             Evaluate(restored);
             IExpressionProperty<MediaTime> offset = ((SourceVideo)restored.Nodes.OfType<FactoryNode<DrawableBrush>>().Single()
-                .Object.Drawable.Value!).OffsetPosition;
+                .Object.Value.Drawable.Value!).OffsetPosition;
             var restoredKeyFrames = ((IAnimatablePropertyAdapter<MediaTime>)restored.Nodes.OfType<SceneNode>().Single()
                 .Time.Property!).Animation;
             string[] names = [.. TypeNames(CoreSerializer.SerializeToJsonObject(element))];
 
             Assert.Multiple(() =>
             {
-                Assert.That(restored.AllConnections.Single().Id, Is.EqualTo(connection.Id));
-                Assert.That(restored.FindNodePort(port.Id), Is.InstanceOf<NestedInputPort<MediaTime>>());
+                Assert.That(restored.AllConnections.Single().Id.Value, Is.EqualTo(connection.Id.Value));
+                Assert.That(restored.FindNodePort(port.Id.Value), Is.InstanceOf<NestedInputPort<MediaTime>>());
                 Assert.That(offset.Evaluate(CompositionContext.Default), Is.EqualTo(MediaTime.FromSeconds(2)));
                 Assert.That((offset.Expression as NodePortExpression<MediaTime>)?.Replaced?.ExpressionString,
                     Is.EqualTo("TimeSpan.FromSeconds(3)"));
-                Assert.That(restoredKeyFrames?.KeyFrames.OfType<KeyFrame<MediaTime>>().Select(k => (k.KeyTime, k.Value)),
+                Assert.That(restoredKeyFrames?.KeyFrames.OfType<KeyFrame<MediaTime>>().Select(k => (k.KeyTime.Value, k.Value.Value)),
                     Is.EqualTo(new[] { (MediaTime.FromSeconds(1), MediaTime.FromSeconds(4)) }));
                 Assert.That(names, Has.Member("[Beutl.NodeGraph]:NestedInputPort<[Beutl.Core]Beutl:MediaTime>")
                     .And.Member("[Beutl.NodeGraph]:NodePortExpression<[Beutl.Core]Beutl:MediaTime>")

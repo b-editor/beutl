@@ -131,8 +131,8 @@ public class DelayAnimationNestedBrushTimeTests
     {
         var fill = new SolidColorBrush();
         var animation = new KeyFrameAnimation<Color>();
-        animation.KeyFrames.Add(new KeyFrame<Color> { Value = Colors.Red, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<Color> { Value = Colors.Blue, KeyTime = CompositionTime });
+        animation.KeyFrames.Add(new KeyFrame<Color> { Value = { Value = Colors.Red }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<Color> { Value = { Value = Colors.Blue }, KeyTime = { Value = CompositionTime } });
         fill.Color.SetKeyFrameAnimation(animation);
 
         var content = new RectShape();
@@ -164,8 +164,8 @@ public class DelayAnimationNestedBrushTimeTests
         {
             var brightness = new Brightness();
             var animation = new KeyFrameAnimation<float>();
-            animation.KeyFrames.Add(new KeyFrame<float> { Value = 40f, KeyTime = MediaTime.Zero });
-            animation.KeyFrames.Add(new KeyFrame<float> { Value = 220f, KeyTime = MediaTime.FromSeconds(2) });
+            animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 40f }, KeyTime = { Value = MediaTime.Zero } });
+            animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 220f }, KeyTime = { Value = MediaTime.FromSeconds(2) } });
             brightness.Amount.SetKeyFrameAnimation(animation);
 
             var delay = new DelayAnimationEffect();

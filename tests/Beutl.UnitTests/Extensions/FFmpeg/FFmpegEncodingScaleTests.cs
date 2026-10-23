@@ -25,13 +25,13 @@ public sealed class FFmpegEncodingScaleTests
             $"{Guid.NewGuid():N}.mp4");
 
         var controller = new FFmpegEncodingControllerProxy(outputPath, new FFmpegEncodingSettings());
-        controller.VideoSettings.SourceSize = new PixelSize(64, 48);
-        controller.VideoSettings.DestinationSize = new PixelSize(32, 24);
-        controller.VideoSettings.FrameRate = new Rational(1, 1);
-        controller.VideoSettings.Codec = new CodecRecord("libx264", "H.264 / AVC");
-        controller.VideoSettings.Options.Clear();
-        controller.VideoSettings.Options.Add(new AdditionalOption("preset", "fast"));
-        controller.VideoSettings.Options.Add(new AdditionalOption("crf", "18"));
+        controller.VideoSettings.SourceSize.Value = new PixelSize(64, 48);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(32, 24);
+        controller.VideoSettings.FrameRate.Value = new Rational(1, 1);
+        controller.VideoSettings.Codec.Value = new CodecRecord("libx264", "H.264 / AVC");
+        controller.VideoSettings.Options.Value.Clear();
+        controller.VideoSettings.Options.Value.Add(new AdditionalOption("preset", "fast"));
+        controller.VideoSettings.Options.Value.Add(new AdditionalOption("crf", "18"));
 
         try
         {

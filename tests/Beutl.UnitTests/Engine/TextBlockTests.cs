@@ -188,7 +188,7 @@ public class TextBlockTests
     public void TextNode_ExposesAndEvaluatesTextAlignment()
     {
         var node = new TextNode();
-        node.Object.Text.Value = "HHHHHH\nHH";
+        node.Object.Value.Text.Value = "HHHHHH\nHH";
         var input = node.Items.OfType<InputPort<TextAlignment>>().Single();
         input.Property!.SetValue(TextAlignment.Center);
         var graph = new GraphModel();
@@ -198,7 +198,7 @@ public class TextBlockTests
         snapshot.Evaluate(CompositionContext.Default);
         var resource = (TextNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
 
-        Assert.That(node.Object.TextAlignment.Value, Is.EqualTo(TextAlignment.Center));
+        Assert.That(node.Object.Value.TextAlignment.Value, Is.EqualTo(TextAlignment.Center));
         var textResource = (TextBlock.Resource)resource.Output!.Drawable!.Value.Resource;
         Assert.That(textResource.TextAlignment, Is.EqualTo(TextAlignment.Center));
     }

@@ -29,13 +29,13 @@ public class DocumentWriteCheckTests
         {
             await Task.Run(() =>
             {
-                element.Name = "off";
-                element.IsEnabled = false;
+                element.Name.Value = "off";
+                element.IsEnabled.Value = false;
                 shape.Opacity.Value = 50;
                 element.Objects.Add(new RectShape());
-                new Element().Name = "detached";
+                new Element().Name.Value = "detached";
             });
-            element.Name = "on";
+            element.Name.Value = "on";
         }
         finally
         {

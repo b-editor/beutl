@@ -39,18 +39,18 @@ public sealed class GroupNodeTemplatesTests
         GroupNodeTemplate saved = store.Save(group, "Cat pipeline")!;
         GroupNode copy = store.Instantiate(saved)!;
 
-        AiPromptNode copiedPrompt = copy.Group.Nodes.OfType<AiPromptNode>().Single();
-        AiImageGenerationNode copiedImage = copy.Group.Nodes.OfType<AiImageGenerationNode>().Single();
+        AiPromptNode copiedPrompt = copy.Group.Value.Nodes.OfType<AiPromptNode>().Single();
+        AiImageGenerationNode copiedImage = copy.Group.Value.Nodes.OfType<AiImageGenerationNode>().Single();
         Assert.Multiple(() =>
         {
             Assert.That(store.List().Select(t => t.Name), Is.EqualTo(new[] { "Cat pipeline" }));
             Assert.That(copiedPrompt.Prompt.Property!.GetValue(), Is.EqualTo("a cat"));
-            Assert.That(copiedImage.Prompt.Connection.Value?.Output.Value, Is.SameAs(copiedPrompt.Output),
+            Assert.That(copiedImage.Prompt.Connection.Value.Value?.Output.Value.Value, Is.SameAs(copiedPrompt.Output),
                 "The connection inside the group points at the copy, not the original.");
             Assert.That(copiedImage.Generations, Is.Empty, "Results are not part of the workflow.");
-            Assert.That(copiedImage.RequestKeySeed, Is.Not.EqualTo(image.RequestKeySeed));
-            Assert.That(copiedImage.Id, Is.Not.EqualTo(image.Id));
-            Assert.That(copy.Id, Is.Not.EqualTo(group.Id));
+            Assert.That(copiedImage.RequestKeySeed.Value, Is.Not.EqualTo(image.RequestKeySeed.Value));
+            Assert.That(copiedImage.Id.Value, Is.Not.EqualTo(image.Id.Value));
+            Assert.That(copy.Id.Value, Is.Not.EqualTo(group.Id.Value));
         });
     }
 
@@ -67,16 +67,16 @@ public sealed class GroupNodeTemplatesTests
         graph.Nodes.Add(first);
         graph.Nodes.Add(second);
 
-        AiImageGenerationNode a = first.Group.Nodes.OfType<AiImageGenerationNode>().Single();
-        AiImageGenerationNode b = second.Group.Nodes.OfType<AiImageGenerationNode>().Single();
+        AiImageGenerationNode a = first.Group.Value.Nodes.OfType<AiImageGenerationNode>().Single();
+        AiImageGenerationNode b = second.Group.Value.Nodes.OfType<AiImageGenerationNode>().Single();
         Assert.Multiple(() =>
         {
-            Assert.That(a.Id, Is.Not.EqualTo(b.Id));
-            Assert.That(a.Prompt.Id, Is.Not.EqualTo(b.Prompt.Id));
-            Assert.That(a.RequestKeySeed, Is.Not.EqualTo(b.RequestKeySeed),
+            Assert.That(a.Id.Value, Is.Not.EqualTo(b.Id.Value));
+            Assert.That(a.Prompt.Id.Value, Is.Not.EqualTo(b.Prompt.Id.Value));
+            Assert.That(a.RequestKeySeed.Value, Is.Not.EqualTo(b.RequestKeySeed.Value),
                 "Two copies must not answer each other's paid requests.");
-            Assert.That(b.Prompt.Connection.Value?.Output.Value,
-                Is.SameAs(second.Group.Nodes.OfType<AiPromptNode>().Single().Output));
+            Assert.That(b.Prompt.Connection.Value.Value?.Output.Value.Value,
+                Is.SameAs(second.Group.Value.Nodes.OfType<AiPromptNode>().Single().Output));
             Assert.That(Ids(first).Intersect(Ids(second)), Is.Empty,
                 "No object anywhere in the two copies shares an identifier.");
         });
@@ -100,10 +100,10 @@ public sealed class GroupNodeTemplatesTests
         var group = new GroupNode();
         var factory = new FactoryNode<DrawableBrush>();
         var video = new SourceVideo();
-        factory.Object.Drawable.Value = video;
-        group.Group.Nodes.Add(factory);
+        factory.Object.Value.Drawable.Value = video;
+        group.Group.Value.Nodes.Add(factory);
         INestedInputPort port = Find(factory, video.OffsetPosition);
-        Connection connection = group.Group.Connect(port, Source(group.Group, 2f));
+        Connection connection = group.Group.Value.Connect(port, Source(group.Group.Value, 2f));
         GroupNodeTemplate saved;
         using (MediaTimeJsonConverter.WriteTimeSpanStrings())
             saved = store.Save(group, "Video offset")!;
@@ -112,12 +112,12 @@ public sealed class GroupNodeTemplatesTests
         File.WriteAllText(saved.FilePath, text.Replace("[Beutl.Core]Beutl:MediaTime", "[System.Private.CoreLib]System:TimeSpan"));
 
         GroupNode loaded = store.Load(saved)!;
-        var loadedVideo = (SourceVideo)loaded.Group.Nodes.OfType<FactoryNode<DrawableBrush>>().Single().Object.Drawable.Value!;
+        var loadedVideo = (SourceVideo)loaded.Group.Value.Nodes.OfType<FactoryNode<DrawableBrush>>().Single().Object.Value.Drawable.Value!;
 
         Assert.Multiple(() =>
         {
-            Assert.That(loaded.Group.AllConnections.Single().Id, Is.EqualTo(connection.Id));
-            Assert.That(loaded.Group.FindNodePort(port.Id), Is.InstanceOf<NestedInputPort<MediaTime>>());
+            Assert.That(loaded.Group.Value.AllConnections.Single().Id.Value, Is.EqualTo(connection.Id.Value));
+            Assert.That(loaded.Group.Value.FindNodePort(port.Id.Value), Is.InstanceOf<NestedInputPort<MediaTime>>());
             Assert.That(loadedVideo.OffsetPosition.Expression, Is.InstanceOf<NodePortExpression<MediaTime>>());
         });
     }
@@ -158,10 +158,10 @@ public sealed class GroupNodeTemplatesTests
         var prompt = new AiPromptNode();
         prompt.Prompt.Property!.SetValue("a cat");
         var image = new AiImageGenerationNode();
-        group.Group.Nodes.Add(prompt);
-        group.Group.Nodes.Add(image);
-        group.Group.Connect(image.Prompt, prompt.Output);
-        image.Generations.Add(new GenerationRecord { Summary = "kept result" });
+        group.Group.Value.Nodes.Add(prompt);
+        group.Group.Value.Nodes.Add(image);
+        group.Group.Value.Connect(image.Prompt, prompt.Output);
+        image.Generations.Add(new GenerationRecord { Summary = { Value = "kept result" } });
         return (group, prompt, image);
     }
 }

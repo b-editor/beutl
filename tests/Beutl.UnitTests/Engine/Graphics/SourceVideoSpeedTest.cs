@@ -31,7 +31,7 @@ public class SourceVideoSpeedTest
 
         _sourceVideo = new SourceVideo();
         _sourceVideo.Source.Value = _videoSource;
-        _sourceVideo.TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(10));
+        _sourceVideo.TimeRange.Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(10));
     }
 
     [TearDown]
@@ -61,8 +61,8 @@ public class SourceVideoSpeedTest
     {
         // Arrange: 0秒で速度100、2秒で速度200の線形アニメーション
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = MediaTime.FromSeconds(2) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 200f }, KeyTime = { Value = MediaTime.FromSeconds(2) } });
         _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(MediaTime.FromSeconds(1));
@@ -76,8 +76,8 @@ public class SourceVideoSpeedTest
     {
         // Arrange: 0秒で速度100、4秒で速度300の線形アニメーション
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 300f, KeyTime = MediaTime.FromSeconds(4) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 300f }, KeyTime = { Value = MediaTime.FromSeconds(4) } });
         _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(MediaTime.FromSeconds(2));
@@ -101,9 +101,9 @@ public class SourceVideoSpeedTest
         float speed, bool keepUntilTheEnd, double milliseconds, double expectedMilliseconds, double tolerance)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = speed, KeyTime = MediaTime.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = speed }, KeyTime = { Value = MediaTime.Zero } });
         if (keepUntilTheEnd)
-            animation.KeyFrames.Add(new KeyFrame<float> { Value = speed, KeyTime = MediaTime.FromSeconds(10) });
+            animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = speed }, KeyTime = { Value = MediaTime.FromSeconds(10) } });
         _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(MediaTime.FromSeconds(milliseconds / 1000d));
@@ -116,14 +116,14 @@ public class SourceVideoSpeedTest
     {
         // Arrange: 最初のアニメーション（速度200）
         var animation1 = new KeyFrameAnimation<float>();
-        animation1.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = MediaTime.Zero });
+        animation1.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 200f }, KeyTime = { Value = MediaTime.Zero } });
         _sourceVideo!.Speed.SetKeyFrameAnimation(animation1);
 
         var firstPosition = EvaluateAt(MediaTime.FromSeconds(1)).RequestedPosition;
 
         // Act: アニメーションを変更（速度100）
         var animation2 = new KeyFrameAnimation<float>();
-        animation2.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = MediaTime.Zero });
+        animation2.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f }, KeyTime = { Value = MediaTime.Zero } });
         _sourceVideo.Speed.SetKeyFrameAnimation(animation2);
 
         // 同じ時点で再度更新
@@ -139,8 +139,8 @@ public class SourceVideoSpeedTest
     {
         // Arrange: 線形アニメーション
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = MediaTime.FromSeconds(10) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 200f }, KeyTime = { Value = MediaTime.FromSeconds(10) } });
         _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         _sourceVideoResource = (SourceVideo.Resource)_sourceVideo.ToResource(CompositionContext.Default);
@@ -173,8 +173,8 @@ public class SourceVideoSpeedTest
     {
         // Arrange: 線形アニメーション
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = MediaTime.FromSeconds(10) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 200f }, KeyTime = { Value = MediaTime.FromSeconds(10) } });
         _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(MediaTime.Zero);
@@ -191,13 +191,13 @@ public class SourceVideoSpeedTest
     {
         // Arrange: 要素を 5s 開始、UseGlobalClock=true で speed=100% 一定。
         // 期待: 要素ローカル 1s 時点でビデオ時刻も 1s になること (要素開始前の積分は引かれる)。
-        _sourceVideo!.TimeRange = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
+        _sourceVideo!.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
         var animation = new KeyFrameAnimation<float>
         {
-            UseGlobalClock = true
+            UseGlobalClock = { Value = true }
         };
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = MediaTime.FromSeconds(15) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f }, KeyTime = { Value = MediaTime.FromSeconds(15) } });
         _sourceVideo.Speed.SetKeyFrameAnimation(animation);
 
         // グローバル 6s = 要素ローカル 1s
@@ -212,13 +212,13 @@ public class SourceVideoSpeedTest
         // Arrange: 要素を 5s 開始、UseGlobalClock=true。
         // 速度は global 0s..15s で 100% → 200% に線形補間。
         // s(t) = 100 + (100/15)*t [%] を要素開始 (5s) ～ 要素ローカル 1s (=global 6s) で積分。
-        _sourceVideo!.TimeRange = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
+        _sourceVideo!.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
         var animation = new KeyFrameAnimation<float>
         {
-            UseGlobalClock = true
+            UseGlobalClock = { Value = true }
         };
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 100f, KeyTime = MediaTime.Zero });
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 200f, KeyTime = MediaTime.FromSeconds(15) });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 100f }, KeyTime = { Value = MediaTime.Zero } });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 200f }, KeyTime = { Value = MediaTime.FromSeconds(15) } });
         _sourceVideo.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(MediaTime.FromSeconds(6));
@@ -233,7 +233,7 @@ public class SourceVideoSpeedTest
     {
         // Arrange: 非常に遅い速度（5%）でのテスト - 上限拡大が必要
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 5f, KeyTime = MediaTime.Zero });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 5f }, KeyTime = { Value = MediaTime.Zero } });
         _sourceVideo!.Speed.SetKeyFrameAnimation(animation);
 
         SourceVideo.Resource resource = EvaluateAt(MediaTime.Zero);

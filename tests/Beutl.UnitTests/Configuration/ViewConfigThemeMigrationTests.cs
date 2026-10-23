@@ -58,7 +58,7 @@ public class ViewConfigThemeMigrationTests
     [TestCase("plugin.tab\there")]
     public void DecodesEscapedCustomThemeId(string themeId)
     {
-        var config = new ViewConfig { Theme = themeId };
+        var config = new ViewConfig { Theme = { Value = themeId } };
 
         // Round-trip through JSON *text*, the way settings.json actually persists: escaping only
         // happens on write, so handing the in-memory JsonObject straight back would skip it.
@@ -67,7 +67,7 @@ public class ViewConfigThemeMigrationTests
         var restored = new ViewConfig();
         CoreSerializer.PopulateFromJsonObject(restored, json);
 
-        Assert.That(restored.Theme, Is.EqualTo(themeId));
+        Assert.That(restored.Theme.Value, Is.EqualTo(themeId));
     }
 
     // Only 0-3 were ever ViewTheme members. A custom id that merely looks numeric is a normal id and
@@ -98,7 +98,7 @@ public class ViewConfigThemeMigrationTests
 
         CoreSerializer.PopulateFromJsonObject(config, json);
 
-        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
+        Assert.That(config.Theme.Value, Is.EqualTo(DefaultThemeId));
     }
 
     [Test]
@@ -109,7 +109,7 @@ public class ViewConfigThemeMigrationTests
 
         CoreSerializer.PopulateFromJsonObject(config, json);
 
-        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
+        Assert.That(config.Theme.Value, Is.EqualTo(DefaultThemeId));
     }
 
     // A hand-edited or corrupted file can put a container where the id belongs; it carries no choice,
@@ -122,7 +122,7 @@ public class ViewConfigThemeMigrationTests
 
         CoreSerializer.PopulateFromJsonObject(config, json);
 
-        Assert.That(config.Theme, Is.EqualTo(DefaultThemeId));
+        Assert.That(config.Theme.Value, Is.EqualTo(DefaultThemeId));
     }
 
     [TestCase("")]
@@ -137,19 +137,19 @@ public class ViewConfigThemeMigrationTests
     [Test]
     public void KeepsExplicitClassicDarkId()
     {
-        var config = new ViewConfig { Theme = BuiltinThemeIds.Dark };
+        var config = new ViewConfig { Theme = { Value = BuiltinThemeIds.Dark } };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(config);
         var restored = new ViewConfig();
         CoreSerializer.PopulateFromJsonObject(restored, json);
 
-        Assert.That(restored.Theme, Is.EqualTo(BuiltinThemeIds.Dark));
+        Assert.That(restored.Theme.Value, Is.EqualTo(BuiltinThemeIds.Dark));
     }
 
     private static string LoadTheme(JsonNode? value)
     {
         var config = new ViewConfig();
         CoreSerializer.PopulateFromJsonObject(config, new JsonObject { ["Theme"] = value });
-        return config.Theme;
+        return config.Theme.Value;
     }
 }

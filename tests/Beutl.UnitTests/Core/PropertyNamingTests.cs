@@ -4,7 +4,8 @@ using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Core;
 
-// A property exposed as XxxProperty, beside a value accessor Xxx, is registered, saved and recorded as Xxx.
+// A property is registered, saved and recorded under its member's name, even one ending in Property such as
+// EditorConfig.EnablePointerLockInProperty.
 [TestFixture]
 public class PropertyNamingTests
 {
@@ -17,14 +18,14 @@ public class PropertyNamingTests
     }
 
     [Test]
-    public void AnXxxPropertyMember_IsXxx_WhenScannedByReflection()
-        => AssertNamedAndSavedAsCount(new ReflectedOwner(), owner => ((ReflectedOwner)owner).CountProperty);
+    public void AMemberEndingInProperty_KeepsItsName_WhenScannedByReflection()
+        => AssertNamedAndSavedAsCountProperty(new ReflectedOwner(), owner => ((ReflectedOwner)owner).CountProperty);
 
     [Test]
-    public void AnXxxPropertyMember_IsXxx_WhenScannedByGeneratedCode()
-        => AssertNamedAndSavedAsCount(new GeneratedSuffixedOwner(), owner => ((GeneratedSuffixedOwner)owner).CountProperty);
+    public void AMemberEndingInProperty_KeepsItsName_WhenScannedByGeneratedCode()
+        => AssertNamedAndSavedAsCountProperty(new GeneratedSuffixedOwner(), owner => ((GeneratedSuffixedOwner)owner).CountProperty);
 
-    private static void AssertNamedAndSavedAsCount(EngineObject owner, Func<EngineObject, IProperty<int>> count)
+    private static void AssertNamedAndSavedAsCountProperty(EngineObject owner, Func<EngineObject, IProperty<int>> count)
     {
         count(owner).Value = 5;
 
@@ -33,9 +34,9 @@ public class PropertyNamingTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(count(owner).Name, Is.EqualTo("Count"));
-            Assert.That((int?)json["Count"], Is.EqualTo(5));
-            Assert.That(json.ContainsKey("CountProperty"), Is.False);
+            Assert.That(count(owner).Name, Is.EqualTo("CountProperty"));
+            Assert.That((int?)json["CountProperty"], Is.EqualTo(5));
+            Assert.That(json.ContainsKey("Count"), Is.False);
             Assert.That(count(restored).Value, Is.EqualTo(5));
         }
     }

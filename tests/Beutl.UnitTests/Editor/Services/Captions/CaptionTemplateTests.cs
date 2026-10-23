@@ -96,8 +96,8 @@ public class CaptionTemplateTests
             Assert.That(first.FilterEffect.Value, Is.TypeOf<Blur>());
             Assert.That(((Blur)first.FilterEffect.Value!).Sigma.Value, Is.EqualTo(new Size(2, 3)));
             Assert.That(first.Opacity.GetKeyFrameAnimation(), Is.Not.Null);
-            Assert.That(first.Id, Is.Not.EqualTo(source.Id));
-            Assert.That(second.Id, Is.Not.EqualTo(first.Id));
+            Assert.That(first.Id.Value, Is.Not.EqualTo(source.Id.Value));
+            Assert.That(second.Id.Value, Is.Not.EqualTo(first.Id.Value));
         }
     }
 

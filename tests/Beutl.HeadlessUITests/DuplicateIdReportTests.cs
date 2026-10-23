@@ -26,10 +26,10 @@ public sealed class DuplicateIdReportTests
         {
             // An object added with another's Id, as a copy that keeps its Ids would be.
             Element first = AddElement(scene);
-            AddElement(scene, first.Id);
+            AddElement(scene, first.Id.Value);
 
             Assert.That(await editor.SaveAsync(), Is.True);
-            AddElement(scene, first.Id);
+            AddElement(scene, first.Id.Value);
             // Without saving, so that the close finds what the save did not.
             Assert.That(
                 await TestShell.Project.TryCloseProjectAsync(project, ProjectService.ProjectCloseIntent.DiscardChanges),
@@ -50,9 +50,9 @@ public sealed class DuplicateIdReportTests
 
     private static Element AddElement(Scene scene, Guid? id = null)
     {
-        var element = new Element { Start = MediaTime.FromSeconds(scene.Children.Count), Length = MediaTime.FromSeconds(1) };
+        var element = new Element { Start = { Value = MediaTime.FromSeconds(scene.Children.Count) }, Length = { Value = MediaTime.FromSeconds(1) } };
         if (id is { } given)
-            element.Id = given;
+            element.Id.Value = given;
         string file = $"{Guid.NewGuid():N}.belm";
         element.Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, file));
         scene.Children.Add(element);

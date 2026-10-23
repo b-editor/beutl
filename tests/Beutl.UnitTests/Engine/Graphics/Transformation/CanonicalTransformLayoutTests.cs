@@ -432,9 +432,9 @@ public class CanonicalTransformLayoutTests
     public void FindCanonicalTransforms_DisabledChildren_AreSkipped()
     {
         // Disabled T/R/S do not contribute to TransformGroup.CreateMatrix, so the handle code must not adopt them.
-        var disabledT = new TranslateTransform(10f, 20f) { IsEnabled = false };
+        var disabledT = new TranslateTransform(10f, 20f) { IsEnabled = { Value = false } };
         var enabledT = new TranslateTransform(30f, 40f);
-        var disabledR = new RotationTransform(15f) { IsEnabled = false };
+        var disabledR = new RotationTransform(15f) { IsEnabled = { Value = false } };
         var enabledR = new RotationTransform(45f);
         var s = new ScaleTransform(150f, 150f);
         var group = new TransformGroup();
@@ -457,7 +457,7 @@ public class CanonicalTransformLayoutTests
     [Test]
     public void FindCanonicalTransforms_DisabledSingleton_ReturnsAllNull()
     {
-        var r = new RotationTransform(45f) { IsEnabled = false };
+        var r = new RotationTransform(45f) { IsEnabled = { Value = false } };
         var (rotation, scale, translate) = CanonicalTransformLayout.FindCanonicalTransforms(r);
 
         Assert.Multiple(() =>
@@ -473,9 +473,9 @@ public class CanonicalTransformLayoutTests
     {
         // If the existing T/R/S are all disabled, Ensure must insert fresh enabled ones rather than adopt the disabled ones.
         var drawable = CreateDrawable();
-        var disabledT = new TranslateTransform(10f, 20f) { IsEnabled = false };
-        var disabledR = new RotationTransform(30f) { IsEnabled = false };
-        var disabledS = new ScaleTransform(200f, 200f) { IsEnabled = false };
+        var disabledT = new TranslateTransform(10f, 20f) { IsEnabled = { Value = false } };
+        var disabledR = new RotationTransform(30f) { IsEnabled = { Value = false } };
+        var disabledS = new ScaleTransform(200f, 200f) { IsEnabled = { Value = false } };
         var group = new TransformGroup();
         group.Children.Add(disabledT);
         group.Children.Add(disabledR);
@@ -490,9 +490,9 @@ public class CanonicalTransformLayoutTests
             Assert.That(result.Translate, Is.Not.SameAs(disabledT));
             Assert.That(result.Rotation, Is.Not.SameAs(disabledR));
             Assert.That(result.Scale, Is.Not.SameAs(disabledS));
-            Assert.That(result.Translate.IsEnabled, Is.True);
-            Assert.That(result.Rotation.IsEnabled, Is.True);
-            Assert.That(result.Scale.IsEnabled, Is.True);
+            Assert.That(result.Translate.IsEnabled.Value, Is.True);
+            Assert.That(result.Rotation.IsEnabled.Value, Is.True);
+            Assert.That(result.Scale.IsEnabled.Value, Is.True);
         });
     }
 }

@@ -28,8 +28,8 @@ public sealed class MediaTimeCompatibilityTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(globals.GetProperty<TimeSpan>(controller.Id, "OffsetPosition"), Is.EqualTo(TimeSpan.FromSeconds(2.5)));
-            Assert.That(globals.GetProperty<MediaTime>(controller.Id, "OffsetPosition"), Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(globals.GetProperty<TimeSpan>(controller.Id.Value, "OffsetPosition"), Is.EqualTo(TimeSpan.FromSeconds(2.5)));
+            Assert.That(globals.GetProperty<MediaTime>(controller.Id.Value, "OffsetPosition"), Is.EqualTo(MediaTime.FromSeconds(2.5)));
         });
     }
 

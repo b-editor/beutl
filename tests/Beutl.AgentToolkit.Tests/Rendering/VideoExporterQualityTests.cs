@@ -48,8 +48,8 @@ public sealed class VideoExporterQualityTests
 
         VideoExporter.ApplyQualitySettings(settings, crf: 28, bitrate: null);
 
-        AdditionalOption crf = settings.Options.Single(option => option.Name == "crf");
-        Assert.That(crf.Value, Is.EqualTo("28"));
+        AdditionalOption crf = settings.Options.Value.Single(option => option.Name.Value == "crf");
+        Assert.That(crf.Value.Value, Is.EqualTo("28"));
     }
 
     [Test]
@@ -61,8 +61,8 @@ public sealed class VideoExporterQualityTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(settings.Bitrate, Is.EqualTo(4_000_000));
-            Assert.That(settings.Options.Any(option => option.Name == "crf"), Is.False);
+            Assert.That(settings.Bitrate.Value, Is.EqualTo(4_000_000));
+            Assert.That(settings.Options.Value.Any(option => option.Name.Value == "crf"), Is.False);
         });
     }
 
@@ -70,14 +70,14 @@ public sealed class VideoExporterQualityTests
     public void No_quality_arguments_leave_defaults_unchanged()
     {
         var settings = new FFmpegVideoEncoderSettings();
-        int defaultBitrate = settings.Bitrate;
+        int defaultBitrate = settings.Bitrate.Value;
 
         VideoExporter.ApplyQualitySettings(settings, crf: null, bitrate: null);
 
         Assert.Multiple(() =>
         {
-            Assert.That(settings.Bitrate, Is.EqualTo(defaultBitrate));
-            Assert.That(settings.Options.Single(option => option.Name == "crf").Value, Is.EqualTo("22"));
+            Assert.That(settings.Bitrate.Value, Is.EqualTo(defaultBitrate));
+            Assert.That(settings.Options.Value.Single(option => option.Name.Value == "crf").Value.Value, Is.EqualTo("22"));
         });
     }
 
@@ -90,10 +90,10 @@ public sealed class VideoExporterQualityTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(settings.ColorPrimaries, Is.EqualTo(FFColorPrimaries.BT709));
-            Assert.That(settings.ColorTrc, Is.EqualTo(FFColorTransfer.BT709));
-            Assert.That(settings.ColorSpace, Is.EqualTo(FFColorSpace.BT709));
-            Assert.That(settings.ColorRange, Is.EqualTo(FFColorRange.MPEG));
+            Assert.That(settings.ColorPrimaries.Value, Is.EqualTo(FFColorPrimaries.BT709));
+            Assert.That(settings.ColorTrc.Value, Is.EqualTo(FFColorTransfer.BT709));
+            Assert.That(settings.ColorSpace.Value, Is.EqualTo(FFColorSpace.BT709));
+            Assert.That(settings.ColorRange.Value, Is.EqualTo(FFColorRange.MPEG));
         });
     }
 
@@ -107,13 +107,13 @@ public sealed class VideoExporterQualityTests
         Assert.Multiple(() =>
         {
             Assert.That(
-                settings.ColorPrimaries,
+                settings.ColorPrimaries.Value,
                 Is.EqualTo(AVFVideoEncoderSettings.ColorPrimariesType.Bt709));
             Assert.That(
-                settings.ColorTransfer,
+                settings.ColorTransfer.Value,
                 Is.EqualTo(AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709));
             Assert.That(
-                settings.YCbCrMatrix,
+                settings.YCbCrMatrix.Value,
                 Is.EqualTo(AVFVideoEncoderSettings.YCbCrMatrixType.Bt709));
         });
     }

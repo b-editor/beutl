@@ -16,7 +16,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     {
         var config = new VersionControlConfig
         {
-            LargeMediaWarningThresholdMb = 1,
+            LargeMediaWarningThresholdMb = { Value = 1 },
         };
         var notices = new List<VersionControlPolicyNotice>();
         string mediaPath = Path.Combine(Root, "resources", "large.mp4");
@@ -57,7 +57,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         var config = new VersionControlConfig
         {
-            LargeMediaWarningThresholdMb = 1,
+            LargeMediaWarningThresholdMb = { Value = 1 },
         };
         var notices = new List<VersionControlPolicyNotice>();
         var recordingRunner = new RecordingGitCliRunner(Runner);
@@ -567,7 +567,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await File.WriteAllTextAsync(
             Path.Combine(Root, ".gitattributes"),
             "resources/**/*.[mM][pP]4 filter=lfs diff=lfs merge=lfs -text\n");
-        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = true } };
         var notices = new List<VersionControlPolicyNotice>();
         using var service = CreateService(
             config,
@@ -611,7 +611,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         var notices = new List<VersionControlPolicyNotice>();
         var repository = new RepositoryInfo(Root, projectRoot);
         using var service = CreateService(
-            new VersionControlConfig { UseLfsWhenAvailable = false },
+            new VersionControlConfig { UseLfsWhenAvailable = { Value = false } },
             lfsInstalled: true,
             notice =>
             {
@@ -639,7 +639,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await RunGitAsync("remote", "add", "origin", Path.Combine(Root, "old.git"));
         var notices = new List<VersionControlPolicyNotice>();
         using var service = CreateService(
-            new VersionControlConfig { UseLfsWhenAvailable = true },
+            new VersionControlConfig { UseLfsWhenAvailable = { Value = true } },
             lfsInstalled: true,
             notice =>
             {
@@ -666,7 +666,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await RunGitAsync("remote", "add", "origin", Path.Combine(Root, "existing.git"));
         var notices = new List<VersionControlPolicyNotice>();
         using var service = CreateService(
-            new VersionControlConfig { UseLfsWhenAvailable = false },
+            new VersionControlConfig { UseLfsWhenAvailable = { Value = false } },
             lfsInstalled: true,
             notice =>
             {
@@ -689,7 +689,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
         await CommitFileAsync("project.bep", "initial\n", "initial");
         var config = new VersionControlConfig
         {
-            LargeMediaWarningThresholdMb = 1,
+            LargeMediaWarningThresholdMb = { Value = 1 },
         };
         using var service = CreateService(
             config,
@@ -970,7 +970,7 @@ public sealed class VersionControlPolicyTests : RealGitTestRepository
     }
 
     private static VersionControlConfig CreateLargeMediaConfig()
-        => new() { LargeMediaWarningThresholdMb = 1 };
+        => new() { LargeMediaWarningThresholdMb = { Value = 1 } };
 
     private static async Task WriteLargeMediaAsync(string root, string relativePath)
     {

@@ -16,7 +16,7 @@ public sealed class MediaTimeFrameSelectionTests
     {
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         var project = new Project();
-        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        project.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         var scene = new Scene(100, 100, string.Empty);
         project.Items.Add(scene);
 

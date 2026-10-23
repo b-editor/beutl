@@ -16,13 +16,7 @@ public class EasingProjectSerializationTests
             ScanProperties<EasingElement>();
         }
 
-        public IProperty<Easing> EasingProperty { get; } = new ValueOnlyProperty<Easing>(new LinearEasing());
-
-        public Easing Easing
-        {
-            get => EasingProperty.Value;
-            set => EasingProperty.Value = value;
-        }
+        public IProperty<Easing> Easing { get; } = new ValueOnlyProperty<Easing>(new LinearEasing());
     }
 
     private string _root = null!;
@@ -57,20 +51,20 @@ public class EasingProjectSerializationTests
 
         Assert.That(scene.Children.Single(), Is.TypeOf<EasingElement>());
         var element = (EasingElement)scene.Children.Single();
-        Assert.That(element.Easing, Is.TypeOf<SplineEasing>());
+        Assert.That(element.Easing.Value, Is.TypeOf<SplineEasing>());
         Assert.Multiple(() =>
         {
-            Assert.That(element.IsEnabled, Is.True);
+            Assert.That(element.IsEnabled.Value, Is.True);
             Assert.That(element.SuppressedStorageSource, Is.Null);
             Assert.That(element.Objects.Single(), Is.TypeOf<RectShape>());
-            Assert.That(((SplineEasing)element.Easing).Y1, Is.EqualTo(-0.2f));
-            Assert.That(((SplineEasing)element.Easing).Y2, Is.EqualTo(1.4f));
+            Assert.That(((SplineEasing)element.Easing.Value).Y1, Is.EqualTo(-0.2f));
+            Assert.That(((SplineEasing)element.Easing.Value).Y2, Is.EqualTo(1.4f));
         });
 
         CoreSerializer.StoreToUri(restored, projectUri);
         Project reopened = CoreSerializer.RestoreFromUri<Project>(projectUri);
         var reloaded = (EasingElement)((Beutl.ProjectSystem.Scene)reopened.Items.Single()).Children.Single();
-        Assert.That(((SplineEasing)reloaded.Easing).Y2, Is.EqualTo(1.4f));
+        Assert.That(((SplineEasing)reloaded.Easing.Value).Y2, Is.EqualTo(1.4f));
     }
 
     [TestCase("{\"$type\":\"[Missing.Assembly]Missing:Easing\"}")]
@@ -90,7 +84,7 @@ public class EasingProjectSerializationTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.IsEnabled, Is.False);
+            Assert.That(element.IsEnabled.Value, Is.False);
             Assert.That(element.Objects.Single(), Is.InstanceOf<IFallback>());
             Assert.That(File.ReadAllBytes(elementPath), Is.EqualTo(original));
         });
@@ -106,7 +100,7 @@ public class EasingProjectSerializationTests
         var element = new EasingElement
         {
             Uri = new Uri(Path.Combine(_root, "element.belm")),
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
         };
         element.AddObject(new RectShape());
         scene.Children.Add(element);

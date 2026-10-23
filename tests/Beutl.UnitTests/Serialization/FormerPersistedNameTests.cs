@@ -164,7 +164,7 @@ public class FormerPersistedNameTests
         var source = new MemberHolder();
         source.Width.Value = 3;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 32 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 32 } });
         source.Width.SetKeyFrameAnimation(animation);
         source.Width.Expression = Expression.Create<float>("5");
         source.Tags.Add("a");
@@ -220,8 +220,8 @@ public class FormerPersistedNameTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.Title, Is.EqualTo("kept"));
-            Assert.That(restored.Count, Is.EqualTo(7));
+            Assert.That(restored.Title.Value, Is.EqualTo("kept"));
+            Assert.That(restored.Count.Value, Is.EqualTo(7));
             Assert.That((string?)resaved[nameof(RenamedSettings.Title)], Is.EqualTo("kept"));
             Assert.That(resaved.ContainsKey("FormerTitle"), Is.False);
             Assert.That(resaved.ContainsKey("FormerCount"), Is.False);
@@ -295,21 +295,9 @@ public class FormerPersistedNameTests
         }
 
         [FormerPersistedName("FormerTitle")]
-        public IProperty<string?> TitleProperty { get; } = new ValueOnlyProperty<string?>(null);
+        public IProperty<string?> Title { get; } = new ValueOnlyProperty<string?>(null);
 
         [FormerPersistedName("FormerCount")]
-        public IProperty<int> CountProperty { get; } = new ValueOnlyProperty<int>(0);
-
-        public string? Title
-        {
-            get => TitleProperty.Value;
-            set => TitleProperty.Value = value;
-        }
-
-        public int Count
-        {
-            get => CountProperty.Value;
-            set => CountProperty.Value = value;
-        }
+        public IProperty<int> Count { get; } = new ValueOnlyProperty<int>(0);
     }
 }

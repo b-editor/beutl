@@ -74,7 +74,7 @@ public class ExternalResourceCollectorTests
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
         Assert.That(collector.FileSources, Has.Count.EqualTo(1));
-        Assert.That(collector.FileSources.First().Object, Is.EqualTo(engineObj.Id));
+        Assert.That(collector.FileSources.First().Object, Is.EqualTo(engineObj.Id.Value));
         Assert.That(collector.FileSources.First().OriginalUri.LocalPath, Is.EqualTo(externalFile));
     }
 

@@ -114,15 +114,15 @@ public sealed class FrameProviderRenderTargetRetentionTests
         var width = new KeyFrameAnimation<float>();
         width.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 24,
-            Easing = new LinearEasing(),
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 24 },
+            Easing = { Value = new LinearEasing() },
         });
         width.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = duration,
-            Value = 174,
-            Easing = new LinearEasing(),
+            KeyTime = { Value = duration },
+            Value = { Value = 174 },
+            Easing = { Value = new LinearEasing() },
         });
 
         var shape = new RectShape
@@ -143,9 +143,9 @@ public sealed class FrameProviderRenderTargetRetentionTests
         shape.Width.SetKeyFrameAnimation(width);
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = duration,
-            IsEnabled = true,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = duration },
+            IsEnabled = { Value = true },
         };
         element.AddObject(shape);
         string root = Path.Combine(
@@ -153,7 +153,7 @@ public sealed class FrameProviderRenderTargetRetentionTests
             "frame-provider-retention-" + Guid.NewGuid().ToString("N"));
         var scene = new Scene(240, 120, "Retention")
         {
-            Duration = duration,
+            Duration = { Value = duration },
             Uri = new Uri(Path.Combine(root, "retention.scene")),
         };
         element.Uri = new Uri(Path.Combine(root, "retention.belm"));

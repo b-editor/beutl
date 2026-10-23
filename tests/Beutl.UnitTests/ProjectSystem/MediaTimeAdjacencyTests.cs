@@ -18,7 +18,7 @@ public sealed class MediaTimeAdjacencyTests
         Rational rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         using var harness = new SceneHistoryHarness("beutl_adjacency", duration: MediaTime.FromSeconds(600));
         var project = new Project();
-        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        project.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         project.Items.Add(harness.Scene);
         var service = new ElementResizeService(harness.History);
         var mismatches = new List<string>();
@@ -28,7 +28,7 @@ public sealed class MediaTimeAdjacencyTests
             Element outgoing = harness.AddElement(Snap(first, rate), Snap(count, rate));
             Element incoming = harness.AddElement(Snap(first + count, rate), Snap(3, rate));
 
-            bool meet = outgoing.Range.End == incoming.Start;
+            bool meet = outgoing.Range.End == incoming.Start.Value;
             bool adjacent = ElementTransitions.AreAdjacent(outgoing, incoming);
             bool rolled = service.Roll(harness.Scene, [new ElementTrimPair(outgoing, incoming)], MediaTime.FromFrames(1, rate));
             if (!meet || !adjacent || !rolled)

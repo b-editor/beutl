@@ -67,10 +67,10 @@ public class WindowPlacementTests
     public async Task An_editor_window_saved_on_an_unplugged_display_opens_on_the_primary_screen(bool mac)
     {
         ViewConfig config = GlobalConfiguration.Instance.ViewConfig;
-        var previous = (config.WindowPosition, config.WindowSize, config.IsWindowMaximized);
-        config.WindowPosition = (5000, -3000);
-        config.WindowSize = (800, 600);
-        config.IsWindowMaximized = false;
+        var previous = (WindowPosition: config.WindowPosition.Value, WindowSize: config.WindowSize.Value, IsWindowMaximized: config.IsWindowMaximized.Value);
+        config.WindowPosition.Value = (5000, -3000);
+        config.WindowSize.Value = (800, 600);
+        config.IsWindowMaximized.Value = false;
         Window window = mac ? new MacWindow() : HeadlessAppWindow.Create(() => new MainWindow());
         window.Content = null;
         try
@@ -88,9 +88,9 @@ public class WindowPlacementTests
             window.Close();
             await closed.Task.WaitAsync(TimeSpan.FromSeconds(10));
             HeadlessTestHelpers.Settle();
-            config.WindowPosition = previous.WindowPosition;
-            config.WindowSize = previous.WindowSize;
-            config.IsWindowMaximized = previous.IsWindowMaximized;
+            config.WindowPosition.Value = previous.WindowPosition;
+            config.WindowSize.Value = previous.WindowSize;
+            config.IsWindowMaximized.Value = previous.IsWindowMaximized;
         }
     }
 

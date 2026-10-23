@@ -21,9 +21,9 @@ public class ProjectPackageExportTests
         Task<ExportResult> export;
         try
         {
-            editor.Scene.Duration = MediaTime.FromSeconds(73);
+            editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
             editor.HistoryManager.Commit();
-            project.Name = "Current project name";
+            project.Name.Value = "Current project name";
             export = TestShell.MainViewModel.ExportProjectAsync(project, output);
             Assert.That(export.IsCompleted, Is.False);
             Assert.That(editor.IsEnabled.Value, Is.False);
@@ -32,8 +32,8 @@ public class ProjectPackageExportTests
 
         Assert.That((await export.WaitAsync(TimeSpan.FromSeconds(15))).Success, Is.True);
         Project imported = await ImportAsync(output);
-        Assert.That(imported.Name, Is.EqualTo("Current project name"));
-        Assert.That(imported.Items.OfType<Scene>().Single().Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+        Assert.That(imported.Name.Value, Is.EqualTo("Current project name"));
+        Assert.That(imported.Items.OfType<Scene>().Single().Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
         Assert.That(editor.IsEnabled.Value, Is.True);
     }
 
@@ -49,14 +49,14 @@ public class ProjectPackageExportTests
         Element element = editor.Scene.Children.Single();
         var nudge = (IElementNudgeService)editor.GetService(typeof(IElementNudgeService))!;
         nudge.Nudge(editor.Scene, [element], 1);
-        MediaTime expected = element.Start;
+        MediaTime expected = element.Start.Value;
 
         Assert.That((await TestShell.MainViewModel.ExportProjectAsync(project, output)).Success, Is.True);
 
         Project imported = await ImportAsync(output);
         // The file keeps the start to a tick, which reads back onto the same frame.
         Assert.That(
-            imported.Items.OfType<Scene>().Single().Children.Single().Start.RoundToFrame(new Rational(30), MidpointRounding.AwayFromZero),
+            imported.Items.OfType<Scene>().Single().Children.Single().Start.Value.RoundToFrame(new Rational(30), MidpointRounding.AwayFromZero),
             Is.EqualTo(expected));
     }
 
@@ -65,7 +65,7 @@ public class ProjectPackageExportTests
     {
         (Project project, EditViewModel editor, string output) = await OpenProjectAsync();
         File.WriteAllText(output, "previous complete package");
-        editor.Scene.Duration = MediaTime.FromSeconds(73);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(73);
         using (StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
                {
                    if (step == StorageWriteStep.Replace && path == editor.Scene.Uri!.LocalPath)
@@ -78,7 +78,7 @@ public class ProjectPackageExportTests
         Assert.That(File.ReadAllText(output), Is.EqualTo("previous complete package"));
         Assert.That(editor.IsEnabled.Value, Is.True);
         Assert.That((await TestShell.MainViewModel.ExportProjectAsync(project, output).WaitAsync(TimeSpan.FromSeconds(15))).Success, Is.True);
-        Assert.That((await ImportAsync(output)).Items.OfType<Scene>().Single().Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+        Assert.That((await ImportAsync(output)).Items.OfType<Scene>().Single().Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
     }
 
     [AvaloniaTest]
@@ -141,10 +141,10 @@ public class ProjectPackageExportTests
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool enable = config.EnableForNewProjects;
+        bool enable = config.EnableForNewProjects.Value;
         try
         {
-            config.EnableForNewProjects = false;
+            config.EnableForNewProjects.Value = false;
             string root = TestShell.NewWorkspace("package-export-" + Guid.NewGuid().ToString("N"));
             Project project = (await TestShell.Project.CreateProject(64, 64, new Rational(30), 44100, "Project", root))!;
             TestShell.Editor.ActivateTabItem(project.Items.OfType<Scene>().Single());
@@ -153,7 +153,7 @@ public class ProjectPackageExportTests
             await editor.SaveAsync();
             return (project, editor, Path.Combine(root, "export.beutlpkg"));
         }
-        finally { config.EnableForNewProjects = enable; }
+        finally { config.EnableForNewProjects.Value = enable; }
     }
 
     private static async Task<Project> ImportAsync(string archive)

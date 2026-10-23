@@ -36,8 +36,8 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Locked title", zIndex: 0);
-        locked.IsLocked = true;
-        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        locked.IsLocked.Value = true;
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } });
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
@@ -57,7 +57,7 @@ public sealed class ApplyEditLockTests
             Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(result.Error.Message, edit == "insert"
                 ? Does.Contain($"Layer {LockedLayer} is locked").And.Contain("'New title'")
-                : Does.Contain($"'Locked title' ({locked.Id}) is locked"));
+                : Does.Contain($"'Locked title' ({locked.Id.Value}) is locked"));
             Assert.That(result.Error.Hint, Does.Contain("ask the user to unlock"));
             Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
         });
@@ -68,7 +68,7 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", LockedLayer);
-        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } });
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -80,8 +80,8 @@ public sealed class ApplyEditLockTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Message, Does.Contain($"is on locked layer {LockedLayer}"));
-            Assert.That(result.Error.Target, Is.EqualTo($"$/Elements[Id={element.Id}]"));
-            Assert.That(element.ZIndex, Is.EqualTo(LockedLayer));
+            Assert.That(result.Error.Target, Is.EqualTo($"$/Elements[Id={element.Id.Value}]"));
+            Assert.That(element.ZIndex.Value, Is.EqualTo(LockedLayer));
         });
     }
 
@@ -90,7 +90,7 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
-        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } });
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -102,7 +102,7 @@ public sealed class ApplyEditLockTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Message, Does.Contain($"Layer {LockedLayer} is locked"));
-            Assert.That(element.ZIndex, Is.Zero);
+            Assert.That(element.ZIndex.Value, Is.Zero);
         });
     }
 
@@ -112,9 +112,9 @@ public sealed class ApplyEditLockTests
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
         Element onLockedLayer = AddElement(scene, "Caption", LockedLayer);
-        var layer = new TimelineLayer { ZIndex = 1 };
+        var layer = new TimelineLayer { ZIndex = { Value = 1 } };
         scene.Layers.Add(layer);
-        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } });
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -122,18 +122,18 @@ public sealed class ApplyEditLockTests
             patch: new JsonObject
             {
                 ["Elements"] = new JsonArray(
-                    new JsonObject { ["Id"] = element.Id.ToString(), [nameof(Element.IsLocked)] = true },
-                    new JsonObject { ["Id"] = onLockedLayer.Id.ToString(), [nameof(Element.IsLocked)] = true }),
+                    new JsonObject { ["Id"] = element.Id.Value.ToString(), [nameof(Element.IsLocked)] = true },
+                    new JsonObject { ["Id"] = onLockedLayer.Id.Value.ToString(), [nameof(Element.IsLocked)] = true }),
                 ["Layers"] = new JsonArray(
-                    new JsonObject { ["Id"] = layer.Id.ToString(), [nameof(TimelineLayer.IsLocked)] = true }),
+                    new JsonObject { ["Id"] = layer.Id.Value.ToString(), [nameof(TimelineLayer.IsLocked)] = true }),
             },
             schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(element.IsLocked, Is.True);
-            Assert.That(onLockedLayer.IsLocked, Is.True);
+            Assert.That(element.IsLocked.Value, Is.True);
+            Assert.That(onLockedLayer.IsLocked.Value, Is.True);
             Assert.That(scene.IsLayerLocked(1), Is.True);
         });
     }
@@ -146,8 +146,8 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
-        element.IsLocked = true;
-        var layer = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
+        element.IsLocked.Value = true;
+        var layer = new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } };
         scene.Layers.Add(layer);
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -180,8 +180,8 @@ public sealed class ApplyEditLockTests
         Scene scene = TestWorkspace.CreateScene();
         Element unlocked = AddElement(scene, "Intro", zIndex: 0);
         Element locked = AddElement(scene, "Outro", zIndex: 1);
-        locked.IsLocked = true;
-        var layer = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
+        locked.IsLocked.Value = true;
+        var layer = new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } };
         scene.Layers.Add(layer);
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -191,8 +191,8 @@ public sealed class ApplyEditLockTests
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: new JsonObject
             {
-                ["Elements"] = new JsonArray(new JsonObject { ["Id"] = unlocked.Id.ToString(), ["$delete"] = true }),
-                ["Layers"] = new JsonArray(new JsonObject { ["Id"] = layer.Id.ToString(), ["Name"] = "Music" }),
+                ["Elements"] = new JsonArray(new JsonObject { ["Id"] = unlocked.Id.Value.ToString(), ["$delete"] = true }),
+                ["Layers"] = new JsonArray(new JsonObject { ["Id"] = layer.Id.Value.ToString(), ["Name"] = "Music" }),
             },
             schemaVersion: SchemaVersion.Current);
 
@@ -200,7 +200,7 @@ public sealed class ApplyEditLockTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(scene.Children, Is.EqualTo(new[] { locked }));
-            Assert.That(scene.Layers.Single().Name, Is.EqualTo("Music"));
+            Assert.That(scene.Layers.Single().Name.Value, Is.EqualTo("Music"));
             Assert.That(scene.IsLayerLocked(LockedLayer), Is.True);
         });
     }
@@ -210,7 +210,7 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
@@ -221,7 +221,7 @@ public sealed class ApplyEditLockTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id}) is locked"));
+            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id.Value}) is locked"));
             Assert.That(scene.Children, Is.EqualTo(new[] { locked }));
         });
     }
@@ -233,7 +233,7 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         AddElement(scene, "Title", zIndex: 0);
-        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } });
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
@@ -259,7 +259,7 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
-        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } });
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
@@ -271,7 +271,7 @@ public sealed class ApplyEditLockTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
             Assert.That(scene.IsLayerLocked(LockedLayer), Is.True);
         });
     }
@@ -283,9 +283,9 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
-        var rect = new RectShape { Name = "Box" };
+        var rect = new RectShape { Name = { Value = "Box" } };
         locked.AddObject(rect);
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
@@ -301,9 +301,9 @@ public sealed class ApplyEditLockTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id}) is locked"));
+            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id.Value}) is locked"));
             Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
-            Assert.That(locked.Name, Is.EqualTo("Title"));
+            Assert.That(locked.Name.Value, Is.EqualTo("Title"));
             Assert.That(locked.Objects, Is.EqualTo(new[] { rect }));
         });
     }
@@ -315,11 +315,11 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
-        string id = spelling == "upper" ? locked.Id.ToString().ToUpperInvariant() : locked.Id.ToString("B");
+        string id = spelling == "upper" ? locked.Id.Value.ToString().ToUpperInvariant() : locked.Id.Value.ToString("B");
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: new JsonObject
@@ -333,7 +333,7 @@ public sealed class ApplyEditLockTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
-            Assert.That(locked.Name, Is.EqualTo("Title"));
+            Assert.That(locked.Name.Value, Is.EqualTo("Title"));
         });
     }
 
@@ -344,8 +344,8 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
-        locked.AddObject(new RectShape { Name = "Box" });
-        locked.IsLocked = true;
+        locked.AddObject(new RectShape { Name = { Value = "Box" } });
+        locked.IsLocked.Value = true;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
@@ -360,7 +360,7 @@ public sealed class ApplyEditLockTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id}) is locked"));
+            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id.Value}) is locked"));
             Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
             Assert.That(scene.Children, Is.EqualTo(new[] { locked }));
         });
@@ -373,12 +373,12 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
-        locked.EnterTransition = new CrossDissolveTransition();
-        locked.ExitTransition = new WipeTransition();
-        var text = new TextBlock { Name = "Caption", Text = { Value = "Hello" } };
+        locked.EnterTransition.Value = new CrossDissolveTransition();
+        locked.ExitTransition.Value = new WipeTransition();
+        var text = new TextBlock { Name = { Value = "Caption" }, Text = { Value = "Hello" } };
         var opacity = new KeyFrameAnimation<float>();
-        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0, Easing = new LinearEasing() }, out _);
-        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100, Easing = new SineEaseOut() }, out _);
+        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 }, Easing = { Value = new LinearEasing() } }, out _);
+        opacity.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 100 }, Easing = { Value = new SineEaseOut() } }, out _);
         text.Opacity.SetKeyFrameAnimation(opacity);
         locked.AddObject(text);
         var group = new TransformGroup();
@@ -392,12 +392,12 @@ public sealed class ApplyEditLockTests
             typeof(Transform)));
         locked.AddObject(new RectShape
         {
-            Name = "Box",
+            Name = { Value = "Box" },
             Fill = { Value = new SolidColorBrush(Colors.Orange) },
             Transform = { Value = group },
             FilterEffect = { Value = new Blur { Sigma = { Value = new Size(4, 4) } } },
         });
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         Element other = AddElement(scene, "Other", zIndex: 1);
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -409,7 +409,7 @@ public sealed class ApplyEditLockTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(other.Name, Is.EqualTo("Renamed"));
+            Assert.That(other.Name.Value, Is.EqualTo("Renamed"));
         });
     }
 
@@ -422,7 +422,7 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         AddElement(scene, "Title", zIndex: 0);
-        var layer = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
+        var layer = new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } };
         scene.Layers.Add(layer);
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -446,7 +446,7 @@ public sealed class ApplyEditLockTests
             {
                 ["Layers"] = new JsonArray(
                     new JsonObject { ["$replace"] = true },
-                    new JsonObject { ["Id"] = layer.Id.ToString(), ["zindex"] = LockedLayer, [member] = false })
+                    new JsonObject { ["Id"] = layer.Id.Value.ToString(), ["zindex"] = LockedLayer, [member] = false })
             });
             result = tools.ApplyEdit(patch: patch, schemaVersion: SchemaVersion.Current);
         }
@@ -465,7 +465,7 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
-        scene.Layers.Add(new TimelineLayer { ZIndex = LockedLayer, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } });
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         JsonObject desired = AsMcpArgument(session.Documents.Read(scene));
@@ -479,7 +479,7 @@ public sealed class ApplyEditLockTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Message, Does.Contain($"Layer {LockedLayer} is locked"));
-            Assert.That(element.ZIndex, Is.Zero);
+            Assert.That(element.ZIndex.Value, Is.Zero);
         });
     }
 
@@ -490,10 +490,10 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
-        var rect = new RectShape { Name = "Box" };
+        var rect = new RectShape { Name = { Value = "Box" } };
         rect.FilterEffect.Value = new LumaColor();
         element.AddObject(rect);
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
@@ -506,7 +506,7 @@ public sealed class ApplyEditLockTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Message, Does.Contain($"({element.Id}) is locked"));
+            Assert.That(result.Error!.Message, Does.Contain($"({element.Id.Value}) is locked"));
             Assert.That(rect.FilterEffect.Value, Is.InstanceOf<LumaColor>());
         });
     }
@@ -522,12 +522,12 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         Element first = AddElement(scene, "First", zIndex: 1);
         Element second = AddElement(scene, "Second", zIndex: 2);
         if (edit != "add")
         {
-            scene.Groups.Add(ImmutableHashSet.Create(locked.Id, first.Id, second.Id));
+            scene.Groups.Add(ImmutableHashSet.Create(locked.Id.Value, first.Id.Value, second.Id.Value));
         }
 
         using var session = new AgentToolkitTestSession(scene);
@@ -545,10 +545,10 @@ public sealed class ApplyEditLockTests
         {
             JsonArray groups = edit switch
             {
-                "add" => new JsonArray($"{locked.Id}:{first.Id}"),
-                "remove" => new JsonArray($"{first.Id}:{second.Id}"),
+                "add" => new JsonArray($"{locked.Id.Value}:{first.Id.Value}"),
+                "remove" => new JsonArray($"{first.Id.Value}:{second.Id.Value}"),
                 // Scene.Groups accepts an Id in two groups; the unchanged group stays the first match.
-                _ => new JsonArray($"{locked.Id}:{first.Id}:{second.Id}", $"{locked.Id}:{first.Id}"),
+                _ => new JsonArray($"{locked.Id.Value}:{first.Id.Value}:{second.Id.Value}", $"{locked.Id.Value}:{first.Id.Value}"),
             };
             result = tools.ApplyEdit(
                 patch: new JsonObject { ["Groups"] = groups },
@@ -558,7 +558,7 @@ public sealed class ApplyEditLockTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id}) is locked, so an agent cannot add it to a group"));
+            Assert.That(result.Error!.Message, Does.Contain($"({locked.Id.Value}) is locked, so an agent cannot add it to a group"));
             Assert.That(session.Documents.Read(scene).ToJsonString(), Is.EqualTo(before));
         });
     }
@@ -570,17 +570,17 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         Element first = AddElement(scene, "First", zIndex: 1);
         Element second = AddElement(scene, "Second", zIndex: 2);
-        scene.Groups.Add(ImmutableHashSet.Create(locked.Id, first.Id));
-        scene.Groups.Add(ImmutableHashSet.Create(locked.Id, first.Id, second.Id));
+        scene.Groups.Add(ImmutableHashSet.Create(locked.Id.Value, first.Id.Value));
+        scene.Groups.Add(ImmutableHashSet.Create(locked.Id.Value, first.Id.Value, second.Id.Value));
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
         string before = session.Documents.Read(scene).ToJsonString();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
-            patch: new JsonObject { ["Groups"] = new JsonArray($"{locked.Id}:{first.Id}") },
+            patch: new JsonObject { ["Groups"] = new JsonArray($"{locked.Id.Value}:{first.Id.Value}") },
             schemaVersion: SchemaVersion.Current);
 
         Assert.Multiple(() =>
@@ -600,18 +600,18 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element locked = AddElement(scene, "Title", zIndex: 0);
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         Element first = AddElement(scene, "First", zIndex: 1);
         Element second = AddElement(scene, "Second", zIndex: 2);
         scene.Groups.Add(edit == "leave"
-            ? ImmutableHashSet.Create(locked.Id, first.Id, second.Id)
-            : ImmutableHashSet.Create(locked.Id, first.Id));
+            ? ImmutableHashSet.Create(locked.Id.Value, first.Id.Value, second.Id.Value)
+            : ImmutableHashSet.Create(locked.Id.Value, first.Id.Value));
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
             patch: edit == "leave"
-                ? new JsonObject { ["Groups"] = new JsonArray($"{locked.Id}:{second.Id}") }
+                ? new JsonObject { ["Groups"] = new JsonArray($"{locked.Id.Value}:{second.Id.Value}") }
                 : ElementPatch(first, new JsonObject { ["$delete"] = true }),
             schemaVersion: SchemaVersion.Current);
 
@@ -620,7 +620,7 @@ public sealed class ApplyEditLockTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             if (edit == "leave")
             {
-                Assert.That(scene.Groups.Single(), Is.EquivalentTo(new[] { locked.Id, second.Id }));
+                Assert.That(scene.Groups.Single(), Is.EquivalentTo(new[] { locked.Id.Value, second.Id.Value }));
             }
             else
             {
@@ -638,8 +638,8 @@ public sealed class ApplyEditLockTests
         Scene scene = TestWorkspace.CreateScene();
         Element first = AddElement(scene, "A", zIndex: 0);
         Element locked = AddElement(scene, "B", zIndex: 1);
-        locked.Id = first.Id;
-        locked.IsLocked = true;
+        locked.Id.Value = first.Id.Value;
+        locked.IsLocked.Value = true;
         AddElement(scene, "Y", zIndex: 2);
         AddElement(scene, "Z", zIndex: 3);
         using var session = new AgentToolkitTestSession(scene);
@@ -663,7 +663,7 @@ public sealed class ApplyEditLockTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Message, Does.Contain("shares its Id with another element"));
             Assert.That(result.Error.Hint, Does.Contain("duplicate element Ids"));
-            Assert.That(locked.Name, Is.EqualTo("B"));
+            Assert.That(locked.Name.Value, Is.EqualTo("B"));
             Assert.That(scene.Children, Has.Count.EqualTo(4));
         });
     }
@@ -675,9 +675,9 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         AddElement(scene, "Title", zIndex: 0);
-        var kept = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true };
-        var removed = new TimelineLayer { ZIndex = LockedLayer, IsLocked = true, Name = "Copy" };
-        removed.Id = kept.Id;
+        var kept = new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true } };
+        var removed = new TimelineLayer { ZIndex = { Value = LockedLayer }, IsLocked = { Value = true }, Name = { Value = "Copy" } };
+        removed.Id.Value = kept.Id.Value;
         scene.Layers.Add(kept);
         scene.Layers.Add(removed);
         using var session = new AgentToolkitTestSession(scene);
@@ -702,19 +702,19 @@ public sealed class ApplyEditLockTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = AddElement(scene, "Title", zIndex: 0);
-        var rect = new RectShape { Name = "Box" };
+        var rect = new RectShape { Name = { Value = "Box" } };
         element.AddObject(rect);
-        element.IsLocked = true;
+        element.IsLocked.Value = true;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
-        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: wrapInGroup);
+        ToolResult<DuplicateObjectResponse> result = tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: wrapInGroup);
 
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(result.Error.Message, Does.Contain($"({element.Id}) is locked"));
+            Assert.That(result.Error.Message, Does.Contain($"({element.Id.Value}) is locked"));
             Assert.That(element.Objects, Is.EqualTo(new[] { rect }));
         });
     }
@@ -725,7 +725,7 @@ public sealed class ApplyEditLockTests
     public void Apply_edit_rejects_an_edit_that_leaves_a_protected_element_unrepaired(bool unreadable)
     {
         Element element = CreateProtectedElement(out Scene scene, unreadable);
-        string name = element.Name;
+        string name = element.Name.Value;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -737,8 +737,8 @@ public sealed class ApplyEditLockTests
         {
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(result.Error.Message, Does.Contain($"{element.Id}").And.Contain("could not be fully loaded"));
-            Assert.That(element.Name, Is.EqualTo(name));
+            Assert.That(result.Error.Message, Does.Contain($"{element.Id.Value}").And.Contain("could not be fully loaded"));
+            Assert.That(element.Name.Value, Is.EqualTo(name));
         });
     }
 
@@ -755,7 +755,7 @@ public sealed class ApplyEditLockTests
             : new JsonObject
             {
                 [nameof(Element.Objects)] = new JsonArray(
-                    new JsonObject { ["Id"] = element.Objects.Single().Id.ToString(), ["$delete"] = true }),
+                    new JsonObject { ["Id"] = element.Objects.Single().Id.Value.ToString(), ["$delete"] = true }),
             };
 
         ToolResult<ApplyEditResponse> result = tools.ApplyEdit(
@@ -784,7 +784,7 @@ public sealed class ApplyEditLockTests
         CoreSerializer.StoreToUri(created, created.Uri!);
         string elementPath = created.Children.Single().Uri!.LocalPath;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { Value = 32 });
+        animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 32 } });
         var shape = new RectShape();
         shape.Width.SetKeyFrameAnimation(animation);
         JsonObject animationJson = CoreSerializer.SerializeToJsonObject(shape)["Animations"]![nameof(RectShape.Width)]!
@@ -808,13 +808,13 @@ public sealed class ApplyEditLockTests
 
     private static JsonObject ElementPatch(Element element, JsonObject members)
     {
-        members["Id"] = element.Id.ToString();
+        members["Id"] = element.Id.Value.ToString();
         return new JsonObject { ["Elements"] = new JsonArray(members) };
     }
 
     private static JsonObject LayerPatch(TimelineLayer layer, JsonObject members)
     {
-        members["Id"] = layer.Id.ToString();
+        members["Id"] = layer.Id.Value.ToString();
         return new JsonObject { ["Layers"] = new JsonArray(members) };
     }
 
@@ -837,10 +837,10 @@ public sealed class ApplyEditLockTests
     {
         var element = new Element
         {
-            Name = name,
-            Start = MediaTime.FromSeconds(scene.Children.Count * 3),
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = zIndex,
+            Name = { Value = name },
+            Start = { Value = MediaTime.FromSeconds(scene.Children.Count * 3) },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = zIndex },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, $"{Guid.NewGuid():N}.belm"))
         };
         scene.Children.Add(element);

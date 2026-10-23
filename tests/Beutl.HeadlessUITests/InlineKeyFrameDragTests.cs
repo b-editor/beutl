@@ -44,7 +44,7 @@ public class InlineKeyFrameDragTests
         var property = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Width, shape);
         timeline.AttachInline(property, element);
         InlineAnimationLayerViewModel inline = timeline.Inlines.Single(item => ReferenceEquals(item.Property, property));
-        editor.HistoryManager.ExecuteInTransaction(() => element.Name = "earlier", "Earlier");
+        editor.HistoryManager.ExecuteInTransaction(() => element.Name.Value = "earlier", "Earlier");
         int undoCount = editor.HistoryManager.UndoCount;
         var view = new TimelineTabView { DataContext = timeline };
         graph.Window.Content = view;
@@ -100,10 +100,10 @@ public class InlineKeyFrameDragTests
             var firstModel = (InlineKeyFrameViewModel)key.DataContext!;
             Assert.Multiple(() =>
             {
-                Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(kept ? 0.9 : 0.5)));
-                Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(kept && shift ? 1.9 : 1.5)));
-                Assert.That(firstModel.Left.Value, Is.EqualTo(graph.First.KeyTime.TimeToPixel(1)).Within(0.0001));
-                Assert.That(element.Name, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
+                Assert.That(graph.First.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(kept ? 0.9 : 0.5)));
+                Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(kept && shift ? 1.9 : 1.5)));
+                Assert.That(firstModel.Left.Value, Is.EqualTo(graph.First.KeyTime.Value.TimeToPixel(1)).Within(0.0001));
+                Assert.That(element.Name.Value, Is.EqualTo("earlier"), "Undo during the drag leaves earlier history alone.");
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + (kept ? 1 : 0)));
                 Assert.That(editor.HistoryManager.IsEditing, Is.False);
             });

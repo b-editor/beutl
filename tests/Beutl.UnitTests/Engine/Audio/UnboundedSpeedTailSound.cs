@@ -37,15 +37,15 @@ public sealed partial class UnboundedSpeedTailSound : Sound
             {
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.Zero,
-                    Value = 100f,
-                    Easing = new UnknownRangeEasing(),
+                    KeyTime = { Value = MediaTime.Zero },
+                    Value = { Value = 100f },
+                    Easing = { Value = new UnknownRangeEasing() },
                 },
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.FromSeconds(1),
-                    Value = 100f,
-                    Easing = new UnknownRangeEasing(),
+                    KeyTime = { Value = MediaTime.FromSeconds(1) },
+                    Value = { Value = 100f },
+                    Easing = { Value = new UnknownRangeEasing() },
                 },
             },
         });
@@ -55,7 +55,7 @@ public sealed partial class UnboundedSpeedTailSound : Sound
         var counting = context.AddNode(new CountingFlushNode());
         context.Connect(speedNode, counting);
 
-        var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var clip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(counting, clip);
         context.MarkAsOutput(clip);
     }

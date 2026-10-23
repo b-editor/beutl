@@ -21,8 +21,8 @@ public sealed class GeometryShapePlacementTests
         var scene = new Scene(320, 180, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
 
@@ -33,7 +33,7 @@ public sealed class GeometryShapePlacementTests
         figure.IsClosed.Value = true;
         var shape = new GeometryShape
         {
-            Name = "placement probe",
+            Name = { Value = "placement probe" },
             Data = { Value = new PathGeometry { Figures = { figure } } },
             Fill = { Value = new SolidColorBrush(Colors.White) }
         };

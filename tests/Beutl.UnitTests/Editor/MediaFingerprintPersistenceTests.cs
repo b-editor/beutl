@@ -56,7 +56,7 @@ public class MediaFingerprintPersistenceTests
                }))
         {
             // The editor's background update after an explicit save, then the next explicit save.
-            updated = MediaFingerprintFile.Update(scene.Uri, scene.Id, scene.MediaFingerprints);
+            updated = MediaFingerprintFile.Update(scene.Uri, scene.Id.Value, scene.MediaFingerprints);
             replacedByTheUpdate = [.. replaced];
             CoreSerializer.StoreToUri(scene, scene.Uri);
         }
@@ -160,7 +160,7 @@ public class MediaFingerprintPersistenceTests
         await new MissingMediaService().UpdateFingerprintsAsync(scene, force: true);
         bool keptInTheScene = scene.MediaFingerprintFile is not null;
 
-        bool updated = MediaFingerprintFile.Update(scene.Uri, scene.Id, scene.MediaFingerprints);
+        bool updated = MediaFingerprintFile.Update(scene.Uri, scene.Id.Value, scene.MediaFingerprints);
         bool writtenByUpdate = File.Exists(path);
         byte[] sceneAfterUpdate = File.ReadAllBytes(scene.Uri.LocalPath);
         CoreSerializer.StoreToUri(scene, scene.Uri);
@@ -194,7 +194,7 @@ public class MediaFingerprintPersistenceTests
         File.WriteAllBytes(media, content);
         await service.UpdateFingerprintsAsync(scene, force: true);
 
-        bool updated = MediaFingerprintFile.Update(scene.Uri, scene.Id, scene.MediaFingerprints);
+        bool updated = MediaFingerprintFile.Update(scene.Uri, scene.Id.Value, scene.MediaFingerprints);
         byte[] afterUpdate = File.ReadAllBytes(path);
         byte[] sceneAfterUpdate = File.ReadAllBytes(scene.Uri.LocalPath);
         CoreSerializer.StoreToUri(scene, scene.Uri);
@@ -348,7 +348,7 @@ public class MediaFingerprintPersistenceTests
         await service.UpdateFingerprintsAsync(restored, force: true);
         int afterTheScan = restored.MediaFingerprints.Count;
         // The background update and a save after the media are hashed again, then a save with none left.
-        bool updated = MediaFingerprintFile.Update(scene.Uri, restored.Id, restored.MediaFingerprints);
+        bool updated = MediaFingerprintFile.Update(scene.Uri, restored.Id.Value, restored.MediaFingerprints);
         CoreSerializer.StoreToUri(restored, scene.Uri);
         restored.SetMediaFingerprints([]);
         CoreSerializer.StoreToUri(restored, scene.Uri);
@@ -546,7 +546,7 @@ public class MediaFingerprintPersistenceTests
     {
         (Scene scene, string media) = CreateSceneWithImage(_root);
         string other = Path.Combine(_root, "other.png");
-        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(_root, "other.belm")) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(_root, "other.belm")) };
         element.Objects.Add(new SourceImage { Source = { Value = TestImages.WriteImage(other) } });
         scene.Children.Add(element);
         var service = new MissingMediaService();
@@ -621,7 +621,7 @@ public class MediaFingerprintPersistenceTests
         var scene = new Scene(64, 64, "Scene") { Uri = new Uri(Path.Combine(directory, "scene.scene")) };
         var element = new Element
         {
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(directory, "image.belm")),
         };
         element.Objects.Add(new SourceImage { Source = { Value = source } });

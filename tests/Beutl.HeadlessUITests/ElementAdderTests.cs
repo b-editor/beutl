@@ -39,15 +39,15 @@ public class ElementAdderTests
         HeadlessTestHelpers.Settle();
 
         IReadOnlyList<Element> created = result.Elements;
-        Guid[] createdIds = created.Select(element => element.Id).ToArray();
+        Guid[] createdIds = created.Select(element => element.Id.Value).ToArray();
         using (Assert.EnterMultipleScope())
         {
             Assert.That(created, Has.Count.EqualTo(2));
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Items, Has.Count.EqualTo(2));
-            Assert.That(created[0].AccentColor, Is.EqualTo(Color.Parse("#ffc9ba6f")));
-            Assert.That(created[1].AccentColor, Is.EqualTo(Color.Parse("#ffaac75a")));
-            Assert.That(editor.Scene.Children.Select(element => element.Id), Is.EqualTo(createdIds));
+            Assert.That(created[0].AccentColor.Value, Is.EqualTo(Color.Parse("#ffc9ba6f")));
+            Assert.That(created[1].AccentColor.Value, Is.EqualTo(Color.Parse("#ffaac75a")));
+            Assert.That(editor.Scene.Children.Select(element => element.Id.Value), Is.EqualTo(createdIds));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(initialUndoCount + 1));
         }
 
@@ -63,7 +63,7 @@ public class ElementAdderTests
         HeadlessTestHelpers.Settle();
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(editor.Scene.Children.Select(element => element.Id), Is.EqualTo(createdIds));
+            Assert.That(editor.Scene.Children.Select(element => element.Id.Value), Is.EqualTo(createdIds));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(initialUndoCount + 1));
         }
     }
@@ -141,7 +141,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-locked-layer");
         using (editor.HistoryManager.SuppressRecording())
         {
-            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
         }
 
         bool factoryCalled = false;
@@ -185,10 +185,10 @@ public class ElementAdderTests
         var sourceShape = new RectShape();
         var source = new Element
         {
-            Start = MediaTime.FromSeconds(20),
-            Length = MediaTime.FromSeconds(7),
-            ZIndex = 9,
-            Name = "Authored template",
+            Start = { Value = MediaTime.FromSeconds(20) },
+            Length = { Value = MediaTime.FromSeconds(7) },
+            ZIndex = { Value = 9 },
+            Name = { Value = "Authored template" },
         };
         source.AddObject(sourceShape);
         ObjectTemplateItem template = ObjectTemplateItem.CreateFromInstance(source, "Template");
@@ -215,14 +215,14 @@ public class ElementAdderTests
         {
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(description.Length, Is.Null);
-            Assert.That(created.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(created.Length, Is.EqualTo(MediaTime.FromSeconds(7)));
-            Assert.That(created.ZIndex, Is.EqualTo(4));
-            Assert.That(created.Name, Is.EqualTo("Authored template"));
-            Assert.That(created.Id, Is.Not.EqualTo(source.Id));
-            Assert.That(createdShape.Id, Is.Not.EqualTo(sourceShape.Id));
+            Assert.That(created.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(created.Length.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(created.ZIndex.Value, Is.EqualTo(4));
+            Assert.That(created.Name.Value, Is.EqualTo("Authored template"));
+            Assert.That(created.Id.Value, Is.Not.EqualTo(source.Id.Value));
+            Assert.That(createdShape.Id.Value, Is.Not.EqualTo(sourceShape.Id.Value));
             Assert.That(zeroLengthDescription.Length, Is.EqualTo(MediaTime.Zero));
-            Assert.That(zeroLengthElement.Length, Is.EqualTo(MediaTime.Zero));
+            Assert.That(zeroLengthElement.Length.Value, Is.EqualTo(MediaTime.Zero));
         }
     }
 
@@ -249,9 +249,9 @@ public class ElementAdderTests
         {
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Elements, Has.Count.EqualTo(2));
-            Assert.That(result.Elements.Select(element => element.ZIndex), Is.EqualTo(new[] { 4, 5 }));
+            Assert.That(result.Elements.Select(element => element.ZIndex.Value), Is.EqualTo(new[] { 4, 5 }));
             Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1));
-            Assert.That(editor.Scene.Groups.Single(), Is.EquivalentTo(result.Elements.Select(element => element.Id)));
+            Assert.That(editor.Scene.Groups.Single(), Is.EquivalentTo(result.Elements.Select(element => element.Id.Value)));
             Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(initialUndoCount + 1));
             Assert.That(handler.PreflightCount, Is.EqualTo(1));
             Assert.That(handler.MaterializationCount, Is.EqualTo(1));
@@ -283,7 +283,7 @@ public class ElementAdderTests
         {
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Elements, Has.Count.EqualTo(1));
-            Assert.That(result.Elements[0].Length, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(result.Elements[0].Length.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
         }
     }
 
@@ -555,7 +555,7 @@ public class ElementAdderTests
         var adder = (ElementAdderImpl)editor.GetService(typeof(IElementAdder))!;
         using var historyGateEntered = new ManualResetEventSlim();
         using var beforeHistoryTransaction = new ManualResetEventSlim();
-        var lockedLayer = new TimelineLayer { ZIndex = 0, IsLocked = true };
+        var lockedLayer = new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } };
         Task blocker;
         // The blocker holds the history gate from a second thread, so its write is off the UI thread on purpose.
         using (OffUiThreadWriteCheckAttribute.Allow())
@@ -647,7 +647,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-plugin-locked-lease");
         using (editor.HistoryManager.SuppressRecording())
         {
-            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = 5, IsLocked = true });
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 5 }, IsLocked = { Value = true } });
         }
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var handler = new GroupedTestSourceHandler();
@@ -778,7 +778,7 @@ public class ElementAdderTests
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-duplicate-ids");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
         var fixedId = Guid.NewGuid();
-        var handler = new MutationTestSourceHandler((_, element) => element.Id = fixedId);
+        var handler = new MutationTestSourceHandler((_, element) => element.Id.Value = fixedId);
         await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
         ElementAddResult duplicateBatch = await adder.AddAsync(
@@ -799,7 +799,7 @@ public class ElementAdderTests
             Assert.That(first.IsSuccess, Is.True);
             Assert.That(duplicateScene.Failure, Is.TypeOf<InvalidElementMaterializationFailure>());
             Assert.That(editor.Scene.Children, Has.Count.EqualTo(1));
-            Assert.That(editor.Scene.Children[0].Id, Is.EqualTo(fixedId));
+            Assert.That(editor.Scene.Children[0].Id.Value, Is.EqualTo(fixedId));
         }
     }
 
@@ -815,8 +815,8 @@ public class ElementAdderTests
             {
                 context.Scene.Layers.Add(new TimelineLayer
                 {
-                    ZIndex = context.Description.Layer,
-                    IsLocked = true,
+                    ZIndex = { Value = context.Description.Layer },
+                    IsLocked = { Value = true },
                 });
             }
         });
@@ -840,13 +840,13 @@ public class ElementAdderTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-late-scene-change");
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        Guid originalId = editor.Scene.Id;
+        Guid originalId = editor.Scene.Id.Value;
         Guid changedId = Guid.NewGuid();
         var handler = new MutationTestSourceHandler((context, _) =>
         {
             using (editor.HistoryManager.SuppressRecording())
             {
-                context.Scene.Id = changedId;
+                context.Scene.Id.Value = changedId;
             }
         });
         await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
@@ -862,7 +862,7 @@ public class ElementAdderTests
         {
             using (editor.HistoryManager.SuppressRecording())
             {
-                editor.Scene.Id = originalId;
+                editor.Scene.Id.Value = originalId;
             }
         }
 
@@ -884,9 +884,9 @@ public class ElementAdderTests
         {
             competing = new Element
             {
-                Start = MediaTime.FromSeconds(10),
-                Length = MediaTime.FromSeconds(1),
-                ZIndex = 10,
+                Start = { Value = MediaTime.FromSeconds(10) },
+                Length = { Value = MediaTime.FromSeconds(1) },
+                ZIndex = { Value = 10 },
                 Uri = new Uri(Path.Combine(
                     Path.GetDirectoryName(context.Scene.Uri!.LocalPath)!,
                     $"competing-{Guid.NewGuid():N}.belm")),
@@ -895,7 +895,7 @@ public class ElementAdderTests
             {
                 context.Scene.AddChild(competing);
             }
-            materialized.Id = competing.Id;
+            materialized.Id.Value = competing.Id.Value;
         });
         await using IAsyncDisposable registration = PackageSourceHandlers.Register(editor.ExtensionProvider, handler);
 
@@ -1130,17 +1130,17 @@ public class ElementAdderTests
             var state = (TestPreflight)preflight;
             var primary = new Element
             {
-                Start = context.Description.Start,
-                Length = context.Description.Length!.Value,
-                ZIndex = state.PrimaryLayer,
+                Start = { Value = context.Description.Start },
+                Length = { Value = context.Description.Length!.Value },
+                ZIndex = { Value = state.PrimaryLayer },
             };
             var companion = new Element
             {
-                Start = context.Description.Start,
-                Length = context.Description.Length.Value,
-                ZIndex = state.PrimaryLayer + 1,
+                Start = { Value = context.Description.Start },
+                Length = { Value = context.Description.Length.Value },
+                ZIndex = { Value = state.PrimaryLayer + 1 },
             };
-            IReadOnlySet<Guid> group = new HashSet<Guid> { primary.Id, companion.Id };
+            IReadOnlySet<Guid> group = new HashSet<Guid> { primary.Id.Value, companion.Id.Value };
             return ElementSourceMaterializationResult.Materialized(
                 new ElementMaterialization(
                     primary,
@@ -1180,9 +1180,9 @@ public class ElementAdderTests
 
         protected virtual Element CreateElement(ElementSourceMaterializationContext context) => new()
         {
-            Start = context.Description.Start,
-            Length = context.Description.Length!.Value,
-            ZIndex = context.Description.Layer,
+            Start = { Value = context.Description.Start },
+            Length = { Value = context.Description.Length!.Value },
+            ZIndex = { Value = context.Description.Layer },
         };
 
         protected virtual ElementMaterialization Materialize(
@@ -1195,9 +1195,9 @@ public class ElementAdderTests
     {
         protected override Element CreateElement(ElementSourceMaterializationContext context) => new()
         {
-            Start = context.Description.Start,
-            Length = MediaTime.FromSeconds(7),
-            ZIndex = context.Description.Layer,
+            Start = { Value = context.Description.Start },
+            Length = { Value = MediaTime.FromSeconds(7) },
+            ZIndex = { Value = context.Description.Layer },
         };
     }
 

@@ -16,10 +16,10 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     private PreviewSourceMode _saved;
 
     [SetUp]
-    public void SetUp() => _saved = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
+    public void SetUp() => _saved = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
 
     [TearDown]
-    public void TearDown() => GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = _saved;
+    public void TearDown() => GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = _saved;
 
     private static PreviewSettingsTabViewModel CreateViewModel()
     {
@@ -33,7 +33,7 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     [Test]
     public void PreviewSourceMode_ReflectsConfigAsInt()
     {
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
 
         using PreviewSettingsTabViewModel vm = CreateViewModel();
 
@@ -43,13 +43,13 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     [Test]
     public void SettingIntValue_UpdatesConfigEnum()
     {
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
         using PreviewSettingsTabViewModel vm = CreateViewModel();
 
         // The ComboBox writes back the selected index as an int; the enum setting must follow.
         vm.PreviewSourceMode.Value = (int)PreviewSourceMode.ForceOriginal;
 
-        Assert.That(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode,
+        Assert.That(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value,
             Is.EqualTo(PreviewSourceMode.ForceOriginal));
     }
 
@@ -58,12 +58,12 @@ public sealed class PreviewSettingsTabPreviewSourceModeTests
     [Test]
     public void SettingOutOfRangeIndex_LeavesConfigUnchanged()
     {
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
         using PreviewSettingsTabViewModel vm = CreateViewModel();
 
         vm.PreviewSourceMode.Value = -1;
 
-        Assert.That(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode,
+        Assert.That(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value,
             Is.EqualTo(PreviewSourceMode.ForceOriginal), "an out-of-range index must not persist an undefined enum");
     }
 }

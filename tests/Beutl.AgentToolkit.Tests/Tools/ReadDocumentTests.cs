@@ -69,12 +69,12 @@ public sealed class ReadDocumentTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "off-frame-measure")
         {
-            Duration = MediaTime.FromSeconds(2),
+            Duration = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var plate = new RectShape
         {
-            Name = "OffFrame",
+            Name = { Value = "OffFrame" },
             Width = { Value = 40 },
             Height = { Value = 20 },
             Fill = { Value = Brushes.White },
@@ -84,7 +84,7 @@ public sealed class ReadDocumentTests
         };
         var element = new Element
         {
-            Length = MediaTime.FromSeconds(2),
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
         element.AddObject(plate);
@@ -94,7 +94,7 @@ public sealed class ReadDocumentTests
         var tools = new QueryTools(manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
-            objectId: plate.Id.ToString(),
+            objectId: plate.Id.Value.ToString(),
             timeSeconds: 0.0);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
@@ -114,15 +114,15 @@ public sealed class ReadDocumentTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "nested-measure")
         {
-            Duration = MediaTime.FromSeconds(2),
+            Duration = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
-        var group = new DrawableGroup { Name = "wrapper" };
-        var nested = new TextBlock { Name = "nested", Text = { Value = "Hi" } };
+        var group = new DrawableGroup { Name = { Value = "wrapper" } };
+        var nested = new TextBlock { Name = { Value = "nested" }, Text = { Value = "Hi" } };
         group.Children.Add(nested);
         var element = new Element
         {
-            Length = MediaTime.FromSeconds(2),
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "element.belm"))
         };
         element.AddObject(group);
@@ -133,7 +133,7 @@ public sealed class ReadDocumentTests
 
         // A time filter must not turn "found but nested (unsupported)" into an empty, successful result.
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
-            objectId: nested.Id.ToString(),
+            objectId: nested.Id.Value.ToString(),
             timeSeconds: 0.0);
 
         Assert.Multiple(() =>
@@ -452,16 +452,16 @@ public sealed class ReadDocumentTests
         scene.Uri = new Uri(Path.Combine(dir, "Scene.scene"));
         var element = new Element
         {
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(2)
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) }
         };
         element.AddObject(new TextBlock { Text = { Value = "Scoped" } });
         element.Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"));
         scene.Children.Add(element);
         scene.Children.Add(new Element
         {
-            Name = "sibling",
-            Length = MediaTime.FromSeconds(1),
+            Name = { Value = "sibling" },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
 
@@ -470,14 +470,14 @@ public sealed class ReadDocumentTests
         var tools = new QueryTools(manager);
 
         var full = tools.ReadDocument();
-        var scoped = tools.ReadDocument(element.Id.ToString());
+        var scoped = tools.ReadDocument(element.Id.Value.ToString());
 
         Assert.Multiple(() =>
         {
             Assert.That(full.IsSuccess, Is.True);
             Assert.That(full.Value!.Document["Elements"]!.AsArray(), Has.Count.EqualTo(2));
             Assert.That(scoped.IsSuccess, Is.True);
-            Assert.That(scoped.Value!.Document["Id"]!.GetValue<string>(), Is.EqualTo(element.Id.ToString()));
+            Assert.That(scoped.Value!.Document["Id"]!.GetValue<string>(), Is.EqualTo(element.Id.Value.ToString()));
             Assert.That(scoped.Value.Document.ToJsonString(), Does.Not.Contain("sibling"));
             Assert.That(scoped.Value.SchemaVersion, Is.EqualTo(SchemaVersion.Current));
         });
@@ -504,20 +504,20 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1280, 720, "Summary")
         {
-            Duration = MediaTime.FromSeconds(8),
+            Duration = { Value = MediaTime.FromSeconds(8) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
-            Name = "Title element",
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(4),
-            ZIndex = 3,
+            Name = { Value = "Title element" },
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(4) },
+            ZIndex = { Value = 3 },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var text = new TextBlock
         {
-            Name = "Title",
+            Name = { Value = "Title" },
             Text = { Value = "Summary" },
             Fill = { Value = new SolidColorBrush(Colors.White) },
             FilterEffect = { Value = new FilterEffectGroup { Children = { new Blur() } } },
@@ -571,20 +571,20 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1920, 1080, "Measure trimmed")
         {
-            Start = MediaTime.FromSeconds(30),
-            Duration = MediaTime.FromSeconds(5),
+            Start = { Value = MediaTime.FromSeconds(30) },
+            Duration = { Value = MediaTime.FromSeconds(5) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
-            Name = "Clip",
-            Start = MediaTime.FromSeconds(32),
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = "Clip" },
+            Start = { Value = MediaTime.FromSeconds(32) },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var plate = new RoundedRectShape
         {
-            Name = "Plate",
+            Name = { Value = "Plate" },
             Width = { Value = 200 },
             Height = { Value = 80 }
         };
@@ -613,19 +613,19 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1920, 1080, "Measure")
         {
-            Duration = MediaTime.FromSeconds(5),
+            Duration = { Value = MediaTime.FromSeconds(5) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var titleElement = new Element
         {
-            Name = "Title element",
-            Length = MediaTime.FromSeconds(5),
-            ZIndex = 2,
+            Name = { Value = "Title element" },
+            Length = { Value = MediaTime.FromSeconds(5) },
+            ZIndex = { Value = 2 },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var title = new TextBlock
         {
-            Name = "Centered title",
+            Name = { Value = "Centered title" },
             Text = { Value = "Center" },
             Size = { Value = 100 }
         };
@@ -634,14 +634,14 @@ public sealed class ReadDocumentTests
 
         var plateElement = new Element
         {
-            Name = "Plate element",
-            Length = MediaTime.FromSeconds(5),
-            ZIndex = 1,
+            Name = { Value = "Plate element" },
+            Length = { Value = MediaTime.FromSeconds(5) },
+            ZIndex = { Value = 1 },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var plate = new RoundedRectShape
         {
-            Name = "Offset plate",
+            Name = { Value = "Offset plate" },
             Width = { Value = 200 },
             Height = { Value = 80 },
             Transform = { Value = new TranslateTransform(120, -40) }
@@ -654,10 +654,10 @@ public sealed class ReadDocumentTests
         var tools = new QueryTools(manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> all = tools.MeasureObjectBounds(timeSeconds: 0);
-        ToolResult<ObjectBoundsMeasurementResponse> plateOnly = tools.MeasureObjectBounds(plate.Id.ToString(), timeSeconds: 0);
+        ToolResult<ObjectBoundsMeasurementResponse> plateOnly = tools.MeasureObjectBounds(plate.Id.Value.ToString(), timeSeconds: 0);
         ToolResult<ObjectBoundsMeasurementResponse> late = tools.MeasureObjectBounds(timeSeconds: 6);
-        ObjectBoundsMeasurement titleBounds = all.Value!.Objects.Single(item => item.ObjectId == title.Id.ToString());
-        ObjectBoundsMeasurement plateBounds = all.Value.Objects.Single(item => item.ObjectId == plate.Id.ToString());
+        ObjectBoundsMeasurement titleBounds = all.Value!.Objects.Single(item => item.ObjectId == title.Id.Value.ToString());
+        ObjectBoundsMeasurement plateBounds = all.Value.Objects.Single(item => item.ObjectId == plate.Id.Value.ToString());
 
         Assert.Multiple(() =>
         {
@@ -683,7 +683,7 @@ public sealed class ReadDocumentTests
             Assert.That(plateBounds.Center.X, Is.EqualTo(1080).Within(0.01));
             Assert.That(plateBounds.Center.Y, Is.EqualTo(500).Within(0.01));
             Assert.That(plateOnly.IsSuccess, Is.True, plateOnly.Error?.Message);
-            Assert.That(plateOnly.Value!.Objects.Single().ObjectId, Is.EqualTo(plate.Id.ToString()));
+            Assert.That(plateOnly.Value!.Objects.Single().ObjectId, Is.EqualTo(plate.Id.Value.ToString()));
             Assert.That(late.IsSuccess, Is.True, late.Error?.Message);
             Assert.That(late.Value!.Objects, Is.Empty);
         });
@@ -694,18 +694,18 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(200, 200, "Measure effect")
         {
-            Duration = MediaTime.FromSeconds(5),
+            Duration = { Value = MediaTime.FromSeconds(5) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
-            Name = "Plate element",
-            Length = MediaTime.FromSeconds(5),
+            Name = { Value = "Plate element" },
+            Length = { Value = MediaTime.FromSeconds(5) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var plate = new RoundedRectShape
         {
-            Name = "Shadowed plate",
+            Name = { Value = "Shadowed plate" },
             Width = { Value = 100 },
             Height = { Value = 50 },
             FilterEffect =
@@ -725,7 +725,7 @@ public sealed class ReadDocumentTests
         AgentSessionManager manager = session.CreateManager();
         var tools = new QueryTools(manager);
 
-        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(plate.Id.ToString(), timeSeconds: 0);
+        ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(plate.Id.Value.ToString(), timeSeconds: 0);
         ObjectBoundsMeasurement bounds = result.Value!.Objects.Single();
 
         Assert.Multiple(() =>
@@ -747,14 +747,14 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(320, 180, "graph-measure-node")
         {
-            Duration = MediaTime.FromSeconds(2),
+            Duration = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         NodeGraphDrawable drawable = BuildMeasureNodeGraphDrawable();
         var element = new Element
         {
-            Name = "Graph element",
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = "Graph element" },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         element.AddObject(drawable);
@@ -765,7 +765,7 @@ public sealed class ReadDocumentTests
         var tools = new QueryTools(manager);
 
         ToolResult<ObjectBoundsMeasurementResponse> result = tools.MeasureObjectBounds(
-            objectId: drawable.Id.ToString(),
+            objectId: drawable.Id.Value.ToString(),
             timeSeconds: 0.0);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
@@ -788,12 +788,12 @@ public sealed class ReadDocumentTests
     // symbolic and only an owning target domain can resolve it.
     private static NodeGraphDrawable BuildMeasureNodeGraphDrawable()
     {
-        var drawable = new NodeGraphDrawable { Name = "Graph" };
+        var drawable = new NodeGraphDrawable { Name = { Value = "Graph" } };
         GraphModel model = drawable.Model.Value!;
 
         var geometryNode = new RectGeometryNode();
-        geometryNode.Object.Width.Value = 40;
-        geometryNode.Object.Height.Value = 20;
+        geometryNode.Object.Value.Width.Value = 40;
+        geometryNode.Object.Value.Height.Value = 20;
         var shapeNode = new GeometryShapeNode();
         SetUnconnectedInput(shapeNode.Fill, Brushes.White);
         var shakeNode = new FilterEffectNode<ShakeEffect>();
@@ -825,18 +825,18 @@ public sealed class ReadDocumentTests
     {
         var scene = new Scene(1280, 720, "Fallback summary")
         {
-            Duration = MediaTime.FromSeconds(2),
+            Duration = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene"))
         };
         var element = new Element
         {
-            Name = "Fallback element",
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = "Fallback element" },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         };
         var fallback = new FallbackEngineObject
         {
-            Name = "Fallback rect",
+            Name = { Value = "Fallback rect" },
             Reason = FallbackReason.DeserializationFailed,
             ErrorMessage = "Width: The JSON value could not be converted.",
             Json = new JsonObject
@@ -906,17 +906,17 @@ public sealed class ReadDocumentTests
         animation.KeyFrames.Add(
             new KeyFrame<float>
             {
-                KeyTime = MediaTime.Zero,
-                Value = 0,
-                Easing = new LinearEasing()
+                KeyTime = { Value = MediaTime.Zero },
+                Value = { Value = 0 },
+                Easing = { Value = new LinearEasing() }
             },
             out _);
         animation.KeyFrames.Add(
             new KeyFrame<float>
             {
-                KeyTime = MediaTime.FromSeconds(1),
-                Value = 1,
-                Easing = new SineEaseOut()
+                KeyTime = { Value = MediaTime.FromSeconds(1) },
+                Value = { Value = 1 },
+                Easing = { Value = new SineEaseOut() }
             },
             out _);
         return animation;

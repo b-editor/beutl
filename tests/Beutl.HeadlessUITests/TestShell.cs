@@ -62,7 +62,7 @@ internal static class TestShell
         Project project = (await Project.CreateProject(width, height, new Rational(frameRate), sampleRate, name, location))!;
         Scene scene = project.Items.OfType<Scene>().Single();
         if (duration is { } length)
-            scene.Duration = length;
+            scene.Duration.Value = length;
         Editor.ActivateTabItem(scene);
         HeadlessTestHelpers.Settle();
         return (project, scene, (EditViewModel)Editor.SelectedTabItem.Value!.Context.Value);

@@ -24,7 +24,7 @@ public sealed class FFmpegProxyGeneratorPublishTests
 
         FFmpegProxyGenerator.Configure(controller, videoInfo, new PixelSize(1920, 1080), ProxyPreset.Half);
 
-        Assert.That(controller.VideoSettings.Options.Any(o => o.Name == "level"), Is.False);
+        Assert.That(controller.VideoSettings.Options.Value.Any(o => o.Name.Value == "level"), Is.False);
     }
 
     [Test]

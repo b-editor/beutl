@@ -13,8 +13,8 @@ public class ProxyStoreConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(Path.IsPathFullyQualified(config.StoreRootPath), Is.True);
-            Assert.That(config.MaxTotalBytes, Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
+            Assert.That(Path.IsPathFullyQualified(config.StoreRootPath.Value), Is.True);
+            Assert.That(config.MaxTotalBytes.Value, Is.EqualTo(ProxyStoreConfig.DefaultTotalBytes));
         });
     }
 
@@ -23,12 +23,12 @@ public class ProxyStoreConfigTests
     {
         var config = new ProxyStoreConfig
         {
-            MaxTotalBytes = 1,
+            MaxTotalBytes = { Value = 1 },
         };
-        Assert.That(config.MaxTotalBytes, Is.EqualTo(ProxyStoreConfig.MinTotalBytes));
+        Assert.That(config.MaxTotalBytes.Value, Is.EqualTo(ProxyStoreConfig.MinTotalBytes));
 
-        config.MaxTotalBytes = long.MaxValue;
-        Assert.That(config.MaxTotalBytes, Is.EqualTo(ProxyStoreConfig.MaxTotalBytesLimit));
+        config.MaxTotalBytes.Value = long.MaxValue;
+        Assert.That(config.MaxTotalBytes.Value, Is.EqualTo(ProxyStoreConfig.MaxTotalBytesLimit));
     }
 
     [Test]
@@ -36,10 +36,10 @@ public class ProxyStoreConfigTests
     {
         var config = new ProxyStoreConfig
         {
-            StoreRootPath = "relative-proxies",
+            StoreRootPath = { Value = "relative-proxies" },
         };
 
-        Assert.That(Path.IsPathFullyQualified(config.StoreRootPath), Is.True);
+        Assert.That(Path.IsPathFullyQualified(config.StoreRootPath.Value), Is.True);
     }
 
     // A malformed persisted value must not throw on access — Path.GetFullPath rejects a null character —
@@ -51,8 +51,8 @@ public class ProxyStoreConfigTests
         var config = new ProxyStoreConfig();
         string malformed = "bad\0path";
 
-        Assert.DoesNotThrow(() => config.StoreRootPath = malformed);
-        Assert.That(config.StoreRootPath, Is.EqualTo(Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath)));
+        Assert.DoesNotThrow(() => config.StoreRootPath.Value = malformed);
+        Assert.That(config.StoreRootPath.Value, Is.EqualTo(Path.GetFullPath(ProxyStoreConfig.DefaultStoreRootPath)));
     }
 
     [Test]
@@ -60,12 +60,12 @@ public class ProxyStoreConfigTests
     {
         var config = new ProxyStoreConfig
         {
-            StoreRootPath = "custom-proxies",
+            StoreRootPath = { Value = "custom-proxies" },
         };
 
-        config.StoreRootPath = string.Empty;
+        config.StoreRootPath.Value = string.Empty;
 
-        Assert.That(config.StoreRootPath, Is.EqualTo(ProxyStoreConfig.DefaultStoreRootPath));
+        Assert.That(config.StoreRootPath.Value, Is.EqualTo(ProxyStoreConfig.DefaultStoreRootPath));
     }
 
     [Test]
@@ -73,15 +73,15 @@ public class ProxyStoreConfigTests
     {
         var config = new ProxyStoreConfig
         {
-            DefaultPreset = 0,
+            DefaultPreset = { Value = 0 },
         };
-        Assert.That(config.DefaultPreset, Is.EqualTo(ProxyStoreConfig.MinPreset));
+        Assert.That(config.DefaultPreset.Value, Is.EqualTo(ProxyStoreConfig.MinPreset));
 
-        config.DefaultPreset = 99;
-        Assert.That(config.DefaultPreset, Is.EqualTo(ProxyStoreConfig.MaxPreset));
+        config.DefaultPreset.Value = 99;
+        Assert.That(config.DefaultPreset.Value, Is.EqualTo(ProxyStoreConfig.MaxPreset));
 
-        config.DefaultPreset = (int)ProxyPreset.Half;
-        Assert.That(config.DefaultPreset, Is.EqualTo((int)ProxyPreset.Half));
+        config.DefaultPreset.Value = (int)ProxyPreset.Half;
+        Assert.That(config.DefaultPreset.Value, Is.EqualTo((int)ProxyPreset.Half));
     }
 
     [Test]
@@ -90,7 +90,7 @@ public class ProxyStoreConfigTests
         Assert.Multiple(() =>
         {
             Assert.That((int)ProxyPreset.Quarter, Is.EqualTo(2), "ProxyPreset.Quarter must stay at 2 to match the int default.");
-            Assert.That(new ProxyStoreConfig().DefaultPreset, Is.EqualTo((int)ProxyPreset.Quarter));
+            Assert.That(new ProxyStoreConfig().DefaultPreset.Value, Is.EqualTo((int)ProxyPreset.Quarter));
         });
     }
 

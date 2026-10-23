@@ -74,12 +74,12 @@ public class FiniteSourceEndTests
     {
         var effect = new TimeStretchEffect();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100f } });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(1),
-            Value = 200f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.FromSeconds(1) },
+            Value = { Value = 200f },
+            Easing = { Value = new LinearEasing() }
         });
         effect.Speed.SetKeyFrameAnimation(animation);
         using var source = new FiniteSource(1.5);
@@ -96,8 +96,8 @@ public class FiniteSourceEndTests
     public void AnimatedEnd_IsCachedAndRecomputedAfterAnimationSourceOrRateChanges()
     {
         var easing = new CountingEasing();
-        var start = new KeyFrame<float> { Value = 100 };
-        var end = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100, Easing = easing };
+        var start = new KeyFrame<float> { Value = { Value = 100 } };
+        var end = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 100 }, Easing = { Value = easing } };
         var property = Property.CreateAnimatable(100f);
         property.SetKeyFrameAnimation(new KeyFrameAnimation<float> { KeyFrames = { start, end } });
         using var source = new MutableFiniteSource { Seconds = 0.125 };
@@ -109,8 +109,8 @@ public class FiniteSourceEndTests
         Assert.That(node.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(first));
         Assert.That(easing.Calls, Is.EqualTo(calls), "An unchanged EOF query must not interpolate again.");
 
-        start.Value = 200;
-        end.Value = 200;
+        start.Value.Value = 200;
+        end.Value.Value = 200;
         Assert.That(node.GetFiniteSourceEndSample(SampleRate), Is.EqualTo(first / 2).Within(1));
         Assert.That(easing.Calls, Is.GreaterThan(calls));
         calls = easing.Calls;

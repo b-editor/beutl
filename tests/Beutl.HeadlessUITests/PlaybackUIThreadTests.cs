@@ -101,7 +101,7 @@ public class PlaybackUIThreadTests
             {
                 if (seen[i] < seen[i - 1])
                 {
-                    Assert.That(seen[i], Is.EqualTo(editor.Scene.Start),
+                    Assert.That(seen[i], Is.EqualTo(editor.Scene.Start.Value),
                         $"the playhead went back from {seen[i - 1]} to {seen[i]}, not to the start of the scene");
                 }
             }

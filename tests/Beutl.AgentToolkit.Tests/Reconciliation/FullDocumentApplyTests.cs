@@ -23,9 +23,9 @@ public sealed class FullDocumentApplyTests
 
         var element = new Element
         {
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = 3
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = 3 }
         };
         element.AddObject(new TextBlock { Text = { Value = "Title" } });
 
@@ -47,9 +47,9 @@ public sealed class FullDocumentApplyTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(10)));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
             Assert.That(scene.Children, Has.Count.EqualTo(1));
-            Assert.That(scene.Children[0].Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(scene.Children[0].Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(scene.Children[0].Objects, Has.Count.EqualTo(1));
             Assert.That(result.Plan.Changes, Is.Not.Empty);
         });
@@ -60,7 +60,7 @@ public sealed class FullDocumentApplyTests
     {
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(dir, "first.belm")) };
         element.AddObject(new TextBlock { Text = { Value = "Title" } });
         scene.Children.Add(element);
         using var session = new AgentToolkitTestSession(scene);
@@ -88,8 +88,8 @@ public sealed class FullDocumentApplyTests
 
         JsonObject elementJson = CoreSerializer.SerializeToJsonObject(new Element
         {
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(2)
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) }
         });
         elementJson.Remove(nameof(CoreObject.Id));
         elementJson.Remove("Objects");
@@ -110,11 +110,11 @@ public sealed class FullDocumentApplyTests
     {
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(dir, "first.belm")) };
         var text = new TextBlock { Text = { Value = "Title" } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0 }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100 }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 } }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 100 } }, out _);
         text.Opacity.SetKeyFrameAnimation(animation);
         element.AddObject(text);
         scene.Children.Add(element);
@@ -135,11 +135,11 @@ public sealed class FullDocumentApplyTests
     {
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        var element = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(dir, "first.belm")) };
         var text = new TextBlock { Text = { Value = "Title" } };
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0 }, out _);
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 100 }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 } }, out _);
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 100 } }, out _);
         text.Opacity.SetKeyFrameAnimation(animation);
         element.AddObject(text);
         scene.Children.Add(element);
@@ -167,11 +167,11 @@ public sealed class FullDocumentApplyTests
     {
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
-        var first = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "first.belm")) };
-        var second = new Element { Length = MediaTime.FromSeconds(1), Uri = new Uri(Path.Combine(dir, "second.belm")) };
+        var first = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(dir, "first.belm")) };
+        var second = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = new Uri(Path.Combine(dir, "second.belm")) };
         scene.Children.Add(first);
         scene.Children.Add(second);
-        scene.Groups.Add(ImmutableHashSet.Create(first.Id, second.Id));
+        scene.Groups.Add(ImmutableHashSet.Create(first.Id.Value, second.Id.Value));
 
         using var session = new AgentToolkitTestSession(scene);
         var reconciler = new Reconciler();
@@ -194,11 +194,11 @@ public sealed class FullDocumentApplyTests
         var reconciler = new Reconciler();
 
         JsonObject desired = session.Documents.Read(scene);
-        desired["Groups"] = new JsonArray($"{elements[0].Id}:{elements[2].Id}");
+        desired["Groups"] = new JsonArray($"{elements[0].Id.Value}:{elements[2].Id.Value}");
 
         reconciler.Apply(session, desired);
         Assert.That(scene.Groups, Has.Count.EqualTo(1));
-        Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { elements[0].Id, elements[2].Id }));
+        Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { elements[0].Id.Value, elements[2].Id.Value }));
 
         Assert.That(session.History.Undo(), Is.True);
         Assert.That(scene.Groups, Has.Count.EqualTo(1));
@@ -206,7 +206,7 @@ public sealed class FullDocumentApplyTests
 
         Assert.That(session.History.Redo(), Is.True);
         Assert.That(scene.Groups, Has.Count.EqualTo(1));
-        Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { elements[0].Id, elements[2].Id }));
+        Assert.That(scene.Groups[0], Is.EquivalentTo(new[] { elements[0].Id.Value, elements[2].Id.Value }));
     }
 
     [Test]
@@ -235,7 +235,7 @@ public sealed class FullDocumentApplyTests
         [
             .. Enumerable.Range(0, 3).Select(i => new Element
             {
-                Length = MediaTime.FromSeconds(1),
+                Length = { Value = MediaTime.FromSeconds(1) },
                 Uri = new Uri(Path.Combine(dir, $"element{i}.belm"))
             })
         ];
@@ -244,7 +244,7 @@ public sealed class FullDocumentApplyTests
             scene.Children.Add(element);
         }
 
-        group = ImmutableHashSet.Create(elements[0].Id, elements[1].Id);
+        group = ImmutableHashSet.Create(elements[0].Id.Value, elements[1].Id.Value);
         scene.Groups.Add(group);
         return scene;
     }
@@ -375,7 +375,7 @@ public sealed class FullDocumentApplyTests
         {
             Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(ex.Error.Message, Does.Contain("frame size"));
-            Assert.That(scene.FrameSize.Width, Is.EqualTo(1920));
+            Assert.That(scene.FrameSize.Value.Width, Is.EqualTo(1920));
         });
     }
 
@@ -429,9 +429,9 @@ public sealed class FullDocumentApplyTests
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         var element = new Element
         {
-            Name = "Intro",
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = "Intro" },
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "first.belm"))
         };
         scene.Children.Add(element);
@@ -448,7 +448,7 @@ public sealed class FullDocumentApplyTests
             Assert.That(ex.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(ex.Error.Message, Does.Contain("Intro"));
             Assert.That(ex.Error.Message, Does.Contain("Start"));
-            Assert.That(scene.Children[0].Start, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(scene.Children[0].Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
 

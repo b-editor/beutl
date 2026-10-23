@@ -24,7 +24,7 @@ public sealed class SceneSnapshotTests
         Assert.Multiple(() =>
         {
             Assert.That(snapshot, Is.Not.SameAs(scene));
-            Assert.That(snapshot.Id, Is.EqualTo(scene.Id));
+            Assert.That(snapshot.Id.Value, Is.EqualTo(scene.Id.Value));
         });
     }
 
@@ -34,13 +34,13 @@ public sealed class SceneSnapshotTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(640, 360, "Scene")
         {
-            Duration = MediaTime.FromSeconds(4),
+            Duration = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "el.belm"))
         };
         element.AddObject(new Scene3D());
@@ -54,7 +54,7 @@ public sealed class SceneSnapshotTests
         });
 
         // Trimming the scene to [10s, 14s) puts the 3D element outside the visible window entirely.
-        scene.Start = MediaTime.FromSeconds(10);
+        scene.Start.Value = MediaTime.FromSeconds(10);
 
         Assert.Multiple(() =>
         {
@@ -69,7 +69,7 @@ public sealed class SceneSnapshotTests
         (Scene outer, Scene referenced) = BuildOuterWithReferencedScene3D(r =>
         {
             var sceneDrawable = new SceneDrawable();
-            sceneDrawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Id);
+            sceneDrawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Id.Value);
             return sceneDrawable;
         });
         AttachProject(outer, referenced);
@@ -86,7 +86,7 @@ public sealed class SceneSnapshotTests
         (Scene outer, Scene referenced) = BuildOuterWithReferencedScene3D(r =>
         {
             var rect = new RectShape();
-            rect.Width.Expression = new ReferenceExpression<float>(r.Id);
+            rect.Width.Expression = new ReferenceExpression<float>(r.Id.Value);
             return rect;
         });
         AttachProject(outer, referenced);
@@ -103,7 +103,7 @@ public sealed class SceneSnapshotTests
         (Scene outer, Scene referenced) = BuildOuterWithReferencedScene3D(r =>
         {
             var sceneDrawable = new SceneDrawable();
-            sceneDrawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Children.Single().Id);
+            sceneDrawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Children.Single().Id.Value);
             return sceneDrawable;
         });
         AttachProject(outer, referenced);
@@ -119,7 +119,7 @@ public sealed class SceneSnapshotTests
         (Scene outer, Scene referenced) = BuildOuterWithReferencedScene3D(r =>
         {
             var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Id);
+            sceneSound.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Id.Value);
             return sceneSound;
         });
         AttachProject(outer, referenced);
@@ -133,7 +133,7 @@ public sealed class SceneSnapshotTests
         (Scene outer, Scene referenced) = BuildOuterWithReferencedScene3D(r =>
         {
             var sceneDrawable = new SceneDrawable();
-            sceneDrawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Id);
+            sceneDrawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(r.Id.Value);
             return sceneDrawable;
         });
         AttachProject(outer, referenced);
@@ -148,12 +148,12 @@ public sealed class SceneSnapshotTests
             .Single();
         // A detached owner would resolve the expression through the live BeutlApplication.Current.
         Scene? clonedTarget = (((IHierarchical)snapshot).HierarchicalRoot as ICoreObject)
-            ?.FindById(referenced.Id) as Scene;
+            ?.FindById(referenced.Id.Value) as Scene;
         Assert.Multiple(() =>
         {
             Assert.That(
                 (snapshotDrawable.ReferencedScene.Expression as IReferenceExpression)?.ObjectId,
-                Is.EqualTo(referenced.Id));
+                Is.EqualTo(referenced.Id.Value));
             Assert.That(clonedTarget, Is.Not.Null);
             Assert.That(clonedTarget, Is.Not.SameAs(referenced));
             Assert.That(clonedTarget!.Children, Has.Count.EqualTo(1));
@@ -167,12 +167,12 @@ public sealed class SceneSnapshotTests
         string dir = TestWorkspace.CreateDirectory();
         var sceneA = new Scene(640, 360, "A")
         {
-            Duration = MediaTime.FromSeconds(2),
+            Duration = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "A.scene"))
         };
         var sceneB = new Scene(640, 360, "B")
         {
-            Duration = MediaTime.FromSeconds(2),
+            Duration = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "B.scene"))
         };
         AddReferenceElement(sceneA, sceneB, Path.Combine(dir, "a-el.belm"));
@@ -184,11 +184,11 @@ public sealed class SceneSnapshotTests
         static void AddReferenceElement(Scene owner, Scene target, string uri)
         {
             var drawable = new SceneDrawable();
-            drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(target.Id);
+            drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(target.Id.Value);
             var element = new Element
             {
-                Start = MediaTime.Zero,
-                Length = MediaTime.FromSeconds(2),
+                Start = { Value = MediaTime.Zero },
+                Length = { Value = MediaTime.FromSeconds(2) },
                 Uri = new Uri(uri)
             };
             element.AddObject(drawable);
@@ -202,13 +202,13 @@ public sealed class SceneSnapshotTests
         string dir = TestWorkspace.CreateDirectory();
         var scene = new Scene(640, 360, "Scene")
         {
-            Start = MediaTime.FromSeconds(10),
+            Start = { Value = MediaTime.FromSeconds(10) },
             Uri = new Uri(Path.Combine(dir, "Scene.scene"))
         };
         var element = new Element
         {
-            Start = MediaTime.FromSeconds(10),
-            Length = MediaTime.FromSeconds(2),
+            Start = { Value = MediaTime.FromSeconds(10) },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "el.belm"))
         };
         scene.Children.Add(element);
@@ -220,7 +220,7 @@ public sealed class SceneSnapshotTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(visible.Select(e => e.Id), Does.Contain(element.Id.ToString()));
+            Assert.That(visible.Select(e => e.Id), Does.Contain(element.Id.Value.ToString()));
             Assert.That(hidden, Is.Empty);
         });
     }
@@ -230,18 +230,18 @@ public sealed class SceneSnapshotTests
         string dir = TestWorkspace.CreateDirectory();
         var outer = new Scene(640, 360, "Outer")
         {
-            Duration = MediaTime.FromSeconds(4),
+            Duration = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(dir, "Outer.scene"))
         };
         var referenced = new Scene(640, 360, "Referenced")
         {
-            Duration = MediaTime.FromSeconds(4),
+            Duration = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(dir, "Referenced.scene"))
         };
         var referencedElement = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(4),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(dir, "ref-el.belm"))
         };
         referencedElement.AddObject(new Scene3D());
@@ -249,8 +249,8 @@ public sealed class SceneSnapshotTests
 
         var outerElement = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(4),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(4) },
             Uri = new Uri(Path.Combine(dir, "outer-el.belm"))
         };
         outerElement.AddObject(makeReference(referenced));
@@ -268,6 +268,6 @@ public sealed class SceneSnapshotTests
             project.Items.Add(scene);
         }
 
-        _ = new BeutlApplication { Project = project };
+        _ = new BeutlApplication { Project = { Value = project } };
     }
 }

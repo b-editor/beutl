@@ -22,14 +22,14 @@ public class OpenProjectTests
     {
         await TestReset.ResetShellAsync();
         VersionControlConfig config = GlobalConfiguration.Instance.VersionControlConfig;
-        bool oldAutoCommitOnClose = config.AutoCommitOnClose;
+        bool oldAutoCommitOnClose = config.AutoCommitOnClose.Value;
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
         Func<ProjectService.ProjectCloseContext, CancellationToken, Task>? corruptTarget = null;
         Func<Project, Task>? rejectTarget = null;
         Action<Project?>? recordTransition = null;
         try
         {
-            config.AutoCommitOnClose = false;
+            config.AutoCommitOnClose.Value = false;
             Project original = (await TestShell.Project.CreateProject(320, 180, new Rational(30), 44100,
                 "original", TestShell.NewWorkspace($"failed-project-switch-{failActivation}")))!;
             Scene scene = original.Items.OfType<Scene>().Single();
@@ -47,7 +47,7 @@ public class OpenProjectTests
             string target = Path.Combine(Path.GetDirectoryName(original.Uri!.LocalPath)!, "target.bep");
             File.Copy(original.Uri.LocalPath, target);
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
-            scene.Duration = MediaTime.FromSeconds(73);
+            scene.Duration.Value = MediaTime.FromSeconds(73);
 
             bool failedAtExpectedStage = false;
             if (failActivation)
@@ -85,12 +85,12 @@ public class OpenProjectTests
                 Assert.That(TestShell.Project.CurrentProject.Value, Is.SameAs(original));
                 Assert.That(TestShell.Editor.TabItems, Has.Count.EqualTo(2));
                 Assert.That(TestShell.Editor.SelectedTabItem.Value?.Context.Value?.Object, Is.SameAs(scene));
-                Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+                Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
                 Assert.That(published.LastOrDefault(), Is.SameAs(original));
-                Assert.That(GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile, Is.EqualTo(original.Uri.LocalPath));
+                Assert.That(GlobalConfiguration.Instance.ViewConfig.LastOpenedProjectFile.Value, Is.EqualTo(original.Uri.LocalPath));
             });
             Assert.That(await ((ISavableEditorContext)TestShell.Editor.SelectedTabItem.Value!.Context.Value).SaveAsync(), Is.True);
-            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration, Is.EqualTo(MediaTime.FromSeconds(73)));
+            Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri!).Duration.Value, Is.EqualTo(MediaTime.FromSeconds(73)));
         }
         finally
         {
@@ -100,7 +100,7 @@ public class OpenProjectTests
             try { await TestReset.ResetShellAsync(); }
             finally
             {
-                config.AutoCommitOnClose = oldAutoCommitOnClose;
+                config.AutoCommitOnClose.Value = oldAutoCommitOnClose;
                 EditViewModel.IsAutoSaveSuppressedForTesting = oldAutoSave;
             }
         }
@@ -138,31 +138,31 @@ public class OpenProjectTests
         HeadlessTestHelpers.Settle();
 
         string projectFile = created.Uri!.LocalPath;
-        Guid originalSceneId = created.Items.OfType<Scene>().First().Id;
+        Guid originalSceneId = created.Items.OfType<Scene>().First().Id.Value;
         Assert.That(File.Exists(projectFile), Is.True);
 
         await TestShell.Project.CloseProjectAsync();
         HeadlessTestHelpers.Settle();
         Assert.That(TestShell.Project.IsOpened.Value, Is.False);
-        Assert.That(BeutlApplication.Current.Project, Is.Null);
+        Assert.That(BeutlApplication.Current.Project.Value, Is.Null);
 
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
 
         Assert.That(TestShell.Project.IsOpened.Value, Is.True);
-        Project reopened = BeutlApplication.Current.Project!;
+        Project reopened = BeutlApplication.Current.Project.Value!;
         Assert.That(reopened, Is.Not.Null);
         Scene reopenedScene = reopened.Items.OfType<Scene>().Single();
         Assert.Multiple(() =>
         {
             Assert.That(reopened, Is.Not.SameAs(created));
             Assert.That(reopened.Uri!.LocalPath, Is.EqualTo(projectFile));
-            Assert.That(reopenedScene.Id, Is.EqualTo(originalSceneId));
-            Assert.That(reopenedScene.FrameSize.Width, Is.EqualTo(800));
-            Assert.That(reopenedScene.FrameSize.Height, Is.EqualTo(600));
+            Assert.That(reopenedScene.Id.Value, Is.EqualTo(originalSceneId));
+            Assert.That(reopenedScene.FrameSize.Value.Width, Is.EqualTo(800));
+            Assert.That(reopenedScene.FrameSize.Value.Height, Is.EqualTo(600));
             Assert.That(File.Exists(reopenedScene.Uri!.LocalPath), Is.True);
-            Assert.That(reopened.FrameRate, Is.EqualTo(new Rational(60)));
-            Assert.That(reopened.SampleRate, Is.EqualTo(22050));
+            Assert.That(reopened.FrameRate.Value, Is.EqualTo(new Rational(60)));
+            Assert.That(reopened.SampleRate.Value, Is.EqualTo(22050));
         });
     }
 
@@ -186,7 +186,7 @@ public class OpenProjectTests
         await TestShell.Project.OpenProject(projectFile);
         HeadlessTestHelpers.Settle();
         // Until the project is saved again, its file names the version that saved it last.
-        Assert.That(BeutlApplication.Current.Project!.AppVersion, Is.EqualTo(LegacyAppVersion));
+        Assert.That(BeutlApplication.Current.Project.Value!.AppVersion, Is.EqualTo(LegacyAppVersion));
 
         await TestShell.MainViewModel.MenuBar.SaveAll.ExecuteAsync();
         HeadlessTestHelpers.Settle();

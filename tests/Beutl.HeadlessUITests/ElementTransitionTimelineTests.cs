@@ -60,12 +60,12 @@ public class ElementTransitionTimelineTests
             Assert.Multiple(() =>
             {
                 Assert.That(texts, Is.EqualTo(new[] { Strings.EnterTransition, Strings.ExitTransition }));
-                Assert.That(incoming.Model.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
-                Assert.That(outgoing.Model.ExitTransition, Is.TypeOf<CrossDissolveTransition>(),
+                Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf<CrossDissolveTransition>());
+                Assert.That(outgoing.Model.ExitTransition.Value, Is.TypeOf<CrossDissolveTransition>(),
                     "a new boundary transition is centred on the cut");
                 Assert.That(undoAfterAdding, Is.EqualTo(undoCount + 1));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoAfterAdding), "opening it again adds nothing");
-                Assert.That(TransitionTabOf(editor).Transition.Value, Is.SameAs(incoming.Model.EnterTransition),
+                Assert.That(TransitionTabOf(editor).Transition.Value, Is.SameAs(incoming.Model.EnterTransition.Value),
                     "from the outgoing side too, the side that decides how the boundary blends opens");
                 Assert.That(editor.FindToolTab<ObjectPropertyTabViewModel>(), Is.Null, "the property tab is not used");
             });
@@ -98,7 +98,7 @@ public class ElementTransitionTimelineTests
             bool showsDirection = transitionEditor.Properties.Value?.Properties
                 .OfType<PropertyEditorViewModel>()
                 .Any(item => item.Header == GraphicsStrings.Direction) == true;
-            Type? exitAfterChange = outgoing.Model.ExitTransition?.GetType();
+            Type? exitAfterChange = outgoing.Model.ExitTransition.Value?.GetType();
             int undoAfterChange = editor.HistoryManager.UndoCount;
             transitionEditor.ChangeType(null);
             HeadlessTestHelpers.Settle(3);
@@ -109,8 +109,8 @@ public class ElementTransitionTimelineTests
                 Assert.That(showsDirection, Is.True, "a wipe shows its direction beneath the type");
                 Assert.That(exitAfterChange, Is.EqualTo(typeof(WipeTransition)));
                 Assert.That(undoAfterChange, Is.EqualTo(undoCount + 1));
-                Assert.That(incoming.Model.EnterTransition, Is.Null);
-                Assert.That(outgoing.Model.ExitTransition, Is.Null);
+                Assert.That(incoming.Model.EnterTransition.Value, Is.Null);
+                Assert.That(outgoing.Model.ExitTransition.Value, Is.Null);
                 Assert.That(transitionEditor.TypeName.Value, Is.Null);
             });
         }
@@ -123,8 +123,8 @@ public class ElementTransitionTimelineTests
     [AvaloniaTest]
     public async Task ThePartsDrawOneRampAcrossTheCut_AndTheHandleDragsOneSide()
     {
-        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled;
-        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = false;
+        bool originalSnap = GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value;
+        GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = false;
         Window? window = null;
         TimelineTabView? view = null;
         try
@@ -160,7 +160,7 @@ public class ElementTransitionTimelineTests
             window.MouseMove(release, RawInputModifiers.LeftMouseButton);
             HeadlessTestHelpers.Settle(2);
             double previewWidth = enterPart.Bounds.Width;
-            MediaTime durationDuringDrag = incoming.Model.EnterTransition!.Duration.Value;
+            MediaTime durationDuringDrag = incoming.Model.EnterTransition.Value!.Duration.Value;
             // The span grows to 0.75 s with the cut a third of the way in, so both halves of the ramp
             // change their slope while the pointer moves, not only the dragged one.
             TransitionPartLayout incomingDuringDrag = incoming.EnterTransitionPart.Value;
@@ -177,16 +177,16 @@ public class ElementTransitionTimelineTests
                 Assert.That(incomingDuringDrag.EndFraction, Is.EqualTo(1).Within(1e-6));
                 Assert.That(outgoingDuringDrag.StartFraction, Is.Zero);
                 Assert.That(outgoingDuringDrag.EndFraction, Is.EqualTo(1d / 3).Within(1e-6));
-                Assert.That(incoming.Model.EnterTransition!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
-                Assert.That(outgoing.Model.ExitTransition!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+                Assert.That(incoming.Model.EnterTransition.Value!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+                Assert.That(outgoing.Model.ExitTransition.Value!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
-                Assert.That(incoming.Model.Start, Is.EqualTo(MediaTime.FromSeconds(2)), "the handle must not move the clip");
+                Assert.That(incoming.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)), "the handle must not move the clip");
                 Assert.That(enterPart.Bounds.Width, Is.EqualTo(quarter * 2).Within(0.5));
             });
 
             // The side that decides how the boundary blends also decides the curve both halves follow.
             var easing = new CubicEaseInOut();
-            incoming.Model.EnterTransition!.Easing.Value = easing;
+            incoming.Model.EnterTransition.Value!.Easing.Value = easing;
             HeadlessTestHelpers.Settle(3);
             HeadlessTestHelpers.Render(3);
             Assert.Multiple(() =>
@@ -197,7 +197,7 @@ public class ElementTransitionTimelineTests
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled = originalSnap;
+            GlobalConfiguration.Instance.EditorConfig.IsTimelineSnapEnabled.Value = originalSnap;
             TimelineTestHost.Close(view, window);
         }
     }
@@ -212,7 +212,7 @@ public class ElementTransitionTimelineTests
         try
         {
             (EditViewModel editor, _, ElementViewModel incoming) = await OpenCut();
-            incoming.Model.Name = "An element name long enough to run past the transition handle";
+            incoming.Model.Name.Value = "An element name long enough to run past the transition handle";
             (view, window) = Show(incoming);
             incoming.ApplyTransition(ElementEdge.Start, typeof(CrossDissolveTransition));
             HeadlessTestHelpers.Settle(3);
@@ -229,7 +229,7 @@ public class ElementTransitionTimelineTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(incoming.Model.EnterTransition!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+                Assert.That(incoming.Model.EnterTransition.Value!.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
             });
         }
@@ -249,8 +249,8 @@ public class ElementTransitionTimelineTests
         {
             (EditViewModel editor, _, ElementViewModel incoming) = await OpenCut();
             (view, window) = Show(incoming);
-            var transition = new FadeTransition { IsEnabled = false };
-            incoming.Model.EnterTransition = transition;
+            var transition = new FadeTransition { IsEnabled = { Value = false } };
+            incoming.Model.EnterTransition.Value = transition;
             HeadlessTestHelpers.Settle(3);
 
             bool partVisible = incoming.EnterTransitionPart.Value.IsVisible;
@@ -264,7 +264,7 @@ public class ElementTransitionTimelineTests
                 Assert.That(partVisible, Is.False);
                 Assert.That(type, Is.EqualTo(typeof(FadeTransition)));
                 Assert.That(edited, Is.SameAs(transition));
-                Assert.That(incoming.Model.EnterTransition, Is.Null);
+                Assert.That(incoming.Model.EnterTransition.Value, Is.Null);
             });
         }
         finally
@@ -290,7 +290,7 @@ public class ElementTransitionTimelineTests
             PropertyEditorViewModel unlocked = EditorOf(editor);
             bool readOnlyWhileUnlocked = !unlocked.CanEdit.Value;
             bool typeEditableWhileUnlocked = TransitionTabOf(editor).CanEdit.Value;
-            incoming.Model.IsLocked = true;
+            incoming.Model.IsLocked.Value = true;
             HeadlessTestHelpers.Settle(3);
             bool readOnlyOnceLocked = !unlocked.CanEdit.Value;
             bool typeEditableOnceLocked = TransitionTabOf(editor).CanEdit.Value;
@@ -330,7 +330,7 @@ public class ElementTransitionTimelineTests
             (EditViewModel editor, ElementViewModel outgoing, _) = await OpenCut();
             Element over = editor.Scene.Children.Last();
             var shape = new RectShape();
-            var top = new Element { Start = MediaTime.FromSeconds(0.5), Length = MediaTime.FromSeconds(1), ZIndex = 0 };
+            var top = new Element { Start = { Value = MediaTime.FromSeconds(0.5) }, Length = { Value = MediaTime.FromSeconds(1) }, ZIndex = { Value = 0 } };
             top.Objects.Add(shape);
             editor.Scene.Children.Add(top);
             HeadlessTestHelpers.Settle(3);
@@ -346,10 +346,10 @@ public class ElementTransitionTimelineTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(top.EnterTransition, Is.TypeOf<FadeTransition>());
-                Assert.That(outgoing.Model.EnterTransition, Is.Null);
-                Assert.That(outgoing.Model.ExitTransition, Is.Null);
-                Assert.That(over.EnterTransition, Is.Null);
+                Assert.That(top.EnterTransition.Value, Is.TypeOf<FadeTransition>());
+                Assert.That(outgoing.Model.EnterTransition.Value, Is.Null);
+                Assert.That(outgoing.Model.ExitTransition.Value, Is.Null);
+                Assert.That(over.EnterTransition.Value, Is.Null);
             });
         }
         finally
@@ -368,24 +368,24 @@ public class ElementTransitionTimelineTests
             (EditViewModel editor, ElementViewModel outgoing, ElementViewModel incoming) = await OpenCut();
             (view, window) = Show(incoming);
             Border border = FindElementView(view, incoming).FindControl<Border>("border")!;
-            string name = incoming.Model.Name;
+            string name = incoming.Model.Name.Value;
 
             Point edge = border.TranslatePoint(new Point(3, border.Bounds.Height / 2), window)!.Value;
             await DoubleClick(window, edge);
 
             Assert.Multiple(() =>
             {
-                Assert.That(incoming.Model.EnterTransition, Is.TypeOf<CrossDissolveTransition>());
-                Assert.That(incoming.Model.EnterTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
-                Assert.That(outgoing.Model.ExitTransition?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
-                Assert.That(incoming.Model.Name, Is.EqualTo(name));
+                Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf<CrossDissolveTransition>());
+                Assert.That(incoming.Model.EnterTransition.Value?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+                Assert.That(outgoing.Model.ExitTransition.Value?.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(0.25)));
+                Assert.That(incoming.Model.Name.Value, Is.EqualTo(name));
             });
 
             await DoubleClick(window, edge);
             TransitionTabViewModel? tab = editor.FindToolTab<TransitionTabViewModel>();
             Assert.Multiple(() =>
             {
-                Assert.That(tab?.Transition.Value, Is.SameAs(incoming.Model.EnterTransition));
+                Assert.That(tab?.Transition.Value, Is.SameAs(incoming.Model.EnterTransition.Value));
                 Assert.That(tab?.Properties.Value?.Properties,
                     Has.Some.TypeOf<EasingEditorViewModel<Easing>>());
             });
@@ -413,7 +413,7 @@ public class ElementTransitionTimelineTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(incoming.Model.ExitTransition, Is.Null);
+                Assert.That(incoming.Model.ExitTransition.Value, Is.Null);
                 Assert.That(element.FindControl<TextBox>("textBox")!.IsVisible, Is.True);
             });
         }
@@ -458,8 +458,8 @@ public class ElementTransitionTimelineTests
                 new(MediaTime.Zero, MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
                 new(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), 0, new ElementSource.EngineObject(() => new RectShape())),
             ]);
-        Element outgoing = editor.Scene.Children.Single(model => model.Start == MediaTime.Zero);
-        Element incoming = editor.Scene.Children.Single(model => model.Start == MediaTime.FromSeconds(2));
+        Element outgoing = editor.Scene.Children.Single(model => model.Start.Value == MediaTime.Zero);
+        Element incoming = editor.Scene.Children.Single(model => model.Start.Value == MediaTime.FromSeconds(2));
         editor.HistoryManager.Commit();
         return (editor, timeline.GetViewModelFor(outgoing)!, timeline.GetViewModelFor(incoming)!);
     }

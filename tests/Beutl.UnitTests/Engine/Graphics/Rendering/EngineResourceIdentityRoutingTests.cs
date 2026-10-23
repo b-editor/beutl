@@ -146,11 +146,11 @@ public sealed class EngineResourceIdentityRoutingTests
             Compare(
                 "GeometryRenderNode.cs:48,50,52",
                 () => s_geometrySink = new GeometryHitTestIdentityShape(
-                    geometryResource.RequireOriginal().Id,
+                    geometryResource.RequireOriginal().Id.Value,
                     geometryResource.Version,
-                    fillResource.RequireOriginal().Id,
+                    fillResource.RequireOriginal().Id.Value,
                     fillResource.Version,
-                    penResource.RequireOriginal().Id,
+                    penResource.RequireOriginal().Id.Value,
                     penResource.Version),
                 () => s_geometrySink = new GeometryHitTestIdentityShape(
                     EngineResourceIdentity.Of(geometryResource),
@@ -163,7 +163,7 @@ public sealed class EngineResourceIdentityRoutingTests
                 "GeometryClipRenderNode.cs:46",
                 () =>
                 {
-                    s_geometryClipSink = geometryResource.RequireOriginal().Id;
+                    s_geometryClipSink = geometryResource.RequireOriginal().Id.Value;
                     s_geometryClipStateSink =
                         (s_geometryClipSink, geometryResource.Version, ClipOperation.Intersect);
                 },
@@ -176,7 +176,7 @@ public sealed class EngineResourceIdentityRoutingTests
             Compare(
                 "ParticleRenderNode.cs:55",
                 () => s_particleSink = new ParticleSnapshotIdentityShape(
-                    emitterResource.RequireOriginal().Id,
+                    emitterResource.RequireOriginal().Id.Value,
                     emitterResource.Version),
                 () => s_particleSink = new ParticleSnapshotIdentityShape(
                     EngineResourceIdentity.Of(emitterResource),
@@ -184,13 +184,13 @@ public sealed class EngineResourceIdentityRoutingTests
             Compare(
                 "FilterEffectRenderNode.cs:201",
                 () => s_filterEffectSink =
-                    (typeof(FilterEffectRenderNode), effectResource.RequireOriginal().Id, 0),
+                    (typeof(FilterEffectRenderNode), effectResource.RequireOriginal().Id.Value, 0),
                 () => s_filterEffectSink =
                     (typeof(FilterEffectRenderNode), EngineResourceIdentity.Of(effectResource), 0)),
             Compare(
                 "Scene3DRenderNode.cs:97",
                 () => s_sceneSnapshotSink = new SceneSnapshotIdentityShape(
-                    sceneResource.RequireOriginal().Id,
+                    sceneResource.RequireOriginal().Id.Value,
                     sceneResource.Version),
                 () => s_sceneSnapshotSink = new SceneSnapshotIdentityShape(
                     EngineResourceIdentity.Of(sceneResource),
@@ -198,7 +198,7 @@ public sealed class EngineResourceIdentityRoutingTests
             Compare(
                 "Scene3DRenderNode.cs:117",
                 () => s_sceneRuntimeSink = new SceneRuntimeIdentityShape(
-                    sceneResource.RequireOriginal().Id,
+                    sceneResource.RequireOriginal().Id.Value,
                     sceneResource.Version,
                     bounds),
                 () => s_sceneRuntimeSink = new SceneRuntimeIdentityShape(

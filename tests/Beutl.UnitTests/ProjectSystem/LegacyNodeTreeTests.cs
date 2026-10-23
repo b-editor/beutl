@@ -139,7 +139,7 @@ public class LegacyNodeTreeTests
             scene.Children.Add(element);
         }
 
-        scene.Children.Add(new Element { Name = "2.x clip" });
+        scene.Children.Add(new Element { Name = { Value = "2.x clip" } });
 
         Notification? notice = UnmigratedNodeTreeNotice.Create(project);
 

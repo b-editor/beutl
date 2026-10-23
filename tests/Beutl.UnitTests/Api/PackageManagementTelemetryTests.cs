@@ -63,10 +63,10 @@ public sealed class PackageManagementTelemetryTests
     {
         return new TelemetryConfig
         {
-            Beutl_Application = true,
-            Beutl_PackageManagement = packageManagement,
-            Beutl_Api_Client = true,
-            Beutl_Logging = true,
+            Beutl_Application = { Value = true },
+            Beutl_PackageManagement = { Value = packageManagement },
+            Beutl_Api_Client = { Value = true },
+            Beutl_Logging = { Value = true },
         };
     }
 

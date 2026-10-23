@@ -150,11 +150,11 @@ public class PropertyExpressionTests
     [Test]
     public void EvaluateGraphics_WithInvalidOpacityExpression_PreservesTheFrame()
     {
-        var scene = new Scene { Duration = MediaTime.FromSeconds(2) };
+        var scene = new Scene { Duration = { Value = MediaTime.FromSeconds(2) } };
         var shape = new RectShape();
         shape.Opacity.Value = 75;
         shape.Opacity.Expression = new StringExpression<float>("\"abc\"");
-        var element = new Element { Length = scene.Duration };
+        var element = new Element { Length = { Value = scene.Duration.Value } };
         element.Objects.Add(shape);
         scene.Children.Add(element);
         using var compositor = new SceneCompositor(scene);

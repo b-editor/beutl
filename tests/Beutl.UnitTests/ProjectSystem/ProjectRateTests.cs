@@ -18,8 +18,8 @@ public sealed class ProjectRateTests
     {
         var project = new Project
         {
-            FrameRate = Rational.Parse(frameRate, CultureInfo.InvariantCulture),
-            SampleRate = sampleRate,
+            FrameRate = { Value = Rational.Parse(frameRate, CultureInfo.InvariantCulture) },
+            SampleRate = { Value = sampleRate },
         };
 
         Assert.Multiple(() =>
@@ -56,9 +56,9 @@ public sealed class ProjectRateTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(project.FrameRate, Is.EqualTo(Rational.Parse(expectedFrameRate, CultureInfo.InvariantCulture)));
-            Assert.That(project.SampleRate, Is.EqualTo(expectedSampleRate));
-            Assert.That(project.Variables, Is.EquivalentTo(new Dictionary<string, string> { ["author"] = "beutl" }));
+            Assert.That(project.FrameRate.Value, Is.EqualTo(Rational.Parse(expectedFrameRate, CultureInfo.InvariantCulture)));
+            Assert.That(project.SampleRate.Value, Is.EqualTo(expectedSampleRate));
+            Assert.That(project.Variables.Value, Is.EquivalentTo(new Dictionary<string, string> { ["author"] = "beutl" }));
             Assert.That((string?)saved["FrameRate"], Is.EqualTo(expectedFrameRate));
             Assert.That((int?)saved["SampleRate"], Is.EqualTo(expectedSampleRate));
             Assert.That(saved["variables"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { "author" }));
@@ -77,9 +77,9 @@ public sealed class ProjectRateTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(project.FrameRate, Is.EqualTo(new Rational(30000, 1001)));
-            Assert.That(project.SampleRate, Is.EqualTo(48000));
-            Assert.That(project.Variables, Is.Empty);
+            Assert.That(project.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
+            Assert.That(project.SampleRate.Value, Is.EqualTo(48000));
+            Assert.That(project.Variables.Value, Is.Empty);
         });
     }
 

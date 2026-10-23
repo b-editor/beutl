@@ -148,12 +148,12 @@ public class AudioLatencyTests
     [TestCase(int.MaxValue)]
     public void Effects_GetLatencySamples_DisabledPassThroughInputLatency(int inputLatency)
     {
-        var fallback = new FallbackAudioEffect { IsEnabled = false };
+        var fallback = new FallbackAudioEffect { IsEnabled = { Value = false } };
         var effect = CreateLimiterEffect(5f);
-        effect.IsEnabled = false;
-        var stretch = new TimeStretchEffect { IsEnabled = false };
+        effect.IsEnabled.Value = false;
+        var stretch = new TimeStretchEffect { IsEnabled = { Value = false } };
         stretch.Speed.Value = 50f;
-        var group = new AudioEffectGroup { IsEnabled = false };
+        var group = new AudioEffectGroup { IsEnabled = { Value = false } };
         group.Children.Add(new FixedLatencyEffect(-1));
 
         using (Assert.EnterMultipleScope())
@@ -181,13 +181,13 @@ public class AudioLatencyTests
     public void AudioEffectGroup_GetLatencySamples_ExcludesDisabledChildren()
     {
         var disabled = CreateLimiterEffect(10f);
-        disabled.IsEnabled = false;
+        disabled.IsEnabled.Value = false;
 
         var group = new AudioEffectGroup();
         group.Children.Add(CreateLimiterEffect(5f));
         group.Children.Add(disabled);
-        group.Children.Add(new FixedLatencyEffect(-1) { IsEnabled = false });
-        var disabledGroup = new AudioEffectGroup { IsEnabled = false };
+        group.Children.Add(new FixedLatencyEffect(-1) { IsEnabled = { Value = false } });
+        var disabledGroup = new AudioEffectGroup { IsEnabled = { Value = false } };
         var stretch = new TimeStretchEffect();
         stretch.Speed.Value = 50f;
         disabledGroup.Children.Add(stretch);
@@ -206,7 +206,7 @@ public class AudioLatencyTests
     [Test]
     public void AudioEffectGroup_GetLatencySamples_DisabledGroupReportsZero()
     {
-        var group = new AudioEffectGroup { IsEnabled = false };
+        var group = new AudioEffectGroup { IsEnabled = { Value = false } };
         group.Children.Add(CreateLimiterEffect(5f));
         group.Children.Add(CreateLimiterEffect(10f));
 
@@ -351,8 +351,8 @@ public class AudioLatencyTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 200f },
-                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 50f },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 200f } },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 50f } },
             },
         });
         using var limiter = CreateLimiterNode(5f);
@@ -375,8 +375,8 @@ public class AudioLatencyTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 50f },
-                new KeyFrame<float> { KeyTime = duration - terminalSample - terminalSample, Value = 100f },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 50f } },
+                new KeyFrame<float> { KeyTime = { Value = duration - terminalSample - terminalSample }, Value = { Value = 100f } },
             },
         });
 
@@ -407,12 +407,12 @@ public class AudioLatencyTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100f } },
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.FromSeconds(1),
-                    Value = 200f,
-                    Easing = easing,
+                    KeyTime = { Value = MediaTime.FromSeconds(1) },
+                    Value = { Value = 200f },
+                    Easing = { Value = easing },
                 },
             },
         });
@@ -441,12 +441,12 @@ public class AudioLatencyTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100f } },
                 new KeyFrame<float>
                 {
-                    KeyTime = MediaTime.FromSeconds(1),
-                    Value = 200f,
-                    Easing = new UnknownRangeEasing(),
+                    KeyTime = { Value = MediaTime.FromSeconds(1) },
+                    Value = { Value = 200f },
+                    Easing = { Value = new UnknownRangeEasing() },
                 },
             },
         });
@@ -502,10 +502,10 @@ public class AudioLatencyTests
         using var gain = new GainNode { Gain = Property.CreateAnimatable(100f) };
         using var limiterNode = CreateLimiterNode(5f);
         var limiterEffect = CreateLimiterEffect(5f);
-        limiterEffect.IsEnabled = enabled;
-        var fallback = new FallbackAudioEffect { IsEnabled = enabled };
-        var stretch = new TimeStretchEffect { IsEnabled = enabled };
-        var group = new AudioEffectGroup { IsEnabled = enabled };
+        limiterEffect.IsEnabled.Value = enabled;
+        var fallback = new FallbackAudioEffect { IsEnabled = { Value = enabled } };
+        var stretch = new TimeStretchEffect { IsEnabled = { Value = enabled } };
+        var group = new AudioEffectGroup { IsEnabled = { Value = enabled } };
 
         Assert.Throws<ArgumentOutOfRangeException>(() => gain.GetLatencySamples(sampleRate));
         Assert.Throws<ArgumentOutOfRangeException>(() => limiterNode.GetLatencySamples(sampleRate));
@@ -526,10 +526,10 @@ public class AudioLatencyTests
     [TestCase(int.MinValue, false)]
     public void Effects_GetLatencySamples_NegativeInputLatency_Throws(int inputLatency, bool enabled)
     {
-        var fallback = new FallbackAudioEffect { IsEnabled = enabled };
-        var limiter = new LimiterEffect { IsEnabled = enabled };
-        var stretch = new TimeStretchEffect { IsEnabled = enabled };
-        var group = new AudioEffectGroup { IsEnabled = enabled };
+        var fallback = new FallbackAudioEffect { IsEnabled = { Value = enabled } };
+        var limiter = new LimiterEffect { IsEnabled = { Value = enabled } };
+        var stretch = new TimeStretchEffect { IsEnabled = { Value = enabled } };
+        var group = new AudioEffectGroup { IsEnabled = { Value = enabled } };
 
         using (Assert.EnterMultipleScope())
         {
@@ -552,7 +552,7 @@ internal sealed partial class FixedLatencyEffect(int latencySamples) : AudioEffe
     public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
     {
         base.GetLatencySamples(sampleRate, inputLatency);
-        if (!IsEnabled)
+        if (!IsEnabled.Value)
             return inputLatency;
 
         // Deliberately invalid reports exercise the group's validation of external overrides.

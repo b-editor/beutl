@@ -1,4 +1,5 @@
 ﻿using Beutl.Animation;
+using Beutl.Collections;
 using Moq;
 
 namespace Beutl.UnitTests.Engine.Animation;
@@ -9,22 +10,22 @@ public class KeyFramesTests
     public void Changing_key_time_to_an_existing_time_keeps_the_collection_sorted()
     {
         var animation = new KeyFrameAnimation<float>();
-        var first = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 10 };
-        var middle = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = 200 };
-        var last = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(3), Value = 30 };
+        var first = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 10 } };
+        var middle = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = 200 } };
+        var last = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(3) }, Value = { Value = 30 } };
         animation.KeyFrames.Add(first, out _);
         animation.KeyFrames.Add(middle, out _);
         animation.KeyFrames.Add(last, out _);
 
-        first.KeyTime = last.KeyTime;
-        Assert.That(animation.KeyFrames.Select(key => key.KeyTime), Is.Ordered);
-        last.KeyTime = MediaTime.FromSeconds(1);
+        first.KeyTime.Value = last.KeyTime.Value;
+        Assert.That(animation.KeyFrames.Select(key => key.KeyTime.Value), Is.Ordered);
+        last.KeyTime.Value = MediaTime.FromSeconds(1);
         Assert.That(animation.KeyFrames, Is.EqualTo(new[] { last, middle, first }));
         Assert.That(animation.Interpolate(MediaTime.FromSeconds(2)), Is.EqualTo(200));
 
-        last.KeyTime = MediaTime.FromSeconds(3);
-        Assert.That(animation.KeyFrames.Select(key => key.KeyTime), Is.Ordered);
-        first.KeyTime = MediaTime.FromSeconds(1);
+        last.KeyTime.Value = MediaTime.FromSeconds(3);
+        Assert.That(animation.KeyFrames.Select(key => key.KeyTime.Value), Is.Ordered);
+        first.KeyTime.Value = MediaTime.FromSeconds(1);
         Assert.That(animation.KeyFrames, Is.EqualTo(new[] { first, middle, last }));
         Assert.That(animation.Interpolate(MediaTime.FromSeconds(2)), Is.EqualTo(200));
     }
@@ -32,13 +33,13 @@ public class KeyFramesTests
     [Test]
     public void Add_ShouldInsertKeyFrameAtCorrectPositionAndReturnIndex()
     {
-        var keyFrames = new KeyFrames();
+        var keyFrames = new CoreList<IKeyFrame>();
         var keyFrame1 = new Mock<IKeyFrame>();
-        keyFrame1.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(1));
+        keyFrame1.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(1));
         var keyFrame2 = new Mock<IKeyFrame>();
-        keyFrame2.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(3));
+        keyFrame2.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(3));
         var keyFrame3 = new Mock<IKeyFrame>();
-        keyFrame3.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(2));
+        keyFrame3.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(2));
 
         keyFrames.Add(keyFrame1.Object, out int index1);
         keyFrames.Add(keyFrame2.Object, out int index2);
@@ -55,13 +56,13 @@ public class KeyFramesTests
     [Test]
     public void IndexAt_ShouldReturnCorrectIndexForGivenTimeSpan()
     {
-        var keyFrames = new KeyFrames();
+        var keyFrames = new CoreList<IKeyFrame>();
         var keyFrame1 = new Mock<IKeyFrame>();
-        keyFrame1.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(1));
+        keyFrame1.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(1));
         var keyFrame2 = new Mock<IKeyFrame>();
-        keyFrame2.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(3));
+        keyFrame2.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(3));
         var keyFrame3 = new Mock<IKeyFrame>();
-        keyFrame3.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(5));
+        keyFrame3.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(5));
         keyFrames.Add(keyFrame1.Object, out _);
         keyFrames.Add(keyFrame2.Object, out _);
         keyFrames.Add(keyFrame3.Object, out _);
@@ -75,13 +76,13 @@ public class KeyFramesTests
     [Test]
     public void IndexAtOrCount_ShouldReturnCorrectIndexOrCountForGivenTimeSpan()
     {
-        var keyFrames = new KeyFrames();
+        var keyFrames = new CoreList<IKeyFrame>();
         var keyFrame1 = new Mock<IKeyFrame>();
-        keyFrame1.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(1));
+        keyFrame1.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(1));
         var keyFrame2 = new Mock<IKeyFrame>();
-        keyFrame2.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(3));
+        keyFrame2.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(3));
         var keyFrame3 = new Mock<IKeyFrame>();
-        keyFrame3.Setup(k => k.KeyTime).Returns(MediaTime.FromSeconds(5));
+        keyFrame3.Setup(k => k.KeyTime.Value).Returns(MediaTime.FromSeconds(5));
         keyFrames.Add(keyFrame1.Object, out _);
         keyFrames.Add(keyFrame2.Object, out _);
         keyFrames.Add(keyFrame3.Object, out _);

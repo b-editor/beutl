@@ -13,13 +13,7 @@ public class PopulatePreservedReferencesTests
             ScanProperties<Node>();
         }
 
-        public IProperty<Node?> ChildProperty { get; } = new ValueOnlyProperty<Node?>(null);
-
-        public Node? Child
-        {
-            get => ChildProperty.Value;
-            set => ChildProperty.Value = value;
-        }
+        public IProperty<Node?> Child { get; } = new ValueOnlyProperty<Node?>(null);
     }
 
     // No hierarchy is available as a fallback: references must resolve from the population context.
@@ -28,33 +22,15 @@ public class PopulatePreservedReferencesTests
         public Owner()
         {
             ScanProperties<Owner>();
-            Registered = CreateNode();
-            Collection = [CreateNode()];
+            Registered.Value = CreateNode();
+            Collection.Value = [CreateNode()];
         }
 
-        public IProperty<Reference<Node>> TargetProperty { get; } = new ValueOnlyProperty<Reference<Node>>(default);
+        public IProperty<Reference<Node>> Target { get; } = new ValueOnlyProperty<Reference<Node>>(default);
 
-        public IProperty<Node?> RegisteredProperty { get; } = new ValueOnlyProperty<Node?>(null);
+        public IProperty<Node?> Registered { get; } = new ValueOnlyProperty<Node?>(null);
 
-        public IProperty<List<Node>> CollectionProperty { get; } = new ValueOnlyProperty<List<Node>>(null!);
-
-        public Reference<Node> Target
-        {
-            get => TargetProperty.Value;
-            set => TargetProperty.Value = value;
-        }
-
-        public Node? Registered
-        {
-            get => RegisteredProperty.Value;
-            set => RegisteredProperty.Value = value;
-        }
-
-        public List<Node> Collection
-        {
-            get => CollectionProperty.Value;
-            set => CollectionProperty.Value = value;
-        }
+        public IProperty<List<Node>> Collection { get; } = new ValueOnlyProperty<List<Node>>(null!);
 
         public Node? Custom { get; set; } = CreateNode();
 
@@ -78,14 +54,14 @@ public class PopulatePreservedReferencesTests
 
         public Node GetNode(string member) => member switch
         {
-            nameof(Registered) => Registered!,
-            nameof(Collection) => Collection[0],
+            nameof(Registered) => Registered.Value!,
+            nameof(Collection) => Collection.Value[0],
             nameof(Custom) => Custom!,
             nameof(Rebuilt) => Rebuilt[0],
             _ => throw new ArgumentOutOfRangeException(nameof(member))
         };
 
-        private static Node CreateNode() => new() { Name = "parent", Child = new Node { Name = "child" } };
+        private static Node CreateNode() => new() { Name = { Value = "parent" }, Child = { Value = new Node { Name = { Value = "child" } } } };
     }
 
     [TestCase(nameof(Owner.Custom), false)]
@@ -98,9 +74,9 @@ public class PopulatePreservedReferencesTests
     {
         var owner = new Owner();
         Node original = owner.GetNode(member);
-        Node target = nested ? original.Child! : original;
+        Node target = nested ? original.Child.Value! : original;
         JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
-        document[nameof(Owner.Target)] = target.Id;
+        document[nameof(Owner.Target)] = target.Id.Value;
 
         CoreSerializer.PopulateFromJsonObject(owner, document, new CoreSerializerOptions
         {
@@ -110,7 +86,7 @@ public class PopulatePreservedReferencesTests
         Assert.Multiple(() =>
         {
             Assert.That(owner.GetNode(member), Is.SameAs(original));
-            Assert.That(owner.Target.Value, Is.SameAs(target));
+            Assert.That(owner.Target.Value.Value, Is.SameAs(target));
         });
     }
 
@@ -119,9 +95,9 @@ public class PopulatePreservedReferencesTests
     public void Populate_resolves_rebuilt_collections_to_the_new_objects(bool preserve)
     {
         var owner = new Owner();
-        Node original = owner.Rebuilt[0].Child!;
+        Node original = owner.Rebuilt[0].Child.Value!;
         JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
-        document[nameof(Owner.Target)] = original.Id;
+        document[nameof(Owner.Target)] = original.Id.Value;
 
         CoreSerializer.PopulateFromJsonObject(owner, document, new CoreSerializerOptions
         {
@@ -130,8 +106,8 @@ public class PopulatePreservedReferencesTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(owner.Rebuilt[0].Child, Is.Not.SameAs(original));
-            Assert.That(owner.Target.Value, Is.SameAs(owner.Rebuilt[0].Child));
+            Assert.That(owner.Rebuilt[0].Child.Value, Is.Not.SameAs(original));
+            Assert.That(owner.Target.Value.Value, Is.SameAs(owner.Rebuilt[0].Child.Value));
         });
     }
 
@@ -143,7 +119,7 @@ public class PopulatePreservedReferencesTests
         var owner = new Owner();
         Node original = owner.Custom!;
         JsonObject document = CoreSerializer.SerializeToJsonObject(owner);
-        document[nameof(Owner.Target)] = original.Id;
+        document[nameof(Owner.Target)] = original.Id.Value;
         switch (edit)
         {
             case "change":
@@ -165,8 +141,8 @@ public class PopulatePreservedReferencesTests
         Assert.Multiple(() =>
         {
             Assert.That(owner.Custom, Is.Not.SameAs(original));
-            Assert.That(owner.Target.Value, Is.SameAs(edit == "change" ? owner.Custom : null));
-            Assert.That(original.Name, Is.EqualTo("parent"));
+            Assert.That(owner.Target.Value.Value, Is.SameAs(edit == "change" ? owner.Custom : null));
+            Assert.That(original.Name.Value, Is.EqualTo("parent"));
         });
     }
 }

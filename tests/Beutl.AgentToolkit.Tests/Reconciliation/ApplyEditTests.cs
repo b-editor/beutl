@@ -26,13 +26,7 @@ public sealed class ApplyEditTests
             ScanProperties<RegisteredTransformElement>();
         }
 
-        public IProperty<Transform?> PluginTransformProperty { get; } = new ValueOnlyProperty<Transform?>(null);
-
-        public Transform? PluginTransform
-        {
-            get => PluginTransformProperty.Value;
-            set => PluginTransformProperty.Value = value;
-        }
+        public IProperty<Transform?> PluginTransform { get; } = new ValueOnlyProperty<Transform?>(null);
     }
 
     [SuppressResourceClassGeneration]
@@ -95,7 +89,7 @@ public sealed class ApplyEditTests
         EditTools tools = session.CreateEditTools();
         JsonObject desired = session.Documents.Read(scene);
         JsonObject holderJson = desired["Elements"]![0]!["Objects"]!.AsArray()
-            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.ToString());
+            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.Value.ToString());
         holderJson["Wrapped"]![0]!["Transform"]!["Children"]![0]!["$type"] = "[Missing.Plugin]Missing.Namespace:MissingTransform";
         holderJson["Wrapped"]![0]!["Transform"]!["Children"]![0]!.AsObject().Remove("Id");
 
@@ -146,7 +140,7 @@ public sealed class ApplyEditTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(((TransformGroup)holder.Wrapped.Value![0].Transform).Children.Single(), Is.InstanceOf<IFallback>());
         });
     }
@@ -161,14 +155,14 @@ public sealed class ApplyEditTests
         var animation = new KeyFrameAnimation<List<TransformWrapper>>();
         animation.KeyFrames.Add(new KeyFrame<List<TransformWrapper>>
         {
-            Value = [new(new PlainFallback())],
+            Value = { Value = [new(new PlainFallback())] },
         });
         holder.Wrapped.SetKeyFrameAnimation(animation);
         element.AddObject(holder);
         using var session = new AgentToolkitTestSession(scene);
         JsonObject desired = session.Documents.Read(scene);
         JsonObject holderJson = desired["Elements"]![0]!["Objects"]!.AsArray()
-            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.ToString());
+            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.Value.ToString());
         holderJson["Wrapped"] = holderJson["Animations"]!["Wrapped"]!["KeyFrames"]![0]!["Value"]!.DeepClone();
 
         Assert.That(() => new Reconciler().PlanFromCurrent(session, _ => (desired, null)), Throws.TypeOf<ReconcileException>());
@@ -186,11 +180,11 @@ public sealed class ApplyEditTests
         using var session = new AgentToolkitTestSession(scene);
         JsonObject desired = session.Documents.Read(scene);
         JsonObject holderJson = desired["Elements"]![0]!["Objects"]!.AsArray()
-            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.ToString());
+            .OfType<JsonObject>().Single(obj => obj["Id"]!.GetValue<string>() == holder.Id.Value.ToString());
         holderJson["Wrapped"]![0]!["Transform"]!["Easing"] = "[Missing.Plugin]Missing.Namespace:MissingEasing";
 
         Assert.That(() => new Reconciler().PlanFromCurrent(session, _ => (desired, null)), Throws.TypeOf<ReconcileException>());
-        Assert.That(((KeyFrame<float>)holder.Wrapped.Value![0].Transform).Easing,
+        Assert.That(((KeyFrame<float>)holder.Wrapped.Value![0].Transform).Easing.Value,
             Is.InstanceOf<Beutl.Animation.Easings.LinearEasing>());
     }
 
@@ -234,7 +228,7 @@ public sealed class ApplyEditTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 [nameof(Element.Start)] = TimeSpan.FromSeconds(3).ToString("c")
             })
         };
@@ -246,7 +240,7 @@ public sealed class ApplyEditTests
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Valid, Is.True);
             Assert.That(apply.Value.AppliedChangeSet, Has.Count.EqualTo(apply.Value.Changes!.Count));
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(scene.Children.Single().Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -294,8 +288,8 @@ public sealed class ApplyEditTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(apply.Value!.Valid, Is.True);
-            Assert.That(scene.Children.Single().Id, Is.EqualTo(element.Id));
-            Assert.That(scene.Children.Single().Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(scene.Children.Single().Id.Value, Is.EqualTo(element.Id.Value));
+            Assert.That(scene.Children.Single().Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
     }
 
@@ -422,17 +416,17 @@ public sealed class ApplyEditTests
         Scene current = TestWorkspace.CreateScene();
         current.Children.Add(new RegisteredTransformElement
         {
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(current.Uri!.LocalPath)!, "element.belm")),
-            PluginTransform = new RotationTransform(),
+            PluginTransform = { Value = new RotationTransform() },
         });
         using var session = new AgentToolkitTestSession(current);
         Scene sandbox = TestWorkspace.CreateScene();
         sandbox.Children.Add(new RegisteredTransformElement
         {
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(sandbox.Uri!.LocalPath)!, "element.belm")),
-            PluginTransform = new FallbackTransform(),
+            PluginTransform = { Value = new FallbackTransform() },
         });
         ReconcileException error = Assert.Throws<ReconcileException>(() =>
             Reconciler.ValidateNoNewFallbackObjects(session, sandbox))!;
@@ -573,7 +567,7 @@ public sealed class ApplyEditTests
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape
         {
-            Name = "Filtered rect",
+            Name = { Value = "Filtered rect" },
             Width = { Value = 200 },
             Height = { Value = 100 },
             FilterEffect =
@@ -593,10 +587,10 @@ public sealed class ApplyEditTests
             {
                 ["Elements"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                     [nameof(Element.Objects)] = new JsonArray(new JsonObject
                     {
-                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(CoreObject.Id)] = rect.Id.Value.ToString(),
                         [nameof(Drawable.FilterEffect)] = null
                     })
                 })
@@ -609,10 +603,10 @@ public sealed class ApplyEditTests
             {
                 ["Elements"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                     [nameof(Element.Objects)] = new JsonArray(new JsonObject
                     {
-                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(CoreObject.Id)] = rect.Id.Value.ToString(),
                         [nameof(Drawable.FilterEffect)] = new JsonObject
                         {
                             ["$type"] = IdentityHelper.WriteDiscriminator(typeof(FilterEffectGroup)),
@@ -649,10 +643,10 @@ public sealed class ApplyEditTests
         {
             Children = { new Blur(), new Blur(), new Blur() }
         };
-        Guid groupId = group.Id;
+        Guid groupId = group.Id.Value;
         var rect = new RectShape
         {
-            Name = "Filtered rect",
+            Name = { Value = "Filtered rect" },
             Width = { Value = 200 },
             Height = { Value = 100 },
             FilterEffect = { Value = group }
@@ -666,10 +660,10 @@ public sealed class ApplyEditTests
             {
                 ["Elements"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                     [nameof(Element.Objects)] = new JsonArray(new JsonObject
                     {
-                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(CoreObject.Id)] = rect.Id.Value.ToString(),
                         [nameof(Drawable.FilterEffect)] = new JsonObject
                         {
                             [nameof(CoreObject.Id)] = groupId.ToString(),
@@ -692,7 +686,7 @@ public sealed class ApplyEditTests
         Assert.Multiple(() =>
         {
             Assert.That(replace.IsSuccess, Is.True, replace.Error?.Message);
-            Assert.That(effects.Id, Is.EqualTo(groupId));
+            Assert.That(effects.Id.Value, Is.EqualTo(groupId));
             Assert.That(effects.Children, Has.Count.EqualTo(1));
             Assert.That(effects.Children[0], Is.InstanceOf<Brightness>());
         });
@@ -712,10 +706,10 @@ public sealed class ApplyEditTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 [nameof(Element.Objects)] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = text.Id.ToString(),
+                    [nameof(CoreObject.Id)] = text.Id.Value.ToString(),
                     [nameof(TextBlock.BlendMode)] = "Plus",
                     [nameof(TextBlock.FontWeight)] = "bold"
                 })
@@ -755,10 +749,10 @@ public sealed class ApplyEditTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 [nameof(Element.Objects)] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = text.Id.ToString(),
+                    [nameof(CoreObject.Id)] = text.Id.Value.ToString(),
                     [nameof(TextBlock.BlendMode)] = blendMode
                 })
             })
@@ -801,7 +795,7 @@ public sealed class ApplyEditTests
             Assert.That(apply.Value!.AppliedPlanId, Is.EqualTo(plan.Value.PlanId));
             Assert.That(apply.Value!.Composition.ResolvedProps["title"]!.GetValue<string>(), Is.EqualTo("APPLY PATCH"));
             Assert.That(scene.Children, Has.Count.GreaterThan(3));
-            Assert.That(scene.Children.Select(element => element.Name), Does.Contain("Kinetic ribbon title"));
+            Assert.That(scene.Children.Select(element => element.Name.Value), Does.Contain("Kinetic ribbon title"));
             Assert.That(apply.Value.Result.Document.ToJsonString(), Does.Contain("APPLY PATCH"));
         });
     }
@@ -846,8 +840,8 @@ public sealed class ApplyEditTests
             Assert.That(plan.IsSuccess, Is.True, plan.Error?.Message);
             Assert.That(plan.Value!.Plan.Valid, Is.True);
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(scene.Children.Select(element => element.Id), Does.Contain(existingElement.Id));
-            Assert.That(scene.Children.Select(element => element.Name), Does.Contain("Glitch title"));
+            Assert.That(scene.Children.Select(element => element.Id.Value), Does.Contain(existingElement.Id.Value));
+            Assert.That(scene.Children.Select(element => element.Name.Value), Does.Contain("Glitch title"));
             Assert.That(apply.Value!.Result.Document.ToJsonString(), Does.Contain("COMPOSITION PROBE"));
         });
     }
@@ -864,7 +858,7 @@ public sealed class ApplyEditTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = element.Id.ToString(),
+                ["Id"] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(new JsonObject
                 {
                     ["$type"] = IdentityHelper.WriteDiscriminator(typeof(DrawableGroup)),
@@ -887,7 +881,7 @@ public sealed class ApplyEditTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = element.Id.ToString(),
+                ["Id"] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(
                     new JsonObject
                     {
@@ -917,8 +911,8 @@ public sealed class ApplyEditTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        element.AddObject(new RectShape { Name = "keep" });
-        Guid keptId = element.Objects[0].Id;
+        element.AddObject(new RectShape { Name = { Value = "keep" } });
+        Guid keptId = element.Objects[0].Id.Value;
 
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -929,7 +923,7 @@ public sealed class ApplyEditTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = element.Id.ToString(),
+                ["Id"] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(null, new JsonObject { ["Id"] = keptId.ToString() })
             })
         };
@@ -941,7 +935,7 @@ public sealed class ApplyEditTests
             Assert.That(rejected.IsSuccess, Is.False);
             Assert.That(rejected.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(element.Objects, Has.Count.EqualTo(1));
-            Assert.That(element.Objects[0].Id, Is.EqualTo(keptId));
+            Assert.That(element.Objects[0].Id.Value, Is.EqualTo(keptId));
         });
     }
 
@@ -951,7 +945,7 @@ public sealed class ApplyEditTests
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var portal = new PortalObject();
-        var group = new DrawableGroup { Name = "group" };
+        var group = new DrawableGroup { Name = { Value = "group" } };
         element.Objects.Add(portal);
         element.Objects.Add(group);
 
@@ -964,9 +958,9 @@ public sealed class ApplyEditTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = element.Id.ToString(),
+                ["Id"] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(
-                    new JsonObject { ["Id"] = group.Id.ToString(), ["$index"] = 0 })
+                    new JsonObject { ["Id"] = group.Id.Value.ToString(), ["$index"] = 0 })
             })
         };
 
@@ -1007,13 +1001,13 @@ public sealed class ApplyEditTests
     {
         var element = new Element
         {
-            Name = "Inserted element",
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2)
+            Name = { Value = "Inserted element" },
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) }
         };
         element.AddObject(new TextBlock
         {
-            Name = "Inserted title",
+            Name = { Value = "Inserted title" },
             Text = { Value = "Inserted title" }
         });
 

@@ -86,14 +86,14 @@ public class SceneDrawableScaleTests
     {
         using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.Zero));
         var root = new DrawableRenderNode(resource);
-        using (var ctx = new GraphicsContext2D(root, inner.FrameSize.ToSize(1), outputScale))
+        using (var ctx = new GraphicsContext2D(root, inner.FrameSize.Value.ToSize(1), outputScale))
         {
             drawable.Render(ctx, resource);
         }
 
         using var pipeline = ScaleRecordingTestHelper.SubtreePipeline(
             root,
-            ScaleRecordingTestHelper.Layer(new Rect(0, 0, inner.FrameSize.Width, inner.FrameSize.Height)),
+            ScaleRecordingTestHelper.Layer(new Rect(0, 0, inner.FrameSize.Value.Width, inner.FrameSize.Value.Height)),
             ScaleRecordingTestHelper.Materialize());
         return ScaleRecordingTestHelper.Measure(pipeline, outputScale);
     }
@@ -133,7 +133,7 @@ public class SceneDrawableScaleTests
 
             using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.Zero));
             using var root = new DrawableRenderNode(resource);
-            using (var context = new GraphicsContext2D(root, inner.FrameSize.ToSize(1)))
+            using (var context = new GraphicsContext2D(root, inner.FrameSize.Value.ToSize(1)))
             {
                 drawable.Render(context, resource);
             }
@@ -160,7 +160,7 @@ public class SceneDrawableScaleTests
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
             new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);
-        RenderDrawableTree(drawable, resource, root, inner.FrameSize.ToSize(1));
+        RenderDrawableTree(drawable, resource, root, inner.FrameSize.Value.ToSize(1));
 
         ContainerRenderNode sceneNode = FindNestedSceneNode(root);
         DrawableRenderNode[] nested = [.. sceneNode.Children.Cast<DrawableRenderNode>()];
@@ -177,7 +177,7 @@ public class SceneDrawableScaleTests
             changingResource.Version++;
             resource.Version++;
             Assert.That(root.Update(resource), Is.True);
-            RenderDrawableTree(drawable, resource, root, inner.FrameSize.ToSize(1));
+            RenderDrawableTree(drawable, resource, root, inner.FrameSize.Value.ToSize(1));
 
             ContainerRenderNode currentSceneNode = FindNestedSceneNode(root);
             Assert.Multiple(() =>
@@ -224,13 +224,13 @@ public class SceneDrawableScaleTests
             drawable,
             resource,
             root,
-            inner.FrameSize.ToSize(1),
+            inner.FrameSize.Value.ToSize(1),
             outputScale: 1);
 
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
-            TargetDomain = new Rect(default, inner.FrameSize.ToSize(1)),
+            TargetDomain = new Rect(default, inner.FrameSize.Value.ToSize(1)),
             OutputScale = 1,
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Bounds,
@@ -241,7 +241,7 @@ public class SceneDrawableScaleTests
         renderer.Measure(new RenderNodeRenderRequest
         {
             Intent = RenderIntent.Preview,
-            TargetDomain = new Rect(default, inner.FrameSize.ToSize(1)),
+            TargetDomain = new Rect(default, inner.FrameSize.Value.ToSize(1)),
             OutputScale = 2,
             CacheOptions = RenderCacheOptions.Disabled,
             Purpose = RenderRequestPurpose.Bounds,
@@ -278,7 +278,7 @@ public class SceneDrawableScaleTests
             drawable,
             resource,
             root,
-            inner.FrameSize.ToSize(1),
+            inner.FrameSize.Value.ToSize(1),
             outputScale: 1);
 
         ContainerRenderNode sceneNode = FindNestedSceneNode(root);
@@ -291,7 +291,7 @@ public class SceneDrawableScaleTests
             drawable,
             resource,
             root,
-            inner.FrameSize.ToSize(1),
+            inner.FrameSize.Value.ToSize(1),
             outputScale: 2);
 
         Assert.Multiple(() =>

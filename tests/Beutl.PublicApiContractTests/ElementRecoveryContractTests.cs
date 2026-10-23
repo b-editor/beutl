@@ -26,7 +26,7 @@ public class ElementRecoveryContractTests
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
-        var element = new Element { Uri = new Uri(Path.Combine(root, "element.belm")), Length = MediaTime.FromSeconds(1) };
+        var element = new Element { Uri = new Uri(Path.Combine(root, "element.belm")), Length = { Value = MediaTime.FromSeconds(1) } };
         string transformPath = Path.Combine(root, "nested", "transform.json");
         var shape = new RectShape();
         shape.Transform.Value = new RotationTransform { Uri = new Uri(transformPath) };

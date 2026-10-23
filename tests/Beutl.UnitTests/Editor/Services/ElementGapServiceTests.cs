@@ -62,7 +62,7 @@ public class ElementGapServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(result, Is.True);
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -118,8 +118,8 @@ public class ElementGapServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.EqualTo(2));
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -138,8 +138,8 @@ public class ElementGapServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.EqualTo(2));
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(d.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(d.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -165,7 +165,7 @@ public class ElementGapServiceTests
     {
         Element a = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         Element b = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
-        MediaTime originalBStart = b.Start;
+        MediaTime originalBStart = b.Start.Value;
         int before = _history.UndoCount;
 
         _service.CloseGapAfter(_scene, a);
@@ -173,7 +173,7 @@ public class ElementGapServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(b.Start, Is.EqualTo(originalBStart));
+            Assert.That(b.Start.Value, Is.EqualTo(originalBStart));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -184,8 +184,8 @@ public class ElementGapServiceTests
         AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
         Element b = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2), 0);
         Element c = AddElement(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2), 0);
-        MediaTime originalBStart = b.Start;
-        MediaTime originalCStart = c.Start;
+        MediaTime originalBStart = b.Start.Value;
+        MediaTime originalCStart = c.Start.Value;
         int before = _history.UndoCount;
 
         _service.CloseAllGaps(_scene);
@@ -193,8 +193,8 @@ public class ElementGapServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(b.Start, Is.EqualTo(originalBStart));
-            Assert.That(c.Start, Is.EqualTo(originalCStart));
+            Assert.That(b.Start.Value, Is.EqualTo(originalBStart));
+            Assert.That(c.Start.Value, Is.EqualTo(originalCStart));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }

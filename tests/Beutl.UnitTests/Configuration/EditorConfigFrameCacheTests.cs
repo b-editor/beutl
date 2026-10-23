@@ -10,6 +10,6 @@ public class EditorConfigFrameCacheTests
     {
         double megabytes = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024d * 1024d);
 
-        Assert.That(new EditorConfig().FrameCacheMaxSize, Is.EqualTo(megabytes / 2));
+        Assert.That(new EditorConfig().FrameCacheMaxSize.Value, Is.EqualTo(megabytes / 2));
     }
 }

@@ -32,7 +32,7 @@ public class CopiedFileBackedObjectsTests
         Assert.Multiple(() =>
         {
             Assert.That(Animation(copy).Uri, Is.Null);
-            Assert.That(Animation(copy).Id, Is.Not.EqualTo(Animation(source).Id));
+            Assert.That(Animation(copy).Id.Value, Is.Not.EqualTo(Animation(source).Id.Value));
             Assert.That(KeyTimes(copy), Is.EqualTo(new[] { MediaTime.FromSeconds(6) }));
             Assert.That(Animation(source).Uri, Is.EqualTo(new Uri(file)));
         });
@@ -55,7 +55,7 @@ public class CopiedFileBackedObjectsTests
             Assert.That(KeyTimes(Reload(front)), Is.EqualTo(new[] { MediaTime.FromSeconds(6) }));
             Assert.That(KeyTimes(Reload(back)), Is.EqualTo(new[] { MediaTime.FromSeconds(2) }));
             Assert.That(Animation(Reload(back)).Uri, Is.Null);
-            Assert.That(CoreSerializer.RestoreFromUri<KeyFrameAnimation<float>>(new Uri(file)).KeyFrames.Single().KeyTime,
+            Assert.That(CoreSerializer.RestoreFromUri<KeyFrameAnimation<float>>(new Uri(file)).KeyFrames.Single().KeyTime.Value,
                 Is.EqualTo(MediaTime.FromSeconds(6)));
         });
     }
@@ -66,7 +66,7 @@ public class CopiedFileBackedObjectsTests
     {
         string folder = Path.Combine(_harness.BasePath, "scene #1 ア");
         var scene = new Scene(100, 100, "B") { Uri = new Uri(Path.Combine(folder, "B.scene")) };
-        var inner = new Element { Length = MediaTime.FromSeconds(10), Uri = new Uri(Path.Combine(folder, "inner.belm")) };
+        var inner = new Element { Length = { Value = MediaTime.FromSeconds(10) }, Uri = new Uri(Path.Combine(folder, "inner.belm")) };
         inner.AddObject(ShapeWithKeyFrameAt(6));
         inner.AddObject(new CopyRenewalProbe());
         scene.Children.Add(inner);
@@ -85,12 +85,12 @@ public class CopiedFileBackedObjectsTests
         Assert.Multiple(() =>
         {
             Assert.That(drawn.Uri, Is.EqualTo(scene.Uri));
-            Assert.That(drawn.Id, Is.EqualTo(scene.Id));
-            Assert.That(drawn.Children.Single().Id, Is.EqualTo(inner.Id));
+            Assert.That(drawn.Id.Value, Is.EqualTo(scene.Id.Value));
+            Assert.That(drawn.Children.Single().Id.Value, Is.EqualTo(inner.Id.Value));
             Assert.That(KeyTimes(drawn.Children.Single()), Is.EqualTo(new[] { MediaTime.FromSeconds(6) }));
             Assert.That(drawn.Children.Single().Objects.OfType<CopyRenewalProbe>().Single().Renewals, Is.Zero);
-            Assert.That(reloaded.Id, Is.EqualTo(scene.Id));
-            Assert.That(reloaded.Children.Single().Id, Is.EqualTo(inner.Id));
+            Assert.That(reloaded.Id.Value, Is.EqualTo(scene.Id.Value));
+            Assert.That(reloaded.Children.Single().Id.Value, Is.EqualTo(inner.Id.Value));
             Assert.That(KeyTimes(reloaded.Children.Single()), Is.EqualTo(new[] { MediaTime.FromSeconds(6) }));
         });
     }
@@ -113,7 +113,7 @@ public class CopiedFileBackedObjectsTests
     {
         var shape = new RectShape();
         var animation = new KeyFrameAnimation<float> { Uri = file is null ? null : new Uri(file) };
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(seconds), Value = 50 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(seconds) }, Value = { Value = 50 } });
         shape.Width.SetKeyFrameAnimation(animation);
         return shape;
     }
@@ -121,7 +121,7 @@ public class CopiedFileBackedObjectsTests
     private static KeyFrameAnimation<float> Animation(Element element)
         => element.Objects.OfType<RectShape>().Single().Width.GetKeyFrameAnimation()!;
 
-    private static MediaTime[] KeyTimes(Element element) => [.. Animation(element).KeyFrames.Select(k => k.KeyTime)];
+    private static MediaTime[] KeyTimes(Element element) => [.. Animation(element).KeyFrames.Select(k => k.KeyTime.Value)];
 
     private static Element Reload(Element element) => CoreSerializer.RestoreFromUri<Element>(element.Uri!);
 }

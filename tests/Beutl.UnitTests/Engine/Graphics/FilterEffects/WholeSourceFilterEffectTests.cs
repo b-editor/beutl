@@ -111,8 +111,8 @@ public sealed class WholeSourceFilterEffectTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 16 },
-                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = -16 },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 16 } },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = -16 } },
             },
         });
         var json = CoreSerializer.SerializeToJsonObject(effect);

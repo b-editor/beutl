@@ -33,7 +33,7 @@ public class NodeGraphPortDropTests
     public void OutputDroppedOnEmptyGraph_OffersCompatibleNodesAndConnectsSelectedNode(double scale)
     {
         var graph = new GraphModel();
-        var source = new FilterEffectInputNode { Position = (20, 40) };
+        var source = new FilterEffectInputNode { Position = { Value = (20, 40) } };
         graph.Nodes.Add(source);
         var sequence = new OperationSequenceGenerator();
         using var history = new HistoryManager(sequence);
@@ -81,11 +81,11 @@ public class NodeGraphPortDropTests
             OutputNode added = graph.Nodes.OfType<OutputNode>().Single();
             Assert.Multiple(() =>
             {
-                Assert.That(added.Position.X, Is.EqualTo(graphPoint.X - 215 / 2d).Within(1));
-                Assert.That(added.Position.Y, Is.EqualTo(graphPoint.Y).Within(1));
+                Assert.That(added.Position.Value.X, Is.EqualTo(graphPoint.X - 215 / 2d).Within(1));
+                Assert.That(added.Position.Value.Y, Is.EqualTo(graphPoint.Y).Within(1));
                 Assert.That(graph.AllConnections, Has.Count.EqualTo(1));
-                Assert.That(graph.AllConnections[0].Output.Value, Is.SameAs(source.Output));
-                Assert.That(graph.AllConnections[0].Input.Value, Is.SameAs(added.InputPort));
+                Assert.That(graph.AllConnections[0].Output.Value.Value, Is.SameAs(source.Output));
+                Assert.That(graph.AllConnections[0].Input.Value.Value, Is.SameAs(added.InputPort));
                 Assert.That(history.UndoCount, Is.EqualTo(1));
             });
 
@@ -114,7 +114,7 @@ public class NodeGraphPortDropTests
     public void InputDroppedOnEmptyGraph_OffersDynamicSourceAndConnectsIt()
     {
         var graph = new GraphModel();
-        var target = new RandomSingleNode { Position = (20, 40) };
+        var target = new RandomSingleNode { Position = { Value = (20, 40) } };
         graph.Nodes.Add(target);
         var sequence = new OperationSequenceGenerator();
         using var history = new HistoryManager(sequence);
@@ -156,8 +156,8 @@ public class NodeGraphPortDropTests
             {
                 Assert.That(added.Items, Has.Count.EqualTo(1));
                 Assert.That(graph.AllConnections, Has.Count.EqualTo(1));
-                Assert.That(graph.AllConnections[0].Input.Value, Is.SameAs(target.Maximum));
-                Assert.That(graph.AllConnections[0].Output.Value, Is.SameAs(added.Items[0]));
+                Assert.That(graph.AllConnections[0].Input.Value.Value, Is.SameAs(target.Maximum));
+                Assert.That(graph.AllConnections[0].Output.Value.Value, Is.SameAs(added.Items[0]));
                 Assert.That(history.UndoCount, Is.EqualTo(1));
             });
 
@@ -178,7 +178,7 @@ public class NodeGraphPortDropTests
     public void FourPixelPortDrag_DoesNotOpenPickerAtDifferentZoomLevels(double scale)
     {
         var graph = new GraphModel();
-        var source = new FilterEffectInputNode { Position = (20, 40) };
+        var source = new FilterEffectInputNode { Position = { Value = (20, 40) } };
         graph.Nodes.Add(source);
         using var vm = CreateViewModel(graph, new Mock<INodeGraphMutationService>().Object);
         var view = new NodeGraphView { DataContext = vm };

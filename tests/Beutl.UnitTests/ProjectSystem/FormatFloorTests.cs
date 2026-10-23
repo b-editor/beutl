@@ -472,8 +472,8 @@ public class FormatFloorTests
         string sceneDirectory = Path.GetDirectoryName(_scenePath)!;
         Element[] added =
         [
-            new Element { ZIndex = 1, Uri = new Uri(Path.Combine(sceneDirectory, "second.belm")) },
-            new Element { ZIndex = 2, Uri = new Uri(Path.Combine(sceneDirectory, "third.belm")) },
+            new Element { ZIndex = { Value = 1 }, Uri = new Uri(Path.Combine(sceneDirectory, "second.belm")) },
+            new Element { ZIndex = { Value = 2 }, Uri = new Uri(Path.Combine(sceneDirectory, "third.belm")) },
         ];
         foreach (Element element in added)
         {
@@ -516,7 +516,7 @@ public class FormatFloorTests
         SetVersionFields(_projectPath, OlderAppVersion, OlderMinAppVersion);
         Project project = LoadProject();
         Scene scene = (Scene)project.Items.Single();
-        scene.Name = "renamed";
+        scene.Name.Value = "renamed";
         byte[] before = File.ReadAllBytes(_scenePath);
 
         using (new FileStream(_projectPath, FileMode.Open, FileAccess.Read, FileShare.None))
@@ -535,7 +535,7 @@ public class FormatFloorTests
         SaveProject();
         Project project = LoadProject();
         Scene scene = (Scene)project.Items.Single();
-        scene.Name = "renamed";
+        scene.Name.Value = "renamed";
         File.WriteAllText(_projectPath, "{ not json");
 
         Assert.DoesNotThrow(() => CoreSerializer.StoreToUri(scene, scene.Uri!, CoreSerializationMode.Write));

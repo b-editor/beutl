@@ -37,21 +37,21 @@ public sealed partial class LimiterDelayTailSound : Sound
                 {
                     new KeyFrame<float>
                     {
-                        KeyTime = MediaTime.Zero,
-                        Value = LookaheadMs,
-                        Easing = new LinearEasing(),
+                        KeyTime = { Value = MediaTime.Zero },
+                        Value = { Value = LookaheadMs },
+                        Easing = { Value = new LinearEasing() },
                     },
                     new KeyFrame<float>
                     {
-                        KeyTime = rampEnd - oneSample,
-                        Value = 0f,
-                        Easing = new LinearEasing(),
+                        KeyTime = { Value = rampEnd - oneSample },
+                        Value = { Value = 0f },
+                        Easing = { Value = new LinearEasing() },
                     },
                     new KeyFrame<float>
                     {
-                        KeyTime = TimeRange.Duration,
-                        Value = 0f,
-                        Easing = new LinearEasing(),
+                        KeyTime = { Value = TimeRange.Value.Duration },
+                        Value = { Value = 0f },
+                        Easing = { Value = new LinearEasing() },
                     },
                 },
             });
@@ -70,7 +70,7 @@ public sealed partial class LimiterDelayTailSound : Sound
         group.Children.Add(delay);
         var output = group.CreateNode(context, source);
 
-        var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var clip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(output, clip);
         context.MarkAsOutput(clip);
     }

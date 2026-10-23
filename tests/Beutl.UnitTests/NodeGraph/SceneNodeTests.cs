@@ -52,7 +52,7 @@ public sealed class SceneNodeTests
 
         Assert.That(Evaluate(model, node, MediaTime.FromSeconds(0.5)), Is.EqualTo(1), "Seconds reach the time input.");
         Assert.That(Evaluate(model, node, MediaTime.FromSeconds(2)), Is.EqualTo(0));
-        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Convert));
+        Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Convert));
     }
 
     [Test]
@@ -85,7 +85,7 @@ public sealed class SceneNodeTests
         Scene referenced = CreateScene(new RectShape());
         var (model, node) = CreateGraph(referenced);
         HostGraph(model, referenced);
-        Assert.That(node.Object.Start, Is.EqualTo(MediaTime.Zero), "The scene's time does not follow the hosting element.");
+        Assert.That(node.Object.Value.Start, Is.EqualTo(MediaTime.Zero), "The scene's time does not follow the hosting element.");
 
         node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
 
@@ -138,8 +138,8 @@ public sealed class SceneNodeTests
         var restored = (GraphModel)Beutl.Serialization.CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         SceneNode node = restored.Nodes.OfType<SceneNode>().Single();
 
-        Assert.That(node.Object.IsTimeAnchor, Is.True);
-        Assert.That(node.Object.Start, Is.EqualTo(MediaTime.Zero));
+        Assert.That(node.Object.Value.IsTimeAnchor.Value, Is.True);
+        Assert.That(node.Object.Value.Start, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
@@ -151,7 +151,7 @@ public sealed class SceneNodeTests
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value = graph;
         Scene scene = CreateScene(drawable);
-        node.Object.ReferencedScene.Value = scene;
+        node.Object.Value.ReferencedScene.Value = scene;
 
         using var compositor = new SceneCompositor(scene);
         Assert.DoesNotThrow(() => compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)));
@@ -163,8 +163,8 @@ public sealed class SceneNodeTests
         var scene = new Scene(64, 48, "referenced") { Uri = new Uri(Path.Combine(_directory, $"{Guid.NewGuid():N}.scene")) };
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(_directory, $"{Guid.NewGuid():N}.layer")),
         };
         element.AddObject(content);
@@ -189,8 +189,8 @@ public sealed class SceneNodeTests
         drawable.Model.Value = model;
         var host = new Element
         {
-            Start = MediaTime.FromSeconds(5),
-            Length = MediaTime.FromSeconds(10),
+            Start = { Value = MediaTime.FromSeconds(5) },
+            Length = { Value = MediaTime.FromSeconds(10) },
             Uri = new Uri(Path.Combine(_directory, "host.layer")),
         };
         host.AddObject(drawable);
@@ -198,7 +198,7 @@ public sealed class SceneNodeTests
         outer.Children.Add(host);
         var application = new BeutlApplication();
         var project = new Project();
-        application.Project = project;
+        application.Project.Value = project;
         project.Items.Add(outer);
         project.Items.Add(referenced);
         return outer;
@@ -208,7 +208,7 @@ public sealed class SceneNodeTests
     {
         var model = new GraphModel();
         var node = new SceneNode();
-        node.Object.ReferencedScene.Value = referenced;
+        node.Object.Value.ReferencedScene.Value = referenced;
         model.Nodes.Add(node);
         return (model, node);
     }

@@ -18,16 +18,16 @@ public class MFSettingsGoldenTests
         {
             ["Video"] = CoreSerializer.SerializeToJsonObject(new MFVideoEncoderSettings
             {
-                Codec = MFVideoCodec.HEVC,
-                UseHardwareAcceleration = false,
-                Bitrate = 6_000_000,
+                Codec = { Value = MFVideoCodec.HEVC },
+                UseHardwareAcceleration = { Value = false },
+                Bitrate = { Value = 6_000_000 },
             }),
             ["Audio"] = CoreSerializer.SerializeToJsonObject(new MFAudioEncoderSettings
             {
-                Codec = MFAudioCodec.MP3,
-                SampleRate = 48000,
+                Codec = { Value = MFAudioCodec.MP3 },
+                SampleRate = { Value = 48000 },
             }),
-            ["Decoding"] = CoreSerializer.SerializeToJsonObject(new MFDecodingSettings { ThresholdFrameCount = 60 }),
+            ["Decoding"] = CoreSerializer.SerializeToJsonObject(new MFDecodingSettings { ThresholdFrameCount = { Value = 60 } }),
         };
 
         AssertGolden(json, "mf-settings");

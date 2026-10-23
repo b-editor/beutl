@@ -37,9 +37,9 @@ public sealed class SceneMarkerApplyTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
-            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("beat"));
-            Assert.That(session.Scene.Markers[0].Note, Is.EqualTo("drop"));
+            Assert.That(session.Scene.Markers[0].Time.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(session.Scene.Markers[0].Name.Value, Is.EqualTo("beat"));
+            Assert.That(session.Scene.Markers[0].Note.Value, Is.EqualTo("drop"));
         });
     }
 
@@ -92,7 +92,7 @@ public sealed class SceneMarkerApplyTests
             Assert.That(apply.IsSuccess, Is.False);
             Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
-            Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("keep"));
+            Assert.That(session.Scene.Markers[0].Name.Value, Is.EqualTo("keep"));
         });
     }
 
@@ -112,7 +112,7 @@ public sealed class SceneMarkerApplyTests
                 () => session.Documents.Write(session.Scene, desired),
                 Throws.InstanceOf<ReconcileException>());
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
-            Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("keep"));
+            Assert.That(session.Scene.Markers[0].Name.Value, Is.EqualTo("keep"));
         });
     }
 
@@ -146,8 +146,8 @@ public sealed class SceneMarkerApplyTests
         {
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
             Assert.That(session.Scene.Markers[0], Is.SameAs(marker));
-            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(session.Scene.Markers[0].Name, Is.EqualTo("keep"));
+            Assert.That(session.Scene.Markers[0].Time.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(session.Scene.Markers[0].Name.Value, Is.EqualTo("keep"));
         });
     }
 
@@ -160,7 +160,7 @@ public sealed class SceneMarkerApplyTests
         FileEditingSession session = CreateSession(source);
         var marker = new SceneMarker(MediaTime.FromSeconds(1), "keep");
         session.Scene.Markers.Add(marker);
-        int originalWidth = session.Scene.FrameSize.Width;
+        int originalWidth = session.Scene.FrameSize.Value.Width;
         var manager = new AgentSessionManager();
         manager.UseSource(source);
         var tools = new EditTools(manager);
@@ -170,7 +170,7 @@ public sealed class SceneMarkerApplyTests
             ["Width"] = originalWidth + 100,
             [nameof(Scene.Markers)] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = marker.Id.ToString(),
+                [nameof(CoreObject.Id)] = marker.Id.Value.ToString(),
                 [nameof(SceneMarker.Time)] = "not-a-timespan"
             })
         };
@@ -181,10 +181,10 @@ public sealed class SceneMarkerApplyTests
         {
             Assert.That(apply.IsSuccess, Is.False);
             Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(session.Scene.FrameSize.Width, Is.EqualTo(originalWidth));
+            Assert.That(session.Scene.FrameSize.Value.Width, Is.EqualTo(originalWidth));
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
             Assert.That(session.Scene.Markers[0], Is.SameAs(marker));
-            Assert.That(session.Scene.Markers[0].Time, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(session.Scene.Markers[0].Time.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
 
@@ -194,7 +194,7 @@ public sealed class SceneMarkerApplyTests
         using var source = new FileSessionSource();
         FileEditingSession session = CreateSession(source);
         session.Scene.Markers.Add(new SceneMarker(MediaTime.FromSeconds(1), "keep"));
-        int originalWidth = session.Scene.FrameSize.Width;
+        int originalWidth = session.Scene.FrameSize.Value.Width;
 
         JsonObject desired = session.Documents.Read(session.Scene);
         desired["Width"] = originalWidth + 100;
@@ -205,7 +205,7 @@ public sealed class SceneMarkerApplyTests
             Assert.That(
                 () => session.Documents.Write(session.Scene, desired),
                 Throws.InstanceOf<ReconcileException>());
-            Assert.That(session.Scene.FrameSize.Width, Is.EqualTo(originalWidth));
+            Assert.That(session.Scene.FrameSize.Value.Width, Is.EqualTo(originalWidth));
             Assert.That(session.Scene.Markers, Has.Count.EqualTo(1));
         });
     }

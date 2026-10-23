@@ -58,18 +58,18 @@ public sealed class LetterboxTests
     {
         string outputPath = Path.Combine(_workDir, "fitted.mp4");
         var controller = new AVFEncodingController(outputPath);
-        controller.VideoSettings.SourceSize = new PixelSize(SourceWidth, SourceHeight);
-        controller.VideoSettings.DestinationSize = new PixelSize(Width, Height);
-        controller.VideoSettings.FrameRate = new Rational(30, 1);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(SourceWidth, SourceHeight);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(Width, Height);
+        controller.VideoSettings.FrameRate.Value = new Rational(30, 1);
         if (hdr)
         {
-            controller.VideoSettings.ColorTransfer = AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq;
-            controller.VideoSettings.ColorPrimaries = AVFVideoEncoderSettings.ColorPrimariesType.Rec2020;
-            controller.VideoSettings.YCbCrMatrix = AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020;
+            controller.VideoSettings.ColorTransfer.Value = AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq;
+            controller.VideoSettings.ColorPrimaries.Value = AVFVideoEncoderSettings.ColorPrimariesType.Rec2020;
+            controller.VideoSettings.YCbCrMatrix.Value = AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020;
         }
 
-        controller.AudioSettings.SampleRate = 44100;
-        controller.AudioSettings.Channels = 2;
+        controller.AudioSettings.SampleRate.Value = 44100;
+        controller.AudioSettings.Channels.Value = 2;
 
         using var frames = new SolidFrameProvider(new PixelSize(SourceWidth, SourceHeight), frameCount: 3);
         using var samples = new SineSampleProvider(44100 / 10, 44100);

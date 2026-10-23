@@ -32,7 +32,7 @@ public class AnimationSamplerTests
     private static (IExpressionProperty<float> Property, EngineObject Owner) AttachedAnimatedFloat(
         float from, float to, double durationSeconds, TimeRange ownerTimeRange, bool useGlobalClock)
     {
-        var owner = new AnimationSamplerTestRoot { TimeRange = ownerTimeRange };
+        var owner = new AnimationSamplerTestRoot { TimeRange = { Value = ownerTimeRange } };
 
         var property = Property.CreateAnimatable(from);
         property.SetAttributes("Value", []);
@@ -159,7 +159,7 @@ public class AnimationSamplerTests
 
         for (int i = 0; i < buffer.Length; i++)
         {
-            var time = owner.TimeRange.Start + MediaTime.FromSeconds(i / 10.0);
+            var time = owner.TimeRange.Value.Start + MediaTime.FromSeconds(i / 10.0);
             Assert.That(buffer[i], Is.EqualTo(property.Evaluate(new CompositionContext(time))), $"sample {i}");
         }
     }

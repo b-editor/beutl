@@ -24,7 +24,7 @@ public sealed class ValidationSandboxFrameGridTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                ["Id"] = element.Id.ToString(),
+                ["Id"] = element.Id.Value.ToString(),
                 [nameof(Element.Start)] = "00:00:01.0333333",
             }),
         };
@@ -39,8 +39,8 @@ public sealed class ValidationSandboxFrameGridTests
         Assert.Multiple(() =>
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-            Assert.That(sandbox.Children.Single().Start, Is.EqualTo(frame31));
-            Assert.That(element.Start, Is.EqualTo(frame31));
+            Assert.That(sandbox.Children.Single().Start.Value, Is.EqualTo(frame31));
+            Assert.That(element.Start.Value, Is.EqualTo(frame31));
         });
     }
 
@@ -49,7 +49,7 @@ public sealed class ValidationSandboxFrameGridTests
     public void A_scene_duration_of_a_tick_is_rejected()
     {
         Scene scene = CreateSceneInProject();
-        MediaTime before = scene.Duration;
+        MediaTime before = scene.Duration.Value;
         using var session = new AgentToolkitTestSession(scene);
 
         ToolResult<ApplyEditResponse> result = session.CreateEditTools().ApplyEdit(
@@ -61,14 +61,14 @@ public sealed class ValidationSandboxFrameGridTests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(result.Error.Message, Does.Contain("must be positive"));
-            Assert.That(scene.Duration, Is.EqualTo(before));
+            Assert.That(scene.Duration.Value, Is.EqualTo(before));
         });
     }
 
     private static Scene CreateSceneInProject()
     {
         Scene scene = TestWorkspace.CreateScene();
-        _ = new Project { FrameRate = s_rate, Items = { scene } };
+        _ = new Project { FrameRate = { Value = s_rate }, Items = { scene } };
         return scene;
     }
 
@@ -76,8 +76,8 @@ public sealed class ValidationSandboxFrameGridTests
     {
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "element.belm")),
         };
         scene.Children.Add(element);

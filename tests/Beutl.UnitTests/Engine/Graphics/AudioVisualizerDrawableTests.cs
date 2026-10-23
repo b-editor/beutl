@@ -171,7 +171,7 @@ public class AudioVisualizerDrawableTests
         {
             Source = { Value = soundSource },
             // Sound.Compose clips to TimeRange, so a non-zero range covering the sample window is required.
-            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(2)) },
         };
         drawable.Source.Value = sound;
     }

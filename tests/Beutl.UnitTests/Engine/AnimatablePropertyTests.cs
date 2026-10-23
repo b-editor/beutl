@@ -94,8 +94,8 @@ public class AnimatablePropertyTests
         property.SetKeyFrameAnimation(TestAnimations.Linear(100, 0, MediaTime.FromSeconds(1.0)));
         var element = new Element
         {
-            Start = MediaTime.FromSeconds(5),
-            Length = MediaTime.FromSeconds(2)
+            Start = { Value = MediaTime.FromSeconds(5) },
+            Length = { Value = MediaTime.FromSeconds(2) }
         };
         element.AddObject(owner);
         // Attaching to a root caches the parent reference the local clock anchors to.

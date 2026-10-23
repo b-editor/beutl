@@ -281,8 +281,8 @@ public sealed class ParticleSimulatorDeterminismTests
         {
             KeyFrames =
             {
-                new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = start },
-                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = end },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = start } },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = end } },
             },
         };
     }

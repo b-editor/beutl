@@ -20,7 +20,7 @@ public sealed partial class MixedInlineUnknownTailSound : Sound
         context.MarkAsOutput(context.AddNode(new UnknownTailNode()));
 
         var source = context.AddNode(new FixedLatencyNode(0));
-        var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var clip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(source, clip);
 
         var downstream = context.AddNode(new FixedLatencyNode(240));

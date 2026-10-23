@@ -23,7 +23,7 @@ public sealed class ValidationPayloadSerializationTests
         Element element = TestWorkspace.AddElement(scene, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         var rect = new RectShape
         {
-            Name = "Filtered rect",
+            Name = { Value = "Filtered rect" },
             Width = { Value = 200 },
             Height = { Value = 100 },
             // Only a null FilterEffect makes the patch replace the whole property, so validation sees
@@ -39,10 +39,10 @@ public sealed class ValidationPayloadSerializationTests
             {
                 ["Elements"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                     [nameof(Element.Objects)] = new JsonArray(new JsonObject
                     {
-                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(CoreObject.Id)] = rect.Id.Value.ToString(),
                         [nameof(Drawable.FilterEffect)] = new JsonObject
                         {
                             ["$type"] = IdentityHelper.WriteDiscriminator(typeof(Blur)),

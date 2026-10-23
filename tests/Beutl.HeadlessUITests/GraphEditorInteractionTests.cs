@@ -41,8 +41,8 @@ public class GraphEditorInteractionTests
         Assert.That(Selected(graph), Has.Length.EqualTo(2));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
         Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(playhead));
-        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(0.5));
-        Assert.That(graph.Second.KeyTime.ToSeconds(), Is.EqualTo(1.5));
+        Assert.That(graph.First.KeyTime.Value.ToSeconds(), Is.EqualTo(0.5));
+        Assert.That(graph.Second.KeyTime.Value.ToSeconds(), Is.EqualTo(1.5));
     }
 
     [AvaloniaTest]
@@ -86,8 +86,8 @@ public class GraphEditorInteractionTests
             Assert.That(scroll.Offset, Is.EqualTo(offset));
             Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(currentTime));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
-            Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.5)));
-            Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(graph.First.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+            Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
         });
     }
 
@@ -99,8 +99,8 @@ public class GraphEditorInteractionTests
     public async Task Plain_background_drag_seeks_without_scrolling_or_editing_keys(bool speedGraph, double offsetX, float scale)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        graph.Second.Easing = new SplineEasing(0.25f, 0, 0.75f, 0.75f);
-        graph.Model.Element!.Start = MediaTime.FromSeconds(0.2);
+        graph.Second.Easing.Value = new SplineEasing(0.25f, 0, 0.75f, 0.75f);
+        graph.Model.Element!.Start.Value = MediaTime.FromSeconds(0.2);
         graph.Model.HistoryManager.Commit();
         graph.Model.IsSpeedGraph.Value = speedGraph;
         graph.Model.Options.Value = graph.Model.Options.Value with { Scale = scale };
@@ -111,7 +111,7 @@ public class GraphEditorInteractionTests
         var panel = graph.View.FindControl<Panel>("graphPanel")!;
         Vector offset = scroll.Offset;
         int undo = graph.Model.HistoryManager.UndoCount;
-        MediaTime sceneStart = graph.Model.Scene.Start, duration = graph.Model.Scene.Duration;
+        MediaTime sceneStart = graph.Model.Scene.Start.Value, duration = graph.Model.Scene.Duration.Value;
         var channel = graph.Model.SelectedView.Value!;
         Point first = graph.View.GetKeyPoint(channel.KeyFrames.Single(x => x.Model == graph.First));
         Point second = graph.View.GetKeyPoint(channel.KeyFrames.Single(x => x.Model == graph.Second));
@@ -131,13 +131,13 @@ public class GraphEditorInteractionTests
         {
             Assert.That(scroll.Offset, Is.EqualTo(offset));
             Assert.That(Selected(graph), Is.EquivalentTo(new[] { graph.First, graph.Second }));
-            Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.5)));
-            Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
-            Assert.That(graph.First.Value, Is.EqualTo(100));
-            Assert.That(graph.Second.Value, Is.EqualTo(500));
+            Assert.That(graph.First.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+            Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(graph.First.Value.Value, Is.EqualTo(100));
+            Assert.That(graph.Second.Value.Value, Is.EqualTo(500));
             Assert.That(graph.Model.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.8)), "Hovering after release must not continue seeking.");
-            Assert.That(graph.Model.Scene.Start, Is.EqualTo(sceneStart));
-            Assert.That(graph.Model.Scene.Duration, Is.EqualTo(duration));
+            Assert.That(graph.Model.Scene.Start.Value, Is.EqualTo(sceneStart));
+            Assert.That(graph.Model.Scene.Duration.Value, Is.EqualTo(duration));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
             Assert.That(graph.View.FindControl<GraphEditorSelectionAdorner>("SelectionAdorner")!.Marquee, Is.Null);
         });
@@ -163,20 +163,20 @@ public class GraphEditorInteractionTests
         graph.Drag(start, start + new Vector(30, -20));
         Assert.Multiple(() =>
         {
-            Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(0.7).Within(0.00001));
-            Assert.That(graph.Second.KeyTime.ToSeconds(), Is.EqualTo(1.7).Within(0.00001));
-            Assert.That(graph.First.Value, Is.EqualTo(140).Within(0.001));
-            Assert.That(graph.Second.Value, Is.EqualTo(540).Within(0.001));
+            Assert.That(graph.First.KeyTime.Value.ToSeconds(), Is.EqualTo(0.7).Within(0.00001));
+            Assert.That(graph.Second.KeyTime.Value.ToSeconds(), Is.EqualTo(1.7).Within(0.00001));
+            Assert.That(graph.First.Value.Value, Is.EqualTo(140).Within(0.001));
+            Assert.That(graph.Second.Value.Value, Is.EqualTo(540).Within(0.001));
             Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         });
         Assert.That(graph.Model.HistoryManager.Undo(), Is.True);
         HeadlessTestHelpers.Render();
-        Assert.That(graph.First.Value, Is.EqualTo(100));
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(100));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
         start = graph.Position(graph.First);
         graph.Drag(start, start + new Vector(-120, 0));
-        Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.Zero));
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Assert.That(graph.First.KeyTime.Value, Is.EqualTo(MediaTime.Zero));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
     }
 
     [AvaloniaTest]
@@ -195,23 +195,23 @@ public class GraphEditorInteractionTests
         graph.HitTest(start);
         graph.Window.MouseDown(start, MouseButton.Left);
         graph.Window.MouseMove(start + new Vector(120, 0), RawInputModifiers.LeftMouseButton);
-        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(1.3).Within(0.00001));
+        Assert.That(graph.First.KeyTime.Value.ToSeconds(), Is.EqualTo(1.3).Within(0.00001));
         graph.Window.MouseMove(start + new Vector(150, 0), RawInputModifiers.LeftMouseButton);
-        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(1.3).Within(0.00001));
-        Assert.That(graph.Second.KeyTime.ToSeconds(), Is.EqualTo(1.5));
-        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime).Distinct().Count(), Is.EqualTo(2));
+        Assert.That(graph.First.KeyTime.Value.ToSeconds(), Is.EqualTo(1.3).Within(0.00001));
+        Assert.That(graph.Second.KeyTime.Value.ToSeconds(), Is.EqualTo(1.5));
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.Value).Distinct().Count(), Is.EqualTo(2));
         Assert.That(Selected(graph), Is.EqualTo(new[] { graph.First }));
         if (cancel) graph.PressKey(Key.Escape);
         graph.Window.MouseUp(start + new Vector(150, 0), MouseButton.Left);
         HeadlessTestHelpers.Render();
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + (cancel ? 0 : 1)));
         if (!cancel) graph.Model.HistoryManager.Undo();
-        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(0.5));
-        Assert.That(graph.Second.KeyTime.ToSeconds(), Is.EqualTo(1.5));
+        Assert.That(graph.First.KeyTime.Value.ToSeconds(), Is.EqualTo(0.5));
+        Assert.That(graph.Second.KeyTime.Value.ToSeconds(), Is.EqualTo(1.5));
         if (!cancel)
         {
             graph.Model.HistoryManager.Redo();
-            Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(1.3).Within(0.00001));
+            Assert.That(graph.First.KeyTime.Value.ToSeconds(), Is.EqualTo(1.3).Within(0.00001));
         }
     }
 
@@ -221,23 +221,23 @@ public class GraphEditorInteractionTests
     public async Task Group_retime_rejects_collisions_before_changing_values_or_handles(bool collapse)
     {
         using var graph = await GraphScope.CreateAsync(separateHandles: true);
-        var third = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2.5), Value = 200 };
+        var third = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(2.5) }, Value = { Value = 200 } };
         graph.Animation.KeyFrames.Add(third);
         graph.Model.HistoryManager.Commit();
         var snapshot = new GraphEditorDragSnapshot(graph.Model.SelectedView.Value!);
-        var easing = (SplineEasing)graph.Second.Easing;
+        var easing = (SplineEasing)graph.Second.Easing.Value;
         var before = (easing.X1, easing.Y1, easing.X2, easing.Y2);
         int undo = graph.Model.HistoryManager.UndoCount;
         graph.Model.HistoryManager.ExecuteInTransaction(() => snapshot.Apply(
             entry => (collapse ? 1 + entry.Time.ToSeconds() * 0.001 : entry.Time.ToSeconds() + 1, entry.Number + 10),
             collapse ? 0.001 : 1, 1, transformHandles: collapse));
-        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.ToSeconds()), Is.EqualTo(new[] { 0.5, 1.5, 2.5 }));
-        Assert.That(graph.First.Value, Is.EqualTo(100));
-        Assert.That(graph.Second.Value, Is.EqualTo(500));
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.Value.ToSeconds()), Is.EqualTo(new[] { 0.5, 1.5, 2.5 }));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(100));
+        Assert.That(graph.Second.Value.Value, Is.EqualTo(500));
         Assert.That((easing.X1, easing.Y1, easing.X2, easing.Y2), Is.EqualTo(before));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
         snapshot.Apply(entry => (entry.Time.ToSeconds() + 0.6, entry.Number));
-        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.ToSeconds()), Is.EqualTo(new[] { 1.1, 2.1, 2.5 }));
+        Assert.That(graph.Animation.KeyFrames.Select(key => key.KeyTime.Value.ToSeconds()), Is.EqualTo(new[] { 1.1, 2.1, 2.5 }));
     }
 
     [AvaloniaTest]
@@ -247,8 +247,8 @@ public class GraphEditorInteractionTests
         Point start = graph.Position(graph.First);
         graph.Drag(start, start + new Vector(180, -20));
         Assert.That(graph.Animation.KeyFrames[1], Is.SameAs(graph.First));
-        Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.7)));
-        Assert.That(graph.First.Value, Is.EqualTo(140));
+        Assert.That(graph.First.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.7)));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(140));
         Assert.That(Selected(graph), Is.EqualTo(new[] { graph.First }));
         int undo = graph.Model.HistoryManager.UndoCount;
         start = graph.Position(graph.First);
@@ -256,8 +256,8 @@ public class GraphEditorInteractionTests
         graph.Window.MouseMove(start + new Vector(30, -10), RawInputModifiers.LeftMouseButton);
         graph.PressKey(Key.Escape);
         graph.Window.MouseUp(start + new Vector(30, -10), MouseButton.Left);
-        Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.7)));
-        Assert.That(graph.First.Value, Is.EqualTo(140));
+        Assert.That(graph.First.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.7)));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(140));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo));
         Assert.That(graph.View.KeyTimeMoveState, Is.Null);
     }
@@ -270,10 +270,10 @@ public class GraphEditorInteractionTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
         Point start = graph.Position(graph.First);
         graph.Drag(start, start + new Vector(dx, dy), RawInputModifiers.Shift);
-        Assert.That(graph.First.KeyTime.ToSeconds(), Is.EqualTo(seconds).Within(0.00001));
-        Assert.That(graph.First.Value, Is.EqualTo(value).Within(0.001));
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
-        Assert.That(graph.Second.Value, Is.EqualTo(500));
+        Assert.That(graph.First.KeyTime.Value.ToSeconds(), Is.EqualTo(seconds).Within(0.00001));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(value).Within(0.001));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(graph.Second.Value.Value, Is.EqualTo(500));
     }
 
     [AvaloniaTest]
@@ -282,17 +282,17 @@ public class GraphEditorInteractionTests
         using var graph = await GraphScope.CreateAsync(separateHandles: true, selectAll: false);
         var third = new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(2.5),
-            Value = 200,
-            Easing = new SplineEasing(0.25f, 0.25f, 0.75f, 0.75f)
+            KeyTime = { Value = MediaTime.FromSeconds(2.5) },
+            Value = { Value = 200 },
+            Easing = { Value = new SplineEasing(0.25f, 0.25f, 0.75f, 0.75f) }
         };
         graph.Animation.KeyFrames.Add(third);
         graph.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render();
         graph.Click(graph.Position(graph.Second));
         graph.PressKey(Key.F9, RawInputModifiers.Shift);
-        var incoming = (SplineEasing)graph.Second.Easing;
-        var outgoing = (SplineEasing)third.Easing;
+        var incoming = (SplineEasing)graph.Second.Easing.Value;
+        var outgoing = (SplineEasing)third.Easing.Value;
         Assert.That(incoming.X2, Is.EqualTo(2f / 3));
         Assert.That(incoming.Y2, Is.EqualTo(1));
         Assert.That(outgoing.Y1, Is.EqualTo(1f / 3));
@@ -425,10 +425,10 @@ public class GraphEditorInteractionTests
     {
         using var graph = await GraphScope.CreateAsync(selectAll: false);
         var config = GlobalConfiguration.Instance.EditorConfig;
-        bool previous = config.SwapTimelineScrollDirection;
+        bool previous = config.SwapTimelineScrollDirection.Value;
         try
         {
-            config.SwapTimelineScrollDirection = swapped;
+            config.SwapTimelineScrollDirection.Value = swapped;
             graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 2 };
             graph.Model.ScaleY.Value = 2;
             HeadlessTestHelpers.Render(3);
@@ -445,7 +445,7 @@ public class GraphEditorInteractionTests
                 Assert.That(scroll.Offset.Y, Is.EqualTo(80 - (swapped ? delta.Y : delta.X) * 50).Within(0.01));
             }
         }
-        finally { config.SwapTimelineScrollDirection = previous; }
+        finally { config.SwapTimelineScrollDirection.Value = previous; }
     }
 
     [AvaloniaTest]
@@ -535,16 +535,16 @@ public class GraphEditorInteractionTests
         var speed = graph.View.FindControl<GraphEditorSpeedGraph>("SpeedGraph")!;
         var panel = graph.View.FindControl<Panel>("graphPanel")!;
         double scale = graph.Model.Options.Value.Scale;
-        double left = graph.First.KeyTime.TimeToPixel((float)scale);
-        double right = graph.Second.KeyTime.TimeToPixel((float)scale);
-        var easing = (SplineEasing)graph.Second.Easing;
+        double left = graph.First.KeyTime.Value.TimeToPixel((float)scale);
+        double right = graph.Second.KeyTime.Value.TimeToPixel((float)scale);
+        var easing = (SplineEasing)graph.Second.Easing.Value;
         var handle = panel.TranslatePoint(new Point(left + easing.X1 * (right - left), graph.Model.Baseline.Value), graph.Window)!.Value;
         graph.HitTest(handle);
         graph.Drag(handle, handle + new Vector(25, 0), RawInputModifiers.Alt);
         Assert.That(easing.X1, Is.GreaterThan(1f / 3));
         Assert.That(easing.Y1, Is.Zero.Within(0.001));
-        Assert.That(graph.First.Value, Is.EqualTo(100));
-        Assert.That(graph.Second.Value, Is.EqualTo(500));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(100));
+        Assert.That(graph.Second.Value.Value, Is.EqualTo(500));
         graph.Model.IsSpeedGraph.Value = false;
         HeadlessTestHelpers.Render(3);
         Assert.That(graphType.SelectedIndex, Is.Zero);
@@ -560,13 +560,13 @@ public class GraphEditorInteractionTests
         // Bottom-right corner is away from both keyframes and their direction handles.
         Point first = graph.Position(graph.First), second = graph.Position(graph.Second);
         graph.Drag(new Point(second.X, first.Y), new Point(second.X + 75, first.Y + 50));
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(2)));
-        Assert.That(graph.First.Value, Is.EqualTo(0).Within(0.001));
-        Assert.That(graph.Second.Value, Is.EqualTo(500));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(0).Within(0.001));
+        Assert.That(graph.Second.Value.Value, Is.EqualTo(500));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         graph.Model.HistoryManager.Undo();
-        Assert.That(graph.First.Value, Is.EqualTo(100));
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(100));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
     }
 
     [AvaloniaTest]
@@ -580,7 +580,7 @@ public class GraphEditorInteractionTests
     {
         using var graph = await GraphScope.CreateAsync(light);
         // Linear segments do not emit control-point changes when their width changes.
-        graph.Second.Easing = new LinearEasing();
+        graph.Second.Easing.Value = new LinearEasing();
         graph.Model.HistoryManager.Commit();
         HeadlessTestHelpers.Render(3);
         var adorner = graph.View.FindControl<GraphEditorSelectionAdorner>("SelectionAdorner")!;
@@ -603,13 +603,13 @@ public class GraphEditorInteractionTests
         switch (change)
         {
             case "time":
-                graph.Second.KeyTime = MediaTime.FromSeconds(1.8);
+                graph.Second.KeyTime.Value = MediaTime.FromSeconds(1.8);
                 break;
             case "scale":
                 graph.Model.Options.Value = graph.Model.Options.Value with { Scale = 2 };
                 break;
             case "element":
-                graph.Model.Element!.Start = MediaTime.FromSeconds(0.3);
+                graph.Model.Element!.Start.Value = MediaTime.FromSeconds(0.3);
                 break;
         }
         graph.Model.HistoryManager.Commit();
@@ -623,19 +623,19 @@ public class GraphEditorInteractionTests
             Assert.That(AssertSelectionBounds(), Is.EqualTo(changed));
         }
 
-        MediaTime time = graph.Second.KeyTime;
+        MediaTime time = graph.Second.KeyTime.Value;
         int undo = graph.Model.HistoryManager.UndoCount;
         Point handle = adorner.TranslatePoint(GraphEditorSelectionAdorner.HandlePoint(changed, 3), graph.Window)!.Value;
         double distance = MediaTime.FromSeconds(0.2).TimeToPixel(graph.Model.Options.Value.Scale);
         graph.Drag(handle, handle + new Vector(distance, 0), RawInputModifiers.Alt);
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(time + MediaTime.FromSeconds(0.2)));
-        Assert.That(graph.First.KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.5)));
-        Assert.That(graph.First.Value, Is.EqualTo(100));
-        Assert.That(graph.Second.Value, Is.EqualTo(500));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(time + MediaTime.FromSeconds(0.2)));
+        Assert.That(graph.First.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+        Assert.That(graph.First.Value.Value, Is.EqualTo(100));
+        Assert.That(graph.Second.Value.Value, Is.EqualTo(500));
         Assert.That(graph.Model.HistoryManager.UndoCount, Is.EqualTo(undo + 1));
         AssertSelectionBounds();
         graph.Model.HistoryManager.Undo();
-        Assert.That(graph.Second.KeyTime, Is.EqualTo(time));
+        Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(time));
         Assert.That(AssertSelectionBounds(), Is.EqualTo(changed));
     }
 
@@ -647,12 +647,12 @@ public class GraphEditorInteractionTests
         using var graph = await GraphScope.CreateAsync();
         var editor = (EditViewModel)graph.Model.EditorContext;
         graph.Model.HistoryManager.Commit();
-        graph.Second.Value = 300;
+        graph.Second.Value.Value = 300;
         graph.Model.HistoryManager.Commit();
         if (redo) graph.Model.HistoryManager.Undo();
-        float before = graph.Second.Value;
+        float before = graph.Second.Value.Value;
         bool? playingWhenMoved = null;
-        using IDisposable watch = graph.Second.ValueProperty.GetObservable()
+        using IDisposable watch = graph.Second.Value.GetObservable()
             .Subscribe(value =>
             {
                 if (value != before) playingWhenMoved ??= editor.Player.IsPlaying.Value;
@@ -666,7 +666,7 @@ public class GraphEditorInteractionTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(graph.Second.Value, Is.EqualTo(redo ? 300 : 500));
+            Assert.That(graph.Second.Value.Value, Is.EqualTo(redo ? 300 : 500));
             Assert.That(playingWhenMoved, Is.False, "the history moves only after playback has paused");
         });
     }

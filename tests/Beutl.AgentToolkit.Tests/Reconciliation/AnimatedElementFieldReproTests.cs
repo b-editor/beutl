@@ -20,7 +20,7 @@ public sealed class AnimatedElementFieldReproTests
         Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var rect = new RectShape
         {
-            Name = "hero mark",
+            Name = { Value = "hero mark" },
             Width = { Value = 200 },
             Height = { Value = 120 },
         };
@@ -31,14 +31,14 @@ public sealed class AnimatedElementFieldReproTests
         EditTools tools = session.CreateEditTools();
 
         ToolResult<DuplicateObjectResponse> duplicated =
-            tools.DuplicateObject(rect.Id.ToString(), wrapInGroup: true);
+            tools.DuplicateObject(rect.Id.Value.ToString(), wrapInGroup: true);
         Assert.That(duplicated.IsSuccess, Is.True, duplicated.Error?.Message);
 
         JsonObject renamePatch = new()
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 [nameof(CoreObject.Name)] = "[role:decorative] hero mark bloom"
             })
         };
@@ -50,7 +50,7 @@ public sealed class AnimatedElementFieldReproTests
         Assert.Multiple(() =>
         {
             Assert.That(renamed.IsSuccess, Is.True, renamed.Error?.Message);
-            Assert.That(element.Name, Is.EqualTo("[role:decorative] hero mark bloom"));
+            Assert.That(element.Name.Value, Is.EqualTo("[role:decorative] hero mark bloom"));
         });
     }
 
@@ -61,7 +61,7 @@ public sealed class AnimatedElementFieldReproTests
         Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(4));
         var rect = new RectShape
         {
-            Name = "fading rect",
+            Name = { Value = "fading rect" },
             Width = { Value = 200 },
             Height = { Value = 120 },
         };
@@ -75,10 +75,10 @@ public sealed class AnimatedElementFieldReproTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                    [nameof(CoreObject.Id)] = rect.Id.Value.ToString(),
                     ["Animations"] = new JsonObject
                     {
                         [nameof(Drawable.Opacity)] = new JsonObject
@@ -105,13 +105,13 @@ public sealed class AnimatedElementFieldReproTests
         Assert.Multiple(() =>
         {
             Assert.That(frames, Has.Length.EqualTo(3));
-            Assert.That(frames.Select(frame => frame.KeyTime), Is.EqualTo(new[]
+            Assert.That(frames.Select(frame => frame.KeyTime.Value), Is.EqualTo(new[]
             {
                 MediaTime.FromSeconds(0.5),
                 MediaTime.FromSeconds(2),
                 MediaTime.FromSeconds(3)
             }));
-            Assert.That(frames.Select(frame => frame.Value), Is.EqualTo(new[] { 25f, 90f, 40f }));
+            Assert.That(frames.Select(frame => frame.Value.Value), Is.EqualTo(new[] { 25f, 90f, 40f }));
         });
     }
 
@@ -119,9 +119,9 @@ public sealed class AnimatedElementFieldReproTests
     {
         JsonObject json = CoreSerializer.SerializeToJsonObject(new KeyFrame<float>
         {
-            KeyTime = keyTime,
-            Value = value,
-            Easing = new LinearEasing()
+            KeyTime = { Value = keyTime },
+            Value = { Value = value },
+            Easing = { Value = new LinearEasing() }
         });
         json.Remove(nameof(CoreObject.Id));
         return json;

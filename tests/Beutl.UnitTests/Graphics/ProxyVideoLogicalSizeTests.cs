@@ -32,15 +32,15 @@ public class ProxyVideoLogicalSizeTests
     {
         _oldResolver = DecoderRegistry.ProxyResolver;
         DecoderRegistry.ProxyResolver = null;
-        _originalPreviewSourceMode = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
+        _originalPreviewSourceMode = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
     }
 
     [TearDown]
     public void TearDown()
     {
         DecoderRegistry.ProxyResolver = _oldResolver;
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = _originalPreviewSourceMode;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = _originalPreviewSourceMode;
     }
 
     [Test]
@@ -237,9 +237,9 @@ public class ProxyVideoLogicalSizeTests
 
             var element = new Element
             {
-                Start = MediaTime.Zero,
-                Length = MediaTime.FromSeconds(1),
-                IsEnabled = true,
+                Start = { Value = MediaTime.Zero },
+                Length = { Value = MediaTime.FromSeconds(1) },
+                IsEnabled = { Value = true },
                 Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
             };
             element.AddObject(drawable);

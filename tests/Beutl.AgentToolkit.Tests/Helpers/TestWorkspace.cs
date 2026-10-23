@@ -28,8 +28,8 @@ internal static class TestWorkspace
     {
         var element = new Element
         {
-            Start = start,
-            Length = length,
+            Start = { Value = start },
+            Length = { Value = length },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, fileName ?? "element.belm"))
         };
         scene.Children.Add(element);
@@ -67,10 +67,10 @@ internal static class TestWorkspace
     {
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(
-            new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = firstValue, Easing = new LinearEasing() },
+            new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = firstValue }, Easing = { Value = new LinearEasing() } },
             out _);
         animation.KeyFrames.Add(
-            new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = secondValue, Easing = new LinearEasing() },
+            new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = secondValue }, Easing = { Value = new LinearEasing() } },
             out _);
         return animation;
     }

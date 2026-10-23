@@ -345,9 +345,9 @@ public class FFmpegReaderProxyIdleTests
     {
         var settings = new FFmpegDecodingSettings
         {
-            ThreadCount = 3,
-            Acceleration = FFmpegDecodingSettings.AccelerationOptions.D3D11VA,
-            ForceSrgbGamma = false,
+            ThreadCount = { Value = 3 },
+            Acceleration = { Value = FFmpegDecodingSettings.AccelerationOptions.D3D11VA },
+            ForceSrgbGamma = { Value = false },
         };
         var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
 
@@ -370,12 +370,12 @@ public class FFmpegReaderProxyIdleTests
     [Test]
     public void DecoderInfo_Reopen_SendsTheCurrentDecodingSettings()
     {
-        var settings = new FFmpegDecodingSettings { ThreadCount = 2 };
+        var settings = new FFmpegDecodingSettings { ThreadCount = { Value = 2 } };
         var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
         using var reader = (FFmpegReaderProxy)decoderInfo.Open("clip.mp4", new MediaOptions(MediaMode.Video))!;
         Assert.That(_worker.OpenRequests.TryDequeue(out _), Is.True);
 
-        settings.ThreadCount = 6;
+        settings.ThreadCount.Value = 6;
         Suspend(reader);
         ReadFirstByte(reader, 0);
 

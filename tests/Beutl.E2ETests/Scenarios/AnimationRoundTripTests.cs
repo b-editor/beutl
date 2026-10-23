@@ -27,18 +27,18 @@ public class AnimationRoundTripTests
 
     private static KeyFrameAnimation<float> BuildOpacityAnimation()
     {
-        var animation = new KeyFrameAnimation<float> { UseGlobalClock = true };
+        var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = true } };
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 0f,
-            Easing = new LinearEasing(),
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 0f },
+            Easing = { Value = new LinearEasing() },
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(2),
-            Value = 100f,
-            Easing = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f),
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = 100f },
+            Easing = { Value = new SplineEasing(0.1f, 0.2f, 0.3f, 0.4f) },
         });
         return animation;
     }
@@ -48,8 +48,8 @@ public class AnimationRoundTripTests
     {
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(5),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(5) },
             Uri = new Uri(Path.Combine(_baseDir, "animated.belm")),
         };
         var shape = new RectShape();
@@ -65,7 +65,7 @@ public class AnimationRoundTripTests
         Assert.That(restoredAnimation, Is.Not.Null);
         Assert.Multiple(() =>
         {
-            Assert.That(restoredAnimation!.UseGlobalClock, Is.True);
+            Assert.That(restoredAnimation!.UseGlobalClock.Value, Is.True);
             Assert.That(restoredAnimation.KeyFrames, Has.Count.EqualTo(2));
         });
 
@@ -74,15 +74,15 @@ public class AnimationRoundTripTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(first.KeyTime, Is.EqualTo(MediaTime.Zero));
-            Assert.That(first.Value, Is.EqualTo(0f));
-            Assert.That(first.Easing, Is.InstanceOf<LinearEasing>());
+            Assert.That(first.KeyTime.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(first.Value.Value, Is.EqualTo(0f));
+            Assert.That(first.Easing.Value, Is.InstanceOf<LinearEasing>());
 
-            Assert.That(second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(second.Value, Is.EqualTo(100f));
+            Assert.That(second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(second.Value.Value, Is.EqualTo(100f));
         });
 
-        var spline = second.Easing as SplineEasing;
+        var spline = second.Easing.Value as SplineEasing;
         Assert.That(spline, Is.Not.Null);
         Assert.Multiple(() =>
         {
@@ -109,11 +109,11 @@ public class AnimationRoundTripTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(first.Value, Is.EqualTo(0f));
-            Assert.That(first.Easing, Is.InstanceOf<LinearEasing>());
-            Assert.That(second.Value, Is.EqualTo(100f));
-            Assert.That(second.Easing, Is.InstanceOf<SplineEasing>());
-            Assert.That(restored.UseGlobalClock, Is.True);
+            Assert.That(first.Value.Value, Is.EqualTo(0f));
+            Assert.That(first.Easing.Value, Is.InstanceOf<LinearEasing>());
+            Assert.That(second.Value.Value, Is.EqualTo(100f));
+            Assert.That(second.Easing.Value, Is.InstanceOf<SplineEasing>());
+            Assert.That(restored.UseGlobalClock.Value, Is.True);
         });
     }
 }

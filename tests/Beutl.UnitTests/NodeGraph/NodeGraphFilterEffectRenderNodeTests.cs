@@ -190,7 +190,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         using NodeGraphFilterEffect.Resource resource = graph.Resource;
         resource.IsEnabled = false;
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(graph.Preview);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         using Ref<Bitmap> previous = Ref<Bitmap>.Create(new Bitmap(1, 1));
         monitor.Value = previous;
         var source = new CountingOpaqueSourceRenderNode(bounds);
@@ -218,7 +218,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var graph = BuildUtilityGraph(connectPreview: true);
         using NodeGraphFilterEffect.Resource resource = graph.Resource;
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(graph.Preview);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         Ref<Bitmap> previous = Ref<Bitmap>.Create(new Bitmap(1, 1));
         monitor.Value = previous;
 
@@ -266,7 +266,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var graph = BuildUtilityGraph(connectPreview: false);
         using NodeGraphFilterEffect.Resource resource = graph.Resource;
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(graph.Preview);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         Ref<Bitmap> previous = Ref<Bitmap>.Create(new Bitmap(1, 1));
         monitor.Value = previous;
 
@@ -305,7 +305,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Connect(outputNode.InputPort, emptyNode.Output);
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         Ref<Bitmap> previous = Ref<Bitmap>.Create(new Bitmap(1, 1));
         monitor.Value = previous;
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 16, 12));
@@ -331,7 +331,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var graph = BuildUtilityGraph(connectPreview: true);
         using NodeGraphFilterEffect.Resource resource = graph.Resource;
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(graph.Preview);
-        monitor.IsEnabled = false;
+        monitor.IsEnabled.Value = false;
         Ref<Bitmap> previous = Ref<Bitmap>.Create(new Bitmap(1, 1));
         monitor.Value = previous;
 
@@ -355,7 +355,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         var graph = BuildUtilityGraph(connectPreview: true);
         using NodeGraphFilterEffect.Resource resource = graph.Resource;
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(graph.Preview);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         using Ref<Bitmap> previous = Ref<Bitmap>.Create(new Bitmap(1, 1));
         Bitmap previousBitmap = previous.Value;
         monitor.Value = previous;
@@ -425,7 +425,7 @@ public class NodeGraphFilterEffectRenderNodeTests
 
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 20, 10));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = CreatePreviewRenderer(pipeline);
@@ -557,7 +557,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(preview);
         model.Connect(preview.Input, input.Output);
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(preview);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
@@ -590,7 +590,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(preview);
         model.Connect(preview.Input, sourceNode.Output);
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(preview);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
@@ -623,7 +623,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Connect(outputNode.InputPort, inputNode.Output);
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
 
         var source = new CountingOpaqueSourceRenderNode(new Rect(3, 5, 24, 18));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(
@@ -663,7 +663,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Connect(outputNode.InputPort, clearNode.Output);
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         var source = new CountingOpaqueSourceRenderNode(new Rect(0, 0, 16, 12));
         using var pipeline = ScaleRecordingTestHelper.Pipeline(source, resource.CreateRenderNode());
         using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
@@ -708,7 +708,7 @@ public class NodeGraphFilterEffectRenderNodeTests
             model.Nodes.Add(previewNode);
             model.Connect(previewNode.Input, inputNode.Output);
             monitor = GetPreviewMonitor(previewNode);
-            monitor.IsEnabled = true;
+            monitor.IsEnabled.Value = true;
         }
         else
         {
@@ -792,7 +792,7 @@ public class NodeGraphFilterEffectRenderNodeTests
             var previewNode = new PreviewNode();
             model.Nodes.Add(previewNode);
             model.Connect(previewNode.Input, inputNode.Output);
-            GetPreviewMonitor(previewNode).IsEnabled = true;
+            GetPreviewMonitor(previewNode).IsEnabled.Value = true;
         }
         else
         {
@@ -899,8 +899,8 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Connect(firstPreview.Input, inputNode.Output);
         model.Connect(secondPreview.Input, inputNode.Output);
         model.Connect(outputNode.InputPort, inputNode.Output);
-        GetPreviewMonitor(firstPreview).IsEnabled = true;
-        GetPreviewMonitor(secondPreview).IsEnabled = true;
+        GetPreviewMonitor(firstPreview).IsEnabled.Value = true;
+        GetPreviewMonitor(secondPreview).IsEnabled.Value = true;
         using var resource = (NodeGraphFilterEffect.Resource)effect.ToResource(CompositionContext.Default);
         var bounds = new Rect(0, 0, 18, 12);
         var source = new CountingOpaqueSourceRenderNode(bounds);
@@ -992,7 +992,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(previewNode);
         model.Connect(previewNode.Input, sourceNode.Output);
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         using var snapshot = new GraphSnapshot();
 
         var context = new CompositionContext(MediaTime.Zero)
@@ -1029,7 +1029,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         model.Nodes.Add(previewNode);
         model.Connect(previewNode.Input, sourceNode.Output);
         NodeMonitor<Ref<Bitmap>?> monitor = GetPreviewMonitor(previewNode);
-        monitor.IsEnabled = true;
+        monitor.IsEnabled.Value = true;
         using var snapshot = new GraphSnapshot();
 
         var context = new CompositionContext(MediaTime.Zero)
@@ -1082,7 +1082,7 @@ public class NodeGraphFilterEffectRenderNodeTests
             var previewNode = new PreviewNode();
             model.Nodes.Add(previewNode);
             model.Connect(previewNode.Input, sourceNode.Output);
-            GetPreviewMonitor(previewNode).IsEnabled = true;
+            GetPreviewMonitor(previewNode).IsEnabled.Value = true;
         }
         else
         {
@@ -1200,7 +1200,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         if (includeBlur)
         {
             var blur = new FilterEffectNode<Blur>();
-            blur.Object.Sigma.Value = new Size(4, 4);
+            blur.Object.Value.Sigma.Value = new Size(4, 4);
             var output = new OutputNode();
             model.Nodes.Add(blur);
             model.Nodes.Add(output);
@@ -1211,7 +1211,7 @@ public class NodeGraphFilterEffectRenderNodeTests
         if (includeBrightness)
         {
             var brightness = new FilterEffectNode<Brightness>();
-            brightness.Object.Amount.Value = 140f;
+            brightness.Object.Value.Amount.Value = 140f;
             var output = new OutputNode();
             model.Nodes.Add(brightness);
             model.Nodes.Add(output);

@@ -90,7 +90,7 @@ public class EditorHostFallbackTests
     [AvaloniaTest]
     public void Recent_list_follows_whole_list_replacements()
     {
-        CoreList<string> recentFiles = GlobalConfiguration.Instance.ViewConfig.RecentFiles;
+        IListProperty<string> recentFiles = GlobalConfiguration.Instance.ViewConfig.RecentFiles;
         string[] original = [.. recentFiles];
         string directory = Path.Combine(Path.GetTempPath(), "beutl-recent-files");
         string a = Path.Combine(directory, "a.txt");
@@ -148,7 +148,7 @@ public class EditorHostFallbackTests
     public async Task Double_click_shows_progress_only_on_the_opening_row_until_completion(int width, bool fail)
     {
         await TestReset.ResetShellAsync();
-        CoreList<string> recentFiles = GlobalConfiguration.Instance.ViewConfig.RecentFiles;
+        IListProperty<string> recentFiles = GlobalConfiguration.Instance.ViewConfig.RecentFiles;
         string[] original = [.. recentFiles];
         string directory = Path.Combine(Path.GetTempPath(), "beutl-recent-opening-" + Guid.NewGuid().ToString("N"));
         string projectFile = Path.Combine(directory, "Opening project.bep");

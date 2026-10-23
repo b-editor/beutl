@@ -27,7 +27,7 @@ public sealed class RenderToolsStoryboardTests
         var scene = new Scene(320, 180, "live")
         {
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
-            Duration = MediaTime.FromSeconds(2)
+            Duration = { Value = MediaTime.FromSeconds(2) }
         };
         using var session = new DispatchingTestSession(scene, rootOnlyInsideDispatch: true);
 
@@ -38,8 +38,8 @@ public sealed class RenderToolsStoryboardTests
         {
             Assert.That(session.InvokeCount, Is.EqualTo(1));
             Assert.That(snapshot, Is.Not.SameAs(scene));
-            Assert.That(snapshot.FrameSize, Is.EqualTo(scene.FrameSize));
-            Assert.That(snapshot.Duration, Is.EqualTo(scene.Duration));
+            Assert.That(snapshot.FrameSize.Value, Is.EqualTo(scene.FrameSize.Value));
+            Assert.That(snapshot.Duration.Value, Is.EqualTo(scene.Duration.Value));
             Assert.That(snapshot.Uri, Is.EqualTo(scene.Uri));
         });
     }
@@ -50,21 +50,21 @@ public sealed class RenderToolsStoryboardTests
         var scene = new Scene(16, 9, "trimmed")
         {
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
-            Start = MediaTime.FromSeconds(5),
-            Duration = MediaTime.FromSeconds(10)
+            Start = { Value = MediaTime.FromSeconds(5) },
+            Duration = { Value = MediaTime.FromSeconds(10) }
         };
         scene.Children.Add(new Element
         {
-            Name = "before-trim",
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = "before-trim" },
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
         scene.Children.Add(new Element
         {
-            Name = "clip",
-            Start = MediaTime.FromSeconds(5),
-            Length = MediaTime.FromSeconds(10),
+            Name = { Value = "clip" },
+            Start = { Value = MediaTime.FromSeconds(5) },
+            Length = { Value = MediaTime.FromSeconds(10) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
 
@@ -87,35 +87,35 @@ public sealed class RenderToolsStoryboardTests
         var scene = new Scene(16, 9, "filtered")
         {
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.scene")),
-            Duration = MediaTime.FromSeconds(10)
+            Duration = { Value = MediaTime.FromSeconds(10) }
         };
         scene.Children.Add(new Element
         {
-            Name = "visible",
-            Start = MediaTime.FromSeconds(2),
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = "visible" },
+            Start = { Value = MediaTime.FromSeconds(2) },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
         scene.Children.Add(new Element
         {
-            Name = "disabled",
-            IsEnabled = false,
-            Start = MediaTime.FromSeconds(4),
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = "disabled" },
+            IsEnabled = { Value = false },
+            Start = { Value = MediaTime.FromSeconds(4) },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
         scene.Children.Add(new Element
         {
-            Name = "after-window",
-            Start = MediaTime.FromSeconds(12),
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = "after-window" },
+            Start = { Value = MediaTime.FromSeconds(12) },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
         scene.Children.Add(new Element
         {
-            Name = "zero-length",
-            Start = MediaTime.FromSeconds(5),
-            Length = MediaTime.Zero,
+            Name = { Value = "zero-length" },
+            Start = { Value = MediaTime.FromSeconds(5) },
+            Length = { Value = MediaTime.Zero },
             Uri = new Uri(Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}.belm"))
         });
 
@@ -130,7 +130,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Explicit_storyboard_shots_at_the_scene_end_clamp_to_the_last_renderable_flick()
     {
-        var scene = new Scene(16, 9, "shot-end") { Duration = MediaTime.FromSeconds(4) };
+        var scene = new Scene(16, 9, "shot-end") { Duration = { Value = MediaTime.FromSeconds(4) } };
 
         RenderTools.ResolvedStoryboardFrame[] fromShots =
             RenderTools.ResolveStoryboardFrames(scene, [new("end", 4.0)], timeSeconds: null, subdivisionLevel: 0).ToArray();
@@ -141,15 +141,15 @@ public sealed class RenderToolsStoryboardTests
         {
             // A shot at exactly Duration renders past every element (Range end is exclusive); both the
             // explicit shots and explicit timeSeconds branches must pull it one tick inside.
-            Assert.That(fromShots[^1].Time, Is.EqualTo(scene.Duration - new MediaTime(1)));
-            Assert.That(fromTimes[^1].Time, Is.EqualTo(scene.Duration - new MediaTime(1)));
+            Assert.That(fromShots[^1].Time, Is.EqualTo(scene.Duration.Value - new MediaTime(1)));
+            Assert.That(fromTimes[^1].Time, Is.EqualTo(scene.Duration.Value - new MediaTime(1)));
         });
     }
 
     [Test]
     public void Explicit_shots_reject_out_of_range_non_finite_and_duplicate_times()
     {
-        var scene = new Scene(16, 9, "validate") { Duration = MediaTime.FromSeconds(5) };
+        var scene = new Scene(16, 9, "validate") { Duration = { Value = MediaTime.FromSeconds(5) } };
 
         Assert.Multiple(() =>
         {
@@ -175,7 +175,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Resolve_storyboard_frames_subdivides_explicit_shots_at_binary_points()
     {
-        var scene = new Scene(16, 9, "subdivision") { Duration = MediaTime.FromSeconds(1) };
+        var scene = new Scene(16, 9, "subdivision") { Duration = { Value = MediaTime.FromSeconds(1) } };
         StoryboardShotInput[] shots =
         [
             new("left", 0),
@@ -209,7 +209,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Resolve_storyboard_frames_clamps_level_deduplicates_with_half_frame_tolerance_and_keeps_order()
     {
-        var scene = new Scene(16, 9, "subdivision") { Duration = MediaTime.FromSeconds(1) };
+        var scene = new Scene(16, 9, "subdivision") { Duration = { Value = MediaTime.FromSeconds(1) } };
         StoryboardShotInput[] nearDuplicateShots =
         [
             new("left", 0),
@@ -264,9 +264,9 @@ public sealed class RenderToolsStoryboardTests
 
         static Scene CreateScene(int frameRate)
         {
-            var scene = new Scene(16, 9, "frame-rate") { Duration = MediaTime.FromSeconds(1) };
+            var scene = new Scene(16, 9, "frame-rate") { Duration = { Value = MediaTime.FromSeconds(1) } };
             var project = new Project();
-            project.FrameRate = new Rational(frameRate);
+            project.FrameRate.Value = new Rational(frameRate);
             project.Items.Add(scene);
             return scene;
         }
@@ -275,7 +275,7 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Resolve_frame_sample_times_rejects_an_explicit_list_with_fewer_than_two_distinct_times()
     {
-        var scene = new Scene(16, 9, "quality") { Duration = MediaTime.FromSeconds(4) };
+        var scene = new Scene(16, 9, "quality") { Duration = { Value = MediaTime.FromSeconds(4) } };
 
         Assert.Multiple(() =>
         {
@@ -324,7 +324,7 @@ public sealed class RenderToolsStoryboardTests
         string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "single-shot")
         {
-            Duration = MediaTime.FromSeconds(6),
+            Duration = { Value = MediaTime.FromSeconds(6) },
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         AddColorRectElement(scene, workspace, "continuous", MediaTime.Zero, MediaTime.FromSeconds(6), 320, 180, Colors.Red);
@@ -386,7 +386,7 @@ public sealed class RenderToolsStoryboardTests
     public async Task Render_storyboard_rejects_time_seconds_above_frame_count_cap()
     {
         string workspace = TestWorkspace.CreateDirectory();
-        var scene = new Scene(16, 9, "too-many-times") { Duration = MediaTime.FromSeconds(60) };
+        var scene = new Scene(16, 9, "too-many-times") { Duration = { Value = MediaTime.FromSeconds(60) } };
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
 
@@ -573,7 +573,7 @@ public sealed class RenderToolsStoryboardTests
     public async Task Render_storyboard_rejects_requests_above_frame_count_cap()
     {
         string workspace = TestWorkspace.CreateDirectory();
-        var scene = new Scene(16, 9, "too-many") { Duration = MediaTime.FromSeconds(60) };
+        var scene = new Scene(16, 9, "too-many") { Duration = { Value = MediaTime.FromSeconds(60) } };
         using var session = new AgentToolkitTestSession(scene);
         RenderTools tools = CreateTools(session);
 
@@ -617,7 +617,7 @@ public sealed class RenderToolsStoryboardTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value!.Status, Is.EqualTo("completed"));
             Assert.That(result.Value.Result!.Shots, Has.Count.EqualTo(scene.Children.Count));
-            Assert.That(result.Value.Result.Shots.Select(shot => shot.Name), Is.EquivalentTo(scene.Children.Select(element => element.Name)));
+            Assert.That(result.Value.Result.Shots.Select(shot => shot.Name), Is.EquivalentTo(scene.Children.Select(element => element.Name.Value)));
             Assert.That(result.Value.Result.Shots.Select(shot => shot.Kind), Has.All.EqualTo("shot"));
             Assert.That(result.Value.Result.Shots.Select(shot => shot.SubdivisionLevel), Has.All.EqualTo(0));
             Assert.That(File.Exists(result.Value.Result.ContactSheetPath), Is.True);
@@ -725,7 +725,7 @@ public sealed class RenderToolsStoryboardTests
         string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(1600, 900, "large-still")
         {
-            Duration = MediaTime.FromSeconds(1),
+            Duration = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         AddColorRectElement(scene, workspace, "large background", MediaTime.Zero, MediaTime.FromSeconds(1), 1600, 900, Colors.Red);
@@ -760,7 +760,7 @@ public sealed class RenderToolsStoryboardTests
         string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(1920, 1080, $"oversized-{toolName}")
         {
-            Duration = MediaTime.FromSeconds(1),
+            Duration = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         using var session = new AgentToolkitTestSession(scene);
@@ -1001,12 +1001,12 @@ public sealed class RenderToolsStoryboardTests
     [Test]
     public void Resolve_frame_sample_times_clamp_the_exclusive_scene_end_to_the_last_renderable_flick()
     {
-        var scene = new Scene(320, 180, "clamp-edge") { Duration = MediaTime.FromSeconds(2) };
+        var scene = new Scene(320, 180, "clamp-edge") { Duration = { Value = MediaTime.FromSeconds(2) } };
 
         IReadOnlyList<MediaTime> samples = RenderTools.ResolveFrameSampleTimes(
-            scene, [0.0, scene.Duration.ToSeconds()], sampleCount: 2);
+            scene, [0.0, scene.Duration.Value.ToSeconds()], sampleCount: 2);
 
-        Assert.That(samples, Is.EqualTo(new[] { MediaTime.Zero, scene.Duration - new MediaTime(1) }));
+        Assert.That(samples, Is.EqualTo(new[] { MediaTime.Zero, scene.Duration.Value - new MediaTime(1) }));
     }
 
     [Test]
@@ -1015,7 +1015,7 @@ public sealed class RenderToolsStoryboardTests
         string workspace = TestWorkspace.CreateDirectory();
         var scene = new Scene(320, 180, "clamp-collapse")
         {
-            Duration = MediaTime.FromSeconds(2),
+            Duration = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         AddColorRectElement(scene, workspace, "bg", MediaTime.Zero, MediaTime.FromSeconds(2), 320, 180, Colors.Red);
@@ -1130,7 +1130,7 @@ public sealed class RenderToolsStoryboardTests
     {
         var scene = new Scene(320, 180, "storyboard")
         {
-            Duration = MediaTime.FromSeconds(3),
+            Duration = { Value = MediaTime.FromSeconds(3) },
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         AddColorRectElement(scene, workspace, "opening", MediaTime.Zero, MediaTime.FromSeconds(1), 320, 180, Colors.Red);
@@ -1143,7 +1143,7 @@ public sealed class RenderToolsStoryboardTests
     {
         var scene = new Scene(320, 180, "static-scene")
         {
-            Duration = MediaTime.FromSeconds(3),
+            Duration = { Value = MediaTime.FromSeconds(3) },
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         AddColorRectElement(scene, workspace, "Background plate", MediaTime.Zero, MediaTime.FromSeconds(3), 320, 180, Color.Parse("#ff20242b"));
@@ -1157,7 +1157,7 @@ public sealed class RenderToolsStoryboardTests
     {
         var scene = new Scene(320, 180, "eye-trace")
         {
-            Duration = MediaTime.FromSeconds(2),
+            Duration = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(workspace, "Scene.scene"))
         };
         AddColorRectElement(scene, workspace, "black background", MediaTime.Zero, MediaTime.FromSeconds(2), 320, 180, Colors.Black);
@@ -1185,7 +1185,7 @@ public sealed class RenderToolsStoryboardTests
     {
         var rect = new RectShape
         {
-            Name = name,
+            Name = { Value = name },
             Width = { Value = width },
             Height = { Value = height },
             Fill = { Value = new SolidColorBrush(color) }
@@ -1204,7 +1204,7 @@ public sealed class RenderToolsStoryboardTests
     {
         var rect = new RectShape
         {
-            Name = name,
+            Name = { Value = name },
             Width = { Value = 48 },
             Height = { Value = 48 },
             Fill = { Value = new SolidColorBrush(Colors.White) },
@@ -1231,7 +1231,7 @@ public sealed class RenderToolsStoryboardTests
     {
         var rect = new RoundedRectShape
         {
-            Name = name,
+            Name = { Value = name },
             Width = { Value = width },
             Height = { Value = height },
             CornerRadius = { Value = new CornerRadius(12) },
@@ -1244,7 +1244,7 @@ public sealed class RenderToolsStoryboardTests
     {
         var block = new TextBlock
         {
-            Name = text,
+            Name = { Value = text },
             Text = { Value = text },
             Size = { Value = 24 },
             Fill = { Value = new SolidColorBrush(Color.Parse("#ff1a2028")) }
@@ -1256,7 +1256,7 @@ public sealed class RenderToolsStoryboardTests
     {
         var ellipse = new EllipseShape
         {
-            Name = name,
+            Name = { Value = name },
             Width = { Value = 42 },
             Height = { Value = 42 },
             Fill = { Value = new SolidColorBrush(Color.Parse("#ffb85c38")) },
@@ -1282,10 +1282,10 @@ public sealed class RenderToolsStoryboardTests
     {
         var element = new Element
         {
-            Name = name,
-            Start = start,
-            Length = length,
-            ZIndex = zIndex,
+            Name = { Value = name },
+            Start = { Value = start },
+            Length = { Value = length },
+            ZIndex = { Value = zIndex },
             Uri = new Uri(Path.Combine(workspace, $"{name}.belm"))
         };
         element.AddObject(obj);

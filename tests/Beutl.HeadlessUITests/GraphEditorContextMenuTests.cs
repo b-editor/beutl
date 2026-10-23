@@ -174,15 +174,15 @@ public class GraphEditorContextMenuTests
         HeadlessTestHelpers.Render();
         Assert.Multiple(() =>
         {
-            Assert.That(graph.Second.KeyTime, Is.EqualTo(MediaTime.FromSeconds(alt ? 1.5 : 1.4)));
-            Assert.That(graph.Second.Value, Is.EqualTo(alt ? 500 : 470).Within(0.001));
+            Assert.That(graph.Second.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(alt ? 1.5 : 1.4)));
+            Assert.That(graph.Second.Value.Value, Is.EqualTo(alt ? 500 : 470).Within(0.001));
             Assert.That(graph.View.ControlPointMoveState, Is.Null);
             Assert.That(graph.View.KeyTimeMoveState, Is.Null);
             Assert.That(graph.BackgroundMenu.IsOpen, Is.False);
         });
         if (alt)
         {
-            var easing = (SplineEasing)graph.Second.Easing;
+            var easing = (SplineEasing)graph.Second.Easing.Value;
             Assert.That(easing.X2, Is.LessThan(1));
             Assert.That(easing.Y2, Is.LessThan(1));
         }
@@ -203,12 +203,12 @@ public class GraphEditorContextMenuTests
         {
             (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("graph-context");
             var animation = new KeyFrameAnimation<float>();
-            var first = new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(0.5), Value = 100 };
+            var first = new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(0.5) }, Value = { Value = 100 } };
             var second = new KeyFrame<float>
             {
-                KeyTime = MediaTime.FromSeconds(1.5),
-                Value = 500,
-                Easing = separateHandles ? new SplineEasing(0.25f, 0.25f, 0.75f, 0.75f) : new SplineEasing(0, 0, 1, 1)
+                KeyTime = { Value = MediaTime.FromSeconds(1.5) },
+                Value = { Value = 500 },
+                Easing = { Value = separateHandles ? new SplineEasing(0.25f, 0.25f, 0.75f, 0.75f) : new SplineEasing(0, 0, 1, 1) }
             };
             animation.KeyFrames.Add(first);
             animation.KeyFrames.Add(second);

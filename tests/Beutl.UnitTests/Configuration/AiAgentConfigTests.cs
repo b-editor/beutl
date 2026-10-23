@@ -14,18 +14,18 @@ public class AiAgentConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.AgentId, Is.Empty);
-            Assert.That(config.InstallScope, Is.Empty);
-            Assert.That(config.ProjectRoot, Is.Empty);
-            Assert.That(config.SkillsDirectory, Is.Empty);
-            Assert.That(config.SubagentsDirectory, Is.Empty);
-            Assert.That(config.InstallSkills, Is.True);
-            Assert.That(config.InstallSubagents, Is.True);
-            Assert.That(config.InstallMcp, Is.True);
-            Assert.That(config.McpConfigFileName, Is.Empty);
-            Assert.That(config.McpServersPropertyName, Is.Empty);
-            Assert.That(config.LiveMcpToken, Is.Empty);
-            Assert.That(config.FollowLiveMcpEdits, Is.False);
+            Assert.That(config.AgentId.Value, Is.Empty);
+            Assert.That(config.InstallScope.Value, Is.Empty);
+            Assert.That(config.ProjectRoot.Value, Is.Empty);
+            Assert.That(config.SkillsDirectory.Value, Is.Empty);
+            Assert.That(config.SubagentsDirectory.Value, Is.Empty);
+            Assert.That(config.InstallSkills.Value, Is.True);
+            Assert.That(config.InstallSubagents.Value, Is.True);
+            Assert.That(config.InstallMcp.Value, Is.True);
+            Assert.That(config.McpConfigFileName.Value, Is.Empty);
+            Assert.That(config.McpServersPropertyName.Value, Is.Empty);
+            Assert.That(config.LiveMcpToken.Value, Is.Empty);
+            Assert.That(config.FollowLiveMcpEdits.Value, Is.False);
         });
     }
 
@@ -34,17 +34,17 @@ public class AiAgentConfigTests
     {
         var source = new AiAgentConfig
         {
-            AgentId = "codex",
-            InstallScope = "Global",
-            ProjectRoot = "/repo",
-            SkillsDirectory = ".claude/skills",
-            SubagentsDirectory = ".claude/agents",
-            InstallSkills = false,
-            InstallSubagents = false,
-            InstallMcp = false,
-            McpConfigFileName = "mcp.json",
-            McpServersPropertyName = "mcpServers",
-            FollowLiveMcpEdits = true,
+            AgentId = { Value = "codex" },
+            InstallScope = { Value = "Global" },
+            ProjectRoot = { Value = "/repo" },
+            SkillsDirectory = { Value = ".claude/skills" },
+            SubagentsDirectory = { Value = ".claude/agents" },
+            InstallSkills = { Value = false },
+            InstallSubagents = { Value = false },
+            InstallMcp = { Value = false },
+            McpConfigFileName = { Value = "mcp.json" },
+            McpServersPropertyName = { Value = "mcpServers" },
+            FollowLiveMcpEdits = { Value = true },
         };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
@@ -53,19 +53,19 @@ public class AiAgentConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.AgentId, Is.EqualTo(source.AgentId));
-            Assert.That(restored.InstallScope, Is.EqualTo(source.InstallScope));
-            Assert.That(restored.ProjectRoot, Is.EqualTo(source.ProjectRoot));
-            Assert.That(restored.SkillsDirectory, Is.EqualTo(source.SkillsDirectory));
-            Assert.That(restored.SubagentsDirectory, Is.EqualTo(source.SubagentsDirectory));
-            Assert.That(restored.InstallSkills, Is.EqualTo(source.InstallSkills));
-            Assert.That(restored.InstallSubagents, Is.EqualTo(source.InstallSubagents));
-            Assert.That(restored.InstallMcp, Is.EqualTo(source.InstallMcp));
-            Assert.That(restored.McpConfigFileName, Is.EqualTo(source.McpConfigFileName));
-            Assert.That(restored.McpServersPropertyName, Is.EqualTo(source.McpServersPropertyName));
-            Assert.That(restored.FollowLiveMcpEdits, Is.True);
+            Assert.That(restored.AgentId.Value, Is.EqualTo(source.AgentId.Value));
+            Assert.That(restored.InstallScope.Value, Is.EqualTo(source.InstallScope.Value));
+            Assert.That(restored.ProjectRoot.Value, Is.EqualTo(source.ProjectRoot.Value));
+            Assert.That(restored.SkillsDirectory.Value, Is.EqualTo(source.SkillsDirectory.Value));
+            Assert.That(restored.SubagentsDirectory.Value, Is.EqualTo(source.SubagentsDirectory.Value));
+            Assert.That(restored.InstallSkills.Value, Is.EqualTo(source.InstallSkills.Value));
+            Assert.That(restored.InstallSubagents.Value, Is.EqualTo(source.InstallSubagents.Value));
+            Assert.That(restored.InstallMcp.Value, Is.EqualTo(source.InstallMcp.Value));
+            Assert.That(restored.McpConfigFileName.Value, Is.EqualTo(source.McpConfigFileName.Value));
+            Assert.That(restored.McpServersPropertyName.Value, Is.EqualTo(source.McpServersPropertyName.Value));
+            Assert.That(restored.FollowLiveMcpEdits.Value, Is.True);
             Assert.That(json.ContainsKey(nameof(AiAgentConfig.LiveMcpToken)), Is.False);
-            Assert.That(restored.LiveMcpToken, Is.Empty);
+            Assert.That(restored.LiveMcpToken.Value, Is.Empty);
         });
     }
 
@@ -76,7 +76,7 @@ public class AiAgentConfigTests
         int raised = 0;
         config.ConfigurationChanged += (_, _) => raised++;
 
-        config.AgentId = "claude-code";
+        config.AgentId.Value = "claude-code";
 
         Assert.That(raised, Is.EqualTo(1));
     }
@@ -96,9 +96,9 @@ public class AiAgentConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(optedOut.InstallMcp, Is.False);
-            Assert.That(liveOnly.InstallMcp, Is.True);
-            Assert.That(explicitOn.InstallMcp, Is.True);
+            Assert.That(optedOut.InstallMcp.Value, Is.False);
+            Assert.That(liveOnly.InstallMcp.Value, Is.True);
+            Assert.That(explicitOn.InstallMcp.Value, Is.True);
         });
     }
 
@@ -111,7 +111,7 @@ public class AiAgentConfigTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.ProjectRoot, Is.EqualTo("/repo"));
+            Assert.That(config.ProjectRoot.Value, Is.EqualTo("/repo"));
             Assert.That(CoreSerializer.SerializeToJsonObject(config).ContainsKey("WorkspaceRoot"), Is.False);
         });
     }
@@ -122,11 +122,11 @@ public class AiAgentConfigTests
         var config = new AiAgentConfig();
         CoreSerializer.PopulateFromJsonObject(config,
             new JsonObject { [nameof(AiAgentConfig.LiveMcpToken)] = "legacy-migration-token" });
-        Assert.That(config.LiveMcpToken, Is.EqualTo("legacy-migration-token"));
+        Assert.That(config.LiveMcpToken.Value, Is.EqualTo("legacy-migration-token"));
         Assert.That((string?)CoreSerializer.SerializeToJsonObject(config)[nameof(AiAgentConfig.LiveMcpToken)],
             Is.EqualTo("legacy-migration-token"));
 
-        config.LiveMcpToken = "";
+        config.LiveMcpToken.Value = "";
         Assert.That(CoreSerializer.SerializeToJsonObject(config).ContainsKey(nameof(AiAgentConfig.LiveMcpToken)), Is.False);
     }
 }

@@ -23,7 +23,7 @@ public sealed class FrameCacheInvalidatorTests
     public void A_property_editor_invalidates_the_range_of_its_element()
     {
         var shape = new RectShape();
-        var element = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2) };
+        var element = new Element { Start = { Value = MediaTime.FromSeconds(1) }, Length = { Value = MediaTime.FromSeconds(2) } };
         element.AddObject(shape);
         var invalidator = new RecordingInvalidator();
         using var editor = new NumberEditorViewModel<float>(

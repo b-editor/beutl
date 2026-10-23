@@ -33,7 +33,7 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
             ["Cleared"] = null,
         }.ToJsonString());
 
-        config.GraphicsConfig.SelectedGpuName = "after";
+        config.GraphicsConfig.SelectedGpuName.Value = "after";
 
         JsonObject saved = ReadSaved();
         Assert.Multiple(() =>
@@ -58,7 +58,7 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
             ["Graphics"] = new JsonObject { ["SelectedGpuName"] = "before", ["FutureSetting"] = future.DeepClone() },
         }.ToJsonString());
 
-        config.GraphicsConfig.SelectedGpuName = "after";
+        config.GraphicsConfig.SelectedGpuName.Value = "after";
 
         JsonObject saved = ReadSaved();
         Assert.Multiple(() =>
@@ -85,7 +85,7 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
             ["Graphics"] = new JsonObject { ["SelectedGpuName"] = "before" },
         }.ToJsonString());
 
-        config.GraphicsConfig.SelectedGpuName = "after";
+        config.GraphicsConfig.SelectedGpuName.Value = "after";
 
         JsonObject saved = ReadSaved();
         Assert.Multiple(() =>
@@ -132,9 +132,9 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
         {
             ["view"] = new JsonObject { ["UICulture"] = "ja-JP" },
         }.ToJsonString());
-        Assert.That(config.ViewConfig.UICulture, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
+        Assert.That(config.ViewConfig.UICulture.Value, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
 
-        config.ViewConfig.UICulture = CultureInfo.GetCultureInfo("en-US");
+        config.ViewConfig.UICulture.Value = CultureInfo.GetCultureInfo("en-US");
         config.Save(SettingsPath);
 
         GlobalConfiguration next = CreateConfiguration();
@@ -142,7 +142,7 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
         Assert.Multiple(() =>
         {
             Assert.That(ReadSaved().ContainsKey("view"), Is.False);
-            Assert.That(next.ViewConfig.UICulture, Is.EqualTo(CultureInfo.GetCultureInfo("en-US")));
+            Assert.That(next.ViewConfig.UICulture.Value, Is.EqualTo(CultureInfo.GetCultureInfo("en-US")));
         });
     }
 
@@ -178,7 +178,7 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
             Assert.That(File.ReadAllText(copy), Is.EqualTo(text));
         });
 
-        config.GraphicsConfig.SelectedGpuName = "after";
+        config.GraphicsConfig.SelectedGpuName.Value = "after";
 
         GlobalConfiguration next = CreateConfiguration();
         next.Restore(SettingsPath);
@@ -186,7 +186,7 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
         {
             Assert.That(next.RestoreFileFailure, Is.Null);
             Assert.That(next.RestoreFailures, Is.Empty);
-            Assert.That(next.GraphicsConfig.SelectedGpuName, Is.EqualTo("after"));
+            Assert.That(next.GraphicsConfig.SelectedGpuName.Value, Is.EqualTo("after"));
             Assert.That(File.ReadAllText(copy), Is.EqualTo(text), "the save leaves the copy alone");
             Assert.That(UnreadableCopies(), Has.Length.EqualTo(1));
         });
@@ -245,7 +245,7 @@ public class GlobalConfigurationKeepTests() : GlobalConfigurationFileFixture("gl
         }
 
         // The folder can be written to again, so only the failed copy keeps these saves from replacing the file.
-        config.GraphicsConfig.SelectedGpuName = "after";
+        config.GraphicsConfig.SelectedGpuName.Value = "after";
         config.Save(SettingsPath);
 
         Assert.Multiple(() =>

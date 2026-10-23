@@ -36,7 +36,7 @@ internal static class AgentHostInstanceTestWorker
                     endpoint.InstanceId,
                     EndpointUri = endpoint.EndpointUri!.ToString(),
                     ProcessId = Environment.ProcessId,
-                    SceneId = scene.Id.ToString()
+                    SceneId = scene.Id.Value.ToString()
                 }));
                 await Task.Run(() => Console.In.ReadLine());
                 await endpoint.StopAsync();

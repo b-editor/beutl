@@ -103,9 +103,9 @@ public sealed class ExportRenderContextSafetyTests
         drawable.Source.Value = media;
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(1),
-            IsEnabled = true,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(1) },
+            IsEnabled = { Value = true },
             Uri = new Uri(Path.Combine(scope.RootPath, $"{Guid.NewGuid():N}.layer")),
         };
         element.AddObject(drawable);

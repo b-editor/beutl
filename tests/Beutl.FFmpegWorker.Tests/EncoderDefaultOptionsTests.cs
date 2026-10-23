@@ -38,7 +38,7 @@ public sealed class EncoderDefaultOptionsTests
         // libopus takes neither 44.1 kHz nor fltp
         var controller = FFmpegTestHelpers.CreateController(
             outputPath, new PixelSize(64, 64), new Rational(30, 1), sampleRate: 48000, channels: 2);
-        controller.AudioSettings.Format = FFmpegAudioEncoderSettings.AudioFormat.Default;
+        controller.AudioSettings.Format.Value = FFmpegAudioEncoderSettings.AudioFormat.Default;
         using var frames = new GradientFrameProvider(3, new Rational(30, 1), 64, 64);
         using var samples = new SineSampleProvider(4800, 48000);
 
@@ -54,7 +54,7 @@ public sealed class EncoderDefaultOptionsTests
         RequireDefaultEncoders(outputPath);
         var controller = FFmpegTestHelpers.CreateController(
             outputPath, new PixelSize(64, 64), new Rational(30, 1), sampleRate: 44100, channels: 2);
-        controller.VideoSettings.Options =
+        controller.VideoSettings.Options.Value =
         [
             new("preset", "medium"),
             new("crf", "22"),

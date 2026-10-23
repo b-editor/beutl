@@ -72,7 +72,7 @@ public class FileReferenceWalkerParityTests
             case Place.KeyFrameValue:
                 var video = new SourceVideo();
                 var animation = new KeyFrameAnimation<VideoSource?>();
-                animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(1), Value = Open<VideoSource>(uri) });
+                animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = Open<VideoSource>(uri) } });
                 video.Source.SetKeyFrameAnimation(animation);
                 element = ElementWith(video);
                 break;
@@ -86,7 +86,7 @@ public class FileReferenceWalkerParityTests
             case Place.NodePortKeyFrame:
                 var animatedNode = new VideoSourceNode();
                 var portAnimation = new KeyFrameAnimation<VideoSource?>();
-                portAnimation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = MediaTime.FromSeconds(1), Value = Open<VideoSource>(uri) });
+                portAnimation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = Open<VideoSource>(uri) } });
                 ((IAnimatablePropertyAdapter)animatedNode.Source.Property!).Animation = portAnimation;
                 var animatedGraph = new NodeGraphDrawable();
                 animatedGraph.Model.Value!.Nodes.Add(animatedNode);
@@ -96,7 +96,7 @@ public class FileReferenceWalkerParityTests
                 var transition = new ImageMaskTransition();
                 transition.Mask.Value = Open<ImageSource>(uri);
                 element = ElementWith(new SourceImage());
-                element.EnterTransition = transition;
+                element.EnterTransition.Value = transition;
                 break;
             default:
                 Scene referenced = CreateScene("referenced.scene");
@@ -124,7 +124,7 @@ public class FileReferenceWalkerParityTests
     {
         var element = new Element
         {
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(_projectDir, $"{Guid.NewGuid():N}.belm")),
         };
         element.AddObject(obj);

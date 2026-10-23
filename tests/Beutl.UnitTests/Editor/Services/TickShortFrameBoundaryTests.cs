@@ -54,8 +54,8 @@ public sealed class TickShortFrameBoundaryTests
         {
             Assert.That(rolled, Is.True);
             Assert.That(slid, Is.True);
-            Assert.That(rollFront.Length.ToFrame(rate, MidpointRounding.AwayFromZero), Is.EqualTo(2));
-            Assert.That(slideMiddle.Start.ToFrame(rate, MidpointRounding.AwayFromZero), Is.EqualTo(2));
+            Assert.That(rollFront.Length.Value.ToFrame(rate, MidpointRounding.AwayFromZero), Is.EqualTo(2));
+            Assert.That(slideMiddle.Start.Value.ToFrame(rate, MidpointRounding.AwayFromZero), Is.EqualTo(2));
         });
     }
 
@@ -63,11 +63,11 @@ public sealed class TickShortFrameBoundaryTests
     public void Setting_the_start_of_a_scene_ending_a_tick_short_at_its_end_keeps_its_last_frame(string rateText)
     {
         using var harness = Open(rateText, out Rational rate);
-        harness.Scene.Duration = TickShort(MediaTime.FromFrames(2, rate));
+        harness.Scene.Duration.Value = TickShort(MediaTime.FromFrames(2, rate));
 
         new SceneTimeRangeService(harness.History).SetStart(harness.Scene, MediaTime.FromFrames(2, rate));
 
-        Assert.That(harness.Scene.Start, Is.EqualTo(MediaTime.FromFrames(1, rate)));
+        Assert.That(harness.Scene.Start.Value, Is.EqualTo(MediaTime.FromFrames(1, rate)));
     }
 
     [TestCaseSource(nameof(s_rates))]
@@ -78,8 +78,8 @@ public sealed class TickShortFrameBoundaryTests
         var shape = new RectShape();
         element.AddObject(shape);
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TickShort(MediaTime.FromFrames(1, rate)), Value = 1 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = TickShort(MediaTime.FromFrames(2, rate)), Value = 2 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = TickShort(MediaTime.FromFrames(1, rate)) }, Value = { Value = 1 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = TickShort(MediaTime.FromFrames(2, rate)) }, Value = { Value = 2 } });
         shape.Width.SetKeyFrameAnimation(animation);
 
         MediaTime? previous = KeyFrameNavigationHelper.FindAdjacentKeyFrame([element], MediaTime.FromFrames(2, rate), forward: false);
@@ -104,7 +104,7 @@ public sealed class TickShortFrameBoundaryTests
     {
         var harness = new SceneHistoryHarness("beutl_tick_short_frames", duration: MediaTime.FromSeconds(60));
         var project = new Project();
-        project.FrameRate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
+        project.FrameRate.Value = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         project.Items.Add(harness.Scene);
         rate = Rational.Parse(rateText, CultureInfo.InvariantCulture);
         return harness;

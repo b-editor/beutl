@@ -12,7 +12,7 @@ public class SpeedIntegratorTests
     public void ConstantTail_OnLongTimelineDoesNotSampleEveryAudioFrame()
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100f });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 100f } });
         int samples = 0;
         using var integrator = new SpeedIntegrator(48000)
         {
@@ -32,21 +32,21 @@ public class SpeedIntegratorTests
         var animation = new KeyFrameAnimation<float>();
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.Zero,
-            Value = 100f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 100f },
+            Easing = { Value = new LinearEasing() }
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(25200),
-            Value = 200f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.FromSeconds(25200) },
+            Value = { Value = 200f },
+            Easing = { Value = new LinearEasing() }
         });
         animation.KeyFrames.Add(new KeyFrame<float>
         {
-            KeyTime = MediaTime.FromSeconds(28800),
-            Value = 200f,
-            Easing = new LinearEasing()
+            KeyTime = { Value = MediaTime.FromSeconds(28800) },
+            Value = { Value = 200f },
+            Easing = { Value = new LinearEasing() }
         });
         return animation;
     }

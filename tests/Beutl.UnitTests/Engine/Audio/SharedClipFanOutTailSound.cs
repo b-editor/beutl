@@ -14,7 +14,7 @@ public sealed partial class SharedClipFanOutTailSound : Sound
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
         var source = context.AddNode(new FixedLatencyNode(0));
-        var clip = context.CreateClipNode(TimeRange.Start, TimeRange.Duration);
+        var clip = context.CreateClipNode(TimeRange.Value.Start, TimeRange.Value.Duration);
         context.Connect(source, clip);
 
         var direct = context.AddNode(new ForwardingLatencyNode(0));

@@ -169,10 +169,10 @@ public class ListItemExpansionTests
             var visibility = filterRows[0].GetVisualDescendants().OfType<ToggleButton>()
                 .Single(b => b.IsEffectivelyVisible && b != filterHeader);
             HeadlessTestHelpers.Click(visibility, ticks: 3);
-            Assert.That(blur.IsEnabled, Is.False);
+            Assert.That(blur.IsEnabled.Value, Is.False);
             AssertState(filterHeader, false);
             HeadlessTestHelpers.Click(visibility, ticks: 3);
-            Assert.That(blur.IsEnabled, Is.True);
+            Assert.That(blur.IsEnabled.Value, Is.True);
 
             var otherHeader = (ToggleButton)filterRows[1].ReorderHandle!;
             Point start = Center(Grip(filterHeader));

@@ -34,7 +34,7 @@ public sealed class ApplyEditHistoryScopeTests
     [TestCase(true)]
     public void Apply_edit_keeps_unchanged_pen_dash_array(bool rename)
     {
-        var pen = new Pen { Name = "original", DashArray = { Value = [2, 3] } };
+        var pen = new Pen { Name = { Value = "original" }, DashArray = { Value = [2, 3] } };
         CoreList<float>? original = pen.DashArray.Value;
         int changed = 0;
         pen.DashArray.ValueChanged += (_, _) => changed++;
@@ -50,7 +50,7 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value?.ChangeCount, Is.EqualTo(rename ? 1 : 0));
             Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(rename
-                ? new[] { $"{pen.Id}:Name original -> updated" }
+                ? new[] { $"{pen.Id.Value}:Name original -> updated" }
                 : Array.Empty<string>()));
             Assert.That(pen.DashArray.Value, Is.SameAs(original));
             Assert.That(changed, Is.Zero);
@@ -59,9 +59,9 @@ public sealed class ApplyEditHistoryScopeTests
         if (rename)
         {
             Assert.That(session.History.Undo(), Is.True);
-            Assert.That(pen.Name, Is.EqualTo("original"));
+            Assert.That(pen.Name.Value, Is.EqualTo("original"));
             Assert.That(session.History.Redo(), Is.True);
-            Assert.That(pen.Name, Is.EqualTo("updated"));
+            Assert.That(pen.Name.Value, Is.EqualTo("updated"));
             Assert.That(pen.DashArray.Value, Is.SameAs(original));
             Assert.That(changed, Is.Zero);
         }
@@ -73,7 +73,7 @@ public sealed class ApplyEditHistoryScopeTests
     {
         var mesh = new ModelMesh
         {
-            Name = "original",
+            Name = { Value = "original" },
             Vertices = { Value = [new Vertex3D()] },
             Indices = { Value = [0] }
         };
@@ -94,7 +94,7 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Value?.ChangeCount, Is.EqualTo(rename ? 1 : 0));
             Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(rename
-                ? new[] { $"{mesh.Id}:Name original -> updated" }
+                ? new[] { $"{mesh.Id.Value}:Name original -> updated" }
                 : Array.Empty<string>()));
             Assert.That(mesh.Vertices.Value == vertices, Is.True);
             Assert.That(mesh.Indices.Value == indices, Is.True);
@@ -104,9 +104,9 @@ public sealed class ApplyEditHistoryScopeTests
         if (rename)
         {
             Assert.That(session.History.Undo(), Is.True);
-            Assert.That(mesh.Name, Is.EqualTo("original"));
+            Assert.That(mesh.Name.Value, Is.EqualTo("original"));
             Assert.That(session.History.Redo(), Is.True);
-            Assert.That(mesh.Name, Is.EqualTo("updated"));
+            Assert.That(mesh.Name.Value, Is.EqualTo("updated"));
             Assert.That(mesh.Vertices.Value == vertices, Is.True);
             Assert.That(mesh.Indices.Value == indices, Is.True);
             Assert.That(changed, Is.Zero);
@@ -158,7 +158,7 @@ public sealed class ApplyEditHistoryScopeTests
             schemaVersion: SchemaVersion.Current);
 
         Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
-        Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(new[] { $"{secondRect.Id}:Width 100 -> 200" }));
+        Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(new[] { $"{secondRect.Id.Value}:Width 100 -> 200" }));
 
         bool undone = session.History.Undo();
         float undoneWidth = secondRect.Width.Value;
@@ -207,7 +207,7 @@ public sealed class ApplyEditHistoryScopeTests
             // The brush is changed in place, as in the editor (#2987).
             Assert.That(secondRect.Fill.Value, Is.SameAs(secondFill));
             Assert.That(secondFill.Color.Value, Is.EqualTo(Colors.Blue));
-            Assert.That(operations, Is.EqualTo(new[] { $"{secondFill.Id}:Color {Colors.White} -> {Colors.Blue}" }));
+            Assert.That(operations, Is.EqualTo(new[] { $"{secondFill.Id.Value}:Color {Colors.White} -> {Colors.Blue}" }));
             Assert.That(secondRect.Transform.Value, Is.SameAs(secondTransform));
             Assert.That(secondRect.FilterEffect.Value, Is.SameAs(secondFilterEffect));
             AssertSameNested(firstRect, firstNested);
@@ -223,27 +223,21 @@ public sealed class ApplyEditHistoryScopeTests
         }
 
         [NotAutoSerialized]
-        public IProperty<Transform?> CustomTransformProperty { get; } = new ValueOnlyProperty<Transform?>(null);
-
-        public Transform? CustomTransform
-        {
-            get => CustomTransformProperty.Value;
-            set => CustomTransformProperty.Value = value;
-        }
+        public IProperty<Transform?> CustomTransform { get; } = new ValueOnlyProperty<Transform?>(null);
 
         public override void Serialize(ICoreSerializationContext context)
         {
             base.Serialize(context);
-            if (CustomTransform != null)
+            if (CustomTransform.Value != null)
             {
-                context.SetValue(nameof(CustomTransform), CustomTransform);
+                context.SetValue(nameof(CustomTransform), CustomTransform.Value);
             }
         }
 
         public override void Deserialize(ICoreSerializationContext context)
         {
             base.Deserialize(context);
-            CustomTransform = context.GetValue<Transform>(nameof(CustomTransform));
+            CustomTransform.Value = context.GetValue<Transform>(nameof(CustomTransform));
         }
     }
 
@@ -255,9 +249,9 @@ public sealed class ApplyEditHistoryScopeTests
         CustomSerializedTransformElement element = AddCustomElement(scene);
         RectShape otherRect = AddRectElement(scene, "other", MediaTime.FromSeconds(2), zIndex: 1);
         Element otherElement = scene.Children[1];
-        Transform? transform = element.CustomTransform;
-        ClipTransition? enter = element.EnterTransition;
-        ClipTransition? exit = element.ExitTransition;
+        Transform? transform = element.CustomTransform.Value;
+        ClipTransition? enter = element.EnterTransition.Value;
+        ClipTransition? exit = element.ExitTransition.Value;
         int edited = 0;
         element.Edited += (_, _) => edited++;
         using var session = new AgentToolkitTestSession(scene);
@@ -275,11 +269,11 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(result.Value?.ChangeCount, Is.EqualTo(editAnotherElement ? 1 : 0));
             Assert.That(result.Value?.CreatedIdCount, Is.Zero);
             Assert.That(DescribeOperations(session.History.PeekUndo()), Is.EqualTo(editAnotherElement
-                ? new[] { $"{otherRect.Id}:Width 100 -> 200" }
+                ? new[] { $"{otherRect.Id.Value}:Width 100 -> 200" }
                 : Array.Empty<string>()));
-            Assert.That(element.CustomTransform, Is.SameAs(transform));
-            Assert.That(element.EnterTransition, Is.SameAs(enter));
-            Assert.That(element.ExitTransition, Is.SameAs(exit));
+            Assert.That(element.CustomTransform.Value, Is.SameAs(transform));
+            Assert.That(element.EnterTransition.Value, Is.SameAs(enter));
+            Assert.That(element.ExitTransition.Value, Is.SameAs(exit));
             Assert.That(edited, Is.Zero);
         });
 
@@ -291,9 +285,9 @@ public sealed class ApplyEditHistoryScopeTests
             Assert.That(otherRect.Width.Value, Is.EqualTo(200f));
             Assert.Multiple(() =>
             {
-                Assert.That(element.CustomTransform, Is.SameAs(transform));
-                Assert.That(element.EnterTransition, Is.SameAs(enter));
-                Assert.That(element.ExitTransition, Is.SameAs(exit));
+                Assert.That(element.CustomTransform.Value, Is.SameAs(transform));
+                Assert.That(element.EnterTransition.Value, Is.SameAs(enter));
+                Assert.That(element.ExitTransition.Value, Is.SameAs(exit));
                 Assert.That(edited, Is.Zero);
             });
         }
@@ -311,9 +305,9 @@ public sealed class ApplyEditHistoryScopeTests
         CustomSerializedTransformElement element = AddCustomElement(scene);
         var properties = new Dictionary<string, Func<object?>>
         {
-            [nameof(Element.EnterTransition)] = () => element.EnterTransition,
-            [nameof(Element.ExitTransition)] = () => element.ExitTransition,
-            [nameof(CustomSerializedTransformElement.CustomTransform)] = () => element.CustomTransform,
+            [nameof(Element.EnterTransition)] = () => element.EnterTransition.Value,
+            [nameof(Element.ExitTransition)] = () => element.ExitTransition.Value,
+            [nameof(CustomSerializedTransformElement.CustomTransform)] = () => element.CustomTransform.Value,
         };
         var original = properties.ToDictionary(pair => pair.Key, pair => pair.Value());
         Func<object?> changedProperty = properties[propertyName];
@@ -338,7 +332,7 @@ public sealed class ApplyEditHistoryScopeTests
             {
                 ["Elements"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                     [propertyName] = value
                 })
             },
@@ -360,7 +354,7 @@ public sealed class ApplyEditHistoryScopeTests
                 CoreSerializer.SerializeToJsonObject((ICoreSerializable)applied!), value), Is.True);
             if (applied is ClipTransition transition)
             {
-                Assert.That(transition.TimeRange, Is.EqualTo(element.Range));
+                Assert.That(transition.TimeRange.Value, Is.EqualTo(element.Range));
             }
             foreach ((string name, Func<object?> property) in properties.Where(pair => pair.Key != propertyName))
             {
@@ -378,11 +372,11 @@ public sealed class ApplyEditHistoryScopeTests
     {
         var element = new CustomSerializedTransformElement
         {
-            Length = MediaTime.FromSeconds(2),
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "custom.belm")),
-            CustomTransform = new TranslateTransform(10, 20),
-            EnterTransition = new CrossDissolveTransition(),
-            ExitTransition = new WipeTransition()
+            CustomTransform = { Value = new TranslateTransform(10, 20) },
+            EnterTransition = { Value = new CrossDissolveTransition() },
+            ExitTransition = { Value = new WipeTransition() }
         };
         element.AddObject(new RectShape());
         scene.Children.Add(element);
@@ -399,13 +393,7 @@ public sealed class ApplyEditHistoryScopeTests
             ScanProperties<ConvertedPropertyElement>();
         }
 
-        public IProperty<Dimensions?> DimensionsProperty { get; } = new ValueOnlyProperty<Dimensions?>(null);
-
-        public Dimensions? Dimensions
-        {
-            get => DimensionsProperty.Value;
-            set => DimensionsProperty.Value = value;
-        }
+        public IProperty<Dimensions?> Dimensions { get; } = new ValueOnlyProperty<Dimensions?>(null);
     }
 
     [Test]
@@ -414,14 +402,14 @@ public sealed class ApplyEditHistoryScopeTests
         Scene scene = TestWorkspace.CreateScene();
         var element = new ConvertedPropertyElement
         {
-            Length = MediaTime.FromSeconds(2),
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "converted.belm")),
-            Dimensions = new Dimensions(3, 4)
+            Dimensions = { Value = new Dimensions(3, 4) }
         };
         var rect = new RectShape();
         element.AddObject(rect);
         scene.Children.Add(element);
-        Dimensions? dimensions = element.Dimensions;
+        Dimensions? dimensions = element.Dimensions.Value;
         using var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
 
@@ -433,9 +421,9 @@ public sealed class ApplyEditHistoryScopeTests
         {
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(rect.Width.Value, Is.EqualTo(200f));
-            Assert.That(element.Dimensions, Is.SameAs(dimensions));
+            Assert.That(element.Dimensions.Value, Is.SameAs(dimensions));
             Assert.That(DescribeOperations(session.History.PeekUndo()),
-                Is.EqualTo(new[] { $"{rect.Id}:Width 100 -> 200" }));
+                Is.EqualTo(new[] { $"{rect.Id.Value}:Width 100 -> 200" }));
         });
     }
 
@@ -457,10 +445,10 @@ public sealed class ApplyEditHistoryScopeTests
         var fallback = (Drawable)CoreSerializer.DeserializeFromJsonObject(fallbackJson, typeof(Drawable));
         var holder = new Element
         {
-            Name = "holder",
-            Start = MediaTime.FromSeconds(2),
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = 1,
+            Name = { Value = "holder" },
+            Start = { Value = MediaTime.FromSeconds(2) },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = 1 },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "holder.belm"))
         };
         holder.AddObject(fallback);
@@ -510,12 +498,12 @@ public sealed class ApplyEditHistoryScopeTests
 
     private static JsonObject CreateObjectPatch(Element element, RectShape rect, JsonObject properties)
     {
-        properties[nameof(CoreObject.Id)] = rect.Id.ToString();
+        properties[nameof(CoreObject.Id)] = rect.Id.Value.ToString();
         return new JsonObject
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 [nameof(Element.Objects)] = new JsonArray(properties)
             })
         };
@@ -538,7 +526,7 @@ public sealed class ApplyEditHistoryScopeTests
         string[] names = [nameof(Shape.Fill), nameof(Shape.Pen), nameof(Drawable.Transform), nameof(Drawable.FilterEffect)];
         for (int i = 0; i < names.Length; i++)
         {
-            Assert.That(actual[i], Is.SameAs(expected[i]), $"{rect.Name}.{names[i]} was replaced.");
+            Assert.That(actual[i], Is.SameAs(expected[i]), $"{rect.Name.Value}.{names[i]} was replaced.");
         }
     }
 
@@ -551,7 +539,7 @@ public sealed class ApplyEditHistoryScopeTests
     {
         // The recorded path is prefixed with the owner chain (e.g. "Children.Objects.Width").
         return operation is IUpdatePropertyValueOperation update
-            ? $"{update.Object.Id}:{update.PropertyPath.Split('.')[^1]} {update.OldValue} -> {update.NewValue}"
+            ? $"{update.Object.Id.Value}:{update.PropertyPath.Split('.')[^1]} {update.OldValue} -> {update.NewValue}"
             : operation.GetType().Name;
     }
 
@@ -583,15 +571,15 @@ public sealed class ApplyEditHistoryScopeTests
         for (int i = 0; i < transitions.Length; i += 2)
         {
             Element element = AddObjectElement(scene, new RectShape());
-            element.EnterTransition = transitions[i];
-            element.ExitTransition = transitions.ElementAtOrDefault(i + 1);
+            element.EnterTransition.Value = transitions[i];
+            element.ExitTransition.Value = transitions.ElementAtOrDefault(i + 1);
         }
 
         var easings = new KeyFrameAnimation<float>();
         foreach (Easing easing in instances.OfType<Easing>())
         {
             easings.KeyFrames.Add(
-                new KeyFrame<float> { KeyTime = MediaTime.FromSeconds((50 * easings.KeyFrames.Count) / 1000d), Easing = easing },
+                new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds((50 * easings.KeyFrames.Count) / 1000d) }, Easing = { Value = easing } },
                 out _);
         }
 
@@ -639,8 +627,8 @@ public sealed class ApplyEditHistoryScopeTests
     {
         var element = new Element
         {
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = scene.Children.Count,
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = scene.Children.Count },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, $"{scene.Children.Count}.belm"))
         };
         element.AddObject(obj);
@@ -652,15 +640,15 @@ public sealed class ApplyEditHistoryScopeTests
     {
         var element = new Element
         {
-            Name = name,
-            Start = start,
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = zIndex,
+            Name = { Value = name },
+            Start = { Value = start },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = zIndex },
             Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, $"{name}.belm"))
         };
         var rect = new RectShape
         {
-            Name = $"{name} rect",
+            Name = { Value = $"{name} rect" },
             Fill = { Value = new SolidColorBrush(Colors.White) },
             Pen = { Value = new Pen { Brush = { Value = new SolidColorBrush(Colors.Red) } } },
             Transform =

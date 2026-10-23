@@ -97,7 +97,7 @@ public class NodeGraphMutationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(added, Is.True);
-            Assert.That(output.Position, Is.EqualTo((120d, 80d)));
+            Assert.That(output.Position.Value, Is.EqualTo((120d, 80d)));
             Assert.That(_graph.Nodes, Does.Contain(output));
             Assert.That(_graph.AllConnections, Has.Count.EqualTo(1));
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
@@ -232,7 +232,7 @@ public class NodeGraphMutationServiceTests
     [Test]
     public void RenameNode_SameName_NoCommit()
     {
-        var node = new GroupInput { Name = "Source" };
+        var node = new GroupInput { Name = { Value = "Source" } };
         _service.AddNode(_graph, node, 0, 0);
         int before = _history.UndoCount;
 
@@ -241,7 +241,7 @@ public class NodeGraphMutationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.False);
-            Assert.That(node.Name, Is.EqualTo("Source"));
+            Assert.That(node.Name.Value, Is.EqualTo("Source"));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -249,7 +249,7 @@ public class NodeGraphMutationServiceTests
     [Test]
     public void RenameNode_DifferentName_CommitsOnce()
     {
-        var node = new GroupInput { Name = "Source" };
+        var node = new GroupInput { Name = { Value = "Source" } };
         _service.AddNode(_graph, node, 0, 0);
         int before = _history.UndoCount;
 
@@ -258,7 +258,7 @@ public class NodeGraphMutationServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.True);
-            Assert.That(node.Name, Is.EqualTo("Renamed"));
+            Assert.That(node.Name.Value, Is.EqualTo("Renamed"));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -289,8 +289,8 @@ public class NodeGraphMutationServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(a.Position, Is.EqualTo((10d, 20d)));
-            Assert.That(b.Position, Is.EqualTo((100d, 200d)));
+            Assert.That(a.Position.Value, Is.EqualTo((10d, 20d)));
+            Assert.That(b.Position.Value, Is.EqualTo((100d, 200d)));
             // All the moves collapse into one history entry.
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -333,7 +333,7 @@ public class NodeGraphMutationServiceTests
         Connection connection = graph.AllConnections.Single();
 
         service.RemoveNode(graph, fallback);
-        bool removedConnection = graph.AllConnections.Count == 0 && healthy.InputPort.Connection.IsNull;
+        bool removedConnection = graph.AllConnections.Count == 0 && healthy.InputPort.Connection.Value.IsNull;
         bool undone = harness.History.Undo();
 
         Assert.Multiple(() =>
@@ -342,7 +342,7 @@ public class NodeGraphMutationServiceTests
             Assert.That(undone, Is.True);
             Assert.That(graph.Nodes, Does.Contain(fallback));
             Assert.That(graph.AllConnections.Single(), Is.SameAs(connection));
-            Assert.That(healthy.InputPort.Connection.Id, Is.EqualTo(connection.Id));
+            Assert.That(healthy.InputPort.Connection.Value.Id, Is.EqualTo(connection.Id.Value));
         });
     }
 }

@@ -13,11 +13,11 @@ public class CoreObjectExtensionsTests
     [Test]
     public void GetObservable_EmitsOncePerChange()
     {
-        var obj = new TestCoreObject { Label = "init" };
+        var obj = new TestCoreObject { Label = { Value = "init" } };
         var values = new List<string?>();
 
-        using IDisposable sub = obj.LabelProperty.GetObservable().Subscribe(values.Add);
-        obj.Label = "next";
+        using IDisposable sub = obj.Label.GetObservable().Subscribe(values.Add);
+        obj.Label.Value = "next";
 
         Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
     }
@@ -25,8 +25,8 @@ public class CoreObjectExtensionsTests
     [Test]
     public void GetObservable_LeavesNoHandlerBehindAfterUnsubscribing()
     {
-        var obj = new TestCoreObject { Label = "init" };
-        IObservable<string> observable = obj.LabelProperty.GetObservable();
+        var obj = new TestCoreObject { Label = { Value = "init" } };
+        IObservable<string> observable = obj.Label.GetObservable();
 
         for (int i = 0; i < 3; i++)
         {
@@ -35,7 +35,7 @@ public class CoreObjectExtensionsTests
 
         var values = new List<string?>();
         using IDisposable sub = observable.Subscribe(values.Add);
-        obj.Label = "next";
+        obj.Label.Value = "next";
 
         Assert.That(values, Is.EqualTo(new[] { "init", "next" }));
     }
@@ -73,7 +73,7 @@ public class CoreObjectExtensionsTests
     {
         var obj = new TestCoreObject();
 
-        ICoreObject? result = obj.FindById(obj.Id);
+        ICoreObject? result = obj.FindById(obj.Id.Value);
 
         Assert.That(result, Is.SameAs(obj));
     }
@@ -95,12 +95,6 @@ public class CoreObjectExtensionsTests
             ScanProperties<TestCoreObject>();
         }
 
-        public IProperty<string> LabelProperty { get; } = new ValueOnlyProperty<string>(string.Empty);
-
-        public string Label
-        {
-            get => LabelProperty.Value;
-            set => LabelProperty.Value = value;
-        }
+        public IProperty<string> Label { get; } = new ValueOnlyProperty<string>(string.Empty);
     }
 }

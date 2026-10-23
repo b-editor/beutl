@@ -37,7 +37,7 @@ public class EditorProjectSessionGatewayTests
         Assert.Multiple(() =>
         {
             Assert.That(TestShell.Project.IsOpened.Value, Is.True);
-            Assert.That(BeutlApplication.Current.Project!.Uri!.LocalPath, Is.EqualTo(projectFile));
+            Assert.That(BeutlApplication.Current.Project.Value!.Uri!.LocalPath, Is.EqualTo(projectFile));
             Assert.That(result.Session.Source, Is.EqualTo(EditingSessionSource.LiveEditor));
             Assert.That(TestShell.Editor.TryGetTabItem(result.Session.Root, out var tab), Is.True);
             var editViewModel = (EditViewModel)tab!.Context.Value;
@@ -62,7 +62,7 @@ public class EditorProjectSessionGatewayTests
         {
             Assert.That(rejection!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             Assert.That(rejection.Error.Message, Does.Contain("single open project"));
-            Assert.That(BeutlApplication.Current.Project!.Uri!.LocalPath, Is.EqualTo(first));
+            Assert.That(BeutlApplication.Current.Project.Value!.Uri!.LocalPath, Is.EqualTo(first));
         });
     }
 
@@ -74,13 +74,13 @@ public class EditorProjectSessionGatewayTests
         EditorProjectSessionGateway gateway = CreateGateway();
         await gateway.OpenProjectAsync(projectFile);
         HeadlessTestHelpers.Settle();
-        Project opened = BeutlApplication.Current.Project!;
+        Project opened = BeutlApplication.Current.Project.Value!;
 
         ProjectSessionResult reattached = await gateway.OpenProjectAsync(projectFile);
 
         Assert.Multiple(() =>
         {
-            Assert.That(BeutlApplication.Current.Project, Is.SameAs(opened));
+            Assert.That(BeutlApplication.Current.Project.Value, Is.SameAs(opened));
             Assert.That(reattached.Session.Source, Is.EqualTo(EditingSessionSource.LiveEditor));
             Assert.That(reattached.Project, Is.SameAs(opened));
         });
@@ -148,11 +148,11 @@ public class EditorProjectSessionGatewayTests
         Assert.Multiple(() =>
         {
             Assert.That(File.Exists(path), Is.True);
-            Assert.That(BeutlApplication.Current.Project!.Uri!.LocalPath, Is.EqualTo(path));
+            Assert.That(BeutlApplication.Current.Project.Value!.Uri!.LocalPath, Is.EqualTo(path));
             Assert.That(result.Session.Source, Is.EqualTo(EditingSessionSource.LiveEditor));
             Scene scene = result.Project.Items.OfType<Scene>().Single();
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(6)));
-            Assert.That(scene.FrameSize.Width, Is.EqualTo(800));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(6)));
+            Assert.That(scene.FrameSize.Value.Width, Is.EqualTo(800));
         });
     }
 
@@ -185,7 +185,7 @@ public class EditorProjectSessionGatewayTests
         EditorProjectSessionGateway gateway = CreateGateway();
         await gateway.OpenProjectAsync(openPath);
         HeadlessTestHelpers.Settle();
-        Project openedProject = BeutlApplication.Current.Project!;
+        Project openedProject = BeutlApplication.Current.Project.Value!;
 
         ReconcileException? rejection = await Assert.CatchAsync<ReconcileException>(async () =>
             await gateway.CreateProjectAsync(new ProjectCreateOptions(
@@ -195,7 +195,7 @@ public class EditorProjectSessionGatewayTests
         {
             Assert.That(rejection!.Error.Code, Is.EqualTo(ErrorCode.ValidationRejected));
             // The open project must not have been replaced on disk or in memory by the create.
-            Assert.That(BeutlApplication.Current.Project, Is.SameAs(openedProject));
+            Assert.That(BeutlApplication.Current.Project.Value, Is.SameAs(openedProject));
         });
     }
 
@@ -246,9 +246,9 @@ public class EditorProjectSessionGatewayTests
         Assert.Multiple(() =>
         {
             Assert.That(rejection, Is.Not.Null);
-            Assert.That(BeutlApplication.Current.Project!.Uri!.LocalPath, Is.EqualTo(secondProject));
+            Assert.That(BeutlApplication.Current.Project.Value!.Uri!.LocalPath, Is.EqualTo(secondProject));
             // The swapped-in project keeps its single original scene; the rejected add left nothing behind.
-            Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+            Assert.That(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
         });
     }
 
@@ -260,7 +260,7 @@ public class EditorProjectSessionGatewayTests
         EditorProjectSessionGateway gateway = CreateGateway();
         ProjectSessionResult opened = await gateway.OpenProjectAsync(projectPath);
         HeadlessTestHelpers.Settle();
-        string[] originalSceneUris = BeutlApplication.Current.Project!.Items.OfType<Scene>()
+        string[] originalSceneUris = BeutlApplication.Current.Project.Value!.Items.OfType<Scene>()
             .Select(s => s.Uri!.LocalPath)
             .ToArray();
 
@@ -276,9 +276,9 @@ public class EditorProjectSessionGatewayTests
         Assert.Multiple(() =>
         {
             Assert.That(failure, Is.Not.Null);
-            Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
+            Assert.That(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Count(), Is.EqualTo(1));
             Assert.That(
-                BeutlApplication.Current.Project!.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath),
+                BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Select(s => s.Uri!.LocalPath),
                 Is.EqualTo(originalSceneUris));
         });
     }
@@ -304,7 +304,7 @@ public class EditorProjectSessionGatewayTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(BeutlApplication.Current.Project!.Items.OfType<Scene>().Count(), Is.EqualTo(2));
+                Assert.That(BeutlApplication.Current.Project.Value!.Items.OfType<Scene>().Count(), Is.EqualTo(2));
                 Assert.That(FilePathComparison.IsSameOrDescendant(outsideDir, added.Scene.Uri!.LocalPath), Is.True);
                 Assert.That(File.Exists(added.Scene.Uri.LocalPath), Is.True);
             });

@@ -79,7 +79,7 @@ public sealed class AiResultImporterTests
         {
             Assert.That(resourcePath, Does.Contain(Path.Combine("resources", "ai")));
             Assert.That(File.Exists(resourcePath), Is.True);
-            Assert.That(elements[0].Name, Is.EqualTo("AI image"));
+            Assert.That(elements[0].Name.Value, Is.EqualTo("AI image"));
             Assert.That(Directory.EnumerateFiles(Path.GetDirectoryName(resourcePath)!, "*.tmp"), Is.Empty);
         });
     }
@@ -220,7 +220,7 @@ public sealed class AiResultImporterTests
                     MediaTime.FromSeconds(4),
                     0,
                     "AI video"));
-            string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
+            string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id.Value);
             Assert.That(File.Exists(adder.StagedPath), Is.True);
 
             await TestShell.Editor.CloseTabItem(tab);
@@ -248,7 +248,7 @@ public sealed class AiResultImporterTests
         scene.Uri = null;
         var adder = new CapturingElementAdder(producedElementCount: 1);
         var importer = new AiResultImporter(scene, adder, AcceptVideoAsync);
-        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
+        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id.Value);
 
         try
         {
@@ -439,7 +439,7 @@ public sealed class AiResultImporterTests
         Scene scene = editor.Scene;
         Uri savedSceneUri = scene.Uri!;
         scene.Uri = null;
-        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
+        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id.Value);
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             scene,
@@ -470,7 +470,7 @@ public sealed class AiResultImporterTests
             {
                 Assert.That(
                     FilePathComparison.IsSameOrDescendant(
-                        UnsavedSceneStorage.GetDirectory(scene.Id),
+                        UnsavedSceneStorage.GetDirectory(scene.Id.Value),
                         unsavedSidecar.LocalPath),
                     Is.True);
                 Assert.That(File.Exists(unsavedSidecar.LocalPath), Is.True);
@@ -547,7 +547,7 @@ public sealed class AiResultImporterTests
         Scene scene = editor.Scene;
         Uri eventualSceneUri = scene.Uri!;
         scene.Uri = null;
-        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
+        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id.Value);
         string failureRoot = Path.Combine(
             BeutlHomeIsolation.CurrentHome!,
             $"blocked-save-{Guid.NewGuid():N}");
@@ -619,7 +619,7 @@ public sealed class AiResultImporterTests
         string resourceDirectory = Path.Combine(sceneDirectory, "resources", "ai");
         byte[] sceneBefore = File.ReadAllBytes(sceneFile);
         scene.Uri = null;
-        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id);
+        string ownedDirectory = UnsavedSceneStorage.GetDirectory(scene.Id.Value);
         using var bitmap = new Bitmap(2, 2);
         var importer = new AiResultImporter(
             scene,

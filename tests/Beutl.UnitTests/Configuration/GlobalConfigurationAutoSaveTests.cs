@@ -52,6 +52,7 @@ public class GlobalConfigurationAutoSaveTests
                 // Lists save through their CollectionChanged handlers.
                 if (property.Name is nameof(CoreObject.Id) or nameof(CoreObject.Name)
                     || s_savedOnExit.Contains(name)
+                    || property is IListProperty
                     || property.ValueType.IsGenericType && property.ValueType.GetGenericTypeDefinition() == typeof(CoreList<>))
                 {
                     continue;
@@ -75,11 +76,11 @@ public class GlobalConfigurationAutoSaveTests
         GlobalConfiguration config = CreateConfiguration();
         config.Restore(path);
 
-        config.GraphicsConfig.SelectedGpuName = "Restart GPU";
+        config.GraphicsConfig.SelectedGpuName.Value = "Restart GPU";
 
         GlobalConfiguration next = CreateConfiguration();
         next.Restore(path);
-        Assert.That(next.GraphicsConfig.SelectedGpuName, Is.EqualTo("Restart GPU"));
+        Assert.That(next.GraphicsConfig.SelectedGpuName.Value, Is.EqualTo("Restart GPU"));
     }
 
     [Test]
@@ -89,11 +90,11 @@ public class GlobalConfigurationAutoSaveTests
         GlobalConfiguration config = CreateConfiguration();
         config.Restore(path);
 
-        config.ProxyStoreConfig.StoreRootPath = Path.Combine(_directory, "proxies");
+        config.ProxyStoreConfig.StoreRootPath.Value = Path.Combine(_directory, "proxies");
 
         GlobalConfiguration next = CreateConfiguration();
         next.Restore(path);
-        Assert.That(next.ProxyStoreConfig.StoreRootPath, Is.EqualTo(Path.Combine(_directory, "proxies")));
+        Assert.That(next.ProxyStoreConfig.StoreRootPath.Value, Is.EqualTo(Path.Combine(_directory, "proxies")));
     }
 
     private static object Different(Type type, object? current)
@@ -163,13 +164,13 @@ public class GlobalConfigurationAutoSaveTests
         GlobalConfiguration first = CreateConfiguration();
         first.Restore(path);
         first.Save(path); // Startup failure recovery can save before the endpoint starts.
-        first.AiAgentConfig.AgentId = "codex"; // Ordinary auto-save must also retain it.
+        first.AiAgentConfig.AgentId.Value = "codex"; // Ordinary auto-save must also retain it.
 
         GlobalConfiguration next = CreateConfiguration();
         next.Restore(path);
-        Assert.That(next.AiAgentConfig.LiveMcpToken, Is.EqualTo("pre-startup-token"));
-        string token = LiveMcpTokenStore.GetOrCreate(_directory, next.AiAgentConfig.LiveMcpToken);
-        next.AiAgentConfig.LiveMcpToken = "";
+        Assert.That(next.AiAgentConfig.LiveMcpToken.Value, Is.EqualTo("pre-startup-token"));
+        string token = LiveMcpTokenStore.GetOrCreate(_directory, next.AiAgentConfig.LiveMcpToken.Value);
+        next.AiAgentConfig.LiveMcpToken.Value = "";
         Assert.That(token, Is.EqualTo("pre-startup-token"));
         Assert.That(File.ReadAllText(path), Does.Not.Contain("pre-startup-token"));
         Assert.That(LiveMcpTokenStore.GetOrCreate(_directory), Is.EqualTo(token));

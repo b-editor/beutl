@@ -98,8 +98,8 @@ public partial class MissingMediaTests
         var first = model.Children[0];
         var retired = model.Children[1];
         model.Children.Move(0, 1);
-        model.Children.Add(new MeshObject3D { Name = "User child", Mesh = { Value = new ModelMesh() } });
-        first.Name = "Keep first edit";
+        model.Children.Add(new MeshObject3D { Name = { Value = "User child" }, Mesh = { Value = new ModelMesh() } });
+        first.Name.Value = "Keep first edit";
         using (editor.HistoryManager.SuppressRecording())
         {
             var element = AddImage(editor.Scene, Path.Combine(directory, "unused.png"));
@@ -111,15 +111,15 @@ public partial class MissingMediaTests
         File.Delete(original);
         editor = await TestShell.ReopenAsync(projectPath);
         model = (Model3D)editor.Scene.Children.Single().Objects.Single();
-        var added = model.Children.Single(child => child.Name == "User child");
+        var added = model.Children.Single(child => child.Name.Value == "User child");
         string addedJson = CoreSerializer.SerializeToJsonObject(added).ToJsonString();
         try
         {
             using var vm = new MissingMediaViewModel(editor);
             await vm.SetReplacementAsync(vm.Rows.Single(), replacement);
             Assert.That(await vm.ApplyAsync(), Is.True, vm.Error.Value);
-            Assert.That(model.Children.Select(child => child.Id), Does.Not.Contain(retired.Id));
-            Assert.That(model.Children.Select(child => child.Id), Does.Contain(first.Id));
+            Assert.That(model.Children.Select(child => child.Id.Value), Does.Not.Contain(retired.Id.Value));
+            Assert.That(model.Children.Select(child => child.Id.Value), Does.Contain(first.Id.Value));
             Assert.That(model.Children, Has.Count.EqualTo(2));
             Assert.That(CoreSerializer.SerializeToJsonObject(added).ToJsonString(), Is.EqualTo(addedJson));
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children.Single().Objects.OfType<Model3D>().Single().Children,
@@ -143,13 +143,13 @@ public partial class MissingMediaTests
             """);
         var source = new ModelSource(); source.ReadFrom(new Uri(path));
         var model = new Model3D { Source = { Value = source } };
-        model.Children[0].Name = "Saved mesh";
+        model.Children[0].Name.Value = "Saved mesh";
         var json = CoreSerializer.SerializeToJsonObject(model);
         File.Delete(buffer);
         var restored = (Model3D)CoreSerializer.DeserializeFromJsonObject(json, typeof(Model3D))!;
         Assert.That(restored.Source.Value!.Uri, Is.EqualTo(new Uri(path)));
         Assert.That(restored.Source.Value.MeshCount, Is.Zero);
-        Assert.That(restored.Children.Single().Name, Is.EqualTo("Saved mesh"));
+        Assert.That(restored.Children.Single().Name.Value, Is.EqualTo("Saved mesh"));
     }
 
     [AvaloniaTest]

@@ -30,7 +30,7 @@ public sealed class MediaTimeMediaPositionTests
         var video = new SourceVideo
         {
             Source = { Value = source },
-            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromFrames(300, rate)),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromFrames(300, rate)) },
         };
         using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
 

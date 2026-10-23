@@ -622,9 +622,9 @@ public class PackageManagerExtensionLifecycleTests
             cancellationToken.ThrowIfCancellationRequested();
             var element = new Element
             {
-                Start = context.Description.Start,
-                Length = MediaTime.FromSeconds(3),
-                ZIndex = context.Description.Layer,
+                Start = { Value = context.Description.Start },
+                Length = { Value = MediaTime.FromSeconds(3) },
+                ZIndex = { Value = context.Description.Layer },
             };
             element.AddObject(new MaterializedPackageObject());
             return ValueTask.FromResult(ElementSourceMaterializationResult.Materialized(

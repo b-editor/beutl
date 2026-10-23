@@ -21,57 +21,57 @@ public partial class PropertyConversionGoldenTests
         {
             ["View"] = CoreSerializer.SerializeToJsonObject(new ViewConfig
             {
-                UICulture = CultureInfo.GetCultureInfo("ja-JP"),
-                WindowPosition = (10, 20),
-                WindowSize = (800, 600),
-                IsWindowMaximized = true,
-                UseCustomAccentColor = true,
-                CustomAccentColor = "#FF112233",
-                ShowExactBoundaries = true,
-                RecentFiles = ["/golden/a.belm"],
-                RecentProjects = ["/golden/p.bproj"],
-                PinnedToolTabs = ["Golden.Tab"],
-                LastOpenedProjectFile = "/golden/p.bproj",
+                UICulture = { Value = CultureInfo.GetCultureInfo("ja-JP") },
+                WindowPosition = { Value = (10, 20) },
+                WindowSize = { Value = (800, 600) },
+                IsWindowMaximized = { Value = true },
+                UseCustomAccentColor = { Value = true },
+                CustomAccentColor = { Value = "#FF112233" },
+                ShowExactBoundaries = { Value = true },
+                RecentFiles = { "/golden/a.belm" },
+                RecentProjects = { "/golden/p.bproj" },
+                PinnedToolTabs = { "Golden.Tab" },
+                LastOpenedProjectFile = { Value = "/golden/p.bproj" },
             }),
             ["Telemetry"] = CoreSerializer.SerializeToJsonObject(new TelemetryConfig
             {
-                Beutl_Logging = true,
-                Beutl_Application = false,
+                Beutl_Logging = { Value = true },
+                Beutl_Application = { Value = false },
             }),
             ["Editor"] = CoreSerializer.SerializeToJsonObject(new EditorConfig
             {
-                LastMediaDirectory = "/golden/media",
-                AutoAdjustSceneDuration = false,
-                FrameCacheMaxSize = 512,
-                FrameCacheScale = FrameCacheConfigScale.Original,
-                TimelineAutoScrollMode = TimelineAutoScrollMode.AlwaysFollow,
-                ToneMappingMode = UIToneMappingOperator.ACES,
-                ToneMappingExposure = 0.5f,
-                OnionSkinPrevCount = 2,
-                OnionSkinPrevOpacity = 0.25f,
-                PreviewSourceMode = PreviewSourceMode.ForceOriginal,
+                LastMediaDirectory = { Value = "/golden/media" },
+                AutoAdjustSceneDuration = { Value = false },
+                FrameCacheMaxSize = { Value = 512 },
+                FrameCacheScale = { Value = FrameCacheConfigScale.Original },
+                TimelineAutoScrollMode = { Value = TimelineAutoScrollMode.AlwaysFollow },
+                ToneMappingMode = { Value = UIToneMappingOperator.ACES },
+                ToneMappingExposure = { Value = 0.5f },
+                OnionSkinPrevCount = { Value = 2 },
+                OnionSkinPrevOpacity = { Value = 0.25f },
+                PreviewSourceMode = { Value = PreviewSourceMode.ForceOriginal },
             }),
-            ["Graphics"] = CoreSerializer.SerializeToJsonObject(new GraphicsConfig { SelectedGpuName = "Golden GPU" }),
-            ["Tutorial"] = CoreSerializer.SerializeToJsonObject(new TutorialConfig { CompletedTutorialIds = ["golden"] }),
+            ["Graphics"] = CoreSerializer.SerializeToJsonObject(new GraphicsConfig { SelectedGpuName = { Value = "Golden GPU" } }),
+            ["Tutorial"] = CoreSerializer.SerializeToJsonObject(new TutorialConfig { CompletedTutorialIds = { Value = ["golden"] } }),
             ["AiAgent"] = CoreSerializer.SerializeToJsonObject(new AiAgentConfig
             {
-                AgentId = "golden",
-                InstallScope = "user",
-                ProjectRoot = "/golden",
-                InstallSubagents = false,
-                FollowLiveMcpEdits = true,
+                AgentId = { Value = "golden" },
+                InstallScope = { Value = "user" },
+                ProjectRoot = { Value = "/golden" },
+                InstallSubagents = { Value = false },
+                FollowLiveMcpEdits = { Value = true },
             }),
             ["ProxyStore"] = CoreSerializer.SerializeToJsonObject(new ProxyStoreConfig
             {
-                StoreRootPath = "/golden/proxies",
-                MaxTotalBytes = 1024,
-                DefaultPreset = 1,
+                StoreRootPath = { Value = "/golden/proxies" },
+                MaxTotalBytes = { Value = 1024 },
+                DefaultPreset = { Value = 1 },
             }),
             ["VersionControl"] = CoreSerializer.SerializeToJsonObject(new VersionControlConfig
             {
-                EnableForNewProjects = false,
-                GitExecutablePath = "/golden/git",
-                LargeMediaWarningThresholdMb = 10,
+                EnableForNewProjects = { Value = false },
+                GitExecutablePath = { Value = "/golden/git" },
+                LargeMediaWarningThresholdMb = { Value = 10 },
             }),
         };
 
@@ -96,9 +96,9 @@ public partial class PropertyConversionGoldenTests
 
             Assert.Multiple(() =>
             {
-                Assert.That(config.ViewConfig.UICulture, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
-                Assert.That(config.ViewConfig.ShowExactBoundaries, Is.True);
-                Assert.That(config.TelemetryConfig.Beutl_Logging, Is.True);
+                Assert.That(config.ViewConfig.UICulture.Value, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
+                Assert.That(config.ViewConfig.ShowExactBoundaries.Value, Is.True);
+                Assert.That(config.TelemetryConfig.Beutl_Logging.Value, Is.True);
             });
         }
         finally
@@ -112,34 +112,34 @@ public partial class PropertyConversionGoldenTests
     {
         var video = new FFmpegVideoEncoderSettings
         {
-            SourceSize = new PixelSize(1920, 1080),
-            DestinationSize = new PixelSize(1280, 720),
-            FrameRate = new Rational(24, 1),
-            Bitrate = 8_000_000,
-            KeyframeRate = 48,
-            ColorPrimaries = FFColorPrimaries.BT709,
-            ColorRange = FFColorRange.MPEG,
+            SourceSize = { Value = new PixelSize(1920, 1080) },
+            DestinationSize = { Value = new PixelSize(1280, 720) },
+            FrameRate = { Value = new Rational(24, 1) },
+            Bitrate = { Value = 8_000_000 },
+            KeyframeRate = { Value = 48 },
+            ColorPrimaries = { Value = FFColorPrimaries.BT709 },
+            ColorRange = { Value = FFColorRange.MPEG },
         };
-        video.Options.Add(new AdditionalOption("tune", "film"));
+        video.Options.Value.Add(new AdditionalOption("tune", "film"));
         var json = new JsonObject
         {
             ["Video"] = CoreSerializer.SerializeToJsonObject(video),
             ["Audio"] = CoreSerializer.SerializeToJsonObject(new FFmpegAudioEncoderSettings
             {
-                SampleRate = 48000,
-                Channels = 1,
-                Bitrate = 192_000,
+                SampleRate = { Value = 48000 },
+                Channels = { Value = 1 },
+                Bitrate = { Value = 192_000 },
             }),
             ["Encoding"] = CoreSerializer.SerializeToJsonObject(new FFmpegEncodingSettings
             {
-                ThreadCount = 4,
-                Acceleration = FFmpegEncodingSettings.AccelerationOptions.Auto,
+                ThreadCount = { Value = 4 },
+                Acceleration = { Value = FFmpegEncodingSettings.AccelerationOptions.Auto },
             }),
             ["Decoding"] = CoreSerializer.SerializeToJsonObject(new FFmpegDecodingSettings
             {
-                ThreadCount = 2,
-                Acceleration = FFmpegDecodingSettings.AccelerationOptions.Auto,
-                ForceSrgbGamma = false,
+                ThreadCount = { Value = 2 },
+                Acceleration = { Value = FFmpegDecodingSettings.AccelerationOptions.Auto },
+                ForceSrgbGamma = { Value = false },
             }),
         };
 

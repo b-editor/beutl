@@ -132,20 +132,20 @@ public class GraphEditorRulerBarTests
         Scene scene = graph.Model.Scene;
         TimelineScale horizontal = graph.View.FindControl<TimelineScale>("scale")!;
         MediaTime frame = MediaTime.FromSeconds(1d / 30);
-        scene.Start = MediaTime.Zero;
-        scene.Duration = MediaTime.FromSeconds(2);
+        scene.Start.Value = MediaTime.Zero;
+        scene.Duration.Value = MediaTime.FromSeconds(2);
         HeadlessTestHelpers.Render();
 
         // The ending bar sits at 300 px (2 s at 150 px per second); drop it onto the start.
         graph.Drag(OnRuler(298), OnRuler(0));
-        Assert.That(scene.Duration, Is.EqualTo(frame));
+        Assert.That(scene.Duration.Value, Is.EqualTo(frame));
 
-        scene.Duration = MediaTime.FromSeconds(2);
+        scene.Duration.Value = MediaTime.FromSeconds(2);
         HeadlessTestHelpers.Render();
         // Drop the starting bar onto the end.
         graph.Drag(OnRuler(2), OnRuler(300));
-        Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(2) - frame));
-        Assert.That(scene.Duration, Is.EqualTo(frame));
+        Assert.That(scene.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2) - frame));
+        Assert.That(scene.Duration.Value, Is.EqualTo(frame));
 
         Point OnRuler(double x) => horizontal.TranslatePoint(new Point(x, 8), graph.Window)!.Value;
     }
@@ -159,8 +159,8 @@ public class GraphEditorRulerBarTests
         Scene scene = graph.Model.Scene;
         HistoryManager history = graph.Model.EditorContext.GetRequiredService<HistoryManager>();
         TimelineScale horizontal = graph.View.FindControl<TimelineScale>("scale")!;
-        scene.Start = MediaTime.Zero;
-        scene.Duration = MediaTime.FromSeconds(2);
+        scene.Start.Value = MediaTime.Zero;
+        scene.Duration.Value = MediaTime.FromSeconds(2);
         history.Commit();
         HeadlessTestHelpers.Render();
         int undoCount = history.UndoCount;
@@ -174,7 +174,7 @@ public class GraphEditorRulerBarTests
         graph.Window.MouseDown(OnRuler(298), MouseButton.Left);
         graph.Window.MouseMove(OnRuler(270), RawInputModifiers.LeftMouseButton);
         HeadlessTestHelpers.Render();
-        Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.8)));
+        Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1.8)));
 
         if (escape)
         {
@@ -194,7 +194,7 @@ public class GraphEditorRulerBarTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(escape ? 2 : 1.8)));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(escape ? 2 : 1.8)));
             Assert.That(history.UndoCount, Is.EqualTo(undoCount + (escape ? 0 : 1)));
             Assert.That(history.IsEditing, Is.False);
         });
@@ -232,7 +232,7 @@ public class GraphEditorRulerBarTests
             graph = model.SelectedAnimation.Value!;
             graph.Options.Value = graph.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
             graph.ScrollOffset.Value = new Vector(0, 60);
-            scene.Duration = MediaTime.FromSeconds(2);
+            scene.Duration.Value = MediaTime.FromSeconds(2);
             HeadlessTestHelpers.Render();
             Assert.That(graphView.IsEffectivelyVisible, Is.True);
 
@@ -250,23 +250,23 @@ public class GraphEditorRulerBarTests
             Assert.That(graph.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.6)));
 
             scope.Drag(horizontal.TranslatePoint(new Point(298, 8), window)!.Value, horizontal.TranslatePoint(new Point(270, 8), window)!.Value);
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.8)));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1.8)));
             scope.Drag(horizontal.TranslatePoint(new Point(2, 8), window)!.Value, horizontal.TranslatePoint(new Point(30, 8), window)!.Value);
-            Assert.That(scene.Start, Is.EqualTo(MediaTime.FromSeconds(0.2)));
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1.6)));
+            Assert.That(scene.Start.Value, Is.EqualTo(MediaTime.FromSeconds(0.2)));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1.6)));
 
             // Grab the actual keyframe at the intersection of its time and value coordinates.
             Point keyframe = canvas.TranslatePoint(new Point(
-                (first.KeyTime + element.Start).TimeToPixel(graph.Options.Value.Scale),
-                graph.Baseline.Value - first.Value * graph.ScaleY.Value), window)!.Value;
+                (first.KeyTime.Value + element.Start.Value).TimeToPixel(graph.Options.Value.Scale),
+                graph.Baseline.Value - first.Value.Value * graph.ScaleY.Value), window)!.Value;
             window.MouseMove(keyframe);
             window.MouseDown(keyframe, MouseButton.Left);
             Assert.That(graphView.KeyTimeMoveState, Is.Not.Null);
             window.MouseMove(keyframe + new Vector(30, -20), RawInputModifiers.LeftMouseButton);
             window.MouseUp(keyframe + new Vector(30, -20), MouseButton.Left);
             HeadlessTestHelpers.Render();
-            Assert.That(first.KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.7)));
-            Assert.That(first.Value, Is.EqualTo(140).Within(0.001));
+            Assert.That(first.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.7)));
+            Assert.That(first.Value.Value, Is.EqualTo(140).Within(0.001));
             CheckAlignment();
 
             graph.ScrollOffset.Value = new Vector(75, 60);

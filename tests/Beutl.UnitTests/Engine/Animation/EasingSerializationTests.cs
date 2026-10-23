@@ -22,13 +22,7 @@ public class EasingSerializationTests
             ScanProperties<EasingHolder>();
         }
 
-        public IProperty<Easing> EasingProperty { get; } = new ValueOnlyProperty<Easing>(new LinearEasing());
-
-        public Easing Easing
-        {
-            get => EasingProperty.Value;
-            set => EasingProperty.Value = value;
-        }
+        public IProperty<Easing> Easing { get; } = new ValueOnlyProperty<Easing>(new LinearEasing());
     }
 
     private static IEnumerable<Type> BuiltInEasingTypes => typeof(Easing).Assembly.GetTypes()
@@ -170,13 +164,13 @@ public class EasingSerializationTests
     [Test]
     public void CoreSerializer_EasingPropertyRoundTrip_PreservesCustomEasingState()
     {
-        var source = new EasingHolder { Easing = new StatefulEasing { Scale = 2.5f } };
+        var source = new EasingHolder { Easing = { Value = new StatefulEasing { Scale = 2.5f } } };
 
         JsonObject json = CoreSerializer.SerializeToJsonObject(source);
         var restored = (EasingHolder)CoreSerializer.DeserializeFromJsonObject(json, typeof(EasingHolder));
 
-        Assert.That(restored.Easing, Is.TypeOf<StatefulEasing>());
-        Assert.That(((StatefulEasing)restored.Easing).Scale, Is.EqualTo(2.5f));
+        Assert.That(restored.Easing.Value, Is.TypeOf<StatefulEasing>());
+        Assert.That(((StatefulEasing)restored.Easing.Value).Scale, Is.EqualTo(2.5f));
     }
 
     [Test]

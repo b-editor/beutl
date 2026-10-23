@@ -193,8 +193,8 @@ public sealed class ColorPickerDragTests
     {
         var brush = new SolidColorBrush(Colors.Red);
         var animation = new KeyFrameAnimation<Color>();
-        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = MediaTime.Zero, Value = Colors.Blue });
-        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = MediaTime.FromSeconds(1), Value = Colors.Lime });
+        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = Colors.Blue } });
+        animation.KeyFrames.Add(new KeyFrame<Color> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = Colors.Lime } });
         brush.Color.SetKeyFrameAnimation(animation);
         var shape = new RectShape { Fill = { Value = brush } };
         using var history = new HistoryScope(shape);

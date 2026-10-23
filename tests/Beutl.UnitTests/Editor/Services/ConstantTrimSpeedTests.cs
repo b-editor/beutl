@@ -64,8 +64,8 @@ public class ConstantTrimSpeedTests(string mediaKind)
         {
             Assert.That(applied, Is.True);
             Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(expectedOffset)));
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(History.UndoCount, Is.EqualTo(before + 1));
         });
         History.Undo();
@@ -152,14 +152,14 @@ public class ConstantTrimSpeedTests(string mediaKind)
         {
             Assert.That(applied, Is.True);
             Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(expectedOffset)));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(4 + delta)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + delta)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2 - delta)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(4 + delta)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + delta)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2 - delta)));
             Assert.That(History.UndoCount, Is.EqualTo(before + 1));
             if (middle != null)
             {
-                Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(4 + delta)));
-                Assert.That(middle.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+                Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4 + delta)));
+                Assert.That(middle.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
                 Assert.That(middleOffset!.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             }
         });
@@ -167,13 +167,13 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Assert.Multiple(() =>
         {
             Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
         History.Redo();
         Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(expectedOffset)));
-        Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + delta)));
+        Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + delta)));
     }
 
     [TestCase(false, 50f, 10)]
@@ -200,11 +200,11 @@ public class ConstantTrimSpeedTests(string mediaKind)
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(expectedLength)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(expectedLength)));
             Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(fastBack.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds((expectedLength - 2) * 2)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + expectedLength - 2)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(22 - expectedLength)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + expectedLength - 2)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(22 - expectedLength)));
         });
     }
 
@@ -231,9 +231,9 @@ public class ConstantTrimSpeedTests(string mediaKind)
         {
             Assert.That(applied, Is.True);
             Assert.That(offset.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(4 + expectedDelta)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + expectedDelta)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2 - expectedDelta)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(4 + expectedDelta)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + expectedDelta)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2 - expectedDelta)));
         });
     }
 
@@ -315,7 +315,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
     public void RollOrSlide_VaryingSpeedAnimation_UsesThePlaybackIntegral(
         bool slide, bool animateFront, bool clampToSource)
     {
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = clampToSource;
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = clampToSource;
         Element front = AddElement(0, 2);
         Element? middle = slide ? AddElement(2, 2) : null;
         double backStart = slide ? 4 : 2;
@@ -337,12 +337,12 @@ public class ConstantTrimSpeedTests(string mediaKind)
             Assert.That(bounds.Max, Is.GreaterThanOrEqualTo(MediaTime.FromSeconds(1)));
             Assert.That(applied, Is.True);
             Assert.That(offset.Value.ToSeconds(), Is.EqualTo(expected).Within(0.00001));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + 1)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + 1)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(History.UndoCount, Is.EqualTo(before + 1));
             if (middle != null)
-                Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+                Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -360,14 +360,14 @@ public class ConstantTrimSpeedTests(string mediaKind)
 
         Assert.That(applied, Is.True);
         Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
-        Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + 1)));
+        Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + 1)));
     }
 
     private static KeyFrameAnimation<float> AnimateSpeed(float first, float last)
     {
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = first });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(2), Value = last });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = first } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = last } });
         return animation;
     }
 
@@ -409,7 +409,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
 
         Assert.That(applied, Is.True);
         Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-        Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + 1)));
+        Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + 1)));
     }
 
     [TestCase("Slip", false)]
@@ -441,9 +441,9 @@ public class ConstantTrimSpeedTests(string mediaKind)
         {
             Assert.That(applied, Is.True);
             Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(mediaKind == nameof(SourceVideo) ? 1.5 : 2)));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2 + geometryDelta)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + geometryDelta)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2 - geometryDelta)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2 + geometryDelta)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + geometryDelta)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2 - geometryDelta)));
         });
     }
 
@@ -463,7 +463,7 @@ public class ConstantTrimSpeedTests(string mediaKind)
         var controller = new DrawableTimeController
         {
             Speed = { Value = 50 },
-            IsEnabled = frozen
+            IsEnabled = { Value = frozen }
         };
         back.Objects.Add(controller);
         var linked = new SourceSound();
@@ -487,9 +487,9 @@ public class ConstantTrimSpeedTests(string mediaKind)
             Assert.That(applied, Is.True);
             Assert.That(offset.Value, Is.EqualTo(MediaTime.FromSeconds(frozen ? 0 : 2)));
             Assert.That(linked.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2 + geometryDelta)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(backStart + geometryDelta)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2 - geometryDelta)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2 + geometryDelta)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(backStart + geometryDelta)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2 - geometryDelta)));
             Assert.That(History.UndoCount, Is.EqualTo(before + 1));
         });
     }

@@ -19,8 +19,8 @@ public class SceneTimeRangeServiceTests
     {
         _scene = new Scene(100, 100, string.Empty)
         {
-            Start = MediaTime.FromSeconds(1),
-            Duration = MediaTime.FromSeconds(5),
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Duration = { Value = MediaTime.FromSeconds(5) },
         };
         _harness = new HistoryHarness(_scene);
         _history = _harness.History;
@@ -44,20 +44,20 @@ public class SceneTimeRangeServiceTests
     {
         _service.SetStart(_scene, MediaTime.FromSeconds(-3));
 
-        Assert.That(_scene.Start, Is.EqualTo(MediaTime.Zero));
+        Assert.That(_scene.Start.Value, Is.EqualTo(MediaTime.Zero));
     }
 
     [Test]
     public void SetStart_KeepsSceneEnd_WhenInsideRange()
     {
-        MediaTime originalEnd = _scene.Start + _scene.Duration;
+        MediaTime originalEnd = _scene.Start.Value + _scene.Duration.Value;
 
         _service.SetStart(_scene, MediaTime.FromSeconds(2));
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(_scene.Start + _scene.Duration, Is.EqualTo(originalEnd));
+            Assert.That(_scene.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(_scene.Start.Value + _scene.Duration.Value, Is.EqualTo(originalEnd));
         });
     }
 
@@ -77,7 +77,7 @@ public class SceneTimeRangeServiceTests
         // Scene Start=1s, Duration=5s => End=6s. Setting End to 0.5s should pull start back.
         _service.SetEnd(_scene, MediaTime.FromSeconds(0.5));
 
-        Assert.That(_scene.Start, Is.LessThan(MediaTime.FromSeconds(1)));
+        Assert.That(_scene.Start.Value, Is.LessThan(MediaTime.FromSeconds(1)));
     }
 
     [Test]
@@ -85,7 +85,7 @@ public class SceneTimeRangeServiceTests
     {
         _service.SetEnd(_scene, MediaTime.FromSeconds(10));
 
-        Assert.That(_scene.Duration, Is.EqualTo(MediaTime.FromSeconds(9)));
+        Assert.That(_scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(9)));
     }
 
     [Test]
@@ -123,7 +123,7 @@ public class SceneTimeRangeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Duration, Is.EqualTo(MediaTime.FromSeconds(9)));
+            Assert.That(_scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(9)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -131,8 +131,8 @@ public class SceneTimeRangeServiceTests
     [Test]
     public void UpdateStartDrag_PreservesInitialSceneEnd_AcrossPointerFrames()
     {
-        MediaTime initialStart = _scene.Start;
-        MediaTime initialDuration = _scene.Duration;
+        MediaTime initialStart = _scene.Start.Value;
+        MediaTime initialDuration = _scene.Duration.Value;
         MediaTime initialEnd = initialStart + initialDuration;
 
         _service.UpdateStartDrag(_scene, MediaTime.FromSeconds(2), initialStart, initialDuration);
@@ -140,17 +140,17 @@ public class SceneTimeRangeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(_scene.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             // End must stay pinned: without this, each drag frame compounds the previous one.
-            Assert.That(_scene.Start + _scene.Duration, Is.EqualTo(initialEnd));
+            Assert.That(_scene.Start.Value + _scene.Duration.Value, Is.EqualTo(initialEnd));
         });
     }
 
     [Test]
     public void UpdateStartDrag_InACancelledEditSession_RestoresInitialValues()
     {
-        MediaTime initialStart = _scene.Start;
-        MediaTime initialDuration = _scene.Duration;
+        MediaTime initialStart = _scene.Start.Value;
+        MediaTime initialDuration = _scene.Duration.Value;
         int before = _history.UndoCount;
 
         EditSession session = _history.BeginEdit(CommandNames.ChangeSceneStart);
@@ -162,8 +162,8 @@ public class SceneTimeRangeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Start, Is.EqualTo(initialStart));
-            Assert.That(_scene.Duration, Is.EqualTo(initialDuration));
+            Assert.That(_scene.Start.Value, Is.EqualTo(initialStart));
+            Assert.That(_scene.Duration.Value, Is.EqualTo(initialDuration));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -172,15 +172,15 @@ public class SceneTimeRangeServiceTests
     public void UpdateEndDrag_PointerBeforeStart_KeepsStartPinned()
     {
         // Moving the end before the start keeps the start and rounds the duration up to one frame.
-        MediaTime initialStart = _scene.Start;
+        MediaTime initialStart = _scene.Start.Value;
 
         _service.UpdateEndDrag(_scene, MediaTime.Zero);
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Start, Is.EqualTo(initialStart));
+            Assert.That(_scene.Start.Value, Is.EqualTo(initialStart));
             // duration clamped to one frame (default rate = 30 fps)
-            Assert.That(_scene.Duration, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
+            Assert.That(_scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
         });
     }
 
@@ -188,8 +188,8 @@ public class SceneTimeRangeServiceTests
     public void UpdateStartDrag_PointerAfterInitialEnd_ClampsToOneFrameBeforeEnd()
     {
         // Moving the start past the end does not extend the end; the start stops one frame before it.
-        MediaTime initialStart = _scene.Start;
-        MediaTime initialDuration = _scene.Duration;
+        MediaTime initialStart = _scene.Start.Value;
+        MediaTime initialDuration = _scene.Duration.Value;
         MediaTime initialEnd = initialStart + initialDuration;
         MediaTime frame = MediaTime.FromSeconds(1d / 30);
 
@@ -197,8 +197,8 @@ public class SceneTimeRangeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(_scene.Start, Is.EqualTo(initialEnd - frame));
-            Assert.That(_scene.Start + _scene.Duration, Is.EqualTo(initialEnd));
+            Assert.That(_scene.Start.Value, Is.EqualTo(initialEnd - frame));
+            Assert.That(_scene.Start.Value + _scene.Duration.Value, Is.EqualTo(initialEnd));
         });
     }
 }

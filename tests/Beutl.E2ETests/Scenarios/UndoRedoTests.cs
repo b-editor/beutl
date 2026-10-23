@@ -31,10 +31,10 @@ public class UndoRedoTests
         var move = new ElementMoveService(_history, new ElementDuplicateService(_history));
         Element element = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
 
-        bool originalEnabled = element.IsEnabled;
-        Color originalColor = element.AccentColor;
-        MediaTime originalStart = element.Start;
-        int originalZ = element.ZIndex;
+        bool originalEnabled = element.IsEnabled.Value;
+        Color originalColor = element.AccentColor.Value;
+        MediaTime originalStart = element.Start.Value;
+        int originalZ = element.ZIndex.Value;
 
         var newColor = Color.FromArgb(255, 11, 22, 33);
         attributes.SetEnabled(element, false);
@@ -46,27 +46,27 @@ public class UndoRedoTests
             Assert.That(_history.UndoCount, Is.EqualTo(3));
             Assert.That(_history.CanUndo, Is.True);
             Assert.That(_history.CanRedo, Is.False);
-            Assert.That(element.IsEnabled, Is.False);
-            Assert.That(element.AccentColor, Is.EqualTo(newColor));
-            Assert.That(element.Start, Is.EqualTo(originalStart + MediaTime.FromSeconds(3)));
-            Assert.That(element.ZIndex, Is.EqualTo(2));
+            Assert.That(element.IsEnabled.Value, Is.False);
+            Assert.That(element.AccentColor.Value, Is.EqualTo(newColor));
+            Assert.That(element.Start.Value, Is.EqualTo(originalStart + MediaTime.FromSeconds(3)));
+            Assert.That(element.ZIndex.Value, Is.EqualTo(2));
         });
 
         Assert.That(_history.Undo(), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(originalStart));
-            Assert.That(element.ZIndex, Is.EqualTo(originalZ));
-            Assert.That(element.AccentColor, Is.EqualTo(newColor));
+            Assert.That(element.Start.Value, Is.EqualTo(originalStart));
+            Assert.That(element.ZIndex.Value, Is.EqualTo(originalZ));
+            Assert.That(element.AccentColor.Value, Is.EqualTo(newColor));
         });
 
         Assert.That(_history.Undo(), Is.True);
-        Assert.That(element.AccentColor, Is.EqualTo(originalColor));
+        Assert.That(element.AccentColor.Value, Is.EqualTo(originalColor));
 
         Assert.That(_history.Undo(), Is.True);
         Assert.Multiple(() =>
         {
-            Assert.That(element.IsEnabled, Is.EqualTo(originalEnabled));
+            Assert.That(element.IsEnabled.Value, Is.EqualTo(originalEnabled));
             Assert.That(_history.UndoCount, Is.EqualTo(0));
             Assert.That(_history.CanUndo, Is.False);
             Assert.That(_history.RedoCount, Is.EqualTo(3));
@@ -75,15 +75,15 @@ public class UndoRedoTests
         Assert.That(_history.Undo(), Is.False);
 
         Assert.That(_history.Redo(), Is.True);
-        Assert.That(element.IsEnabled, Is.False);
+        Assert.That(element.IsEnabled.Value, Is.False);
         Assert.That(_history.Redo(), Is.True);
-        Assert.That(element.AccentColor, Is.EqualTo(newColor));
+        Assert.That(element.AccentColor.Value, Is.EqualTo(newColor));
         Assert.That(_history.Redo(), Is.True);
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(originalStart + MediaTime.FromSeconds(3)));
-            Assert.That(element.ZIndex, Is.EqualTo(2));
+            Assert.That(element.Start.Value, Is.EqualTo(originalStart + MediaTime.FromSeconds(3)));
+            Assert.That(element.ZIndex.Value, Is.EqualTo(2));
             Assert.That(_history.UndoCount, Is.EqualTo(3));
             Assert.That(_history.CanRedo, Is.False);
             Assert.That(_history.Redo(), Is.False);
@@ -110,7 +110,7 @@ public class UndoRedoTests
             Assert.That(_history.CanRedo, Is.False);
             Assert.That(_history.RedoCount, Is.EqualTo(0));
             Assert.That(_history.UndoCount, Is.EqualTo(2));
-            Assert.That(element.AccentColor, Is.EqualTo(Color.FromArgb(255, 9, 9, 9)));
+            Assert.That(element.AccentColor.Value, Is.EqualTo(Color.FromArgb(255, 9, 9, 9)));
         });
     }
 
@@ -120,10 +120,10 @@ public class UndoRedoTests
         var attributes = new ElementAttributeService(_history);
         var resize = new ElementResizeService(_history);
         Element element = _harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), 0);
-        MediaTime originalLength = element.Length;
+        MediaTime originalLength = element.Length.Value;
 
         attributes.SetEnabled(element, false);
-        resize.Resize(_scene, [new ElementResizeRequest(element, element.Start, MediaTime.FromSeconds(5), element.ZIndex)]);
+        resize.Resize(_scene, [new ElementResizeRequest(element, element.Start.Value, MediaTime.FromSeconds(5), element.ZIndex.Value)]);
         attributes.SetAccentColor(element, Color.FromArgb(255, 7, 7, 7));
 
         // Commits push entries onto the initial one, so there are 4 entries (index 0 = initial)
@@ -135,23 +135,23 @@ public class UndoRedoTests
         Assert.Multiple(() =>
         {
             Assert.That(_history.CurrentIndex, Is.EqualTo(0));
-            Assert.That(element.IsEnabled, Is.True);
-            Assert.That(element.Length, Is.EqualTo(originalLength));
+            Assert.That(element.IsEnabled.Value, Is.True);
+            Assert.That(element.Length.Value, Is.EqualTo(originalLength));
         });
 
         Assert.That(_history.JumpTo(2), Is.True);
         Assert.Multiple(() =>
         {
             Assert.That(_history.CurrentIndex, Is.EqualTo(2));
-            Assert.That(element.IsEnabled, Is.False);
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(element.IsEnabled.Value, Is.False);
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
 
         Assert.That(_history.JumpTo(3), Is.True);
         Assert.Multiple(() =>
         {
             Assert.That(_history.CurrentIndex, Is.EqualTo(3));
-            Assert.That(element.AccentColor, Is.EqualTo(Color.FromArgb(255, 7, 7, 7)));
+            Assert.That(element.AccentColor.Value, Is.EqualTo(Color.FromArgb(255, 7, 7, 7)));
         });
 
         Assert.That(_history.JumpTo(_history.CurrentIndex), Is.False);

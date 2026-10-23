@@ -169,8 +169,8 @@ public class TimelineTabViewModelTests
         harness.AddElement(1);
         harness.AddElement(2);
         TimelineLayer named = harness.AddLayer(0);
-        named.Name = "Named";
-        named.IsAudioMuted = true;
+        named.Name.Value = "Named";
+        named.IsAudioMuted.Value = true;
         harness.History.Commit("Setup");
         using TimelineTabViewModel viewModel = CreateViewModel(harness.Scene, new LayerMoveService(harness.History));
 
@@ -204,7 +204,7 @@ public class TimelineTabViewModelTests
 
             foreach (ElementViewModel element in viewModel.Elements)
             {
-                int row = element.Model.ZIndex;
+                int row = element.Model.ZIndex.Value;
                 Assert.That(element.LayerHeader.Value, Is.SameAs(viewModel.LayerHeaders[row]),
                     $"the header of the clip on row {row}");
             }

@@ -25,9 +25,9 @@ public class ElementObjectServiceTests
 
         _element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = 0,
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = 0 },
             Uri = new Uri(Path.Combine(_basePath, $"{Guid.NewGuid():N}.belm")),
         };
         _harness = new HistoryHarness(_element);
@@ -406,7 +406,7 @@ public class ElementObjectServiceTests
             Assert.That(toggledMissing, Is.True);
             Assert.That(CoreSerializer.SerializeToJsonObject(missing)[nameof(EngineObject.IsEnabled)]!.GetValue<bool>(), Is.False);
             Assert.That(toggledUnread, Is.False);
-            Assert.That(unread.IsEnabled, Is.True);
+            Assert.That(unread.IsEnabled.Value, Is.True);
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -414,7 +414,7 @@ public class ElementObjectServiceTests
     [Test]
     public void SetEnabled_NoChange_NoCommit()
     {
-        var obj = new TestEngineObject { IsEnabled = true };
+        var obj = new TestEngineObject { IsEnabled = { Value = true } };
         _service.Add(_element, obj);
         int before = _history.UndoCount;
 
@@ -430,7 +430,7 @@ public class ElementObjectServiceTests
     [Test]
     public void SetEnabled_DifferentValue_CommitsOnce()
     {
-        var obj = new TestEngineObject { IsEnabled = true };
+        var obj = new TestEngineObject { IsEnabled = { Value = true } };
         _service.Add(_element, obj);
         int before = _history.UndoCount;
 
@@ -439,7 +439,7 @@ public class ElementObjectServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(changed, Is.True);
-            Assert.That(obj.IsEnabled, Is.False);
+            Assert.That(obj.IsEnabled.Value, Is.False);
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -454,9 +454,9 @@ public class ElementObjectServiceTests
         _service.Add(_element, second);
         var scene = new Scene();
         scene.Children.Add(_element);
-        var layer = new TimelineLayer { ZIndex = _element.ZIndex, IsLocked = lockLayer };
+        var layer = new TimelineLayer { ZIndex = { Value = _element.ZIndex.Value }, IsLocked = { Value = lockLayer } };
         scene.Layers.Add(layer);
-        _element.IsLocked = !lockLayer;
+        _element.IsLocked.Value = !lockLayer;
         int before = _history.UndoCount;
         string json = CoreSerializer.SerializeToJsonObject(new TestEngineObject()).ToJsonString();
 
@@ -471,16 +471,16 @@ public class ElementObjectServiceTests
         {
             Assert.That(scene.IsElementLocked(_element), Is.True);
             Assert.That(_element.Objects, Is.EqualTo(new[] { first, second }));
-            Assert.That(first.IsEnabled, Is.True);
+            Assert.That(first.IsEnabled.Value, Is.True);
             Assert.That(removed || moved || toggled, Is.False);
             Assert.That(pasted, Is.EqualTo(ObjectPasteOutcome.NotEditable));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
 
-        _element.IsLocked = false;
-        layer.IsLocked = false;
+        _element.IsLocked.Value = false;
+        layer.IsLocked.Value = false;
         Assert.That(_service.SetEnabled(first, false), Is.True);
-        Assert.That(first.IsEnabled, Is.False);
+        Assert.That(first.IsEnabled.Value, Is.False);
         Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
     }
 }

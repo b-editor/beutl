@@ -85,8 +85,8 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -106,8 +106,8 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(e1.Length, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(e2.Length, Is.EqualTo(MediaTime.FromSeconds(6)));
+            Assert.That(e1.Length.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(e2.Length.Value, Is.EqualTo(MediaTime.FromSeconds(6)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -132,7 +132,7 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.ZIndex, Is.EqualTo(2));
+            Assert.That(element.ZIndex.Value, Is.EqualTo(2));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -148,8 +148,8 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
 
@@ -171,13 +171,13 @@ public class ElementResizeServiceTests
     public void Resize_FrameRate_AlwaysProducesPositiveLength(string rate, long expectedFlicks)
     {
         var project = new Project();
-        project.FrameRate = Rational.Parse(rate, CultureInfo.InvariantCulture);
+        project.FrameRate.Value = Rational.Parse(rate, CultureInfo.InvariantCulture);
         project.Items.Add(_scene);
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
-        _service.Resize(_scene, [new ElementResizeRequest(element, element.Start, MediaTime.Zero, 0)]);
+        _service.Resize(_scene, [new ElementResizeRequest(element, element.Start.Value, MediaTime.Zero, 0)]);
 
-        Assert.That(element.Length.Flicks, Is.EqualTo(expectedFlicks));
+        Assert.That(element.Length.Value.Flicks, Is.EqualTo(expectedFlicks));
     }
 
     // A zero length once reached Scene.MoveChild and crashed the app (found by telemetry).
@@ -189,16 +189,16 @@ public class ElementResizeServiceTests
     [TestCase(true, 10)]
     public void Resize_ShortLength_ClampsAndCanBeUndone(bool ripple, int milliseconds)
     {
-        _scene.Start = MediaTime.FromSeconds(5);
+        _scene.Start.Value = MediaTime.FromSeconds(5);
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         _service.Resize(_scene,
-            [new ElementResizeRequest(element, element.Start, MediaTime.FromSeconds(milliseconds / 1000d), 0)], ripple);
+            [new ElementResizeRequest(element, element.Start.Value, MediaTime.FromSeconds(milliseconds / 1000d), 0)], ripple);
 
-        Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)), "Scene.Start is not the timeline origin.");
-        Assert.That(element.Length, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
+        Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)), "Scene.Start is not the timeline origin.");
+        Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
         _history.Undo();
-        Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [Test]
@@ -214,9 +214,9 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.Zero),
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero),
                 "the service floors the start to the timeline start");
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -234,14 +234,14 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(element.Range.End, Is.EqualTo(fixedEnd));
-            Assert.That(follower.Start, Is.EqualTo(fixedEnd));
+            Assert.That(follower.Start.Value, Is.EqualTo(fixedEnd));
         });
         _history.Undo();
-        Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-        Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-        Assert.That(follower.Start, Is.EqualTo(fixedEnd));
+        Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(follower.Start.Value, Is.EqualTo(fixedEnd));
     }
 
     [TestCase(false, 0)]
@@ -257,12 +257,12 @@ public class ElementResizeServiceTests
 
         _service.Resize(_scene, [new ElementResizeRequest(element, end - length, length, 0)], ripple);
 
-        Assert.That(element.Length, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
+        Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
         Assert.That(element.Range.End, Is.EqualTo(end));
-        Assert.That(follower.Start, Is.EqualTo(end));
+        Assert.That(follower.Start.Value, Is.EqualTo(end));
         _history.Undo();
-        Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-        Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [TestCase(-2, 1)]
@@ -270,19 +270,19 @@ public class ElementResizeServiceTests
     public void Resize_RippleLockedBarrier_RetainsMinimumLength(double start, double length)
     {
         Element barrier = AddElement(MediaTime.Zero, MediaTime.FromSeconds(0.5));
-        barrier.IsLocked = true;
+        barrier.IsLocked.Value = true;
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         _service.Resize(_scene,
             [new ElementResizeRequest(element, MediaTime.FromSeconds(start), MediaTime.FromSeconds(length), 0)], ripple: true);
 
-        Assert.That(element.Start, Is.EqualTo(barrier.Range.End));
-        Assert.That(element.Length, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
-        Assert.That(barrier.Start, Is.EqualTo(MediaTime.Zero));
-        Assert.That(barrier.Length, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+        Assert.That(element.Start.Value, Is.EqualTo(barrier.Range.End));
+        Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
+        Assert.That(barrier.Start.Value, Is.EqualTo(MediaTime.Zero));
+        Assert.That(barrier.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
         _history.Undo();
-        Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-        Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+        Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
     }
 
     [TestCase(-2, 1)]
@@ -293,8 +293,8 @@ public class ElementResizeServiceTests
         _service.Resize(_scene,
             [new ElementResizeRequest(element, MediaTime.FromSeconds(start), MediaTime.FromSeconds(length), 0)], ripple: true);
 
-        Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
-        Assert.That(element.Length, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
+        Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero));
+        Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))));
     }
 
     [Test]
@@ -314,10 +314,10 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(valid.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(valid.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(invalid.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(invalid.Length, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))),
+            Assert.That(valid.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(valid.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(invalid.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(invalid.Length.Value, Is.EqualTo(MediaTime.FromFrames(1, new Rational(30))),
                 "the zero length is floored to one frame instead of rejecting the batch");
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -326,12 +326,12 @@ public class ElementResizeServiceTests
     [Test]
     public void Resize_RippleOn_AutoAdjustsSceneDurationAfterFollowerShift()
     {
-        bool original = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration;
-        GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration = true;
+        bool original = GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value;
+        GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value = true;
 
         try
         {
-            _scene.Duration = MediaTime.FromSeconds(4);
+            _scene.Duration.Value = MediaTime.FromSeconds(4);
             Element target = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 0);
             Element follower = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(2), zIndex: 0);
 
@@ -343,12 +343,12 @@ public class ElementResizeServiceTests
             {
                 Assert.That(target.Range.End, Is.EqualTo(MediaTime.FromSeconds(5)));
                 Assert.That(follower.Range.End, Is.EqualTo(MediaTime.FromSeconds(7)));
-                Assert.That(_scene.Duration, Is.EqualTo(MediaTime.FromSeconds(7)));
+                Assert.That(_scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
             });
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration = original;
+            GlobalConfiguration.Instance.EditorConfig.AutoAdjustSceneDuration.Value = original;
         }
     }
 
@@ -394,9 +394,9 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -413,10 +413,10 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(front.Length + back.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value + back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -426,7 +426,7 @@ public class ElementResizeServiceTests
     {
         Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
         Element back = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3));
-        back.IsLocked = true;
+        back.IsLocked.Value = true;
         int before = _history.UndoCount;
 
         bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], MediaTime.FromSeconds(1));
@@ -434,9 +434,9 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -446,7 +446,7 @@ public class ElementResizeServiceTests
     {
         Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 4);
         Element back = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3), zIndex: 4);
-        _scene.Layers.Add(new TimelineLayer { ZIndex = 4, IsLocked = true });
+        _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 4 }, IsLocked = { Value = true } });
         int before = _history.UndoCount;
 
         bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], MediaTime.FromSeconds(1));
@@ -454,7 +454,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -469,9 +469,9 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -489,8 +489,8 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -506,8 +506,8 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
         });
     }
 
@@ -523,9 +523,9 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(0.001)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(0.001)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.001)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(0.001)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -538,17 +538,17 @@ public class ElementResizeServiceTests
         _service.Roll(_scene, [new ElementTrimPair(front, back)], MediaTime.FromSeconds(1));
         Assert.Multiple(() =>
         {
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
 
         _history.Undo();
 
         Assert.Multiple(() =>
         {
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -565,8 +565,8 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             // Back in-point advances so its content stays anchored to the timeline.
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
@@ -601,9 +601,9 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(9)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(9)));
         });
     }
 
@@ -616,8 +616,8 @@ public class ElementResizeServiceTests
         var video = new SourceVideo
         {
             Source = { Value = source },
-            IsTimeAnchor = true,
-            TimeRange = TimeRange.FromSeconds(2)
+            IsTimeAnchor = { Value = true },
+            TimeRange = { Value = TimeRange.FromSeconds(2) }
         };
         var group = new DrawableGroup();
         group.Children.Add(video);
@@ -640,7 +640,7 @@ public class ElementResizeServiceTests
             Assert.That(applied, Is.True);
             Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(5)));
             Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(5, 7)));
-            Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2)));
+            Assert.That(video.TimeRange.Value, Is.EqualTo(TimeRange.FromSeconds(2)));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
@@ -679,8 +679,8 @@ public class ElementResizeServiceTests
             Source = { Value = source },
             Speed = { Value = speed },
             OffsetPosition = { Value = MediaTime.FromSeconds(offset) },
-            IsTimeAnchor = true,
-            TimeRange = TimeRange.FromSeconds(3, 2)
+            IsTimeAnchor = { Value = true },
+            TimeRange = { Value = TimeRange.FromSeconds(3, 2) }
         };
         var group = new DrawableGroup();
         group.Children.Add(video);
@@ -704,14 +704,14 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(expectedDelta > 0));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(1 + expectedDelta)));
-            Assert.That(back.Start, Is.EqualTo(backStart + MediaTime.FromSeconds(expectedDelta)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(10 - expectedDelta)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1 + expectedDelta)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(expectedDelta)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(10 - expectedDelta)));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(offset)));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
             if (middle is not null)
-                Assert.That(middle.Start, Is.EqualTo(front.Range.End));
+                Assert.That(middle.Start.Value, Is.EqualTo(front.Range.End));
         });
     }
 
@@ -732,14 +732,14 @@ public class ElementResizeServiceTests
         {
             Source = { Value = source },
             OffsetPosition = { Value = MediaTime.FromSeconds(1) },
-            IsTimeAnchor = true,
-            TimeRange = TimeRange.FromSeconds(10, 2)
+            IsTimeAnchor = { Value = true },
+            TimeRange = { Value = TimeRange.FromSeconds(10, 2) }
         };
         var controller = new DrawableTimeController
         {
             Target = { Value = video },
-            IsTimeAnchor = true,
-            TimeRange = TimeRange.FromSeconds(controllerStart, 2)
+            IsTimeAnchor = { Value = true },
+            TimeRange = { Value = TimeRange.FromSeconds(controllerStart, 2) }
         };
         var group = new DrawableGroup();
         group.Children.Add(controller);
@@ -763,14 +763,14 @@ public class ElementResizeServiceTests
         {
             if (!slide) Assert.That(max, Is.EqualTo(MediaTime.FromSeconds(expectedDelta)));
             Assert.That(applied, Is.EqualTo(expectedDelta > 0));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(1 + expectedDelta)));
-            Assert.That(back.Start, Is.EqualTo(backStart + MediaTime.FromSeconds(expectedDelta)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(10 - expectedDelta)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1 + expectedDelta)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(expectedDelta)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(10 - expectedDelta)));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(linked.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(expectedDelta)));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
-            if (middle != null) Assert.That(middle.Start, Is.EqualTo(front.Range.End));
+            if (middle != null) Assert.That(middle.Start.Value, Is.EqualTo(front.Range.End));
         });
     }
 
@@ -799,8 +799,8 @@ public class ElementResizeServiceTests
             Source = { Value = source },
             IsLoop = { Value = true },
             OffsetPosition = { Value = MediaTime.FromSeconds(offset) },
-            IsTimeAnchor = true,
-            TimeRange = TimeRange.FromSeconds(videoStart, 2)
+            IsTimeAnchor = { Value = true },
+            TimeRange = { Value = TimeRange.FromSeconds(videoStart, 2) }
         };
         var group = new DrawableGroup();
         group.Children.Add(video);
@@ -812,13 +812,13 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.EqualTo(expectedDelta > 0));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(1 + expectedDelta)));
-            Assert.That(back.Start, Is.EqualTo(backStart + MediaTime.FromSeconds(expectedDelta)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(10 - expectedDelta)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1 + expectedDelta)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(expectedDelta)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(10 - expectedDelta)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (expectedDelta > 0 ? 1 : 0)));
             foreach (MediaTime time in new[]
                      {
-                         front.Start,
+                         front.Start.Value,
                          front.Range.End - MediaTime.FromSeconds(0.1),
                          video.Start - MediaTime.FromSeconds(0.1)
                      }.Where(front.Range.Contains))
@@ -841,8 +841,8 @@ public class ElementResizeServiceTests
         var sound = new SourceSound
         {
             Source = { Value = source },
-            IsTimeAnchor = true,
-            TimeRange = TimeRange.FromSeconds(2, 2)
+            IsTimeAnchor = { Value = true },
+            TimeRange = { Value = TimeRange.FromSeconds(2, 2) }
         };
         var group = new SoundGroup();
         group.Children.Add(sound);
@@ -859,7 +859,7 @@ public class ElementResizeServiceTests
             Assert.That(front.Range, Is.EqualTo(TimeRange.FromSeconds(15)));
             Assert.That(middle.Range, Is.EqualTo(TimeRange.FromSeconds(15, 2)));
             Assert.That(back.Range, Is.EqualTo(TimeRange.FromSeconds(17, 5)));
-            Assert.That(sound.TimeRange, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
+            Assert.That(sound.TimeRange.Value, Is.EqualTo(TimeRange.FromSeconds(2, 2)));
             Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(backSound.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
@@ -884,8 +884,8 @@ public class ElementResizeServiceTests
             var sound = new SourceSound
             {
                 Source = { Value = source },
-                IsTimeAnchor = true,
-                TimeRange = TimeRange.FromSeconds(sourceStart, sourceLength)
+                IsTimeAnchor = { Value = true },
+                TimeRange = { Value = TimeRange.FromSeconds(sourceStart, sourceLength) }
             };
             var group = new SoundGroup();
             group.Children.Add(sound);
@@ -897,8 +897,8 @@ public class ElementResizeServiceTests
             var video = new SourceVideo
             {
                 Source = { Value = source },
-                IsTimeAnchor = true,
-                TimeRange = TimeRange.FromSeconds(sourceStart, sourceLength)
+                IsTimeAnchor = { Value = true },
+                TimeRange = { Value = TimeRange.FromSeconds(sourceStart, sourceLength) }
             };
             var group = new DrawableGroup();
             group.Children.Add(video);
@@ -910,8 +910,8 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2 + expectedDelta)));
-            Assert.That(back.Start, Is.EqualTo(front.Range.End));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2 + expectedDelta)));
+            Assert.That(back.Start.Value, Is.EqualTo(front.Range.End));
             Assert.That(back.Range.End, Is.EqualTo(MediaTime.FromSeconds(12)));
         });
     }
@@ -920,8 +920,8 @@ public class ElementResizeServiceTests
     [TestCase(true)]
     public void Roll_NestedVideo_BoundsParentEvenWhenItsTimeAnchorIsFixed(bool fixedInnerGroup)
     {
-        var app = new BeutlApplication { Project = new Project() };
-        app.Project!.Items.Add(_scene);
+        var app = new BeutlApplication { Project = { Value = new Project() } };
+        app.Project.Value!.Items.Add(_scene);
         const int FrontLength = 2;
         Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(FrontLength));
         Element back = AddElement(MediaTime.FromSeconds(FrontLength), MediaTime.FromSeconds(10));
@@ -929,17 +929,17 @@ public class ElementResizeServiceTests
         var video = new SourceVideo { Source = { Value = source } };
         var inner = new DrawableGroup
         {
-            IsTimeAnchor = fixedInnerGroup,
-            TimeRange = TimeRange.FromSeconds(1)
+            IsTimeAnchor = { Value = fixedInnerGroup },
+            TimeRange = { Value = TimeRange.FromSeconds(1) }
         };
         inner.Children.Add(video);
         var outer = new DrawableGroup();
         outer.Children.Add(inner);
         front.Objects.Add(outer);
-        Assert.That(video.TimeRange, Is.EqualTo(TimeRange.FromSeconds(fixedInnerGroup ? 1 : 2)));
+        Assert.That(video.TimeRange.Value, Is.EqualTo(TimeRange.FromSeconds(fixedInnerGroup ? 1 : 2)));
 
         Assert.That(_service.Roll(_scene, [new ElementTrimPair(front, back)], MediaTime.FromSeconds(5)), Is.True);
-        Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
+        Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
         Assert.That(video.Duration, Is.EqualTo(MediaTime.FromSeconds(fixedInnerGroup ? 1 : 5)));
     }
 
@@ -948,8 +948,8 @@ public class ElementResizeServiceTests
     {
         // With ClampResizeToOriginalLength off, Roll must not clamp the front out-point to its
         // source tail — the clip may run past its media, matching the normal edge-resize path.
-        bool original = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength;
-        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = false;
+        bool original = GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value;
+        GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = false;
         try
         {
             var frontSource = CreateVideoSource(3);
@@ -962,14 +962,14 @@ public class ElementResizeServiceTests
             Assert.Multiple(() =>
             {
                 Assert.That(applied, Is.True);
-                Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(7)));
-                Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(7)));
-                Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
+                Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
+                Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
             });
         }
         finally
         {
-            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength = original;
+            GlobalConfiguration.Instance.EditorConfig.ClampResizeToOriginalLength.Value = original;
         }
     }
 
@@ -990,9 +990,9 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2.5)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2.5)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
         });
     }
 
@@ -1013,9 +1013,9 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2.5)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2.5)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
         });
     }
 
@@ -1100,13 +1100,13 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(middle.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(6)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(middle.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(6)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             // Total length preserved: 2+3+2 = 7 before; 3+3+1 = 7 after.
-            Assert.That(front.Length + middle.Length + back.Length, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(front.Length.Value + middle.Length.Value + back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -1117,7 +1117,7 @@ public class ElementResizeServiceTests
         Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
         Element middle = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(3));
         Element back = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
-        middle.IsLocked = true;
+        middle.IsLocked.Value = true;
         int before = _history.UndoCount;
 
         bool applied = _service.Slide(_scene, [new ElementSlideLane(front, [middle], back)], MediaTime.FromSeconds(1));
@@ -1125,9 +1125,9 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -1143,12 +1143,12 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(middle.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(front.Length + middle.Length + back.Length, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(middle.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(front.Length.Value + middle.Length.Value + back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
         });
     }
 
@@ -1164,7 +1164,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
         });
     }
 
@@ -1180,7 +1180,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1d / 30)));
         });
     }
 
@@ -1197,9 +1197,9 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(0.001)));
-            Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(0.001)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2.001)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.001)));
+            Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(0.001)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2.001)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -1216,11 +1216,11 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(middle.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(middle.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -1238,10 +1238,10 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(6)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(6)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             // Middle only shifts in time; the back clip is trimmed at its head, so its in-point advances.
-            Assert.That(middle.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(middle.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
         });
     }
@@ -1259,8 +1259,8 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -1269,14 +1269,14 @@ public class ElementResizeServiceTests
     public void Roll_ElementOutsideScene_NoCommit()
     {
         Element front = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
-        var back = new Element { Start = MediaTime.FromSeconds(2), Length = MediaTime.FromSeconds(3) };
+        var back = new Element { Start = { Value = MediaTime.FromSeconds(2) }, Length = { Value = MediaTime.FromSeconds(3) } };
 
         bool applied = _service.Roll(_scene, [new ElementTrimPair(front, back)], MediaTime.FromSeconds(1));
 
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -1292,7 +1292,7 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -1315,9 +1315,9 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(backStart));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -1346,12 +1346,12 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(backStart + MediaTime.FromSeconds(1)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(1)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
             if (middle != null)
-                Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+                Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -1375,12 +1375,12 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.True);
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(back.Start, Is.EqualTo(backStart + MediaTime.FromSeconds(1)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(1)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
             if (middle != null)
-                Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+                Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -1421,8 +1421,8 @@ public class ElementResizeServiceTests
 
         Assert.That(applied, Is.True);
         Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
-        Assert.That(back.Start, Is.EqualTo(backStart + MediaTime.FromSeconds(1)));
-        Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+        Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(1)));
+        Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
     }
 
     [TestCase(false)]
@@ -1437,12 +1437,12 @@ public class ElementResizeServiceTests
         var video = new SourceVideo
         {
             Source = { Value = source },
-            IsTimeAnchor = true,
-            TimeRange = TimeRange.FromSeconds(10, 2)
+            IsTimeAnchor = { Value = true },
+            TimeRange = { Value = TimeRange.FromSeconds(10, 2) }
         };
         var controller = new DrawableTimeController
         {
-            IsEnabled = false,
+            IsEnabled = { Value = false },
             Speed = { Value = 200 },
             Target = { Value = video }
         };
@@ -1455,21 +1455,21 @@ public class ElementResizeServiceTests
         bool applied = RollOrSlide(front, middle, back, MediaTime.FromSeconds(1));
 
         int after = _history.UndoCount;
-        controller.IsEnabled = true;
+        controller.IsEnabled.Value = true;
         using var resource = (DrawableTimeController.Resource)controller.ToResource(
             new CompositionContext(front.Range.End - MediaTime.FromSeconds(0.1)));
         var sampled = (SourceVideo.Resource)resource.Target!;
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2.5)));
-            Assert.That(back.Start, Is.EqualTo(backStart + MediaTime.FromSeconds(0.5)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart + MediaTime.FromSeconds(0.5)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
             Assert.That(linked.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
             Assert.That(after, Is.EqualTo(before + 1));
             Assert.That(sampled.RequestedPosition + sampled.OffsetPosition, Is.LessThan(MediaTime.FromSeconds(5)));
             if (middle != null)
-                Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+                Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
         });
     }
 
@@ -1484,7 +1484,7 @@ public class ElementResizeServiceTests
         var video = new SourceVideo { Speed = { Value = 200 } };
         var controller = new DrawableTimeController
         {
-            IsEnabled = false,
+            IsEnabled = { Value = false },
             Speed = { Value = 50 },
             Target = { Value = video }
         };
@@ -1500,9 +1500,9 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(back.Start, Is.EqualTo(backStart));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(back.Start.Value, Is.EqualTo(backStart));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -1637,12 +1637,12 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(frontA.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(backA.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(backA.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(frontB.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(backB.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(backB.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(frontA.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(backA.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(backA.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(frontB.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(backB.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(backB.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(backVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
@@ -1665,9 +1665,9 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(frontA.Length, Is.EqualTo(MediaTime.FromSeconds(2) + expected));
-            Assert.That(frontB.Length, Is.EqualTo(MediaTime.FromSeconds(2) + expected));
-            Assert.That(backB.Length, Is.EqualTo(MediaTime.FromSeconds(1) - expected));
+            Assert.That(frontA.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2) + expected));
+            Assert.That(frontB.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2) + expected));
+            Assert.That(backB.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1) - expected));
         });
     }
 
@@ -1720,7 +1720,7 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.EqualTo(!backOwnsSource));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(frontA.Length, Is.EqualTo(MediaTime.FromSeconds(backOwnsSource ? 2 : 3)));
+            Assert.That(frontA.Length.Value, Is.EqualTo(MediaTime.FromSeconds(backOwnsSource ? 2 : 3)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + (backOwnsSource ? 0 : 1)));
         });
     }
@@ -1742,8 +1742,8 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(frontA.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(backA.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(frontA.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(backA.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -1814,14 +1814,14 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(frontA.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(middleA.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(backA.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(backA.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(frontB.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(middleB.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(backB.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(backB.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(frontA.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(middleA.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(backA.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(backA.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(frontB.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(middleB.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(backB.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(backB.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -1842,11 +1842,11 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.True);
-            Assert.That(front.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(firstMiddle.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(secondMiddle.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(back.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(back.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(front.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(firstMiddle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(secondMiddle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(back.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(back.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -1916,7 +1916,7 @@ public class ElementResizeServiceTests
         {
             Assert.That(applied, Is.False);
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(middle.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(middle.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -1930,7 +1930,7 @@ public class ElementResizeServiceTests
         Element frontB = AddElement(MediaTime.Zero, MediaTime.FromSeconds(2), zIndex: 1);
         Element middleB = AddElement(MediaTime.FromSeconds(2), MediaTime.FromSeconds(1), zIndex: 1);
         Element backB = AddElement(MediaTime.FromSeconds(3), MediaTime.FromSeconds(3), zIndex: 1);
-        backB.IsLocked = true;
+        backB.IsLocked.Value = true;
         int before = _history.UndoCount;
 
         bool applied = _service.Slide(
@@ -1944,8 +1944,8 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(applied, Is.False);
-            Assert.That(frontA.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(middleA.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(frontA.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(middleA.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -1963,8 +1963,8 @@ public class ElementResizeServiceTests
         Assert.Multiple(() =>
         {
             Assert.That(resized, Is.True);
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(44d / 30)));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(44d / 30)));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
         });
     }
@@ -1980,8 +1980,8 @@ public class ElementResizeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(next.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(next.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -1990,7 +1990,7 @@ public class ElementResizeServiceTests
     {
         Element withoutMedia = AddElement(MediaTime.Zero, MediaTime.FromSeconds(1));
         Element locked = AddVideoElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(1), new Rational(30, 1), 90);
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         IElementResizeService service = _service;
         int before = _history.UndoCount;
 
@@ -1998,8 +1998,8 @@ public class ElementResizeServiceTests
         {
             Assert.That(service.ResizeToOriginalDuration(_scene, withoutMedia), Is.False);
             Assert.That(service.ResizeToOriginalDuration(_scene, locked), Is.False);
-            Assert.That(withoutMedia.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(locked.Length, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(withoutMedia.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(locked.Length.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }

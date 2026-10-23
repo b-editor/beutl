@@ -33,9 +33,9 @@ public class EncodeDecodeRoundTripTests
         string outputPath = Path.Combine(_workDir, "empty.mp4");
         var controller = new AVFEncodingController(outputPath);
         var frameRate = new Rational(30, 1);
-        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
-        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
-        controller.VideoSettings.FrameRate = frameRate;
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate.Value = frameRate;
 
         await controller.Encode(
             new GradientFrameProvider(0, frameRate, 64, 64), new SineSampleProvider(1024, 44100), CancellationToken.None);
@@ -56,12 +56,12 @@ public class EncodeDecodeRoundTripTests
         const int frameRateNum = 30;
         const int frameRateDen = 1;
 
-        controller.VideoSettings.DestinationSize = new PixelSize(width, height);
-        controller.VideoSettings.SourceSize = new PixelSize(width, height);
-        controller.VideoSettings.FrameRate = new Rational(frameRateNum, frameRateDen);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(width, height);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(width, height);
+        controller.VideoSettings.FrameRate.Value = new Rational(frameRateNum, frameRateDen);
 
-        controller.AudioSettings.SampleRate = sampleRate;
-        controller.AudioSettings.Channels = 2;
+        controller.AudioSettings.SampleRate.Value = sampleRate;
+        controller.AudioSettings.Channels.Value = 2;
 
         var frameProvider = new GradientFrameProvider(
             frameCount, new Rational(frameRateNum, frameRateDen), width, height);
@@ -141,12 +141,12 @@ public class EncodeDecodeRoundTripTests
         const int frameCount = frameRateNum * durationSeconds;
         const int chunkSize = 1024;
 
-        controller.VideoSettings.DestinationSize = new PixelSize(width, height);
-        controller.VideoSettings.SourceSize = new PixelSize(width, height);
-        controller.VideoSettings.FrameRate = new Rational(frameRateNum, frameRateDen);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(width, height);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(width, height);
+        controller.VideoSettings.FrameRate.Value = new Rational(frameRateNum, frameRateDen);
 
-        controller.AudioSettings.SampleRate = sampleRate;
-        controller.AudioSettings.Channels = 2;
+        controller.AudioSettings.SampleRate.Value = sampleRate;
+        controller.AudioSettings.Channels.Value = 2;
 
         var frameProvider = new GradientFrameProvider(
             frameCount, new Rational(frameRateNum, frameRateDen), width, height);
@@ -213,16 +213,16 @@ public class EncodeDecodeRoundTripTests
         const int frameRateNum = 30;
         const int frameRateDen = 1;
 
-        controller.VideoSettings.DestinationSize = new PixelSize(width, height);
-        controller.VideoSettings.SourceSize = new PixelSize(width, height);
-        controller.VideoSettings.FrameRate = new Rational(frameRateNum, frameRateDen);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(width, height);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(width, height);
+        controller.VideoSettings.FrameRate.Value = new Rational(frameRateNum, frameRateDen);
         // HDR PQ + Rec.2020 — this flips the writer to HEVC Main10 + CV64RGBALE input and
         // stamps the AVVideoColorProperties tags on the output stream.
-        controller.VideoSettings.ColorTransfer = AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq;
-        controller.VideoSettings.ColorPrimaries = AVFVideoEncoderSettings.ColorPrimariesType.Rec2020;
-        controller.VideoSettings.YCbCrMatrix = AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020;
-        controller.AudioSettings.SampleRate = 44100;
-        controller.AudioSettings.Channels = 2;
+        controller.VideoSettings.ColorTransfer.Value = AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq;
+        controller.VideoSettings.ColorPrimaries.Value = AVFVideoEncoderSettings.ColorPrimariesType.Rec2020;
+        controller.VideoSettings.YCbCrMatrix.Value = AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020;
+        controller.AudioSettings.SampleRate.Value = 44100;
+        controller.AudioSettings.Channels.Value = 2;
 
         Assert.That(controller.VideoSettings.IsHdr, Is.True);
 
@@ -276,9 +276,9 @@ public class EncodeDecodeRoundTripTests
         string outputPath = Path.Combine(_workDir, "silent.mp4");
         var controller = new AVFEncodingController(outputPath);
         var frameRate = new Rational(30, 1);
-        controller.VideoSettings.DestinationSize = new PixelSize(64, 64);
-        controller.VideoSettings.SourceSize = new PixelSize(64, 64);
-        controller.VideoSettings.FrameRate = frameRate;
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(64, 64);
+        controller.VideoSettings.FrameRate.Value = frameRate;
 
         await controller.Encode(
             new GradientFrameProvider(1, frameRate, 64, 64), new SineSampleProvider(0, 44100), CancellationToken.None);

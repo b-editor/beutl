@@ -14,7 +14,7 @@ public class SceneGapTests
 
     // The range the timeline searches: the whole scene.
     private static TimeRange SceneRange(Scene scene)
-        => new(scene.Start, scene.Duration);
+        => new(scene.Start.Value, scene.Duration.Value);
 
     [Test]
     public void EnumerateGaps_NoElements_ReturnsEmpty()
@@ -150,8 +150,8 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.True);
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
             List<SceneGap> gaps = Gaps(scene);
             Assert.That(gaps, Has.Count.EqualTo(1));
             Assert.That(gaps[0].Range.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
@@ -184,7 +184,7 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.False);
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -204,8 +204,8 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.False);
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(12)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(12)));
         });
     }
 
@@ -225,7 +225,7 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.False);
-            Assert.That(next.Start, Is.EqualTo(MediaTime.FromSeconds(20)));
+            Assert.That(next.Start.Value, Is.EqualTo(MediaTime.FromSeconds(20)));
         });
     }
 
@@ -245,7 +245,7 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.True);
-            Assert.That(next.Start, Is.EqualTo(MediaTime.FromSeconds(50)));
+            Assert.That(next.Start.Value, Is.EqualTo(MediaTime.FromSeconds(50)));
         });
     }
 
@@ -261,7 +261,7 @@ public class SceneGapTests
         Element b = harness.AddElement(MediaTime.FromSeconds(6), MediaTime.FromSeconds(2));
 
         bool closedAfterInGap = scene.CloseGapAfter(inGap);
-        MediaTime bAfterFirstClose = b.Start;
+        MediaTime bAfterFirstClose = b.Start.Value;
         bool closedAfterTouching = scene.CloseGapAfter(touching);
 
         Assert.Multiple(() =>
@@ -269,10 +269,10 @@ public class SceneGapTests
             Assert.That(closedAfterInGap, Is.True);
             Assert.That(bAfterFirstClose, Is.EqualTo(MediaTime.FromSeconds(4)));
             Assert.That(closedAfterTouching, Is.True);
-            Assert.That(a.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(touching.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(inGap.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(a.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(touching.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(inGap.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(Gaps(scene), Is.Empty);
         });
     }
@@ -282,7 +282,7 @@ public class SceneGapTests
     {
         using var harness = new SceneHistoryHarness("beutl_scene_gaps");
         Scene scene = harness.Scene;
-        var orphan = new Element { Start = MediaTime.FromSeconds(1), Length = MediaTime.FromSeconds(2) };
+        var orphan = new Element { Start = { Value = MediaTime.FromSeconds(1) }, Length = { Value = MediaTime.FromSeconds(2) } };
 
         bool closed = scene.CloseGapAfter(orphan);
 
@@ -333,7 +333,7 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.EqualTo(0));
-            Assert.That(scene.Children[0].Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(scene.Children[0].Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
     }
 
@@ -350,9 +350,9 @@ public class SceneGapTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(a.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(a.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
         });
     }
 
@@ -371,10 +371,10 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.EqualTo(2));
-            Assert.That(a.Start, Is.EqualTo(MediaTime.Zero));
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(10)));
-            Assert.That(d.Start, Is.EqualTo(MediaTime.FromSeconds(11)));
+            Assert.That(a.Start.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+            Assert.That(d.Start.Value, Is.EqualTo(MediaTime.FromSeconds(11)));
             Assert.That(Gaps(scene), Is.Empty);
         });
     }
@@ -384,7 +384,7 @@ public class SceneGapTests
     {
         using var harness = new SceneHistoryHarness("beutl_scene_gaps");
         Scene scene = harness.Scene;
-        scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
         Element a = harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         Element b = harness.AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
 
@@ -393,7 +393,7 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.False);
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
     }
 
@@ -406,7 +406,7 @@ public class SceneGapTests
         // unlocked follower would land on the locked block when shifted left, so nothing moves.
         Element anchor = harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         Element locked = harness.AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         Element trailing = harness.AddElement(MediaTime.FromSeconds(16), MediaTime.FromSeconds(2));
 
         bool closed = scene.CloseGapAfter(anchor);
@@ -414,8 +414,8 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.False);
-            Assert.That(locked.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(trailing.Start, Is.EqualTo(MediaTime.FromSeconds(16)));
+            Assert.That(locked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(trailing.Start.Value, Is.EqualTo(MediaTime.FromSeconds(16)));
         });
     }
 
@@ -424,7 +424,7 @@ public class SceneGapTests
     {
         using var harness = new SceneHistoryHarness("beutl_scene_gaps");
         Scene scene = harness.Scene;
-        scene.Layers.Add(new TimelineLayer { ZIndex = 0, IsLocked = true });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsLocked = { Value = true } });
         Element locked0 = harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), zIndex: 0);
         Element locked1 = harness.AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(1), zIndex: 0);
         Element open0 = harness.AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1), zIndex: 1);
@@ -435,8 +435,8 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.EqualTo(1));
-            Assert.That(locked1.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(open1.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(locked1.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(open1.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -450,7 +450,7 @@ public class SceneGapTests
         // locked block stays open.
         Element a = harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(2));
         Element locked = harness.AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(2));
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         Element c = harness.AddElement(MediaTime.FromSeconds(8), MediaTime.FromSeconds(2));
 
         int closed = scene.CloseAllGaps();
@@ -458,9 +458,9 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.EqualTo(1));
-            Assert.That(a.Start, Is.EqualTo(MediaTime.Zero));
-            Assert.That(locked.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(6)));
+            Assert.That(a.Start.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(locked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(6)));
         });
     }
 
@@ -490,8 +490,8 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.EqualTo(1));
-            Assert.That(m.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(n.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(m.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(n.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -507,7 +507,7 @@ public class SceneGapTests
         Element m = harness.AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(1));
         Element n = harness.AddElement(MediaTime.FromSeconds(4), MediaTime.FromSeconds(3));
         Element locked = harness.AddElement(MediaTime.FromSeconds(8), MediaTime.FromSeconds(2));
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         Element c1 = harness.AddElement(MediaTime.FromSeconds(12), MediaTime.FromSeconds(1));
         Element c2 = harness.AddElement(MediaTime.FromSeconds(12), MediaTime.FromSeconds(4));
 
@@ -516,11 +516,11 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.True);
-            Assert.That(m.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(n.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(locked.Start, Is.EqualTo(MediaTime.FromSeconds(8)));
-            Assert.That(c1.Start, Is.EqualTo(MediaTime.FromSeconds(12)));
-            Assert.That(c2.Start, Is.EqualTo(MediaTime.FromSeconds(12)));
+            Assert.That(m.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(n.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(locked.Start.Value, Is.EqualTo(MediaTime.FromSeconds(8)));
+            Assert.That(c1.Start.Value, Is.EqualTo(MediaTime.FromSeconds(12)));
+            Assert.That(c2.Start.Value, Is.EqualTo(MediaTime.FromSeconds(12)));
         });
     }
 
@@ -763,8 +763,8 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.True);
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(7)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(7)));
             Assert.That(harness.History.UndoCount, Is.EqualTo(beforeUndoCount + 1));
         });
 
@@ -772,9 +772,9 @@ public class SceneGapTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(a.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(9)));
+            Assert.That(a.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(9)));
         });
     }
 
@@ -794,8 +794,8 @@ public class SceneGapTests
         Assert.Multiple(() =>
         {
             Assert.That(closed, Is.EqualTo(2));
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
             Assert.That(harness.History.UndoCount, Is.EqualTo(beforeUndoCount + 1));
         });
 
@@ -803,9 +803,9 @@ public class SceneGapTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(a.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(b.Start, Is.EqualTo(MediaTime.FromSeconds(4)));
-            Assert.That(c.Start, Is.EqualTo(MediaTime.FromSeconds(8)));
+            Assert.That(a.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(b.Start.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(c.Start.Value, Is.EqualTo(MediaTime.FromSeconds(8)));
         });
     }
 }

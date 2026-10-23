@@ -23,16 +23,16 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
             ["Editor"] = new JsonObject
             {
                 ["FrameCacheMaxSize"] = "abc",
-                ["IsRippleEnabled"] = !defaults.IsRippleEnabled,
+                ["IsRippleEnabled"] = !defaults.IsRippleEnabled.Value,
             },
             ["ProxyStore"] = new JsonObject { ["DefaultPreset"] = 3 },
         });
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.EditorConfig.FrameCacheMaxSize, Is.EqualTo(defaults.FrameCacheMaxSize));
-            Assert.That(config.EditorConfig.IsRippleEnabled, Is.EqualTo(!defaults.IsRippleEnabled), "the same section's other settings are read");
-            Assert.That(config.ProxyStoreConfig.DefaultPreset, Is.EqualTo(3), "later sections are read");
+            Assert.That(config.EditorConfig.FrameCacheMaxSize.Value, Is.EqualTo(defaults.FrameCacheMaxSize.Value));
+            Assert.That(config.EditorConfig.IsRippleEnabled.Value, Is.EqualTo(!defaults.IsRippleEnabled.Value), "the same section's other settings are read");
+            Assert.That(config.ProxyStoreConfig.DefaultPreset.Value, Is.EqualTo(3), "later sections are read");
             Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "Editor.FrameCacheMaxSize" }));
         });
     }
@@ -46,7 +46,7 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
             ["View"] = new JsonObject
             {
                 ["UICulture"] = 1,
-                ["ShowExactBoundaries"] = !defaults.ShowExactBoundaries,
+                ["ShowExactBoundaries"] = !defaults.ShowExactBoundaries.Value,
             },
             ["Editor"] = new JsonObject { ["LastMediaDirectory"] = 2 },
             ["ProxyStore"] = new JsonObject { ["DefaultPreset"] = 3 },
@@ -54,10 +54,10 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.ViewConfig.UICulture, Is.EqualTo(defaults.UICulture));
-            Assert.That(config.ViewConfig.ShowExactBoundaries, Is.EqualTo(!defaults.ShowExactBoundaries));
-            Assert.That(config.EditorConfig.LastMediaDirectory, Is.Null);
-            Assert.That(config.ProxyStoreConfig.DefaultPreset, Is.EqualTo(3));
+            Assert.That(config.ViewConfig.UICulture.Value, Is.EqualTo(defaults.UICulture.Value));
+            Assert.That(config.ViewConfig.ShowExactBoundaries.Value, Is.EqualTo(!defaults.ShowExactBoundaries.Value));
+            Assert.That(config.EditorConfig.LastMediaDirectory.Value, Is.Null);
+            Assert.That(config.ProxyStoreConfig.DefaultPreset.Value, Is.EqualTo(3));
             Assert.That(config.RestoreFailures.Select(f => f.Setting),
                 Is.EqualTo(new[] { "View.UICulture", "Editor.LastMediaDirectory" }));
         });
@@ -75,7 +75,7 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
         Assert.Multiple(() =>
         {
             Assert.That(config.FontConfig.FontDirectories, Is.EqualTo(new FontConfig().FontDirectories));
-            Assert.That(config.ViewConfig.UICulture, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
+            Assert.That(config.ViewConfig.UICulture.Value, Is.EqualTo(CultureInfo.GetCultureInfo("ja-JP")));
             Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "Font.FontDirectories" }));
         });
     }
@@ -97,9 +97,9 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
 
         Assert.Multiple(() =>
         {
-            Assert.That(config.ViewConfig.UICulture, Is.EqualTo(new ViewConfig().UICulture));
-            Assert.That(config.EditorConfig.FrameCacheMaxSize, Is.EqualTo(defaults.FrameCacheMaxSize));
-            Assert.That(config.EditorConfig.LastMediaDirectory, Is.Null);
+            Assert.That(config.ViewConfig.UICulture.Value, Is.EqualTo(new ViewConfig().UICulture.Value));
+            Assert.That(config.EditorConfig.FrameCacheMaxSize.Value, Is.EqualTo(defaults.FrameCacheMaxSize.Value));
+            Assert.That(config.EditorConfig.LastMediaDirectory.Value, Is.Null);
             Assert.That(config.RestoreFailures.Select(f => f.Setting),
                 Is.EqualTo(new[] { "View.UICulture", "Editor.FrameCacheMaxSize" }),
                 "LastMediaDirectory is nullable, so null is its value, not a failure");
@@ -116,7 +116,7 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
         };
         GlobalConfiguration config = Restore(json);
 
-        Assert.That(config.ProxyStoreConfig.DefaultPreset, Is.EqualTo(3));
+        Assert.That(config.ProxyStoreConfig.DefaultPreset.Value, Is.EqualTo(3));
         Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "Editor" }));
         Assert.That(File.ReadAllText(SettingsPath + ".bak"), Is.EqualTo(json.ToJsonString()));
     }
@@ -160,8 +160,8 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
         {
             Assert.That(config.ViewConfig.RecentFiles, Is.Empty);
             Assert.That(config.ViewConfig.RecentProjects, Is.EqualTo(new[] { "/projects/a.bep" }));
-            Assert.That(config.ViewConfig.WindowPosition, Is.EqualTo((10, 20)));
-            Assert.That(config.ViewConfig.WindowSize, Is.EqualTo((800, 600)));
+            Assert.That(config.ViewConfig.WindowPosition.Value, Is.EqualTo((10, 20)));
+            Assert.That(config.ViewConfig.WindowSize.Value, Is.EqualTo((800, 600)));
             Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "View.RecentFiles" }));
         });
     }
@@ -175,7 +175,7 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
             ["View"] = new JsonObject { ["WindowPosition"] = "abc" },
         });
 
-        Assert.That(config.ViewConfig.WindowPosition, Is.Null);
+        Assert.That(config.ViewConfig.WindowPosition.Value, Is.Null);
         Assert.That(config.RestoreFailures.Select(f => f.Setting), Is.EqualTo(new[] { "View.WindowPosition" }));
     }
 
@@ -185,7 +185,7 @@ public class GlobalConfigurationRestoreTests() : GlobalConfigurationFileFixture(
         var json = new JsonObject { ["Editor"] = new JsonObject { ["FrameCacheMaxSize"] = "abc" } };
         GlobalConfiguration config = Restore(json);
 
-        config.GraphicsConfig.SelectedGpuName = "other";
+        config.GraphicsConfig.SelectedGpuName.Value = "other";
         config.Save(SettingsPath);
 
         Assert.That(config.RestoreBackupPath, Is.EqualTo(SettingsPath + ".bak"));

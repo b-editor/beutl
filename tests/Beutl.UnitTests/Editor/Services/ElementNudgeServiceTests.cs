@@ -47,7 +47,7 @@ public class ElementNudgeServiceTests
     public void Nudge_ShiftsAndFlushCommitsOnce()
     {
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        MediaTime originalStart = element.Start;
+        MediaTime originalStart = element.Start.Value;
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 1);
@@ -56,7 +56,7 @@ public class ElementNudgeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.GreaterThan(originalStart));
+            Assert.That(element.Start.Value, Is.GreaterThan(originalStart));
             Assert.That(_history.UndoCount, Is.EqualTo(before + 1));
             Assert.That(_service.IsPending, Is.False);
         });
@@ -80,14 +80,14 @@ public class ElementNudgeServiceTests
     public void Nudge_ZeroFrames_NoChange()
     {
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        MediaTime originalStart = element.Start;
+        MediaTime originalStart = element.Start.Value;
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 0);
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(originalStart));
+            Assert.That(element.Start.Value, Is.EqualTo(originalStart));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -101,7 +101,7 @@ public class ElementNudgeServiceTests
         _service.Nudge(_scene, [element], 1);
 
         Assert.That(
-            element.Start,
+            element.Start.Value,
             Is.EqualTo(MediaTime.FromSeconds(1.555).RoundToFrame(new Rational(30), MidpointRounding.AwayFromZero)
                 + MediaTime.FromFrames(1, new Rational(30))));
     }
@@ -116,7 +116,7 @@ public class ElementNudgeServiceTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.Zero));
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(_history.UndoCount, Is.EqualTo(before));
         });
     }
@@ -139,7 +139,7 @@ public class ElementNudgeServiceTests
         int before = _history.UndoCount;
 
         _service.Nudge(_scene, [element], 1);
-        other.IsEnabled = false;
+        other.IsEnabled.Value = false;
         _service.Flush();
 
         Assert.Multiple(() =>
@@ -154,14 +154,14 @@ public class ElementNudgeServiceTests
     public void Nudge_WaitsOutAnotherOpenEditSession()
     {
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        MediaTime originalStart = element.Start;
+        MediaTime originalStart = element.Start.Value;
         using EditSession session = _history.BeginEdit("Drag");
 
         _service.Nudge(_scene, [element], 1);
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(originalStart));
+            Assert.That(element.Start.Value, Is.EqualTo(originalStart));
             Assert.That(_service.IsPending, Is.False);
         });
     }
@@ -170,18 +170,18 @@ public class ElementNudgeServiceTests
     public void Nudge_ThenAMoveCommittedInTheWindow_UndoesInOrder()
     {
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        MediaTime original = element.Start;
+        MediaTime original = element.Start.Value;
 
         _service.Nudge(_scene, [element], 1);
-        MediaTime nudged = element.Start;
-        element.Start = MediaTime.FromSeconds(5);
+        MediaTime nudged = element.Start.Value;
+        element.Start.Value = MediaTime.FromSeconds(5);
         _history.Commit("Move");
         _service.Flush();
 
         Assert.That(_history.Undo(), Is.True);
-        Assert.That(element.Start, Is.EqualTo(nudged));
+        Assert.That(element.Start.Value, Is.EqualTo(nudged));
         Assert.That(_history.Undo(), Is.True);
-        Assert.That(element.Start, Is.EqualTo(original));
+        Assert.That(element.Start.Value, Is.EqualTo(original));
     }
 
     [Test]
@@ -189,18 +189,18 @@ public class ElementNudgeServiceTests
     {
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         Element other = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2), zIndex: 1);
-        MediaTime original = element.Start;
+        MediaTime original = element.Start.Value;
         using IDisposable flush = _history.BeforeMutation.Subscribe(_ => _service.Flush());
 
         _service.Nudge(_scene, [element], 1);
-        Task queued = _history.RunAfterEditAsync(() => _history.ExecuteInTransaction(() => other.IsEnabled = false, "Agent"));
+        Task queued = _history.RunAfterEditAsync(() => _history.ExecuteInTransaction(() => other.IsEnabled.Value = false, "Agent"));
         Assert.That(_history.Undo(), Is.True);
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(original));
+            Assert.That(element.Start.Value, Is.EqualTo(original));
             Assert.That(queued.IsCompletedSuccessfully, Is.True);
-            Assert.That(other.IsEnabled, Is.False);
+            Assert.That(other.IsEnabled.Value, Is.False);
             Assert.That(_history.PeekUndo()!.DisplayName, Is.EqualTo("Agent"));
         });
     }
@@ -209,12 +209,12 @@ public class ElementNudgeServiceTests
     public void Nudge_ThatThrows_StillClosesItsSession()
     {
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        static void Throw(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        static void Throw(object? sender, PropertyValueChangedEventArgs<MediaTime> e)
             => throw new InvalidOperationException("move failed");
-        element.PropertyChanged += Throw;
+        element.Start.ValueChanged += Throw;
 
         Assert.Throws<InvalidOperationException>(() => _service.Nudge(_scene, [element], 1));
-        element.PropertyChanged -= Throw;
+        element.Start.ValueChanged -= Throw;
         _service.Flush();
 
         Assert.That(_history.IsEditing, Is.False);

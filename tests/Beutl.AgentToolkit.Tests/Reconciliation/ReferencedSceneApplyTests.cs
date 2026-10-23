@@ -22,13 +22,13 @@ public sealed class ReferencedSceneApplyTests
         var project = new Project();
         project.Items.Add(parent);
         project.Items.Add(child);
-        _ = new BeutlApplication { Project = project };
+        _ = new BeutlApplication { Project = { Value = project } };
 
         var drawable = new SceneDrawable();
         var element = new Element
         {
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2),
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(dir, "element.belm")),
         };
         element.AddObject(drawable);
@@ -60,12 +60,12 @@ public sealed class ReferencedSceneApplyTests
                 (Action<Scene, Scene, JsonObject>)((_, child, drawableNode) => drawableNode["ReferencedScene"] = new JsonObject
                 {
                     ["$type"] = "[Beutl.ProjectSystem]:Scene",
-                    ["Id"] = child.Id.ToString(),
+                    ["Id"] = child.Id.Value.ToString(),
                 }),
                 "Expressions")
             .SetName("Apply_DirectInlineSceneValue_IsRejectedWithExpressionsGuidance"),
         new TestCaseData(
-                (Action<Scene, Scene, JsonObject>)((_, child, drawableNode) => drawableNode["ReferencedScene"] = child.Id.ToString()),
+                (Action<Scene, Scene, JsonObject>)((_, child, drawableNode) => drawableNode["ReferencedScene"] = child.Id.Value.ToString()),
                 "Expressions")
             .SetName("Apply_DirectGuidStringValue_IsRejectedWithExpressionsGuidance"),
         new TestCaseData(
@@ -88,14 +88,14 @@ public sealed class ReferencedSceneApplyTests
         new TestCaseData(
                 SetExpression((_, child) => new JsonObject
                 {
-                    ["ObjectId"] = new JsonObject { ["Id"] = child.Id.ToString() },
+                    ["ObjectId"] = new JsonObject { ["Id"] = child.Id.Value.ToString() },
                 }),
                 "Guid string")
             .SetName("Apply_ExpressionReferenceWithObjectFormObjectId_IsRejected"),
         // ObjectId points at the timeline Element (not a Scene); with no PropertyPath the
         // expression evaluates to null, so apply must reject rather than compose empty.
         new TestCaseData(
-                SetExpression((parent, _) => new JsonObject { ["ObjectId"] = JsonValue.Create(parent.Children.Single().Id) }),
+                SetExpression((parent, _) => new JsonObject { ["ObjectId"] = JsonValue.Create(parent.Children.Single().Id.Value) }),
                 "exists in the project")
             .SetName("Apply_ExpressionReferenceWithWrongType_IsRejectedWithoutMutation"),
         // An empty PropertyPath evaluates as a direct-object reference, so a non-Scene target
@@ -103,7 +103,7 @@ public sealed class ReferencedSceneApplyTests
         new TestCaseData(
                 SetExpression((parent, _) => new JsonObject
                 {
-                    ["ObjectId"] = JsonValue.Create(parent.Children.Single().Id),
+                    ["ObjectId"] = JsonValue.Create(parent.Children.Single().Id.Value),
                     ["PropertyPath"] = "",
                 }),
                 "exists in the project")
@@ -114,7 +114,7 @@ public sealed class ReferencedSceneApplyTests
         new TestCaseData(
                 SetExpression((_, child) => new JsonObject
                 {
-                    ["ObjectId"] = JsonValue.Create(child.Id),
+                    ["ObjectId"] = JsonValue.Create(child.Id.Value),
                     ["PropertyPath"] = "ReferencedScene",
                 }),
                 "PropertyPath")
@@ -158,14 +158,14 @@ public sealed class ReferencedSceneApplyTests
             JsonObject desired = session.Documents.Read(parent);
             GetDrawableNode(desired)["Expressions"] = new JsonObject
             {
-                ["ReferencedScene"] = new JsonObject { ["ObjectId"] = JsonValue.Create(child.Id) },
+                ["ReferencedScene"] = new JsonObject { ["ObjectId"] = JsonValue.Create(child.Id.Value) },
             };
 
             reconciler.Apply(session, desired);
 
             Assert.Multiple(() =>
             {
-                Assert.That(ExpressionObjectId(drawable), Is.EqualTo(child.Id));
+                Assert.That(ExpressionObjectId(drawable), Is.EqualTo(child.Id.Value));
                 // The reference resolves through the expression, so the child scene keeps its own
                 // parent and is never adopted into the referencing drawable's subtree.
                 Assert.That(drawable.ReferencedScene.Value, Is.Null);
@@ -228,7 +228,7 @@ public sealed class ReferencedSceneApplyTests
                     ["$type"] = "[Beutl.ProjectSystem]:SceneDrawable",
                     ["Expressions"] = new JsonObject
                     {
-                        ["ReferencedScene"] = new JsonObject { ["ObjectId"] = JsonValue.Create(child.Id) },
+                        ["ReferencedScene"] = new JsonObject { ["ObjectId"] = JsonValue.Create(child.Id.Value) },
                     },
                 }),
             });
@@ -236,11 +236,11 @@ public sealed class ReferencedSceneApplyTests
             reconciler.Apply(session, desired);
 
             SceneDrawable inserted = parent.Children
-                .Single(e => e.Name == "Nested scene element")
+                .Single(e => e.Name.Value == "Nested scene element")
                 .Objects
                 .OfType<SceneDrawable>()
                 .Single();
-            Assert.That(ExpressionObjectId(inserted), Is.EqualTo(child.Id));
+            Assert.That(ExpressionObjectId(inserted), Is.EqualTo(child.Id.Value));
         }
     }
 }

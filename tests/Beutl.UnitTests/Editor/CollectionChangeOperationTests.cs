@@ -22,7 +22,7 @@ public class CollectionChangeOperationTests
     public void CompletedValueMove_DoesNotUseCoarseValueEqualityToClassifyFailure()
     {
         var owner = new TestValueListOwner();
-        owner.Items.AddRange([new EqualValue(2), new EqualValue(1)]);
+        owner.Items.Value.AddRange([new EqualValue(2), new EqualValue(1)]);
         var operation = new MoveCollectionRangeOperation<EqualValue>
         {
             Object = owner,
@@ -40,11 +40,11 @@ public class CollectionChangeOperationTests
             if (change.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
                 throw new IOException("observer");
         };
-        owner.Items.CollectionChanged += handler;
+        owner.Items.Value.CollectionChanged += handler;
         Assert.Throws<IOException>(() => history.Undo());
         Assert.That(history.Undo(), Is.True);
-        Assert.That(owner.Items.Select(value => value.Id), Is.EqualTo(new[] { 1, 2 }));
-        owner.Items.CollectionChanged -= handler;
+        Assert.That(owner.Items.Value.Select(value => value.Id), Is.EqualTo(new[] { 1, 2 }));
+        owner.Items.Value.CollectionChanged -= handler;
     }
 
     private readonly struct EqualValue(int id) : IEquatable<EqualValue>
@@ -58,12 +58,7 @@ public class CollectionChangeOperationTests
     private sealed class TestValueListOwner : CoreObject
     {
         public TestValueListOwner() => ScanProperties<TestValueListOwner>();
-        public IProperty<CoreList<EqualValue>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<EqualValue>>([]);
-        public CoreList<EqualValue> Items
-        {
-            get => ItemsProperty.Value;
-            set => ItemsProperty.Value = value;
-        }
+        public IProperty<CoreList<EqualValue>> Items { get; } = new ValueOnlyProperty<CoreList<EqualValue>>([]);
     }
 
     [TestCase(1)]
@@ -71,7 +66,7 @@ public class CollectionChangeOperationTests
     public void StaleMoveDestination_DoesNotMutateTheCollectionWhenRetried(int count)
     {
         var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B", "C"]);
+        owner.Items.Value.AddRange(["A", "B", "C"]);
         var operation = new MoveCollectionRangeOperation<string> { Object = owner, PropertyPath = "Items", OldIndex = 5, NewIndex = 0, Count = count, SequenceNumber = 1 };
         using var history = new Beutl.Editor.HistoryManager(new Beutl.Editor.OperationSequenceGenerator());
         history.Record(operation);
@@ -79,7 +74,7 @@ public class CollectionChangeOperationTests
         for (int i = 0; i < 2; i++)
         {
             Assert.Catch<ArgumentOutOfRangeException>(() => history.Undo());
-            Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C" }));
+            Assert.That(owner.Items.Value, Is.EqualTo(new[] { "A", "B", "C" }));
         }
     }
 
@@ -87,7 +82,7 @@ public class CollectionChangeOperationTests
     public void CompletedMoveWithThrowingObserver_IsNotRepeatedOnRetry()
     {
         var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["B", "C", "A"]);
+        owner.Items.Value.AddRange(["B", "C", "A"]);
         var operation = new MoveCollectionRangeOperation<string>
         {
             Object = owner,
@@ -105,14 +100,14 @@ public class CollectionChangeOperationTests
             if (change.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Add)
                 throw new IOException("observer failure after insertion");
         };
-        owner.Items.CollectionChanged += handler;
+        owner.Items.Value.CollectionChanged += handler;
         Assert.Throws<IOException>(() => history.Undo());
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C" }));
+        Assert.That(owner.Items.Value, Is.EqualTo(new[] { "A", "B", "C" }));
         Assert.That(history.Undo(), Is.True);
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "C" }));
-        owner.Items.CollectionChanged -= handler;
+        Assert.That(owner.Items.Value, Is.EqualTo(new[] { "A", "B", "C" }));
+        owner.Items.Value.CollectionChanged -= handler;
         Assert.That(history.Redo(), Is.True);
-        Assert.That(owner.Items, Is.EqualTo(new[] { "B", "C", "A" }));
+        Assert.That(owner.Items.Value, Is.EqualTo(new[] { "B", "C", "A" }));
     }
 
     #endregion
@@ -161,7 +156,7 @@ public class CollectionChangeOperationTests
     public void InsertCollectionRangeOperation_ApplyTo_WhenIndexNegative_ShouldAddToEnd()
     {
         var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B"]);
+        owner.Items.Value.AddRange(["A", "B"]);
 
         var operation = new InsertCollectionRangeOperation<string>
         {
@@ -174,14 +169,14 @@ public class CollectionChangeOperationTests
 
         operation.Apply();
 
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "X", "Y" }));
+        Assert.That(owner.Items.Value, Is.EqualTo(new[] { "A", "B", "X", "Y" }));
     }
 
     [Test]
     public void InsertCollectionRangeOperation_ApplyTo_WhenIndexGreaterThanCount_ShouldAddToEnd()
     {
         var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B"]);
+        owner.Items.Value.AddRange(["A", "B"]);
 
         var operation = new InsertCollectionRangeOperation<string>
         {
@@ -194,7 +189,7 @@ public class CollectionChangeOperationTests
 
         operation.Apply();
 
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "B", "X", "Y" }));
+        Assert.That(owner.Items.Value, Is.EqualTo(new[] { "A", "B", "X", "Y" }));
     }
 
     [Test]
@@ -325,7 +320,7 @@ public class CollectionChangeOperationTests
     public void MoveCollectionRangeOperation_ApplyTo_WhenMovingBackward_ShouldMoveItems()
     {
         var owner = new TestCoreObjectWithList();
-        owner.Items.AddRange(["A", "B", "C", "D", "E"]);
+        owner.Items.Value.AddRange(["A", "B", "C", "D", "E"]);
 
         var operation = new MoveCollectionRangeOperation<string>
         {
@@ -339,7 +334,7 @@ public class CollectionChangeOperationTests
 
         operation.Apply();
 
-        Assert.That(owner.Items, Is.EqualTo(new[] { "A", "D", "E", "B", "C" }));
+        Assert.That(owner.Items.Value, Is.EqualTo(new[] { "A", "D", "E", "B", "C" }));
     }
 
     [Test]
@@ -607,7 +602,7 @@ public class CollectionChangeOperationTests
         else
         {
             var coreOwner = new TestCoreObjectWithList();
-            (owner, list) = (coreOwner, coreOwner.Items);
+            (owner, list) = (coreOwner, coreOwner.Items.Value);
         }
 
         foreach (string item in new[] { "X", "A", "B", "C", "D" }) list.Add(item);
@@ -675,8 +670,8 @@ public class CollectionChangeOperationTests
         yield return new TestCaseData(new CreateListOwner(items =>
         {
             var owner = new TestCoreObjectWithList();
-            owner.Items.AddRange(items);
-            return (owner, "Items", owner.Items);
+            owner.Items.Value.AddRange(items);
+            return (owner, "Items", owner.Items.Value);
         })).SetArgDisplayNames("CoreObject");
 
         yield return new TestCaseData(new CreateListOwner(items =>
@@ -706,13 +701,7 @@ public class CollectionChangeOperationTests
             ScanProperties<TestCoreObjectWithList>();
         }
 
-        public IProperty<CoreList<string>> ItemsProperty { get; } = new ValueOnlyProperty<CoreList<string>>([]);
-
-        public CoreList<string> Items
-        {
-            get => ItemsProperty.Value;
-            set => ItemsProperty.Value = value;
-        }
+        public IProperty<CoreList<string>> Items { get; } = new ValueOnlyProperty<CoreList<string>>([]);
     }
 
     private class TestCoreObjectWithScalarProperty : CoreObject
@@ -722,13 +711,7 @@ public class CollectionChangeOperationTests
             ScanProperties<TestCoreObjectWithScalarProperty>();
         }
 
-        public IProperty<string> TitleProperty { get; } = new ValueOnlyProperty<string>("");
-
-        public string Title
-        {
-            get => TitleProperty.Value;
-            set => TitleProperty.Value = value;
-        }
+        public IProperty<string> Title { get; } = new ValueOnlyProperty<string>("");
     }
 
     [SuppressResourceClassGeneration]

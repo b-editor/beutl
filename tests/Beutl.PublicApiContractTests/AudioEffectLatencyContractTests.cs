@@ -36,7 +36,7 @@ public sealed class AudioEffectLatencyContractTests
     [TestCase(true)]
     public void ExternalEffect_DisabledOrSaturatedInputMatchesGraph(bool disabled)
     {
-        var mapping = new PluginLatencyMappingEffect { IsEnabled = !disabled };
+        var mapping = new PluginLatencyMappingEffect { IsEnabled = { Value = !disabled } };
         var group = new AudioEffectGroup();
         group.Children.Add(mapping);
         using var context = new AudioContext(SampleRate, 2);
@@ -64,7 +64,7 @@ internal sealed partial class PluginLatencyMappingEffect : AudioEffect
     public override int GetLatencySamples(int sampleRate, int inputLatency = 0)
     {
         base.GetLatencySamples(sampleRate, inputLatency);
-        return !IsEnabled || inputLatency == int.MaxValue
+        return !IsEnabled.Value || inputLatency == int.MaxValue
             ? inputLatency
             : (int)Math.Ceiling(inputLatency / 2d);
     }

@@ -90,14 +90,14 @@ public class ElementDuplicateServiceTests
         Element element = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
-            _scene, [element], element.Start, 0);
+            _scene, [element], element.Start.Value, 0);
 
         Assert.Multiple(() =>
         {
             Assert.That(outcome.Success, Is.True);
             // Spiral search should not land on the existing element.
             Assert.That((outcome.ScrollToRange.Start, outcome.ScrollToZIndex),
-                Is.Not.EqualTo((element.Start, element.ZIndex)));
+                Is.Not.EqualTo((element.Start.Value, element.ZIndex.Value)));
         });
     }
 
@@ -114,7 +114,7 @@ public class ElementDuplicateServiceTests
     public void DuplicateAtClickedPosition_LockedSource_IsExcluded()
     {
         Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        locked.IsLocked = true;
+        locked.IsLocked.Value = true;
         Element free = AddElement(MediaTime.FromSeconds(5), MediaTime.FromSeconds(2));
         int childrenBefore = _scene.Children.Count;
 
@@ -132,7 +132,7 @@ public class ElementDuplicateServiceTests
     public void DuplicateAtClickedPosition_ClickedOnLockedLayer_PlacesElsewhere()
     {
         Element source = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 0);
-        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 3 }, IsLocked = { Value = true } });
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
             _scene, [source], MediaTime.FromSeconds(20), 3);
@@ -141,7 +141,7 @@ public class ElementDuplicateServiceTests
         {
             Assert.That(outcome.Success, Is.True);
             Assert.That(outcome.ScrollToZIndex, Is.Not.EqualTo(3));
-            Assert.That(_scene.Children.Any(c => c != source && c.ZIndex == 3), Is.False);
+            Assert.That(_scene.Children.Any(c => c != source && c.ZIndex.Value == 3), Is.False);
         });
     }
 
@@ -152,7 +152,7 @@ public class ElementDuplicateServiceTests
         // duplicate lands on it, so the placement must succeed.
         Element bottom = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 0);
         Element top = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 2);
-        _scene.Layers.Add(new TimelineLayer { ZIndex = 1, IsLocked = true });
+        _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsLocked = { Value = true } });
         int childrenBefore = _scene.Children.Count;
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
@@ -162,7 +162,7 @@ public class ElementDuplicateServiceTests
         {
             Assert.That(outcome.Success, Is.True);
             Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore + 2));
-            Assert.That(_scene.Children.Any(c => c != bottom && c != top && c.ZIndex == 1), Is.False);
+            Assert.That(_scene.Children.Any(c => c != bottom && c != top && c.ZIndex.Value == 1), Is.False);
         });
     }
 
@@ -194,12 +194,12 @@ public class ElementDuplicateServiceTests
     {
         // A deserialized clipboard element is not a child of the scene, so the
         // current scene's layer locks must not apply to its source ZIndex.
-        _scene.Layers.Add(new TimelineLayer { ZIndex = 2, IsLocked = true });
+        _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
         var clipboardElement = new Element
         {
-            Start = MediaTime.FromSeconds(1),
-            Length = MediaTime.FromSeconds(2),
-            ZIndex = 2,
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = 2 },
             Uri = new Uri(Path.Combine(_harness.BasePath, $"{Guid.NewGuid():N}.layer")),
         };
         int childrenBefore = _scene.Children.Count;
@@ -218,7 +218,7 @@ public class ElementDuplicateServiceTests
     public void DuplicateAtClickedPosition_AllSourcesLocked_ReturnsFailed()
     {
         Element locked = AddElement(MediaTime.FromSeconds(1), MediaTime.FromSeconds(2), zIndex: 3);
-        _scene.Layers.Add(new TimelineLayer { ZIndex = 3, IsLocked = true });
+        _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 3 }, IsLocked = { Value = true } });
         int childrenBefore = _scene.Children.Count;
         int before = _history.UndoCount;
 

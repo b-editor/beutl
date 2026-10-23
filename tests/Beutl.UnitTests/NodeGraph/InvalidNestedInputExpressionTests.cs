@@ -27,7 +27,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var group = new GroupNode();
         if (grouped) graph.Nodes.Add(group);
-        GraphModel otherGraph = grouped ? group.Group : graph;
+        GraphModel otherGraph = grouped ? group.Group.Value : graph;
         var first = new GeometryShapeNode();
         var second = new GeometryShapeNode();
         var shared = new SolidColorBrush(Colors.White, 35f);
@@ -35,7 +35,7 @@ public class InvalidNestedInputExpressionTests
         if (animated)
         {
             var animation = new KeyFrameAnimation<float>();
-            animation.KeyFrames.Add(new KeyFrame<float> { Value = 55f });
+            animation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 55f } });
             shared.Opacity.SetKeyFrameAnimation(animation);
         }
         first.Fill.Property!.SetValue(shared);
@@ -63,8 +63,8 @@ public class InvalidNestedInputExpressionTests
             resource.Reconcile(shared, CompositionContext.Default, ref versionBumped);
             Assert.Multiple(() =>
             {
-                Assert.That(firstConnection.Status, Is.EqualTo(ConnectionStatus.Error));
-                Assert.That(secondConnection.Status, Is.EqualTo(ConnectionStatus.Error));
+                Assert.That(firstConnection.Status.Value, Is.EqualTo(ConnectionStatus.Error));
+                Assert.That(secondConnection.Status.Value, Is.EqualTo(ConnectionStatus.Error));
                 Assert.That(shared.Opacity.Expression, Is.SameAs(shared.Opacity.GetKeyFrameAnimation()));
                 Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(animated ? 55f : 35f));
                 Assert.That(resource.Opacity, Is.EqualTo(animated ? 55f : 35f));
@@ -80,8 +80,8 @@ public class InvalidNestedInputExpressionTests
 
         Assert.That(history.History.Undo(), Is.True);
         Evaluate(graph);
-        Assert.That(firstConnection.Status, Is.EqualTo(ConnectionStatus.Success));
-        Assert.That(secondConnection.Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(firstConnection.Status.Value, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(secondConnection.Status.Value, Is.EqualTo(ConnectionStatus.Success));
         Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(12f));
         Assert.That(separate.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(90f));
         Assert.That(recordedExpressions, Is.Empty);
@@ -90,7 +90,7 @@ public class InvalidNestedInputExpressionTests
         CheckFallback();
         otherGraph.Disconnect(secondConnection);
         Evaluate(graph);
-        Assert.That(firstConnection.Status, Is.EqualTo(ConnectionStatus.Success));
+        Assert.That(firstConnection.Status.Value, Is.EqualTo(ConnectionStatus.Success));
         Assert.That(shared.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(12f));
     }
 
@@ -100,16 +100,16 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.Value = brush;
+        node.Object.Value.Brush.Value = brush;
         graph.Nodes.Add(node);
         var connection = graph.Connect(Find(node, brush.Opacity), Source(graph, 12f, "Opacity"));
         var expression = Expression.Create<float>("73");
         brush.Opacity.Expression = expression;
-        node.Object.Brush.Expression = Expression.CreateReference<Brush>(Guid.NewGuid());
+        node.Object.Value.Brush.Expression = Expression.CreateReference<Brush>(Guid.NewGuid());
 
         Evaluate(graph);
 
-        Assert.That(connection.Status, Is.EqualTo(ConnectionStatus.Error));
+        Assert.That(connection.Status.Value, Is.EqualTo(ConnectionStatus.Error));
         Assert.That(brush.Opacity.Expression, Is.SameAs(expression));
         Assert.That(brush.Opacity.Evaluate(CompositionContext.Default), Is.EqualTo(73f));
     }
@@ -120,7 +120,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.Value = brush;
+        node.Object.Value.Brush.Value = brush;
         graph.Nodes.Add(node);
         IOutputPort source = Source(graph, 12f, "Opacity");
         using var history = new HistoryHarness(graph);
@@ -146,7 +146,7 @@ public class InvalidNestedInputExpressionTests
         var graph = new GraphModel();
         var node = new FactoryNode<Pen>();
         var brush = new SolidColorBrush();
-        node.Object.Brush.Value = brush;
+        node.Object.Value.Brush.Value = brush;
         graph.Nodes.Add(node);
         brush.Opacity.Expression = Expression.Create<float>("73");
         INestedInputPort port = Find(node, brush.Opacity);
@@ -155,7 +155,7 @@ public class InvalidNestedInputExpressionTests
         var json = CoreSerializer.SerializeToJsonObject(graph);
         var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
         Evaluate(restored);
-        var restoredPort = (INestedInputPort)restored.FindNodePort(port.Id)!;
+        var restoredPort = (INestedInputPort)restored.FindNodePort(port.Id.Value)!;
         var restoredOpacity = (IExpressionProperty<float>)restoredPort.Property!.GetEngineProperty()!;
         Assert.That(restoredOpacity.Evaluate(CompositionContext.Default), Is.EqualTo(12f), "the reloaded connection drives the property");
 

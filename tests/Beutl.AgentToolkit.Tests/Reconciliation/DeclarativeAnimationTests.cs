@@ -32,7 +32,7 @@ public sealed class DeclarativeAnimationTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(new JsonObject
                 {
                     ["$type"] = IdentityHelper.WriteDiscriminator(typeof(TextBlock)),
@@ -51,7 +51,7 @@ public sealed class DeclarativeAnimationTests
             schemaVersion: SchemaVersion.Current);
         TextBlock createdText = element.Objects
             .OfType<TextBlock>()
-            .Single(item => item.Name == "animated-new-text");
+            .Single(item => item.Name.Value == "animated-new-text");
         var animation = (KeyFrameAnimation<float>)createdText.Opacity.GetKeyFrameAnimation()!;
 
         Assert.Multiple(() =>
@@ -59,7 +59,7 @@ public sealed class DeclarativeAnimationTests
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
             Assert.That(createdText.Text.Value, Is.EqualTo("Animated"));
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
-            Assert.That(((KeyFrame<float>)animation.KeyFrames[1]).Value, Is.EqualTo(100f));
+            Assert.That(((KeyFrame<float>)animation.KeyFrames[1]).Value.Value, Is.EqualTo(100f));
         });
     }
 
@@ -93,7 +93,7 @@ public sealed class DeclarativeAnimationTests
 
         var createdAnimation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
         KeyFrame<float>[] createdFrames = createdAnimation.KeyFrames.Cast<KeyFrame<float>>().ToArray();
-        float[] createdValues = createdFrames.Select(frame => frame.Value).ToArray();
+        float[] createdValues = createdFrames.Select(frame => frame.Value.Value).ToArray();
 
         JsonObject updatePatch = PatchTextObject(
             element,
@@ -107,12 +107,12 @@ public sealed class DeclarativeAnimationTests
                         ["KeyFrames"] = new JsonArray(
                             new JsonObject
                             {
-                                [nameof(CoreObject.Id)] = createdFrames[0].Id.ToString(),
+                                [nameof(CoreObject.Id)] = createdFrames[0].Id.Value.ToString(),
                                 ["$delete"] = true
                             },
                             new JsonObject
                             {
-                                [nameof(CoreObject.Id)] = createdFrames[1].Id.ToString(),
+                                [nameof(CoreObject.Id)] = createdFrames[1].Id.Value.ToString(),
                                 [nameof(KeyFrame.KeyTime)] = TimeSpan.FromSeconds(1.5).ToString("c"),
                                 [nameof(KeyFrame<float>.Value)] = 80,
                                 [nameof(KeyFrame.Easing)] = nameof(HoldEasing)
@@ -136,10 +136,10 @@ public sealed class DeclarativeAnimationTests
             Assert.That(createdFrames, Has.Length.EqualTo(2));
             Assert.That(createdValues, Is.EqualTo(new[] { 0f, 100f }));
             Assert.That(updateApply.Value!.Changes!.Select(change => change.Operation), Does.Contain(ChangeOperations.RemoveChild));
-            Assert.That(remaining.Id, Is.EqualTo(createdFrames[1].Id));
-            Assert.That(remaining.KeyTime, Is.EqualTo(MediaTime.FromSeconds(1.5)));
-            Assert.That(remaining.Value, Is.EqualTo(80f));
-            Assert.That(remaining.Easing, Is.InstanceOf<HoldEasing>());
+            Assert.That(remaining.Id.Value, Is.EqualTo(createdFrames[1].Id.Value));
+            Assert.That(remaining.KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1.5)));
+            Assert.That(remaining.Value.Value, Is.EqualTo(80f));
+            Assert.That(remaining.Easing.Value, Is.InstanceOf<HoldEasing>());
         });
 
         session.History.Undo();
@@ -182,10 +182,10 @@ public sealed class DeclarativeAnimationTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(resultFrames.Select(frame => frame.KeyTime),
+            Assert.That(resultFrames.Select(frame => frame.KeyTime.Value),
                 Is.EqualTo(new[] { MediaTime.Zero, MediaTime.FromSeconds(1) }));
-            Assert.That(resultFrames[0].Value, Is.EqualTo(0f));
-            Assert.That(resultFrames[1].Value, Is.EqualTo(100f));
+            Assert.That(resultFrames[0].Value.Value, Is.EqualTo(0f));
+            Assert.That(resultFrames[1].Value.Value, Is.EqualTo(100f));
         });
     }
 
@@ -214,7 +214,7 @@ public sealed class DeclarativeAnimationTests
 
         var createdAnimation = (KeyFrameAnimation<float>)text.Opacity.GetKeyFrameAnimation()!;
         KeyFrame<float>[] createdFrames = createdAnimation.KeyFrames.Cast<KeyFrame<float>>().ToArray();
-        Easing originalEasing = createdFrames[0].Easing;
+        Easing originalEasing = createdFrames[0].Easing.Value;
 
         JsonObject badPatch = PatchTextObject(
             element,
@@ -228,7 +228,7 @@ public sealed class DeclarativeAnimationTests
                         ["KeyFrames"] = new JsonArray(
                             new JsonObject
                             {
-                                [nameof(CoreObject.Id)] = createdFrames[0].Id.ToString(),
+                                [nameof(CoreObject.Id)] = createdFrames[0].Id.Value.ToString(),
                                 [nameof(KeyFrame.Easing)] = "EaseInOutCubicTYPO"
                             })
                     }
@@ -243,7 +243,7 @@ public sealed class DeclarativeAnimationTests
         {
             Assert.That(badApply.IsSuccess, Is.False);
             Assert.That(badApply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(createdFrames[0].Easing, Is.SameAs(originalEasing));
+            Assert.That(createdFrames[0].Easing.Value, Is.SameAs(originalEasing));
         });
     }
 
@@ -279,7 +279,7 @@ public sealed class DeclarativeAnimationTests
         {
             Assert.That(createApply.IsSuccess, Is.True, createApply.Error?.Message);
             Assert.That(roundTripApply.IsSuccess, Is.True, roundTripApply.Error?.Message);
-            Assert.That(second.Easing, Is.InstanceOf<SineEaseOut>());
+            Assert.That(second.Easing.Value, Is.InstanceOf<SineEaseOut>());
         });
     }
 
@@ -308,7 +308,7 @@ public sealed class DeclarativeAnimationTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 [nameof(Element.Length)] = TimeSpan.FromSeconds(2).ToString("c")
             })
         };
@@ -323,7 +323,7 @@ public sealed class DeclarativeAnimationTests
             Assert.That(retimeApply.IsSuccess, Is.True, retimeApply.Error?.Message);
             Assert.That(retimeApply.Value!.Valid, Is.True);
             Assert.That(retimeApply.Value.Validation!.Select(item => item.Status), Does.Contain(ValidationStatus.Warning));
-            Assert.That(element.Length, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
         });
     }
 
@@ -378,9 +378,9 @@ public sealed class DeclarativeAnimationTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(animation.UseGlobalClock, Is.False);
-            Assert.That(animation.KeyFrames.Cast<KeyFrame<float>>().Select(frame => frame.KeyTime),
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(animation.UseGlobalClock.Value, Is.False);
+            Assert.That(animation.KeyFrames.Cast<KeyFrame<float>>().Select(frame => frame.KeyTime.Value),
                 Is.EqualTo(new[] { MediaTime.Zero, MediaTime.FromSeconds(1) }));
             Assert.That(actual, Is.EqualTo(50f).Within(0.001f));
         });
@@ -451,9 +451,9 @@ public sealed class DeclarativeAnimationTests
         Assert.Multiple(() =>
         {
             Assert.That(render.VisibilityAnalysis!.VisiblePixelRatio, Is.GreaterThan(0));
-            Assert.That(element.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(((KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!).UseGlobalClock, Is.False);
-            Assert.That(((KeyFrameAnimation<float>)translate.Y.GetKeyFrameAnimation()!).UseGlobalClock, Is.False);
+            Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(((KeyFrameAnimation<float>)rect.Opacity.GetKeyFrameAnimation()!).UseGlobalClock.Value, Is.False);
+            Assert.That(((KeyFrameAnimation<float>)translate.Y.GetKeyFrameAnimation()!).UseGlobalClock.Value, Is.False);
             Assert.That(opacity, Is.EqualTo(50f).Within(0.001f));
             Assert.That(translateY, Is.EqualTo(50f).Within(0.001f));
         });
@@ -461,12 +461,12 @@ public sealed class DeclarativeAnimationTests
 
     private static JsonObject PatchTextObject(Element element, TextBlock text, JsonObject textPatch)
     {
-        textPatch[nameof(CoreObject.Id)] = text.Id.ToString();
+        textPatch[nameof(CoreObject.Id)] = text.Id.Value.ToString();
         return new JsonObject
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(textPatch)
             })
         };
@@ -481,17 +481,17 @@ public sealed class DeclarativeAnimationTests
         animation.KeyFrames.Add(
             new KeyFrame<float>
             {
-                KeyTime = firstKeyTime,
-                Value = 0,
-                Easing = new LinearEasing()
+                KeyTime = { Value = firstKeyTime },
+                Value = { Value = 0 },
+                Easing = { Value = new LinearEasing() }
             },
             out _);
         animation.KeyFrames.Add(
             new KeyFrame<float>
             {
-                KeyTime = secondKeyTime,
-                Value = 100,
-                Easing = new SineEaseOut()
+                KeyTime = { Value = secondKeyTime },
+                Value = { Value = 100 },
+                Easing = { Value = new SineEaseOut() }
             },
             out _);
 

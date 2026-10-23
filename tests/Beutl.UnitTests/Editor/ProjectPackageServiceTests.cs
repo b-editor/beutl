@@ -745,7 +745,7 @@ public class ProjectPackageServiceTests
             IEnumerable<(Guid Object, string PropertyName, Uri OriginalUri)> sources, Project stagingProject,
             string projectDirectory, CancellationToken cancellationToken = default)
         {
-            Scene scene = stagingProject.Items.OfType<Scene>().Single(item => item.Name == "External");
+            Scene scene = stagingProject.Items.OfType<Scene>().Single(item => item.Name.Value == "External");
             Element element = scene.Children.Single();
             string destination = Path.Combine(projectDirectory, "clip.belm");
             File.Copy(element.Uri!.LocalPath, destination);
@@ -765,7 +765,7 @@ public class ProjectPackageServiceTests
         byte[] imageBytes = File.ReadAllBytes(asset);
         var image = new SourceImage();
         image.Source.Value = source;
-        var element = new Element { Length = MediaTime.FromSeconds(1) };
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
         element.Objects.Add(image);
         CoreSerializer.StoreToUri(element, new Uri(Path.Combine(_projectDir, "image.belm")));
         Scene scene = project.Items.OfType<Scene>().Single();
@@ -840,7 +840,7 @@ public class ProjectPackageServiceTests
         string projectFilePath = Path.Combine(_projectDir, "test.bep");
         var project = new Project();
         Uri projectUri = new(projectFilePath);
-        project.Name = "TestProject";
+        project.Name.Value = "TestProject";
 
         CoreSerializer.StoreToUri(project, projectUri);
 
@@ -871,7 +871,7 @@ public class ProjectPackageServiceTests
         string projectFilePath = Path.Combine(_projectDir, "test_with_items.bep");
         var project = new Project();
         Uri projectUri = new(projectFilePath);
-        project.Name = "TestProjectWithItems";
+        project.Name.Value = "TestProjectWithItems";
 
         var scene = new Scene(1920, 1080, "TestScene");
         string sceneFilePath = Path.Combine(_projectDir, "test_scene.scene");

@@ -416,9 +416,9 @@ public class NoiseReductionEffectTests
     {
         var effect = new NoiseReductionEffect();
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 0, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 0, Easing = new LinearEasing() });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1.5), Value = 24, Easing = new LinearEasing() });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 }, Easing = { Value = new LinearEasing() } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 0 }, Easing = { Value = new LinearEasing() } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1.5) }, Value = { Value = 24 }, Easing = { Value = new LinearEasing() } });
         effect.Reduction.SetKeyFrameAnimation(animation);
         using var context = new AudioContext(SampleRate, 2);
         var node = (NoiseReductionNode)effect.CreateNode(context, new SignalSource(s_noise));
@@ -440,8 +440,8 @@ public class NoiseReductionEffectTests
         effect.Smoothing.Value = 80;
         effect.Adaptation.Value = 4;
         var animation = new KeyFrameAnimation<float>();
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 6 });
-        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(1), Value = 30 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 6 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 30 } });
         effect.Reduction.SetKeyFrameAnimation(animation);
         var group = new AudioEffectGroup();
         group.Children.Add(effect);
@@ -487,7 +487,7 @@ public class NoiseReductionEffectTests
     {
         var sound = new SourceSound
         {
-            TimeRange = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(4)),
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(4)) },
             Source = { Value = source },
         };
         if (effect != null)

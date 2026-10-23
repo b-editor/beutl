@@ -530,7 +530,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task HasVersionTrackingOptInAsync_only_reports_true_after_hygiene_runs()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
-        var config = new VersionControlConfig { UseLfsWhenAvailable = false };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = false } };
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: false, config),
             Repository,
@@ -556,7 +556,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task HasVersionTrackingOptInAsync_survives_deleting_the_generated_hygiene_files()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
-        var config = new VersionControlConfig { UseLfsWhenAvailable = false };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = false } };
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: false, config),
             Repository,
@@ -580,7 +580,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task HasVersionTrackingOptInAsync_reports_false_for_a_repository_beutl_never_managed()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
-        var config = new VersionControlConfig { UseLfsWhenAvailable = false };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = false } };
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: false, config),
             Repository,
@@ -599,7 +599,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     public async Task EnsureRepositoryHygieneAsync_applies_Lfs_to_mixed_case_media_extensions()
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
-        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = true } };
         var runner = new RecordingLfsRunner(CreateRunner());
         using var service = CreateService(runner: runner, locator: CreateInstalledLocator(lfsInstalled: true, config));
 
@@ -650,8 +650,8 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         var notices = new List<VersionControlPolicyNotice>();
         var config = new VersionControlConfig
         {
-            UseLfsWhenAvailable = true,
-            LargeMediaWarningThresholdMb = 0,
+            UseLfsWhenAvailable = { Value = true },
+            LargeMediaWarningThresholdMb = { Value = 0 },
         };
         var runner = new CustomHookRejectingLfsInstallRunner(
             CreateRunner(),
@@ -715,7 +715,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             await WriteHookAsync(hook, $"git lfs {hook} \"$@\"\n");
         }
 
-        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = true } };
         var runner = new RecordingLfsRunner(CreateRunner());
         using var service = CreateService(runner: runner, locator: CreateInstalledLocator(lfsInstalled: true, config));
 
@@ -769,7 +769,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
                 UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
 
-        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = true } };
         var runner = new RecordingLfsRunner(CreateRunner());
         using var service = CreateService(runner: runner, locator: CreateInstalledLocator(lfsInstalled: true, config));
 
@@ -794,7 +794,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
         await File.WriteAllBytesAsync(mediaPath, [0]);
         var notices = new List<VersionControlPolicyNotice>();
-        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = 0 };
+        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = { Value = 0 } };
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: false, config),
             Repository,
@@ -843,7 +843,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         Directory.CreateDirectory(Path.GetDirectoryName(mediaPath)!);
         await File.WriteAllBytesAsync(mediaPath, [0]);
         var notices = new List<VersionControlPolicyNotice>();
-        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = 0 };
+        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = { Value = 0 } };
         var repository = new RepositoryInfo(Root, projectRoot);
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: false, config),
@@ -1025,7 +1025,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         string original = $"custom text\n# BEGIN BEUTL MANAGED LFS\n{managedRule}\n"
                           + $"# END BEUTL MANAGED LFS\n{customRule}\n";
         await File.WriteAllTextAsync(Path.Combine(Root, ".gitattributes"), original);
-        var config = new VersionControlConfig { UseLfsWhenAvailable = useLfsWhenAvailable };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = useLfsWhenAvailable } };
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled, config),
             Repository,
@@ -1056,7 +1056,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             Path.Combine(Root, ".gitattributes"),
             $"custom before\n# BEGIN BEUTL MANAGED LFS\n{otherBuildRule}\n{pngRule}\n"
             + "# END BEUTL MANAGED LFS\ncustom after\n");
-        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = true } };
         using var service = CreateService(
             runner: new RecordingLfsRunner(CreateRunner()),
             locator: CreateInstalledLocator(lfsInstalled: true, config));
@@ -1082,7 +1082,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         await CommitFileAsync("project.bep", "{}\n", "baseline");
         await File.WriteAllTextAsync(Path.Combine(Root, ".gitattributes"), "custom text\n");
-        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = true } };
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(lfsInstalled: true, config),
             Repository,
@@ -1094,7 +1094,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
             await File.ReadAllTextAsync(Path.Combine(Root, ".gitattributes")),
             Does.Contain("# BEGIN BEUTL MANAGED LFS"));
 
-        config.UseLfsWhenAvailable = false;
+        config.UseLfsWhenAvailable.Value = false;
         await service.EnsureRepositoryHygieneAsync(CancellationToken.None);
 
         string contents = await File.ReadAllTextAsync(Path.Combine(Root, ".gitattributes"));
@@ -1251,7 +1251,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(ignorePath, "custom ignore\n");
         await File.WriteAllTextAsync(attributesPath, "custom attributes\n");
         var runner = new RecordingLfsRunner(CreateRunner());
-        var config = new VersionControlConfig { UseLfsWhenAvailable = true };
+        var config = new VersionControlConfig { UseLfsWhenAvailable = { Value = true } };
         using var service = CreateService(runner: runner, locator: CreateInstalledLocator(lfsInstalled: true, config));
 
         await Assert.ThrowsAsync<DetachedHeadNotSupportedException>(
@@ -3732,7 +3732,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
         await File.WriteAllTextAsync(mediaPath, "media\n");
         string? mergeIndex = null;
         int notices = 0;
-        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = 0 };
+        var config = new VersionControlConfig { LargeMediaWarningThresholdMb = { Value = 0 } };
         using var service = new GitCliVersionControlService(
             CreateInstalledLocator(config: config),
             Repository,
@@ -4046,7 +4046,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
     {
         string firstPath = Path.GetFullPath(Path.Combine(Root, "git-one"));
         string secondPath = Path.GetFullPath(Path.Combine(Root, "git-two"));
-        var config = new VersionControlConfig { GitExecutablePath = firstPath };
+        var config = new VersionControlConfig { GitExecutablePath = { Value = firstPath } };
         var probe = new RuntimeProbe();
         var locator = new GitInstallationLocator(config, probe, GitHostPlatform.Linux);
         int runnerCreations = 0;
@@ -4062,7 +4062,7 @@ public class GitCliVersionControlServiceTests : RealGitTestRepository
 
         await service.GetStatusAsync(CancellationToken.None);
         await service.GetStatusAsync(CancellationToken.None);
-        config.GitExecutablePath = secondPath;
+        config.GitExecutablePath.Value = secondPath;
         await service.GetStatusAsync(CancellationToken.None);
 
         Assert.Multiple(() =>

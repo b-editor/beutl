@@ -80,10 +80,10 @@ internal static class AgentHostTestHelpers
     {
         var scene = new Scene
         {
-            Name = name,
+            Name = { Value = name },
             Uri = new Uri(Path.Combine(directory, name + ".scene")),
-            Duration = MediaTime.FromSeconds(1),
-            FrameSize = new PixelSize(640, 480)
+            Duration = { Value = MediaTime.FromSeconds(1) },
+            FrameSize = { Value = new PixelSize(640, 480) }
         };
         editor.ActivateTabItem(scene);
         Assert.That(editor.SelectedTabItem.Value, Is.Not.Null);

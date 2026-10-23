@@ -26,9 +26,9 @@ public sealed class AuthorFromBriefTests
 
         var element = new Element
         {
-            Start = MediaTime.FromSeconds(2),
-            Length = MediaTime.FromSeconds(3),
-            ZIndex = 5
+            Start = { Value = MediaTime.FromSeconds(2) },
+            Length = { Value = MediaTime.FromSeconds(3) },
+            ZIndex = { Value = 5 }
         };
         element.AddObject(new TextBlock { Text = { Value = "Launch" } });
 
@@ -52,12 +52,12 @@ public sealed class AuthorFromBriefTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(scene.FrameSize.Width, Is.EqualTo(1920));
-            Assert.That(scene.FrameSize.Height, Is.EqualTo(1080));
-            Assert.That(scene.Duration, Is.EqualTo(MediaTime.FromSeconds(10)));
-            Assert.That(reloadedElement.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(reloadedElement.Length, Is.EqualTo(MediaTime.FromSeconds(3)));
-            Assert.That(reloadedElement.ZIndex, Is.EqualTo(5));
+            Assert.That(scene.FrameSize.Value.Width, Is.EqualTo(1920));
+            Assert.That(scene.FrameSize.Value.Height, Is.EqualTo(1080));
+            Assert.That(scene.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+            Assert.That(reloadedElement.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(reloadedElement.Length.Value, Is.EqualTo(MediaTime.FromSeconds(3)));
+            Assert.That(reloadedElement.ZIndex.Value, Is.EqualTo(5));
             Assert.That(text.Text.Value, Is.EqualTo("Launch"));
         });
     }
@@ -91,9 +91,9 @@ public sealed class AuthorFromBriefTests
         Assert.Multiple(() =>
         {
             Assert.That(scenes, Has.Length.EqualTo(2));
-            Assert.That(scenes[1].FrameSize.Width, Is.EqualTo(640));
-            Assert.That(scenes[1].Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(scenes[1].Duration, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(scenes[1].FrameSize.Value.Width, Is.EqualTo(640));
+            Assert.That(scenes[1].Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(scenes[1].Duration.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
         });
     }
 }

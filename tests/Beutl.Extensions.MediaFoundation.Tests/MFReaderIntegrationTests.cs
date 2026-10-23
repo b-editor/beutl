@@ -160,7 +160,7 @@ public class MFReaderIntegrationTests
             var sound = new SourceSound
             {
                 Source = { Value = source },
-                TimeRange = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(duration)),
+                TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(duration)) },
                 OffsetPosition = { Value = MediaTime.FromSeconds(offset) },
                 Speed = { Value = speed }
             };

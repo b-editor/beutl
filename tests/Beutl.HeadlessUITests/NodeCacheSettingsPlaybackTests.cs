@@ -30,7 +30,7 @@ public class NodeCacheSettingsPlaybackTests
         EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(120));
         IEditorClock clock = editor.GetRequiredService<IEditorClock>();
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool enabled = config.IsNodeCacheEnabled;
+        bool enabled = config.IsNodeCacheEnabled.Value;
         using var release = new CancellationTokenSource();
         Task? blocked = null;
 
@@ -43,7 +43,7 @@ public class NodeCacheSettingsPlaybackTests
             // A job that holds the render thread between two playback frames, until the change has returned.
             blocked = await BlockRenderThreadAsync(release);
             var stopwatch = Stopwatch.StartNew();
-            config.IsNodeCacheEnabled = !enabled;
+            config.IsNodeCacheEnabled.Value = !enabled;
             stopwatch.Stop();
 
             Assert.Multiple(() =>
@@ -67,7 +67,7 @@ public class NodeCacheSettingsPlaybackTests
             if (blocked is not null)
                 await blocked.WaitAsync(TimeSpan.FromSeconds(10));
             await editor.Player.Pause();
-            config.IsNodeCacheEnabled = enabled;
+            config.IsNodeCacheEnabled.Value = enabled;
         }
     }
 
@@ -88,9 +88,9 @@ public class NodeCacheSettingsPlaybackTests
     {
         EditViewModel editor = await OpenEditor(MediaTime.FromSeconds(10));
         EditorConfig config = GlobalConfiguration.Instance.EditorConfig;
-        bool enabled = config.IsNodeCacheEnabled;
+        bool enabled = config.IsNodeCacheEnabled.Value;
         // With the cache on, the pixel limits are enabled until playback starts.
-        config.IsNodeCacheEnabled = true;
+        config.IsNodeCacheEnabled.Value = true;
         var viewModel = new PreviewSettingsTabViewModel(editor);
         var view = new PreviewSettingsTabView { DataContext = viewModel };
         var window = new Window
@@ -133,7 +133,7 @@ public class NodeCacheSettingsPlaybackTests
             editor.Player.IsPlaying.Value = false;
             window.Close();
             viewModel.Dispose();
-            config.IsNodeCacheEnabled = enabled;
+            config.IsNodeCacheEnabled.Value = enabled;
         }
     }
 

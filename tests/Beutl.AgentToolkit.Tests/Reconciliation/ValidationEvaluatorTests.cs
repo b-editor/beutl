@@ -14,8 +14,8 @@ public class ValidationEvaluatorTests
     {
         var target = new RangedCoreObject();
 
-        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target.AmountProperty, 50, options: null);
-        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target.AmountProperty, "bad", options: null);
+        ValidationOutcome coerced = ValidationEvaluator.Evaluate(target.Amount, 50, options: null);
+        ValidationOutcome rejected = ValidationEvaluator.Evaluate(target.Amount, "bad", options: null);
 
         Assert.Multiple(() =>
         {
@@ -104,13 +104,7 @@ public class ValidationEvaluatorTests
         }
 
         [System.ComponentModel.DataAnnotations.Range(0, 10)]
-        public IProperty<int> AmountProperty { get; } = new ValueOnlyProperty<int>(0);
-
-        public int Amount
-        {
-            get => AmountProperty.Value;
-            set => AmountProperty.Value = value;
-        }
+        public IProperty<int> Amount { get; } = new ValueOnlyProperty<int>(0);
     }
 
     private sealed class RangedEngineObject : EngineObject

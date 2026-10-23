@@ -38,9 +38,9 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(animation.ValueType, Is.EqualTo(typeof(float)));
             Assert.That(keyFrames, Has.Count.EqualTo(2));
-            Assert.That(keyFrames[0].KeyTime, Is.EqualTo(MediaTime.Zero));
-            Assert.That(keyFrames[0].Easing, Is.TypeOf<CubicEaseOut>());
-            Assert.That(keyFrames[1].KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.4)));
+            Assert.That(keyFrames[0].KeyTime.Value, Is.EqualTo(MediaTime.Zero));
+            Assert.That(keyFrames[0].Easing.Value, Is.TypeOf<CubicEaseOut>());
+            Assert.That(keyFrames[1].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.4)));
         });
     }
 
@@ -62,10 +62,10 @@ public sealed class KeyFrameShorthandTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(animation.UseGlobalClock, Is.True);
+            Assert.That(animation.UseGlobalClock.Value, Is.True);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
-            Assert.That(animation.KeyFrames[1].KeyTime, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(animation.KeyFrames[1].Easing, Is.TypeOf<BackEaseOut>());
+            Assert.That(animation.KeyFrames[1].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(animation.KeyFrames[1].Easing.Value, Is.TypeOf<BackEaseOut>());
         });
     }
 
@@ -147,7 +147,7 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(second.IsSuccess, Is.True, second.Error?.Message);
             Assert.That(animation.KeyFrames, Has.Count.EqualTo(2));
-            Assert.That(animation.KeyFrames[^1].KeyTime, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+            Assert.That(animation.KeyFrames[^1].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
             Assert.That(changes.Select(change => change.Path), Has.Some.Contains("KeyFrames"));
             Assert.That(changes.Select(change => change.Path), Has.None.Contains(KeyFrameShorthand.PropertyName));
             Assert.That(appliedChangeSet.ToJsonString(), Does.Contain("KeyFrames"));
@@ -187,7 +187,7 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(
-                ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
+                ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime.Value,
                 Is.EqualTo(MediaTime.MaxValue));
         });
     }
@@ -206,7 +206,7 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(
-                ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime,
+                ((IKeyFrameAnimation)RequireOpacityAnimation(scene)).KeyFrames.Single().KeyTime.Value,
                 Is.EqualTo(MediaTime.MaxValue));
         });
     }
@@ -299,7 +299,7 @@ public sealed class KeyFrameShorthandTests
         (EditTools tools, _, Element element) = CreateSceneWithRect();
         var rect = (RectShape)element.Objects.Single();
         var animation = new KeyFrameAnimation<float>();
-        var keyFrame = new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = -25 };
+        var keyFrame = new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = -25 } };
         animation.KeyFrames.Add(keyFrame, out _);
         rect.Opacity.SetKeyFrameAnimation(animation);
 
@@ -308,10 +308,10 @@ public sealed class KeyFrameShorthandTests
             {
                 ["Elements"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = element.Id.ToString(),
+                    [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                     ["Objects"] = new JsonArray(new JsonObject
                     {
-                        [nameof(CoreObject.Id)] = rect.Id.ToString(),
+                        [nameof(CoreObject.Id)] = rect.Id.Value.ToString(),
                         [nameof(CoreObject.Name)] = "renamed"
                     })
                 })
@@ -321,9 +321,9 @@ public sealed class KeyFrameShorthandTests
         Assert.Multiple(() =>
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(rect.Name, Is.EqualTo("renamed"));
+            Assert.That(rect.Name.Value, Is.EqualTo("renamed"));
             Assert.That(rect.Opacity.GetKeyFrameAnimation(), Is.SameAs(animation));
-            Assert.That(keyFrame.Value, Is.EqualTo(-25));
+            Assert.That(keyFrame.Value.Value, Is.EqualTo(-25));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.Contains("Animations"));
             Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
                 outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
@@ -336,7 +336,7 @@ public sealed class KeyFrameShorthandTests
         (EditTools tools, Scene scene, Element element) = CreateSceneWithRect();
         var rect = (RectShape)element.Objects.Single();
         var animation = new KeyFrameAnimation<float>();
-        var keyFrame = new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = -25 };
+        var keyFrame = new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = -25 } };
         animation.KeyFrames.Add(keyFrame, out _);
         rect.Opacity.SetKeyFrameAnimation(animation);
 
@@ -345,7 +345,7 @@ public sealed class KeyFrameShorthandTests
                 element,
                 new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = animation.Id.ToString(),
+                    [nameof(CoreObject.Id)] = animation.Id.Value.ToString(),
                     [nameof(IKeyFrameAnimation.UseGlobalClock)] = true
                 }),
             schemaVersion: SchemaVersion.Current);
@@ -354,8 +354,8 @@ public sealed class KeyFrameShorthandTests
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
             Assert.That(rect.Opacity.GetKeyFrameAnimation(), Is.SameAs(animation));
-            Assert.That(animation.UseGlobalClock, Is.True);
-            Assert.That(keyFrame.Value, Is.EqualTo(-25));
+            Assert.That(animation.UseGlobalClock.Value, Is.True);
+            Assert.That(keyFrame.Value.Value, Is.EqualTo(-25));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.EndsWith("/Value"));
             Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
                 outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
@@ -374,7 +374,7 @@ public sealed class KeyFrameShorthandTests
             AddAnimatedRect(scene, dir, "first", firstOpacity);
         (_, RectShape secondRect, KeyFrame<float> secondKeyFrame) =
             AddAnimatedRect(scene, dir, "second", secondOpacity);
-        secondRect.Id = firstRect.Id;
+        secondRect.Id.Value = firstRect.Id.Value;
 
         var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -386,10 +386,10 @@ public sealed class KeyFrameShorthandTests
         Assert.Multiple(() =>
         {
             Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
-            Assert.That(scene.Name, Is.EqualTo("renamed"));
+            Assert.That(scene.Name.Value, Is.EqualTo("renamed"));
             Assert.That(firstElement.Objects.Single(), Is.SameAs(firstRect));
-            Assert.That(firstKeyFrame.Value, Is.EqualTo(firstOpacity));
-            Assert.That(secondKeyFrame.Value, Is.EqualTo(secondOpacity));
+            Assert.That(firstKeyFrame.Value.Value, Is.EqualTo(firstOpacity));
+            Assert.That(secondKeyFrame.Value.Value, Is.EqualTo(secondOpacity));
             Assert.That(apply.Value!.Changes!.Select(change => change.Path), Has.None.Contains("Animations"));
             Assert.That(apply.Value.Validation, Has.None.Matches<ValidationOutcome>(outcome =>
                 outcome.Status is ValidationStatus.Coerced or ValidationStatus.Rejected));
@@ -406,7 +406,7 @@ public sealed class KeyFrameShorthandTests
             AddAnimatedRect(scene, dir, "first", 25);
         (Element secondElement, RectShape secondRect, KeyFrame<float> secondKeyFrame) =
             AddAnimatedRect(scene, dir, "second", 75);
-        secondRect.Id = firstRect.Id;
+        secondRect.Id.Value = firstRect.Id.Value;
 
         var session = new AgentToolkitTestSession(scene);
         EditTools tools = session.CreateEditTools();
@@ -422,10 +422,10 @@ public sealed class KeyFrameShorthandTests
         Assert.Multiple(() =>
         {
             Assert.That(apply.Error!.Code, Is.EqualTo(ErrorCode.ValidationRejected));
-            Assert.That(apply.Error.Message, Does.Contain(firstRect.Id.ToString()));
+            Assert.That(apply.Error.Message, Does.Contain(firstRect.Id.Value.ToString()));
             Assert.That(apply.Error.Hint, Does.Contain("unique Id"));
-            Assert.That(firstKeyFrame.Value, Is.EqualTo(25));
-            Assert.That(secondKeyFrame.Value, Is.EqualTo(75));
+            Assert.That(firstKeyFrame.Value.Value, Is.EqualTo(25));
+            Assert.That(secondKeyFrame.Value.Value, Is.EqualTo(75));
         });
     }
 
@@ -436,7 +436,7 @@ public sealed class KeyFrameShorthandTests
         var scene = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         (Element firstElement, RectShape firstRect, _) = AddAnimatedRect(scene, dir, "first", 25);
         (Element secondElement, RectShape secondRect, _) = AddAnimatedRect(scene, dir, "second", 75);
-        secondRect.Id = firstRect.Id;
+        secondRect.Id.Value = firstRect.Id.Value;
         secondElement.Objects.Remove(secondRect);
         scene.Children.Remove(secondElement);
         firstElement.AddObject(secondRect);
@@ -457,7 +457,7 @@ public sealed class KeyFrameShorthandTests
         Assert.That(apply.IsSuccess, Is.True, apply.Error?.Message);
         Assert.Multiple(() =>
         {
-            Assert.That(firstElement.Objects.Select(item => item.Name), Is.EqualTo(new[] { "second", "first" }));
+            Assert.That(firstElement.Objects.Select(item => item.Name.Value), Is.EqualTo(new[] { "second", "first" }));
             Assert.That(
                 firstElement.Objects.Cast<RectShape>()
                     .Select(item => ((KeyFrameAnimation<float>)item.Opacity.GetKeyFrameAnimation()!).KeyFrames[0].Value),
@@ -534,10 +534,10 @@ public sealed class KeyFrameShorthandTests
         {
             ["Elements"] = new JsonArray(new JsonObject
             {
-                [nameof(CoreObject.Id)] = element.Id.ToString(),
+                [nameof(CoreObject.Id)] = element.Id.Value.ToString(),
                 ["Objects"] = new JsonArray(new JsonObject
                 {
-                    [nameof(CoreObject.Id)] = element.Objects.Single().Id.ToString(),
+                    [nameof(CoreObject.Id)] = element.Objects.Single().Id.Value.ToString(),
                     ["Animations"] = new JsonObject
                     {
                         ["Opacity"] = animation
@@ -571,14 +571,14 @@ public sealed class KeyFrameShorthandTests
     {
         var element = new Element
         {
-            Name = name,
-            Start = MediaTime.Zero,
-            Length = MediaTime.FromSeconds(2),
+            Name = { Value = name },
+            Start = { Value = MediaTime.Zero },
+            Length = { Value = MediaTime.FromSeconds(2) },
             Uri = new Uri(Path.Combine(directory, $"{name}.belm"))
         };
-        var rect = new RectShape { Name = name };
+        var rect = new RectShape { Name = { Value = name } };
         var animation = new KeyFrameAnimation<float>();
-        var keyFrame = new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = opacity };
+        var keyFrame = new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = opacity } };
         animation.KeyFrames.Add(keyFrame, out _);
         rect.Opacity.SetKeyFrameAnimation(animation);
         element.AddObject(rect);
@@ -590,7 +590,7 @@ public sealed class KeyFrameShorthandTests
     {
         Scene scene = TestWorkspace.CreateScene();
         Element element = TestWorkspace.AddElement(scene, MediaTime.Zero, MediaTime.FromSeconds(2));
-        element.AddObject(new RectShape { Name = "plate" });
+        element.AddObject(new RectShape { Name = { Value = "plate" } });
 
         var session = new AgentToolkitTestSession(scene);
         return (session.CreateEditTools(), scene, element);

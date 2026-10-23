@@ -143,7 +143,7 @@ public class ExportTests
     private static async Task<EditViewModel> OpenEditorWithRectangle(string name)
     {
         EditViewModel editor = await TestShell.OpenNewSceneEditorAsync(name, 320, 240);
-        editor.Scene.Duration = MediaTime.FromSeconds(0.2);
+        editor.Scene.Duration.Value = MediaTime.FromSeconds(0.2);
         await TestShell.AddElementAsync(
             editor,
             () => new RectShape { Width = { Value = 200 }, Height = { Value = 150 } },
@@ -224,7 +224,7 @@ public class ExportTests
         await TestReset.ResetShellAsync();
         EditViewModel editor = await OpenEditorWithRectangle("exportwarn");
         // 5000 * 4 = 20000 > MaxBufferDimension (16384), so a 4x factor overflows the buffer.
-        editor.Scene.FrameSize = new Media.PixelSize(5000, 240);
+        editor.Scene.FrameSize.Value = new Media.PixelSize(5000, 240);
 
         using var output = new OutputViewModel(editor);
         HeadlessTestHelpers.Settle();
@@ -335,7 +335,7 @@ public class ExportTests
         var source = new RectShape { Width = { Value = 200 } };
         var sourceElement = new Element
         {
-            Length = MediaTime.FromSeconds(1),
+            Length = { Value = MediaTime.FromSeconds(1) },
             Uri = new Uri(Path.Combine(folder, "source.belm"))
         };
         sourceElement.AddObject(source);
@@ -345,8 +345,8 @@ public class ExportTests
         RectShape rect = editor.Scene.Children.Single().Objects.OfType<RectShape>().Single();
         rect.Width.Value = 0;
         rect.Width.Expression = stringExpression
-            ? new StringExpression<float>($"GetProperty<float>(\"{{{source.Id}}}.Width\")")
-            : new ReferenceExpression<float>(source.Id, nameof(RectShape.Width));
+            ? new StringExpression<float>($"GetProperty<float>(\"{{{source.Id.Value}}}.Width\")")
+            : new ReferenceExpression<float>(source.Id.Value, nameof(RectShape.Width));
 
         using var output = new OutputViewModel(editor);
         output.DestinationFile.Value = Path.Combine(TestShell.NewWorkspace("export-cross-scene"), "out.mp4");
@@ -390,8 +390,8 @@ public class ExportTests
         var encoder = new FirstFrameEncoderExtension();
         output.SelectedEncoder.Value = encoder;
         HeadlessTestHelpers.Settle();
-        Rational validated = output.Controller.Value!.VideoSettings.FrameRate;
-        encoder.EditBeforeEncoding = () => output.Controller.Value!.VideoSettings.FrameRate = new Rational(60, 1);
+        Rational validated = output.Controller.Value!.VideoSettings.FrameRate.Value;
+        encoder.EditBeforeEncoding = () => output.Controller.Value!.VideoSettings.FrameRate.Value = new Rational(60, 1);
 
         await output.RunAsync(CancellationToken.None);
 

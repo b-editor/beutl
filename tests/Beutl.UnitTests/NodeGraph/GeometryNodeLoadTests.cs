@@ -16,7 +16,7 @@ public class GeometryNodeLoadTests
         var rect = new RectGeometryNode();
         var shape = new GeometryShapeNode();
         graph.Nodes.AddRange([rect, shape]);
-        var width = (IInputPort)rect.Items.Single(item => item.Name == "Width");
+        var width = (IInputPort)rect.Items.Single(item => item.Name.Value == "Width");
         Connection widthConnection = graph.Connect(width, Source(graph, 40f));
         Connection geometryConnection = graph.Connect(shape.Geometry, rect.OutputPort);
 
@@ -37,12 +37,12 @@ public class GeometryNodeLoadTests
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(restored.AllConnections.Select(connection => connection.Id),
-                Is.EquivalentTo(new[] { widthConnection.Id, geometryConnection.Id }));
-            Assert.That(restored.AllConnections.Select(connection => connection.Status),
+            Assert.That(restored.AllConnections.Select(connection => connection.Id.Value),
+                Is.EquivalentTo(new[] { widthConnection.Id.Value, geometryConnection.Id.Value }));
+            Assert.That(restored.AllConnections.Select(connection => connection.Status.Value),
                 Is.All.EqualTo(ConnectionStatus.Success));
-            Assert.That(restored.FindNodePort(width.Id), Is.Not.Null);
-            Assert.That(restored.Nodes[0].Items.Select(item => item.Name), Does.Contain("FillType").And.Contain("Transform"));
+            Assert.That(restored.FindNodePort(width.Id.Value), Is.Not.Null);
+            Assert.That(restored.Nodes[0].Items.Select(item => item.Name.Value), Does.Contain("FillType").And.Contain("Transform"));
         }
     }
 }

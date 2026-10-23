@@ -46,7 +46,7 @@ public class ToolTabPinTests
             [new ElementDescription(MediaTime.Zero, MediaTime.FromSeconds(2), layer, new ElementSource.EngineObject(create))],
             CancellationToken.None);
         HeadlessTestHelpers.Settle();
-        return editor.Scene.Children.Single(e => e.ZIndex == layer);
+        return editor.Scene.Children.Single(e => e.ZIndex.Value == layer);
     }
 
     private static IEditorSelection SelectionOf(EditViewModel editor)
@@ -56,7 +56,7 @@ public class ToolTabPinTests
 
     private static string PinnedHeader(string tabName, Element element)
     {
-        return ToolTabHeaderHelper.Compose(tabName, ToolTabHeaderHelper.ElementLabel(element.Name, element));
+        return ToolTabHeaderHelper.Compose(tabName, ToolTabHeaderHelper.ElementLabel(element.Name.Value, element));
     }
 
     [AvaloniaTest]
@@ -435,7 +435,7 @@ public class ToolTabPinTests
         start.IsPinned.Value = true;
         end.IsPinned.Value = true;
 
-        string label = ToolTabHeaderHelper.ElementLabel(element.Name, element);
+        string label = ToolTabHeaderHelper.ElementLabel(element.Name.Value, element);
         Assert.Multiple(() =>
         {
             Assert.That(start.Header.Value, Is.EqualTo(ToolTabHeaderHelper.Compose(Strings.EnterTransition, label)));

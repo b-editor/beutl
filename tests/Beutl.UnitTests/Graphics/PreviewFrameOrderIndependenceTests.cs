@@ -54,16 +54,16 @@ public class PreviewFrameOrderIndependenceTests
     public void SetUp()
     {
         _oldResolver = DecoderRegistry.ProxyResolver;
-        _oldPreviewSourceMode = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode;
+        _oldPreviewSourceMode = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
         DecoderRegistry.ProxyResolver = null;
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.ForceOriginal;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.ForceOriginal;
     }
 
     [TearDown]
     public void TearDown()
     {
         DecoderRegistry.ProxyResolver = _oldResolver;
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = _oldPreviewSourceMode;
+        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = _oldPreviewSourceMode;
     }
 
     [TestCase(false, false, false)]
@@ -197,7 +197,7 @@ public class PreviewFrameOrderIndependenceTests
             {
                 _store = new ProxyStore(_root);
                 DecoderRegistry.ProxyResolver = new ProxyResolver(_store);
-                GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode = PreviewSourceMode.PreferProxy;
+                GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
             }
         }
 
@@ -295,10 +295,10 @@ public class PreviewFrameOrderIndependenceTests
         {
             var element = new Element
             {
-                Start = start,
-                Length = length,
-                ZIndex = zIndex,
-                IsEnabled = true,
+                Start = { Value = start },
+                Length = { Value = length },
+                ZIndex = { Value = zIndex },
+                IsEnabled = { Value = true },
                 Uri = new Uri(Path.Combine(_root, $"{Guid.NewGuid():N}.layer")),
             };
             element.AddObject(drawable);

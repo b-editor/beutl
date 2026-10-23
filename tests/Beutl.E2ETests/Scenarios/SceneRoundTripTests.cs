@@ -28,11 +28,11 @@ public class SceneRoundTripTests
     {
         return new Element
         {
-            Start = start,
-            Length = length,
-            ZIndex = zIndex,
-            IsEnabled = isEnabled,
-            AccentColor = accent,
+            Start = { Value = start },
+            Length = { Value = length },
+            ZIndex = { Value = zIndex },
+            IsEnabled = { Value = isEnabled },
+            AccentColor = { Value = accent },
             Uri = new Uri(Path.Combine(_baseDir, fileName)),
         };
     }
@@ -43,8 +43,8 @@ public class SceneRoundTripTests
         var scene = new Scene(1280, 720, "round-trip")
         {
             Uri = new Uri(Path.Combine(_baseDir, "main.scene")),
-            Start = MediaTime.FromSeconds(1),
-            Duration = MediaTime.FromSeconds(42),
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Duration = { Value = MediaTime.FromSeconds(42) },
         };
 
         Element a = NewElement("a.belm", MediaTime.FromSeconds(0), MediaTime.FromSeconds(3), 0, true, Color.FromArgb(255, 10, 20, 30));
@@ -66,31 +66,31 @@ public class SceneRoundTripTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.FrameSize, Is.EqualTo(new PixelSize(1280, 720)));
-            Assert.That(restored.Name, Is.EqualTo("round-trip"));
-            Assert.That(restored.Start, Is.EqualTo(MediaTime.FromSeconds(1)));
-            Assert.That(restored.Duration, Is.EqualTo(MediaTime.FromSeconds(42)));
+            Assert.That(restored.FrameSize.Value, Is.EqualTo(new PixelSize(1280, 720)));
+            Assert.That(restored.Name.Value, Is.EqualTo("round-trip"));
+            Assert.That(restored.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+            Assert.That(restored.Duration.Value, Is.EqualTo(MediaTime.FromSeconds(42)));
             Assert.That(restored.Children, Has.Count.EqualTo(3));
         });
 
-        Element ra = restored.Children.Single(e => e.Id == a.Id);
-        Element rb = restored.Children.Single(e => e.Id == b.Id);
-        Element rc = restored.Children.Single(e => e.Id == c.Id);
+        Element ra = restored.Children.Single(e => e.Id.Value == a.Id.Value);
+        Element rb = restored.Children.Single(e => e.Id.Value == b.Id.Value);
+        Element rc = restored.Children.Single(e => e.Id.Value == c.Id.Value);
 
         Assert.Multiple(() =>
         {
-            Assert.That(ra.Start, Is.EqualTo(a.Start));
-            Assert.That(ra.Length, Is.EqualTo(a.Length));
-            Assert.That(ra.ZIndex, Is.EqualTo(0));
-            Assert.That(ra.IsEnabled, Is.True);
-            Assert.That(ra.AccentColor, Is.EqualTo(a.AccentColor));
+            Assert.That(ra.Start.Value, Is.EqualTo(a.Start.Value));
+            Assert.That(ra.Length.Value, Is.EqualTo(a.Length.Value));
+            Assert.That(ra.ZIndex.Value, Is.EqualTo(0));
+            Assert.That(ra.IsEnabled.Value, Is.True);
+            Assert.That(ra.AccentColor.Value, Is.EqualTo(a.AccentColor.Value));
 
-            Assert.That(rb.ZIndex, Is.EqualTo(1));
-            Assert.That(rb.IsEnabled, Is.False);
-            Assert.That(rb.AccentColor, Is.EqualTo(b.AccentColor));
+            Assert.That(rb.ZIndex.Value, Is.EqualTo(1));
+            Assert.That(rb.IsEnabled.Value, Is.False);
+            Assert.That(rb.AccentColor.Value, Is.EqualTo(b.AccentColor.Value));
 
-            Assert.That(rc.ZIndex, Is.EqualTo(2));
-            Assert.That(rc.Length, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(rc.ZIndex.Value, Is.EqualTo(2));
+            Assert.That(rc.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
         });
 
         RectShape restoredShape = rc.Objects.OfType<RectShape>().Single();
@@ -132,19 +132,19 @@ public class SceneRoundTripTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.FrameSize, Is.EqualTo(new PixelSize(640, 480)));
-            Assert.That(restored.Name, Is.EqualTo("embedded"));
+            Assert.That(restored.FrameSize.Value, Is.EqualTo(new PixelSize(640, 480)));
+            Assert.That(restored.Name.Value, Is.EqualTo("embedded"));
             Assert.That(restored.Children, Has.Count.EqualTo(1));
         });
 
         Element restoredElement = restored.Children[0];
         Assert.Multiple(() =>
         {
-            Assert.That(restoredElement.Id, Is.EqualTo(only.Id));
-            Assert.That(restoredElement.Start, Is.EqualTo(MediaTime.FromSeconds(2)));
-            Assert.That(restoredElement.Length, Is.EqualTo(MediaTime.FromSeconds(6)));
-            Assert.That(restoredElement.ZIndex, Is.EqualTo(3));
-            Assert.That(restoredElement.IsEnabled, Is.False);
+            Assert.That(restoredElement.Id.Value, Is.EqualTo(only.Id.Value));
+            Assert.That(restoredElement.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(restoredElement.Length.Value, Is.EqualTo(MediaTime.FromSeconds(6)));
+            Assert.That(restoredElement.ZIndex.Value, Is.EqualTo(3));
+            Assert.That(restoredElement.IsEnabled.Value, Is.False);
             Assert.That(restoredElement.Objects.OfType<EllipseShape>().Single().Width.Value, Is.EqualTo(64f));
         });
     }
@@ -162,12 +162,12 @@ public class SceneRoundTripTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(restored.Id, Is.EqualTo(element.Id));
-            Assert.That(restored.Start, Is.EqualTo(MediaTime.FromSeconds(5)));
-            Assert.That(restored.Length, Is.EqualTo(MediaTime.FromSeconds(8)));
-            Assert.That(restored.ZIndex, Is.EqualTo(4));
-            Assert.That(restored.IsEnabled, Is.False);
-            Assert.That(restored.AccentColor, Is.EqualTo(element.AccentColor));
+            Assert.That(restored.Id.Value, Is.EqualTo(element.Id.Value));
+            Assert.That(restored.Start.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(restored.Length.Value, Is.EqualTo(MediaTime.FromSeconds(8)));
+            Assert.That(restored.ZIndex.Value, Is.EqualTo(4));
+            Assert.That(restored.IsEnabled.Value, Is.False);
+            Assert.That(restored.AccentColor.Value, Is.EqualTo(element.AccentColor.Value));
             Assert.That(restored.Objects.OfType<RectShape>().Single().Width.Value, Is.EqualTo(12f));
         });
     }

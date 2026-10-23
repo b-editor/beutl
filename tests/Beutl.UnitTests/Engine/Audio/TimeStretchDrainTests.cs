@@ -67,15 +67,15 @@ public class TimeStretchDrainTests
     {
         var effect = new TimeStretchEffect
         {
-            TimeRange = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2))
+            TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2)) }
         };
         effect.Speed.Value = speed;
         if (animated)
         {
-            var animation = new KeyFrameAnimation<float> { UseGlobalClock = globalClock };
-            MediaTime offset = globalClock ? effect.TimeRange.Start : MediaTime.Zero;
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset, Value = speed, Easing = new LinearEasing() });
-            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = offset + MediaTime.FromSeconds(2), Value = 200f, Easing = new LinearEasing() });
+            var animation = new KeyFrameAnimation<float> { UseGlobalClock = { Value = globalClock } };
+            MediaTime offset = globalClock ? effect.TimeRange.Value.Start : MediaTime.Zero;
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = offset }, Value = { Value = speed }, Easing = { Value = new LinearEasing() } });
+            animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = offset + MediaTime.FromSeconds(2) }, Value = { Value = 200f }, Easing = { Value = new LinearEasing() } });
             effect.Speed.SetKeyFrameAnimation(animation);
         }
         // The linear curve reaches its second keyframe at two seconds; integrate its first second.
