@@ -30,23 +30,21 @@ public abstract class RenderNode : IDisposable
     /// it began from one that arrived while it was recording. Lowering a flag would drop both, and the second
     /// mark describes content no recording has been taken of yet.
     /// </remarks>
-    public bool HasChanges => Volatile.Read(ref _changeVersion) != Volatile.Read(ref _clearedVersion);
+    public bool HasChanges => _changeVersion != _clearedVersion;
 
     /// <summary>Reports that this node's next recording differs from the one it last had consumed.</summary>
     /// <remarks>
     /// Raising is the only direction a node gets: withdrawing a change it has already reported would let the
     /// output cached before the withdrawal be served for a state that never produced it. Lowering belongs
     /// to <see cref="ClearChanges"/>, which the engine calls with the version the recording was taken at, so
-    /// a mark landing during that recording is not swallowed by its clear.
+    /// a mark landing during that recording is not swallowed by its clear. Call it on the thread that records.
     /// </remarks>
     public void MarkChanged()
     {
-        // Interlocked rather than ++ so the counter survives a mark arriving off the recording thread. No
-        // caller needs that today: every MarkChanged in this repository runs on the thread that records.
-        Interlocked.Increment(ref _changeVersion);
+        _changeVersion++;
     }
 
-    internal long ChangeVersion => Volatile.Read(ref _changeVersion);
+    internal long ChangeVersion => _changeVersion;
 
     /// <summary>The nodes this node records through, in recording order.</summary>
     /// <remarks>
@@ -83,24 +81,13 @@ public abstract class RenderNode : IDisposable
 
     /// <summary>Reports that the recording taken at <paramref name="observedVersion"/> has been consumed.</summary>
     /// <remarks>
-    /// A mark landing between the two steps below raises the version past <paramref name="observedVersion"/>,
-    /// so the write can no longer describe the node's current content and <see cref="HasChanges"/> stays
-    /// raised for it. The stamp only ever moves forward, so two requests completing at once cannot walk it
-    /// back onto a recording that has already been superseded.
+    /// A mark after <paramref name="observedVersion"/> describes content that recording does not hold, so
+    /// <see cref="HasChanges"/> stays raised for it.
     /// </remarks>
     internal void ClearChanges(long observedVersion)
     {
-        if (Volatile.Read(ref _changeVersion) != observedVersion)
-            return;
-
-        long cleared;
-        do
-        {
-            cleared = Volatile.Read(ref _clearedVersion);
-            if (cleared >= observedVersion)
-                return;
-        }
-        while (Interlocked.CompareExchange(ref _clearedVersion, observedVersion, cleared) != cleared);
+        if (_changeVersion == observedVersion)
+            _clearedVersion = observedVersion;
     }
 
     protected virtual void OnDispose(bool disposing)
