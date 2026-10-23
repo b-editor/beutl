@@ -14,7 +14,7 @@ public sealed class ProgramCacheTests
     private const string SourceB = "half4 main(float2 p) { return half4(0); }";
 
     [Test]
-    public void SpirvFailures_AreThrottledWithinTheRendererContext()
+    public void SpirvFailures_AreRememberedWithinTheRendererContext()
     {
         Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.EnsureAvailable();
         Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -505,7 +505,7 @@ public sealed class ProgramCacheTests
     }
 
     [Test]
-    public void ByteBudget_EvictionDefersItsCleanupFailureUntilCacheDisposal()
+    public void ByteBudget_EvictionCleanupFailureIsNotRethrownByLaterCalls()
     {
         var failure = new InvalidOperationException("evicted-program-dispose");
         var cache = CreateCache(maxRetainedBytes: 8);
@@ -525,14 +525,12 @@ public sealed class ProgramCacheTests
                 static factory => factory());
         });
 
-        InvalidOperationException? actual = Assert.Throws<InvalidOperationException>(cache.Dispose);
+        Assert.DoesNotThrow(cache.Dispose);
         Assert.Multiple(() =>
         {
-            Assert.That(actual, Is.SameAs(failure));
             Assert.That(evicted.DisposeCount, Is.EqualTo(1));
             Assert.That(retained.DisposeCount, Is.EqualTo(1));
             Assert.That(cache.Statistics.RetainedPrograms, Is.Zero);
-            Assert.DoesNotThrow(cache.Dispose);
         });
     }
 
