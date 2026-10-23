@@ -260,7 +260,9 @@ public sealed class FilterEffectRecordingTransactionTests
         var recorder = new RenderRequestRecorder(request);
         var transaction = new NodeRecordingTransaction(recorder, new object(), []);
         var renderContext = new RenderNodeContext(transaction);
-        using var context = new FilterEffectContext(new Rect(0, 0, 10, 10), 1, 1, recorded ? renderContext : null);
+        using var context = recorded
+            ? new FilterEffectContext(new Rect(0, 0, 10, 10), 1, 1, renderContext)
+            : new FilterEffectContext(new Rect(0, 0, 10, 10));
         var earlier = new TrackingDisposable();
         var later = new ThrowingDisposable();
         var primary = new InvalidOperationException("primary-apply-failure");
