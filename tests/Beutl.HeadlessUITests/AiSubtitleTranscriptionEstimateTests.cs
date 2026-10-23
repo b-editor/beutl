@@ -1,9 +1,14 @@
 ﻿using System.Net;
 using Avalonia.Headless.NUnit;
+using Beutl.Animation;
 using Beutl.Api;
 using Beutl.Api.Services;
+using Beutl.Audio;
 using Beutl.Editor.Components.AiWorkspaceTab.ViewModels;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using static Beutl.HeadlessUITests.AiTestSupport;
 
 namespace Beutl.HeadlessUITests;
@@ -44,5 +49,65 @@ public sealed partial class AiDialogWorkflowTests
             .OfType<AiOperationAvailabilityRequest.Transcription>().ToArray()).Length > 0);
 
         Assert.That(requests.Last().DurationSeconds, Is.EqualTo(expectedSeconds).Within(0.001));
+    }
+
+    // The tab stays open while the clip is edited. An edit of its speed keyframes keeps the selected item, and the
+    // estimate must still price the span the run sends; an unrelated edit must not check availability again (#3228).
+    [AvaloniaTest]
+    public async Task Transcription_estimate_follows_an_edit_of_the_clip_speed_keyframes()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("ai-subtitle-speed-estimate");
+        string sourcePath = Path.Combine(BeutlHomeIsolation.CurrentHome!, "speed-estimate-source.wav");
+        WritePcmWave(sourcePath, sampleRate: 16_000, sampleCount: 16_000 * 60);
+        var availability = new RecordingAvailabilityService();
+        await using var api = new ApiScope(
+            new StubHandler(request =>
+                request.RequestUri?.AbsolutePath == "/api/v3/user/entitlements"
+                    ? JsonResponse(HttpStatusCode.OK, EntitlementsJson())
+                    : JsonResponse(HttpStatusCode.NotFound, "{}")),
+            signIn: false);
+        using var viewModel = CreateSubtitleDialog(api.Clients, editor, availabilityService: availability);
+        var soundSource = new SoundSource();
+        soundSource.ReadFrom(new Uri(sourcePath));
+        var sound = new SourceSound { Source = { Value = soundSource } };
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.Zero, Value = 100 });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = MediaTime.FromSeconds(10), Value = 100 });
+        sound.Speed.SetKeyFrameAnimation(animation);
+        var element = new Element
+        {
+            Name = "Voice",
+            Start = MediaTime.Zero,
+            Length = MediaTime.FromSeconds(10),
+            Uri = new Uri(Path.Combine(
+                Path.GetDirectoryName(editor.Scene.Uri!.LocalPath)!,
+                $"speed-estimate-{Guid.NewGuid():N}.belm")),
+        };
+        element.Objects.Add(sound);
+
+        try
+        {
+            editor.Scene.AddChild(element, ElementOverlapHandling.Allow);
+            await WaitUntilAsync(() => viewModel.AudioSources.Value.Count == 2);
+            viewModel.SelectedAudioSource.Value = viewModel.AudioSources.Value.Single(item => !item.IsSceneMix);
+            await WaitUntilAsync(() => LastTranscriptionSeconds() is > 9.99 and < 10.01);
+
+            // From 100 % to 300 % over the ten seconds, the clip plays twenty seconds of its file.
+            ((KeyFrame<float>)animation.KeyFrames[1]).Value = 300;
+            await WaitUntilAsync(() => LastTranscriptionSeconds() is > 19.99 and < 20.01);
+            int checks = TranscriptionChecks().Length;
+            element.Name = "Renamed voice";
+
+            Assert.That(TranscriptionChecks(), Has.Length.EqualTo(checks));
+        }
+        finally
+        {
+            File.Delete(sourcePath);
+        }
+
+        AiOperationAvailabilityRequest.Transcription[] TranscriptionChecks()
+            => availability.GetRequestsSnapshot().OfType<AiOperationAvailabilityRequest.Transcription>().ToArray();
+
+        double? LastTranscriptionSeconds() => TranscriptionChecks().LastOrDefault()?.DurationSeconds;
     }
 }

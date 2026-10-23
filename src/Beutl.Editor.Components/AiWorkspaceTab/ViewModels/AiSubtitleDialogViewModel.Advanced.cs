@@ -22,6 +22,8 @@ public sealed partial class AiSubtitleDialogViewModel
     private readonly CompositeDisposable _captionDisposables = [];
     private readonly ObservableCollection<EditableCaptionCueViewModel> _editableCues = [];
     private readonly ReactivePropertySlim<long> _transcriptionEstimateRevision = new();
+    // The span of the selected file that the transcription estimate last priced, in seconds of the file.
+    private double? _estimatedSourceSeconds;
     private readonly ReactivePropertySlim<long> _translationEstimateRevision = new();
     private readonly ReactivePropertySlim<bool> _canDeleteCue = new();
     private readonly ReactivePropertySlim<bool> _canSplitCue = new();
@@ -345,6 +347,12 @@ public sealed partial class AiSubtitleDialogViewModel
     {
         Interlocked.Increment(ref _sceneAudioRevision);
         LoadAudioSources();
+        // A speed keyframe edit keeps the selected item, so check again only when the priced span changed (#3228).
+        if (SelectedAudioSource.Value is { IsSceneMix: false } source
+            && source.GetSourceElapsedSeconds() != _estimatedSourceSeconds)
+        {
+            _transcriptionEstimateRevision.Value++;
+        }
     }
 
     private static CaptionDocument CreateCaptionDocument(

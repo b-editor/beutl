@@ -946,6 +946,7 @@ public sealed partial class AiSubtitleDialogViewModel
     private AiOperationAvailabilityRequest? CreateTranscriptionAvailabilityRequest(
         AudioSourceItem? source)
     {
+        _estimatedSourceSeconds = null;
         if (source is null)
             return null;
         TimeSpan duration = source.Duration.ToTimeSpan();
@@ -979,7 +980,8 @@ public sealed partial class AiSubtitleDialogViewModel
             // The run sends the element's span of the file from its offset (PlanSourceChunks), so the estimate
             // prices that audio rather than the whole file.
             TimeSpan offset = source.SourceOffset > MediaTime.Zero ? source.SourceOffset.ToTimeSpan() : TimeSpan.Zero;
-            double seconds = Math.Min(source.GetSourceElapsedSeconds(), (duration - offset).TotalSeconds);
+            _estimatedSourceSeconds = source.GetSourceElapsedSeconds();
+            double seconds = Math.Min(_estimatedSourceSeconds.Value, (duration - offset).TotalSeconds);
             if (!double.IsFinite(seconds) || seconds <= 0)
                 return null;
             duration = TimeSpan.FromSeconds(Math.Min(seconds, SceneMixChunkDuration.TotalSeconds));
