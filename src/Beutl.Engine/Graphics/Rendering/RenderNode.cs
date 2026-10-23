@@ -13,15 +13,6 @@ public abstract class RenderNode : IDisposable
         Cache = new RenderNodeCache(this);
     }
 
-    ~RenderNode()
-    {
-        if (!IsDisposed)
-        {
-            OnDispose(false);
-            IsDisposed = true;
-        }
-    }
-
     public bool IsDisposed { get; private set; }
 
     /// <summary>Whether this node would record something other than what its last consumed recording holds.</summary>
