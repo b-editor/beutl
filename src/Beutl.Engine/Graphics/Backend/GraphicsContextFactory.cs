@@ -192,7 +192,8 @@ public class GraphicsContextFactory
     {
         RenderThread.Dispatcher.Invoke(static () =>
         {
-            List<Exception> failures = [];
+            // Every step runs whatever failed before it, and the first failure is the one rethrown.
+            ExceptionDispatchInfo? firstFailure = null;
 
             try
             {
@@ -206,7 +207,7 @@ public class GraphicsContextFactory
                 }
                 catch (Exception ex)
                 {
-                    AppendTeardownFailure(failures, ex);
+                    firstFailure = ExceptionDispatchInfo.Capture(ex);
                 }
 
                 // The flush speaks for a device that may already be abandoned or lost, so its failure has
@@ -217,7 +218,7 @@ public class GraphicsContextFactory
                 }
                 catch (Exception ex)
                 {
-                    AppendTeardownFailure(failures, ex);
+                    firstFailure ??= ExceptionDispatchInfo.Capture(ex);
                 }
 
                 // Everything still queued is owned by the context released below and destroys itself
@@ -237,30 +238,12 @@ public class GraphicsContextFactory
                 }
                 catch (Exception ex)
                 {
-                    AppendTeardownFailure(failures, ex);
+                    firstFailure ??= ExceptionDispatchInfo.Capture(ex);
                 }
             }
 
-            if (failures.Count == 1)
-            {
-                ExceptionDispatchInfo.Capture(failures[0]).Throw();
-            }
-
-            if (failures.Count > 1)
-            {
-                throw new AggregateException(
-                    "More than one graphics teardown step failed.",
-                    failures);
-            }
+            firstFailure?.Throw();
         });
-    }
-
-    private static void AppendTeardownFailure(List<Exception> failures, Exception failure)
-    {
-        if (failure is AggregateException aggregate)
-            failures.AddRange(aggregate.Flatten().InnerExceptions);
-        else
-            failures.Add(failure);
     }
 
     /// <summary>Clears the installed graphics state before destroying it, so a failure cannot strand it.</summary>

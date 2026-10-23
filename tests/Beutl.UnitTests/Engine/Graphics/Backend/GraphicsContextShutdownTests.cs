@@ -194,6 +194,29 @@ public sealed class GraphicsContextShutdownTests
     }
 
     [Test]
+    public void TwoFailingTeardownSteps_RethrowTheFirstAndStillClearTheInstalledState()
+    {
+        var retirementFailure = new InvalidOperationException("The pooled target could not be destroyed.");
+        var releaseFailure = new InvalidOperationException("The graphics context could not be released.");
+        var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
+        context.Setup(value => value.Dispose()).Throws(releaseFailure);
+
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var factory = new RetirementObservingTargetFactory(() => throw retirementFailure);
+            using var pool = new RenderTargetPool(factory);
+            using (RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Preview))
+            {
+                request.Acquire(new PixelSize(4, 4)).Dispose();
+            }
+
+            using var scope = InstalledGraphicsScope.StandIn(context.Object);
+            Assert.That(GraphicsContextFactory.Shutdown, Throws.Exception.SameAs(retirementFailure));
+            Assert.That(GraphicsContextFactory.SharedContext, Is.Null);
+        });
+    }
+
+    [Test]
     public void AShutdown_LeavesAPooledTargetsBackendReleaseOnALiveDevice()
     {
         VulkanTestEnvironment.EnsureAvailable();
