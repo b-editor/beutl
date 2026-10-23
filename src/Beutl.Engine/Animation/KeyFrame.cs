@@ -135,8 +135,7 @@ public partial class KeyFrame : Hierarchical
                                             or TypeInitializationException
                                             or NotSupportedException)
             {
-                if (ExceptionHelpers.ContainsFatalFailure(ex)
-                    || ExceptionHelpers.ContainsFileSystemFailure(ex))
+                if (ExceptionHelpers.ContainsFatalFailure(ex))
                 {
                     if (ex.InnerException is { } inner)
                     {
