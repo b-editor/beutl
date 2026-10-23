@@ -41,8 +41,10 @@ public class Perspective3DScaleProbeTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap full = GoldenImageHarness.RenderAtScale(MakePerspectiveShape(), Frame, 1f);
-            using Bitmap scaled = GoldenImageHarness.RenderAtScale(MakePerspectiveShape(), Frame, scale);
+            using Drawable.Resource fullResource = MakePerspectiveShape();
+            using Bitmap full = GoldenImageHarness.RenderAtScale(fullResource, Frame, 1f);
+            using Drawable.Resource scaledResource = MakePerspectiveShape();
+            using Bitmap scaled = GoldenImageHarness.RenderAtScale(scaledResource, Frame, scale);
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(
                 scaled,
                 new PixelSize(full.Width, full.Height));
