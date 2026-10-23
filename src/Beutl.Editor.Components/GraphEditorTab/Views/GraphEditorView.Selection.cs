@@ -39,7 +39,7 @@ public partial class GraphEditorView
 
     private GraphEditorDragSnapshot? CaptureSelection(int minimum)
     {
-        if (DataContext is not GraphEditorViewModel { IsDisposed: false, IsEditing: false, SelectedView.Value: { } channel }
+        if (DataContext is not GraphEditorViewModel { IsDisposed: false, IsEditing: false, CanEdit.Value: true, SelectedView.Value: { } channel }
             || _interactionPointer != null || ControlPointMoveState != null
             || VelocityFlyout?.IsOpen == true || ValueScaleFlyout?.IsOpen == true) return null;
         var snapshot = new GraphEditorDragSnapshot(channel);

@@ -1756,6 +1756,40 @@ public class PathEditorInteractionTests
         Assert.That(figure.Segments, Has.Count.EqualTo(3));
     }
 
+    // A locked clip keeps its path: presses still select, and drags, keys, tools and fields change nothing.
+    [AvaloniaTest]
+    public async Task A_locked_clips_path_stays_as_it_is_under_drags_keys_tools_and_fields()
+    {
+        using var editor = await Fixture.Create();
+        editor.Model.Element.Value!.IsLocked = true;
+        editor.Editor.HistoryManager.Commit();
+        int undoCount = editor.Editor.HistoryManager.UndoCount;
+        string before = CoreSerializer.SerializeToJsonObject(editor.Figure).ToJsonString();
+
+        editor.Click(80, 100);
+        editor.Click(180, 100, RawInputModifiers.Shift);
+        Assert.That(editor.Selected, Has.Length.EqualTo(2), "Selecting still works.");
+        editor.Drag(new(80, 100), new(120, 117));
+        editor.Key(Key.Right);
+        var input = editor.View.FindControl<Vector2Editor<float>>("PointPosition")!
+            .GetVisualDescendants().OfType<TextBox>().Single(t => t.Name == "PART_InnerFirstTextBox");
+        input.Focus();
+        input.SelectAll();
+        editor.Window.KeyTextInput("150");
+        editor.View.Focus();
+        HeadlessTestHelpers.Render(2);
+        editor.Key(Key.Delete);
+        editor.Key(Key.P);
+        editor.Click(130, 100);
+        editor.Click(300, 300);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(CoreSerializer.SerializeToJsonObject(editor.Figure).ToJsonString(), Is.EqualTo(before));
+            Assert.That(editor.Editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+        });
+    }
+
     private sealed class Fixture : IDisposable
     {
         public required EditViewModel Editor { get; init; }

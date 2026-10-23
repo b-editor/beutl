@@ -33,6 +33,14 @@ public sealed class GraphEditorViewViewModel : IDisposable
         Name = viewName;
         _convertTo = convertTo;
         _convertFrom = convertFrom;
+        // Worked out once per selection change rather than by every key, and only while the clip is not editable.
+        CanDeleteSelection = Observable.FromEventPattern(
+                handler => SelectionChanged += handler, handler => SelectionChanged -= handler)
+            .Select(_ => true)
+            .StartWith(true)
+            .CombineLatest(parent.CanEdit, (_, editable) => editable || parent.CanDeleteKeyFrames(_selectedKeyFrames))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
 
         AddKeyFrames();
         Parent.Animation.KeyFrames.CollectionChanged += OnKeyFramesCollectionChanged;
@@ -82,6 +90,9 @@ public sealed class GraphEditorViewViewModel : IDisposable
     public CoreList<GraphEditorKeyFrameViewModel> KeyFrames { get; } = [];
 
     public ReactivePropertySlim<int> SelectionCount { get; } = new();
+
+    // Whether Delete may take the selected keys.
+    public ReadOnlyReactivePropertySlim<bool> CanDeleteSelection { get; }
 
     public ReadOnlyReactivePropertySlim<IBrush?> Stroke { get; }
 
