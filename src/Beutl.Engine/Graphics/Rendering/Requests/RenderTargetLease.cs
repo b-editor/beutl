@@ -28,8 +28,6 @@ internal sealed class RenderTargetLease : IDisposable
 
     internal RenderTargetPool.TargetSlot Slot { get; }
 
-    internal Exception? ReleaseFailure { get; set; }
-
     public void Dispose()
     {
         Session.Release(this);
