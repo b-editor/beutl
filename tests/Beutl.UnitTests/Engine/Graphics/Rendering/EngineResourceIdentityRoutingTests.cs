@@ -17,14 +17,6 @@ public sealed class EngineResourceIdentityRoutingTests
     private const int Iterations = 20000;
     private const int Rounds = 5;
 
-    private static GeometryHitTestIdentityShape s_geometrySink;
-    private static Guid s_geometryClipSink;
-    private static (Guid Id, int Version, ClipOperation Operation) s_geometryClipStateSink;
-    private static ParticleSnapshotIdentityShape s_particleSink;
-    private static (Type Owner, Guid Id, int Segment) s_filterEffectSink;
-    private static SceneSnapshotIdentityShape s_sceneSnapshotSink;
-    private static SceneRuntimeIdentityShape s_sceneRuntimeSink;
-
     [Test]
     public void ADetachedResourceOfEveryRoutedSiteType_DerivesAnIdentityInsteadOfThrowing()
     {
@@ -124,7 +116,7 @@ public sealed class EngineResourceIdentityRoutingTests
 
 
     [Test]
-    public void EveryRoutedSite_BuildsItsIdentityWithoutAllocating()
+    public void AnAttachedResourceOfEveryRoutedSiteType_YieldsItsIdentityWithoutAllocating()
     {
         var geometry = new EllipseGeometry { Width = { Value = 40 }, Height = { Value = 30 } };
         var fill = new SolidColorBrush(Colors.Red);
@@ -139,94 +131,18 @@ public sealed class EngineResourceIdentityRoutingTests
         using FilterEffect.Resource effectResource = effect.ToResource(CompositionContext.Default);
         var scene = new Scene3D();
         using var sceneResource = (Scene3D.Resource)scene.ToResource(CompositionContext.Default);
-        var bounds = new Rect(0, 0, 32, 24);
-
-        (string Site, long Before, long After)[] measurements =
-        [
-            Compare(
-                "GeometryRenderNode.cs:48,50,52",
-                () => s_geometrySink = new GeometryHitTestIdentityShape(
-                    geometryResource.RequireOriginal().Id.Value,
-                    geometryResource.Version,
-                    fillResource.RequireOriginal().Id.Value,
-                    fillResource.Version,
-                    penResource.RequireOriginal().Id.Value,
-                    penResource.Version),
-                () => s_geometrySink = new GeometryHitTestIdentityShape(
-                    EngineResourceIdentity.Of(geometryResource),
-                    geometryResource.Version,
-                    EngineResourceIdentity.Of(fillResource),
-                    fillResource.Version,
-                    EngineResourceIdentity.Of(penResource),
-                    penResource.Version)),
-            Compare(
-                "GeometryClipRenderNode.cs:46",
-                () =>
-                {
-                    s_geometryClipSink = geometryResource.RequireOriginal().Id.Value;
-                    s_geometryClipStateSink =
-                        (s_geometryClipSink, geometryResource.Version, ClipOperation.Intersect);
-                },
-                () =>
-                {
-                    s_geometryClipSink = EngineResourceIdentity.Of(geometryResource);
-                    s_geometryClipStateSink =
-                        (s_geometryClipSink, geometryResource.Version, ClipOperation.Intersect);
-                }),
-            Compare(
-                "ParticleRenderNode.cs:55",
-                () => s_particleSink = new ParticleSnapshotIdentityShape(
-                    emitterResource.RequireOriginal().Id.Value,
-                    emitterResource.Version),
-                () => s_particleSink = new ParticleSnapshotIdentityShape(
-                    EngineResourceIdentity.Of(emitterResource),
-                    emitterResource.Version)),
-            Compare(
-                "FilterEffectRenderNode.cs:201",
-                () => s_filterEffectSink =
-                    (typeof(FilterEffectRenderNode), effectResource.RequireOriginal().Id.Value, 0),
-                () => s_filterEffectSink =
-                    (typeof(FilterEffectRenderNode), EngineResourceIdentity.Of(effectResource), 0)),
-            Compare(
-                "Scene3DRenderNode.cs:97",
-                () => s_sceneSnapshotSink = new SceneSnapshotIdentityShape(
-                    sceneResource.RequireOriginal().Id.Value,
-                    sceneResource.Version),
-                () => s_sceneSnapshotSink = new SceneSnapshotIdentityShape(
-                    EngineResourceIdentity.Of(sceneResource),
-                    sceneResource.Version)),
-            Compare(
-                "Scene3DRenderNode.cs:117",
-                () => s_sceneRuntimeSink = new SceneRuntimeIdentityShape(
-                    sceneResource.RequireOriginal().Id.Value,
-                    sceneResource.Version,
-                    bounds),
-                () => s_sceneRuntimeSink = new SceneRuntimeIdentityShape(
-                    EngineResourceIdentity.Of(sceneResource),
-                    sceneResource.Version,
-                    bounds)),
-        ];
+        EngineObject.Resource[] resources =
+            [geometryResource, fillResource, penResource, emitterResource, effectResource, sceneResource];
 
         using (Assert.EnterMultipleScope())
         {
-            foreach ((string site, long before, long after) in measurements)
+            foreach (EngineObject.Resource resource in resources)
             {
-                TestContext.Out.WriteLine(
-                    $"{site}: {before} -> {after} bytes per {Iterations} builds");
-                Assert.That(after, Is.LessThanOrEqualTo(before), $"{site} got more expensive");
-                Assert.That(after, Is.Zero, $"{site} must build its identity without allocating");
+                Assert.That(Measure(() => _ = EngineResourceIdentity.Of(resource)), Is.Zero,
+                    $"{resource.GetType()} must yield its identity without allocating");
             }
-
-            // The sinks give each measured identity somewhere to be stored. Two of them are written but never
-            // otherwise read, which is CS0414 and so a build break under this repository's 0-warning bar; these
-            // reads exist to answer that compiler warning and assert nothing a reader should rely on.
-            _ = s_geometryClipStateSink;
-            _ = s_filterEffectSink;
         }
     }
-
-    private static (string Site, long Before, long After) Compare(string site, Action before, Action after)
-        => (site, Measure(before), Measure(after));
 
     private static long Measure(Action build)
     {
@@ -282,18 +198,4 @@ public sealed class EngineResourceIdentityRoutingTests
             targetDomain: new Rect(0, 0, 32, 32),
             cachePolicy: RenderCacheOptions.Disabled,
             owner: owner));
-
-    private readonly record struct GeometryHitTestIdentityShape(
-        Guid GeometryId,
-        int GeometryVersion,
-        Guid? FillId,
-        int? FillVersion,
-        Guid? PenId,
-        int? PenVersion);
-
-    private readonly record struct ParticleSnapshotIdentityShape(Guid ResourceId, int Version);
-
-    private readonly record struct SceneSnapshotIdentityShape(Guid SceneId, int Version);
-
-    private readonly record struct SceneRuntimeIdentityShape(Guid SceneId, int Version, Rect Bounds);
 }

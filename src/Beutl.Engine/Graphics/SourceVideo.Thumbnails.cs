@@ -31,9 +31,6 @@ public partial class SourceVideo : IThumbnailsProvider
     {
         if (baseKey is null)
             return;
-        // Keep invalidating the legacy proxy key too; older in-memory strips may have been saved under
-        // it before preset-aware partitioning was introduced.
-        cacheService.Invalidate(baseKey + ProxyThumbnailCacheKeySuffix);
         foreach (ProxyPreset preset in Enum.GetValues<ProxyPreset>())
         {
             cacheService.Invalidate(baseKey + GetProxyThumbnailCacheKeySuffix(preset));
@@ -229,7 +226,8 @@ public partial class SourceVideo : IThumbnailsProvider
         if (dispatcher.HasShutdownStarted)
             return;
 
-        using var shutdownCancellation = new ShutdownCancellationRegistration();
+        // Not disposed, so a shutdown handler copied before the unsubscribe below can still cancel it.
+        var shutdownCancellation = new CancellationTokenSource();
         void OnShutdownStarted(object? _, EventArgs __) => shutdownCancellation.Cancel();
         dispatcher.ShutdownStarted += OnShutdownStarted;
         try
@@ -295,76 +293,5 @@ public partial class SourceVideo : IThumbnailsProvider
             return 0;
 
         return (int)raw;
-    }
-
-    private sealed class ShutdownCancellationRegistration : IDisposable
-    {
-        private readonly object _gate = new();
-        private CancellationTokenSource? _source = new();
-        private int _activeCancellations;
-        private bool _disposeRequested;
-
-        public CancellationToken Token
-        {
-            get
-            {
-                lock (_gate)
-                {
-                    return _source?.Token
-                           ?? throw new ObjectDisposedException(nameof(ShutdownCancellationRegistration));
-                }
-            }
-        }
-
-        public void Cancel()
-        {
-            CancellationTokenSource? source;
-            lock (_gate)
-            {
-                source = _source;
-                if (source is null)
-                    return;
-                _activeCancellations++;
-            }
-
-            try
-            {
-                source.Cancel();
-            }
-            finally
-            {
-                CancellationTokenSource? dispose = null;
-                lock (_gate)
-                {
-                    _activeCancellations--;
-                    if (_disposeRequested && _activeCancellations == 0)
-                    {
-                        dispose = _source;
-                        _source = null;
-                    }
-                }
-
-                dispose?.Dispose();
-            }
-        }
-
-        public void Dispose()
-        {
-            CancellationTokenSource? dispose = null;
-            lock (_gate)
-            {
-                if (_disposeRequested)
-                    return;
-
-                _disposeRequested = true;
-                if (_activeCancellations == 0)
-                {
-                    dispose = _source;
-                    _source = null;
-                }
-            }
-
-            dispose?.Dispose();
-        }
     }
 }
