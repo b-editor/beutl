@@ -105,6 +105,95 @@ public class SourceEffectiveScaleFlowTests
         return target.Snapshot();
     }
 
+    // A 4x raster under a Mosaic capped to 2x keeps its own texel grid (#2723). Stripes one texel wide put white on the
+    // texel each tile's centre falls in, the one starting there at a corner, and black on both neighbours, so a tile
+    // that reads a neighbour turns black. Unsnapped, an odd tile's centre fell on a source texel corner and an even
+    // tile's on the next corner. A raster on a grid shifted by a fractional offset checks the offset between grids.
+    [TestCase(1.5f, false, 0f)]
+    [TestCase(1.5f, true, 0f)]
+    [TestCase(2f, false, 0f)]
+    [TestCase(2f, true, 0f)]
+    [TestCase(2f, false, 0.2f)]
+    public void Mosaic_OverADenserRaster_TakesTheSourceTexelStartingAtEachTileCentre(
+        float tile,
+        bool alongY,
+        float gridOffset)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var bounds = new Rect(0, 0, 48, 48);
+            var offset = new Vector(gridOffset, gridOffset);
+            PixelSize size = PixelRect.FromRect(bounds.Translate(offset), 4).Size;
+            using RenderTarget source = RenderTarget.Create(size.Width, size.Height)!;
+            // Tile k's centre falls in texel 4 * tile * (k + 0.5) + floor(4 * gridOffset), of one parity for every k.
+            int whiteParity = ((int)(2 * tile) + (int)MathF.Floor(4 * gridOffset)) % 2;
+            int whiteTexels = 0;
+            using (var paint = new SKPaint { Color = SKColors.White, IsAntialias = false })
+            {
+                source.Value.Canvas.Clear(SKColors.Black);
+                for (int texel = whiteParity; texel < size.Width; texel += 2, whiteTexels++)
+                {
+                    source.Value.Canvas.DrawRect(
+                        alongY ? SKRect.Create(0, texel, size.Width, 1) : SKRect.Create(texel, 0, 1, size.Height),
+                        paint);
+                }
+            }
+
+            using Bitmap texels = source.Snapshot();
+            using var pipeline = ScaleRecordingTestHelper.Pipeline(
+                new MaterializedSourceRenderNode(source, bounds, EffectiveScale.At(4), offset),
+                MosaicNode(tile));
+            using var renderer = new RenderNodeRenderer(pipeline, new RenderNodeRenderRequest
+            {
+                Intent = RenderIntent.Preview,
+                OutputScale = 2,
+                MaxWorkingScale = 2,
+                CacheOptions = RenderCacheOptions.Disabled,
+            });
+            using RenderTarget target = RenderTarget.Create(96, 96)!;
+            using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview, 2))
+            {
+                canvas.Clear(Colors.Black);
+                renderer.Render(canvas);
+            }
+
+            using Bitmap actual = target.Snapshot();
+            Assert.Multiple(() =>
+            {
+                Assert.That(
+                    CountDarkPixels(texels),
+                    Is.EqualTo((size.Width - whiteTexels) * size.Height),
+                    "The fixture must alternate white and black on every source texel along the tested axis.");
+                Assert.That(
+                    CountDarkPixels(actual),
+                    Is.Zero,
+                    "Every tile must take the source texel that starts at its centre, not a neighbour.");
+            });
+        });
+    }
+
+    private static FilterEffectRenderNode MosaicNode(float tile)
+    {
+        var mosaic = new MosaicEffect();
+        mosaic.TileSize.Value = new Size(tile, tile);
+        mosaic.Origin.Value = new RelativePoint(0, 0, RelativeUnit.Absolute);
+        return new FilterEffectRenderNode(mosaic.ToResource(CompositionContext.Default));
+    }
+
+    private static int CountDarkPixels(Bitmap bitmap)
+    {
+        ReadOnlySpan<ushort> pixels = bitmap.GetPixelSpan<ushort>();
+        int dark = 0;
+        for (int index = 0; index < pixels.Length; index += 4)
+        {
+            if ((float)BitConverter.UInt16BitsToHalf(pixels[index]) < 0.5f)
+                dark++;
+        }
+
+        return dark;
+    }
+
     [TestCase(0.5f, 2.0f, 4.0f)]
     [TestCase(2.0f, 2.0f, 1.0f)]
     [TestCase(1.0f, 2.0f, 2.0f)]
@@ -1623,7 +1712,8 @@ public class SourceEffectiveScaleFlowTests
     private sealed class MaterializedSourceRenderNode(
         RenderTarget source,
         Rect bounds,
-        EffectiveScale scale) : RenderNode
+        EffectiveScale scale,
+        Vector deviceGridOffset = default) : RenderNode
     {
         public override void Process(RenderNodeContext context)
         {
@@ -1632,8 +1722,8 @@ public class SourceEffectiveScaleFlowTests
                 target,
                 bounds,
                 scale,
-                PixelRect.FromRect(bounds, scale.Value),
-                default,
+                PixelRect.FromRect(bounds.Translate(deviceGridOffset), scale.Value),
+                deviceGridOffset,
                 RenderHitTestContract.OutputBounds)));
         }
     }

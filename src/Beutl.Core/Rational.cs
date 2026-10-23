@@ -67,9 +67,15 @@ public readonly partial struct Rational(long numerator, long denominator)
             return "0";
         }
 
-        if (IsInteger(this))
+        if (Denominator == 1)
         {
             return Numerator.ToString(provider);
+        }
+
+        // An unreduced whole value such as 60/2 is written as its value, so it reads back the same.
+        if (IsWhole(this))
+        {
+            return (Numerator / Denominator).ToString(provider);
         }
 
         var sb = new StringBuilder();
@@ -106,13 +112,24 @@ public readonly partial struct Rational(long numerator, long denominator)
             return 0.TryFormat(destination, out charsWritten, format, provider);
         }
 
-        if (IsInteger(this))
+        if (Denominator == 1)
         {
             return Numerator.TryFormat(destination, out charsWritten, format, provider);
         }
 
+        if (IsWhole(this))
+        {
+            return (Numerator / Denominator).TryFormat(destination, out charsWritten, format, provider);
+        }
+
         return destination.TryWrite(provider, $"{Numerator}/{Denominator}", out charsWritten);
     }
+
+    // Whether the numerator is a multiple of the denominator, leaving out long.MinValue / -1, which overflows.
+    private static bool IsWhole(Rational value)
+        => value.Denominator != 0
+           && (value.Denominator != -1 || value.Numerator != long.MinValue)
+           && value.Numerator % value.Denominator == 0;
 
     public decimal ToDecimal()
     {

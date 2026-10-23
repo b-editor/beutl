@@ -1,4 +1,6 @@
-﻿namespace Beutl.UnitTests.Core;
+﻿using System.Globalization;
+
+namespace Beutl.UnitTests.Core;
 
 public class RationalTests
 {
@@ -51,6 +53,31 @@ public class RationalTests
     public void Simply_IntegerValue_KeepsItsValue()
     {
         Assert.That(new Rational(54, 9).Simplify(), Is.EqualTo(new Rational(6, 1)));
+    }
+
+    // An unreduced whole value is written as its value, so it reads back the same (#3459).
+    [TestCase(60, 2, "30")]
+    [TestCase(-60, 2, "-30")]
+    [TestCase(60, -2, "-30")]
+    [TestCase(5, -1, "-5")]
+    [TestCase(60, 1, "60")]
+    [TestCase(30000, 1001, "30000/1001")]
+    // Only rounds to a whole number as a double.
+    [TestCase(long.MaxValue, 2, "9223372036854775807/2")]
+    // Its whole value overflows.
+    [TestCase(long.MinValue, -1, "-9223372036854775808/-1")]
+    public void ToString_WritesAWholeValueAsItsValue(long num, long den, string expected)
+    {
+        var value = new Rational(num, den);
+        char[] buffer = new char[32];
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(value.ToString(CultureInfo.InvariantCulture), Is.EqualTo(expected));
+            Assert.That(value.TryFormat(buffer, out int written, default, CultureInfo.InvariantCulture), Is.True);
+            Assert.That(new string(buffer, 0, written), Is.EqualTo(expected));
+            Assert.That(Rational.Parse(expected, CultureInfo.InvariantCulture).ToDouble(), Is.EqualTo(value.ToDouble()));
+        });
     }
 
     [Test]

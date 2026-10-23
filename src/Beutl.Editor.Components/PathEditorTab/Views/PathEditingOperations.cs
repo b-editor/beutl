@@ -26,15 +26,37 @@ internal static class PathEditingOperations
         return new(anchor.X + MathF.Cos(angle) * length, anchor.Y + MathF.Sin(angle) * length);
     }
 
-    internal static Point Start(PathFigure figure, int index, CompositionContext context)
+    // A segment whose type did not load draws nothing, so it ends where the loaded segment before it does, or where the
+    // figure starts when there is none.
+    internal static IExpressionProperty<Point> EndPoint(PathFigure figure, int index)
     {
-        if (index > 0) return figure.Segments[index - 1].GetEndPoint().Evaluate(context);
-        Point start = figure.StartPoint.Evaluate(context);
-        return !start.IsInvalid ? start : figure.Segments[^1].GetEndPoint().Evaluate(context);
+        for (int i = index; i >= 0; i--)
+        {
+            if (figure.Segments[i] is not FallbackPathSegment) return figure.Segments[i].GetEndPoint();
+        }
+
+        return figure.StartPoint;
     }
 
-    internal static int FirstEdge(PathFigure figure, CompositionContext context) =>
-        figure.StartPoint.Evaluate(context).IsInvalid && !figure.IsClosed.Evaluate(context) ? 1 : 0;
+    // An edge with no loaded segment before it starts where the figure does, which for an implicit start is the end of
+    // the last loaded segment, as a closed figure draws.
+    private static IExpressionProperty<Point> EdgeStart(PathFigure figure, int index, bool explicitStart)
+    {
+        IExpressionProperty<Point> before = EndPoint(figure, index - 1);
+        return ReferenceEquals(before, figure.StartPoint) && !explicitStart ? EndPoint(figure, figure.Segments.Count - 1) : before;
+    }
+
+    internal static Point Start(PathFigure figure, int index, CompositionContext context)
+        => EdgeStart(figure, index, !figure.StartPoint.Evaluate(context).IsInvalid).Evaluate(context);
+
+    // An implicit start on an open figure is the point of its first loaded segment, which draws no edge of its own.
+    internal static int FirstEdge(PathFigure figure, CompositionContext context)
+    {
+        if (!figure.StartPoint.Evaluate(context).IsInvalid || figure.IsClosed.Evaluate(context)) return 0;
+        int first = 0;
+        while (first < figure.Segments.Count && figure.Segments[first] is FallbackPathSegment) first++;
+        return first + 1;
+    }
 
     internal static int EdgeCount(PathFigure figure, CompositionContext context) => figure.Segments.Count
         + (figure.Segments.Count > 0 && figure.IsClosed.Evaluate(context)
@@ -87,13 +109,14 @@ internal static class PathEditingOperations
         if (index == figure.Segments.Count)
             return CanUsePoint(figure.StartPoint) && !ReadPoint(figure.StartPoint).Value.IsInvalid
                 && IsStatic(figure.IsClosed) && figure.IsClosed.Value
-                && CanUsePoint(figure.Segments[^1].GetEndPoint());
+                && CanUsePoint(EndPoint(figure, figure.Segments.Count - 1));
         // Only this edge's actual start point affects its split. Animation on an
         // unrelated anchor (or on an unused explicit start) must not block insertion.
-        bool supportedStart = index > 0 ? CanUsePoint(figure.Segments[index - 1].GetEndPoint())
+        IExpressionProperty<Point> before = EndPoint(figure, index - 1);
+        bool supportedStart = !ReferenceEquals(before, figure.StartPoint) ? CanUsePoint(before)
             : CanUsePoint(figure.StartPoint) && (!ReadPoint(figure.StartPoint).Value.IsInvalid
                 || IsStatic(figure.IsClosed) && figure.IsClosed.Value
-                    && CanUsePoint(figure.Segments[^1].GetEndPoint()));
+                    && CanUsePoint(EndPoint(figure, figure.Segments.Count - 1)));
         var segment = figure.Segments[index];
         return supportedStart && segment is LineSegment or CubicBezierSegment or QuadraticBezierSegment or ConicSegment or ArcSegment
             && CanUsePoint(segment.GetEndPoint())
@@ -106,8 +129,7 @@ internal static class PathEditingOperations
     internal static PathSegment? Split(PathFigure figure, int index, float t, CompositionContext context)
     {
         if (t <= 0 || t >= 1 || !CanSplit(figure, index)) return null;
-        SplitPoint startPoint = ReadPoint(index > 0 ? figure.Segments[index - 1].GetEndPoint()
-            : !ReadPoint(figure.StartPoint).Value.IsInvalid ? figure.StartPoint : figure.Segments[^1].GetEndPoint());
+        SplitPoint startPoint = ReadPoint(EdgeStart(figure, index, !ReadPoint(figure.StartPoint).Value.IsInvalid));
         if (index == figure.Segments.Count)
         {
             var closingPoint = new LineSegment();

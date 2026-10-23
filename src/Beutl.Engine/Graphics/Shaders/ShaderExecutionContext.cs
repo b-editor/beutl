@@ -24,6 +24,7 @@ public sealed class ShaderExecutionContext
     private readonly float _maxWorkingScale;
     private readonly RenderIntent _intent;
     private readonly RenderRequestPurpose _purpose;
+    private readonly Point? _inputRasterOrigin;
 
     internal ShaderExecutionContext(
         RenderExecutionSessionToken token,
@@ -37,7 +38,8 @@ public sealed class ShaderExecutionContext
         float workingScale,
         float maxWorkingScale,
         RenderIntent intent,
-        RenderRequestPurpose purpose)
+        RenderRequestPurpose purpose,
+        Point? inputRasterOrigin = null)
     {
         ArgumentNullException.ThrowIfNull(token);
         _token = token;
@@ -64,6 +66,7 @@ public sealed class ShaderExecutionContext
         _maxWorkingScale = maxWorkingScale;
         _intent = intent;
         _purpose = purpose;
+        _inputRasterOrigin = inputRasterOrigin;
     }
 
     /// <summary>Gets the stage's complete logical input bounds.</summary>
@@ -162,6 +165,12 @@ public sealed class ShaderExecutionContext
             _token.ThrowIfInactive();
             return _logicalOrigin;
         }
+    }
+
+    // Where the texel grid of a whole-source stage's src starts, in local logical coordinates; null for other stages.
+    internal Point? InputRasterOrigin
+    {
+        get { _token.ThrowIfInactive(); return _inputRasterOrigin; }
     }
 
     /// <summary>Gets the effective-scale supply resolved for the stage input.</summary>
