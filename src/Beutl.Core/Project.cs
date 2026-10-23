@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
-using Beutl.Collections;
 using Beutl.JsonConverters;
 using Beutl.Serialization;
 
@@ -15,28 +14,24 @@ internal static class ProjectVariableKeys
 
 public sealed class Project : Hierarchical
 {
-    private readonly HierarchicalList<ProjectItem> _items;
-
     public Project()
     {
-        _items = new HierarchicalList<ProjectItem>(this);
-        // The list and the dictionary are values rather than defaults, as their CoreProperty forms had no default.
-        ItemsProperty.Value = _items;
-        VariablesProperty.Value = Variables;
+        // The dictionary is a value rather than a default, as its CoreProperty form had no default.
+        Variables.Value = [];
         ScanProperties<Project>();
     }
 
     // Serialize and Deserialize write and read the items and variables themselves.
     [NotAutoSerialized]
-    public IProperty<HierarchicalList<ProjectItem>> ItemsProperty { get; } = new ValueOnlyProperty<HierarchicalList<ProjectItem>>(null!) { KeepsList = true };
+    public IListProperty<ProjectItem> Items { get; } = new ListProperty<ProjectItem> { AffectsRender = false };
 
     [NotAutoSerialized]
-    public IProperty<Dictionary<string, string>> VariablesProperty { get; } = new ValueOnlyProperty<Dictionary<string, string>>(null!);
+    public IProperty<Dictionary<string, string>> Variables { get; } = new ValueOnlyProperty<Dictionary<string, string>>(null!);
 
     // A whole number such as 30 or a fraction such as 30000/1001.
-    public IProperty<Rational> FrameRateProperty { get; } = new ValueOnlyProperty<Rational>(new Rational(30));
+    public IProperty<Rational> FrameRate { get; } = new ValueOnlyProperty<Rational>(new Rational(30));
 
-    public IProperty<int> SampleRateProperty { get; } = new ValueOnlyProperty<int>(44100);
+    public IProperty<int> SampleRate { get; } = new ValueOnlyProperty<int>(44100);
 
     /// <summary>
     /// Gets the version of Beutl that last saved the project file, as the file records it, or the running
@@ -54,29 +49,9 @@ public sealed class Project : Hierarchical
     /// </remarks>
     public string MinAppVersion => RootFileVersions.GetMinAppVersion(this) ?? FileFormat.Floor;
 
-    public HierarchicalList<ProjectItem> Items
-    {
-        get => _items;
-        set => _items.Replace(value);
-    }
-
-    public Dictionary<string, string> Variables { get; } = [];
-
-    public Rational FrameRate
-    {
-        get => FrameRateProperty.Value;
-        set => FrameRateProperty.Value = value;
-    }
-
-    public int SampleRate
-    {
-        get => SampleRateProperty.Value;
-        set => SampleRateProperty.Value = value;
-    }
-
     // The rate GetFrameRate gives: the project's when it is positive, or 30.
     internal static Rational ReadFrameRate(Project? project)
-        => project?.FrameRate is { Numerator: > 0, Denominator: > 0 } rate ? rate : new Rational(30);
+        => project?.FrameRate.Value is { Numerator: > 0, Denominator: > 0 } rate ? rate : new Rational(30);
 
     public override void Deserialize(ICoreSerializationContext context)
     {
@@ -86,24 +61,24 @@ public sealed class Project : Hierarchical
         // The variables and rates come first: the items are read on the project's frame grid.
         if (context.GetValue<Dictionary<string, string>>("variables") is { } vars)
         {
-            Variables.Clear();
+            Variables.Value.Clear();
             foreach (KeyValuePair<string, string> item in vars)
             {
-                Variables.Add(item.Key, item.Value);
+                Variables.Value.Add(item.Key, item.Value);
             }
         }
 
         // Earlier versions kept the rates as variables, which a read moves to the rate members.
-        if (Variables.Remove(ProjectVariableKeys.FrameRate, out string? frameRate) && !context.Contains(nameof(FrameRate))
+        if (Variables.Value.Remove(ProjectVariableKeys.FrameRate, out string? frameRate) && !context.Contains(nameof(FrameRate))
             && Rational.TryParse(frameRate, CultureInfo.InvariantCulture, out Rational rate))
         {
-            FrameRate = rate;
+            FrameRate.Value = rate;
         }
 
-        if (Variables.Remove(ProjectVariableKeys.SampleRate, out string? sampleRate) && !context.Contains(nameof(SampleRate))
+        if (Variables.Value.Remove(ProjectVariableKeys.SampleRate, out string? sampleRate) && !context.Contains(nameof(SampleRate))
             && int.TryParse(sampleRate, NumberStyles.Integer, CultureInfo.InvariantCulture, out int samples))
         {
-            SampleRate = samples;
+            SampleRate.Value = samples;
         }
 
         using (MediaTimeJsonConverter.ReadOnFrameGrid(ReadFrameRate(this)))
@@ -130,6 +105,6 @@ public sealed class Project : Hierarchical
 
         context.SetValue("items", Items);
 
-        context.SetValue("variables", Variables);
+        context.SetValue("variables", Variables.Value);
     }
 }

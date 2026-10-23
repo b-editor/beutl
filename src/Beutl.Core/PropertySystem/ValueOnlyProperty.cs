@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
 using Beutl.Serialization;
 using Beutl.Validation;
@@ -7,8 +8,11 @@ using ValidationContext = Beutl.Validation.ValidationContext;
 namespace Beutl;
 
 // A property that holds only a value: it takes no expression, reference, node connection or keyframes.
-public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = null) : IProperty<T>, IChildObjectSource, IValueOnlyProperty
+// It raises PropertyChanged for Value, so a binding to Value follows it.
+public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = null)
+    : IProperty<T>, IChildObjectSource, INotifyPropertyChanged
 {
+    private static readonly PropertyChangedEventArgs s_valueChangedArgs = new(nameof(Value));
     private IValidator<T>? _validator = validator;
     private T _currentValue = defaultValue;
     private Attribute[]? _attributes;
@@ -23,11 +27,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     public T Value
     {
-        get
-        {
-            BeforeRead?.Invoke();
-            return _currentValue;
-        }
+        get => _currentValue;
         set => SetCurrentValue(value, replaceEquivalent: false);
     }
 
@@ -37,17 +37,8 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
     // False for a value that is not drawn, like GraphNode.Position: changing or editing it raises no Edited.
     internal bool AffectsRender { get; init; } = true;
 
-    // Brings a value its owner updates lazily up to date before it is read, like GraphNode.NestedInputPorts.
-    internal Action? BeforeRead { get; set; }
-
     // Adjusts each value before it is validated, like KeyFrame<T>.Value with its animation's validator.
     internal Func<IProperty<T>, T, T>? Coerce { get; init; }
-
-    // True for a list its owner keeps, like Element.Objects: setting another list replaces its items, a panel cannot
-    // replace it, and the owner reads the saved items into it.
-    internal bool KeepsList { get; init; }
-
-    bool IValueOnlyProperty.KeepsList => KeepsList;
 
     public bool IsValueSet { get; private set; }
 
@@ -55,15 +46,11 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
 
     public event EventHandler? Edited;
 
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     private void SetCurrentValue(T value, bool replaceEquivalent)
     {
         DocumentWriteCheck.Verify(_owner, _name);
-        if (KeepsList && _currentValue is IReplaceableList kept && !ReferenceEquals(kept, value))
-        {
-            kept.ReplaceItems(value);
-            return;
-        }
-
         var validatedValue = ValidateAndCoerce(Coerce is { } coerce ? coerce(this, value) : value);
         if (ValueReplacement.RequiresReplacement(_currentValue, validatedValue, replaceEquivalent))
         {
@@ -72,6 +59,7 @@ public class ValueOnlyProperty<T>(T defaultValue, IValidator<T>? validator = nul
             IsValueSet = true;
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
+            PropertyChanged?.Invoke(this, s_valueChangedArgs);
             _owner?.OnPropertyValueChanged(this);
             if (AffectsRender)
                 Edited?.Invoke(this, EventArgs.Empty);

@@ -28,7 +28,7 @@ public class ReferenceResolver(IHierarchical anchor, Guid id)
             var tcs = new TaskCompletionSource<ICoreObject>();
             void OnDescendantAttached(object? sender, IHierarchical e)
             {
-                if (e is ICoreObject coreObject && coreObject.Id == id)
+                if (e is ICoreObject coreObject && coreObject.Id.Value == id)
                 {
                     root.DescendantAttached -= OnDescendantAttached;
                     tcs.SetResult(coreObject);

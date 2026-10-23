@@ -7,9 +7,9 @@ namespace Beutl;
 
 public interface ICoreObject : INotifyPropertyChanged, INotifyDataErrorInfo, ICoreSerializable
 {
-    Guid Id { get; set; }
+    IProperty<Guid> Id { get; }
 
-    string Name { get; set; }
+    IProperty<string> Name { get; }
 }
 
 public abstract partial class CoreObject : ICoreObject
@@ -17,40 +17,19 @@ public abstract partial class CoreObject : ICoreObject
     // Validation errors by property name.
     private Dictionary<string, string>? _errors;
 
-    // Shared by every object, so that none allocates handlers of its own.
-    private static readonly EventHandler<PropertyValueChangedEventArgs<Guid>> s_idChanged =
-        static (_, e) => e.Property.GetOwnerObject()?.OnPropertyChanged(new PropertyChangedEventArgs(nameof(Id)));
-
-    private static readonly EventHandler<PropertyValueChangedEventArgs<string>> s_nameChanged =
-        static (_, e) => e.Property.GetOwnerObject()?.OnPropertyChanged(new PropertyChangedEventArgs(nameof(Name)));
-
     protected CoreObject()
     {
-        RegisterOwnField(IdProperty, nameof(Id));
-        RegisterOwnField(NameProperty, nameof(Name));
-        IdProperty.ValueChanged += s_idChanged;
-        NameProperty.ValueChanged += s_nameChanged;
-        Id = Guid.NewGuid();
+        RegisterOwnField(Id, nameof(Id));
+        RegisterOwnField(Name, nameof(Name));
+        Id.Value = Guid.NewGuid();
     }
 
     // Every object has these, so the constructor registers them without a scan. They raise no Edited.
-    public IProperty<Guid> IdProperty { get; } = new ValueOnlyProperty<Guid>(Guid.Empty) { AffectsRender = false };
-
-    public IProperty<string> NameProperty { get; } = new ValueOnlyProperty<string>(string.Empty) { AffectsRender = false };
+    [Browsable(false)]
+    public IProperty<Guid> Id { get; } = new ValueOnlyProperty<Guid>(Guid.Empty) { AffectsRender = false };
 
     [Browsable(false)]
-    public Guid Id
-    {
-        get => IdProperty.Value;
-        set => IdProperty.Value = value;
-    }
-
-    [Browsable(false)]
-    public string Name
-    {
-        get => NameProperty.Value;
-        set => NameProperty.Value = value;
-    }
+    public IProperty<string> Name { get; } = new ValueOnlyProperty<string>(string.Empty) { AffectsRender = false };
 
     public Uri? Uri { get; set; }
 
@@ -171,8 +150,8 @@ public abstract partial class CoreObject : ICoreObject
                 property.SerializeValue(context);
         }
 
-        IdProperty.SerializeValue(context);
-        NameProperty.SerializeValue(context);
+        Id.SerializeValue(context);
+        Name.SerializeValue(context);
         SerializeMembers(context, saved);
         foreach (IProperty property in saved)
         {
@@ -185,8 +164,8 @@ public abstract partial class CoreObject : ICoreObject
     {
         foreach (IProperty property in RegisteredProperties)
         {
-            // A list its owner keeps is read by the owner into that list.
-            if (IsAutoSerialized(property) && !(IsBaseField(property) && property is IValueOnlyProperty { KeepsList: true }))
+            // A list saved as a base field, like Scene.Layers, is read by its owner.
+            if (IsAutoSerialized(property) && !(IsBaseField(property) && property is IListProperty))
                 property.DeserializeValue(context);
         }
 

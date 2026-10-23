@@ -27,7 +27,6 @@ public abstract partial class CoreObject : IChildObjectSource
                 .Where(info => typeof(IProperty).IsAssignableFrom(info.PropertyType))
                 .Select(info => new ScannedMember(
                     info.Name,
-                    ToPropertyName(info.Name),
                     PropertyReflectionCache.GetOrCreateAccessor(type, info),
                     PropertyReflectionCache.GetOrCreateAttributes(type, info.Name, () => [.. info.GetCustomAttributes()]))),
         ]);
@@ -37,7 +36,7 @@ public abstract partial class CoreObject : IChildObjectSource
             var property = member.Accessor(this);
             if (property == null) continue;
 
-            member.Validator ??= PropertyReflectionCache.GetOrCreateValidator(type, member.MemberName,
+            member.Validator ??= PropertyReflectionCache.GetOrCreateValidator(type, member.Name,
                 () => property.CreateValidator(member.Attributes));
 
             property.SetAttributes(member.Name, member.Attributes);
@@ -48,10 +47,8 @@ public abstract partial class CoreObject : IChildObjectSource
     }
 
     // The validator is made from the first object's property: every object of the type gets the same one.
-    private sealed class ScannedMember(string memberName, string name, Func<object, IProperty?> accessor, Attribute[] attributes)
+    private sealed class ScannedMember(string name, Func<object, IProperty?> accessor, Attribute[] attributes)
     {
-        public string MemberName { get; } = memberName;
-
         public string Name { get; } = name;
 
         public Func<object, IProperty?> Accessor { get; } = accessor;
@@ -60,12 +57,6 @@ public abstract partial class CoreObject : IChildObjectSource
 
         public Validation.IValidator? Validator { get; set; }
     }
-
-    // A property exposed as XxxProperty, beside a value accessor Xxx, is registered, saved and recorded as Xxx.
-    private static string ToPropertyName(string memberName)
-        => memberName.Length > "Property".Length && memberName.EndsWith("Property", StringComparison.Ordinal)
-            ? memberName[..^"Property".Length]
-            : memberName;
 
     protected void ScanProperties<T>() where T : CoreObject
     {
@@ -102,7 +93,7 @@ public abstract partial class CoreObject : IChildObjectSource
     internal virtual bool IsBaseField(IProperty property) => property is not (IExpressionProperty or IListProperty);
 
     // Id and Name, which come after the base fields when saved and shown.
-    internal bool IsOwnField(IProperty property) => property == IdProperty || property == NameProperty;
+    internal bool IsOwnField(IProperty property) => property == Id || property == Name;
 
     private void RegisterOwnField(IProperty property, string name)
     {

@@ -12,7 +12,7 @@ public static class CoreObjectExtensions
 
     public static ICoreObject? FindById(this ICoreObject obj, Guid id, bool includeSelf = true)
     {
-        return obj.Find(o => (o as ICoreObject)?.Id == id, includeSelf) as ICoreObject;
+        return obj.Find(o => (o as ICoreObject)?.Id.Value == id, includeSelf) as ICoreObject;
     }
 
     public static object? Find(this ICoreObject obj, Predicate<object?> predicate, bool includeSelf = true)

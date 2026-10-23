@@ -9,21 +9,21 @@ namespace Beutl;
 
 public class ListProperty<T> : IListProperty<T>
 {
-    private readonly CoreList<T> _items = [];
+    private readonly CoreList<T> _items;
     private Attribute[]? _attributes;
     private string? _name;
     private CoreObject? _owner;
 
     public ListProperty()
     {
-        _items.ResetBehavior = ResetBehavior.Remove;
+        _items = new OwnedList(this) { ResetBehavior = ResetBehavior.Remove };
         _items.Attached += item =>
         {
             if (_owner is IModifiableHierarchical ownerHierarchical && item is IHierarchical hierarchical)
             {
                 ownerHierarchical.AddChild(hierarchical);
             }
-            if (item is INotifyEdited edited)
+            if (AffectsRender && item is INotifyEdited edited)
             {
                 edited.Edited += OnChildEdited;
             }
@@ -34,12 +34,31 @@ public class ListProperty<T> : IListProperty<T>
             {
                 ownerHierarchical.RemoveChild(hierarchical);
             }
-            if (item is INotifyEdited edited)
+            if (AffectsRender && item is INotifyEdited edited)
             {
                 edited.Edited -= OnChildEdited;
             }
         };
-        _items.CollectionChanged += (s, e) => Edited?.Invoke(this, EventArgs.Empty);
+        _items.CollectionChanged += (s, e) =>
+        {
+            if (AffectsRender)
+                Edited?.Invoke(this, EventArgs.Empty);
+        };
+    }
+
+    // False for a list whose owner reports its changes, like GraphModel.Nodes: changing it or an item raises no Edited.
+    internal bool AffectsRender { get; init; } = true;
+
+    // Brings a list its owner updates lazily up to date before it is used, like GraphNode.NestedInputPorts.
+    internal Action? BeforeAccess { get; set; }
+
+    private CoreList<T> Items
+    {
+        get
+        {
+            BeforeAccess?.Invoke();
+            return _items;
+        }
     }
 
     public bool HasValidator => false;
@@ -54,12 +73,12 @@ public class ListProperty<T> : IListProperty<T>
 
     public ICoreList<T> Value
     {
-        get => _items;
-        set => _items.Replace(value);
+        get => Items;
+        set => Items.Replace(value);
     }
 
     public void SetValueEvenIfEqual(ICoreList<T> value)
-        => _items.Replace(value);
+        => Items.Replace(value);
 
     public bool IsValueSet => true;
 
@@ -135,8 +154,10 @@ public class ListProperty<T> : IListProperty<T>
 
     public CoreList<T>.Enumerator GetEnumerator()
     {
-        return _items.GetEnumerator();
+        return Items.GetEnumerator();
     }
+
+    internal Span<T> AsSpan() => Items.AsSpan();
 
     public IValidator CreateValidator(Attribute[] attributes)
     {
@@ -151,115 +172,139 @@ public class ListProperty<T> : IListProperty<T>
 
     #region ICoreList<T> Members
 
-    IEnumerator<T> IEnumerable<T>.GetEnumerator() => _items.GetEnumerator();
+    IEnumerator<T> IEnumerable<T>.GetEnumerator() => Items.GetEnumerator();
 
-    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)_items).GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable)Items).GetEnumerator();
 
-    public void CopyTo(Array array, int index) => ((ICollection)_items).CopyTo(array, index);
+    public void CopyTo(Array array, int index) => ((ICollection)Items).CopyTo(array, index);
 
-    public bool Remove(T item) => _items.Remove(item);
+    public bool Remove(T item) => Items.Remove(item);
 
-    public int Count => ((ICollection)_items).Count;
+    public int Count => ((ICollection)Items).Count;
 
-    public void Replace(IList<T> source) => _items.Replace(source);
+    public void Replace(IList<T> source) => Items.Replace(source);
 
-    void ICoreList<T>.Move(int oldIndex, int newIndex) => _items.Move(oldIndex, newIndex);
+    void ICoreList<T>.Move(int oldIndex, int newIndex) => Items.Move(oldIndex, newIndex);
 
-    void ICoreList<T>.MoveRange(int oldIndex, int count, int newIndex) => _items.MoveRange(oldIndex, count, newIndex);
+    void ICoreList<T>.MoveRange(int oldIndex, int count, int newIndex) => Items.MoveRange(oldIndex, count, newIndex);
 
-    void ICoreList<T>.RemoveRange(int index, int count) => _items.RemoveRange(index, count);
+    void ICoreList<T>.RemoveRange(int index, int count) => Items.RemoveRange(index, count);
 
-    void ICoreList<T>.RemoveAt(int index) => _items.RemoveAt(index);
+    void ICoreList<T>.RemoveAt(int index) => Items.RemoveAt(index);
 
-    void ICoreList<T>.Clear() => _items.Clear();
+    void ICoreList<T>.Clear() => Items.Clear();
 
-    void ICoreList.Move(int oldIndex, int newIndex) => _items.Move(oldIndex, newIndex);
+    void ICoreList.Move(int oldIndex, int newIndex) => Items.Move(oldIndex, newIndex);
 
-    void ICoreList.MoveRange(int oldIndex, int count, int newIndex) => _items.MoveRange(oldIndex, count, newIndex);
+    void ICoreList.MoveRange(int oldIndex, int count, int newIndex) => Items.MoveRange(oldIndex, count, newIndex);
 
-    void ICoreList.RemoveRange(int index, int count) => _items.RemoveRange(index, count);
+    void ICoreList.RemoveRange(int index, int count) => Items.RemoveRange(index, count);
 
-    public int IndexOf(T item) => _items.IndexOf(item);
+    public int IndexOf(T item) => Items.IndexOf(item);
 
-    public void Insert(int index, T item) => _items.Insert(index, item);
+    public void Insert(int index, T item) => Items.Insert(index, item);
 
-    void IList<T>.RemoveAt(int index) => _items.RemoveAt(index);
+    void IList<T>.RemoveAt(int index) => Items.RemoveAt(index);
 
     public T this[int index]
     {
-        get => _items[index];
-        set => _items[index] = value;
+        get => Items[index];
+        set => Items[index] = value;
     }
 
     public event Action<T>? Attached
     {
-        add => _items.Attached += value;
-        remove => _items.Attached -= value;
+        add => Items.Attached += value;
+        remove => Items.Attached -= value;
     }
 
     public event Action<T>? Detached
     {
-        add => _items.Detached += value;
-        remove => _items.Detached -= value;
+        add => Items.Detached += value;
+        remove => Items.Detached -= value;
     }
 
-    public void AddRange(IEnumerable<T> items) => _items.AddRange(items);
+    public void AddRange(IEnumerable<T> items) => Items.AddRange(items);
 
-    public void InsertRange(int index, IEnumerable<T> items) => _items.InsertRange(index, items);
+    internal void RemoveAll(IEnumerable<T> items) => Items.RemoveAll(items);
 
-    void ICoreList.RemoveAt(int index) => _items.RemoveAt(index);
+    public void InsertRange(int index, IEnumerable<T> items) => Items.InsertRange(index, items);
 
-    public void Add(T item) => _items.Add(item);
+    void ICoreList.RemoveAt(int index) => Items.RemoveAt(index);
 
-    void ICollection<T>.Clear() => _items.Clear();
+    public void Add(T item) => Items.Add(item);
 
-    public bool Contains(T item) => _items.Contains(item);
+    void ICollection<T>.Clear() => Items.Clear();
 
-    public void CopyTo(T[] array, int arrayIndex) => _items.CopyTo(array, arrayIndex);
+    public bool Contains(T item) => Items.Contains(item);
 
-    void ICoreList.Clear() => _items.Clear();
+    public void CopyTo(T[] array, int arrayIndex) => Items.CopyTo(array, arrayIndex);
 
-    public bool IsSynchronized => ((ICollection)_items).IsSynchronized;
+    void ICoreList.Clear() => Items.Clear();
 
-    public object SyncRoot => ((ICollection)_items).SyncRoot;
+    public bool IsSynchronized => ((ICollection)Items).IsSynchronized;
 
-    public int Add(object? value) => ((IList)_items).Add(value);
+    public object SyncRoot => ((ICollection)Items).SyncRoot;
 
-    void IList.Clear() => ((IList)_items).Clear();
+    public int Add(object? value) => ((IList)Items).Add(value);
 
-    public bool Contains(object? value) => ((IList)_items).Contains(value);
+    void IList.Clear() => ((IList)Items).Clear();
 
-    public int IndexOf(object? value) => ((IList)_items).IndexOf(value);
+    public bool Contains(object? value) => ((IList)Items).Contains(value);
 
-    public void Insert(int index, object? value) => ((IList)_items).Insert(index, value);
+    public int IndexOf(object? value) => ((IList)Items).IndexOf(value);
 
-    public void Remove(object? value) => ((IList)_items).Remove(value);
+    public void Insert(int index, object? value) => ((IList)Items).Insert(index, value);
 
-    public void EnsureCapacity(int capacity) => _items.EnsureCapacity(capacity);
+    public void Remove(object? value) => ((IList)Items).Remove(value);
 
-    void IList.RemoveAt(int index) => ((IList)_items).RemoveAt(index);
+    public void EnsureCapacity(int capacity) => Items.EnsureCapacity(capacity);
 
-    public bool IsFixedSize => ((IList)_items).IsFixedSize;
+    void IList.RemoveAt(int index) => ((IList)Items).RemoveAt(index);
 
-    public bool IsReadOnly => ((IList)_items).IsReadOnly;
+    public bool IsFixedSize => ((IList)Items).IsFixedSize;
+
+    public bool IsReadOnly => ((IList)Items).IsReadOnly;
 
     object? IList.this[int index]
     {
-        get => ((IList)_items)[index];
-        set => ((IList)_items)[index] = value;
+        get => ((IList)Items)[index];
+        set => ((IList)Items)[index] = value;
     }
 
     public event NotifyCollectionChangedEventHandler? CollectionChanged
     {
-        add => _items.CollectionChanged += value;
-        remove => _items.CollectionChanged -= value;
+        add => Items.CollectionChanged += value;
+        remove => Items.CollectionChanged -= value;
     }
 
     public event PropertyChangedEventHandler? PropertyChanged
     {
-        add => _items.PropertyChanged += value;
-        remove => _items.PropertyChanged -= value;
+        add => Items.PropertyChanged += value;
+        remove => Items.PropertyChanged -= value;
     }
 
     #endregion
+
+    // An item that holds the property's owner would become its own ancestor, as in HierarchicalList<T>.
+    private sealed class OwnedList(ListProperty<T> property) : CoreList<T>
+    {
+        private protected override void VerifyInsert(T item)
+        {
+            if (item is not IHierarchical hierarchical) return;
+
+            for (IHierarchical? owner = property._owner as IHierarchical; owner != null; owner = owner.HierarchicalParent)
+            {
+                if (ReferenceEquals(owner, hierarchical))
+                    throw new InvalidOperationException("An object cannot be added to a list inside it.");
+            }
+        }
+    }
+}
+
+internal static class ListPropertyExtensions
+{
+    // The items as a span, as CoreList<T>.AsSpan gives them.
+    public static Span<T> AsSpan<T>(this IListProperty<T> property)
+        => property is ListProperty<T> list ? list.AsSpan() : property.ToArray();
 }

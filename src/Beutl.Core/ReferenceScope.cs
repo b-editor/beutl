@@ -20,5 +20,5 @@ internal static class ReferenceScope
 
     // Skips what visited already holds, so the second search does not walk the scene again.
     private static ICoreObject? Find(ICoreObject scope, Guid id, HashSet<object> visited)
-        => scope.Find(obj => (obj as ICoreObject)?.Id == id, includeSelf: true, visited) as ICoreObject;
+        => scope.Find(obj => (obj as ICoreObject)?.Id.Value == id, includeSelf: true, visited) as ICoreObject;
 }
