@@ -186,6 +186,9 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         public MemoryNode<Rect> Bounds { get; private set; } = bounds;
 
+        // The matrix the last render placed the content with, from the bounds it measured.
+        internal Matrix Matrix => GetTransformMatrix(Bounds.Value);
+
         public bool Update(
             Transform.Resource? transform, RelativePoint transformOrigin, Size screenSize,
             AlignmentX alignmentX, AlignmentY alignmentY, MemoryNode<Rect> bounds)

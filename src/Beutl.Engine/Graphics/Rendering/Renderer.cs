@@ -666,6 +666,40 @@ public class Renderer : IRenderer
         return null;
     }
 
+    // The node another entry, such as a group's, draws drawable with, and the container nodes above it, outermost
+    // first. Null when no entry draws it inside itself.
+    private (DrawableRenderNode Node, RenderNode[] Path)? FindNestedNode(Drawable drawable)
+    {
+        var path = new List<RenderNode>();
+        foreach (Entry entry in _allCurrentEntries)
+        {
+            if (Find(entry.Node) is { } node) return (node, [.. path]);
+        }
+
+        return null;
+
+        DrawableRenderNode? Find(ContainerRenderNode container)
+        {
+            foreach (RenderNode child in container.Children)
+            {
+                if (child is DrawableRenderNode { Drawable.Resource: { } resource } node
+                    && ReferenceEquals(resource.GetOriginal(), drawable))
+                {
+                    return node;
+                }
+
+                if (child is ContainerRenderNode inner)
+                {
+                    path.Add(inner);
+                    if (Find(inner) is { } found) return found;
+                    path.RemoveAt(path.Count - 1);
+                }
+            }
+
+            return null;
+        }
+    }
+
     // The bounds of drawable as an active transition draws it: measured on its own, cut to the clips the
     // transition draws it within and mapped out through the transforms. Null when no transition draws it.
     private Rect? GetTransitionedBoundary(Drawable drawable)
@@ -768,7 +802,7 @@ public class Renderer : IRenderer
     /// turns with a rotated drawable and its axis-aligned extent is that boundary. Content sized by the frame it
     /// draws into rather than by itself, such as an effect without bounds of its own, has no such box: its boundary
     /// is the frame however the drawable is transformed, so the drawable's layout box is returned for it instead. A
-    /// drawable an active transition draws is placed through the transition's transforms too; the transition's clips
+    /// drawable an active transition or a group draws is placed through their transforms too; the transition's clips
     /// are not applied.
     /// </remarks>
     /// <exception cref="InvalidOperationException">The caller does not have render-thread access.</exception>
@@ -782,6 +816,8 @@ public class Renderer : IRenderer
         {
             found = (entry.Node, []);
         }
+
+        found ??= FindNestedNode(drawable);
 
         // Drawable.Render pushes the blend mode, then the transform its content is drawn under.
         if (found is not { } drawn
@@ -812,6 +848,10 @@ public class Renderer : IRenderer
             if (node is TransformRenderNode { TransformOperator: TransformOperator.Prepend } outer)
             {
                 outerMatrix = outer.Transform * outerMatrix;
+            }
+            else if (node is DrawableGroup.CustomTransformRenderNode group)
+            {
+                outerMatrix = group.Matrix * outerMatrix;
             }
         }
 

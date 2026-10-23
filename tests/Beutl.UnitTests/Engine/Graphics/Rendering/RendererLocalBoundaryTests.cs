@@ -153,6 +153,28 @@ public class RendererLocalBoundaryTests
         });
     }
 
+    // A group draws its children inside its own entry, so a child is placed through the group's transform too.
+    [Test]
+    public void LocalBoundary_OfADrawableAGroupDraws_IsPlacedThroughTheGroupsTransform()
+    {
+        EllipseShape alone = CreateShadowedEllipse();
+        EllipseShape child = CreateShadowedEllipse();
+        var group = new DrawableGroup();
+        group.Children.Add(child);
+        group.Transform.Value = new TranslateTransform(40, 30);
+
+        (Rect Bounds, Matrix Transform)? expected = QueryFrame(Width, Height, renderer => renderer.GetLocalBoundary(alone), alone);
+        (Rect Bounds, Matrix Transform)? local = QueryFrame(Width, Height, renderer => renderer.GetLocalBoundary(child), group);
+
+        Assert.That(expected, Is.Not.Null);
+        Assert.That(local, Is.Not.Null);
+        Assert.Multiple(() =>
+        {
+            AssertRect(local!.Value.Bounds, expected!.Value.Bounds);
+            Assert.That(local.Value.Transform, Is.EqualTo(expected.Value.Transform * Matrix.CreateTranslation(40, 30)));
+        });
+    }
+
     private static EllipseShape CreateShadowedEllipse()
     {
         var ellipse = new EllipseShape();
