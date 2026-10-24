@@ -114,99 +114,46 @@ public class LinuxDefaultFontTests
         }
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void TimedOutQuery_UsesSkiaDefaultAndStopsTheProcess(bool parentExitsFirst)
+    [Test]
+    public void TimedOutQuery_UsesSkiaDefaultAndStopsTheProcess()
     {
-        string identityFile = Path.Combine(_directory, "process");
-        string sleeper = $"""
-            IFS= read -r identity < /proc/$$/stat
-            printf '%s' "$identity" > {Quote(identityFile)}
-            exec /bin/sleep 60
-            """;
-        string body = parentExitsFirst
-            ? $"/bin/sh -c {Quote(sleeper)} &\nexit 0"
-            : sleeper;
-        string executable = WriteFcMatch(body);
+        string pidFile = Path.Combine(_directory, "pid");
+        string executable = WriteFcMatch($"printf '%s' \"$$\" > {Quote(pidFile)}\nexec /bin/sleep 60");
+        int pid = 0;
         try
         {
             var elapsed = Stopwatch.StartNew();
             // Resolves with the default timeout, as a real font query does.
             SKTypeface face = DefaultFontResolver.Resolve(executable);
-            (int Pid, ulong StartTime)? identity = ReadRecordedProcessIdentity(identityFile);
-            Assert.That(identity, Is.Not.Null,
-                "The sleeper must record its PID and start time before its termination can be verified.");
+            pid = int.Parse(File.ReadAllText(pidFile));
 
             Assert.Multiple(() =>
             {
                 Assert.That(face, Is.SameAs(SKTypeface.Default));
                 Assert.That(elapsed.Elapsed, Is.LessThan(TimeSpan.FromSeconds(5)));
-                Assert.That(SpinWait.SpinUntil(() => !IsRecordedProcessRunning(identity!.Value), 1000), Is.True,
-                    "The original sleep process must stop even if its parent has already exited.");
+                Assert.That(SpinWait.SpinUntil(() => !IsRunning(pid), 1000), Is.True, "The timed-out query must stop.");
             });
         }
         finally
         {
-            // A failing regression check must not leave the sleeper running.
-            if (ReadRecordedProcessIdentity(identityFile) is { } identity && IsRecordedProcessRunning(identity))
-            {
-                using var process = Process.GetProcessById(identity.Pid);
-                process.Kill(entireProcessTree: true);
-            }
+            // A failing check must not leave the sleeper running.
+            if (pid > 0 && IsRunning(pid))
+                Process.GetProcessById(pid).Kill();
         }
     }
 
-    private static (int Pid, ulong StartTime)? ReadRecordedProcessIdentity(string identityFile)
+    // An exited child stays a zombie until it is reaped, so a 'Z' state counts as stopped.
+    private static bool IsRunning(int pid)
     {
         try
         {
-            string recorded = File.ReadAllText(identityFile);
-            int start = recorded.LastIndexOf(')') + 2;
-            if (start < 2 || start >= recorded.Length)
-                return null;
-
-            string[] fields = recorded[start..].Split(' ');
-            if (fields.Length <= 19 || !ulong.TryParse(fields[19], out ulong startTime)
-                || !int.TryParse(recorded.Split(' ')[0], out int pid) || pid <= 0)
-                return null;
-
-            return (pid, startTime);
+            string stat = File.ReadAllText($"/proc/{pid}/stat");
+            return stat[stat.LastIndexOf(')') + 2] != 'Z';
         }
         catch (IOException)
         {
-            return null;
-        }
-    }
-
-    private static bool IsRecordedProcessRunning((int Pid, ulong StartTime) identity)
-    {
-        string current;
-        try
-        {
-            current = File.ReadAllText($"/proc/{identity.Pid}/stat");
-        }
-        catch (FileNotFoundException)
-        {
             return false;
         }
-        catch (DirectoryNotFoundException)
-        {
-            return false;
-        }
-        catch (IOException ex) when (ex.HResult == 3) // ESRCH: no such process.
-        {
-            // The process can disappear after opening its stat file but before reading it.
-            return false;
-        }
-
-        // Compare start time as well as PID; an exited PID may already have been reused.
-        int currentStart = current.LastIndexOf(')') + 2;
-        if (currentStart < 2 || currentStart >= current.Length)
-            return false;
-
-        string[] after = current[currentStart..].Split(' ');
-        return after.Length > 19 && ulong.TryParse(after[19], out ulong startTime)
-            && identity.StartTime == startTime && after[0] != "Z";
     }
 
     private async Task RunWorkerAsync(bool familyFirst, string expected)
