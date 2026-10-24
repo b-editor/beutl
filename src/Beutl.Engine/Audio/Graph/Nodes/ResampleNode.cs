@@ -7,6 +7,7 @@ namespace Beutl.Audio.Graph.Nodes;
 
 public sealed class ResampleNode : AudioNode
 {
+    private readonly List<(AudioNode Node, int InputCount)> _inputTopology = [];
     private int _sourceSampleRate = 44100;
     private ResampleSampleProvider? _resampleProvider;
     private int _lastSampleRate;
@@ -51,7 +52,19 @@ public sealed class ResampleNode : AudioNode
         if (Inputs.Count != 1)
             throw new InvalidOperationException("Resample node requires exactly one input.");
 
+        // Compare the completed upstream graph; a reused ShiftNode can hide a replaced source.
+        int inputIndex = 0;
+        if (!MatchesInput(Inputs[0], ref inputIndex))
+        {
+            ResetStreamingState();
+        }
+
         AudioProcessContext newContext = CreateUpstreamContext(context, out long sourceStart);
+        if (_inputTopology.Count == 0)
+        {
+            CaptureInput(Inputs[0]);
+        }
+
         AudioBuffer input = draining
             ? Inputs[0].Flush(newContext)
             : Inputs[0].Process(newContext);
@@ -147,23 +160,42 @@ public sealed class ResampleNode : AudioNode
     private static long CeilingSampleIndex(MediaTime time, int sampleRate)
         => time.ToSamples(sampleRate, MidpointRounding.ToPositiveInfinity);
 
+    private bool MatchesInput(AudioNode input, ref int index)
+    {
+        if (index >= _inputTopology.Count)
+            return false;
+
+        var previous = _inputTopology[index++];
+        if (!ReferenceEquals(previous.Node, input) || previous.InputCount != input.Inputs.Count)
+            return false;
+
+        for (int i = 0; i < input.Inputs.Count; i++)
+        {
+            if (!MatchesInput(input.Inputs[i], ref index))
+                return false;
+        }
+
+        return true;
+    }
+
+    private void CaptureInput(AudioNode input)
+    {
+        _inputTopology.Add((input, input.Inputs.Count));
+        for (int i = 0; i < input.Inputs.Count; i++)
+        {
+            CaptureInput(input.Inputs[i]);
+        }
+    }
+
     private void ResetStreamingState()
     {
+        _inputTopology.Clear();
         _resampleProvider?.Dispose();
         _resampleProvider = null;
         _lastSampleRate = 0;
         _lastTimeRangeEnd = null;
         _sourceSampleCursor = null;
     }
-
-    protected override void OnInputAdded(AudioNode input, int index)
-        => ResetStreamingState();
-
-    protected override void OnInputRemoved(AudioNode input, int index)
-        => ResetStreamingState();
-
-    protected override void OnInputsCleared()
-        => ResetStreamingState();
 
     protected override void Dispose(bool disposing)
     {
