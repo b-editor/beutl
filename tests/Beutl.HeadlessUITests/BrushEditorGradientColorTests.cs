@@ -1,6 +1,9 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
@@ -98,6 +101,76 @@ public sealed class BrushEditorGradientColorTests
             second.Color = AvaColors.Green;
             Assert.That((Avalonia.Media.Color)picker.Color, Is.EqualTo(second.Color));
             Assert.That(edits, Is.Zero);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task Gradient_color_drag_ignores_preview_updates_and_cancellation_restores_the_picker()
+    {
+        var red = new GradientStop(Colors.Red, 0);
+        var brush = new LinearGradientBrush();
+        brush.GradientStops.Add(red);
+        brush.GradientStops.Add(new GradientStop(Colors.Blue, 1));
+        var shape = new RectShape { Fill = { Value = brush } };
+        using var history = new HistoryScope(shape);
+        using var viewModel = new BrushEditorViewModel(
+            new SimplePropertyAdapter<Brush?>((SimpleProperty<Brush?>)shape.Fill, shape));
+        viewModel.Accept(ServiceVisitor.For(history.History));
+        var editor = new BrushEditor { DataContext = viewModel };
+        var window = new Window { Content = editor, Width = 480, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            editor.BrushPreviewButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+            BrushEditorFlyoutPresenter presenter = window.GetVisualDescendants().OfType<BrushEditorFlyoutPresenter>().Single();
+            var picker = (SimpleColorPicker)presenter.Content!;
+            await HeadlessTestHelpers.WaitUntilAsync(() => (Avalonia.Media.Color)picker.Color == AvaColors.Red);
+            ColorSlider hue = picker.GetVisualDescendants().OfType<ColorSlider>()
+                .Single(slider => slider.Name == "ThirdComponentSlider");
+            Thumb thumb = hue.GetVisualDescendants().OfType<Thumb>().Single();
+            Point start = HeadlessTestHelpers.Center(thumb, window);
+
+            window.MouseMove(start);
+            window.MouseDown(start, MouseButton.Left);
+            window.MouseMove(start + new Vector(100, 0), RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render();
+            var draggedColor = (Avalonia.Media.Color)picker.Color;
+            Color reached = red.Color.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(picker.IsDragging, Is.True);
+                Assert.That(reached, Is.Not.EqualTo(Colors.Red));
+                Assert.That(draggedColor, Is.Not.EqualTo(AvaColors.Blue));
+                Assert.That(history.History.IsEditing, Is.True);
+            });
+
+            GradientStopsSlider stops = presenter.GetVisualDescendants().OfType<GradientStopsSlider>().Single();
+            stops.SelectedStop!.Color = AvaColors.Blue;
+            Assert.Multiple(() =>
+            {
+                Assert.That((Avalonia.Media.Color)picker.Color, Is.EqualTo(draggedColor));
+                Assert.That(red.Color.Value, Is.EqualTo(reached));
+            });
+
+            Assert.That(history.History.TryCancelGesture(), Is.True);
+            Assert.That(picker.IsDragging, Is.False);
+            await HeadlessTestHelpers.WaitUntilAsync(() => (Avalonia.Media.Color)picker.Color == AvaColors.Red);
+            window.MouseMove(start + new Vector(140, 0), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(start + new Vector(140, 0), MouseButton.Left);
+            HeadlessTestHelpers.Render();
+            Assert.Multiple(() =>
+            {
+                Assert.That(red.Color.Value, Is.EqualTo(Colors.Red));
+                Assert.That((Avalonia.Media.Color)picker.Color, Is.EqualTo(AvaColors.Red));
+                Assert.That(history.History.IsEditing, Is.False);
+                Assert.That(history.History.UndoCount, Is.Zero);
+            });
         }
         finally
         {
