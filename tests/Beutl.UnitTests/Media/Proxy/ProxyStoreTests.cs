@@ -117,12 +117,16 @@ public sealed class ProxyStoreTests
     public async Task Delete_DegradedPersistence_KeepsBytesUntilRemovalIsPersisted()
     {
         string root = ProxyTestScope.CreateRoot();
-        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
+        var store = new ProxyStore(root);
         ProxyEntry entry = CreateEntry(root, "quarter.mp4");
         store.Register(entry);
         string path = Path.Combine(root, entry.ProxyFileRelative);
 
-        using (new FileStream(Path.Combine(root, "index.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        string indexPath = Path.Combine(root, "index.json");
+        string savedIndex = indexPath + ".saved";
+        File.Move(indexPath, savedIndex);
+        Directory.CreateDirectory(indexPath);
+        try
         {
             Assert.That(store.Delete(entry.Source, entry.Preset), Is.True);
             Assert.Multiple(() =>
@@ -131,8 +135,13 @@ public sealed class ProxyStoreTests
                 Assert.That(store.TryGet(entry.Source, entry.Preset), Is.Null);
                 Assert.That(File.Exists(path), Is.True);
                 Assert.That(store.GetTotalBytes(), Is.EqualTo(entry.ProxyFileSizeBytes));
-                Assert.That(new ProxyStore(root, lockAcquireMaxAttempts: 0).TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
+                Assert.That(JsonSerializer.Deserialize<ProxyStoreIndex>(File.ReadAllText(savedIndex), s_jsonOptions)!.Entries, Has.Member(entry));
             });
+        }
+        finally
+        {
+            Directory.Delete(indexPath);
+            File.Move(savedIndex, indexPath);
         }
 
         await store.FlushAsync(CancellationToken.None);
@@ -324,9 +333,6 @@ public sealed class ProxyStoreTests
         });
     }
 
-    // A flush must not drop valid in-memory entries just because index.json became unreadable.
-    // Without the degrade path, registering the second entry would reseed _entries from the corrupt
-    // (empty) disk view and lose the first entry, then write that partial index back.
     [Test]
     public void Register_WhenIndexUnreadable_PreservesExistingInMemoryEntries()
     {
@@ -348,9 +354,6 @@ public sealed class ProxyStoreTests
         });
     }
 
-    // A corrupt index.json must be repaired from the sidecars at construction, not merely served from
-    // memory: FlushCore refuses to overwrite an unreadable index, so without discarding the corrupt file
-    // first the rebuilt snapshot never reaches disk and every later flush keeps degrading.
     [Test]
     public void Construct_WithCorruptIndex_RepairsIndexOnDiskFromSidecars()
     {
@@ -399,70 +402,6 @@ public sealed class ProxyStoreTests
             Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
             Assert.That(registered, Does.Contain((entry.Source, entry.Preset)));
         });
-    }
-
-    [Test]
-    public void FlushCore_DegradedRegistrationSurvivesTouchReplay()
-    {
-        string root = ProxyTestScope.CreateRoot();
-        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
-        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-
-        // Hold the index lock so Register degrades: the entry stays only in memory + pending
-        // persistence. A Touch while degraded then marks the same key touch-dirty.
-        string lockPath = Path.Combine(root, "index.lock");
-        using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
-        {
-            store.Register(entry);
-            Assert.That(store.IsPersistenceDegraded, Is.True);
-            store.Touch(entry.Source, entry.Preset, DateTime.UtcNow);
-        }
-
-        // Lock released: the replay flush must persist the pending registration, not drop it via the
-        // touch-replay branch.
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
-
-        var reloaded = new ProxyStore(root);
-        ProxyEntry? persisted = reloaded.TryGet(entry.Source, entry.Preset);
-        Assert.Multiple(() =>
-        {
-            Assert.That(persisted, Is.Not.Null);
-            Assert.That(persisted!.State, Is.EqualTo(ProxyState.Ready));
-            Assert.That(persisted.ProxyFileRelative, Is.EqualTo(entry.ProxyFileRelative));
-        });
-    }
-
-    // A re-registration after a delete that degraded under lock contention supersedes the pending delete.
-    [Test]
-    public void FlushCore_ReRegistrationAfterDegradedDelete_KeepsFreshProxy()
-    {
-        string root = ProxyTestScope.CreateRoot();
-        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
-        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-        store.Register(entry);
-        Assert.That(store.IsPersistenceDegraded, Is.False, "the initial registration persists cleanly");
-
-        string lockPath = Path.Combine(root, "index.lock");
-        using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
-        {
-            store.Delete(entry.Source, entry.Preset);
-            Assert.That(store.IsPersistenceDegraded, Is.True, "the delete degrades and only pends the removal");
-        }
-
-        // Lock released: a regenerated proxy for the same key is registered and its flush succeeds. Write
-        // its file so Register's Ready-entry validation (file exists, length matches) passes.
-        string regeneratedRelative = "hash/quarter-regenerated.mp4";
-        string regeneratedPath = Path.Combine(store.StoreRootPath, "hash", "quarter-regenerated.mp4");
-        File.WriteAllBytes(regeneratedPath, [9, 9, 9, 9, 9]);
-        ProxyEntry regenerated = entry with { ProxyFileRelative = regeneratedRelative, ProxyFileSizeBytes = 5 };
-        store.Register(regenerated);
-
-        Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(regenerated),
-            "the fresh registration must win over the stale pending delete in memory");
-
-        var reloaded = new ProxyStore(root);
-        Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.EqualTo(regenerated),
-            "the fresh registration must also survive on disk");
     }
 
     [Test]
@@ -521,22 +460,29 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
-    public void Register_MergesEntriesWrittenByAnotherStoreInstance()
+    public async Task Register_ReplacesTheOtherSnapshot_AndReconcileRecoversSidecars()
     {
         string root = ProxyTestScope.CreateRoot();
         var firstStore = new ProxyStore(root);
         var secondStore = new ProxyStore(root);
-        ProxyEntry first = CreateEntry(root, "first.mp4");
-        ProxyEntry second = CreateEntry(root, "second.mp4");
+        ProxyEntry first = CreateEntry(root, "first/quarter.mp4");
+        ProxyEntry second = CreateEntry(root, "second/quarter.mp4");
+        WriteSidecar(root, first);
+        WriteSidecar(root, second);
 
         firstStore.Register(first);
         secondStore.Register(second);
 
         var reloaded = new ProxyStore(root);
+        Assert.That(reloaded.TryGet(first.Source, first.Preset), Is.Null);
+        await reloaded.ReconcileAsync(CancellationToken.None);
+        var reconciled = new ProxyStore(root);
         Assert.Multiple(() =>
         {
             Assert.That(reloaded.TryGet(first.Source, first.Preset), Is.EqualTo(first));
             Assert.That(reloaded.TryGet(second.Source, second.Preset), Is.EqualTo(second));
+            Assert.That(reconciled.TryGet(first.Source, first.Preset), Is.EqualTo(first));
+            Assert.That(reconciled.TryGet(second.Source, second.Preset), Is.EqualTo(second));
         });
     }
 
@@ -607,29 +553,6 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
-    public async Task TouchFlush_DoesNotRestoreEntryRemovedByAnotherStoreInstance()
-    {
-        string root = ProxyTestScope.CreateRoot();
-        var staleStore = new ProxyStore(root);
-        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-        staleStore.Register(entry);
-        var emptyIndex = new ProxyStoreIndex { Entries = [] };
-        File.WriteAllText(Path.Combine(root, "index.json"), JsonSerializer.Serialize(emptyIndex, s_jsonOptions));
-
-        staleStore.Touch(entry.Source, entry.Preset, DateTime.UtcNow.AddMinutes(1));
-        await staleStore.FlushAsync(CancellationToken.None);
-
-        string indexJson = File.ReadAllText(Path.Combine(root, "index.json"));
-        var reloaded = new ProxyStore(root);
-        Assert.Multiple(() =>
-        {
-            Assert.That(indexJson, Does.Not.Contain(entry.ProxyFileRelative));
-            Assert.That(staleStore.TryGet(entry.Source, entry.Preset), Is.Null);
-            Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.Null);
-        });
-    }
-
-    [Test]
     public void Register_RejectsProxyPathEscapingStoreRoot()
     {
         string root = ProxyTestScope.CreateRoot();
@@ -673,12 +596,12 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
-    public void Register_DegradesGracefullyWhenIndexLockContendedAndReplaysOnceReleased()
+    public void Register_DoesNotWaitForAnIndexLock()
     {
         string root = ProxyTestScope.CreateRoot();
         ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
         string lockPath = Path.Combine(root, "index.lock");
-        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
+        var store = new ProxyStore(root);
 
         using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
         {
@@ -686,12 +609,10 @@ public sealed class ProxyStoreTests
             Assert.Multiple(() =>
             {
                 Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
-                Assert.That(store.IsPersistenceDegraded, Is.True);
-                Assert.That(File.Exists(Path.Combine(root, "index.json")), Is.False);
+                Assert.That(store.IsPersistenceDegraded, Is.False);
+                Assert.That(File.Exists(Path.Combine(root, "index.json")), Is.True);
             });
         }
-
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
 
         var reloaded = new ProxyStore(root);
         Assert.Multiple(() =>
@@ -740,40 +661,6 @@ public sealed class ProxyStoreTests
     }
 
     [Test]
-    public void Register_ReRegisterAfterDeleteWhileDegradedSurvivesReplay()
-    {
-        string root = ProxyTestScope.CreateRoot();
-        ProxyEntry entry = CreateEntry(root, "hash/quarter.mp4");
-        string lockPath = Path.Combine(root, "index.lock");
-        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
-
-        using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
-        {
-            store.Register(entry);
-            Assert.That(store.Delete(entry.Source, entry.Preset), Is.True);
-
-            // Delete removes the proxy file; a real re-register regenerates it first.
-            File.WriteAllBytes(Path.Combine(root, entry.ProxyFileRelative), [5, 6, 7]);
-            store.Register(entry);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(store.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
-                Assert.That(store.IsPersistenceDegraded, Is.True);
-            });
-        }
-
-        store.FlushAsync(CancellationToken.None).GetAwaiter().GetResult();
-
-        var reloaded = new ProxyStore(root);
-        Assert.Multiple(() =>
-        {
-            Assert.That(store.IsPersistenceDegraded, Is.False);
-            Assert.That(reloaded.TryGet(entry.Source, entry.Preset), Is.EqualTo(entry));
-        });
-    }
-
-    [Test]
     public void Register_DegradesGracefullyWhenIndexWriteFailsAndReplaysOnceWritable()
     {
         string root = ProxyTestScope.CreateRoot();
@@ -781,8 +668,7 @@ public sealed class ProxyStoreTests
         var store = new ProxyStore(root);
         string indexPath = Path.Combine(root, "index.json");
 
-        // A directory at the index.json path makes the tmp-file File.Move fail with IOException
-        // after the lock is acquired, exercising the mid-write degradation path.
+        // A directory at index.json forces the atomic file replacement to fail.
         Directory.CreateDirectory(indexPath);
 
         Assert.DoesNotThrow(() => store.Register(entry));
@@ -872,7 +758,7 @@ public sealed class ProxyStoreTests
     public async Task GetTotalBytes_ExcludesRetiredGeneratingAndPartialEntries(ProxyState state)
     {
         string root = ProxyTestScope.CreateRoot();
-        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
+        var store = new ProxyStore(root);
         ProxyEntry ready = CreateEntry(root, "ready.mp4");
         ProxyEntry transient = CreateEntry(root, "transient.mp4") with { State = state };
         store.Register(ready);
@@ -881,7 +767,11 @@ public sealed class ProxyStoreTests
         File.WriteAllBytes(replacementPath, [8, 8, 8]);
         ProxyEntry replacement = transient with { ProxyFileRelative = "replacement.mp4", State = ProxyState.Ready };
 
-        using (new FileStream(Path.Combine(root, "index.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        string indexPath = Path.Combine(root, "index.json");
+        string savedIndex = indexPath + ".saved";
+        File.Move(indexPath, savedIndex);
+        Directory.CreateDirectory(indexPath);
+        try
         {
             store.Register(replacement);
             Assert.Multiple(() =>
@@ -890,6 +780,11 @@ public sealed class ProxyStoreTests
                 Assert.That(store.GetTotalBytes(), Is.EqualTo(ready.ProxyFileSizeBytes + replacement.ProxyFileSizeBytes));
                 Assert.That(store.GetTotalBytes(new HashSet<string> { transient.Source.AbsolutePath }), Is.EqualTo(replacement.ProxyFileSizeBytes));
             });
+        }
+        finally
+        {
+            Directory.Delete(indexPath);
+            File.Move(savedIndex, indexPath);
         }
 
         await store.FlushAsync(CancellationToken.None);
@@ -1045,7 +940,7 @@ public sealed class ProxyStoreTests
             Assert.That(
                 store.IsPersistenceDegraded,
                 Is.False,
-                "persistence should recover once the cross-process lock is uncontended");
+                "the final snapshot must be persisted");
         });
 
         var reloaded = new ProxyStore(root);
@@ -1062,7 +957,7 @@ public sealed class ProxyStoreTests
     public async Task Register_NewGeneration_KeepsOldFileUntilReplacementPersists()
     {
         string root = ProxyTestScope.CreateRoot();
-        var store = new ProxyStore(root, lockAcquireMaxAttempts: 0);
+        var store = new ProxyStore(root);
         ProxyEntry old = CreateEntry(root, "hash/quarter.mp4");
         store.Register(old);
         string relative = $"hash/quarter.{Guid.NewGuid():N}.mp4";
@@ -1070,7 +965,11 @@ public sealed class ProxyStoreTests
         File.WriteAllBytes(newPath, [9, 9, 9, 9, 9]);
         ProxyEntry replacement = old with { ProxyFileRelative = relative, ProxyFileSizeBytes = 5 };
 
-        using (new FileStream(Path.Combine(root, "index.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        string indexPath = Path.Combine(root, "index.json");
+        string savedIndex = indexPath + ".saved";
+        File.Move(indexPath, savedIndex);
+        Directory.CreateDirectory(indexPath);
+        try
         {
             store.Register(replacement);
             Assert.Multiple(() =>
@@ -1079,8 +978,13 @@ public sealed class ProxyStoreTests
                 Assert.That(File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.True,
                     "index.json still references the old generation while persistence is degraded");
                 Assert.That(store.GetTotalBytes(), Is.EqualTo(8));
-                Assert.That(new ProxyStore(root, lockAcquireMaxAttempts: 0).TryGet(old.Source, old.Preset), Is.EqualTo(old));
+                Assert.That(JsonSerializer.Deserialize<ProxyStoreIndex>(File.ReadAllText(savedIndex), s_jsonOptions)!.Entries, Has.Member(old));
             });
+        }
+        finally
+        {
+            Directory.Delete(indexPath);
+            File.Move(savedIndex, indexPath);
         }
 
         await store.FlushAsync(CancellationToken.None);
@@ -1145,10 +1049,10 @@ public sealed class ProxyStoreTests
         Assert.That(() => File.Exists(Path.Combine(root, old.ProxyFileRelative)), Is.False.After(2000, 10));
     }
 
-    // Writes entry's sidecar under hash/, as the store does, and returns its path.
+    // Writes the sidecar beside its proxy file and returns its path.
     private static string WriteSidecar(string root, ProxyEntry entry, int? version = null)
     {
-        string metadataPath = Path.Combine(root, "hash", "meta.json");
+        string metadataPath = Path.Combine(Path.GetDirectoryName(Path.Combine(root, entry.ProxyFileRelative))!, "meta.json");
         Directory.CreateDirectory(Path.GetDirectoryName(metadataPath)!);
         var metadata = new ProxySourceMetadata
         {

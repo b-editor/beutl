@@ -11,11 +11,6 @@ namespace Beutl.Media.Proxy;
 
 public sealed partial class ProxyStore : IProxyStore
 {
-    // Bounds the cross-process index.lock spin (10 ms/attempt) while _lock is held, so a peer
-    // instance holding the lock stalls hot-path readers (TryGet/Touch/Enumerate) for at most
-    // ~0.5 s before DegradePersistence engages and replays on the next uncontended flush.
-    private const int DefaultLockAcquireMaxAttempts = 50;
-
     // A live encode keeps its *.tmp mtime fresh, so the age check spares an active file; the wide margin covers a
     // peer instance's long encode on a shared store whose mtime lags.
     private static readonly TimeSpan s_generatedTempCleanupMinAge = TimeSpan.FromHours(24);
@@ -34,33 +29,18 @@ public sealed partial class ProxyStore : IProxyStore
     private readonly Dictionary<string, int> _filePins = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ProxyEntry> _retiredFiles = new(StringComparer.Ordinal);
     private readonly HashSet<string> _reclaimingPaths = new(StringComparer.Ordinal);
-    private readonly HashSet<ProxyKey> _touchDirtyKeys = [];
 
-    // Changes whose durable write was skipped under lock contention; re-applied on the
-    // next successful flush so a briefly-contended lock never permanently loses them.
-    private readonly HashSet<ProxyKey> _pendingPersistKeys = [];
-    private readonly HashSet<ProxyKey> _pendingRemoveKeys = [];
     private readonly string _indexPath;
-    private readonly string _indexLockPath;
-    private readonly int _lockAcquireMaxAttempts;
     private int _touchFlushScheduled;
     private int _touchFlushFaulted;
     private bool _touchDirty;
     private bool _persistenceDegraded;
 
     public ProxyStore(string storeRootPath)
-        : this(storeRootPath, DefaultLockAcquireMaxAttempts)
-    {
-    }
-
-    internal ProxyStore(string storeRootPath, int lockAcquireMaxAttempts)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storeRootPath);
-        ArgumentOutOfRangeException.ThrowIfNegative(lockAcquireMaxAttempts);
         StoreRootPath = Path.GetFullPath(storeRootPath);
         _indexPath = Path.Combine(StoreRootPath, "index.json");
-        _indexLockPath = Path.Combine(StoreRootPath, "index.lock");
-        _lockAcquireMaxAttempts = lockAcquireMaxAttempts;
         Directory.CreateDirectory(StoreRootPath);
         LoadIndex();
     }
@@ -119,7 +99,7 @@ public sealed partial class ProxyStore : IProxyStore
                     _retiredFiles[previousPath] = previous;
             }
 
-            FlushCore(changedKeys: new HashSet<ProxyKey> { key });
+            FlushCore();
         }
 
         OnChanged(entry.Source, entry.Preset, ProxyStoreChangeKind.Registered);
@@ -248,7 +228,7 @@ public sealed partial class ProxyStore : IProxyStore
             };
             var key = (source, preset);
             _entries[key] = updated;
-            FlushCore(changedKeys: new HashSet<ProxyKey> { key });
+            FlushCore();
         }
 
         OnChanged(source, preset, ProxyStoreChangeKind.StateChanged);
@@ -269,7 +249,7 @@ public sealed partial class ProxyStore : IProxyStore
             _entries.Remove((source, preset));
             if (!IsProxyFileReferenced(proxyPath))
                 _retiredFiles[ProxyFingerprint.NormalizeAbsolutePath(proxyPath)] = removed;
-            FlushCore(removedKeys: new HashSet<ProxyKey> { (source, preset) });
+            FlushCore();
         }
 
         // Delete outside _lock, which preview reads contend on, since File.Delete can stall on a network share.
@@ -313,7 +293,6 @@ public sealed partial class ProxyStore : IProxyStore
             {
                 _entries[(source, preset)] = entry with { LastUsedUtc = nowUtc };
                 _touchDirty = true;
-                _touchDirtyKeys.Add((source, preset));
                 touched = true;
             }
         }
