@@ -135,18 +135,54 @@ public class CubeFileTests
         }
     }
 
-    [Test]
-    public void TrilinearInterplate_Endpoints_ReturnCornerValues()
+    [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(17)]
+    [TestCase(33)]
+    public void TrilinearInterplate_IdentityEdgeRamps_PreserveEveryByte(int size)
     {
-        CubeFile cube = MakeIdentity3D(size: 2);
+        CubeFile cube = MakeIdentity3D(size);
 
-        Vector3 black = cube.TrilinearInterplate(0, 0, 0);
-        Assert.Multiple(() =>
+        for (int axis = 0; axis < 3; axis++)
         {
-            Assert.That(black.X, Is.EqualTo(0f));
-            Assert.That(black.Y, Is.EqualTo(0f));
-            Assert.That(black.Z, Is.EqualTo(0f));
-        });
+            byte[] input = [255, 255, 255];
+            for (int value = 0; value < 256; value++)
+            {
+                input[axis] = (byte)value;
+                var expected = new Vector3(input[0], input[1], input[2]) / 255f;
+                Vector3 actual = cube.TrilinearInterplate(input[0], input[1], input[2]);
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual.X, Is.EqualTo(expected.X).Within(0.000001f), $"axis={axis}, value={value}, red");
+                    Assert.That(actual.Y, Is.EqualTo(expected.Y).Within(0.000001f), $"axis={axis}, value={value}, green");
+                    Assert.That(actual.Z, Is.EqualTo(expected.Z).Within(0.000001f), $"axis={axis}, value={value}, blue");
+                });
+            }
+        }
+    }
+
+    [TestCase(2)]
+    [TestCase(3)]
+    [TestCase(17)]
+    [TestCase(33)]
+    public void TrilinearInterplate_Endpoints_ReturnCornerValues(int size)
+    {
+        CubeFile cube = MakeIdentity3D(size);
+
+        foreach (byte red in new byte[] { 0, 255 })
+        {
+            foreach (byte green in new byte[] { 0, 255 })
+            {
+                foreach (byte blue in new byte[] { 0, 255 })
+                {
+                    var expected = new Vector3(red, green, blue) / 255f;
+                    Vector3 actual = cube.TrilinearInterplate(red, green, blue);
+
+                    Assert.That(actual, Is.EqualTo(expected));
+                }
+            }
+        }
     }
 
     [Test]

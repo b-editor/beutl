@@ -9,11 +9,10 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 [TestFixture]
 public sealed class LutEffectDomainTests
 {
-    // Domain mapping preserves the existing 3D grid spacing tracked in #3511.
     [TestCase(1, "0", "2", 0.214f)]
-    [TestCase(3, "0", "2", 0.9912f)]
+    [TestCase(3, "0", "2", 0.214f)]
     [TestCase(1, "0.25", "1.75", 0.214f)]
-    [TestCase(3, "0.25", "1.75", 0.9912f)]
+    [TestCase(3, "0.25", "1.75", 0.214f)]
     [TestCase(1, "0", "0", 1f)]
     [TestCase(3, "1", "0", 1f)]
     [TestCase(1, "0", "Infinity", 1f)]

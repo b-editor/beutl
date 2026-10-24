@@ -48,7 +48,7 @@ public sealed partial class LutEffect : FilterEffect
             {
                 int lutSize2 = lutSize * lutSize;
                 float3 boundedColor = clamp(inputColor, float3(0.0), float3(1.0));
-                float3 lutPosition = (boundedColor * 255.0) * float(lutSize) / 256.0;
+                float3 lutPosition = boundedColor * float(lutSize - 1);
                 int posX = int(lutPosition.r);
                 int posY = int(lutPosition.g);
                 int posZ = int(lutPosition.b);
