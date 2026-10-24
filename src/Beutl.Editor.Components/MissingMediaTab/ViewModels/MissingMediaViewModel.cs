@@ -8,6 +8,7 @@ using Beutl.IO;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
@@ -367,7 +368,7 @@ public sealed class MissingMediaViewModel : IToolContext
                 {
                     foreach (var row in rows.Where(row => row.Media.Kind != MissingMediaKind.Font))
                     {
-                        var uri = new Uri(row.ReplacementPath.Value!);
+                        var uri = UriHelper.CreateFromPath(row.ReplacementPath.Value!);
                         foreach (IFileSource source in currentSources[(row.Media.Kind, row.Media.ExpectedUri!)])
                             ResourceRelocationService.RelinkFileSource(source, uri, row.ValidatedSource,
                                 synchronizeModelGeometry: replacementModels.Contains(row));

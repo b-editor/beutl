@@ -234,7 +234,7 @@ public static class ProjectOperations
         string extension = Path.GetExtension(candidate);
         for (int suffix = 2;
              (checkDisk && FileSystemEntryExists(uniqueCandidate))
-             || !usedPaths.Add(ResolveSidecarPath(new Uri(uniqueCandidate)));
+             || !usedPaths.Add(ResolveSidecarPath(UriHelper.CreateFromPath(uniqueCandidate)));
              suffix++)
         {
             uniqueCandidate = Path.Combine(
@@ -419,6 +419,6 @@ public static class ProjectOperations
 
     private static Uri CreateFileUri(string path)
     {
-        return new Uri(Path.GetFullPath(path));
+        return UriHelper.CreateFromPath(Path.GetFullPath(path));
     }
 }

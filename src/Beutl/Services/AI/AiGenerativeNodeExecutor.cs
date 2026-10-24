@@ -9,6 +9,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph.Generative;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Services.AI;
@@ -120,7 +121,7 @@ internal sealed class AiGenerativeNodeExecutor(
             cancellationToken);
         // As the dialog does once a picture is in hand.
         promptLibrary.Record(request.Operation, prompt);
-        return new GenerativeExecutionResult(new Uri(path), model?.Value, seed);
+        return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, seed);
     }
 
     private async Task<GenerativeExecutionResult> EditImageAsync(
@@ -174,7 +175,7 @@ internal sealed class AiGenerativeNodeExecutor(
             cancellationToken);
         if (requiresPrompt && request.Prompt is { } typed)
             promptLibrary.Record(request.Operation, typed);
-        return new GenerativeExecutionResult(new Uri(path), model?.Value, null);
+        return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, null);
     }
 
     /// <summary>How long to wait between looks at a running clip, as the AI tab waits.</summary>
@@ -236,7 +237,7 @@ internal sealed class AiGenerativeNodeExecutor(
                 // Past here the clip has been reserved and paid for; the key is the way back.
                 string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
                 promptLibrary.Record(request.Operation, prompt);
-                return new GenerativeExecutionResult(new Uri(path), model?.Value, seed, IsVideo: true);
+                return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, seed, IsVideo: true);
             },
             progress,
             cancellationToken);
@@ -454,7 +455,7 @@ internal sealed class AiGenerativeNodeExecutor(
             {
                 string path = await WaitAndSaveVideoAsync(response.JobId, requestKey, name, progress, cancellationToken);
                 promptLibrary.Record(request.Operation, prompt);
-                return new GenerativeExecutionResult(new Uri(path), model?.Value, null, IsVideo: true);
+                return new GenerativeExecutionResult(UriHelper.CreateFromPath(path), model?.Value, null, IsVideo: true);
             },
             progress,
             cancellationToken);

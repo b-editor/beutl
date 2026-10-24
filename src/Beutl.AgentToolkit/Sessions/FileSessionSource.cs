@@ -91,6 +91,6 @@ public sealed class FileSessionSource : ISessionSource, IDisposable
 
     private static Uri CreateFileUri(string path)
     {
-        return new Uri(Path.GetFullPath(path));
+        return UriHelper.CreateFromPath(Path.GetFullPath(path));
     }
 }

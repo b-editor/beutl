@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor.PropertyEditors;
 using Beutl.IO;
 using Beutl.Media.Source;
+using Beutl.Serialization;
 using Beutl.Services;
 using Reactive.Bindings;
 
@@ -27,7 +28,7 @@ public sealed class FileSourceEditorViewModel<T> : PropertyEditorViewModel<T?, F
         if (edit is null) return null;
 
         var source = new T();
-        source.ReadFrom(new Uri(edit.FullName));
+        source.ReadFrom(UriHelper.CreateFromPath(edit.FullName));
         return source;
     }
 

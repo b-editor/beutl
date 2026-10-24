@@ -103,7 +103,7 @@ public class ResourceRelocationService
                 cancellationToken.ThrowIfCancellationRequested();
                 try
                 {
-                    UpdateUri(stagingProject, id, prop, new Uri(destFilePath));
+                    UpdateUri(stagingProject, id, prop, UriHelper.CreateFromPath(destFilePath));
                     if (GetFileSource(stagingProject, id, prop) is ModelSource relocatedModel
                         && ExternalResourceCollector.RequiresRelocation(relocatedModel, projectDirectory))
                     {
@@ -169,7 +169,7 @@ public class ResourceRelocationService
                 if (GetFileSource(project, id, property) is ModelSource model
                     && ExternalResourceCollector.RequiresRelocation(model, sourceDirectory))
                     continue;
-                UpdateUri(project, id, property, new Uri(Path.Combine(destinationDirectory, path[prefix.Length..])));
+                UpdateUri(project, id, property, UriHelper.CreateFromPath(Path.Combine(destinationDirectory, path[prefix.Length..])));
             }
         }
     }

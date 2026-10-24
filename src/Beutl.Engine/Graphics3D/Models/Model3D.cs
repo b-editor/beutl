@@ -158,7 +158,7 @@ public sealed partial class Model3D : Group3D
         try
         {
             var imageSource = new ImageSource();
-            imageSource.ReadFrom(new Uri(path));
+            imageSource.ReadFrom(UriHelper.CreateFromPath(path));
 
             var textureSource = new ImageTextureSource();
             textureSource.Source.Value = imageSource;

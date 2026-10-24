@@ -56,7 +56,7 @@ public partial class Scene
     // Follows the scene's Uri, so a scene that moves, for example into the copy a package export saves, takes its
     // fingerprints along instead of writing them back to the folder it came from.
     private Uri? GetMediaFingerprintFileUri()
-        => Uri is { IsFile: true } uri ? new Uri(MediaFingerprintFile.GetPath(uri.LocalPath)) : null;
+        => Uri is { IsFile: true } uri ? UriHelper.CreateFromPath(MediaFingerprintFile.GetPath(uri.LocalPath)) : null;
 
     public override void Serialize(ICoreSerializationContext context)
     {

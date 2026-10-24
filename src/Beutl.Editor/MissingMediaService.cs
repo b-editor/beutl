@@ -293,7 +293,7 @@ public sealed class MissingMediaService
         }
         if (!await MatchesFileAsync(path, expected)) return false;
         if (item.Kind != MissingMediaKind.Model) return true;
-        if (model is null) { model = new ModelSource(); model.ReadFrom(new Uri(Path.GetFullPath(path))); }
+        if (model is null) { model = new ModelSource(); model.ReadFrom(UriHelper.CreateFromPath(Path.GetFullPath(path))); }
         string[] dependencies = model.Dependencies.Where(file => !FilePathComparison.AreSameCanonicalPath(file, path)).ToArray();
         // Old metadata cannot prove the identity of an external dependency bundle.
         if (expected.Dependencies is null) return dependencies.Length == 0;
@@ -372,7 +372,7 @@ public sealed class MissingMediaService
                     break;
                 case MissingMediaKind.Model:
                     var model = new ModelSource();
-                    model.ReadFrom(new Uri(Path.GetFullPath(path)));
+                    model.ReadFrom(UriHelper.CreateFromPath(Path.GetFullPath(path)));
                     if (model.MeshCount == 0) throw new InvalidDataException("The file does not contain model geometry.");
                     var dependencies = model.Dependencies.AsEnumerable();
                     // Assimp can omit optional material libraries. A saved bundle

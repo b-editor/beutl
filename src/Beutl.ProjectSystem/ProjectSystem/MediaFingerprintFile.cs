@@ -184,7 +184,7 @@ internal sealed class MediaFingerprintFile : CoreObject
             || scene[SceneProperty] is null)
             return false;
 
-        return new MediaFingerprintFile(fingerprints).Save(new Uri(GetPath(sceneUri.LocalPath)));
+        return new MediaFingerprintFile(fingerprints).Save(UriHelper.CreateFromPath(GetPath(sceneUri.LocalPath)));
     }
 
     // Skips a null entry or one without a hash, at any depth, which a hand edit can leave: a save would fail on the

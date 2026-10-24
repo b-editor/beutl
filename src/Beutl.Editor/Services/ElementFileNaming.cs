@@ -1,4 +1,6 @@
-﻿namespace Beutl.Editor.Services;
+﻿using Beutl.Serialization;
+
+namespace Beutl.Editor.Services;
 
 internal static class ElementFileNaming
 {
@@ -20,6 +22,6 @@ internal static class ElementFileNaming
             path = Path.Combine(directory, $"{stem}-{index}.{EditorConstants.ElementFileExtension}");
         }
 
-        return new Uri(path);
+        return UriHelper.CreateFromPath(path);
     }
 }
