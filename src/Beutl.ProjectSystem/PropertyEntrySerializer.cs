@@ -16,16 +16,7 @@ internal static class PropertyEntrySerializer
             context.SetValue(name, ToJson(value, animation));
     }
 
-    private sealed class Entry(object? value, IKeyFrameAnimation? animation) : ICoreSerializable
-    {
-        public void Serialize(ICoreSerializationContext context)
-        {
-            context.SetValue("Value", value);
-            context.SetValue("Animation", animation);
-        }
-
-        public void Deserialize(ICoreSerializationContext context) => throw new NotSupportedException();
-    }
+    private sealed record Entry(object? Value, IKeyFrameAnimation? Animation);
 
     public static (Optional<object?> value, IKeyFrameAnimation? animation) ToTuple(JsonNode? json, Type valueType)
     {

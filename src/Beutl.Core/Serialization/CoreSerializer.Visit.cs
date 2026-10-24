@@ -52,6 +52,7 @@ public static partial class CoreSerializer
                     && ArrayTypeHelpers.GetEntryType(actualType) is (var keyType, { } valueType)
                     && keyType == typeof(string))
                 {
+                    if (!ItemsMayHoldObjects(valueType)) return false;
                     foreach (DictionaryEntry entry in dictionary)
                     {
                         if (Walk(entry.Value, valueType, visit, null, null, (string)entry.Key, baseUri)) return true;
@@ -60,6 +61,7 @@ public static partial class CoreSerializer
                 else
                 {
                     Type itemType = ArrayTypeHelpers.GetElementType(actualType) ?? typeof(object);
+                    if (!ItemsMayHoldObjects(itemType)) return false;
                     int itemIndex = 0;
                     foreach (object? item in items)
                     {
@@ -85,6 +87,18 @@ public static partial class CoreSerializer
 
             return false;
         }
+    }
+
+    private static bool ItemsMayHoldObjects(Type type)
+    {
+        type = Nullable.GetUnderlyingType(type) ?? type;
+        if (ChildObjects.MayHoldObjects(type)
+            || type.IsAssignableTo(typeof(ICoreSerializable))
+            || type.IsAssignableTo(typeof(IFileSource))
+            || type.IsAssignableTo(typeof(IReference))) return true;
+
+        JsonHelper.SerializerOptions.MakeReadOnly(populateMissingResolver: true);
+        return JsonHelper.SerializerOptions.GetTypeInfo(type).Kind != JsonTypeInfoKind.None;
     }
 
     internal sealed class VisitorContext(Type ownerType, Uri? baseUri) : ICoreSerializationContext

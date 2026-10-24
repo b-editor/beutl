@@ -1,5 +1,8 @@
-﻿using System.Text.Json;
+﻿using System.Collections;
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using Beutl.Graphics3D.Meshes;
+using Beutl.Graphics3D.Models;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -38,6 +41,54 @@ public class CoreSerializerVisitorTests
         var root = new SavedObject { Saved = new OpaqueItems { new SavedObject() } };
 
         Assert.That(Collect(root).Select(v => v.Value).OfType<SavedObject>(), Is.EqualTo(new[] { root }));
+    }
+
+    [Test]
+    public void ScalarCollectionsAreNotEnumerated()
+    {
+        object[] collections =
+        [
+            new UnenumerableItems<uint>(), new UnenumerableItems<float>(),
+            new UnenumerableItems<decimal>(), new UnenumerableItems<uint?>(),
+            new UnenumerableItems<Vertex3D>(),
+        ];
+
+        Assert.That(Collect(collections).Where(v => v.Index is not null).Select(v => v.Value),
+            Is.EqualTo(collections));
+    }
+
+    [Test]
+    public void MeshBuffersAndNumericDictionaryValuesAreNotVisited()
+    {
+        var mesh = new ModelMesh
+        {
+            Indices = { Value = [0, 1, 2] },
+            Vertices = { Value = [default, default, default] },
+        };
+        var root = new SavedObject { Saved = new object[] { mesh, new Dictionary<string, uint> { ["count"] = 3 } } };
+        var visits = Collect(root);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(visits.Select(v => v.Value).OfType<ModelMesh>(), Is.EqualTo(new[] { mesh }));
+            Assert.That(visits.Any(v => v.Value is uint or Vertex3D), Is.False);
+        });
+    }
+
+    [Test]
+    public void CollectionsOfOptionalAndStructuredValuesStillReachResources()
+    {
+        var file = new TestFileSource(new Uri("file:///visitor/media.png"));
+        object[] collections =
+        [
+            new Optional<TestFileSource>[] { new(file) },
+            new ResourceValue[] { new(file) },
+            new Dictionary<string, ResourceValue> { ["asset"] = new(file) },
+            new Dictionary<int, TestFileSource> { [7] = file },
+        ];
+
+        Assert.That(Collect(collections).Where(v => ReferenceEquals(v.Value, file)).Select(v => v.Path),
+            Is.EqualTo(new[] { "$[0][0]", "$[1][0]/Value", "$[2]/asset/Value", "$[3][0]/Value" }));
     }
 
     [Test]
@@ -83,6 +134,15 @@ public class CoreSerializerVisitorTests
     }
 
     private sealed record Wrapper(object Value, [property: JsonIgnore] object Ignored);
+
+    private readonly record struct ResourceValue(TestFileSource Value);
+
+    private sealed class UnenumerableItems<T> : IEnumerable<T>
+    {
+        public IEnumerator<T> GetEnumerator() => throw new InvalidOperationException("Scalar items must not be enumerated.");
+
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    }
 
     [JsonConverter(typeof(OpaqueConverter))]
     private sealed class OpaqueItems : List<SavedObject>;

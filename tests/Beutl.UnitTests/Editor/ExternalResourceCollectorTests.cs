@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 
@@ -59,6 +60,21 @@ public class ExternalResourceCollectorTests
             Assert.That(collector.FileSources, Is.Empty);
             Assert.That(collector.FontFamilies, Is.Empty);
         });
+    }
+
+    [Test]
+    public void Collect_WithExternalSceneFingerprints_RelocatesOnlyTheScene()
+    {
+        var scene = new Scene { Uri = new Uri(Path.Combine(_externalDir, "external.scene")) };
+        scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint>
+        {
+            [new Uri(Path.Combine(_externalDir, "image.png")).AbsoluteUri] = new(1, "AA"),
+        });
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+
+        ExternalResourceCollector collector = ExternalResourceCollector.Collect(scene, _testProjectDir);
+
+        Assert.That(collector.FileSources, Is.EqualTo(new[] { (scene.Id.Value, "Uri", scene.Uri) }));
     }
 
     [Test]

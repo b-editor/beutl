@@ -2,6 +2,7 @@
 using Beutl.IO;
 using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 
 namespace Beutl.Editor;
@@ -45,7 +46,8 @@ public sealed class ExternalResourceCollector
                     break;
             }
 
-            if (visit.Value is CoreObject { Uri: { } uri } obj && IsExternalFile(uri, projectDirectory))
+            if (visit.Value is CoreObject { Uri: { } uri } obj and not MediaFingerprintFile
+                && IsExternalFile(uri, projectDirectory))
                 collector._fileSources.Add((obj.Id.Value, "Uri", uri));
             return false;
         });

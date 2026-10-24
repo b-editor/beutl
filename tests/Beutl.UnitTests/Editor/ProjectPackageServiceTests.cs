@@ -792,17 +792,22 @@ public class ProjectPackageServiceTests
 
     #region Helper Methods
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Exported_fingerprints_follow_packaged_media_and_match_it_after_a_rename(bool external)
+    [Test]
+    public async Task Exported_fingerprints_follow_packaged_media_and_match_it_after_a_rename(
+        [Values] bool external, [Values] bool externalScene)
     {
         Project project = CreateAndSaveTestProjectWithItems();
         Scene scene = project.Items.OfType<Scene>().Single();
+        if (externalScene)
+        {
+            string sceneDirectory = Directory.CreateDirectory(Path.Combine(_testDir, "external-scene")).FullName;
+            scene.Uri = new Uri(Path.Combine(sceneDirectory, "external.scene"));
+        }
         string mediaDirectory = Path.Combine(external ? _testDir : _projectDir, "media");
         Directory.CreateDirectory(mediaDirectory);
         string original = Path.Combine(mediaDirectory, "original.png");
         ImageSource source = TestImages.WriteImage(original);
-        var element = new Element { Uri = new Uri(Path.Combine(_projectDir, "media.belm")) };
+        var element = new Element { Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "media.belm")) };
         element.Objects.Add(new SourceImage { Source = { Value = source } });
         scene.Children.Add(element);
         var media = new MissingMediaService();
@@ -812,7 +817,9 @@ public class ProjectPackageServiceTests
         string fingerprintFile = MediaFingerprintFile.GetPath(scene.Uri!.LocalPath);
         byte[] originalFingerprints = File.ReadAllBytes(fingerprintFile);
         string package = Path.Combine(_exportDir, "fingerprints.zip");
-        Assert.That((await ProjectPackageService.Current.ExportAsync(project, package)).Success, Is.True);
+        ExportResult result = await ProjectPackageService.Current.ExportAsync(project, package);
+        Assert.That(result.Success, Is.True);
+        Assert.That(result.FailedResources, Is.Empty);
         // The export saves its copy of the scene with the packaged media's fingerprints, into the copy's folder.
         Assert.That(File.ReadAllBytes(fingerprintFile), Is.EqualTo(originalFingerprints));
         ZipFile.ExtractToDirectory(package, _importDir);
