@@ -88,10 +88,11 @@ public class PropertyUnitEditorTests
         await TestReset.ResetShellAsync();
         var editor = await TestShell.OpenNewSceneEditorAsync("node-unit");
         var node = (GraphNode)Activator.CreateInstance(nodeType)!;
-        var graph = new GraphModel { Nodes = { node } };
+        var source = new RandomSingleNode();
+        var graph = new GraphModel { Nodes = { node, source } };
         var input = node is ScaleMatrixNode scale ? scale.Scale : ((RotationMatrixNode)node).Rotation;
         using var vm = new NodeGraphViewModel(graph, editor);
-        var view = new GraphNodeView { DataContext = vm.Nodes.Single() };
+        var view = new GraphNodeView { DataContext = vm.Nodes.Single(model => model.GraphNode == node) };
         var next = new Button { Content = "Next" };
         var window = new Window { Content = new StackPanel { Children = { view, next } }, Width = 360, Height = 480 };
         try
@@ -106,6 +107,23 @@ public class PropertyUnitEditorTests
             input.Display.Value = new DisplayAttribute { Name = "Renamed input" };
             HeadlessTestHelpers.Render(3);
             Assert.That(numbers[0].Header, Is.EqualTo($"Renamed input ({symbol})"));
+
+            var port = view.GetVisualDescendants().OfType<NodePortView>()
+                .Single(port => port.DataContext is InputPortViewModel model && model.Model == input);
+            var connection = graph.Connect(input, source.Value);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(port.GetVisualDescendants().OfType<NumberEditor<float>>(), Is.Empty);
+            var label = port.GetVisualDescendants().OfType<Avalonia.Controls.TextBlock>().Single();
+            Assert.That(label.Text, Is.EqualTo($"Renamed input ({symbol})"));
+
+            input.Display.Value = new DisplayAttribute { Name = "Connected input" };
+            HeadlessTestHelpers.Render(3);
+            Assert.That(label.Text, Is.EqualTo($"Connected input ({symbol})"));
+
+            graph.Disconnect(connection);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(port.GetVisualDescendants().OfType<NumberEditor<float>>().Single(), Is.SameAs(numbers[0]));
+            Assert.That(numbers[0].Header, Is.EqualTo($"Connected input ({symbol})"));
         }
         finally
         {
