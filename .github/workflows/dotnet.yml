@@ -157,24 +157,52 @@ jobs:
           path: ~/.nuget/packages
           key: dotnet-nuget-v1-${{ runner.os }}-${{ steps.dotnet-sdk.outputs.version }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', '!**/obj/**', '!**/bin/**') }}
 
-      # Archive the test outputs, including the copied worker, once. tar keeps executable bits, and only
-      # the assets of RIDs compatible with this Linux host are kept.
+      # Each shard downloads only its test projects, including their copied worker and host-compatible
+      # runtime assets. tar preserves executable bits; upload the already compressed files without ZIP.
       - name: Archive test binaries
+        shell: bash
         run: |
           coverlet_version=$(python3 -c 'import xml.etree.ElementTree as ET; print(next(p.attrib["Version"] for p in ET.parse("Directory.Packages.props").iter("PackageVersion") if p.attrib.get("Include") == "coverlet.collector"))')
           mkdir -p .ci-tools
           cp -a "$HOME/.nuget/packages/coverlet.collector/$coverlet_version/build/net10.0" .ci-tools/coverlet
-          python3 .github/scripts/archive_ci.py --rid linux-x64 \
-            --runtime-graph "$DOTNET_ROOT/sdk/$(dotnet --version)/PortableRuntimeIdentifierGraph.json" \
-            | tar --null -T - -I 'zstd -T0 -1' -cf "$RUNNER_TEMP/test-binaries.tar.zst"
-          du -h "$RUNNER_TEMP/test-binaries.tar.zst"
+          runtime_graph="$DOTNET_ROOT/sdk/$(dotnet --version)/PortableRuntimeIdentifierGraph.json"
+          for group in unit ui graphics3d other; do
+            python3 .github/scripts/archive_ci.py list --group "$group" --rid linux-x64 \
+              --runtime-graph "$runtime_graph" \
+              | tar --null -T - -I 'zstd -T0 -1' -cf "$RUNNER_TEMP/TestBinaries-$group.tar.zst"
+          done
+          du -h "$RUNNER_TEMP"/TestBinaries-*.tar.zst
 
-      - name: Share test binaries
+      - name: Share unit test binaries
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: TestBinaries
-          path: ${{ runner.temp }}/test-binaries.tar.zst
-          compression-level: 0
+          path: ${{ runner.temp }}/TestBinaries-unit.tar.zst
+          archive: false
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Share UI test binaries
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: ${{ runner.temp }}/TestBinaries-ui.tar.zst
+          archive: false
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Share Graphics3D test binaries
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: ${{ runner.temp }}/TestBinaries-graphics3d.tar.zst
+          archive: false
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Share other test binaries
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          path: ${{ runner.temp }}/TestBinaries-other.tar.zst
+          archive: false
+          if-no-files-found: error
           retention-days: 1
 
   test:
@@ -208,14 +236,26 @@ jobs:
         with:
           dotnet-version: ${{ needs.compile.outputs.dotnet-version }}
 
+      - name: Select test binaries
+        id: test-binaries
+        env:
+          TEST_SUITE: ${{ matrix.suite }}
+        run: |
+          pattern=$(python3 .github/scripts/archive_ci.py pattern "$TEST_SUITE")
+          echo "pattern=$pattern" >> "$GITHUB_OUTPUT"
+
       - name: Download test binaries
         uses: actions/download-artifact@v8.0.2
         with:
-          name: TestBinaries
+          pattern: ${{ steps.test-binaries.outputs.pattern }}
           path: ${{ runner.temp }}/test-binaries
+          merge-multiple: true
 
       - name: Extract test binaries
-        run: tar --zstd -xf "$RUNNER_TEMP/test-binaries/test-binaries.tar.zst"
+        run: |
+          for archive in "$RUNNER_TEMP"/test-binaries/*.tar.zst; do
+            tar --zstd -xf "$archive"
+          done
 
       - name: Install Vulkan validation layers
         if: matrix.validation
