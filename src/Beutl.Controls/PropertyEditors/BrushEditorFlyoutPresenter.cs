@@ -311,7 +311,10 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
 
         slider.GetObservable(GradientStopsSlider.SelectedStopProperty)
-            .Subscribe(OnSelectedStopChanged)
+            // The preview's color can arrive after the stop is selected.
+            .Select(stop => stop?.GetObservable(GradientStop.ColorProperty) ?? Observable.Empty<Color>())
+            .Switch()
+            .Subscribe(OnSelectedStopColorChanged)
             .DisposeWith(_disposables);
 
         Observable.FromEventPattern<(int OldIndex, int NewIndex, GradientStop Object)>(slider, nameof(slider.Changed))
@@ -435,13 +438,12 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
         }
     }
 
-    private void OnSelectedStopChanged(GradientStop? stop)
+    private void OnSelectedStopColorChanged(Color color)
     {
-        if (Content is SimpleColorPicker colorPicker
-            && stop != null
+        if (Content is SimpleColorPicker { IsDragging: false } colorPicker
             && _gradientBrushTabButton?.IsChecked == true)
         {
-            colorPicker.Color = stop.Color;
+            colorPicker.Color = color;
         }
     }
 
