@@ -215,6 +215,129 @@ public class ReferencePropertyEditorTests
     }
 
     [AvaloniaTest]
+    [TestCase(typeof(SceneDrawable))]
+    [TestCase(typeof(SceneSound))]
+    public void TheContainingSceneCannotBePickedOrAssigned(Type ownerType)
+    {
+        using var fixture = new Fixture(ownerType);
+        var scene = (Scene)fixture.Element.HierarchicalParent!;
+        fixture.Property.Value = fixture.Target;
+        fixture.History.History.Commit("Stored target");
+
+        fixture.Reference.SetTarget(scene);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object), Does.Not.Contain(scene));
+            Assert.That(fixture.Property.Value, Is.SameAs(fixture.Target));
+            Assert.That(fixture.Property.Expression, Is.Null);
+            Assert.That(fixture.History.History.UndoCount, Is.EqualTo(1));
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(SceneDrawable), false, false)]
+    [TestCase(typeof(SceneSound), false, false)]
+    [TestCase(typeof(SceneDrawable), true, false)]
+    [TestCase(typeof(SceneSound), true, false)]
+    [TestCase(typeof(SceneDrawable), false, true)]
+    [TestCase(typeof(SceneSound), false, true)]
+    [TestCase(typeof(SceneDrawable), true, true)]
+    [TestCase(typeof(SceneSound), true, true)]
+    public void ScenesReachingTheContainingSceneCannotBePickedOrAssigned(Type ownerType, bool indirect, bool storedValue)
+    {
+        using var fixture = new Fixture(ownerType);
+        var scene = (Scene)fixture.Element.HierarchicalParent!;
+        var blocked = new Scene { Name = { Value = "Would close a cycle" } };
+        fixture.Project.Items.Add(blocked);
+        Scene next = scene;
+        if (indirect)
+        {
+            next = new Scene();
+            fixture.Project.Items.Add(next);
+            var sound = new SceneSound();
+            sound.ReferencedScene.Expression = new ReferenceExpression<Scene?>(scene.Id.Value);
+            next.Children.Add(new Element { Objects = { new Beutl.Audio.SoundGroup { Children = { sound } } } });
+        }
+
+        AddSceneReference(blocked, next, ownerType, storedValue);
+        fixture.Reference.SetTarget(fixture.Target);
+        IExpression? original = fixture.Property.Expression;
+        int undoCount = fixture.History.History.UndoCount;
+
+        fixture.Reference.SetTarget(blocked);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object),
+                Does.Contain(fixture.Target).And.Not.Contain(blocked).And.Not.Contain(scene));
+            Assert.That(fixture.Property.Expression, Is.SameAs(original));
+            Assert.That(fixture.History.History.UndoCount, Is.EqualTo(undoCount));
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(SceneDrawable))]
+    [TestCase(typeof(SceneSound))]
+    public void SharedSceneReferencesRemainSelectableAndUnrelatedCyclesTerminate(Type ownerType)
+    {
+        using var fixture = new Fixture(ownerType);
+        var target = (Scene)fixture.Target;
+        var shared = new Scene();
+        var other = new Scene();
+        fixture.Project.Items.AddRange([shared, other]);
+        AddSceneReference(target, shared, typeof(SceneDrawable));
+        AddSceneReference(target, other, typeof(SceneSound));
+        AddSceneReference(other, shared, typeof(SceneDrawable));
+
+        fixture.Reference.SetTarget(target);
+        Assert.That(((IReferenceExpression)fixture.Property.Expression!).ObjectId, Is.EqualTo(target.Id.Value));
+        Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object), Does.Contain(target));
+
+        AddSceneReference(shared, other, typeof(SceneSound));
+        Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object), Does.Contain(target));
+        fixture.Reference.SetTarget(null);
+        Assert.That(fixture.Property.Expression, Is.Null);
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(SceneDrawable))]
+    [TestCase(typeof(SceneSound))]
+    public async Task ASceneBecomingRecursiveWhileThePickerIsOpenCannotBeAssigned(Type ownerType)
+    {
+        using var fixture = new Fixture(ownerType);
+        fixture.Show();
+        ReferenceEditor editor = fixture.Window.GetVisualDescendants().OfType<ReferenceEditor>().Single();
+        editor.RaiseEvent(new RoutedEventArgs(ReferenceEditor.SelectTargetRequestedEvent));
+        HeadlessTestHelpers.Render();
+        LibraryItemPickerFlyoutPresenter picker = fixture.Window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
+        picker.SelectedItem = picker.ReferenceItems!.Single(item => ((TargetObjectInfo)item.UserData).Object == fixture.Target);
+        AddSceneReference((Scene)fixture.Target, (Scene)fixture.Element.HierarchicalParent!, ownerType);
+        fixture.History.History.Commit("Add scene reference");
+        int undoCount = fixture.History.History.UndoCount;
+
+        HeadlessTestHelpers.Click(picker.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "AcceptButton"));
+        await Task.Yield();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixture.Property.Expression, Is.Null);
+            Assert.That(fixture.History.History.UndoCount, Is.EqualTo(undoCount));
+        }
+    }
+
+    private static void AddSceneReference(Scene source, Scene target, Type ownerType, bool storedValue = false)
+    {
+        var owner = (EngineObject)Activator.CreateInstance(ownerType)!;
+        var property = (IExpressionProperty<Scene?>)owner.Properties.Single(p => p is IExpressionProperty { IsReference: true });
+        if (storedValue)
+            property.Value = target;
+        else
+            property.Expression = new ReferenceExpression<Scene?>(target.Id.Value);
+        source.Children.Add(new Element { Objects = { owner } });
+    }
+
+    [AvaloniaTest]
     public async Task ThePickerCancelsConfirmsAndIgnoresDuplicateRequests()
     {
         using var fixture = new Fixture(typeof(DrawablePresenter));

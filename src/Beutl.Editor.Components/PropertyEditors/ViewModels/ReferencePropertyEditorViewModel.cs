@@ -1,6 +1,7 @@
 ﻿using Beutl.Composition;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.PropertyEditors;
+using Beutl.Editor.Services;
 using Beutl.Engine.Expressions;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -92,7 +93,8 @@ public sealed class ReferencePropertyEditorViewModel<T> : PropertyEditorViewMode
     public void SetTarget(CoreObject? target)
     {
         if (IsDisposed || !CanEditProperty.Value
-            || target is not null && (target is not T || ReferenceEquals(target, _reference.GetOwnerObject()))) return;
+            || target is not null && (target is not T || ReferenceEquals(target, _reference.GetOwnerObject()))
+            || target is Scene scene && CreatesSceneCycle(scene)) return;
 
         PropertyAdapter.SetValue(null);
         _reference.Expression = target is T typed ? new ReferenceExpression<T?>(typed.Id.Value) : null;
@@ -105,13 +107,40 @@ public sealed class ReferencePropertyEditorViewModel<T> : PropertyEditorViewMode
         if (typeof(T) == typeof(Scene))
         {
             return this.GetService<Scene>()?.FindHierarchicalParent<Project>() is { } project
-                ? [.. project.Items.OfType<Scene>().Select(scene => new TargetObjectInfo(GetDisplayName(scene), scene))]
+                ? [.. project.Items.OfType<Scene>()
+                    .Where(scene => !CreatesSceneCycle(scene))
+                    .Select(scene => new TargetObjectInfo(GetDisplayName(scene), scene))]
                 : [];
         }
 
         return [.. TargetObjectSearchHelper.GetAvailableTargets<T>(this)
             .Where(target => !ReferenceEquals(target.Object, _reference.GetOwnerObject()))
             .Select(target => new TargetObjectInfo(GetDisplayName(target.Object), target.Object))];
+    }
+
+    private bool CreatesSceneCycle(Scene target)
+    {
+        var currentScene = (_reference.GetOwnerObject() as IHierarchical)?.FindHierarchicalParent<Scene>()
+            ?? this.GetService<Scene>();
+        if (currentScene == null) return false;
+
+        var visited = new HashSet<Scene>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<Scene>();
+        var context = new CompositionContext(this.GetService<IEditorClock>()?.CurrentTime.Value ?? MediaTime.Zero);
+        pending.Push(target);
+        while (pending.TryPop(out Scene? scene))
+        {
+            if (ReferenceEquals(scene, currentScene)) return true;
+            if (!visited.Add(scene)) continue;
+
+            foreach (var property in ChildObjects.Walk(scene).OfType<IExpressionProperty<Scene?>>())
+            {
+                if (property.IsReference && property.Evaluate(context) is { } referenced)
+                    pending.Push(referenced);
+            }
+        }
+
+        return false;
     }
 
     private static string GetDisplayName(CoreObject target)
