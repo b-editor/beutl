@@ -23,17 +23,14 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
     private readonly VkDestroyImageDelegate _destroyImage;
     private readonly VkBindImageMemoryDelegate _bindImageMemory;
     private readonly VkBindImageMemory2Delegate? _bindImageMemory2;
-    private readonly VkBindImageMemory2Delegate? _bindImageMemory2Khr;
     private readonly VkCreateImageDelegate _createImageProxyDelegate;
     private readonly VkDestroyImageDelegate _destroyImageProxyDelegate;
     private readonly VkBindImageMemoryDelegate _bindImageMemoryProxyDelegate;
     private readonly VkBindImageMemory2Delegate? _bindImageMemory2ProxyDelegate;
-    private readonly VkBindImageMemory2Delegate? _bindImageMemory2KhrProxyDelegate;
     private readonly IntPtr _createImageProxy;
     private readonly IntPtr _destroyImageProxy;
     private readonly IntPtr _bindImageMemoryProxy;
     private readonly IntPtr _bindImageMemory2Proxy;
-    private readonly IntPtr _bindImageMemory2KhrProxy;
     private GRContext? _skiaContext;
     private GRVkBackendContext? _skiaBackendContext;
     private bool _disposed;
@@ -70,10 +67,8 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
         _createImage = GetDeviceDelegate<VkCreateImageDelegate>("vkCreateImage");
         _destroyImage = GetDeviceDelegate<VkDestroyImageDelegate>("vkDestroyImage");
         _bindImageMemory = GetDeviceDelegate<VkBindImageMemoryDelegate>("vkBindImageMemory");
-        // Skia's allocator picks whichever bind entry point the device exposes, so the core 1.1 and KHR
-        // forms have to carry the same initialization contract as the 1.0 one. Either may be absent.
+        // Skia uses core 1.1 image binding, which needs the same initialization as the 1.0 entry point.
         _bindImageMemory2 = TryGetDeviceDelegate<VkBindImageMemory2Delegate>("vkBindImageMemory2");
-        _bindImageMemory2Khr = TryGetDeviceDelegate<VkBindImageMemory2Delegate>("vkBindImageMemory2KHR");
         // Ganesh creates its filter layers and scratch images through these callbacks. Vulkan
         // leaves a newly bound image undefined, and SwiftShader can expose bytes from a previously
         // freed allocation, so make initialization part of image binding instead of relying on
@@ -85,12 +80,6 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
         {
             _bindImageMemory2Proxy = Marshal.GetFunctionPointerForDelegate(
                 _bindImageMemory2ProxyDelegate = BindSkiaImageMemory2);
-        }
-
-        if (_bindImageMemory2Khr is not null)
-        {
-            _bindImageMemory2KhrProxy = Marshal.GetFunctionPointerForDelegate(
-                _bindImageMemory2KhrProxyDelegate = BindSkiaImageMemory2Khr);
         }
 
         if (!physicalDevice.IsMoltenVK)

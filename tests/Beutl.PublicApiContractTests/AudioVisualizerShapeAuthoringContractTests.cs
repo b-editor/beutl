@@ -15,6 +15,8 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class AudioVisualizerShapeAuthoringContractTests
 {
+    private const int ComposerSampleRate = 44100;
+
     [OneTimeSetUp]
     public void OneTimeSetUp() => ToneDecoderInfo.EnsureRegistered();
 
@@ -129,7 +131,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         using Bitmap bitmap = target.Snapshot();
 
         MediaTime expectedWindow = MediaTime.FromSeconds(
-            (double)PluginVisualizerDrawable.WindowSampleCount / ToneDecoderInfo.SampleRate);
+            (double)PluginVisualizerDrawable.WindowSampleCount / ComposerSampleRate);
 
         using (Assert.EnterMultipleScope())
         {
@@ -137,8 +139,8 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
             Assert.That(resource.ObservedSampleLength, Is.GreaterThan(0),
                 "the synthetic tone composed no samples, so the paint below would be vacuous");
             Assert.That(resource.ObservedSampleSpanLength, Is.EqualTo(resource.ObservedSampleLength));
-            Assert.That(resource.ObservedSampleRate, Is.EqualTo(ToneDecoderInfo.SampleRate));
-            Assert.That(resource.ObservedComposerSampleRate, Is.EqualTo(ToneDecoderInfo.SampleRate));
+            Assert.That(resource.ObservedSampleRate, Is.EqualTo(ComposerSampleRate));
+            Assert.That(resource.ObservedComposerSampleRate, Is.EqualTo(ComposerSampleRate));
             Assert.That(resource.ObservedStart, Is.EqualTo(currentTime));
             Assert.That(resource.ObservedDuration, Is.EqualTo(expectedWindow));
             Assert.That(resource.ObservedPeak, Is.EqualTo(ToneDecoderInfo.Amplitude).Within(0.001f));
@@ -161,7 +163,7 @@ public sealed class AudioVisualizerShapeAuthoringContractTests
         {
             Assert.That(start, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(duration, Is.EqualTo(MediaTime.FromSeconds(
-                (double)PluginVisualizerDrawable.WindowSampleCount / ToneDecoderInfo.SampleRate)));
+                (double)PluginVisualizerDrawable.WindowSampleCount / ComposerSampleRate)));
         }
     }
 

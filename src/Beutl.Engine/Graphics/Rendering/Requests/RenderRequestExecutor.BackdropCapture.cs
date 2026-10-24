@@ -21,20 +21,10 @@ internal sealed partial class RenderRequestExecutor
                 foreach ((IBuiltInBackdropCaptureSink sink, MaterializedRenderValue value) in captures)
                 {
                     Bitmap bitmap = value.Target.Snapshot();
-                    var publication = new PendingBackdropPublication(
+                    (_pendingBackdropPublications ??= []).Add(new PendingBackdropPublication(
                         sink,
                         bitmap,
-                        value.EffectiveScale.Value);
-                    try
-                    {
-                        (_pendingBackdropPublications ??= []).Add(publication);
-                    }
-                    catch
-                    {
-                        publication.Bitmap = null;
-                        bitmap.Dispose();
-                        throw;
-                    }
+                        value.EffectiveScale.Value));
                 }
             }
             catch

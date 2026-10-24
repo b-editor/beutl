@@ -108,7 +108,7 @@ public sealed class RendererResizeOwnershipTests
     }
 
     [Test]
-    public void AFailedResize_PreservesTheAllocationFailureWhenReplacementCleanupThrows()
+    public void AFailedResize_ReportsTheCleanupFailureWhenReplacementCleanupThrows()
     {
         var textures = new List<AllocatedTexture>();
         int replacementAllocation = 0;
@@ -127,18 +127,12 @@ public sealed class RendererResizeOwnershipTests
         using var renderer = new Renderer3D(context.Object);
         renderer.Initialize(16, 16);
 
+        // The cleanup failure replaces the allocation failure it followed.
         Exception? failure = Assert.Catch(() => renderer.Resize(32, 32));
 
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(failure, Is.TypeOf<AggregateException>());
-            string[] messages = failure is AggregateException aggregate
-                ? aggregate.Flatten().InnerExceptions.Select(e => e.Message).ToArray()
-                : failure is null ? [] : [failure.Message];
-            Assert.That(messages, Is.EquivalentTo(new[]
-            {
-                "replacement allocation failed", "replacement depth disposal failed"
-            }));
+            Assert.That(failure?.Message, Is.EqualTo("replacement depth disposal failed"));
             Assert.That((renderer.Width, renderer.Height), Is.EqualTo((16, 16)));
             foreach (AllocatedTexture texture in textures.Where(t => t.Width == 16))
                 texture.Mock.Verify(t => t.Dispose(), Times.Never);

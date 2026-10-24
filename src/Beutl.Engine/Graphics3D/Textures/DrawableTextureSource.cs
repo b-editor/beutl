@@ -31,20 +31,10 @@ public sealed partial class DrawableTextureSource : TextureSource
     public partial class Resource : IRecordedTextureSource
     {
         private DrawableRenderNode? _drawableNode;
-        private RenderTarget? _renderTarget;
-        private int _renderTargetVersion = -1;
-        private int _lastWidth;
-        private int _lastHeight;
-        private float _lastDensity = -1f;
 
         internal Rect TextureDomain
             => new(0, 0, TextureWidth, TextureHeight);
 
-        /// <remarks>
-        /// The density this reports is the one <see cref="GetTexture"/> allocates at, so it is clamped to
-        /// what the device can attach rather than to the engine ceiling: the target is created here rather
-        /// than leased from the pool, so nothing else measures the device before the allocation reaches it.
-        /// </remarks>
         internal float ResolveDensity(float density)
         {
             return RecordedTextureDensity.Resolve(TextureDomain, density);
@@ -77,7 +67,6 @@ public sealed partial class DrawableTextureSource : TextureSource
             ArgumentNullException.ThrowIfNull(graphicsContext);
             if (Drawable is null)
             {
-                DisposeRenderTarget();
                 return null;
             }
 
@@ -89,80 +78,11 @@ public sealed partial class DrawableTextureSource : TextureSource
                     "A drawable texture used by a deferred render callback has no prepared nested target.");
             }
 
-            int textureWidth = TextureWidth;
-            int textureHeight = TextureHeight;
-            float density = ResolveDensity(surfaceDensity);
-            int deviceWidth = Math.Max(1, (int)Math.Ceiling(textureWidth * (double)density));
-            int deviceHeight = Math.Max(1, (int)Math.Ceiling(textureHeight * (double)density));
-
-            RenderTarget? renderTarget = EnsureRenderTarget(deviceWidth, deviceHeight);
-            if (renderTarget == null) return null;
-
-            if (_renderTargetVersion != Version || _lastDensity != density)
-            {
-                RenderContent(renderTarget, density, textureWidth, textureHeight);
-            }
-
-            return _renderTarget?.Texture;
-        }
-
-        /// <summary>
-        /// Returns a render target of the given device size, replacing the current one when its size differs, or
-        /// <see langword="null"/> when none can be created.
-        /// </summary>
-        private RenderTarget? EnsureRenderTarget(int deviceWidth, int deviceHeight)
-        {
-            if (_lastWidth != deviceWidth || _lastHeight != deviceHeight || _renderTarget == null)
-            {
-                DisposeRenderTarget();
-
-                _renderTarget = RenderTarget.Create(deviceWidth, deviceHeight);
-                if (_renderTarget == null) return null;
-
-                _lastWidth = deviceWidth;
-                _lastHeight = deviceHeight;
-                _renderTargetVersion = -1; // force a re-render into the resized target
-            }
-
-            return _renderTarget;
-        }
-
-        /// <summary>Records the drawable at <paramref name="density"/> and renders it into <paramref name="renderTarget"/>.</summary>
-        private void RenderContent(RenderTarget renderTarget, float density, int textureWidth, int textureHeight)
-        {
-            _lastDensity = density;
-            DrawableRenderNode drawableNode = RecordDrawable(density)
-                ?? throw new InvalidOperationException("The drawable texture source became empty while rendering.");
-
-            using var renderer = new RenderNodeRenderer(
-                drawableNode,
-                new RenderNodeRenderRequest
-                {
-                    Intent = RenderIntent.Preview,
-                    TargetDomain = new Rect(0, 0, textureWidth, textureHeight),
-                    OutputScale = density,
-                    MaxWorkingScale = density,
-                    CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Enabled,
-                });
-            using (var canvas = new ImmediateCanvas(renderTarget, RenderIntent.Preview, density, density))
-            {
-                canvas.Clear();
-                renderer.Render(canvas);
-            }
-
-            renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-            _renderTargetVersion = Version;
-        }
-
-        private void DisposeRenderTarget()
-        {
-            _renderTarget?.Dispose();
-            _renderTarget = null;
+            return null;
         }
 
         partial void PostDispose(bool disposing)
         {
-            DisposeRenderTarget();
             _drawableNode?.Dispose();
             _drawableNode = null;
         }

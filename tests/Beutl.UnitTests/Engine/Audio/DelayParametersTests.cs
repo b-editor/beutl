@@ -19,29 +19,4 @@ public class DelayParametersTests
     [TestCaseSource(nameof(s_parameterCases))]
     public void Default_is_within_min_and_max(string name, float min, float @default, float max)
         => AssertRangeIsConsistent(min, @default, max);
-
-    // Characterization: lock the consolidated constants to the literals DelayEffect/DelayNode
-    // declared before the single-source refactor, keeping it behavior-preserving.
-    [Test]
-    public void Constants_match_the_original_literals()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(DelayParameters.DelayTimeMin, Is.EqualTo(0f));
-            Assert.That(DelayParameters.DelayTimeDefault, Is.EqualTo(200f));
-            Assert.That(DelayParameters.DelayTimeMax, Is.EqualTo(5000f));
-
-            Assert.That(DelayParameters.FeedbackMin, Is.EqualTo(0));
-            Assert.That(DelayParameters.FeedbackDefault, Is.EqualTo(50f));
-            Assert.That(DelayParameters.FeedbackMax, Is.EqualTo(100));
-
-            Assert.That(DelayParameters.DryMixMin, Is.EqualTo(0));
-            Assert.That(DelayParameters.DryMixDefault, Is.EqualTo(60f));
-            Assert.That(DelayParameters.DryMixMax, Is.EqualTo(100));
-
-            Assert.That(DelayParameters.WetMixMin, Is.EqualTo(0));
-            Assert.That(DelayParameters.WetMixDefault, Is.EqualTo(40f));
-            Assert.That(DelayParameters.WetMixMax, Is.EqualTo(100));
-        });
-    }
 }

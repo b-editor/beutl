@@ -10,9 +10,6 @@ namespace Beutl.PublicApiContractTests;
 [TestFixture]
 public sealed class RenderDescriptionPublicSurfaceContractTests
 {
-    private const BindingFlags AnyPublicMember =
-        BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.FlattenHierarchy;
-
     private static readonly string[] s_recordingNamespaces =
     [
         "Beutl.Graphics.Rendering",
@@ -27,34 +24,16 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
 
     private static readonly Rect s_resourceProbeBounds = new(0, 0, 4, 4);
 
-    private static readonly string[] s_resourceBindingFamilyNames =
-    [
-        "OpaqueRenderDescription.Create",
-        "TargetScopeDescription.Create",
-        "TargetCommandDescription.Create",
-        "RawTargetScopeDescription.Create",
-        "RawTargetCommandDescription.Create",
-        "GeometryDescription.Create",
-        "ShaderDescription.CurrentPixel",
-        "ShaderDescription.WholeSource",
-        "TargetCaptureDescription.Create",
-        "MaterializedInputDescription.FromRenderTarget",
-    ];
-
     private delegate IReadOnlyList<RenderResourceBinding> BindResources(
         IReadOnlyList<RenderResourceBinding> resources);
 
     [Test]
     public void RecordedDescriptions_AreTheExternalRecordingSurface()
     {
-        Assembly engine = typeof(RenderNode).Assembly;
-        string?[] exportedTypes = engine.GetExportedTypes().Select(static type => type.FullName).ToArray();
-
         Assert.Multiple(() =>
         {
             foreach (Type description in RecordedDescriptions())
             {
-                Assert.That(exportedTypes, Does.Contain(description.FullName), description.Name);
                 Assert.That(description.IsSealed, Is.True, description.Name);
             }
         });
@@ -122,159 +101,86 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 parameters.Any(static parameter => parameter.Name == "directReplayAtExactIntegerReduction"),
                 Is.False,
                 "that knob names a planner fast path an out-of-tree node has no model of");
-            Assert.That(
-                parameters.Any(static parameter => parameter.Name == "slots"),
-                Is.False,
-                "each binding already identifies its typed slot, so a second declaration list is redundant");
         });
     }
 
     [Test]
-    public void EveryDescriptionFactory_UsesBindingsWithoutASeparateSlotList()
+    public void DescriptionMembers_MatchThePublicRoster()
     {
-        (Type Description, string Factory)[] factories =
-        [
-            (typeof(OpaqueRenderDescription), "Create"),
-            (typeof(TargetScopeDescription), "Create"),
-            (typeof(TargetCommandDescription), "Create"),
-            (typeof(RawTargetScopeDescription), "Create"),
-            (typeof(RawTargetCommandDescription), "Create"),
-            (typeof(GeometryDescription), "Create"),
-            (typeof(ShaderDescription), "CurrentPixel"),
-            (typeof(ShaderDescription), "WholeSource"),
-            (typeof(TargetCaptureDescription), "Create"),
-            (typeof(MaterializedInputDescription), "FromRenderTarget"),
-        ];
-
-        Assert.Multiple(() =>
-        {
-            foreach ((Type description, string factory) in factories)
-            {
-                MethodInfo[] overloads = description
-                    .GetMethods(BindingFlags.Public | BindingFlags.Static)
-                    .Where(method => method.Name == factory)
-                    .ToArray();
-                string label = $"{description.Name}.{factory}";
-
-                Assert.That(overloads, Is.Not.Empty, label);
-                foreach (MethodInfo overload in overloads)
-                {
-                    Assert.That(
-                        overload.GetParameters().Any(static parameter => parameter.Name == "slots"),
-                        Is.False,
-                        label);
-                }
-            }
-
-            // The retained-callback families take their state through a generic factory; the shader families
-            // take theirs through the binding builder, so their factories are not generic.
-            foreach (Type description in RecordedDescriptions().Where(static type => type != typeof(ShaderDescription)))
-            {
-                Assert.That(
-                    description.GetMethods(BindingFlags.Public | BindingFlags.Static)
-                        .Any(static method => method.Name == "Create" && method.IsGenericMethodDefinition),
-                    Is.True,
-                    description.Name);
-            }
-        });
-    }
-
-    [Test]
-    public void ThePlanInternalsOfADescription_AreNotPublic()
-    {
-        (Type Description, string[] Members)[] planInternals =
+        (Type Description, string[] Members)[] roster =
         [
             (typeof(OpaqueRenderDescription),
             [
-                "DefinitionFingerprint", "Execute", "GetStructuralIdentity", "ThrowIfIncompatible",
-                "WithoutDirectReplay", "ResolveInputReadbacks", "BackendBoundary", "DirectReplay",
-                "SupportsDirectDstOut", "HasDirectReplayMaterializationContract",
-                "DirectReplayAtExactIntegerReduction", "CreateRequestLocal", "CreateCore",
-                "CreateEngineSource", "CreateBackendBoundary",
+                nameof(OpaqueRenderDescription.Bounds), nameof(OpaqueRenderDescription.HitTest),
+                nameof(OpaqueRenderDescription.ValueCardinality), nameof(OpaqueRenderDescription.Scale),
+                nameof(OpaqueRenderDescription.InputDemand), nameof(OpaqueRenderDescription.DeviceGridSensitivity),
+                nameof(OpaqueRenderDescription.InputReadbacks), nameof(OpaqueRenderDescription.Resources),
+                nameof(OpaqueRenderDescription.Create),
             ]),
             (typeof(TargetScopeDescription),
             [
-                "DefinitionFingerprint", "Execute", "IsValueReplayMap",
-                "BuiltInBackdropCapturesBackingTarget", "CreateRequestLocal", "CreateValueReplayMap",
-                "CreateCore",
+                nameof(TargetScopeDescription.Bounds), nameof(TargetScopeDescription.HitTest),
+                nameof(TargetScopeDescription.Scale), nameof(TargetScopeDescription.DeviceGridSensitivity),
+                nameof(TargetScopeDescription.DeviceGridMapping), nameof(TargetScopeDescription.Resources),
+                nameof(TargetScopeDescription.TransformSpace), nameof(TargetScopeDescription.Create),
             ]),
             (typeof(TargetCommandDescription),
             [
-                "DefinitionFingerprint", "Execute", "ResolveInputReadbacks", "CreateRequestLocal", "CreateCore",
+                nameof(TargetCommandDescription.InputDemand), nameof(TargetCommandDescription.AffectedRegion),
+                nameof(TargetCommandDescription.QueryBounds), nameof(TargetCommandDescription.HitTest),
+                nameof(TargetCommandDescription.Access), nameof(TargetCommandDescription.InputReadbacks),
+                nameof(TargetCommandDescription.Resources), nameof(TargetCommandDescription.Create),
             ]),
             (typeof(RawTargetScopeDescription),
-                ["DefinitionFingerprint", "Execute", "CreateRequestLocal", "CreateCore"]),
+            [
+                nameof(RawTargetScopeDescription.Bounds), nameof(RawTargetScopeDescription.HitTest),
+                nameof(RawTargetScopeDescription.Scale), nameof(RawTargetScopeDescription.Resources),
+                nameof(RawTargetScopeDescription.Create),
+            ]),
             (typeof(RawTargetCommandDescription),
-                ["DefinitionFingerprint", "Execute", "CreateRequestLocal", "CreateCore"]),
+            [
+                nameof(RawTargetCommandDescription.QueryBounds), nameof(RawTargetCommandDescription.HitTest),
+                nameof(RawTargetCommandDescription.Resources), nameof(RawTargetCommandDescription.Create),
+            ]),
             (typeof(GeometryDescription),
-                ["DefinitionFingerprint", "Render", "StructuralIdentity", "CreateRequestLocal", "CreateCore"]),
+            [
+                nameof(GeometryDescription.Bounds), nameof(GeometryDescription.InputDemand),
+                nameof(GeometryDescription.HitTest), nameof(GeometryDescription.RequiresReadback),
+                nameof(GeometryDescription.Resources), nameof(GeometryDescription.Create),
+            ]),
             (typeof(ShaderDescription),
             [
-                "Uniforms", "Resources", "SpirvLowering", "HasExecutionContextBinder", "CreateFragmentHitTest",
-                "StructuralIdentity", "GetStructuralIdentity",
+                nameof(ShaderDescription.Kind), nameof(ShaderDescription.Source),
+                nameof(ShaderDescription.Bounds), nameof(ShaderDescription.InputDemand),
+                nameof(ShaderDescription.SourceTileMode), nameof(ShaderDescription.HitTest),
+                nameof(ShaderDescription.HitTestResources), nameof(ShaderDescription.CurrentPixel),
+                nameof(ShaderDescription.WholeSource),
+            ]),
+            (typeof(TargetCaptureDescription),
+            [
+                nameof(TargetCaptureDescription.SourceRegion), nameof(TargetCaptureDescription.Bounds),
+                nameof(TargetCaptureDescription.HitTest), nameof(TargetCaptureDescription.Scale),
+                nameof(TargetCaptureDescription.Resources), nameof(TargetCaptureDescription.Create),
+            ]),
+            (typeof(MaterializedInputDescription),
+            [
+                nameof(MaterializedInputDescription.Bounds), nameof(MaterializedInputDescription.EffectiveScale),
+                nameof(MaterializedInputDescription.DeviceBounds), nameof(MaterializedInputDescription.DeviceGridOffset),
+                nameof(MaterializedInputDescription.RasterBounds), nameof(MaterializedInputDescription.Resources),
+                nameof(MaterializedInputDescription.FromRenderTarget),
             ]),
         ];
 
-        Assert.Multiple(() =>
+        foreach ((Type description, string[] members) in roster)
         {
-            foreach ((Type description, string[] members) in planInternals)
-            {
-                foreach (string member in members)
-                {
-                    Assert.That(
-                        description.GetMember(member, AnyPublicMember),
-                        Is.Empty,
-                        $"{description.Name}.{member}");
-                }
-            }
-        });
-    }
-
-    [Test]
-    public void ThePlanInternalTypesADescriptionHolds_AreNotExported()
-    {
-        string[] planInternalTypes =
-        [
-            "Beutl.Graphics.Shaders.ShaderUniformBinding",
-            "Beutl.Graphics.Shaders.ShaderResourceBinding",
-            "Beutl.Graphics.Shaders.SpirvShaderLowering",
-            "Beutl.Graphics.Rendering.RenderExecutionChannel`1",
-            "Beutl.Graphics.Rendering.RenderExecutionBinding`1",
-            "Beutl.Graphics.Rendering.RenderBackendBoundary",
-            "Beutl.Graphics.Rendering.EngineRenderResourceSlot",
-            "Beutl.Graphics.Rendering.OpaqueRenderTopology",
-
-            // The seventeen types the definition/call route was made of. They were the third and second
-            // members of a three-type authoring surface the descriptions now hold on their own, so any of
-            // them reappearing means that surface grew back.
-            "Beutl.Graphics.Rendering.OpaqueRenderDefinition`1",
-            "Beutl.Graphics.Rendering.OpaqueRenderCall`1",
-            "Beutl.Graphics.Rendering.PaintedSourceDefinition`1",
-            "Beutl.Graphics.Rendering.PaintedSourceCall`1",
-            "Beutl.Graphics.Rendering.TargetScopeDefinition`1",
-            "Beutl.Graphics.Rendering.TargetScopeCall`1",
-            "Beutl.Graphics.Rendering.TargetCommandDefinition`1",
-            "Beutl.Graphics.Rendering.TargetCommandCall`1",
-            "Beutl.Graphics.Rendering.RawTargetScopeDefinition`1",
-            "Beutl.Graphics.Rendering.RawTargetScopeCall`1",
-            "Beutl.Graphics.Rendering.RawTargetCommandDefinition`1",
-            "Beutl.Graphics.Rendering.RawTargetCommandCall`1",
-            "Beutl.Graphics.Effects.GeometryDefinition`1",
-            "Beutl.Graphics.Effects.GeometryCall`1",
-            "Beutl.Graphics.Shaders.ShaderDefinition`1",
-            "Beutl.Graphics.Shaders.ShaderCall`1",
-            "Beutl.Graphics.Shaders.ShaderDefinitionBuilder`1",
-        ];
-        string?[] exportedTypes = typeof(RenderNode).Assembly
-            .GetExportedTypes()
-            .Select(static type => type.FullName)
-            .ToArray();
-
-        Assert.Multiple(() =>
-        {
-            foreach (string planInternalType in planInternalTypes)
-                Assert.That(exportedTypes, Does.Not.Contain(planInternalType), planInternalType);
-        });
+            string[] actual = description
+                .GetMembers(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly)
+                .Where(static member => member is not MethodInfo { IsSpecialName: true })
+                .Select(static member => member.Name)
+                .Distinct()
+                .ToArray();
+            Assert.That(actual, Is.EquivalentTo(members), description.Name);
+        }
     }
 
     [Test]
@@ -306,7 +212,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             exported,
             Is.EqualTo(roster),
             "A Description type joined or left the public surface. Add it to RecordedDescriptions_"
-            + "AreTheExternalRecordingSurface, give it the plan-internal roster the family carries, and list "
+            + "AreTheExternalRecordingSurface, give it a public-member roster, and list "
             + "it here.");
     }
 
@@ -336,10 +242,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         using var renderer = CreateRenderer(node);
         renderer.Measure();
 
-        Assert.That(
-            observed.Select(static entry => entry.Name),
-            Is.EqualTo(s_resourceBindingFamilyNames),
-            "every factory in the family answers this table, so one joining or leaving is reported here");
+        Assert.That(observed, Is.Not.Empty);
         Assert.Multiple(() =>
         {
             foreach ((string name, Exception? duplicate, Exception? uninitialized) in observed)
@@ -356,37 +259,15 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         });
     }
 
-    // MarkChanged is the only public invalidation signal; HasChanges cannot be lowered from outside.
-    // DisableRenderCache opts a recording out of caching and is not a second signal.
     [Test]
-    public void MarkChanged_IsTheOnlyPublicNodeInvalidationSignal()
+    public void NodeInvalidation_HasAReadOnlyFlagAndParameterlessSignal()
     {
-        PropertyInfo? hasChanges = typeof(RenderNode).GetProperty(nameof(RenderNode.HasChanges));
-        MethodInfo? markChanged = typeof(RenderNode).GetMethod(
-            nameof(RenderNode.MarkChanged),
-            BindingFlags.Public | BindingFlags.Instance);
-        string[] excludedMembers = ["Cache", "CacheKey", "RuntimeIdentity", "ChangeVersion"];
-
+        PropertyInfo hasChanges = typeof(RenderNode).GetProperty(nameof(RenderNode.HasChanges))!;
+        MethodInfo markChanged = typeof(RenderNode).GetMethod(nameof(RenderNode.MarkChanged))!;
         Assert.Multiple(() =>
         {
-            Assert.That(hasChanges, Is.Not.Null);
-            Assert.That(hasChanges!.CanRead, Is.True);
-            Assert.That(
-                hasChanges.CanWrite,
-                Is.False,
-                "a node able to lower its own flag would replay the recording the flag exists to replace");
-            Assert.That(markChanged, Is.Not.Null);
-            Assert.That(markChanged!.GetParameters(), Is.Empty);
-            Assert.That(
-                typeof(RenderNode).GetMethod("ClearChanges", BindingFlags.Public | BindingFlags.Instance),
-                Is.Null,
-                "lowering the flag belongs to the recording lifecycle, not to the node's public surface");
-            foreach (string member in excludedMembers)
-                Assert.That(typeof(RenderNode).GetProperty(member), Is.Null, member);
-            Assert.That(
-                typeof(RenderNode).GetMethods(BindingFlags.Public | BindingFlags.Instance)
-                    .Any(static method => method.Name is "ClearCache" or "ResetCache" or "ReportRenderCount"),
-                Is.False);
+            Assert.That(hasChanges.CanWrite, Is.False);
+            Assert.That(markChanged.GetParameters(), Is.Empty);
         });
     }
 

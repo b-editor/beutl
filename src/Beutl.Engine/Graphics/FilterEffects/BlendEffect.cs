@@ -7,6 +7,7 @@ using Beutl.Serialization;
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.BlendEffect), ResourceType = typeof(GraphicsStrings))]
+[DroppedMembers("Color")]
 public sealed partial class BlendEffect : FilterEffect
 {
     public BlendEffect()
@@ -25,15 +26,5 @@ public sealed partial class BlendEffect : FilterEffect
     {
         var r = (Resource)resource;
         context.BlendMode(r.Brush, r.BlendMode);
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        base.Deserialize(context);
-        if (context.Contains("Color"))
-        {
-            Color color = context.GetValue<Color>("Color");
-            Brush.Value = new SolidColorBrush(color);
-        }
     }
 }

@@ -199,7 +199,8 @@ public class GraphEditorContextMenuTests
         public FAMenuFlyout BackgroundMenu => (FAMenuFlyout)View.FindControl<Panel>("graphPanel")!.ContextFlyout!;
 
         public static async Task<GraphScope> CreateAsync(
-            bool light = false, bool separateHandles = false, bool selectAll = true, MediaTime elementStart = default)
+            bool light = false, bool separateHandles = false, bool selectAll = true, MediaTime elementStart = default,
+            Func<PointerWheelEventArgs, bool>? scrollDetector = null)
         {
             (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("graph-context");
             var animation = new KeyFrameAnimation<float>();
@@ -218,7 +219,8 @@ public class GraphEditorContextMenuTests
             var model = new GraphEditorViewModel(editor, animation, scene.Children.Single());
             model.Options.Value = model.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
             if (selectAll) model.SelectedView.Value!.SetSelection(animation.KeyFrames);
-            var view = new GraphEditorView { DataContext = model };
+            var view = scrollDetector == null ? new GraphEditorView() : new GraphEditorView(scrollDetector);
+            view.DataContext = model;
             var window = new Window
             {
                 Content = view,

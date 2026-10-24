@@ -105,10 +105,8 @@ void main() {
     {
     }
 
-    /// <summary>
-    /// Gets the shadow cube map texture.
-    /// </summary>
-    public ITextureCube? ShadowCubeTexture { get; private set; }
+    /// <summary>Always <see langword="null"/>: the faces are read from the shadow manager's cube array instead.</summary>
+    public ITextureCube? ShadowCubeTexture => null;
 
     /// <summary>
     /// Gets the depth textures for each cube face (for copying to cube array).
@@ -169,9 +167,6 @@ void main() {
 
         DisposeFaceResources();
         RenderPass?.Dispose();
-        ShadowCubeTexture?.Dispose();
-
-        ShadowCubeTexture = Context.CreateTextureCube(faceSize, TextureFormat.Depth32Float);
 
         RenderPass = Context.CreateRenderPass3D(s_shadowPassFormats, TextureFormat.Depth32Float);
 
@@ -300,7 +295,7 @@ void main() {
     {
         var framebuffer = _faceFramebuffers[faceIndex];
         var depthTexture = _faceDepthTextures[faceIndex];
-        if (framebuffer == null || depthTexture == null || ShadowCubeTexture == null)
+        if (framebuffer == null || depthTexture == null)
             return;
 
         var lightVP = _lightViewMatrices[faceIndex] * _lightProjectionMatrix;
@@ -323,8 +318,6 @@ void main() {
         {
             RenderPass.End();
         }
-
-        Context.CopyTextureToCubeFace(depthTexture, ShadowCubeTexture, faceIndex);
     }
 
     private void RenderMesh(Object3D.Resource obj, Matrix4x4 lightVP, Matrix4x4 worldMatrix)
@@ -346,6 +339,6 @@ void main() {
     {
         DisposeResources([_pipelines.OneSided, _pipelines.DoubleSided, _descriptorSet,
             _doubleSidedDescriptorSet, _lightDataBuffer, .. _faceFramebuffers,
-            .. _faceDummyTextures, .. _faceDepthTextures, RenderPass, ShadowCubeTexture]);
+            .. _faceDummyTextures, .. _faceDepthTextures, RenderPass]);
     }
 }

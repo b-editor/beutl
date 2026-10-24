@@ -23,17 +23,6 @@ public sealed class ContextCommandHandlerContractTests
     }
 
     [Test]
-    public void Contract_has_one_awaitable_execution_path_without_a_completion_side_channel()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(typeof(ContextCommandDefinition).GetMethod("Run"), Is.Null);
-            Assert.That(typeof(ContextCommandDefinition).GetProperty("Execute"), Is.Null);
-            Assert.That(typeof(ContextCommandExecution).GetProperty("Completion"), Is.Null);
-        });
-    }
-
-    [Test]
     public async Task Plugin_can_await_text_and_a_typed_choice_through_the_public_contract()
     {
         IContextCommandInteraction interaction = new PluginInteraction();

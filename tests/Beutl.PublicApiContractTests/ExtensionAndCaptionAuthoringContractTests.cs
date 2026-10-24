@@ -9,17 +9,10 @@ namespace Beutl.PublicApiContractTests;
 public sealed class ExtensionAndCaptionAuthoringContractTests
 {
     [Test]
-    public void ExtensionProviderSurface_ExposesMetadataAndLeaseOnly()
+    public void ExtensionMetadata_DoesNotExposeRuntimeTypesOrInstances()
     {
-        Type provider = typeof(IExtensionProvider);
-
         using (Assert.EnterMultipleScope())
         {
-            Assert.That(provider.GetProperty("AllExtensions"), Is.Null);
-            Assert.That(provider.GetMethod("GetExtensions"), Is.Null);
-            Assert.That(provider.GetMethod("MatchEditorExtension"), Is.Null);
-            Assert.That(typeof(ExtensionProvider).GetProperty("AllExtensions"), Is.Null);
-            Assert.That(typeof(ExtensionProvider).GetMethod("GetExtensions"), Is.Null);
             Assert.That(
                 typeof(ExtensionDescriptor).GetProperties().Select(property => property.PropertyType),
                 Does.Not.Contain(typeof(Type)).And.Not.Contain(typeof(Extension)));
@@ -148,8 +141,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
                     AiModelCapabilitySchema.Image,
                     AiModelCapabilitySchema.Video,
                 }));
-            Assert.That(typeof(AiModelCatalog).Assembly.GetType(
-                "Beutl.Api.Services.AiModelCapabilitySchemaId"), Is.Null);
         }
     }
 
@@ -178,12 +169,6 @@ public sealed class ExtensionAndCaptionAuthoringContractTests
                 typeof(CaptionElementPlacement).GetProperties()
                     .Select(property => property.PropertyType),
                 Does.Not.Contain(typeof(ElementSource)));
-            Assert.That(typeof(CaptionTemplateRegistry).Assembly.GetType(
-                "Beutl.Editor.Services.Captions.CaptionTemplateContribution"), Is.Null);
-            Assert.That(typeof(CaptionTemplateRegistry).Assembly.GetType(
-                "Beutl.Editor.Services.Captions.CaptionTemplateRegistration"), Is.Null);
-            Assert.That(typeof(CaptionTemplateRegistry).Assembly.GetType(
-                "Beutl.Editor.Services.Captions.CaptionTemplateExtension"), Is.Null);
         }
     }
 

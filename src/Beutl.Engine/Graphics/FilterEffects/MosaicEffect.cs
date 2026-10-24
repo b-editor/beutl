@@ -81,10 +81,7 @@ public partial class MosaicEffect : FilterEffect
                         BindAbsoluteOrigin);
                 }
             },
-            SKShaderTileMode.Clamp,
-            hitTest: RenderHitTestContract.Custom(
-                new MosaicSampling(logicalTileSize, r.Origin),
-                static (state, context, point) => state.HitTest(context, point))));
+            SKShaderTileMode.Clamp));
     }
 
     private static void BindRelativeOrigin(
@@ -139,74 +136,5 @@ public partial class MosaicEffect : FilterEffect
         float scale = context.InputEffectiveScale.Value;
         Point logicalOrigin = context.LogicalOrigin;
         writer.Set(new Vector2((logicalOrigin.X - inputOrigin.X) * scale, (logicalOrigin.Y - inputOrigin.Y) * scale));
-    }
-
-    /// <summary>Answers a hit test the way the entry point resolves a fragment: at its tile's centre.</summary>
-    /// <remarks>
-    /// A pixel carries what the input covered at its tile's centre, so forwarding the query would disagree both
-    /// ways. The output rectangle bounds the answer, since <see cref="RenderHitTestContract.Custom"/> applies none.
-    /// </remarks>
-    private readonly record struct MosaicSampling(Size TileSize, RelativePoint Origin)
-    {
-        public bool HitTest(RenderHitTestContext context, Point point)
-        {
-            Rect outputBounds = context.OutputBounds;
-
-            if (!outputBounds.ContainsExclusive(point))
-                return false;
-
-            Point origin = ResolveOrigin(outputBounds);
-            var sample = new Point(
-                SampleCoordinate(point.X, origin.X, TileSize.Width),
-                SampleCoordinate(point.Y, origin.Y, TileSize.Height));
-
-            IReadOnlyList<RenderHitTestInput> inputs = context.Inputs;
-            for (int index = 0; index < inputs.Count; index++)
-            {
-                RenderHitTestInput input = inputs[index];
-                if (TryClampToBounds(sample, input.Bounds, out Point clamped) && input.HitTest(clamped))
-                    return true;
-            }
-
-            return false;
-        }
-
-        /// <remarks>
-        /// The uniform binders express the same origin in the shader's device coordinates, where it is snapped
-        /// to whole composition-device pixels. A hit test is asked in logical coordinates and must answer the
-        /// same at every scale, so it is resolved here without that snap; the two can therefore disagree
-        /// within one device pixel of a tile edge, which is where the tile a point belongs to is ambiguous
-        /// anyway.
-        /// </remarks>
-        private Point ResolveOrigin(Rect outputBounds)
-            => outputBounds.Position + (Origin.Unit == RelativeUnit.Relative
-                ? new Vector(
-                    Origin.Point.X * outputBounds.Width,
-                    Origin.Point.Y * outputBounds.Height)
-                : new Vector(Origin.Point.X, Origin.Point.Y));
-
-        private static float SampleCoordinate(float value, float origin, float tile)
-            => (MathF.Floor((value - origin) / tile) * tile) + (tile * 0.5f) + origin;
-
-        /// <summary>Moves a sample onto the input the way the sampler's clamp does, if the input has one.</summary>
-        /// <remarks>
-        /// The stage samples with <see cref="SKShaderTileMode.Clamp"/>, so a centre outside the input reads its edge.
-        /// Coverage is bottom-right exclusive, so the clamp ends on the last float below the edge.
-        /// </remarks>
-        private static bool TryClampToBounds(Point point, Rect bounds, out Point clamped)
-        {
-            float maxX = float.BitDecrement(bounds.Right);
-            float maxY = float.BitDecrement(bounds.Bottom);
-            if (maxX < bounds.Left || maxY < bounds.Top)
-            {
-                clamped = default;
-                return false;
-            }
-
-            clamped = new Point(
-                Math.Clamp(point.X, bounds.Left, maxX),
-                Math.Clamp(point.Y, bounds.Top, maxY));
-            return true;
-        }
     }
 }

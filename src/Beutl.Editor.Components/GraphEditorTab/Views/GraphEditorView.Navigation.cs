@@ -70,9 +70,10 @@ public partial class GraphEditorView
         else
         {
             Vector plotDelta = e.Delta;
-            if (OperatingSystem.IsWindows() && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
+            bool gestureAxes = target == WheelTarget.Plot && _usesGestureAxes(e);
+            if (!gestureAxes && OperatingSystem.IsWindows() && e.KeyModifiers.HasFlag(KeyModifiers.Shift))
                 plotDelta = new Vector(plotDelta.Y, plotDelta.X);
-            if (!GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value)
+            if (!gestureAxes && !GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value)
                 plotDelta = new Vector(plotDelta.Y, plotDelta.X);
             Vector movement = target switch
             {

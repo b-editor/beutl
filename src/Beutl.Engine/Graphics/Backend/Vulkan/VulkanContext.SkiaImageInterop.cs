@@ -22,8 +22,6 @@ internal sealed unsafe partial class VulkanContext
             return _bindImageMemoryProxy;
         if (name == "vkBindImageMemory2" && _bindImageMemory2Proxy != IntPtr.Zero)
             return _bindImageMemory2Proxy;
-        if (name == "vkBindImageMemory2KHR" && _bindImageMemory2KhrProxy != IntPtr.Zero)
-            return _bindImageMemory2KhrProxy;
 
         var vk = _vulkanInstance.Vk;
 
@@ -118,12 +116,6 @@ internal sealed unsafe partial class VulkanContext
         uint bindInfoCount,
         BindImageMemoryInfo* bindInfos)
         => BindSkiaImageMemoryBatch(_bindImageMemory2!, device, bindInfoCount, bindInfos);
-
-    private unsafe Result BindSkiaImageMemory2Khr(
-        Device device,
-        uint bindInfoCount,
-        BindImageMemoryInfo* bindInfos)
-        => BindSkiaImageMemoryBatch(_bindImageMemory2Khr!, device, bindInfoCount, bindInfos);
 
     // vkBindImageMemory2 binds the whole batch or none of it, so initialization follows a successful call
     // and covers every image in the batch that the single-bind path would have cleared.

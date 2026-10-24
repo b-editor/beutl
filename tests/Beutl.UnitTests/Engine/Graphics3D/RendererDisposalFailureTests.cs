@@ -71,8 +71,8 @@ public sealed class RendererDisposalFailureTests
             Assert.That((renderer.Width, renderer.Height), Is.EqualTo((0, 0)));
             Assert.That(compiler.Attempts, Is.Zero);
             Assert.That(owners.Where(o => o != compiler).Select(o => o.Attempts), Is.All.EqualTo(1));
-            Assert.That(Flatten(failure), Is.EquivalentTo(
-                owners.Where(o => o != compiler).Select(o => o.Failure).Append(allocationFailure)));
+            // The cleanup failures replace the allocation failure they followed.
+            Assert.That(Flatten(failure), Is.EquivalentTo(owners.Where(o => o != compiler).Select(o => o.Failure)));
         });
         renderer.Dispose();
         Assert.That(owners.Select(o => o.Attempts), Is.All.EqualTo(1));

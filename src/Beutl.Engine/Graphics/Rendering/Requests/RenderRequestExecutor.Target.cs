@@ -45,7 +45,7 @@ internal sealed partial class RenderRequestExecutor
                 token.RunAndComplete(
                     () =>
                     {
-                        IReadOnlyList<RenderExecutionInput> inputs = CreateTargetCommandExecutionInputs(
+                        List<RenderExecutionInput> inputs = CreateTargetCommandExecutionInputs(
                             token,
                             values,
                             inputReadbacks,
@@ -267,7 +267,7 @@ internal sealed partial class RenderRequestExecutor
                 });
         }
 
-        private IReadOnlyList<RenderExecutionInput> CreateTargetCommandExecutionInputs(
+        private List<RenderExecutionInput> CreateTargetCommandExecutionInputs(
             RenderExecutionSessionToken token,
             IReadOnlyList<MaterializedRenderValue> values,
             IReadOnlyList<bool> inputReadbacks,

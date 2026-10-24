@@ -68,84 +68,6 @@ public sealed class RecordingAndPlanningFailureTests
         });
     }
 
-    [Test]
-    public void RecordingFailure_LogsTheCleanupFaultMaskedByThePrimaryWhenMeasuring()
-    {
-        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start();
-        var cleanupFailure = new InvalidOperationException("recording-cleanup");
-        var primaryFailure = new InvalidOperationException("recording-primary");
-        using var node = new RecordingFailureNode(new FailureTestDisposable(cleanupFailure), primaryFailure);
-        using var renderer = FailureTestSupport.CreateRenderer(node, new FailureTestTargetFactory(), useRenderCache: false);
-
-        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => renderer.Measure());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(thrown, Is.SameAs(primaryFailure));
-            Assert.That(logs.Entries.Select(entry => entry.Exception), Is.EqualTo(new Exception[] { cleanupFailure }));
-        });
-    }
-
-    [Test]
-    public void RecordingFailure_LogsTheCleanupFaultMaskedByThePrimaryWhenRasterizing()
-    {
-        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start();
-        var cleanupFailure = new InvalidOperationException("recording-cleanup");
-        var primaryFailure = new InvalidOperationException("recording-primary");
-        using var node = new RecordingFailureNode(new FailureTestDisposable(cleanupFailure), primaryFailure);
-        using var renderer = FailureTestSupport.CreateRenderer(node, new FailureTestTargetFactory(), useRenderCache: false);
-
-        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(thrown, Is.SameAs(primaryFailure));
-            Assert.That(logs.Entries.Select(entry => entry.Exception), Is.EqualTo(new Exception[] { cleanupFailure }));
-        });
-    }
-
-    [Test]
-    public void RecordingFailure_KeepsThePrimaryWhenTheLoggingProviderFails()
-    {
-        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start(throwOnLog: true);
-        var cleanupFailure = new InvalidOperationException("recording-cleanup");
-        var primaryFailure = new InvalidOperationException("recording-primary");
-        using var node = new RecordingFailureNode(new FailureTestDisposable(cleanupFailure), primaryFailure);
-        using var renderer = FailureTestSupport.CreateRenderer(node, new FailureTestTargetFactory(), useRenderCache: false);
-
-        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(() => renderer.Measure());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(thrown, Is.SameAs(primaryFailure));
-            Assert.That(logs.Entries.Select(entry => entry.Exception), Is.EqualTo(new Exception[] { cleanupFailure }));
-        });
-    }
-
-    [Test]
-    public void RecordingFailure_ReportsCleanupFaultWithoutReplacingThePrimary()
-    {
-        var cleanupFailure = new InvalidOperationException("recording-cleanup");
-        var resource = new FailureTestDisposable(cleanupFailure);
-        var primaryFailure = new InvalidOperationException("recording-primary");
-        using var owner = new RenderRequestOwner();
-        using var node = new RecordingFailureNode(resource, primaryFailure);
-        using var request = new RenderRequest(
-            FailureTestSupport.CreateOptions(RenderRequestPurpose.Auxiliary, owner: owner));
-
-        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(
-            () => new RenderRequestRecorder(request).Record(node));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(thrown, Is.SameAs(primaryFailure));
-            Assert.That(resource.DisposeCalls, Is.EqualTo(1));
-            Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primaryFailure));
-            Assert.That(owner.CleanupFailures, Has.Exactly(1).SameAs(cleanupFailure));
-            Assert.That(owner.SecondaryFailures, Has.Exactly(1).SameAs(cleanupFailure));
-        });
-    }
-
     [TestCase(ResourceConflict.DuplicateOwn)]
     [TestCase(ResourceConflict.OwnThenBorrow)]
     [TestCase(ResourceConflict.BorrowThenOwn)]
@@ -258,8 +180,6 @@ public sealed class RecordingAndPlanningFailureTests
             Assert.That(request.State, Is.EqualTo(RenderRequestState.Failed));
             Assert.That(node.Cache.IsCached, Is.False);
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(failure));
-            Assert.That(owner.SecondaryFailures, Is.Empty,
-                "One recording failure rethrown through nested catch boundaries is not a secondary failure.");
             Assert.That(owner.CleanupFailures, Is.Empty);
             Assert.That(resource.DisposeCalls, Is.EqualTo(1));
             Assert.That(

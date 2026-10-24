@@ -1,10 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Graphics;
-using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using SkiaSharp;
@@ -15,189 +13,7 @@ namespace Beutl.UnitTests.Engine.Graphics.FilterEffects;
 [NonParallelizable]
 public sealed class PixelSortSpecializationTests
 {
-    private const string RuntimePrepareShaderSource = """
-        #version 450
-
-        layout(location = 0) in vec2 fragCoord;
-        layout(location = 0) out vec4 outColor;
-
-        layout(set = 0, binding = 0) uniform sampler2D srcTexture;
-
-        layout(push_constant) uniform PushConstants {
-            float thresholdMin;
-            float thresholdMax;
-            int   sortKeyType;
-            int   sortDir;
-            float width;
-            float height;
-        } pc;
-
-        float hue(vec4 c) {
-            float cMax = max(c.r, max(c.g, c.b));
-            float cMin = min(c.r, min(c.g, c.b));
-            float delta = cMax - cMin;
-            if (delta < 1e-5) return 0.0;
-            float h;
-            if (cMax == c.r)      h = mod((c.g - c.b) / delta, 6.0);
-            else if (cMax == c.g) h = (c.b - c.r) / delta + 2.0;
-            else                  h = (c.r - c.g) / delta + 4.0;
-            return h / 6.0;
-        }
-
-        float saturation(vec4 c) {
-            float cMax = max(c.r, max(c.g, c.b));
-            float cMin = min(c.r, min(c.g, c.b));
-            return (cMax < 1e-5) ? 0.0 : (cMax - cMin) / cMax;
-        }
-
-        float computeKey(vec4 c) {
-            if      (pc.sortKeyType == 1) return hue(c);
-            else if (pc.sortKeyType == 2) return saturation(c);
-            else if (pc.sortKeyType == 3) return c.r;
-            else if (pc.sortKeyType == 4) return c.g;
-            else if (pc.sortKeyType == 5) return c.b;
-            return dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
-        }
-
-        void main() {
-            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
-            vec4 color = texelFetch(srcTexture, coord, 0);
-            float key = computeKey(color);
-            bool isAnchor = (key < pc.thresholdMin || key > pc.thresholdMax);
-            float encodedKey = isAnchor ? 0.0 : max(1.0 / 255.0, key * 0.998 + 0.001);
-            outColor = vec4(color.rgb, encodedKey);
-        }
-        """;
-
-    private const string RuntimeRankShaderSource = """
-        #version 450
-
-        layout(location = 0) in vec2 fragCoord;
-        layout(location = 0) out vec4 outColor;
-
-        layout(set = 0, binding = 0) uniform sampler2D srcTexture;
-
-        layout(push_constant) uniform PushConstants {
-            int   sortDir;
-            float width;
-            float height;
-        } pc;
-
-        void main() {
-            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
-            int idx     = (pc.sortDir == 0) ? coord.x : coord.y;
-            int lineIdx = (pc.sortDir == 0) ? coord.y : coord.x;
-            int maxIdx  = (pc.sortDir == 0) ? int(pc.width) : int(pc.height);
-
-            float myKey = texelFetch(srcTexture, coord, 0).a;
-
-            if (myKey < 0.0005) {
-                outColor = vec4(0.0);
-                return;
-            }
-
-            int segStart = idx;
-            for (int s = idx - 1; s >= 0; s--) {
-                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
-                if (texelFetch(srcTexture, c, 0).a < 0.0005) break;
-                segStart = s;
-            }
-
-            int segEnd = idx;
-            for (int s = idx + 1; s < maxIdx; s++) {
-                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
-                if (texelFetch(srcTexture, c, 0).a < 0.0005) break;
-                segEnd = s;
-            }
-
-            int rank = 0;
-            for (int j = segStart; j <= segEnd; j++) {
-                if (j == idx) continue;
-                ivec2 c = (pc.sortDir == 0) ? ivec2(j, lineIdx) : ivec2(lineIdx, j);
-                float otherKey = texelFetch(srcTexture, c, 0).a;
-                if (otherKey < myKey || (otherKey == myKey && j < idx)) {
-                    rank++;
-                }
-            }
-
-            outColor = vec4(
-                float(rank & 255) / 255.0,
-                float((rank >> 8) & 255) / 255.0,
-                1.0,
-                0.0
-            );
-        }
-        """;
-
-    private const string RuntimeGatherShaderSource = """
-        #version 450
-
-        layout(location = 0) in vec2 fragCoord;
-        layout(location = 0) out vec4 outColor;
-
-        layout(set = 0, binding = 0) uniform sampler2D rankTexture;
-        layout(set = 0, binding = 1) uniform sampler2D originalTexture;
-
-        layout(push_constant) uniform PushConstants {
-            int   sortDir;
-            int   ascending;
-            float width;
-            float height;
-        } pc;
-
-        void main() {
-            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
-            int idx     = (pc.sortDir == 0) ? coord.x : coord.y;
-            int lineIdx = (pc.sortDir == 0) ? coord.y : coord.x;
-            int maxIdx  = (pc.sortDir == 0) ? int(pc.width) : int(pc.height);
-
-            vec4 rankData = texelFetch(rankTexture, coord, 0);
-
-            if (rankData.b < 0.5) {
-                outColor = texelFetch(originalTexture, coord, 0);
-                return;
-            }
-
-            int segStart = idx;
-            for (int s = idx - 1; s >= 0; s--) {
-                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
-                if (texelFetch(rankTexture, c, 0).b < 0.5) break;
-                segStart = s;
-            }
-
-            int segEnd = idx;
-            for (int s = idx + 1; s < maxIdx; s++) {
-                ivec2 c = (pc.sortDir == 0) ? ivec2(s, lineIdx) : ivec2(lineIdx, s);
-                if (texelFetch(rankTexture, c, 0).b < 0.5) break;
-                segEnd = s;
-            }
-
-            int targetRank = (pc.ascending == 1)
-                ? (idx - segStart)
-                : (segEnd - idx);
-
-            vec4 originalAtIdx = texelFetch(originalTexture, coord, 0);
-
-            for (int j = segStart; j <= segEnd; j++) {
-                ivec2 cj = (pc.sortDir == 0) ? ivec2(j, lineIdx) : ivec2(lineIdx, j);
-                vec4 rd = texelFetch(rankTexture, cj, 0);
-                int rank = int(rd.r * 255.0 + 0.5) + int(rd.g * 255.0 + 0.5) * 256;
-
-                if (rank == targetRank) {
-                    vec4 srcColor = texelFetch(originalTexture, cj, 0);
-                    outColor = vec4(srcColor.rgb, originalAtIdx.a);
-                    return;
-                }
-            }
-
-            outColor = originalAtIdx;
-        }
-        """;
-
     private static readonly Rect s_bounds = new(0, 0, 4, 4);
-    private GLSLShader? _runtimePrepareShader;
-    private GLSLShader? _runtimeRankShader;
-    private GLSLShader? _runtimeGatherShader;
 
     private static IEnumerable<TestCaseData> SpecializationCases
     {
@@ -208,46 +24,21 @@ public sealed class PixelSortSpecializationTests
                 foreach (PixelSortDirection direction in Enum.GetValues<PixelSortDirection>())
                 {
                     yield return new TestCaseData(sortKey, direction, true)
-                        .SetName($"PixelSort_SpecializedMatchesRuntime_{sortKey}_{direction}_Ascending");
+                        .SetName($"PixelSort_SpecializedMatchesCpuOrder_{sortKey}_{direction}_Ascending");
                     yield return new TestCaseData(sortKey, direction, false)
-                        .SetName($"PixelSort_SpecializedMatchesRuntime_{sortKey}_{direction}_Descending");
+                        .SetName($"PixelSort_SpecializedMatchesCpuOrder_{sortKey}_{direction}_Descending");
                 }
             }
         }
     }
 
-    [OneTimeSetUp]
-    public void CreateRuntimeReferenceShaders()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            _runtimePrepareShader = GLSLShader.CreateBuiltIn(RuntimePrepareShaderSource);
-            _runtimeRankShader = GLSLShader.CreateBuiltIn(RuntimeRankShaderSource);
-            _runtimeGatherShader = GLSLShader.CreateBuiltIn(
-                RuntimeGatherShaderSource,
-                inputCount: 2);
-        });
-    }
-
-    [OneTimeTearDown]
-    public void DisposeRuntimeReferenceShaders()
-    {
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            _runtimePrepareShader?.Dispose();
-            _runtimeRankShader?.Dispose();
-            _runtimeGatherShader?.Dispose();
-        });
-    }
-
     [TestCaseSource(nameof(SpecializationCases))]
-    public void SpecializedVariants_MatchPreChangeRuntimeBranches(
+    public void SpecializedVariants_MatchCpuOrder(
         PixelSortKey sortKey,
         PixelSortDirection direction,
         bool ascending)
     {
-        IGraphicsContext graphicsContext = VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             using RenderTarget source = RenderTarget.Create((int)s_bounds.Width, (int)s_bounds.Height)
@@ -256,14 +47,13 @@ public sealed class PixelSortSpecializationTests
 
             using RenderTarget specialized = ApplySpecializedPixelSort(source, sortKey, direction, ascending);
             byte[] specializedPixels = specialized.Texture!.DownloadPixels();
-            byte[] runtimePixels = ExecuteRuntimeReference(
-                graphicsContext,
+            byte[] expectedPixels = SortOnCpu(
                 source,
                 sortKey,
                 direction,
                 ascending);
 
-            Assert.That(specializedPixels, Is.EqualTo(runtimePixels));
+            Assert.That(specializedPixels, Is.EqualTo(expectedPixels));
         });
     }
 
@@ -297,62 +87,51 @@ public sealed class PixelSortSpecializationTests
         });
     }
 
-    private byte[] ExecuteRuntimeReference(
-        IGraphicsContext context,
+    private static byte[] SortOnCpu(
         RenderTarget source,
         PixelSortKey sortKey,
         PixelSortDirection direction,
         bool ascending)
     {
-        GLSLShader prepare = _runtimePrepareShader
-            ?? throw new InvalidOperationException("The runtime prepare shader was not initialized.");
-        GLSLShader rank = _runtimeRankShader
-            ?? throw new InvalidOperationException("The runtime rank shader was not initialized.");
-        GLSLShader gather = _runtimeGatherShader
-            ?? throw new InvalidOperationException("The runtime gather shader was not initialized.");
-        ITexture2D original = source.Texture
-            ?? throw new InvalidOperationException("The pixel-sort source has no GPU texture.");
-        int width = original.Width;
-        int height = original.Height;
-        using ITexture2D prepared = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-        using ITexture2D ranked = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
-        using ITexture2D result = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+        Half[] pixels = MemoryMarshal.Cast<byte, Half>(source.Texture!.DownloadPixels()).ToArray();
+        Half[] sorted = (Half[])pixels.Clone();
+        for (int line = 0; line < 4; line++)
+        {
+            int PixelIndex(int position) => direction == PixelSortDirection.Horizontal
+                ? line * 4 + position
+                : position * 4 + line;
+            int[] order = Enumerable.Range(0, 4)
+                .Select(PixelIndex)
+                .OrderBy(index => SortValue(pixels.AsSpan(index * 4, 3), sortKey))
+                .ToArray();
+            if (!ascending) Array.Reverse(order);
+            for (int position = 0; position < 4; position++)
+                Array.Copy(pixels, order[position] * 4, sorted, PixelIndex(position) * 4, 3);
+        }
 
-        source.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-        prepare.ExecuteSingleTarget(
-            original,
-            prepared,
-            new RuntimePreparePushConstants
-            {
-                ThresholdMin = 0,
-                ThresholdMax = 1,
-                SortKeyType = (int)sortKey,
-                SortDir = (int)direction,
-                Width = width,
-                Height = height,
-            });
-        rank.ExecuteSingleTarget(
-            prepared,
-            ranked,
-            new RuntimeRankPushConstants
-            {
-                SortDir = (int)direction,
-                Width = width,
-                Height = height,
-            });
-        gather.ExecuteSingleTargetWithMask(
-            ranked,
-            original,
-            result,
-            new RuntimeGatherPushConstants
-            {
-                SortDir = (int)direction,
-                Ascending = ascending ? 1 : 0,
-                Width = width,
-                Height = height,
-            });
+        return MemoryMarshal.AsBytes(sorted.AsSpan()).ToArray();
+    }
 
-        return result.DownloadPixels();
+    private static float SortValue(ReadOnlySpan<Half> pixel, PixelSortKey key)
+    {
+        float r = (float)pixel[0], g = (float)pixel[1], b = (float)pixel[2];
+        float max = Math.Max(r, Math.Max(g, b));
+        float min = Math.Min(r, Math.Min(g, b));
+        float delta = max - min;
+        float hue = delta == 0 ? 0 : max == r ? ((g - b) / delta + 6) % 6
+            : max == g ? (b - r) / delta + 2 : (r - g) / delta + 4;
+        float value = key switch
+        {
+            PixelSortKey.Luminance => 0.2126f * r + 0.7152f * g + 0.0722f * b,
+            PixelSortKey.Hue => hue / 6,
+            PixelSortKey.Saturation => max == 0 ? 0 : delta / max,
+            PixelSortKey.Red => r,
+            PixelSortKey.Green => g,
+            PixelSortKey.Blue => b,
+            _ => throw new ArgumentOutOfRangeException(nameof(key)),
+        };
+        // Rank compares the encoded key stored in an RGBA16Float texture.
+        return (float)(Half)Math.Max(1f / 255, value * 0.998f + 0.001f);
     }
 
     private static RenderTarget ApplySpecializedPixelSort(
@@ -414,33 +193,14 @@ public sealed class PixelSortSpecializationTests
                 canvas.DrawRect(SKRect.Create(x, y, 1, 1), paint);
             }
         }
-    }
 
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RuntimePreparePushConstants
-    {
-        public float ThresholdMin;
-        public float ThresholdMax;
-        public int SortKeyType;
-        public int SortDir;
-        public float Width;
-        public float Height;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RuntimeRankPushConstants
-    {
-        public int SortDir;
-        public float Width;
-        public float Height;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RuntimeGatherPushConstants
-    {
-        public int SortDir;
-        public int Ascending;
-        public float Width;
-        public float Height;
+        // Distinct saturation keys in this column collide when encoded into the half-float scratch texture.
+        target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+        Half[] pixels = MemoryMarshal.Cast<byte, Half>(target.Texture!.DownloadPixels()).ToArray();
+        pixels[5 * 4] = pixels[9 * 4] = (Half)1;
+        pixels[5 * 4 + 1] = pixels[9 * 4 + 1] = (Half)0.5f;
+        pixels[5 * 4 + 2] = (Half)0.03724f;
+        pixels[9 * 4 + 2] = (Half)0.03732f;
+        target.Texture.Upload(MemoryMarshal.AsBytes(pixels.AsSpan()));
     }
 }

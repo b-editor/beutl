@@ -6,15 +6,11 @@ public sealed partial class ProxyJobQueue
     {
         private readonly Lock _lock = new();
         private bool _started;
-        private volatile bool _admissionDeferred;
-        private TaskCompletionSource? _admissionAvailability;
         private TaskCompletionSource? _cancellationCallbacksCompleted;
-        private long _admissionGeneration;
         private bool _terminalTransitionClaimed;
         private bool _cancellationRequested;
         private bool _cancellationWindowClosed;
         private bool _disposed;
-        private int _consecutiveAdmissionRejections;
 
         public ProxyJob Job { get; } = job;
 
@@ -34,7 +30,6 @@ public sealed partial class ProxyJobQueue
             lock (_lock)
             {
                 if (_disposed
-                    || _admissionDeferred
                     || _terminalTransitionClaimed
                     || _cancellationRequested
                     || Cancellation.IsCancellationRequested)
@@ -57,125 +52,9 @@ public sealed partial class ProxyJobQueue
                     return false;
 
                 _started = false;
-                _admissionDeferred = false;
                 Job.Status = ProxyJobStatus.Queued;
                 return true;
             }
-        }
-
-        public bool ResetForAdmissionRetry()
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status))
-                    return false;
-
-                _started = false;
-                _admissionDeferred = true;
-                _admissionGeneration++;
-                _admissionAvailability = new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-                Job.Status = ProxyJobStatus.Queued;
-                return true;
-            }
-        }
-
-        public TimeSpan NextAdmissionBackoff(
-            TimeSpan minimum,
-            TimeSpan maximum,
-            out bool firstRejection)
-        {
-            lock (_lock)
-            {
-                int attempt = ++_consecutiveAdmissionRejections;
-                firstRejection = attempt == 1;
-                return ExponentialBackoff(attempt, minimum, maximum);
-            }
-        }
-
-        public void ResetAdmissionRejections()
-        {
-            lock (_lock)
-            {
-                _consecutiveAdmissionRejections = 0;
-            }
-        }
-
-        public bool TryResumeAdmission(long generation)
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status)
-                    || !_admissionDeferred
-                    || _admissionGeneration != generation)
-                {
-                    return false;
-                }
-
-                _admissionDeferred = false;
-                _admissionAvailability = null;
-                return true;
-            }
-        }
-
-        public bool TryGetAdmissionWait(out long generation, out Task availability)
-        {
-            lock (_lock)
-            {
-                if (!_admissionDeferred || _admissionAvailability is null)
-                {
-                    generation = 0;
-                    availability = Task.CompletedTask;
-                    return false;
-                }
-
-                generation = _admissionGeneration;
-                availability = _admissionAvailability.Task;
-                return true;
-            }
-        }
-
-        public void SignalAdmissionAvailability(long generation)
-        {
-            TaskCompletionSource? availability;
-            lock (_lock)
-            {
-                if (!_admissionDeferred || _admissionGeneration != generation)
-                {
-                    return;
-                }
-
-                availability = _admissionAvailability;
-            }
-
-            availability?.TrySetResult();
-        }
-
-        public bool IsAdmissionDeferred => _admissionDeferred;
-
-        public bool TryPublishAdmissionWaiting(Func<bool> publish)
-        {
-            lock (_lock)
-            {
-                if (_disposed
-                    || !_admissionDeferred
-                    || _cancellationRequested
-                    || Cancellation.IsCancellationRequested
-                    || IsTerminal(Job.Status))
-                {
-                    return false;
-                }
-
-            }
-            return publish();
         }
 
         public bool TryCompleteSuccess()

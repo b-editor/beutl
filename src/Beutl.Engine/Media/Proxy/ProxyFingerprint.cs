@@ -98,23 +98,7 @@ public readonly record struct ProxyFingerprint
         if (TryFromFile(path, out ProxyFingerprint fingerprint))
             return fingerprint.AbsolutePath;
 
-        // Offline media: FromFile can't stat it, but a symlink whose target moved is still
-        // readable via returnFinalTarget:false, so resolve it to the target the entry was keyed on
-        // (rather than the raw symlink path, which would never match).
-        return NormalizeAbsolutePath(ResolveLinkTargetOrSelf(path));
-    }
-
-    private static string ResolveLinkTargetOrSelf(string path)
-    {
-        try
-        {
-            string fullPath = Path.GetFullPath(path);
-            return new FileInfo(fullPath).ResolveLinkTarget(returnFinalTarget: false)?.FullName ?? fullPath;
-        }
-        catch
-        {
-            return path;
-        }
+        return NormalizeAbsolutePath(path);
     }
 
     internal static string NormalizeAbsolutePath(string path)

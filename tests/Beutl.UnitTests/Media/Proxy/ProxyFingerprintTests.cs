@@ -131,29 +131,6 @@ public class ProxyFingerprintTests
     }
 
     [Test]
-    public void Deserialize_LegacyWithoutSourcePath_FallsBackToAbsolutePath()
-    {
-        var mtime = DateTime.SpecifyKind(DateTime.UtcNow, DateTimeKind.Utc);
-        var reference = new ProxyFingerprint(CreatePath("legacy.mov"), 123, mtime);
-        string legacyJson = JsonSerializer.Serialize(
-            new
-            {
-                absolutePath = reference.AbsolutePath,
-                fileSizeBytes = reference.FileSizeBytes,
-                mtimeUtc = reference.MtimeUtc,
-            },
-            s_jsonOptions);
-
-        var restored = JsonSerializer.Deserialize<ProxyFingerprint>(legacyJson, s_jsonOptions);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(restored, Is.EqualTo(reference));
-            Assert.That(restored.SourcePath, Is.EqualTo(reference.AbsolutePath));
-        });
-    }
-
-    [Test]
     public void ResolveComparableKey_SymlinkResolvesToSameKeyAsTarget()
     {
         string dir = TestContext.CurrentContext.WorkDirectory;
@@ -176,10 +153,9 @@ public class ProxyFingerprintTests
         });
     }
 
-    // A symlink whose target moved/deleted must still resolve to the target key the entry was
-    // registered under, so eviction's protected-source set and store change-matching find it.
-    [Test]
-    public void ResolveComparableKey_BrokenSymlink_ResolvesToMovedTargetKey()
+    [TestCase(true)]
+    [TestCase(false)]
+    public void ResolveComparableKey_UnavailableSymlinkTarget_UsesTheLinkPath(bool targetMoved)
     {
         string dir = TestContext.CurrentContext.WorkDirectory;
         string target = Path.Combine(dir, Guid.NewGuid() + ".mov");
@@ -194,10 +170,12 @@ public class ProxyFingerprintTests
             Assert.Ignore("Symbolic links are not supported in this environment.");
         }
 
-        string targetKey = ProxyFingerprint.FromFile(link).AbsolutePath;
-        File.Move(target, Path.Combine(dir, Guid.NewGuid() + ".moved"));
+        if (targetMoved)
+            File.Move(target, Path.Combine(dir, Guid.NewGuid() + ".moved"));
+        else
+            File.WriteAllBytes(target, []);
 
-        Assert.That(ProxyFingerprint.ResolveComparableKey(link), Is.EqualTo(targetKey));
+        Assert.That(ProxyFingerprint.ResolveComparableKey(link), Is.EqualTo(ProxyFingerprint.NormalizeAbsolutePath(link)));
     }
 
     [Test]
@@ -223,6 +201,7 @@ public class ProxyFingerprintTests
         Assert.Multiple(() =>
         {
             Assert.That(key.AbsolutePath, Is.EqualTo(ProxyFingerprint.ResolveComparableKey(missing)));
+            Assert.That(key.SourcePath, Is.EqualTo(key.AbsolutePath));
             Assert.That(key.FileSizeBytes, Is.EqualTo(0));
             Assert.That(key, Is.Not.EqualTo(new ProxyFingerprint(missing, 4096, DateTime.UtcNow)));
         });

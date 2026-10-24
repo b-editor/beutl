@@ -84,7 +84,7 @@ internal sealed class FilterEffectResourceState
         return false;
     }
 
-    public void RollbackTo(int count, Exception? primaryFailure = null)
+    public void RollbackTo(int count)
     {
         int resourceCount = Count;
         if (count < 0 || count > resourceCount)
@@ -95,22 +95,14 @@ internal sealed class FilterEffectResourceState
         List<RenderResource> resources = _resources!;
         RenderResource[] removed = resources.Skip(count).ToArray();
         resources.RemoveRange(count, resourceCount - count);
-        Rollback(removed, primaryFailure);
+        Rollback(removed);
     }
 
-    private void Rollback(RenderResource[] removed, Exception? primaryFailure)
+    private void Rollback(RenderResource[] removed)
     {
         if (_renderContext is not null)
         {
-            if (primaryFailure is null)
-                _renderContext.RollbackResources(removed);
-            else
-            {
-                Exception? cleanupFailure =
-                    _renderContext.RollbackResourcesAndCapture(removed, primaryFailure);
-                if (cleanupFailure is not null)
-                    throw cleanupFailure;
-            }
+            _renderContext.RollbackResources(removed);
 
             return;
         }

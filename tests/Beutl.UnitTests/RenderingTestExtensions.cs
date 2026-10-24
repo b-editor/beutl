@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Reflection;
+﻿using System.Reflection;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
@@ -11,9 +10,6 @@ namespace Beutl.UnitTests;
 // Test-side conveniences for members the render pipeline itself does not need.
 internal static class RenderingTestExtensions
 {
-    private static readonly FieldInfo s_secondaryFailures = typeof(RenderRequestOwner)
-        .GetField("_secondaryFailures", BindingFlags.Instance | BindingFlags.NonPublic)!;
-
     private static readonly FieldInfo s_bindingState = typeof(NestedRenderTargetBinding)
         .GetField("_state", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
@@ -82,12 +78,6 @@ internal static class RenderingTestExtensions
     extension(RenderOutputCacheIdentity identity)
     {
         public Rect Bounds => (Rect)s_identityBounds.GetValue(identity)!;
-    }
-
-    extension(RenderRequestOwner owner)
-    {
-        public ImmutableArray<Exception> SecondaryFailures
-            => s_secondaryFailures.GetValue(owner) is List<Exception> failures ? [.. failures] : [];
     }
 
     extension(NestedRenderTargetBinding binding)

@@ -226,7 +226,7 @@ internal sealed partial class RenderTargetPool : IDisposable
     internal void RetireCurrentContext()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _contextGeneration = NextGeneration(_contextGeneration);
+        _contextGeneration++;
         _contextIdentity = null;
         _graphicsContext = null;
         _contextHandle = 0;
@@ -410,20 +410,9 @@ internal sealed partial class RenderTargetPool : IDisposable
             long byteSize = GetByteSize(deviceSize);
             long nextOwnedBytes = checked(_ownedBytes + byteSize);
             var slot = new TargetSlot(target, surface, deviceSize, byteSize);
-            try
-            {
-                _ownedSlots.Add(slot);
-                _knownTargets.Add(target);
-                _knownSurfaces.Add(surface);
-            }
-            catch
-            {
-                _knownSurfaces.Remove(surface);
-                _knownTargets.Remove(target);
-                _ownedSlots.Remove(slot);
-                throw;
-            }
-
+            _ownedSlots.Add(slot);
+            _knownTargets.Add(target);
+            _knownSurfaces.Add(surface);
             _ownedBytes = nextOwnedBytes;
             _creates++;
             accepted = true;
@@ -446,7 +435,7 @@ internal sealed partial class RenderTargetPool : IDisposable
     internal void Release(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
-        VerifyReleasableLease(lease);
+        VerifyLease(lease);
         ReleaseCore(lease);
     }
 
@@ -513,14 +502,6 @@ internal sealed partial class RenderTargetPool : IDisposable
             _activeSession = null;
     }
 
-    internal void EvictAfterReleaseFailure(RenderTargetLease lease)
-    {
-        ArgumentNullException.ThrowIfNull(lease);
-        VerifyPoolOwnership(lease);
-
-        Evict(lease.Slot, lease.Session, failures: null, failedLease: lease);
-    }
-
     private RenderTargetLeaseSession BeginSessionCore(
         RenderIntent intent,
         object contextIdentity,
@@ -543,7 +524,7 @@ internal sealed partial class RenderTargetPool : IDisposable
             _graphicsContext = externalTarget?.RawValue.Context ?? contextIdentity as GRRecordingContext;
             _contextHandle = expectedContextHandle ?? 0;
             _hasContext = expectedContextHandle.HasValue;
-            _contextGeneration = NextGeneration(_contextGeneration);
+            _contextGeneration++;
         }
         else if (expectedContextHandle.HasValue && _contextHandle != expectedContextHandle.Value)
         {
@@ -551,7 +532,7 @@ internal sealed partial class RenderTargetPool : IDisposable
             _graphicsContext = externalTarget?.RawValue.Context ?? contextIdentity as GRRecordingContext;
             _contextHandle = expectedContextHandle.Value;
             _hasContext = true;
-            _contextGeneration = NextGeneration(_contextGeneration);
+            _contextGeneration++;
         }
         else if (externalTarget?.RawValue.Context is { } graphicsContext)
         {
@@ -572,27 +553,16 @@ internal sealed partial class RenderTargetPool : IDisposable
         return session;
     }
 
-    private static long NextGeneration(long current)
-        => current == long.MaxValue ? 1 : current + 1;
-
     private RenderTargetLease Lease(
         RenderTargetLeaseSession request,
         TargetSlot slot)
     {
-        try
-        {
-            var lease = new RenderTargetLease(request, slot);
-            slot.ActiveLease = lease;
-            _leasedTargets++;
-            _peakLiveTargets = Math.Max(_peakLiveTargets, _leasedTargets);
-            request.Register(lease);
-            return lease;
-        }
-        catch
-        {
-            Evict(slot, request, failures: null);
-            throw;
-        }
+        var lease = new RenderTargetLease(request, slot);
+        slot.ActiveLease = lease;
+        _leasedTargets++;
+        _peakLiveTargets = Math.Max(_peakLiveTargets, _leasedTargets);
+        request.Register(lease);
+        return lease;
     }
 
     /// <summary>

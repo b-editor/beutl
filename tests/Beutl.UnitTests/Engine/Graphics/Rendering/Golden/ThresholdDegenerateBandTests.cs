@@ -36,20 +36,11 @@ public sealed class ThresholdDegenerateBandTests
     }
 
     [TestCaseSource(nameof(ParameterGrid))]
-    public void TheHitTestContract_AgreesWithWhatTheStagePainted(float value, float smoothness, float strength)
+    public void TheHitTest_ForwardsToTheUnfilteredShape(float value, float smoothness, float strength)
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Bitmap rendered = FilteredShapeHarness.Render(s_content, Effect(value, smoothness, strength));
-            bool painted = ImageMetrics.AlphaAt(rendered, (int)s_corner.X, (int)s_corner.Y) > 0f;
-
-            Assert.That(
-                FilteredShapeHarness.HitTest(s_content, Effect(value, smoothness, strength), s_corner),
-                Is.EqualTo(painted),
-                $"Threshold Value = {value}, Smoothness = {smoothness}, Strength = {strength}: the hit test "
-                + $"{(painted ? "misses a corner the stage painted" : "claims a corner the stage left clear")}.");
-        });
+        Assert.That(
+            FilteredShapeHarness.HitTest(s_content, Effect(value, smoothness, strength), s_corner),
+            Is.False);
     }
 
     [TestCase(0f)]

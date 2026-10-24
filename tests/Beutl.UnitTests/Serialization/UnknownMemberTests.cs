@@ -2,6 +2,7 @@
 using Beutl.Animation;
 using Beutl.Engine;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -197,21 +198,19 @@ public class UnknownMemberTests
     }
 
     // A type lists the keys it drops, for data it has replaced or no longer needs; a derived type drops them too.
-    [Test]
-    public void DroppedMembers_AreNotKept_ByTheTypeOrTypesDerivedFromIt()
+    [TestCase(typeof(DerivedDroppingObject), "Retired")]
+    [TestCase(typeof(BlendEffect), "Color")]
+    public void DroppedMembers_AreNotKept_ByTheTypeOrTypesDerivedFromIt(Type type, string key)
     {
-        JsonObject json = CoreSerializer.SerializeToJsonObject(new DerivedDroppingObject());
-        json["Retired"] = 1;
+        JsonObject json = CoreSerializer.SerializeToJsonObject((CoreObject)Activator.CreateInstance(type)!);
+        json[key] = "#FFFF0000";
         json["Future"] = 2;
 
-        var restored = (DerivedDroppingObject)CoreSerializer.DeserializeFromJsonObject(json, typeof(DerivedDroppingObject));
+        var restored = (CoreObject)CoreSerializer.DeserializeFromJsonObject(json, type);
         JsonObject written = CoreSerializer.SerializeToJsonObject(restored);
 
-        Assert.Multiple(() =>
-        {
-            Assert.That(written.ContainsKey("Retired"), Is.False);
-            Assert.That(written["Future"]!.GetValue<int>(), Is.EqualTo(2));
-        });
+        json.Remove(key);
+        Assert.That(JsonNode.DeepEquals(written, json), Is.True, written.ToJsonString());
     }
 
     // Discriminators and other keys that start with '$', the legacy "@type", the Uri of an embedded reference and the

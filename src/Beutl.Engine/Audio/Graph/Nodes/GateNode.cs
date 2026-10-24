@@ -127,11 +127,11 @@ public sealed class GateNode : DynamicsNode
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(Threshold.Value, Threshold.DefaultValue, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Attack = Sanitize(Attack.Value, Attack.DefaultValue, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Hold = Sanitize(Hold.Value, Hold.DefaultValue, DefaultHoldMs, MinHoldMs, MaxHoldMs, nameof(Hold)),
-            Release = Sanitize(Release.Value, Release.DefaultValue, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Range = Sanitize(Range.Value, Range.DefaultValue, DefaultRangeDb, MinRangeDb, MaxRangeDb, nameof(Range)),
+            Threshold = Sanitize(Threshold.Value, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Attack = Sanitize(Attack.Value, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Hold = Sanitize(Hold.Value, DefaultHoldMs, MinHoldMs, MaxHoldMs, nameof(Hold)),
+            Release = Sanitize(Release.Value, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Range = Sanitize(Range.Value, DefaultRangeDb, MinRangeDb, MaxRangeDb, nameof(Range)),
         };
     }
 
@@ -141,11 +141,11 @@ public sealed class GateNode : DynamicsNode
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(threshold, fallback.Threshold, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Attack = Sanitize(attack, fallback.Attack, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Hold = Sanitize(hold, fallback.Hold, DefaultHoldMs, MinHoldMs, MaxHoldMs, nameof(Hold)),
-            Release = Sanitize(release, fallback.Release, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Range = Sanitize(range, fallback.Range, DefaultRangeDb, MinRangeDb, MaxRangeDb, nameof(Range)),
+            Threshold = Sanitize(threshold, fallback.Threshold, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Attack = Sanitize(attack, fallback.Attack, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Hold = Sanitize(hold, fallback.Hold, MinHoldMs, MaxHoldMs, nameof(Hold)),
+            Release = Sanitize(release, fallback.Release, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Range = Sanitize(range, fallback.Range, MinRangeDb, MaxRangeDb, nameof(Range)),
         };
     }
 

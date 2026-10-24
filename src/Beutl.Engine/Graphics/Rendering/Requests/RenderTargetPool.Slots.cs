@@ -79,8 +79,7 @@ internal sealed partial class RenderTargetPool
     private void Evict(
         TargetSlot slot,
         RenderTargetLeaseSession? request,
-        List<Exception>? failures,
-        RenderTargetLease? failedLease = null)
+        List<Exception>? failures)
     {
         if (!_ownedSlots.Contains(slot))
             return;
@@ -88,20 +87,8 @@ internal sealed partial class RenderTargetPool
         RenderTargetLease? liveLease = slot.ActiveLease;
         if (liveLease is not null)
         {
-            if (failedLease is not null && !ReferenceEquals(liveLease, failedLease))
-                throw new InvalidOperationException("A stale lease cannot evict another active lease.");
             liveLease.State = RenderTargetLeaseState.Evicted;
             slot.ActiveLease = null;
-            _leasedTargets--;
-        }
-        else if (failedLease is
-        {
-            State: RenderTargetLeaseState.Leased
-                         or RenderTargetLeaseState.ReleaseFailed
-                         or RenderTargetLeaseState.Deferred,
-        })
-        {
-            failedLease.State = RenderTargetLeaseState.Evicted;
             _leasedTargets--;
         }
         RemoveOwnedSlot(slot);

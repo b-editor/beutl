@@ -39,8 +39,10 @@ public class Slice1SkiaFilterTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap a = GoldenImageHarness.RenderAtScale(MakeBlurredEllipse(), Frame, 1f);
-            using Bitmap b = GoldenImageHarness.RenderAtScale(MakeBlurredEllipse(), Frame, 1f);
+            using Drawable.Resource aResource = MakeBlurredEllipse();
+            using Bitmap a = GoldenImageHarness.RenderAtScale(aResource, Frame, 1f);
+            using Drawable.Resource bResource = MakeBlurredEllipse();
+            using Bitmap b = GoldenImageHarness.RenderAtScale(bResource, Frame, 1f);
             GoldenImageHarness.AssertByteIdentical(a, b);
         });
     }
@@ -51,8 +53,10 @@ public class Slice1SkiaFilterTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap full = GoldenImageHarness.RenderAtScale(MakeBlurredEllipse(), Frame, 1f);
-            using Bitmap half = GoldenImageHarness.RenderAtScale(MakeBlurredEllipse(), Frame, 0.5f);
+            using Drawable.Resource fullResource = MakeBlurredEllipse();
+            using Bitmap full = GoldenImageHarness.RenderAtScale(fullResource, Frame, 1f);
+            using Drawable.Resource halfResource = MakeBlurredEllipse();
+            using Bitmap half = GoldenImageHarness.RenderAtScale(halfResource, Frame, 0.5f);
             GoldenImageHarness.AssertReducedScaleExact(full, half);
         });
     }

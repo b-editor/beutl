@@ -49,9 +49,7 @@ public sealed class ProxyResolver : IProxyResolver
 
         if (!ProxyFingerprint.TryFromFile(sourceUri.LocalPath, out ProxyFingerprint fingerprint))
         {
-            // The original was moved/deleted, so it cannot be fingerprinted. A Ready proxy for this
-            // path is still a valid preview stand-in, so resolve by path alone rather than rejecting.
-            // ResolveComparableKey folds/link-resolves the path the same way entries key their source.
+            // Offline originals can use a Ready proxy indexed by the same normalized path.
             return ResolveByPath(ProxyFingerprint.ResolveComparableKey(sourceUri.LocalPath), preferredPreset);
         }
 

@@ -21,14 +21,10 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly Dictionary<(ProxyFingerprint Source, ProxyPreset Preset), WorkItem> _itemsByKey = [];
     private readonly List<WorkItem> _items = [];
-    private readonly HashSet<Task> _admissionRetryTasks = [];
     private readonly Lock _lock = new();
-    private readonly Dictionary<Guid, Queue<(ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers)>> _admissionNotifications = [];
     private readonly Task _drainTask;
     private readonly TimeSpan _minUnavailableBackoff;
     private readonly TimeSpan _maxUnavailableBackoff;
-    private readonly IProxyGenerationAdmission? _admission;
-    private readonly Func<TimeSpan, CancellationToken, Task> _delayAsync;
     private TaskCompletionSource? _resumeAfterGeneratorUnavailable;
     private int _consecutiveUnavailable;
     private bool _disposed;
@@ -43,37 +39,16 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     {
     }
 
-    /// <summary>
-    /// Constructs a queue whose generator runs only while <paramref name="admission"/> grants a
-    /// lease.
-    /// </summary>
-    public ProxyJobQueue(
-        IProxyGenerator generator,
-        IProxyStore? store,
-        IProxyGenerationAdmission admission)
-        : this(
-            EagerProvider(generator),
-            store,
-            s_defaultMinUnavailableBackoff,
-            s_defaultMaxUnavailableBackoff,
-            admission ?? throw new ArgumentNullException(nameof(admission)))
-    {
-    }
-
     internal ProxyJobQueue(
         IProxyGenerator generator,
         IProxyStore? store,
         TimeSpan minUnavailableBackoff,
-        TimeSpan maxUnavailableBackoff,
-        IProxyGenerationAdmission? admission = null,
-        Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
+        TimeSpan maxUnavailableBackoff)
         : this(
             EagerProvider(generator),
             store,
             minUnavailableBackoff,
-            maxUnavailableBackoff,
-            admission,
-            delayAsync)
+            maxUnavailableBackoff)
     {
     }
 
@@ -86,39 +61,13 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     {
     }
 
-    /// <summary>
-    /// Constructs a lazy-generator queue whose generator runs only while
-    /// <paramref name="admission"/> grants a lease.
-    /// </summary>
-    public ProxyJobQueue(
-        Func<IProxyGenerator?> generatorProvider,
-        IProxyStore? store,
-        IProxyGenerationAdmission admission)
-        : this(
-            generatorProvider,
-            store,
-            s_defaultMinUnavailableBackoff,
-            s_defaultMaxUnavailableBackoff,
-            admission ?? throw new ArgumentNullException(nameof(admission)))
-    {
-    }
-
     internal ProxyJobQueue(
         Func<IProxyGenerator?> generatorProvider,
         IProxyStore? store,
         TimeSpan minUnavailableBackoff,
-        TimeSpan maxUnavailableBackoff,
-        IProxyGenerationAdmission? admission = null,
-        Func<TimeSpan, CancellationToken, Task>? delayAsync = null)
+        TimeSpan maxUnavailableBackoff)
     {
         ArgumentNullException.ThrowIfNull(generatorProvider);
-        if (admission is null && delayAsync is not null)
-        {
-            throw new ArgumentException(
-                "A custom admission delay requires an admission policy.",
-                nameof(delayAsync));
-        }
-
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(minUnavailableBackoff, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThan(maxUnavailableBackoff, minUnavailableBackoff);
 
@@ -126,12 +75,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         _store = store;
         _minUnavailableBackoff = minUnavailableBackoff;
         _maxUnavailableBackoff = maxUnavailableBackoff;
-        _admission = admission;
-        if (_admission is not null)
-        {
-            _admission.AvailabilityChanged += OnAdmissionAvailabilityChanged;
-        }
-        _delayAsync = delayAsync ?? (static (delay, token) => Task.Delay(delay, token));
         // Unbounded: each queued item needs exactly one wake permit, and the drain (single reader,
         // MaxConcurrency 1) consumes one per dispatch. Items already live in _items — deduplicated by
         // (source, preset) — so the channel is a pure wake signal, not the memory bound. A bounded
@@ -229,7 +172,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         WorkItem? newItem = null;
         ProxyJob? existingJob = null;
         bool promoted = false;
-        WorkItem? promotedItem = null;
         lock (_lock)
         {
             if (_itemsByKey.TryGetValue(key, out WorkItem? existing))
@@ -241,7 +183,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
                     {
                         existingJob.Priority = priority;
                         promoted = true;
-                        promotedItem = existing;
                     }
                 }
                 else
@@ -280,8 +221,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         {
             if (promoted)
             {
-                if (promotedItem!.TryGetAdmissionWait(out long generation, out _))
-                    promotedItem.SignalAdmissionAvailability(generation);
                 OnJobChanged(existingJob, ProxyJobChangeKind.Enqueued);
             }
             return new ValueTask<ProxyJob>(existingJob);
@@ -373,11 +312,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
             return;
 
         _disposed = true;
-        if (_admission is not null)
-        {
-            _admission.AvailabilityChanged -= OnAdmissionAvailabilityChanged;
-        }
-
         CancelAll();
         _channel.Writer.TryComplete();
         _disposeCts.Cancel();
@@ -389,14 +323,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         catch (OperationCanceledException)
         {
         }
-
-        Task[] admissionRetries;
-        lock (_lock)
-        {
-            admissionRetries = [.. _admissionRetryTasks];
-        }
-
-        await Task.WhenAll(admissionRetries).ConfigureAwait(false);
 
         // Unsubscribe only after the drain loop has ended. DrainAsync is the sole place that resolves a
         // generator and subscribes (under _lock), so reading _generatorAvailability before awaiting it
@@ -457,9 +383,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     }
 
     // Drives one channel permit to a terminal state, then loops while a dispatchable item remains.
-    // Generator unavailability parks the serial drain under its bounded wait. Admission rejection
-    // instead defers only that item and schedules a future permit, allowing an admissible peer to
-    // run immediately.
+    // Generator unavailability parks the serial drain under its bounded wait.
     private async Task ProcessOneAsync()
     {
         while (true)
@@ -475,7 +399,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
             }
 
             bool requeued = false;
-            bool admissionRejected = false;
             try
             {
                 // ResolveGenerator runs inside the guarded region: the provider is plugin-supplied
@@ -487,46 +410,23 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
                 }
                 else
                 {
-                    IDisposable? admissionLease = _admission?.TryAcquireLease(item.Job);
-                    if (_admission is not null && admissionLease is null)
+                    item.Job.StatusMessage = null;
+                    bool generated = await GenerateAsync(generator, item).ConfigureAwait(false);
+                    if (generated && item.TryCompleteSuccess())
                     {
-                        item.Job.StatusMessage = "Waiting for proxy generation admission.";
-                        admissionRejected = true;
-                        requeued = RequeueForAdmissionRetry(item);
-                        if (!requeued)
-                            CompleteCanceled(item);
+                        Interlocked.Exchange(ref _consecutiveUnavailable, 0);
+                        OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
                     }
-                    else
+                    else if (generated)
                     {
-                        item.ResetAdmissionRejections();
-                        item.Job.StatusMessage = null;
-                        bool generated = await GenerateWithAdmissionLeaseAsync(
-                                generator,
-                                item,
-                                admissionLease)
-                            .ConfigureAwait(false);
-                        if (generated && item.TryCompleteSuccess())
-                        {
-                            Interlocked.Exchange(ref _consecutiveUnavailable, 0);
-                            OnJobChanged(item.Job, ProxyJobChangeKind.Succeeded);
-                        }
-                        else if (generated)
-                        {
-                            CompleteCanceled(item);
-                        }
+                        CompleteCanceled(item);
                     }
                 }
             }
-            catch (AdmissionLeaseReleaseException ex)
-            {
-                FailJob(item, ex.Failure, cancellationWins: false);
-            }
             catch (Exception) when (item.Token.IsCancellationRequested)
             {
-                // Cancellation owns terminal classification once requested, even when an
-                // admission policy or generator concurrently reports another error. Lease-release
-                // failures are handled above because failed cleanup cannot be reported as safe
-                // cancellation.
+                // Cancellation owns terminal classification once requested, even when the
+                // generator concurrently reports another error.
                 await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
                 CompleteCanceled(item);
             }
@@ -548,14 +448,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
                 Remove(item);
                 item.Dispose();
                 return;
-            }
-
-            if (admissionRejected)
-            {
-                // This item is deferred until its own bounded retry task republishes a permit.
-                // Continue immediately so another dispatchable job can run instead of sitting
-                // behind a job-aware policy that keeps rejecting this one.
-                continue;
             }
 
             await WaitForGeneratorResumeOrDisposeAsync(item.Token).ConfigureAwait(false);
@@ -612,10 +504,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         return requeued;
     }
 
-    private async Task<bool> GenerateWithAdmissionLeaseAsync(
-        IProxyGenerator generator,
-        WorkItem item,
-        IDisposable? admissionLease)
+    private async Task<bool> GenerateAsync(IProxyGenerator generator, WorkItem item)
     {
         ExceptionDispatchInfo? generationFailure = null;
         try
@@ -637,25 +526,9 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         if (generationFailure is not null
             && IsReportableGenerationFailure(generationFailure.SourceException, item.Token))
         {
-            await PublishGenerationFailureAsync(item, generationFailure.SourceException, admissionLease)
+            await PublishGenerationFailureAsync(item, generationFailure.SourceException)
                 .ConfigureAwait(false);
             return false;
-        }
-
-        Exception? releaseFailure = ReleaseAdmissionLease(admissionLease);
-
-        if (generationFailure is not null && releaseFailure is not null)
-        {
-            throw new AdmissionLeaseReleaseException(
-                new AggregateException(
-                    "Proxy generation and admission-lease release both failed.",
-                    generationFailure.SourceException,
-                    releaseFailure));
-        }
-
-        if (releaseFailure is not null)
-        {
-            throw new AdmissionLeaseReleaseException(releaseFailure);
         }
 
         if (generationFailure is not null && item.Token.IsCancellationRequested)
@@ -676,24 +549,22 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     }
 
     // Skips, unavailability and the item's own cancellation are rethrown for ProcessOneAsync to classify;
-    // any other generation failure is recorded in the store before the admission lease is released.
+    // any other generation failure is recorded in the store before terminal publication.
     private static bool IsReportableGenerationFailure(Exception failure, CancellationToken token)
     {
         return failure is not (ProxyGenerationSkippedException or ProxyGeneratorUnavailableException)
             && (failure is not OperationCanceledException || !token.IsCancellationRequested);
     }
 
-    private async Task PublishGenerationFailureAsync(WorkItem item, Exception failure, IDisposable? admissionLease)
+    private async Task PublishGenerationFailureAsync(WorkItem item, Exception failure)
     {
         item.Job.Error = failure;
-        // Store bookkeeping is part of terminal cleanup and remains inside admission.
         FailureRegistration failureRegistration = RegisterFailure(
             item.Job,
             failure.Message);
 
         Exception? rollbackFailure = null;
         var rollbackSync = new object();
-        Exception? terminalReleaseFailure;
         bool failureCanPublish;
         using (item.Token.Register(() =>
                {
@@ -714,9 +585,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
                    }
                }))
         {
-            terminalReleaseFailure = ReleaseAdmissionLease(admissionLease);
-            failureCanPublish = terminalReleaseFailure is not null
-                                || item.TryCloseCancellationWindow();
+            failureCanPublish = item.TryCloseCancellationWindow();
             if (!failureCanPublish)
             {
                 await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
@@ -729,20 +598,8 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
             synchronizedRollbackFailure = rollbackFailure;
         }
 
-        if (terminalReleaseFailure is not null)
-        {
-            item.TryClaimNonCancellationTerminal(cancellationWins: false);
-            item.Job.Error = new AggregateException(
-                "Proxy generation and admission-lease release both failed.",
-                failure,
-                terminalReleaseFailure);
-            if (item.Token.IsCancellationRequested && failureRegistration.Changed)
-            {
-                RegisterFailure(item.Job, item.Job.Error.Message);
-            }
-        }
-        else if (!failureCanPublish
-                 || !item.TryClaimNonCancellationTerminal(cancellationWins: false))
+        if (!failureCanPublish
+            || !item.TryClaimNonCancellationTerminal(cancellationWins: false))
         {
             if (synchronizedRollbackFailure is null)
             {
@@ -759,8 +616,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
                 synchronizedRollbackFailure);
         }
 
-        // Publish only after admission is released; observers can now safely start conflicting
-        // work and still see the already-recorded Failed store entry.
+        // Observers of terminal failure can already read the Failed store entry.
         item.Job.Status = ProxyJobStatus.Failed;
         OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
     }
@@ -812,8 +668,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         return ExponentialBackoff(attempt, _minUnavailableBackoff, _maxUnavailableBackoff);
     }
 
-    // Shared by the generator-unavailable wait and the per-item admission retry so both back off on the
-    // same curve; the exponent cap keeps the factor finite over a long streak.
+    // The exponent cap keeps the factor finite over a long streak.
     private static TimeSpan ExponentialBackoff(int attempt, TimeSpan minimum, TimeSpan maximum)
     {
         double factor = Math.Pow(2, Math.Min(attempt - 1, 16));
@@ -830,7 +685,6 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
             {
                 if (!candidate.Published
                     || candidate.Job.Status != ProxyJobStatus.Queued
-                    || candidate.IsAdmissionDeferred
                     || candidate.Cancellation.IsCancellationRequested)
                 {
                     continue;
@@ -910,48 +764,10 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         }
     }
 
-    private bool OnJobChanged(ProxyJob job, ProxyJobChangeKind kind)
+    private void OnJobChanged(ProxyJob job, ProxyJobChangeKind kind)
     {
-        if (kind is ProxyJobChangeKind.WaitingForAdmission or ProxyJobChangeKind.Canceled)
-        {
-            Queue<(ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers)> notifications;
-            lock (_lock)
-            {
-                // The same gate orders cancellation's terminal transition and the wait
-                // notification reservation. Callbacks themselves never run under it.
-                if (kind == ProxyJobChangeKind.WaitingForAdmission && IsTerminal(job.Status))
-                    return false;
-                if (JobChanged is not { } handlers)
-                    return true;
-                var notification = (new ProxyJobChangedEventArgs { Job = job, Kind = kind }, handlers);
-                if (_admissionNotifications.TryGetValue(job.JobId, out notifications!))
-                {
-                    notifications.Enqueue(notification);
-                    return true;
-                }
-                // An unrelated job's canceled callback must not defer this wait notification
-                // beyond the serial drain's next attempt to start or complete this job.
-                notifications = new();
-                notifications.Enqueue(notification);
-                _admissionNotifications.Add(job.JobId, notifications);
-            }
-            while (true)
-            {
-                (ProxyJobChangedEventArgs Args, EventHandler<ProxyJobChangedEventArgs> Handlers) notification;
-                lock (_lock)
-                {
-                    if (!notifications.TryDequeue(out notification))
-                    {
-                        _admissionNotifications.Remove(job.JobId);
-                        return true;
-                    }
-                }
-                NotifyJobChanged(notification.Args, notification.Handlers);
-            }
-        }
-        if (JobChanged is { } directHandlers)
-            NotifyJobChanged(new ProxyJobChangedEventArgs { Job = job, Kind = kind }, directHandlers);
-        return true;
+        if (JobChanged is { } handlers)
+            NotifyJobChanged(new ProxyJobChangedEventArgs { Job = job, Kind = kind }, handlers);
     }
 
     private void NotifyJobChanged(ProxyJobChangedEventArgs args, EventHandler<ProxyJobChangedEventArgs> handlers)

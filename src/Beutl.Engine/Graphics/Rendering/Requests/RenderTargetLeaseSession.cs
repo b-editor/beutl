@@ -124,37 +124,13 @@ internal sealed class RenderTargetLeaseSession : IDisposable
             return;
 
         IsDisposed = true;
-        List<Exception>? releaseFailures = null;
         try
         {
             for (int index = (_leases?.Count ?? 0) - 1; index >= 0; index--)
             {
                 RenderTargetLease lease = _leases![index];
-                if (lease.State is not (RenderTargetLeaseState.Leased or RenderTargetLeaseState.ReleaseFailed))
-                    continue;
-
-                try
-                {
+                if (lease.State == RenderTargetLeaseState.Leased)
                     _pool.Release(lease);
-                }
-                catch (Exception ex)
-                {
-                    Exception releaseFailure = lease.ReleaseFailure ?? ex;
-                    if (lease.ReleaseFailure is null)
-                    {
-                        lease.ReleaseFailure = releaseFailure;
-                        RecordCleanupFailure(releaseFailure);
-                    }
-                    Requests.CleanupFailures.Append(releaseFailures ??= [], releaseFailure);
-                    try
-                    {
-                        _pool.EvictAfterReleaseFailure(lease);
-                    }
-                    catch (Exception cleanup)
-                    {
-                        Requests.CleanupFailures.Append(releaseFailures ??= [], cleanup);
-                    }
-                }
             }
         }
         finally
@@ -164,10 +140,6 @@ internal sealed class RenderTargetLeaseSession : IDisposable
             ExternalSurface = null;
             _pool.EndSession(this);
         }
-
-        Requests.CleanupFailures.ThrowIfAny(
-            releaseFailures,
-            "One or more render-target leases failed to discharge.");
     }
 
     public void ThrowIfCleanupFailed()
@@ -191,16 +163,7 @@ internal sealed class RenderTargetLeaseSession : IDisposable
         if (lease.State != RenderTargetLeaseState.Leased)
             return;
 
-        try
-        {
-            _pool.Release(lease);
-        }
-        catch (Exception ex)
-        {
-            lease.State = RenderTargetLeaseState.ReleaseFailed;
-            lease.ReleaseFailure = ex;
-            RecordCleanupFailure(ex);
-        }
+        _pool.Release(lease);
     }
 
     internal void ReleaseForBackendReuse(RenderTargetLease lease)

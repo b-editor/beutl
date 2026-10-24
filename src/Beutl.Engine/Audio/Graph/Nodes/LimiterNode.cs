@@ -47,7 +47,6 @@ public sealed class LimiterNode : AudioNode
     private bool _warnedNonFiniteLookahead;
     private bool _warnedNonFiniteMakeup;
     private bool _warnedNonFiniteInputSample;
-    private bool _warnedEmptyChunk;
 
     // Test-only counter (via InternalsVisibleTo) of output buffers disposed after Process fails.
     internal int OutputBuffersDisposedAfterFailure;
@@ -79,16 +78,8 @@ public sealed class LimiterNode : AudioNode
 
         if (input.SampleCount == 0)
         {
-            // Log once. Do not advance _lastTimeRangeEnd: the next non-empty chunk must be checked
+            // Do not advance _lastTimeRangeEnd: the next non-empty chunk must be checked
             // against the previous non-empty chunk's end, or a discontinuity would be missed.
-            if (!_warnedEmptyChunk)
-            {
-                s_logger.LogDebug(
-                    "LimiterNode: received empty input chunk at {Range}; passing through.",
-                    context.TimeRange);
-                _warnedEmptyChunk = true;
-            }
-
             return new AudioBuffer(input.SampleRate, input.ChannelCount, 0);
         }
 
@@ -176,27 +167,12 @@ public sealed class LimiterNode : AudioNode
         int max = MaxLookaheadSampleCapacity(sampleRate);
 
         var lines = new CircularBuffer<float>[channelCount];
-        try
+        for (int i = 0; i < lines.Length; i++)
         {
-            for (int i = 0; i < lines.Length; i++)
-            {
-                lines[i] = new CircularBuffer<float>(max);
-            }
-
-            _peakBuffer = new CircularBuffer<float>(max);
-        }
-        catch
-        {
-            foreach (var l in lines)
-            {
-                l?.Dispose();
-            }
-
-            _peakBuffer?.Dispose();
-            _peakBuffer = null;
-            throw;
+            lines[i] = new CircularBuffer<float>(max);
         }
 
+        _peakBuffer = new CircularBuffer<float>(max);
         _delayLines = lines;
 
         // The deque capacity needs max + 2 entries: a push transiently holds (window + 1) entries
@@ -220,7 +196,6 @@ public sealed class LimiterNode : AudioNode
         _warnedNonFiniteLookahead = false;
         _warnedNonFiniteMakeup = false;
         _warnedNonFiniteInputSample = false;
-        _warnedEmptyChunk = false;
 
         s_logger.LogDebug(
             "LimiterNode: initialized buffers (sampleRate={SampleRate}, channels={Channels}, maxLookaheadSamples={MaxLookahead}).",
