@@ -626,10 +626,9 @@ public sealed class RenderNodeRenderer : IDisposable
                     allowPersistentLookup ? RenderNodeCacheLookup.Instance : null)
                 .Compile(request, graph, shaderBudget);
         }
-        catch (Exception ex)
+        catch
         {
             request.Dispose();
-            request.Options.Owner.ReportMaskedFailures(ex);
             throw;
         }
     }
