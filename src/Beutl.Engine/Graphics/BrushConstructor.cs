@@ -338,6 +338,10 @@ public readonly struct BrushConstructor(
                 ? SKMatrix.CreateTranslation(-calc.DestinationRect.X, -calc.DestinationRect.Y)
                 : SKMatrix.CreateIdentity();
 
+            // The intermediate is zero-origin; place it in the painted geometry's local bounds
+            // before applying a brush transform about those bounds.
+            tileTransform = tileTransform.PostConcat(SKMatrix.CreateTranslation(Bounds.X, Bounds.Y));
+
             SKShaderTileMode tileX = ToShaderTileMode(tileBrush.TileMode, TileMode.FlipX);
             SKShaderTileMode tileY = ToShaderTileMode(tileBrush.TileMode, TileMode.FlipY);
 
@@ -345,7 +349,7 @@ public readonly struct BrushConstructor(
             {
                 Matrix transform = CreateBrushTransform(tileBrush.TransformOrigin, tileBrush.Transform);
 
-                tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
+                tileTransform = tileTransform.PostConcat(transform.ToSKMatrix());
             }
 
             // Compensate the dense intermediate: Scale(1/s) un-densifies texture coords to logical.
