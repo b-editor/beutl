@@ -18,6 +18,9 @@ internal static class RenderMaterializationDensityPolicy
             return Clamp(fragment.Inputs[0], density);
         }
 
+        if (fragment.Payload is ShaderGraphRenderFragmentPayload graph)
+            density = graph.Description.ClampWorkingScale(fragment.Inputs[0].Bounds, density, default);
+
         Rect logicalBounds = fragment.Kind == RenderFragmentKind.Layer
                              && fragment.Payload is LayerRenderFragmentPayload layer
             ? layer.Domain ?? fragment.Bounds

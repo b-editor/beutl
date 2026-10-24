@@ -85,6 +85,7 @@ internal static class SymbolicMetadataCrossCheck
             case RenderFragmentKind.RawTargetScope:
                 return ((RawTargetScopeRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(RecordedBoundsOf(reference, 0));
+            case RenderFragmentKind.ShaderGraph:
             case RenderFragmentKind.ContributeValues:
             case RenderFragmentKind.Opacity:
             case RenderFragmentKind.Blend:
@@ -169,6 +170,7 @@ internal static class SymbolicMetadataCrossCheck
                     reference.RecordedBounds,
                     options.OutputScale,
                     options.MaxWorkingScale);
+            case RenderFragmentKind.ShaderGraph:
             case RenderFragmentKind.ContributeValues:
             case RenderFragmentKind.Opacity:
             case RenderFragmentKind.Blend:

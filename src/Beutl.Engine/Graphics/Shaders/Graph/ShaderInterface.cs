@@ -1,0 +1,282 @@
+﻿using System.Runtime.InteropServices;
+using Beutl.Graphics.Backend;
+
+namespace Beutl.Graphics.Shaders;
+
+/// <summary>
+/// Reads the interface of compiler-produced SPIR-V. This does not parse or restrict shader expressions.
+/// Unsupported resource shapes are diagnosed before a device pipeline is created.
+/// </summary>
+internal sealed class ShaderInterface
+{
+    private readonly Dictionary<uint, (ushort Op, uint[] Args)> _types = [];
+    private readonly Dictionary<(uint Id, uint Decoration), uint> _decorations = [];
+    private readonly Dictionary<(uint Id, uint Member, uint Decoration), uint> _members = [];
+    private readonly Dictionary<uint, uint> _constants = [];
+    private readonly List<(uint Type, uint Id, uint Storage)> _variables = [];
+    private readonly Dictionary<(uint Location, uint Component), string> _inputs = [];
+    private readonly Dictionary<(uint Location, uint Component), string> _outputs = [];
+
+    internal sealed record Binding(int Slot, DescriptorType Type, int MinimumSize, int ArrayStride, bool ReadOnly);
+
+    public List<Binding> Bindings { get; } = [];
+    public HashSet<int> ColorLocations { get; } = [];
+    public HashSet<uint> Capabilities { get; } = [];
+    public (uint X, uint Y, uint Z) LocalSize { get; private set; } = (1, 1, 1);
+    public int PushConstantSize { get; private set; }
+    public int SharedMemorySize { get; private set; }
+
+    public ShaderInterface(byte[] bytecode, ShaderStage stage)
+    {
+        ReadOnlySpan<uint> words = MemoryMarshal.Cast<byte, uint>(bytecode);
+        if (words.Length < 5 || words[0] != 0x07230203)
+            throw new InvalidOperationException("The compiler returned invalid SPIR-V.");
+        var composites = new Dictionary<uint, uint[]>();
+        for (int offset = 5; offset < words.Length;)
+        {
+            int length = (int)(words[offset] >> 16);
+            ushort op = (ushort)words[offset];
+            if (length <= 0 || length > words.Length - offset)
+                throw new InvalidOperationException("The compiler returned a truncated SPIR-V instruction.");
+            uint[] args = words.Slice(offset + 1, length - 1).ToArray();
+            switch (op)
+            {
+                case 16 when args[1] == 17: // OpExecutionMode LocalSize
+                    LocalSize = (args[2], args[3], args[4]);
+                    break;
+                case 17: // OpCapability
+                    Capabilities.Add(args[0]);
+                    break;
+                case >= 19 and <= 32: // type declarations
+                    _types.Add(args[0], (op, args[1..]));
+                    break;
+                case 43: // OpConstant
+                    _constants.Add(args[1], args[2]);
+                    break;
+                case 44: // OpConstantComposite (including WorkgroupSize)
+                    composites.Add(args[1], args[2..]);
+                    break;
+                case 59: // OpVariable
+                    _variables.Add((args[0], args[1], args[2]));
+                    break;
+                case 71: // OpDecorate
+                    _decorations[(args[0], args[1])] = args.Length > 2 ? args[2] : 0;
+                    break;
+                case 72: // OpMemberDecorate
+                    _members[(args[0], args[1], args[2])] = args.Length > 3 ? args[3] : 0;
+                    break;
+                case 331 when args[1] == 38: // LocalSizeId needs specialization support
+                    throw new NotSupportedException("Specialized compute local sizes are not supported by shader graphs yet.");
+            }
+            offset += length;
+        }
+        foreach ((uint id, uint[] values) in composites)
+        {
+            if (_decorations.GetValueOrDefault((id, 11u), uint.MaxValue) == 25)
+                LocalSize = (_constants[values[0]], _constants[values[1]], _constants[values[2]]);
+        }
+        foreach ((uint pointer, uint id, uint storage) in _variables)
+        {
+            uint type = _types[pointer].Args[1];
+            if (storage == 9) // PushConstant
+            {
+                PushConstantSize = Math.Max(PushConstantSize, SizeOf(type));
+                continue;
+            }
+            if (storage == 4) // Workgroup
+            {
+                SharedMemorySize = checked(SharedMemorySize + SizeOf(type));
+                continue;
+            }
+            if (storage == 1 || storage == 3 && stage == ShaderStage.Vertex)
+            {
+                ReadStageVariables(type, id, storage == 1 ? _inputs : _outputs);
+                continue;
+            }
+            if (storage == 3 && stage == ShaderStage.Fragment
+                && _decorations.TryGetValue((id, 30), out uint location))
+            {
+                if (!IsFloat32(type)
+                    || _decorations.GetValueOrDefault((id, 31u)) != 0
+                    || _decorations.GetValueOrDefault((id, 32u)) != 0)
+                    throw new NotSupportedException($"Color location {location}: a float or float vector output without component packing or dual-source blending is required.");
+                ColorLocations.Add(checked((int)location));
+                continue;
+            }
+            if (storage is not (0 or 2 or 12))
+                continue;
+            if (!_decorations.TryGetValue((id, 33), out uint slot)
+                || _decorations.GetValueOrDefault((id, 34u), uint.MaxValue) != 0)
+                throw new NotSupportedException("Shader graph resources must declare a binding in descriptor set zero.");
+            (ushort op, uint[] args) = _types[type];
+            if (op is 28 or 29)
+                throw new NotSupportedException($"Binding {slot}: descriptor arrays are not supported yet.");
+            DescriptorType descriptor;
+            int size = 0;
+            int stride = 0;
+            bool readOnly = true;
+            if (storage == 0 && op == 27)
+            {
+                uint[] image = _types[args[0]].Args;
+                if (image[1] != 1 || image[3] != 0 || image[4] != 0)
+                    throw new NotSupportedException($"Binding {slot}: a non-arrayed, single-sample 2D image is required.");
+                if (image[2] == 1 || _types[image[0]].Op != 22 || _types[image[0]].Args[0] != 32)
+                    throw new NotSupportedException($"Binding {slot}: current graph image formats require a floating-point sampler2D without depth comparison.");
+                descriptor = DescriptorType.CombinedImageSampler;
+            }
+            else if (storage == 12 || storage == 2 && _decorations.ContainsKey((type, 3)))
+            {
+                descriptor = DescriptorType.StorageBuffer;
+                size = SizeOf(type);
+                readOnly = _decorations.ContainsKey((id, 24)) || _decorations.ContainsKey((type, 24))
+                    || args.Select((_, member) => _members.ContainsKey((type, (uint)member, 24))).All(v => v);
+                // A flat array block can be checked against the declared element stride. Struct/header
+                // layouts still have their minimum byte length checked; their unmanaged layout is explicit.
+                if (args.Length == 1 && _types[args[0]].Op is 28 or 29)
+                    stride = checked((int)_decorations[(args[0], 6)]);
+            }
+            else if (storage == 2 && _decorations.ContainsKey((type, 2)))
+            {
+                descriptor = DescriptorType.UniformBuffer;
+                size = SizeOf(type);
+            }
+            else
+                throw new NotSupportedException($"Binding {slot}: this shader resource type is not supported yet.");
+            Bindings.Add(new(checked((int)slot), descriptor, size, stride, readOnly));
+        }
+    }
+
+    private void ReadStageVariables(uint type, uint id, Dictionary<(uint, uint), string> variables)
+    {
+        if (_decorations.ContainsKey((id, 11))) // BuiltIn
+            return;
+        uint location = _decorations.GetValueOrDefault((id, 30u), uint.MaxValue);
+        uint component = _decorations.GetValueOrDefault((id, 31u));
+        (ushort op, uint[] args) = _types[type];
+        if (op == 30 && _decorations.ContainsKey((type, 2))) // interface block
+        {
+            for (uint member = 0; member < args.Length; member++)
+            {
+                if (_members.ContainsKey((type, member, 11)))
+                    continue;
+                location = _members.GetValueOrDefault((type, member, 30u), location);
+                Add(args[member], location, _members.GetValueOrDefault((type, member, 31u), component));
+                location = checked(location + LocationCount(args[member]));
+            }
+        }
+        else
+            Add(type, location, component);
+
+        void Add(uint valueType, uint valueLocation, uint valueComponent)
+        {
+            if (valueLocation == uint.MaxValue)
+                throw new NotSupportedException("Shader stage inputs and outputs must declare a location or a built-in.");
+            variables.Add((valueLocation, valueComponent), InterfaceType(valueType));
+        }
+    }
+
+    // SPIR-V IDs are local to a module; compare structural types across independently compiled stages.
+    private string InterfaceType(uint type)
+    {
+        (ushort op, uint[] args) = _types[type];
+        return op switch
+        {
+            21 => $"int{args[0]}:{args[1]}",
+            22 => $"float{args[0]}",
+            23 or 24 => $"{op}({InterfaceType(args[0])},{args[1]})",
+            28 => $"array({InterfaceType(args[0])},{_constants[args[1]]})",
+            30 => $"struct({string.Join(",", args.Select(InterfaceType))})",
+            _ => throw new NotSupportedException($"Unsupported shader stage interface type (SPIR-V opcode {op})."),
+        };
+    }
+
+    private uint LocationCount(uint type)
+    {
+        (ushort op, uint[] args) = _types[type];
+        return checked(op switch
+        {
+            21 or 22 => 1u,
+            23 => (_types[args[0]].Args[0] * args[1] + 127) / 128,
+            24 => LocationCount(args[0]) * args[1],
+            28 => LocationCount(args[0]) * _constants[args[1]],
+            30 => args.Aggregate(0u, (count, member) => checked(count + LocationCount(member))),
+            _ => throw new NotSupportedException($"Unsupported shader stage interface type (SPIR-V opcode {op})."),
+        });
+    }
+
+    public void ValidateInputs(ShaderInterface vertex, string passName)
+    {
+        foreach ((var location, string type) in _inputs)
+        {
+            if (!vertex._outputs.TryGetValue(location, out string? outputType) || outputType != type)
+                throw new ArgumentException($"Pass '{passName}': fragment input at location {location.Location}, component {location.Component} does not match a vertex output.");
+        }
+    }
+
+    private bool IsFloat32(uint type)
+    {
+        (ushort op, uint[] args) = _types[type];
+        return op == 22 && args[0] == 32
+            || op == 23 && args[1] <= 4 && _types[args[0]].Op == 22 && _types[args[0]].Args[0] == 32;
+    }
+
+    private int SizeOf(uint type, int matrixStride = 0, bool rowMajor = false)
+    {
+        (ushort op, uint[] args) = _types[type];
+        return checked(op switch
+        {
+            20 => 4,
+            21 or 22 => (int)args[0] / 8,
+            23 => SizeOf(args[0]) * (int)args[1],
+            24 when matrixStride > 0 => matrixStride * (int)(rowMajor ? _types[args[0]].Args[1] : args[1]),
+            24 => SizeOf(args[0]) * (int)args[1],
+            28 => (int)_decorations.GetValueOrDefault((type, 6u), (uint)SizeOf(args[0], matrixStride, rowMajor)) * (int)_constants[args[1]],
+            29 => 0,
+            30 => StructSize(type, args),
+            _ => throw new NotSupportedException($"Unsupported shader buffer member type (SPIR-V opcode {op})."),
+        });
+    }
+
+    private int StructSize(uint type, uint[] members)
+    {
+        int size = 0;
+        for (uint i = 0; i < members.Length; i++)
+        {
+            int offset = checked((int)_members.GetValueOrDefault((type, i, 35u), (uint)size));
+            int memberSize = SizeOf(members[i], checked((int)_members.GetValueOrDefault((type, i, 7u))),
+                _members.ContainsKey((type, i, 4)));
+            size = Math.Max(size, checked(offset + memberSize));
+        }
+        return size;
+    }
+
+    public void Validate(ShaderPassDescription pass, ShaderStage stage)
+    {
+        if (stage == ShaderStage.Vertex && _inputs.Count != 0)
+            throw new NotSupportedException($"Pass '{pass.Name}': vertex attributes are not supported by shader graphs yet; use vertex indices or storage buffers.");
+        if (PushConstantSize > 128 || pass.Constants.Length < PushConstantSize)
+            throw new ArgumentException($"Pass '{pass.Name}' requires {PushConstantSize} push-constant bytes; supplied {pass.Constants.Length}.");
+        foreach (Binding declared in Bindings)
+        {
+            ShaderPassBinding? bound = pass.Bindings.FirstOrDefault(b => b.Binding == declared.Slot);
+            if (bound is null || bound.Type != declared.Type)
+                throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: expected {declared.Type}.");
+            if (bound.Metadata && declared.MinimumSize > 48)
+                throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: image parameters contain three vec4 values.");
+            if (bound.Resource is ShaderBuffer buffer)
+            {
+                if (buffer.ByteLength < declared.MinimumSize || declared.ArrayStride != 0 && buffer.Stride != declared.ArrayStride)
+                    throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: buffer size or element stride does not match the shader.");
+                if (!declared.ReadOnly && (bound.Access & ResourceAccess.Write) == 0)
+                    throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: declare a readonly buffer in the shader or a writable binding in the graph.");
+                if (declared.ReadOnly && (bound.Access & ResourceAccess.Write) != 0)
+                    throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: a readonly buffer cannot have write access in the graph.");
+                if (!declared.ReadOnly && stage != ShaderStage.Compute)
+                    throw new NotSupportedException($"Pass '{pass.Name}': writable storage buffers in graphics stages are not enabled by this backend.");
+            }
+        }
+        if (stage == ShaderStage.Fragment
+            && !ColorLocations.SetEquals(Enumerable.Range(0, pass.Attachments.Length)))
+            throw new ArgumentException($"Pass '{pass.Name}': fragment output locations do not match the color attachments.");
+    }
+}

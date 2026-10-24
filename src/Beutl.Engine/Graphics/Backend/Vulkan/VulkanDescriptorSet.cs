@@ -77,10 +77,16 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     public DescriptorSetLayout Layout => _layout;
 
     public void UpdateBuffer(int binding, IBuffer buffer)
+        => UpdateBuffer(binding, buffer, Silk.NET.Vulkan.DescriptorType.UniformBuffer);
+
+    internal void UpdateStorageBuffer(int binding, IBuffer buffer)
+        => UpdateBuffer(binding, buffer, Silk.NET.Vulkan.DescriptorType.StorageBuffer);
+
+    private void UpdateBuffer(int binding, IBuffer buffer, Silk.NET.Vulkan.DescriptorType type)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        _bindings.ValidateWrite(binding, Silk.NET.Vulkan.DescriptorType.UniformBuffer, nameof(binding));
+        _bindings.ValidateWrite(binding, type, nameof(binding));
         VulkanBuffer vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
 
         var bufferInfo = new DescriptorBufferInfo
@@ -97,7 +103,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
             DstBinding = (uint)binding,
             DstArrayElement = FirstArrayElement,
             DescriptorCount = SingleDescriptor,
-            DescriptorType = Silk.NET.Vulkan.DescriptorType.UniformBuffer,
+            DescriptorType = type,
             PBufferInfo = &bufferInfo
         };
 

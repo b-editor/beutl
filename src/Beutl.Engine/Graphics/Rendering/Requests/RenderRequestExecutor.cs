@@ -13,6 +13,7 @@ internal sealed partial class RenderRequestExecutor
     private readonly RenderTargetLeaseSession _targets;
     private readonly ProgramCache<CachedSkRuntimeEffect>? _programCache;
     private readonly ProgramCache<GLSLFilterPipeline>? _spirvProgramCache;
+    private readonly ProgramCache<ShaderGraphPipeline>? _graphProgramCache;
     private readonly ShaderBackendPreference _shaderBackendPreference;
 
     public RenderExecutionStatistics Statistics { get; private set; }
@@ -26,11 +27,13 @@ internal sealed partial class RenderRequestExecutor
         RenderTargetLeaseSession targets,
         ProgramCache<CachedSkRuntimeEffect>? programCache = null,
         ProgramCache<GLSLFilterPipeline>? spirvProgramCache = null,
-        ShaderBackendPreference shaderBackendPreference = ShaderBackendPreference.Auto)
+        ShaderBackendPreference shaderBackendPreference = ShaderBackendPreference.Auto,
+        ProgramCache<ShaderGraphPipeline>? graphProgramCache = null)
     {
         _targets = targets ?? throw new ArgumentNullException(nameof(targets));
         _programCache = programCache;
         _spirvProgramCache = spirvProgramCache;
+        _graphProgramCache = graphProgramCache;
         if (!Enum.IsDefined(shaderBackendPreference))
             throw new ArgumentOutOfRangeException(nameof(shaderBackendPreference));
         _shaderBackendPreference = shaderBackendPreference;
@@ -58,6 +61,9 @@ internal sealed partial class RenderRequestExecutor
             : null;
         ProgramCache<GLSLFilterPipeline> familySpirvProgramCache =
             _spirvProgramCache ?? localSpirvProgramCache!;
+        ProgramCache<ShaderGraphPipeline>? localGraphProgramCache = _graphProgramCache is null
+            ? ShaderGraphPipeline.CreateCache() : null;
+        ProgramCache<ShaderGraphPipeline> familyGraphProgramCache = _graphProgramCache ?? localGraphProgramCache!;
         var frames = new List<RenderRequestExecutionState>();
         var cleanupFailures = new List<Exception>();
         ExceptionDispatchInfo? primaryFailure = null;
@@ -73,6 +79,7 @@ internal sealed partial class RenderRequestExecutor
                 finalizeOutput,
                 familyProgramCache,
                 familySpirvProgramCache,
+                familyGraphProgramCache,
                 frames,
                 cleanupFailures,
                 ref nestedRootAcquisitions,
@@ -90,6 +97,7 @@ internal sealed partial class RenderRequestExecutor
         RunExternalFinalizer(finalizeExternalResources, owner, cleanupFailures, ref primaryFailure);
         DisposeLocalProgramCache(localProgramCache, cleanupFailures);
         DisposeLocalProgramCache(localSpirvProgramCache, cleanupFailures);
+        DisposeLocalProgramCache(localGraphProgramCache, cleanupFailures);
 
         if (primaryFailure is null && cleanupFailures.Count != 0)
         {
@@ -300,6 +308,7 @@ internal sealed partial class RenderRequestExecutor
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
         private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
         private readonly ProgramCache<GLSLFilterPipeline> _spirvProgramCache;
+        private readonly ProgramCache<ShaderGraphPipeline> _graphProgramCache;
         private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private Dictionary<RenderFragmentId, Rect>? _resolvedExecutionDomains;
@@ -340,6 +349,7 @@ internal sealed partial class RenderRequestExecutor
             RenderTargetLeaseSession targets,
             ProgramCache<CachedSkRuntimeEffect> programCache,
             ProgramCache<GLSLFilterPipeline> spirvProgramCache,
+            ProgramCache<ShaderGraphPipeline> graphProgramCache,
             ShaderBackendPreference shaderBackendPreference)
         {
             _options = options;
@@ -357,6 +367,7 @@ internal sealed partial class RenderRequestExecutor
             _programCacheContext = targets.CacheDeviceContextIdentity;
             _programCache = programCache;
             _spirvProgramCache = spirvProgramCache;
+            _graphProgramCache = graphProgramCache;
             _shaderBackendPreference = shaderBackendPreference;
             _drawableBrushMaterializer = MaterializeDrawableBrush;
             _cacheCaptures = cacheResolution.MissCaptureCount == 0
@@ -654,6 +665,7 @@ internal sealed partial class RenderRequestExecutor
                 case RenderFragmentKind.OpaqueExpand:
                 case RenderFragmentKind.MaterializedInput:
                 case RenderFragmentKind.Shader:
+                case RenderFragmentKind.ShaderGraph:
                 case RenderFragmentKind.Geometry:
                     DrawMaterializedFragment(fragment, destination, callerScale);
                     return;

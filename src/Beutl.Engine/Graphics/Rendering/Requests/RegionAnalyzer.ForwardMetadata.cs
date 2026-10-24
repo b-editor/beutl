@@ -228,6 +228,9 @@ internal sealed partial class RegionAnalyzer
             RenderFragmentKind.Shader
                 => ((ShaderRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(reference.Inputs[0].Bounds),
+            RenderFragmentKind.ShaderGraph
+                => ((ShaderGraphRenderFragmentPayload)reference.Payload!).Description
+                    .TransformBounds(reference.Inputs[0].Bounds),
             RenderFragmentKind.Geometry
                 => ((GeometryRenderFragmentPayload)reference.Payload!).Description.Bounds
                     .TransformBounds(reference.Inputs[0].Bounds),
@@ -299,6 +302,14 @@ internal sealed partial class RegionAnalyzer
                         return reference.Inputs[0].EffectiveScale;
 
                     return ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
+                }
+            case RenderFragmentKind.ShaderGraph:
+                {
+                    var payload = (ShaderGraphRenderFragmentPayload)reference.Payload!;
+                    EffectiveScale scale = payload.WorkingScalePolicy is { } policy
+                        ? policy.Resolve(reference.Inputs, resolvedBounds, options.OutputScale, options.MaxWorkingScale)
+                        : ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
+                    return EffectiveScale.At(payload.Description.ClampWorkingScale(reference.Inputs[0].Bounds, scale.Value, default));
                 }
             case RenderFragmentKind.Geometry:
                 {
@@ -411,7 +422,7 @@ internal sealed partial class RegionAnalyzer
                 or RenderFragmentKind.OpaqueCombine
                 or RenderFragmentKind.OpaqueExpand
                 => FromDescription(((OpaqueRenderFragmentPayload)reference.Payload!).Description),
-            RenderFragmentKind.FilterEffectSegment => RenderFragmentHitTest.Bounds,
+            RenderFragmentKind.FilterEffectSegment or RenderFragmentKind.ShaderGraph => RenderFragmentHitTest.Bounds,
             RenderFragmentKind.MaterializedInput
                 => RenderFragmentHitTest.FromContract(
                     ((MaterializedInputRenderFragmentPayload)reference.Payload!).Description.HitTest,

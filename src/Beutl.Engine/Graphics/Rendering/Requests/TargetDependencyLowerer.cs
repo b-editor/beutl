@@ -101,6 +101,7 @@ internal static class TargetDependencyLowerer
                     LowerOpacityMask(reference, scopeId, compositeOutput);
                     return;
                 case RenderFragmentKind.Shader:
+                case RenderFragmentKind.ShaderGraph:
                 case RenderFragmentKind.Geometry:
                 case RenderFragmentKind.OpaqueSource:
                 case RenderFragmentKind.OpaqueMap:

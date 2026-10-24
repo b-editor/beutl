@@ -254,6 +254,7 @@ internal static class RenderMaterializationDemandResolver
                     pending,
                     IsEffectClassConsumer(fragment));
                 return;
+            case RenderFragmentKind.ShaderGraph:
             case RenderFragmentKind.Shader:
             case RenderFragmentKind.Geometry:
             case RenderFragmentKind.OpaqueSource:
@@ -340,6 +341,9 @@ internal static class RenderMaterializationDemandResolver
                     DemandUse.MaterializeValue,
                     pending,
                     IsEffectClassConsumer(fragment));
+                return;
+            case RenderFragmentKind.ShaderGraph:
+                EnqueueInputs(fragment, valueDemand, DemandUse.MaterializeValue, pending, true);
                 return;
             case RenderFragmentKind.Geometry:
                 GeometryDescription geometry =
@@ -444,5 +448,6 @@ internal static class RenderMaterializationDemandResolver
     private static bool IsEffectClassConsumer(RenderFragmentReference fragment)
         => fragment.Payload is FilterEffectSegmentRenderFragmentPayload
             or ShaderRenderFragmentPayload
-            or GeometryRenderFragmentPayload;
+            or GeometryRenderFragmentPayload
+            or ShaderGraphRenderFragmentPayload;
 }
