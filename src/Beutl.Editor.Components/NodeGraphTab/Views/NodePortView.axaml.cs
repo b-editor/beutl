@@ -322,6 +322,7 @@ public partial class NodePortView : UserControl
 
     private void InitEditor(NodeMemberViewModel obj)
     {
+        var headers = obj.Name.Select(name => obj.PropertyEditorContext is PropertyEditorViewModel model ? model.FormatHeader(name) : name);
         if (ProvidedEditor is { } provided)
         {
             Classes.Add("nested");
@@ -340,7 +341,7 @@ public partial class NodePortView : UserControl
             if (control1 is PropertyEditor pe)
             {
                 pe.EditorStyle = PropertyEditorStyle.Compact;
-                pe.Bind(PropertyEditor.HeaderProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
+                pe.Bind(PropertyEditor.HeaderProperty, headers.ToBinding()).DisposeWith(_disposables);
             }
             if (control1 != null)
             {
@@ -364,7 +365,7 @@ public partial class NodePortView : UserControl
                     : HorizontalAlignment.Left
             };
             TextBlock label = _label;
-            label.Bind(TextBlock.TextProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
+            label.Bind(TextBlock.TextProperty, headers.ToBinding()).DisposeWith(_disposables);
 
             void UpdateHoverInfo()
             {

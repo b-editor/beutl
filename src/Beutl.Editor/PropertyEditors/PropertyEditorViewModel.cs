@@ -27,6 +27,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 {
     protected readonly ILogger Logger;
     private readonly BehaviorSubject<MediaTime> _currentTime;
+    private readonly string? _unitSymbol;
     private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
     protected CompositeDisposable Disposables = [];
     private IDisposable? _currentFrameRevoker;
@@ -49,10 +50,17 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         Logger = Log.CreateLogger(GetType());
         PropertyAdapter = property;
 
-        Header = property.DisplayName;
+        Attribute[] attributes = property.GetAttributes();
+        _unitSymbol = attributes.OfType<UnitAttribute>().FirstOrDefault()?.Unit switch
+        {
+            PropertyUnit.Percent => "%",
+            PropertyUnit.Degrees => "°",
+            PropertyUnit.Ratio => "×",
+            _ => null
+        };
+        Header = FormatHeader(property.DisplayName);
         Description = new ReactivePropertySlim<string?>(property.Description).AddTo(Disposables);
         Type propertyType = property.PropertyType;
-        Attribute[] attributes = property.GetAttributes();
         HoverInfo = new ReactivePropertySlim<string?>().AddTo(Disposables);
         Description
             .Select(description => PropertyHoverInfoFormatter.Format(propertyType, description, attributes))
@@ -143,6 +151,8 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     public bool CanReset => GetDefaultValue() != null;
 
     public string Header { get; }
+
+    public string FormatHeader(string displayName) => _unitSymbol is null ? displayName : $"{displayName} ({_unitSymbol})";
 
     public ReactivePropertySlim<string?> Description { get; }
 

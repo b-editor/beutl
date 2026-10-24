@@ -70,7 +70,10 @@ public sealed record PropertyDescriptor(
     string? Converter = null,
     string? ElementType = null,
     IReadOnlyList<string>? EnumValues = null,
-    string? UsageHint = null);
+    string? UsageHint = null)
+{
+    public string? Unit { get; init; }
+}
 
 public sealed record DisplayDescriptor(string? Name, string? Description, string? GroupName);
 

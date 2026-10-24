@@ -8,6 +8,8 @@ public partial class RotationMatrixNode : MatrixNode
     public RotationMatrixNode()
     {
         Rotation = AddInput<float>("Rotation", NodePortDisplays.Rotation);
+        if (Rotation.Property is NodePropertyAdapter<float> adapter)
+            adapter.Attributes = [.. adapter.Attributes, new UnitAttribute(PropertyUnit.Degrees)];
     }
 
     public InputPort<float> Rotation { get; }

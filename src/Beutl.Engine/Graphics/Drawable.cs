@@ -55,6 +55,7 @@ public abstract partial class Drawable : EngineObject
 
     [Display(Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings))]
     [Range(0, 100)]
+    [Unit(PropertyUnit.Percent)]
     public IExpressionProperty<float> Opacity { get; } = Property.CreateAnimatable(100f);
 
     protected abstract Size MeasureCore(Size availableSize, Resource resource);

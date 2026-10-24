@@ -22,6 +22,7 @@ public partial class PerspectiveCamera : Camera3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.PerspectiveCamera_FieldOfView), ResourceType = typeof(GraphicsStrings))]
     [Range(1f, 179f), NumberStep(1, 0.1)]
+    [Unit(PropertyUnit.Degrees)]
     public IExpressionProperty<float> FieldOfView { get; } = Property.CreateAnimatable(60f);
 
     /// <inheritdoc />

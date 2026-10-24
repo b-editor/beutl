@@ -33,6 +33,7 @@ public abstract partial class Object3D : EngineObject
     /// Gets the rotation of the object as Euler angles in degrees (X=Pitch, Y=Yaw, Z=Roll).
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Rotation), ResourceType = typeof(GraphicsStrings))]
+    [Unit(PropertyUnit.Degrees)]
     public IExpressionProperty<Vector3> Rotation { get; } = Property.CreateAnimatable(Vector3.Zero);
 
     /// <summary>
@@ -40,6 +41,7 @@ public abstract partial class Object3D : EngineObject
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Scale), ResourceType = typeof(GraphicsStrings))]
     [NumberStep(0.1, 0.01)]
+    [Unit(PropertyUnit.Ratio)]
     public IExpressionProperty<Vector3> Scale { get; } = Property.CreateAnimatable(Vector3.One);
 
     /// <summary>
