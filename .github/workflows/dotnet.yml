@@ -341,7 +341,8 @@ jobs:
           use_oidc: true
 
   # Releases cross-publish linux-arm64 from x64, so only a native ARM64 run shows that the bundled
-  # libraries (Skia, HarfBuzz, SwiftShader, Shaderc, Assimp) load and render there.
+  # libraries (Skia, HarfBuzz, SwiftShader, Shaderc, Assimp) load and render there. Keep this job
+  # focused on those native paths; the x64 shards run the full unit test suite.
   linux-arm64-tests:
     permissions:
       contents: read
@@ -365,12 +366,12 @@ jobs:
           dotnet build tests/Beutl.UnitTests/Beutl.UnitTests.csproj -f net10.0
           dotnet build tests/Beutl.Graphics3DTests/Beutl.Graphics3DTests.csproj -f net10.0
 
-      - name: Test on Linux ARM64
+      - name: Test native dependencies on Linux ARM64
         timeout-minutes: 45
         run: |
           status=0
           for project in Beutl.UnitTests Beutl.Graphics3DTests; do
-            dotnet test "tests/$project/$project.csproj" --no-build -f net10.0 \
+            dotnet test "tests/$project/$project.csproj" --no-build -f net10.0 --filter "$NATIVE_TEST_FILTER" \
               --logger trx --results-directory TestResults/linux-arm64 \
               --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type mini \
               --blame-crash --blame-crash-dump-type mini || status=1
@@ -379,6 +380,15 @@ jobs:
           python3 .github/scripts/ci_tests.py --check-results TestResults/linux-arm64 || status=1
           exit $status
         env:
+          # Skia/FreeType rasterization, HarfBuzz shaping, bundled SwiftShader lifecycle and Assimp import.
+          # Keep the full Graphics3D suite for Shaderc compilation and Vulkan rendering/resource checks.
+          NATIVE_TEST_FILTER: >-
+            FullyQualifiedName~Beutl.UnitTests.Engine.Media.TextRasterizationTests.
+            |FullyQualifiedName~Beutl.UnitTests.Engine.FormattedTextFallbackTests.MissingGlyphs_MatchExplicitUIRunsAndPreserveSelectedFont
+            |FullyQualifiedName~Beutl.UnitTests.Engine.FormattedTextFallbackTests.CombiningSequence_WithoutStandaloneMark_KeepsTheSelectedFont
+            |FullyQualifiedName~Beutl.UnitTests.Engine.Graphics.Backend.SwiftShaderLifetimeTests.
+            |FullyQualifiedName~Beutl.UnitTests.Engine.Graphics3D.ModelImportTests.
+            |FullyQualifiedName~Beutl.Graphics3DTests.
           # Fail instead of skipping when the bundled ARM64 SwiftShader ICD does not load.
           BEUTL_REQUIRE_GPU: "1"
 
