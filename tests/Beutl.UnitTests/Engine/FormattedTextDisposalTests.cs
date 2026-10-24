@@ -13,7 +13,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void Dispose_IsIdempotent()
     {
-        FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
+        using FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
         _ = ft.Bounds;
 
         ft.Dispose();
@@ -24,7 +24,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void MeasuringMembers_AfterDispose_ThrowObjectDisposedException()
     {
-        FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
+        using FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
         _ = ft.Bounds;
 
         ft.Dispose();
@@ -44,7 +44,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void ScaledAccessors_AfterDispose_ThrowObjectDisposedException()
     {
-        FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
+        using FormattedText ft = TypefaceProvider.CreateText("ABC", 24f, spacing: 1f);
         // Leave the instance dirty so a post-dispose access would otherwise re-measure and
         // re-populate the scaled cache, leaking handles the idempotent Dispose can no longer release.
         ft.Size = 32f;
@@ -61,7 +61,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void Dispose_ReleasesPathListResources()
     {
-        FormattedText ft = TypefaceProvider.CreateText("AB", 24f, spacing: 1f);
+        using FormattedText ft = TypefaceProvider.CreateText("AB", 24f, spacing: 1f);
         // ToGeometries() hands out a borrowed span that cannot outlive the Dispose below, so snapshot the
         // engine-owned references (not the outlines) while the borrow is still valid.
         Geometry.Resource[] geometries = ft.ToGeometries().ToArray();
@@ -81,7 +81,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void Dispose_DisposesOwnedGlyphPaths()
     {
-        FormattedText ft = TypefaceProvider.CreateText("AB", 24f, spacing: 1f);
+        using FormattedText ft = TypefaceProvider.CreateText("AB", 24f, spacing: 1f);
         Geometry.Resource[] geometries = ft.ToGeometries().ToArray();
 
         // The per-glyph SKPath is owned separately from the resource's cached render path; capture those
@@ -107,7 +107,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void MeasureCore_ShrinkingGlyphCount_DisposesTruncatedTrailingResources()
     {
-        FormattedText ft = TypefaceProvider.CreateText("ABCDE", 24f, spacing: 1f);
+        using FormattedText ft = TypefaceProvider.CreateText("ABCDE", 24f, spacing: 1f);
 
         // ToGeometries() borrows the live _pathList; snapshot the references before any shrink.
         Geometry.Resource[] longGeometries = ft.ToGeometries().ToArray();
@@ -163,7 +163,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void MeasureCore_ShrinkThenGrow_KeepsSurvivorsLiveAndRebuildsTruncatedSlots()
     {
-        FormattedText ft = TypefaceProvider.CreateText("ABCDE", 24f, spacing: 1f);
+        using FormattedText ft = TypefaceProvider.CreateText("ABCDE", 24f, spacing: 1f);
 
         // ToGeometries() borrows the live _pathList; snapshot the references before any shrink.
         Geometry.Resource[] longGeometries = ft.ToGeometries().ToArray();
@@ -219,7 +219,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void LineEnumerable_Dispose_DisposesContainedFormattedTexts()
     {
-        TextElements elements = new(
+        using TextElements elements = new(
         [
             new TextElement { Size = 24, Text = "ABC" }
         ]);
@@ -240,7 +240,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void LineEnumerable_GetEnumerator_AfterDispose_ThrowsObjectDisposedException()
     {
-        TextElements elements = new(
+        using TextElements elements = new(
         [
             new TextElement { Size = 24, Text = "ABC" }
         ]);
@@ -253,7 +253,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void TextElements_Dispose_DisposesLineEnumerable()
     {
-        TextElements elements = new(
+        using TextElements elements = new(
         [
             new TextElement { Size = 24, Text = "ABC" }
         ]);
@@ -268,7 +268,7 @@ public class FormattedTextDisposalTests
     [Test]
     public void TextElements_Dispose_IsIdempotent()
     {
-        TextElements elements = new(
+        using TextElements elements = new(
         [
             new TextElement { Size = 24, Text = "ABC" }
         ]);
@@ -287,7 +287,7 @@ public class FormattedTextDisposalTests
         tb.Text.Value = "ABC";
         tb.Fill.Value = Brushes.White;
 
-        TextBlock.Resource resource = tb.ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = tb.ToResource(CompositionContext.Default);
         TextElements elements = resource.GetTextElements();
         foreach (Span<FormattedText> line in elements.Lines)
         {
@@ -312,7 +312,7 @@ public class FormattedTextDisposalTests
         tb.Text.Value = "ABC";
         tb.Fill.Value = Brushes.White;
 
-        TextBlock.Resource resource = tb.ToResource(CompositionContext.Default);
+        using TextBlock.Resource resource = tb.ToResource(CompositionContext.Default);
         TextElements elements = resource.GetTextElements();
 
         tb.Text.Value = "DEF";

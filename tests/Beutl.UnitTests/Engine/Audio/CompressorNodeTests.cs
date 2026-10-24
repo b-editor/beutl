@@ -46,7 +46,7 @@ public class CompressorNodeTests
         using var input = new AudioBuffer(SampleRate, 2, sampleCount);
         // Default-constructed AudioBuffer is zeroed, so no fill needed.
         var source = new BufferReplayNode(input);
-        var node = CreateNode();
+        using var node = CreateNode();
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25));
@@ -86,7 +86,7 @@ public class CompressorNodeTests
         const float thresholdDb = -50f;
         const float ratio = 4f;
         const float slope = 1f - 1f / ratio; // 0.75
-        var node = CreateNode(threshold: thresholdDb, ratio: ratio, attack: attackMs, release: 100f, knee: 0f);
+        using var node = CreateNode(threshold: thresholdDb, ratio: ratio, attack: attackMs, release: 100f, knee: 0f);
         node.AddInput(new BufferReplayNode(input));
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(1.0));
         using var output = node.Process(ctx);
@@ -120,7 +120,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.05f, 1000f, sampleCount);
         var source = new BufferReplayNode(input);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5));
@@ -149,7 +149,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         var source = new BufferReplayNode(input);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(1.0));
@@ -169,7 +169,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         var source = new BufferReplayNode(input);
 
-        var node = CreateNode(makeup: 6f);
+        using var node = CreateNode(makeup: 6f);
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(1.0));
@@ -191,7 +191,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         var source = new BufferReplayNode(input);
 
-        var node = CreateNode(ratio: 1f);
+        using var node = CreateNode(ratio: 1f);
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25));
@@ -218,7 +218,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
         var source = new BufferReplayNode(input);
 
-        var node = CreateNode(ratio: 0.5f);
+        using var node = CreateNode(ratio: 0.5f);
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25));
@@ -249,7 +249,7 @@ public class CompressorNodeTests
         }
         var source = new BufferReplayNode(input);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(1.0));
@@ -278,7 +278,7 @@ public class CompressorNodeTests
         const int chunkSamples = SampleRate / 10;
         using var loud = CreateConstantBuffer(0.9f, chunkSamples);
 
-        var node = CreateNode(release: 1000f);
+        using var node = CreateNode(release: 1000f);
         node.AddInput(new BufferReplayNode(loud));
         var ctx1 = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(chunkSamples / (double)SampleRate));
         using var firstOutput = node.Process(ctx1);
@@ -289,7 +289,7 @@ public class CompressorNodeTests
         var ctxSeek = CreateContext(MediaTime.FromSeconds(5.0), MediaTime.FromSeconds(chunkSamples / (double)SampleRate));
         using var seekedOutput = node.Process(ctxSeek);
 
-        var nodeFresh = CreateNode(release: 1000f);
+        using var nodeFresh = CreateNode(release: 1000f);
         using var loud3 = CreateConstantBuffer(0.9f, chunkSamples);
         nodeFresh.AddInput(new BufferReplayNode(loud3));
         using var freshOutput = nodeFresh.Process(
@@ -306,7 +306,7 @@ public class CompressorNodeTests
         const int chunkSamples = SampleRate / 10;
         using var loud = CreateConstantBuffer(0.9f, chunkSamples);
 
-        var node = CreateNode(release: 1000f);
+        using var node = CreateNode(release: 1000f);
         node.AddInput(new BufferReplayNode(loud));
         var ctx48 = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(chunkSamples / (double)SampleRate));
         using var firstOutput = node.Process(ctx48);
@@ -323,7 +323,7 @@ public class CompressorNodeTests
             null);
         using var secondOutput = node.Process(ctx44);
 
-        var nodeFresh = CreateNode(release: 1000f);
+        using var nodeFresh = CreateNode(release: 1000f);
         using var freshInput = CreateSineBuffer(0.9f, 1000f, altSampleRate / 10, 2, altSampleRate);
         nodeFresh.AddInput(new BufferReplayNode(freshInput));
         var ctxFresh = new AudioProcessContext(
@@ -349,7 +349,7 @@ public class CompressorNodeTests
         var ctx1 = CreateContext(MediaTime.Zero, chunkDuration);
         var ctx2 = CreateContext(chunkDuration, chunkDuration);
 
-        var node = CreateNode(release: 1000f);
+        using var node = CreateNode(release: 1000f);
         using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
         node.AddInput(new BufferReplayNode(warmupInput));
         using var firstOutput = node.Process(ctx1);
@@ -360,7 +360,7 @@ public class CompressorNodeTests
         node.AddInput(new BufferReplayNode(followInput));
         using var afterResetOutput = node.Process(ctx2);
 
-        var nodeFresh = CreateNode(release: 1000f);
+        using var nodeFresh = CreateNode(release: 1000f);
         using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
         nodeFresh.AddInput(new BufferReplayNode(freshInput));
         using var freshOutput = nodeFresh.Process(ctx1);
@@ -379,7 +379,7 @@ public class CompressorNodeTests
         using var input = CreateConstantBuffer(0.05f, sampleCount);
         var source = new BufferReplayNode(input);
 
-        var node = CreateNode(threshold: -10f, ratio: 8f, attack: 1f);
+        using var node = CreateNode(threshold: -10f, ratio: 8f, attack: 1f);
         node.Threshold.SetKeyFrameAnimation(Ramp(-10f, -40f, MediaTime.FromSeconds(0.5)));
         node.AddInput(source);
 
@@ -410,7 +410,7 @@ public class CompressorNodeTests
         }
 
         var source = new BufferReplayNode(input);
-        var node = CreateNode();
+        using var node = CreateNode();
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25));
@@ -450,7 +450,7 @@ public class CompressorNodeTests
         using var input = CreateBuffer(channels, sampleCount, (_, _) => amplitude);
         input.GetChannelData(0)[corruptIndex] = float.PositiveInfinity;
 
-        var node = CreateNode(threshold: thresholdDb, ratio: ratio);
+        using var node = CreateNode(threshold: thresholdDb, ratio: ratio);
         if (animated)
         {
             node.Threshold.SetKeyFrameAnimation(Ramp(thresholdDb, thresholdDb, duration));
@@ -489,7 +489,7 @@ public class CompressorNodeTests
         input.GetChannelData(1)[0] = float.NaN;
 
         var source = new BufferReplayNode(input);
-        var node = CreateNode();
+        using var node = CreateNode();
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25));
@@ -517,11 +517,11 @@ public class CompressorNodeTests
         // 0.1 amplitude → exactly -20 dB peak, matching the threshold.
         using var input = CreateSineBuffer(0.1f, 1000f, sampleCount);
 
-        var hardKneeNode = CreateNode(threshold: -20f, ratio: 4f, knee: 0f);
+        using var hardKneeNode = CreateNode(threshold: -20f, ratio: 4f, knee: 0f);
         hardKneeNode.AddInput(new BufferReplayNode(input));
         using var hardOutput = hardKneeNode.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5)));
 
-        var softKneeNode = CreateNode(threshold: -20f, ratio: 4f, knee: 12f);
+        using var softKneeNode = CreateNode(threshold: -20f, ratio: 4f, knee: 12f);
         softKneeNode.AddInput(new BufferReplayNode(input));
         using var softOutput = softKneeNode.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.5)));
 
@@ -541,7 +541,7 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount, channels: 1);
         var source = new BufferReplayNode(input);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         node.AddInput(source);
 
         var ctx = CreateContext(MediaTime.Zero, MediaTime.FromSeconds(1.0));
@@ -571,7 +571,7 @@ public class CompressorNodeTests
             }
         }
 
-        var node = CreateNode(attack: 1f);
+        using var node = CreateNode(attack: 1f);
         node.Attack.SetKeyFrameAnimation(Ramp(1f, 200f, MediaTime.FromSeconds(1.0)));
         node.AddInput(new BufferReplayNode(input));
 
@@ -605,7 +605,7 @@ public class CompressorNodeTests
         const int sampleCount = chunkSize * 3 + 137; // straddles several boundaries
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         // Trivial threshold animation (constant value) just to force the ProcessAnimated path.
         node.Threshold.SetKeyFrameAnimation(Ramp(-20f, -20f, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
         node.AddInput(new BufferReplayNode(input));
@@ -642,7 +642,7 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         IProperty<float> target = param switch
         {
             AnimatedParam.Threshold => node.Threshold,
@@ -674,7 +674,7 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate; // 1 s buffer
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         node.MakeupGain.SetKeyFrameAnimation(Ramp(0f, 12f, MediaTime.FromSeconds(1.0)));
         node.AddInput(new BufferReplayNode(input));
 
@@ -703,7 +703,7 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var node = CreateNode(ratio: 0.5f);
+        using var node = CreateNode(ratio: 0.5f);
         node.Ratio.SetKeyFrameAnimation(Ramp(0.5f, 0.5f, MediaTime.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
@@ -727,7 +727,7 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var node = CreateNode(threshold: -50f, attack: 1e9f);
+        using var node = CreateNode(threshold: -50f, attack: 1e9f);
         node.Attack.SetKeyFrameAnimation(Ramp(1e9f, 1e9f, MediaTime.FromSeconds(1.0)));
         node.AddInput(new BufferReplayNode(input));
 
@@ -752,7 +752,7 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         node.Threshold.SetKeyFrameAnimation(Ramp(float.NaN, float.NaN, MediaTime.FromSeconds(0.25)));
         node.Attack.SetKeyFrameAnimation(Ramp(float.NaN, float.NaN, MediaTime.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
@@ -784,14 +784,14 @@ public class CompressorNodeTests
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
         // Static reference path (knee>0 and makeup!=0 so both branches are exercised in both paths).
-        var staticNode = CreateNode(threshold: -20f, ratio: 4f, attack: 5f, release: 50f, knee: 6f, makeup: 3f);
+        using var staticNode = CreateNode(threshold: -20f, ratio: 4f, attack: 5f, release: 50f, knee: 6f, makeup: 3f);
         staticNode.AddInput(new BufferReplayNode(input));
         using var staticOut = staticNode.Process(CreateContext(MediaTime.Zero, duration));
 
         // Animated path forced on via a constant Threshold animation; the other parameters stay
         // unanimated, so AnimationSampler fills each with the same Value static reads.
 
-        var animatedNode = CreateNode(knee: 6f, makeup: 3f);
+        using var animatedNode = CreateNode(knee: 6f, makeup: 3f);
         animatedNode.Threshold.SetKeyFrameAnimation(Ramp(-20f, -20f, duration));
         animatedNode.AddInput(new BufferReplayNode(input));
         using var animatedOut = animatedNode.Process(CreateContext(MediaTime.Zero, duration));
@@ -822,7 +822,7 @@ public class CompressorNodeTests
         float amplitude = MathF.Pow(10f, thresholdDb / 20f); // 0.1 → peak dB == threshold
         using var input = CreateConstantBuffer(amplitude, sampleCount);
 
-        var node = CreateNode(threshold: thresholdDb, ratio: ratio, attack: 1f, release: 1f, knee: kneeDb, makeup: 0f);
+        using var node = CreateNode(threshold: thresholdDb, ratio: ratio, attack: 1f, release: 1f, knee: kneeDb, makeup: 0f);
         node.AddInput(new BufferReplayNode(input));
         using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(sampleCount / (double)SampleRate)));
 
@@ -850,13 +850,13 @@ public class CompressorNodeTests
         var duration = MediaTime.FromSeconds(sampleCount / (double)SampleRate);
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var staticNode = CreateNode(threshold: -20f);
+        using var staticNode = CreateNode(threshold: -20f);
         staticNode.AddInput(new BufferReplayNode(input));
         using var staticOut = staticNode.Process(CreateContext(MediaTime.Zero, duration));
 
         // Value stays -20; the expression evaluates to -40 (which would compress harder).
         // Because the static path ignores the expression, -40 must NOT take effect.
-        var exprNode = CreateNode();
+        using var exprNode = CreateNode();
         var threshold = (IExpressionProperty<float>)exprNode.Threshold;
         threshold.Expression = new StringExpression<float>("-40");
         Assert.That(threshold.HasExpression, Is.True);
@@ -896,7 +896,7 @@ public class CompressorNodeTests
             }
         }
 
-        var node = CreateNode();
+        using var node = CreateNode();
         node.AddInput(new BufferReplayNode(input));
         using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(1.0)));
 
@@ -930,7 +930,7 @@ public class CompressorNodeTests
         const int sampleCount = SampleRate / 4;
         using var input = CreateSineBuffer(0.9f, 1000f, sampleCount);
 
-        var node = CreateNode();
+        using var node = CreateNode();
         node.Attack.SetKeyFrameAnimation(Ramp(1e9f, 1e9f, MediaTime.FromSeconds(0.25)));
         node.AddInput(new BufferReplayNode(input));
 
@@ -952,7 +952,7 @@ public class CompressorNodeTests
         var ctx1 = CreateContext(MediaTime.Zero, chunkDuration);
         var ctx2 = CreateContext(chunkDuration + MediaTime.FromTimeSpan(TimeSpan.FromTicks(tickOffset)), chunkDuration);
 
-        var node = CreateNode(release: 1000f);
+        using var node = CreateNode(release: 1000f);
         using var warmupInput = CreateConstantBuffer(0.9f, chunkSamples);
         node.AddInput(new BufferReplayNode(warmupInput));
         using var warmup = node.Process(ctx1);
@@ -961,7 +961,7 @@ public class CompressorNodeTests
         node.AddInput(new BufferReplayNode(followInput));
         using var followOutput = node.Process(ctx2);
 
-        var nodeFresh = CreateNode(release: 1000f);
+        using var nodeFresh = CreateNode(release: 1000f);
         using var freshInput = CreateConstantBuffer(0.9f, chunkSamples);
         nodeFresh.AddInput(new BufferReplayNode(freshInput));
         using var freshOutput = nodeFresh.Process(ctx1);

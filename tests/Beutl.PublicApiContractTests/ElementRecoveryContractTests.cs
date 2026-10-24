@@ -25,72 +25,79 @@ public class ElementRecoveryContractTests
     {
         string root = Path.Combine(TestContext.CurrentContext.WorkDirectory, Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
-        var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
-        var element = new Element { Uri = new Uri(Path.Combine(root, "element.belm")), Length = { Value = MediaTime.FromSeconds(1) } };
-        string transformPath = Path.Combine(root, "nested", "transform.json");
-        var shape = new RectShape();
-        shape.Transform.Value = new RotationTransform { Uri = new Uri(transformPath) };
-        element.AddObject(shape);
-        scene.Children.Add(element);
-        CoreSerializer.StoreToUri(scene, scene.Uri);
-        JsonObject json = JsonNode.Parse(File.ReadAllText(transformPath))!.AsObject();
-        json["$type"] = "[Missing.Plugin]Missing:Transform";
-        File.WriteAllText(transformPath, json.ToJsonString());
-        byte[] originalTransform = File.ReadAllBytes(transformPath);
-        Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
-        Element recovered = recoveredScene.Children.Single();
-        var recoveredShape = (RectShape)recovered.Objects.Single();
-        Transform? fallback = recoveredShape.Transform.Value;
-        var sequence = new OperationSequenceGenerator();
-        using var history = new HistoryManager(sequence);
-        using var observer = new CoreObjectOperationObserver(null, recoveredScene, sequence);
-        using IDisposable subscription = history.Subscribe(observer);
-        Assert.Multiple(() =>
+        try
         {
-            Assert.That(fallback, Is.InstanceOf<FallbackTransform>());
-            Assert.That(recoveredScene.IsElementLocked(recovered), Is.False);
-            Assert.That(ElementRecoveryService.TryCompleteRepair(recovered, history), Is.False);
-        });
-
-        string destinationRoot = rehome ? Path.Combine(root, "copy") : root;
-        string copiedTransform = Path.Combine(destinationRoot, "nested", "transform.json");
-        recoveredShape.Transform.Value = new RotationTransform
-        {
-            Uri = retainUri ? new Uri(copiedTransform) : null,
-        };
-        history.Commit("Replace the transform");
-        var copyUri = new Uri(Path.Combine(destinationRoot, "element.belm"));
-        CoreSerializer.StoreToUri(recovered, copyUri);
-        JsonNode? savedReference = ReadJson(copyUri.LocalPath)[nameof(Element.Objects)]![0]![nameof(RectShape.Transform)];
-        Transform? savedTransform = ((RectShape)CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.Single())
-            .Transform.Value;
-        Assert.Multiple(() =>
-        {
-            Assert.That(savedTransform, Is.TypeOf<RotationTransform>());
-            Assert.That(File.Exists(copiedTransform), Is.EqualTo(retainUri));
-            if (retainUri)
+            var scene = new Scene { Uri = new Uri(Path.Combine(root, "scene.scene")) };
+            var element = new Element { Uri = new Uri(Path.Combine(root, "element.belm")), Length = { Value = MediaTime.FromSeconds(1) } };
+            string transformPath = Path.Combine(root, "nested", "transform.json");
+            var shape = new RectShape();
+            shape.Transform.Value = new RotationTransform { Uri = new Uri(transformPath) };
+            element.AddObject(shape);
+            scene.Children.Add(element);
+            CoreSerializer.StoreToUri(scene, scene.Uri);
+            JsonObject json = JsonNode.Parse(File.ReadAllText(transformPath))!.AsObject();
+            json["$type"] = "[Missing.Plugin]Missing:Transform";
+            File.WriteAllText(transformPath, json.ToJsonString());
+            byte[] originalTransform = File.ReadAllBytes(transformPath);
+            Scene recoveredScene = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+            Element recovered = recoveredScene.Children.Single();
+            var recoveredShape = (RectShape)recovered.Objects.Single();
+            Transform? fallback = recoveredShape.Transform.Value;
+            var sequence = new OperationSequenceGenerator();
+            using var history = new HistoryManager(sequence);
+            using var observer = new CoreObjectOperationObserver(null, recoveredScene, sequence);
+            using IDisposable subscription = history.Subscribe(observer);
+            Assert.Multiple(() =>
             {
-                Assert.That(savedReference!.GetValue<string>(), Is.EqualTo("nested/transform.json"));
-                Assert.That(savedTransform!.Uri, Is.EqualTo(new Uri(copiedTransform)));
-                Assert.That(File.ReadAllBytes(copiedTransform), Is.Not.EqualTo(originalTransform));
-            }
-            else
-            {
-                Assert.That(savedReference, Is.InstanceOf<JsonObject>(), "The transform is saved in the element file.");
-            }
-        });
+                Assert.That(fallback, Is.InstanceOf<FallbackTransform>());
+                Assert.That(recoveredScene.IsElementLocked(recovered), Is.False);
+                Assert.That(ElementRecoveryService.TryCompleteRepair(recovered, history), Is.False);
+            });
 
-        Assert.That(history.Undo(), Is.True);
-        Assert.That(recoveredShape.Transform.Value, Is.SameAs(fallback));
-        CoreSerializer.StoreToUri(recovered, copyUri);
-        var reopened = (RectShape)CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.Single();
-        Assert.Multiple(() =>
+            string destinationRoot = rehome ? Path.Combine(root, "copy") : root;
+            string copiedTransform = Path.Combine(destinationRoot, "nested", "transform.json");
+            recoveredShape.Transform.Value = new RotationTransform
+            {
+                Uri = retainUri ? new Uri(copiedTransform) : null,
+            };
+            history.Commit("Replace the transform");
+            var copyUri = new Uri(Path.Combine(destinationRoot, "element.belm"));
+            CoreSerializer.StoreToUri(recovered, copyUri);
+            JsonNode? savedReference = ReadJson(copyUri.LocalPath)[nameof(Element.Objects)]![0]![nameof(RectShape.Transform)];
+            Transform? savedTransform = ((RectShape)CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.Single())
+                .Transform.Value;
+            Assert.Multiple(() =>
+            {
+                Assert.That(savedTransform, Is.TypeOf<RotationTransform>());
+                Assert.That(File.Exists(copiedTransform), Is.EqualTo(retainUri));
+                if (retainUri)
+                {
+                    Assert.That(savedReference!.GetValue<string>(), Is.EqualTo("nested/transform.json"));
+                    Assert.That(savedTransform!.Uri, Is.EqualTo(new Uri(copiedTransform)));
+                    Assert.That(File.ReadAllBytes(copiedTransform), Is.Not.EqualTo(originalTransform));
+                }
+                else
+                {
+                    Assert.That(savedReference, Is.InstanceOf<JsonObject>(), "The transform is saved in the element file.");
+                }
+            });
+
+            Assert.That(history.Undo(), Is.True);
+            Assert.That(recoveredShape.Transform.Value, Is.SameAs(fallback));
+            CoreSerializer.StoreToUri(recovered, copyUri);
+            var reopened = (RectShape)CoreSerializer.RestoreFromUri<Element>(copyUri).Objects.Single();
+            Assert.Multiple(() =>
+            {
+                // The fallback writes the JSON it was read from back to its own file; only the formatting may differ.
+                Assert.That(JsonNode.DeepEquals(ReadJson(transformPath), JsonNode.Parse(originalTransform)), Is.True);
+                Assert.That(reopened.Transform.Value, Is.InstanceOf<FallbackTransform>());
+                Assert.That(reopened.Transform.Value!.Uri, Is.EqualTo(new Uri(transformPath)));
+            });
+        }
+        finally
         {
-            // The fallback writes the JSON it was read from back to its own file; only the formatting may differ.
-            Assert.That(JsonNode.DeepEquals(ReadJson(transformPath), JsonNode.Parse(originalTransform)), Is.True);
-            Assert.That(reopened.Transform.Value, Is.InstanceOf<FallbackTransform>());
-            Assert.That(reopened.Transform.Value!.Uri, Is.EqualTo(new Uri(transformPath)));
-        });
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     private static JsonObject ReadJson(string path) => JsonNode.Parse(File.ReadAllText(path))!.AsObject();
