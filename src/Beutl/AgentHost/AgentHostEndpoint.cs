@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.Server;
@@ -35,6 +36,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
     private readonly AiAgentConfig _config;
     private readonly int _preferredPort;
     private readonly Func<CancellationToken, Task>? _beforeStart;
+    private readonly Func<EndPoint, Socket>? _createBoundListenSocket;
     private readonly Func<string>? _tokenFactory;
     private readonly string _instanceId = Guid.NewGuid().ToString("N");
     private readonly AgentHostInstanceRegistry _instanceRegistry;
@@ -78,7 +80,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         int preferredPort,
         string token,
         Func<CancellationToken, Task>? beforeStart = null,
-        string? registryDirectory = null)
+        string? registryDirectory = null,
+        Func<EndPoint, Socket>? createBoundListenSocket = null)
         : this(
             projectService,
             editorService,
@@ -87,7 +90,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
             token,
             GlobalConfiguration.Instance.AiAgentConfig,
             beforeStart,
-            registryDirectory)
+            registryDirectory,
+            createBoundListenSocket: createBoundListenSocket)
     {
     }
 
@@ -100,7 +104,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         AiAgentConfig config,
         Func<CancellationToken, Task>? beforeStart = null,
         string? registryDirectory = null,
-        Func<string>? tokenFactory = null)
+        Func<string>? tokenFactory = null,
+        Func<EndPoint, Socket>? createBoundListenSocket = null)
     {
         ArgumentNullException.ThrowIfNull(config);
 
@@ -120,6 +125,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         _config = config;
         _preferredPort = preferredPort;
         _beforeStart = beforeStart;
+        _createBoundListenSocket = createBoundListenSocket;
         _tokenFactory = tokenFactory;
         Token = token;
         // The same directory the live MCP broker reads, so an agent launched outside this process
@@ -277,7 +283,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
 
                 return;
             }
-            catch (Exception ex) when (IsAddressInUse(ex))
+            catch (Exception ex) when (IsPortUnavailable(ex))
             {
                 await app.DisposeAsync().ConfigureAwait(false);
                 if (port >= IPEndPoint.MaxPort)
@@ -408,6 +414,8 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         });
 
         builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, port));
+        if (_createBoundListenSocket is { } createBoundListenSocket)
+            builder.Services.Configure<SocketTransportOptions>(options => options.CreateBoundListenSocket = createBoundListenSocket);
 
         builder.Services
             .AddSingleton(_projectService)
@@ -493,7 +501,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
         }
     }
 
-    private static bool IsAddressInUse(Exception exception)
+    private static bool IsPortUnavailable(Exception exception)
     {
         for (Exception? current = exception; current is not null; current = current.InnerException)
         {
@@ -502,7 +510,7 @@ public sealed class AgentHostEndpoint : IAsyncDisposable
                 return true;
             }
 
-            if (current is SocketException { SocketErrorCode: SocketError.AddressAlreadyInUse })
+            if (current is SocketException { SocketErrorCode: SocketError.AddressAlreadyInUse or SocketError.AccessDenied })
             {
                 return true;
             }
