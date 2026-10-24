@@ -9,6 +9,11 @@ on:
     types: [ checks_requested ]
     branches: [ main ]
 
+# Cancel superseded checks for the same branch or pull request.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dotnet-format:
     runs-on: ubuntu-latest
