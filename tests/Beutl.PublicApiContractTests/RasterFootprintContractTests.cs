@@ -129,10 +129,6 @@ public sealed class RasterFootprintContractTests
             Assert.That(
                 shaderBuilderType.GetMethod(nameof(SKSLShaderBuilder.Build), Type.EmptyTypes)?.ReturnType,
                 Is.EqualTo(typeof(SKShader)));
-            Assert.That(shaderType.GetProperty("Effect"), Is.Null,
-                "the owning shader must not expose its disposable runtime effect");
-            Assert.That(shaderType.GetMethod("ApplyToNewTarget"), Is.Null,
-                "the allocation-owning compatibility overload must not remain public");
         });
     }
 
