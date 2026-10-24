@@ -124,6 +124,8 @@ internal static partial class SceneSnapshot
         var project = new Project();
         if (source.FindHierarchicalParent<Project>() is { } sourceProject)
         {
+            project.Id.Value = sourceProject.Id.Value;
+            project.Name.Value = sourceProject.Name.Value;
             project.FrameRate.Value = sourceProject.FrameRate.Value;
             project.SampleRate.Value = sourceProject.SampleRate.Value;
             foreach ((string key, string value) in sourceProject.Variables.Value)
