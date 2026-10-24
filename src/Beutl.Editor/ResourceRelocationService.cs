@@ -194,7 +194,19 @@ public class ResourceRelocationService
     }
 
     private static CoreObject? FindObject(Project project, Guid id)
-        => ExternalResourceCollector.EnumerateObjects(project).FirstOrDefault(obj => obj.Id.Value == id);
+    {
+        CoreObject? result = null;
+        CoreSerializer.Visit(project, visit =>
+        {
+            if (visit.Value is CoreObject obj && obj.Id.Value == id)
+            {
+                result = obj;
+                return true;
+            }
+            return false;
+        });
+        return result;
+    }
 
     private static async Task<string> CopyModelAsync(ModelSource model, string resourcesDirectory, CancellationToken token)
     {
