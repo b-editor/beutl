@@ -391,7 +391,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
     }
 
     [Test]
-    public void DelayAnimationEffect_ChildRollbackPreservesPrimaryFailureOverCleanupFailure()
+    public void DelayAnimationEffect_ChildRollbackSurfacesCleanupFailure()
     {
         var primary = new InvalidOperationException("delay-child-primary");
         var cleanup = new ThrowingDisposable();
@@ -422,16 +422,14 @@ public sealed class EffectItemTypedSuffixExecutionTests
             workingScale: 1,
             maxWorkingScale: 1);
 
-        InvalidOperationException? thrown = Assert.Throws<InvalidOperationException>(
+        AggregateException? thrown = Assert.Throws<AggregateException>(
             () => executor.Apply(context));
 
         Assert.Multiple(() =>
         {
-            Assert.That(thrown, Is.SameAs(primary));
+            Assert.That(thrown!.Flatten().InnerExceptions.Select(e => e.Message),
+                Is.EqualTo(new[] { "delay-child-cleanup" }));
             Assert.That(cleanup.DisposeCount, Is.EqualTo(1));
-            Assert.That(
-                primary.Data["FilterEffectResourceRollbackFailure"],
-                Is.TypeOf<AggregateException>());
         });
     }
 
