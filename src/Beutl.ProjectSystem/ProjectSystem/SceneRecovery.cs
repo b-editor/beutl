@@ -52,6 +52,8 @@ internal sealed partial class SceneRecovery(Scene scene)
 
     public void WriteMetadata(ICoreSerializationContext context)
     {
+        // These maps contain only IDs; rebuilding their paths inside a visitor would re-enter the same graph.
+        if (context is CoreSerializer.VisitorContext) return;
         RecoveredSerializationState recoveredState = BuildRecoveredSerializationState();
         WriteGuidMap(context, RecoveredElementIdsKey, recoveredState.ElementIds);
         WriteGuidMap(context, RecoveredDescendantIdsKey, recoveredState.DescendantIds);

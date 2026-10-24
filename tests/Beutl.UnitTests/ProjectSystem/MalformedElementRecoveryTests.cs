@@ -14,6 +14,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
@@ -442,6 +443,20 @@ public sealed class MalformedElementRecoveryTests
         }
 
         public IProperty<Reference<Element>> PluginTarget { get; } = new ValueOnlyProperty<Reference<Element>>(default);
+    }
+
+    private sealed class SavedGraphLayer : TimelineLayer
+    {
+        public SavedGraphLayer() => ScanProperties<SavedGraphLayer>();
+
+        public IProperty<EngineObject?> Content { get; } = Property.CreateValue<EngineObject?>();
+    }
+
+    private sealed class SavedGraphMarker : SceneMarker
+    {
+        public SavedGraphMarker() => ScanProperties<SavedGraphMarker>();
+
+        public IProperty<EngineObject?> Content { get; } = Property.CreateValue<EngineObject?>();
     }
 
     private sealed class ConstructorlessReference(Guid id, Type objectType, string marker) : IReference
@@ -1822,10 +1837,8 @@ public sealed class MalformedElementRecoveryTests
         layerHolder.Target.Value = new Reference<Element>(originalId);
         var markerHolder = new ElementReferenceHolder();
         markerHolder.Target.Value = new Reference<Element>(originalId);
-        var layer = new TimelineLayer();
-        var marker = new SceneMarker();
-        ((IModifiableHierarchical)layer).AddChild(layerHolder);
-        ((IModifiableHierarchical)marker).AddChild(markerHolder);
+        var layer = new SavedGraphLayer { Content = { Value = layerHolder } };
+        var marker = new SavedGraphMarker { Content = { Value = markerHolder } };
         var scene = new Scene { Uri = new Uri(Path.Combine(_root, "migration.scene")) };
         scene.Children.Add(migrated);
         scene.Layers.Add(layer);
@@ -2433,6 +2446,47 @@ public sealed class MalformedElementRecoveryTests
     }
 
     [Test]
+    public void Serialize_RecoveredElementKeepsMainDescendantIdentityKeys()
+    {
+        (Uri sceneUri, string elementPath) = CreatePersistedScene();
+        Element source = CoreSerializer.RestoreFromUri<Element>(new Uri(elementPath));
+        source.EnterTransition.Value = new FadeTransition();
+        CoreSerializer.StoreToUri(source, source.Uri!);
+        JsonObject json = JsonNode.Parse(File.ReadAllText(elementPath))!.AsObject();
+        json[nameof(Element.EnterTransition)]!["$type"] = "[Missing.Plugin]Missing:Transition";
+        json[nameof(Element.Objects)]![0]!["Transform"]!["$type"] = "[Missing.Plugin]Missing:Transform";
+        AddUnreadableEasing(json[nameof(Element.Objects)]![0]!.AsObject());
+        File.WriteAllText(elementPath, json.ToJsonString());
+
+        Scene recovered = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+        Element element = recovered.Children.Single();
+        var shape = (RectShape)element.Objects.Single();
+        Guid transformId = shape.Transform.Value!.Id.Value;
+        Guid transitionId = element.EnterTransition.Value!.Id.Value;
+        var expected = new Dictionary<string, Guid>
+        {
+            [$"element.belm!path:$/property:Objects/id:{shape.Id.Value:D}#0/property:Transform"] = transformId,
+            ["element.belm!path:$/property:Objects/index:0/property:Transform"] = transformId,
+            [$"element.belm!path:$/collection:HierarchicalChildren/id:{transitionId:D}#0"] = transitionId,
+            ["element.belm!path:$/collection:HierarchicalChildren/index:1"] = transitionId,
+        };
+
+        CoreSerializer.StoreToUri(recovered, sceneUri);
+        JsonObject saved = JsonNode.Parse(File.ReadAllText(sceneUri.LocalPath))!.AsObject();
+        var identities = saved["RecoveredDescendantIdentities"]!.AsObject()
+            .ToDictionary(pair => pair.Key, pair => Guid.Parse(pair.Value!.GetValue<string>()));
+        Scene reopened = CoreSerializer.RestoreFromUri<Scene>(sceneUri);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.IsRecoveryProtected, Is.True);
+            Assert.That(identities, Is.EquivalentTo(expected));
+            Assert.That(reopened.Children.Single().EnterTransition.Value!.Id.Value, Is.EqualTo(transitionId));
+            Assert.That(((RectShape)reopened.Children.Single().Objects.Single()).Transform.Value!.Id.Value, Is.EqualTo(transformId));
+        });
+    }
+
+    [Test]
     public void Serialize_DoesNotMutateLongLivedRecoveryMaps()
     {
         (Uri sceneUri, string elementPath) = CreatePersistedScene();
@@ -2635,10 +2689,8 @@ public sealed class MalformedElementRecoveryTests
         Guid markerClaimantId = Guid.NewGuid();
         var layerClaimant = new RotationTransform { Id = { Value = layerClaimantId } };
         var markerClaimant = new RotationTransform { Id = { Value = markerClaimantId } };
-        var layer = new TimelineLayer();
-        var marker = new SceneMarker();
-        ((IModifiableHierarchical)layer).AddChild(layerClaimant);
-        ((IModifiableHierarchical)marker).AddChild(markerClaimant);
+        var layer = new SavedGraphLayer { Content = { Value = layerClaimant } };
+        var marker = new SavedGraphMarker { Content = { Value = markerClaimant } };
 
         var layerReference = new TransformReferenceHolder();
         layerReference.Target.Value = new Reference<Transform>(layerClaimantId);

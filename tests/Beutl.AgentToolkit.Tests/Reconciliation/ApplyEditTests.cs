@@ -11,6 +11,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -390,14 +391,14 @@ public sealed class ApplyEditTests
     }
 
     [Test]
-    public void Validate_no_new_fallback_objects_rejects_element_hierarchy_children_outside_objects()
+    public void Validate_no_new_fallback_objects_rejects_saved_transitions_outside_objects()
     {
         Scene current = TestWorkspace.CreateScene();
         TestWorkspace.AddElement(current, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
         using var session = new AgentToolkitTestSession(current);
         Scene sandbox = TestWorkspace.CreateScene();
         Element sandboxElement = TestWorkspace.AddElement(sandbox, MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
-        ((IModifiableHierarchical)sandboxElement).AddChild(new FallbackTransform());
+        sandboxElement.EnterTransition.Value = new FallbackClipTransition();
         ReconcileException error = Assert.Throws<ReconcileException>(() =>
             Reconciler.ValidateNoNewFallbackObjects(session, sandbox))!;
 

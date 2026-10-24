@@ -8,6 +8,7 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using SkiaSharp;
 
 namespace Beutl.Editor;
@@ -91,12 +92,13 @@ public sealed class MissingMediaService
     {
         var groups = new Dictionary<(MissingMediaKind Kind, string Key), List<MissingMediaReference>>();
         var values = new Dictionary<(MissingMediaKind Kind, string Key), (Uri? Uri, FontFamily? Font)>();
-        var searcher = new ObjectSearcher(scene, (stack, value) =>
+        foreach (CoreSerializationVisit visit in EnumerateReferences(scene))
         {
+            object value = visit.Value;
             Uri? uri = GetUri(value);
             FontFamily? font = value as FontFamily;
             MissingMediaKind? kind = GetKind(value);
-            if (kind == null) return false;
+            if (kind == null) continue;
             string key;
             if (uri is { IsAbsoluteUri: true, IsFile: true })
             {
@@ -106,7 +108,7 @@ public sealed class MissingMediaService
             {
                 key = font.Name;
             }
-            else return false;
+            else continue;
 
             var groupKey = (kind.Value, key);
             if (!groups.TryGetValue(groupKey, out var references))
@@ -114,10 +116,13 @@ public sealed class MissingMediaService
                 groups[groupKey] = references = [];
                 values[groupKey] = (uri, font);
             }
-            references.Add(new MissingMediaReference(value as IFileSource, stack.OfType<Element>().FirstOrDefault()));
-            return false;
-        });
-        searcher.SearchAll();
+            Element? element = null;
+            for (CoreSerializationVisit? parent = visit.Parent; parent is not null; parent = parent.Parent)
+            {
+                if (parent.Value is Element owner) { element = owner; break; }
+            }
+            references.Add(new MissingMediaReference(value as IFileSource, element));
+        }
         return groups.Select(pair =>
         {
             var value = values[pair.Key];
@@ -126,12 +131,24 @@ public sealed class MissingMediaService
         }).OrderBy(item => item.Kind).ThenBy(item => item.Name, StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    internal static Uri[] GetFileUris(Scene scene) => new ObjectSearcher(scene, value => GetUri(value) is { IsFile: true })
-        .SearchAll().Select(value => GetUri(value)!).Distinct().ToArray();
+    internal static Uri[] GetFileUris(Scene scene) => EnumerateReferences(scene)
+        .Select(visit => GetUri(visit.Value)).OfType<Uri>().Where(uri => uri.IsFile).Distinct().ToArray();
 
     internal static HashSet<(object Source, Uri? Uri)> GetReferenceKeys(Scene scene)
-        => new ObjectSearcher(scene, value => value is FontFamily || GetUri(value) is { IsFile: true })
-            .SearchAll().Select(value => (value, GetUri(value))).ToHashSet();
+        => EnumerateReferences(scene).Select(visit => (visit.Value, GetUri(visit.Value))).ToHashSet();
+
+    private static IEnumerable<CoreSerializationVisit> EnumerateReferences(Scene scene)
+    {
+        var result = new List<CoreSerializationVisit>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        CoreSerializer.Visit(scene, visit =>
+        {
+            if ((visit.Value is FontFamily || GetUri(visit.Value) is { IsFile: true }) && visited.Add(visit.Value))
+                result.Add(visit);
+            return false;
+        });
+        return result;
+    }
 
     private static Uri? GetUri(object value) => value switch
     {
@@ -390,8 +407,8 @@ public sealed class MissingMediaService
         Uri[] uris = GetFileUris(scene);
         Uri? cacheScene = cacheHashes && scene.Uri is { IsFile: true } sceneUri ? sceneUri : null;
         var previous = new Dictionary<string, MediaFileFingerprint>(scene.MediaFingerprints);
-        var modelDependencies = new ObjectSearcher(scene, value => value is ModelSource { HasUri: true, MeshCount: > 0 })
-            .SearchAll().OfType<ModelSource>().GroupBy(model => model.Uri.AbsoluteUri)
+        var modelDependencies = EnumerateReferences(scene).Select(visit => visit.Value)
+            .OfType<ModelSource>().Where(model => model is { HasUri: true, MeshCount: > 0 }).GroupBy(model => model.Uri.AbsoluteUri)
             .ToDictionary(group => group.Key, group => group.First().Dependencies
                 .Where(path => !FilePathComparison.AreSameCanonicalPath(path, group.First().Uri.LocalPath)).ToArray());
         var updated = await Task.Run(async () =>

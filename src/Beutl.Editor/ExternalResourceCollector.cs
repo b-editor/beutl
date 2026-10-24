@@ -1,9 +1,8 @@
-﻿using Beutl.Animation;
-using Beutl.Extensibility;
-using Beutl.Graphics3D.Models;
+﻿using Beutl.Graphics3D.Models;
 using Beutl.IO;
 using Beutl.Media;
 using Beutl.NodeGraph;
+using Beutl.Serialization;
 
 namespace Beutl.Editor;
 
@@ -33,80 +32,49 @@ public sealed class ExternalResourceCollector
 
         ExternalResourceCollector collector = new();
 
-        foreach (CoreObject obj in EnumerateObjects(root))
+        CoreSerializer.Visit(root, visit =>
         {
-            collector.CollectFromObject(obj, projectDirectory);
-        }
+            switch (visit.Value)
+            {
+                case IFileSource source when RequiresRelocation(source, projectDirectory)
+                                            && GetFileReference(visit) is { } reference:
+                    collector._fileSources.Add((reference.Object.Id.Value, reference.PropertyName, source.Uri));
+                    break;
+                case FontFamily font:
+                    collector._fontFamilies.Add(font);
+                    break;
+            }
+
+            if (visit.Value is CoreObject { Uri: { } uri } obj && IsExternalFile(uri, projectDirectory))
+                collector._fileSources.Add((obj.Id.Value, "Uri", uri));
+            return false;
+        });
 
         return collector;
     }
 
-    // Node adapters own values and animations outside the normal hierarchy. Use
-    // the same walk when resolving collected IDs during relocation.
     internal static IEnumerable<CoreObject> EnumerateObjects(IHierarchical root)
     {
-        var visited = new HashSet<IHierarchical>(ReferenceEqualityComparer.Instance);
-        var pending = new Stack<IHierarchical>();
-        pending.Push(root);
-        while (pending.TryPop(out IHierarchical? item))
+        var objects = new HashSet<CoreObject>(ReferenceEqualityComparer.Instance);
+        CoreSerializer.Visit(root, visit =>
         {
-            if (!visited.Add(item)) continue;
-            if (item is CoreObject obj) yield return obj;
-            foreach (IHierarchical child in item.HierarchicalChildren)
-                pending.Push(child);
-            if (item is INodeMember { Property: { } property })
-            {
-                if (property.GetValue() is IHierarchical value)
-                    pending.Push(value);
-                if (property is IAnimatablePropertyAdapter { Animation: { } animation })
-                    pending.Push(animation);
-            }
-            if (item is IKeyFrame { Value: IHierarchical keyFrameValue })
-                pending.Push(keyFrameValue);
-        }
+            if (visit.Value is CoreObject obj) objects.Add(obj);
+            return false;
+        });
+        return objects;
     }
 
-    private void CollectFromObject(CoreObject obj, string projectDirectory)
+    internal static (CoreObject Object, string PropertyName)? GetFileReference(CoreSerializationVisit visit)
     {
-        if (obj is INodeMember { Property: { } adapter })
+        for (CoreSerializationVisit? parent = visit.Parent; parent is not null; parent = parent.Parent)
         {
-            switch (adapter.GetValue())
-            {
-                case IFileSource source when RequiresRelocation(source, projectDirectory):
-                    _fileSources.Add((obj.Id.Value, nameof(INodeMember.Property), source.Uri));
-                    break;
-                case FontFamily font:
-                    _fontFamilies.Add(font);
-                    break;
-            }
+            if (parent.Value is not CoreObject owner) continue;
+            string member = visit.Path[(parent.Path.Length + 1)..];
+            if (owner is INodeMember && member == "Setter/Value") member = nameof(INodeMember.Property);
+            return (owner, member);
         }
 
-        CollectFromProperties(obj, projectDirectory);
-
-        if (obj.Uri != null && IsExternalFile(obj.Uri, projectDirectory))
-        {
-            _fileSources.Add((obj.Id.Value, "Uri", obj.Uri));
-        }
-    }
-
-    private void CollectFromProperties(CoreObject obj, string projectDirectory)
-    {
-        foreach (IProperty property in obj.Properties)
-        {
-            switch (property.Value)
-            {
-                case IFileSource fileSource:
-                    if (RequiresRelocation(fileSource, projectDirectory))
-                    {
-                        _fileSources.Add((obj.Id.Value, property.Name, fileSource.Uri));
-                    }
-
-                    break;
-                case FontFamily fontFamily:
-                    _fontFamilies.Add(fontFamily);
-                    break;
-            }
-        }
+        return null;
     }
 
     /// <summary>

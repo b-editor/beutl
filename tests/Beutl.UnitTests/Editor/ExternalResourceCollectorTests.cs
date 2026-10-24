@@ -1,6 +1,7 @@
 ﻿using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Serialization;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
@@ -171,7 +172,7 @@ public class ExternalResourceCollectorTests
     }
 
     [Test]
-    public void Collect_WithNestedHierarchy_CollectsFromAllLevels()
+    public void Collect_WithUnsavedHierarchyChild_CollectsOnlySavedValues()
     {
         string externalFile1 = Path.Combine(_externalDir, "test1.png");
         string externalFile2 = Path.Combine(_externalDir, "test2.png");
@@ -188,7 +189,7 @@ public class ExternalResourceCollectorTests
 
         ExternalResourceCollector collector = ExternalResourceCollector.Collect(root, _testProjectDir);
 
-        Assert.That(collector.FileSources, Has.Count.EqualTo(2));
+        Assert.That(collector.FileSources.Select(source => source.OriginalUri), Is.EqualTo(new[] { new Uri(externalFile1) }));
     }
 
     [Test]
@@ -341,6 +342,12 @@ public class ExternalResourceCollectorTests
 
     private class TestHierarchical : Hierarchical
     {
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue("Children", HierarchicalChildren);
+        }
+
         public void AddChild(IHierarchical child)
         {
             HierarchicalChildren.Add(child);

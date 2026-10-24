@@ -7,6 +7,7 @@ using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor;
@@ -178,7 +179,18 @@ public class ResourceRelocationService
         if (FindObject(project, id) is not { } obj) return null;
         if (propertyName == nameof(INodeMember.Property) && obj is INodeMember { Property: { } adapter })
             return adapter.GetValue() as IFileSource;
-        return obj.Properties.FirstOrDefault(p => p.Name == propertyName)?.Value as IFileSource;
+        IFileSource? result = null;
+        CoreSerializer.Visit(obj, visit =>
+        {
+            if (visit.Value is IFileSource source && ExternalResourceCollector.GetFileReference(visit) is { } reference
+                && ReferenceEquals(reference.Object, obj) && reference.PropertyName == propertyName)
+            {
+                result = source;
+                return true;
+            }
+            return false;
+        });
+        return result;
     }
 
     private static CoreObject? FindObject(Project project, Guid id)
