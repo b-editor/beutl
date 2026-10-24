@@ -566,7 +566,7 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
         }
     }
 
-    // The bearer token only goes to the API origin; a download hosted elsewhere is fetched anonymously.
+    // Credentials only go to the API origin; a download hosted elsewhere is fetched anonymously.
     private async Task AuthorizeIfApiOriginAsync(
         HttpRequestMessage request,
         Uri apiOrigin,
@@ -581,7 +581,10 @@ public partial class PackageInstaller : IBeutlApiResource, IAsyncDisposable
             try
             {
                 await user.RefreshAsync(cancellationToken).ConfigureAwait(false);
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", user.Token);
+                var authentication = user.GetAuthenticationState().Response;
+                request.Headers.Authorization = new AuthenticationHeaderValue(authentication.AuthorizationScheme, authentication.Token);
+                if (authentication.DpopPrivateKey is { } privateKey)
+                    request.Headers.TryAddWithoutValidation("DPoP", NativeProofKey.Sign(privateKey, request.Method, downloadUri, authentication.Token));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

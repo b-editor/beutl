@@ -24,7 +24,7 @@ public partial class BeutlApiApplication
             }
             else
             {
-                SetBearerAuthorization(user.Token);
+                SetAuthorization(user.GetAuthenticationState().Response);
             }
         }
 
@@ -58,8 +58,8 @@ public partial class BeutlApiApplication
         }
     }
 
-    private void SetBearerAuthorization(string token)
-        => _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    private void SetAuthorization(AuthResponse response)
+        => _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(response.AuthorizationScheme, response.Token);
 
     private void ClearAuthorization()
         => _httpClient.DefaultRequestHeaders.Authorization = null;
@@ -159,7 +159,7 @@ public partial class BeutlApiApplication
                 return new AuthenticatedSessionContext(
                     user,
                     generation,
-                    $"Bearer {user.Token}",
+                    $"{user.GetAuthenticationState().Response.AuthorizationScheme} {user.Token}",
                     authenticationToken,
                     applicationToken,
                     linkedCancellation);
@@ -338,7 +338,9 @@ public partial class BeutlApiApplication
         bool refreshed = false;
         if (force || isExpired)
         {
-            response = await Account.Refresh(
+            response = response.DpopPrivateKey is not null
+                ? await NativeOAuthClient.RefreshAsync(_httpClient, response, token).ConfigureAwait(false)
+                : await Account.Refresh(
                     new RefreshTokenRequest
                     {
                         RefreshToken = response.RefreshToken,
@@ -368,7 +370,7 @@ public partial class BeutlApiApplication
                 throw new AuthenticationRequiredException();
 
             user.CommitAuthenticationState(response, writeTime);
-            SetBearerAuthorization(response.Token);
+            SetAuthorization(response);
         }
     }
 

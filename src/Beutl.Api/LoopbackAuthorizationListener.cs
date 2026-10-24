@@ -28,12 +28,13 @@ internal static class LoopbackAuthorizationListener
         return listener;
     }
 
-    public static async Task<string?> GetResponseFromListener(HttpListener listener, CancellationToken ct)
+    public static async Task<string> GetResponseFromListener(
+        HttpListener listener, string expectedState, string expectedIssuer, CancellationToken ct)
     {
-        HttpListenerContext context;
-
-        using (ct.Register(listener.Stop))
+        using var registration = ct.Register(listener.Stop);
+        while (true)
         {
+            HttpListenerContext context;
             try
             {
                 context = await listener.GetContextAsync().ConfigureAwait(false);
@@ -42,26 +43,28 @@ internal static class LoopbackAuthorizationListener
             {
                 throw new OperationCanceledException(ct);
             }
-        }
-
-        string? code = context.Request.QueryString.Get("code");
-
-        using (Stream input = ReadClosePageResponse())
-        {
-            context.Response.ContentLength64 = input.Length;
-            context.Response.SendChunked = false;
-            context.Response.KeepAlive = false;
-            context.Response.ContentType = MediaTypeNames.Text.Html;
-            using (Stream output = context.Response.OutputStream)
+            var query = context.Request.QueryString;
+            string? code = query.Get("code");
+            string? error = query.Get("error");
+            if (context.Request.HttpMethod != "GET"
+                || query.GetValues("state") is not { Length: 1 } || query.Get("state") != expectedState
+                || query.GetValues("iss") is not { Length: 1 } || query.Get("iss") != expectedIssuer
+                || (string.IsNullOrWhiteSpace(code) == string.IsNullOrWhiteSpace(error))
+                || query.GetValues(code is null ? "error" : "code") is not { Length: 1 })
             {
-                await input.CopyToAsync(output, ct).ConfigureAwait(false);
-                await output.FlushAsync(ct).ConfigureAwait(false);
+                context.Response.StatusCode = 400;
+                context.Response.Close();
+                continue;
             }
-
+            using Stream input = ReadClosePageResponse();
+            context.Response.ContentType = MediaTypeNames.Text.Html;
+            context.Response.ContentLength64 = input.Length;
+            context.Response.Headers["Cache-Control"] = "no-store";
+            await input.CopyToAsync(context.Response.OutputStream, ct).ConfigureAwait(false);
             context.Response.Close();
+            if (error is not null) throw new InvalidOperationException("Device authorization was declined or failed.");
+            return code!;
         }
-
-        return code;
     }
 
     private static Stream ReadClosePageResponse()

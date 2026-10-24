@@ -37,6 +37,7 @@ public partial class BeutlApiApplication
             {
                 ["token"] = response.Token,
                 ["refresh_token"] = response.RefreshToken,
+                ["dpop_private_key"] = response.DpopPrivateKey,
                 ["expiration"] = response.Expiration,
                 ["profile"] = JsonSerializer.SerializeToNode(user.Profile.Response.Value),
             };
@@ -131,6 +132,7 @@ public partial class BeutlApiApplication
                             Expiration = expiration.Value,
                             RefreshToken = refreshToken,
                             Token = persistedToken,
+                            DpopPrivateKey = (string?)node["dpop_private_key"],
                         },
                         this,
                         lastWriteTime);
