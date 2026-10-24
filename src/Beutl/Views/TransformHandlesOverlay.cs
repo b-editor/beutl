@@ -3,10 +3,10 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using AvaPoint = Avalonia.Point;
 using AvaRect = Avalonia.Rect;
-using AvaSize = Avalonia.Size;
 using AvaVector = Avalonia.Vector;
 using BtlDrawable = Beutl.Graphics.Drawable;
 using BtlMatrix = Beutl.Graphics.Matrix;
@@ -45,7 +45,7 @@ internal sealed class TransformHandlesOverlay : Control
     private Element? _element;
     private BtlRect _localBounds;
     private BtlMatrix _userMatrix = BtlMatrix.Identity;
-    private double _frameScale = 1.0;
+    private PlayerViewportTransform? _viewport;
     private readonly AvaPoint[] _imageCorners = new AvaPoint[4];
     private AvaPoint _pivotImage;
 
@@ -53,7 +53,7 @@ internal sealed class TransformHandlesOverlay : Control
         _drawable != null
         && _localBounds.Width > 0
         && _localBounds.Height > 0
-        && _frameScale > 0
+        && _viewport != null
         && _userMatrix.HasInverse;
 
     public enum HandleKind
@@ -85,7 +85,9 @@ internal sealed class TransformHandlesOverlay : Control
 
     public BtlMatrix UserMatrix => _userMatrix;
 
-    public double FrameScale => _frameScale;
+    public double FrameScale => _viewport?.FrameScale ?? 1;
+
+    public PlayerViewportTransform? Viewport => _viewport;
 
     public BtlPoint PivotLocal { get; private set; }
 
@@ -97,14 +99,13 @@ internal sealed class TransformHandlesOverlay : Control
         BtlRect localBounds,
         BtlMatrix userMatrix,
         BtlPoint pivotLocal,
-        AvaSize imageSize,
-        double frameScale)
+        PlayerViewportTransform viewport)
     {
         if (ReferenceEquals(_drawable, drawable)
             && ReferenceEquals(_element, element)
             && _localBounds == localBounds
             && _userMatrix == userMatrix
-            && _frameScale == frameScale
+            && ReferenceEquals(_viewport, viewport)
             && PivotLocal == pivotLocal)
         {
             return;
@@ -114,7 +115,7 @@ internal sealed class TransformHandlesOverlay : Control
         _element = element;
         _localBounds = localBounds;
         _userMatrix = userMatrix;
-        _frameScale = frameScale;
+        _viewport = viewport;
         PivotLocal = pivotLocal;
 
         RecomputeImageGeometry();
@@ -144,7 +145,7 @@ internal sealed class TransformHandlesOverlay : Control
     private AvaPoint LocalToImage(double lx, double ly)
     {
         BtlPoint p = _userMatrix.Transform(new BtlPoint((float)lx, (float)ly));
-        return new AvaPoint(p.X * _frameScale, p.Y * _frameScale);
+        return _viewport!.ToPreview(p.ToAvaPoint());
     }
 
     private AvaPoint LocalEdgeMid(int cornerA, int cornerB)

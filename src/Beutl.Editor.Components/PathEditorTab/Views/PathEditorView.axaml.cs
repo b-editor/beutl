@@ -13,6 +13,15 @@ public partial class PathEditorView : PathEditorViewBase
     public static readonly StyledProperty<int> SceneWidthProperty =
         AvaloniaProperty.Register<PathEditorView, int>(nameof(SceneWidth));
 
+    public static readonly StyledProperty<double?> ViewportScaleProperty =
+        AvaloniaProperty.Register<PathEditorView, double?>(nameof(ViewportScale));
+
+    public double? ViewportScale
+    {
+        get => GetValue(ViewportScaleProperty);
+        set => SetValue(ViewportScaleProperty, value);
+    }
+
     public Action<Vector>? PanViewport { get; set; }
     private double _scale = 1;
 
@@ -43,9 +52,13 @@ public partial class PathEditorView : PathEditorViewBase
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == SceneWidthProperty || change.Property == BoundsProperty)
+        if (change.Property == SceneWidthProperty || change.Property == BoundsProperty || change.Property == ViewportScaleProperty)
         {
-            if (SceneWidth != 0)
+            if (ViewportScale is { } scale)
+            {
+                SetAndRaise(ScaleProperty, ref _scale, scale);
+            }
+            else if (SceneWidth != 0)
             {
                 SetAndRaise(ScaleProperty, ref _scale, Bounds.Width / SceneWidth);
             }

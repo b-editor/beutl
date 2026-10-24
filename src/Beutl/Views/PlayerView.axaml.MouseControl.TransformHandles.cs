@@ -2,6 +2,7 @@
 using Avalonia.Input;
 using Beutl.Animation;
 using Beutl.Composition;
+using Beutl.Controls;
 using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Engine;
@@ -31,7 +32,7 @@ public partial class PlayerView
         private sealed record PressState(
             Drawable Drawable,
             Element? Element,
-            double FrameScale,
+            PlayerViewportTransform Viewport,
             BtlRect LocalBounds,
             BtlMatrix StartUserMatrix,
             BtlMatrix InvStartUserMatrix,
@@ -151,7 +152,7 @@ public partial class PlayerView
             TransformHandlesOverlay overlay = View.transformHandlesOverlay;
             Drawable drawable = overlay.Drawable!;
             Element? element = overlay.Element;
-            double frameScale = overlay.FrameScale;
+            PlayerViewportTransform viewport = overlay.Viewport!;
             BtlRect localBounds = overlay.LocalBounds;
             BtlMatrix startUserMatrix = overlay.UserMatrix;
             BtlPoint pivotLocal = overlay.PivotLocal;
@@ -163,7 +164,7 @@ public partial class PlayerView
             _press = new PressState(
                 Drawable: drawable,
                 Element: element,
-                FrameScale: frameScale,
+                Viewport: viewport,
                 LocalBounds: localBounds,
                 StartUserMatrix: startUserMatrix,
                 InvStartUserMatrix: invStartUserMatrix,
@@ -192,19 +193,18 @@ public partial class PlayerView
         {
             Scene scene = EditViewModel.Scene;
             AvaPoint imagePos = pp.Position;
-            double frameScale = Image.Bounds.Size.Width / scene.FrameSize.Value.Width;
-            if (frameScale <= 0)
+            if (View.ViewportTransform is not { } viewport)
             {
                 // Click arrived before framePanel laid out the image (layout race) — swallow it.
                 _logger.LogDebug(
-                    "OnPressedHitTest: frameScale={FrameScale} <= 0 (imageBounds={ImageBounds}, frameSize={FrameSize}), swallowing click.",
-                    frameScale, Image.Bounds.Size, scene.FrameSize.Value);
+                    "OnPressedHitTest: invalid viewport (imageBounds={ImageBounds}, frameSize={FrameSize}), swallowing click.",
+                    Image.Bounds.Size, scene.FrameSize.Value);
                 _press = null;
                 e.Handled = true;
                 return;
             }
 
-            AvaPoint scaledStartPosition = new(imagePos.X / frameScale, imagePos.Y / frameScale);
+            AvaPoint scaledStartPosition = viewport.ToFrame(imagePos);
 
             Drawable? drawable;
             BtlMatrix? drawingMatrix;
@@ -275,7 +275,7 @@ public partial class PlayerView
             _press = new PressState(
                 Drawable: drawable,
                 Element: element,
-                FrameScale: frameScale,
+                Viewport: viewport,
                 LocalBounds: default,
                 StartUserMatrix: hasDrawing ? drawingMatrix!.Value : BtlMatrix.Identity,
                 InvStartUserMatrix: invDrawingMatrix,
@@ -478,9 +478,8 @@ public partial class PlayerView
 
         private void HandleTranslate(PressState press, EnsuredState ensured, AvaPoint currentImg)
         {
-            double scale = press.FrameScale;
-            AvaPoint scaledCurrent = new(currentImg.X / scale, currentImg.Y / scale);
-            AvaPoint scaledStart = new(press.StartImagePos.X / scale, press.StartImagePos.Y / scale);
+            AvaPoint scaledCurrent = press.Viewport.ToFrame(currentImg);
+            AvaPoint scaledStart = press.Viewport.ToFrame(press.StartImagePos);
 
             if (ensured.InvPostMatrixOfT is not BtlMatrix inv)
             {
@@ -699,9 +698,7 @@ public partial class PlayerView
 
         private static BtlPoint ImagePointToStartLocal(PressState press, AvaPoint img)
         {
-            double sceneX = img.X / press.FrameScale;
-            double sceneY = img.Y / press.FrameScale;
-            return press.InvStartUserMatrix.Transform(new BtlPoint((float)sceneX, (float)sceneY));
+            return press.InvStartUserMatrix.Transform(press.Viewport.ToFrame(img).ToBtlPoint());
         }
 
         // The anchor is the corner or edge opposite the grabbed handle, in the drawable's own space, on a box
