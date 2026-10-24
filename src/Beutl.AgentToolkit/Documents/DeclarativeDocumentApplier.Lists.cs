@@ -310,7 +310,7 @@ internal sealed partial class DeclarativeDocumentApplier
         JsonObject normalized = NormalizeCoreSerializableJson(itemJson, elementBaseType);
         if (ResolveIncomingBaseUri(ownerBaseUri, itemJson) is { } ownUri)
         {
-            normalized["Uri"] = ownUri.ToString();
+            normalized["Uri"] = UriHelper.ToPersistedReference(ownUri);
             return CoreSerializer.DeserializeFromJsonObject(normalized, elementBaseType, CreateOptions(ownUri));
         }
 
