@@ -83,9 +83,54 @@ class CiTestsTests(unittest.TestCase):
                 for rid in ["linux-x64", "unix", "win-x64", "linux-arm64"]:
                     (output / subdir / rid / "native").mkdir(parents=True)
             with patch.object(archive_ci, "test_projects", return_value=[project]):
-                self.assertEqual(archive_ci.prepare_outputs(root, {"linux-x64", "unix"}), [root / ".ci-tools", output])
+                self.assertEqual(archive_ci.prepare_outputs(root, {"linux-x64", "unix"}, "other"),
+                                 [root / ".ci-tools", output])
             for subdir in ["runtimes", "FFmpegWorker/runtimes"]:
                 self.assertEqual({path.name for path in (output / subdir).iterdir()}, {"linux-x64", "unix"})
+
+    def test_archive_groups_supply_every_suite_without_unrelated_outputs(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            tools = root / ".ci-tools"
+            tools.mkdir()
+            names = ["Beutl.UnitTests", "Beutl.HeadlessUITests", "Beutl.Graphics3DTests", "NewTests"]
+            for name in names:
+                project = root / "tests" / name / f"{name}.csproj"
+                output = project.parent / "bin" / "Debug" / "net10.0"
+                output.mkdir(parents=True)
+                project.write_text("<Project><PropertyGroup><IsTestProject>true</IsTestProject></PropertyGroup></Project>")
+                (output / f"{name}.dll").touch()
+            projects = "".join(f'<Project Path="tests/{name}/{name}.csproj" />' for name in names)
+            (root / "Beutl.slnx").write_text(f"<Solution>{projects}</Solution>")
+            groups = {group: set(archive_ci.prepare_outputs(root, {"linux-x64"}, group))
+                      for group in ["unit", "ui", "graphics3d", "other"]}
+            for suite in [*ci_tests.FILTERS, *ci_tests.VALIDATION_GROUPS, "graphics3d", "other"]:
+                with self.subTest(suite=suite):
+                    pattern = archive_ci.artifact_pattern(root, suite)
+                    selected = pattern.removeprefix("TestBinaries-").removesuffix(".tar.zst").strip("{}").split(",")
+                    downloaded = set().union(*(groups[group] for group in selected))
+                    needed = {assembly.parent for child in ci_tests.VALIDATION_GROUPS.get(suite, [suite])
+                              for assembly in ci_tests.assemblies(root, child)}
+                    self.assertEqual(downloaded, needed | {tools})
+            self.assertEqual(archive_ci.artifact_pattern(root, "validation-rendering"),
+                             "TestBinaries-{graphics3d,unit}.tar.zst")
+            self.assertEqual(groups["other"], {tools, root / "tests/NewTests/bin/Debug/net10.0"})
+
+    def test_archive_fails_when_a_selected_output_is_missing(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            project = root / "tests/Beutl.UnitTests/Beutl.UnitTests.csproj"
+            with patch.object(archive_ci, "test_projects", return_value=[project]):
+                with self.assertRaises(FileNotFoundError):
+                    archive_ci.prepare_outputs(root, {"linux-x64"}, "unit")
+                (root / ".ci-tools").mkdir()
+                with self.assertRaises(FileNotFoundError):
+                    archive_ci.prepare_outputs(root, {"linux-x64"}, "unit")
+
+    def test_artifact_selection_fails_when_the_suite_has_no_assemblies(self):
+        with patch.object(archive_ci, "assemblies", return_value=[]):
+            with self.assertRaises(ValueError):
+                archive_ci.artifact_pattern(Path("/repo"), "other")
 
     def test_unit_shards_cover_each_test_once_including_new_namespaces(self):
         names = [
