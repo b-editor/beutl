@@ -80,7 +80,6 @@ public class EncodeDecodeRoundTripTests
         Assert.That(reader.HasVideo, Is.True, "Decoded file should expose a video track.");
         Assert.That(reader.VideoInfo.FrameSize.Width, Is.EqualTo(width));
         Assert.That(reader.VideoInfo.FrameSize.Height, Is.EqualTo(height));
-        // Synthetic input has no HDR metadata → should come back as SDR 8bpc.
         Assert.That(reader.VideoInfo.CodecName, Is.Not.Empty);
 
         Assert.That(reader.HasAudio, Is.True, "Decoded file should expose an audio track.");
@@ -94,6 +93,7 @@ public class EncodeDecodeRoundTripTests
         {
             Assert.That(videoImage!.Value.Width, Is.EqualTo(width));
             Assert.That(videoImage.Value.Height, Is.EqualTo(height));
+            Assert.That(videoImage.Value.ColorType, Is.EqualTo(BitmapColorType.Bgra8888));
         }
 
         // Audio decode: read 1024 samples from the start and confirm the buffer matches the
