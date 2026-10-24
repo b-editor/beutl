@@ -247,13 +247,15 @@ public sealed partial class FileBrowserTabViewModel
     public Task TransferFilesToDirectoryAsync(
         IEnumerable<(string LocalPath, bool IsDirectory)> files, string targetDir, bool move)
     {
-        return TransferFilesAsync(move, files, targetDir, () => targetDir);
+        string? allowedRoot = IsHomeView.Value ? _projectDirectory : RootPath.Value;
+        return TransferFilesAsync(move, files, targetDir, allowedRoot, () => targetDir);
     }
 
     // Runs on the thread pool. A failure is logged and counted, so the caller reports it on the UI thread.
     private int CopyFilesToDirectoryCore(
         IReadOnlyList<(string LocalPath, bool IsDirectory)> files,
         string targetDir,
+        string? allowedRoot,
         IReadOnlySet<string> merging,
         CancellationToken cancellationToken)
     {
@@ -279,7 +281,10 @@ public sealed partial class FileBrowserTabViewModel
                     // A folder that is already there is copied into only when the user chose to merge.
                     if (!Directory.Exists(destPath) || merging.Contains(localPath))
                     {
-                        int skippedLinks = FileCopyService.CopyDirectoryRecursive(localPath, destPath, CopyFile, cancellationToken);
+                        if (string.IsNullOrEmpty(allowedRoot))
+                            throw new IOException("The file browser has no root directory.");
+
+                        int skippedLinks = FileCopyService.CopyDirectoryRecursive(localPath, destPath, allowedRoot, CopyFile, cancellationToken);
                         if (skippedLinks > 0)
                         {
                             _logger.LogWarning("Skipped {Count} folder links copying {Source} to {Dest}", skippedLinks, localPath, destPath);
@@ -309,7 +314,7 @@ public sealed partial class FileBrowserTabViewModel
 
         string projectDirectory = _projectDirectory;
         return TransferFilesAsync(
-            move, files, Path.Combine(projectDirectory, ResourcesDirectoryName), () => EnsureResourcesDirectory(projectDirectory));
+            move, files, Path.Combine(projectDirectory, ResourcesDirectoryName), projectDirectory, () => EnsureResourcesDirectory(projectDirectory));
     }
 
     // Runs on the thread pool. A failure is logged and counted, so the caller reports it on the UI thread.
@@ -400,6 +405,7 @@ public sealed partial class FileBrowserTabViewModel
         bool move,
         IEnumerable<(string LocalPath, bool IsDirectory)> files,
         string plannedTargetDir,
+        string? allowedRoot,
         Func<string> getTargetDirectory)
     {
         string operation = move ? Strings.Move : Strings.Copy;
@@ -426,7 +432,7 @@ public sealed partial class FileBrowserTabViewModel
         var notMoved = new List<string>();
         Func<IReadOnlyList<(string LocalPath, bool IsDirectory)>, string, CancellationToken, int> transfer = move
             ? (items, target, token) => MoveFilesToDirectoryCore(items, target, notMoved, token)
-            : (items, target, token) => CopyFilesToDirectoryCore(items, target, merging, token);
+            : (items, target, token) => CopyFilesToDirectoryCore(items, target, allowedRoot, merging, token);
         if (!TryBeginProjectFileWrite(operation, out IProjectFileWriteLease? fileWrite))
             return;
 

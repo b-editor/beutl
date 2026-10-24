@@ -7,17 +7,38 @@ internal static class FileCopyService
     public static int CopyDirectoryRecursive(
         string sourceDir,
         string destDir,
+        string allowedRoot,
         Action<string, string> copyFile,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        // リンクになったコピー先に書くと、ドロップ先の外に書き込んでしまう
-        if (new DirectoryInfo(destDir).LinkTarget is not null)
+        // ルート配下のリンクだけを拒否し、解決後もコピー先がルート内であることを確認する。
+        string relativeDestination = Path.GetRelativePath(allowedRoot, destDir);
+        if (Path.IsPathRooted(relativeDestination)
+            || relativeDestination == ".."
+            || relativeDestination.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+            || !FilePathComparison.IsSameOrDescendant(allowedRoot, destDir))
         {
             return 1;
         }
 
-        // リンクを解決して比べるので、コピー元の中を指すリンクの下へのコピーも防げる
+        string destinationPath = allowedRoot;
+        foreach (string component in relativeDestination.Split(Path.DirectorySeparatorChar))
+        {
+            if (component == ".")
+                continue;
+
+            destinationPath = Path.Combine(destinationPath, component);
+            var destination = new DirectoryInfo(destinationPath);
+            if (destination.LinkTarget is not null)
+            {
+                return 1;
+            }
+
+            if (!destination.Exists)
+                break;
+        }
+
         if (FilePathComparison.IsSameOrDescendant(sourceDir, destDir))
         {
             throw new IOException("Cannot copy a directory into itself or a descendant directory.");
@@ -45,7 +66,7 @@ internal static class FileCopyService
             }
 
             string destSubDir = Path.Combine(destDir, Path.GetFileName(dir));
-            skippedLinks += CopyDirectoryRecursive(dir, destSubDir, copyFile, cancellationToken);
+            skippedLinks += CopyDirectoryRecursive(dir, destSubDir, allowedRoot, copyFile, cancellationToken);
         }
 
         return skippedLinks;
