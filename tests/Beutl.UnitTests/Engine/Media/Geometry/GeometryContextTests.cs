@@ -122,7 +122,7 @@ public sealed class GeometryContextTests
     }
 
     [Test]
-    public void APathReadBeforeAnEdit_StaysValidUntilTheContextIsDisposed()
+    public void APathReadBeforeAnEdit_IsDisposedWhenEditingResumes()
     {
         SKPath first;
         SKPath second;
@@ -137,7 +137,7 @@ public sealed class GeometryContextTests
             Assert.Multiple(() =>
             {
                 Assert.That(second, Is.Not.SameAs(first));
-                Assert.That(first.PointCount, Is.EqualTo(2));
+                Assert.That(first.Handle, Is.EqualTo(IntPtr.Zero));
                 Assert.That(second.PointCount, Is.EqualTo(3));
             });
         }
@@ -150,7 +150,7 @@ public sealed class GeometryContextTests
     }
 
     [Test]
-    public void SettingFillTypeAfterReadingNativeObject_LeavesThePathAlreadyReturned()
+    public void SettingFillTypeAfterReadingNativeObject_UpdatesThePathAlreadyReturned()
     {
         using var context = new GeometryContext();
         context.MoveTo(new Point(0, 0));
@@ -162,15 +162,15 @@ public sealed class GeometryContextTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(first.FillType, Is.EqualTo(SKPathFillType.Winding));
-            Assert.That(second, Is.Not.SameAs(first));
+            Assert.That(first.FillType, Is.EqualTo(SKPathFillType.EvenOdd));
+            Assert.That(second, Is.SameAs(first));
             Assert.That(second.FillType, Is.EqualTo(SKPathFillType.EvenOdd));
             Assert.That(second.PointCount, Is.EqualTo(2));
         });
     }
 
     [Test]
-    public void TransformAfterReadingNativeObject_LeavesThePathAlreadyReturned()
+    public void TransformAfterReadingNativeObject_UpdatesThePathAlreadyReturned()
     {
         using var context = new GeometryContext();
         context.MoveTo(new Point(0, 0));
@@ -182,8 +182,8 @@ public sealed class GeometryContextTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(first.LastPoint, Is.EqualTo(new SKPoint(10, 0)));
-            Assert.That(second, Is.Not.SameAs(first));
+            Assert.That(first.LastPoint, Is.EqualTo(new SKPoint(15, 7)));
+            Assert.That(second, Is.SameAs(first));
             Assert.That(second.LastPoint, Is.EqualTo(new SKPoint(15, 7)));
         });
     }
