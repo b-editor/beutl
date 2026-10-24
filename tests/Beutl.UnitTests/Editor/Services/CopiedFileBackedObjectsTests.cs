@@ -1,5 +1,7 @@
 ﻿using Beutl.Animation;
+using Beutl.Composition;
 using Beutl.Editor.Services;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -71,19 +73,25 @@ public class CopiedFileBackedObjectsTests
         inner.AddObject(new CopyRenewalProbe());
         scene.Children.Add(inner);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
+        var project = new Project();
+        project.Items.Add(_harness.Scene);
+        Scene referenced = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        project.Items.Add(referenced);
+        _ = new BeutlApplication { Project = { Value = project } };
         Element front = _harness.AddElement(MediaTime.Zero, MediaTime.FromSeconds(10));
         var drawable = new SceneDrawable();
-        drawable.ReferencedScene.Value = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
+        drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(referenced.Id.Value);
         front.AddObject(drawable);
         _harness.History.Commit("Setup");
 
         Element back = Split(front, 4);
-        Scene drawn = back.Objects.OfType<SceneDrawable>().Single().ReferencedScene.Value!;
+        Scene drawn = back.Objects.OfType<SceneDrawable>().Single().ReferencedScene.Evaluate(CompositionContext.Default)!;
         SaveEveryElement();
         Scene reloaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
 
         Assert.Multiple(() =>
         {
+            Assert.That(drawn, Is.SameAs(referenced));
             Assert.That(drawn.Uri, Is.EqualTo(scene.Uri));
             Assert.That(drawn.Id.Value, Is.EqualTo(scene.Id.Value));
             Assert.That(drawn.Children.Single().Id.Value, Is.EqualTo(inner.Id.Value));

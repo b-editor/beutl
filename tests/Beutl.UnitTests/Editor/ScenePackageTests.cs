@@ -1,6 +1,7 @@
 ﻿using System.IO.Compression;
 using Beutl.Composition;
 using Beutl.Editor;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -47,19 +48,17 @@ public class ScenePackageTests
                 scene.Children.Remove(removed);
                 CoreSerializer.StoreToUri(scene, scene.Uri);
                 File.WriteAllText(Path.Combine(directory, "unrelated-private.txt"), "not part of the scene");
-                if (topLevel)
-                {
-                    project.Items.Add(scene);
-                }
-                else
+                project.Items.Add(scene);
+                if (!topLevel)
                 {
                     var parent = new Element { Uri = new Uri(Path.Combine(mainDirectory, name + ".belm")), Length = { Value = MediaTime.FromSeconds(1) } };
-                    parent.Objects.Add(new SceneDrawable { ReferencedScene = { Value = scene } });
+                    parent.Objects.Add(new SceneDrawable { ReferencedScene = { Expression = new ReferenceExpression<Scene?>(scene.Id.Value) } });
                     main.Children.Add(parent);
                 }
             }
             CoreSerializer.StoreToUri(project, project.Uri);
             project = CoreSerializer.RestoreFromUri<Project>(project.Uri);
+            _ = new BeutlApplication { Project = { Value = project } };
             Assert.That(GetScenes(project, topLevel).All(scene => scene.Children.Count == 1), Is.True);
             var originals = Directory.GetFiles(root, "*", SearchOption.AllDirectories).ToDictionary(path => path, File.ReadAllBytes);
             string package = Path.Combine(root, "shared.beutl");
@@ -79,6 +78,7 @@ public class ScenePackageTests
             Directory.Delete(library, recursive: true);
             Project? imported = await ProjectPackageService.Current.ImportAsync(package, Path.Combine(root, "imported"));
             Assert.That(imported, Is.Not.Null);
+            _ = new BeutlApplication { Project = { Value = imported } };
             string importedRoot = Path.GetDirectoryName(imported!.Uri!.LocalPath)!;
             Scene[] scenes = GetScenes(imported, topLevel).ToArray();
             Assert.That(scenes.Select(scene => scene.Name.Value), Is.EquivalentTo(expected.Keys));
@@ -107,5 +107,6 @@ public class ScenePackageTests
     private static IEnumerable<Scene> GetScenes(Project project, bool topLevel)
         => topLevel
             ? project.Items.OfType<Scene>().Where(scene => scene.Name.Value != "Main")
-            : project.Items.OfType<Scene>().Single().Children.Select(element => element.Objects.OfType<SceneDrawable>().Single().ReferencedScene.Value!);
+            : project.Items.OfType<Scene>().Single(scene => scene.Name.Value == "Main").Children
+                .Select(element => element.Objects.OfType<SceneDrawable>().Single().ReferencedScene.Evaluate(CompositionContext.Default)!);
 }

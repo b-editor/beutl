@@ -49,12 +49,15 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
 
             ValueChanged?.Invoke(this, new PropertyValueChangedEventArgs<T>(this, oldValue, validatedValue));
             Edited?.Invoke(this, EventArgs.Empty);
-            PropertyValueOwnership.Reparent(_owner, oldValue, validatedValue);
+            if (!IsReference)
+            {
+                PropertyValueOwnership.Reparent(_owner, oldValue, validatedValue);
 
-            if (oldValue is INotifyEdited oldEdited)
-                oldEdited.Edited -= OnChildEdited;
-            if (validatedValue is INotifyEdited newEdited)
-                newEdited.Edited += OnChildEdited;
+                if (oldValue is INotifyEdited oldEdited)
+                    oldEdited.Edited -= OnChildEdited;
+                if (validatedValue is INotifyEdited newEdited)
+                    newEdited.Edited += OnChildEdited;
+            }
         }
     }
 
@@ -84,7 +87,7 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
     void IExpressionChainHost.SetExpressionChain(IExpression? chain) => Expression = (IExpression<T>?)chain;
 
     IEnumerable<object?> IChildObjectSource.GetChildObjects()
-        => ChildObjects.MayHoldObjects(typeof(T)) ? [_currentValue] : [];
+        => !IsReference && ChildObjects.MayHoldObjects(typeof(T)) ? [_currentValue] : [];
 
     void IExpressionChainHost.SetKeyFrames(IExpression? keyFrames)
     {
@@ -180,12 +183,12 @@ public class SimpleProperty<T>(T defaultValue, IValidator<T>? validator = null)
         if (_owner == owner) return;
         _propertyLookup = null;
 
-        if (owner is IModifiableHierarchical ownerHierarchical)
+        if (!IsReference && owner is IModifiableHierarchical ownerHierarchical)
         {
             if (Value is IHierarchical hierarchical)
                 ownerHierarchical.AddChild(hierarchical);
         }
-        else if (_owner is IModifiableHierarchical oldOwnerHierarchical)
+        else if (!IsReference && _owner is IModifiableHierarchical oldOwnerHierarchical)
         {
             if (Value is IHierarchical hierarchical)
                 oldOwnerHierarchical.RemoveChild(hierarchical);
