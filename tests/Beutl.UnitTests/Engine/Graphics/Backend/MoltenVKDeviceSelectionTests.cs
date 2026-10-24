@@ -65,6 +65,25 @@ public sealed class MoltenVKDeviceSelectionTests
             Is.EqualTo(new[] { swiftShader, radeon }));
     }
 
+    // Windows and Linux register the bundled SwiftShader beside the system drivers, and the loader may list it first.
+    [Test]
+    public void ElsewhereADiscreteThenAnIntegratedGpuIsSelectedBeforeSwiftShader()
+    {
+        VulkanPhysicalDeviceInfo swiftShader = CreateDevice(
+            "SwiftShader Device (Subzero)", PhysicalDeviceType.Cpu, DriverId.GoogleSwiftshader);
+        VulkanPhysicalDeviceInfo intel = CreateDevice(
+            "Intel(R) UHD Graphics 770", PhysicalDeviceType.IntegratedGpu, DriverId.IntelOpenSourceMesa);
+        VulkanPhysicalDeviceInfo radeon = CreateDevice(
+            "AMD Radeon RX 7600 (RADV NAVI33)", PhysicalDeviceType.DiscreteGpu, DriverId.MesaRadv);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(VulkanInstance.SelectBest([swiftShader, intel]), Is.SameAs(intel));
+            Assert.That(VulkanInstance.SelectBest([swiftShader, intel, radeon]), Is.SameAs(radeon));
+            Assert.That(VulkanInstance.SelectBest([swiftShader]), Is.SameAs(swiftShader));
+        });
+    }
+
     // The factory then renders on the CPU, and asking for the selected device, as the information page does, has
     // to answer that there is none rather than throw.
     [Test]

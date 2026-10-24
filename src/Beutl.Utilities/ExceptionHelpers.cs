@@ -8,14 +8,6 @@ namespace Beutl.Utilities;
 /// </summary>
 public static class ExceptionHelpers
 {
-    /// <summary>
-    /// Returns <see langword="true"/> when the exception chain contains an
-    /// <see cref="IOException"/> or <see cref="UnauthorizedAccessException"/>,
-    /// including failures wrapped by reflection or aggregation.
-    /// </summary>
-    public static bool ContainsFileSystemFailure(Exception exception)
-        => Contains(exception, static current => current is IOException or UnauthorizedAccessException);
-
     public static bool ContainsFatalFailure(Exception exception)
         => Contains(exception, static current => current is OutOfMemoryException
             or StackOverflowException

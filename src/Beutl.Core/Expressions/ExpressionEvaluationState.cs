@@ -21,16 +21,9 @@ internal sealed class ExpressionEvaluationState<T>(IExpression<T> expression)
         Volatile.Write(ref _error, exception.Message);
         if (Interlocked.Exchange(ref _reported, 1) == 0)
         {
-            try
-            {
-                Log.CreateLogger("PropertyExpression").LogWarning(exception,
-                    "Expression for {OwnerType} ({OwnerId}).{PropertyName} failed; using the animation or current value.",
-                    owner?.GetType().Name, owner?.Id.Value, propertyName);
-            }
-            catch
-            {
-                // Diagnostics must not prevent the property from falling back to a usable value.
-            }
+            Log.CreateLogger("PropertyExpression").LogWarning(exception,
+                "Expression for {OwnerType} ({OwnerId}).{PropertyName} failed; using the animation or current value.",
+                owner?.GetType().Name, owner?.Id.Value, propertyName);
         }
     }
 }

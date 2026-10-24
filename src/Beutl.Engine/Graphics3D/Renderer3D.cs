@@ -111,16 +111,9 @@ internal sealed class Renderer3D : IRenderer3D
 
             outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         }
-        catch (Exception allocationFailure)
+        catch
         {
-            try
-            {
-                RenderNode3D.DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass, shadowManager]);
-            }
-            catch (Exception cleanupFailure)
-            {
-                throw new AggregateException(allocationFailure, cleanupFailure);
-            }
+            RenderNode3D.DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass, shadowManager]);
             throw;
         }
 
@@ -182,16 +175,9 @@ internal sealed class Renderer3D : IRenderer3D
 
             outputTexture = _context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
         }
-        catch (Exception allocationFailure)
+        catch
         {
-            try
-            {
-                RenderNode3D.DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass]);
-            }
-            catch (Exception cleanupFailure)
-            {
-                throw new AggregateException(allocationFailure, cleanupFailure);
-            }
+            RenderNode3D.DisposeResources([outputTexture, flipPass, gizmoPass, transparentPass, lightingPass, geometryPass]);
             throw;
         }
 

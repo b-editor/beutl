@@ -66,73 +66,54 @@ internal sealed partial class RenderRequestExecutor
         RenderRequestOwner owner = request.Request.Options.Owner;
         try
         {
-            try
-            {
-                ExecuteFamily(
-                    request,
-                    destination,
-                    replayBounds ?? request.SelectedOutputBounds,
-                    finalizeOutput,
-                    familyProgramCache,
-                    familySpirvProgramCache,
-                    frames,
-                    cleanupFailures,
-                    ref nestedRootAcquisitions,
-                    ref nestedPreviewDropObserved);
-            }
-            catch (FamilyExecutionException ex)
-            {
-                primaryFailure = ex.Failure;
-            }
-            catch (Exception ex)
-            {
-                primaryFailure = ExceptionDispatchInfo.Capture(ex);
-            }
-
-            RunExternalFinalizer(finalizeExternalResources, owner, cleanupFailures, ref primaryFailure);
-            DisposeLocalProgramCache(localProgramCache, cleanupFailures);
-            DisposeLocalProgramCache(localSpirvProgramCache, cleanupFailures);
-
-            if (primaryFailure is null && cleanupFailures.Count != 0)
-            {
-                primaryFailure = ExceptionDispatchInfo.Capture(cleanupFailures[0]);
-            }
-
-            if (primaryFailure is not null)
-                RejectNestedBindings(request);
-
-            DrainOwnerCleanup(owner, cleanupFailures, ref primaryFailure);
-
-            try
-            {
-                _targets.ThrowIfCleanupFailed();
-            }
-            catch (Exception ex)
-            {
-                RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
-            }
-
-            PublishFamilyOutputs(frames, cleanupFailures, ref primaryFailure);
-            RejectUnpublishedCaptures(frames, cleanupFailures, ref primaryFailure);
-
-            Statistics = AggregateStatistics(frames, nestedRootAcquisitions);
+            ExecuteFamily(
+                request,
+                destination,
+                replayBounds ?? request.SelectedOutputBounds,
+                finalizeOutput,
+                familyProgramCache,
+                familySpirvProgramCache,
+                frames,
+                cleanupFailures,
+                ref nestedRootAcquisitions,
+                ref nestedPreviewDropObserved);
         }
-        finally
+        catch (FamilyExecutionException ex)
         {
-            // Every state is explicitly drained above. This fallback only protects
-            // future edits that introduce an unexpected coordinator exception.
-            foreach (RenderRequestExecutionState state in frames)
-            {
-                try
-                {
-                    state.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
-                }
-            }
+            primaryFailure = ex.Failure;
         }
+        catch (Exception ex)
+        {
+            primaryFailure = ExceptionDispatchInfo.Capture(ex);
+        }
+
+        RunExternalFinalizer(finalizeExternalResources, owner, cleanupFailures, ref primaryFailure);
+        DisposeLocalProgramCache(localProgramCache, cleanupFailures);
+        DisposeLocalProgramCache(localSpirvProgramCache, cleanupFailures);
+
+        if (primaryFailure is null && cleanupFailures.Count != 0)
+        {
+            primaryFailure = ExceptionDispatchInfo.Capture(cleanupFailures[0]);
+        }
+
+        if (primaryFailure is not null)
+            RejectNestedBindings(request);
+
+        DrainOwnerCleanup(owner, cleanupFailures, ref primaryFailure);
+
+        try
+        {
+            _targets.ThrowIfCleanupFailed();
+        }
+        catch (Exception ex)
+        {
+            RecordCleanupFailure(cleanupFailures, ref primaryFailure, ex);
+        }
+
+        PublishFamilyOutputs(frames, cleanupFailures, ref primaryFailure);
+        RejectUnpublishedCaptures(frames, cleanupFailures, ref primaryFailure);
+
+        Statistics = AggregateStatistics(frames, nestedRootAcquisitions);
 
         if (primaryFailure is not null)
         {
@@ -273,10 +254,10 @@ internal sealed partial class RenderRequestExecutor
     {
         foreach (RenderRequestExecutionState state in frames)
         {
+            // Disposing rejects the cache and backdrop captures still staged, each even when the other fails.
             try
             {
-                state.RejectCacheCaptures();
-                state.RejectBuiltInBackdropCaptures();
+                state.Dispose();
             }
             catch (Exception ex)
             {

@@ -134,11 +134,11 @@ internal static class VulkanSetup
                 UpdateEnv(prependPaths, appendPaths, "VK_ADD_DRIVER_FILES");
             }
 
-            s_logger.LogDebug("MoltenVK environment setup completed successfully");
+            s_logger.LogDebug("Vulkan driver environment setup completed successfully");
         }
         catch (Exception ex)
         {
-            s_logger.LogError("Failed to setup MoltenVK environment: {ExMessage}", ex.Message);
+            s_logger.LogError("Failed to set up the Vulkan driver environment: {ExMessage}", ex.Message);
         }
     }
 }

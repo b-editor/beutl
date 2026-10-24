@@ -256,12 +256,14 @@ public class EffectScaleParityTests
         {
             // A translate displacement over a flat fill is invisible under clamp sampling, so the source
             // carries its own stripes; only a materialized map can move them.
+            using Drawable.Resource mappedResource = RotatedRect(makeEffect, MakeStripes(20));
             using Bitmap mapped = GoldenImageHarness.RenderAtScale(
-                RotatedRect(makeEffect, MakeStripes(20)),
+                mappedResource,
                 Frame,
                 1f);
+            using Drawable.Resource identityResource = RotatedRect(MakeNoDisplacementMapEffect, MakeStripes(20));
             using Bitmap identity = GoldenImageHarness.RenderAtScale(
-                RotatedRect(MakeNoDisplacementMapEffect, MakeStripes(20)),
+                identityResource,
                 Frame,
                 1f);
 
@@ -365,11 +367,14 @@ public class EffectScaleParityTests
         {
             for (int attempt = 1; ; attempt++)
             {
-                using Bitmap r1 = GoldenImageHarness.RenderAtScale(MakeForCase(name, makeEffect), Frame, 1f);
-                using Bitmap hi = GoldenImageHarness.RenderAtScale(MakeForCase(name, makeEffect), Frame, scale);
+                using Drawable.Resource r1Resource = MakeForCase(name, makeEffect);
+                using Bitmap r1 = GoldenImageHarness.RenderAtScale(r1Resource, Frame, 1f);
+                using Drawable.Resource hiResource = MakeForCase(name, makeEffect);
+                using Bitmap hi = GoldenImageHarness.RenderAtScale(hiResource, Frame, scale);
                 using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
+                using Drawable.Resource controlResource = MakeForCase(name, ControlForCase(name));
                 using Bitmap control = GoldenImageHarness.RenderAtScale(
-                    MakeForCase(name, ControlForCase(name)),
+                    controlResource,
                     Frame,
                     1f);
 
@@ -559,10 +564,12 @@ public class EffectScaleParityTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap bordered = GoldenImageHarness.RenderAtScale(RotatedRect(MakeSkslBorderEffect), Frame, 1f);
+            using Drawable.Resource borderedResource = RotatedRect(MakeSkslBorderEffect);
+            using Bitmap bordered = GoldenImageHarness.RenderAtScale(borderedResource, Frame, 1f);
             // An empty FilterEffectGroup is an identity effect: same fixture, no shader.
+            using Drawable.Resource plainResource = RotatedRect(() => new FilterEffectGroup());
             using Bitmap plain = GoldenImageHarness.RenderAtScale(
-                RotatedRect(() => new FilterEffectGroup()), Frame, 1f);
+                plainResource, Frame, 1f);
             (int redBorderPixels, int preservedInteriorPixels) = CountSkslBorderPixels(bordered);
             double ssim = ImageMetrics.Ssim(bordered, plain);
             TestContext.WriteLine($"[SKSLScript guard] bordered vs plain SSIM={ssim:F4}");

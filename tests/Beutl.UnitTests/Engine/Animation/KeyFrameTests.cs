@@ -225,6 +225,7 @@ public class KeyFrameTests
     [TestCase(typeof(AbstractTestEasing))]
     [TestCase(typeof(PrivateConstructorTestEasing))]
     [TestCase(typeof(ThrowingConstructorTestEasing))]
+    [TestCase(typeof(FilesystemThrowingConstructorTestEasing))]
     public void Deserialize_NonInstantiableEasing_RecordsIncidentAndUsesLinearEasing(Type easingType)
     {
         using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
@@ -306,17 +307,6 @@ public class KeyFrameTests
         keyFrame.Easing.Value = lossyFallback;
 
         Assert.That(keyFrame.HasLossyEasing, Is.True);
-    }
-
-    [Test]
-    public void Deserialize_FilesystemFailureFromEasingConstructor_Propagates()
-    {
-        using DeserializationIncidents.Capture incidents = DeserializationIncidents.BeginCapture();
-
-        Assert.Throws<IOException>(
-            () => Deserialize(TypeFormat.ToString(typeof(FilesystemThrowingConstructorTestEasing))));
-
-        Assert.That(incidents.Count, Is.Zero);
     }
 
     [Test]

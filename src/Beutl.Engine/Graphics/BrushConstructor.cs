@@ -105,18 +105,32 @@ public readonly struct BrushConstructor(
         }
         else if (brush is GradientBrush.Resource gradient)
         {
-            return CreateGradientShader(gradient);
+            return WithOpacity(CreateGradientShader(gradient), opacity);
         }
         else if (brush is TileBrush.Resource tileBrush)
         {
-            return CreateTileShader(tileBrush);
+            return WithOpacity(CreateTileShader(tileBrush), opacity);
         }
         else if (brush is PerlinNoiseBrush.Resource perlinNoiseBrush)
         {
-            return CreatePerlinNoiseShader(perlinNoiseBrush);
+            return WithOpacity(CreatePerlinNoiseShader(perlinNoiseBrush), opacity);
         }
 
         return null;
+    }
+
+    // ConfigurePaint scales these shaders by the paint's alpha; a bare shader is scaled by that same alpha here.
+    private static SKShader? WithOpacity(SKShader? shader, float opacity)
+    {
+        var alpha = (byte)(255 * opacity);
+        if (shader is null || alpha == 255)
+            return shader;
+
+        using (shader)
+        using (var filter = SKColorFilter.CreateBlendMode(new SKColor(255, 255, 255, alpha), SKBlendMode.DstIn))
+        {
+            return shader.WithColorFilter(filter);
+        }
     }
 
     private Brush.Resource? ResolvePresentedBrush()
@@ -517,7 +531,7 @@ public readonly struct BrushConstructor(
 
     private void ConfigurePerlinNoiseBrush(SKPaint paint, PerlinNoiseBrush.Resource perlinNoiseBrush)
     {
-        SKShader? shader = CreatePerlinNoiseShader(perlinNoiseBrush);
+        using SKShader? shader = CreatePerlinNoiseShader(perlinNoiseBrush);
         if (shader != null)
         {
             paint.Shader = shader;

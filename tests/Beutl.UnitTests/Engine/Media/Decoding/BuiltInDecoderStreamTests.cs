@@ -52,6 +52,14 @@ public class BuiltInDecoderStreamTests
         AssertOpensOnlyFor(new AnimatedPngDecoderInfo(), "one-frame.apng", MediaMode.Video, MediaMode.Audio);
     }
 
+    [Test]
+    public void AnimatedPng_DoesNotOpenAPngWithoutAnimationControl()
+    {
+        string file = Path.Combine(_directory, "no-actl.png");
+        File.WriteAllBytes(file, CreateApng(animationControl: false));
+        Assert.That(new AnimatedPngDecoderInfo().Open(file, new MediaOptions(MediaMode.Video)), Is.Null);
+    }
+
     private void AssertOpensOnlyFor(IDecoderInfo decoder, string fileName, MediaMode stream, MediaMode otherStream)
     {
         string file = Path.Combine(_directory, fileName);
@@ -75,7 +83,7 @@ public class BuiltInDecoderStreamTests
     }
 
     // One 2 x 2 frame of 100 ms: a PNG with acTL and fcTL in front of its IDAT.
-    private static byte[] CreateApng()
+    private static byte[] CreateApng(bool animationControl = true)
     {
         using var bitmap = new SKBitmap(2, 2);
         bitmap.Erase(SKColors.Red);
@@ -84,7 +92,7 @@ public class BuiltInDecoderStreamTests
         const int AfterIhdr = 8 + 25;
         byte[] acTL = [0, 0, 0, 1, 0, 0, 0, 0];
         byte[] fcTL = [0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 10, 0, 0];
-        return [.. png.AsSpan(0, AfterIhdr), .. Chunk("acTL", acTL), .. Chunk("fcTL", fcTL), .. png.AsSpan(AfterIhdr)];
+        return [.. png.AsSpan(0, AfterIhdr), .. animationControl ? Chunk("acTL", acTL) : [], .. Chunk("fcTL", fcTL), .. png.AsSpan(AfterIhdr)];
     }
 
     private static byte[] Chunk(string type, byte[] data)

@@ -32,8 +32,10 @@ public class Slice1ReducedScaleTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap full = GoldenImageHarness.RenderAtScale(MakeScene(), Frame, 1f);
-            using Bitmap half = GoldenImageHarness.RenderAtScale(MakeScene(), Frame, 0.5f);
+            using Drawable.Resource fullResource = MakeScene();
+            using Bitmap full = GoldenImageHarness.RenderAtScale(fullResource, Frame, 1f);
+            using Drawable.Resource halfResource = MakeScene();
+            using Bitmap half = GoldenImageHarness.RenderAtScale(halfResource, Frame, 0.5f);
             GoldenImageHarness.AssertReducedScaleExact(full, half);
         });
     }

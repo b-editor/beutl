@@ -16,6 +16,21 @@ public class RenderNodeRendererExceptionSafetyTests
         Render,
     }
 
+    [Test]
+    public void DrawableBrushCleanup_PreservesOnlyTheFirstFailure()
+    {
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.NonPublic;
+        var state = typeof(RenderRequestExecutor).GetNestedType("RenderRequestExecutionState", flags)!;
+        var cleanup = state.GetMethod("DisposeAndCapture", flags | System.Reflection.BindingFlags.Static)!;
+        var primary = new InvalidOperationException("primary");
+        var resource = new FailureTestDisposable(new InvalidOperationException("cleanup"));
+        object?[] arguments = [resource, ExceptionDispatchInfo.Capture(primary)];
+        cleanup.Invoke(null, arguments);
+        Assert.That(((ExceptionDispatchInfo)arguments[1]!).SourceException, Is.SameAs(primary));
+        Assert.That(resource.DisposeCalls, Is.EqualTo(1));
+        Assert.That(primary.Data, Is.Empty);
+    }
+
     [TestCase(EntryPoint.Rasterize)]
     [TestCase(EntryPoint.Render)]
     public void DischargesFaultingAndUnexecutedResources_WhenExecutionThrows(EntryPoint entryPoint)

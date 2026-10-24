@@ -83,9 +83,5 @@ public partial class SpotLight3D : Light3D
     /// <summary>
     /// Gets the normalized direction for use in shaders.
     /// </summary>
-    public Vector3 GetNormalizedDirection(Resource resource)
-    {
-        var dir = resource.Direction;
-        return dir == Vector3.Zero ? Vector3.UnitY : Vector3.Normalize(dir);
-    }
+    public Vector3 GetNormalizedDirection(Resource resource) => LightData.NormalizeDirection(resource.Direction);
 }

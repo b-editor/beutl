@@ -66,7 +66,7 @@ public partial class RenderTarget
 
         // Polls checkAsyncWorkCompletion on the dispatcher, at medium priority, until the read completes. A dispatcher
         // stops running queued work once it shuts down, so the shutdown fails the read instead of stranding it. Like
-        // DispatcherCleanup, that waits for ShutdownFinished: the failure then runs on the dispatcher's thread after its
+        // GpuResourceRelease, that waits for ShutdownFinished: the failure then runs on the dispatcher's thread after its
         // loop has exited, never alongside a poll that is completing the read.
         public void PollUntilComplete(Dispatcher dispatcher, Action checkAsyncWorkCompletion, Func<bool> isContextAbandoned)
         {

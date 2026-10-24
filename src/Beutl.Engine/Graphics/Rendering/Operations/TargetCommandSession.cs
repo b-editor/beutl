@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Collections.ObjectModel;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -15,8 +16,8 @@ public sealed class TargetCommandSession
     private bool _snapshotUsed;
 
     internal TargetCommandSession(
-        IReadOnlyList<RenderExecutionInput> inputs,
-        IReadOnlyList<RenderExecutionInputRange> inputRanges,
+        IList<RenderExecutionInput> inputs,
+        IList<RenderExecutionInputRange> inputRanges,
         Rect affectedBounds,
         RenderIntent intent,
         RenderRequestPurpose purpose,
@@ -28,13 +29,9 @@ public sealed class TargetCommandSession
         ArgumentNullException.ThrowIfNull(inputRanges);
         ArgumentNullException.ThrowIfNull(canvas);
         ArgumentNullException.ThrowIfNull(resources);
-        _inputs = inputs.Count == 0
-            ? Array.Empty<RenderExecutionInput>()
-            : Array.AsReadOnly(inputs.ToArray());
-        _inputRanges = RenderExecutionInputRange.CopyAndValidate(
-            _inputs,
-            inputRanges,
-            nameof(inputRanges));
+        RenderExecutionInputRange.AssertCover(inputs.Count, inputRanges);
+        _inputs = new ReadOnlyCollection<RenderExecutionInput>(inputs);
+        _inputRanges = new ReadOnlyCollection<RenderExecutionInputRange>(inputRanges);
         _affectedBounds = affectedBounds;
         _intent = intent;
         _purpose = purpose;
