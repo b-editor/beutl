@@ -86,6 +86,10 @@ public partial class Scene : ProjectItem, INotifyEdited
 
     private static MediaTime NotNegative(MediaTime value) => value < MediaTime.Zero ? MediaTime.Zero : value;
 
+    public MediaTime ToWindowTime(MediaTime sceneTime) => sceneTime - Start.Value;
+
+    public MediaTime FromWindowTime(MediaTime windowTime) => windowTime + Start.Value;
+
     public bool IsLayerLocked(int zIndex)
     {
         foreach (TimelineLayer layer in Layers)

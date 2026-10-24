@@ -245,7 +245,7 @@ public sealed partial class GraphEditorTabViewModel
                 item.HasKeyFrame.Value = false;
                 continue;
             }
-            MediaTime keyTime = (animation.UseGlobalClock.Value ? globalTime : globalTime - (element?.Start.Value ?? MediaTime.Zero)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime keyTime = animation.ToLocal(globalTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             item.HasKeyFrame.Value = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) != null;
         }
     }

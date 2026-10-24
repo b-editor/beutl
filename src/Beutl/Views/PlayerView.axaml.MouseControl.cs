@@ -24,15 +24,14 @@ public partial class PlayerView
     }
 
     private static KeyFrameState<T>? FindKeyFramePair<T>(
-        IProperty<T> property, IEditorClock clock, Scene scene, MediaTime? localStart)
+        IProperty<T> property, IEditorClock clock, Scene scene)
     {
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         MediaTime globalKeyTime = clock.CurrentTime.Value;
-        MediaTime localKeyTime = localStart.HasValue ? globalKeyTime - localStart.Value : globalKeyTime;
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<T> animation)
         {
-            MediaTime keyTime = animation.UseGlobalClock.Value ? globalKeyTime : localKeyTime;
+            MediaTime keyTime = animation.ToLocal(globalKeyTime);
             keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
             if (AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) is KeyFrame<T> atFrame)

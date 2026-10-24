@@ -1,9 +1,13 @@
 ﻿using System.Collections.Immutable;
+using System.Reactive.Linq;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Engine;
 using Beutl.JsonConverters;
+using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Reactive;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Services;
@@ -15,20 +19,21 @@ internal static class AnimationOperations
 
     private static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, ILogger logger)
     {
-        var element = animation.FindHierarchicalParent<Element>();
         var scene = animation.FindHierarchicalParent<Scene>();
         logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
-        return ConvertKeyTime(animation, globalkeyTime, element, scene);
+        return ConvertKeyTime(animation, globalkeyTime, scene);
     }
 
     // The animation's key time at a time on the timeline, rounded to the frames of the scene.
-    internal static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, Element? element, Scene? scene)
-    {
-        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start.Value : globalkeyTime;
-        MediaTime keyTime = animation.UseGlobalClock.Value ? globalkeyTime : localKeyTime;
+    internal static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, Scene? scene)
+        => animation.ToLocal(globalkeyTime).RoundToFrame(GetFrameRate(scene), MidpointRounding.AwayFromZero);
 
-        return keyTime.RoundToFrame(GetFrameRate(scene), MidpointRounding.AwayFromZero);
-    }
+    internal static IObservable<MediaTime> ObserveTimeOrigin(IKeyFrameAnimation animation)
+        => (animation.FindHierarchicalParent<EngineObject>()?.TimeRange.GetObservable()
+                ?? Observable.ReturnThenNever(default(TimeRange)))
+            .CombineLatest(animation.UseGlobalClock.GetObservable())
+            .Select(_ => animation.ToScene(MediaTime.Zero))
+            .DistinctUntilChanged();
 
     // The frame rate key times snap to: the project's, or 30 fps outside a project.
     internal static Rational GetFrameRate(Scene? scene) => scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);

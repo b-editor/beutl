@@ -65,7 +65,7 @@ public partial class PlayerView
 
         private KeyFrameState<Vector3>? FindKeyFramePairOrNull(IProperty<Vector3> property)
         {
-            return FindKeyFramePair(property, Clock, EditViewModel.Scene, _scene3D?.TimeRange.Value.Start);
+            return FindKeyFramePair(property, Clock, EditViewModel.Scene);
         }
 
         // キーフレームがない場合はfalseを返す

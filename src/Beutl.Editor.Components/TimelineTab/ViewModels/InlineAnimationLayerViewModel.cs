@@ -23,7 +23,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
     private readonly ILogger _logger = Log.CreateLogger<InlineAnimationLayerViewModel>();
     private readonly CompositeDisposable _disposables = [];
     private readonly CompositeDisposable _innerDisposables = [];
-    private readonly ReactivePropertySlim<bool> _useGlobalClock = new(true);
+    private readonly ReactivePropertySlim<MediaTime> _timeOrigin = new();
     private LayerHeaderViewModel? _lastLayerHeader;
     private MediaTime _pointerPosition;
     private bool _disposed;
@@ -39,8 +39,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
         Element.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
 
-        LeftMargin = _useGlobalClock.Select(v => !v ? element.BorderMargin : Observable.ReturnThenNever<Thickness>(default))
-            .Switch()
+        LeftMargin = _timeOrigin.CombineLatest(Timeline.Options)
+            .Select(item => new Thickness(item.First.TimeToPixel(item.Second.Scale), 0, 0, 0))
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -110,8 +110,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
                     .Subscribe(_ => UpdateWidth()).DisposeWith(_innerDisposables);
             }
 
-            t.NewValue.UseGlobalClock.GetObservable()
-                .Subscribe(v => _useGlobalClock.Value = v)
+            AnimationOperations.ObserveTimeOrigin(t.NewValue)
+                .Subscribe(v => _timeOrigin.Value = v)
                 .DisposeWith(_innerDisposables);
 
             if (t.NewValue is IHierarchical hierarchical)
@@ -189,7 +189,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
     public MediaTime ConvertKeyTime(MediaTime globalkeyTime, IKeyFrameAnimation animation)
     {
-        return AnimationOperations.ConvertKeyTime(animation, globalkeyTime, Element.Model, Timeline.Scene);
+        return AnimationOperations.ConvertKeyTime(animation, globalkeyTime, Timeline.Scene);
     }
 
     private void PasteAnimation(string json)
@@ -303,7 +303,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             Index.Value = layerHeader.Inlines.IndexOf(this);
             double top = layerHeader.CalculateInlineTop(Index.Value) + FrameNumberHelper.LayerHeight;
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
-            Thickness newLeftMargin = Property.Animation?.UseGlobalClock.Value == true ? default : leftMargin;
+            Thickness newLeftMargin = new(_timeOrigin.Value.TimeToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
 
             Margin.Value = context.Margin;
             LeftMargin.Value = context.LeftMargin;

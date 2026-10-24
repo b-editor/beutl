@@ -139,7 +139,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
             Scene scene = editor.Scene;
             Rational rate = editor.Player.GetFrameRate();
             MediaTime last = (scene.Start.Value + scene.Duration.Value - new MediaTime(1)).RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
-            MediaTime time = (scene.Start.Value + sceneTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime time = (scene.FromWindowTime(sceneTime)).RoundToFrame(rate, MidpointRounding.AwayFromZero);
             editor.SeekAndScroll(Clamp(time, scene.Start.Value, last));
             return true;
         }, DispatcherPriority.Normal);
@@ -283,10 +283,10 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
         if (element is null || !ReferenceEquals(element.HierarchicalParent, scene))
             return null;
 
-        return new EditTarget(element, obj, propertyName, KeyFrameTime(obj, element));
+        return new EditTarget(element, obj, propertyName, KeyFrameTime(obj));
     }
 
-    private static MediaTime? KeyFrameTime(CoreObject obj, Element element)
+    private static MediaTime? KeyFrameTime(CoreObject obj)
     {
         if (obj is not IKeyFrame keyFrame
             || keyFrame.EnumerateAncestors<IKeyFrameAnimation>().FirstOrDefault() is not { } animation)
@@ -294,7 +294,7 @@ public sealed class AgentEditFollower(EditorService editorService, AiAgentConfig
             return null;
         }
 
-        return animation.UseGlobalClock.Value ? keyFrame.KeyTime.Value : element.Start.Value + keyFrame.KeyTime.Value;
+        return animation.ToScene(keyFrame.KeyTime.Value);
     }
 
     private static string PropertyNameOf(string propertyPath) => PropertyPathHelper.Parse(propertyPath).Name;

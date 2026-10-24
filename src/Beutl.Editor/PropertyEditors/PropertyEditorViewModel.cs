@@ -249,10 +249,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
                 if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
                 {
-                    MediaTime start = _element?.Start.Value ?? default;
-                    MediaTime keyTime = EditingKeyFrame.Value.KeyTime.Value;
-
-                    _clock.Seek(animation.UseGlobalClock.Value ? keyTime : keyTime + start);
+                    _clock.Seek(animation.ToScene(EditingKeyFrame.Value.KeyTime.Value));
                 }
             }
             else
@@ -275,11 +272,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         {
             Rational rate = _scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
 
-            MediaTime globalkeyTime = t.First;
-            MediaTime localKeyTime =
-                _element != null ? globalkeyTime - _element.Start.Value : globalkeyTime;
-            MediaTime keyTime = animation.UseGlobalClock.Value ? globalkeyTime : localKeyTime;
-            keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime keyTime = animation.ToLocal(t.First).RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
             IKeyFrame? atFrame = t.Second != null ? AnimationOperations.FindKeyFrameOnFrame(t.Second, keyTime, rate) : null;
             IsAtKeyFrame.Value = atFrame != null;

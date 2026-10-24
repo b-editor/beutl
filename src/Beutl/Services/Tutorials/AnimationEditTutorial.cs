@@ -191,7 +191,7 @@ public static class AnimationEditTutorial
                         // Move playhead forward
                         if (animation.KeyFrames.Count >= 2)
                         {
-                            editorClock.Seek(animation.KeyFrames[1].KeyTime.Value + element.Start.Value);
+                            editorClock.Seek(animation.ToScene(animation.KeyFrames[1].KeyTime.Value));
                             Dispatcher.UIThread.Post(() => TutorialService.Current.AdvanceStep());
                         }
                         else

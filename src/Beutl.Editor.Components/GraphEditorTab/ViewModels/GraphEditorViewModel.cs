@@ -71,13 +71,9 @@ public sealed partial class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Margin = UseGlobalClock.Select(v => !v
-                ? Element?.Start.GetObservable()
-                    .CombineLatest(Options)
-                    .Select(item => new Thickness(item.First.TimeToPixel(item.Second.Scale), 0, 0, 0))
-                : null)
-            .Select(v => v ?? Observable.ReturnThenNever<Thickness>(default))
-            .Switch()
+        Margin = AnimationOperations.ObserveTimeOrigin(animation)
+            .CombineLatest(timelineOptions.Scale)
+            .Select(item => new Thickness(item.First.TimeToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -311,7 +307,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public MediaTime ConvertKeyTime(MediaTime globalkeyTime)
     {
         _logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
-        return AnimationOperations.ConvertKeyTime(Animation, globalkeyTime, Element, Scene);
+        return AnimationOperations.ConvertKeyTime(Animation, globalkeyTime, Scene);
     }
 
     public void DropEasing(Easing easing, MediaTime keyTime)

@@ -150,7 +150,7 @@ public sealed class SampleProviderImpl : ISampleProvider, IDisposable
 
     private AudioBuffer ComposeCore(long offset, int length)
     {
-        AudioBuffer buffer = _composer.Compose(new(MediaTime.FromSamples(offset, (int)_sampleRate) + _scene.Start.Value,
+        AudioBuffer buffer = _composer.Compose(new(_scene.FromWindowTime(MediaTime.FromSamples(offset, (int)_sampleRate)),
             MediaTime.FromSeconds(1)))
                      ?? throw new InvalidOperationException("composer.Composeがnullを返しました。");
         if (buffer.SampleCount == length)

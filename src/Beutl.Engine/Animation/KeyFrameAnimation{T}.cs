@@ -78,15 +78,13 @@ public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IE
         return KeyFrames.GetPreviousAndNextKeyFrame(timeSpan);
     }
 
-    public T? GetAnimatedValue(MediaTime time)
-    {
-        if (_parent != null && !UseGlobalClock.Value)
-        {
-            return Interpolate(time - _parent.TimeRange.Value.Start);
-        }
+    private MediaTime TimeOrigin => UseGlobalClock.Value ? MediaTime.Zero : _parent?.Start ?? MediaTime.Zero;
 
-        return Interpolate(time);
-    }
+    public MediaTime ToLocal(MediaTime sceneTime) => sceneTime - TimeOrigin;
+
+    public MediaTime ToScene(MediaTime localTime) => localTime + TimeOrigin;
+
+    public T? GetAnimatedValue(MediaTime time) => Interpolate(ToLocal(time));
 
     public T? Interpolate(MediaTime timeSpan)
     {

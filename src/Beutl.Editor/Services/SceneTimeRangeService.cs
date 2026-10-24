@@ -55,7 +55,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     private static void ApplyStart(Scene scene, MediaTime newStart)
     {
         MediaTime frame = GetFrameDuration(scene);
-        MediaTime sceneEnd = scene.Start.Value + scene.Duration.Value;
+        MediaTime sceneEnd = scene.FromWindowTime(scene.Duration.Value);
         MediaTime gridEnd = SnapToFrame(scene, sceneEnd);
 
         if (newStart > gridEnd)
@@ -99,7 +99,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
             return;
         }
 
-        MediaTime duration = newEnd - scene.Start.Value;
+        MediaTime duration = scene.ToWindowTime(newEnd);
         if (duration <= MediaTime.Zero) duration = frame;
         scene.Duration.Value = duration;
     }
@@ -131,7 +131,7 @@ public sealed class SceneTimeRangeService : ISceneTimeRangeService
     {
         MediaTime frame = GetFrameDuration(scene);
 
-        MediaTime duration = pointerTime - scene.Start.Value;
+        MediaTime duration = scene.ToWindowTime(pointerTime);
         if (duration < frame) duration = frame;
         scene.Duration.Value = duration;
     }

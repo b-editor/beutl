@@ -14,6 +14,10 @@ public interface IKeyFrameAnimation : IExpression, ICoreObject, INotifyEdited, I
 
     MediaTime Duration { get; }
 
+    MediaTime ToLocal(MediaTime sceneTime);
+
+    MediaTime ToScene(MediaTime localTime);
+
     IValidator? Validator { get; set; }
 
     (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe);
