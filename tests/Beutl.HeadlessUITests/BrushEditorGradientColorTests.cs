@@ -16,6 +16,7 @@ using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
 using Beutl.Threading;
+using FluentAvalonia.UI.Media;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 using AvaColors = Avalonia.Media.Colors;
 
@@ -101,6 +102,56 @@ public sealed class BrushEditorGradientColorTests
             second.Color = AvaColors.Green;
             Assert.That((Avalonia.Media.Color)picker.Color, Is.EqualTo(second.Color));
             Assert.That(edits, Is.Zero);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(0, 50)]
+    [TestCase(100, 0)]
+    public void Typing_an_achromatic_gradient_color_preserves_hsv_state(int saturation, int value)
+    {
+        var stop = new Avalonia.Media.GradientStop(Color2.FromHSV(240, 100, 50), 0);
+        var picker = new SimpleColorPicker { InputType = SimpleColorPickerInputType.Hsv };
+        var presenter = new BrushEditorFlyoutPresenter
+        {
+            Content = picker,
+            Brush = new Avalonia.Media.LinearGradientBrush { GradientStops = [stop] },
+            OriginalBrush = new LinearGradientBrush()
+        };
+        var window = new Window { Content = presenter, Width = 280, Height = 600 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            string name = saturation == 0 ? "PART_InnerSecondTextBox" : "PART_InnerThirdTextBox";
+            TextBox component = picker.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == name);
+            Assert.That(component.Focus(), Is.True);
+            component.SelectAll();
+            window.KeyTextInput("0");
+            HeadlessTestHelpers.Render();
+
+            // A later edit must retain the hue (and saturation for black) chosen before the color became achromatic.
+            TextBox opacity = picker.GetVisualDescendants().OfType<TextBox>().Single(box => box.Name == "OpacityBox");
+            Assert.That(opacity.Focus(), Is.True);
+            opacity.SelectAll();
+            window.KeyTextInput("50%");
+            HeadlessTestHelpers.Render();
+            if (Environment.GetEnvironmentVariable("BEUTL_THEME_CAPTURE_DIR") is not null)
+                ThemeCaptureTests.Capture(window, $"brush-gradient-hsv-{saturation}-{value}.png");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(picker.IsDragging, Is.False);
+                Assert.That(picker.Color.Hue, Is.EqualTo(240));
+                Assert.That(picker.Color.Saturation, Is.EqualTo(saturation));
+                Assert.That(picker.Color.Value, Is.EqualTo(value));
+                Assert.That(picker.Color.A, Is.EqualTo(128));
+                Assert.That(stop.Color, Is.EqualTo((Avalonia.Media.Color)Color2.FromHSV(240, saturation, value, 128)));
+            });
         }
         finally
         {

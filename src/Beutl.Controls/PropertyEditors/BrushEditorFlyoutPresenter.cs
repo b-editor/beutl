@@ -441,7 +441,8 @@ public class BrushEditorFlyoutPresenter : DraggablePickerFlyoutPresenter
     private void OnSelectedStopColorChanged(Color color)
     {
         if (Content is SimpleColorPicker { IsDragging: false } colorPicker
-            && _gradientBrushTabButton?.IsChecked == true)
+            && _gradientBrushTabButton?.IsChecked == true
+            && (Color)colorPicker.Color != color)
         {
             colorPicker.Color = color;
         }
