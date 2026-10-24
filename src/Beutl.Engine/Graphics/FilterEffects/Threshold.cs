@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
 using Beutl.Engine;
-using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
 
@@ -66,32 +65,6 @@ public sealed partial class Threshold : FilterEffect
                 bindings.Uniform("threshold", r.Value / 100f);
                 bindings.Uniform("smoothness", r.Smoothness / 100f);
                 bindings.Uniform("strength", r.Strength / 100f);
-            },
-            CreatesAlphaFromATransparentPixel(r) ? RenderHitTestContract.OutputBounds : null));
-    }
-
-    /// <remarks>
-    /// A setting that gives a transparent pixel (luma 0) a positive <c>t</c> makes the hit test the output
-    /// rectangle. The check evaluates the shader expression itself.
-    /// </remarks>
-    private static bool CreatesAlphaFromATransparentPixel(Resource r)
-    {
-        const float luma = 0f;
-        float threshold = r.Value / 100f;
-        float smoothness = r.Smoothness / 100f;
-        float lower = threshold - (smoothness * 0.5f);
-        float upper = threshold + (smoothness * 0.5f);
-        float t;
-        if (upper > lower)
-        {
-            float x = Math.Clamp((luma - lower) / (upper - lower), 0f, 1f);
-            t = x * x * (3f - (2f * x));
-        }
-        else
-        {
-            t = luma < threshold ? 0f : luma > threshold ? 1f : 0.5f;
-        }
-
-        return !(t * (r.Strength / 100f) <= 0f);
+            }));
     }
 }

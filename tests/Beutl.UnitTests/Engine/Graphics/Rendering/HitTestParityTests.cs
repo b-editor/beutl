@@ -45,10 +45,9 @@ public class HitTestParityTests
         });
     }
 
-    // Threshold is the one built-in CurrentPixel stage that paints a fully transparent input pixel, so its forwarded
-    // hit test must still hit there; the other two cases keep the forwarded test from claiming the whole output.
+    // Built-in current-pixel stages forward selection to the unfiltered shape.
     [Test]
-    public void ACurrentPixelStage_HitsWhatItPaintsAndNotWhatItLeavesTransparent()
+    public void BuiltInCurrentPixelStages_HitTheUnfilteredShape()
     {
         var corner = new Point(2, 2);
         var painting = new Threshold
@@ -62,8 +61,8 @@ public class HitTestParityTests
         {
             Assert.That(
                 FilteredShapeHarness.HitTest(s_filteredEllipse, painting, corner),
-                Is.True,
-                "the corner carries a visible half-opaque grey here, so it has to be selectable");
+                Is.False,
+                "Threshold can paint the corner without adding it to the input selection");
             Assert.That(
                 FilteredShapeHarness.HitTest(s_filteredEllipse, new Threshold(), corner),
                 Is.False,

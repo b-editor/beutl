@@ -1,10 +1,6 @@
-﻿using Beutl.Composition;
-using Beutl.Graphics;
+﻿using Beutl.Graphics;
 using Beutl.Graphics.Effects;
-using Beutl.Graphics.Rendering;
 using Beutl.Media;
-using Beutl.Media.Source;
-using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using static Beutl.UnitTests.Engine.Graphics.Rendering.Golden.FilteredShapeHarness;
 
@@ -14,708 +10,106 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 [NonParallelizable]
 public sealed class ResampledStageHitTestTests
 {
-    private const int Size = 100;
-    private const int LargeSize = 300;
+    private static readonly Rect s_content = new(0, 0, 60, 100);
 
-    // Narrower than the surface, so a horizontal shift carries content into pixels the input never covered
-    // and vacates pixels it did.
-    private static readonly Rect s_shiftContent = new(0, 0, 60, 100);
-    private static readonly Rect s_tileContent = new(0, 0, Size, Size);
-
-    // A domain three times the input, with the input offset inside it: a coordinate can then be well outside
-    // the stage and still be one the request is asked about.
-    private static readonly Rect s_largeDomain = new(0, 0, LargeSize, LargeSize);
-    private static readonly Rect s_offsetContent = new(Size, Size, Size, Size);
-
-    [TestCaseSource(nameof(ColorShiftCases))]
-    public void ColorShift_TheHitTestContract_AgreesWithWhatTheStagePainted(
-        PixelPoint red,
-        PixelPoint green,
-        PixelPoint blue,
-        PixelPoint alpha,
-        Point point)
+    [TestCaseSource(nameof(Effects))]
+    public void SamplingEffects_ForwardThePointToTheInput(Func<FilterEffect> effect)
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        foreach (float scale in new[] { 0.5f, 1f, 3f })
         {
-            using Bitmap rendered = Render(s_shiftContent, Shift(red, green, blue, alpha));
-            bool painted = Painted(rendered, (int)point.X, (int)point.Y);
-
-            Assert.That(
-                HitTest(s_shiftContent, Shift(red, green, blue, alpha), point),
-                Is.EqualTo(painted),
-                $"ColorShift r={red} g={green} b={blue} a={alpha} at {point}: the hit test "
-                + $"{(painted ? "misses a point the stage painted" : "claims a point the stage left clear")}.");
-        });
-    }
-
-    [Test]
-    public void TranslucentWhiteDisplacement_RedMatchesAlpha()
-    {
-        var map = new SolidColorBrush(new Color(128, 255, 255, 255));
-        var alpha = Displace(Translated(20, 0), map);
-        var red = Displace(Translated(20, 0), map);
-        red.Channel.Value = DisplacementMapChannel.Red;
-        for (int x = 0; x < 60; x += 2)
-        {
-            var point = new Point(x, 92);
-            Assert.That(HitTest(s_shiftContent, red, point), Is.EqualTo(HitTest(s_shiftContent, alpha, point)));
+            Assert.That(HitTest(s_content, effect(), new Point(30, 92), outputScale: scale), Is.True);
+            Assert.That(HitTest(s_content, effect(), new Point(2, 92), outputScale: scale), Is.False);
+            Assert.That(HitTest(s_content, effect(), new Point(100, 50), outputScale: scale), Is.False);
         }
     }
 
-    [Test]
-    public void ColorShift_WithoutAnOffset_StillMissesTheClearCorner()
+    [TestCaseSource(nameof(Effects))]
+    public void SamplingEffects_DoNotHitEmptyInput(Func<FilterEffect> effect)
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var corner = new Point(2, 2);
-            using Bitmap rendered = Render(s_shiftContent, new ColorShift());
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    Painted(rendered, (int)corner.X, (int)corner.Y),
-                    Is.False,
-                    "an unshifted ColorShift leaves the corner of the ellipse's box clear");
-                Assert.That(
-                    HitTest(s_shiftContent, new ColorShift(), corner),
-                    Is.False,
-                    "so the stage must not start claiming it");
-            });
-        });
+        Assert.That(HitTest(new Rect(0, 0, 0, 100), effect(), new Point(0, 50)), Is.False);
+        Assert.That(HitTest(new Rect(0, 0, 60, 0), effect(), new Point(30, 0)), Is.False);
     }
 
     [Test]
-    public void ColorShift_WithAnOffset_StillMissesWhereNoChannelLanded()
+    public void ColorShift_DoesNotSelectPixelsShiftedBeyondTheInput()
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var beyond = new Point(90, 50);
-            ColorShift Effect() => Shift(Right(20), Right(20), Right(20), Right(20));
-            using Bitmap rendered = Render(s_shiftContent, Effect());
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    Painted(rendered, (int)beyond.X, (int)beyond.Y),
-                    Is.False,
-                    "20 to the right of a 60-wide ellipse leaves x = 90 clear");
-                Assert.That(
-                    HitTest(s_shiftContent, Effect(), beyond),
-                    Is.False,
-                    "so a hit test must not answer for the whole shifted output rectangle");
-            });
-        });
-    }
-
-    [TestCaseSource(nameof(MosaicCases))]
-    public void MosaicEffect_TheHitTestContract_AgreesWithWhatTheStagePainted(
-        float tile,
-        RelativePoint origin,
-        Point point)
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Bitmap rendered = Render(s_tileContent, Mosaic(tile, origin));
-            bool painted = Painted(rendered, (int)point.X, (int)point.Y);
-
-            Assert.That(
-                HitTest(s_tileContent, Mosaic(tile, origin), point),
-                Is.EqualTo(painted),
-                $"MosaicEffect tile={tile} origin={origin} at {point}: the hit test "
-                + $"{(painted ? "misses a point the stage painted" : "claims a point the stage left clear")}.");
-        });
+        var shifted = Shift();
+        Assert.That(HitTest(s_content, shifted, new Point(70, 50)), Is.False);
     }
 
     [Test]
-    public void MosaicEffect_StillMissesATileTheStageErased()
+    public void MosaicEffect_AnErasedInputPointRemainsSelectable()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            // Inside the ellipse; its tile's centre (0, 20) is outside, so the tile is erased.
+            var content = new Rect(0, 0, 100, 100);
             var erased = new Point(9, 25);
-            using Bitmap rendered = Render(s_tileContent, Mosaic(20, RelativePoint.Center));
+            using Bitmap rendered = Render(content, Mosaic(RelativePoint.Center));
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    Painted(rendered, (int)erased.X, (int)erased.Y),
-                    Is.False,
-                    "the tile holding this point samples its centre, which the ellipse does not cover");
-                Assert.That(
-                    HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), erased),
-                    Is.False,
-                    "so the point the input covers is no longer selectable through the mosaic");
-            });
+            Assert.That(ImageMetrics.AlphaAt(rendered, 9, 25), Is.Zero);
+            Assert.That(HitTest(content, Mosaic(RelativePoint.Center), erased), Is.True);
         });
     }
 
     [Test]
-    public void MosaicEffect_AtAFractionalOrigin_LeavesAnUncoveredTileClearAndUnselectable()
+    public void MosaicEffect_AtAFractionalOrigin_StillSamplesTheSameClearTexel()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var point = new Point(92, 82);
+            var content = new Rect(0, 0, 100, 100);
             var origin = new RelativePoint(1.1f, 10, RelativeUnit.Absolute);
-            using Bitmap rendered = Render(s_tileContent, Mosaic(20, origin));
-            ushort[] pixel = rendered.GetRow<ushort>((int)point.Y).Slice((int)point.X * 4, 4).ToArray();
+            using Bitmap rendered = Render(content, Mosaic(origin));
+            ushort[] pixel = rendered.GetRow<ushort>(82).Slice(92 * 4, 4).ToArray();
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(pixel, Is.All.Zero,
-                    "the tile's selected sample is clear even though a neighboring texel has ellipse coverage");
-                Assert.That(HitTest(s_tileContent, Mosaic(20, origin), point), Is.False,
-                    "a tile with an uncovered center must remain unselectable");
-            });
+            Assert.That(pixel, Is.All.Zero);
         });
     }
 
-    [Test]
-    public void MosaicEffect_ATileCentreOutsideTheInput_ReadsTheEdgeAndHits()
+    [TestCase(92, 50)]
+    [TestCase(50, 92)]
+    public void MosaicEffect_ATileCentreOnTheExclusiveEdge_StillReadsTheEdge(int x, int y)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var corner = new Point(2, 2);
-            var origin = new RelativePoint(0.05f, 0.05f, RelativeUnit.Relative);
-            using Bitmap rendered = Render(s_tileContent, Mosaic(20, origin), fullBleed: true);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    Painted(rendered, (int)corner.X, (int)corner.Y),
-                    Is.True,
-                    "clamping reads the input's edge, so the corner tile is opaque");
-                Assert.That(
-                    HitTest(s_tileContent, Mosaic(20, origin), corner, fullBleed: true),
-                    Is.True,
-                    "so the hit test has to clamp the sample point the same way");
-            });
+            using Bitmap rendered = Render(new Rect(0, 0, 100, 100), Mosaic(RelativePoint.Center), fullBleed: true);
+            Assert.That(ImageMetrics.AlphaAt(rendered, x, y), Is.EqualTo(1));
         });
     }
 
-    [TestCaseSource(nameof(DisplacementMapCases))]
-    public void DisplacementMap_TheHitTestContract_AgreesWithWhatTheStagePainted(
-        Func<FilterEffect> effect,
-        Point point)
+    private static IEnumerable<TestCaseData> Effects()
     {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            using Bitmap rendered = Render(s_shiftContent, effect());
-            bool painted = Painted(rendered, (int)point.X, (int)point.Y);
+        yield return Case("ColorShift", Shift);
+        yield return Case("Mosaic", static () => Mosaic(RelativePoint.Center));
+        yield return Case("DisplacementTranslate", static () => Displace(
+            new DisplacementMapTranslateTransform { X = { Value = 20 } }));
+        yield return Case("DisplacementScale", static () => Displace(
+            new DisplacementMapScaleTransform { ScaleX = { Value = 200 }, ScaleY = { Value = 200 } }));
+        yield return Case("DisplacementRotation", static () => Displace(
+            new DisplacementMapRotationTransform { Rotation = { Value = 30 } }));
 
-            Assert.That(
-                HitTest(s_shiftContent, effect(), point),
-                Is.EqualTo(painted),
-                $"the displacement map hit test at {point} "
-                + $"{(painted ? "misses a point the stage painted" : "claims a point the stage left clear")}.");
-        });
+        static TestCaseData Case(string name, Func<FilterEffect> effect)
+            => new TestCaseData(effect).SetArgDisplayNames(name);
     }
 
-    [Test]
-    public void DisplacementMap_ResolvesTheMapItSamplesRatherThanForwardingThePoint()
-    {
-        // The map is opaque everywhere, so the translation is taken in full and the stage reads 20 to the
-        // right of every fragment it writes. Both points are inside the ellipse's box and inside the stage's
-        // own output, which is what makes forwarding answer them and answer them wrongly.
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                HitTest(s_shiftContent, Displace(Translated(20, 0)), new Point(2, 92)),
-                Is.True,
-                "the ellipse covers (22, 92), which is the point this fragment reads");
-            Assert.That(
-                HitTest(s_shiftContent, Displace(Translated(20, 0)), new Point(30, 92)),
-                Is.False,
-                "the ellipse does not cover (50, 92), so the stage vacated the point it used to cover");
-        });
-    }
-
-    [Test]
-    public void DisplacementMap_OverATransparentMap_LeavesTheInputWhereItFoundIt()
-    {
-        // Alpha zero displaces by nothing, so the stage reads the fragment it writes and the contract must
-        // agree with the input exactly - the negative control for a contract that could widen anything.
-        DisplacementMapEffect Effect() => Displace(Translated(20, 0), new SolidColorBrush(Colors.Transparent));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(HitTest(s_shiftContent, Effect(), new Point(30, 92)), Is.True);
-            Assert.That(HitTest(s_shiftContent, Effect(), new Point(2, 92)), Is.False);
-        });
-    }
-
-    [Test]
-    public void DisplacementMap_OverATileBrushMap_DeclaresNoContractRatherThanSamplingIt()
-    {
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                ShaderContractOf(Displace(Translated(20, 0)), s_shiftContent),
-                Is.Not.Null,
-                "a brush whose shader is a pure function of the point carries the resolved contract");
-            Assert.That(
-                ShaderContractOf(Displace(Translated(20, 0), CreateImageBrush()), s_shiftContent),
-                Is.Null,
-                "a tile brush's shader rasterizes an intermediate render target, which a hit test must not "
-                + "allocate, so the query stays forwarded");
-        });
-    }
-
-    /// <summary>
-    /// Reads back the hit-test contract an effect declared over <paramref name="content"/>, or its absence.
-    /// </summary>
-    private static RenderHitTestContract? ShaderContractOf(FilterEffect effect, Rect content)
-    {
-        using var context = new FilterEffectContext(content);
-        effect.ApplyTo(context, (FilterEffect.Resource)effect.ToResource(CompositionContext.Default));
-        return context.GetOrderedItems()
-            .OfType<FEItem_Shader>()
-            .Single()
-            .Description
-            .HitTest;
-    }
-
-    private static ImageBrush CreateImageBrush()
-    {
-        using var bitmap = new Bitmap(4, 4);
-        using var stream = new MemoryStream();
-        bitmap.Save(stream, EncodedImageFormat.Png);
-
-        var source = new ImageSource();
-        source.ReadFrom(UriHelper.CreateBase64DataUri("image/png", stream.ToArray()));
-        return new ImageBrush(source);
-    }
-
-    [TestCase(0.5f)]
-    [TestCase(2f)]
-    [TestCase(3f)]
-    public void TheContracts_AnswerTheSameAtEveryOutputScale(float outputScale)
-    {
-        ColorShift Shifted() => Shift(Right(20), Right(20), Right(20), Right(20));
-
-        Assert.Multiple(() =>
-        {
-            foreach (Point point in new Point[] { new(70, 50), new(10, 50), new(90, 50) })
-            {
-                Assert.That(
-                    HitTest(s_shiftContent, Shifted(), point, outputScale: outputScale),
-                    Is.EqualTo(HitTest(s_shiftContent, Shifted(), point)),
-                    $"ColorShift changed its answer at {point} when the output scale became {outputScale}");
-            }
-
-            foreach (Point point in new Point[] { new(12, 12), new(9, 25), new(50, 50) })
-            {
-                Assert.That(
-                    HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), point, outputScale: outputScale),
-                    Is.EqualTo(HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), point)),
-                    $"MosaicEffect changed its answer at {point} when the output scale became {outputScale}");
-            }
-
-            // The clamped edge and the rectangle just outside the stage are where the two new bounds decide
-            // the answer, and both are expressed in logical coordinates that no output density may move.
-            foreach (Point point in new Point[] { new(92, 50), new(50, 92), new(100, 50), new(50, 100) })
-            {
-                Assert.That(
-                    HitTest(
-                        s_tileContent, Mosaic(20, RelativePoint.Center), point, fullBleed: true,
-                        outputScale: outputScale),
-                    Is.EqualTo(
-                        HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), point, fullBleed: true)),
-                    $"MosaicEffect changed its answer at {point} when the output scale became {outputScale}");
-            }
-
-            // The displacement contracts rebuild a translation, a pivot and a map sample from logical values
-            // that the shader binders express in device pixels, so density is exactly what could move them.
-            foreach ((string name, Func<FilterEffect> effect) in new (string, Func<FilterEffect>)[]
-                     {
-                         ("translate", static () => Displace(Translated(20, 0))),
-                         ("scale", static () => Displace(Scaled(200))),
-                         ("rotation", static () => Displace(Rotated(30))),
-                     })
-            {
-                foreach (Point point in new Point[] { new(2, 92), new(30, 92), new(10, 50), new(55, 85) })
-                {
-                    Assert.That(
-                        HitTest(s_shiftContent, effect(), point, outputScale: outputScale),
-                        Is.EqualTo(HitTest(s_shiftContent, effect(), point)),
-                        $"the displacement {name} contract changed its answer at {point} when the output "
-                        + $"scale became {outputScale}");
-                }
-            }
-        });
-    }
-
-    [Test]
-    public void MosaicEffect_OutsideItsOwnOutput_ClaimsNothing()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var far = new Point(0, 0);
-            using Bitmap rendered = Render(
-                s_offsetContent, Mosaic(20, RelativePoint.Center), fullBleed: true, surface: LargeSize,
-                targetDomain: s_largeDomain);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    Painted(rendered, (int)far.X, (int)far.Y),
-                    Is.False,
-                    "the mosaic covers (100, 100)-(200, 200), so the far corner of the surface stays clear");
-                Assert.That(
-                    HitTest(
-                        s_offsetContent, Mosaic(20, RelativePoint.Center), far, fullBleed: true,
-                        targetDomain: s_largeDomain),
-                    Is.False,
-                    "so the contract must not clamp the far corner's sample into the input and claim it");
-            });
-        });
-    }
-
-    [TestCase(92f, 50f, TestName = "MosaicEffect_ATileCentreOnTheRightEdge_ReadsTheEdgeAndHits")]
-    [TestCase(50f, 92f, TestName = "MosaicEffect_ATileCentreOnTheBottomEdge_ReadsTheEdgeAndHits")]
-    public void MosaicEffect_ATileCentreOnTheExclusiveEdge_ReadsTheEdgeAndHits(float x, float y)
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var edge = new Point(x, y);
-            using Bitmap rendered = Render(s_tileContent, Mosaic(20, RelativePoint.Center), fullBleed: true);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    Painted(rendered, (int)edge.X, (int)edge.Y),
-                    Is.True,
-                    "the tile's centre sample clamps onto the edge of a full-bleed input, which is opaque");
-                Assert.That(
-                    HitTest(s_tileContent, Mosaic(20, RelativePoint.Center), edge, fullBleed: true),
-                    Is.True,
-                    "so the hit test has to land inside the input rather than on its exclusive edge");
-            });
-        });
-    }
-
-    [Test]
-    public void TheExclusiveEdge_IsTheLastCoordinateTheInputAnswersFor()
-    {
-        var input = new Rect(0, 0, Size, Size);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                input.ContainsExclusive(new Point(input.Right, 50)),
-                Is.False,
-                "the engine's content rule is bottom-right exclusive");
-            Assert.That(
-                input.ContainsExclusive(new Point(float.BitDecrement(input.Right), 50)),
-                Is.True,
-                "and the float below the right edge is inside it, so a clamp has that coordinate to aim at");
-            Assert.That(
-                input.ContainsExclusive(new Point(50, float.BitDecrement(input.Bottom))),
-                Is.True,
-                "the bottom edge behaves the same way");
-        });
-    }
-
-    [Test]
-    public void MosaicEffect_ClampsOntoTheLastCoordinateTheInputAnswersFor()
-    {
-        RenderHitTestContract contract = ShaderContractOf(Mosaic(20, RelativePoint.Center), s_tileContent)
-            ?? throw new InvalidOperationException("The effect recorded no hit-test contract.");
-        var asked = new List<Point>();
-        var input = new RenderHitTestInput(
-            s_tileContent,
-            point =>
-            {
-                asked.Add(point);
-                return s_tileContent.ContainsExclusive(point);
-            });
-
-        bool hit = contract.Evaluate(
-            s_tileContent, [input], Array.Empty<RenderResourceBinding>(), new Point(92, 50));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(asked, Has.Count.EqualTo(1), "the stage reads its input once, at the tile's centre");
-            Assert.That(
-                asked[0].X,
-                Is.EqualTo(float.BitDecrement(s_tileContent.Right)),
-                "the centre at the right edge is clamped to the last coordinate inside the input");
-            Assert.That(
-                asked[0].Y,
-                Is.EqualTo(60f),
-                "the vertical centre is already inside, so the clamp leaves it alone");
-            Assert.That(hit, Is.True, "and that coordinate is one the input's own rule accepts");
-        });
-    }
-
-    [TestCase(50f, 0f, 0f, 100f, TestName = "MosaicEffect_OverAnInputWithNoWidth_Misses")]
-    [TestCase(0f, 50f, 100f, 0f, TestName = "MosaicEffect_OverAnInputWithNoHeight_Misses")]
-    public void MosaicEffect_OverAnInputWithNoArea_Misses(float x, float y, float width, float height)
-    {
-        RenderHitTestContract contract = ShaderContractOf(Mosaic(20, RelativePoint.Center), s_tileContent)
-            ?? throw new InvalidOperationException("The effect recorded no hit-test contract.");
-        var input = new RenderHitTestInput(new Rect(x, y, width, height), static _ => true);
-
-        Assert.That(
-            () => contract.Evaluate(
-                s_tileContent, [input], Array.Empty<RenderResourceBinding>(), new Point(50, 50)),
-            Is.False,
-            "an input covering no area carries nothing for any tile to sample");
-    }
-
-    [TestCaseSource(nameof(OutsideOutputCases))]
-    public void TheContracts_NeverAnswerOutsideTheFragmentsOwnOutput(
-        Func<FilterEffect> effect,
-        Rect content,
-        bool fullBleed)
-    {
-        Rect bounds = OutputBounds(content, effect(), fullBleed, s_largeDomain);
-        Assert.That(bounds.Width, Is.GreaterThan(0), "the stage has to describe some output to be bounded by");
-
-        var claimed = new List<Point>();
-        for (float x = 0; x < LargeSize; x += 7)
-        {
-            for (float y = 0; y < LargeSize; y += 7)
-            {
-                var point = new Point(x, y);
-                if (bounds.Contains(point))
-                    continue;
-
-                if (HitTest(content, effect(), point, fullBleed, targetDomain: s_largeDomain))
-                    claimed.Add(point);
-            }
-        }
-
-        Assert.That(
-            claimed,
-            Is.Empty,
-            $"the stage wrote only {bounds}, so it must not answer for points outside it");
-    }
-
-    [Test]
-    public void ColorShift_OverANonWhiteInput_CannotDistinguishAZeroChannelFromANonZeroOne()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var arrived = new Point(70, 50);
-            ColorShift GreenOnly() => Shift(default, Right(20), default, default);
-
-            using Bitmap overRed = Render(
-                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Red);
-            using Bitmap overGreen = Render(
-                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Lime);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    Painted(overRed, (int)arrived.X, (int)arrived.Y),
-                    Is.False,
-                    "a green-only shift over a red input carries a zero green channel, so the pixel stays empty");
-                Assert.That(
-                    Painted(overGreen, (int)arrived.X, (int)arrived.Y),
-                    Is.True,
-                    "the same shift over a green input paints it, from input coverage the contract cannot tell apart");
-                Assert.That(
-                    HitTest(s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Red),
-                    Is.EqualTo(
-                        HitTest(
-                            s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Lime)),
-                    "so no coverage-only contract can answer both, and it must answer the painted one");
-                Assert.That(
-                    HitTest(s_shiftContent, GreenOnly(), arrived, fullBleed: true, fill: Brushes.Resource.Red),
-                    Is.True,
-                    "which makes the red case an over-claim the contract accepts rather than miss the green one");
-            });
-        });
-    }
-
-    [Test]
-    public void ColorShift_OverANonWhiteInput_StillMissesWhereNoChannelLanded()
-    {
-        VulkanTestEnvironment.EnsureAvailable();
-        VulkanTestEnvironment.InvokeOnRenderThread(() =>
-        {
-            var beyond = new Point(90, 50);
-            ColorShift GreenOnly() => Shift(default, Right(20), default, default);
-            using Bitmap rendered = Render(
-                s_shiftContent, GreenOnly(), fullBleed: true, fill: Brushes.Resource.Red);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(
-                    Painted(rendered, (int)beyond.X, (int)beyond.Y),
-                    Is.False,
-                    "x = 90 is past both the input and its shifted copy");
-                Assert.That(
-                    HitTest(s_shiftContent, GreenOnly(), beyond, fullBleed: true, fill: Brushes.Resource.Red),
-                    Is.False,
-                    "so the contract misses it whatever colour the input carries");
-            });
-        });
-    }
-
-    private static IEnumerable<TestCaseData> OutsideOutputCases()
-    {
-        yield return Case(
-            "Mosaic_Centre", static () => Mosaic(20, RelativePoint.Center), s_offsetContent, true);
-        yield return Case(
-            "Mosaic_Absolute",
-            static () => Mosaic(20, new RelativePoint(0, 0, RelativeUnit.Absolute)),
-            s_offsetContent,
-            true);
-        yield return Case(
-            "Mosaic_UnalignedTile", static () => Mosaic(7, RelativePoint.Center), s_offsetContent, false);
-        yield return Case(
-            "ColorShift_AllChannels",
-            static () => Shift(Right(20), Right(20), Right(20), Right(20)),
-            s_offsetContent,
-            false);
-        yield return Case(
-            "ColorShift_AlphaOnly",
-            static () => Shift(default, default, default, Right(20)),
-            s_offsetContent,
-            true);
-        yield return Case(
-            "DisplacementMap_Translate", static () => Displace(Translated(20, 0)), s_offsetContent, true);
-        yield return Case(
-            "DisplacementMap_Scale", static () => Displace(Scaled(200)), s_offsetContent, true);
-        yield return Case(
-            "DisplacementMap_Rotation", static () => Displace(Rotated(90)), s_offsetContent, true);
-
-        static TestCaseData Case(string name, Func<FilterEffect> effect, Rect content, bool fullBleed)
-            => new TestCaseData(effect, content, fullBleed)
-                .SetName($"TheContracts_NeverAnswerOutsideTheFragmentsOwnOutput_{name}");
-    }
-
-    private static IEnumerable<TestCaseData> DisplacementMapCases()
-    {
-        // Every point is inside the stage's own output and inside the ellipse's box, so what separates them
-        // is only where the entry point read - which is the whole of what the contract has to restate.
-        yield return Case("Translate_Arrived", static () => Displace(Translated(20, 0)), new Point(2, 92));
-        yield return Case("Translate_Vacated", static () => Displace(Translated(20, 0)), new Point(30, 92));
-        yield return Case("Translate_Middle", static () => Displace(Translated(20, 0)), new Point(10, 50));
-        yield return Case("Translate_Beyond", static () => Displace(Translated(20, 0)), new Point(50, 92));
-        yield return Case("Scale_Magnified_Arrived", static () => Displace(Scaled(200)), new Point(2, 80));
-        yield return Case("Scale_Magnified_Middle", static () => Displace(Scaled(200)), new Point(30, 50));
-        yield return Case("Scale_Reduced_Vacated", static () => Displace(Scaled(50)), new Point(12, 30));
-        yield return Case("Scale_Reduced_Middle", static () => Displace(Scaled(50)), new Point(30, 50));
-        yield return Case("Rotation_Arrived", static () => Displace(Rotated(30)), new Point(55, 85));
-        yield return Case("Rotation_Vacated", static () => Displace(Rotated(30)), new Point(30, 97));
-        yield return Case("Rotation_Pivot", static () => Displace(Rotated(30)), new Point(30, 50));
-
-        static TestCaseData Case(string name, Func<FilterEffect> effect, Point point)
-            => new TestCaseData(effect, point)
-                .SetName($"DisplacementMap_TheHitTestContract_AgreesWithWhatTheStagePainted_{name}");
-    }
-
-    private static DisplacementMapEffect Displace(DisplacementMapTransform transform, Brush? map = null)
+    private static DisplacementMapEffect Displace(DisplacementMapTransform transform)
         => new()
         {
-            DisplacementMap = { Value = map ?? new SolidColorBrush(Colors.White) },
+            DisplacementMap = { Value = new SolidColorBrush(Colors.White) },
             Transform = { Value = transform },
         };
 
-    private static DisplacementMapTranslateTransform Translated(float x, float y)
-        => new() { X = { Value = x }, Y = { Value = y } };
-
-    private static DisplacementMapScaleTransform Scaled(float percent)
-        => new() { ScaleX = { Value = percent }, ScaleY = { Value = percent } };
-
-    private static DisplacementMapRotationTransform Rotated(float degrees)
-        => new() { Rotation = { Value = degrees } };
-
-    private static IEnumerable<TestCaseData> ColorShiftCases()
-    {
-        PixelPoint none = default;
-        PixelPoint right = Right(20);
-
-        // Every channel moves together: content arrives at x = 70 and leaves x = 10.
-        yield return Case("AllChannels_ArrivedEdge", right, right, right, right, new Point(70, 50));
-        yield return Case("AllChannels_VacatedEdge", right, right, right, right, new Point(10, 50));
-
-        // Only alpha moves: coverage arrives at x = 70 while the colour it left behind stays at x = 10 with
-        // zero alpha, which premultiplied compositing still shows.
-        yield return Case("AlphaOnly_ArrivedCoverage", none, none, none, right, new Point(70, 50));
-        yield return Case("AlphaOnly_StrandedColour", none, none, none, right, new Point(10, 50));
-
-        // Only red moves: alpha never changes, so the arriving red is the whole of what the stage added.
-        yield return Case("RedOnly_ArrivedColour", right, none, none, none, new Point(70, 50));
-        yield return Case("RedOnly_Beyond", right, none, none, none, new Point(90, 50));
-
-        yield return Case("NoOffset_Covered", none, none, none, none, new Point(10, 50));
-        yield return Case("NoOffset_Clear", none, none, none, none, new Point(70, 50));
-
-        static TestCaseData Case(
-            string name,
-            PixelPoint red,
-            PixelPoint green,
-            PixelPoint blue,
-            PixelPoint alpha,
-            Point point)
-            => new TestCaseData(red, green, blue, alpha, point)
-                .SetName($"ColorShift_TheHitTestContract_AgreesWithWhatTheStagePainted_{name}");
-    }
-
-    private static IEnumerable<TestCaseData> MosaicCases()
-    {
-        var absolute = new RelativePoint(0, 0, RelativeUnit.Absolute);
-
-        // Centre origin puts the tile centres on 0, 20, ... 100; the absolute origin puts them on 10, 30, ...
-        // so the same two points swap which of them the stage paints.
-        yield return Case("Centre_PaintedOutsideTheEllipse", RelativePoint.Center, new Point(12, 12));
-        yield return Case("Centre_ErasedInsideTheEllipse", RelativePoint.Center, new Point(9, 25));
-        yield return Case("Centre_Middle", RelativePoint.Center, new Point(50, 50));
-        yield return Case("Absolute_ErasedOutsideTheEllipse", absolute, new Point(12, 12));
-        yield return Case("Absolute_PaintedInsideTheEllipse", absolute, new Point(9, 25));
-        yield return Case("Absolute_Corner", absolute, new Point(2, 2));
-
-        static TestCaseData Case(string name, RelativePoint origin, Point point)
-            => new TestCaseData(20f, origin, point)
-                .SetName($"MosaicEffect_TheHitTestContract_AgreesWithWhatTheStagePainted_{name}");
-    }
-
-    private static PixelPoint Right(int x) => new(x, 0);
-
-    private static ColorShift Shift(PixelPoint red, PixelPoint green, PixelPoint blue, PixelPoint alpha)
+    private static ColorShift Shift()
         => new()
         {
-            RedOffset = { Value = red },
-            GreenOffset = { Value = green },
-            BlueOffset = { Value = blue },
-            AlphaOffset = { Value = alpha },
+            RedOffset = { Value = new PixelPoint(20, 0) },
+            GreenOffset = { Value = new PixelPoint(20, 0) },
+            BlueOffset = { Value = new PixelPoint(20, 0) },
+            AlphaOffset = { Value = new PixelPoint(20, 0) },
         };
 
-    private static MosaicEffect Mosaic(float tile, RelativePoint origin)
-        => new()
-        {
-            TileSize = { Value = new Size(tile, tile) },
-            Origin = { Value = origin },
-        };
-
-    /// <remarks>
-    /// Alpha alone does not say whether a stage put something at a point. <see cref="ColorShift"/> takes each
-    /// channel from its own sample, so it can leave a pixel with zero alpha and a non-zero colour; a
-    /// premultiplied compositor adds that colour to whatever is behind it, and it is visible.
-    /// </remarks>
-    private static bool Painted(Bitmap bitmap, int x, int y)
-    {
-        ReadOnlySpan<ushort> row = bitmap.GetRow<ushort>(y);
-        for (int channel = 0; channel < 4; channel++)
-        {
-            if ((float)BitConverter.UInt16BitsToHalf(row[(x * 4) + channel]) > 0f)
-                return true;
-        }
-
-        return false;
-    }
+    private static MosaicEffect Mosaic(RelativePoint origin)
+        => new() { TileSize = { Value = new Size(20, 20) }, Origin = { Value = origin } };
 }

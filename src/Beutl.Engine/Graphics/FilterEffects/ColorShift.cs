@@ -78,12 +78,7 @@ public partial class ColorShift : FilterEffect
                 BindOffset(bindings, "blueOffset", r.BlueOffset);
                 BindOffset(bindings, "alphaOffset", r.AlphaOffset);
             },
-            SKShaderTileMode.Decal,
-            hitTest: offsets.MovesContent
-                ? RenderHitTestContract.Custom(
-                    offsets,
-                    static (state, context, point) => state.HitTest(context, point))
-                : null));
+            SKShaderTileMode.Decal));
     }
 
     private static void BindOffset(ShaderBindingBuilder bindings, string name, PixelPoint value)
@@ -100,35 +95,6 @@ public partial class ColorShift : FilterEffect
         PixelPoint BlueOffset,
         PixelPoint AlphaOffset)
     {
-        /// <remarks>
-        /// Every offset at zero reads the pixel it writes, which forwarding the query to the input already answers.
-        /// </remarks>
-        public bool MovesContent
-            => RedOffset != default
-               || GreenOffset != default
-               || BlueOffset != default
-               || AlphaOffset != default;
-
-        /// <remarks>
-        /// A point hits when the input covers any of its four channel translations. A zero channel there can
-        /// still leave the pixel clear; that over-claim is accepted, as a stage must answer for what it produced.
-        /// </remarks>
-        public bool HitTest(RenderHitTestContext context, Point point)
-            => ReadsCoveredInput(context, point, RedOffset)
-               || ReadsCoveredInput(context, point, GreenOffset)
-               || ReadsCoveredInput(context, point, BlueOffset)
-               || ReadsCoveredInput(context, point, AlphaOffset);
-
-        private static bool ReadsCoveredInput(
-            RenderHitTestContext context,
-            Point point,
-            PixelPoint offset)
-        {
-            // Decal sampling leaves everything outside the input transparent, so an input that misses the
-            // translated point contributes nothing there.
-            return RenderHitTestContract.AnyInputAccepts(context.Inputs, point - offset.ToPoint(1));
-        }
-
         public Rect TransformBounds(Rect bounds)
             => bounds.Translate(RedOffset.ToPoint(1))
                 .Union(bounds.Translate(GreenOffset.ToPoint(1)))
