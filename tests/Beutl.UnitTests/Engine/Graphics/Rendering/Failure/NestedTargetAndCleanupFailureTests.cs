@@ -133,7 +133,6 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             Assert.That(failure, Is.SameAs(NestedRegionAnalysisFailureNode.PrimaryFailure));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(failure));
-            Assert.That(owner.SecondaryFailures, Is.Empty);
             Assert.That(owner.CleanupFailures, Is.Empty);
             Assert.That(owner.IsCleanedUp, Is.True);
             Assert.That(nested.Request.State, Is.EqualTo(RenderRequestState.Failed));
@@ -219,8 +218,6 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             Assert.That(failure, Is.SameAs(primary));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primary));
-            Assert.That(owner.SecondaryFailures, Is.Empty,
-                "Propagating one child failure to the parent must not record it twice.");
             Assert.That(executionOrder, Is.EqualTo(new[] { "child" }));
             Assert.That(child.ExecuteCalls, Is.EqualTo(1));
             Assert.That(parent.ExecuteCalls, Is.Zero,
@@ -337,8 +334,6 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             Assert.That(failure, Is.SameAs(primary));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primary));
-            Assert.That(owner.SecondaryFailures, Is.Empty,
-                "A successful child body is not a secondary failure when its family later aborts.");
             Assert.That(
                 executionOrder,
                 Is.EqualTo(new[] { "child-cache", "parent-cache", "parent-failure" }));

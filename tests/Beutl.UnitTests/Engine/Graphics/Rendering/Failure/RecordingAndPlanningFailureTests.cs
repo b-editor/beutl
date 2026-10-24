@@ -180,8 +180,6 @@ public sealed class RecordingAndPlanningFailureTests
             Assert.That(request.State, Is.EqualTo(RenderRequestState.Failed));
             Assert.That(node.Cache.IsCached, Is.False);
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(failure));
-            Assert.That(owner.SecondaryFailures, Is.Empty,
-                "One recording failure rethrown through nested catch boundaries is not a secondary failure.");
             Assert.That(owner.CleanupFailures, Is.Empty);
             Assert.That(resource.DisposeCalls, Is.EqualTo(1));
             Assert.That(

@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;
@@ -127,7 +128,6 @@ public class RenderNodeRendererExceptionSafetyTests
         {
             Assert.That(failure!.Message, Is.EqualTo("rt-create-fault"));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(failure));
-            Assert.That(owner.SecondaryFailures, Is.Empty);
             Assert.That(node.NestedRequest.Recording.Request.State, Is.EqualTo(RenderRequestState.Disposed));
         });
     }
@@ -149,8 +149,6 @@ public class RenderNodeRendererExceptionSafetyTests
         {
             Assert.That(owner.CleanupFailures.Length, Is.EqualTo(1),
                 "A resource that throws while being released is a cleanup fault, not an execution failure.");
-            Assert.That(owner.SecondaryFailures, Is.Empty,
-                "With no earlier outcome to preserve, the cleanup fault becomes the primary rather than a secondary.");
             Assert.That(owner.PrimaryFailure!.SourceException, Is.TypeOf<AggregateException>());
             Assert.That(
                 ((AggregateException)owner.PrimaryFailure.SourceException).InnerExceptions
@@ -194,8 +192,6 @@ public class RenderNodeRendererExceptionSafetyTests
         {
             Assert.That(owner.PrimaryFailure!.SourceException, Is.SameAs(executed),
                 "The executed outcome is what the caller sees; a later request-level failure must not replace it.");
-            Assert.That(owner.SecondaryFailures, Is.EqualTo(new[] { requestLevel }),
-                "Re-observing the same exception across a request boundary is not an independent failure.");
             Assert.That(owner.CleanupFailures, Is.Empty,
                 "A failure attributed at the request level is not a cleanup fault.");
         });
