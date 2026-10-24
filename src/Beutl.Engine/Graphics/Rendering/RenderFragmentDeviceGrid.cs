@@ -22,6 +22,7 @@ internal static class RenderFragmentDeviceGrid
                 or RenderFragmentKind.Blend
                 or RenderFragmentKind.OpacityMask
                 or RenderFragmentKind.Shader
+                or RenderFragmentKind.ShaderGraph
                 or RenderFragmentKind.Geometry
                 or RenderFragmentKind.OpaqueSource
                 or RenderFragmentKind.OpaqueMap

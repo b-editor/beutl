@@ -23,6 +23,7 @@ public sealed class RenderNodeRenderer : IDisposable
     private readonly StructuralPlanCache _structuralPlanCache;
     private readonly ProgramCache<CachedSkRuntimeEffect> _programCache;
     private readonly ProgramCache<GLSLFilterPipeline> _spirvProgramCache;
+    private readonly ProgramCache<ShaderGraphPipeline> _graphProgramCache;
     private RenderCacheDeviceContextIdentity? _programCacheContext;
 
     /// <summary>Creates a renderer for a caller-owned root node.</summary>
@@ -55,6 +56,7 @@ public sealed class RenderNodeRenderer : IDisposable
         _structuralPlanCache = new StructuralPlanCache();
         _programCache = SkRuntimeEffectProgramCache.Create();
         _spirvProgramCache = SpirvShaderProgramCache.Create();
+        _graphProgramCache = ShaderGraphPipeline.CreateCache();
     }
 
     /// <summary>Gets the caller-owned root node.</summary>
@@ -72,7 +74,8 @@ public sealed class RenderNodeRenderer : IDisposable
         => _structuralPlanCache.Statistics;
 
     internal ProgramCacheStatistics ProgramCacheStatistics
-        => CombineProgramCacheStatistics(_programCache.Statistics, _spirvProgramCache.Statistics);
+        => CombineProgramCacheStatistics(
+            CombineProgramCacheStatistics(_programCache.Statistics, _spirvProgramCache.Statistics), _graphProgramCache.Statistics);
 
     internal RenderTargetPoolStatistics TargetPoolStatistics => _targetPool.Statistics;
 
@@ -150,7 +153,7 @@ public sealed class RenderNodeRenderer : IDisposable
             var executor = new RenderRequestExecutor(
                 targets,
                 _programCache,
-                spirvProgramCache: _spirvProgramCache);
+                spirvProgramCache: _spirvProgramCache, graphProgramCache: _graphProgramCache);
             if (!hasInvertibleDestination && !request.Measurement.HasTargetEffects)
             {
                 executor.CompleteNoOp(request);
@@ -389,7 +392,7 @@ public sealed class RenderNodeRenderer : IDisposable
                     var executor = new RenderRequestExecutor(
                         targets,
                         _programCache,
-                        spirvProgramCache: _spirvProgramCache);
+                        spirvProgramCache: _spirvProgramCache, graphProgramCache: _graphProgramCache);
                     executor.Execute(
                         request,
                         canvas,
@@ -420,7 +423,7 @@ public sealed class RenderNodeRenderer : IDisposable
                 var executor = new RenderRequestExecutor(
                     targets,
                     _programCache,
-                    spirvProgramCache: _spirvProgramCache);
+                    spirvProgramCache: _spirvProgramCache, graphProgramCache: _graphProgramCache);
                 executor.CompleteEmptySelection(request);
                 LastExecutionStatistics = executor.Statistics;
             }
@@ -584,6 +587,7 @@ public sealed class RenderNodeRenderer : IDisposable
         _targetPool.Dispose();
         _programCache.Dispose();
         _spirvProgramCache.Dispose();
+        _graphProgramCache.Dispose();
         _structuralPlanCache.Dispose();
     }
 
@@ -641,6 +645,7 @@ public sealed class RenderNodeRenderer : IDisposable
             _programCache.EvictContext(
                 previous.DeviceIdentity,
                 previous.ContextIdentity);
+            _graphProgramCache.EvictContext(previous.DeviceIdentity, previous.ContextIdentity);
             _spirvProgramCache.EvictContext(
                 previous.DeviceIdentity,
                 previous.ContextIdentity);

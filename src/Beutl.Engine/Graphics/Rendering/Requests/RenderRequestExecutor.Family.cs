@@ -17,6 +17,7 @@ internal sealed partial class RenderRequestExecutor
         Action? finalizeOutput,
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
+        ProgramCache<ShaderGraphPipeline> graphProgramCache,
         ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions,
@@ -29,6 +30,7 @@ internal sealed partial class RenderRequestExecutor
                 destination,
                 programCache,
                 spirvProgramCache,
+                graphProgramCache,
                 frames,
                 cleanupFailures,
                 ref nestedRootAcquisitions,
@@ -42,6 +44,7 @@ internal sealed partial class RenderRequestExecutor
             finalizeOutput,
             programCache,
             spirvProgramCache,
+            graphProgramCache,
             frames,
             cleanupFailures,
             ref nestedPreviewDropObserved);
@@ -52,6 +55,7 @@ internal sealed partial class RenderRequestExecutor
         ImmediateCanvas fallbackDestination,
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
+        ProgramCache<ShaderGraphPipeline> graphProgramCache,
         ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions,
@@ -70,6 +74,7 @@ internal sealed partial class RenderRequestExecutor
                 finalizeOutput: null,
                 programCache,
                 spirvProgramCache,
+                graphProgramCache,
                 frames,
                 cleanupFailures,
                 ref nestedRootAcquisitions,
@@ -137,6 +142,7 @@ internal sealed partial class RenderRequestExecutor
                         finalizeOutput: null,
                         programCache,
                         spirvProgramCache,
+                        graphProgramCache,
                         frames,
                         cleanupFailures,
                         ref nestedRootAcquisitions,
@@ -188,6 +194,7 @@ internal sealed partial class RenderRequestExecutor
         Action? finalizeOutput,
         ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
+        ProgramCache<ShaderGraphPipeline> graphProgramCache,
         ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref bool nestedPreviewDropObserved)
@@ -206,6 +213,7 @@ internal sealed partial class RenderRequestExecutor
             _targets,
             programCache,
             spirvProgramCache,
+            graphProgramCache,
             _shaderBackendPreference);
         if (nestedPreviewDropObserved)
             state.MarkPreviewAllocationDropped();

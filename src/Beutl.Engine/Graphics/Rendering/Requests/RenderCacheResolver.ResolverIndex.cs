@@ -103,6 +103,7 @@ internal sealed partial class RenderCacheResolver
         {
             if (reference.Kind is RenderFragmentKind.FilterEffectSegment
                 or RenderFragmentKind.Shader
+                or RenderFragmentKind.ShaderGraph
                 or RenderFragmentKind.Geometry)
             {
                 return true;

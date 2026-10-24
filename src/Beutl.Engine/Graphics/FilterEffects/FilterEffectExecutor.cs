@@ -292,6 +292,13 @@ public sealed partial class FilterEffectExecutor : IDisposable
                     if (CurrentTargets.Count == 0) return;
                     RunCustomEffectItem(custom);
                     break;
+                case FEItem_ShaderGraph graph:
+                    Flush(false);
+                    if (CurrentTargets.Count == 0) return;
+                    FilterEffectStageFallbackExecutor.ApplyShaderGraph(
+                        CurrentTargets, graph.Description, OutputScale, WorkingScale, MaxWorkingScale,
+                        Intent, Purpose, _renderTargetLeaseSession, Budget);
+                    break;
                 case FEItem_Shader shader:
                     Flush(false);
                     if (CurrentTargets.Count == 0) return;

@@ -76,6 +76,57 @@ internal static class FilterEffectStageFallbackExecutor
             target => ExecuteGeometry(target, description, environment));
     }
 
+    public static void ApplyShaderGraph(EffectTargets targets, ShaderGraphDescription description,
+        float outputScale, float workingScale, float maxWorkingScale, RenderIntent intent,
+        RenderRequestPurpose purpose, RenderTargetLeaseSession? leaseSession, BufferDimensionBudget budget)
+    {
+        var environment = new StageEnvironment(outputScale, workingScale, maxWorkingScale,
+            intent, purpose, leaseSession, budget);
+        using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
+        var context = GLSLFilterPipeline.TryResolveVulkan(Backend.GraphicsContextFactory.SharedContext)
+            ?? throw new NotSupportedException("Shader graphs require a Vulkan rendering context.");
+        var key = new ProgramCacheContextKey(context, context, "shader-graph", "v1");
+        ReplaceTargets(targets, source =>
+        {
+            using EffectTarget? normalized = NormalizeInput(source, environment);
+            if (normalized is null)
+                return null;
+            PixelRect footprint = PixelRect.FromRect(normalized.Bounds.Translate(normalized.DeviceGridOffset), normalized.Scale.Value);
+            using EffectTarget? cropped = normalized.DeviceBounds != footprint
+                ? CropTarget(normalized, normalized.Bounds, environment) : null;
+            EffectTarget? input = normalized.DeviceBounds != footprint ? cropped : normalized;
+            if (input?.RenderTarget is not { } inputTarget)
+                return null;
+            Rect bounds = description.TransformBounds(input.Bounds);
+            if (IsEmpty(bounds))
+                return null;
+            float density = description.ClampWorkingScale(input.Bounds,
+                ResolveSupplyDensity(input, environment), input.DeviceGridOffset);
+            EffectTarget? output = AllocateStageOutput(input, bounds, density, environment);
+            if (output?.RenderTarget is not { } outputTarget)
+            {
+                output?.Dispose();
+                return null;
+            }
+            try
+            {
+                inputTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
+                ShaderGraphExecutor.Execute(description,
+                    inputTarget.Texture ?? throw new NotSupportedException("The shader graph input requires a backend texture."),
+                    new(input.Bounds, input.RasterBounds, input.DeviceBounds.Size, input.Scale.Value),
+                    outputTarget.Texture ?? throw new NotSupportedException("The shader graph output requires a backend texture."),
+                    output.Scale.Value, input.DeviceGridOffset, cache, key);
+                EffectTarget result = output;
+                output = null;
+                return result;
+            }
+            finally
+            {
+                output?.Dispose();
+            }
+        });
+    }
+
     private static EffectTarget? ExecuteShader(
         EffectTarget source,
         ShaderDescription description,

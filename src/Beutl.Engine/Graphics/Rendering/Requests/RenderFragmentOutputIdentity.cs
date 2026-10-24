@@ -170,6 +170,9 @@ internal sealed class RenderFragmentOutputIdentity : IEquatable<RenderFragmentOu
     {
         switch (reference.Payload)
         {
+            case ShaderGraphRenderFragmentPayload graph:
+                components.Add(graph.Description.OutputIdentity);
+                return;
             case BuiltInBackdropCaptureRenderFragmentPayload capture:
                 components.Add(capture.Description.SourceRegion);
                 components.Add(capture.Description.Bounds);
