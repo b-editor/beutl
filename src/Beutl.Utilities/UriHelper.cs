@@ -13,7 +13,8 @@ internal static class UriHelper
     {
         if (baseUri?.Scheme == uri.Scheme)
         {
-            return baseUri.MakeRelativeUri(uri);
+            Uri relativeUri = baseUri.MakeRelativeUri(uri);
+            return IsDriveLetterPath(relativeUri.OriginalString) ? uri : relativeUri;
         }
 
         return uri;
@@ -25,6 +26,9 @@ internal static class UriHelper
 
     public static Uri ResolvePersistedReference(string? value, Uri? baseUri, bool allowRelative = false)
     {
+        // Parse persisted file references and their bases as explicit URIs to decode escapes only once.
+        if (IsDriveLetterPath(value))
+            value = "file:///" + value;
         if (!Uri.TryCreate(value, UriKind.RelativeOrAbsolute, out Uri? uri))
             throw new System.Text.Json.JsonException($"Invalid URI: {value}");
         if (uri.IsAbsoluteUri)
@@ -35,9 +39,6 @@ internal static class UriHelper
             throw new System.Text.Json.JsonException("Cannot resolve relative URI without a base URI.");
         }
 
-        // Native file-path Uris treat relative strings as paths, escaping '%' again.
-        // Persisted references are already URI-escaped: resolve them against an explicit
-        // URI so literal percent sequences and fragment characters are decoded only once.
         if (baseUri.IsAbsoluteUri)
             baseUri = new Uri(baseUri.AbsoluteUri, UriKind.Absolute);
         if (!Uri.TryCreate(baseUri, uri, out Uri? resolved))
@@ -118,7 +119,7 @@ internal static class UriHelper
     {
         var builder = new StringBuilder("file://");
         int start = 0;
-        if (windows && path.Length >= 3 && char.IsAsciiLetter(path[0]) && path[1] == ':' && IsSeparator(path[2], windows))
+        if (windows && IsDriveLetterPath(path))
         {
             builder.Append('/');
         }
@@ -157,6 +158,9 @@ internal static class UriHelper
 
         return new Uri(builder.ToString(), UriKind.Absolute);
     }
+
+    private static bool IsDriveLetterPath(string? path)
+        => path is { Length: >= 3 } && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] is '/' or '\\';
 
     private static bool IsSeparator(char c, bool windows) => c == '/' || (windows && c == '\\');
 }
