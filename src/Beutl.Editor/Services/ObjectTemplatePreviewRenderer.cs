@@ -167,7 +167,7 @@ public static class ObjectTemplatePreviewRenderer
         // may carry (DrawableGroup / DrawableDecorator populate their children from the flow).
         // Its resources are owned by it, so nothing here disposes them.
         using var compositor = new SceneCompositor(scene) { DisableResourceShare = true };
-        CompositionFrame frame = compositor.EvaluateGraphics(time + scene.Start.Value);
+        CompositionFrame frame = compositor.EvaluateGraphics(scene.FromWindowTime(time));
 
         return RenderResources(
             [.. frame.Objects.OfType<Drawable.Resource>()],

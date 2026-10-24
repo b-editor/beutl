@@ -3,13 +3,17 @@ using Avalonia.Threading;
 using Beutl.Animation;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
-public sealed record GraphEditorItemViewModel(string Name, IKeyFrameAnimation Object);
+public sealed record GraphEditorItemViewModel(string Name, IKeyFrameAnimation Object)
+{
+    internal EngineObject? AnimationOwner { get; init; }
+}
 
 public sealed partial class GraphEditorTabViewModel : IToolContext
 {
@@ -41,7 +45,7 @@ public sealed partial class GraphEditorTabViewModel : IToolContext
             {
                 if (t.First == null || t.Second == null) return null;
 
-                return new GraphEditorViewModel(_editorContext, t.First.Object, t.Second);
+                return new GraphEditorViewModel(_editorContext, t.First.Object, t.Second, t.First.AnimationOwner);
             })
             .Do(graph =>
             {

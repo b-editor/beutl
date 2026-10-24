@@ -264,12 +264,7 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
                     {
                         if (keyframe == null) return;
 
-                        MediaTime keyTime = keyframe.KeyTime.Value;
-
-                        if (!c.Animation.UseGlobalClock.Value)
-                        {
-                            keyTime += element.Start.Value;
-                        }
+                        MediaTime keyTime = c.Animation.ToScene(keyframe.KeyTime.Value);
 
                         var ctx = new CompositionContext(keyTime);
                         keyframe.Value.Value = Mirror(anchor.GetEndPoint().Evaluate(ctx),
@@ -488,14 +483,12 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
     {
         var scene = viewModel.EditorContext.GetRequiredService<Scene>();
         var clock = viewModel.EditorContext.GetRequiredService<IEditorClock>();
-        ProjectSystem.Element? element = viewModel.Element.Value;
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         MediaTime globalkeyTime = clock.CurrentTime.Value;
-        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start.Value : globalkeyTime;
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<BtlPoint> animation)
         {
-            MediaTime keyTime = animation.UseGlobalClock.Value ? globalkeyTime : localKeyTime;
+            MediaTime keyTime = animation.ToLocal(globalkeyTime);
             keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
             if (AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) is KeyFrame<BtlPoint> atFrame)

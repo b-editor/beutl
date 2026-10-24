@@ -106,7 +106,7 @@ public partial class PlayerView
         private Control Image => View.image;
 
         private KeyFrameState<float>? FindKf(IProperty<float> property)
-            => FindKeyFramePair(property, Clock, EditViewModel.Scene, _press?.Element?.Start.Value);
+            => FindKeyFramePair(property, Clock, EditViewModel.Scene);
 
         private static bool ApplyDelta(KeyFrameState<float>? kf, (float prev, float next) start, float delta)
             => KeyFrameDeltaHelper.ApplyDelta(kf?.Previous, kf?.Next, start.prev, start.next, delta);

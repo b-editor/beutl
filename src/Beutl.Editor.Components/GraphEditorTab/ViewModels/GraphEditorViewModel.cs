@@ -10,6 +10,7 @@ using Beutl.Animation.Easings;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
@@ -25,6 +26,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
     private readonly CompositeDisposable _disposables = [];
     private readonly ReactivePropertySlim<bool> _canEdit = new(true);
     private readonly IEditorClock _editorClock;
+    private readonly EngineObject? _animationOwner;
     private readonly ILogger _logger = Log.CreateLogger<GraphEditorViewModel>();
     private bool _editting;
     private bool _rangeUpdatePending;
@@ -32,11 +34,18 @@ public sealed partial class GraphEditorViewModel : IDisposable
     private MediaTime _pointerPosition;
 
     public GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element)
+        : this(editorContext, animation, element, null)
+    {
+    }
+
+    internal GraphEditorViewModel(IEditorContext editorContext, IKeyFrameAnimation animation, Element? element,
+        EngineObject? animationOwner)
     {
         _logger.LogInformation("Initializing GraphEditorViewModel");
         EditorContext = editorContext;
         Element = element;
         Animation = animation;
+        _animationOwner = animationOwner;
 
         var timelineOptions = editorContext.GetRequiredService<ITimelineOptionsProvider>();
         _editorClock = editorContext.GetRequiredService<IEditorClock>();
@@ -71,13 +80,13 @@ public sealed partial class GraphEditorViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Margin = UseGlobalClock.Select(v => !v
-                ? Element?.Start.GetObservable()
-                    .CombineLatest(Options)
-                    .Select(item => new Thickness(item.First.TimeToPixel(item.Second.Scale), 0, 0, 0))
-                : null)
-            .Select(v => v ?? Observable.ReturnThenNever<Thickness>(default))
-            .Switch()
+        TimeOrigin = AnimationOperations.ObserveTimeOrigin(animation, animationOwner)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Margin = TimeOrigin
+            .CombineLatest(timelineOptions.Scale)
+            .Select(item => new Thickness(item.First.TimeToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -172,6 +181,8 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> CanReverseSelection { get; }
 
     public IKeyFrameAnimation Animation { get; }
+
+    internal ReadOnlyReactivePropertySlim<MediaTime> TimeOrigin { get; }
 
     public GraphEditorViewViewModel[] Views { get; }
 
@@ -311,7 +322,7 @@ public sealed partial class GraphEditorViewModel : IDisposable
     public MediaTime ConvertKeyTime(MediaTime globalkeyTime)
     {
         _logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
-        return AnimationOperations.ConvertKeyTime(Animation, globalkeyTime, Element, Scene);
+        return AnimationOperations.ConvertKeyTime(Animation, globalkeyTime, Scene, _animationOwner);
     }
 
     public void DropEasing(Easing easing, MediaTime keyTime)
@@ -335,7 +346,8 @@ public sealed partial class GraphEditorViewModel : IDisposable
             animation: Animation,
             easing: easing,
             keyTime: keyTime,
-            logger: _logger);
+            logger: _logger,
+            fallbackOwner: _animationOwner);
         HistoryManager.Commit(CommandNames.InsertKeyFrame);
     }
 

@@ -28,6 +28,7 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
     internal string Key { get; }
     internal IProperty? Property { get; set; }
     internal IPropertyAdapter? Adapter { get; set; }
+    internal EngineObject? AnimationOwner { get; set; }
     internal string? ChannelName { get; set; }
     internal GraphEditorTreeItemViewModel? PropertyItem { get; set; }
     public GraphEditorTreeItemViewModel? Parent { get; }

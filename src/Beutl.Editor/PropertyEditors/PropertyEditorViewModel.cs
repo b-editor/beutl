@@ -11,6 +11,7 @@ using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Logging;
 using Beutl.Media;
+using Beutl.NodeGraph;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Reactive;
@@ -32,6 +33,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     private bool _skipKeyFrameIndexSubscription;
     private Element? _element;
     private Scene? _scene;
+    private GraphNode? _node;
     private IDisposable? _elementEditabilitySubscription;
     private readonly ReactivePropertySlim<bool> _isElementEditable = new(true);
     private IDisposable? _animationRepairSubscription;
@@ -249,10 +251,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
                 if (!_skipKeyFrameIndexSubscription && newIndex != oldIndex)
                 {
-                    MediaTime start = _element?.Start.Value ?? default;
-                    MediaTime keyTime = EditingKeyFrame.Value.KeyTime.Value;
-
-                    _clock.Seek(animation.UseGlobalClock.Value ? keyTime : keyTime + start);
+                    _clock.Seek(EditingKeyFrame.Value.KeyTime.Value + AnimationOperations.GetTimeOrigin(animation, _node));
                 }
             }
             else
@@ -275,11 +274,8 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         {
             Rational rate = _scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
 
-            MediaTime globalkeyTime = t.First;
-            MediaTime localKeyTime =
-                _element != null ? globalkeyTime - _element.Start.Value : globalkeyTime;
-            MediaTime keyTime = animation.UseGlobalClock.Value ? globalkeyTime : localKeyTime;
-            keyTime = keyTime.RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime keyTime = (t.First - AnimationOperations.GetTimeOrigin(animation, _node))
+                .RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
             IKeyFrame? atFrame = t.Second != null ? AnimationOperations.FindKeyFrameOnFrame(t.Second, keyTime, rate) : null;
             IsAtKeyFrame.Value = atFrame != null;
@@ -302,6 +298,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
             _propertyEditorControlHost = serviceProvider.GetService<IPropertyEditorControlHost>()?.CreateChildHost(PropertyAdapter);
             _element = serviceProvider.GetService<Element>();
             _scene = serviceProvider.GetService<Scene>();
+            _node = serviceProvider.GetService<GraphNode>();
             _elementEditabilitySubscription?.Dispose();
             _elementEditabilitySubscription = ElementEditability.Observe(_element, _scene)
                 .Subscribe(editable => _isElementEditable.Value = editable);
@@ -325,12 +322,13 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
                     _currentFrameRevoker = _clock.CurrentTime
                         .Do(_currentTime.OnNext)
                         .CombineLatest(animatableProperty.ObserveAnimation
-                            .Select(x => (x as IKeyFrameAnimation)?.KeyFrames)
-                            .Select(x => x?.CollectionChangedAsObservable()
-                                .Select(_ => x)
-                                .Publish(x)
-                                .RefCount())
-                            .Select(x => x ?? Observable.ReturnThenNever<IListProperty<IKeyFrame>?>(default))
+                            .Select(animation => animation == null
+                                ? Observable.ReturnThenNever<IListProperty<IKeyFrame>?>(null)
+                                : animation.KeyFrames.CollectionChangedAsObservable()
+                                    .Select(_ => animation.KeyFrames)
+                                    .StartWith(animation.KeyFrames)
+                                    .CombineLatest(AnimationOperations.ObserveTimeOrigin(animation, _node),
+                                        (keyFrames, _) => keyFrames))
                             .Switch())
                         .Subscribe(UpdateKeyFrameIndicator);
                 }

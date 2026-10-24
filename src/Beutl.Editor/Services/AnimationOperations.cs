@@ -1,9 +1,13 @@
 ﻿using System.Collections.Immutable;
+using System.Reactive.Linq;
 using System.Reflection;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
+using Beutl.Engine;
 using Beutl.JsonConverters;
+using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Reactive;
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor.Services;
@@ -13,22 +17,37 @@ internal static class AnimationOperations
     private static readonly MethodInfo s_insertKeyFrame = typeof(AnimationOperations).GetMethods()
         .Single(m => m.Name == nameof(InsertKeyFrame) && m.IsGenericMethodDefinition);
 
-    private static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, ILogger logger)
+    private static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, ILogger logger,
+        EngineObject? fallbackOwner = null)
     {
-        var element = animation.FindHierarchicalParent<Element>();
-        var scene = animation.FindHierarchicalParent<Scene>();
+        var scene = animation.FindHierarchicalParent<Scene>() ?? fallbackOwner?.FindHierarchicalParent<Scene>();
         logger.LogInformation("Converting key time {GlobalKeyTime}", globalkeyTime);
-        return ConvertKeyTime(animation, globalkeyTime, element, scene);
+        return ConvertKeyTime(animation, globalkeyTime, scene, fallbackOwner);
     }
 
     // The animation's key time at a time on the timeline, rounded to the frames of the scene.
-    internal static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, Element? element, Scene? scene)
-    {
-        MediaTime localKeyTime = element != null ? globalkeyTime - element.Start.Value : globalkeyTime;
-        MediaTime keyTime = animation.UseGlobalClock.Value ? globalkeyTime : localKeyTime;
+    internal static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, Scene? scene,
+        EngineObject? fallbackOwner = null)
+        => (globalkeyTime - GetTimeOrigin(animation, fallbackOwner)).RoundToFrame(GetFrameRate(scene), MidpointRounding.AwayFromZero);
 
-        return keyTime.RoundToFrame(GetFrameRate(scene), MidpointRounding.AwayFromZero);
-    }
+    internal static MediaTime GetTimeOrigin(IKeyFrameAnimation animation, EngineObject? fallbackOwner = null)
+        => animation.HierarchicalParent == null && !animation.UseGlobalClock.Value
+            ? fallbackOwner?.Start ?? MediaTime.Zero
+            : animation.ToScene(MediaTime.Zero);
+
+    internal static IObservable<MediaTime> ObserveTimeOrigin(IKeyFrameAnimation animation, EngineObject? fallbackOwner = null)
+        => Observable.FromEventPattern<HierarchyAttachmentEventArgs>(
+                h => animation.AttachedToHierarchy += h, h => animation.AttachedToHierarchy -= h)
+            .Merge(Observable.FromEventPattern<HierarchyAttachmentEventArgs>(
+                h => animation.DetachedFromHierarchy += h, h => animation.DetachedFromHierarchy -= h))
+            .Select(_ => 0)
+            .StartWith(0)
+            .Select(_ => (animation.FindHierarchicalParent<EngineObject>() ?? fallbackOwner)?.TimeRange.GetObservable()
+                ?? Observable.ReturnThenNever(default(TimeRange)))
+            .Switch()
+            .CombineLatest(animation.UseGlobalClock.GetObservable())
+            .Select(_ => GetTimeOrigin(animation, fallbackOwner))
+            .DistinctUntilChanged();
 
     // The frame rate key times snap to: the project's, or 30 fps outside a project.
     internal static Rational GetFrameRate(Scene? scene) => scene?.FindHierarchicalParent<Project>().GetFrameRate() ?? new Rational(30);
@@ -41,20 +60,23 @@ internal static class AnimationOperations
     }
 
     // InsertKeyFrame<T> for an animation whose value type is known only at run time.
-    public static IKeyFrame? InsertKeyFrame(IKeyFrameAnimation animation, Easing? easing, MediaTime keyTime, ILogger logger)
+    public static IKeyFrame? InsertKeyFrame(IKeyFrameAnimation animation, Easing? easing, MediaTime keyTime, ILogger logger,
+        EngineObject? fallbackOwner = null)
     {
         return (IKeyFrame?)s_insertKeyFrame.MakeGenericMethod(animation.ValueType)
-            .Invoke(null, BindingFlags.DoNotWrapExceptions, null, [animation, easing, keyTime, logger], null);
+            .Invoke(null, BindingFlags.DoNotWrapExceptions, null, [animation, easing, keyTime, logger, fallbackOwner], null);
     }
 
-    public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Easing? easing, MediaTime keyTime, ILogger logger)
+    public static KeyFrame<T>? InsertKeyFrame<T>(KeyFrameAnimation<T> animation, Easing? easing, MediaTime keyTime, ILogger logger,
+        EngineObject? fallbackOwner = null)
     {
         logger.LogInformation("Inserting key frame at {KeyTime}", keyTime);
         bool defaultEasing = easing is null or SplineEasing { X1: 0, Y1: 0, X2: 1, Y2: 1 };
         KeyFrame<T>? createdKeyFrame = null;
-        keyTime = ConvertKeyTime(animation, keyTime, logger);
+        keyTime = ConvertKeyTime(animation, keyTime, logger, fallbackOwner);
 
-        if (FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(animation.FindHierarchicalParent<Scene>())) == null)
+        var scene = animation.FindHierarchicalParent<Scene>() ?? fallbackOwner?.FindHierarchicalParent<Scene>();
+        if (FindKeyFrameOnFrame(animation.KeyFrames, keyTime, GetFrameRate(scene)) == null)
         {
             (IKeyFrame? prevIKeyFrame, IKeyFrame? nextIKeyFrame) = animation.GetPreviousAndNextKeyFrame(keyTime);
 
