@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using System.Runtime.ExceptionServices;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Graphics.Rendering.Requests;

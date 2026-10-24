@@ -39,6 +39,22 @@ public sealed class RecordingAndPlanningFailureTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RecordingFailure_ReportsMaskedCleanupFailure(bool throwOnLog)
+    {
+        using RenderRequestOwnerLogCapture logs = RenderRequestOwnerLogCapture.Start(throwOnLog);
+        var cleanupFailure = new InvalidOperationException("recording-cleanup");
+        var primaryFailure = new InvalidOperationException("recording-primary");
+        using var node = new RecordingFailureNode(new FailureTestDisposable(cleanupFailure), primaryFailure);
+        using var renderer = FailureTestSupport.CreateRenderer(node, new FailureTestTargetFactory(), useRenderCache: false);
+
+        var thrown = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
+
+        Assert.That(thrown, Is.SameAs(primaryFailure));
+        Assert.That(logs.Entries.Select(entry => entry.Exception), Is.EqualTo(new Exception[] { cleanupFailure }));
+    }
+
     [Test]
     public void PublishMappedInputs_MapperFailureAfterPublication_RollsBackOwnedResourcesAndInvalidatesHandles()
     {
