@@ -40,6 +40,26 @@ public sealed class ReferencePropertyEditorViewModel<T> : PropertyEditorViewMode
             .Select(t =>
             {
                 T? target = _reference.Evaluate(new CompositionContext(t.Second));
+                IObservable<T?> targets = Observable.ReturnThenNever(target);
+                if (target is null && _reference.Expression is IReferenceExpression reference
+                    && _reference.GetOwnerObject() is IHierarchical { HierarchicalRoot: { } root })
+                {
+                    targets = Observable.FromEventPattern<IHierarchical>(
+                            handler => root.DescendantAttached += handler,
+                            handler => root.DescendantAttached -= handler)
+                        .Where(e => e.EventArgs is T added && added.Id.Value == reference.ObjectId)
+                        .Select(_ => _reference.Evaluate(new CompositionContext(t.Second)))
+                        .Where(current => current is not null)
+                        .Take(1)
+                        .StartWith(target);
+                }
+
+                return targets.Select(current => (Target: current, Time: t.Second));
+            })
+            .Switch()
+            .Select(t =>
+            {
+                T? target = t.Target;
                 if (target == null) return Observable.ReturnThenNever<string?>(MessageStrings.PropertyUnset);
 
                 var changes = target.Name.GetObservable();
@@ -58,7 +78,7 @@ public sealed class ReferencePropertyEditorViewModel<T> : PropertyEditorViewMode
                         }).Select(_ => target.Name.Value));
                 }
 
-                return changes.Select(_ => _reference.Evaluate(new CompositionContext(t.Second)) is { } current
+                return changes.Select(_ => _reference.Evaluate(new CompositionContext(t.Time)) is { } current
                     ? (string?)GetDisplayName(current)
                     : MessageStrings.PropertyUnset);
             })

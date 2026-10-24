@@ -22,6 +22,7 @@ using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
 using static Beutl.HeadlessUITests.PropertyEditorTestHost;
 
@@ -150,6 +151,37 @@ public class ReferencePropertyEditorTests
     }
 
     [AvaloniaTest]
+    [TestCaseSource(nameof(s_owners))]
+    public void UndoingTargetRemovalAfterMovingThePlayheadRestoresTheLabel(Type ownerType)
+    {
+        using var fixture = new Fixture(ownerType);
+        fixture.Show();
+        fixture.Reference.SetTarget(fixture.Target);
+        HeadlessTestHelpers.Render();
+        ReferenceEditor picker = fixture.Window.GetVisualDescendants().OfType<ReferenceEditor>().Single();
+        Assert.That(picker.TargetName, Is.EqualTo(fixture.Target.Name.Value));
+
+        fixture.RemoveTarget();
+        fixture.History.History.Commit("Remove target");
+        fixture.Clock.Seek(MediaTime.FromSeconds(1));
+        HeadlessTestHelpers.Render();
+        Assert.That(picker.TargetName, Is.EqualTo(MessageStrings.PropertyUnset));
+
+        Assert.That(fixture.History.History.Undo(), Is.True);
+        HeadlessTestHelpers.Render();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(((IExpression<CoreObject?>)fixture.Property.Expression!).Evaluate(
+                new ExpressionContext(fixture.Clock.CurrentTime.Value, fixture.Property, new PropertyLookup(fixture.Project))),
+                Is.SameAs(fixture.Target));
+            Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(fixture.Target.Name.Value));
+            Assert.That(picker.TargetName, Is.EqualTo(fixture.Target.Name.Value));
+            Assert.That(fixture.Clock.CurrentTime.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+        }
+    }
+
+    [AvaloniaTest]
     public void RemovingTheTargetsElementUpdatesTheLabelWithoutMovingThePlayhead()
     {
         using var fixture = new Fixture(typeof(BrushPresenter));
@@ -272,10 +304,12 @@ public class ReferencePropertyEditorTests
                 _ => shape,
             };
             if (Target is Scene referenced) Project.Items.Add(referenced);
-            History = new HistoryScope(scene);
+            History = new HistoryScope(Project);
+            Clock = new EditorClockImpl(scene);
             (Vm, Control) = CreateControl(PropertyAdapterFactory.CreateAdapter(Property, Owner), surface);
             Vm.Accept(new ServiceVisitor((typeof(HistoryManager), History.History), (typeof(Scene), scene),
                 (typeof(Element), Element),
+                (typeof(IEditorClock), Clock),
                 (typeof(IPropertyEditorFactory), new PropertyEditorFactoryAdapter(TestShell.Extensions)),
                 (typeof(ExtensionProvider), TestShell.Extensions)));
             Reference = (IReferencePropertyEditorViewModel)Vm;
@@ -288,6 +322,7 @@ public class ReferencePropertyEditorTests
         public CoreObject Target { get; }
         public IExpressionProperty Property { get; }
         public HistoryScope History { get; }
+        public EditorClockImpl Clock { get; }
         public PropertyEditorViewModel Vm { get; }
         public IReferencePropertyEditorViewModel Reference { get; }
         public Control Control { get; }
@@ -325,6 +360,7 @@ public class ReferencePropertyEditorTests
         {
             Window.Close();
             Vm.Dispose();
+            Clock.Dispose();
             History.Dispose();
             _app.Project.Value = null;
         }
