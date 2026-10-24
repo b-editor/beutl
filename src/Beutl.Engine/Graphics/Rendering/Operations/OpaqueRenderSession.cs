@@ -1,4 +1,5 @@
-﻿using Beutl.Media;
+﻿using System.Collections.ObjectModel;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
 
@@ -21,8 +22,8 @@ public sealed class OpaqueRenderSession
 
     internal OpaqueRenderSession(
         RenderExecutionSessionToken token,
-        IReadOnlyList<RenderExecutionInput> inputs,
-        IReadOnlyList<RenderExecutionInputRange> inputRanges,
+        IList<RenderExecutionInput> inputs,
+        IList<RenderExecutionInputRange> inputRanges,
         Rect outputBounds,
         Rect requiredRegion,
         PixelRect deviceBounds,
@@ -42,13 +43,9 @@ public sealed class OpaqueRenderSession
         ArgumentNullException.ThrowIfNull(createOutput);
         ArgumentNullException.ThrowIfNull(publish);
         _token = token;
-        _inputs = inputs.Count == 0
-            ? Array.Empty<RenderExecutionInput>()
-            : Array.AsReadOnly(inputs.ToArray());
-        _inputRanges = RenderExecutionInputRange.CopyAndValidate(
-            _inputs,
-            inputRanges,
-            nameof(inputRanges));
+        RenderExecutionInputRange.AssertCover(inputs.Count, inputRanges);
+        _inputs = new ReadOnlyCollection<RenderExecutionInput>(inputs);
+        _inputRanges = new ReadOnlyCollection<RenderExecutionInputRange>(inputRanges);
         _outputBounds = outputBounds;
         _requiredRegion = requiredRegion;
         _deviceBounds = deviceBounds;

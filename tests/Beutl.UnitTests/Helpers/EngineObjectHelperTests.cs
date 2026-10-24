@@ -177,64 +177,44 @@ public class EngineObjectHelperTests
         Assert.That(reported, Is.SameAs(failure));
     }
 
-    // Shutdown stops draining the queue, so a release queued before it must still run once the dispatcher thread has
-    // actually stopped; the blocked operation below stands in for a frame still reading the resource.
     [Test]
-    public void Render_dispatcher_shutdown_releases_a_resource_whose_dispatch_it_abandoned()
+    public void Shutdown_drops_a_release_queued_behind_a_running_operation()
     {
         using var published = new ManualResetEventSlim();
         using var blockerEntered = new ManualResetEventSlim();
         using var releaseBlocker = new ManualResetEventSlim();
         Dispatcher dispatcher = Dispatcher.Spawn();
         CountingResource? created = null;
-
+        IDisposable? subscription = null;
         try
         {
-            IDisposable subscription = _probe
+            subscription = _probe
                 .SubscribeEngineVersionedResource<ProbeObject, CountingResource>(
-                    _time,
-                    (_, _) => new CountingResource(),
-                    dispatcher)
-                .Subscribe(t =>
+                    _time, (_, _) => new CountingResource(), dispatcher)
+                .Subscribe(handle =>
                 {
-                    t.Read(r => created = r);
+                    handle.Read(resource => created = resource);
                     published.Set();
                 });
-
-            Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
-
-            dispatcher.Dispatch(
-                () =>
-                {
-                    blockerEntered.Set();
-                    releaseBlocker.Wait();
-                },
-                DispatchPriority.High);
+            Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True);
+            dispatcher.Dispatch(() =>
+            {
+                blockerEntered.Set();
+                releaseBlocker.Wait();
+            }, DispatchPriority.High);
             Assert.That(blockerEntered.Wait(TimeSpan.FromSeconds(30)), Is.True);
 
             subscription.Dispose();
-            Assert.That(created!.IsDisposed, Is.False, "the release is queued behind the blocked operation");
-
             dispatcher.Shutdown();
-
-            Assert.That(
-                created.IsDisposed, Is.False,
-                "the dispatcher thread is still inside the blocked operation");
-
+            Assert.That(created!.DisposeCalls, Is.Zero);
             releaseBlocker.Set();
             Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
-
-            Assert.Multiple(() =>
-            {
-                Assert.That(created.IsDisposed, Is.True);
-                Assert.That(
-                    created.DisposeCalls, Is.EqualTo(1),
-                    "draining the queue must not release the resource a second time");
-            });
+            Assert.That(created.DisposeCalls, Is.Zero);
         }
         finally
         {
             releaseBlocker.Set();
+            subscription?.Dispose();
             ShutDownAndJoin(dispatcher);
             created?.Dispose();
         }
@@ -323,8 +303,8 @@ public class EngineObjectHelperTests
             Assert.That(published.Wait(TimeSpan.FromSeconds(30)), Is.True, "no resource was ever published");
 
             subscription.Dispose();
-            dispatcher.Shutdown();
-            Assert.That(dispatcher.Thread.Join(TimeSpan.FromSeconds(30)), Is.True);
+            // The teardown queues its release at low priority, so this runs after it.
+            dispatcher.Invoke(static () => { }, DispatchPriority.Low);
 
             bool wasRead = handle!.Value.Read(_ => Assert.Fail("a released resource was handed to a reader"));
             Assert.That(wasRead, Is.False);

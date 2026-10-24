@@ -69,7 +69,8 @@ public class ClippingAutoCenterTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap bmp = GoldenImageHarness.RenderAtScale(Make(l, t, r, b), Frame, 1f);
+            using Drawable.Resource bmpResource = Make(l, t, r, b);
+            using Bitmap bmp = GoldenImageHarness.RenderAtScale(bmpResource, Frame, 1f);
             (float cx, float cy, int count) = ContentCenter(bmp);
 
             Assert.That(count, Is.GreaterThan(1000), "almost no content drawn — the source was blitted off-buffer");
@@ -109,7 +110,8 @@ public class ClippingAutoCenterTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap bmp = GoldenImageHarness.RenderAtScale(MakeBordered(60f), Frame, 1f);
+            using Drawable.Resource bmpResource = MakeBordered(60f);
+            using Bitmap bmp = GoldenImageHarness.RenderAtScale(bmpResource, Frame, 1f);
 
             // content bbox over all non-black pixels (white interior + red border)
             int minx = int.MaxValue, maxx = int.MinValue, cyN = 0, cySum = 0;
@@ -174,8 +176,10 @@ public class ClippingAutoCenterTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap r1 = GoldenImageHarness.RenderAtScale(MakeAutoClipChain(), Frame, 1f);
-            using Bitmap hi = GoldenImageHarness.RenderAtScale(MakeAutoClipChain(), Frame, 2f);
+            using Drawable.Resource r1Resource = MakeAutoClipChain();
+            using Bitmap r1 = GoldenImageHarness.RenderAtScale(r1Resource, Frame, 1f);
+            using Drawable.Resource hiResource = MakeAutoClipChain();
+            using Bitmap hi = GoldenImageHarness.RenderAtScale(hiResource, Frame, 2f);
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(hi, Frame);
 
             double ssim = ImageMetrics.Ssim(r1, delivered);

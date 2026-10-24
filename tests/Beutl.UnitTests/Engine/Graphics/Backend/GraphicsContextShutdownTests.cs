@@ -156,13 +156,19 @@ public sealed class GraphicsContextShutdownTests
         });
     }
 
-    [Test]
-    public void AFailingPooledTargetRetirement_StillReleasesTheContextItCouldNotRetire()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AFailingPooledTargetRetirement_StillReleasesTheContextItCouldNotRetire(bool releaseFails)
     {
         var retirementFailure = new InvalidOperationException("The pooled target could not be destroyed.");
         bool disposed = false;
         var context = new Mock<IGraphicsContext>(MockBehavior.Strict);
-        context.Setup(value => value.Dispose()).Callback(() => disposed = true);
+        context.Setup(value => value.Dispose()).Callback(() =>
+        {
+            disposed = true;
+            if (releaseFails)
+                throw new InvalidOperationException("The graphics context could not be released.");
+        });
 
         RenderThread.Dispatcher.Invoke(() =>
         {

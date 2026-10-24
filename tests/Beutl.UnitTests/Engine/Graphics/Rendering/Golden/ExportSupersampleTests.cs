@@ -42,11 +42,14 @@ public class ExportSupersampleTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             // Near-ground-truth: render very high then downsample to FrameSize.
-            using Bitmap truthHi = GoldenImageHarness.RenderAtScale(MakeAliasingProne(), Frame, 8f);
+            using Drawable.Resource truthHiResource = MakeAliasingProne();
+            using Bitmap truthHi = GoldenImageHarness.RenderAtScale(truthHiResource, Frame, 8f);
             using Bitmap truth = GoldenImageHarness.MitchellResampleTo(truthHi, Frame);
 
-            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeAliasingProne(), Frame, 1f);
-            using Bitmap supersampledHi = GoldenImageHarness.RenderAtScale(MakeAliasingProne(), Frame, factor);
+            using Drawable.Resource oneToOneResource = MakeAliasingProne();
+            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(oneToOneResource, Frame, 1f);
+            using Drawable.Resource supersampledHiResource = MakeAliasingProne();
+            using Bitmap supersampledHi = GoldenImageHarness.RenderAtScale(supersampledHiResource, Frame, factor);
             // Downscale through the SAME kernel production uses (SupersampleDownscaler), so the 4x case
             // exercises the trilinear + mipmaps branch (scale > 2), not a test-only Mitchell.
             using Bitmap delivered = SupersampleDownscaler.ToFrameSize(supersampledHi, Frame, factor);

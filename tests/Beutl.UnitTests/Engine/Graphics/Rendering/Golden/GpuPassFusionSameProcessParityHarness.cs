@@ -1,7 +1,6 @@
 ﻿using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
-using Beutl.UnitTests.Engine.Graphics.Rendering.Evidence;
 using Beutl.UnitTests.Engine.Graphics.Rendering.Golden;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Baseline;
@@ -46,19 +45,6 @@ internal static class GpuPassFusionSameProcessParityHarness
         }
 
         var result = new GpuPassFusionParityResult(fullImage, aaEdge);
-
-        // Recorded before the assertions: an evidence run exists to say what the numbers were, and a manifest
-        // that silently omits every workload that missed its threshold would report only the good news.
-        if (GpuPassFusionParityEvidence.IsRecording)
-        {
-            GpuPassFusionParityEvidence.Record(
-                TestContext.CurrentContext.Test.FullName,
-                1.0,
-                disabled.Width,
-                disabled.Height,
-                result,
-                aaEdgeRegion);
-        }
 
         using (Assert.EnterMultipleScope())
         {

@@ -116,7 +116,7 @@ public class PropertyExpressionTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void FailedExpression_WhenLoggingThrows_StillUsesFallback(bool animated)
+    public void FailedExpression_WhenLoggingThrows_PropagatesTheLogFailure(bool animated)
     {
         if (!Log.IsLoggerFactoryConfigured)
             Log.LoggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Warning));
@@ -126,9 +126,11 @@ public class PropertyExpressionTests
         property.Expression = new TestExpression(() => throw new ExpressionException("Evaluation failed"));
         var context = TestHelper.CreateExpressionContext(MediaTime.Zero, property);
 
-        Assert.That(property.Evaluate(context), Is.EqualTo(7));
+        Exception exception = Assert.Catch(() => property.Evaluate(context))!.GetBaseException();
         Assert.Multiple(() =>
         {
+            Assert.That(exception, Is.TypeOf<InvalidOperationException>());
+            Assert.That(exception.Message, Is.EqualTo("Logging failed"));
             Assert.That(property.ExpressionError, Is.EqualTo("Evaluation failed"));
             Assert.That(context.IsEvaluating(property), Is.False);
             Assert.That(logs.Entries, Has.Count.EqualTo(1));

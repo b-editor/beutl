@@ -450,6 +450,42 @@ public class Renderer3DTests
         AssertShadowsDarkenReceiver(shadowed, unshadowed);
     }
 
+    // A zero direction is drawn as +Y everywhere; shading used to normalize it into NaN while shadows used +Y.
+    [TestCase(false)]
+    [TestCase(true)]
+    public void AZeroLightDirection_RendersLikeOnePointingUp(bool spot)
+    {
+        Action<List<Light3D>> Pointing(Vector3 direction) => lights =>
+        {
+            if (spot)
+            {
+                var light = new SpotLight3D();
+                light.Position.Value = new Vector3(0, -0.75f, 1.5f);
+                light.Direction.Value = direction;
+                light.Intensity.Value = 30f;
+                light.Range.Value = 15f;
+                light.OuterConeAngle.Value = 50f;
+                light.CastsShadow.Value = true;
+                lights.Add(light);
+            }
+            else
+            {
+                var light = new DirectionalLight3D();
+                light.Direction.Value = direction;
+                light.Intensity.Value = 2f;
+                light.CastsShadow.Value = true;
+                light.ShadowDistance.Value = 30f;
+                light.ShadowMapSize.Value = 15f;
+                lights.Add(light);
+            }
+        };
+
+        byte[] pointingUp = RenderShadowScene(Pointing(Vector3.UnitY));
+        Assert.That(pointingUp.SequenceEqual(RenderShadowScene(static _ => { })), Is.False,
+            "The reference light must illuminate visible pixels.");
+        Assert.That(RenderShadowScene(Pointing(Vector3.Zero)).SequenceEqual(pointingUp), Is.True);
+    }
+
     private static List<Light3D.Resource> BuildThreePointLights(CompositionContext renderContext)
     {
         var keyLight = new DirectionalLight3D();
