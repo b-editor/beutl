@@ -213,14 +213,16 @@ public partial class ImmediateCanvas
 
             // The blob is shaped at device density, so its glyphs already span Bounds * density
             // under this CTM. Pass scale 1 so the density isn't applied twice to brush patterns.
-            ConfigureFillPaint(text.Bounds * density, fill, scale: 1f);
+            // Glyphs are positioned relative to their baseline, not the zero-origin layout rectangle.
+            Rect brushBounds = text.ActualBounds * density;
+            ConfigureFillPaint(brushBounds, fill, scale: 1f);
             Canvas.DrawText(textBlob, 0, 0, _sharedFillPaint);
 
             if (pen != null
                 && pen.Thickness > 0
                 && text.GetStrokePath(density) is { } stroke)
             {
-                ConfigureStrokePaint(new(text.Bounds.Size * density), pen, scale: 1f);
+                ConfigureStrokePaint(brushBounds, pen, scale: 1f);
                 Canvas.DrawPath(stroke, _sharedStrokePaint);
             }
         }
