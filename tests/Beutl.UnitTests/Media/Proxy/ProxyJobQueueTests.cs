@@ -744,6 +744,100 @@ public class ProxyJobQueueTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    [Repeat(100)]
+    public async Task Cancel_DuringGeneratorRequeue_RetiresJobExactlyOnce(bool cancelAll)
+    {
+        ProxyFingerprint parked = CreateFingerprint("requeue-cancel.mov");
+        var generator = new SourceScopedUnavailableGenerator(parked);
+        await using var queue = new ProxyJobQueue(
+            generator,
+            store: null,
+            minUnavailableBackoff: TimeSpan.FromSeconds(30),
+            maxUnavailableBackoff: TimeSpan.FromSeconds(30));
+        int canceledNotifications = 0;
+        queue.JobChanged += (_, e) =>
+        {
+            if (e.Job.Source == parked && e.Kind == ProxyJobChangeKind.Canceled)
+                Interlocked.Increment(ref canceledNotifications);
+        };
+
+        ProxyJob parkedJob = await queue.EnqueueAsync(parked, ProxyPreset.Quarter);
+        await generator.FirstUnavailable.WaitAsync(TimeSpan.FromSeconds(5));
+        if (cancelAll)
+            queue.CancelAll();
+        else
+            queue.Cancel(parkedJob.JobId);
+
+        ProxyJob follower = await queue.EnqueueAsync(CreateFingerprint("requeue-follower.mov"), ProxyPreset.Quarter);
+        await WaitForTerminalAsync(follower);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(parkedJob.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(follower.Status, Is.EqualTo(ProxyJobStatus.Succeeded));
+            Assert.That(queue.Pending(), Is.Empty);
+            Assert.That(queue.IsGenerating(parked, ProxyPreset.Quarter), Is.False);
+            Assert.That(canceledNotifications, Is.EqualTo(1));
+        });
+
+        ProxyJob replacement = await queue.EnqueueAsync(parked, ProxyPreset.Quarter);
+        Assert.That(replacement, Is.Not.SameAs(parkedJob));
+    }
+
+    [Test]
+    public async Task Cancel_BeforeGeneratorRetry_WaitsForCancellationCallbacks()
+    {
+        var callbackStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var terminal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseCallback = new ManualResetEventSlim();
+        await using var queue = new ProxyJobQueue(() => null, store: null);
+        Task cancellation = Task.CompletedTask;
+        CancellationTokenRegistration registration = default;
+        queue.JobChanged += (_, e) =>
+        {
+            if (e.Kind == ProxyJobChangeKind.Canceled)
+                terminal.TrySetResult();
+            if (e.Kind != ProxyJobChangeKind.Started)
+                return;
+
+            registration = e.Job.CancellationToken.Register(() =>
+            {
+                callbackStarted.TrySetResult();
+                releaseCallback.Wait();
+            });
+            cancellation = Task.Run(() => queue.Cancel(e.Job.JobId));
+            callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();
+        };
+
+        ProxyJob job = await queue.EnqueueAsync(CreateFingerprint("retry-callback.mov"), ProxyPreset.Quarter);
+        try
+        {
+            await callbackStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await Task.WhenAny(terminal.Task, Task.Delay(100));
+            Assert.Multiple(() =>
+            {
+                Assert.That(terminal.Task.IsCompleted, Is.False);
+                Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Running));
+                Assert.That(queue.Pending(), Does.Contain(job));
+            });
+        }
+        finally
+        {
+            releaseCallback.Set();
+            await cancellation.WaitAsync(TimeSpan.FromSeconds(5));
+            registration.Dispose();
+        }
+
+        await terminal.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Multiple(() =>
+        {
+            Assert.That(job.Status, Is.EqualTo(ProxyJobStatus.Canceled));
+            Assert.That(queue.Pending(), Is.Empty);
+        });
+    }
+
     [Test]
     public async Task LazyProvider_NullThenGenerator_RetainsQueuedJobUntilRegistration()
     {

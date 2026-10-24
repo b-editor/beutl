@@ -406,7 +406,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
                 IProxyGenerator? generator = ResolveGenerator();
                 if (generator is null)
                 {
-                    requeued = DeferUntilGeneratorRegistered(item);
+                    requeued = await DeferUntilGeneratorRegisteredAsync(item).ConfigureAwait(false);
                 }
                 else
                 {
@@ -436,7 +436,7 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
             }
             catch (ProxyGeneratorUnavailableException ex)
             {
-                requeued = HandleGeneratorUnavailable(item, ex);
+                requeued = await HandleGeneratorUnavailableAsync(item, ex).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -458,22 +458,18 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
     }
 
     // Returns whether the item was requeued; otherwise it has been completed as canceled.
-    private bool DeferUntilGeneratorRegistered(WorkItem item)
+    private Task<bool> DeferUntilGeneratorRegisteredAsync(WorkItem item)
     {
         item.Job.Status = ProxyJobStatus.Running;
         OnJobChanged(item.Job, ProxyJobChangeKind.Started);
         // No generator has registered yet. Keep the job queued and re-probe after the same
         // bounded backoff used for unavailable generators; extension loading may register one.
         item.Job.StatusMessage = "Waiting for proxy generator registration.";
-        bool requeued = RequeueForRetry(item);
-        if (!requeued)
-            CompleteCanceled(item);
-
-        return requeued;
+        return RequeueForRetryAsync(item);
     }
 
     // Returns whether the item was requeued; otherwise it has reached a terminal state.
-    private bool HandleGeneratorUnavailable(WorkItem item, ProxyGeneratorUnavailableException ex)
+    private Task<bool> HandleGeneratorUnavailableAsync(WorkItem item, ProxyGeneratorUnavailableException ex)
     {
         // A racing InvalidateGenerator writes null under _lock; the terminal-vs-requeue
         // decision must not act on a stale non-null read.
@@ -491,17 +487,13 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
             // so requeuing would occupy the serial queue forever (e.g. a build without FFmpeg).
             // Treat it as a terminal skip instead.
             CompleteSkippedOrCanceled(item, ex.Message);
-            return false;
+            return Task.FromResult(false);
         }
 
         // Environmental unavailability, or a generator swapped mid-generate: keep the job queued and re-probe after a
         // backoff. The reason stays visible in the UI until the next dispatch clears it.
         item.Job.StatusMessage = ex.Message;
-        bool requeued = RequeueForRetry(item);
-        if (!requeued)
-            CompleteCanceled(item);
-
-        return requeued;
+        return RequeueForRetryAsync(item);
     }
 
     private async Task<bool> GenerateAsync(IProxyGenerator generator, WorkItem item)
@@ -621,10 +613,14 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
         OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
     }
 
-    private bool RequeueForRetry(WorkItem item)
+    private async Task<bool> RequeueForRetryAsync(WorkItem item)
     {
         if (!item.ResetForRetry())
+        {
+            await item.WaitForCancellationCallbacksAsync().ConfigureAwait(false);
+            CompleteCanceled(item);
             return false;
+        }
 
         OnJobChanged(item.Job, ProxyJobChangeKind.Enqueued);
         return true;
@@ -738,15 +734,12 @@ public sealed partial class ProxyJobQueue : IProxyJobQueue
 
     private void CancelItem(WorkItem item)
     {
-        if (item.TryCancelQueued())
+        if (item.Cancel())
         {
             // The drain loop discards this item's channel permit and re-selects from _items, so it
             // never reaches ProcessOneAsync to be disposed; dispose here to release its linked CTS.
             RetireCanceled(item);
-            return;
         }
-
-        item.Cancel();
     }
 
     private void Remove(WorkItem item)
