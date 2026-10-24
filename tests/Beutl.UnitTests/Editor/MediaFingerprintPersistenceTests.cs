@@ -352,7 +352,7 @@ public class MediaFingerprintPersistenceTests
         CoreSerializer.StoreToUri(restored, scene.Uri);
         restored.SetMediaFingerprints([]);
         CoreSerializer.StoreToUri(restored, scene.Uri);
-        // An embedded copy, as in the agent toolkit's snapshots, keeps the version and nothing else.
+        // An embedded copy keeps the complete later schema and its original storage bytes.
         JsonObject embedded = CoreSerializer.SerializeToJsonObject(restored, new CoreSerializerOptions
         {
             BaseUri = scene.Uri,
@@ -369,7 +369,8 @@ public class MediaFingerprintPersistenceTests
                 "The scene file keeps the reference, so the version that wrote the file still finds it.");
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(written));
             Assert.That(embedded["Version"]!.GetValue<int>(), Is.EqualTo(2));
-            Assert.That(embedded.ContainsKey("Fingerprints"), Is.False);
+            Assert.That(embedded.ContainsKey("Fingerprints"), Is.True);
+            Assert.That(embedded.ContainsKey("Moved"), Is.True);
         });
     }
 
@@ -434,6 +435,7 @@ public class MediaFingerprintPersistenceTests
             });
         }
 
+        scene.Name.Value = "Changed parent";
         // As EditViewModel.SaveAsync does it: one transaction, the fingerprint file before the scene file, which
         // it stores without SaveReferencedObjects.
         void SaveAsTheEditorDoes()
@@ -464,6 +466,97 @@ public class MediaFingerprintPersistenceTests
             else
                 Assert.That(ReadFingerprints(path)["image.png"]!["Sha256"]!.GetValue<string>(), Is.EqualTo("CHANGED"));
         });
+    }
+
+    [Test]
+    public void SerializerStorage_UnchangedParentStillSavesItsChild_AndDroppedFileRollsBack()
+    {
+        var scene = new Scene(64, 64, "Scene") { Uri = new Uri(Path.Combine(_root, "scene.scene")) };
+        string media = MediaUri("image.png");
+        scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint> { [media] = new(1, "AA") });
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        string path = MediaFingerprintFile.GetPath(scene.Uri.LocalPath);
+        DateTime stamp = new(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        File.SetLastWriteTimeUtc(scene.Uri.LocalPath, stamp);
+        File.SetLastWriteTimeUtc(path, stamp);
+
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        Assert.That(File.GetLastWriteTimeUtc(scene.Uri.LocalPath), Is.EqualTo(stamp));
+        Assert.That(File.GetLastWriteTimeUtc(path), Is.EqualTo(stamp));
+
+        scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint> { [media] = new(2, "BB") });
+        var replaced = new List<string>();
+        using (StorageWriteTransaction.InjectFaultsForTesting((step, target) =>
+               {
+                   if (step == StorageWriteStep.Replace) replaced.Add(target);
+               }))
+        {
+            CoreSerializer.StoreToUri(scene, scene.Uri);
+        }
+        Assert.That(replaced, Is.EqualTo(new[] { Path.GetFullPath(path) }));
+        Assert.That(File.GetLastWriteTimeUtc(scene.Uri.LocalPath), Is.EqualTo(stamp));
+        Assert.That(ReadFingerprints(path)["image.png"]!["Sha256"]!.GetValue<string>(), Is.EqualTo("BB"));
+
+        byte[] parentBytes = File.ReadAllBytes(scene.Uri.LocalPath);
+        byte[] childBytes = File.ReadAllBytes(path);
+        scene.SetMediaFingerprints([]);
+        bool parentWritten = false;
+        using (StorageWriteTransaction transaction = StorageWriteTransaction.Begin())
+        using (StorageWriteTransaction.InjectFaultsForTesting((step, target) =>
+               {
+                   if (step != StorageWriteStep.Replace || target != Path.GetFullPath(scene.Uri.LocalPath)) return;
+                   Assert.That(File.Exists(path), Is.True, "The parent must be published before deleting its child.");
+                   parentWritten = true;
+               }))
+        {
+            CoreSerializer.StoreToUri(scene, scene.Uri);
+            Assert.That(parentWritten, Is.True);
+            Assert.That(File.Exists(path), Is.False);
+            Assert.That(transaction.Rollback(), Is.True);
+        }
+        Assert.That(File.ReadAllBytes(scene.Uri.LocalPath), Is.EqualTo(parentBytes));
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(childBytes));
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        Assert.That(File.Exists(path), Is.False, "Rollback must restore the ownership baseline for a retry.");
+    }
+
+    [Test]
+    public void SerializerStorage_OptionalReadsAndEmbeddedCopiesPreserveLaterSchemaBytes()
+    {
+        var scene = new Scene(64, 64, "Scene") { Uri = new Uri(Path.Combine(_root, "scene.scene")) };
+        scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint> { [MediaUri("image.png")] = new(1, "AA") });
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        string path = MediaFingerprintFile.GetPath(scene.Uri.LocalPath);
+        File.Delete(path);
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).MediaFingerprintFile, Is.Null);
+        Assert.Throws<FileNotFoundException>(() => CoreSerializer.RestoreFromUri<MediaFingerprintFile>(new Uri(path)));
+        File.WriteAllText(path, Conflict);
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).MediaFingerprintFile, Is.Null);
+
+        const string future = "{\n \"Version\": 2, \"$type\": \"[Future]:FingerprintV2\", \"Next\": {\"unknown\": [1,2,3]}\n}\n";
+        File.WriteAllText(path, future, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        byte[] bytes = File.ReadAllBytes(path);
+        Scene loaded = CoreSerializer.RestoreFromUri<Scene>(scene.Uri);
+        Assert.That(loaded.MediaFingerprintFile!.IsFromLaterVersion, Is.True);
+        Assert.That(loaded.MediaFingerprints, Is.Empty);
+        JsonObject embedded = CoreSerializer.SerializeToJsonObject(loaded, new CoreSerializerOptions
+        {
+            BaseUri = scene.Uri,
+            Mode = CoreSerializationMode.Write | CoreSerializationMode.EmbedReferencedObjects,
+        });
+        var copy = (Scene)CoreSerializer.DeserializeFromJsonObject(
+            JsonNode.Parse(embedded.ToJsonString())!.AsObject(), typeof(Scene),
+            new CoreSerializerOptions { BaseUri = scene.Uri });
+        var copyUri = new Uri(Path.Combine(_root, "copy", "copy.scene"));
+        CoreSerializer.StoreToUri(copy, copyUri);
+        Assert.That(File.ReadAllBytes(MediaFingerprintFile.GetPath(copyUri.LocalPath)), Is.EqualTo(bytes));
+
+        scene.SetMediaFingerprints([]);
+        CoreSerializer.StoreToUri(scene, scene.Uri);
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(bytes), "A later schema appearing after load must survive a drop.");
+        Assert.That(ReadJson(scene.Uri.LocalPath).ContainsKey(MediaFingerprintFile.SceneProperty), Is.True);
+        File.WriteAllText(path, "{\"Version\":2,\"minAppVersion\":\"999.0.0\"}");
+        Assert.Throws<UnsupportedFileVersionException>(() => CoreSerializer.RestoreFromUri<Scene>(scene.Uri));
     }
 
     [Test]

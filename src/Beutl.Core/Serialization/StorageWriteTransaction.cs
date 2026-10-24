@@ -76,12 +76,21 @@ internal sealed class StorageWriteTransaction : IDisposable
     /// <param name="isCompatibilityGate">
     /// The destination is a project file whose version metadata guards the files saved with it.
     /// </param>
-    internal static void MoveIntoPlace(
+    internal static bool MoveIntoPlace(
         string temporaryPath,
         string destinationPath,
         bool overwrite,
-        bool isCompatibilityGate = false)
+        bool isCompatibilityGate = false,
+        bool skipUnchanged = false)
     {
+        if (skipUnchanged && overwrite && File.Exists(destinationPath)
+            && new FileInfo(temporaryPath).Length == new FileInfo(destinationPath).Length
+            && File.ReadAllBytes(temporaryPath).AsSpan().SequenceEqual(File.ReadAllBytes(destinationPath)))
+        {
+            File.Delete(temporaryPath);
+            return false;
+        }
+
         InjectFault(StorageWriteStep.Replace, destinationPath);
         if (s_current.Value is { } transaction)
         {
@@ -91,6 +100,8 @@ internal sealed class StorageWriteTransaction : IDisposable
         {
             MovePreservingPermissions(temporaryPath, destinationPath, overwrite);
         }
+
+        return true;
     }
 
     /// <summary>

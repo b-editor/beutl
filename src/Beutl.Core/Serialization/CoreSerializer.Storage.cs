@@ -28,7 +28,11 @@ public static partial class CoreSerializer
         StoreToUriCore(obj, uri, mode, authorizedRootPath);
     }
 
-    private static void StoreToUriCore<T>(
+    internal static bool StoreToUriIfChanged<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
+        where T : ICoreSerializable
+        => StoreToUriCore(obj, uri, mode, authorizedRootPath: null);
+
+    private static bool StoreToUriCore<T>(
         T obj,
         Uri uri,
         CoreSerializationMode? mode,
@@ -37,9 +41,12 @@ public static partial class CoreSerializer
     {
         CoreObject? coreObject = obj as CoreObject;
         Uri? previousUri = coreObject?.Uri;
+        using var transaction = StorageWriteTransaction.Current is null ? StorageWriteTransaction.Begin() : null;
         try
         {
-            StoreToUriWithTracking(obj, uri, mode, authorizedRootPath);
+            bool changed = StoreToUriWithTracking(obj, uri, mode, authorizedRootPath);
+            transaction?.Commit();
+            return changed;
         }
         catch
         {
@@ -51,7 +58,7 @@ public static partial class CoreSerializer
         }
     }
 
-    private static void StoreToUriWithTracking<T>(
+    private static bool StoreToUriWithTracking<T>(
         T obj,
         Uri uri,
         CoreSerializationMode? mode,
@@ -68,11 +75,11 @@ public static partial class CoreSerializer
             destinations = [];
             activeWrites.Add(identity, destinations);
         }
-        if (!destinations.Add(uri)) return;
+        if (!destinations.Add(uri)) return false;
 
         try
         {
-            StoreToUriImpl(obj, uri, mode, authorizedRootPath);
+            return StoreToUriImpl(obj, uri, mode, authorizedRootPath);
         }
         finally
         {
@@ -84,7 +91,7 @@ public static partial class CoreSerializer
         }
     }
 
-    private static void StoreToUriImpl<T>(
+    private static bool StoreToUriImpl<T>(
         T obj,
         Uri uri,
         CoreSerializationMode? mode,
@@ -99,10 +106,12 @@ public static partial class CoreSerializer
             RaiseProjectFile(project, GetMinAppVersionToWrite(obj));
         }
 
+        if (obj is CoreObject versionedObject)
+            RetainLaterVersionOnDisk(versionedObject, uri);
+
         if (obj is CoreObject { SuppressedStorageSource: { } suppressed } suppressedObj)
         {
-            StoreSuppressedSource(suppressed, suppressedObj, uri, authorizedRootPath);
-            return;
+            return StoreSuppressedSource(suppressed, suppressedObj, uri, authorizedRootPath);
         }
 
         if (uri.Scheme == "file")
@@ -115,7 +124,8 @@ public static partial class CoreSerializer
             CoreSerializationMode storeMode = mode ?? DefaultStoreMode;
             var options = new CoreSerializerOptions { BaseUri = uri, Mode = storeMode };
             string? minAppVersion = null;
-            WriteJsonAtomically(
+            using var ownedFiles = new OwnedStorageWrite(obj, uri);
+            bool changed = WriteJsonAtomically(
                 uri.LocalPath,
                 isCompatibilityGate: obj is Project,
                 writer =>
@@ -132,6 +142,7 @@ public static partial class CoreSerializer
 
                     json.WriteTo(writer, JsonHelper.SerializerOptions);
                 });
+            ownedFiles.Complete();
             if (minAppVersion is not null)
             {
                 RootFileVersions.RaiseMinAppVersion(obj, minAppVersion);
@@ -147,6 +158,8 @@ public static partial class CoreSerializer
             {
                 DuplicateIds.Report(projectWithFiles, "save");
             }
+
+            return changed;
         }
         else
         {
@@ -156,7 +169,7 @@ public static partial class CoreSerializer
 
     // A recovered object keeps its retained bytes on disk: saving it restores or rehomes them verbatim
     // instead of serializing it.
-    private static void StoreSuppressedSource(
+    private static bool StoreSuppressedSource(
         SuppressedStorageSource suppressed,
         CoreObject suppressedObj,
         Uri uri,
@@ -169,15 +182,13 @@ public static partial class CoreSerializer
             string sourcePath = uri.LocalPath;
             if (suppressed.WasReinstated)
                 CopyReferencedStorageSources(suppressed, uri, suppressed.SourceRootPath, restore: true);
-            RestoreReinstatedBytes(suppressed, sourcePath);
-            return;
+            return RestoreReinstatedBytes(suppressed, sourcePath);
         }
 
         if (suppressed.WasReinstated && uri == suppressedObj.Uri)
         {
             CopyReferencedStorageSources(suppressed, uri, authorizedRootPath, restore: true);
-            RestoreReinstatedBytes(suppressed, uri.LocalPath);
-            return;
+            return RestoreReinstatedBytes(suppressed, uri.LocalPath);
         }
 
         if (uri.Scheme != "file")
@@ -195,13 +206,14 @@ public static partial class CoreSerializer
         }
 
         CopyReferencedStorageSources(suppressed, uri, authorizedRootPath);
-        WriteBytesAtomicallyIfMatchingOrMissing(rehomedPath, suppressed.RawBytes);
+        bool changed = WriteBytesAtomicallyIfMatchingOrMissing(rehomedPath, suppressed.RawBytes);
         ClearReinstatement(suppressed);
         suppressedObj.Uri = uri;
+        return changed;
     }
 
     // Writes a project, scene or element file atomically, recorded in the active storage write transaction.
-    private static void WriteJsonAtomically(string path, bool isCompatibilityGate, Action<Utf8JsonWriter> write)
+    private static bool WriteJsonAtomically(string path, bool isCompatibilityGate, Action<Utf8JsonWriter> write)
     {
         string? directory = Path.GetDirectoryName(path);
         if (directory != null)
@@ -209,7 +221,7 @@ public static partial class CoreSerializer
             Directory.CreateDirectory(directory);
         }
 
-        JsonHelper.WriteAtomically(path, write, journal: true, isCompatibilityGate: isCompatibilityGate);
+        return JsonHelper.WriteAtomically(path, write, journal: true, isCompatibilityGate: isCompatibilityGate);
     }
 
     private static void CopyReferencedStorageSources(
@@ -277,12 +289,12 @@ public static partial class CoreSerializer
         }
     }
 
-    private static void WriteBytesAtomicallyIfMatchingOrMissing(string path, byte[] bytes)
+    private static bool WriteBytesAtomicallyIfMatchingOrMissing(string path, byte[] bytes)
     {
         if (File.Exists(path))
         {
             EnsureExistingBytesMatch(path, bytes);
-            return;
+            return false;
         }
 
         string? directory = Path.GetDirectoryName(path);
@@ -303,10 +315,12 @@ public static partial class CoreSerializer
             try
             {
                 StorageWriteTransaction.MoveIntoPlace(tempPath, path, overwrite: false);
+                return true;
             }
             catch (IOException) when (File.Exists(path))
             {
                 EnsureExistingBytesMatch(path, bytes);
+                return false;
             }
         }
         finally
@@ -329,15 +343,16 @@ public static partial class CoreSerializer
         }
     }
 
-    private static void RestoreReinstatedBytes(SuppressedStorageSource suppressed, string path)
+    private static bool RestoreReinstatedBytes(SuppressedStorageSource suppressed, string path)
     {
         if (!suppressed.WasReinstated && File.Exists(path))
         {
-            return;
+            return false;
         }
 
-        if (!File.Exists(path)
-            || !File.ReadAllBytes(path).AsSpan().SequenceEqual(suppressed.RawBytes))
+        bool changed = !File.Exists(path)
+                       || !File.ReadAllBytes(path).AsSpan().SequenceEqual(suppressed.RawBytes);
+        if (changed)
         {
             string? directory = Path.GetDirectoryName(path);
             if (directory != null)
@@ -349,6 +364,7 @@ public static partial class CoreSerializer
         }
 
         ClearReinstatement(suppressed);
+        return changed;
     }
 
     private static void ClearReinstatement(SuppressedStorageSource suppressed)

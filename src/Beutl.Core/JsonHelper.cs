@@ -72,7 +72,7 @@ public static class JsonHelper
     // Writes to a temporary file and renames it over path, so a failure while writing leaves the existing file whole.
     // The name is random to avoid clobbering an existing file. journal records the write in the active
     // StorageWriteTransaction; unixFileMode applies only to a write that is not journaled.
-    internal static void WriteAtomically(
+    internal static bool WriteAtomically(
         string path,
         Action<Utf8JsonWriter> write,
         bool journal,
@@ -93,8 +93,8 @@ public static class JsonHelper
 
             if (journal)
             {
-                StorageWriteTransaction.MoveIntoPlace(tmp, path, overwrite: true, isCompatibilityGate);
-                return;
+                return StorageWriteTransaction.MoveIntoPlace(tmp, path, overwrite: true, isCompatibilityGate,
+                    skipUnchanged: true);
             }
 
             if (!OperatingSystem.IsWindows())
@@ -105,6 +105,7 @@ public static class JsonHelper
                     File.SetUnixFileMode(tmp, permissions);
             }
             File.Move(tmp, path, overwrite: true);
+            return true;
         }
         catch
         {

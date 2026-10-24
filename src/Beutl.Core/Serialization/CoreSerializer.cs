@@ -119,6 +119,13 @@ public static partial class CoreSerializer
 
     private static JsonObject SerializeToJsonObjectCore(ICoreSerializable obj, Type type, JsonSerializationContext context)
     {
+        if (obj is IStorageVersioned && obj is CoreObject { SuppressedStorageSource: { } retained })
+        {
+            JsonObject opaque = ReadRetainedObject(retained.RawBytes);
+            opaque[RetainedBytesMember] = Convert.ToBase64String(retained.RawBytes);
+            return opaque;
+        }
+
         using (ThreadLocalSerializationContext.Enter(context))
         {
             obj.Serialize(context);
@@ -229,6 +236,7 @@ public static partial class CoreSerializer
         CoreSerializerOptions? options)
     {
         ReflectUri(json, obj, parent, ref options);
+        if (RetainEmbeddedLaterVersion(obj, json)) return;
 
         var context = new JsonSerializationContext(actualType, parent, json, options);
         using (ThreadLocalSerializationContext.Enter(context))
@@ -293,6 +301,7 @@ public static partial class CoreSerializer
     {
         var parentContext = ThreadLocalSerializationContext.Current;
         ReflectUri(json, obj, parentContext, ref options);
+        if (RetainEmbeddedLaterVersion(obj, json)) return;
 
         var context = new JsonSerializationContext(type, parentContext, json, options);
         if (options?.PreserveUnchangedValues == true && obj is not IFallback
@@ -335,7 +344,8 @@ public static partial class CoreSerializer
         // 期待される型に基づいてディスクリミネータを補完する。
         AddLegacyTypeDiscriminator(jsonObject, type);
 
-        bool hasDiscriminator = jsonObject.ContainsKey("$type");
+        bool hasDiscriminator = jsonObject.ContainsKey("$type")
+                                && !(type.IsSealed && typeof(IStorageVersioned).IsAssignableFrom(type));
         Type? actualType = hasDiscriminator
             ? jsonObject.GetDiscriminator()
             : ResolveActualType(jsonObject, type);
@@ -376,7 +386,7 @@ public static partial class CoreSerializer
                       ?? throw new InvalidOperationException($"Could not create instance of type {actualType.FullName}.");
 
             RecordRead(obj, version, uri);
-            PopulateFromStorage(obj, type, jsonObject, uri);
+            PopulateFromStorage(obj, type, jsonObject, uri, stream);
             MarkFallbackInstance(obj);
             return obj;
         }
@@ -413,7 +423,7 @@ public static partial class CoreSerializer
         ReadTimeTypesOfEarlierVersions(jsonObject, version);
         AddLegacyTypeDiscriminator(jsonObject, obj.GetType());
         RecordRead(obj, version, uri);
-        PopulateFromStorage(obj, type, jsonObject, uri);
+        PopulateFromStorage(obj, type, jsonObject, uri, stream);
     }
 
     // The caller owns the stream, so the file stays open until the whole restore has finished.
@@ -430,12 +440,21 @@ public static partial class CoreSerializer
         ICoreSerializable obj,
         Type type,
         JsonObject json,
-        Uri uri)
+        Uri uri,
+        Stream stream)
     {
         if (obj is CoreObject coreObj)
         {
             coreObj.Uri = uri;
         }
+
+        if (RetainLaterVersion(obj, json, uri, () =>
+            {
+                stream.Position = 0;
+                using var retained = new MemoryStream();
+                stream.CopyTo(retained);
+                return retained.ToArray();
+            })) return;
 
         var options = new CoreSerializerOptions { BaseUri = uri, Mode = CoreSerializationMode.Read };
         // The files a project references are read while it is, and record it as their project.
