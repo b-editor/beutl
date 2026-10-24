@@ -511,8 +511,7 @@ internal sealed partial class DeclarativeDocumentApplier
     {
         return itemJson["Uri"] is JsonValue value
                && value.TryGetValue(out string? relative)
-               && Uri.TryCreate(parentBaseUri, Uri.UnescapeDataString(relative), out Uri? uri)
-            ? uri
+            ? UriHelper.ResolvePersistedReference(relative, parentBaseUri)
             : null;
     }
 

@@ -1,6 +1,9 @@
 ﻿using System.Text.Json.Nodes;
+using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Documents;
+using Beutl.AgentToolkit.Reconciliation;
 using Beutl.AgentToolkit.Tests.Helpers;
+using Beutl.AgentToolkit.Tools;
 using Beutl.Graphics;
 using Beutl.Media;
 using Beutl.Media.Source;
@@ -17,6 +20,39 @@ namespace Beutl.AgentToolkit.Tests.Documents;
 [TestFixture]
 public class RelativeFileSourceApplyTests
 {
+    [TestCase("plain")]
+    [TestCase("shot #1")]
+    [TestCase("shot ?1")]
+    [TestCase("shot %20")]
+    public void Apply_edit_duplicates_an_element_without_changing_its_media_path(string folderName)
+    {
+        (Scene scene, string imagePath) = CreateSceneWithMedia(folderName);
+        Element original = scene.Children[0];
+        using var session = new AgentToolkitTestSession(scene);
+        var manager = session.CreateManager();
+        var read = new QueryTools(manager).ReadDocument();
+        Assert.That(read.IsSuccess, Is.True, read.Error?.Message);
+        JsonObject desired = read.Value!.Document;
+        JsonArray elements = RequireArray(desired, "Elements");
+        var copy = (JsonObject)elements[0]!.DeepClone();
+        CollectionReconciler.RemoveIds(copy);
+        elements.Add(copy);
+
+        var result = new EditTools(manager).ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(scene.Children, Has.Count.EqualTo(2));
+        Element duplicate = scene.Children[1];
+        Assert.Multiple(() =>
+        {
+            Assert.That(duplicate.Id.Value, Is.Not.EqualTo(original.Id.Value));
+            Assert.That(duplicate.Objects[0].Id.Value, Is.Not.EqualTo(original.Objects[0].Id.Value));
+            Assert.That(duplicate.Uri, Is.Not.EqualTo(original.Uri));
+            Assert.That(SourceUriOf(original)?.LocalPath, Is.EqualTo(imagePath));
+            Assert.That(SourceUriOf(duplicate)?.LocalPath, Is.EqualTo(imagePath));
+        });
+    }
+
     [Test]
     public void Write_resolves_a_relative_file_source_uri_nested_under_an_element()
     {
@@ -87,15 +123,14 @@ public class RelativeFileSourceApplyTests
         Assert.That(SourceUriOf(element)?.LocalPath, Is.EqualTo(imagePath));
     }
 
-    [Test]
-    public void Write_resolves_a_relative_file_source_uri_on_a_wholesale_replaced_element_list()
+    [TestCase("plain")]
+    [TestCase("shot #1")]
+    [TestCase("shot ?1")]
+    [TestCase("shot %20")]
+    public void Write_resolves_a_relative_file_source_uri_on_a_wholesale_replaced_element_list(string folderName)
     {
-        string dir = TestWorkspace.CreateDirectory();
-        string subDir = CreateSubDirectory(dir);
-        string imagePath = CreateImage(subDir);
-        var sceneUri = new Uri(Path.Combine(dir, "Scene.scene"));
-        var source = new Scene(1920, 1080, "Scene") { Uri = sceneUri };
-        source.Children.Add(CreateElement(Path.Combine(subDir, "media.belm"), imagePath));
+        (Scene source, string imagePath) = CreateSceneWithMedia(folderName);
+        Uri elementUri = source.Children[0].Uri!;
         var adapter = new DocumentAdapter();
 
         JsonObject document = adapter.Read(source);
@@ -104,11 +139,15 @@ public class RelativeFileSourceApplyTests
             item.Remove(nameof(CoreObject.Id));
         }
 
-        var target = new Scene(1920, 1080, "Scene") { Uri = sceneUri };
+        var target = new Scene(1920, 1080, "Scene") { Uri = source.Uri };
         adapter.Write(target, document);
 
         Assert.That(target.Children, Has.Count.EqualTo(1));
-        Assert.That(SourceUriOf(target.Children[0])?.LocalPath, Is.EqualTo(imagePath));
+        Assert.Multiple(() =>
+        {
+            Assert.That(target.Children[0].Uri?.LocalPath, Is.EqualTo(elementUri.LocalPath));
+            Assert.That(SourceUriOf(target.Children[0])?.LocalPath, Is.EqualTo(imagePath));
+        });
     }
 
     [Test]
@@ -138,6 +177,26 @@ public class RelativeFileSourceApplyTests
         var source = new Scene(1920, 1080, "Scene") { Uri = new Uri(Path.Combine(dir, "Scene.scene")) };
         source.Children.Add(CreateElement(Path.Combine(subDir, "media.belm"), imagePath));
         return new DocumentAdapter().Read(source);
+    }
+
+    private static (Scene Scene, string ImagePath) CreateSceneWithMedia(string folderName)
+    {
+        if (folderName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            Assert.Ignore("The folder name is not supported on this platform.");
+        }
+
+        string dir = TestWorkspace.CreateDirectory();
+        string imagePath = CreateImage(Directory.CreateDirectory(Path.Combine(dir, folderName)).FullName);
+        var sceneUri = new Uri(new Uri(Path.Combine(dir, "Scene.scene")).AbsoluteUri);
+        var elementUri = new Uri(sceneUri, $"{Uri.EscapeDataString(folderName)}/media.belm");
+        var source = new ImageSource();
+        source.ReadFrom(new Uri(elementUri, "source.png"));
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) }, Uri = elementUri };
+        element.Objects.Add(new SourceImage { Source = { Value = source } });
+        var scene = new Scene(1920, 1080, "Scene") { Uri = sceneUri };
+        scene.Children.Add(element);
+        return (scene, imagePath);
     }
 
     private static Element CreateElement(string belmPath, string imagePath)
