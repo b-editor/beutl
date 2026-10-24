@@ -198,7 +198,8 @@ public sealed partial class BrushEditor : UserControl
         _flyout.DrawableName = GetDrawableName((OriginalBrush as Media.DrawableBrush)?.Drawable.Value);
         _flyout.CanEditDrawable = (OriginalBrush as Media.DrawableBrush)?.Drawable.Value is not null;
 
-        _flyout.ShowAt(this, true);
+        // Pointer placement keeps the native popup's initial size, but the spectrum and tabs change its height.
+        _flyout.ShowAt(BrushPreviewButton);
         FollowDrawable(OriginalBrush as Media.DrawableBrush);
     }
 

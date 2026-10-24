@@ -1,6 +1,8 @@
 ﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Beutl.Controls;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.Views;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +35,7 @@ public sealed partial class TimelineTabView
             MarkerName = marker.Name.Value,
             Note = marker.Note.Value,
             Color = marker.Color.Value.ToAvaColor(),
+            Placement = PlacementMode.BottomEdgeAlignedLeft,
         };
 
         flyout.ValuesChanged += (_, values) =>
@@ -66,6 +69,9 @@ public sealed partial class TimelineTabView
             }
         };
 
-        flyout.ShowAt(Scale, true);
+        // Anchor to the marker while allowing the native popup to resize as the note grows.
+        double markerX = marker.Time.Value.TimeToPixel(Scale.Scale) - Scale.Offset.X;
+        flyout.Popup.PlacementRect = new Rect(markerX, 0, 1, Scale.Bounds.Height);
+        flyout.ShowAt(Scale);
     }
 }
