@@ -14,6 +14,7 @@ using Beutl.Configuration;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.ViewModels;
+using Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 using static Beutl.HeadlessUITests.AgentHostTestHelpers;
@@ -396,6 +397,98 @@ public sealed class AgentHostEndpointTests
         {
             await endpoint.StopAsync();
         }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Endpoint_increments_port_when_preferred_port_access_is_denied(bool wrapException)
+    {
+        await TestReset.ResetShellAsync();
+        using TcpListener reservedPort = ReserveLoopbackPortWithAvailableSuccessor();
+        int preferredPort = ((IPEndPoint)reservedPort.LocalEndpoint).Port;
+        var attemptedPorts = new List<int>();
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance, preferredPort, "test-token",
+            createBoundListenSocket: address =>
+            {
+                int port = ((IPEndPoint)address).Port;
+                attemptedPorts.Add(port);
+                if (port == preferredPort)
+                {
+                    Exception error = new SocketException((int)SocketError.AccessDenied);
+                    throw wrapException ? new IOException("Port access denied.", error) : error;
+                }
+
+                return SocketTransportOptions.CreateDefaultBoundListenSocket(address);
+            });
+
+        await endpoint.StartAsync().WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(attemptedPorts, Is.EqualTo(new[] { preferredPort, preferredPort + 1 }));
+            Assert.That(endpoint.IsRunning, Is.True);
+            Assert.That(endpoint.EndpointUri!.Port, Is.EqualTo(preferredPort + 1));
+        });
+        using var client = new HttpClient();
+        using HttpResponseMessage response = await client.GetAsync(endpoint.EndpointUri);
+        Assert.That(response.StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [AvaloniaTest]
+    public async Task Endpoint_stops_retrying_denied_ports_at_the_maximum_port()
+    {
+        await TestReset.ResetShellAsync();
+        var error = new SocketException((int)SocketError.AccessDenied);
+        var attemptedPorts = new List<int>();
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance, IPEndPoint.MaxPort - 1, "test-token",
+            createBoundListenSocket: address =>
+            {
+                attemptedPorts.Add(((IPEndPoint)address).Port);
+                throw error;
+            });
+
+        SocketException? actual = await Assert.ThrowsAsync<SocketException>(
+            async () => await endpoint.StartAsync().WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(error));
+            Assert.That(attemptedPorts, Is.EqualTo(new[] { IPEndPoint.MaxPort - 1, IPEndPoint.MaxPort }));
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task Endpoint_rethrows_other_socket_errors_without_retrying()
+    {
+        await TestReset.ResetShellAsync();
+        var error = new SocketException((int)SocketError.NetworkDown);
+        var attemptedPorts = new List<int>();
+        await using var endpoint = new AgentHostEndpoint(
+            new ProjectService(), new EditorService(new ExtensionProvider()),
+            UnavailableAgentAiBackend.Instance, AgentHostEndpoint.DefaultPort, "test-token",
+            createBoundListenSocket: address =>
+            {
+                attemptedPorts.Add(((IPEndPoint)address).Port);
+                throw error;
+            });
+
+        SocketException? actual = await Assert.ThrowsAsync<SocketException>(
+            async () => await endpoint.StartAsync().WaitAsync(TimeSpan.FromSeconds(5)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(actual, Is.SameAs(error));
+            Assert.That(attemptedPorts, Is.EqualTo(new[] { AgentHostEndpoint.DefaultPort }));
+            Assert.That(endpoint.IsRunning, Is.False);
+            Assert.That(endpoint.EndpointUri, Is.Null);
+        });
     }
 
     [AvaloniaTest]
