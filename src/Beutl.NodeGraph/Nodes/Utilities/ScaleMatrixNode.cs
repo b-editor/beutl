@@ -12,6 +12,11 @@ public partial class ScaleMatrixNode : MatrixNode
         Scale.Property?.SetValue(1);
         ScaleX.Property?.SetValue(1);
         ScaleY.Property?.SetValue(1);
+        foreach (InputPort<float> input in new[] { Scale, ScaleX, ScaleY })
+        {
+            if (input.Property is NodePropertyAdapter<float> adapter)
+                adapter.Attributes = [.. adapter.Attributes, new UnitAttribute(PropertyUnit.Ratio)];
+        }
     }
 
     public InputPort<float> Scale { get; }

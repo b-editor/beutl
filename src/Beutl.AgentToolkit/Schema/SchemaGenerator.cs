@@ -267,7 +267,10 @@ public sealed partial class SchemaGenerator
                 ? listProperty.ElementType.FullName ?? listProperty.ElementType.Name
                 : null,
             EnumValues: EnumJsonValueNormalizer.GetEnumNames(property.ValueType),
-            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property is IExpressionProperty { IsAnimatable: true }, Common.ReferenceProperties.Describe(property) is not null));
+            UsageHint: CreatePropertyUsageHint(ownerType, property.Name, property.ValueType, property is IExpressionProperty { IsAnimatable: true }, Common.ReferenceProperties.Describe(property) is not null))
+        {
+            Unit = attributes.OfType<UnitAttribute>().FirstOrDefault()?.Unit.ToString().ToLowerInvariant()
+        };
     }
 
     private static string? CreatePropertyUsageHint(Type ownerType, string propertyName, Type valueType, bool animatable, bool isReference = false)

@@ -340,7 +340,8 @@ public partial class NodePortView : UserControl
             if (control1 is PropertyEditor pe)
             {
                 pe.EditorStyle = PropertyEditorStyle.Compact;
-                pe.Bind(PropertyEditor.HeaderProperty, obj.Name.ToBinding()).DisposeWith(_disposables);
+                var headers = obj.Name.Select(name => propContext is PropertyEditorViewModel model ? model.FormatHeader(name) : name);
+                pe.Bind(PropertyEditor.HeaderProperty, headers.ToBinding()).DisposeWith(_disposables);
             }
             if (control1 != null)
             {
