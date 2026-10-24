@@ -1,4 +1,5 @@
 ﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 
@@ -8,6 +9,10 @@ internal sealed partial class RenderRequestExecutor
 {
     private sealed partial class RenderRequestExecutionState
     {
+        private ProgramCacheLease<ShaderGraphPipeline> AcquireShaderGraphProgram(VulkanContext context, ShaderPassDescription pass)
+            => ShaderGraphPipeline.Acquire(_graphProgramCache,
+                SpirvShaderProgramCache.CreateContextKey(_programCacheContext), context, pass);
+
         private IReadOnlyList<MaterializedRenderValue> ExecuteShaderGraph(RenderFragmentReference fragment,
             ImmediateCanvas currentTarget, EffectiveScale? requestedScale)
             => ExecuteOnDeviceGrid(currentTarget, () => ExecuteShaderGraphCore(fragment, currentTarget, requestedScale));
@@ -48,8 +53,7 @@ internal sealed partial class RenderRequestExecutor
                         sourceValue.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                         _programCacheHits += ShaderGraphExecutor.Execute(graph, source,
                             new(sourceValue.CompleteBounds, sourceValue.RasterBounds, sourceValue.DeviceBounds.Size, sourceValue.EffectiveScale.Value),
-                            destination, density, _activeDeviceGridOffset, _graphProgramCache,
-                            SpirvShaderProgramCache.CreateContextKey(_programCacheContext));
+                            destination, density, _activeDeviceGridOffset, AcquireShaderGraphProgram);
                         _shaderRunExecutions++;
                         _spirvShaderRunExecutions++;
                         _shaderStageExecutions += graph.Passes.Length;

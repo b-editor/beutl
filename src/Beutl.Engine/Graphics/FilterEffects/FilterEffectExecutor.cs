@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Logging;
@@ -28,6 +29,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
 {
     private static readonly ILogger s_logger = Log.CreateLogger("FilterEffectExecutor");
     private readonly SkRuntimeEffectProgramAcquirer? _injectedProgramAcquirer;
+    private readonly ShaderGraphProgramAcquirer? _injectedShaderGraphProgramAcquirer;
     private readonly Vector? _deviceGridOffset;
     private readonly DrawableBrushMaterializer? _drawableBrushMaterializer;
     private readonly bool _useExecutorManagedCanvas;
@@ -35,6 +37,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
     private readonly BufferDimensionBudget? _budget;
     private readonly Rect? _targetDomain;
     private ProgramCache<CachedSkRuntimeEffect>? _ownedProgramCache;
+    private ProgramCache<ShaderGraphPipeline>? _ownedGraphProgramCache;
     private Dictionary<EffectTarget, PendingSkiaTarget>? _pendingSkiaTargets;
     private bool _customEffectBoundaryMaterialized;
 
@@ -84,7 +87,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
         BufferDimensionBudget? budget = null,
-        Rect? targetDomain = null)
+        Rect? targetDomain = null,
+        ShaderGraphProgramAcquirer? acquireShaderGraphProgram = null)
         : this(
             targets,
             builder,
@@ -99,7 +103,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
             useExecutorManagedCanvas,
             renderTargetLeaseSession,
             budget,
-            targetDomain)
+            targetDomain,
+            acquireShaderGraphProgram)
     {
     }
 
@@ -117,7 +122,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
         BufferDimensionBudget? budget = null,
-        Rect? targetDomain = null)
+        Rect? targetDomain = null,
+        ShaderGraphProgramAcquirer? acquireShaderGraphProgram = null)
         : this(
             targets,
             builder,
@@ -132,7 +138,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
             useExecutorManagedCanvas,
             renderTargetLeaseSession,
             budget,
-            targetDomain)
+            targetDomain,
+            acquireShaderGraphProgram)
     {
     }
 
@@ -150,7 +157,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
         bool useExecutorManagedCanvas,
         RenderTargetLeaseSession? renderTargetLeaseSession,
         BufferDimensionBudget? budget,
-        Rect? targetDomain)
+        Rect? targetDomain,
+        ShaderGraphProgramAcquirer? acquireShaderGraphProgram = null)
     {
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
@@ -174,6 +182,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
         _renderTargetLeaseSession = renderTargetLeaseSession;
         _targetDomain = targetDomain;
         _injectedProgramAcquirer = acquireProgram;
+        _injectedShaderGraphProgramAcquirer = acquireShaderGraphProgram;
     }
 
     public SKImageFilterBuilder Builder { get; }
@@ -248,9 +257,20 @@ public sealed partial class FilterEffectExecutor : IDisposable
     private SkRuntimeEffectProgramAcquirer GetProgramAcquirer()
         => _injectedProgramAcquirer ?? AcquireOwnedProgram;
 
+    private ProgramCacheLease<ShaderGraphPipeline> AcquireOwnedShaderGraphProgram(VulkanContext context, ShaderPassDescription pass)
+    {
+        ProgramCache<ShaderGraphPipeline> cache = _ownedGraphProgramCache ??= ShaderGraphPipeline.CreateCache();
+        cache.SynchronizeContext(cache, context);
+        return ShaderGraphPipeline.Acquire(cache, new ProgramCacheContextKey(cache, context, "shader-graph", "v1"), context, pass);
+    }
+
+    private ShaderGraphProgramAcquirer GetShaderGraphProgramAcquirer()
+        => _injectedShaderGraphProgramAcquirer ?? AcquireOwnedShaderGraphProgram;
+
     public void Dispose()
     {
         _ownedProgramCache?.Dispose();
+        _ownedGraphProgramCache?.Dispose();
     }
 
     private void BeginSkiaChain()
@@ -297,7 +317,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
                     if (CurrentTargets.Count == 0) return;
                     FilterEffectStageFallbackExecutor.ApplyShaderGraph(
                         CurrentTargets, graph.Description, OutputScale, WorkingScale, MaxWorkingScale,
-                        Intent, Purpose, _renderTargetLeaseSession, Budget);
+                        Intent, Purpose, _renderTargetLeaseSession, Budget, GetShaderGraphProgramAcquirer());
                     break;
                 case FEItem_Shader shader:
                     Flush(false);
@@ -383,7 +403,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _useExecutorManagedCanvas,
             _renderTargetLeaseSession,
             _budget,
-            _targetDomain);
+            _targetDomain,
+            GetShaderGraphProgramAcquirer());
         custom.Accepts(customContext);
 
         foreach (EffectTarget t in CurrentTargets)
@@ -431,7 +452,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _useExecutorManagedCanvas,
             _renderTargetLeaseSession,
             _budget,
-            _targetDomain);
+            _targetDomain,
+            GetShaderGraphProgramAcquirer());
 
         executor.Apply(context);
         executor.Flush(false);

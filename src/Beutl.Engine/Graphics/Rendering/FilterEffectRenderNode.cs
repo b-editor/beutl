@@ -265,7 +265,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             IFEItem item = items[itemIndex];
             switch (item)
             {
-                case FEItem_ShaderGraph graph:
+                case FEItem_ShaderGraph graph when !opaqueTail:
                     FlushEffectItems();
                     current = current.Select(input => context.ShaderGraph(
                         input, graph.Description, pendingWorkingScalePolicy)).ToArray();

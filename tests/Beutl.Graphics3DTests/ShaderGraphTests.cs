@@ -188,6 +188,106 @@ public sealed class ShaderGraphTests
         Assert.Throws<ArgumentException>(() => shader.Validate(graph.Passes[0], ShaderStage.Compute));
     }
 
+    [Test]
+    public void VertexAttributesAreRejectedBeforePipelineCreation()
+    {
+        using var compiler = new VulkanShaderCompiler();
+        byte[] bytes = compiler.CompileToSpirv("""
+            #version 450
+            layout(location = 0) in vec2 position;
+            void main() { gl_Position = vec4(position, 0, 1); }
+            """, ShaderStage.Vertex);
+        var shader = new ShaderInterface(bytes, ShaderStage.Vertex);
+        Assert.That(() => shader.Validate(ColorGraph(Vector4.One).Passes[0], ShaderStage.Vertex),
+            Throws.TypeOf<NotSupportedException>().With.Message.Contains("vertex attributes"));
+    }
+
+    [TestCase("vec2", "vec2", 0, 0, true)]
+    [TestCase("vec3", "vec2", 0, 0, false)]
+    [TestCase("ivec2", "vec2", 0, 0, false)]
+    [TestCase("vec2", "vec2", 1, 0, false)]
+    [TestCase("vec2", "vec2", 0, 2, false)]
+    public void FragmentInputsMustMatchVertexOutputs(string outputType, string inputType,
+        int inputLocation, int inputComponent, bool matches)
+    {
+        using var compiler = new VulkanShaderCompiler();
+        var vertex = new ShaderInterface(compiler.CompileToSpirv($$"""
+            #version 450
+            layout(location = 0) flat out {{outputType}} value;
+            void main() { gl_Position = vec4(float(gl_VertexIndex)); value = {{outputType}}(1); }
+            """, ShaderStage.Vertex), ShaderStage.Vertex);
+        var fragment = new ShaderInterface(compiler.CompileToSpirv($$"""
+            #version 450
+            layout(location = {{inputLocation}}, component = {{inputComponent}}) flat in {{inputType}} value;
+            layout(location = 0) out vec4 result;
+            void main() { result = vec4(float(value.x)); }
+            """, ShaderStage.Fragment), ShaderStage.Fragment);
+        if (matches)
+            Assert.That(() => fragment.ValidateInputs(vertex, "linked"), Throws.Nothing);
+        else
+            Assert.That(() => fragment.ValidateInputs(vertex, "mismatched"),
+                Throws.ArgumentException.With.Message.Contains("fragment input"));
+    }
+
+    [Test]
+    public void InterfaceBlocksWithMatricesAndArraysMatchAndBuiltInsAreIgnored()
+    {
+        using var compiler = new VulkanShaderCompiler();
+        var vertex = new ShaderInterface(compiler.CompileToSpirv("""
+            #version 450
+            layout(location = 2) out Data { mat2 transform; vec2 offsets[2]; } data;
+            layout(location = 6) out vec4 unusedByFragment;
+            void main() {
+                gl_Position = vec4(float(gl_VertexIndex));
+                data.transform = mat2(1); data.offsets[0] = vec2(1); data.offsets[1] = vec2(2);
+                unusedByFragment = vec4(1);
+            }
+            """, ShaderStage.Vertex), ShaderStage.Vertex);
+        var fragment = new ShaderInterface(compiler.CompileToSpirv("""
+            #version 450
+            layout(location = 2) in Data { mat2 transform; vec2 offsets[2]; } data;
+            layout(location = 0) out vec4 result;
+            void main() { result = vec4(data.transform * data.offsets[int(gl_FragCoord.x) % 2], 0, 1); }
+            """, ShaderStage.Fragment), ShaderStage.Fragment);
+        Assert.That(() => vertex.Validate(ColorGraph(Vector4.One).Passes[0], ShaderStage.Vertex), Throws.Nothing);
+        Assert.That(() => fragment.ValidateInputs(vertex, "blocks"), Throws.Nothing);
+    }
+
+    [TestCase(ResourceAccess.Read)]
+    [TestCase(ResourceAccess.Write)]
+    [TestCase(ResourceAccess.ReadWrite)]
+    public void ReadonlyBuffersCannotClaimWrites(ResourceAccess access)
+    {
+        const string source = """
+            #version 450
+            layout(local_size_x = 1) in;
+            layout(binding = 0, std430) readonly buffer Input { float value[]; } inputData;
+            layout(binding = 1, std430) buffer Output { float value[]; } outputData;
+            void main() { outputData.value[0] = inputData.value[0]; }
+            """;
+        using var compiler = new VulkanShaderCompiler();
+        var shader = new ShaderInterface(compiler.CompileToSpirv(source, ShaderStage.Compute), ShaderStage.Compute);
+        ShaderGraphDescription graph = ShaderGraphBuilder.Build(access, static (builder, mode) =>
+        {
+            ShaderBuffer input = mode == ResourceAccess.Write
+                ? builder.Buffer<float>("uninitialized", 1)
+                : builder.Buffer<float>("initialized", new[] { 1f });
+            ShaderBuffer output = builder.Buffer<float>("output", 1);
+            builder.Compute("copy", ShaderProgram.Compute(new ShaderSource(source)), pass =>
+            {
+                pass.StorageBuffer(0, input, mode);
+                pass.StorageBuffer(1, output, ResourceAccess.Write);
+                pass.Dispatch(1);
+            });
+            return builder.Output(builder.Source);
+        });
+        if (access == ResourceAccess.Read)
+            Assert.That(() => shader.Validate(graph.Passes[0], ShaderStage.Compute), Throws.Nothing);
+        else
+            Assert.That(() => shader.Validate(graph.Passes[0], ShaderStage.Compute),
+                Throws.ArgumentException.With.Message.Contains("readonly buffer cannot have write access"));
+    }
+
     [TestCase("isampler2D", "vec2(0)")]
     [TestCase("usampler2D", "vec2(0)")]
     [TestCase("sampler2DShadow", "vec3(0)")]

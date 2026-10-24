@@ -14,6 +14,8 @@ internal sealed class ShaderInterface
     private readonly Dictionary<(uint Id, uint Member, uint Decoration), uint> _members = [];
     private readonly Dictionary<uint, uint> _constants = [];
     private readonly List<(uint Type, uint Id, uint Storage)> _variables = [];
+    private readonly Dictionary<(uint Location, uint Component), string> _inputs = [];
+    private readonly Dictionary<(uint Location, uint Component), string> _outputs = [];
 
     internal sealed record Binding(int Slot, DescriptorType Type, int MinimumSize, int ArrayStride, bool ReadOnly);
 
@@ -86,6 +88,11 @@ internal sealed class ShaderInterface
                 SharedMemorySize = checked(SharedMemorySize + SizeOf(type));
                 continue;
             }
+            if (storage == 1 || storage == 3 && stage == ShaderStage.Vertex)
+            {
+                ReadStageVariables(type, id, storage == 1 ? _inputs : _outputs);
+                continue;
+            }
             if (storage == 3 && stage == ShaderStage.Fragment
                 && _decorations.TryGetValue((id, 30), out uint location))
             {
@@ -139,6 +146,73 @@ internal sealed class ShaderInterface
         }
     }
 
+    private void ReadStageVariables(uint type, uint id, Dictionary<(uint, uint), string> variables)
+    {
+        if (_decorations.ContainsKey((id, 11))) // BuiltIn
+            return;
+        uint location = _decorations.GetValueOrDefault((id, 30u), uint.MaxValue);
+        uint component = _decorations.GetValueOrDefault((id, 31u));
+        (ushort op, uint[] args) = _types[type];
+        if (op == 30 && _decorations.ContainsKey((type, 2))) // interface block
+        {
+            for (uint member = 0; member < args.Length; member++)
+            {
+                if (_members.ContainsKey((type, member, 11)))
+                    continue;
+                location = _members.GetValueOrDefault((type, member, 30u), location);
+                Add(args[member], location, _members.GetValueOrDefault((type, member, 31u), component));
+                location = checked(location + LocationCount(args[member]));
+            }
+        }
+        else
+            Add(type, location, component);
+
+        void Add(uint valueType, uint valueLocation, uint valueComponent)
+        {
+            if (valueLocation == uint.MaxValue)
+                throw new NotSupportedException("Shader stage inputs and outputs must declare a location or a built-in.");
+            variables.Add((valueLocation, valueComponent), InterfaceType(valueType));
+        }
+    }
+
+    // SPIR-V IDs are local to a module; compare structural types across independently compiled stages.
+    private string InterfaceType(uint type)
+    {
+        (ushort op, uint[] args) = _types[type];
+        return op switch
+        {
+            21 => $"int{args[0]}:{args[1]}",
+            22 => $"float{args[0]}",
+            23 or 24 => $"{op}({InterfaceType(args[0])},{args[1]})",
+            28 => $"array({InterfaceType(args[0])},{_constants[args[1]]})",
+            30 => $"struct({string.Join(",", args.Select(InterfaceType))})",
+            _ => throw new NotSupportedException($"Unsupported shader stage interface type (SPIR-V opcode {op})."),
+        };
+    }
+
+    private uint LocationCount(uint type)
+    {
+        (ushort op, uint[] args) = _types[type];
+        return checked(op switch
+        {
+            21 or 22 => 1u,
+            23 => (_types[args[0]].Args[0] * args[1] + 127) / 128,
+            24 => LocationCount(args[0]) * args[1],
+            28 => LocationCount(args[0]) * _constants[args[1]],
+            30 => args.Aggregate(0u, (count, member) => checked(count + LocationCount(member))),
+            _ => throw new NotSupportedException($"Unsupported shader stage interface type (SPIR-V opcode {op})."),
+        });
+    }
+
+    public void ValidateInputs(ShaderInterface vertex, string passName)
+    {
+        foreach ((var location, string type) in _inputs)
+        {
+            if (!vertex._outputs.TryGetValue(location, out string? outputType) || outputType != type)
+                throw new ArgumentException($"Pass '{passName}': fragment input at location {location.Location}, component {location.Component} does not match a vertex output.");
+        }
+    }
+
     private bool IsFloat32(uint type)
     {
         (ushort op, uint[] args) = _types[type];
@@ -178,6 +252,8 @@ internal sealed class ShaderInterface
 
     public void Validate(ShaderPassDescription pass, ShaderStage stage)
     {
+        if (stage == ShaderStage.Vertex && _inputs.Count != 0)
+            throw new NotSupportedException($"Pass '{pass.Name}': vertex attributes are not supported by shader graphs yet; use vertex indices or storage buffers.");
         if (PushConstantSize > 128 || pass.Constants.Length < PushConstantSize)
             throw new ArgumentException($"Pass '{pass.Name}' requires {PushConstantSize} push-constant bytes; supplied {pass.Constants.Length}.");
         foreach (Binding declared in Bindings)
@@ -193,6 +269,8 @@ internal sealed class ShaderInterface
                     throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: buffer size or element stride does not match the shader.");
                 if (!declared.ReadOnly && (bound.Access & ResourceAccess.Write) == 0)
                     throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: declare a readonly buffer in the shader or a writable binding in the graph.");
+                if (declared.ReadOnly && (bound.Access & ResourceAccess.Write) != 0)
+                    throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: a readonly buffer cannot have write access in the graph.");
                 if (!declared.ReadOnly && stage != ShaderStage.Compute)
                     throw new NotSupportedException($"Pass '{pass.Name}': writable storage buffers in graphics stages are not enabled by this backend.");
             }

@@ -78,14 +78,11 @@ internal static class FilterEffectStageFallbackExecutor
 
     public static void ApplyShaderGraph(EffectTargets targets, ShaderGraphDescription description,
         float outputScale, float workingScale, float maxWorkingScale, RenderIntent intent,
-        RenderRequestPurpose purpose, RenderTargetLeaseSession? leaseSession, BufferDimensionBudget budget)
+        RenderRequestPurpose purpose, RenderTargetLeaseSession? leaseSession, BufferDimensionBudget budget,
+        ShaderGraphProgramAcquirer acquireProgram)
     {
         var environment = new StageEnvironment(outputScale, workingScale, maxWorkingScale,
             intent, purpose, leaseSession, budget);
-        using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
-        var context = GLSLFilterPipeline.TryResolveVulkan(Backend.GraphicsContextFactory.SharedContext)
-            ?? throw new NotSupportedException("Shader graphs require a Vulkan rendering context.");
-        var key = new ProgramCacheContextKey(context, context, "shader-graph", "v1");
         ReplaceTargets(targets, source =>
         {
             using EffectTarget? normalized = NormalizeInput(source, environment);
@@ -115,7 +112,7 @@ internal static class FilterEffectStageFallbackExecutor
                     inputTarget.Texture ?? throw new NotSupportedException("The shader graph input requires a backend texture."),
                     new(input.Bounds, input.RasterBounds, input.DeviceBounds.Size, input.Scale.Value),
                     outputTarget.Texture ?? throw new NotSupportedException("The shader graph output requires a backend texture."),
-                    output.Scale.Value, input.DeviceGridOffset, cache, key);
+                    output.Scale.Value, input.DeviceGridOffset, acquireProgram);
                 EffectTarget result = output;
                 output = null;
                 return result;

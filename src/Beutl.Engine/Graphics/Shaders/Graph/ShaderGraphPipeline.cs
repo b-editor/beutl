@@ -6,6 +6,9 @@ using DescriptorType = Beutl.Graphics.Backend.DescriptorType;
 
 namespace Beutl.Graphics.Shaders;
 
+internal delegate ProgramCacheLease<ShaderGraphPipeline> ShaderGraphProgramAcquirer(
+    VulkanContext context, ShaderPassDescription pass);
+
 internal sealed unsafe class ShaderGraphPipeline : IDisposable
 {
     private readonly VulkanContext _context;
@@ -21,6 +24,11 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
 
     public static ProgramCache<ShaderGraphPipeline> CreateCache()
         => new(static program => program.RetainedByteSize, 16 * 1024 * 1024);
+
+    public static ProgramCacheLease<ShaderGraphPipeline> Acquire(ProgramCache<ShaderGraphPipeline> cache,
+        ProgramCacheContextKey key, VulkanContext context, ShaderPassDescription pass)
+        => cache.GetOrCreate(ShaderGraphDescription.GetPipelineIdentity(pass), key, (context, pass),
+            static state => new ShaderGraphPipeline(state.context, state.pass));
 
     public ShaderGraphPipeline(VulkanContext context, ShaderPassDescription pass)
     {
@@ -90,6 +98,8 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
     {
         foreach ((ShaderStage stage, ShaderInterface shaderInterface) in _interfaces)
             shaderInterface.Validate(pass, stage);
+        if (!pass.Program.IsCompute)
+            _interfaces[ShaderStage.Fragment].ValidateInputs(_interfaces[ShaderStage.Vertex], pass.Name);
         if (pass.Attachments.Length > _limits.MaxColorAttachments)
             throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxColorAttachments ({_limits.MaxColorAttachments}).");
         foreach (IGrouping<DescriptorType, ShaderPassBinding> group in pass.Bindings.GroupBy(b => b.Type))

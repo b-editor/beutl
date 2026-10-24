@@ -235,6 +235,50 @@ public sealed class ShaderGraphRenderingTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void GraphAfterUnknownCustomEffectPreservesMovedSourceAndReusesPrograms(bool nested)
+    {
+        GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            ShaderGraphDescription graph = ShaderGraphBuilder.Build(0, static (builder, _) =>
+            {
+                ShaderImage output = builder.Image2D("returned", s_bounds);
+                var program = ShaderProgram.Fullscreen(new ShaderSource(Graphics3DTestHelpers.PassthroughFragmentShader));
+                builder.Fullscreen("return-source", program, pass =>
+                {
+                    pass.SampledImage(0, builder.Source);
+                    pass.ColorAttachment(0, output);
+                });
+                return builder.Output(output);
+            });
+            static void MoveOutsideDomain(FilterEffectContext context)
+                => context.CustomEffect(new Graphics.Vector(100, 100), static (offset, execution) =>
+                {
+                    foreach (EffectTarget target in execution.Targets)
+                        target.Bounds = target.Bounds.Translate(offset);
+                });
+
+            using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
+            using var pool = new RenderTargetPool(factory: null);
+            float[] first = Render(graph, s_bounds, cache: cache, sharedPool: pool,
+                beforeGraph: MoveOutsideDomain, nestedGraph: nested);
+            long creations = cache.Statistics.Creations;
+            float[] second = Render(graph, s_bounds, cache: cache, sharedPool: pool,
+                beforeGraph: MoveOutsideDomain, nestedGraph: nested);
+            Assert.Multiple(() =>
+            {
+                Assert.That(first.Where((_, index) => index % 4 == 3), Has.All.EqualTo(1f));
+                Assert.That(first[0], Is.GreaterThan(first[1]));
+                Assert.That(second, Is.EqualTo(first));
+                Assert.That(creations, Is.EqualTo(2));
+                Assert.That(cache.Statistics.Creations, Is.EqualTo(creations));
+                Assert.That(cache.Statistics.Hits, Is.GreaterThanOrEqualTo(2));
+            });
+        });
+    }
+
     private static ShaderGraphDescription ComputeGraph(float value)
         => ShaderGraphBuilder.Build(value, static (builder, amount) =>
         {
@@ -282,9 +326,9 @@ public sealed class ShaderGraphRenderingTests
 
     private static float[] Render(ShaderGraphDescription graph, Rect targetBounds, float scale = 1,
         Rect? requestedRegion = null, ProgramCache<ShaderGraphPipeline>? cache = null,
-        RenderTargetPool? sharedPool = null)
+        RenderTargetPool? sharedPool = null, Action<FilterEffectContext>? beforeGraph = null, bool nestedGraph = false)
     {
-        var effect = new GraphEffect(graph);
+        var effect = new GraphEffect(graph, beforeGraph, nestedGraph);
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var brush = (Brush.Resource)new SolidColorBrush(Color.FromArgb(255, 128, 64, 32)).ToResource(CompositionContext.Default);
         using var source = new RectangleRenderNode(s_bounds, brush, null);
@@ -294,8 +338,11 @@ public sealed class ShaderGraphRenderingTests
             RenderIntent.Preview, RenderRequestPurpose.Frame, targetDomain: targetBounds,
             requestedRegion: requestedRegion, outputScale: scale, maxWorkingScale: scale,
             cachePolicy: RenderCacheOptions.Disabled));
-        Assert.That(compiled.Graph.Fragments.Any(f => f.Kind == RenderFragmentKind.ShaderGraph), Is.True);
-        Assert.That(compiled.Graph.Fragments.Any(f => f.Kind == RenderFragmentKind.FilterEffectSegment), Is.False);
+        if (beforeGraph is null)
+        {
+            Assert.That(compiled.Graph.Fragments.Any(f => f.Kind == RenderFragmentKind.ShaderGraph), Is.True);
+            Assert.That(compiled.Graph.Fragments.Any(f => f.Kind == RenderFragmentKind.FilterEffectSegment), Is.False);
+        }
         using RenderTargetPool? ownedPool = sharedPool is null ? new RenderTargetPool(factory: null) : null;
         RenderTargetPool pool = sharedPool ?? ownedPool!;
         var result = Graphics3DTestHelpers.ExecuteIntoPool(pool, compiled, targetBounds, requestedRegion ?? targetBounds,
@@ -304,9 +351,25 @@ public sealed class ShaderGraphRenderingTests
         return result.Pixels.Select(v => (float)BitConverter.UInt16BitsToHalf(v)).ToArray();
     }
 
-    private sealed class GraphEffect(ShaderGraphDescription graph) : FilterEffect
+    private sealed class GraphEffect(ShaderGraphDescription graph, Action<FilterEffectContext>? beforeGraph, bool nested) : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource) => context.ShaderGraph(graph);
+        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        {
+            beforeGraph?.Invoke(context);
+            if (nested)
+            {
+                context.CustomEffect(graph, static (description, execution) =>
+                {
+                    using var child = new FilterEffectContext(execution.Targets.CalculateBounds());
+                    child.ShaderGraph(description);
+                    using var builder = new SKImageFilterBuilder();
+                    using FilterEffectExecutor executor = execution.CreateExecutor(execution.Targets, builder);
+                    executor.Apply(child);
+                });
+            }
+            else
+                context.ShaderGraph(graph);
+        }
 
         public override Resource ToResource(CompositionContext context)
         {

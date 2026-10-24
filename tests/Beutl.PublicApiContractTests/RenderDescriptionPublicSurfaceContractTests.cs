@@ -63,6 +63,8 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         AssertContextRecordingSurface(
             typeof(RenderNodeContext), "Shader", typeof(ShaderDescription));
         AssertContextRecordingSurface(
+            typeof(RenderNodeContext), "ShaderGraph", typeof(ShaderGraphDescription));
+        AssertContextRecordingSurface(
             typeof(FilterEffectContext), "Geometry", typeof(GeometryDescription));
         AssertContextRecordingSurface(
             typeof(FilterEffectContext), "Shader", typeof(ShaderDescription));
@@ -156,6 +158,11 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 nameof(ShaderDescription.HitTestResources), nameof(ShaderDescription.CurrentPixel),
                 nameof(ShaderDescription.WholeSource),
             ]),
+            (typeof(ShaderGraphDescription),
+            [
+                nameof(ShaderGraphDescription.Resources), nameof(ShaderGraphDescription.Output),
+                nameof(ShaderGraphDescription.PassNames),
+            ]),
             (typeof(TargetCaptureDescription),
             [
                 nameof(TargetCaptureDescription.SourceRegion), nameof(TargetCaptureDescription.Bounds),
@@ -197,6 +204,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             "Beutl.Graphics.Rendering.TargetCommandDescription",
             "Beutl.Graphics.Rendering.TargetScopeDescription",
             "Beutl.Graphics.Shaders.ShaderDescription",
+            "Beutl.Graphics.Shaders.ShaderGraphDescription",
         ];
 
         string[] exported = typeof(RenderNode).Assembly
@@ -352,6 +360,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         yield return typeof(RawTargetCommandDescription);
         yield return typeof(GeometryDescription);
         yield return typeof(ShaderDescription);
+        yield return typeof(ShaderGraphDescription);
     }
 
     /// <summary>Enumerates public factories that retain resource bindings.</summary>

@@ -35,8 +35,7 @@ internal static class ShaderGraphExecutor
         """));
 
     public static int Execute(ShaderGraphDescription graph, ITexture2D source, ShaderImageFrame sourceFrame,
-        ITexture2D output, float scale, Vector gridOffset, ProgramCache<ShaderGraphPipeline> cache,
-        ProgramCacheContextKey contextKey)
+        ITexture2D output, float scale, Vector gridOffset, ShaderGraphProgramAcquirer acquireProgram)
     {
         VulkanContext context = GLSLFilterPipeline.TryResolveVulkan(GraphicsContextFactory.SharedContext)
             ?? throw new NotSupportedException("Shader graphs require a Vulkan rendering context.");
@@ -76,9 +75,7 @@ internal static class ShaderGraphExecutor
             // do not run a prefix of the graph or reach Vulkan with an invalid resource interface.
             foreach (ShaderPassDescription pass in graph.Passes)
             {
-                ProgramCacheLease<ShaderGraphPipeline> lease = cache.GetOrCreate(
-                    ShaderGraphDescription.GetPipelineIdentity(pass), contextKey, (context, pass),
-                    static state => new ShaderGraphPipeline(state.context, state.pass));
+                ProgramCacheLease<ShaderGraphPipeline> lease = acquireProgram(context, pass);
                 leases.Add(lease);
                 lease.Program.Validate(pass);
                 if (pass.Attachments.Length > 0)
@@ -105,9 +102,7 @@ internal static class ShaderGraphExecutor
                 [new(0, selected, DescriptorType.CombinedImageSampler, ResourceAccess.Read, SamplerState.LinearClamp, false)],
                 [new(0, resultImage, AttachmentLoadOp.Clear)], [.. MemoryMarshal.AsBytes(mapping.AsSpan())],
                 BlendState.Replace, (3, 1, 1), false);
-            ProgramCacheLease<ShaderGraphPipeline> copyLease = cache.GetOrCreate(
-                ShaderGraphDescription.GetPipelineIdentity(copy), contextKey, (context, copy),
-                static state => new ShaderGraphPipeline(state.context, state.copy));
+            ProgramCacheLease<ShaderGraphPipeline> copyLease = acquireProgram(context, copy);
             leases.Add(copyLease);
 
             for (int index = 0; index < graph.Passes.Length; index++)
