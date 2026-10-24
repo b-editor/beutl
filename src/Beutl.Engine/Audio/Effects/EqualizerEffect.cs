@@ -3,10 +3,8 @@ using Beutl.Animation;
 using Beutl.Audio.Effects.Equalizer;
 using Beutl.Audio.Graph;
 using Beutl.Audio.Graph.Nodes;
-using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Language;
-using Beutl.Serialization;
 
 namespace Beutl.Audio.Effects;
 
@@ -40,7 +38,6 @@ public sealed partial class EqualizerEffect : AudioEffect
     {
         ScanProperties<EqualizerEffect>();
         InitializeBands(BandCountPreset.Bands10);
-        BandCountOption.ValueChanged += OnBandCountOptionOnValueChanged;
     }
 
     [Display(Name = nameof(AudioStrings.Equalizer_BandCount), ResourceType = typeof(AudioStrings))]
@@ -52,14 +49,7 @@ public sealed partial class EqualizerEffect : AudioEffect
     [Display(Name = nameof(AudioStrings.Equalizer_Bands), ResourceType = typeof(AudioStrings))]
     public IListProperty<EqualizerBand> Bands { get; } = Property.CreateList<EqualizerBand>();
 
-    private void OnBandCountOptionOnValueChanged(object? o,
-        PropertyValueChangedEventArgs<BandCountPreset> propertyValueChangedEventArgs)
-    {
-        if (HistoryReplay.IsActive) return;
-        InitializeBands(BandCountOption.Value);
-    }
-
-    private void InitializeBands(BandCountPreset preset)
+    internal void InitializeBands(BandCountPreset preset)
     {
         var frequencies = preset switch
         {
@@ -128,18 +118,5 @@ public sealed partial class EqualizerEffect : AudioEffect
         if (band.Gain.GetKeyFrameAnimation() is not null) return false;
 
         return band.Gain.Value == 0f;
-    }
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        try
-        {
-            BandCountOption.ValueChanged -= OnBandCountOptionOnValueChanged;
-            base.Deserialize(context);
-        }
-        finally
-        {
-            BandCountOption.ValueChanged += OnBandCountOptionOnValueChanged;
-        }
     }
 }

@@ -1,11 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using Beutl.Editor;
 using Beutl.Engine;
 using Beutl.Graphics3D.Materials;
 using Beutl.Graphics3D.Textures;
 using Beutl.Language;
 using Beutl.Media.Source;
-using Beutl.Serialization;
 
 namespace Beutl.Graphics3D.Models;
 
@@ -15,14 +13,11 @@ namespace Beutl.Graphics3D.Models;
 [Display(Name = nameof(GraphicsStrings.Model3D), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class Model3D : Group3D
 {
-    private bool _deserializing;
-
     public Model3D()
     {
         ScanProperties<Model3D>();
         // Model files are usually authored in meters; show one meter as 100 px.
         Scale.Value = new System.Numerics.Vector3(100);
-        Source.ValueChanged += (_, _) => SourceChanged();
     }
 
     /// <summary>
@@ -30,31 +25,6 @@ public sealed partial class Model3D : Group3D
     /// </summary>
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<ModelSource?> Source { get; } = Property.CreateExpression<ModelSource?>(null);
-
-    public override void Deserialize(ICoreSerializationContext context)
-    {
-        _deserializing = true;
-        try
-        {
-            base.Deserialize(context);
-        }
-        finally
-        {
-            _deserializing = false;
-        }
-    }
-
-    internal void SourceChanged()
-    {
-        // History restores the recorded children along with Source. Regenerating
-        // them here would replay the collection edits twice and lose their IDs.
-        if (_deserializing || HistoryReplay.IsActive)
-            return;
-
-        Children.Clear();
-        if (Source.Value is { HasUri: true })
-            SynchronizeSourceGeometry();
-    }
 
     internal void SynchronizeSourceGeometry()
     {

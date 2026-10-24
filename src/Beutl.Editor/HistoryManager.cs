@@ -434,6 +434,8 @@ public sealed partial class HistoryManager : IDisposable
                 _activeSession!.Transaction.AddOperation(operation);
             else
                 _currentTransaction.AddOperation(operation);
+
+            DerivedChildRules.Apply(operation);
         }
     }
 
