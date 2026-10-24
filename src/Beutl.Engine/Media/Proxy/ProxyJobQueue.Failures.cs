@@ -6,19 +6,6 @@ public sealed partial class ProxyJobQueue
 {
     private readonly record struct FailureRegistration(ProxyEntry? Previous, bool Changed);
 
-    private static Exception? ReleaseAdmissionLease(IDisposable? admissionLease)
-    {
-        try
-        {
-            admissionLease?.Dispose();
-            return null;
-        }
-        catch (Exception ex)
-        {
-            return ex;
-        }
-    }
-
     private FailureRegistration RegisterFailure(ProxyJob job, string? failureReason)
     {
         if (_store == null)
@@ -146,11 +133,5 @@ public sealed partial class ProxyJobQueue
         RegisterFailure(item.Job, failure.Message);
         item.Job.Status = ProxyJobStatus.Failed;
         OnJobChanged(item.Job, ProxyJobChangeKind.Failed);
-    }
-
-    private sealed class AdmissionLeaseReleaseException(Exception failure)
-        : Exception("The proxy-generation admission lease could not be released.", failure)
-    {
-        public Exception Failure { get; } = failure;
     }
 }
