@@ -34,6 +34,8 @@ public class ReferencePropertyEditorTests
     private static readonly Type[] s_owners = [typeof(DrawablePresenter), typeof(DrawableTimeController),
         typeof(FilterEffectPresenter), typeof(TransformPresenter), typeof(BrushPresenter), typeof(SceneDrawable), typeof(SceneSound)];
 
+    private static readonly Type[] s_nonSceneOwners = s_owners.Where(type => type != typeof(SceneDrawable) && type != typeof(SceneSound)).ToArray();
+
     public static IEnumerable<TestCaseData> PropertiesAndSurfaces()
         => s_owners.SelectMany(type => Enum.GetValues<EditorSurface>().Select(surface => new TestCaseData(type, surface)));
 
@@ -335,6 +337,166 @@ public class ReferencePropertyEditorTests
         else
             property.Expression = new ReferenceExpression<Scene?>(target.Id.Value);
         source.Children.Add(new Element { Objects = { owner } });
+    }
+
+    [AvaloniaTest]
+    [TestCaseSource(nameof(s_nonSceneOwners))]
+    public void NonSceneContainingObjectsCannotBePickedOrAssigned(Type ownerType)
+    {
+        using var fixture = new Fixture(ownerType);
+        fixture.Element.Objects.Remove(fixture.Owner);
+        EngineObject container = CreateReferenceContainer(fixture.Owner);
+        fixture.Element.Objects.Add(container);
+        fixture.Property.Value = fixture.Target;
+        fixture.History.History.Commit("Stored target");
+
+        fixture.Reference.SetTarget(container);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object),
+                Does.Contain(fixture.Target).And.Not.Contain(container).And.Not.Contain(fixture.Owner));
+            Assert.That(fixture.Property.Value, Is.SameAs(fixture.Target));
+            Assert.That(fixture.Property.Expression, Is.Null);
+            Assert.That(fixture.History.History.UndoCount, Is.EqualTo(1));
+        }
+
+        using var resource = container.ToResource(new Beutl.Composition.CompositionContext(MediaTime.Zero));
+    }
+
+    public static IEnumerable<TestCaseData> NonSceneReferenceGraphs()
+        => s_nonSceneOwners.SelectMany(type => new[] { false, true }.SelectMany(indirect =>
+            new[] { false, true }.Select(stored => new TestCaseData(type, indirect, stored))));
+
+    [AvaloniaTest]
+    [TestCaseSource(nameof(NonSceneReferenceGraphs))]
+    public void NonSceneReferenceCyclesCannotBePickedOrAssigned(Type ownerType, bool indirect, bool storedValue)
+    {
+        using var fixture = new Fixture(ownerType);
+        var presenter = (EngineObject)Activator.CreateInstance(ownerType)!;
+        EngineObject blocked = CreateReferenceContainer(presenter);
+        fixture.Element.Objects.Add(blocked);
+        EngineObject next = fixture.Owner;
+        if (indirect)
+        {
+            var middle = (EngineObject)Activator.CreateInstance(ownerType)!;
+            next = CreateReferenceContainer(middle);
+            fixture.Element.Objects.Add(next);
+            SetReference(middle, fixture.Owner, storedValue);
+        }
+
+        SetReference(presenter, next, storedValue);
+        fixture.Reference.SetTarget(fixture.Target);
+        IExpression? original = fixture.Property.Expression;
+        int undoCount = fixture.History.History.UndoCount;
+
+        fixture.Reference.SetTarget(blocked);
+        fixture.Reference.SetTarget(fixture.Owner);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object),
+                Does.Contain(fixture.Target).And.Not.Contain(blocked));
+            Assert.That(fixture.Property.Expression, Is.SameAs(original));
+            Assert.That(fixture.History.History.UndoCount, Is.EqualTo(undoCount));
+        }
+    }
+
+    [AvaloniaTest]
+    public void NonSceneCyclesAcrossReferenceTypesCannotBePickedOrAssigned()
+    {
+        using var fixture = new Fixture(typeof(BrushPresenter));
+        fixture.Element.Objects.Remove(fixture.Owner);
+        var shape = new RectShape { Fill = { Value = (Brush)fixture.Owner } };
+        fixture.Element.Objects.Add(shape);
+        var presenter = new DrawablePresenter();
+        var blocked = new DrawableBrush(presenter);
+        fixture.Element.Objects.Add(blocked);
+        presenter.Target.Expression = new ReferenceExpression<Drawable?>(shape.Id.Value);
+        fixture.History.History.Commit("Add drawable reference");
+        int undoCount = fixture.History.History.UndoCount;
+
+        fixture.Reference.SetTarget(blocked);
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object),
+                Does.Contain(fixture.Target).And.Not.Contain(blocked));
+            Assert.That(fixture.Property.Expression, Is.Null);
+            Assert.That(fixture.History.History.UndoCount, Is.EqualTo(undoCount));
+        }
+    }
+
+    [AvaloniaTest]
+    public void NonSceneSharedTargetsRemainSelectableAndUnrelatedCyclesTerminate()
+    {
+        using var fixture = new Fixture(typeof(FilterEffectPresenter));
+        var first = new FilterEffectPresenter();
+        var second = new FilterEffectPresenter();
+        var shared = new FilterEffectGroup { Children = { new Blur() } };
+        var target = new FilterEffectGroup { Children = { first, second } };
+        fixture.Element.Objects.AddRange([shared, target]);
+        SetReference(first, shared);
+        SetReference(second, shared);
+
+        fixture.Reference.SetTarget(target);
+        Assert.That(((IReferenceExpression)fixture.Property.Expression!).ObjectId, Is.EqualTo(target.Id.Value));
+        Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object), Does.Contain(target));
+
+        var back = new FilterEffectPresenter();
+        shared.Children.Add(back);
+        SetReference(back, target);
+        Assert.That(fixture.Reference.GetAvailableTargets().Select(t => t.Object), Does.Contain(target));
+        fixture.Reference.SetTarget(null);
+        Assert.That(fixture.Property.Expression, Is.Null);
+    }
+
+    [AvaloniaTest]
+    [TestCaseSource(nameof(s_nonSceneOwners))]
+    public async Task NonSceneReferenceCyclesAreRecheckedWhenThePickerConfirms(Type ownerType)
+    {
+        using var fixture = new Fixture(ownerType);
+        var presenter = (EngineObject)Activator.CreateInstance(ownerType)!;
+        EngineObject target = CreateReferenceContainer(presenter);
+        fixture.Element.Objects.Add(target);
+        fixture.Show();
+        ReferenceEditor editor = fixture.Window.GetVisualDescendants().OfType<ReferenceEditor>().Single();
+        editor.RaiseEvent(new RoutedEventArgs(ReferenceEditor.SelectTargetRequestedEvent));
+        HeadlessTestHelpers.Render();
+        LibraryItemPickerFlyoutPresenter picker = fixture.Window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
+        picker.SelectedItem = picker.ReferenceItems!.Single(item => ((TargetObjectInfo)item.UserData).Object == target);
+        SetReference(presenter, fixture.Owner);
+        fixture.History.History.Commit("Add reference");
+        int undoCount = fixture.History.History.UndoCount;
+
+        HeadlessTestHelpers.Click(picker.GetVisualDescendants().OfType<Button>().Single(b => b.Name == "AcceptButton"));
+        await Task.Yield();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixture.Property.Expression, Is.Null);
+            Assert.That(fixture.History.History.UndoCount, Is.EqualTo(undoCount));
+        }
+    }
+
+    private static EngineObject CreateReferenceContainer(EngineObject child)
+        => child switch
+        {
+            Drawable drawable => new DrawableGroup { Children = { drawable } },
+            FilterEffect effect => new FilterEffectGroup { Children = { effect } },
+            Transform transform => new TransformGroup { Children = { transform } },
+            Brush brush => new DrawableBrush(new RectShape { Fill = { Value = brush } }),
+            _ => throw new ArgumentOutOfRangeException(nameof(child))
+        };
+
+    private static void SetReference(EngineObject owner, CoreObject target, bool storedValue = false)
+    {
+        var property = owner.Properties.OfType<IExpressionProperty>().Single(p => p.IsReference);
+        if (storedValue)
+            property.Value = target;
+        else
+            property.Expression = (IExpression)Activator.CreateInstance(
+                typeof(ReferenceExpression<>).MakeGenericType(property.ValueType), target.Id.Value)!;
     }
 
     [AvaloniaTest]

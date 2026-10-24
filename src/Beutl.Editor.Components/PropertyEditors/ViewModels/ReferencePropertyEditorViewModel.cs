@@ -3,6 +3,10 @@ using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Engine.Expressions;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
+using Beutl.Graphics.Transformation;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -93,8 +97,7 @@ public sealed class ReferencePropertyEditorViewModel<T> : PropertyEditorViewMode
     public void SetTarget(CoreObject? target)
     {
         if (IsDisposed || !CanEditProperty.Value
-            || target is not null && (target is not T || ReferenceEquals(target, _reference.GetOwnerObject()))
-            || target is Scene scene && CreatesSceneCycle(scene)) return;
+            || target is not null && (target is not T || CreatesReferenceCycle(target))) return;
 
         PropertyAdapter.SetValue(null);
         _reference.Expression = target is T typed ? new ReferenceExpression<T?>(typed.Id.Value) : null;
@@ -108,34 +111,48 @@ public sealed class ReferencePropertyEditorViewModel<T> : PropertyEditorViewMode
         {
             return this.GetService<Scene>()?.FindHierarchicalParent<Project>() is { } project
                 ? [.. project.Items.OfType<Scene>()
-                    .Where(scene => !CreatesSceneCycle(scene))
+                    .Where(scene => !CreatesReferenceCycle(scene))
                     .Select(scene => new TargetObjectInfo(GetDisplayName(scene), scene))]
                 : [];
         }
 
         return [.. TargetObjectSearchHelper.GetAvailableTargets<T>(this)
-            .Where(target => !ReferenceEquals(target.Object, _reference.GetOwnerObject()))
+            .Where(target => !CreatesReferenceCycle(target.Object))
             .Select(target => new TargetObjectInfo(GetDisplayName(target.Object), target.Object))];
     }
 
-    private bool CreatesSceneCycle(Scene target)
+    private bool CreatesReferenceCycle(CoreObject target)
     {
-        var currentScene = (_reference.GetOwnerObject() as IHierarchical)?.FindHierarchicalParent<Scene>()
-            ?? this.GetService<Scene>();
-        if (currentScene == null) return false;
+        CoreObject? owner = _reference.GetOwnerObject();
+        var currentScene = target is Scene
+            ? (owner as IHierarchical)?.FindHierarchicalParent<Scene>() ?? this.GetService<Scene>()
+            : null;
 
-        var visited = new HashSet<Scene>(ReferenceEqualityComparer.Instance);
-        var pending = new Stack<Scene>();
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<object>();
         var context = new CompositionContext(this.GetService<IEditorClock>()?.CurrentTime.Value ?? MediaTime.Zero);
         pending.Push(target);
-        while (pending.TryPop(out Scene? scene))
+        while (pending.TryPop(out object? current))
         {
-            if (ReferenceEquals(scene, currentScene)) return true;
-            if (!visited.Add(scene)) continue;
+            if (ReferenceEquals(current, owner) || ReferenceEquals(current, currentScene)) return true;
+            if (!visited.Add(current)) continue;
 
-            foreach (var property in ChildObjects.Walk(scene).OfType<IExpressionProperty<Scene?>>())
+            foreach (object child in ChildObjects.Of(current))
+                pending.Push(child);
+
+            if (current is IExpressionProperty { IsReference: true } property)
             {
-                if (property.IsReference && property.Evaluate(context) is { } referenced)
+                CoreObject? referenced = property switch
+                {
+                    IExpressionProperty<T?> typed => typed.Evaluate(context),
+                    IExpressionProperty<Scene?> scene => scene.Evaluate(context),
+                    IExpressionProperty<Drawable?> drawable => drawable.Evaluate(context),
+                    IExpressionProperty<FilterEffect?> effect => effect.Evaluate(context),
+                    IExpressionProperty<Transform?> transform => transform.Evaluate(context),
+                    IExpressionProperty<Brush?> brush => brush.Evaluate(context),
+                    _ => null
+                };
+                if (referenced != null)
                     pending.Push(referenced);
             }
         }
