@@ -524,6 +524,7 @@ public sealed class FileBrowserWriteAdmissionTests
     {
         public static Fixture Create(string projectRoot)
         {
+            projectRoot = FilePathComparison.ResolveCanonicalPath(projectRoot);
             string sourceDir = Path.Combine(projectRoot, "admission-sources");
             string targetDir = Path.Combine(projectRoot, "admission-target");
             Directory.CreateDirectory(sourceDir);

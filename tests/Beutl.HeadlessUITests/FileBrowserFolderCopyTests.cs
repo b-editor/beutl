@@ -172,6 +172,47 @@ public sealed class FileBrowserFolderCopyTests
     }
 
     [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task A_destination_with_a_linked_parent_is_skipped_and_reported(bool nestedTarget, bool existingDestination)
+    {
+        IgnoreUnlessLinksCanBeCreated();
+        (FileBrowserTabViewModel browser, string footage, string target) = await OpenAsync($"parent-link-{nestedTarget}-{existingDestination}");
+        using var _ = browser;
+        string outside = Directory.CreateDirectory(Path.Combine(Path.GetDirectoryName(target)!, "outside")).FullName;
+        string outsideTarget = nestedTarget ? Directory.CreateDirectory(Path.Combine(outside, "nested")).FullName : outside;
+        if (existingDestination)
+        {
+            WriteFile(Directory.CreateDirectory(Path.Combine(outsideTarget, "footage")).FullName, "a.txt", "old a");
+        }
+
+        string link = Path.Combine(target, "link");
+        Directory.CreateSymbolicLink(link, Path.GetRelativePath(target, outside));
+        string dropTarget = nestedTarget ? Path.Combine(link, "nested") : link;
+        string[] originalEntries = Directory.GetFileSystemEntries(outside, "*", SearchOption.AllDirectories);
+        int copies = 0;
+        browser.CopyFile = (source, destination) =>
+        {
+            copies++;
+            File.Copy(source, destination);
+        };
+        var shown = Answer(browser, FAContentDialogResult.Primary);
+        using var notifications = new NotificationCapture();
+
+        await browser.TransferFilesToDirectoryAsync([(footage, true)], dropTarget, move: false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(shown, Has.Count.EqualTo(existingDestination ? 1 : 0));
+            Assert.That(copies, Is.Zero);
+            Assert.That(Directory.GetFileSystemEntries(outside, "*", SearchOption.AllDirectories), Is.EquivalentTo(originalEntries));
+            Assert.That(notifications.Single().Message, Is.EqualTo(MessageStrings.OperationFailed));
+        });
+    }
+
+    [AvaloniaTest]
     public async Task A_folder_that_is_not_moved_is_named_in_a_warning()
     {
         (FileBrowserTabViewModel browser, string footage, string target) = await OpenAsync("move");
@@ -227,7 +268,7 @@ public sealed class FileBrowserFolderCopyTests
     private static async Task<(FileBrowserTabViewModel Browser, string Footage, string Target)> OpenAsync(string name)
     {
         EditViewModel editor = (await TestShell.OpenNewSceneAsync($"filebrowser-folder-{name}", 320, 180)).Editor;
-        string root = TestShell.ProjectRoot(editor);
+        string root = FilePathComparison.ResolveCanonicalPath(TestShell.ProjectRoot(editor));
         string footage = Directory.CreateDirectory(Path.Combine(root, "src", "footage")).FullName;
         WriteFile(footage, "b.txt", "b");
         string target = Directory.CreateDirectory(Path.Combine(root, "dst")).FullName;
@@ -260,7 +301,7 @@ public sealed class FileBrowserFolderCopyTests
         {
             Directory.CreateSymbolicLink(Path.Combine(probe, "link"), "missing");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or PlatformNotSupportedException)
         {
             Assert.Ignore($"Symbolic links cannot be created here: {ex.Message}");
         }

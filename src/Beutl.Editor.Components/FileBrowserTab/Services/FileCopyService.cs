@@ -11,13 +11,15 @@ internal static class FileCopyService
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        // リンクになったコピー先に書くと、ドロップ先の外に書き込んでしまう
-        if (new DirectoryInfo(destDir).LinkTarget is not null)
+        // コピー先の親も調べ、リンクを経由してドロップ先の外に書き込まない。
+        for (DirectoryInfo? destination = new(destDir); destination is not null; destination = destination.Parent)
         {
-            return 1;
+            if (destination.LinkTarget is not null)
+            {
+                return 1;
+            }
         }
 
-        // リンクを解決して比べるので、コピー元の中を指すリンクの下へのコピーも防げる
         if (FilePathComparison.IsSameOrDescendant(sourceDir, destDir))
         {
             throw new IOException("Cannot copy a directory into itself or a descendant directory.");
