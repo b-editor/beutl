@@ -5,6 +5,10 @@ using System.Text;
 using System.Text.Json;
 using Beutl.Api;
 using Beutl.Api.Clients;
+using Beutl.Api.Objects;
+using Beutl.Api.Services;
+using Beutl.UnitTests.TestInfrastructure;
+using Refit;
 
 namespace Beutl.UnitTests.Api;
 
@@ -112,6 +116,166 @@ public class NativeOAuthTests
         Assert.That(invalidIssuer.StatusCode, Is.EqualTo(HttpStatusCode.BadRequest));
         using var valid = await client.GetAsync($"{uri}?state=expected&iss=https%3A%2F%2Fexample.test%2Fapi%2Fauth&code=valid", timeout.Token);
         Assert.That(await code, Is.EqualTo("valid"));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AuthenticatedRequests_KeepTheirCapturedTokenAndKeyWhenTheSessionIsUpdated(bool replaceKey)
+    {
+        var original = new AuthResponse
+        {
+            Token = "original-access",
+            RefreshToken = "original-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1),
+            DpopPrivateKey = NativeProofKey.Create(),
+        };
+        var updated = new AuthResponse
+        {
+            Token = "updated-access",
+            RefreshToken = "updated-refresh",
+            Expiration = DateTime.UtcNow.AddHours(1),
+            DpopPrivateKey = replaceKey ? NativeProofKey.Create() : original.DpopPrivateKey,
+        };
+        var sent = new List<string>();
+        using var transport = new HttpClient(new CallbackHandler(request =>
+        {
+            string token = request.Headers.Authorization!.Parameter!;
+            AuthResponse expected = token == original.Token ? original : updated;
+            string[] proof = request.Headers.GetValues("DPoP").Single().Split('.');
+            using var header = JsonDocument.Parse(Decode(proof[0]));
+            using var claims = JsonDocument.Parse(Decode(proof[1]));
+            Assert.That(NativeProofKey.Hash(header.RootElement.GetProperty("jwk").GetRawText()),
+                Is.EqualTo(NativeProofKey.Thumbprint(expected.DpopPrivateKey!)));
+            Assert.That(claims.RootElement.GetProperty("ath").GetString(), Is.EqualTo(NativeProofKey.Hash(token)));
+            sent.Add(token);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        }));
+        await using var app = new BeutlApiApplication(transport, new ExtensionProvider());
+        var user = new AuthenticatedUser(new Profile(ApiTestAuthentication.CreateProfileResponse(), app),
+            original, app, DateTime.MaxValue);
+        ApiTestAuthentication.SignIn(app, user);
+        var captured = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        async Task<HttpStatusCode> Send(string authorization, CancellationToken token)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v3/user");
+            request.Headers.Authorization = AuthenticationHeaderValue.Parse(authorization);
+            using var response = await app.HttpClient.SendAsync(request, token);
+            return response.StatusCode;
+        }
+        var pending = app.SendAuthenticatedAsync(async (authorization, token) =>
+        {
+            captured.TrySetResult();
+            await release.Task.WaitAsync(token);
+            return await Send(authorization, token);
+        }, timeout.Token);
+        await captured.Task.WaitAsync(timeout.Token);
+        user.CommitAuthenticationState(updated, DateTime.MaxValue);
+        try
+        {
+            await app.SendAuthenticatedAsync(Send, timeout.Token);
+        }
+        finally
+        {
+            release.TrySetResult();
+        }
+        await pending;
+        Assert.That(sent, Is.EqualTo(new[] { updated.Token, original.Token }));
+    }
+
+    [Test]
+    public async Task Transport_RejectsDeviceCredentialsForAnotherOrigin()
+    {
+        bool sent = false;
+        using var transport = new HttpClient(new CallbackHandler(_ =>
+        {
+            sent = true;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        }));
+        var auth = new AuthResponse
+        {
+            Token = "access",
+            RefreshToken = "refresh",
+            Expiration = DateTime.UtcNow.AddHours(1),
+            DpopPrivateKey = NativeProofKey.Create(),
+        };
+        using var client = new HttpClient(new NativeProofHandler(transport, () => auth, new Uri("https://example.test")));
+        using var request = new HttpRequestMessage(HttpMethod.Get, "https://other.test/private");
+        request.Headers.Authorization = new AuthenticationHeaderValue("DPoP", auth.Token);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => client.SendAsync(request));
+        Assert.That(sent, Is.False);
+    }
+
+    [TestCase("DPoP")]
+    [TestCase("Bearer")]
+    public async Task Refresh_UsesTheRefreshGrantAndRequiresBoundTokens(string tokenType)
+    {
+        var auth = new AuthResponse
+        {
+            Token = "access",
+            RefreshToken = "refresh",
+            Expiration = DateTime.UtcNow.AddHours(1),
+            DpopPrivateKey = NativeProofKey.Create(),
+        };
+        using var transport = new HttpClient(new CallbackHandler(async request =>
+        {
+            var form = System.Web.HttpUtility.ParseQueryString(await request.Content!.ReadAsStringAsync());
+            Assert.That(form["grant_type"], Is.EqualTo("refresh_token"));
+            Assert.That(form["refresh_token"], Is.EqualTo(auth.RefreshToken));
+            Assert.That(form["client_id"], Is.EqualTo("beutl-desktop"));
+            Assert.That(request.Headers.Authorization, Is.Null);
+            using var claims = JsonDocument.Parse(Decode(request.Headers.GetValues("DPoP").Single().Split('.')[1]));
+            Assert.That(claims.RootElement.TryGetProperty("ath", out _), Is.False);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(new
+                {
+                    access_token = "new-access",
+                    refresh_token = "new-refresh",
+                    token_type = tokenType,
+                    expires_in = 900,
+                })),
+            };
+        }));
+        using var client = new HttpClient(new NativeProofHandler(transport, () => auth, new Uri("https://example.test")))
+        { BaseAddress = new Uri("https://example.test") };
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("DPoP", auth.Token);
+        if (tokenType == "Bearer")
+            await Assert.ThrowsAsync<InvalidOperationException>(() => NativeOAuthClient.RefreshAsync(client, auth, CancellationToken.None));
+        else
+        {
+            AuthResponse refreshed = await NativeOAuthClient.RefreshAsync(client, auth, CancellationToken.None);
+            Assert.That(refreshed.Token, Is.EqualTo("new-access"));
+            Assert.That(refreshed.RefreshToken, Is.EqualTo("new-refresh"));
+            Assert.That(refreshed.DpopPrivateKey, Is.EqualTo(auth.DpopPrivateKey));
+        }
+    }
+
+    [TestCase(HttpStatusCode.BadRequest, "invalid_grant", true)]
+    [TestCase(HttpStatusCode.BadRequest, "invalid_dpop_proof", false)]
+    [TestCase(HttpStatusCode.ServiceUnavailable, "temporarily_unavailable", false)]
+    public async Task Refresh_OnlyInvalidGrantsUseTheExistingSignInRecovery(HttpStatusCode status, string error, bool invalidGrant)
+    {
+        using var client = new HttpClient(new CallbackHandler(_ => Task.FromResult(new HttpResponseMessage(status)
+        {
+            Content = new StringContent(JsonSerializer.Serialize(new { error }), Encoding.UTF8, "application/json"),
+        })))
+        { BaseAddress = new Uri("https://example.test") };
+        var auth = new AuthResponse
+        {
+            Token = "access",
+            RefreshToken = "refresh",
+            Expiration = DateTime.UtcNow.AddHours(1),
+            DpopPrivateKey = NativeProofKey.Create(),
+        };
+        if (invalidGrant)
+        {
+            var failure = await Assert.ThrowsAsync<ApiException>(() => NativeOAuthClient.RefreshAsync(client, auth, CancellationToken.None));
+            Assert.That((await failure!.GetContentAsAsync<ApiErrorResponse>())?.ErrorCode, Is.EqualTo(ApiErrorCode.InvalidRefreshToken));
+        }
+        else
+            await Assert.ThrowsAsync<HttpRequestException>(() => NativeOAuthClient.RefreshAsync(client, auth, CancellationToken.None));
     }
 
     private sealed class CallbackHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> callback) : HttpMessageHandler

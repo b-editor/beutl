@@ -92,6 +92,7 @@ public partial class BeutlApiApplication
                 expectedUser,
                 cancellationToken)
             .ConfigureAwait(false);
+        using IDisposable proofScope = NativeProofHandler.EnterAuthenticationScope(context.Authentication);
         try
         {
             T value = await send(context.Authorization, context.CancellationToken).ConfigureAwait(false);
@@ -159,7 +160,7 @@ public partial class BeutlApiApplication
                 return new AuthenticatedSessionContext(
                     user,
                     generation,
-                    $"{user.GetAuthenticationState().Response.AuthorizationScheme} {user.Token}",
+                    user.GetAuthenticationState().Response,
                     authenticationToken,
                     applicationToken,
                     linkedCancellation);

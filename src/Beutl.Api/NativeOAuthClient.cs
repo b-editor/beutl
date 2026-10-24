@@ -1,8 +1,10 @@
-﻿using System.Net.Http.Headers;
+﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Beutl.Api.Clients;
+using Refit;
 
 namespace Beutl.Api;
 
@@ -57,6 +59,21 @@ internal static class NativeOAuthClient
         request.Options.Set(NativeProofHandler.ProofKey, privateKey);
         request.Options.Set(NativeProofHandler.TokenRequest, true);
         using HttpResponseMessage response = await client.SendAsync(request, ct).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.BadRequest && form["grant_type"] == "refresh_token"
+            && await IsInvalidGrantAsync(response, ct).ConfigureAwait(false))
+        {
+            // Reuse the startup recovery that removes expired saved credentials and offers sign-in.
+            using var invalidRefresh = new HttpResponseMessage(response.StatusCode)
+            {
+                Content = JsonContent.Create(new ApiErrorResponse
+                {
+                    ErrorCode = ApiErrorCode.InvalidRefreshToken,
+                    Message = "The device authorization has expired or was revoked.",
+                    DocumentationUrl = null,
+                }),
+            };
+            throw await ApiException.Create(request, request.Method, invalidRefresh, new RefitSettings()).ConfigureAwait(false);
+        }
         response.EnsureSuccessStatusCode();
         using JsonDocument json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false), cancellationToken: ct).ConfigureAwait(false);
         JsonElement root = json.RootElement;
@@ -73,6 +90,23 @@ internal static class NativeOAuthClient
             Expiration = DateTime.UtcNow.AddSeconds(Math.Max(0, expiresIn - 30)),
             DpopPrivateKey = privateKey
         };
+    }
+
+    private static async Task<bool> IsInvalidGrantAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            using JsonDocument json = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false), cancellationToken: ct).ConfigureAwait(false);
+            return json.RootElement.ValueKind == JsonValueKind.Object
+                && json.RootElement.TryGetProperty("error", out JsonElement error)
+                && error.ValueKind == JsonValueKind.String
+                && error.GetString() == "invalid_grant";
+        }
+        catch (JsonException)
+        {
+            // An unreadable server error is not evidence that saved credentials are invalid.
+            return false;
+        }
     }
 
     public static async Task<ProfileResponse> GetProfileAsync(HttpClient client, AuthResponse authentication, CancellationToken ct)

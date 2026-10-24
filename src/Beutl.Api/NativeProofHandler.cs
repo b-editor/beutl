@@ -7,6 +7,29 @@ internal sealed class NativeProofHandler(HttpClient transport, Func<AuthResponse
 {
     internal static readonly HttpRequestOptionsKey<string> ProofKey = new("Beutl.DPoP.PrivateKey");
     internal static readonly HttpRequestOptionsKey<bool> TokenRequest = new("Beutl.OAuth.TokenRequest");
+    private static readonly AsyncLocal<AuthResponse?> s_requestAuthentication = new();
+
+    internal static IDisposable EnterAuthenticationScope(AuthResponse authentication)
+    {
+        AuthResponse? previous = s_requestAuthentication.Value;
+        s_requestAuthentication.Value = authentication;
+        return new AuthenticationScope(previous);
+    }
+
+    private sealed class AuthenticationScope(AuthResponse? previous) : IDisposable
+    {
+        private AuthResponse? _previous = previous;
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                s_requestAuthentication.Value = _previous;
+                _previous = null;
+            }
+        }
+    }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
@@ -25,7 +48,9 @@ internal sealed class NativeProofHandler(HttpClient transport, Func<AuthResponse
             var authorization = forwarded.Headers.Authorization;
             if (!tokenRequest && authorization?.Scheme.Equals("DPoP", StringComparison.OrdinalIgnoreCase) == true)
             {
-                AuthResponse? auth = currentAuthentication();
+                // Keep the key captured with the request's token across a concurrent refresh.
+                AuthResponse? auth = s_requestAuthentication.Value;
+                if (auth?.Token != authorization.Parameter) auth = currentAuthentication();
                 privateKey ??= auth?.Token == authorization.Parameter ? auth.DpopPrivateKey : null;
                 if (privateKey is null) throw new InvalidOperationException("The device key for this token is unavailable.");
             }
