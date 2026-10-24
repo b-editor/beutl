@@ -477,7 +477,7 @@ internal sealed partial class DeclarativeDocumentApplier
             path = Path.Combine(sceneDirectory, $"{element.Id.Value:N}-{index}.{EditorConstants.ElementFileExtension}");
         }
 
-        element.Uri = new Uri(path);
+        element.Uri = UriHelper.CreateFromPath(path);
     }
 
     private static bool IdentityMatches(CoreObject current, JsonObject desired)

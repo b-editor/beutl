@@ -71,7 +71,7 @@ public sealed class ProjectPackageService
             // Read with the original base URI. Eager file sources (models in
             // particular) must resolve their external references before rebasing the copy.
             string tempProjectFile = Path.Combine(tempProjectDir, Path.GetFileName(project.Uri.LocalPath));
-            Uri tempProjectUri = new(tempProjectFile);
+            Uri tempProjectUri = UriHelper.CreateFromPath(tempProjectFile);
             progress?.Report((Strings.ExportingProject, 0.2));
             Project tempProject = CoreSerializer.RestoreFromUri<Project>(project.Uri);
             ResourceRelocationService.RebaseProjectDirectory(tempProject, projectDir, tempProjectDir);
@@ -230,12 +230,12 @@ public sealed class ProjectPackageService
             }
 
             progress?.Report((Strings.ImportingProject, 0.8));
-            _ = CoreSerializer.RestoreFromUri<Project>(new Uri(projectFile));
+            _ = CoreSerializer.RestoreFromUri<Project>(UriHelper.CreateFromPath(projectFile));
             publishedDirectory = PublishImportedDirectory(
                 projectDir, destinationDirectory, Path.GetFileNameWithoutExtension(packagePath), cancellationToken);
 
             // Re-read at its final location so relative scene/resource URIs never point at staging.
-            Uri projectUri = new(Path.Combine(publishedDirectory, Path.GetFileName(projectFile)));
+            Uri projectUri = UriHelper.CreateFromPath(Path.Combine(publishedDirectory, Path.GetFileName(projectFile)));
             Project project = CoreSerializer.RestoreFromUri<Project>(projectUri);
             progress?.Report((Strings.ImportingProject, 1.0));
             _logger.LogInformation("Project imported successfully from {PackagePath} to {ProjectDir}",

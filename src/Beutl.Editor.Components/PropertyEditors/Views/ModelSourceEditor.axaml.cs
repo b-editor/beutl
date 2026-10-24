@@ -5,6 +5,7 @@ using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Graphics3D.Models;
 using Beutl.Language;
+using Beutl.Serialization;
 using Silk.NET.Assimp;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
@@ -116,7 +117,7 @@ public partial class ModelSourceEditor : UserControl
             {
                 if (IsStale()) return;
 
-                var uri = new Uri(fi.FullName);
+                var uri = UriHelper.CreateFromPath(fi.FullName);
                 newValue = await Task.Run(() => ReadModel(uri));
             }
             finally

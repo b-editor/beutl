@@ -85,7 +85,7 @@ public sealed class ExternalResourceCollector
     internal static bool RequiresRelocation(IFileSource source, string projectDirectory)
         => IsExternalFile(source.Uri, projectDirectory)
            || source is ModelSource model
-           && model.Dependencies.Any(path => IsExternalFile(new Uri(path), projectDirectory));
+           && model.Dependencies.Any(path => IsExternalFile(UriHelper.CreateFromPath(path), projectDirectory));
 
     private static bool IsExternalFile(Uri uri, string projectDirectory)
     {

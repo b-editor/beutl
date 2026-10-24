@@ -3,6 +3,7 @@ using Avalonia.Platform.Storage;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Media.Source;
+using Beutl.Serialization;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -26,7 +27,7 @@ public partial class CubeSourceEditor : UserControl
 
         CubeSource? oldValue = vm.PropertyAdapter.GetValue();
         var newValue = new CubeSource();
-        newValue.ReadFrom(new Uri(fi.FullName));
+        newValue.ReadFrom(UriHelper.CreateFromPath(fi.FullName));
         vm.SetValueAndCommit(oldValue, newValue);
     }
 }

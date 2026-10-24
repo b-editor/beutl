@@ -3,6 +3,7 @@ using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Media.Source;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Rendering;
 
@@ -61,7 +62,7 @@ public sealed class AudioRhythmAnalyzer
         cancellationToken.ThrowIfCancellationRequested();
 
         var source = new SoundSource();
-        source.ReadFrom(new Uri(fullPath));
+        source.ReadFrom(UriHelper.CreateFromPath(fullPath));
         using var resource = (SoundSource.Resource)source.ToResource(new CompositionContext(MediaTime.Zero)
         {
             DisableResourceShare = true

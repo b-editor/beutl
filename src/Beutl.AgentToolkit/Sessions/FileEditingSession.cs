@@ -2,6 +2,7 @@
 using Beutl.AgentToolkit.Documents;
 using Beutl.Editor;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.AgentToolkit.Sessions;
 
@@ -116,7 +117,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
     private void SetProjectPathCore(string projectPath)
     {
         string fullPath = Path.GetFullPath(projectPath);
-        Project.Uri = new Uri(fullPath);
+        Project.Uri = UriHelper.CreateFromPath(fullPath);
         string projectDirectory = Path.GetDirectoryName(fullPath)!;
         string projectName = Path.GetFileNameWithoutExtension(fullPath);
         // Save As must produce an independent copy. Rehome the scene/element sidecars under a
@@ -139,7 +140,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
             string? previousSceneDirectory = scene.Uri is { IsFile: true } previousSceneUri
                 ? Path.GetDirectoryName(previousSceneUri.LocalPath)
                 : null;
-            scene.Uri = new Uri(scenePath);
+            scene.Uri = UriHelper.CreateFromPath(scenePath);
             string sceneDirectory = Path.GetDirectoryName(scenePath)!;
             var assignedElementPaths = new HashSet<string>(
                 StringComparer.FromComparison(PathBoundary.Comparison));
@@ -150,7 +151,7 @@ public sealed class FileEditingSession : IEditingSession, IDisposable
                 // path would change the element's Id when the copy is reopened.
                 if (element.Uri is { IsFile: true } previousUri)
                 {
-                    element.Uri = new Uri(ProjectOperations.ReserveRehomedElementPath(
+                    element.Uri = UriHelper.CreateFromPath(ProjectOperations.ReserveRehomedElementPath(
                         previousUri, previousSceneDirectory, sceneDirectory, assignedElementPaths, checkDisk: false));
                 }
                 else
