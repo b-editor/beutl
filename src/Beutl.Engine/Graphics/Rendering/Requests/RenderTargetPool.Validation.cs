@@ -167,18 +167,6 @@ internal sealed partial class RenderTargetPool
         VerifySlotHolds(lease);
     }
 
-    private void VerifyReleasableLease(RenderTargetLease lease)
-    {
-        VerifyPoolOwnership(lease);
-        if (lease.State is not (RenderTargetLeaseState.Leased or RenderTargetLeaseState.ReleaseFailed))
-        {
-            throw new InvalidOperationException(
-                $"The render-target lease has already been discharged as {lease.State}.");
-        }
-
-        VerifySlotHolds(lease);
-    }
-
     private void VerifyPoolOwnership(RenderTargetLease lease)
     {
         if (!ReferenceEquals(lease.Session.Pool, this))

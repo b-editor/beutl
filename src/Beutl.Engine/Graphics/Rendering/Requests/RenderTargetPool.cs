@@ -446,7 +446,7 @@ internal sealed partial class RenderTargetPool : IDisposable
     internal void Release(RenderTargetLease lease)
     {
         ArgumentNullException.ThrowIfNull(lease);
-        VerifyReleasableLease(lease);
+        VerifyLease(lease);
         ReleaseCore(lease);
     }
 
@@ -511,14 +511,6 @@ internal sealed partial class RenderTargetPool : IDisposable
     {
         if (ReferenceEquals(_activeSession, request))
             _activeSession = null;
-    }
-
-    internal void EvictAfterReleaseFailure(RenderTargetLease lease)
-    {
-        ArgumentNullException.ThrowIfNull(lease);
-        VerifyPoolOwnership(lease);
-
-        Evict(lease.Slot, lease.Session, failures: null, failedLease: lease);
     }
 
     private RenderTargetLeaseSession BeginSessionCore(

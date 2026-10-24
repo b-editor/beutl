@@ -427,32 +427,30 @@ public sealed class RenderTargetPoolTests
         Assert.DoesNotThrow(second.Dispose);
     }
 
-    [Test]
-    public void SessionDisposalFailure_EndsThePoolSession()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void StaleLease_ThrowsTheBookkeepingFailureDirectly(bool disposeSession)
     {
-        var factory = new TrackingTargetFactory();
-        using var pool = new RenderTargetPool(factory);
-        RenderTargetLeaseSession session = pool.BeginSession(
-            RenderIntent.Preview);
+        using var pool = new RenderTargetPool(new TrackingTargetFactory());
+        using RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Delivery);
+        RenderTargetLease remaining = session.Acquire(new PixelSize(4, 4));
         RenderTargetLease lease = session.Acquire(new PixelSize(4, 4));
-        var staleTarget = (TrackingRenderTarget)lease.Target;
         lease.Slot.ActiveLease = null;
-
-        Assert.That(
-            session.Dispose,
-            Throws.InvalidOperationException.With.Message.Contains("lease is stale"));
-
-        Assert.Multiple(() =>
+        try
         {
-            Assert.That(staleTarget.IsDisposed, Is.True);
-            Assert.That(staleTarget.DisposeCalls, Is.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
-            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
-        });
-        Assert.DoesNotThrow(() => pool.BeginSession(
-            RenderIntent.Preview).Dispose());
+            Assert.That(() =>
+            {
+                if (disposeSession)
+                    session.Dispose();
+                else
+                    lease.Dispose();
+            }, Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("The render-target lease is stale."));
+            Assert.That(remaining.IsReleased, Is.False);
+        }
+        finally
+        {
+            lease.Slot.ActiveLease = lease;
+        }
     }
 
     [Test]
@@ -506,183 +504,6 @@ public sealed class RenderTargetPoolTests
             Assert.That(pool.Statistics.AvailableTargets, Is.EqualTo(1));
         });
         GC.KeepAlive(pool);
-    }
-
-    [Test]
-    public void PoolDisposal_PreservesSessionAndTargetFailures()
-    {
-        var poolFailure = new InvalidOperationException("pool-target-cleanup");
-        var factory = new TrackingTargetFactory(
-            (size, _) => new TrackingRenderTarget(
-                size.Width,
-                size.Height,
-                disposeFailure: size.Width == 3 ? poolFailure : null));
-        var pool = new RenderTargetPool(factory);
-        RenderTargetLeaseSession session = pool.BeginSession(
-            RenderIntent.Preview);
-        RenderTargetLease stale = session.Acquire(new PixelSize(4, 4));
-        RenderTargetLease available = session.Acquire(new PixelSize(3, 3));
-        available.Dispose();
-        stale.Slot.ActiveLease = null;
-
-        AggregateException? failure = Assert.Throws<AggregateException>(pool.Dispose);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                failure!.InnerExceptions.Select(static exception => exception.Message),
-                Is.EquivalentTo(new[] { "The render-target lease is stale.", poolFailure.Message }));
-            Assert.That(
-                factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.IsDisposed),
-                Is.All.True);
-            Assert.That(
-                factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.DisposeCalls),
-                Is.All.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-        });
-        Assert.DoesNotThrow(pool.Dispose);
-    }
-
-    [Test]
-    public void PoolDisposal_ReportsAPriorLeaseReleaseFailureOnce()
-    {
-        var pool = new RenderTargetPool(new TrackingTargetFactory());
-        RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Preview);
-        RenderTargetLease lease = session.Acquire(new PixelSize(4, 4));
-        lease.Slot.ActiveLease = null;
-
-        Assert.DoesNotThrow(lease.Dispose);
-        Assert.That(session.CleanupFailures, Has.Exactly(1).Items);
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(pool.Dispose);
-        Assert.That(failure!.Message, Does.Contain("lease is stale"));
-        Assert.DoesNotThrow(pool.Dispose);
-    }
-
-    [Test]
-    public void SessionDisposalFailure_EvictsTheFailedLeaseAndContinuesCleanup()
-    {
-        var cleanup = new InvalidOperationException("stale-target-cleanup");
-        var factory = new TrackingTargetFactory(
-            (size, _) => new TrackingRenderTarget(
-                size.Width,
-                size.Height,
-                disposeFailure: size.Width == 4 ? cleanup : null));
-        using var pool = new RenderTargetPool(factory);
-        RenderTargetLeaseSession request = pool.BeginSession(RenderIntent.Delivery);
-        RenderTargetLease releasable = request.Acquire(new PixelSize(3, 3));
-        RenderTargetLease stale = request.Acquire(new PixelSize(4, 4));
-        var staleTarget = (TrackingRenderTarget)stale.Target;
-        stale.Slot.ActiveLease = null;
-
-        Assert.That(
-            request.Dispose,
-            Throws.InvalidOperationException.With.Message.Contains("lease is stale"));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(stale.State, Is.EqualTo(RenderTargetLeaseState.Evicted));
-            Assert.That(releasable.State, Is.EqualTo(RenderTargetLeaseState.Released));
-            Assert.That(staleTarget.IsDisposed, Is.True);
-            Assert.That(staleTarget.DisposeCalls, Is.EqualTo(1));
-            Assert.That(
-                request.CleanupFailures.Select(static failure => failure.Message),
-                Is.EqualTo(new[] { "The render-target lease is stale.", cleanup.Message }));
-            Assert.That(pool.Statistics.OwnedTargets, Is.EqualTo(1));
-            Assert.That(pool.Statistics.AvailableTargets, Is.EqualTo(1));
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-            Assert.That(pool.Statistics.OwnedBytes, Is.EqualTo(3 * 3 * 8));
-            Assert.That(pool.Statistics.RetainedBytes, Is.EqualTo(3 * 3 * 8));
-            Assert.That(pool.Statistics.Evictions, Is.EqualTo(1));
-        });
-        Assert.DoesNotThrow(() => pool.BeginSession(RenderIntent.Delivery).Dispose());
-    }
-
-    [Test]
-    public void SessionDisposal_AggregatesEveryLeaseReleaseFailure()
-    {
-        using var pool = new RenderTargetPool(new TrackingTargetFactory());
-        RenderTargetLeaseSession session = pool.BeginSession(RenderIntent.Delivery);
-        RenderTargetLease first = session.Acquire(new PixelSize(3, 3));
-        RenderTargetLease second = session.Acquire(new PixelSize(4, 4));
-        first.Slot.ActiveLease = null;
-        second.Slot.ActiveLease = null;
-
-        AggregateException? failure = Assert.Throws<AggregateException>(session.Dispose);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure!.InnerExceptions, Has.Count.EqualTo(2));
-            Assert.That(failure.InnerExceptions.Select(static item => item.Message),
-                Has.All.EqualTo("The render-target lease is stale."));
-            Assert.That(session.CleanupFailures, Has.Count.EqualTo(2));
-            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-            Assert.That(pool.Statistics.Evictions, Is.EqualTo(2));
-        });
-    }
-
-    [Test]
-    public void PoolDisposal_ContinuesAfterActiveRequestFailure()
-    {
-        var factory = new TrackingTargetFactory();
-        var pool = new RenderTargetPool(factory);
-        using (RenderTargetLeaseSession warmup = pool.BeginSession(RenderIntent.Delivery))
-            warmup.Acquire(new PixelSize(3, 3)).Dispose();
-        RenderTargetLeaseSession active = pool.BeginSession(RenderIntent.Delivery);
-        RenderTargetLease stale = active.Acquire(new PixelSize(4, 4));
-        stale.Slot.ActiveLease = null;
-
-        Assert.That(
-            pool.Dispose,
-            Throws.InvalidOperationException.With.Message.Contains("lease is stale"));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.IsDisposed),
-                Is.All.True);
-            Assert.That(factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.DisposeCalls),
-                Is.All.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(pool.Statistics.AvailableTargets, Is.Zero);
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-            Assert.That(pool.Statistics.OwnedBytes, Is.Zero);
-            Assert.That(pool.Statistics.RetainedBytes, Is.Zero);
-        });
-        Assert.DoesNotThrow(() => pool.Dispose());
-    }
-
-    [Test]
-    public void PoolDisposal_AggregatesActiveRequestAndTargetCleanupFailures()
-    {
-        var targetCleanup = new InvalidOperationException("available-target-cleanup");
-        var factory = new TrackingTargetFactory(
-            (size, _) => new TrackingRenderTarget(
-                size.Width,
-                size.Height,
-                disposeFailure: size.Width == 3 ? targetCleanup : null));
-        var pool = new RenderTargetPool(factory);
-        using (RenderTargetLeaseSession warmup = pool.BeginSession(RenderIntent.Delivery))
-            warmup.Acquire(new PixelSize(3, 3)).Dispose();
-        RenderTargetLeaseSession active = pool.BeginSession(RenderIntent.Delivery);
-        RenderTargetLease stale = active.Acquire(new PixelSize(4, 4));
-        stale.Slot.ActiveLease = null;
-
-        AggregateException? failure = Assert.Throws<AggregateException>(pool.Dispose);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(
-                failure!.Flatten().InnerExceptions.Select(static exception => exception.Message),
-                Is.EquivalentTo(new[] { "The render-target lease is stale.", targetCleanup.Message }));
-            Assert.That(
-                factory.Created.Cast<TrackingRenderTarget>().Select(static target => target.DisposeCalls),
-                Is.All.EqualTo(1));
-            Assert.That(pool.Statistics.OwnedTargets, Is.Zero);
-            Assert.That(pool.Statistics.LeasedTargets, Is.Zero);
-        });
-        Assert.DoesNotThrow(pool.Dispose);
     }
 
     [Test]
