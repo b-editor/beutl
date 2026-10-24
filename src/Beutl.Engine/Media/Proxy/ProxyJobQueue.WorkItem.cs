@@ -132,19 +132,20 @@ public sealed partial class ProxyJobQueue
             }
         }
 
-        public bool TryCancelQueued()
+        public bool Cancel()
         {
             TaskCompletionSource cancellationCompleted;
+            bool wasQueued;
             lock (_lock)
             {
                 if (_disposed
-                    || _started
                     || _terminalTransitionClaimed
                     || _cancellationRequested
                     || _cancellationWindowClosed
                     || IsTerminal(Job.Status))
                     return false;
 
+                wasQueued = !_started;
                 _cancellationRequested = true;
                 cancellationCompleted = _cancellationCallbacksCompleted = new TaskCompletionSource(
                     TaskCreationOptions.RunContinuationsAsynchronously);
@@ -152,27 +153,7 @@ public sealed partial class ProxyJobQueue
 
             CancelSource(cancellationCompleted);
 
-            return true;
-        }
-
-        public void Cancel()
-        {
-            TaskCompletionSource cancellationCompleted;
-            lock (_lock)
-            {
-                if (_disposed
-                    || _terminalTransitionClaimed
-                    || _cancellationRequested
-                    || _cancellationWindowClosed
-                    || IsTerminal(Job.Status))
-                    return;
-
-                _cancellationRequested = true;
-                cancellationCompleted = _cancellationCallbacksCompleted = new TaskCompletionSource(
-                    TaskCreationOptions.RunContinuationsAsynchronously);
-            }
-
-            CancelSource(cancellationCompleted);
+            return wasQueued;
         }
 
         public Task WaitForCancellationCallbacksAsync()
