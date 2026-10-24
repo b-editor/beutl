@@ -19,6 +19,8 @@ namespace Beutl.HeadlessUITests;
 
 public static class TestAppBuilder
 {
+    internal static AvaloniaHeadlessPlatformOptions HeadlessOptions { get; } = new() { UseHeadlessDrawing = false };
+
     public static AppBuilder BuildAvaloniaApp()
     {
         OpenALPreload.EnsureLoaded();
@@ -27,6 +29,6 @@ public static class TestAppBuilder
             .UseSkia()
             .With(UiFonts.CreateFontManagerOptions(System.Globalization.CultureInfo.CurrentUICulture))
             .With<IStorageProviderFactory>(new TestStorageProviderFactory())
-            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
+            .UseHeadless(HeadlessOptions);
     }
 }

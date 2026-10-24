@@ -121,7 +121,7 @@ public partial class OutputTabView : UserControl
             pickerVm.Dispose();
         };
 
-        flyout.ShowAt(ProfilesButton, true);
+        flyout.ShowAt(ProfilesButton);
     }
 
     private void OnPickerConfirmed(OutputPickerFlyout sender, EventArgs e)
