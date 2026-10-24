@@ -27,6 +27,17 @@ internal static class BuiltInPropertyEditors
 {
     public static void Register(PropertyEditorRegistry registry)
     {
+        registry.Add(new PropertyEditorRegistration
+        {
+            Tier = PropertyEditorTier.Match,
+            Match = properties => [.. properties.Where(p => p.GetEngineProperty() is IExpressionProperty { IsReference: true }
+                && p.PropertyType.IsAssignableTo(typeof(CoreObject))).Take(1)],
+            CreateContext = properties => Create(typeof(ReferencePropertyEditorViewModel<>), properties[0].PropertyType, properties[0]),
+            CreateControl = (_, _) => new ReferencePropertyEditor(),
+            IsStandard = true,
+            Owner = registry.Owner,
+        });
+
         Number<byte>(registry);
         Number<decimal>(registry);
         Number<double>(registry);

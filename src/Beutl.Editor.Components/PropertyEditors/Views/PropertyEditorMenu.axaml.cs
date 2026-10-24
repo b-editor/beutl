@@ -45,7 +45,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         editInlineAnimationItem.IsVisible = supportsAnimation;
         removeAnimationItem.IsVisible = supportsAnimation;
 
-        bool supportsExpression = DataContext is PropertyEditorViewModel { PropertyAdapter: IExpressionPropertyAdapter };
+        bool supportsExpression = DataContext is PropertyEditorViewModel viewModel && SupportsTextExpression(viewModel);
         expressionSeparator.IsVisible = supportsExpression;
         editExpressionItem.IsVisible = supportsExpression;
         removeExpressionItem.IsVisible = supportsExpression;
@@ -68,7 +68,7 @@ public sealed partial class PropertyEditorMenu : UserControl
                 return;
             }
 
-            if (viewModel.HasExpression.Value)
+            if (viewModel.HasExpression.Value && SupportsTextExpression(viewModel))
             {
                 EditExpression_Click(sender, e);
             }
@@ -154,7 +154,8 @@ public sealed partial class PropertyEditorMenu : UserControl
 
     private void EditExpression_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel)
+        if (DataContext is PropertyEditorViewModel { IsDisposed: false, CanEditProperty.Value: true } viewModel
+            && SupportsTextExpression(viewModel))
         {
             string? currentExpression = viewModel.GetExpressionString();
 
@@ -172,6 +173,10 @@ public sealed partial class PropertyEditorMenu : UserControl
             flyout.ShowAt(this, true);
         }
     }
+
+    private static bool SupportsTextExpression(PropertyEditorViewModel viewModel)
+        => viewModel.PropertyAdapter is IExpressionPropertyAdapter
+           && viewModel.PropertyAdapter.GetEngineProperty() is not IExpressionProperty { IsReference: true };
 
     private void RemoveExpression_Click(object? sender, RoutedEventArgs e)
     {
