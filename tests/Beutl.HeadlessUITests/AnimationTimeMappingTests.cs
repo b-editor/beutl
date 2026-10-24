@@ -287,13 +287,15 @@ public class AnimationTimeMappingTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, false, false)]
-    [TestCase(true, false, false)]
-    [TestCase(false, true, false)]
-    [TestCase(false, false, true)]
-    [TestCase(true, false, true)]
-    [TestCase(false, true, true)]
-    public async Task Inline_keys_and_easing_follow_only_inherited_clip_drag_previews(bool global, bool independent, bool direct)
+    [TestCase(false, "shape")]
+    [TestCase(true, "shape")]
+    [TestCase(false, "group")]
+    [TestCase(true, "group")]
+    [TestCase(false, "inherited")]
+    [TestCase(true, "inherited")]
+    [TestCase(false, "independent")]
+    [TestCase(true, "independent")]
+    public async Task Inline_keys_and_easing_match_committed_clip_moves(bool global, string owner)
     {
         await TestReset.ResetShellAsync();
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync("inline-drag-time");
@@ -301,17 +303,20 @@ public class AnimationTimeMappingTests
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(0.5) }, Value = { Value = 100 } });
         animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1.5) }, Value = { Value = 500 } });
         var shape = new RectShape();
-        shape.Width.SetKeyFrameAnimation(animation);
         var group = new DrawableGroup();
-        if (!direct) group.Children.Add(shape);
-        await TestShell.AddElementAsync(editor, () => direct ? shape : group, MediaTime.FromSeconds(2), MediaTime.FromSeconds(3));
-        if (!direct) group.IsTimeAnchor.Value = false;
-        shape.IsTimeAnchor.Value = independent;
+        EngineObject directObject = owner == "shape" ? shape : group;
+        EngineObject animationOwner = owner == "group" ? group : shape;
+        IExpressionProperty<float> property = owner == "group" ? group.Opacity : shape.Width;
+        property.SetKeyFrameAnimation(animation);
+        if (owner != "shape") group.Children.Add(shape);
+        await TestShell.AddElementAsync(editor, () => directObject, MediaTime.FromSeconds(2), MediaTime.FromSeconds(3));
+        if (owner == "independent") shape.IsTimeAnchor.Value = true;
         Element element = scene.Children.Single();
+        Assert.That(directObject.IsTimeAnchor.Value, Is.True);
         Assert.That(shape.Start, Is.EqualTo(element.Start.Value));
         var timeline = editor.FindToolTab<TimelineTabViewModel>()!;
         timeline.Options.Value = timeline.Options.Value with { Scale = 1, Offset = System.Numerics.Vector2.Zero };
-        var adapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)shape.Width, shape);
+        var adapter = new AnimatablePropertyAdapter<float>((AnimatableProperty<float>)property, animationOwner);
         timeline.AttachInline(adapter, element);
         InlineAnimationLayerViewModel inline = timeline.Inlines.Single(x => ReferenceEquals(x.Property, adapter));
         var view = new TimelineTabView { DataContext = timeline };
@@ -328,6 +333,7 @@ public class AnimationTimeMappingTests
             double keyX = HeadlessTestHelpers.Center(key, window).X;
             double easingX = HeadlessTestHelpers.Center(easing, window).X;
             double left = inline.LeftMargin.Value.Left;
+            HeadlessCapture.SaveIfRequested(window, nameof(AnimationTimeMappingTests), $"inline-{owner}-global-{global}-before");
             Point press = HeadlessTestHelpers.Center(clip, window);
             Point moved = press + new Vector(75, 0);
             window.MouseMove(press);
@@ -336,7 +342,7 @@ public class AnimationTimeMappingTests
             HeadlessTestHelpers.Render(3);
 
             double displacement = inline.Element.BorderMargin.Value.Left - 300;
-            double expected = global || independent ? 0 : displacement;
+            double expected = global || owner == "independent" ? 0 : displacement;
             Assert.Multiple(() =>
             {
                 Assert.That(displacement, Is.GreaterThan(0));
@@ -347,7 +353,7 @@ public class AnimationTimeMappingTests
             });
             using var frame = window.CaptureRenderedFrame();
             Assert.That(frame, Is.Not.Null);
-            HeadlessCapture.SaveIfRequested(window, nameof(AnimationTimeMappingTests), $"inline-global-{global}-anchor-{independent}-direct-{direct}");
+            HeadlessCapture.SaveIfRequested(window, nameof(AnimationTimeMappingTests), $"inline-{owner}-global-{global}-preview");
 
             window.MouseUp(moved, MouseButton.Left);
             await HeadlessTestHelpers.WaitUntilAsync(() =>
@@ -356,7 +362,16 @@ public class AnimationTimeMappingTests
                 return !editor.HistoryManager.IsEditing
                     && Math.Abs(inline.LeftMargin.Value.Left - animation.ToScene(MediaTime.Zero).ToSeconds() * 150) < 0.001;
             });
-            Assert.That(inline.LeftMargin.Value.Left, Is.EqualTo(animation.ToScene(MediaTime.Zero).ToSeconds() * 150).Within(0.001));
+            Assert.Multiple(() =>
+            {
+                Assert.That(element.Start.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+                Assert.That(animationOwner.Start, Is.EqualTo(owner == "independent" ? MediaTime.FromSeconds(2) : element.Start.Value));
+                Assert.That(inline.LeftMargin.Value.Left - left, Is.EqualTo(expected).Within(0.001));
+                Assert.That(inline.LeftMargin.Value.Left, Is.EqualTo(animation.ToScene(MediaTime.Zero).ToSeconds() * 150).Within(0.001));
+                Assert.That(HeadlessTestHelpers.Center(key, window).X - keyX, Is.EqualTo(expected).Within(0.001));
+                Assert.That(HeadlessTestHelpers.Center(easing, window).X - easingX, Is.EqualTo(expected).Within(0.001));
+            });
+            HeadlessCapture.SaveIfRequested(window, nameof(AnimationTimeMappingTests), $"inline-{owner}-global-{global}-committed");
         }
         finally
         {

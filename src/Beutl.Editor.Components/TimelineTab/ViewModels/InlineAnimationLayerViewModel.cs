@@ -303,7 +303,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             EngineObject? anchor = animation.EnumerateAncestors<EngineObject>()
                 .FirstOrDefault(obj => obj.IsTimeAnchor.Value || obj.HierarchicalParent == Element.Model);
             if (anchor?.HierarchicalParent == Element.Model
-                && !anchor.IsTimeAnchor.Value
+                && (Element.Model.Objects.Contains(anchor) || !anchor.IsTimeAnchor.Value)
                 && anchor.Start == Element.Model.Start.Value)
                 return elementMargin;
         }
