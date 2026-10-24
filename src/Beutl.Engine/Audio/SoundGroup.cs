@@ -83,11 +83,11 @@ public sealed partial class SoundGroup : Sound, IFlowOperator
         context.MarkAsOutput(clipNode);
     }
 
-    // Composes the child in a private context, moves its nodes into the group's context and returns the
-    // child's outputs for the caller to route.
+    // Composes the child in a private context that reuses the child's previous nodes, moves its nodes into
+    // the group's context and returns the child's outputs for the caller to route.
     private static IEnumerable<AudioNode> ComposeChildInto(AudioContext context, Sound original, Sound.Resource child)
     {
-        var internalContext = new AudioContext(context.SampleRate, context.ChannelCount);
+        AudioContext internalContext = context.CreateChildContext();
         original.Compose(internalContext, child);
         foreach (AudioNode node in internalContext.Nodes)
         {
