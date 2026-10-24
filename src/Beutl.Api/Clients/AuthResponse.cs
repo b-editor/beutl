@@ -9,4 +9,8 @@ public class AuthResponse
     [JsonPropertyName("refresh_token")] public required string RefreshToken { get; init; }
 
     [JsonPropertyName("expiration")] public required DateTime Expiration { get; init; }
+
+    [JsonIgnore] public string? DpopPrivateKey { get; init; }
+
+    [JsonIgnore] public string AuthorizationScheme => DpopPrivateKey is null ? "Bearer" : "DPoP";
 }

@@ -78,7 +78,14 @@ public partial class BeutlApiApplication : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(extensionProvider);
         ArgumentNullException.ThrowIfNull(packageInstallerHttpClientFactory);
 
-        _httpClient = httpClient;
+        httpClient.BaseAddress = new Uri(BaseUrl);
+        _httpClient = new HttpClient(new NativeProofHandler(httpClient,
+            () => _authenticatedUser.Value?.GetAuthenticationState().Response, new Uri(BaseUrl)))
+        {
+            Timeout = httpClient.Timeout,
+        };
+        foreach (var header in httpClient.DefaultRequestHeaders)
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation(header.Key, header.Value);
         _extensionProvider = extensionProvider;
         _packageInstallerHttpClientFactory = packageInstallerHttpClientFactory;
         _persistAuthenticatedUser = persistAuthenticatedUser ?? PersistAuthenticatedUser;
@@ -321,6 +328,7 @@ public partial class BeutlApiApplication : IAsyncDisposable
         }
 
         TryDispose(authenticationSession, "authentication session");
+        TryDispose(_httpClient, "authenticated HTTP client");
         TryDispose(_authenticationSubscription, "authentication subscription");
         TryDispose(_readOnlyAuthenticatedUser, "authenticated-user projection");
         TryDispose(_authenticatedUser, "authenticated-user state");

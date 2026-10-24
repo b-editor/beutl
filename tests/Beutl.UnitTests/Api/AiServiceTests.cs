@@ -153,11 +153,13 @@ public sealed partial class AiCapabilityServiceTests
             _ => Task.FromResult(replacement),
             CancellationToken.None));
 
+        using var response = await app.HttpClient.GetAsync("/api/v3/user");
+
         Assert.Multiple(() =>
         {
             Assert.That(app.AuthenticatedUser.Value, Is.SameAs(previous));
             Assert.That(
-                httpClient.DefaultRequestHeaders.Authorization?.ToString(),
+                handler.Requests.Single().Authorization,
                 Is.EqualTo("Bearer previous-token"));
         });
     }

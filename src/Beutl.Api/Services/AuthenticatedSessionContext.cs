@@ -1,4 +1,5 @@
-﻿using Beutl.Api.Objects;
+﻿using Beutl.Api.Clients;
+using Beutl.Api.Objects;
 
 namespace Beutl.Api.Services;
 
@@ -9,7 +10,7 @@ internal readonly record struct AuthenticatedApiResult<T>(
 internal sealed class AuthenticatedSessionContext(
     AuthenticatedUser user,
     long generation,
-    string authorization,
+    AuthResponse authentication,
     CancellationToken authenticationToken,
     CancellationToken applicationToken,
     CancellationTokenSource linkedCancellation) : IDisposable
@@ -18,7 +19,9 @@ internal sealed class AuthenticatedSessionContext(
 
     public long Generation { get; } = generation;
 
-    public string Authorization { get; } = authorization;
+    public AuthResponse Authentication { get; } = authentication;
+
+    public string Authorization { get; } = $"{authentication.AuthorizationScheme} {authentication.Token}";
 
     public CancellationToken AuthenticationToken { get; } = authenticationToken;
 
