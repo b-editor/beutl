@@ -1,13 +1,7 @@
-﻿using System.Globalization;
-using System.Text;
-
-namespace Beutl.Serialization;
+﻿namespace Beutl.Serialization;
 
 internal static class UriHelper
 {
-    // What new Uri(path) leaves unescaped in a file path, besides ASCII letters and digits.
-    private const string UnescapedPathCharacters = "-._~!$&'()*+,;=:@[]";
-
     // How a reference to uri is written: relative to baseUri when both share a scheme.
     public static Uri ToSerializedUri(Uri uri, Uri? baseUri)
     {
@@ -110,53 +104,7 @@ internal static class UriHelper
         return new Uri(uriString);
     }
 
-    // Escapes as new Uri(path) does, and '%' too, so that LocalPath is the path even when a name holds "%XX".
-    public static Uri CreateFromPath(string path) => CreateFromPath(path, OperatingSystem.IsWindows());
+    public static Uri CreateFromPath(string path) => PathPolicy.ToFileUri(path, OperatingSystem.IsWindows());
 
-    // windows: the path has a drive, which stays, or a UNC server, which becomes the host. Other forms go to new Uri(path).
-    internal static Uri CreateFromPath(string path, bool windows)
-    {
-        var builder = new StringBuilder("file://");
-        int start = 0;
-        if (windows && path.Length >= 3 && char.IsAsciiLetter(path[0]) && path[1] == ':' && IsSeparator(path[2], windows))
-        {
-            builder.Append('/');
-        }
-        else if (windows && path.Length >= 3 && IsSeparator(path[0], windows) && IsSeparator(path[1], windows)
-                 && !IsSeparator(path[2], windows) && path[2] is not ('?' or '.'))
-        {
-            int end = path.AsSpan(2).IndexOfAny('\\', '/');
-            start = end < 0 ? path.Length : end + 2;
-            builder.Append(path, 2, start - 2);
-        }
-        else if (windows || !path.StartsWith('/') || path.StartsWith("//", StringComparison.Ordinal))
-        {
-            return new Uri(path);
-        }
-
-        Span<byte> utf8 = stackalloc byte[4];
-        foreach (Rune rune in path.AsSpan(start).EnumerateRunes())
-        {
-            if (rune.IsAscii && IsSeparator((char)rune.Value, windows))
-            {
-                builder.Append('/');
-            }
-            else if (rune.IsAscii
-                     && (char.IsAsciiLetterOrDigit((char)rune.Value) || UnescapedPathCharacters.Contains((char)rune.Value)))
-            {
-                builder.Append((char)rune.Value);
-            }
-            else
-            {
-                foreach (byte b in utf8[..rune.EncodeToUtf8(utf8)])
-                {
-                    builder.Append(CultureInfo.InvariantCulture, $"%{b:X2}");
-                }
-            }
-        }
-
-        return new Uri(builder.ToString(), UriKind.Absolute);
-    }
-
-    private static bool IsSeparator(char c, bool windows) => c == '/' || (windows && c == '\\');
+    internal static Uri CreateFromPath(string path, bool windows) => PathPolicy.ToFileUri(path, windows);
 }

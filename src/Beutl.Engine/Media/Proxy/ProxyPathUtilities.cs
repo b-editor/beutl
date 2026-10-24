@@ -132,12 +132,7 @@ internal static class ProxyPathUtilities
     }
 
     private static bool AreSameDirectory(string left, string right)
-    {
-        string normalizedLeft = Path.TrimEndingDirectorySeparator(Path.GetFullPath(left));
-        string normalizedRight = Path.TrimEndingDirectorySeparator(Path.GetFullPath(right));
-
-        return string.Equals(normalizedLeft, normalizedRight, PathComparison);
-    }
+        => PathPolicy.AreSameLexicalPath(left, right);
 
     private static StringComparison PathComparison => OperatingSystem.IsWindows()
         ? StringComparison.OrdinalIgnoreCase

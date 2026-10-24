@@ -14,9 +14,7 @@ internal static class FileCopyService
         cancellationToken.ThrowIfCancellationRequested();
         // ルート配下のリンクだけを拒否し、解決後もコピー先がルート内であることを確認する。
         string relativeDestination = Path.GetRelativePath(allowedRoot, destDir);
-        if (Path.IsPathRooted(relativeDestination)
-            || relativeDestination == ".."
-            || relativeDestination.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+        if (!PathPolicy.IsSameOrDescendantLexicalPath(allowedRoot, destDir)
             || !FilePathComparison.IsSameOrDescendant(allowedRoot, destDir))
         {
             return 1;
