@@ -36,13 +36,13 @@ public partial class CubeFile : IEquatable<CubeFile>
         int lut_size = Size;
         int lut_size_2 = lut_size * lut_size;
 
-        pos[0] = (byte)(v0 * lut_size / 256);
-        pos[1] = (byte)(v1 * lut_size / 256);
-        pos[2] = (byte)(v2 * lut_size / 256);
+        pos[0] = (byte)(v0 * (lut_size - 1) / 255);
+        pos[1] = (byte)(v1 * (lut_size - 1) / 255);
+        pos[2] = (byte)(v2 * (lut_size - 1) / 255);
 
-        delta[0] = v0 * lut_size / 256.0f - pos[0];
-        delta[1] = v1 * lut_size / 256.0f - pos[1];
-        delta[2] = v2 * lut_size / 256.0f - pos[2];
+        delta[0] = v0 * (lut_size - 1) / 255.0f - pos[0];
+        delta[1] = v1 * (lut_size - 1) / 255.0f - pos[1];
+        delta[2] = v2 * (lut_size - 1) / 255.0f - pos[2];
 
         Span<Vector3> vertex_color = stackalloc Vector3[8];
         Span<Vector3> surf_color = stackalloc Vector3[4];

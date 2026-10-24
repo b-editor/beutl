@@ -76,7 +76,7 @@ public sealed class LutEffectTextureTests
     {
         SKColor[] pixels = Render(CreateSource(dimension, size), RenderIntent.Preview, new CpuRenderTargetFactory());
 
-        AssertInvertedEndpointsAndAlpha(pixels);
+        AssertInvertedColorsAndAlpha(pixels);
     }
 
     [TestCase(CubeFileDimension.OneDimension, 65536, RenderIntent.Preview)]
@@ -94,7 +94,7 @@ public sealed class LutEffectTextureTests
             SKColor[] expected = Render(source, intent, new CpuRenderTargetFactory());
             SKColor[] actual = Render(source, intent);
 
-            AssertInvertedEndpointsAndAlpha(actual);
+            AssertInvertedColorsAndAlpha(actual);
             Assert.Multiple(() =>
             {
                 for (int index = 0; index < actual.Length; index++)
@@ -122,15 +122,21 @@ public sealed class LutEffectTextureTests
         return source;
     }
 
-    private static void AssertInvertedEndpointsAndAlpha(SKColor[] pixels)
+    private static void AssertInvertedColorsAndAlpha(SKColor[] pixels)
     {
         Assert.Multiple(() =>
         {
-            for (int index = 0; index < 5; index++)
+            for (int index = 0; index < 6; index++)
             {
-                Assert.That(pixels[index].Red, Is.EqualTo(255 - s_colors[index].R).Within(2), $"sample={index}, red");
-                Assert.That(pixels[index].Green, Is.EqualTo(255 - s_colors[index].G).Within(2), $"sample={index}, green");
-                Assert.That(pixels[index].Blue, Is.EqualTo(255 - s_colors[index].B).Within(2), $"sample={index}, blue");
+                // Snapshot channel bytes represent linear sRGB, while the LUT inverts sRGB.
+                Vector4 expected = new Color(
+                    255,
+                    (byte)(255 - s_colors[index].R),
+                    (byte)(255 - s_colors[index].G),
+                    (byte)(255 - s_colors[index].B)).ToLinear();
+                Assert.That(pixels[index].Red, Is.EqualTo(expected.X * 255).Within(2), $"sample={index}, red");
+                Assert.That(pixels[index].Green, Is.EqualTo(expected.Y * 255).Within(2), $"sample={index}, green");
+                Assert.That(pixels[index].Blue, Is.EqualTo(expected.Z * 255).Within(2), $"sample={index}, blue");
             }
 
             for (int index = 0; index < pixels.Length; index++)

@@ -17,22 +17,56 @@ public sealed class CurvesAndLutEffectShaderTests
 {
     private static readonly Rect s_bounds = new(0, 0, 16, 12);
 
-    [Test]
-    public void IdentityLut_PreservesIntermediateValuesInLinearTarget()
+    [TestCase(CubeFileDimension.OneDimension, 3)]
+    [TestCase(CubeFileDimension.ThreeDimension, 2)]
+    [TestCase(CubeFileDimension.ThreeDimension, 3)]
+    [TestCase(CubeFileDimension.ThreeDimension, 5)]
+    public void IdentityLut_PreservesIntermediateValuesAndEndpointsInLinearTarget(CubeFileDimension dimension, int size)
     {
-        var source = new CubeSource();
-        const string cube = "LUT_1D_SIZE 3\n0 0 0\n0.5 0.5 0.5\n1 1 1\n";
-        source.ReadFrom(new Uri("data:text/plain;base64," + Convert.ToBase64String(Encoding.ASCII.GetBytes(cube))));
-        using Brush.Resource fill = new SolidColorBrush(new Color(255, 128, 64, 192)).ToResource(CompositionContext.Default);
-        var effect = new LutEffect { Source = { Value = source } };
-        SKColor control = Render(new LutEffect(), fill: fill);
-        SKColor actual = Render(effect, fill: fill);
-        Assert.Multiple(() =>
+        var cube = new StringBuilder($"LUT_{(dimension == CubeFileDimension.OneDimension ? "1D" : "3D")}_SIZE {size}\n");
+        int length = dimension == CubeFileDimension.OneDimension ? size : size * size * size;
+        for (int index = 0; index < length; index++)
         {
-            Assert.That(actual.Red, Is.EqualTo(control.Red).Within(2));
-            Assert.That(actual.Green, Is.EqualTo(control.Green).Within(2));
-            Assert.That(actual.Blue, Is.EqualTo(control.Blue).Within(2));
-        });
+            Vector3 value = dimension == CubeFileDimension.OneDimension
+                ? new Vector3(index / (float)(size - 1))
+                : new Vector3(
+                    index % size / (float)(size - 1),
+                    index / size % size / (float)(size - 1),
+                    index / (size * size) / (float)(size - 1));
+            cube.AppendLine(FormattableString.Invariant($"{value.X} {value.Y} {value.Z}"));
+        }
+
+        var source = new CubeSource();
+        source.ReadFrom(new Uri("data:text/plain;base64," + Convert.ToBase64String(Encoding.ASCII.GetBytes(cube.ToString()))));
+        var effect = new LutEffect { Source = { Value = source } };
+        Color[] colors =
+        [
+            new(255, 128, 64, 192),
+            new(255, 128, 128, 128),
+            new(255, 254, 254, 254),
+            new(128, 128, 64, 192),
+            new(255, 0, 0, 0),
+            new(255, 255, 0, 0),
+            new(255, 0, 255, 0),
+            new(255, 0, 0, 255),
+            new(255, 255, 255, 0),
+            new(255, 255, 0, 255),
+            new(255, 0, 255, 255),
+            new(255, 255, 255, 255),
+        ];
+        foreach (Color color in colors)
+        {
+            using Brush.Resource fill = new SolidColorBrush(color).ToResource(CompositionContext.Default);
+            SKColor control = Render(new LutEffect(), fill: fill);
+            SKColor actual = Render(effect, fill: fill);
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual.Red, Is.EqualTo(control.Red).Within(2), $"input={color}, red");
+                Assert.That(actual.Green, Is.EqualTo(control.Green).Within(2), $"input={color}, green");
+                Assert.That(actual.Blue, Is.EqualTo(control.Blue).Within(2), $"input={color}, blue");
+                Assert.That(actual.Alpha, Is.EqualTo(control.Alpha).Within(1), $"input={color}, alpha");
+            });
+        }
     }
 
     [Test]
