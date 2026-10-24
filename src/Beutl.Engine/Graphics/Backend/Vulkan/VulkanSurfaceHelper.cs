@@ -161,8 +161,11 @@ internal static unsafe class VulkanSurfaceHelper
         objc_msgSend_nuint(metalLayer, setPixelFormatSel, 115);
 
         // Set colorspace to extended linear sRGB
-        var colorSpaceName = CGColorSpaceCreateWithName(
-            CoreFoundationString("kCGColorSpaceExtendedLinearSRGB"));
+        IntPtr name = CoreFoundationString("kCGColorSpaceExtendedLinearSRGB");
+        var colorSpaceName = CGColorSpaceCreateWithName(name);
+        if (name != IntPtr.Zero)
+            CFRelease(name);
+
         if (colorSpaceName != IntPtr.Zero)
         {
             var setColorspaceSel = sel_getUid("setColorspace:");
@@ -213,6 +216,9 @@ internal static unsafe class VulkanSurfaceHelper
 
     [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
     private static extern IntPtr CFStringCreateWithCString(IntPtr allocator, string cStr, uint encoding);
+
+    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+    private static extern void CFRelease(IntPtr cf);
 
     #endregion
 

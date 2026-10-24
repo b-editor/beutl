@@ -16,7 +16,8 @@ internal sealed class ShadowManager : IDisposable
     private readonly IGraphicsContext _context;
     private readonly IShaderCompiler _shaderCompiler;
 
-    private readonly ShadowPass[] _shadowPasses2D;
+    // Shared by every 2D light: its matrix rides in push constants, and its map is copied out before the next clear.
+    private ShadowPass? _shadowPass2D;
     private readonly PointShadowPass[] _pointShadowPasses;
 
     private ITextureArray? _shadowMapArray;
@@ -33,7 +34,6 @@ internal sealed class ShadowManager : IDisposable
         _context = context;
         _shaderCompiler = shaderCompiler;
 
-        _shadowPasses2D = new ShadowPass[MaxShadowMaps2D];
         _pointShadowPasses = new PointShadowPass[MaxShadowMapsCube];
         _shadowInfos = new ShadowInfo[ShadowInfoArray.MaxShadows];
     }
@@ -63,11 +63,8 @@ internal sealed class ShadowManager : IDisposable
     /// </summary>
     public void Initialize()
     {
-        for (int i = 0; i < MaxShadowMaps2D; i++)
-        {
-            _shadowPasses2D[i] = new ShadowPass(_context, _shaderCompiler);
-            _shadowPasses2D[i].Initialize(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize);
-        }
+        _shadowPass2D = new ShadowPass(_context, _shaderCompiler);
+        _shadowPass2D.Initialize(ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize);
 
         for (int i = 0; i < MaxShadowMapsCube; i++)
         {
@@ -172,7 +169,7 @@ internal sealed class ShadowManager : IDisposable
         Vector3 sceneCenter,
         float sceneRadius)
     {
-        var shadowPass = _shadowPasses2D[_activeShadowCount2D];
+        var shadowPass = _shadowPass2D!;
         shadowPass.SetupForDirectionalLight(light, sceneCenter, sceneRadius);
         ExecuteAndCopyToArray(shadowPass, objects);
 
@@ -188,7 +185,7 @@ internal sealed class ShadowManager : IDisposable
         SpotLight3D.Resource light,
         IReadOnlyList<Object3D.Resource> objects)
     {
-        var shadowPass = _shadowPasses2D[_activeShadowCount2D];
+        var shadowPass = _shadowPass2D!;
         shadowPass.SetupForSpotLight(light);
         ExecuteAndCopyToArray(shadowPass, objects);
 
@@ -264,7 +261,7 @@ internal sealed class ShadowManager : IDisposable
         if (_disposed) return;
         _disposed = true;
 
-        RenderNode3D.DisposeResources([.. _shadowPasses2D, .. _pointShadowPasses,
+        RenderNode3D.DisposeResources([_shadowPass2D, .. _pointShadowPasses,
             _shadowMapArray, _shadowMapCubeArray]);
     }
 }

@@ -58,9 +58,11 @@ public class TileBrushFillDensityTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap direct = GoldenImageHarness.RenderAtScale(MakeDirectEllipse(), Frame, 2f);
+            using Drawable.Resource directResource = MakeDirectEllipse();
+            using Bitmap direct = GoldenImageHarness.RenderAtScale(directResource, Frame, 2f);
+            using Drawable.Resource brushResource = MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill);
             using Bitmap brush = GoldenImageHarness.RenderAtScale(
-                MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill), Frame, 2f);
+                brushResource, Frame, 2f);
             double ssim = ImageMetrics.Ssim(direct, brush);
             double mae = ImageMetrics.MeanAbsoluteError(direct, brush);
             TestContext.WriteLine($"[DrawableBrush fill None @2x] vs direct SSIM={ssim:F4} MAE={mae:F4}");
@@ -79,10 +81,12 @@ public class TileBrushFillDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var dest = new RelativeRect(destX, destY, 0.5f, 0.5f, RelativeUnit.Relative);
+            using Drawable.Resource fullResource = MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform);
             using Bitmap full = GoldenImageHarness.RenderAtScale(
-                MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform), Frame, 1f);
+                fullResource, Frame, 1f);
+            using Drawable.Resource ssResource = MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform);
             using Bitmap ss = GoldenImageHarness.RenderAtScale(
-                MakeBrushFilled(TileMode.Tile, dest, Stretch.Uniform), Frame, 2f);
+                ssResource, Frame, 2f);
             using Bitmap down = GoldenImageHarness.MitchellResampleTo(ss, new PixelSize(full.Width, full.Height));
             double ssim = ImageMetrics.Ssim(full, down);
             double mae = ImageMetrics.MeanAbsoluteError(full, down);
@@ -115,8 +119,9 @@ public class TileBrushFillDensityTests
             host.Height.Value = 160;
             host.Fill.Value = brush;
 
+            using Drawable.Resource filledResource = host.ToResource(CompositionContext.Default);
             using Bitmap filled = GoldenImageHarness.RenderAtScale(
-                host.ToResource(CompositionContext.Default), Frame, 1f);
+                filledResource, Frame, 1f);
 
             int litWidth = LitWidthOnCentreRow(filled);
             TestContext.WriteLine($"[DrawableBrush 40->160 fill] lit width on the centre row = {litWidth}px");
@@ -168,7 +173,8 @@ public class TileBrushFillDensityTests
             split.HorizontalSpacing.Value = 6;
             split.VerticalSpacing.Value = 6;
 
-            using Bitmap filled = GoldenImageHarness.RenderAtScale(MakeEffectedBrushHost(split), Frame, 1f);
+            using Drawable.Resource filledResource = MakeEffectedBrushHost(split);
+            using Bitmap filled = GoldenImageHarness.RenderAtScale(filledResource, Frame, 1f);
             PixelRect painted = PaintedBounds(filled);
             TestContext.WriteLine($"[DrawableBrush split 66x46 -> 180x120] painted = {painted}");
             Assert.Multiple(() =>
@@ -189,8 +195,9 @@ public class TileBrushFillDensityTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
+            using Drawable.Resource filledResource = MakeEffectedBrushHost(new LayerEffect());
             using Bitmap filled = GoldenImageHarness.RenderAtScale(
-                MakeEffectedBrushHost(new LayerEffect()), Frame, 1f);
+                filledResource, Frame, 1f);
             PixelRect painted = PaintedBounds(filled);
             TestContext.WriteLine($"[DrawableBrush layer 60x40 -> 180x120] painted = {painted}");
             Assert.Multiple(() =>
@@ -271,11 +278,13 @@ public class TileBrushFillDensityTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
+            using Drawable.Resource directResource = MakeStripes().ToResource(CompositionContext.Default);
             using Bitmap direct = GoldenImageHarness.RenderAtScale(
-                MakeStripes().ToResource(CompositionContext.Default), Frame, 2f);
+                directResource, Frame, 2f);
 
+            using Drawable.Resource filledResource = MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill, MakeStripes());
             using Bitmap filled = GoldenImageHarness.RenderAtScale(
-                MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill, MakeStripes()), Frame, 2f);
+                filledResource, Frame, 2f);
 
             double ssim = ImageMetrics.Ssim(direct, filled);
             double mae = ImageMetrics.MeanAbsoluteError(direct, filled);
@@ -292,10 +301,12 @@ public class TileBrushFillDensityTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
+            using Drawable.Resource aResource = MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill);
             using Bitmap a = GoldenImageHarness.RenderAtScale(
-                MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill), Frame, 1f);
+                aResource, Frame, 1f);
+            using Drawable.Resource bResource = MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill);
             using Bitmap b = GoldenImageHarness.RenderAtScale(
-                MakeBrushFilled(TileMode.None, RelativeRect.Fill, Stretch.Fill), Frame, 1f);
+                bResource, Frame, 1f);
             GoldenImageHarness.AssertByteIdentical(a, b);
         });
     }
@@ -354,8 +365,10 @@ public class TileBrushFillDensityTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             Uri uri = CreateQuadrantImageUri(160);
-            using Bitmap full = GoldenImageHarness.RenderAtScale(MakeImageBrushFilled(uri), Frame, 1f);
-            using Bitmap ss = GoldenImageHarness.RenderAtScale(MakeImageBrushFilled(uri), Frame, 2f);
+            using Drawable.Resource fullResource = MakeImageBrushFilled(uri);
+            using Bitmap full = GoldenImageHarness.RenderAtScale(fullResource, Frame, 1f);
+            using Drawable.Resource ssResource = MakeImageBrushFilled(uri);
+            using Bitmap ss = GoldenImageHarness.RenderAtScale(ssResource, Frame, 2f);
             using Bitmap down = GoldenImageHarness.MitchellResampleTo(ss, new PixelSize(full.Width, full.Height));
             double ssim = ImageMetrics.Ssim(full, down);
             double mae = ImageMetrics.MeanAbsoluteError(full, down);

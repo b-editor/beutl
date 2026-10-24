@@ -486,7 +486,7 @@ public class Renderer : IRenderer
         if (_nodeCache.TryGetValue(drawable, out Entry? entry))
         {
             _nodeCache.Remove(drawable);
-            DisposeEntryCore(entry, clearCache: true);
+            entry.Dispose();
         }
     }
 
@@ -983,7 +983,7 @@ public class Renderer : IRenderer
         var entries = _nodeCache.ToArray();
         _nodeCache.Clear();
         _allCurrentEntries.Clear();
-        DisposeEntries(entries, clearCache: true);
+        DisposeEntries(entries);
     }
 
     private void DisposeAllEntriesCore()
@@ -991,26 +991,15 @@ public class Renderer : IRenderer
         VerifyCleanupAccess(_dispatcher);
         var entries = _nodeCache.ToArray();
         _nodeCache.Clear();
-        // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
-        DisposeEntries(entries, clearCache: false);
+        DisposeEntries(entries);
     }
 
-    private void DisposeEntries(KeyValuePair<Drawable, Entry>[] entries, bool clearCache)
+    private static void DisposeEntries(KeyValuePair<Drawable, Entry>[] entries)
     {
         foreach (var item in entries)
         {
-            DisposeEntryCore(item.Value, clearCache);
+            item.Value.Dispose();
         }
-    }
-
-    private void DisposeEntryCore(Entry entry, bool clearCache)
-    {
-        VerifyCleanupAccess(_dispatcher);
-        if (clearCache)
-        {
-            RenderNodeCacheHelper.ClearOwnedCaches(entry.Node);
-        }
-        entry.Dispose();
     }
 
     private void DispatchFinalizerRenderResourceCleanup()

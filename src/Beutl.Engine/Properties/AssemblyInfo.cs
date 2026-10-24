@@ -9,6 +9,5 @@
 [assembly: InternalsVisibleTo("Beutl.Graphics3DTests")]
 [assembly: InternalsVisibleTo("Beutl.Benchmarks")]
 [assembly: InternalsVisibleTo("Beutl.NodeGraph")]
-[assembly: InternalsVisibleTo("Beutl.Embedding.FFmpeg")]
 [assembly: InternalsVisibleTo("Beutl.Extensions.FFmpeg")]
 [assembly: InternalsVisibleTo("Beutl.Extensions.FFmpeg.Core")]

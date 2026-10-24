@@ -4,6 +4,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics3D.Lighting;
 using Beutl.Graphics3D.Textures;
 using Beutl.Language;
 using Beutl.Media;
@@ -117,7 +118,7 @@ public sealed partial class TransparentMaterial : Material3D
                 Projection = context.ProjectionMatrix,
                 CameraPosition = new Vector4(context.CameraPosition, 1.0f),
                 BaseColor = Color.ToLinearPremultiplied(),
-                LightDirection = new Vector4(Vector3.Normalize(lightDirection), 0.0f),
+                LightDirection = new Vector4(LightData.NormalizeDirection(lightDirection), 0.0f),
                 LightColor = new Vector4(lightColor, 1.0f),
                 AmbientColor = new Vector4(context.AmbientColor, 1.0f),
                 Opacity = Opacity,

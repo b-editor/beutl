@@ -69,11 +69,14 @@ public class CustomEffectSupersampleTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             // Ground truth: a very high render downsampled to FrameSize.
-            using Bitmap truthHi = GoldenImageHarness.RenderAtScale(MakeMosaicShape(), Frame, 8f);
+            using Drawable.Resource truthHiResource = MakeMosaicShape();
+            using Bitmap truthHi = GoldenImageHarness.RenderAtScale(truthHiResource, Frame, 8f);
             using Bitmap truth = GoldenImageHarness.MitchellResampleTo(truthHi, Frame);
 
-            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeMosaicShape(), Frame, 1f);
-            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeMosaicShape(), Frame, 2f);
+            using Drawable.Resource oneToOneResource = MakeMosaicShape();
+            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(oneToOneResource, Frame, 1f);
+            using Drawable.Resource superHiResource = MakeMosaicShape();
+            using Bitmap superHi = GoldenImageHarness.RenderAtScale(superHiResource, Frame, 2f);
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(superHi, Frame);
 
             // 1) LOGICAL appearance preserved: supersampled-then-downscaled mosaic keeps the SAME tile grid
@@ -100,13 +103,15 @@ public class CustomEffectSupersampleTests
         {
             var requestedRegion = new Rect(30, 40, 60, 50);
             PixelRect requestedPixels = PixelRect.FromRect(requestedRegion, 1);
+            using Drawable.Resource fullResource = MakeMosaicRoiShape();
             using Bitmap full = GoldenImageHarness.RenderAtScale(
-                MakeMosaicRoiShape(),
+                fullResource,
                 Frame,
                 1,
                 requestedRegion: null);
+            using Drawable.Resource croppedResource = MakeMosaicRoiShape();
             using Bitmap cropped = GoldenImageHarness.RenderAtScale(
-                MakeMosaicRoiShape(),
+                croppedResource,
                 Frame,
                 1,
                 requestedRegion);
@@ -182,8 +187,10 @@ public class CustomEffectSupersampleTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(transformFactory()), Frame, 1f);
-            using Bitmap superHi = GoldenImageHarness.RenderAtScale(MakeDisplacedShape(transformFactory()), Frame, 2f);
+            using Drawable.Resource oneToOneResource = MakeDisplacedShape(transformFactory());
+            using Bitmap oneToOne = GoldenImageHarness.RenderAtScale(oneToOneResource, Frame, 1f);
+            using Drawable.Resource superHiResource = MakeDisplacedShape(transformFactory());
+            using Bitmap superHi = GoldenImageHarness.RenderAtScale(superHiResource, Frame, 2f);
             using Bitmap delivered = GoldenImageHarness.MitchellResampleTo(superHi, Frame);
 
             // The supersampled-then-downscaled warp must be the SAME logical image as 1:1, since the
@@ -204,13 +211,15 @@ public class CustomEffectSupersampleTests
         {
             var requestedRegion = new Rect(80, 60, 40, 80);
             PixelRect requestedPixels = PixelRect.FromRect(requestedRegion, 1);
+            using Drawable.Resource fullResource = MakeDisplacedShape(transformFactory());
             using Bitmap full = GoldenImageHarness.RenderAtScale(
-                MakeDisplacedShape(transformFactory()),
+                fullResource,
                 Frame,
                 1,
                 requestedRegion: null);
+            using Drawable.Resource croppedResource = MakeDisplacedShape(transformFactory());
             using Bitmap cropped = GoldenImageHarness.RenderAtScale(
-                MakeDisplacedShape(transformFactory()),
+                croppedResource,
                 Frame,
                 1,
                 requestedRegion);

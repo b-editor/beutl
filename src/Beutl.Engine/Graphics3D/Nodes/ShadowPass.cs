@@ -144,7 +144,7 @@ void main() {
     /// </summary>
     public void SetupForDirectionalLight(DirectionalLight3D.Resource light, Vector3 sceneCenter, float sceneRadius)
     {
-        var direction = NormalizeLightDirection(light.Direction);
+        var direction = LightData.NormalizeDirection(light.Direction);
 
         var shadowDistance = light.ShadowDistance;
         var lightPosition = sceneCenter - direction * shadowDistance * 0.5f;
@@ -162,7 +162,7 @@ void main() {
     public void SetupForSpotLight(SpotLight3D.Resource light)
     {
         var position = light.Position;
-        var direction = NormalizeLightDirection(light.Direction);
+        var direction = LightData.NormalizeDirection(light.Direction);
 
         var up = ChooseUp(direction);
         var target = position + direction;
@@ -177,14 +177,6 @@ void main() {
             1.0f,  // Square shadow map
             nearPlane,
             MathF.Max(light.Range, nearPlane * 2));
-    }
-
-    /// <summary>Normalizes a light direction, using <see cref="Vector3.UnitY"/> for a zero direction.</summary>
-    private static Vector3 NormalizeLightDirection(Vector3 direction)
-    {
-        if (direction == Vector3.Zero)
-            direction = Vector3.UnitY;
-        return Vector3.Normalize(direction);
     }
 
     /// <summary>
