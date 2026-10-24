@@ -235,9 +235,9 @@ public partial class GraphEditorView
         if (DataContext is not GraphEditorViewModel model) return delta;
         var selected = snapshot.Entries.Select(x => x.Model).ToHashSet();
         var targets = model.Animation.KeyFrames.Where(x => !selected.Contains(x)).Select(x => x.KeyTime.Value.ToSeconds())
-            .Concat([model.Animation.ToLocal(model.CurrentTime.Value).ToSeconds(),
-                model.Animation.ToLocal(model.Scene.Start.Value).ToSeconds(),
-                model.Animation.ToLocal(model.Scene.FromWindowTime(model.Scene.Duration.Value)).ToSeconds(), 0]);
+            .Concat([(model.CurrentTime.Value - model.TimeOrigin.Value).ToSeconds(),
+                (model.Scene.Start.Value - model.TimeOrigin.Value).ToSeconds(),
+                (model.Scene.FromWindowTime(model.Scene.Duration.Value) - model.TimeOrigin.Value).ToSeconds(), 0]);
         double tolerance = 6d.PixelToTime(model.Options.Value.Scale).ToSeconds();
         double best = tolerance;
         double correction = 0;
@@ -432,7 +432,7 @@ public partial class GraphEditorView
     // J jumps back to the previous keyframe, K forward to the next one.
     private static void JumpToAdjacentKeyFrame(GraphEditorViewModel model, GraphEditorViewViewModel channel, Key key)
     {
-        var times = channel.KeyFrames.Select(x => model.Animation.ToScene(x.Model.KeyTime.Value));
+        var times = channel.KeyFrames.Select(x => x.Model.KeyTime.Value + model.TimeOrigin.Value);
         var target = key == Key.J ? times.Where(x => x < model.CurrentTime.Value).OrderDescending().Select(x => (MediaTime?)x).FirstOrDefault()
             : times.Where(x => x > model.CurrentTime.Value).Order().Select(x => (MediaTime?)x).FirstOrDefault();
         if (target.HasValue) model.Seek(target.Value);

@@ -58,8 +58,9 @@ public sealed partial class GraphEditorTabViewModel
             {
                 var item = _treeCache[key];
                 if (item.PropertyItem != null || item.Animation is not IKeyFrameAnimation animation || !seenAnimations.Add(animation)) continue;
-                animations.Add(Items.FirstOrDefault(x => x.Object == animation && x.Name == item.Name.Value)
-                    ?? new GraphEditorItemViewModel(item.Name.Value, animation));
+                animations.Add(Items.FirstOrDefault(x => x.Object == animation && x.Name == item.Name.Value
+                    && x.AnimationOwner == item.AnimationOwner)
+                    ?? new GraphEditorItemViewModel(item.Name.Value, animation) { AnimationOwner = item.AnimationOwner });
             }
             if (!Items.SequenceEqual(animations))
             {
@@ -70,7 +71,7 @@ public sealed partial class GraphEditorTabViewModel
                 {
                     item.Object.DetachedFromHierarchy += OnAnimationDetached;
                     _animationDisposables.Add(Disposable.Create(item.Object, obj => obj.DetachedFromHierarchy -= OnAnimationDetached));
-                    item.Object.UseGlobalClock.GetObservable().Skip(1)
+                    AnimationOperations.ObserveTimeOrigin(item.Object, item.AnimationOwner).Skip(1)
                         .Subscribe(_ => UpdateKeyFrameStates()).DisposeWith(_animationDisposables);
                     item.Object.KeyFrames.CollectionChangedAsObservable()
                         .Subscribe(_ => UpdateKeyFrameStates()).DisposeWith(_animationDisposables);
@@ -112,6 +113,7 @@ public sealed partial class GraphEditorTabViewModel
             {
                 var item = GetTreeItem($"{path}/port:{member.Id.Value}", adapter.DisplayName, parent, used);
                 item.Adapter = adapter;
+                item.AnimationOwner = member.FindHierarchicalParent<GraphNode>();
                 UpdatePropertyItem(item, adapter is IAnimatablePropertyAdapter && !adapter.IsReadOnly, used, ancestors);
                 result.Add(item);
             }
@@ -245,7 +247,8 @@ public sealed partial class GraphEditorTabViewModel
                 item.HasKeyFrame.Value = false;
                 continue;
             }
-            MediaTime keyTime = animation.ToLocal(globalTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime keyTime = (globalTime - AnimationOperations.GetTimeOrigin(animation, property.AnimationOwner))
+                .RoundToFrame(rate, MidpointRounding.AwayFromZero);
             item.HasKeyFrame.Value = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) != null;
         }
     }
