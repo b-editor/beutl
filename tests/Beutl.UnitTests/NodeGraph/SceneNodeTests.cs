@@ -5,6 +5,7 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -151,7 +152,7 @@ public sealed class SceneNodeTests
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value = graph;
         Scene scene = CreateScene(drawable);
-        node.Object.Value.ReferencedScene.Value = scene;
+        node.Object.Value.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, scene);
 
         using var compositor = new SceneCompositor(scene);
         Assert.DoesNotThrow(() => compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)));
@@ -182,34 +183,31 @@ public sealed class SceneNodeTests
         Fill = { Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
     };
 
-    // As in the editor: the graph's element starts at 5 s in a scene of its own, in the referenced scene's project.
-    private Scene HostGraph(GraphModel model, Scene referenced)
+    // The graph and referenced scene share a project, with an explicit element time anchor.
+    private Scene HostGraph(GraphModel model, Scene referenced, double startSeconds = 5)
     {
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value = model;
         var host = new Element
         {
-            Start = { Value = MediaTime.FromSeconds(5) },
+            Start = { Value = MediaTime.FromSeconds(startSeconds) },
             Length = { Value = MediaTime.FromSeconds(10) },
             Uri = new Uri(Path.Combine(_directory, "host.layer")),
         };
         host.AddObject(drawable);
         var outer = new Scene(64, 48, "outer") { Uri = new Uri(Path.Combine(_directory, "outer.scene")) };
         outer.Children.Add(host);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project.Value = project;
-        project.Items.Add(outer);
-        project.Items.Add(referenced);
+        _ = SceneReferenceTestHelper.Create(outer, referenced);
         return outer;
     }
 
-    private static (GraphModel Model, SceneNode Node) CreateGraph(Scene referenced)
+    private (GraphModel Model, SceneNode Node) CreateGraph(Scene referenced)
     {
         var model = new GraphModel();
         var node = new SceneNode();
-        node.Object.Value.ReferencedScene.Value = referenced;
         model.Nodes.Add(node);
+        Scene owner = HostGraph(model, referenced, 0);
+        node.Object.Value.ReferencedScene.Expression = SceneReferenceTestHelper.Create(owner, referenced);
         return (model, node);
     }
 

@@ -522,9 +522,14 @@ public sealed class GenerativeGraphRunnerTests
 
         var model = new GraphModel();
         var scene = new Beutl.NodeGraph.Nodes.SceneNode();
-        scene.Object.Value.ReferencedScene.Value = referenced;
         var edit = new AiImageEditNode();
         model.Nodes.AddRange([scene, edit]);
+        var owner = new Beutl.ProjectSystem.Scene();
+        owner.Children.Add(new Beutl.ProjectSystem.Element
+        {
+            Objects = { new Beutl.NodeGraph.NodeGraphDrawable { Model = { Value = model } } }
+        });
+        scene.Object.Value.ReferencedScene.Expression = Beutl.UnitTests.TestInfrastructure.SceneReferenceTestHelper.Create(owner, referenced);
         model.Connect(edit.Source, scene.Output);
         var executor = new FakeExecutor(_directory);
         var runner = new GenerativeGraphRunner(executor, new InlineHost { CurrentTime = MediaTime.FromSeconds(1) });

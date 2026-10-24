@@ -10,6 +10,7 @@ using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Audio;
+using Beutl.UnitTests.TestInfrastructure;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -785,7 +786,7 @@ public class SceneCompositorTests
             childScene.Children.Add(CreateElement(_basePath, isEnabled: true, capture));
             Scene parentScene = CreateScene(_basePath);
             var sceneDrawable = new SceneDrawable();
-            sceneDrawable.ReferencedScene.Value = childScene;
+            sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
             parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneDrawable));
             using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
 
@@ -813,7 +814,7 @@ public class SceneCompositorTests
             Scene childScene = CreateScene(_basePath);
             Scene parentScene = CreateScene(_basePath);
             var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.Value = childScene;
+            sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
             parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneSound));
             using var compositor = new SceneCompositor(parentScene) { ForceOriginalSource = true };
 
@@ -837,8 +838,10 @@ public class SceneCompositorTests
     public void SceneSound_LatencyQueriesValidateSampleRateBeforeNestedComposerExists()
     {
         Scene childScene = CreateScene(_basePath);
+        Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
+        parentScene.Children.Add(CreateElement(_basePath, isEnabled: true, sceneSound));
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
         sceneSound.TimeRange.Value = new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1));
         using var resource = (SceneSound.Resource)sceneSound.ToResource(CompositionContext.Default);
         using var context = new AudioContext(48000, 2);
@@ -870,7 +873,7 @@ public class SceneCompositorTests
 
         Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
         parentElement.Length.Value = duration;
         parentScene.Children.Add(parentElement);
@@ -911,7 +914,7 @@ public class SceneCompositorTests
 
         Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
         parentElement.Length.Value = duration;
         parentScene.Children.Add(parentElement);
@@ -956,7 +959,7 @@ public class SceneCompositorTests
 
         Scene parentScene = CreateScene(_basePath);
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
         Element parentElement = CreateElement(_basePath, isEnabled: true, sceneSound);
         parentElement.Length.Value = parentDuration;
         parentScene.Children.Add(parentElement);

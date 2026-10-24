@@ -417,14 +417,17 @@ public class ElementSlipServiceTests
                 holder = group;
                 break;
             case nameof(DrawablePresenter):
+                AddElement(element.Start.Value, element.Length.Value).Objects.Add(new DrawableGroup { Children = { video } });
                 holder = new DrawablePresenter { Target = { Value = video } };
                 break;
             default:
+                AddElement(element.Start.Value, element.Length.Value).Objects.Add(new DrawableGroup { Children = { video } });
                 holder = new DrawableTimeController { Target = { Value = video } };
                 break;
         }
 
         element.Objects.Add(holder);
+        _history.Commit();
         int before = _history.UndoCount;
 
         bool applied = _service.Slip(_scene, [element], MediaTime.FromSeconds(1));
@@ -456,6 +459,7 @@ public class ElementSlipServiceTests
         Drawable container;
         if (presenter)
         {
+            AddElement(element.Start.Value, element.Length.Value).Objects.Add(new DrawableGroup { Children = { video } });
             container = new DrawablePresenter { Target = { Value = video } };
         }
         else
