@@ -157,7 +157,7 @@ public class ListProperty<T> : IListProperty<T>
         return Items.GetEnumerator();
     }
 
-    internal Span<T> AsSpan() => Items.AsSpan();
+    internal ReadOnlySpan<T> AsSpan() => Items.AsSpan();
 
     public IValidator CreateValidator(Attribute[] attributes)
     {
@@ -305,6 +305,6 @@ public class ListProperty<T> : IListProperty<T>
 internal static class ListPropertyExtensions
 {
     // The items as a span, as CoreList<T>.AsSpan gives them.
-    public static Span<T> AsSpan<T>(this IListProperty<T> property)
+    public static ReadOnlySpan<T> AsSpan<T>(this IListProperty<T> property)
         => property is ListProperty<T> list ? list.AsSpan() : property.ToArray();
 }

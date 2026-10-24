@@ -12,6 +12,7 @@ public class CoreList<T> : ICoreList<T>
     private static readonly PropertyChangedEventArgs s_countPropertyChanged = new(nameof(CoreList<object>.Count));
     private static readonly NotifyCollectionChangedEventArgs s_resetCollectionChanged = new(NotifyCollectionChangedAction.Reset);
     private static readonly PropertyChangedEventArgs s_indexerPropertyChanged = new("Item[]");
+    private volatile T[] _snapshot = [];
 
     public CoreList()
     {
@@ -26,11 +27,13 @@ public class CoreList<T> : ICoreList<T>
     public CoreList(IEnumerable<T> items)
     {
         Inner = new List<T>(items);
+        PublishSnapshot();
     }
 
     public CoreList(params T[] items)
     {
         Inner = new List<T>(items);
+        PublishSnapshot();
     }
 
     public event NotifyCollectionChangedEventHandler? CollectionChanged;
@@ -78,6 +81,7 @@ public class CoreList<T> : ICoreList<T>
                 Detached?.Invoke(old);
                 Attached?.Invoke(value);
                 Inner[index] = value;
+                PublishSnapshot();
 
                 PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
                 CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
@@ -147,6 +151,7 @@ public class CoreList<T> : ICoreList<T>
             }
 
             Inner.Clear();
+            PublishSnapshot();
 
             foreach (T item in CollectionsMarshal.AsSpan(items))
             {
@@ -186,6 +191,7 @@ public class CoreList<T> : ICoreList<T>
         ExceptionDispatchInfo? failure = null;
 
         Inner.Clear();
+        PublishSnapshot();
         InvokeEach(attached: false, oldItems, ref failure);
         if (!reset && oldItems.Length > 0)
         {
@@ -197,6 +203,7 @@ public class CoreList<T> : ICoreList<T>
         // Inserted at 0 rather than appended so the list matches the Add notification
         // even if a handler has added items in the meantime.
         Inner.InsertRange(0, newItems);
+        PublishSnapshot();
         InvokeEach(attached: true, newItems, ref failure);
         if (reset)
         {
@@ -219,28 +226,27 @@ public class CoreList<T> : ICoreList<T>
 
     public void CopyTo(T[] array, int arrayIndex)
     {
-        Inner.CopyTo(array, arrayIndex);
+        _snapshot.CopyTo(array, arrayIndex);
     }
 
     public void CopyTo(Span<T> array)
     {
-        Span<T> span = CollectionsMarshal.AsSpan(Inner);
-        span.CopyTo(array);
+        _snapshot.AsSpan().CopyTo(array);
     }
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
     {
-        return new Enumerator(Inner);
+        return new Enumerator(_snapshot);
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return new Enumerator(Inner);
+        return new Enumerator(_snapshot);
     }
 
     public Enumerator GetEnumerator()
     {
-        return new Enumerator(Inner);
+        return new Enumerator(_snapshot);
     }
 
     public IEnumerable<T> GetRange(int index, int count)
@@ -304,6 +310,7 @@ public class CoreList<T> : ICoreList<T>
                 failure = ExceptionDispatchInfo.Capture(ex);
             }
 
+            PublishSnapshot();
             if (notificationItems is { Count: > 0 })
             {
                 T[] insertedItems = notificationItems.ToArray();
@@ -361,7 +368,14 @@ public class CoreList<T> : ICoreList<T>
         VerifyWriter();
         T item = this[oldIndex];
         Inner.RemoveAt(oldIndex);
-        Inner.Insert(newIndex, item);
+        try
+        {
+            Inner.Insert(newIndex, item);
+        }
+        finally
+        {
+            PublishSnapshot();
+        }
 
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
@@ -382,7 +396,14 @@ public class CoreList<T> : ICoreList<T>
             newIndex -= count;
         }
 
-        Inner.InsertRange(newIndex, items);
+        try
+        {
+            Inner.InsertRange(newIndex, items);
+        }
+        finally
+        {
+            PublishSnapshot();
+        }
 
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
         CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
@@ -475,11 +496,13 @@ public class CoreList<T> : ICoreList<T>
     {
     }
 
-    // For in-repo loops: unlike the enumerator, the span does not throw when the list changes.
-    internal Span<T> AsSpan()
+    // Derived mutators must publish after changing Inner and before notifying observers.
+    protected void PublishSnapshot()
     {
-        return CollectionsMarshal.AsSpan(Inner);
+        _snapshot = Inner.ToArray();
     }
+
+    internal ReadOnlySpan<T> AsSpan() => _snapshot;
 
     int IList.Add(object? value)
     {
@@ -521,6 +544,7 @@ public class CoreList<T> : ICoreList<T>
     void ICollection.CopyTo(Array array, int index)
     {
         ArgumentNullException.ThrowIfNull(array);
+        T[] snapshot = _snapshot;
 
         if (array.Rank != 1)
         {
@@ -537,14 +561,14 @@ public class CoreList<T> : ICoreList<T>
             throw new ArgumentException("Invalid index.");
         }
 
-        if (array.Length - index < Count)
+        if (array.Length - index < snapshot.Length)
         {
             throw new ArgumentException("The target array is too small.");
         }
 
         if (array is T[] tArray)
         {
-            Inner.CopyTo(tArray, index);
+            snapshot.CopyTo(tArray, index);
         }
         else
         {
@@ -560,12 +584,12 @@ public class CoreList<T> : ICoreList<T>
                 throw new ArgumentException("Invalid array type");
             }
 
-            int count = Inner.Count;
+            int count = snapshot.Length;
             try
             {
                 for (int i = 0; i < count; i++)
                 {
-                    objects[index++] = Inner[i];
+                    objects[index++] = snapshot[i];
                 }
             }
             catch (ArrayTypeMismatchException)
@@ -577,6 +601,7 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyAdd(IList t, int index)
     {
+        PublishSnapshot();
         for (int i = 0; i < t.Count; i++)
         {
             if (t[i] is T item)
@@ -597,6 +622,7 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyAdd(ReadOnlySpan<T> t, int index)
     {
+        PublishSnapshot();
         for (int i = 0; i < t.Length; i++)
         {
             Attached?.Invoke(t[i]);
@@ -615,6 +641,7 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyAdd(T item, int index)
     {
+        PublishSnapshot();
         Attached?.Invoke(item);
 
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
@@ -634,6 +661,7 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyRemove(IList t, int index)
     {
+        PublishSnapshot();
         for (int i = 0; i < t.Count; i++)
         {
             if (t[i] is T item)
@@ -654,6 +682,7 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyRemove(T item, int index)
     {
+        PublishSnapshot();
         Detached?.Invoke(item);
 
         PropertyChanged?.Invoke(this, s_indexerPropertyChanged);
@@ -718,27 +747,45 @@ public class CoreList<T> : ICoreList<T>
         }
     }
 
-    public struct Enumerator(List<T> inner) : IEnumerator<T>
+    public struct Enumerator : IEnumerator<T>
     {
-        private List<T>.Enumerator _innerEnumerator = inner.GetEnumerator();
+        private readonly T[] _items;
+        private int _index;
+
+        public Enumerator(List<T> inner) : this(inner.ToArray())
+        {
+        }
+
+        internal Enumerator(T[] items)
+        {
+            _items = items;
+            Current = default!;
+        }
 
         public bool MoveNext()
         {
-            return _innerEnumerator.MoveNext();
+            if (_index < _items.Length)
+            {
+                Current = _items[_index++];
+                return true;
+            }
+
+            Current = default!;
+            return false;
         }
 
-        readonly void IEnumerator.Reset()
+        void IEnumerator.Reset()
         {
-            ((IEnumerator)_innerEnumerator).Reset();
+            _index = 0;
+            Current = default!;
         }
 
-        public T Current => _innerEnumerator.Current;
+        public T Current { get; private set; }
 
         object? IEnumerator.Current => Current;
 
         public void Dispose()
         {
-            _innerEnumerator.Dispose();
         }
     }
 }
