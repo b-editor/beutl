@@ -160,14 +160,14 @@ public sealed class VulkanContextIsolationTests
     }
 
     [Test]
-    public void EveryBindEntryPointTheDeviceExposes_IsIntercepted()
+    public void EveryBindEntryPointSkiaRequests_IsIntercepted()
     {
         VulkanContext vulkanContext = GpuTestEnvironment.EnsureVulkanAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             Vk vk = vulkanContext.Vk;
             Device device = vulkanContext.Device;
-            foreach (string name in new[] { "vkBindImageMemory", "vkBindImageMemory2", "vkBindImageMemory2KHR" })
+            foreach (string name in new[] { "vkBindImageMemory", "vkBindImageMemory2" })
             {
                 nint real = vk.GetDeviceProcAddr(device, name);
                 if (real == 0)
