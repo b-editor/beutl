@@ -201,7 +201,8 @@ internal sealed class MediaFingerprintFile : CoreObject
         var entries = new SortedDictionary<string, MediaFileFingerprint>(StringComparer.Ordinal);
         foreach ((string key, MediaFileFingerprint fingerprint) in fingerprints)
         {
-            entries.Add(UriHelper.ToSerializedUri(new Uri(key), fileUri).ToString(), fingerprint);
+            Uri serializedUri = UriHelper.ToSerializedUri(new Uri(key), fileUri);
+            entries.Add(UriHelper.ToPersistedReference(serializedUri), fingerprint);
         }
 
         return ToJson(entries);

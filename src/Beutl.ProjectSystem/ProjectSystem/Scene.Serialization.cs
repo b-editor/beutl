@@ -107,8 +107,9 @@ public partial class Scene
         {
             if (context.Mode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
             {
+                Uri serializedUri = UriHelper.ToSerializedUri(fingerprintsUri, context.BaseUri);
                 context.SetValue(MediaFingerprintFile.SceneProperty,
-                    UriHelper.ToSerializedUri(fingerprintsUri, context.BaseUri).ToString());
+                    UriHelper.ToPersistedReference(serializedUri));
             }
             else
             {

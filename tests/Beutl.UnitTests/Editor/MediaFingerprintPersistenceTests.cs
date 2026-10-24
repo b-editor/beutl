@@ -124,6 +124,63 @@ public class MediaFingerprintPersistenceTests
         });
     }
 
+    [TestCase("clip%20one.mp4")]
+    [TestCase("clip%23one.mp4")]
+    [TestCase("clip%3Fone.mp4")]
+    [TestCase("clip%25one.mp4")]
+    public void CrossDriveFingerprint_RoundTripsWithLiteralPercentEscape(string name)
+    {
+        var fileUri = new Uri("file:///C:/project/media-fingerprints.json");
+        Uri mediaUri = UriHelper.CreateFromPath($@"D:\media\{name}", windows: true);
+        var fingerprint = new MediaFileFingerprint(42, "ABCDEF");
+        var file = new MediaFingerprintFile(new Dictionary<string, MediaFileFingerprint>
+        {
+            [mediaUri.AbsoluteUri] = fingerprint,
+        });
+
+        JsonObject json = CoreSerializer.SerializeToJsonObject(file, new CoreSerializerOptions
+        {
+            BaseUri = fileUri,
+            Mode = CoreSerializationMode.Write,
+        });
+        var restored = new MediaFingerprintFile();
+        CoreSerializer.PopulateFromJsonObject(restored, json, new CoreSerializerOptions { BaseUri = fileUri });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(json["Fingerprints"]!.AsObject().Select(pair => pair.Key), Is.EqualTo(new[] { mediaUri.AbsoluteUri }));
+            Assert.That(restored.Fingerprints.Keys, Is.EqualTo(new[] { mediaUri.AbsoluteUri }));
+            Assert.That(restored.Fingerprints.GetValueOrDefault(mediaUri.AbsoluteUri), Is.EqualTo(fingerprint));
+        });
+    }
+
+    [Test]
+    public void Saving_AbsoluteFingerprintFileReference_RoundTripsWithLiteralPercentEscape()
+    {
+        string directory = Directory.CreateDirectory(Path.Combine(_root, "scene%20one")).FullName;
+        var scene = new Scene(64, 64, "Scene")
+        {
+            Uri = UriHelper.CreateFromPath(Path.Combine(directory, "scene.scene")),
+        };
+        string mediaUri = UriHelper.CreateFromPath(Path.Combine(directory, "clip.png")).AbsoluteUri;
+        var fingerprint = new MediaFileFingerprint(42, "ABCDEF");
+        scene.SetMediaFingerprints(new Dictionary<string, MediaFileFingerprint> { [mediaUri] = fingerprint });
+
+        JsonObject json = CoreSerializer.SerializeToJsonObject(scene, new CoreSerializerOptions
+        {
+            Mode = CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects,
+        });
+        JsonNode? reference = json[MediaFingerprintFile.SceneProperty];
+        MediaFingerprintFile? restored = MediaFingerprintFile.Load(reference, baseUri: null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(reference!.GetValue<string>(),
+                Is.EqualTo(UriHelper.CreateFromPath(MediaFingerprintFile.GetPath(scene.Uri.LocalPath)).AbsoluteUri));
+            Assert.That(restored?.Fingerprints.GetValueOrDefault(mediaUri), Is.EqualTo(fingerprint));
+        });
+    }
+
     [Test]
     public void ASceneWithoutFingerprints_HasNoFingerprintFileAndNoReference()
     {
