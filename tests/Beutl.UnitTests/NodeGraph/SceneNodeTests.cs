@@ -32,7 +32,8 @@ public sealed class SceneNodeTests
     public void DrawsTheSceneAtItsTimeInputWhateverTheGraphsTime()
     {
         Scene referenced = CreateScene(new RectShape());
-        var (model, node) = CreateGraph(referenced);
+        var (model, node) = CreateGraph();
+        HostGraph(model, node, referenced, startSeconds: 0);
 
         node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
         Assert.That(Evaluate(model, node, MediaTime.FromSeconds(2)), Is.EqualTo(1), "The element is on screen at 0.5 s.");
@@ -46,7 +47,8 @@ public sealed class SceneNodeTests
     public void ATimeNodePlaysTheSceneInStepWithTheGraph()
     {
         Scene referenced = CreateScene(new RectShape());
-        var (model, node) = CreateGraph(referenced);
+        var (model, node) = CreateGraph();
+        HostGraph(model, node, referenced, startSeconds: 0);
         var time = new Beutl.NodeGraph.Nodes.Utilities.TimeNode();
         model.Nodes.Add(time);
         Connection connection = model.Connect(node.Time, time.Time);
@@ -60,7 +62,8 @@ public sealed class SceneNodeTests
     public void OutputActuallyDrawsTheReferencedScene()
     {
         Scene referenced = CreateScene(CreateRedSquare());
-        var (model, node) = CreateGraph(referenced);
+        var (model, node) = CreateGraph();
+        HostGraph(model, node, referenced, startSeconds: 0);
         node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
 
         using var snapshot = new GraphSnapshot();
@@ -84,8 +87,8 @@ public sealed class SceneNodeTests
     public void TimeNamesTheReferencedScenesTimeWhereverTheGraphsElementStarts()
     {
         Scene referenced = CreateScene(new RectShape());
-        var (model, node) = CreateGraph(referenced);
-        HostGraph(model, referenced);
+        var (model, node) = CreateGraph();
+        HostGraph(model, node, referenced, startSeconds: 5);
         Assert.That(node.Object.Value.Start, Is.EqualTo(MediaTime.Zero), "The scene's time does not follow the hosting element.");
 
         node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
@@ -104,12 +107,12 @@ public sealed class SceneNodeTests
         Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             Scene referenced = CreateScene(CreateRedSquare());
-            var (model, node) = CreateGraph(referenced);
+            var (model, node) = CreateGraph();
             node.Time.Property!.SetValue(MediaTime.FromSeconds(seconds));
             var output = new OutputNode();
             model.Nodes.Add(output);
             model.Connect(output.InputPort, node.Output);
-            Scene outer = HostGraph(model, referenced);
+            Scene outer = HostGraph(model, node, referenced, startSeconds: 5);
 
             using var renderer = new SceneRenderer(outer, Beutl.Graphics.Rendering.RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(6)));
@@ -184,7 +187,7 @@ public sealed class SceneNodeTests
     };
 
     // The graph and referenced scene share a project, with an explicit element time anchor.
-    private Scene HostGraph(GraphModel model, Scene referenced, double startSeconds = 5)
+    private Scene HostGraph(GraphModel model, SceneNode node, Scene referenced, double startSeconds)
     {
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value = model;
@@ -197,17 +200,16 @@ public sealed class SceneNodeTests
         host.AddObject(drawable);
         var outer = new Scene(64, 48, "outer") { Uri = new Uri(Path.Combine(_directory, "outer.scene")) };
         outer.Children.Add(host);
-        _ = SceneReferenceTestHelper.Create(outer, referenced);
+        node.Object.Value.ReferencedScene.Expression = SceneReferenceTestHelper.Create(outer, referenced);
+        Assert.That(model.FindHierarchicalParent<Element>(), Is.SameAs(host), "The graph must belong to the intended host.");
         return outer;
     }
 
-    private (GraphModel Model, SceneNode Node) CreateGraph(Scene referenced)
+    private static (GraphModel Model, SceneNode Node) CreateGraph()
     {
         var model = new GraphModel();
         var node = new SceneNode();
         model.Nodes.Add(node);
-        Scene owner = HostGraph(model, referenced, 0);
-        node.Object.Value.ReferencedScene.Expression = SceneReferenceTestHelper.Create(owner, referenced);
         return (model, node);
     }
 
