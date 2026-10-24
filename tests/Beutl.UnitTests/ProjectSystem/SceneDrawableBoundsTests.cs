@@ -78,8 +78,7 @@ public class SceneDrawableBoundsTests
 
     private static RenderNodeMeasurement MeasureNestedScene(Scene inner)
     {
-        var drawable = new SceneDrawable();
-        drawable.ReferencedScene.Value = inner;
+        SceneDrawable drawable = SceneDrawableTestHelpers.CreateDrawable(inner);
 
         using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);

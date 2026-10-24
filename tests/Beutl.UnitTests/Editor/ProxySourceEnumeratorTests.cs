@@ -19,6 +19,7 @@ using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.NodeGraph.Nodes.Group;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -78,8 +79,10 @@ public class ProxySourceEnumeratorTests
         childScene.Children.Add(ElementWith(childVideo));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         Element element = ElementWith(sceneDrawable);
+        Scene owner = CreateScene("owner.scene");
+        owner.Children.Add(element);
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(owner, childScene);
 
         Assert.That(FileNames(element), Is.EquivalentTo(new[] { "nested.mov" }));
     }
@@ -431,9 +434,10 @@ public class ProxySourceEnumeratorTests
         referenced.Children.Add(ElementWith(nestedVideo));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = referenced;
-
         Element element = ElementWith(video, graphDrawable, sceneDrawable);
+        Scene owner = CreateScene("owner.scene");
+        owner.Children.Add(element);
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(owner, referenced);
 
         Assert.That(
             FileNames(element),
@@ -469,8 +473,7 @@ public class ProxySourceEnumeratorTests
             Is.SupersetOf(new[] { "video.mov", "audio.mp3", "image.png", "graph.mov" }));
     }
 
-    // Export preflight must reach image/audio held inside a referenced scene: those are not
-    // hierarchical children (the scene is a property value), so the broad property walk misses them.
+    // The referenced scene stays outside the hierarchy; each reference contributes its render facet.
     [Test]
     public void EnumerateFileSources_CoversImageAndSoundInsideReferencedScene()
     {
@@ -482,9 +485,11 @@ public class ProxySourceEnumeratorTests
         childScene.Children.Add(ElementWith(childImage, childSound));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
+        var sceneSound = new SceneSound();
         Scene root = CreateScene("root.scene");
-        root.Children.Add(ElementWith(sceneDrawable));
+        root.Children.Add(ElementWith(sceneDrawable, sceneSound));
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, childScene);
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, childScene);
 
         IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(root);
 
@@ -504,8 +509,8 @@ public class ProxySourceEnumeratorTests
         childScene.Children.Add(ElementWith(childSound));
 
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
         Scene root = CreateScene("sound-root.scene");
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, childScene);
         root.Children.Add(ElementWith(sceneSound));
 
         IReadOnlySet<string> collected = ProxySourceEnumerator.EnumerateFileSources(root);

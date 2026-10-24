@@ -1,5 +1,6 @@
 ﻿using Avalonia.Headless.NUnit;
 using Beutl.Composition;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
@@ -311,7 +312,10 @@ public class SelectedDrawableRenderTests
         });
         innerScene.Children.Add(element);
         var drawable = new SceneDrawable();
-        drawable.ReferencedScene.Value = innerScene;
+        var owner = new Scene();
+        owner.Children.Add(new Element { Objects = { drawable } });
+        _ = new BeutlApplication { Project = { Value = new Project { Items = { owner, innerScene } } } };
+        drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(innerScene.Id.Value);
 
         using Bitmap bitmap = await editor.Player.DrawSelectedDrawable(drawable, outputScale: 2);
 

@@ -92,11 +92,11 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
             Uri = new Uri(Path.Combine(_root, "root.scene")),
         };
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(ElementWith(_root, sceneDrawable));
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
@@ -121,11 +121,11 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
             Uri = new Uri(Path.Combine(_root, "root.scene")),
         };
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(ElementWith(_root, sceneSound));
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
@@ -223,11 +223,11 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(disabled);
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty)
         {
             Uri = new Uri(Path.Combine(_root, "root.scene")),
         };
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(ElementWith(_root, sceneDrawable));
 
         IReadOnlySet<string> referenced = ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene);
@@ -360,10 +360,10 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(ElementWith(_root, sceneDrawable));
         scene.Children.Add(ElementWith(_root, sceneSound));
 
@@ -617,9 +617,9 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(childElement);
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         Element outerElement = ElementWith(_root, sceneDrawable, MediaTime.FromSeconds(10), MediaTime.FromSeconds(10));
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(outerElement);
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -765,8 +765,8 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(outOfWindow);
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         Element outer = ElementWith(_root, sceneDrawable);
         outer.Length.Value = MediaTime.FromSeconds(10);
         scene.Children.Add(outer);
@@ -795,7 +795,6 @@ public sealed class ExportSourceValidatorTests
             childScene.Children.Add(lateChild);
 
             var sceneSound = new SceneSound();
-            sceneSound.ReferencedScene.Value = childScene;
             if (animateSpeed)
             {
                 var speed = new KeyFrameAnimation<float>();
@@ -805,6 +804,7 @@ public sealed class ExportSourceValidatorTests
             }
 
             var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, $"root-{Guid.NewGuid():N}.scene")) };
+            sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
             Element outer = ElementWith(_root, sceneSound);
             outer.Length.Value = MediaTime.FromSeconds(40);
             scene.Children.Add(outer);
@@ -1078,8 +1078,8 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(child);
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         Element outer = ElementWith(_root, sceneDrawable);
         outer.Start.Value = MediaTime.Zero;
         outer.Length.Value = MediaTime.FromSeconds(10);
@@ -1103,11 +1103,11 @@ public sealed class ExportSourceValidatorTests
         childScene.Children.Add(CreateSoundElement(_root, missingSound));
 
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
         var visualizer = new Beutl.Graphics.AudioVisualizers.AudioWaveformDrawable();
         visualizer.Source.Value = sceneSound;
 
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(ElementWith(_root, visualizer));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -1315,8 +1315,8 @@ public sealed class ExportSourceValidatorTests
         childScene.Layers.Add(new TimelineLayer { ZIndex = { Value = 4 }, IsVideoMuted = { Value = true } });
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(ElementWith(_root, sceneDrawable));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -1344,8 +1344,8 @@ public sealed class ExportSourceValidatorTests
         childScene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 } });
 
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(ElementWith(_root, sceneDrawable));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
@@ -1370,8 +1370,8 @@ public sealed class ExportSourceValidatorTests
 
         // A default SceneSound has the identity audio map, so it windows the referenced scene per-target.
         var sceneSound = new SceneSound();
-        sceneSound.ReferencedScene.Value = childScene;
         var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
         scene.Children.Add(ElementWith(_root, sceneSound));
 
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(

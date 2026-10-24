@@ -254,7 +254,7 @@ public sealed class ProxiesTabViewModelTests
         AddSourceVideo(childScene, root, sourcePath);
         Scene parentScene = CreateScene(root, "parent.scene");
         var sceneDrawable = new SceneDrawable();
-        sceneDrawable.ReferencedScene.Value = childScene;
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(parentScene, childScene);
         AddObject(parentScene, root, sceneDrawable);
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(parentScene, store));
