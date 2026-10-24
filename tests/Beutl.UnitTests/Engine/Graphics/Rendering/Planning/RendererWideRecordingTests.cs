@@ -22,6 +22,44 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering.Planning;
 public sealed class RendererWideRecordingTests
 {
     [Test]
+    public void ConstructionCleanupFailure_ReplacesTheValidationFailure()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var failure = new InvalidOperationException("surface disposal failed");
+            using var surface = new FailureTestRenderTarget(new PixelSize(7, 8), failure);
+
+            var thrown = Assert.Throws<InvalidOperationException>(() => new Renderer(
+                8, 8, RenderIntent.Preview, 1, 1, surface));
+
+            Assert.That(thrown, Is.SameAs(failure));
+            Assert.That(surface.DisposeCalls, Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void SurfaceDisposalFailure_StopsBeforeEntryCleanup()
+    {
+        RenderThread.Dispatcher.Invoke(() =>
+        {
+            var failure = new InvalidOperationException("surface disposal failed");
+            using var surface = new FailureTestRenderTarget(new PixelSize(8, 8), failure);
+            using var renderer = new Renderer(8, 8, RenderIntent.Preview, 1, 1, surface);
+            var state = new CacheMutationThreadState();
+            var drawable = new CacheMutationThreadProbeDrawable(state);
+            renderer.UpdateFrame(RendererTestSupport.CreateFrame(new PixelSize(8, 8), drawable));
+
+            var thrown = Assert.Throws<InvalidOperationException>(renderer.Dispose);
+
+            Assert.That(thrown, Is.SameAs(failure));
+            Assert.That(renderer.IsDisposed, Is.True);
+            Assert.That(surface.DisposeCalls, Is.EqualTo(1));
+            Assert.That(state.DisposedOnRenderThread, Is.Empty);
+            GC.KeepAlive(drawable);
+        });
+    }
+
+    [Test]
     public void ProductionFrameRenderer_CompilesItsPlanOnceOnTheFirstFrame()
     {
         RenderThread.Dispatcher.Invoke(() =>

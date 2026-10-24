@@ -70,28 +70,9 @@ public class Renderer : IRenderer
             if (!IsDisposed)
             {
                 IsDisposed = true;
-                Exception? primary = null;
-                try
-                {
-                    Renderer.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    primary = ex;
-                }
-
-                try
-                {
-                    Node.Dispose();
-                }
-                catch (Exception ex)
-                {
-                    primary ??= ex;
-                }
-
                 GC.SuppressFinalize(this);
-                if (primary is not null)
-                    System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+                Renderer.Dispose();
+                Node.Dispose();
             }
         }
     }
@@ -132,24 +113,12 @@ public class Renderer : IRenderer
         RenderTarget? surface,
         Dispatcher? dispatcher = null)
     {
-        static void DisposePreservingPrimaryFailure(IDisposable? value)
-        {
-            try
-            {
-                value?.Dispose();
-            }
-            catch
-            {
-                // Constructor cleanup must not replace the failure that triggered it.
-            }
-        }
-
         _dispatcher = dispatcher ?? RenderThread.Dispatcher;
 
         if (!Enum.IsDefined(intent))
         {
             // This constructor owns `surface` from entry.
-            DisposePreservingPrimaryFailure(surface);
+            surface?.Dispose();
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "Unknown render intent.");
         }
 
@@ -188,18 +157,16 @@ public class Renderer : IRenderer
                 }
                 catch
                 {
-                    DisposePreservingPrimaryFailure(actualSurface);
+                    actualSurface?.Dispose();
                     throw;
                 }
             });
         }
         catch
         {
-            // Construction transferred ownership of these helpers before the surface was created.
-            // Release all of them, but never replace the constructor's primary failure.
-            DisposePreservingPrimaryFailure(_frameRenderer);
-            DisposePreservingPrimaryFailure(_completeTarget);
-            DisposePreservingPrimaryFailure(_frameClear);
+            _frameRenderer.Dispose();
+            _completeTarget.Dispose();
+            _frameClear.Dispose();
 
             throw;
         }
@@ -307,37 +274,9 @@ public class Renderer : IRenderer
         if (Interlocked.CompareExchange(ref _disposeClaimed, 1, 0) != 0)
             return;
 
-        Exception? primary = null;
-
-        CaptureCleanupFailure(() => OnDispose(true), ref primary);
-        CaptureCleanupFailure(
-            () => GpuResourceRelease.Run(_dispatcher, () =>
-            {
-                Exception? renderResourceFailure = DisposeRenderResourcesCore();
-                if (renderResourceFailure is not null)
-                {
-                    System.Runtime.ExceptionServices.ExceptionDispatchInfo
-                        .Capture(renderResourceFailure)
-                        .Throw();
-                }
-            }),
-            ref primary);
         GC.SuppressFinalize(this);
-
-        if (primary is not null)
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
-    }
-
-    private static void CaptureCleanupFailure(Action action, ref Exception? primary)
-    {
-        try
-        {
-            action();
-        }
-        catch (Exception ex)
-        {
-            primary ??= ex;
-        }
+        OnDispose(true);
+        GpuResourceRelease.Run(_dispatcher, DisposeRenderResourcesCore);
     }
 
     private static void VerifyCleanupAccess(Dispatcher dispatcher)
@@ -348,19 +287,17 @@ public class Renderer : IRenderer
         }
     }
 
-    private Exception? DisposeRenderResourcesCore()
+    private void DisposeRenderResourcesCore()
     {
         VerifyCleanupAccess(_dispatcher);
-        Exception? primary = null;
-        CaptureCleanupFailure(() => _completeTarget?.UpdateRoots([]), ref primary);
-        CaptureCleanupFailure(() => _frameRenderer?.Dispose(), ref primary);
-        CaptureCleanupFailure(() => _completeTarget?.Dispose(), ref primary);
-        CaptureCleanupFailure(() => _frameClear?.Dispose(), ref primary);
-        CaptureCleanupFailure(() => _immediateCanvas?.Dispose(), ref primary);
-        CaptureCleanupFailure(() => _surface?.Dispose(), ref primary);
-        CaptureCleanupFailure(ClearEntryCachesCore, ref primary);
-        CaptureCleanupFailure(DisposeAllEntriesCore, ref primary);
-        return primary;
+        _completeTarget?.UpdateRoots([]);
+        _frameRenderer?.Dispose();
+        _completeTarget?.Dispose();
+        _frameClear?.Dispose();
+        _immediateCanvas?.Dispose();
+        _surface?.Dispose();
+        ClearEntryCachesCore();
+        DisposeAllEntriesCore();
     }
 
     /// <summary>Releases resources owned by a derived renderer.</summary>
@@ -1027,35 +964,17 @@ public class Renderer : IRenderer
     {
         _dispatcher.VerifyAccess();
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        Exception? primary = null;
-        CaptureCleanupFailure(() => _completeTarget.UpdateRoots([]), ref primary);
-
-        RenderNodeRenderer? replacement = null;
-        try
-        {
-            replacement = CreateEntryRenderer(
-                _completeTarget,
-                RenderRequestPurpose.Frame,
-                cacheOptions);
-        }
-        catch (Exception ex)
-        {
-            primary ??= ex;
-        }
-
-        if (replacement is not null)
-        {
-            RenderNodeRenderer previous = _frameRenderer;
-            _frameRenderer = replacement;
-            if (updateCacheOptions)
-                _cacheOptions = cacheOptions;
-            CaptureCleanupFailure(previous.Dispose, ref primary);
-        }
-
-        CaptureCleanupFailure(ClearEntryCachesCore, ref primary);
-
-        if (primary is not null)
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+        _completeTarget.UpdateRoots([]);
+        RenderNodeRenderer replacement = CreateEntryRenderer(
+            _completeTarget,
+            RenderRequestPurpose.Frame,
+            cacheOptions);
+        RenderNodeRenderer previous = _frameRenderer;
+        _frameRenderer = replacement;
+        if (updateCacheOptions)
+            _cacheOptions = cacheOptions;
+        previous.Dispose();
+        ClearEntryCachesCore();
     }
 
     private void ClearEntryCachesCore()
@@ -1077,32 +996,24 @@ public class Renderer : IRenderer
 
     private static void DisposeEntries(KeyValuePair<Drawable, Entry>[] entries)
     {
-        Exception? primary = null;
         foreach (var item in entries)
         {
-            try
-            {
-                item.Value.Dispose();
-            }
-            catch (Exception ex)
-            {
-                primary ??= ex;
-            }
+            item.Value.Dispose();
         }
-
-        if (primary is not null)
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
     }
 
     private void DispatchFinalizerRenderResourceCleanup()
     {
         GpuResourceRelease.DispatchFinalizer(_dispatcher, () =>
         {
-            Exception? primary = DisposeRenderResourcesCore();
-            if (primary is not null)
+            try
+            {
+                DisposeRenderResourcesCore();
+            }
+            catch (Exception ex)
             {
                 s_logger.LogDebug(
-                    primary,
+                    ex,
                     "Renderer finalizer: render resource cleanup threw during last-resort disposal");
             }
         });
