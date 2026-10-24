@@ -10,6 +10,7 @@ using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -18,9 +19,9 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public class FileReferenceWalkerParityTests
 {
-    public enum Place { Property, KeyFrameValue, NodePort, NodePortKeyFrame, Transition, ReferencedScene }
+    public enum Place { Property, KeyFrameValue, NodePort, NodePortKeyFrame, Transition, ReferencedScene, SerializedMember }
 
-    public enum Walker { ExternalResourceCollector, MissingMediaFileUris, SerializedGraphTraversal }
+    public enum Walker { ExternalResourceCollector, MissingMediaFileUris, SerializedGraphTraversal, SerializedGraphPaths }
 
     private string _projectDir = null!;
     private string _mediaDir = null!;
@@ -56,12 +57,50 @@ public class FileReferenceWalkerParityTests
         Assert.That(Find(walker, scene).Distinct(), Is.EqualTo(new[] { expected }));
     }
 
+    [Test]
+    public void EveryWalkerSkipsValuesThatAreNotSaved([Values] Walker walker)
+    {
+        Scene scene = CreateScene("main.scene");
+        var holder = new SavedMemberHolder();
+        holder.Unsaved.Value = Open<VideoSource>(new Uri(Path.Combine(_mediaDir, "unsaved.mov")));
+        scene.Children.Add(ElementWith(holder));
+
+        Assert.That(Find(walker, scene), Is.Empty);
+    }
+
+    [TestCase(Place.NodePort)]
+    [TestCase(Place.NodePortKeyFrame)]
+    [TestCase(Place.SerializedMember)]
+    public async Task CollectedMembersCanBeRelocated(Place place)
+    {
+        Scene scene = CreateScene("main.scene");
+        Uri original = AddFileIn(scene, place);
+        File.WriteAllText(original.LocalPath, "media bytes");
+        var project = new Project();
+        project.Items.Add(scene);
+        var collected = ExternalResourceCollector.Collect(project, _projectDir);
+
+        RelocationResult result = await new ResourceRelocationService()
+            .RelocateFileSourcesAsync(collected.FileSources, project, _projectDir);
+        Uri relocated = MissingMediaService.GetFileUris(scene).Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.SuccessCount, Is.EqualTo(1));
+            Assert.That(result.FailedResources, Is.Empty);
+            Assert.That(relocated, Is.Not.EqualTo(original));
+            Assert.That(File.ReadAllText(relocated.LocalPath), Is.EqualTo("media bytes"));
+        });
+    }
+
     private IEnumerable<Uri> Find(Walker walker, Scene scene) => walker switch
     {
         // Lists only files outside the project folder, where the media of this test are.
         Walker.ExternalResourceCollector => ExternalResourceCollector.Collect(scene, _projectDir).FileSources
             .Select(source => source.OriginalUri),
         Walker.MissingMediaFileUris => MissingMediaService.GetFileUris(scene),
+        Walker.SerializedGraphPaths => scene.Children.SelectMany(SerializedGraphPaths.EnumerateSerializedGraphDescendantPaths)
+            .Select(item => item.Object).OfType<IFileSource>().Select(source => source.Uri),
         _ => SerializedGraphTraversal.Enumerate(scene).OfType<IFileSource>().Select(source => source.Uri),
     };
 
@@ -105,6 +144,12 @@ public class FileReferenceWalkerParityTests
                 element = ElementWith(new SourceImage());
                 element.EnterTransition.Value = transition;
                 break;
+            case Place.SerializedMember:
+                element = ElementWith(new SavedMemberHolder
+                {
+                    Saved = new Dictionary<string, object> { ["wrapped"] = new SavedWrapper(Open<VideoSource>(uri)) },
+                });
+                break;
             default:
                 Scene referenced = CreateScene("referenced.scene");
                 var nested = new SourceVideo();
@@ -143,6 +188,25 @@ public class FileReferenceWalkerParityTests
 
     private Scene CreateScene(string name)
         => new(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_projectDir, name)) };
+
+    internal sealed record SavedWrapper(VideoSource Source);
+
+    [SuppressResourceClassGeneration]
+    internal sealed class SavedMemberHolder : EngineObject
+    {
+        public SavedMemberHolder() => ScanProperties<SavedMemberHolder>();
+
+        public object? Saved { get; init; }
+
+        [NotAutoSerialized]
+        public IExpressionProperty<VideoSource?> Unsaved { get; } = Property.CreateExpression<VideoSource?>();
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            base.Serialize(context);
+            context.SetValue(nameof(Saved), Saved);
+        }
+    }
 }
 
 // A plugin transition can draw with a file of its own; no built-in transition holds one.

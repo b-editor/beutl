@@ -394,7 +394,7 @@ public sealed class SessionToolsTests
     }
 
     [Test]
-    public void SerializedGraphTraversal_TraversesElementHierarchyOutsideObjects()
+    public void SerializedGraphTraversal_SkipsUnsavedElementHierarchyOutsideObjects()
     {
         var element = new Element();
         var fallback = new FallbackTransform();
@@ -406,7 +406,7 @@ public sealed class SessionToolsTests
         Assert.Multiple(() =>
         {
             Assert.That(element.Objects, Is.Empty);
-            Assert.That(fallbacks, Has.One.SameAs(fallback));
+            Assert.That(fallbacks, Is.Empty);
         });
     }
 

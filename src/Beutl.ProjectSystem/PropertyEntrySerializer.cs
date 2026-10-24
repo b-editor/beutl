@@ -8,6 +8,16 @@ namespace Beutl;
 [ExcludeFromCodeCoverage]
 internal static class PropertyEntrySerializer
 {
+    public static void Write(ICoreSerializationContext context, string name, object? value, IKeyFrameAnimation? animation)
+    {
+        if (context is CoreSerializer.VisitorContext)
+            context.SetValue(name, new Entry(value, animation));
+        else
+            context.SetValue(name, ToJson(value, animation));
+    }
+
+    private sealed record Entry(object? Value, IKeyFrameAnimation? Animation);
+
     public static (Optional<object?> value, IKeyFrameAnimation? animation) ToTuple(JsonNode? json, Type valueType)
     {
         JsonNode? animationNode = null;

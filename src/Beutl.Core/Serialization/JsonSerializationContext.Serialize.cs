@@ -38,7 +38,7 @@ public partial class JsonSerializationContext
 
     // Whether System.Text.Json converts the type with a converter from the options or from [JsonConverter] on the
     // type itself (it does not look the attribute up on base types), rather than with a built-in one.
-    private static bool HasOwnJsonConverter(Type type)
+    internal static bool HasOwnJsonConverter(Type type)
     {
         return JsonHelper.SerializerOptions.Converters.Any(converter => converter.CanConvert(type))
                || type.IsDefined(typeof(JsonConverterAttribute), inherit: false);

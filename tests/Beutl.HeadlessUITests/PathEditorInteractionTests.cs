@@ -711,11 +711,7 @@ public class PathEditorInteractionTests
             {
                 float x = 10000 + i * 400;
                 var curve = PathEditingOperations.Cubic(new(x, 10400), new(x + 400, 10400), new(x + 400, 10000));
-                var expression = new Mock<IExpression<BtlPoint>>();
-                expression.Setup(e => e.Evaluate(It.IsAny<ExpressionContext>()))
-                    .Returns(() => { evaluations++; return new BtlPoint(x, 10400); });
-                expression.SetupGet(e => e.ExpressionString).Returns("distant point");
-                curve.ControlPoint1.Expression = expression.Object;
+                curve.ControlPoint1.Expression = new CountingPointExpression(new(x, 10400), () => evaluations++);
                 editor.Figure.Segments.Add(curve);
             }
         }
@@ -724,6 +720,24 @@ public class PathEditorInteractionTests
         evaluations = 0;
         editor.MouseMove(new(100, 100));
         Assert.That(evaluations, Is.LessThanOrEqualTo(count * 4), "far edges must not be adaptively evaluated");
+        Assert.DoesNotThrow(() => CoreSerializer.Visit(editor.Editor.Scene, _ => false));
+    }
+
+    private sealed class CountingPointExpression(BtlPoint value, Action evaluated) : IExpression<BtlPoint>
+    {
+        public string ExpressionString => "distant point";
+
+        public BtlPoint Evaluate(ExpressionContext context)
+        {
+            evaluated();
+            return value;
+        }
+
+        public bool Validate(out string? error)
+        {
+            error = null;
+            return true;
+        }
     }
 
     [AvaloniaTest]

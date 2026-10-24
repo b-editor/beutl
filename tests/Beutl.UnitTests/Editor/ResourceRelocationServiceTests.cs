@@ -3,6 +3,8 @@ using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Media;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor;
 
@@ -96,6 +98,30 @@ public class ResourceRelocationServiceTests
             Assert.That(result.FailedResources, Has.Count.EqualTo(1));
             Assert.That(result.FailedResources[0], Does.Contain(id.ToString()));
             Assert.That(result.FailedResources[0], Does.Contain("NonExistentProperty"));
+        });
+    }
+
+    [Test]
+    public async Task RelocateFileSourcesAsync_StopsObjectLookupsAtMatchingId()
+    {
+        string sourcePath = Path.Combine(_testDir, "asset.bin");
+        await File.WriteAllTextAsync(sourcePath, "media bytes");
+        var source = new TestFileSource(new Uri(sourcePath));
+        var owner = new CountingProjectItem { Source = source };
+        var remaining = Enumerable.Range(0, 32).Select(_ => new CountingProjectItem()).ToArray();
+        var project = new Project();
+        project.Items.Replace([owner, .. remaining]);
+
+        RelocationResult result = await new ResourceRelocationService().RelocateFileSourcesAsync(
+            [(owner.Id.Value, nameof(CountingProjectItem.Source), source.Uri)], project, _projectDir);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(result.SuccessCount, Is.EqualTo(1));
+            Assert.That(result.FailedResources, Is.Empty);
+            Assert.That(source.Uri.LocalPath, Is.EqualTo(Path.Combine(_projectDir, "resources", "asset.bin")));
+            Assert.That(File.ReadAllText(source.Uri.LocalPath), Is.EqualTo("media bytes"));
+            Assert.That(remaining.Sum(item => item.Writes), Is.Zero);
         });
     }
 
@@ -287,6 +313,20 @@ public class ResourceRelocationServiceTests
         finally
         {
             Environment.SetEnvironmentVariable("HOME", originalHome);
+        }
+    }
+
+    private sealed class CountingProjectItem : ProjectItem
+    {
+        public TestFileSource? Source { get; init; }
+
+        public int Writes { get; private set; }
+
+        public override void Serialize(ICoreSerializationContext context)
+        {
+            Writes++;
+            base.Serialize(context);
+            context.SetValue(nameof(Source), Source);
         }
     }
 }

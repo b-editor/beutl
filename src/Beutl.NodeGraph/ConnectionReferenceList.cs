@@ -31,7 +31,7 @@ internal static class ConnectionReferenceList
 
     public static void Write(ICoreSerializationContext context, ICoreList<Reference<Connection>> connections)
     {
-        context.SetValue("Connections", connections.Select(v => v.Id).ToArray());
+        context.SetValue("Connections", connections.ToArray());
     }
 
     public static void Read(ICoreSerializationContext context, ICoreList<Reference<Connection>> connections)

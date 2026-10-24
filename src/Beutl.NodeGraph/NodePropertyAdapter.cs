@@ -179,7 +179,7 @@ public sealed class NodePropertyAdapter<T> : IAnimatablePropertyAdapter<T>, IChi
     // Writes the value alone, for a port that finds its property by its own Name.
     internal void SerializeValue(ICoreSerializationContext context)
     {
-        context.SetValue("Setter", PropertyEntrySerializer.ToJson(_rxProperty.Value, Animation));
+        PropertyEntrySerializer.Write(context, "Setter", _rxProperty.Value, Animation);
     }
 
     public void Deserialize(ICoreSerializationContext context)
