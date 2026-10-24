@@ -34,23 +34,28 @@ public class TextElementsTests
             }
         ]);
 
-        var lines = new List<string[]>();
-        foreach (Span<FormattedText> line in items.Lines)
+        for (int enumeration = 0; enumeration < 2; enumeration++)
         {
-            string[] texts = new string[line.Length];
-            for (int i = 0; i < line.Length; i++)
-                texts[i] = line[i].Text.ToString();
-            lines.Add(texts);
-        }
+            var lines = new List<string[]>();
+            foreach (Span<FormattedText> line in items.Lines)
+            {
+                string[] texts = new string[line.Length];
+                for (int i = 0; i < line.Length; i++)
+                    texts[i] = line[i].Text.ToString();
+                lines.Add(texts);
+            }
 
-        Assert.That(lines, Is.EqualTo(new[]
-        {
-            new[] { "ABC" },
-            new[] { "DEF", "GHI" },
-            new[] { "" },
-            new[] { "JKL" },
-            new[] { "" },
-            new[] { "MNO" },
-        }));
+            Assert.That(lines, Is.EqualTo(new[]
+            {
+                new[] { "ABC" },
+                new[] { "DEF", "GHI" },
+                new[] { "" },
+                new[] { "JKL" },
+                new[] { "" },
+                new[] { "MNO" },
+            }));
+
+            items[0].Text = "Changed\nmore\nlines";
+        }
     }
 }
