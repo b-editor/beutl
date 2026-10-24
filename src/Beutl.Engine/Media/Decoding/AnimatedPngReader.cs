@@ -13,12 +13,14 @@ public class AnimatedPngReader : MediaReader
     private APNG.APNG _apng;
     private readonly int _frameCount;
     private readonly Rational _cycleDuration;
-    private Bitmap? _defaultImage;
     private FrameCache? _lastFrame;
 
     public AnimatedPngReader(string file)
     {
         _apng = new APNG.APNG(file);
+        // Without acTL before its image data the file is a still PNG, which the image decoders open.
+        if (_apng.IsSimplePNG)
+            throw new NotSupportedException("The file is not an animated PNG.");
 
         var duration = new Rational(0, 1);
         foreach (var frame in _apng.Frames)
@@ -37,10 +39,6 @@ public class AnimatedPngReader : MediaReader
         );
         _frameCount = _apng.Frames.Length;
         _cycleDuration = duration;
-        if (_apng.IsSimplePNG)
-        {
-            _defaultImage = Bitmap.FromStream(_apng.DefaultImage.GetStream());
-        }
     }
 
     public override VideoStreamInfo VideoInfo { get; }
@@ -119,12 +117,6 @@ public class AnimatedPngReader : MediaReader
         image = null;
 
         var seconds = new Rational(frame * VideoInfo.FrameRate.Denominator, VideoInfo.FrameRate.Numerator);
-
-        if (_defaultImage != null)
-        {
-            image = Ref<Bitmap>.Create(_defaultImage.Clone());
-            return true;
-        }
 
         int detectedFrame = FindFrameIndex(seconds);
         if (detectedFrame == -1)
@@ -224,8 +216,6 @@ public class AnimatedPngReader : MediaReader
     {
         base.Dispose(disposing);
         _apng = null!;
-        _defaultImage?.Dispose();
-        _defaultImage = null;
         _lastFrame?.Dispose();
         _lastFrame = null;
     }

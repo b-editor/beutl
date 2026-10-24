@@ -611,13 +611,15 @@ public class GateNodeTests
             $"The sample after the hold window must have started releasing (held≈{heldGain:F4}, released≈{releasedGain:F4}).");
     }
 
-    [Test]
-    public void Process_NonFinitePropertyDefault_FallsBackToDeclaredConstant()
+    [TestCase(float.NaN)]
+    [TestCase(0f)]
+    public void Process_NonFiniteValue_FallsBackToDeclaredConstant(float thresholdDefault)
     {
         const int sampleCount = SampleRate / 4;
         using var input = CreateConstantBuffer(0.9f, sampleCount);
 
-        using var node = CreateNode(threshold: float.NaN, attack: float.NaN, hold: float.NaN, release: float.NaN, range: float.NaN);
+        using var node = CreateNode(threshold: thresholdDefault, attack: float.NaN, hold: float.NaN, release: float.NaN, range: float.NaN);
+        node.Threshold.Value = float.NaN;
         node.AddInput(new BufferReplayNode(input));
 
         using var output = node.Process(CreateContext(MediaTime.Zero, MediaTime.FromSeconds(0.25)));
@@ -634,7 +636,7 @@ public class GateNodeTests
 
         float steadyPeakDb = PeakDb(output, sampleCount / 2);
         Assert.That(steadyPeakDb, Is.EqualTo(PeakDb(input, 0)).Within(1f),
-            $"With non-finite property defaults the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
+            $"With a non-finite value the declared constants must apply, but the tail measured {steadyPeakDb:F2} dB.");
     }
 
     [Test]

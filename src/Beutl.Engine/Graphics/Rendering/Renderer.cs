@@ -549,7 +549,7 @@ public class Renderer : IRenderer
         if (_nodeCache.TryGetValue(drawable, out Entry? entry))
         {
             _nodeCache.Remove(drawable);
-            DisposeEntryCore(entry, clearCache: true);
+            entry.Dispose();
         }
     }
 
@@ -1064,7 +1064,7 @@ public class Renderer : IRenderer
         var entries = _nodeCache.ToArray();
         _nodeCache.Clear();
         _allCurrentEntries.Clear();
-        DisposeEntries(entries, clearCache: true);
+        DisposeEntries(entries);
     }
 
     private void DisposeAllEntriesCore()
@@ -1072,52 +1072,22 @@ public class Renderer : IRenderer
         VerifyCleanupAccess(_dispatcher);
         var entries = _nodeCache.ToArray();
         _nodeCache.Clear();
-        // Compositor側でDisposeされるのでResourceはDisposeせず、NodeだけがDisposeされるようにする
-        DisposeEntries(entries, clearCache: false);
+        DisposeEntries(entries);
     }
 
-    private void DisposeEntries(KeyValuePair<Drawable, Entry>[] entries, bool clearCache)
+    private static void DisposeEntries(KeyValuePair<Drawable, Entry>[] entries)
     {
         Exception? primary = null;
         foreach (var item in entries)
         {
             try
             {
-                DisposeEntryCore(item.Value, clearCache);
+                item.Value.Dispose();
             }
             catch (Exception ex)
             {
                 primary ??= ex;
             }
-        }
-
-        if (primary is not null)
-            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
-    }
-
-    private void DisposeEntryCore(Entry entry, bool clearCache)
-    {
-        VerifyCleanupAccess(_dispatcher);
-        Exception? primary = null;
-        if (clearCache)
-        {
-            try
-            {
-                RenderNodeCacheHelper.ClearOwnedCaches(entry.Node);
-            }
-            catch (Exception ex)
-            {
-                primary = ex;
-            }
-        }
-
-        try
-        {
-            entry.Dispose();
-        }
-        catch (Exception ex)
-        {
-            primary ??= ex;
         }
 
         if (primary is not null)

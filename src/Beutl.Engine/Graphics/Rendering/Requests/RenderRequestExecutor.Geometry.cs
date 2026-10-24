@@ -220,7 +220,7 @@ internal sealed partial class RenderRequestExecutor
             OpaqueRenderDescription description,
             IReadOnlyList<MaterializedRenderValue> inputs,
             IReadOnlyList<bool> inputReadbacks,
-            IReadOnlyList<RenderExecutionInputRange> inputRanges,
+            IList<RenderExecutionInputRange> inputRanges,
             Rect outputBounds,
             EffectiveScale declaredScale,
             RenderValueCardinality cardinality)

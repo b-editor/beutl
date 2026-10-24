@@ -137,12 +137,12 @@ public sealed class CompressorNode : DynamicsNode
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(Threshold.Value, Threshold.DefaultValue, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Ratio = Sanitize(Ratio.Value, Ratio.DefaultValue, DefaultRatio, MinRatio, MaxRatio, nameof(Ratio)),
-            Attack = Sanitize(Attack.Value, Attack.DefaultValue, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Release = Sanitize(Release.Value, Release.DefaultValue, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Knee = Sanitize(Knee.Value, Knee.DefaultValue, DefaultKneeDb, MinKneeDb, MaxKneeDb, nameof(Knee)),
-            MakeupGain = Sanitize(MakeupGain.Value, MakeupGain.DefaultValue, DefaultMakeupGainDb, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
+            Threshold = Sanitize(Threshold.Value, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Ratio = Sanitize(Ratio.Value, DefaultRatio, MinRatio, MaxRatio, nameof(Ratio)),
+            Attack = Sanitize(Attack.Value, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Release = Sanitize(Release.Value, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Knee = Sanitize(Knee.Value, DefaultKneeDb, MinKneeDb, MaxKneeDb, nameof(Knee)),
+            MakeupGain = Sanitize(MakeupGain.Value, DefaultMakeupGainDb, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
         };
     }
 
@@ -152,12 +152,12 @@ public sealed class CompressorNode : DynamicsNode
     {
         return new EffectiveParameters
         {
-            Threshold = Sanitize(threshold, fallback.Threshold, DefaultThresholdDb, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
-            Ratio = Sanitize(ratio, fallback.Ratio, DefaultRatio, MinRatio, MaxRatio, nameof(Ratio)),
-            Attack = Sanitize(attack, fallback.Attack, DefaultAttackMs, MinAttackMs, MaxAttackMs, nameof(Attack)),
-            Release = Sanitize(release, fallback.Release, DefaultReleaseMs, MinReleaseMs, MaxReleaseMs, nameof(Release)),
-            Knee = Sanitize(knee, fallback.Knee, DefaultKneeDb, MinKneeDb, MaxKneeDb, nameof(Knee)),
-            MakeupGain = Sanitize(makeup, fallback.MakeupGain, DefaultMakeupGainDb, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
+            Threshold = Sanitize(threshold, fallback.Threshold, MinThresholdDb, MaxThresholdDb, nameof(Threshold)),
+            Ratio = Sanitize(ratio, fallback.Ratio, MinRatio, MaxRatio, nameof(Ratio)),
+            Attack = Sanitize(attack, fallback.Attack, MinAttackMs, MaxAttackMs, nameof(Attack)),
+            Release = Sanitize(release, fallback.Release, MinReleaseMs, MaxReleaseMs, nameof(Release)),
+            Knee = Sanitize(knee, fallback.Knee, MinKneeDb, MaxKneeDb, nameof(Knee)),
+            MakeupGain = Sanitize(makeup, fallback.MakeupGain, MinMakeupGainDb, MaxMakeupGainDb, nameof(MakeupGain)),
         };
     }
 

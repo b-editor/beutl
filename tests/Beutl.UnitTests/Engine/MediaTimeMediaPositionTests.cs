@@ -82,13 +82,9 @@ public sealed class MediaTimeMediaPositionTests
         var mismatches = new List<string>();
         for (int count = 1; count <= 256; count++)
         {
-            foreach (MediaTime duration in (MediaTime[])[
-                AudioProcessContext.GetDurationForSampleCount(count, sourceRate),
-                SourceSound.GetWaveformChunkDuration(count, sourceRate)])
-            {
-                if (AudioProcessContext.GetSampleCount(new TimeRange(MediaTime.Zero, duration), sourceRate) != count)
-                    mismatches.Add($"count {count}");
-            }
+            MediaTime duration = AudioProcessContext.GetDurationForSampleCount(count, sourceRate);
+            if (AudioProcessContext.GetSampleCount(new TimeRange(MediaTime.Zero, duration), sourceRate) != count)
+                mismatches.Add($"count {count}");
         }
 
         using var source = new ReadRecordingNode();

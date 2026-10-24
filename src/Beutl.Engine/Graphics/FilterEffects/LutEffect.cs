@@ -1,7 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shaders;
@@ -14,12 +13,15 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.LutEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class LutEffect : FilterEffect
 {
-    private static readonly ConditionalWeakTable<CubeFile, LutSnapshotState> s_lutSnapshots = new();
+    // One snapshot per parsed file: nothing writes CubeFile.Data after parsing.
+    private static readonly ConditionalWeakTable<CubeFile, LutShaderResource> s_lutSnapshots = new();
 
     private const string LutSamplingSource =
         """
             uniform shader lut;
             uniform int lutWidth;
+            uniform float3 domainMin;
+            uniform float3 domainMax;
 
             int modInt(int a, int b) {
                 return a - b * (a / b);
@@ -106,7 +108,7 @@ public sealed partial class LutEffect : FilterEffect
                 if (alpha <= 0.0001) return half4(0.0);
                 float3 rgb = c.rgb / alpha;
 
-                float3 srgbColor = linearToSrgb(rgb);
+                float3 srgbColor = (linearToSrgb(rgb) - domainMin) / (domainMax - domainMin);
                 float3 lutResult = trilinear_interpolate(srgbColor);
                 lutResult = srgbToLinear(lutResult);
                 float3 result = mix(rgb, lutResult, strength);
@@ -138,7 +140,7 @@ public sealed partial class LutEffect : FilterEffect
                 if (alpha <= 0.0001) return half4(0.0);
                 float3 rgb = c.rgb / alpha;
 
-                float3 srgbColor = linearToSrgb(rgb);
+                float3 srgbColor = (linearToSrgb(rgb) - domainMin) / (domainMax - domainMin);
 
                 float maxIdx = float(lutSize - 1);
                 float rIdx = clamp(srgbColor.r, 0.0, 1.0) * maxIdx;
@@ -193,10 +195,12 @@ public sealed partial class LutEffect : FilterEffect
         if (cube is null)
             return;
 
-        LutShaderResource lutSnapshot = s_lutSnapshots
-            .GetValue(cube, static _ => new LutSnapshotState())
-            .GetOrCreate(cube.Data);
+        LutShaderResource lutSnapshot = s_lutSnapshots.GetValue(cube, static c => LutShaderResource.Create(c.Data));
         RenderResource<LutShaderResource> lut = context.Borrow(lutSnapshot);
+        // Non-finite or non-growing domains use the default 0 to 1.
+        Vector3 domainSize = cube.Max - cube.Min;
+        bool validDomain = domainSize.X > 0 && domainSize.Y > 0 && domainSize.Z > 0
+            && float.IsFinite(domainSize.X) && float.IsFinite(domainSize.Y) && float.IsFinite(domainSize.Z);
         SkslSource shaderSource = cube.Dimention == CubeFileDimension.OneDimension
             ? s_shaderSource1D
             : s_shaderSource3D;
@@ -207,6 +211,8 @@ public sealed partial class LutEffect : FilterEffect
             {
                 bindings.Uniform("lutSize", cube.Size);
                 bindings.Uniform("lutWidth", lutSnapshot.Width);
+                bindings.Uniform("domainMin", validDomain ? cube.Min : Vector3.Zero);
+                bindings.Uniform("domainMax", validDomain ? cube.Max : Vector3.One);
                 bindings.Uniform("strength", r.Strength / 100f);
                 bindings.Resource(
                     "lut",
@@ -214,24 +220,6 @@ public sealed partial class LutEffect : FilterEffect
                     ShaderResourceCoordinateSpace.Value,
                     static (writer, value, _) => writer.Set(value.CreateShader()));
             }));
-    }
-
-    private sealed class LutSnapshotState
-    {
-        private readonly object _gate = new();
-        private LutShaderResource? _current;
-
-        public LutShaderResource GetOrCreate(ReadOnlySpan<Vector3> data)
-        {
-            lock (_gate)
-            {
-                if (_current is not null && _current.HasSameContent(data))
-                    return _current;
-
-                _current = LutShaderResource.Create(data);
-                return _current;
-            }
-        }
     }
 
     private sealed class LutShaderResource
@@ -251,10 +239,6 @@ public sealed partial class LutEffect : FilterEffect
 
         public static LutShaderResource Create(ReadOnlySpan<Vector3> data)
             => new(data.ToArray());
-
-        public bool HasSameContent(ReadOnlySpan<Vector3> data)
-            => MemoryMarshal.AsBytes(_data.AsSpan())
-                .SequenceEqual(MemoryMarshal.AsBytes(data));
 
         public SKShader CreateShader()
         {
