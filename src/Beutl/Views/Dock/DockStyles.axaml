@@ -112,6 +112,50 @@
         <ControlTheme x:Key="{x:Type ToolTabStrip}"
                       BasedOn="{StaticResource {x:Type ToolTabStrip}}"
                       TargetType="ToolTabStrip">
+            <Setter Property="Template">
+                <ControlTemplate x:CompileBindings="True" x:DataType="dmc:IToolDock">
+                    <Panel>
+                        <Border Name="PART_Border"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="{TemplateBinding CornerRadius}">
+                            <ScrollViewer x:Name="PART_ScrollViewer">
+                                <ItemsPresenter Name="PART_ItemsPresenter"
+                                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+                            </ScrollViewer>
+                        </Border>
+                        <!--
+                            Dock positions these overlays with margins derived from arranged bounds.
+                            Keep them out of measurement so those margins cannot retain a closed tab's width.
+                        -->
+                        <Canvas>
+                            <Panel Width="{Binding #PART_Border.Bounds.Width}"
+                                   Height="{Binding #PART_Border.Bounds.Height}">
+                                <Border Name="PART_BorderLeftFill" IsHitTestVisible="False" />
+                                <Border Name="PART_BorderRightFill" IsHitTestVisible="False" />
+                                <Border Name="PART_BorderFill"
+                                        DockProperties.IsDropArea="True"
+                                        DockProperties.IsDockTarget="True"
+                                        DockProperties.ShowDockIndicatorOnly="True"
+                                        DockProperties.IndicatorDockOperation="Fill">
+                                    <Border.Margin>
+                                        <MultiBinding Converter="{x:Static converters:BorderFillMarginConverter.Instance}">
+                                            <Binding Path="#PART_ItemsPresenter.Bounds.Width" />
+                                            <Binding Path="#PART_ItemsPresenter.Bounds.Height" />
+                                            <Binding Path="#PART_ItemsPresenter.IsVisible" />
+                                            <Binding Path="#PART_ItemsPresenter.VerticalAlignment" />
+                                            <Binding Path="#PART_ItemsPresenter.HorizontalAlignment" />
+                                        </MultiBinding>
+                                    </Border.Margin>
+                                </Border>
+                            </Panel>
+                        </Canvas>
+                    </Panel>
+                </ControlTemplate>
+            </Setter>
+
             <Style Selector="^:singleitem /template/ ItemsPresenter#PART_ItemsPresenter">
                 <Setter Property="IsVisible" Value="True" />
             </Style>
