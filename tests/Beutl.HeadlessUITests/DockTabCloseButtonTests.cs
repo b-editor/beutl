@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Extensibility;
 using Beutl.Testing.Headless;
@@ -148,13 +149,17 @@ public class DockTabCloseButtonTests
     }
 
     [AvaloniaTest]
-    public async Task Clicking_the_close_button_closes_the_tab()
+    [TestCase(0, 2)]
+    [TestCase(1, 2)]
+    [TestCase(0, 3)]
+    [TestCase(2, 3)]
+    public async Task Clicking_the_close_button_closes_the_tab_and_shrinks_the_header(int tabIndex, int initialCount)
     {
         await TestReset.ResetShellAsync();
-        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("dock-tab-close-click");
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync($"dock-tab-close-click-{tabIndex}-{initialCount}");
 
         var view = new EditView { DataContext = editor };
-        var window = new Window { Content = view, Width = 900, Height = 700 };
+        var window = new Window { Content = view, Width = 1600, Height = 700, RequestedThemeVariant = ThemeVariant.Dark };
 
         try
         {
@@ -162,9 +167,13 @@ public class DockTabCloseButtonTests
             HeadlessTestHelpers.Render();
 
             IToolDock leftDock = editor.DockHost.Factory.GetAnchoredDock(DockAnchor.Left)!;
+            while (leftDock.VisibleDockables!.Count < initialCount)
+                editor.DockHost.Factory.OpenNewToolTab(leftDock);
             int countBefore = leftDock.VisibleDockables!.Count;
             Assert.That(countBefore, Is.GreaterThan(1));
-            IDockable target = leftDock.VisibleDockables[0];
+            IDockable target = leftDock.VisibleDockables[tabIndex];
+            leftDock.ActiveDockable = target;
+            HeadlessTestHelpers.Render();
             ToolTabStripItem tab = TabFor(view, target);
             Button close = CloseButtonOf(tab);
 
@@ -178,10 +187,22 @@ public class DockTabCloseButtonTests
             HeadlessTestHelpers.Settle();
             HeadlessTestHelpers.Render();
 
+            ToolTabStripItem remainingTab = TabFor(view, leftDock.VisibleDockables[^1]);
+            ToolControl control = remainingTab.GetVisualAncestors().OfType<ToolControl>().First();
+            Border addButtonBorder = control.GetVisualDescendants().OfType<Border>()
+                .Single(border => border.Name == "PART_AddButtonBorder");
+            double tabRight = remainingTab.TranslatePoint(new Point(remainingTab.Bounds.Width, 0), control)!.Value.X;
+            double addButtonLeft = addButtonBorder.TranslatePoint(default, control)!.Value.X;
+
+            HeadlessCapture.SaveIfRequested(window, nameof(DockTabCloseButtonTests), $"after-closing-tab-{tabIndex}-of-{initialCount}");
+
             Assert.Multiple(() =>
             {
                 Assert.That(leftDock.VisibleDockables, Has.Count.EqualTo(countBefore - 1));
                 Assert.That(leftDock.VisibleDockables, Does.Not.Contain(target));
+                Assert.That(TabFor(view, leftDock.ActiveDockable!).IsSelected, Is.True);
+                Assert.That(addButtonLeft, Is.EqualTo(tabRight).Within(0.5),
+                    "The add button must follow the remaining tab without retaining the closed tab's width.");
             });
         }
         finally
