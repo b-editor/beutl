@@ -111,6 +111,39 @@ public class DeviceExtentLimitTests
     }
 
     [Test]
+    public void ShadowManagerInitialize_AllocatesOneShared2DShadowMap()
+    {
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
+        using var manager = new ShadowManager(device.Object, Mock.Of<IShaderCompiler>());
+
+        manager.Initialize();
+
+        device.Verify(
+            c => c.CreateTexture2D(
+                ShadowPass.DefaultShadowMapSize, ShadowPass.DefaultShadowMapSize, TextureFormat.Depth32Float),
+            Times.Once);
+    }
+
+    [Test]
+    public void PointShadowInitialize_AllocatesFaceDepthTexturesWithoutADedicatedCube()
+    {
+        Mock<IGraphicsContext> device = LooseDevice(AttachmentBudget, CubeBudget);
+        using var pass = new PointShadowPass(device.Object, Mock.Of<IShaderCompiler>());
+
+        pass.Initialize(64, 64);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(pass.ShadowCubeTexture, Is.Null);
+            device.Verify(c => c.CreateTextureCube(It.IsAny<int>(), It.IsAny<TextureFormat>()), Times.Never);
+            device.Verify(
+                c => c.CreateTexture2D(
+                    PointShadowPass.DefaultCubeFaceSize, PointShadowPass.DefaultCubeFaceSize, TextureFormat.Depth32Float),
+                Times.Exactly(6));
+        });
+    }
+
+    [Test]
     public void Renderer3DResize_PastWhatTheDeviceCanAttach_IsRefusedBeforeTheAllocator()
     {
         Mock<IGraphicsContext> device = MockDevice();
@@ -299,7 +332,12 @@ public class DeviceExtentLimitTests
 
         pass.ResizeShadowMap(CubeBudget);
 
-        device.Verify(c => c.CreateTexture2D(CubeBudget, CubeBudget, TextureFormat.Depth32Float), Times.Exactly(6));
+        Assert.Multiple(() =>
+        {
+            Assert.That(pass.ShadowCubeTexture, Is.Null);
+            device.Verify(c => c.CreateTextureCube(It.IsAny<int>(), It.IsAny<TextureFormat>()), Times.Never);
+            device.Verify(c => c.CreateTexture2D(CubeBudget, CubeBudget, TextureFormat.Depth32Float), Times.Exactly(6));
+        });
     }
 
     [Test]

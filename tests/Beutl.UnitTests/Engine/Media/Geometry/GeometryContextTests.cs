@@ -311,7 +311,7 @@ public sealed class GeometryContextTests
         Assert.Multiple(() =>
         {
             Assert.That(probe.Observed, Is.EqualTo(expectedObservations ?? []));
-            Assert.That(string.Join('\n', GeometryPathSnapshot.Describe(context.NativeObject)), Is.EqualTo(expectedPath));
+            Assert.That(string.Join('\n', GeometryPathSnapshot.Describe(context.NativeObject)), Is.EqualTo(expectedPath.ReplaceLineEndings("\n")));
         });
     }
 

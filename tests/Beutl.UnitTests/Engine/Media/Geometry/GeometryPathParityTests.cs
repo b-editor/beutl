@@ -321,7 +321,7 @@ public sealed class GeometryPathParityTests
         using Geometry.Resource resource = geometry.ToResource(CompositionContext.Default);
         string actual = string.Join('\n', GeometryPathSnapshot.Describe(resource.GetCachedPath()));
 
-        Assert.That(actual, Is.EqualTo(s_expectedPaths[TestContext.CurrentContext.Test.Name]));
+        Assert.That(actual, Is.EqualTo(s_expectedPaths[TestContext.CurrentContext.Test.Name].ReplaceLineEndings("\n")));
     }
 
     [TestCaseSource(nameof(Cases))]
