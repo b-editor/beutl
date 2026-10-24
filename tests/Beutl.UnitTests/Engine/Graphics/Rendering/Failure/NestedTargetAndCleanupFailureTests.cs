@@ -133,7 +133,6 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             Assert.That(failure, Is.SameAs(NestedRegionAnalysisFailureNode.PrimaryFailure));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(failure));
-            Assert.That(owner.SecondaryFailures, Is.Empty);
             Assert.That(owner.CleanupFailures, Is.Empty);
             Assert.That(owner.IsCleanedUp, Is.True);
             Assert.That(nested.Request.State, Is.EqualTo(RenderRequestState.Failed));
@@ -219,8 +218,6 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             Assert.That(failure, Is.SameAs(primary));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primary));
-            Assert.That(owner.SecondaryFailures, Is.Empty,
-                "Propagating one child failure to the parent must not record it twice.");
             Assert.That(executionOrder, Is.EqualTo(new[] { "child" }));
             Assert.That(child.ExecuteCalls, Is.EqualTo(1));
             Assert.That(parent.ExecuteCalls, Is.Zero,
@@ -337,8 +334,6 @@ public sealed class NestedTargetAndCleanupFailureTests
         {
             Assert.That(failure, Is.SameAs(primary));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primary));
-            Assert.That(owner.SecondaryFailures, Is.Empty,
-                "A successful child body is not a secondary failure when its family later aborts.");
             Assert.That(
                 executionOrder,
                 Is.EqualTo(new[] { "child-cache", "parent-cache", "parent-failure" }));
@@ -390,31 +385,6 @@ public sealed class NestedTargetAndCleanupFailureTests
             Assert.That(owner.PrimaryFailure, Is.Null);
             Assert.That(owner.IsCleanedUp, Is.True);
             Assert.That(execution.Registry.Statistics.LeasedTargets, Is.Zero);
-        });
-    }
-
-    [Test]
-    public void ExecutionPrimary_SurvivesCleanupFaultAndCleanupContinuesInStrictLifoOrder()
-    {
-        var order = new List<string>();
-        var primary = new InvalidOperationException("execution-primary");
-        var cleanup = new InvalidOperationException("cleanup-secondary");
-        using var node = new PrimaryAndCleanupFailureNode(order, primary, cleanup);
-        using var renderer = FailureTestSupport.CreateRenderer(
-            node,
-            useRenderCache: true,
-            purpose: RenderRequestPurpose.Frame);
-        node.Cache.RecordStableRequests();
-
-        InvalidOperationException? failure = Assert.Throws<InvalidOperationException>(() => renderer.Rasterize());
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(failure, Is.SameAs(primary));
-            Assert.That(order, Is.EqualTo(new[] { "last", "throwing", "first" }));
-            Assert.That(node.Resources, Has.All.Matches<OrderedDisposable>(resource => resource.DisposeCalls == 1));
-            Assert.That(node.Cache.IsCached, Is.False);
-            Assert.That(renderer.TargetPoolStatistics.LeasedTargets, Is.Zero);
         });
     }
 

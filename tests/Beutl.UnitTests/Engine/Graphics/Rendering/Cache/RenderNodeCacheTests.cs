@@ -3,11 +3,60 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
+using Beutl.Media;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering.Cache;
 
 public class RenderNodeCacheTests
 {
+    [Test]
+    public void Reset_StopsReleasingTargetsAfterTheFirstCleanupFailure()
+    {
+        using var node = new ContainerRenderNode();
+        using var remaining = new CpuRenderTarget(1, 1);
+        var failure = new IOException("cache cleanup failed");
+        using var faulting = new FailureTestRenderTarget(new PixelSize(1, 1), failure);
+        var bounds = new Rect(0, 0, 1, 1);
+        RenderNodeCachePublication publication = RenderCacheTestSupport.CreatePublication(node.Cache, remaining, bounds);
+        RenderNodeCachedValue failedValue = RenderCacheTestSupport.CreatePublication(node.Cache, faulting, bounds).Values[0];
+        RenderNodeCache.PublishAtomically([publication with { Values = [.. publication.Values, failedValue] }]);
+
+        Assert.That(Assert.Throws<IOException>(node.Cache.Reset), Is.SameAs(failure));
+        Assert.That(node.Cache.IsCached, Is.False);
+        Assert.That(faulting.IsDisposed, Is.True);
+        Assert.That(remaining.IsDisposed, Is.False);
+    }
+
+    [Test]
+    public void PublicationCleanupFailure_LeavesLaterOldCachesAloneAndKeepsTheNewTargets()
+    {
+        using var first = new ContainerRenderNode();
+        using var second = new ContainerRenderNode();
+        using var remaining = new CpuRenderTarget(1, 1);
+        var failure = new IOException("old cache cleanup failed");
+        using var faulting = new FailureTestRenderTarget(new PixelSize(1, 1), failure);
+        using var firstReplacement = new CpuRenderTarget(1, 1);
+        using var secondReplacement = new CpuRenderTarget(1, 1);
+        var bounds = new Rect(0, 0, 1, 1);
+        RenderNodeCache.PublishAtomically([
+            RenderCacheTestSupport.CreatePublication(first.Cache, remaining, bounds),
+            RenderCacheTestSupport.CreatePublication(second.Cache, faulting, bounds)]);
+
+        IReadOnlyList<Exception> failures = RenderNodeCache.PublishAtomically([
+            RenderCacheTestSupport.CreatePublication(first.Cache, firstReplacement, bounds),
+            RenderCacheTestSupport.CreatePublication(second.Cache, secondReplacement, bounds)]);
+
+        Assert.That(failures, Has.Exactly(1).SameAs(failure));
+        Assert.That(faulting.IsDisposed, Is.True);
+        Assert.That(remaining.IsDisposed, Is.False);
+        Assert.That(firstReplacement.IsDisposed, Is.False);
+        Assert.That(secondReplacement.IsDisposed, Is.False);
+        first.Cache.TryGetCachedOutput(first.Cache.CurrentCacheIdentity(), out RenderNodeCachedOutput? firstOutput);
+        second.Cache.TryGetCachedOutput(second.Cache.CurrentCacheIdentity(), out RenderNodeCachedOutput? secondOutput);
+        Assert.That(firstOutput?.Values.Single().Target, Is.SameAs(firstReplacement));
+        Assert.That(secondOutput?.Values.Single().Target, Is.SameAs(secondReplacement));
+    }
+
     [Test]
     public void StableRequests_ReachingThreshold_AdmitsCacheCapture()
     {

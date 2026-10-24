@@ -1,5 +1,4 @@
-﻿using System.Runtime.ExceptionServices;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
 using Microsoft.Extensions.Logging;
@@ -118,20 +117,17 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
         foreach ((RenderNodeCache cache, CacheStorage storage) in prepared)
             cache._storage = storage;
 
-        List<Exception>? failures = null;
-        for (int index = previous.Length - 1; index >= 0; index--)
+        try
         {
-            try
-            {
+            for (int index = previous.Length - 1; index >= 0; index--)
                 DisposeStorage(previous[index]);
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
+        }
+        catch (Exception ex)
+        {
+            return [ex];
         }
 
-        return failures ?? [];
+        return [];
     }
 
     private CacheStorage DetachStorage()
@@ -143,24 +139,8 @@ internal sealed class RenderNodeCache(RenderNode node) : IDisposable
 
     private static void DisposeStorage(CacheStorage storage)
     {
-        List<Exception>? failures = null;
         for (int index = storage.Values.Length - 1; index >= 0; index--)
-        {
-            try
-            {
-                storage.Values[index].Target.Dispose();
-            }
-            catch (Exception ex)
-            {
-                (failures ??= []).Add(ex);
-            }
-        }
-
-        if (failures is null)
-            return;
-        if (failures.Count == 1)
-            ExceptionDispatchInfo.Capture(failures[0]).Throw();
-        throw new AggregateException("One or more render-cache targets failed to dispose.", failures);
+            storage.Values[index].Target.Dispose();
     }
 
     private sealed record CacheStorage(

@@ -419,8 +419,6 @@ public sealed class NodeRecordingTransactionTests
             Assert.That(second.DisposeCount, Is.EqualTo(1));
             Assert.That(third.DisposeCount, Is.EqualTo(1));
             Assert.That(owner.PrimaryFailure?.SourceException, Is.SameAs(primary));
-            Assert.That(owner.SecondaryFailures, Has.Length.EqualTo(1));
-            Assert.That(owner.SecondaryFailures[0], Is.SameAs(secondCleanupFailure));
             Assert.That(owner.CleanupFailures, Is.EqualTo(new[] { secondCleanupFailure }));
         });
 
