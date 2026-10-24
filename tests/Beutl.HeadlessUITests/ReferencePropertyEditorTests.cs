@@ -103,8 +103,68 @@ public class ReferencePropertyEditorTests
         Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(replacement.Name.Value));
         replacement.Name.Value = "Renamed target";
         Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo("Renamed target"));
+        fixture.RemoveTarget();
+        fixture.Target.Name.Value = "Removed old target";
+        Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo("Renamed target"));
         fixture.Reference.SetTarget(new EngineObject());
         Assert.That(((IReferenceExpression)fixture.Property.Expression!).ObjectId, Is.EqualTo(replacement.Id.Value));
+    }
+
+    [AvaloniaTest]
+    [TestCaseSource(nameof(s_owners))]
+    public void RemovingTheTargetUpdatesTheLabelWithoutMovingThePlayhead(Type ownerType)
+    {
+        using var fixture = new Fixture(ownerType);
+        fixture.Show();
+        fixture.Reference.SetTarget(fixture.Target);
+        HeadlessTestHelpers.Render();
+        ReferenceEditor picker = fixture.Window.GetVisualDescendants().OfType<ReferenceEditor>().Single();
+        Assert.That(picker.TargetName, Is.EqualTo(fixture.Target.Name.Value));
+
+        fixture.RemoveTarget();
+        HeadlessTestHelpers.Render();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(MessageStrings.PropertyUnset));
+            Assert.That(picker.TargetName, Is.EqualTo(MessageStrings.PropertyUnset));
+            Assert.That(((IReferenceExpression)fixture.Property.Expression!).ObjectId, Is.EqualTo(fixture.Target.Id.Value));
+        }
+    }
+
+    [AvaloniaTest]
+    public void UndoingTargetRemovalRestoresTheLabelWithoutMovingThePlayhead()
+    {
+        using var fixture = new Fixture(typeof(DrawablePresenter));
+        fixture.Reference.SetTarget(fixture.Target);
+        fixture.RemoveTarget();
+        fixture.History.History.Commit("Remove target");
+        Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(MessageStrings.PropertyUnset));
+        fixture.Target.Name.Value = "Renamed while removed";
+        Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(MessageStrings.PropertyUnset));
+
+        Assert.That(fixture.History.History.Undo(), Is.True);
+        Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(fixture.Target.Name.Value));
+        Assert.That(fixture.History.History.Redo(), Is.True);
+        Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(MessageStrings.PropertyUnset));
+    }
+
+    [AvaloniaTest]
+    public void RemovingTheTargetsElementUpdatesTheLabelWithoutMovingThePlayhead()
+    {
+        using var fixture = new Fixture(typeof(BrushPresenter));
+        var scene = (Scene)fixture.Element.HierarchicalParent!;
+        var targetElement = new Element();
+        var shape = fixture.Element.Objects.OfType<RectShape>().Single();
+        fixture.Element.Objects.Remove(shape);
+        targetElement.Objects.Add(shape);
+        scene.Children.Add(targetElement);
+        fixture.Reference.SetTarget(fixture.Target);
+        Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(fixture.Target.Name.Value));
+
+        scene.Children.Remove(targetElement);
+
+        Assert.That(fixture.Reference.CurrentTargetName.Value, Is.EqualTo(MessageStrings.PropertyUnset));
     }
 
     [AvaloniaTest]
@@ -237,6 +297,28 @@ public class ReferencePropertyEditorTests
         {
             Window.Show();
             HeadlessTestHelpers.Render(3);
+        }
+
+        public void RemoveTarget()
+        {
+            switch (Target)
+            {
+                case Scene scene:
+                    Project.Items.Remove(scene);
+                    break;
+                case Brush brush:
+                    ((RectShape)brush.HierarchicalParent!).Fill.Value = null;
+                    break;
+                case FilterEffect effect:
+                    ((RectShape)effect.HierarchicalParent!).FilterEffect.Value = null;
+                    break;
+                case Transform transform:
+                    ((RectShape)transform.HierarchicalParent!).Transform.Value = null;
+                    break;
+                default:
+                    Element.Objects.Remove((EngineObject)Target);
+                    break;
+            }
         }
 
         public void Dispose()

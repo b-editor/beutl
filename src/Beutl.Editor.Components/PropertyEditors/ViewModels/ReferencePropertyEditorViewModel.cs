@@ -37,10 +37,31 @@ public sealed class ReferencePropertyEditorViewModel<T> : PropertyEditorViewMode
         CurrentTargetName = property.GetObservable()
             .CombineLatest(_reference.SubscribeExpressionChange())
             .CombineLatest(CurrentTime)
-            .Select(t => _reference.Evaluate(new CompositionContext(t.Second)))
-            .Select(target => target == null
-                ? Observable.ReturnThenNever<string?>(MessageStrings.PropertyUnset)
-                : target.Name.GetObservable().Select(_ => (string?)GetDisplayName(target)))
+            .Select(t =>
+            {
+                T? target = _reference.Evaluate(new CompositionContext(t.Second));
+                if (target == null) return Observable.ReturnThenNever<string?>(MessageStrings.PropertyUnset);
+
+                var changes = target.Name.GetObservable();
+                if (target is IHierarchical hierarchical)
+                {
+                    changes = changes.Merge(Observable.FromEventPattern<HierarchyAttachmentEventArgs>(
+                        handler =>
+                        {
+                            hierarchical.AttachedToHierarchy += handler;
+                            hierarchical.DetachedFromHierarchy += handler;
+                        },
+                        handler =>
+                        {
+                            hierarchical.AttachedToHierarchy -= handler;
+                            hierarchical.DetachedFromHierarchy -= handler;
+                        }).Select(_ => target.Name.Value));
+                }
+
+                return changes.Select(_ => _reference.Evaluate(new CompositionContext(t.Second)) is { } current
+                    ? (string?)GetDisplayName(current)
+                    : MessageStrings.PropertyUnset);
+            })
             .Switch()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
