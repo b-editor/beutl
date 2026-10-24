@@ -28,11 +28,23 @@ internal static class AnimationOperations
     internal static MediaTime ConvertKeyTime(IKeyFrameAnimation animation, MediaTime globalkeyTime, Scene? scene)
         => animation.ToLocal(globalkeyTime).RoundToFrame(GetFrameRate(scene), MidpointRounding.AwayFromZero);
 
-    internal static IObservable<MediaTime> ObserveTimeOrigin(IKeyFrameAnimation animation)
-        => (animation.FindHierarchicalParent<EngineObject>()?.TimeRange.GetObservable()
+    internal static MediaTime GetTimeOrigin(IKeyFrameAnimation animation, EngineObject? fallbackOwner = null)
+        => animation.HierarchicalParent == null && !animation.UseGlobalClock.Value
+            ? fallbackOwner?.Start ?? MediaTime.Zero
+            : animation.ToScene(MediaTime.Zero);
+
+    internal static IObservable<MediaTime> ObserveTimeOrigin(IKeyFrameAnimation animation, EngineObject? fallbackOwner = null)
+        => Observable.FromEventPattern<HierarchyAttachmentEventArgs>(
+                h => animation.AttachedToHierarchy += h, h => animation.AttachedToHierarchy -= h)
+            .Merge(Observable.FromEventPattern<HierarchyAttachmentEventArgs>(
+                h => animation.DetachedFromHierarchy += h, h => animation.DetachedFromHierarchy -= h))
+            .Select(_ => 0)
+            .StartWith(0)
+            .Select(_ => (animation.FindHierarchicalParent<EngineObject>() ?? fallbackOwner)?.TimeRange.GetObservable()
                 ?? Observable.ReturnThenNever(default(TimeRange)))
+            .Switch()
             .CombineLatest(animation.UseGlobalClock.GetObservable())
-            .Select(_ => animation.ToScene(MediaTime.Zero))
+            .Select(_ => GetTimeOrigin(animation, fallbackOwner))
             .DistinctUntilChanged();
 
     // The frame rate key times snap to: the project's, or 30 fps outside a project.

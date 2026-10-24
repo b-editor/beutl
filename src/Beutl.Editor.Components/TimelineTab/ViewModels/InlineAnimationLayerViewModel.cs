@@ -8,6 +8,7 @@ using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Logging;
 using Beutl.Serialization;
 using Beutl.Services;
@@ -39,8 +40,8 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
 
         Element.LayerHeader.Subscribe(OnLayerHeaderChanged).DisposeWith(_disposables);
 
-        LeftMargin = _timeOrigin.CombineLatest(Timeline.Options)
-            .Select(item => new Thickness(item.First.TimeToPixel(item.Second.Scale), 0, 0, 0))
+        LeftMargin = _timeOrigin.CombineLatest(Timeline.Options, Element.BorderMargin,
+                (origin, options, margin) => GetLeftMargin(origin, options.Scale, margin))
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
@@ -295,6 +296,19 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
         return new PrepareAnimationContext(Margin.Value, LeftMargin.Value);
     }
 
+    private Thickness GetLeftMargin(MediaTime origin, float scale, Thickness elementMargin)
+    {
+        if (Property.Animation is { UseGlobalClock.Value: false } animation)
+        {
+            EngineObject? anchor = animation.EnumerateAncestors<EngineObject>()
+                .FirstOrDefault(obj => obj.IsTimeAnchor.Value || obj.HierarchicalParent == Element.Model);
+            if (anchor?.HierarchicalParent == Element.Model && anchor.Start == Element.Model.Start.Value)
+                return elementMargin;
+        }
+
+        return new Thickness(origin.TimeToPixel(scale), 0, 0, 0);
+    }
+
     public async void AnimationRequest(PrepareAnimationContext context, Thickness layerMargin, Thickness leftMargin,
         CancellationToken cancellationToken = default)
     {
@@ -303,7 +317,7 @@ public sealed class InlineAnimationLayerViewModel : IDisposable
             Index.Value = layerHeader.Inlines.IndexOf(this);
             double top = layerHeader.CalculateInlineTop(Index.Value) + FrameNumberHelper.LayerHeight;
             Thickness newMargin = new Thickness(0, top, 0, 0) + layerMargin;
-            Thickness newLeftMargin = new(_timeOrigin.Value.TimeToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
+            Thickness newLeftMargin = GetLeftMargin(_timeOrigin.Value, Timeline.Options.Value.Scale, leftMargin);
 
             Margin.Value = context.Margin;
             LeftMargin.Value = context.LeftMargin;
