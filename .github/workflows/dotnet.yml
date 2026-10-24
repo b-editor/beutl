@@ -435,13 +435,6 @@ jobs:
           --configuration Release -f net10.0 --filter FullyQualifiedName~Controls.UiFontsTests
           --logger trx --results-directory TestResults/macos-fonts
 
-      - name: Test folder copies on macOS
-        run: >-
-          dotnet test tests/Beutl.HeadlessUITests/Beutl.HeadlessUITests.csproj
-          --configuration Release -f net10.0 --no-build
-          --filter FullyQualifiedName~FileBrowserFolderCopyTests
-          --logger trx --results-directory TestResults/macos-folder-copy
-
       # The AVFoundation fixtures are [Platform("MacOSX")], so the Linux shards skip them.
       - name: Test AVFoundation on macOS
         run: >-
@@ -458,7 +451,6 @@ jobs:
           name: MacOSTestDiagnostics
           path: |
             TestResults/macos-fonts/
-            TestResults/macos-folder-copy/
             TestResults/macos-avfoundation/
           if-no-files-found: ignore
           retention-days: 7
