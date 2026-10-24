@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics;
+﻿using Beutl.Composition;
+using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
 using Beutl.Media;
@@ -51,37 +52,32 @@ public class RenderNodeCacheHelperTest
     }
 
     [Test]
-    public void ClearOwnedCaches_ShouldInvalidateCache()
+    public void ClearAllCaches_ReleasesTheCacheOfEveryNodeTheEntryOwns()
     {
-        using var node = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        Rect bounds = new(0, 0, 100, 100);
-        using (var renderTarget = RenderTarget.CreateNull(100, 100))
+        var drawable = new OwnedCacheProbeDrawable();
+        using var resource = (Drawable.Resource)drawable.ToResource(CompositionContext.Default);
+        var frame = new CompositionFrame(
+            [resource],
+            new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(1)),
+            new PixelSize(100, 100),
+            null);
+
+        RenderThread.Dispatcher.Invoke(() =>
         {
-            RenderNodeCache.PublishAtomically(
-                [RenderCacheTestSupport.CreatePublication(node.Cache, renderTarget, bounds)]);
-        }
+            using Renderer renderer = RendererTestSupport.CreateCpuRenderer(100, 100);
+            renderer.CacheOptions = RenderCacheOptions.Enabled;
+            for (int i = 0; i <= RenderNodeCache.StableRequestCount + 1; i++)
+                renderer.Render(frame);
+            Assert.That(drawable.Leaf.Cache.IsCached, Is.True);
 
-        RenderNodeCacheHelper.ClearOwnedCaches(node);
+            renderer.ClearAllCaches();
 
-        Assert.That(node.Cache.IsCached, Is.False);
-    }
-
-    [Test]
-    public void ClearOwnedCaches_ShouldInvalidateCache_WhenNodeIsContainerRenderNode()
-    {
-        using var node = new ContainerRenderNode();
-        using var childNode = new EllipseRenderNode(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
-        Rect bounds = new(0, 0, 100, 100);
-        using (var renderTarget = RenderTarget.CreateNull(100, 100))
-        {
-            RenderNodeCache.PublishAtomically(
-                [RenderCacheTestSupport.CreatePublication(childNode.Cache, renderTarget, bounds)]);
-        }
-        node.AddChild(childNode);
-
-        RenderNodeCacheHelper.ClearOwnedCaches(node);
-
-        Assert.That(childNode.Cache.IsCached, Is.False);
+            Assert.Multiple(() =>
+            {
+                Assert.That(drawable.Leaf.IsDisposed, Is.True);
+                Assert.That(drawable.Leaf.Cache.IsCached, Is.False);
+            });
+        });
     }
 
     [Test]
@@ -334,5 +330,30 @@ public class RenderNodeCacheHelperTest
                 RenderScaleContract.Vector,
                 resources: [s_probeSlot.Bind(probe)])));
         }
+    }
+}
+
+// Top-level partial because EngineObjectResourceGenerator does not support nested types.
+internal sealed partial class OwnedCacheProbeDrawable : Drawable
+{
+    private readonly ContainerRenderNode _group = new();
+
+    public OwnedCacheProbeDrawable()
+    {
+        _group.AddChild(Leaf);
+    }
+
+    // Two levels below the entry's node, so only a release that follows ownership reaches its cache.
+    public EllipseRenderNode Leaf { get; } = new(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
+
+    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    {
+        context.DrawNode(_group);
+    }
+
+    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(100, 100);
+
+    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    {
     }
 }
