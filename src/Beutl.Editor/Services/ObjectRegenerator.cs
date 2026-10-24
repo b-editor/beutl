@@ -22,9 +22,18 @@ public static class ObjectRegenerator
             EmbedsCopy = true
         });
 
-        // Each object of the copy writes its Id, including fallbacks and the objects unknown members keep.
+        var referenceMembers = new Dictionary<Guid, HashSet<string>>();
+        foreach (CoreObject owner in ChildObjects.Walk(obj, IsReferencedProjectItem).OfType<CoreObject>())
+        {
+            HashSet<string> names = [.. owner.RegisteredProperties
+                .OfType<IExpressionProperty>().Where(p => p.IsReference).Select(p => p.Name)];
+            if (names.Count > 0)
+                referenceMembers[owner.Id.Value] = names;
+        }
+
+        // Inline reference values keep their format, but only owned objects contribute Ids to renew.
         var newIds = new Dictionary<Guid, Guid>();
-        foreach (Guid id in CollectSerializedIds(jsonObject))
+        foreach (Guid id in CollectSerializedIds(jsonObject, referenceMembers))
             newIds.TryAdd(id, Guid.NewGuid());
 
         JsonSerializerOptions options = JsonHelper.SerializerOptions;
@@ -75,13 +84,24 @@ public static class ObjectRegenerator
     private static bool IsReferencedProjectItem(object obj) => obj is ProjectItem { Uri: not null };
 
     // The Ids of every object serialized in node, found under the "Id" key that CoreObject writes them to.
-    private static IEnumerable<Guid> CollectSerializedIds(JsonNode? node)
+    private static IEnumerable<Guid> CollectSerializedIds(JsonNode? node, Dictionary<Guid, HashSet<string>> referenceMembers)
     {
         switch (node)
         {
             case JsonObject obj:
+                HashSet<string>? references = null;
+                if (obj[nameof(ICoreObject.Id)] is JsonValue ownerValue
+                    && ownerValue.TryGetValue(out string? ownerText)
+                    && Guid.TryParse(ownerText, out Guid ownerId))
+                {
+                    referenceMembers.TryGetValue(ownerId, out references);
+                }
+
                 foreach ((string key, JsonNode? child) in obj)
                 {
+                    if (references?.Contains(key) == true)
+                        continue;
+
                     if (key == nameof(ICoreObject.Id)
                         && child is JsonValue value
                         && value.TryGetValue(out string? text)
@@ -92,7 +112,7 @@ public static class ObjectRegenerator
                     }
                     else
                     {
-                        foreach (Guid nested in CollectSerializedIds(child))
+                        foreach (Guid nested in CollectSerializedIds(child, referenceMembers))
                             yield return nested;
                     }
                 }
@@ -101,7 +121,7 @@ public static class ObjectRegenerator
             case JsonArray array:
                 foreach (JsonNode? item in array)
                 {
-                    foreach (Guid nested in CollectSerializedIds(item))
+                    foreach (Guid nested in CollectSerializedIds(item, referenceMembers))
                         yield return nested;
                 }
 

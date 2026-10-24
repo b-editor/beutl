@@ -89,6 +89,8 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 
     private void InitializePublishers(object? value)
     {
+        if (_expressionProperty?.IsReference == true) return;
+
         if (value is IList list)
         {
             _valuePublisher = OperationObserverHelpers.CreateCollectionObserver(

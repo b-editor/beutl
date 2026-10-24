@@ -1,6 +1,7 @@
 ﻿using Beutl.Animation;
 using Beutl.Editor;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Transitions;
@@ -45,6 +46,12 @@ public class FileReferenceWalkerParityTests
     {
         Scene scene = CreateScene("main.scene");
         Uri expected = AddFileIn(scene, place);
+
+        if (place == Place.ReferencedScene)
+        {
+            Assert.That(Find(walker, scene), Is.Empty);
+            scene = scene.FindRequiredHierarchicalParent<Project>().Items.OfType<Scene>().Single(s => !ReferenceEquals(s, scene));
+        }
 
         Assert.That(Find(walker, scene).Distinct(), Is.EqualTo(new[] { expected }));
     }
@@ -104,7 +111,10 @@ public class FileReferenceWalkerParityTests
                 nested.Source.Value = Open<VideoSource>(uri);
                 referenced.Children.Add(ElementWith(nested));
                 var drawable = new SceneDrawable();
-                drawable.ReferencedScene.Value = referenced;
+                var project = new Project();
+                project.Items.Add(scene);
+                project.Items.Add(referenced);
+                drawable.ReferencedScene.Expression = new ReferenceExpression<Scene?>(referenced.Id.Value);
                 element = ElementWith(drawable);
                 break;
         }

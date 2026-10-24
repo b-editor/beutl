@@ -5,6 +5,7 @@ using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.NodeGraph;
 
@@ -31,7 +32,8 @@ public sealed class SceneNodeTests
     public void DrawsTheSceneAtItsTimeInputWhateverTheGraphsTime()
     {
         Scene referenced = CreateScene(new RectShape());
-        var (model, node) = CreateGraph(referenced);
+        var (model, node) = CreateGraph();
+        HostGraph(model, node, referenced, startSeconds: 0);
 
         node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
         Assert.That(Evaluate(model, node, MediaTime.FromSeconds(2)), Is.EqualTo(1), "The element is on screen at 0.5 s.");
@@ -45,7 +47,8 @@ public sealed class SceneNodeTests
     public void ATimeNodePlaysTheSceneInStepWithTheGraph()
     {
         Scene referenced = CreateScene(new RectShape());
-        var (model, node) = CreateGraph(referenced);
+        var (model, node) = CreateGraph();
+        HostGraph(model, node, referenced, startSeconds: 0);
         var time = new Beutl.NodeGraph.Nodes.Utilities.TimeNode();
         model.Nodes.Add(time);
         Connection connection = model.Connect(node.Time, time.Time);
@@ -59,7 +62,8 @@ public sealed class SceneNodeTests
     public void OutputActuallyDrawsTheReferencedScene()
     {
         Scene referenced = CreateScene(CreateRedSquare());
-        var (model, node) = CreateGraph(referenced);
+        var (model, node) = CreateGraph();
+        HostGraph(model, node, referenced, startSeconds: 0);
         node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
 
         using var snapshot = new GraphSnapshot();
@@ -83,8 +87,8 @@ public sealed class SceneNodeTests
     public void TimeNamesTheReferencedScenesTimeWhereverTheGraphsElementStarts()
     {
         Scene referenced = CreateScene(new RectShape());
-        var (model, node) = CreateGraph(referenced);
-        HostGraph(model, referenced);
+        var (model, node) = CreateGraph();
+        HostGraph(model, node, referenced, startSeconds: 5);
         Assert.That(node.Object.Value.Start, Is.EqualTo(MediaTime.Zero), "The scene's time does not follow the hosting element.");
 
         node.Time.Property!.SetValue(MediaTime.FromSeconds(0.5));
@@ -103,12 +107,12 @@ public sealed class SceneNodeTests
         Beutl.UnitTests.Engine.Graphics.Backend.VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             Scene referenced = CreateScene(CreateRedSquare());
-            var (model, node) = CreateGraph(referenced);
+            var (model, node) = CreateGraph();
             node.Time.Property!.SetValue(MediaTime.FromSeconds(seconds));
             var output = new OutputNode();
             model.Nodes.Add(output);
             model.Connect(output.InputPort, node.Output);
-            Scene outer = HostGraph(model, referenced);
+            Scene outer = HostGraph(model, node, referenced, startSeconds: 5);
 
             using var renderer = new SceneRenderer(outer, Beutl.Graphics.Rendering.RenderIntent.Preview);
             renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(6)));
@@ -151,7 +155,7 @@ public sealed class SceneNodeTests
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value = graph;
         Scene scene = CreateScene(drawable);
-        node.Object.Value.ReferencedScene.Value = scene;
+        node.Object.Value.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, scene);
 
         using var compositor = new SceneCompositor(scene);
         Assert.DoesNotThrow(() => compositor.EvaluateGraphics(MediaTime.FromSeconds(0.5)));
@@ -182,33 +186,29 @@ public sealed class SceneNodeTests
         Fill = { Value = new Beutl.Media.SolidColorBrush(Beutl.Media.Colors.Red) },
     };
 
-    // As in the editor: the graph's element starts at 5 s in a scene of its own, in the referenced scene's project.
-    private Scene HostGraph(GraphModel model, Scene referenced)
+    // The graph and referenced scene share a project, with an explicit element time anchor.
+    private Scene HostGraph(GraphModel model, SceneNode node, Scene referenced, double startSeconds)
     {
         var drawable = new NodeGraphDrawable();
         drawable.Model.Value = model;
         var host = new Element
         {
-            Start = { Value = MediaTime.FromSeconds(5) },
+            Start = { Value = MediaTime.FromSeconds(startSeconds) },
             Length = { Value = MediaTime.FromSeconds(10) },
             Uri = new Uri(Path.Combine(_directory, "host.layer")),
         };
         host.AddObject(drawable);
         var outer = new Scene(64, 48, "outer") { Uri = new Uri(Path.Combine(_directory, "outer.scene")) };
         outer.Children.Add(host);
-        var application = new BeutlApplication();
-        var project = new Project();
-        application.Project.Value = project;
-        project.Items.Add(outer);
-        project.Items.Add(referenced);
+        node.Object.Value.ReferencedScene.Expression = SceneReferenceTestHelper.Create(outer, referenced);
+        Assert.That(model.FindHierarchicalParent<Element>(), Is.SameAs(host), "The graph must belong to the intended host.");
         return outer;
     }
 
-    private static (GraphModel Model, SceneNode Node) CreateGraph(Scene referenced)
+    private static (GraphModel Model, SceneNode Node) CreateGraph()
     {
         var model = new GraphModel();
         var node = new SceneNode();
-        node.Object.Value.ReferencedScene.Value = referenced;
         model.Nodes.Add(node);
         return (model, node);
     }

@@ -107,8 +107,7 @@ public class SceneDrawableScaleTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             Scene inner = CreateInnerScene(_basePath, 120, 90);
-            var drawable = new SceneDrawable();
-            drawable.ReferencedScene.Value = inner;
+            SceneDrawable drawable = SceneDrawableTestHelpers.CreateDrawable(inner);
 
             RenderNodeMeasurement measurement = MeasureConcreteOutput(drawable, inner, outputScale);
 
@@ -128,8 +127,7 @@ public class SceneDrawableScaleTests
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             Scene inner = CreateInnerSceneWithBackdrop(_basePath, 120, 90);
-            var drawable = new SceneDrawable();
-            drawable.ReferencedScene.Value = inner;
+            SceneDrawable drawable = SceneDrawableTestHelpers.CreateDrawable(inner);
 
             using Drawable.Resource resource = drawable.ToResource(new CompositionContext(MediaTime.Zero));
             using var root = new DrawableRenderNode(resource);
@@ -154,8 +152,7 @@ public class SceneDrawableScaleTests
     public void NestedScene_ReusesChildrenAndWarmsStableChildCachesDespiteChangingAncestors()
     {
         Scene inner = CreateInnerSceneWithTwoDrawables(_basePath, 120, 90);
-        var drawable = new SceneDrawable();
-        drawable.ReferencedScene.Value = inner;
+        SceneDrawable drawable = SceneDrawableTestHelpers.CreateDrawable(inner);
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
             new CompositionContext(MediaTime.Zero));
@@ -214,8 +211,7 @@ public class SceneDrawableScaleTests
             120,
             90,
             out RetryingSceneDrawable retrying);
-        var drawable = new SceneDrawable();
-        drawable.ReferencedScene.Value = inner;
+        SceneDrawable drawable = SceneDrawableTestHelpers.CreateDrawable(inner);
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
             new CompositionContext(MediaTime.Zero));
@@ -268,8 +264,7 @@ public class SceneDrawableScaleTests
             120,
             90,
             out RetryingSceneDrawable retrying);
-        var drawable = new SceneDrawable();
-        drawable.ReferencedScene.Value = inner;
+        SceneDrawable drawable = SceneDrawableTestHelpers.CreateDrawable(inner);
 
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
             new CompositionContext(MediaTime.Zero));
