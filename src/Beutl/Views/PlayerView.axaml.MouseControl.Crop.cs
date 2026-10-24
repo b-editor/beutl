@@ -167,10 +167,11 @@ public partial class PlayerView
         {
             if (_pressed)
             {
-                float scale = ViewModel.Scene!.FrameSize.Value.Width / (float)Image.Bounds.Width;
-                Rect rect = new Rect(_start.ToBtlPoint() * scale, _position.ToBtlPoint() * scale).Normalize();
-
-                ShowCropResultMenu(rect);
+                if (View.ViewportTransform is { } viewport)
+                {
+                    Rect rect = new Rect(viewport.ToFrame(_start).ToBtlPoint(), viewport.ToFrame(_position).ToBtlPoint()).Normalize();
+                    ShowCropResultMenu(rect);
+                }
 
                 if (_border != null)
                 {

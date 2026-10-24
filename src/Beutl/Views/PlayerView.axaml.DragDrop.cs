@@ -29,9 +29,9 @@ public partial class PlayerView
         if (DataContext is not PlayerViewModel { Scene: { } scene, EditViewModel: { } editViewModel } viewModel) return;
         MediaTime frame = viewModel.CurrentFrame.Value;
 
+        if (ViewportTransform is not { } viewport) return;
         AvaPoint position = e.GetPosition(image);
-        double scaleX = image.Bounds.Size.Width / scene.FrameSize.Value.Width;
-        Point scaledPosition = (position / scaleX).ToBtlPoint();
+        Point scaledPosition = viewport.ToFrame(position).ToBtlPoint();
         Point centeredPosition = scaledPosition - new Point(scene.FrameSize.Value.Width / 2f, scene.FrameSize.Value.Height / 2f);
 
         if (storage != null)

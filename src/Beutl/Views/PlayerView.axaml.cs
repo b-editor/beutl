@@ -185,7 +185,7 @@ public partial class PlayerView : UserControl
                 pathEditorView.Height = bounds.Height;
                 transformHandlesOverlay.Width = bounds.Width;
                 transformHandlesOverlay.Height = bounds.Height;
-                UpdateTransformHandles();
+                UpdateViewportScale();
             });
     }
 
@@ -272,6 +272,10 @@ public partial class PlayerView : UserControl
             if (vm.Scene is { } scene)
             {
                 WirePlayerMarkers(scene).DisposeWith(_disposables);
+                scene.FrameSize.GetObservable()
+                    .ObserveOnUIDispatcher()
+                    .Subscribe(_ => UpdateViewportScale())
+                    .DisposeWith(_disposables);
             }
             else
             {
@@ -313,10 +317,8 @@ public partial class PlayerView : UserControl
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
                 if (DataContext is PlayerViewModel { Scene: { } } vm)
                 {
-                    int width = vm.Scene.FrameSize.Value.Width;
-                    if (width == 0) return;
-                    double actualWidth = image.Bounds.Width * matrix.M11;
-                    double pixelSize = actualWidth / width;
+                    if (ViewportTransform is not { } viewport) return;
+                    double pixelSize = viewport.FrameScale * matrix.M11;
                     if (pixelSize >= 1)
                     {
                         RenderOptions.SetBitmapInterpolationMode(image, BitmapInterpolationMode.None);
@@ -390,13 +392,12 @@ public partial class PlayerView : UserControl
 
         var renderer = vm.EditViewModel.Renderer.Value;
         var scene = vm.EditViewModel.Scene;
-        if (image.Bounds.Width <= 0 || scene.FrameSize.Value.Width <= 0)
+        if (ViewportTransform is not { } viewport)
         {
             ClearTransformHandleOverlay();
             return;
         }
 
-        double frameScale = image.Bounds.Width / scene.FrameSize.Value.Width;
         BtlDrawable? drawable = ResolveOverlayDrawable(element);
         if (drawable == null)
         {
@@ -429,7 +430,7 @@ public partial class PlayerView : UserControl
             return;
         }
 
-        transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, image.Bounds.Size, frameScale);
+        transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, viewport);
     }
 
     // The render thread's answer, or fallback when it does not come within RenderThreadWait.

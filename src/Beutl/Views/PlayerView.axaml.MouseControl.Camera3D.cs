@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Threading;
 using Beutl.Composition;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Engine;
 using Beutl.Graphics;
@@ -132,7 +133,7 @@ public partial class PlayerView
             _selectedGizmoAxis = GizmoAxis.None;
             _frameToScene = null;
 
-            if (_scene3D == null)
+            if (_scene3D == null || View.ViewportTransform is not { } viewport)
                 return;
 
             var sceneResource = RenderThread.Dispatcher.Invoke(() => FindScene3DResource(), RenderThreadWait);
@@ -143,7 +144,7 @@ public partial class PlayerView
             Scene3D scene3D = _scene3D;
             Matrix frameToScene = RenderThread.Dispatcher.Invoke(() => GetFrameToScene(scene3D), RenderThreadWait);
             _frameToScene = frameToScene;
-            Point screenPoint = frameToScene.Transform(ToFramePoint(_lastPosition));
+            Point screenPoint = frameToScene.Transform(viewport.ToFrame(_lastPosition).ToBtlPoint());
 
             var currentGizmoTarget = _scene3D.GizmoTarget.Value;
             var currentGizmoMode = _scene3D.GizmoMode.Value;
@@ -646,13 +647,12 @@ public partial class PlayerView
         // The pointer's move in the scene's render pixels, through the preview's fit and the scene's 2D transform.
         private AvaPoint ToRenderDelta(AvaPoint from, AvaPoint to)
         {
-            double frameScale = Image.Bounds.Size.Width / EditViewModel.Scene.FrameSize.Value.Width;
-            if (!(frameScale > 0) || _scene3D is not { } scene3D)
+            if (View.ViewportTransform is not { } viewport || _scene3D is not { } scene3D)
                 return default;
 
             Matrix frameToScene = _frameToScene ??= RenderThread.Dispatcher.Invoke(() => GetFrameToScene(scene3D), RenderThreadWait);
-            Point start = frameToScene.Transform(new Point((float)(from.X / frameScale), (float)(from.Y / frameScale)));
-            Point end = frameToScene.Transform(new Point((float)(to.X / frameScale), (float)(to.Y / frameScale)));
+            Point start = frameToScene.Transform(viewport.ToFrame(from).ToBtlPoint());
+            Point end = frameToScene.Transform(viewport.ToFrame(to).ToBtlPoint());
             return new AvaPoint(end.X - start.X, end.Y - start.Y);
         }
 
@@ -759,7 +759,8 @@ public partial class PlayerView
                 }
             }
 
-            Point point = ToFramePoint(_lastPosition);
+            if (View.ViewportTransform is not { } viewport) return;
+            Point point = viewport.ToFrame(_lastPosition).ToBtlPoint();
 
             var drawable = QueryRenderThread<Drawable?>(() =>
             {
@@ -794,12 +795,6 @@ public partial class PlayerView
                 _scene3D = scene3D;
                 _camera = scene3D.Camera.Value;
             }
-        }
-
-        private Point ToFramePoint(AvaPoint viewPoint)
-        {
-            double scale = Image.Bounds.Size.Width / EditViewModel.Scene.FrameSize.Value.Width;
-            return new Point((float)(viewPoint.X / scale), (float)(viewPoint.Y / scale));
         }
 
         private Scene3D.Resource? FindScene3DResource()
