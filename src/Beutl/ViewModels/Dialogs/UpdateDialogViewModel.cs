@@ -1,4 +1,5 @@
 ﻿using System.IO.Compression;
+using System.Security.Cryptography;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Beutl.Api;
@@ -288,6 +289,11 @@ public class UpdateDialogViewModel
     private static string UpdateStagingRoot
         => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "update");
 
+    // Downloads go to their own folder, so a server-chosen name cannot overwrite the update
+    // scripts in tmp, which this application later executes.
+    private static string DownloadDirectory
+        => Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp", "download");
+
     // A zip update unpacks into a folder named like the one the application runs from.
     private static string ZipStagingDirectory
         => GetZipStagingDirectory(AppContext.BaseDirectory, UpdateStagingRoot);
@@ -348,34 +354,69 @@ public class UpdateDialogViewModel
         return scriptPath;
     }
 
-    // The file the update downloads to: the given path, or the name the server or the URL
-    // gives it in the home directory's tmp folder, which is created when missing.
+    // The file the update downloads to: the given path, or a sanitized name the server or the
+    // URL gives it in a folder of its own, which is created when missing.
     private string ResolveDownloadTarget(HttpResponseMessage response, string? destinationPath)
     {
-        var file = destinationPath ?? response.Content.Headers.ContentDisposition?.FileName;
-        if (file == null)
-        {
-            var arr = Update.DownloadUrl!.Split('/');
-            file = arr[^1].Length == 0 ? arr[^2] : arr[^1];
-        }
-
-        _logger.LogInformation("Guessed file name: {FileName}", file);
-
-        var directory = destinationPath != null ? Path.GetDirectoryName(destinationPath)!
-            : Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "tmp");
+        var directory = destinationPath != null
+            ? Path.GetDirectoryName(Path.GetFullPath(destinationPath))!
+            : DownloadDirectory;
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
-        file = destinationPath ?? Path.Combine(directory, file);
+        if (destinationPath != null)
+            return Path.GetFullPath(destinationPath);
 
+        string name = NormalizeFileName(response.Content.Headers.ContentDisposition?.FileName)
+            ?? NormalizeFileName(Uri.TryCreate(Update.DownloadUrl, UriKind.Absolute, out Uri? uri)
+                ? Uri.UnescapeDataString(uri.AbsolutePath)
+                : null)
+            ?? "update";
+
+        string file = Path.GetFullPath(Path.Combine(directory, name));
+        if (!FilePathComparison.IsSameOrDescendant(directory, file))
+            throw new InvalidDataException(MessageStrings.DownloadFailed);
+
+        _logger.LogInformation("Resolved download file name: {FileName}", name);
         return file;
+    }
+
+    // Keep a single path component made of characters that are safe both as a file name on
+    // every platform and inside the Linux update command, which runs through a shell.
+    internal static string? NormalizeFileName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        string name = value.Trim().Trim('"').Replace('\\', '/');
+        name = name[(name.LastIndexOf('/') + 1)..];
+        name = string.Concat(name.Select(c =>
+                char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '_'))
+            .Trim(' ', '.');
+        return name.Length == 0 ? null : name;
+    }
+
+    // The digest is hex, optionally written the way GitHub release assets spell it.
+    private static string? NormalizeSha256(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        string hash = value.Trim();
+        if (hash.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+            hash = hash["sha256:".Length..];
+        if (hash.Length != 64 || !hash.All(Uri.IsHexDigit))
+            throw new InvalidDataException(MessageStrings.DownloadFailed);
+
+        return hash;
     }
 
     // Test seam: only tests pass maximumBytes.
     internal async Task<string?> DownloadFile(string? destinationPath = null, HttpClient? httpClient = null, long? maximumBytes = null)
     {
+        string? temporaryPath = null;
         try
         {
             ProgressValue.Value = 0;
@@ -383,7 +424,8 @@ public class UpdateDialogViewModel
             IsIndeterminate.Value = false;
             ProgressText.Value = MessageStrings.Downloading;
             var ct = _cts.Token;
-            if (IsFlatpak && (!Uri.TryCreate(Update.DownloadUrl, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps))
+            if (!Uri.TryCreate(Update.DownloadUrl, UriKind.Absolute, out Uri? uri)
+                || uri.Scheme != Uri.UriSchemeHttps)
                 throw new InvalidDataException(MessageStrings.DownloadFailed);
 
             _logger.LogInformation("Downloading update from {DownloadUrl}", Update.DownloadUrl);
@@ -391,29 +433,69 @@ public class UpdateDialogViewModel
             using var response =
                 await client.GetAsync(Update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();
+            // A redirect may leave HTTPS, so check where the response actually came from.
+            if (response.RequestMessage?.RequestUri is { } finalUri
+                && !string.Equals(finalUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(MessageStrings.DownloadFailed);
+
             long? contentLength = response.Content.Headers.ContentLength;
             long limit = maximumBytes ?? (IsFlatpak ? FlatpakUpdater.MaximumBundleBytes : long.MaxValue);
             if (contentLength > limit) throw new InvalidDataException(MessageStrings.DownloadFailed);
             var file = ResolveDownloadTarget(response, destinationPath);
 
-            await using var destination = File.Create(file);
-            await using Stream download = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-
-            IsIndeterminate.Value = !contentLength.HasValue;
-            const int bufferSize = 81920;
-            byte[] buffer = new byte[bufferSize];
-            long totalBytesRead = 0;
-            int bytesRead;
-            while ((bytesRead = await download.ReadAsync(buffer, ct).ConfigureAwait(false)) != 0)
+            string? expectedHash = NormalizeSha256(Update.Sha256);
+            if (expectedHash == null)
             {
-                totalBytesRead += bytesRead;
-                if (totalBytesRead > limit || (contentLength.HasValue && totalBytesRead > contentLength.Value))
-                    throw new InvalidDataException(MessageStrings.DownloadFailed);
-                await destination.WriteAsync(buffer.AsMemory(0, bytesRead), ct).ConfigureAwait(false);
-                if (contentLength > 0) ProgressValue.Value = totalBytesRead / (double)contentLength.Value;
+                // Older responses have no digest; verify every download that carries one.
+                _logger.LogWarning(
+                    "The update response has no SHA-256 hash; the downloaded file cannot be verified.");
             }
-            if (totalBytesRead == 0 || (contentLength.HasValue && totalBytesRead != contentLength.Value))
-                throw new InvalidDataException(MessageStrings.DownloadFailed);
+
+            using IncrementalHash? hash = expectedHash != null
+                ? IncrementalHash.CreateHash(HashAlgorithmName.SHA256)
+                : null;
+
+            // Download beside the target and publish only a complete, verified file.
+            const int bufferSize = 81920;
+            temporaryPath = Path.Combine(Path.GetDirectoryName(file)!, $".{Guid.NewGuid():N}.part");
+            await using (var destination = new FileStream(
+                             temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                             bufferSize, FileOptions.Asynchronous))
+            {
+                await using Stream download = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+
+                IsIndeterminate.Value = !contentLength.HasValue;
+                byte[] buffer = new byte[bufferSize];
+                long totalBytesRead = 0;
+                int bytesRead;
+                while ((bytesRead = await download.ReadAsync(buffer, ct).ConfigureAwait(false)) != 0)
+                {
+                    totalBytesRead += bytesRead;
+                    if (totalBytesRead > limit || (contentLength.HasValue && totalBytesRead > contentLength.Value))
+                        throw new InvalidDataException(MessageStrings.DownloadFailed);
+                    hash?.AppendData(buffer, 0, bytesRead);
+                    await destination.WriteAsync(buffer.AsMemory(0, bytesRead), ct).ConfigureAwait(false);
+                    if (contentLength > 0) ProgressValue.Value = totalBytesRead / (double)contentLength.Value;
+                }
+
+                if (totalBytesRead == 0 || (contentLength.HasValue && totalBytesRead != contentLength.Value))
+                    throw new InvalidDataException(MessageStrings.DownloadFailed);
+            }
+
+            if (hash != null)
+            {
+                string actualHash = Convert.ToHexString(hash.GetHashAndReset());
+                if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                {
+                    _logger.LogError(
+                        "The update file does not match its advertised SHA-256. Expected {Expected}, got {Actual}.",
+                        expectedHash, actualHash);
+                    throw new InvalidDataException(MessageStrings.DownloadFailed);
+                }
+            }
+
+            File.Move(temporaryPath, file, overwrite: true);
+            temporaryPath = null;
 
             ProgressText.Value = MessageStrings.DownloadComplete;
             ProgressValue.Value = 1;
@@ -433,6 +515,15 @@ public class UpdateDialogViewModel
             _logger.LogError(e, "Failed to download update");
             ProgressText.Value = e.Message;
             return null;
+        }
+        finally
+        {
+            if (temporaryPath != null)
+            {
+                try { File.Delete(temporaryPath); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { _logger.LogWarning(ex, "Failed to remove the incomplete update download"); }
+            }
         }
     }
 

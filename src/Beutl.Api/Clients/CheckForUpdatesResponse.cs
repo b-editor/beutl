@@ -21,6 +21,9 @@ public sealed class AppUpdateResponse
 
     [JsonPropertyName("downloadUrl")] public required string? DownloadUrl { get; init; }
 
+    // Hex SHA-256 of the file at DownloadUrl, optionally prefixed with "sha256:".
+    [JsonPropertyName("sha256")] public string? Sha256 { get; init; }
+
     [JsonPropertyName("isLatest")] public required bool IsLatest { get; init; }
 
     [JsonPropertyName("mustLatest")] public required bool MustLatest { get; init; }

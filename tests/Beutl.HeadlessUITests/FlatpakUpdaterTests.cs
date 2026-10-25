@@ -110,7 +110,11 @@ public sealed class FlatpakUpdaterTests
             Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(new byte[] { 1, 2, 3, 4 }));
             Assert.That(vm.ProgressValue.Value, Is.EqualTo(1));
         }
-        if (state == "large-stream") Assert.That(new FileInfo(path).Length, Is.LessThanOrEqualTo(3));
+        if (state == "large-stream")
+        {
+            Assert.That(File.Exists(path), Is.False);
+            Assert.That(Directory.GetFiles(_root, "*.part", SearchOption.AllDirectories), Is.Empty);
+        }
     }
 
     [Test]
