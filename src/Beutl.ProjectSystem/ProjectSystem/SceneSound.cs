@@ -110,10 +110,7 @@ public sealed partial class SceneSound : Sound
                     _composer = new Composer { SampleRate = context.SampleRate };
                 }
 
-                // The embed plays the referenced scene's own window from the clip-local request,
-                // matching the standalone sample provider that composes FromWindowTime ranges.
-                // Without the shift a non-zero scene Start would offset the embed's audio
-                // against its video and the standalone view (#3603).
+                // The embed composes the referenced scene's own window from the clip-local request.
                 TimeRange window = context.TimeRange.AddStart(scene.Start.Value);
                 var frame = compositor.EvaluateAudio(window);
                 var buffer = _composer.Compose(window, frame);
