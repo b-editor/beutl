@@ -110,10 +110,9 @@ public sealed partial class ElementView
                 float scale = viewModel.Timeline.Options.Value.Scale;
                 MediaTime pointerFrame = point.X.PixelToTime(scale);
 
-                pointerFrame = view.RoundStartTime(pointerFrame, scale, _lastAlt);
-
                 if (_isSlipDrag)
                 {
+                    view.RoundStartTime(pointerFrame, scale, _lastAlt);
                     // Slip shifts the media window, not element geometry — there is no
                     // per-frame geometry preview to apply here. The Player overlay shows
                     // the media window shift; the service runs once on release.
@@ -121,12 +120,16 @@ public sealed partial class ElementView
                     return;
                 }
 
-                MediaTime newframe = pointerFrame - _start.X.PixelToTime(scale);
+                Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
+                // Snap the clip's start after removing the grab offset and rounding to the commit frame grid.
+                MediaTime newStart = (pointerFrame - _start.X.PixelToTime(scale))
+                    .RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
-                if (newframe < MediaTime.Zero) newframe = MediaTime.Zero;
+                if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
+                newStart = view.RoundStartTime(newStart, scale, _lastAlt);
 
                 var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);
-                var newLeft = newframe.TimeToPixel(scale);
+                var newLeft = newStart.TimeToPixel(scale);
                 var deltaTop = newTop - viewModel.Margin.Value.Top;
                 var deltaLeft = newLeft - viewModel.BorderMargin.Value.Left;
 
@@ -142,7 +145,6 @@ public sealed partial class ElementView
 
                 if (_duplicateMode && _ghosts.Count == 0)
                 {
-                    Rational rate = SceneTimeRangeService.GetFrameRate(viewModel.Scene);
                     MediaTime minFrame = SceneTimeRangeService.GetFrameDuration(viewModel.Scene);
                     MediaTime modelStart = viewModel.BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
                     // A start within a tick of a frame, as one written by hand can be, counts from that frame.
