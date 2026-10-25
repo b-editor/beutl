@@ -405,7 +405,7 @@ public class TrimSpeedTests
     [TestCase(nameof(SourceSound), true)]
     [TestCase(nameof(SceneSound), false)]
     [TestCase(nameof(SceneSound), true)]
-    public void Trim_AudioSourceExpression_RejectsStoredDuration(string mediaType, bool hasStoredSource)
+    public void AudioSourceExpression_RejectsOffsetWritesButAllowsResize(string mediaType, bool hasStoredSource)
     {
         // Reference expressions resolve below the scene's hierarchy root.
         ((IModifiableHierarchical)new TestHierarchicalRoot()).AddChild(_scene);
@@ -448,7 +448,7 @@ public class TrimSpeedTests
         _resize.Resize(_scene, [new(element, element.Start.Value, MediaTime.FromSeconds(2), 0)]);
         Assert.Multiple(() =>
         {
-            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
             Assert.That(sound.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
     }

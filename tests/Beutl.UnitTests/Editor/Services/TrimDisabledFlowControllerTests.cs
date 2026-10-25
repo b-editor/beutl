@@ -90,27 +90,28 @@ public class TrimDisabledFlowControllerTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Resize_ReenablingController_UsesTheSameSafePreviewAndCommit(bool leftEdge)
+    public void Resize_UsesCurrentControllerStateForPreviewAndCommit(bool leftEdge)
     {
         var video = CreateVideo(5);
         Element element = AddElement(leftEdge ? 1 : 0, 3, video);
         var controller = AddDisabledController(element, offset: 1);
         var constraints = SlippableMedia.CreateResizeConstraints(element);
-        MediaTime preview = leftEdge ? constraints.ClampStart(Seconds(-0.5)) : constraints.ClampLength(Seconds(4.5));
+        MediaTime preview = leftEdge ? constraints.ClampStart(MediaTime.Zero) : constraints.ClampLength(Seconds(4.5));
         new ElementResizeService(_harness.History).Resize(_harness.Scene,
-            [new(element, Seconds(leftEdge ? -0.5 : 0), Seconds(4.5), 0)]);
-        controller.IsEnabled.Value = true;
+            [new(element, MediaTime.Zero, Seconds(leftEdge ? 4 : 4.5), 0)]);
         using var compositor = CreateCompositor(_harness.Scene);
         var resource = Videos(compositor.EvaluateGraphics(element.Range.End - Seconds(0.1)).Objects.Single()).Single();
 
         Assert.Multiple(() =>
         {
-            Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 0 : 4)));
+            Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 0 : 4.5)));
             Assert.That(element.Start.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(element.Length.Value, Is.EqualTo(Seconds(4)));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(leftEdge ? 4 : 4.5)));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(Position(resource), Is.EqualTo(4.9).Within(0.000001));
+            Assert.That(Position(resource), Is.EqualTo(leftEdge ? 3.9 : 4.4).Within(0.000001));
         });
+        controller.IsEnabled.Value = true;
+        Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(4)));
     }
 
     [TestCase(false)]
