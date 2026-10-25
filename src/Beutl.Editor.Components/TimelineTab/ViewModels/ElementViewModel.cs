@@ -462,10 +462,8 @@ public sealed partial class ElementViewModel : IDisposable
         Width.Value = width;
     }
 
-    // An edge resize moves exactly one edge. The untouched edge keeps its exact model coordinate:
-    // re-deriving it through a lossy pixel->frame round-trip would move an off-frame edge and, when
-    // rippling, shift the wrong neighbours. A body move uses the same rule for its length.
-    internal static (MediaTime Start, MediaTime Length) ResolveRippleResizeBounds(
+    // Keep the untouched edge at its exact model coordinate; only the dragged edge is rounded.
+    internal static (MediaTime Start, MediaTime Length) ResolveResizeBounds(
         bool leftEdge, MediaTime roundedStart, MediaTime roundedLength, MediaTime modelStart, MediaTime modelEnd)
     {
         return leftEdge
@@ -484,7 +482,7 @@ public sealed partial class ElementViewModel : IDisposable
         MediaTime roundedLength = Width.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         (MediaTime start, MediaTime length) = preserveLength
             ? (roundedStart, Model.Length.Value)
-            : ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End);
+            : ResolveResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
         var request = new ElementResizeRequest(Model, start, length, zindex);

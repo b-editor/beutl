@@ -98,10 +98,7 @@ internal sealed partial class ElementAdderImpl
         }
     }
 
-    // The timeline stores frame-aligned lengths. A media duration is normalized once here,
-    // before the element enters the scene, so later moves and edits never have to re-round it.
-    // Flooring matches ResizeToOriginalDuration and keeps the clip inside its source; a source
-    // shorter than one frame still gets one frame so it remains visible and editable.
+    // Floor to the project frame grid without exceeding the source; keep at least one frame.
     private static MediaTime NormalizeImportedDuration(Scene scene, MediaTime duration)
     {
         if (duration <= MediaTime.Zero) return duration;

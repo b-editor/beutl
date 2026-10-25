@@ -94,11 +94,11 @@ public class TimelineResizePreviewTests
     }
 
     [Test]
-    public void ResolveRippleResizeBounds_RightEdge_PreservesModelStart()
+    public void ResolveResizeBounds_RightEdge_PreservesModelStart()
     {
         // Off-frame model start (0.02s); the rounded start (0s) must not leak onto the untouched
         // left edge — a right-edge resize keeps the exact model start and takes only the new length.
-        (MediaTime start, MediaTime length) = ElementViewModel.ResolveRippleResizeBounds(
+        (MediaTime start, MediaTime length) = ElementViewModel.ResolveResizeBounds(
             leftEdge: false,
             roundedStart: MediaTime.Zero,
             roundedLength: MediaTime.FromSeconds(5),
@@ -113,11 +113,11 @@ public class TimelineResizePreviewTests
     }
 
     [Test]
-    public void ResolveRippleResizeBounds_LeftEdge_PreservesModelEnd()
+    public void ResolveResizeBounds_LeftEdge_PreservesModelEnd()
     {
         // Off-frame model end (2.02s); the left-edge resize takes the rounded start and derives the
         // length from the exact model end, so the untouched right edge carries no rounding delta.
-        (MediaTime start, MediaTime length) = ElementViewModel.ResolveRippleResizeBounds(
+        (MediaTime start, MediaTime length) = ElementViewModel.ResolveResizeBounds(
             leftEdge: true,
             roundedStart: MediaTime.FromSeconds(1),
             roundedLength: MediaTime.FromSeconds(1.5),
