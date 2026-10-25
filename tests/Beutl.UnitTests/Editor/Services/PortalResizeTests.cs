@@ -286,6 +286,65 @@ public class PortalResizeTests
     }
 
     [Test]
+    public void SlowedLocalMediaAfterEmptyPortal_KeepsItsController()
+    {
+        SourceVideo local = CreateVideo(6);
+        Element element = AddPortal(MediaTime.Zero, Seconds(1), count: 0, local,
+            new DrawableTimeController { Speed = { Value = 50 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(12)));
+        Assert.That(constraints.ClampLength(Seconds(20)), Is.EqualTo(Seconds(12)));
+    }
+
+    [Test]
+    public void LocalMediaBeforePortal_ConsidersLaterControllerRoutes()
+    {
+        AddProviders(1, Seconds(20));
+        SourceVideo local = CreateVideo(6);
+        Element element = _harness.AddElement(MediaTime.Zero, Seconds(1));
+        element.Objects.Add(local);
+        element.Objects.Add(new PortalObject { Count = { Value = 1 } });
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 50 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(3)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(3)));
+    }
+
+    [Test]
+    public void ControllerBeforeLocalMedia_DoesNotConsumeIt()
+    {
+        AddProviders(1, Seconds(20));
+        SourceVideo local = CreateVideo(6);
+        Element element = _harness.AddElement(MediaTime.Zero, Seconds(1));
+        element.Objects.Add(new PortalObject { Count = { Value = 1 } });
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 50 } });
+        element.Objects.Add(local);
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(6)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(6)));
+    }
+
+    [Test]
+    public void NonConsecutiveControllers_AreIncludedInTheLocalRoute()
+    {
+        AddProviders(1, Seconds(20));
+        SourceVideo local = CreateVideo(6);
+        Element element = AddPortal(MediaTime.Zero, MediaTime.FromSeconds(0.25), count: 1, local,
+            new DrawableTimeController { Speed = { Value = 50 } },
+            new DrawableTimeController { Speed = { Value = 400 } },
+            new DrawableTimeController { Speed = { Value = 25 } },
+            new DrawableTimeController { Speed = { Value = 400 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(MediaTime.FromSeconds(0.375)));
+        Assert.That(constraints.ClampLength(MediaTime.FromSeconds(2)), Is.EqualTo(MediaTime.FromSeconds(0.375)));
+    }
+
+    [Test]
     public void LocalMediaBeforeThePortal_IsMappedThroughItsController()
     {
         AddProviders(1, Seconds(20));
