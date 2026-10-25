@@ -293,7 +293,11 @@ public sealed class ElementStructureService : IElementStructureService
                 splittable,
                 target.SourcePosition(forwardDuration, wrapsVideo),
                 target.ContextTime(forwardDuration),
-                controller != null ? element.Length.Value : MediaTime.Zero,
+                controller != null
+                    ? controller.TargetDuration.Value > MediaTime.Zero
+                        ? controller.TargetDuration.Value
+                        : element.Length.Value
+                    : MediaTime.Zero,
                 controller,
                 wrapsVideo,
                 true));
