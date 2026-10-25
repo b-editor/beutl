@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Animation;
 using Beutl.Composition;
 using Beutl.Engine;
@@ -21,6 +22,9 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
     [Display(Name = nameof(GraphicsStrings.DrawableTimeController_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();
+
+    [Browsable(false)]
+    public IExpressionProperty<MediaTime> TargetDuration { get; } = Property.CreateExpression<MediaTime>();
 
     [Display(Name = nameof(GraphicsStrings.Speed), ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
@@ -54,7 +58,9 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             return currentTime;
 
         MediaTime targetStart = targetDrawable.TimeRange.Value.Start;
-        MediaTime targetDuration = targetDrawable.TimeRange.Value.Duration;
+        MediaTime targetDuration = resource.TargetDuration > MediaTime.Zero
+            ? resource.TargetDuration
+            : targetDrawable.TimeRange.Value.Duration;
 
         if (targetDuration <= MediaTime.Zero)
             return currentTime;

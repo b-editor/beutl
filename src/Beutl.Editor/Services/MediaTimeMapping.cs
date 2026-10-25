@@ -71,6 +71,8 @@ internal sealed partial class MediaTimeMapping
 
     public bool IsSupported => _sourceSupported && _speed.IsSupported && _controllers.All(c => c.IsSupported);
 
+    public IReadOnlyList<DrawableTimeController> Controllers => _controllers.Select(c => c.TimeController).ToArray();
+
     public bool CanWriteOffsets => !_sourceLocked && IsSupported && _speed.CanWriteOffsets;
 
     public bool HasVariableDuration => _controllers.Any(c => c.HasVariableDuration);
@@ -254,6 +256,9 @@ internal sealed partial class MediaTimeMapping
         private readonly Clock _clock;
         private readonly Clock? _targetClock;
         private readonly SpeedMap _speed;
+        private readonly DrawableTimeController _controller;
+
+        public DrawableTimeController TimeController => _controller;
         private readonly MediaTime _offset;
         private readonly bool _adjust;
         private readonly bool _reverse;
@@ -273,6 +278,8 @@ internal sealed partial class MediaTimeMapping
         {
             if (!_loop || _targetClock?.ChangesWithElement != true || !IsSupported) return null;
             TimeRange target = _targetClock.GetRange(elementRange);
+            if (_controller.TargetDuration.Value > MediaTime.Zero)
+                target = new TimeRange(target.Start, _controller.TargetDuration.Value);
             TimeRange owner = _clock.GetRange(elementRange);
             Interval raw = _speed.Map(time.Shift(_offset - (_adjust ? target.Start : owner.Start)), owner.Start);
             long phase = raw.Min.Flicks == long.MinValue ? long.MaxValue : Math.Abs(raw.Min.Flicks);
@@ -282,6 +289,7 @@ internal sealed partial class MediaTimeMapping
         public Controller(Element element, DrawableTimeController controller, Drawable target, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, TrimRole>? timingRoles)
         {
+            _controller = controller;
             _clock = new Clock(element, controller, timingPeers, timingRoles);
             _targetClock = new Clock(element, target, timingPeers, timingRoles);
             _speed = new SpeedMap(controller.Speed, 60, videoPlayback: true);
@@ -294,13 +302,18 @@ internal sealed partial class MediaTimeMapping
             _frameRate = controller.FrameRate.Value;
             _hasMappingExpression = controller.OffsetPosition.HasExpression || controller.AdjustTimeRange.HasExpression
                 || controller.Reverse.HasExpression || controller.Loop.HasExpression || controller.HoldFirstFrame.HasExpression
-                || controller.HoldLastFrame.HasExpression || controller.FrameRate.HasExpression;
+                || controller.HoldLastFrame.HasExpression || controller.FrameRate.HasExpression
+                || controller.TargetDuration.HasExpression;
         }
 
         public Interval Map(Interval time, TimeRange elementRange)
         {
             TimeRange? targetRange = _targetClock?.GetRange(elementRange);
-            if (targetRange is not { Duration: var duration } target || duration <= MediaTime.Zero)
+            if (targetRange is not { Duration: var duration } target)
+                return time;
+            if (_controller.TargetDuration.Value > MediaTime.Zero)
+                duration = _controller.TargetDuration.Value;
+            if (duration <= MediaTime.Zero)
                 return time;
 
             TimeRange owner = _clock.GetRange(elementRange);

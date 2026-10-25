@@ -29,6 +29,8 @@ internal static partial class SlippableMedia
                 - Mapping.Range(MediaTime.Zero, MediaTime.Zero, trim ? delta : MediaTime.Zero,
                     trim ? -delta : MediaTime.Zero, conservative: false, sourceOffset: true).Min;
 
+        public IReadOnlyList<DrawableTimeController> Controllers => Mapping.Controllers;
+
         public MediaTime ContextTime(MediaTime localTime)
             => Mapping.MapControllerTime(localTime);
 

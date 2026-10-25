@@ -264,7 +264,69 @@ public sealed class ElementSplitSpeedTests
     }
 
     [Test]
+    public void Split_LoopingController_PreservesItsPeriodAndPhase()
+    {
+        var video = new SourceVideo();
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        element.Objects.Add(new DrawableTimeController
+        {
+            Speed = { Value = 200f },
+            Loop = { Value = true },
+        });
+        MediaTime beforeCut = VideoPosition(video, element, MediaTime.FromSeconds(2));
+        MediaTime beforeWrap = VideoPosition(video, element, MediaTime.FromSeconds(1));
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        SourceVideo backVideo = BackObject<SourceVideo>(back);
+        DrawableTimeController backController = BackObject<DrawableTimeController>(back);
+        Assert.Multiple(() =>
+        {
+            Assert.That(VideoPosition(backVideo, back, MediaTime.FromSeconds(2)), Is.EqualTo(beforeCut));
+            Assert.That(VideoPosition(backVideo, back, MediaTime.FromSeconds(1)), Is.EqualTo(beforeWrap));
+            Assert.That(backController.TargetDuration.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(backController.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+        });
+    }
+
+    [Test]
+    public void Split_HoldingController_PreservesItsClampBoundary()
+    {
+        var video = new SourceVideo();
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        element.Objects.Add(new DrawableTimeController
+        {
+            Speed = { Value = 200f },
+            HoldLastFrame = { Value = true },
+        });
+        MediaTime beforeCut = VideoPosition(video, element, MediaTime.FromSeconds(2));
+        MediaTime beforeEnd = VideoPosition(video, element, MediaTime.FromSeconds(4));
+
+        _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        SourceVideo backVideo = BackObject<SourceVideo>(back);
+        DrawableTimeController backController = BackObject<DrawableTimeController>(back);
+        Assert.Multiple(() =>
+        {
+            Assert.That(VideoPosition(backVideo, back, MediaTime.FromSeconds(2)), Is.EqualTo(beforeCut));
+            Assert.That(VideoPosition(backVideo, back, MediaTime.FromSeconds(4)), Is.EqualTo(beforeEnd));
+            Assert.That(backController.TargetDuration.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(backController.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+        });
+    }
+
+    private static MediaTime VideoPosition(SourceVideo video, Element element, MediaTime localTime)
+    {
+        using var resource = (SourceVideo.Resource)video.ToResource(
+            new CompositionContext(element.Start.Value + localTime));
+        return resource.RequestedPosition + resource.OffsetPosition;
+    }
+
+    [Test]
     public void Split_SourcesWithDifferentSpeeds_EachUsesItsOwnIntegral()
+
     {
         var sound = new SourceSound { Speed = { Value = 200f } };
         var video = new SourceVideo { Speed = { Value = 50f } };
