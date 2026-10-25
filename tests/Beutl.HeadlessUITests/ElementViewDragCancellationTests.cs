@@ -43,7 +43,7 @@ public class ElementViewDragCancellationTests
         {
             (EditViewModel editor, ElementViewModel[] elements) = await OpenElements(grouped);
             TimelineTabViewModel timeline = elements[0].Timeline;
-            if (snapping) elements[0].Scene.Duration.Value = MediaTime.FromSeconds(kind == "right" ? 4.5 : 6);
+            if (snapping) elements[0].Scene.Duration.Value = MediaTime.FromSeconds(kind == "right" ? 4.5 : 5);
             view = new TimelineTabView { DataContext = timeline };
             window = new Window { Content = view, Width = 1200, Height = 420 };
             window.Show();
@@ -86,7 +86,11 @@ public class ElementViewDragCancellationTests
             if (kind == "duplicate")
                 Assert.That(view.TimelinePanel.Children.Count, Is.GreaterThan(childCount), "The duplicate preview must include ghosts.");
             if (snapping)
+            {
                 Assert.That(timeline.SnapBarPosition.Value, Is.Not.Null, "The drag must display a real snap guide before cancellation.");
+                if (kind == "move")
+                    Assert.That(timeline.SnapBarPosition.Value, Is.EqualTo(elements[0].BorderMargin.Value.Left));
+            }
 
             // Cover both platform-style release and capture stolen by another control.
             pointer!.Capture(grouped ? view.FindControl<Border>("RulerBar") : null);
