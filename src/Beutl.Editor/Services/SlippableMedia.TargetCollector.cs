@@ -14,8 +14,8 @@ internal static partial class SlippableMedia
         private readonly Element _element;
         private readonly IReadOnlySet<Element>? _timingPeers;
         private readonly bool _ignoreLoops;
+        private readonly bool _forResize;
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
-        private readonly IReadOnlySet<Element>? _portalCandidates;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
         private readonly List<Target> _targets = new();
@@ -29,14 +29,15 @@ internal static partial class SlippableMedia
         private bool _opaqueConsumption;
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
-            IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
-            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null)
+            IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles,
+            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null,
+            bool forResize = false)
         {
             _element = element;
             _timingPeers = timingPeers;
             _ignoreLoops = ignoreLoops;
+            _forResize = forResize;
             _timingRoles = timingRoles;
-            _portalCandidates = portalCandidates;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
             if (element.HierarchicalParent is Scene layerScene)
@@ -49,6 +50,9 @@ internal static partial class SlippableMedia
         public List<Target> Collect()
         {
             foreach (Node node in BuildFlow()) CollectNode(node);
+            // Geometry does not write source offsets. An unknown duration is not
+            // zero, and a disabled controller does not constrain the current clip.
+            if (_forResize) return _targets.Where(t => t.IsSupported).ToList();
             if (_reenabledControllers != null || _disabledFlowControllers.Count == 0 || _targets.Any(t => !t.IsSupported)) return _targets;
             // A disabled controller contributes bounds only. Its future clock
             // must never replace the clock used to write the current source offset.
@@ -68,7 +72,7 @@ internal static partial class SlippableMedia
                 var enabled = new HashSet<DrawableTimeController>();
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
-                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, enabled, _sourceDurations);
+                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, enabled, _sourceDurations);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -120,7 +124,12 @@ internal static partial class SlippableMedia
                 {
                     portalFlow = true;
                     if (portal.Clear.Value || portal.Clear.HasExpression) flow.Clear();
-                    List<Node>? imported = portal.Clear.HasExpression ? null : ResolvePortal(portal);
+                    // Imported media belongs to another element. For resize, keep
+                    // only its place in Flow; neither its length nor its offsets
+                    // belong to the consumer's editable media window.
+                    List<Node>? imported = _forResize
+                        ? portal.Count.HasExpression || portal.Count.Value > 0 ? null : []
+                        : portal.Clear.HasExpression ? null : ResolvePortal(portal);
                     if (imported == null)
                     {
                         flow.Add(new Node(portal, [], Opaque: true));
@@ -137,6 +146,15 @@ internal static partial class SlippableMedia
                     if (index >= 0)
                     {
                         Node input = flow[index];
+                        if (_forResize && input.Opaque && IsEnabled(controller))
+                        {
+                            // The first drawable may come from the portal or from
+                            // local media as providers appear/disappear. There is no
+                            // fixed original duration for this time-remapped output.
+                            flow.RemoveAll(node => node.Opaque || node.Object is Drawable && IsEnabled(node.Object));
+                            flow.Add(new Node(controller, [], Opaque: true));
+                            continue;
+                        }
                         if (IsEnabled(controller))
                         {
                             inputs = [input];
@@ -199,8 +217,8 @@ internal static partial class SlippableMedia
                 && other.Objects.OfType<PortalObject>().Any(prior => prior.IsEnabled.Value
                     && (prior.Count.HasExpression || prior.ZIndex.Value < owner.ZIndex.Value && prior.ZIndex.Value + prior.Count.Value >= owner.ZIndex.Value)));
 
-        private bool IsPortalCandidate(Element candidate) => _portalCandidates?.Contains(candidate)
-            ?? (candidate.Start.Value < _element.Range.End && _element.Start.Value < candidate.Range.End);
+        private bool IsPortalCandidate(Element candidate)
+            => candidate.Start.Value < _element.Range.End && _element.Start.Value < candidate.Range.End;
 
         private bool LayerVisible(Element candidate, CompositionTarget target)
         {
@@ -219,6 +237,7 @@ internal static partial class SlippableMedia
         {
             if (node.Opaque)
             {
+                if (_forResize) return;
                 // These unattached properties only carry a rejected constraint;
                 // IsSupported prevents them from ever becoming an offset write.
                 _targets.Add(new Target(Property.CreateExpression<MediaTime>(), null,
@@ -232,6 +251,7 @@ internal static partial class SlippableMedia
         // discarding a second path whose time controller can impose tighter bounds.
         private void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null, bool flowResolved = false, bool referenced = false, bool portalInput = false)
         {
+            if (_forResize && !referenced && !obj.IsEnabled.Value) return;
             if (!_path.Add(obj)) return;
             if (inputs != null && obj is SoundGroup or DrawableGroup or DrawableDecorator)
             {
