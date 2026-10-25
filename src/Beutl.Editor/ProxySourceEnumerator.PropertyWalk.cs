@@ -118,7 +118,7 @@ public static partial class ProxySourceEnumerator
         if (walkContext is { } soundContext && value is SceneSound sceneSound
             && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene, walkContext: walkContext) is { } referencedScene)
         {
-            // The window shifts into referenced-scene time, like the render's embed composes it.
+            // Shifted into referenced-scene time, like the embed composes it.
             TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange?.AddStart(referencedScene.Start.Value) : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
                 referencedScene, soundContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))

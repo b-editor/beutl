@@ -97,7 +97,7 @@ public sealed partial class SceneDrawable : Drawable
             {
                 CapturedCompositionFrame? oldFrame = Frame != null ? new CapturedCompositionFrame(Frame.Value) : null;
                 // The embed plays the referenced scene's own window from the element's local time, matching
-                // the standalone renderer that evaluates FromWindowTime(time) (#3603).
+                // the standalone renderer's FromWindowTime evaluation (#3603).
                 Frame = ReferencedScene is { } referencedScene
                     ? _compositor?.EvaluateGraphics(referencedScene.FromWindowTime(context.Time - obj.Start))
                     : null;

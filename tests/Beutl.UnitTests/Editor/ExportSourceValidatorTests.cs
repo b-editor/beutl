@@ -105,8 +105,8 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingImage }));
     }
 
-    // An embed renders the referenced scene from its own window start, so a clip before the referenced
-    // scene's window is never composed and its missing file must not block export.
+    // An embed renders the referenced scene from its own window start, so a clip before that window is
+    // never composed and its missing file must not block export.
     [Test]
     public void CollectRenderableSources_GraphicallyEmbeddedSceneWithStart_ExcludesPreWindowClips()
     {
@@ -167,7 +167,7 @@ public sealed class ExportSourceValidatorTests
     }
 
     // Same as the graphics case: an audio embed composes the referenced scene from its own window
-    // start, so a sound clip before that window must not be preflighted.
+    // start, so a sound clip before it must not be preflighted.
     [Test]
     public void CollectRenderableSources_AudiallyEmbeddedSceneWithStart_ExcludesPreWindowClips()
     {
@@ -1181,7 +1181,7 @@ public sealed class ExportSourceValidatorTests
     }
 
     // The property-held SceneSound composes the referenced scene from its own window start too, so a
-    // sound clip before that window must not be preflighted.
+    // sound clip before it must not be preflighted.
     [Test]
     public void CollectRenderableSources_VisualizerSceneSoundSourceWithStart_ExcludesPreWindowClips()
     {

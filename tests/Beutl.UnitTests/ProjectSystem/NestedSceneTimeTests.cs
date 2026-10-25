@@ -58,7 +58,7 @@ public sealed partial class RecordingSound : Sound
 
 // An embed (SceneDrawable / SceneSound) must evaluate the referenced scene over the same window the
 // standalone player and renderer do (#3603): the element's local time maps to the referenced scene's
-// window time, so a non-zero Scene.Start shifts the evaluation into the referenced scene's own axis.
+// window time.
 [TestFixture]
 public class NestedSceneTimeTests
 {
@@ -133,8 +133,7 @@ public class NestedSceneTimeTests
         var project = new Project();
         _ = new BeutlApplication { Project = { Value = project } };
 
-        // Scene B: its shape element sits at B-window [0, 10) (B-absolute [start, start + 10)),
-        // with width animated by element-local time.
+        // Scene B: a shape element at B-window [0, 10), with width animated by element-local time.
         Scene sceneB = CreateScene("b", Seconds(startSeconds), Seconds(10));
         Attach(project, sceneB);
         RectShape shape = CreateAnimatedShape();
@@ -196,7 +195,7 @@ public class NestedSceneTimeTests
         var project = new Project();
         _ = new BeutlApplication { Project = { Value = project } };
 
-        // Scene B: a sound element at B-window [0, 10) (B-absolute [start, start + 10)).
+        // Scene B: a sound element at B-window [0, 10).
         Scene sceneB = CreateScene("b", Seconds(startSeconds), Seconds(10));
         Attach(project, sceneB);
         sceneB.Children.Add(CreateElement(Seconds(startSeconds), Seconds(10), new RecordingSound()));
@@ -257,8 +256,8 @@ public class NestedSceneTimeTests
         }
     }
 
-    // A tail drain flows through the SceneSound's scene node like a compose does, so a non-zero
-    // referenced Start must shift the drained window the same way or the tail loses its samples.
+    // A tail drain flows through the scene node like a compose, so a non-zero referenced Start must
+    // shift the drained window the same way or the tail loses its samples.
     [TestCase(0)]
     [TestCase(5)]
     public void SceneSoundEmbed_ShiftsTheTailDrainLikeTheComposeWindow(double startSeconds)
