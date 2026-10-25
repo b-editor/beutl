@@ -161,8 +161,8 @@
   <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
     <value>삭제할 패키지를 선택하세요.</value>
   </data>
-  <data name="Installed_package_registry_could_not_be_restored" xml:space="preserve">
-    <value>설치된 패키지 레지스트리를 완전히 복원하지 못했습니다. installedPackages.json을 복원한 후 다시 시도하세요.</value>
+  <data name="Installed_package_registry_is_empty_or_incomplete" xml:space="preserve">
+    <value>설치된 패키지 레지스트리가 비어 있거나 불완전합니다. installedPackages.json을 복원한 후 다시 시도하세요.</value>
   </data>
   <data name="XXX_will_be_released" xml:space="preserve">
     <value>{0}이(가) 해제됩니다.</value>

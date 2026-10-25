@@ -65,7 +65,7 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
         Assert.Multiple(() =>
         {
             Assert.That(_repository.RestoreFailed, Is.True);
-            Assert.That(context.RegistryRestoreFailed, Is.True);
+            Assert.That(context.RegistryUnavailable, Is.True);
             Assert.That(context.UnnecessaryPackages, Is.Empty);
             Assert.That(Directory.Exists(directory), Is.True);
         });
@@ -95,7 +95,7 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
         Assert.Multiple(() =>
         {
             Assert.That(_repository.RestoreFailed, Is.True);
-            Assert.That(context.RegistryRestoreFailed, Is.True);
+            Assert.That(context.RegistryUnavailable, Is.True);
             Assert.That(context.UnnecessaryPackages, Is.Empty);
             Assert.That(Directory.Exists(validDirectory), Is.True);
             Assert.That(Directory.Exists(skippedDirectory), Is.True);
@@ -119,6 +119,33 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
         Assert.Throws<InvalidOperationException>(() => _installer.Uninstall(context, new Progress<double>()));
 
         Assert.That(Directory.Exists(directory), Is.True);
+    }
+
+    [Test]
+    public void PrepareForClean_ValidEmptyRegistryWithExtractedDirectories_IsBlockedButSavesContinue()
+    {
+        var package = new PackageIdentity("Beutl.Package.CleanTest.Orphan", NuGetVersion.Parse("1.0.0"));
+        (string directory, _) = CreateInstalledDirectory(package);
+        WriteNuspec(directory, package);
+        File.WriteAllText(Path.Combine(Helper.AppRoot, "installedPackages.json"), "[]");
+        ReloadRepository();
+
+        PackageCleanContext context = _installer.PrepareForClean();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_repository.RestoreFailed, Is.False,
+                "a valid empty registry stays writable");
+            Assert.That(context.RegistryUnavailable, Is.True);
+            Assert.That(context.UnnecessaryPackages, Is.Empty);
+            Assert.That(Directory.Exists(directory), Is.True);
+            Assert.Throws<InvalidOperationException>(
+                () => _installer.Clean(new PackageCleanContext([package], 0), new Progress<double>()));
+        });
+
+        var next = new PackageIdentity("Beutl.Package.CleanTest.AfterEmpty", NuGetVersion.Parse("1.0.0"));
+        Assert.DoesNotThrow(() => _repository.UpgradePackagesAndDeferNotifications(next)());
+        Assert.That(_repository.ExistsPackage(next), Is.True);
     }
 
     private static void WriteNuspec(string directory, PackageIdentity package)

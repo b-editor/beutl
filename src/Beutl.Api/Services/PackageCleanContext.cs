@@ -10,7 +10,7 @@ public class PackageCleanContext(PackageIdentity[] unnecessaryPackages, long siz
 
     public long SizeToBeReleased { get; } = sizeToBeReleased;
 
-    public bool RegistryRestoreFailed { get; init; }
+    public bool RegistryUnavailable { get; init; }
 
     [AllowNull]
     public IReadOnlyList<string> FailedPackages { get; internal set; }

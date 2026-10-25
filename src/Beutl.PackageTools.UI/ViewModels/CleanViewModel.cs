@@ -21,15 +21,15 @@ public class CleanViewModel
     {
         _installer = app.GetResource<PackageInstaller>();
         PackageCleanContext context = _installer.PrepareForClean(null);
-        RegistryRestoreFailed = context.RegistryRestoreFailed;
+        RegistryUnavailable = context.RegistryUnavailable;
 
         Items = context.UnnecessaryPackages.Select(v => new CleanPackage(v, new(true)))
             .Do(v => v.Condition.Skip(1).Subscribe(c => ConditionChanged(v.Package, c)))
             .ToArray();
 
-        if (RegistryRestoreFailed)
+        if (RegistryUnavailable)
         {
-            ErrorMessage.Value = Strings.Installed_package_registry_could_not_be_restored;
+            ErrorMessage.Value = Strings.Installed_package_registry_is_empty_or_incomplete;
         }
 
         SizeToBeReleased.Value = context.SizeToBeReleased;
@@ -71,7 +71,7 @@ public class CleanViewModel
 
     public CleanPackage[] Items { get; }
 
-    public bool RegistryRestoreFailed { get; }
+    public bool RegistryUnavailable { get; }
 
     public ReactiveProperty<long> SizeToBeReleased { get; } = new();
 
@@ -95,9 +95,9 @@ public class CleanViewModel
     {
         try
         {
-            if (RegistryRestoreFailed)
+            if (RegistryUnavailable)
             {
-                ErrorMessage.Value = Strings.Installed_package_registry_could_not_be_restored;
+                ErrorMessage.Value = Strings.Installed_package_registry_is_empty_or_incomplete;
                 Failed.Value = true;
                 return;
             }

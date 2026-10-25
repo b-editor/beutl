@@ -218,8 +218,8 @@ This package file may have been tampered with.</value>
   <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
     <value>Select the packages to be deleted.</value>
   </data>
-  <data name="Installed_package_registry_could_not_be_restored" xml:space="preserve">
-    <value>The installed package registry could not be restored completely. Restore installedPackages.json and try again.</value>
+  <data name="Installed_package_registry_is_empty_or_incomplete" xml:space="preserve">
+    <value>The installed package registry is empty or incomplete. Restore installedPackages.json and try again.</value>
   </data>
   <data name="XXX_will_be_released" xml:space="preserve">
     <value>{0} will be released.</value>

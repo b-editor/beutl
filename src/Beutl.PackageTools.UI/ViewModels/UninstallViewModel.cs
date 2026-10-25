@@ -30,7 +30,7 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
 
             if (repos.RestoreFailed)
             {
-                ErrorMessage.Value = Strings.Installed_package_registry_could_not_be_restored;
+                ErrorMessage.Value = Strings.Installed_package_registry_is_empty_or_incomplete;
                 Failed.Value = true;
                 return;
             }
