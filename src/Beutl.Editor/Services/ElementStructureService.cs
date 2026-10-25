@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Animation;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 
@@ -48,6 +49,11 @@ public sealed class ElementStructureService : IElementStructureService
                 MediaTime forwardDuration = at - target.Start.Value;
                 MediaTime backwardDuration = target.Length.Value - forwardDuration;
 
+                // The back half starts at the source position the front half reached. At a
+                // non-100% Speed that is the speed integral, not the timeline duration.
+                List<ISplittable> splittables = TopLevelSplittables(target);
+                Dictionary<ISplittable, MediaTime> sourceDeltas = GetSplitSourceDeltas(target, splittables, forwardDuration);
+
                 ObjectRegenerator.Regenerate(target, out Element backward);
 
                 backward.Start.Value = at;
@@ -63,7 +69,7 @@ public sealed class ElementStructureService : IElementStructureService
                 target.ExitTransition.Value = null;
                 scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target);
                 scene.AddChild(backward);
-                backward.NotifySplitted(true, forwardDuration, -forwardDuration);
+                ApplySplitSourceDeltas(backward, splittables, sourceDeltas, forwardDuration);
                 target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
 
                 // Track group membership so back-clips stay in their source's group.
@@ -236,6 +242,59 @@ public sealed class ElementStructureService : IElementStructureService
             {
                 keyframe.KeyTime.Value += delta;
             }
+        }
+    }
+
+    // The splittables Element.NotifySplitted would visit: the element's own objects, not
+    // references another element owns.
+    private static List<ISplittable> TopLevelSplittables(Element element)
+        => [.. element.Objects.OfType<ISplittable>()];
+
+    // The source each splittable shows at the cut, before the element changes shape. A source
+    // under a time controller is mapped through that controller too, like a trim or slip is.
+    private static Dictionary<ISplittable, MediaTime> GetSplitSourceDeltas(
+        Element element, IReadOnlyList<ISplittable> splittables, MediaTime forwardDuration)
+    {
+        var deltas = new Dictionary<ISplittable, MediaTime>(ReferenceEqualityComparer.Instance);
+        if (splittables.Count == 0) return deltas;
+
+        var owned = new HashSet<ISplittable>(splittables, ReferenceEqualityComparer.Instance);
+        foreach (SlippableMedia.Target target in SlippableMedia.Collect(element))
+        {
+            if (target.Offset.GetOwnerObject() is not ISplittable owner || !owned.Contains(owner)) continue;
+
+            MediaTime delta = target.IsSupported
+                ? target.SourceDelta(forwardDuration, trim: false)
+                : forwardDuration;
+            // Two clocks that disagree cannot both describe the source at the cut; keep the
+            // timeline duration instead of picking one arbitrarily.
+            if (!deltas.TryAdd(owner, delta) && deltas[owner] != delta)
+                deltas[owner] = forwardDuration;
+        }
+
+        return deltas;
+    }
+
+    // The copy keeps the object list order, so the same index names each source. Fall back to
+    // the timeline duration rather than pairing unrelated sources if a copy did not keep one.
+    private static void ApplySplitSourceDeltas(
+        Element backward, IReadOnlyList<ISplittable> splittables,
+        IReadOnlyDictionary<ISplittable, MediaTime> sourceDeltas, MediaTime forwardDuration)
+    {
+        List<ISplittable> copies = TopLevelSplittables(backward);
+        if (copies.Count != splittables.Count
+            || !copies.Zip(splittables).All(pair => pair.First.GetType() == pair.Second.GetType()))
+        {
+            backward.NotifySplitted(true, forwardDuration, -forwardDuration);
+            return;
+        }
+
+        for (int i = 0; i < copies.Count; i++)
+        {
+            MediaTime delta = sourceDeltas.TryGetValue(splittables[i], out MediaTime value)
+                ? value
+                : forwardDuration;
+            copies[i].NotifySplitted(true, delta, -forwardDuration);
         }
     }
 }
