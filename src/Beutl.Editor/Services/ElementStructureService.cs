@@ -1,6 +1,7 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Language;
 using Beutl.ProjectSystem;
 
@@ -49,10 +50,11 @@ public sealed class ElementStructureService : IElementStructureService
                 MediaTime forwardDuration = at - target.Start.Value;
                 MediaTime backwardDuration = target.Length.Value - forwardDuration;
 
-                // The back half starts at the source position the front half reached. At a
-                // non-100% Speed that is the speed integral, not the timeline duration.
+                // The back half starts at the source position the front half reached. Capture
+                // the source clock and position before the element changes shape.
                 List<ISplittable> splittables = TopLevelSplittables(target);
-                Dictionary<ISplittable, MediaTime> sourceDeltas = GetSplitSourceDeltas(target, splittables, forwardDuration);
+                Dictionary<ISplittable, SplitSourceState> sourceStates =
+                    CaptureSplitSources(target, splittables, forwardDuration);
 
                 ObjectRegenerator.Regenerate(target, out Element backward);
 
@@ -69,7 +71,7 @@ public sealed class ElementStructureService : IElementStructureService
                 target.ExitTransition.Value = null;
                 scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target);
                 scene.AddChild(backward);
-                ApplySplitSourceDeltas(backward, splittables, sourceDeltas, forwardDuration);
+                ApplySplitSourceDeltas(backward, splittables, sourceStates, forwardDuration);
                 target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
 
                 // Track group membership so back-clips stay in their source's group.
@@ -250,36 +252,64 @@ public sealed class ElementStructureService : IElementStructureService
     private static List<ISplittable> TopLevelSplittables(Element element)
         => [.. element.Objects.OfType<ISplittable>()];
 
-    // The source each splittable shows at the cut, before the element changes shape. A source
-    // under a time controller is mapped through that controller too, like a trim or slip is.
-    private static Dictionary<ISplittable, MediaTime> GetSplitSourceDeltas(
+    private readonly record struct SplitSourceState(
+        MediaTime PositionAtCut, MediaTime ContextAtCut, bool WrapVideo, bool Supported);
+
+    // Everything the back half needs from the source's original clock: where playback is at
+    // the cut and the time its own animations see there.
+    private static Dictionary<ISplittable, SplitSourceState> CaptureSplitSources(
         Element element, IReadOnlyList<ISplittable> splittables, MediaTime forwardDuration)
     {
-        var deltas = new Dictionary<ISplittable, MediaTime>(ReferenceEqualityComparer.Instance);
-        if (splittables.Count == 0) return deltas;
+        var states = new Dictionary<ISplittable, SplitSourceState>(ReferenceEqualityComparer.Instance);
+        if (splittables.Count == 0) return states;
+
+        Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables);
+        foreach (ISplittable splittable in splittables)
+        {
+            bool wrapsVideo = splittable is SourceVideo;
+            if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsSupported)
+            {
+                states[splittable] = new(MediaTime.Zero, MediaTime.Zero, wrapsVideo, false);
+                continue;
+            }
+
+            states[splittable] = new(
+                target.SourcePosition(forwardDuration, wrapsVideo),
+                target.ContextTime(forwardDuration),
+                wrapsVideo,
+                true);
+        }
+
+        return states;
+    }
+
+    // One target per top-level source. Two clocks that disagree describe no single source,
+    // so that source keeps the old timeline delta.
+    private static Dictionary<ISplittable, SlippableMedia.Target> CollectSplitTargets(
+        Element element, IReadOnlyList<ISplittable> splittables)
+    {
+        var targets = new Dictionary<ISplittable, SlippableMedia.Target>(ReferenceEqualityComparer.Instance);
+        if (splittables.Count == 0) return targets;
 
         var owned = new HashSet<ISplittable>(splittables, ReferenceEqualityComparer.Instance);
+        var conflicts = new HashSet<ISplittable>(ReferenceEqualityComparer.Instance);
         foreach (SlippableMedia.Target target in SlippableMedia.Collect(element))
         {
             if (target.Offset.GetOwnerObject() is not ISplittable owner || !owned.Contains(owner)) continue;
-
-            MediaTime delta = target.IsSupported
-                ? target.SourceDelta(forwardDuration, trim: false)
-                : forwardDuration;
-            // Two clocks that disagree cannot both describe the source at the cut; keep the
-            // timeline duration instead of picking one arbitrarily.
-            if (!deltas.TryAdd(owner, delta) && deltas[owner] != delta)
-                deltas[owner] = forwardDuration;
+            if (!targets.TryAdd(owner, target))
+                conflicts.Add(owner);
         }
 
-        return deltas;
+        foreach (ISplittable owner in conflicts)
+            targets.Remove(owner);
+        return targets;
     }
 
     // The copy keeps the object list order, so the same index names each source. Fall back to
     // the timeline duration rather than pairing unrelated sources if a copy did not keep one.
     private static void ApplySplitSourceDeltas(
         Element backward, IReadOnlyList<ISplittable> splittables,
-        IReadOnlyDictionary<ISplittable, MediaTime> sourceDeltas, MediaTime forwardDuration)
+        IReadOnlyDictionary<ISplittable, SplitSourceState> sourceStates, MediaTime forwardDuration)
     {
         List<ISplittable> copies = TopLevelSplittables(backward);
         if (copies.Count != splittables.Count
@@ -289,12 +319,60 @@ public sealed class ElementStructureService : IElementStructureService
             return;
         }
 
+        Dictionary<ISplittable, SlippableMedia.Target> backTargets = CollectSplitTargets(backward, copies);
+        var supported = new bool[copies.Count];
+        bool shiftedAnimations = false;
         for (int i = 0; i < copies.Count; i++)
         {
-            MediaTime delta = sourceDeltas.TryGetValue(splittables[i], out MediaTime value)
-                ? value
-                : forwardDuration;
+            if (!sourceStates.TryGetValue(splittables[i], out SplitSourceState state) || !state.Supported
+                || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget))
+            {
+                continue;
+            }
+
+            // The element copy has already shifted every local animation by the timeline
+            // duration. A source under a time controller sees a mapped clock, so shift its
+            // own animations by the difference to that clock instead.
+            MediaTime desired = backTarget.ContextTime(MediaTime.Zero) - state.ContextAtCut;
+            MediaTime additional = desired + forwardDuration;
+            if (additional != MediaTime.Zero)
+                shiftedAnimations |= ShiftLocalKeyFrames(copies[i], additional);
+            supported[i] = true;
+        }
+
+        // A shifted speed curve changes the source position at the back start.
+        if (shiftedAnimations)
+            backTargets = CollectSplitTargets(backward, copies);
+
+        for (int i = 0; i < copies.Count; i++)
+        {
+            if (!supported[i] || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget))
+            {
+                copies[i].NotifySplitted(true, forwardDuration, -forwardDuration);
+                continue;
+            }
+
+            SplitSourceState state = sourceStates[splittables[i]];
+            MediaTime delta = state.PositionAtCut
+                              - backTarget.SourcePosition(MediaTime.Zero, state.WrapVideo);
             copies[i].NotifySplitted(true, delta, -forwardDuration);
         }
+    }
+
+    private static bool ShiftLocalKeyFrames(ISplittable source, MediaTime delta)
+    {
+        bool shifted = false;
+        foreach (IKeyFrameAnimation anim in ChildObjects.Walk(source, static obj => obj is ProjectItem)
+                     .OfType<IKeyFrameAnimation>()
+                     .Where(anim => !anim.UseGlobalClock.Value))
+        {
+            foreach (IKeyFrame keyframe in anim.KeyFrames)
+            {
+                keyframe.KeyTime.Value += delta;
+                shifted = true;
+            }
+        }
+
+        return shifted;
     }
 }

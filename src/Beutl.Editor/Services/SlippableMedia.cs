@@ -29,6 +29,15 @@ internal static partial class SlippableMedia
                 - Mapping.Range(MediaTime.Zero, MediaTime.Zero, trim ? delta : MediaTime.Zero,
                     trim ? -delta : MediaTime.Zero, conservative: false, sourceOffset: true).Min;
 
+        public MediaTime ContextTime(MediaTime localTime)
+            => Mapping.MapControllerTime(localTime);
+
+        // Playback wraps a video's requested position (loop, or a negative reverse position)
+        // before OffsetPosition is added; audio uses the unwrapped source position.
+        public MediaTime SourcePosition(MediaTime localTime, bool wrapVideo)
+            => Mapping.Range(localTime, localTime, extrapolate: false, conservative: false,
+                sourceOffset: !wrapVideo).Min;
+
         public bool CanSlip(MediaTime delta)
         {
             if (!IsSupported) return false;
