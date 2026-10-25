@@ -110,8 +110,10 @@ public sealed partial class SceneSound : Sound
                     _composer = new Composer { SampleRate = context.SampleRate };
                 }
 
-                var frame = compositor.EvaluateAudio(context.TimeRange);
-                var buffer = _composer.Compose(context.TimeRange, frame);
+                // The embed composes the referenced scene's own window from the clip-local request.
+                TimeRange window = context.TimeRange.AddStart(scene.Start.Value);
+                var frame = compositor.EvaluateAudio(window);
+                var buffer = _composer.Compose(window, frame);
                 if (buffer == null)
                 {
                     return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
@@ -138,8 +140,9 @@ public sealed partial class SceneSound : Sound
 
             try
             {
-                CompositionFrame frame = compositor.EvaluateAudio(context.TimeRange);
-                return _composer.Flush(context.TimeRange, frame.Eligibility)
+                TimeRange window = context.TimeRange.AddStart(scene.Start.Value);
+                CompositionFrame frame = compositor.EvaluateAudio(window);
+                return _composer.Flush(window, frame.Eligibility)
                     ?? CreateSilentFlush(context);
             }
             finally

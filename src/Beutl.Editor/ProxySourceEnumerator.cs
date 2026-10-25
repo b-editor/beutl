@@ -205,11 +205,12 @@ public static partial class ProxySourceEnumerator
 
                 case SceneDrawable sceneDrawable
                     when ResolveExpressionValue<Scene>(sceneDrawable, sceneDrawable.ReferencedScene, walkContext: walkContext) is { } referencedScene:
-                    // A SceneDrawable renders only the referenced scene's graphics, in element-local time,
-                    // so narrow to Graphics and pass localRange unchanged as both windows.
+                    // A SceneDrawable renders the referenced scene's graphics over the element-local window, evaluated
+                    // from its own window start, so narrow to Graphics and pass the window in referenced-scene time.
+                    TimeRange? graphicsWindow = localRange?.AddStart(referencedScene.Start.Value);
                     foreach (IFileSource source in EnumerateReferencedSceneSources(
                         referencedScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Graphics,
-                        localRange, localRange))
+                        graphicsWindow, graphicsWindow))
                         yield return source;
 
                     break;
@@ -277,7 +278,8 @@ public static partial class ProxySourceEnumerator
         if (obj is SceneSound sceneSound
             && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene, walkContext: walkContext) is { } soundScene)
         {
-            TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange : null;
+            // Shifted into referenced-scene time, like the embed composes it.
+            TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange?.AddStart(soundScene.Start.Value) : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
                 soundScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))
                 yield return source;
