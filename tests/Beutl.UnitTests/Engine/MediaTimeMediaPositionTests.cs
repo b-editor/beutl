@@ -7,6 +7,9 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
 using Beutl.Media.Source;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 
 namespace Beutl.UnitTests.Engine;
@@ -50,6 +53,96 @@ public sealed class MediaTimeMediaPositionTests
         }
 
         Assert.That(mismatches, Is.Empty);
+    }
+
+    // Upsampling a clip to 60 fps must keep its last picture until the clip actually ends (#3594).
+    [TestCase(15, 1)]
+    [TestCase(24, 1)]
+    [TestCase(30, 1)]
+    [TestCase(60, 1)]
+    [TestCase(24000, 1001)]
+    [TestCase(30000, 1001)]
+    public void Video_drawables_and_nodes_keep_the_last_frame_until_the_source_ends(int numerator, int denominator)
+    {
+        var rate = new Rational(numerator, denominator);
+        int frameCount = numerator / denominator;
+        MediaTime duration = MediaTime.FromFrames(frameCount, rate);
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(16, 16, rate, frameCount)));
+        var video = new SourceVideo
+        {
+            Source = { Value = source },
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, duration) },
+        };
+        using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
+        var graph = new GraphModel();
+        var videoNode = new VideoSourceNode();
+        videoNode.Source.Property!.SetValue(source);
+        graph.Nodes.Add(videoNode);
+        using var snapshot = new GraphSnapshot();
+        snapshot.Build(graph, CompositionContext.Default);
+
+        // Include the last flick, the exclusive end, and a return to the beginning after reading past EOF.
+        MediaTime[] times = [
+            .. Enumerable.Range(0, 60).Select(f => MediaTime.FromFrames(f, new Rational(60))).Where(t => t < duration),
+            duration - new MediaTime(1), duration, duration + MediaTime.FromFrames(1, rate), MediaTime.Zero,
+        ];
+        var mismatches = new List<string>();
+        foreach (MediaTime time in times)
+        {
+            bool versionBumped = false;
+            var context = new CompositionContext(time);
+            resource.Reconcile(video, context, ref versionBumped);
+            using var root = new ContainerRenderNode();
+            using (var drawing = new GraphicsContext2D(root, new Size(16, 16)))
+                video.DrawInternal(drawing, resource);
+            var drawableOutput = (VideoSourceRenderNode)root.Children.Single();
+
+            videoNode.Time.Property!.SetValue(time);
+            snapshot.Evaluate(context);
+            var nodeOutput = ((VideoSourceNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(videoNode))!).Output!;
+
+            foreach (var (name, output) in new[] { ("drawable", drawableOutput), ("node", nodeOutput) })
+            {
+                bool read = output.Source!.Value.Resource.Read(output.Frame, out var image);
+                using (image)
+                {
+                    if (read != (time < duration))
+                        mismatches.Add($"{name} at {time.Flicks} flicks requests frame {output.Frame}: read={read}");
+                }
+            }
+        }
+
+        Assert.That(mismatches, Is.Empty);
+    }
+
+    [TestCase(50f, 0, false, 119, 15)]
+    [TestCase(100f, 5, false, 39, 15)]
+    [TestCase(100f, 0, true, 59, 0)]
+    public void SourceVideo_keeps_the_last_frame_after_speed_offset_and_loop_mapping(
+        float speed, int offsetFrames, bool loop, int lastOutputFrame, int nextSourceFrame)
+    {
+        var rate = new Rational(15);
+        var source = new VideoSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(16, 16, rate, 15)));
+        var video = new SourceVideo
+        {
+            Source = { Value = source },
+            Speed = { Value = speed },
+            OffsetPosition = { Value = MediaTime.FromFrames(offsetFrames, rate) },
+            IsLoop = { Value = loop },
+        };
+        using var resource = (SourceVideo.Resource)video.ToResource(CompositionContext.Default);
+        foreach (var (outputFrame, expected) in new[] { (lastOutputFrame, 14), (lastOutputFrame + 1, nextSourceFrame) })
+        {
+            bool versionBumped = false;
+            resource.Reconcile(video, new CompositionContext(MediaTime.FromFrames(outputFrame, new Rational(60))), ref versionBumped);
+            using var root = new ContainerRenderNode();
+            using (var drawing = new GraphicsContext2D(root, new Size(16, 16)))
+                video.DrawInternal(drawing, resource);
+
+            Assert.That(((VideoSourceRenderNode)root.Children.Single()).Frame, Is.EqualTo(expected));
+        }
     }
 
     [TestCaseSource(nameof(s_sampleRates))]

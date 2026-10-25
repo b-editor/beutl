@@ -77,6 +77,25 @@ public sealed class VideoSource : MediaSource
 
         public bool IsOffline => _offlineBitmap != null;
 
+        public int GetFrameIndex(MediaTime position)
+        {
+            // A reader that reports no frame rate has one frame to show.
+            if (FrameRate.Numerator <= 0 || FrameRate.Denominator <= 0)
+                return 0;
+
+            long frame = position.ToFrame(FrameRate, MidpointRounding.AwayFromZero);
+            long frameCount = MediaReader?.VideoInfo.NumFrames ?? 0;
+            if (frameCount <= 0)
+                frameCount = Duration.ToFrame(FrameRate, MidpointRounding.ToPositiveInfinity);
+
+            // Keep nearest-frame sampling, but the last frame remains visible for its whole interval.
+            // At higher output rates, rounding alone would request EOF half a source frame too early.
+            if (frameCount > 0 && frame == frameCount && position < MediaTime.FromFrames(frameCount, FrameRate))
+                frame--;
+
+            return (int)frame;
+        }
+
         public bool Read(int frame, [NotNullWhen(true)] out Ref<Bitmap>? bitmap)
         {
             if (!IsDisposed && _offlineBitmap is { } offline)

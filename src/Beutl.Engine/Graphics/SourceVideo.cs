@@ -138,11 +138,7 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         if (r.Source?.IsDisposed == false)
         {
             MediaTime pos = r.RequestedPosition + r.OffsetPosition;
-            Rational rate = r.Source.FrameRate;
-            // A reader that reports no frame rate has one frame to show.
-            int frame = rate.Numerator > 0 && rate.Denominator > 0
-                ? (int)pos.ToFrame(rate, MidpointRounding.AwayFromZero)
-                : 0;
+            int frame = r.Source.GetFrameIndex(pos);
 
             context.DrawVideoSource(r.Source, frame, Brushes.Resource.White, null);
             r.RenderedPosition = r.RequestedPosition;

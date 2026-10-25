@@ -425,6 +425,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
     private static async ValueTask<MediaFrame?> GetAudioFrame(MediaFrame frame, SampleConverter swr, EncodeState state,
         ISampleProvider sampleProvider)
     {
+        int remaining = (int)Math.Min(frame.NbSamples, sampleProvider.SampleCount - state.NextPts);
+        if (remaining <= 0)
+            return null;
+
         using var audio = await sampleProvider.ReadNextSamples(frame.NbSamples);
         if (audio is null)
             return null;
@@ -436,8 +440,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         }
 
         var converted = swr.ConvertFrame(frame, out _, out _);
+        // The provider pads its last block; only real samples belong to the exported duration.
+        converted.NbSamples = Math.Min(converted.NbSamples, remaining);
         converted.Pts = state.NextPts;
-        state.NextPts += frame.NbSamples;
+        state.NextPts += converted.NbSamples;
 
         return converted;
     }

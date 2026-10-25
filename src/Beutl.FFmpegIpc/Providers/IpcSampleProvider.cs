@@ -46,8 +46,8 @@ internal sealed class IpcSampleProvider : ISampleProvider
         if (offset >= SampleCount)
             return null;
 
-        // Always return a buffer of the requested length, zero-filling past the timeline end: the encoder encodes
-        // frame.NbSamples even from a shorter buffer, so a short one would leave stale samples in the final frame.
+        // Always return a buffer of the requested length, zero-filling past the timeline end: the encoder copies
+        // a full block into its native frame before trimming it to the remaining sample count.
         long availableLength = Math.Min(length, SampleCount - offset);
         AudioBuffer audio;
         if (availableLength == length)

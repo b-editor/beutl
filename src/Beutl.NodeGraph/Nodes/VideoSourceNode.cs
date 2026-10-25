@@ -57,11 +57,7 @@ public sealed partial class VideoSourceNode : GraphNode
                 _sourceResource!.Reconcile(source, context, ref versionBumped);
             }
 
-            MediaTime time = Time;
-            Rational rate = _sourceResource.FrameRate;
-            int frame = rate.Numerator > 0 && rate.Denominator > 0
-                ? (int)time.ToFrame(rate, MidpointRounding.AwayFromZero)
-                : 0;
+            int frame = _sourceResource.GetFrameIndex(Time);
 
             if (_cachedOutput == null)
             {

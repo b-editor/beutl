@@ -164,6 +164,32 @@ public class VideoSourceTests
         Assert.That(duration, Is.EqualTo(MediaTime.Zero));
     }
 
+    [TestCase(48, 2)]
+    [TestCase(48, 3)] // A longer audio track must not extend the video frame interval.
+    [TestCase(0, 2)] // Containers without a frame count use the duration instead.
+    public void FrameSelection_UsesTheVideoEndWithoutExtendingPastIt(long frameCount, int durationSeconds)
+    {
+        Mock<MediaReader> reader = CreateReader(true);
+        reader.SetupGet(x => x.VideoInfo).Returns(
+            new VideoStreamInfo("test", frameCount, new PixelSize(80, 60), new Rational(24))
+            {
+                Duration = new Rational(durationSeconds),
+            });
+        _decoder.Setup(x => x.Open(_path, It.IsAny<MediaOptions>())).Returns(reader.Object);
+        using var resource = CreateSource().ToResource(CompositionContext.Default);
+
+        MediaTime end = MediaTime.FromSeconds(2);
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.GetFrameIndex(end - new MediaTime(1)), Is.EqualTo(47));
+            Assert.That(resource.GetFrameIndex(end), Is.EqualTo(48));
+            Assert.That(resource.GetFrameIndex(end + MediaTime.FromFrames(1, new Rational(24))), Is.EqualTo(49));
+            Assert.That(resource.GetFrameIndex(MediaTime.Zero), Is.Zero);
+            Assert.That(resource.GetFrameIndex(MediaTime.FromFrames(3, new Rational(48))), Is.EqualTo(2),
+                "Nearest-frame sampling inside the clip must stay unchanged.");
+        });
+    }
+
     private VideoSource CreateSource()
     {
         var source = new VideoSource();
