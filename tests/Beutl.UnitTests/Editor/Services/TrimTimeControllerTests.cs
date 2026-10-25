@@ -646,6 +646,31 @@ public class TrimTimeControllerTests
     }
 
     [Test]
+    public void OfflineVideo_DoesNotPinTheClipToItsUnknownDuration()
+    {
+        var video = new SourceVideo
+        {
+            Source =
+            {
+                Value = VideoSource.Open(Path.Combine(
+                    Path.GetTempPath(), $"beutl-offline-{Guid.NewGuid():N}.mp4"))
+            }
+        };
+        Element element = _harness.AddElement(MediaTime.Zero, Seconds(5));
+        element.Objects.Add(video);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(SlippableMedia.Collect(element).Single().Total, Is.Null,
+                "an offline source must not report a zero total duration");
+            Assert.That(SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration(), Is.Null);
+            Assert.That(SlippableMedia.CreateResizeConstraints(element).ClampLength(Seconds(8)),
+                Is.EqualTo(Seconds(8)));
+            Assert.That(SlippableMedia.GetOriginalDuration(element), Is.Null);
+        });
+    }
+
+    [Test]
     public void Resize_RippleBarrier_RevalidatesTheFinalLoopPeriod()
     {
         var video = CreateVideo(1);

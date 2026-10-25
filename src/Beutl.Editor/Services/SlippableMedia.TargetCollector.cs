@@ -98,7 +98,11 @@ internal static partial class SlippableMedia
             using var resource = source.ToResource(CompositionContext.Default);
             duration = resource switch
             {
-                VideoSource.Resource video => video.Duration,
+                // An offline reader reports a zero duration; treat it as unknown so a
+                // placeholder clip keeps the length the user asked for and stays resizable.
+                VideoSource.Resource video => video.IsOffline || video.Duration <= MediaTime.Zero
+                    ? null
+                    : video.Duration,
                 SoundSource.Resource sound => sound.Duration > MediaTime.Zero ? sound.Duration : null,
                 _ => null
             };
