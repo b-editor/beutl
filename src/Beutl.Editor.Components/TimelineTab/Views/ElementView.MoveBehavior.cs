@@ -318,7 +318,7 @@ public sealed partial class ElementView
                     return;
                 }
 
-                await viewModel.SubmitViewModelChanges();
+                await viewModel.SubmitViewModelChanges(preserveLength: true);
                 return;
             }
 

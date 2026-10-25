@@ -33,6 +33,8 @@ namespace Beutl.HeadlessUITests;
 public class TimelineMediaDurationTests
 {
     private static readonly MediaTime OneFrameAt30 = MediaTime.FromFrames(1, new Rational(30));
+    private static readonly object s_fractionalDecoderLock = new();
+    private static bool s_fractionalDecoderRegistered;
 
     [AvaloniaTest]
     [TestCase(5d, 1d, 200f, 2d)]
@@ -502,6 +504,104 @@ public class TimelineMediaDurationTests
         });
         HeadlessTestHelpers.Render(5);
         CapturePreview(view.Window, "move-global-speed-committed");
+    }
+
+    [AvaloniaTest]
+    public async Task BodyMove_OffFrameLength_PreservesLength()
+    {
+        using var configuration = new EditorConfigScope(snap: false);
+        ElementViewModel model = await OpenElement(new RectShape(), startSeconds: 1, lengthSeconds: 2.01);
+        TimelineTabViewModel timeline = model.Timeline;
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        using var view = OpenTimelineView(model, width: 1600);
+        Border border = view.Border;
+        float scale = view.Scale;
+        Point press = border.TranslatePoint(new Point(border.Bounds.Width / 2, border.Bounds.Height / 2), view.Window)!.Value;
+        Point release = press + new Avalonia.Vector(OneFrameAt30.TimeToPixel(scale), 0);
+
+        view.Drag(press, release, RawInputModifiers.None, () => { });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1) + OneFrameAt30),
+                "the body move snaps only its start to the frame grid");
+            Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2.01)),
+                "moving a legacy off-frame clip must not rewrite its length");
+        });
+    }
+
+    [AvaloniaTest]
+    public async Task ImportVideo_FractionalDuration_IsFlooredToProjectFrame()
+    {
+        (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(
+            "timeline-frame-length-import", frameRate: 30);
+        RegisterFractionalDurationDecoder();
+        string path = Path.Combine(
+            BeutlHomeIsolation.CurrentHome!, $"fractional-{Guid.NewGuid():N}.fractional-duration-video");
+        File.WriteAllBytes(path, []);
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+
+        ElementAddResult added = await adder.AddAsync([new ElementDescription(
+            Start: MediaTime.Zero,
+            Length: MediaTime.FromSeconds(5),
+            Layer: 0,
+            Source: new ElementSource.File(path))], CancellationToken.None);
+        Assert.That(added.IsSuccess, Is.True);
+        Element element = scene.Children.Single();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromFrames(60, new Rational(30))),
+                "2.01s at 30fps is normalized to the last complete project frame");
+            Assert.That(element.Length.Value, Is.LessThan(MediaTime.FromSeconds(2.01)));
+        });
+    }
+
+    private static void RegisterFractionalDurationDecoder()
+    {
+        lock (s_fractionalDecoderLock)
+        {
+            if (s_fractionalDecoderRegistered) return;
+            DecoderRegistry.Register(new FractionalDurationVideoDecoder());
+            s_fractionalDecoderRegistered = true;
+        }
+    }
+
+    private sealed class FractionalDurationVideoDecoder : IDecoderInfo
+    {
+        public string Name => "Fractional duration test decoder";
+        public IEnumerable<string> VideoExtensions() => [".fractional-duration-video"];
+        public IEnumerable<string> AudioExtensions() => [];
+
+        public MediaReader? Open(string file, MediaOptions options)
+            => Path.GetExtension(file) == ".fractional-duration-video"
+               && options.StreamsToLoad.HasFlag(MediaMode.Video)
+                ? new FractionalDurationVideoReader()
+                : null;
+    }
+
+    // 201 frames at 100 fps = 2.01 seconds, a duration that is not a frame multiple at 30 fps.
+    private sealed class FractionalDurationVideoReader : MediaReader
+    {
+        public override VideoStreamInfo VideoInfo { get; } =
+            new("test", 201, new Beutl.Media.PixelSize(80, 80), new Rational(100, 1));
+
+        public override AudioStreamInfo AudioInfo => throw new NotSupportedException();
+        public override bool HasVideo => true;
+        public override bool HasAudio => false;
+
+        public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Beutl.Media.Bitmap>? image)
+        {
+            image = null;
+            return false;
+        }
+
+        public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
+        {
+            sound = null;
+            return false;
+        }
     }
 
     [AvaloniaTest]

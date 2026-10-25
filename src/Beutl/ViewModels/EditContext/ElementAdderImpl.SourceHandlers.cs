@@ -7,6 +7,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
+using Beutl.JsonConverters;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -74,13 +75,14 @@ internal sealed partial class ElementAdderImpl
         drawable.Transform.Value = transform;
     }
 
-    private static T? TrySetDuration<T>(Element element, Func<T> initialize, Func<T, MediaTime> getDuration)
+    private static T? TrySetDuration<T>(
+        Element element, Scene scene, Func<T> initialize, Func<T, MediaTime> getDuration)
     {
         T? state = default;
         try
         {
             state = initialize();
-            element.Length.Value = getDuration(state);
+            element.Length.Value = NormalizeImportedDuration(scene, getDuration(state));
             return state;
         }
         catch
@@ -89,6 +91,21 @@ internal sealed partial class ElementAdderImpl
                 RenderThread.Dispatcher.Dispatch(disposable.Dispose, DispatchPriority.Low);
             return default;
         }
+    }
+
+    // The timeline stores frame-aligned lengths. A media duration is normalized once here,
+    // before the element enters the scene, so later moves and edits never have to re-round it.
+    // Flooring matches ResizeToOriginalDuration and keeps the clip inside its source; a source
+    // shorter than one frame still gets one frame so it remains visible and editable.
+    private static MediaTime NormalizeImportedDuration(Scene scene, MediaTime duration)
+    {
+        if (duration <= MediaTime.Zero) return duration;
+
+        Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
+        MediaTime frame = MediaTime.FromFrames(1, rate);
+        MediaTime snapped = MediaTimeJsonConverter.SnapToFrame(duration, rate);
+        MediaTime floored = snapped.RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
+        return floored >= frame ? floored : frame;
     }
 
     private static IDisposable? DisposeResourceOnRenderThread(IDisposable? resource)
@@ -102,12 +119,13 @@ internal sealed partial class ElementAdderImpl
     // Sets the element's length from the resource and keeps the resource until the batch is released.
     private static void TrackDurationResource<TResource>(
         Element element,
+        Scene scene,
         Func<TResource> initialize,
         Func<TResource, MediaTime> getDuration,
         List<ElementMaterializationResource> resources)
         where TResource : class, IDisposable
     {
-        TResource? resource = TrySetDuration(element, initialize, getDuration);
+        TResource? resource = TrySetDuration(element, scene, initialize, getDuration);
         if (DisposeResourceOnRenderThread(resource) is { } disposal)
         {
             resources.Add(ElementMaterializationResource.Temporary(disposal));
@@ -343,6 +361,7 @@ internal sealed partial class ElementAdderImpl
                         sourceVideo.Source.Value = video;
                         TrackDurationResource(
                             videoElement,
+                            context.Scene,
                             () => video.ToResource(CompositionContext.Default),
                             resource => resource.Duration,
                             resources);
@@ -363,6 +382,7 @@ internal sealed partial class ElementAdderImpl
                         sourceSound.Source.Value = sound;
                         TrackDurationResource(
                             soundElement,
+                            context.Scene,
                             () => sound.ToResource(CompositionContext.Default),
                             resource => resource.Duration,
                             resources);
@@ -383,6 +403,7 @@ internal sealed partial class ElementAdderImpl
                         sourceAudio.Source.Value = audio;
                         TrackDurationResource(
                             audioElement,
+                            context.Scene,
                             () => audio.ToResource(CompositionContext.Default),
                             resource => resource.Duration,
                             resources);

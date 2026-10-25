@@ -462,9 +462,9 @@ public sealed partial class ElementViewModel : IDisposable
         Width.Value = width;
     }
 
-    // Ripple shifts the dragged edge's delta onto neighbours, so the untouched edge must carry its
-    // exact model coordinate — re-deriving it through a lossy pixel->frame round-trip would leak a
-    // sub-frame delta onto the wrong side for an off-frame clip and ripple the wrong neighbours.
+    // An edge resize moves exactly one edge. The untouched edge keeps its exact model coordinate:
+    // re-deriving it through a lossy pixel->frame round-trip would move an off-frame edge and, when
+    // rippling, shift the wrong neighbours. A body move uses the same rule for its length.
     internal static (MediaTime Start, MediaTime Length) ResolveRippleResizeBounds(
         bool leftEdge, MediaTime roundedStart, MediaTime roundedLength, MediaTime modelStart, MediaTime modelEnd)
     {
@@ -473,7 +473,8 @@ public sealed partial class ElementViewModel : IDisposable
             : (modelStart, roundedLength);
     }
 
-    public async Task SubmitViewModelChanges(bool ripple = false, bool leftEdge = false)
+    public async Task SubmitViewModelChanges(
+        bool ripple = false, bool leftEdge = false, bool preserveLength = false)
     {
         PrepareAnimationContext context = PrepareAnimation();
 
@@ -481,9 +482,9 @@ public sealed partial class ElementViewModel : IDisposable
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
         MediaTime roundedStart = BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         MediaTime roundedLength = Width.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-        (MediaTime start, MediaTime length) = ripple || leftEdge
-            ? ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End)
-            : (roundedStart, roundedLength);
+        (MediaTime start, MediaTime length) = preserveLength
+            ? (roundedStart, Model.Length.Value)
+            : ResolveRippleResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
         var request = new ElementResizeRequest(Model, start, length, zindex);
