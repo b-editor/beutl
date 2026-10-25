@@ -12,6 +12,8 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     private static readonly TimeSpan s_debounceInterval = TimeSpan.FromMilliseconds(300);
     private readonly ILogger _logger = Log.CreateLogger<DirectoryWatcherService>();
     private readonly object _stateSync = new();
+    // Only background work takes this lock; starting and disposing the same watcher must not overlap.
+    private readonly object _watchSetupSync = new();
     private readonly TimeSpan _debounceInterval;
     private readonly Action<Action> _postDelivery;
     private readonly Action<FileSystemWatcher> _startWatcher;
@@ -32,6 +34,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     private string? _failingCanonicalPath;
     private bool _disposed;
     private long _stateGeneration;
+    private long _watchRequest;
 
     public DirectoryWatcherService()
         : this(
@@ -72,15 +75,35 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     }
 
     // 指定パスの監視を開始する。前回の監視は自動的に停止される。
-    public void Watch(string? path) => Watch(path, isErrorRearm: false);
+    public Task WatchAsync(string? path, bool includeSubdirectories = true)
+    {
+        long request;
+        lock (_stateSync)
+        {
+            if (_disposed)
+                return Task.CompletedTask;
 
-    private void Watch(string? path, bool isErrorRearm)
+            request = ++_watchRequest;
+        }
+
+        // Starting a watcher walks the subtree on Linux and calls sync() on macOS.
+        // Reserve the request before queuing it so a slow start cannot undo later navigation.
+        return Task.Run(() =>
+        {
+            lock (_watchSetupSync)
+            {
+                Watch(path, includeSubdirectories, isErrorRearm: false, request);
+            }
+        });
+    }
+
+    private void Watch(string? path, bool includeSubdirectories, bool isErrorRearm, long request)
     {
         FileSystemWatcher? currentWatcher;
         string? watchedCanonicalPath;
         lock (_stateSync)
         {
-            if (_disposed)
+            if (_disposed || request != _watchRequest)
                 return;
 
             currentWatcher = _watcher;
@@ -91,10 +114,11 @@ internal sealed partial class DirectoryWatcherService : IDisposable
 
         // Only changing folders clears a failure budget.
         if (!isErrorRearm)
-            ResetErrorBudget(pathResolved, canonicalPath);
+            ResetErrorBudget(pathResolved, canonicalPath, request);
 
         // Recursive watchers consume one inotify descriptor per subdirectory.
         if (currentWatcher is not null
+            && currentWatcher.IncludeSubdirectories == includeSubdirectories
             && pathResolved
             && canonicalPath is not null
             && Directory.Exists(canonicalPath)
@@ -102,7 +126,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
                 watchedCanonicalPath,
                 canonicalPath,
                 StringComparison.Ordinal)
-            && TryKeepCurrentWatcher(currentWatcher, canonicalPath, path!))
+            && TryKeepCurrentWatcher(currentWatcher, canonicalPath, path!, request))
         {
             return;
         }
@@ -110,7 +134,8 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         if (!TryDetachWatcher(
                 out long watchGeneration,
                 out CancellationTokenSource? previousDebounce,
-                out FileSystemWatcher? previousWatcher))
+                out FileSystemWatcher? previousWatcher,
+                request))
         {
             return;
         }
@@ -123,8 +148,8 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         FileSystemWatcher? nextWatcher = null;
         try
         {
-            nextWatcher = CreateWatcher(canonicalPath);
-            if (TryInstallWatcher(nextWatcher, watchGeneration, canonicalPath, path!))
+            nextWatcher = CreateWatcher(canonicalPath, includeSubdirectories);
+            if (TryInstallWatcher(nextWatcher, watchGeneration, canonicalPath, path!, request))
                 nextWatcher = null;
         }
         catch (Exception ex)
@@ -137,10 +162,13 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         }
     }
 
-    private void ResetErrorBudget(bool pathResolved, string? canonicalPath)
+    private void ResetErrorBudget(bool pathResolved, string? canonicalPath, long request)
     {
         lock (_stateSync)
         {
+            if (_disposed || request != _watchRequest)
+                return;
+
             if (!pathResolved
                 || !string.Equals(
                     _failingCanonicalPath,
@@ -154,11 +182,12 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     }
 
     // The watcher already covers the folder; only the spelling the items use changes.
-    private bool TryKeepCurrentWatcher(FileSystemWatcher currentWatcher, string canonicalPath, string path)
+    private bool TryKeepCurrentWatcher(FileSystemWatcher currentWatcher, string canonicalPath, string path, long request)
     {
         lock (_stateSync)
         {
             if (!_disposed
+                && request == _watchRequest
                 && ReferenceEquals(_watcher, currentWatcher)
                 && string.Equals(
                     _watchedCanonicalPath,
@@ -178,11 +207,12 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     private bool TryDetachWatcher(
         out long generation,
         out CancellationTokenSource? debounce,
-        out FileSystemWatcher? watcher)
+        out FileSystemWatcher? watcher,
+        long request)
     {
         lock (_stateSync)
         {
-            if (_disposed)
+            if (_disposed || request != _watchRequest)
             {
                 generation = 0;
                 debounce = null;
@@ -209,12 +239,12 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         _directoryIdentities.Clear();
     }
 
-    private FileSystemWatcher CreateWatcher(string canonicalPath)
+    private FileSystemWatcher CreateWatcher(string canonicalPath, bool includeSubdirectories)
     {
         var watcher = new FileSystemWatcher(canonicalPath)
         {
             NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite,
-            IncludeSubdirectories = true,
+            IncludeSubdirectories = includeSubdirectories,
         };
 
         watcher.Created += OnFileSystemEvent;
@@ -226,68 +256,89 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     }
 
     // False when a later Watch or Dispose superseded this one; the caller then still owns the watcher.
-    private bool TryInstallWatcher(FileSystemWatcher watcher, long generation, string canonicalPath, string path)
+    private bool TryInstallWatcher(FileSystemWatcher watcher, long generation, string canonicalPath, string path, long request)
     {
         lock (_stateSync)
         {
-            if (_disposed || _stateGeneration != generation)
+            if (_disposed || request != _watchRequest || _stateGeneration != generation)
                 return false;
 
             _watcher = watcher;
             _watchedCanonicalPath = canonicalPath;
             _watchedRequestedPath = Path.GetFullPath(path);
-            try
-            {
-                _startWatcher(watcher);
-            }
-            catch
-            {
-                _watcher = null;
-                _watchedCanonicalPath = null;
-                _watchedRequestedPath = null;
-                throw;
-            }
+        }
 
+        try
+        {
+            // Publish first so errors raised during startup can rearm, but never hold the UI's
+            // state lock while the operating system starts the watcher.
+            _startWatcher(watcher);
             return true;
+        }
+        catch
+        {
+            lock (_stateSync)
+            {
+                if (ReferenceEquals(_watcher, watcher))
+                {
+                    _watcher = null;
+                    _watchedCanonicalPath = null;
+                    _watchedRequestedPath = null;
+                }
+            }
+            throw;
         }
     }
 
     // Rebuild after Error; otherwise the current folder stays unwatched.
-    private void OnWatcherError(object sender, ErrorEventArgs e)
+    private async void OnWatcherError(object sender, ErrorEventArgs e)
     {
         if (!IsCurrentWatcher(sender))
             return;
 
         _logger.LogWarning(e.GetException(), "FileSystemWatcher stopped; rebuilding it");
 
-        Dispatcher.UIThread.Post(() =>
+        if (await TryRearmAfterErrorAsync(sender))
         {
-            lock (_stateSync)
+            _postDelivery(() =>
             {
-                if (!IsCurrentWatcher(sender))
-                    return;
-
-                if (TryRearmAfterError())
+                lock (_stateSync)
                 {
                     // Resync changes missed while the watcher was down.
-                    Changed?.Invoke();
+                    if (!_disposed)
+                        Changed?.Invoke();
                 }
+            });
+        }
+    }
+
+    internal Task<bool> TryRearmAfterErrorAsync(object? sourceWatcher = null)
+    {
+        return Task.Run(() =>
+        {
+            lock (_watchSetupSync)
+            {
+                return TryRearmAfterError(sourceWatcher);
             }
         });
     }
 
-    internal bool TryRearmAfterError()
+    private bool TryRearmAfterError(object? sourceWatcher)
     {
         string? requestedPath;
         string? canonicalPath;
         FileSystemWatcher? watcher;
         CancellationTokenSource? debounce;
+        long request;
+        bool includeSubdirectories;
         lock (_stateSync)
         {
-            if (_disposed)
+            if (_disposed || sourceWatcher is not null && !ReferenceEquals(_watcher, sourceWatcher))
                 return false;
 
+            request = _watchRequest;
             watcher = _watcher;
+            includeSubdirectories = watcher?.IncludeSubdirectories ?? true;
             requestedPath = _watchedRequestedPath ?? watcher?.Path;
             canonicalPath = _watchedCanonicalPath ?? watcher?.Path;
             _watcher = null;
@@ -311,6 +362,9 @@ internal sealed partial class DirectoryWatcherService : IDisposable
 
         lock (_stateSync)
         {
+            if (_disposed || request != _watchRequest)
+                return false;
+
             _failingCanonicalPath ??= canonicalPath;
         }
 
@@ -320,7 +374,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         {
             lock (_stateSync)
             {
-                if (_disposed || _errorRearmCount >= MaxErrorRearms)
+                if (_disposed || request != _watchRequest || _errorRearmCount >= MaxErrorRearms)
                 {
                     break;
                 }
@@ -328,9 +382,14 @@ internal sealed partial class DirectoryWatcherService : IDisposable
                 _errorRearmCount++;
             }
 
-            Watch(requestedPath, isErrorRearm: true);
-            if (IsWatching)
-                return true;
+            Watch(requestedPath, includeSubdirectories, isErrorRearm: true, request);
+            lock (_stateSync)
+            {
+                if (request != _watchRequest)
+                    return false;
+                if (_watcher is not null)
+                    return true;
+            }
         }
 
         _logger.LogWarning(
@@ -555,7 +614,15 @@ internal sealed partial class DirectoryWatcherService : IDisposable
             _watchedRequestedPath = null;
         }
 
-        ReleaseDetached(debounce, watcher);
+        // A start already in progress owns the watcher until it returns. Closing the tab must
+        // invalidate callbacks immediately without waiting for that filesystem work.
+        _ = Task.Run(() =>
+        {
+            lock (_watchSetupSync)
+            {
+                ReleaseDetached(debounce, watcher);
+            }
+        });
     }
 
     private static void CancelAndDispose(CancellationTokenSource? cancellation)

@@ -19,7 +19,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     private readonly CompositeDisposable _disposables = [];
     private readonly ILogger _logger = Log.CreateLogger<FileBrowserTabViewModel>();
     private readonly IEditorContext _editorContext;
-    private readonly DirectoryWatcherService _directoryWatcher = new();
+    private readonly DirectoryWatcherService _directoryWatcher;
     private readonly FavoritesManager _favoritesManager = new();
     private readonly MediaFileSearcher _mediaSearcher = new();
     // Canceled when the tab closes, which stops a copy or move before its next entry.
@@ -44,9 +44,11 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     {
     }
 
-    internal FileBrowserTabViewModel(IEditorContext editorContext, FileBrowserStorageProviderRegistry? storageProviders)
+    internal FileBrowserTabViewModel(IEditorContext editorContext, FileBrowserStorageProviderRegistry? storageProviders,
+        DirectoryWatcherService? directoryWatcher = null)
     {
         _editorContext = editorContext;
+        _directoryWatcher = directoryWatcher ?? new();
         InitializeStorage(storageProviders);
 
         _favoritesManager.Changed += OnFavoritesChanged;
@@ -96,7 +98,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         }
         UpdateBreadcrumbItems(path);
         RefreshItems();
-        _directoryWatcher.Watch(path);
+        _ = WatchDirectoryAsync(path);
     }
 
     private void OnHomeViewChanged(bool isHome)
@@ -105,7 +107,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         {
             RootPath.Value = string.Empty;
             RefreshHomeView();
-            _directoryWatcher.Watch(_projectDirectory);
+            _ = WatchDirectoryAsync(_projectDirectory);
         }
     }
 
@@ -114,7 +116,27 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         if (!IsHomeView.Value)
         {
             RefreshItems();
+            _ = WatchDirectoryAsync(RootPath.Value);
         }
+    }
+
+    private async Task WatchDirectoryAsync(string? path)
+    {
+        // Flat views only display immediate children. Recursing from ~/ needlessly registers
+        // every descendant with inotify, including caches and repositories that are not shown.
+        await _directoryWatcher.WatchAsync(path,
+            includeSubdirectories: IsHomeView.Value || ViewMode.Value == FileBrowserViewMode.Tree);
+
+        if (_disposed || string.IsNullOrEmpty(path)
+            || path != (IsHomeView.Value ? _projectDirectory : RootPath.Value))
+            return;
+
+        // Catch up with changes made while the watcher was starting. Keep the existing items
+        // and selection when the listing has not changed.
+        if (IsHomeView.Value)
+            RefreshHomeView();
+        else
+            RefreshDirectoryEntries([path], includeLoadedChildren: ViewMode.Value == FileBrowserViewMode.Tree);
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
@@ -197,22 +219,27 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     {
         if (_disposed) return;
 
+        // A deleted directory can no longer be distinguished from a temporary file by its
+        // attributes. Refresh home results if a previously displayed favorite/media path is affected.
+        if (IsHomeView.Value && ShouldRebuildHomeView(paths))
+        {
+            RefreshHomeView();
+            return;
+        }
+
+        RefreshDirectoryEntries(paths.Select(Path.GetDirectoryName).OfType<string>());
+    }
+
+    private void RefreshDirectoryEntries(IEnumerable<string> directories, bool includeLoadedChildren = false)
+    {
         try
         {
-            // A deleted directory can no longer be distinguished from a temporary file by its
-            // attributes. Refresh home results if a previously displayed favorite/media path is affected.
-            if (IsHomeView.Value && ShouldRebuildHomeView(paths))
-            {
-                RefreshHomeView();
-                return;
-            }
-
             string? root = IsHomeView.Value ? _projectDirectory : RootPath.Value;
             var items = IsHomeView.Value ? ProjectDirectoryItems
                 : ViewMode.Value == FileBrowserViewMode.Tree ? TreeRootItems : Items;
             // A recursive deletion reports children too. Remove vanished parent entries before
             // inspecting their children so one missing directory cannot abort the batch.
-            foreach (string directory in paths.Select(Path.GetDirectoryName).OfType<string>()
+            foreach (string directory in directories.Select(path => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path)))
                          .Distinct(StringComparer.Ordinal).OrderBy(directory => directory.Length))
             {
                 if (!string.IsNullOrEmpty(root)
@@ -231,10 +258,14 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                     foreach (var item in FavoriteItems)
                         item.RefreshEntriesForDirectory(directory);
             }
+
+            if (includeLoadedChildren)
+                foreach (var item in items)
+                    item.RefreshLoadedEntries();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Failed to check file browser entries after a save");
+            _logger.LogWarning(ex, "Failed to check file browser entries");
         }
     }
 

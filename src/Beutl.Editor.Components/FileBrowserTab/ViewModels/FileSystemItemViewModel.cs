@@ -294,6 +294,17 @@ public class FileSystemItemViewModel : IDisposable
         }
     }
 
+    // Catch up the displayed tree after asynchronous watcher startup, without walking unopened subtrees.
+    internal void RefreshLoadedEntries()
+    {
+        RefreshEntriesForDirectory(FullPath);
+        if (_childrenLoaded && Children is not null)
+        {
+            foreach (var child in Children)
+                child.RefreshLoadedEntries();
+        }
+    }
+
     // Reads the size and details of the listed files at or below the given paths again.
     internal void ReloadDetailsAtOrBelow(IReadOnlyCollection<string> paths)
     {
