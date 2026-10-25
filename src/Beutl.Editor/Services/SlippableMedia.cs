@@ -2,6 +2,7 @@
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor.Services;
@@ -18,6 +19,15 @@ internal static partial class SlippableMedia
         public MediaTimeMapping Mapping { get; } = mapping;
         public List<MediaTimeMapping> SampleMappings { get; } = [mapping];
         public MediaTime Length { get; } = length;
+        private TimeRange? Window { get; init; }
+
+        public Target WithWindow(TimeRange window)
+        {
+            var target = new Target(Offset, Total, Mapping, Length) { Window = window };
+            target.SampleMappings.Clear();
+            target.SampleMappings.AddRange(SampleMappings);
+            return target;
+        }
 
         public bool IsSupported => SampleMappings.All(m => m.IsSupported);
         public bool CanWriteOffsets => IsSupported && Mapping.CanWriteOffsets;
@@ -81,12 +91,12 @@ internal static partial class SlippableMedia
             if (offset < MediaTime.Zero) return false;
             foreach (MediaTimeMapping sampleMapping in SampleMappings)
             {
-                if (sampleMapping.SampledRange(MediaTime.Zero, length, startDelta, length - Length) is not { } sampled) continue;
+                if (sampleMapping.SampledRange(MediaTime.Zero, length, startDelta, length - Length, window: Window) is not { } sampled) continue;
                 MediaTimeMapping.Interval range = sampled.Shift(offset);
                 if (allowRecovery)
                 {
                     MediaTimeMapping.Interval nominal = sampleMapping.SampledRange(MediaTime.Zero, length, startDelta,
-                        length - Length, conservative: false)!.Value.Shift(offset);
+                        length - Length, conservative: false, window: Window)!.Value.Shift(offset);
                     MediaTimeMapping.Interval before = InitialWindow(sampleMapping, conservative: false);
                     MediaTime minimum = before.Min < MediaTime.Zero ? before.Min : MediaTime.Zero;
                     MediaTime? maximum = clampEnd ? Total : null;
@@ -117,13 +127,14 @@ internal static partial class SlippableMedia
         }
 
         private MediaTimeMapping.Interval InitialWindow(MediaTimeMapping sampleMapping, bool conservative = true)
-            => sampleMapping.SampledRange(MediaTime.Zero, Length, conservative: conservative)?.Shift(InitialOffset)
+            => sampleMapping.SampledRange(MediaTime.Zero, Length, conservative: conservative, window: Window)?.Shift(InitialOffset)
                 ?? new MediaTimeMapping.Interval(MediaTime.Zero, MediaTime.Zero);
     }
 
     public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
-        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null)
-        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates).Collect();
+        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null,
+        bool includePortalInputs = true)
+        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates, includePortalInputs).Collect();
 
     public static MediaTime ClampSharedDelta(IReadOnlyList<Target> targets, MediaTime delta)
     {
@@ -177,40 +188,65 @@ internal static partial class SlippableMedia
         return delta;
     }
 
-    public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null)
+    public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false)
     {
-        List<Target> targets = Collect(element, timingPeers);
         MediaTime? duration = GetProviderDuration(element);
         if (element.HierarchicalParent is not Scene scene || !element.Objects.OfType<PortalObject>().Any(p => p.IsEnabled.Value))
-            return new(element.Start.Value, element.Length.Value, targets, duration);
+            return new(element.Start.Value, element.Length.Value, Collect(element, timingPeers, ignoreLoops), duration);
 
         TimeRange original = element.Range;
         var ranges = scene.Children.Select(child => (Element: child, child.Range)).ToArray();
-        HashSet<Element> Active(MediaTime length, MediaTime startDelta)
+        var targets = new List<Target>();
+        var sourceDurations = new Dictionary<MediaSource, MediaTime?>(ReferenceEqualityComparer.Instance);
+        var cache = new List<(HashSet<Element> Active, List<Target> Targets)>();
+        List<Target> Snapshot(HashSet<Element> active)
         {
-            var window = new TimeRange(original.Start + startDelta, length);
-            return ranges.Where(entry =>
-            {
-                TimeRange range = entry.Range;
-                if (entry.Element == element || timingPeers?.Contains(entry.Element) == true)
-                    range = new TimeRange(range.Start + startDelta, range.Duration + length - original.Duration);
-                return range.Start < window.End && window.Start < range.End;
-            }).Select(entry => entry.Element).ToHashSet();
-        }
-
-        // Only a change in active providers needs a new flow/clock snapshot, not
-        // every bisection tick. Keep all discovered clocks for loop-phase searches.
-        var cache = new List<(HashSet<Element> Active, List<Target> Targets)> { (Active(original.Duration, MediaTime.Zero), [.. targets]) };
-        List<Target> Resolve(MediaTime length, MediaTime startDelta)
-        {
-            HashSet<Element> active = Active(length, startDelta);
             foreach (var entry in cache)
                 if (entry.Active.SetEquals(active)) return entry.Targets;
-            List<Target> collected = Collect(element, timingPeers, portalCandidates: active);
+            List<Target> collected = new TargetCollector(element, timingPeers, ignoreLoops, null, active,
+                includePortalInputs: false, sourceDurations: sourceDurations).Collect();
             cache.Add((active, collected));
             targets.AddRange(collected);
             return collected;
         }
+
+        // Flow is selected before controllers remap time. Rebuild it at provider
+        // boundaries, including gaps, and use each clock only while it is active.
+        // Cache the clocks by active set; changing geometry only clips their windows.
+        List<Target> Resolve(MediaTime length, MediaTime startDelta)
+        {
+            Int128 windowStart = (Int128)original.Start.Flicks + startDelta.Flicks;
+            Int128 windowEnd = windowStart + length.Flicks;
+            var shifted = ranges.Select(entry =>
+            {
+                Int128 start = entry.Range.Start.Flicks;
+                Int128 end = start + entry.Range.Duration.Flicks;
+                if (entry.Element == element || timingPeers?.Contains(entry.Element) == true)
+                {
+                    start += startDelta.Flicks;
+                    end += (Int128)startDelta.Flicks + length.Flicks - original.Duration.Flicks;
+                }
+                return (entry.Element, Start: start, End: end);
+            }).Where(entry => entry.Start < entry.End && entry.Start < windowEnd && windowStart < entry.End).ToArray();
+            var boundaries = new SortedSet<long> { 0, length.Flicks };
+            foreach (var entry in shifted)
+            {
+                if (entry.Start > windowStart) boundaries.Add((long)(entry.Start - windowStart));
+                if (entry.End < windowEnd) boundaries.Add((long)(entry.End - windowStart));
+            }
+            long[] points = boundaries.ToArray();
+            var result = new List<Target>();
+            for (int i = 1; i < points.Length; i++)
+            {
+                Int128 from = windowStart + points[i - 1];
+                HashSet<Element> active = shifted.Where(entry => entry.Start <= from && from < entry.End)
+                    .Select(entry => entry.Element).ToHashSet();
+                var window = new TimeRange(new MediaTime((long)from), new MediaTime(points[i] - points[i - 1]));
+                foreach (Target target in Snapshot(active)) result.Add(target.WithWindow(window));
+            }
+            return result;
+        }
+        Resolve(original.Duration, MediaTime.Zero);
         return new(original.Start, original.Duration, targets, duration, Resolve);
     }
 
@@ -230,25 +266,24 @@ internal static partial class SlippableMedia
 
     public static bool HasOriginalDuration(Element element)
     {
-        List<Target> targets = Collect(element);
-        return targets.All(t => t.IsSupported)
-            && (element.HasOriginalDuration() || targets.Any(t => t.Total.HasValue));
+        ResizeConstraints constraints = CreateResizeConstraints(element);
+        return constraints.IsSupported
+            && (element.HasOriginalDuration() || constraints.MediaTargets.Any(t => t.Total.HasValue));
     }
 
     public static MediaTime? GetOriginalDuration(Element element)
     {
-        List<Target> mapped = Collect(element);
-        if (mapped.Any(t => !t.IsSupported)) return null;
-        MediaTime? maximum = new ResizeConstraints(element.Start.Value, element.Length.Value, mapped,
-            GetProviderDuration(element)).GetMaximumDuration();
+        ResizeConstraints constraints = CreateResizeConstraints(element);
+        if (!constraints.IsSupported) return null;
+        MediaTime? maximum = constraints.GetMaximumDuration();
         if (maximum.HasValue) return maximum;
         // Repetition can be unbounded while the underlying source still has an
         // original length. Offer one cycle; a frozen source falls back to source time.
-        List<Target> targets = Collect(element, ignoreLoops: true);
-        MediaTime? duration = new ResizeConstraints(element.Start.Value, element.Length.Value, targets,
-            GetProviderDuration(element)).GetMaximumDuration();
+        constraints = CreateResizeConstraints(element, ignoreLoops: true);
+        if (!constraints.IsSupported) return null;
+        MediaTime? duration = constraints.GetMaximumDuration();
         if (duration.HasValue) return duration;
-        foreach (Target target in targets)
+        foreach (Target target in constraints.MediaTargets)
         {
             if (target.Total is not { } total) continue;
             MediaTime remaining = total > target.InitialOffset ? total - target.InitialOffset : MediaTime.Zero;

@@ -16,9 +16,11 @@ internal static partial class SlippableMedia
         private readonly bool _ignoreLoops;
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
+        private readonly bool _includePortalInputs;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
         private readonly List<Target> _targets = new();
+        private readonly List<Target> _unresolvedPortalTargets = new();
         private readonly List<DrawableTimeController> _disabledFlowControllers = new();
         private readonly HashSet<object> _path = new();
         private readonly List<MediaTimeMapping.ControllerLink> _controllers = new();
@@ -29,7 +31,7 @@ internal static partial class SlippableMedia
         private bool _opaqueConsumption;
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
-            IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
+            IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates, bool includePortalInputs,
             IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null)
         {
             _element = element;
@@ -37,6 +39,7 @@ internal static partial class SlippableMedia
             _ignoreLoops = ignoreLoops;
             _timingRoles = timingRoles;
             _portalCandidates = portalCandidates;
+            _includePortalInputs = includePortalInputs;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
             if (element.HierarchicalParent is Scene layerScene)
@@ -49,6 +52,9 @@ internal static partial class SlippableMedia
         public List<Target> Collect()
         {
             foreach (Node node in BuildFlow()) CollectNode(node);
+            // Imported sources do not define the portal's display interval. If
+            // there is no local media, even an unknown input has no bounds to add.
+            if (!_includePortalInputs && _targets.Count == _unresolvedPortalTargets.Count) return [];
             if (_reenabledControllers != null || _disabledFlowControllers.Count == 0 || _targets.Any(t => !t.IsSupported)) return _targets;
             // A disabled controller contributes bounds only. Its future clock
             // must never replace the clock used to write the current source offset.
@@ -68,7 +74,7 @@ internal static partial class SlippableMedia
                 var enabled = new HashSet<DrawableTimeController>();
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
-                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, enabled, _sourceDurations);
+                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, _includePortalInputs, enabled, _sourceDurations);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -119,7 +125,7 @@ internal static partial class SlippableMedia
                     List<Node>? imported = portal.Clear.HasExpression ? null : ResolvePortal(portal);
                     if (imported == null)
                     {
-                        flow.Add(new Node(portal, [], Opaque: true));
+                        flow.Add(new Node(portal, [], Opaque: true, PortalInput: true));
                         _opaqueConsumption = true;
                     }
                     else flow.AddRange(imported);
@@ -161,24 +167,30 @@ internal static partial class SlippableMedia
             if (portal.Count.HasExpression) return null;
             if (portal.Count.Value <= 0) return [];
             if (_opaqueConsumption || _element.HierarchicalParent is not Scene scene) return null;
+            bool IsRelevantInput(Element owner, EngineObject obj)
+                => obj.IsEnabled.Value && LayerVisible(owner, obj.GetCompositionTarget())
+                    && (_includePortalInputs || obj.GetCompositionTarget() != CompositionTarget.Audio);
             int firstLayer = portal.ZIndex.Value + 1;
             int lastLayer = portal.ZIndex.Value + portal.Count.Value;
-            Element[] candidates = scene.Children.Where(candidate => candidate.IsEnabled.Value && candidate.ZIndex.Value >= firstLayer && candidate.ZIndex.Value <= lastLayer
+            Element[] candidates = scene.Children.Reverse().Where(candidate => candidate.IsEnabled.Value && candidate.ZIndex.Value >= firstLayer && candidate.ZIndex.Value <= lastLayer
                 && IsPortalCandidate(candidate)
                 && !_consumedPortalElements.Contains(candidate)
-                && candidate.Objects.Any(obj => obj.IsEnabled.Value && LayerVisible(candidate, obj.GetCompositionTarget()))).ToArray();
+                && candidate.Objects.Any(obj => IsRelevantInput(candidate, obj))).OrderBy(candidate => candidate.ZIndex.Value).ToArray();
             if (candidates.Length == 0) return [];
-            // A single plain provider has one stable input order whenever it is
-            // active. Switching, nested, or competing portals need a richer flow
-            // model; never substitute the controller's stored target for them.
-            if (candidates.Length != 1) return null;
-            Element owner = candidates[0];
-            if (HasCompetingFlowConsumer()) return null;
-            EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled.Value && LayerVisible(owner, obj.GetCompositionTarget())).ToArray();
-            if (HasNonPlainProviderObject(objects)) return null;
-            if (IsClaimedByEarlierPortal(scene, owner, objects)) return null;
-            _consumedPortalElements.Add(owner);
-            return objects.Select(obj => new Node(obj, [], PortalInput: true)).ToList();
+            // Offset writes still require a stable input set. Resize snapshots
+            // describe one interval and can retain all plain providers in renderer
+            // order (OrderedAdd puts later elements first when layers are equal).
+            if (_includePortalInputs && (candidates.Length != 1 || HasCompetingFlowConsumer())) return null;
+            var imported = new List<Node>();
+            foreach (Element owner in candidates)
+            {
+                EngineObject[] objects = owner.Objects.Where(obj => IsRelevantInput(owner, obj)).ToArray();
+                if (HasNonPlainProviderObject(objects)) return null;
+                if (IsClaimedByEarlierPortal(scene, owner, objects)) return null;
+                _consumedPortalElements.Add(owner);
+                imported.AddRange(objects.Select(obj => new Node(obj, [], PortalInput: true)));
+            }
+            return imported;
         }
 
         private bool HasCompetingFlowConsumer()
@@ -213,12 +225,15 @@ internal static partial class SlippableMedia
 
         private void CollectNode(Node node, bool referenced = false)
         {
+            if (node.PortalInput && !_includePortalInputs && !node.Opaque) return;
             if (node.Opaque)
             {
                 // These unattached properties only carry a rejected constraint;
                 // IsSupported prevents them from ever becoming an offset write.
-                _targets.Add(new Target(Property.CreateExpression<MediaTime>(), null,
-                    new MediaTimeMapping(_element, node.Object, Property.CreateExpression(100f), [], 60), _element.Length.Value));
+                var target = new Target(Property.CreateExpression<MediaTime>(), null,
+                    new MediaTimeMapping(_element, node.Object, Property.CreateExpression(100f), [], 60), _element.Length.Value);
+                _targets.Add(target);
+                if (node.PortalInput) _unresolvedPortalTargets.Add(target);
                 return;
             }
             CollectFrom(node.Object, node.Inputs, node.FlowResolved, referenced, portalInput: node.PortalInput);
