@@ -48,6 +48,11 @@ public class ElementClipboardServiceTests
     private Element AddElement(MediaTime start, MediaTime length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
+    private static bool OverlapsAnotherChild(Scene scene, Element element)
+        => scene.Children.Any(child =>
+            child != element
+            && child.ZIndex.Value == element.ZIndex.Value
+            && child.Range.Intersects(element.Range));
 
     [Test]
     public async Task CopyAsync_MultipleElements_WritesElementsFormat()
@@ -289,6 +294,71 @@ public class ElementClipboardServiceTests
             // The next save of the scene writes the file.
             Assert.That(added[0].Uri, Is.EqualTo(ElementFileNaming.GetUri(_scene.Uri!, added[0].Id.Value)));
             Assert.That(File.Exists(added[0].Uri!.LocalPath), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_SingleElementFormat_OccupiedSlot_KeepsLength()
+    {
+        Element original = AddElement(MediaTime.Zero, MediaTime.FromSeconds(5));
+        string json = CoreSerializer.SerializeToJsonString(original);
+        _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
+        Element[] childrenBefore = [.. _scene.Children];
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(2), 0);
+
+        Element pasted = _scene.Children.Except(childrenBefore).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.True);
+            Assert.That(outcome.ScrollTo, Is.EqualTo(pasted.Range));
+            Assert.That(outcome.ScrollToZIndex, Is.EqualTo(pasted.ZIndex.Value));
+            Assert.That(pasted.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)),
+                "the clip keeps its length instead of being shortened to the gap");
+            Assert.That(OverlapsAnotherChild(_scene, pasted), Is.False,
+                "the free-slot search does not leave the clip on the occupied slot");
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_SingleElementFormat_ShortGap_DoesNotShrinkTheClip()
+    {
+        // Pasted at 2s, the only gap on the clicked row is [5s, 6s). AddChild's Auto
+        // handling used to slide the start to 5s and shorten the 5s clip to 1s.
+        Element original = AddElement(MediaTime.Zero, MediaTime.FromSeconds(5));
+        AddElement(MediaTime.FromSeconds(6), MediaTime.FromSeconds(4));
+        string json = CoreSerializer.SerializeToJsonString(original);
+        _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
+        Element[] childrenBefore = [.. _scene.Children];
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(2), 0);
+
+        Element pasted = _scene.Children.Except(childrenBefore).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.True);
+            Assert.That(pasted.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+            Assert.That(OverlapsAnotherChild(_scene, pasted), Is.False,
+                "a gap shorter than the clip is skipped");
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_Bitmap_OccupiedSlot_KeepsLength()
+    {
+        AddElement(MediaTime.Zero, MediaTime.FromSeconds(5));
+        _clipboard.SetBitmap([1, 2, 3, 4]);
+        Element[] childrenBefore = [.. _scene.Children];
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.FromSeconds(2), 0);
+
+        Element pasted = _scene.Children.Except(childrenBefore).Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.True);
+            Assert.That(pasted.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)),
+                "a pasted bitmap keeps its 5s length instead of being shortened to the gap");
+            Assert.That(OverlapsAnotherChild(_scene, pasted), Is.False);
         });
     }
 

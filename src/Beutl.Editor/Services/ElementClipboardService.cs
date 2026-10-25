@@ -270,16 +270,7 @@ public sealed class ElementClipboardService : IElementClipboardService
         if (scene.IsLayerLocked(clickedLayer))
         {
             s_logger.LogWarning("PasteBitmapAsync skipped: layer {Layer} was locked during paste.", clickedLayer);
-            try
-            {
-                File.Delete(imageFile);
-            }
-            catch (Exception ex)
-            {
-                // Best-effort cleanup: a failed delete must not turn the graceful lock-refusal into a throw.
-                s_logger.LogWarning(ex, "PasteBitmapAsync: failed to delete orphaned resource {File}.", imageFile);
-            }
-
+            DeleteOrphanResource(imageFile);
             return ElementPasteOutcome.Empty;
         }
 
@@ -295,14 +286,60 @@ public sealed class ElementClipboardService : IElementClipboardService
         };
         newElement.AddObject(sourceImage);
 
-        return AddPastedElement(scene, newElement);
+        ElementPasteOutcome outcome = AddPastedElement(scene, newElement);
+        if (!outcome.Pasted)
+        {
+            // The placement search did not find a usable slot, so the written image would be orphaned.
+            DeleteOrphanResource(imageFile);
+        }
+
+        return outcome;
+    }
+
+    private void DeleteOrphanResource(string imageFile)
+    {
+        try
+        {
+            File.Delete(imageFile);
+        }
+        catch (Exception ex)
+        {
+            // Best-effort cleanup: a failed delete must not turn the graceful refusal into a throw.
+            s_logger.LogWarning(ex, "PasteBitmapAsync: failed to delete orphaned resource {File}.", imageFile);
+        }
     }
 
     // The element's file is written when the scene is next saved.
     private ElementPasteOutcome AddPastedElement(Scene scene, Element newElement)
     {
+        // AddChild's default Auto handling would slide the clip into the next gap and shorten it.
+        // Paste instead searches for a free slot like duplicate, keeping the clip length and using
+        // the clicked start as the anchor.
+        var rowOffsets = new HashSet<int> { 0 };
+        HashSet<int> lockedRows = scene.Layers
+            .Where(l => l.IsLocked.Value)
+            .Select(l => l.ZIndex.Value)
+            .ToHashSet();
+        (MediaTime start, int zIndex) = ElementPlacementHelper.FindFreeAnchor(
+            scene,
+            newElement.Range,
+            rowOffsets,
+            lockedRows,
+            newElement.Start.Value,
+            newElement.ZIndex.Value);
+
+        // The bounded search falls back to its last probe; never place content inside a locked layer.
+        if (ElementPlacementHelper.AnyDestinationRowLocked(zIndex, rowOffsets, lockedRows))
+        {
+            s_logger.LogWarning(
+                "AddPastedElement skipped: free-slot search ended on locked layer {Layer}.", zIndex);
+            return ElementPasteOutcome.Empty;
+        }
+
+        newElement.Start.Value = start;
+        newElement.ZIndex.Value = zIndex;
         newElement.Uri = ElementFileNaming.GetUri(scene.Uri!, newElement.Id.Value);
-        scene.AddChild(newElement);
+        scene.AddChild(newElement, ElementOverlapHandling.Allow);
         _historyManager.Commit(CommandNames.PasteElement);
 
         return new ElementPasteOutcome(
