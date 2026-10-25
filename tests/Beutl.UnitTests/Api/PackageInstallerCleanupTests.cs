@@ -49,6 +49,110 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
         Assert.That(Helper.ResolveInstalledDirectory(package), Is.EqualTo(directory));
     }
 
+    [Test]
+    public void PrepareForClean_UnreadableRegistry_PreservesEveryExtractedPackage()
+    {
+        // Without this guard an unreadable installedPackages.json makes every extracted
+        // package look unnecessary, and clean also deletes its materials/templates payload.
+        var package = new PackageIdentity("Beutl.Package.CleanTest.UnreadableRegistry", NuGetVersion.Parse("1.0.0"));
+        (string directory, _) = CreateInstalledDirectory(package);
+        WriteNuspec(directory, package);
+        File.WriteAllText(Path.Combine(Helper.AppRoot, "installedPackages.json"), "{ this is not a package array");
+        ReloadRepository();
+
+        PackageCleanContext context = _installer.PrepareForClean();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_repository.RestoreFailed, Is.True);
+            Assert.That(context.RegistryUnavailable, Is.True);
+            Assert.That(context.UnnecessaryPackages, Is.Empty);
+            Assert.That(Directory.Exists(directory), Is.True);
+        });
+    }
+
+    [Test]
+    public void PrepareForClean_PartiallyCorruptRegistry_PreservesTheSkippedPackage()
+    {
+        var valid = new PackageIdentity("Beutl.Package.CleanTest.ValidEntry", NuGetVersion.Parse("1.0.0"));
+        var skipped = new PackageIdentity("Beutl.Package.CleanTest.SkippedEntry", NuGetVersion.Parse("1.0.0"));
+        (string validDirectory, _) = CreateInstalledDirectory(valid);
+        (string skippedDirectory, _) = CreateInstalledDirectory(skipped);
+        WriteNuspec(validDirectory, valid);
+        WriteNuspec(skippedDirectory, skipped);
+        File.WriteAllText(
+            Path.Combine(Helper.AppRoot, "installedPackages.json"),
+            $$"""
+            [
+              { "Name": "{{valid.Id}}", "Version": "{{valid.Version}}" },
+              { "Name": "{{skipped.Id}}", "Version": "not-a-version" }
+            ]
+            """);
+        ReloadRepository();
+
+        PackageCleanContext context = _installer.PrepareForClean();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_repository.RestoreFailed, Is.True);
+            Assert.That(context.RegistryUnavailable, Is.True);
+            Assert.That(context.UnnecessaryPackages, Is.Empty);
+            Assert.That(Directory.Exists(validDirectory), Is.True);
+            Assert.That(Directory.Exists(skippedDirectory), Is.True);
+        });
+    }
+
+    [Test]
+    public void Uninstall_WhenRegistryRestoreFailed_DoesNotDeleteThePackage()
+    {
+        var package = new PackageIdentity("Beutl.Package.CleanTest.BlockedUninstall", NuGetVersion.Parse("1.0.0"));
+        (string directory, long size) = CreateInstalledDirectory(package);
+        WriteNuspec(directory, package);
+        File.WriteAllText(Path.Combine(Helper.AppRoot, "installedPackages.json"), "{ this is not a package array");
+        ReloadRepository();
+        var context = new PackageUninstallContext(package, directory)
+        {
+            UnnecessaryPackages = [package],
+            SizeToBeReleased = size,
+        };
+
+        Assert.Throws<InvalidOperationException>(() => _installer.Uninstall(context, new Progress<double>()));
+
+        Assert.That(Directory.Exists(directory), Is.True);
+    }
+
+    [Test]
+    public void PrepareForClean_ValidEmptyRegistryWithExtractedDirectories_IsBlockedButSavesContinue()
+    {
+        var package = new PackageIdentity("Beutl.Package.CleanTest.Orphan", NuGetVersion.Parse("1.0.0"));
+        (string directory, _) = CreateInstalledDirectory(package);
+        WriteNuspec(directory, package);
+        File.WriteAllText(Path.Combine(Helper.AppRoot, "installedPackages.json"), "[]");
+        ReloadRepository();
+
+        PackageCleanContext context = _installer.PrepareForClean();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_repository.RestoreFailed, Is.False,
+                "a valid empty registry stays writable");
+            Assert.That(context.RegistryUnavailable, Is.True);
+            Assert.That(context.UnnecessaryPackages, Is.Empty);
+            Assert.That(Directory.Exists(directory), Is.True);
+            Assert.Throws<InvalidOperationException>(
+                () => _installer.Clean(new PackageCleanContext([package], 0), new Progress<double>()));
+        });
+
+        var next = new PackageIdentity("Beutl.Package.CleanTest.AfterEmpty", NuGetVersion.Parse("1.0.0"));
+        Assert.DoesNotThrow(() => _repository.UpgradePackagesAndDeferNotifications(next)());
+        Assert.That(_repository.ExistsPackage(next), Is.True);
+    }
+
+    private static void WriteNuspec(string directory, PackageIdentity package)
+        => File.WriteAllText(
+            Path.Combine(directory, package.Id + ".nuspec"),
+            $"<package><metadata><id>{package.Id}</id><version>{package.Version}</version><authors>tests</authors><description>tests</description></metadata></package>");
+
     // No .nupkg: PackagePathResolver.GetInstalledPath resolves such a directory to null even though
     // its files are still on disk, which is the case cleanup must not skip.
     private (string Directory, long Size) CreateInstalledDirectory(PackageIdentity package)

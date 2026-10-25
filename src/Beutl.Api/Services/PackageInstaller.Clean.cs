@@ -70,6 +70,14 @@ public partial class PackageInstaller
             cancellationToken.ThrowIfCancellationRequested();
             excludedPackages ??= [];
 
+            // An incomplete registry makes every extracted package and its data payload look unnecessary.
+            if (IsRegistryIncompleteForClean())
+            {
+                _logger.LogWarning(
+                    "The installed package registry is empty or could not be restored; skipping clean to preserve extracted packages and their data.");
+                return new PackageCleanContext([], 0) { RegistryUnavailable = true };
+            }
+
             PackageIdentity[] unnecessaryPackages = UnnecessaryPackages()
                 .Except(excludedPackages, PackageIdentityComparer.Default)
                 .ToArray();
@@ -90,6 +98,11 @@ public partial class PackageInstaller
         TrackSyncOperation(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (IsRegistryIncompleteForClean())
+            {
+                throw new InvalidOperationException(
+                    "Cannot clean packages because installedPackages.json is empty or could not be restored.");
+            }
 
             List<string> failedPackages = RemovePackageDirectories(
                 context.UnnecessaryPackages,
@@ -107,6 +120,16 @@ public partial class PackageInstaller
                 _logger.LogInformation("Clean completed successfully. Total size released: {TotalSize} bytes", totalSize);
             }
         });
+    }
+
+    // An empty registry cannot prove that the extracted directories are orphaned. This is
+    // separate from a legitimately empty file: saves stay enabled, but clean must not run.
+    private bool IsRegistryIncompleteForClean()
+    {
+        return _installedPackageRepository.RestoreFailed
+            || (!_installedPackageRepository.GetLocalPackages().Any()
+                && Directory.Exists(Helper.InstallPath)
+                && Directory.EnumerateDirectories(Helper.InstallPath).Any());
     }
 
     // Returns the directories that could not be removed completely.

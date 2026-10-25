@@ -261,6 +261,14 @@ public partial class PackageInstaller
     /// </remarks>
     public bool UninstallDataPackage(string packageName)
     {
+        if (_installedPackageRepository.RestoreFailed)
+        {
+            _logger.LogError(
+                "Cannot remove the data payload of {PackageName} because installedPackages.json could not be restored.",
+                packageName);
+            return false;
+        }
+
         return TrackSyncOperation(() =>
         {
             lock (s_dataPackageGate)

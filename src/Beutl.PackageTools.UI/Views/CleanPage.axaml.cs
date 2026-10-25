@@ -104,7 +104,7 @@ public partial class CleanPage : PackageToolPage
 
         if (DataContext is CleanViewModel viewModel)
         {
-            if (viewModel.Finished.Value)
+            if (viewModel.Finished.Value || viewModel.RegistryUnavailable)
             {
                 ButtonsContainer = _backButton.Value;
             }

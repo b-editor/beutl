@@ -161,6 +161,9 @@
   <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
     <value>选择要删除的包。</value>
   </data>
+  <data name="Installed_package_registry_is_empty_or_incomplete" xml:space="preserve">
+    <value>已安装包的注册表为空或不完整。请恢复 installedPackages.json 后重试。</value>
+  </data>
   <data name="XXX_will_be_released" xml:space="preserve">
     <value>{0} 将被释放。</value>
   </data>

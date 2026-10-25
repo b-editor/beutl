@@ -52,6 +52,11 @@ public partial class PackageInstaller
         TrackSyncOperation(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (_installedPackageRepository.RestoreFailed)
+            {
+                throw new InvalidOperationException(
+                    "Cannot uninstall packages because installedPackages.json could not be restored.");
+            }
 
             context.FailedPackages = RemovePackageDirectories(
                 context.UnnecessaryPackages,

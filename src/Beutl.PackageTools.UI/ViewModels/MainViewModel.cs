@@ -270,7 +270,7 @@ public class MainViewModel : IAsyncDisposable
             if (_cleanViewModel == null)
             {
                 _cleanViewModel = new CleanViewModel(_app);
-                if (_cleanViewModel.Items.Length > 0)
+                if (_cleanViewModel.Items.Length > 0 || _cleanViewModel.RegistryUnavailable)
                 {
                     return _cleanViewModel;
                 }

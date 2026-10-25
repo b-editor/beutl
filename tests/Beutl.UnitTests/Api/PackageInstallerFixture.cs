@@ -22,6 +22,7 @@ public abstract class PackageInstallerFixture
         Assert.That(Helper.AppRoot, Is.EqualTo(BeutlHomeIsolation.CurrentHome));
 
         File.Delete(InstalledPackagesFile);
+        File.Delete(InstalledPackagesFile + ".bak");
         _httpClient = new HttpClient();
         _repository = new InstalledPackageRepository();
         _installer = new PackageInstaller(_httpClient, ownsHttpClient: false, _repository, apiApplication: null!);
@@ -38,6 +39,7 @@ public abstract class PackageInstallerFixture
 
         _createdDirectories.Clear();
         File.Delete(InstalledPackagesFile);
+        File.Delete(InstalledPackagesFile + ".bak");
     }
 
     // Registers the packages the way an installedPackages.json from an earlier Beutl does, which can hold
@@ -53,6 +55,11 @@ public abstract class PackageInstallerFixture
                 Version = package.Version.ToString(),
                 BeutlVersion = BeutlApplication.Version,
             })));
+        ReloadRepository();
+    }
+
+    protected void ReloadRepository()
+    {
         _repository = new InstalledPackageRepository();
         _installer = new PackageInstaller(_httpClient, ownsHttpClient: false, _repository, apiApplication: null!);
     }

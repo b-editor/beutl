@@ -527,6 +527,25 @@ public partial class PackageInstallerDataTests : PackageInstallerFixture
     }
 
     [Test]
+    public void UninstallDataPackage_WhenRegistryRestoreFailed_KeepsThePayload()
+    {
+        const string Name = "Beutl.Package.DataTest.BlockedUninstall";
+        LocalPackage package = CreateDataPackage(Name, PackageKinds.MaterialTag, "1.0.0", [("materials/a.png", "x")]);
+        _installer.InstallDataPackage(package);
+        File.WriteAllText(Path.Combine(Helper.AppRoot, "installedPackages.json"), "{ this is not a package array");
+        ReloadRepository();
+
+        bool removed = _installer.UninstallDataPackage(Name);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(removed, Is.False);
+            Assert.That(Directory.Exists(MaterialsDirectoryOf(Name)), Is.True);
+            Assert.That(File.Exists(Path.Combine(MaterialsDirectoryOf(Name), "a.png")), Is.True);
+        });
+    }
+
+    [Test]
     public void Clean_KeepsThePayload_WhenANewerIdentityOfTheSameIdSurvives()
     {
         // An update cleans the old identity while the new one keeps the payload
