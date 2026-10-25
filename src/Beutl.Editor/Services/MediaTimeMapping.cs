@@ -100,8 +100,6 @@ internal sealed partial class MediaTimeMapping
         return Map(range, elementRange, extrapolate, conservative, sourceOffset);
     }
 
-    // The time a source's own animations see at an element-local time: the controller chain
-    // maps it to the target clock, before Speed turns it into a source position.
     public MediaTime MapControllerTime(MediaTime localTime)
     {
         TimeRange sourceRange = _sourceClock.GetRange(_elementRange);

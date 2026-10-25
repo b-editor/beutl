@@ -50,8 +50,6 @@ public sealed class ElementStructureService : IElementStructureService
                 MediaTime forwardDuration = at - target.Start.Value;
                 MediaTime backwardDuration = target.Length.Value - forwardDuration;
 
-                // The back half starts at the source position the front half reached. Capture
-                // the source clock and position before the element changes shape.
                 List<ISplittable> splittables = TopLevelSplittables(target);
                 Dictionary<ISplittable, SplitSourceState> sourceStates =
                     CaptureSplitSources(target, splittables, forwardDuration);
@@ -240,23 +238,19 @@ public sealed class ElementStructureService : IElementStructureService
                      .OfType<IKeyFrameAnimation>()
                      .Where(anim => !anim.UseGlobalClock.Value))
         {
-            foreach (IKeyFrame keyframe in anim.KeyFrames)
+            foreach (IKeyFrame keyframe in anim.KeyFrames.ToArray())
             {
                 keyframe.KeyTime.Value += delta;
             }
         }
     }
 
-    // The splittables Element.NotifySplitted would visit: the element's own objects, not
-    // references another element owns.
     private static List<ISplittable> TopLevelSplittables(Element element)
         => [.. element.Objects.OfType<ISplittable>()];
 
     private readonly record struct SplitSourceState(
         MediaTime PositionAtCut, MediaTime ContextAtCut, bool WrapVideo, bool Supported);
 
-    // Everything the back half needs from the source's original clock: where playback is at
-    // the cut and the time its own animations see there.
     private static Dictionary<ISplittable, SplitSourceState> CaptureSplitSources(
         Element element, IReadOnlyList<ISplittable> splittables, MediaTime forwardDuration)
     {
@@ -283,8 +277,6 @@ public sealed class ElementStructureService : IElementStructureService
         return states;
     }
 
-    // One target per top-level source. Two clocks that disagree describe no single source,
-    // so that source keeps the old timeline delta.
     private static Dictionary<ISplittable, SlippableMedia.Target> CollectSplitTargets(
         Element element, IReadOnlyList<ISplittable> splittables)
     {
@@ -305,8 +297,6 @@ public sealed class ElementStructureService : IElementStructureService
         return targets;
     }
 
-    // The copy keeps the object list order, so the same index names each source. Fall back to
-    // the timeline duration rather than pairing unrelated sources if a copy did not keep one.
     private static void ApplySplitSourceDeltas(
         Element backward, IReadOnlyList<ISplittable> splittables,
         IReadOnlyDictionary<ISplittable, SplitSourceState> sourceStates, MediaTime forwardDuration)
@@ -330,9 +320,6 @@ public sealed class ElementStructureService : IElementStructureService
                 continue;
             }
 
-            // The element copy has already shifted every local animation by the timeline
-            // duration. A source under a time controller sees a mapped clock, so shift its
-            // own animations by the difference to that clock instead.
             MediaTime desired = backTarget.ContextTime(MediaTime.Zero) - state.ContextAtCut;
             MediaTime additional = desired + forwardDuration;
             if (additional != MediaTime.Zero)
@@ -340,7 +327,6 @@ public sealed class ElementStructureService : IElementStructureService
             supported[i] = true;
         }
 
-        // A shifted speed curve changes the source position at the back start.
         if (shiftedAnimations)
             backTargets = CollectSplitTargets(backward, copies);
 
@@ -366,7 +352,7 @@ public sealed class ElementStructureService : IElementStructureService
                      .OfType<IKeyFrameAnimation>()
                      .Where(anim => !anim.UseGlobalClock.Value))
         {
-            foreach (IKeyFrame keyframe in anim.KeyFrames)
+            foreach (IKeyFrame keyframe in anim.KeyFrames.ToArray())
             {
                 keyframe.KeyTime.Value += delta;
                 shifted = true;

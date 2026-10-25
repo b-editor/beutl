@@ -32,8 +32,6 @@ internal static partial class SlippableMedia
         public MediaTime ContextTime(MediaTime localTime)
             => Mapping.MapControllerTime(localTime);
 
-        // Playback wraps a video's requested position (loop, or a negative reverse position)
-        // before OffsetPosition is added; audio uses the unwrapped source position.
         public MediaTime SourcePosition(MediaTime localTime, bool wrapVideo)
             => Mapping.Range(localTime, localTime, extrapolate: false, conservative: false,
                 sourceOffset: !wrapVideo).Min;

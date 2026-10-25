@@ -12,9 +12,6 @@ using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Editor.Services;
 
-// A split must move the back half's source offset by the source time the front half
-// played, not by the timeline duration: at 200% a one-second cut advances the source
-// by two seconds.
 [TestFixture]
 public sealed class ElementSplitSpeedTests
 {
@@ -237,6 +234,33 @@ public sealed class ElementSplitSpeedTests
 
         Assert.That((after.RequestedPosition + after.OffsetPosition).ToSeconds(),
             Is.EqualTo(before.ToSeconds()).Within(0.01));
+    }
+
+    [Test]
+    public void Split_ControllerWithCloselySpacedSpeedKeys_KeepsTheirOrder()
+    {
+        var video = new SourceVideo();
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.Zero },
+            Value = { Value = 100 },
+        });
+        animation.KeyFrames.Add(new KeyFrame<float>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(0.25) },
+            Value = { Value = 200 },
+        });
+        video.Speed.SetKeyFrameAnimation(animation);
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), video);
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 50f } });
+
+        Assert.DoesNotThrow(() => _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(1)));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        IList<IKeyFrame> keys = BackObject<SourceVideo>(back).Speed.GetKeyFrameAnimation()!.KeyFrames;
+        Assert.That(keys.Select(key => key.KeyTime.Value),
+            Is.EqualTo(new[] { MediaTime.FromSeconds(-0.5), MediaTime.FromSeconds(-0.25) }));
     }
 
     [Test]
