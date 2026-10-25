@@ -100,6 +100,11 @@ public partial class PackageInstaller
         TrackSyncOperation(() =>
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (_installedPackageRepository.RestoreFailed)
+            {
+                throw new InvalidOperationException(
+                    "Cannot clean packages because installedPackages.json could not be restored.");
+            }
 
             List<string> failedPackages = RemovePackageDirectories(
                 context.UnnecessaryPackages,

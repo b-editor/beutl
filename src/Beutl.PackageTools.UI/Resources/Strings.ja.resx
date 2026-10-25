@@ -219,7 +219,7 @@
     <value>削除するパッケージを選択してください。</value>
   </data>
   <data name="Installed_package_registry_could_not_be_restored" xml:space="preserve">
-    <value>インストール済みパッケージのレジストリを完全に復元できなかったため、クリーン対象は選択されませんでした。installedPackages.json を復元してから再試行してください。</value>
+    <value>インストール済みパッケージのレジストリを完全に復元できませんでした。installedPackages.json を復元してから再試行してください。</value>
   </data>
   <data name="XXX_will_be_released" xml:space="preserve">
     <value>{0}が解放されます。</value>

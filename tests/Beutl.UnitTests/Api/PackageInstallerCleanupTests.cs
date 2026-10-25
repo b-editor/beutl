@@ -102,6 +102,25 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
         });
     }
 
+    [Test]
+    public void Uninstall_WhenRegistryRestoreFailed_DoesNotDeleteThePackage()
+    {
+        var package = new PackageIdentity("Beutl.Package.CleanTest.BlockedUninstall", NuGetVersion.Parse("1.0.0"));
+        (string directory, long size) = CreateInstalledDirectory(package);
+        WriteNuspec(directory, package);
+        File.WriteAllText(Path.Combine(Helper.AppRoot, "installedPackages.json"), "{ this is not a package array");
+        ReloadRepository();
+        var context = new PackageUninstallContext(package, directory)
+        {
+            UnnecessaryPackages = [package],
+            SizeToBeReleased = size,
+        };
+
+        Assert.Throws<InvalidOperationException>(() => _installer.Uninstall(context, new Progress<double>()));
+
+        Assert.That(Directory.Exists(directory), Is.True);
+    }
+
     private static void WriteNuspec(string directory, PackageIdentity package)
         => File.WriteAllText(
             Path.Combine(directory, package.Id + ".nuspec"),

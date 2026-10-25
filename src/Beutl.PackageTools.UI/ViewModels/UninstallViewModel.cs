@@ -28,6 +28,13 @@ public class UninstallViewModel(BeutlApiApplication app, ChangesModel changesMod
             InstalledPackageRepository repos = app.GetResource<InstalledPackageRepository>();
             PackageInstaller installer = app.GetResource<PackageInstaller>();
 
+            if (repos.RestoreFailed)
+            {
+                ErrorMessage.Value = Strings.Installed_package_registry_could_not_be_restored;
+                Failed.Value = true;
+                return;
+            }
+
             string[]? installeds = ResolveInstalledDirectories(package);
 
             if (installeds.Length <= 0)
