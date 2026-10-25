@@ -1223,6 +1223,27 @@ public class TrimTimeControllerTests
         });
     }
 
+    [TestCase(0d, false)]
+    [TestCase(2d, false)]
+    [TestCase(5d, false)]
+    [TestCase(2d, true)]
+    public void Portal_Empty_MaximumDurationIsUnbounded(double startSeconds, bool includePeer)
+    {
+        Element element = _harness.AddElement(Seconds(startSeconds), Seconds(5));
+        element.Objects.Add(new PortalObject());
+        var peers = new HashSet<Element> { element };
+        if (includePeer)
+        {
+            // A longer peer shares the right edge but starts earlier.
+            peers.Add(_harness.AddElement(MediaTime.Zero, Seconds(startSeconds + 5), zIndex: 1));
+        }
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element, peers);
+
+        Assert.That(constraints.GetMaximumDuration(), Is.Null);
+        Assert.That(constraints.ClampLength(Seconds(10)), Is.EqualTo(Seconds(10)));
+    }
+
     [Test]
     public void Portal_DisabledProvider_DoesNotBecomeATrimTarget()
     {

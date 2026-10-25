@@ -192,9 +192,16 @@ internal static partial class SlippableMedia
             return ranges.Where(entry =>
             {
                 TimeRange range = entry.Range;
+                // Maximum-duration probes can reach long.MaxValue. Compare widened
+                // endpoints so intermediate sums and resize peers cannot overflow.
+                Int128 start = range.Start.Flicks;
+                Int128 end = start + range.Duration.Flicks;
                 if (entry.Element == element || timingPeers?.Contains(entry.Element) == true)
-                    range = new TimeRange(range.Start + startDelta, range.Duration + length - original.Duration);
-                return range.Start < window.End && window.Start < range.End;
+                {
+                    start += startDelta.Flicks;
+                    end += (Int128)startDelta.Flicks + length.Flicks - original.Duration.Flicks;
+                }
+                return start < window.End.Flicks && window.Start.Flicks < end;
             }).Select(entry => entry.Element).ToHashSet();
         }
 
