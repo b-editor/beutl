@@ -26,6 +26,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
     private readonly CancellationTokenSource _transferCancellation = new();
     private string? _projectDirectory;
     private int _decoderRefreshQueued;
+    private int _watchRequest;
     private volatile bool _disposed;
 
     internal string? ProjectDirectory => _projectDirectory;
@@ -122,21 +123,27 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
 
     private async Task WatchDirectoryAsync(string? path)
     {
+        int request = ++_watchRequest;
         // Flat views only display immediate children. Recursing from ~/ needlessly registers
         // every descendant with inotify, including caches and repositories that are not shown.
         await _directoryWatcher.WatchAsync(path,
             includeSubdirectories: IsHomeView.Value || ViewMode.Value == FileBrowserViewMode.Tree);
 
-        if (_disposed || string.IsNullOrEmpty(path)
+        if (_disposed || request != _watchRequest || string.IsNullOrEmpty(path)
             || path != (IsHomeView.Value ? _projectDirectory : RootPath.Value))
             return;
 
         // Catch up with changes made while the watcher was starting. Keep the existing items
         // and selection when the listing has not changed.
         if (IsHomeView.Value)
-            RefreshHomeView();
+            RefreshHomeView(preserveExisting: true);
         else
-            RefreshDirectoryEntries([path], includeLoadedChildren: ViewMode.Value == FileBrowserViewMode.Tree);
+        {
+            RefreshDirectoryEntries([path]);
+            bool tree = ViewMode.Value == FileBrowserViewMode.Tree;
+            foreach (var item in tree ? TreeRootItems : Items)
+                item.RefreshLoadedEntries(includeChildren: tree);
+        }
     }
 
     public ToolTabExtension Extension => FileBrowserTabExtension.Instance;
@@ -230,7 +237,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         RefreshDirectoryEntries(paths.Select(Path.GetDirectoryName).OfType<string>());
     }
 
-    private void RefreshDirectoryEntries(IEnumerable<string> directories, bool includeLoadedChildren = false)
+    private void RefreshDirectoryEntries(IEnumerable<string> directories)
     {
         try
         {
@@ -258,10 +265,6 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                     foreach (var item in FavoriteItems)
                         item.RefreshEntriesForDirectory(directory);
             }
-
-            if (includeLoadedChildren)
-                foreach (var item in items)
-                    item.RefreshLoadedEntries();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -373,18 +376,23 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         }
     }
 
-    private void RefreshHomeView()
+    private void RefreshHomeView(bool preserveExisting = false)
     {
         _projectDirectory = EditorContextDirectories.GetProjectOrSceneDirectory(_editorContext);
 
-        _favoritesManager.RefreshFavoriteItems();
+        _favoritesManager.RefreshFavoriteItems(preserveExisting);
 
-        FileSystemEnumerator.DisposeAndClear(ProjectDirectoryItems);
+        if (!preserveExisting || string.IsNullOrEmpty(_projectDirectory) || !Directory.Exists(_projectDirectory))
+            FileSystemEnumerator.DisposeAndClear(ProjectDirectoryItems);
         if (!string.IsNullOrEmpty(_projectDirectory) && Directory.Exists(_projectDirectory))
         {
             try
             {
-                FileSystemEnumerator.PopulateCollection(ProjectDirectoryItems, _projectDirectory);
+                if (!preserveExisting || FileSystemEnumerator.HasEntriesChanged(ProjectDirectoryItems, _projectDirectory))
+                    FileSystemEnumerator.PopulateCollection(ProjectDirectoryItems, _projectDirectory);
+                if (preserveExisting)
+                    foreach (var item in ProjectDirectoryItems)
+                        item.RefreshLoadedEntries();
             }
             catch (Exception ex)
             {
@@ -393,7 +401,7 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             }
         }
 
-        _mediaSearcher.SearchAsync(_projectDirectory);
+        _mediaSearcher.SearchAsync(_projectDirectory, preserveExisting);
     }
 
     public void ToggleFavorite(string path)

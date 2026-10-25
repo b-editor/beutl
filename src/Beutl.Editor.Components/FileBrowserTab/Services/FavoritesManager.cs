@@ -39,11 +39,26 @@ internal sealed class FavoritesManager : IDisposable
 
     public void AddRange(IEnumerable<string> paths) => _store.AddRange(paths);
 
-    public void RefreshFavoriteItems()
+    public void RefreshFavoriteItems(bool preserveExisting = false)
     {
         // Debounced refreshes may arrive after disposal.
         if (_disposed)
             return;
+
+        if (preserveExisting)
+        {
+            IEnumerable<string> paths = new[]
+            {
+                ObjectTemplateService.Instance.DirectoryPath, BeutlEnvironment.GetMaterialsDirectoryPath()
+            }.Concat(Favorites).Where(path => Directory.Exists(path) || File.Exists(path));
+            if (FavoriteItems.Select(item => item.FullPath).SequenceEqual(paths, StringComparer.Ordinal)
+                && FavoriteItems.All(item => item.IsDirectory == Directory.Exists(item.FullPath)))
+            {
+                foreach (var item in FavoriteItems)
+                    item.RefreshLoadedEntries();
+                return;
+            }
+        }
 
         FileSystemEnumerator.DisposeAndClear(FavoriteItems);
 

@@ -347,6 +347,76 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
+    public async Task Navigation_invalidates_old_events_before_background_setup_can_finish()
+    {
+        string next = Directory.CreateDirectory(Path.Combine(_projectRoot, "next")).FullName;
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        var started = new System.Collections.Concurrent.ConcurrentQueue<FileSystemWatcher>();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue, watcher =>
+        {
+            started.Enqueue(watcher);
+            if (started.Count == 1)
+            {
+                entered.SetResult();
+                if (!release.Wait(TimeSpan.FromSeconds(10)))
+                    throw new TimeoutException("The test did not release watcher startup.");
+            }
+        });
+        int deliveries = 0;
+        service.Changed += () => deliveries++;
+        Task first = service.WatchAsync(_projectRoot);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            FileSystemWatcher old = started.First();
+            var change = new FileSystemEventArgs(WatcherChangeTypes.Changed, _projectRoot, "old.txt");
+            service.OnFileSystemEvent(old, change);
+            Action queued = TakePostedAction(posted);
+
+            Task navigation = service.WatchAsync(next);
+            queued();
+            service.OnFileSystemEvent(old, change);
+            Assert.That(deliveries, Is.Zero);
+            Assert.That(posted, Is.Empty, "Events from the previous request must also be rejected.");
+
+            release.Set();
+            await Task.WhenAll(first, navigation);
+            service.OnFileSystemEvent(started.Last(), new FileSystemEventArgs(WatcherChangeTypes.Changed, next, "new.txt"));
+            TakePostedAction(posted)();
+            Assert.That(deliveries, Is.EqualTo(1), "The destination watcher must still deliver changes.");
+        }
+        finally
+        {
+            release.Set();
+            await first;
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Error_recovery_only_refreshes_its_own_navigation_request(bool navigate)
+    {
+        string next = Directory.CreateDirectory(Path.Combine(_projectRoot, "next")).FullName;
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        var started = new System.Collections.Concurrent.ConcurrentQueue<FileSystemWatcher>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue, started.Enqueue);
+        int deliveries = 0;
+        service.Changed += () => deliveries++;
+        await service.WatchAsync(_projectRoot);
+        service.OnWatcherError(started.Last(), new ErrorEventArgs(new InternalBufferOverflowException()));
+        Action recovered = TakePostedAction(posted);
+        Assert.That(started, Has.Count.EqualTo(2));
+        if (navigate) await service.WatchAsync(next);
+
+        recovered();
+
+        Assert.That(deliveries, Is.EqualTo(navigate ? 0 : 1));
+        Assert.That(service.IsWatching, Is.True);
+    }
+
+    [Test]
     public void Dispose_invalidates_an_already_queued_delivery()
     {
         string path = CreateFile("assets/clip.png");
@@ -745,17 +815,24 @@ public class DirectoryWatcherServiceTests
     public async Task Watching_the_same_path_twice_keeps_the_original_watcher()
     {
         int starts = 0;
+        int deliveries = 0;
+        FileSystemWatcher? active = null;
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
         using var service = new DirectoryWatcherService(
             TimeSpan.Zero,
-            _ => { },
-            _ => starts++);
+            posted.Enqueue,
+            watcher => { active = watcher; starts++; });
+        service.Changed += () => deliveries++;
         await service.WatchAsync(_projectRoot);
         await service.WatchAsync(_projectRoot);
+        service.OnFileSystemEvent(active!, new FileSystemEventArgs(WatcherChangeTypes.Changed, _projectRoot, "file.txt"));
+        TakePostedAction(posted)();
 
         Assert.Multiple(() =>
         {
             Assert.That(service.IsWatching, Is.True);
             Assert.That(starts, Is.EqualTo(1));
+            Assert.That(deliveries, Is.EqualTo(1));
         });
     }
 

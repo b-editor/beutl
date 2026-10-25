@@ -35,6 +35,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     private bool _disposed;
     private long _stateGeneration;
     private long _watchRequest;
+    private long _watcherRequest;
 
     public DirectoryWatcherService()
         : this(
@@ -78,13 +79,20 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     public Task WatchAsync(string? path, bool includeSubdirectories = true)
     {
         long request;
+        CancellationTokenSource? debounce;
         lock (_stateSync)
         {
             if (_disposed)
                 return Task.CompletedTask;
 
             request = ++_watchRequest;
+            // Navigation takes effect now, even if native setup is still busy with the old folder.
+            _stateGeneration++;
+            debounce = _debounceCts;
+            _debounceCts = null;
+            ClearPendingChanges();
         }
+        CancelAndDispose(debounce);
 
         // Starting a watcher walks the subtree on Linux and calls sync() on macOS.
         // Reserve the request before queuing it so a slow start cannot undo later navigation.
@@ -195,6 +203,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
                     StringComparison.Ordinal))
             {
                 _watchedRequestedPath = Path.GetFullPath(path);
+                _watcherRequest = request;
                 return true;
             }
         }
@@ -264,6 +273,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
                 return false;
 
             _watcher = watcher;
+            _watcherRequest = request;
             _watchedCanonicalPath = canonicalPath;
             _watchedRequestedPath = Path.GetFullPath(path);
         }
@@ -291,10 +301,15 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     }
 
     // Rebuild after Error; otherwise the current folder stays unwatched.
-    private async void OnWatcherError(object sender, ErrorEventArgs e)
+    internal async void OnWatcherError(object sender, ErrorEventArgs e)
     {
-        if (!IsCurrentWatcher(sender))
-            return;
+        long request;
+        lock (_stateSync)
+        {
+            if (!IsCurrentWatcher(sender))
+                return;
+            request = _watchRequest;
+        }
 
         _logger.LogWarning(e.GetException(), "FileSystemWatcher stopped; rebuilding it");
 
@@ -305,7 +320,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
                 lock (_stateSync)
                 {
                     // Resync changes missed while the watcher was down.
-                    if (!_disposed)
+                    if (!_disposed && request == _watchRequest)
                         Changed?.Invoke();
                 }
             });
@@ -333,7 +348,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         bool includeSubdirectories;
         lock (_stateSync)
         {
-            if (_disposed || sourceWatcher is not null && !ReferenceEquals(_watcher, sourceWatcher))
+            if (_disposed || sourceWatcher is not null && !IsCurrentWatcher(sourceWatcher))
                 return false;
 
             request = _watchRequest;
@@ -411,7 +426,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     {
         lock (_stateSync)
         {
-            return !_disposed && ReferenceEquals(_watcher, sender);
+            return !_disposed && _watcherRequest == _watchRequest && ReferenceEquals(_watcher, sender);
         }
     }
 
@@ -465,7 +480,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     {
         lock (_stateSync)
         {
-            if (_disposed || sourceWatcher is not null && !ReferenceEquals(_watcher, sourceWatcher))
+            if (_disposed || sourceWatcher is not null && !IsCurrentWatcher(sourceWatcher))
                 return;
         }
 
@@ -492,7 +507,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         lock (_stateSync)
         {
             if (_disposed
-                || sourceWatcher is not null && !ReferenceEquals(_watcher, sourceWatcher))
+                || sourceWatcher is not null && !IsCurrentWatcher(sourceWatcher))
             {
                 nextDebounce.Dispose();
                 return;
