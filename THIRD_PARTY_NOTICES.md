@@ -1077,7 +1077,7 @@ https://github.com/notofonts/noto-cjk
 
 SIL Open Font License, Version 1.1
 
-(c) 2014-2021 Adobe (http://www.adobe.com/), with Reserved Font Name 'Source'.
+(c) 2014-2021 Adobe (https://www.adobe.com/), with Reserved Font Name 'Source'.
 
 Source is a trademark of Adobe in the United States and/or other countries.
 

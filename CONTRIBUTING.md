@@ -122,7 +122,7 @@ We use the [.NET Coding Style](https://github.com/dotnet/runtime/blob/main/docs/
 XAML Files
 - Use four spaces for indentation.
 - When adding properties to a control, place the first property on the same line as the element, and align all subsequent properties on separate lines with the first property.
-- When using `Binding`, use [compiled bindings](https://docs.avaloniaui.net/docs/next/basics/data/data-binding/compiled-bindings).
+- When using `Binding`, use [compiled bindings](https://docs.avaloniaui.net/docs/data-binding/compiled-bindings).
 ```xaml
 <UserControl x:CompileBindings="True"
              x:DataType="viewModel:MyViewModel">

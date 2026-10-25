@@ -102,7 +102,7 @@ XAMLファイル
 - コントロールにプロパティを追加する場合、
   最初のプロパティは項目と同じ行に配置し、
   残りのすべてのプロパティは最初のプロパティに合わせて別の行に配置します。
-- `Binding`を使う場合、[コンパイル済みのバインディング](https://docs.avaloniaui.net/docs/next/basics/data/data-binding/compiled-bindings)を使用して下さい。
+- `Binding`を使う場合、[コンパイル済みのバインディング](https://docs.avaloniaui.net/docs/data-binding/compiled-bindings)を使用して下さい。
 ```xaml
 <UserControl x:CompileBindings="True"
              x:DataType="viewModel:MyViewModel">
