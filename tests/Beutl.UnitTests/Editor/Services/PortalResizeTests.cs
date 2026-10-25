@@ -242,6 +242,50 @@ public class PortalResizeTests
     }
 
     [Test]
+    public void MultiplePortals_KeepControllerFallbackBounds()
+    {
+        AddProviders(1, Seconds(20));
+        SourceVideo local = CreateVideo(6);
+        Element element = _harness.AddElement(MediaTime.Zero, Seconds(1));
+        element.Objects.Add(new PortalObject { Count = { Value = 0 } });
+        element.Objects.Add(new PortalObject { Count = { Value = 1 }, Clear = { Value = true } });
+        element.Objects.Add(local);
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 50 } });
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 400 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(MediaTime.FromSeconds(1.5)));
+    }
+
+    [Test]
+    public void ConstantClearPortal_RemovesEarlierLocalMediaBounds()
+    {
+        SourceVideo local = CreateVideo(6);
+        Element element = _harness.AddElement(MediaTime.Zero, Seconds(1));
+        element.Objects.Add(local);
+        element.Objects.Add(new PortalObject { Count = { Value = 0 }, Clear = { Value = true } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.Null);
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(8)));
+    }
+
+    [Test]
+    public void SoundGroup_KeepsTheDrawableControllerFallback()
+    {
+        AddProviders(1, Seconds(20));
+        SourceVideo local = CreateVideo(6);
+        Element element = AddPortal(MediaTime.Zero, Seconds(1), count: 1, local, new SoundGroup(),
+            new DrawableTimeController { Speed = { Value = 50 } },
+            new DrawableTimeController { Speed = { Value = 400 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(MediaTime.FromSeconds(1.5)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(MediaTime.FromSeconds(1.5)));
+    }
+
+    [Test]
     public void LocalMediaBeforeThePortal_IsMappedThroughItsController()
     {
         AddProviders(1, Seconds(20));

@@ -17,8 +17,8 @@ internal static partial class SlippableMedia
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
         private readonly bool _includePortalInputs;
-        private readonly int _simulatedPortalImports;
-        private readonly bool? _clearEarlierLocal;
+        private readonly List<DrawableTimeController> _portalControllers = new();
+        private readonly bool _hasPortal;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
         private readonly List<Target> _targets = new();
@@ -34,7 +34,7 @@ internal static partial class SlippableMedia
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
             IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null,
-            bool includePortalInputs = true, int simulatedPortalImports = -1, bool? clearEarlierLocal = null)
+            bool includePortalInputs = true)
         {
             _element = element;
             _timingPeers = timingPeers;
@@ -42,10 +42,13 @@ internal static partial class SlippableMedia
             _timingRoles = timingRoles;
             _portalCandidates = portalCandidates;
             _includePortalInputs = includePortalInputs;
-            _simulatedPortalImports = simulatedPortalImports;
-            _clearEarlierLocal = clearEarlierLocal;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
+            for (int i = 0; i < element.Objects.Count; i++)
+            {
+                if (element.Objects[i] is PortalObject { IsEnabled.Value: true }) _hasPortal = true;
+                else if (_hasPortal && element.Objects[i] is DrawableTimeController controller) _portalControllers.Add(controller);
+            }
             if (element.HierarchicalParent is Scene layerScene)
                 foreach (TimelineLayer layer in layerScene.Layers) _layers.TryAdd(layer.ZIndex.Value, layer);
             _hasSolo = _layers.Values.Any(layer => layer.IsSolo.Value);
@@ -76,7 +79,7 @@ internal static partial class SlippableMedia
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
                 var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates,
-                    enabled, _sourceDurations, _includePortalInputs, _simulatedPortalImports, _clearEarlierLocal);
+                    enabled, _sourceDurations, _includePortalInputs);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -122,7 +125,6 @@ internal static partial class SlippableMedia
         {
             var flow = new List<Node>();
             bool portalFlow = false;
-            bool simulatedImportsPlaced = false;
             foreach (EngineObject obj in _element.Objects)
             {
                 if (obj is PortalObject { IsEnabled.Value: true } portal)
@@ -137,19 +139,8 @@ internal static partial class SlippableMedia
                     else
                     {
                         // A dynamic Clear may or may not remove the earlier local inputs.
-                        // Resize runs both Clear outcomes; a constant only applies its value.
-                        bool clear = _clearEarlierLocal
-                            ?? (!portal.Clear.HasExpression && portal.Clear.Value);
-                        if (clear) flow.Clear();
-                        if (!simulatedImportsPlaced && _simulatedPortalImports > 0)
-                        {
-                            // Imported clips contribute Flow positions but no duration bounds.
-                            // One pass per possible count lets local media see every controller
-                            // that could consume it when a provider starts or ends.
-                            for (int i = 0; i < _simulatedPortalImports; i++)
-                                flow.Add(new Node(portal, [], Opaque: true, PortalInput: true));
-                        }
-                        simulatedImportsPlaced = true;
+                        // Keep them so their bounds still apply; only a constant true clears.
+                        if (!portal.Clear.HasExpression && portal.Clear.Value) flow.Clear();
                         imported = [];
                     }
                     if (imported == null)
@@ -248,10 +239,6 @@ internal static partial class SlippableMedia
 
         private void CollectNode(Node node, bool referenced = false)
         {
-            // Portal imports supply Flow positions but never bounds for the portal's
-            // own interval. Their number and kind still matter so a controller or
-            // group consumes the same inputs as the renderer.
-            if (node.PortalInput && !_includePortalInputs) return;
             if (node.Opaque)
             {
                 // These unattached properties only carry a rejected constraint;
@@ -265,9 +252,10 @@ internal static partial class SlippableMedia
 
         // Keep disabled streams in sync too. Detect cycles per path, rather than
         // discarding a second path whose time controller can impose tighter bounds.
-        private void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null, bool flowResolved = false, bool referenced = false, bool portalInput = false)
+        private void CollectFrom(EngineObject obj, IReadOnlyList<Node>? inputs = null, bool flowResolved = false, bool referenced = false, bool portalInput = false, bool afterPortal = false)
         {
             if (!_path.Add(obj)) return;
+            bool portalScoped = afterPortal || flowResolved;
             if (inputs != null && obj is SoundGroup or DrawableGroup or DrawableDecorator)
             {
                 foreach (Node child in inputs) CollectNode(child);
@@ -277,8 +265,14 @@ internal static partial class SlippableMedia
                 case SourceVideo video:
                     {
                         MediaTime? duration = GetSourceDuration(video.Source.Value);
-                        _targets.Add(new Target(video.OffsetPosition, duration,
-                            new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length.Value));
+                        var videoTarget = new Target(video.OffsetPosition, duration,
+                            new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length.Value);
+                        _targets.Add(videoTarget);
+                        if (!_includePortalInputs && portalScoped)
+                        {
+                            AddPortalSuffixMappings(videoTarget, video, links => new MediaTimeMapping(_element, video, video.Speed, links, 60,
+                                duration, _timingPeers, _ignoreLoops, _timingRoles));
+                        }
                     }
                     break;
                 case SourceSound sound:
@@ -290,13 +284,13 @@ internal static partial class SlippableMedia
                         new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length.Value));
                     break;
                 case SoundGroup group:
-                    foreach (Sound child in group.Children) CollectFrom(child);
+                    foreach (Sound child in group.Children) CollectFrom(child, afterPortal: portalScoped);
                     break;
                 case DrawableGroup group:
-                    foreach (Drawable child in group.Children) CollectFrom(child);
+                    foreach (Drawable child in group.Children) CollectFrom(child, afterPortal: portalScoped);
                     break;
                 case DrawableDecorator decorator:
-                    foreach (Drawable child in decorator.Children) CollectFrom(child);
+                    foreach (Drawable child in decorator.Children) CollectFrom(child, afterPortal: portalScoped);
                     break;
                 case DrawableTimeController controller:
                     Node? input = inputs?.FirstOrDefault();
@@ -321,7 +315,7 @@ internal static partial class SlippableMedia
                         bool applyMapping = IsEnabled(controller) || referenced || input == null;
                         if (applyMapping) _controllers.Add(new MediaTimeMapping.ControllerLink(controller, target));
                         if (input != null) CollectNode(input, referenced: true);
-                        else CollectFrom(target, referenced: true);
+                        else CollectFrom(target, referenced: true, afterPortal: portalScoped);
                         if (applyMapping) _controllers.RemoveAt(_controllers.Count - 1);
                     }
                     break;
@@ -331,10 +325,31 @@ internal static partial class SlippableMedia
                         CollectNode(new Node(obj, [], Opaque: true));
                         break;
                     }
-                    if (presenter.Target.Value is { } presented) CollectFrom(presented, referenced: true);
+                    if (presenter.Target.Value is { } presented) CollectFrom(presented, referenced: true, afterPortal: portalScoped);
                     break;
             }
             _path.Remove(obj);
+        }
+
+        // A portal import can start or end while the element is resized, changing
+        // which controller consumes local media. Keep direct plus every controller
+        // suffix as possible routes; the tightest bound wins.
+        private void AddPortalSuffixMappings(Target target, Drawable media,
+            Func<IReadOnlyList<MediaTimeMapping.ControllerLink>, MediaTimeMapping> create)
+        {
+            target.SampleMappings.Add(create([]));
+            for (int first = 0; first < _portalControllers.Count; first++)
+            {
+                var links = new List<MediaTimeMapping.ControllerLink>(_portalControllers.Count - first);
+                Drawable input = media;
+                for (int i = first; i < _portalControllers.Count; i++)
+                {
+                    links.Add(new MediaTimeMapping.ControllerLink(_portalControllers[i], input));
+                    input = _portalControllers[i];
+                }
+
+                target.SampleMappings.Add(create(links));
+            }
         }
     }
 }
