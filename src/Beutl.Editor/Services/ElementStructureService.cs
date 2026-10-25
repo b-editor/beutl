@@ -47,32 +47,8 @@ public sealed class ElementStructureService : IElementStructureService
             {
                 if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
 
-                MediaTime forwardDuration = at - target.Start.Value;
-                MediaTime backwardDuration = target.Length.Value - forwardDuration;
+                Element backward = SplitElement(scene, target, at);
 
-                List<ISplittable> splittables = TopLevelSplittables(target);
-                Dictionary<ISplittable, SplitSourceState> sourceStates =
-                    CaptureSplitSources(target, splittables, forwardDuration);
-
-                ObjectRegenerator.Regenerate(target, out Element backward);
-
-                backward.Start.Value = at;
-                backward.Length.Value = backwardDuration;
-                // The cut joins the two halves directly: the front keeps the clip's start transition and
-                // the back its end transition.
-                backward.EnterTransition.Value = null;
-
-                ShiftLocalKeyFrames(backward, -forwardDuration);
-
-                // The back half's file is written when the scene is next saved.
-                backward.Uri = ElementFileNaming.GetUri(scene.Uri, backward.Id.Value);
-                target.ExitTransition.Value = null;
-                scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target);
-                scene.AddChild(backward);
-                ApplySplitSourceDeltas(backward, splittables, sourceStates, forwardDuration);
-                target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
-
-                // Track group membership so back-clips stay in their source's group.
                 int groupIndex = FindGroupIndex(scene, target.Id.Value);
                 if (groupIndex >= 0)
                 {
@@ -88,6 +64,30 @@ public sealed class ElementStructureService : IElementStructureService
 
             InsertSplitGroups(scene, groupUpdates);
         }, CommandNames.SplitElement);
+    }
+
+    private static Element SplitElement(Scene scene, Element target, MediaTime at)
+    {
+        MediaTime forwardDuration = at - target.Start.Value;
+        MediaTime backwardDuration = target.Length.Value - forwardDuration;
+
+        List<SplitSource> sources = CaptureSplitSources(target, forwardDuration);
+
+        ObjectRegenerator.Regenerate(target, out Element backward);
+
+        backward.Start.Value = at;
+        backward.Length.Value = backwardDuration;
+        backward.EnterTransition.Value = null;
+
+        ShiftLocalKeyFrames(backward, -forwardDuration);
+
+        backward.Uri = ElementFileNaming.GetUri(scene.Uri!, backward.Id.Value);
+        target.ExitTransition.Value = null;
+        scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target);
+        scene.AddChild(backward);
+        ApplySplitSourceDeltas(backward, sources, forwardDuration);
+        target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
+        return backward;
     }
 
     // Whether a cut at the frame `at` leaves a frame on each side; a clip end within a tick of a frame counts as that frame.
@@ -231,31 +231,34 @@ public sealed class ElementStructureService : IElementStructureService
         return lockedIds;
     }
 
-    private static void ShiftLocalKeyFrames(Element element, MediaTime delta)
+    private static bool ShiftLocalKeyFrames(object root, MediaTime delta)
     {
-        // A scene the element draws keeps its own time.
-        foreach (IKeyFrameAnimation anim in ChildObjects.Walk(element, static obj => obj is ProjectItem)
+        bool shifted = false;
+        foreach (IKeyFrameAnimation anim in ChildObjects.Walk(root, static obj => obj is ProjectItem)
                      .OfType<IKeyFrameAnimation>()
                      .Where(anim => !anim.UseGlobalClock.Value))
         {
             foreach (IKeyFrame keyframe in anim.KeyFrames.ToArray())
             {
                 keyframe.KeyTime.Value += delta;
+                shifted = true;
             }
         }
+
+        return shifted;
     }
 
     private static List<ISplittable> TopLevelSplittables(Element element)
         => [.. element.Objects.OfType<ISplittable>()];
 
-    private readonly record struct SplitSourceState(
-        MediaTime PositionAtCut, MediaTime ContextAtCut, bool WrapVideo, bool Supported);
+    private readonly record struct SplitSource(
+        ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, bool WrapVideo, bool Supported);
 
-    private static Dictionary<ISplittable, SplitSourceState> CaptureSplitSources(
-        Element element, IReadOnlyList<ISplittable> splittables, MediaTime forwardDuration)
+    private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration)
     {
-        var states = new Dictionary<ISplittable, SplitSourceState>(ReferenceEqualityComparer.Instance);
-        if (splittables.Count == 0) return states;
+        List<ISplittable> splittables = TopLevelSplittables(element);
+        var sources = new List<SplitSource>(splittables.Count);
+        if (splittables.Count == 0) return sources;
 
         Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables);
         foreach (ISplittable splittable in splittables)
@@ -263,18 +266,19 @@ public sealed class ElementStructureService : IElementStructureService
             bool wrapsVideo = splittable is SourceVideo;
             if (!targets.TryGetValue(splittable, out SlippableMedia.Target? target) || !target.IsSupported)
             {
-                states[splittable] = new(MediaTime.Zero, MediaTime.Zero, wrapsVideo, false);
+                sources.Add(new(splittable, MediaTime.Zero, MediaTime.Zero, wrapsVideo, false));
                 continue;
             }
 
-            states[splittable] = new(
+            sources.Add(new(
+                splittable,
                 target.SourcePosition(forwardDuration, wrapsVideo),
                 target.ContextTime(forwardDuration),
                 wrapsVideo,
-                true);
+                true));
         }
 
-        return states;
+        return sources;
     }
 
     private static Dictionary<ISplittable, SlippableMedia.Target> CollectSplitTargets(
@@ -298,12 +302,11 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static void ApplySplitSourceDeltas(
-        Element backward, IReadOnlyList<ISplittable> splittables,
-        IReadOnlyDictionary<ISplittable, SplitSourceState> sourceStates, MediaTime forwardDuration)
+        Element backward, IReadOnlyList<SplitSource> sources, MediaTime forwardDuration)
     {
         List<ISplittable> copies = TopLevelSplittables(backward);
-        if (copies.Count != splittables.Count
-            || !copies.Zip(splittables).All(pair => pair.First.GetType() == pair.Second.GetType()))
+        if (copies.Count != sources.Count
+            || !copies.Zip(sources).All(pair => pair.First.GetType() == pair.Second.Source.GetType()))
         {
             backward.NotifySplitted(true, forwardDuration, -forwardDuration);
             return;
@@ -311,23 +314,20 @@ public sealed class ElementStructureService : IElementStructureService
 
         Dictionary<ISplittable, SlippableMedia.Target> backTargets = CollectSplitTargets(backward, copies);
         var supported = new bool[copies.Count];
-        bool shiftedAnimations = false;
+        bool shifted = false;
         for (int i = 0; i < copies.Count; i++)
         {
-            if (!sourceStates.TryGetValue(splittables[i], out SplitSourceState state) || !state.Supported
-                || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget))
-            {
+            SplitSource source = sources[i];
+            if (!source.Supported || !backTargets.TryGetValue(copies[i], out SlippableMedia.Target? backTarget))
                 continue;
-            }
 
-            MediaTime desired = backTarget.ContextTime(MediaTime.Zero) - state.ContextAtCut;
-            MediaTime additional = desired + forwardDuration;
+            MediaTime additional = backTarget.ContextTime(MediaTime.Zero) - source.ContextAtCut + forwardDuration;
             if (additional != MediaTime.Zero)
-                shiftedAnimations |= ShiftLocalKeyFrames(copies[i], additional);
+                shifted |= ShiftLocalKeyFrames(copies[i], additional);
             supported[i] = true;
         }
 
-        if (shiftedAnimations)
+        if (shifted)
             backTargets = CollectSplitTargets(backward, copies);
 
         for (int i = 0; i < copies.Count; i++)
@@ -338,27 +338,10 @@ public sealed class ElementStructureService : IElementStructureService
                 continue;
             }
 
-            SplitSourceState state = sourceStates[splittables[i]];
-            MediaTime delta = state.PositionAtCut
-                              - backTarget.SourcePosition(MediaTime.Zero, state.WrapVideo);
+            SplitSource source = sources[i];
+            MediaTime delta = source.PositionAtCut
+                              - backTarget.SourcePosition(MediaTime.Zero, source.WrapVideo);
             copies[i].NotifySplitted(true, delta, -forwardDuration);
         }
-    }
-
-    private static bool ShiftLocalKeyFrames(ISplittable source, MediaTime delta)
-    {
-        bool shifted = false;
-        foreach (IKeyFrameAnimation anim in ChildObjects.Walk(source, static obj => obj is ProjectItem)
-                     .OfType<IKeyFrameAnimation>()
-                     .Where(anim => !anim.UseGlobalClock.Value))
-        {
-            foreach (IKeyFrame keyframe in anim.KeyFrames.ToArray())
-            {
-                keyframe.KeyTime.Value += delta;
-                shifted = true;
-            }
-        }
-
-        return shifted;
     }
 }
