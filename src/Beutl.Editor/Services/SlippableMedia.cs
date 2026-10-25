@@ -122,8 +122,9 @@ internal static partial class SlippableMedia
     }
 
     public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
-        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null)
-        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates).Collect();
+        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null,
+        bool includePortalInputs = true)
+        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates, includePortalInputs).Collect();
 
     public static MediaTime ClampSharedDelta(IReadOnlyList<Target> targets, MediaTime delta)
     {
@@ -179,7 +180,9 @@ internal static partial class SlippableMedia
 
     public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null)
     {
-        List<Target> targets = Collect(element, timingPeers);
+        // Portal inputs belong to other elements. Their source bounds do not
+        // define the portal's display interval, but local media still does.
+        List<Target> targets = Collect(element, timingPeers, includePortalInputs: false);
         MediaTime? duration = GetProviderDuration(element);
         if (element.HierarchicalParent is not Scene scene || !element.Objects.OfType<PortalObject>().Any(p => p.IsEnabled.Value))
             return new(element.Start.Value, element.Length.Value, targets, duration);
@@ -213,7 +216,7 @@ internal static partial class SlippableMedia
             HashSet<Element> active = Active(length, startDelta);
             foreach (var entry in cache)
                 if (entry.Active.SetEquals(active)) return entry.Targets;
-            List<Target> collected = Collect(element, timingPeers, portalCandidates: active);
+            List<Target> collected = Collect(element, timingPeers, portalCandidates: active, includePortalInputs: false);
             cache.Add((active, collected));
             targets.AddRange(collected);
             return collected;
@@ -237,21 +240,21 @@ internal static partial class SlippableMedia
 
     public static bool HasOriginalDuration(Element element)
     {
-        List<Target> targets = Collect(element);
+        List<Target> targets = Collect(element, includePortalInputs: false);
         return targets.All(t => t.IsSupported)
             && (element.HasOriginalDuration() || targets.Any(t => t.Total.HasValue));
     }
 
     public static MediaTime? GetOriginalDuration(Element element)
     {
-        List<Target> mapped = Collect(element);
+        List<Target> mapped = Collect(element, includePortalInputs: false);
         if (mapped.Any(t => !t.IsSupported)) return null;
         MediaTime? maximum = new ResizeConstraints(element.Start.Value, element.Length.Value, mapped,
             GetProviderDuration(element)).GetMaximumDuration();
         if (maximum.HasValue) return maximum;
         // Repetition can be unbounded while the underlying source still has an
         // original length. Offer one cycle; a frozen source falls back to source time.
-        List<Target> targets = Collect(element, ignoreLoops: true);
+        List<Target> targets = Collect(element, ignoreLoops: true, includePortalInputs: false);
         MediaTime? duration = new ResizeConstraints(element.Start.Value, element.Length.Value, targets,
             GetProviderDuration(element)).GetMaximumDuration();
         if (duration.HasValue) return duration;

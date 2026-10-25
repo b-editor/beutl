@@ -353,7 +353,7 @@ public class TimelineMediaDurationTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
-    public async Task EdgeDrag_PortalBecomesActive_PreviewsAndCommitsSourceBounds(bool leftEdge)
+    public async Task EdgeDrag_PortalBecomesActive_PreservesTheRequestedDisplayInterval(bool leftEdge)
     {
         using var configuration = new EditorConfigScope(clamp: true, snap: false);
         ElementViewModel model = await OpenElement(new DrawableTimeController { Speed = { Value = 50 } },
@@ -381,10 +381,64 @@ public class TimelineMediaDurationTests
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
             CapturePreview(view.Window, $"portal-new-overlap-left-{leftEdge}");
-            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 2).TimeToPixel(scale)).Within(0.0001));
+            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 5 : 3).TimeToPixel(scale)).Within(0.0001));
         });
-        Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-        Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 2)));
+        Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 0 : 1)));
+        Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 5 : 3)));
+    }
+
+    [AvaloniaTest]
+    [TestCase(true, 1d)]
+    [TestCase(true, -0.5d)]
+    [TestCase(false, 6d)]
+    public async Task EdgeDrag_PortalWithTenLayers_DoesNotCollapse(bool leftEdge, double pointerSeconds)
+    {
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
+        ElementViewModel model = await OpenElement(new PortalObject { Count = { Value = 10 } },
+            startSeconds: 1, lengthSeconds: 5);
+        model.Model.Name.Value = "Portal (10 layers)";
+        var timeline = model.Timeline;
+        var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
+        foreach (int layer in new[] { 3, 8 })
+        {
+            Assert.That((await adder.AddAsync([new ElementDescription(
+                Start: MediaTime.FromSeconds(layer == 3 ? 2 : 4), Length: MediaTime.FromSeconds(3), Layer: layer,
+                Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
+            Element provider = model.Scene.Children.Single(e => e.ZIndex.Value == layer);
+            provider.Objects.Clear();
+            provider.Objects.Add(CreateSound(3, 0, 100));
+            provider.Name.Value = $"Music {layer}";
+        }
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        HeadlessTestHelpers.Settle();
+        using var view = OpenTimelineView(model, width: 1600);
+        view.Window.Height = 640;
+        HeadlessTestHelpers.Render(5);
+        Border border = view.Border;
+        double y = border.Bounds.Height / 2;
+        Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(MediaTime.FromSeconds(pointerSeconds).TimeToPixel(view.Scale), y), view.Window)!.Value;
+        MediaTime expectedStart = MediaTime.FromSeconds(leftEdge ? 1 + pointerSeconds : 1);
+        MediaTime expectedLength = MediaTime.FromSeconds(leftEdge ? 5 - pointerSeconds : pointerSeconds);
+        TimeRange before = model.Model.Range;
+        string capture = $"portal-ten-layers-left-{leftEdge}-pointer-{pointerSeconds}";
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
+        {
+            CapturePreview(view.Window, capture);
+            Assert.That(model.Width.Value, Is.EqualTo(expectedLength.TimeToPixel(view.Scale)).Within(0.0001));
+            Assert.That(model.Model.Range, Is.EqualTo(before));
+        });
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Model.Start.Value, Is.EqualTo(expectedStart));
+            Assert.That(model.Model.Length.Value, Is.EqualTo(expectedLength));
+        });
+        HeadlessTestHelpers.Render(5);
+        CapturePreview(view.Window, capture + "-committed");
+        var editor = (EditViewModel)timeline.EditorContext;
+        editor.HistoryManager.Undo();
+        Assert.That(model.Model.Range, Is.EqualTo(before));
     }
 
     [AvaloniaTest]

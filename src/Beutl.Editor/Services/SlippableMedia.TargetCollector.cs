@@ -16,6 +16,7 @@ internal static partial class SlippableMedia
         private readonly bool _ignoreLoops;
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
+        private readonly bool _includePortalInputs;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
         private readonly List<Target> _targets = new();
@@ -29,7 +30,7 @@ internal static partial class SlippableMedia
         private bool _opaqueConsumption;
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
-            IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
+            IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates, bool includePortalInputs,
             IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null)
         {
             _element = element;
@@ -37,6 +38,7 @@ internal static partial class SlippableMedia
             _ignoreLoops = ignoreLoops;
             _timingRoles = timingRoles;
             _portalCandidates = portalCandidates;
+            _includePortalInputs = includePortalInputs;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
             if (element.HierarchicalParent is Scene layerScene)
@@ -68,7 +70,7 @@ internal static partial class SlippableMedia
                 var enabled = new HashSet<DrawableTimeController>();
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
-                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, enabled, _sourceDurations);
+                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, _includePortalInputs, enabled, _sourceDurations);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -119,7 +121,7 @@ internal static partial class SlippableMedia
                     List<Node>? imported = portal.Clear.HasExpression ? null : ResolvePortal(portal);
                     if (imported == null)
                     {
-                        flow.Add(new Node(portal, [], Opaque: true));
+                        flow.Add(new Node(portal, [], Opaque: true, PortalInput: true));
                         _opaqueConsumption = true;
                     }
                     else flow.AddRange(imported);
@@ -213,6 +215,7 @@ internal static partial class SlippableMedia
 
         private void CollectNode(Node node, bool referenced = false)
         {
+            if (node.PortalInput && !_includePortalInputs) return;
             if (node.Opaque)
             {
                 // These unattached properties only carry a rejected constraint;
