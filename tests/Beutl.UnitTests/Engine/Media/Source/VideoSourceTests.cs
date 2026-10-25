@@ -190,6 +190,32 @@ public class VideoSourceTests
         });
     }
 
+    [TestCase(30, 66666)]
+    [TestCase(30, 66667)]
+    [TestCase(60, 34000)] // Two 60 fps frames in Matroska, with millisecond precision.
+    public void FrameSelection_UnknownCountUsesTheNearestFrameBoundary(int frameRate, int durationMicroseconds)
+    {
+        var rate = new Rational(frameRate);
+        Mock<MediaReader> reader = CreateReader(true);
+        reader.SetupGet(x => x.VideoInfo).Returns(
+            new VideoStreamInfo("test", 0L, new PixelSize(80, 60), rate)
+            {
+                Duration = new Rational(durationMicroseconds, 1_000_000),
+            });
+        _decoder.Setup(x => x.Open(_path, It.IsAny<MediaOptions>())).Returns(reader.Object);
+        using var resource = CreateSource().ToResource(CompositionContext.Default);
+
+        MediaTime end = MediaTime.FromFrames(2, rate);
+        Assert.Multiple(() =>
+        {
+            Assert.That(resource.GetFrameIndex(MediaTime.Zero), Is.Zero);
+            Assert.That(resource.GetFrameIndex(MediaTime.FromFrames(1, rate)), Is.EqualTo(1));
+            Assert.That(resource.GetFrameIndex(MediaTime.FromFrames(3, new Rational(frameRate * 2))), Is.EqualTo(1));
+            Assert.That(resource.GetFrameIndex(end - new MediaTime(1)), Is.EqualTo(1));
+            Assert.That(resource.GetFrameIndex(end), Is.EqualTo(2));
+        });
+    }
+
     private VideoSource CreateSource()
     {
         var source = new VideoSource();

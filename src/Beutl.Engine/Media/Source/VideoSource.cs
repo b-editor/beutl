@@ -85,8 +85,9 @@ public sealed class VideoSource : MediaSource
 
             long frame = position.ToFrame(FrameRate, MidpointRounding.AwayFromZero);
             long frameCount = MediaReader?.VideoInfo.NumFrames ?? 0;
+            // Duration metadata can be rounded slightly above a frame boundary without adding another frame.
             if (frameCount <= 0)
-                frameCount = Duration.ToFrame(FrameRate, MidpointRounding.ToPositiveInfinity);
+                frameCount = Duration.ToFrame(FrameRate, MidpointRounding.AwayFromZero);
 
             // Keep nearest-frame sampling, but the last frame remains visible for its whole interval.
             // At higher output rates, rounding alone would request EOF half a source frame too early.
