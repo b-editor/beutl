@@ -105,6 +105,38 @@ public sealed class ExportSourceValidatorTests
         Assert.That(missing, Is.EqualTo(new[] { missingImage }));
     }
 
+    // An embed renders the referenced scene from its own window start, so a clip before the referenced
+    // scene's window is never composed and its missing file must not block export.
+    [Test]
+    public void CollectRenderableSources_GraphicallyEmbeddedSceneWithStart_ExcludesPreWindowClips()
+    {
+        string beforeWindow = Path.Combine(_root, "before.png");
+        string insideWindow = Path.Combine(_root, "inside.png");
+
+        var childScene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(_root, "child.scene")),
+            Start = { Value = MediaTime.FromSeconds(5) },
+        };
+        childScene.Children.Add(CreateImageElement(_root, beforeWindow));
+        Element inside = CreateImageElement(_root, insideWindow);
+        inside.Start.Value = MediaTime.FromSeconds(5);
+        childScene.Children.Add(inside);
+
+        var sceneDrawable = new SceneDrawable();
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(_root, "root.scene")),
+        };
+        sceneDrawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
+        scene.Children.Add(ElementWith(_root, sceneDrawable, length: MediaTime.FromSeconds(10)));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.EqualTo(new[] { insideWindow }));
+    }
+
     // A SceneSound renders only the referenced scene's audio (SceneSound.EvaluateAudio), so its missing
     // sound blocks export while the scene's graphics-only image, which this embed never renders, does not.
     [Test]
@@ -132,6 +164,38 @@ public sealed class ExportSourceValidatorTests
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
 
         Assert.That(missing, Is.EqualTo(new[] { missingSound }));
+    }
+
+    // Same as the graphics case: an audio embed composes the referenced scene from its own window
+    // start, so a sound clip before that window must not be preflighted.
+    [Test]
+    public void CollectRenderableSources_AudiallyEmbeddedSceneWithStart_ExcludesPreWindowClips()
+    {
+        string beforeWindow = Path.Combine(_root, "before.mp3");
+        string insideWindow = Path.Combine(_root, "inside.mp3");
+
+        var childScene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(_root, "child.scene")),
+            Start = { Value = MediaTime.FromSeconds(5) },
+        };
+        childScene.Children.Add(CreateSoundElement(_root, beforeWindow));
+        Element inside = CreateSoundElement(_root, insideWindow);
+        inside.Start.Value = MediaTime.FromSeconds(5);
+        childScene.Children.Add(inside);
+
+        var sceneSound = new SceneSound();
+        var scene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(_root, "root.scene")),
+        };
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
+        scene.Children.Add(ElementWith(_root, sceneSound, length: MediaTime.FromSeconds(10)));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.EqualTo(new[] { insideWindow }));
     }
 
     // A disabled element never renders (SceneCompositor.SortLayers gates on IsEnabled), so its missing
@@ -1114,6 +1178,38 @@ public sealed class ExportSourceValidatorTests
             ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
 
         Assert.That(missing, Does.Contain(missingSound));
+    }
+
+    // The property-held SceneSound composes the referenced scene from its own window start too, so a
+    // sound clip before that window must not be preflighted.
+    [Test]
+    public void CollectRenderableSources_VisualizerSceneSoundSourceWithStart_ExcludesPreWindowClips()
+    {
+        string beforeWindow = Path.Combine(_root, "before.mp3");
+        string insideWindow = Path.Combine(_root, "inside.mp3");
+
+        var childScene = new Scene(1920, 1080, string.Empty)
+        {
+            Uri = new Uri(Path.Combine(_root, "child.scene")),
+            Start = { Value = MediaTime.FromSeconds(5) },
+        };
+        childScene.Children.Add(CreateSoundElement(_root, beforeWindow));
+        Element inside = CreateSoundElement(_root, insideWindow);
+        inside.Start.Value = MediaTime.FromSeconds(5);
+        childScene.Children.Add(inside);
+
+        var sceneSound = new SceneSound();
+        var visualizer = new Beutl.Graphics.AudioVisualizers.AudioWaveformDrawable();
+        visualizer.Source.Value = sceneSound;
+
+        var scene = new Scene(1920, 1080, string.Empty) { Uri = new Uri(Path.Combine(_root, "root.scene")) };
+        sceneSound.ReferencedScene.Expression = SceneReferenceTestHelper.Create(scene, childScene);
+        scene.Children.Add(ElementWith(_root, visualizer, length: MediaTime.FromSeconds(10)));
+
+        IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene));
+
+        Assert.That(missing, Is.EqualTo(new[] { insideWindow }));
     }
 
     // A DrawableBrush paints a shape with a nested Drawable that BrushConstructor renders; it is reachable

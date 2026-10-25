@@ -12,18 +12,20 @@ using NUnit.Framework;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
-// A Sound that records the time ranges it is asked to process, so tests can assert which
+// A Sound that records the time ranges it is asked to process and flush, so tests can assert which
 // referenced-scene window an embedded SceneSound samples.
 public sealed partial class RecordingSound : Sound
 {
     internal static readonly List<TimeRange> ProcessedRanges = [];
+    internal static readonly List<TimeRange> FlushedRanges = [];
 
     public RecordingSound() => ScanProperties<RecordingSound>();
 
-    internal static void Reset() => ProcessedRanges.Clear();
-
-    internal static void Dump()
-        => Console.WriteLine($"  processed: [{string.Join(", ", ProcessedRanges.Select(r => r.ToString()))}]");
+    internal static void Reset()
+    {
+        ProcessedRanges.Clear();
+        FlushedRanges.Clear();
+    }
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
@@ -37,6 +39,9 @@ public sealed partial class RecordingSound : Sound
 
     private sealed class RecordingNode : AudioNode
     {
+        // Lets the compose retain the sound's output node, so a flush reaches it.
+        public override int GetLatencySamples(int sampleRate) => 240;
+
         public override AudioBuffer Process(AudioProcessContext context)
         {
             ProcessedRanges.Add(context.TimeRange);
@@ -44,15 +49,16 @@ public sealed partial class RecordingSound : Sound
         }
 
         public override AudioBuffer Flush(AudioProcessContext context)
-            => new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+        {
+            FlushedRanges.Add(context.TimeRange);
+            return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+        }
     }
 }
 
 // An embed (SceneDrawable / SceneSound) must evaluate the referenced scene over the same window the
-// standalone player and renderer do: the element's local time maps to the referenced scene's window
-// time, so a non-zero Scene.Start must shift the evaluation into the referenced scene's own time
-// axis (#3603). Without the shift, the embed silently shows the referenced scene shifted by its
-// Start, including content before the scene's window that the standalone view never plays.
+// standalone player and renderer do (#3603): the element's local time maps to the referenced scene's
+// window time, so a non-zero Scene.Start shifts the evaluation into the referenced scene's own axis.
 [TestFixture]
 public class NestedSceneTimeTests
 {
@@ -63,6 +69,7 @@ public class NestedSceneTimeTests
     {
         _basePath = Path.Combine(Path.GetTempPath(), $"beutl_nested_scene_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_basePath);
+        RecordingSound.Reset();
     }
 
     [TearDown]
@@ -141,10 +148,9 @@ public class NestedSceneTimeTests
 
         using var compositor = new SceneCompositor(sceneA) { DisableResourceShare = true, ForceOriginalSource = true };
 
+        // Local t samples B-window t (B-absolute start + t), like the standalone player.
         Assert.Multiple(() =>
         {
-            // The embed shows the referenced scene's window at the element's local time: local t
-            // samples B-window t (B-absolute start + t), exactly like the standalone player.
             Assert.That(EmbeddedInnerWidth(compositor, Seconds(0.5)), Is.EqualTo(150),
                 $"Embedded at A time 0.5s with Scene.Start {startSeconds}s.");
             Assert.That(EmbeddedInnerWidth(compositor, Seconds(5.5)), Is.EqualTo(650),
@@ -208,12 +214,12 @@ public class NestedSceneTimeTests
             RecordingSound.Reset();
             composer.Compose(new TimeRange(MediaTime.Zero, Seconds(1)));
             Assert.That(RecordingSound.ProcessedRanges, Is.EqualTo([new TimeRange(Seconds(startSeconds), Seconds(1))]),
-                $"Embedded at A window [0, 1s) must process the referenced scene's B-absolute window.");
+                "Embedded at A window [0, 1s) must process the referenced scene's B-absolute window.");
 
             RecordingSound.Reset();
             composer.Compose(new TimeRange(Seconds(5), Seconds(1)));
             Assert.That(RecordingSound.ProcessedRanges, Is.EqualTo([new TimeRange(Seconds(startSeconds + 5), Seconds(1))]),
-                $"Embedded at A window [5, 6s) must process the referenced scene's B-absolute range.");
+                "Embedded at A window [5, 6s) must process the referenced scene's B-absolute range.");
         });
     }
 
@@ -249,6 +255,38 @@ public class NestedSceneTimeTests
             Assert.That(embedded, Is.EqualTo(standalone).AsCollection,
                 $"Embedded audio at A window {windowSeconds}s must match standalone at B-window {windowSeconds}s.");
         }
+    }
+
+    // A tail drain flows through the SceneSound's scene node like a compose does, so a non-zero
+    // referenced Start must shift the drained window the same way or the tail loses its samples.
+    [TestCase(0)]
+    [TestCase(5)]
+    public void SceneSoundEmbed_ShiftsTheTailDrainLikeTheComposeWindow(double startSeconds)
+    {
+        var project = new Project();
+        _ = new BeutlApplication { Project = { Value = project } };
+
+        Scene sceneB = CreateScene("b", Seconds(startSeconds), Seconds(10));
+        Attach(project, sceneB);
+        sceneB.Children.Add(CreateElement(Seconds(startSeconds), Seconds(10), new RecordingSound()));
+
+        Scene sceneA = CreateScene("a", MediaTime.Zero, Seconds(10));
+        Attach(project, sceneA);
+        var sceneSound = new SceneSound { ReferencedScene = { Value = sceneB } };
+        sceneA.Children.Add(CreateElement(MediaTime.Zero, Seconds(10), sceneSound));
+
+        using SceneComposer composer = new(sceneA, disableResourceShare: true, forceOriginalSource: true);
+        composer.Compose(new TimeRange(MediaTime.Zero, Seconds(1)));
+
+        composer.Flush(new TimeRange(Seconds(1), Seconds(1)), new CompositionEligibility([sceneSound]));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(RecordingSound.ProcessedRanges, Is.EqualTo([new TimeRange(Seconds(startSeconds), Seconds(1))]));
+            Assert.That(RecordingSound.FlushedRanges, Has.Count.EqualTo(1));
+            Assert.That(RecordingSound.FlushedRanges[0].Start, Is.EqualTo(Seconds(startSeconds + 1)),
+                "The tail must be drained at the referenced scene's shifted window.");
+        });
     }
 
     private static float EmbeddedInnerWidth(SceneCompositor compositor, MediaTime time)
