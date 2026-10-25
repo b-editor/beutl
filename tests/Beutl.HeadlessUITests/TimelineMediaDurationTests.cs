@@ -550,6 +550,33 @@ public class TimelineMediaDurationTests
     }
 
     [AvaloniaTest]
+    public async Task RightEdgeResize_OffFrameStart_RoundsDraggedEdge()
+    {
+        using var configuration = new EditorConfigScope(snap: false);
+        ElementViewModel model = await OpenElement(new RectShape(), startSeconds: 0.02, lengthSeconds: 2.5);
+        TimelineTabViewModel timeline = model.Timeline;
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        using var view = OpenTimelineView(model, width: 1600);
+        Border border = view.Border;
+        float scale = view.Scale;
+        double y = border.Bounds.Height / 2;
+        Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = view.Element.TranslatePoint(
+            new Point(MediaTime.FromSeconds(3).TimeToPixel(scale), y), view.Window)!.Value;
+
+        view.Drag(press, release, RawInputModifiers.None, () => { });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(0.02)),
+                "the untouched start keeps its exact model coordinate");
+            Assert.That(model.Model.Range.End, Is.EqualTo(MediaTime.FromSeconds(3)),
+                "the dragged right edge is rounded on the frame grid");
+        });
+    }
+
+    [AvaloniaTest]
     public async Task ImportVideo_FractionalDuration_IsFlooredToProjectFrame()
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(

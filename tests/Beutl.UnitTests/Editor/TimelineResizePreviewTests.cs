@@ -101,14 +101,15 @@ public class TimelineResizePreviewTests
         (MediaTime start, MediaTime length) = ElementViewModel.ResolveResizeBounds(
             leftEdge: false,
             roundedStart: MediaTime.Zero,
-            roundedLength: MediaTime.FromSeconds(5),
+            roundedEnd: MediaTime.FromSeconds(2),
             modelStart: MediaTime.FromSeconds(0.02),
             modelEnd: MediaTime.FromSeconds(2));
 
         Assert.Multiple(() =>
         {
             Assert.That(start, Is.EqualTo(MediaTime.FromSeconds(0.02)), "exact model start preserved");
-            Assert.That(length, Is.EqualTo(MediaTime.FromSeconds(5)), "dragged length applied");
+            Assert.That(start + length, Is.EqualTo(MediaTime.FromSeconds(2)),
+                "the dragged right edge stays on the frame grid");
         });
     }
 
@@ -120,7 +121,7 @@ public class TimelineResizePreviewTests
         (MediaTime start, MediaTime length) = ElementViewModel.ResolveResizeBounds(
             leftEdge: true,
             roundedStart: MediaTime.FromSeconds(1),
-            roundedLength: MediaTime.FromSeconds(1.5),
+            roundedEnd: MediaTime.FromSeconds(2.5),
             modelStart: MediaTime.Zero,
             modelEnd: MediaTime.FromSeconds(2.02));
 

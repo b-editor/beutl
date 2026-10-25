@@ -464,11 +464,11 @@ public sealed partial class ElementViewModel : IDisposable
 
     // Keep the untouched edge at its exact model coordinate; only the dragged edge is rounded.
     internal static (MediaTime Start, MediaTime Length) ResolveResizeBounds(
-        bool leftEdge, MediaTime roundedStart, MediaTime roundedLength, MediaTime modelStart, MediaTime modelEnd)
+        bool leftEdge, MediaTime roundedStart, MediaTime roundedEnd, MediaTime modelStart, MediaTime modelEnd)
     {
         return leftEdge
             ? (roundedStart, modelEnd - roundedStart)
-            : (modelStart, roundedLength);
+            : (modelStart, roundedEnd - modelStart);
     }
 
     public async Task SubmitViewModelChanges(
@@ -479,10 +479,10 @@ public sealed partial class ElementViewModel : IDisposable
         float scale = Timeline.Options.Value.Scale;
         Rational rate = SceneTimeRangeService.GetFrameRate(Scene);
         MediaTime roundedStart = BorderMargin.Value.Left.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
-        MediaTime roundedLength = Width.Value.PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+        MediaTime roundedEnd = (BorderMargin.Value.Left + Width.Value).PixelToTime(scale).RoundToFrame(rate, MidpointRounding.AwayFromZero);
         (MediaTime start, MediaTime length) = preserveLength
             ? (roundedStart, Model.Length.Value)
-            : ResolveResizeBounds(leftEdge, roundedStart, roundedLength, Model.Start.Value, Model.Range.End);
+            : ResolveResizeBounds(leftEdge, roundedStart, roundedEnd, Model.Start.Value, Model.Range.End);
         int zindex = Timeline.ToLayerNumber(Margin.Value);
 
         var request = new ElementResizeRequest(Model, start, length, zindex);
