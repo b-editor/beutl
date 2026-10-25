@@ -1268,6 +1268,59 @@ public class TrimTimeControllerTests
         });
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Portal_AudioProviders_PreserveTheLocalDrawableClock(bool importedVideo)
+    {
+        Element first = _harness.AddElement(MediaTime.Zero, Seconds(10), zIndex: 1);
+        Element second = _harness.AddElement(MediaTime.Zero, Seconds(10), zIndex: 5);
+        foreach (Element provider in new[] { first, second })
+            provider.Objects.Add(new SceneSound { ReferencedScene = { Value = new Scene { Duration = { Value = Seconds(10) } } } });
+        var imported = CreateVideo(20);
+        if (importedVideo) first.Objects.Add(imported);
+        var local = CreateVideo(6);
+        Element element = AddElement(0, 1, local);
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 10 } });
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+        using var compositor = CreateCompositor(_harness.Scene);
+        var resource = compositor.EvaluateGraphics(Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(resource.Target!.GetOriginal(), Is.SameAs(importedVideo ? imported : local));
+
+        MediaTime expected = Seconds(importedVideo ? 6 : 3);
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.Multiple(() =>
+        {
+            Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(expected));
+            Assert.That(constraints.ClampLength(Seconds(10)), Is.EqualTo(expected));
+            Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(expected));
+        });
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(10), 0)]);
+        resource = compositor.EvaluateGraphics(element.Range.End - Seconds(0.1)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(element.Length.Value, Is.EqualTo(expected));
+        Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(importedVideo ? 20 : 6));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Portal_DisabledControllerLimit_OnlyConstrainsLocalMedia(bool localMedia)
+    {
+        AddElement(0, 10, CreateVideo(10)).ZIndex.Value = 1;
+        Element element = _harness.AddElement(MediaTime.Zero, Seconds(1));
+        element.Objects.Add(new PortalObject { Count = { Value = 10 } });
+        if (localMedia) element.Objects.Add(CreateVideo(6));
+        for (int i = 0; i < 8; i++)
+            element.Objects.Add(new DrawableTimeController { IsEnabled = { Value = false }, Speed = { Value = 200 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.Multiple(() =>
+        {
+            Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(localMedia ? MediaTime.Zero : (MediaTime?)null));
+            Assert.That(constraints.ClampLength(Seconds(10)), Is.EqualTo(Seconds(localMedia ? 1 : 10)));
+            Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
+        });
+    }
+
     [Test]
     public void Portal_DisabledProvider_DoesNotBecomeATrimTarget()
     {

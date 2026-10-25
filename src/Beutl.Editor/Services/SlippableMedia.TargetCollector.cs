@@ -51,6 +51,8 @@ internal static partial class SlippableMedia
         public List<Target> Collect()
         {
             foreach (Node node in BuildFlow()) CollectNode(node);
+            // Re-enabling controllers has no resize bounds to tighten without local media.
+            if (!_includePortalInputs && _targets.Count == 0) return _targets;
             if (_reenabledControllers != null || _disabledFlowControllers.Count == 0 || _targets.Any(t => !t.IsSupported)) return _targets;
             // A disabled controller contributes bounds only. Its future clock
             // must never replace the clock used to write the current source offset.
@@ -163,12 +165,20 @@ internal static partial class SlippableMedia
             if (portal.Count.HasExpression) return null;
             if (portal.Count.Value <= 0) return [];
             if (_opaqueConsumption || _element.HierarchicalParent is not Scene scene) return null;
+            // Imported audio has no resize bounds and cannot supply a drawable
+            // controller input. Do not turn audio-only providers into opaque drawables.
+            bool IsRelevantInput(Element owner, EngineObject obj)
+            {
+                CompositionTarget target = obj.GetCompositionTarget();
+                return obj.IsEnabled.Value && LayerVisible(owner, target)
+                    && (_includePortalInputs || target != CompositionTarget.Audio);
+            }
             int firstLayer = portal.ZIndex.Value + 1;
             int lastLayer = portal.ZIndex.Value + portal.Count.Value;
             Element[] candidates = scene.Children.Where(candidate => candidate.IsEnabled.Value && candidate.ZIndex.Value >= firstLayer && candidate.ZIndex.Value <= lastLayer
                 && IsPortalCandidate(candidate)
                 && !_consumedPortalElements.Contains(candidate)
-                && candidate.Objects.Any(obj => obj.IsEnabled.Value && LayerVisible(candidate, obj.GetCompositionTarget()))).ToArray();
+                && candidate.Objects.Any(obj => IsRelevantInput(candidate, obj))).ToArray();
             if (candidates.Length == 0) return [];
             // A single plain provider has one stable input order whenever it is
             // active. Switching, nested, or competing portals need a richer flow
@@ -176,7 +186,7 @@ internal static partial class SlippableMedia
             if (candidates.Length != 1) return null;
             Element owner = candidates[0];
             if (HasCompetingFlowConsumer()) return null;
-            EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled.Value && LayerVisible(owner, obj.GetCompositionTarget())).ToArray();
+            EngineObject[] objects = owner.Objects.Where(obj => IsRelevantInput(owner, obj)).ToArray();
             if (HasNonPlainProviderObject(objects)) return null;
             if (IsClaimedByEarlierPortal(scene, owner, objects)) return null;
             _consumedPortalElements.Add(owner);
