@@ -144,6 +144,10 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
                 FileSystemEnumerator.RefreshCollection(tree ? TreeRootItems : Items, path, includeChildren: tree);
             }
         }
+        catch (DirectoryNotFoundException)
+        {
+            RefreshItems();
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             _logger.LogWarning(ex, "Failed to check file browser entries after watcher startup");

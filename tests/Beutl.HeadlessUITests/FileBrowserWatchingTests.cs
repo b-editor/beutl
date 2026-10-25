@@ -206,6 +206,38 @@ public class FileBrowserWatchingTests
     }
 
     [AvaloniaTest]
+    [TestCase(FileBrowserViewMode.Icon)]
+    [TestCase(FileBrowserViewMode.Tree)]
+    public async Task Removing_the_root_during_startup_clears_the_listing_and_selection(FileBrowserViewMode mode)
+    {
+        string scratch = Directory.CreateTempSubdirectory("beutl-browser-deleted-root-").FullName;
+        string root = Directory.CreateDirectory(Path.Combine(scratch, "watched")).FullName;
+        File.WriteAllText(Path.Combine(root, "file.txt"), "selected");
+        using var startup = new PausedWatcher(enableNativeWatcher: false);
+        using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object, null, startup.Service);
+        var window = new Window { Content = new FileBrowserTabView { DataContext = browser }, Width = 480, Height = 400 };
+        try
+        {
+            browser.ViewMode.Value = mode;
+            browser.RootPath.Value = root;
+            await startup.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var items = mode == FileBrowserViewMode.Tree ? browser.TreeRootItems : browser.Items;
+            browser.SelectedItems.Add(items.Single());
+            window.Show();
+            HeadlessTestHelpers.Render();
+            Directory.Delete(root, recursive: true);
+            startup.Resume();
+
+            await HeadlessTestHelpers.WaitUntilAsync(() => items.Count == 0);
+            Assert.That(browser.SelectedItems, Is.Empty);
+            Assert.That(browser.RootPath.Value, Is.EqualTo(root));
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(window, nameof(FileBrowserWatchingTests), $"deleted-root-{mode}");
+        }
+        finally { startup.Resume(); window.Close(); browser.Dispose(); Directory.Delete(scratch, true); }
+    }
+
+    [AvaloniaTest]
     public async Task Unreadable_directory_does_not_skip_catchup_of_its_readable_sibling()
     {
         if (OperatingSystem.IsWindows())
