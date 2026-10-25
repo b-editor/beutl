@@ -577,6 +577,40 @@ public class TimelineMediaDurationTests
     }
 
     [AvaloniaTest]
+    public async Task RightEdgeResize_OffFrameStart_DoesNotPassOffFrameNeighbour()
+    {
+        using var configuration = new EditorConfigScope(snap: false);
+        ElementViewModel model = await OpenElement(new RectShape(), startSeconds: 1.02, lengthSeconds: 1.5);
+        TimelineTabViewModel timeline = model.Timeline;
+        var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
+        Element neighbour = (await adder.AddAsync([new ElementDescription(
+            Start: MediaTime.FromSeconds(3.02),
+            Length: MediaTime.FromSeconds(1),
+            Layer: 0,
+            Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).Elements.Single();
+        HeadlessTestHelpers.Settle();
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        using var view = OpenTimelineView(model, width: 1600);
+        Border border = view.Border;
+        float scale = view.Scale;
+        double y = border.Bounds.Height / 2;
+        Point press = border.TranslatePoint(new Point(border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = view.Element.TranslatePoint(
+            new Point(neighbour.Start.Value.TimeToPixel(scale), y), view.Window)!.Value;
+
+        view.Drag(press, release, RawInputModifiers.None, () => { });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1.02)),
+                "rounding the right edge must not move the untouched start");
+            Assert.That(model.Model.Range.End, Is.EqualTo(neighbour.Start.Value),
+                "the dragged edge stops at the neighbour");
+        });
+    }
+
+    [AvaloniaTest]
     public async Task ImportVideo_FractionalDuration_IsFlooredToProjectFrame()
     {
         (_, Scene scene, EditViewModel editor) = await TestShell.OpenNewSceneAsync(

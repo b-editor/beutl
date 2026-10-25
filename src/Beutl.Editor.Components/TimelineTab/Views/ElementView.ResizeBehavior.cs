@@ -565,7 +565,8 @@ public sealed partial class ElementView
 
                 if (_resizeContexts.Length == 1)
                 {
-                    await viewModel.SubmitViewModelChanges(ripple, leftEdge);
+                    MediaTime? maxEnd = !ripple && !leftEdge ? _resizeContexts[0].After?.Start.Value : null;
+                    await viewModel.SubmitViewModelChanges(ripple, leftEdge, maxEnd: maxEnd);
                 }
                 else if (_resizeContexts.Length > 1)
                 {

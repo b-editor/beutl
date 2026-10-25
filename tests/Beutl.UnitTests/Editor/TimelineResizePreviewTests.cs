@@ -114,6 +114,27 @@ public class TimelineResizePreviewTests
     }
 
     [Test]
+    public void ResolveResizeBounds_RightEdge_ClampsToOffFrameNeighbour()
+    {
+        // Rounding the dragged edge up would enter the next clip and make Scene.MoveChild
+        // move this clip's untouched start. The neighbour's exact start is the hard limit.
+        (MediaTime start, MediaTime length) = ElementViewModel.ResolveResizeBounds(
+            leftEdge: false,
+            roundedStart: MediaTime.FromSeconds(1),
+            roundedEnd: MediaTime.FromFrames(91, new Rational(30)),
+            modelStart: MediaTime.FromSeconds(1.02),
+            modelEnd: MediaTime.FromSeconds(2.52),
+            maxEnd: MediaTime.FromSeconds(3.02));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(start, Is.EqualTo(MediaTime.FromSeconds(1.02)), "exact model start preserved");
+            Assert.That(start + length, Is.EqualTo(MediaTime.FromSeconds(3.02)),
+                "the rounded edge cannot pass the neighbour");
+        });
+    }
+
+    [Test]
     public void ResolveResizeBounds_LeftEdge_PreservesModelEnd()
     {
         // Off-frame model end (2.02s); the left-edge resize takes the rounded start and derives the
