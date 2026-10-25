@@ -71,9 +71,6 @@ public class CleanViewModel
 
     public CleanPackage[] Items { get; }
 
-    /// <summary>
-    /// True when the installed-package registry could not be restored, so cleaning was skipped.
-    /// </summary>
     public bool RegistryRestoreFailed { get; }
 
     public ReactiveProperty<long> SizeToBeReleased { get; } = new();

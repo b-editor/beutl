@@ -70,9 +70,7 @@ public partial class PackageInstaller
             cancellationToken.ThrowIfCancellationRequested();
             excludedPackages ??= [];
 
-            // An incomplete registry cannot tell which extracted packages are live. Without
-            // this guard every directory looks unnecessary, and cleaning a data package also
-            // deletes its materials/templates payload outside the install path.
+            // An incomplete registry makes every extracted package and its data payload look unnecessary.
             if (_installedPackageRepository.RestoreFailed
                 && Directory.Exists(Helper.InstallPath)
                 && Directory.EnumerateDirectories(Helper.InstallPath).Any())

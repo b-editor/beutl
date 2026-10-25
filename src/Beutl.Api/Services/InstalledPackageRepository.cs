@@ -19,8 +19,6 @@ public class InstalledPackageRepository : IBeutlApiResource
     private readonly HashSet<PackageIdentity> _packages = [];
     private readonly Dictionary<string, string?> _resolvedBeutlVersions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
-    // Set when the file could not be read as a whole, or no entry in it survived, so an
-    // empty in-memory list must not replace the file the user still has.
     private bool _saveBlocked;
     private const string FileName = "installedPackages.json";
 
@@ -234,7 +232,6 @@ public class InstalledPackageRepository : IBeutlApiResource
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
         {
-            // An unreadable file must not be replaced by the empty in-memory list.
             _logger.LogError(ex, "Failed to restore packages from file; keeping the file unchanged.");
             KeepBackup(fileName);
             _saveBlocked = true;
