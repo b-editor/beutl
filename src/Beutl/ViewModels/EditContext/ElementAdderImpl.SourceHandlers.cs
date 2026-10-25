@@ -76,13 +76,19 @@ internal sealed partial class ElementAdderImpl
     }
 
     private static T? TrySetDuration<T>(
-        Element element, Scene scene, Func<T> initialize, Func<T, MediaTime> getDuration)
+        Element element, Scene scene, Func<T> initialize, Func<T, MediaTime?> getDuration)
     {
         T? state = default;
         try
         {
             state = initialize();
-            element.Length.Value = NormalizeImportedDuration(scene, getDuration(state));
+            // A missing or temporarily unreadable source reports no duration. Keep the
+            // requested length so the clip stays visible and can be resized once it is readable.
+            if (getDuration(state) is { } duration)
+            {
+                element.Length.Value = NormalizeImportedDuration(scene, duration);
+            }
+
             return state;
         }
         catch
@@ -121,7 +127,7 @@ internal sealed partial class ElementAdderImpl
         Element element,
         Scene scene,
         Func<TResource> initialize,
-        Func<TResource, MediaTime> getDuration,
+        Func<TResource, MediaTime?> getDuration,
         List<ElementMaterializationResource> resources)
         where TResource : class, IDisposable
     {
@@ -158,20 +164,50 @@ internal sealed partial class ElementAdderImpl
                 .SelectMany(decoder => decoder.VideoExtensions())
                 .Distinct());
 
-    private bool HasAudioTrack(string filePath)
+    private MediaProbe ProbeMediaFile(string filePath)
     {
         try
         {
             // Both streams, so a video without audio still opens and reports no audio.
             using var reader = MediaReader.Open(filePath, new MediaOptions(MediaMode.AudioVideo));
-            return reader.HasAudio;
+            return new MediaProbe(MediaProbeState.Opened, reader.HasVideo, reader.HasAudio);
+        }
+        catch (UnsupportedMediaException ex)
+        {
+            // A decoder reports "unsupported" when it cannot open a file that exists,
+            // but that also covers transient failures such as an exclusive lock. Verify
+            // the file is readable before treating the failure as permanent.
+            if (!CanReadFile(filePath))
+            {
+                _logger.LogWarning(
+                    ex,
+                    "The file '{File}' is temporarily unreadable; importing it as offline media.",
+                    filePath);
+                return new MediaProbe(MediaProbeState.Unavailable, false, false);
+            }
+
+            _logger.LogWarning(ex, "The file '{File}' exists but could not be decoded.", filePath);
+            return new MediaProbe(MediaProbeState.Unsupported, false, false);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(
-                ex,
-                "Failed to open the audio stream of '{File}' for track detection; importing as video-only.",
-                filePath);
+            // Missing or temporarily unreachable media is imported as an offline
+            // placeholder; the requested length is kept until it becomes readable.
+            _logger.LogWarning(ex, "Failed to open '{File}'; importing it as offline media.", filePath);
+            return new MediaProbe(MediaProbeState.Unavailable, false, false);
+        }
+    }
+
+    private static bool CanReadFile(string filePath)
+    {
+        try
+        {
+            using var stream = new FileStream(
+                filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
             return false;
         }
     }
@@ -316,8 +352,37 @@ internal sealed partial class ElementAdderImpl
                         $"The file '{fileName}' is not supported by a registered media decoder."));
             }
 
-            bool hasAudio = kind == FileSourceKind.Video
-                && await Task.Run(() => owner.HasAudioTrack(fileName), cancellationToken);
+            MediaProbe probe = kind == FileSourceKind.Image
+                ? new MediaProbe(MediaProbeState.Opened, true, false)
+                : await Task.Run(() => owner.ProbeMediaFile(fileName), cancellationToken);
+            bool reject = probe.State == MediaProbeState.Unsupported;
+            if (probe.State == MediaProbeState.Opened)
+            {
+                // Containers such as .webm belong to both extension lists. When the
+                // opened stream has no video, import the audio that is actually there
+                // instead of rejecting a readable file because of its extension.
+                if (kind == FileSourceKind.Video && !probe.HasVideo && probe.HasAudio)
+                {
+                    kind = FileSourceKind.Audio;
+                }
+
+                reject = kind switch
+                {
+                    FileSourceKind.Video => !probe.HasVideo,
+                    FileSourceKind.Audio => !probe.HasAudio,
+                    _ => false,
+                };
+            }
+
+            if (reject)
+            {
+                return ElementSourcePreflightResult.Rejected(
+                    new UnsupportedElementSourceFailure(
+                        typeof(ElementSource.File),
+                        $"The file '{fileName}' exists but no registered media decoder could read its stream."));
+            }
+
+            bool hasAudio = kind == FileSourceKind.Video && probe.HasAudio;
             int[] layers = hasAudio
                 ? [context.Description.Layer, context.Description.Layer + 1]
                 : [context.Description.Layer];
@@ -363,7 +428,9 @@ internal sealed partial class ElementAdderImpl
                             videoElement,
                             context.Scene,
                             () => video.ToResource(CompositionContext.Default),
-                            resource => resource.Duration,
+                            resource => !resource.IsOffline && resource.Duration > MediaTime.Zero
+                                ? resource.Duration
+                                : null,
                             resources);
 
                         if (!filePreflight.HasAudio)
@@ -384,7 +451,7 @@ internal sealed partial class ElementAdderImpl
                             soundElement,
                             context.Scene,
                             () => sound.ToResource(CompositionContext.Default),
-                            resource => resource.Duration,
+                            resource => resource.Duration > MediaTime.Zero ? resource.Duration : null,
                             resources);
 
                         return ElementSourceMaterializationResult.Materialized(
@@ -405,7 +472,7 @@ internal sealed partial class ElementAdderImpl
                             audioElement,
                             context.Scene,
                             () => audio.ToResource(CompositionContext.Default),
-                            resource => resource.Duration,
+                            resource => resource.Duration > MediaTime.Zero ? resource.Duration : null,
                             resources);
                         return ElementSourceMaterializationResult.Materialized(
                             new ElementMaterialization(audioElement, resources: resources));
@@ -444,6 +511,15 @@ internal sealed partial class ElementAdderImpl
         Video,
         Audio,
     }
+
+    private enum MediaProbeState
+    {
+        Opened,
+        Unsupported,
+        Unavailable,
+    }
+
+    private readonly record struct MediaProbe(MediaProbeState State, bool HasVideo, bool HasAudio);
 
     private sealed record StatelessPreflight : IElementSourcePreflight
     {

@@ -157,6 +157,7 @@ public sealed class BeutlApiApplicationTests
                 Assert.That(handler.LastRequestUri.Query, Does.Contain("standalone=true"));
                 Assert.That(v1, Is.Null);
                 Assert.That(v3?.DownloadUrl, Is.EqualTo("https://downloads.example.test/assets/registered-build?token=opaque"));
+                Assert.That(v3?.Sha256, Is.EqualTo("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
             }
         }
         finally
@@ -411,7 +412,7 @@ public sealed class BeutlApiApplicationTests
             {
                 Content = new StringContent(
                     """
-                    {"latestVersion":"2.0.0-preview.7","url":"https://example.test/release","downloadUrl":"https://downloads.example.test/assets/registered-build?token=opaque","isLatest":false,"mustLatest":false}
+                    {"latestVersion":"2.0.0-preview.7","url":"https://example.test/release","downloadUrl":"https://downloads.example.test/assets/registered-build?token=opaque","sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","isLatest":false,"mustLatest":false}
                     """,
                     Encoding.UTF8,
                     "application/json"),
