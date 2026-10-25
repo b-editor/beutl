@@ -65,6 +65,25 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
         return result.ParseError == null;
     }
 
+    // A single compile-time constant can be inspected without executing a script
+    // or assuming that a value observed at one time holds throughout an edit.
+    internal bool TryGetConstantValue(out T value)
+    {
+        if (_parseResult.Value.ConstantValue is { HasValue: true } constant)
+        {
+            try
+            {
+                value = ConvertResult(constant.Value);
+                return true;
+            }
+            catch (Exception ex) when (ex is ExpressionException or OverflowException)
+            {
+            }
+        }
+        value = default!;
+        return false;
+    }
+
     private ParseResult Parse()
     {
         try
@@ -80,17 +99,33 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
             {
                 return new ParseResult(null, string.Join(Environment.NewLine, errors));
             }
-            if (ValidateResultTypes((CSharpCompilation)script.GetCompilation()) is { } typeError)
+            var compilation = (CSharpCompilation)script.GetCompilation();
+            if (ValidateResultTypes(compilation) is { } typeError)
             {
                 return new ParseResult(null, typeError);
             }
 
-            return new ParseResult(script.CreateDelegate(), null);
+            return new ParseResult(script.CreateDelegate(), null, GetConstantResult(compilation));
         }
         catch (Exception ex)
         {
             return new ParseResult(null, $"Compilation error: {ex.Message}");
         }
+    }
+
+    private static Microsoft.CodeAnalysis.Optional<object?> GetConstantResult(CSharpCompilation compilation)
+    {
+        if (compilation.SyntaxTrees.Count() != 1) return default;
+        SyntaxTree tree = compilation.SyntaxTrees.Single();
+        var root = (CompilationUnitSyntax)tree.GetRoot();
+        if (root.Members is not [GlobalStatementSyntax global]) return default;
+        ExpressionSyntax? expression = global.Statement switch
+        {
+            ReturnStatementSyntax statement => statement.Expression,
+            ExpressionStatementSyntax { SemicolonToken.IsMissing: true } statement => statement.Expression,
+            _ => null
+        };
+        return expression != null ? compilation.GetSemanticModel(tree).GetConstantValue(expression) : default;
     }
 
     private static string? ValidateResultTypes(CSharpCompilation compilation)
@@ -257,5 +292,5 @@ public sealed class StringExpression<T> : IReplacingExpression<T>
 
     public override string ToString() => ExpressionString;
 
-    private sealed record ParseResult(ScriptRunner<object>? ScriptRunner, string? ParseError);
+    private sealed record ParseResult(ScriptRunner<object>? ScriptRunner, string? ParseError, Microsoft.CodeAnalysis.Optional<object?> ConstantValue = default);
 }

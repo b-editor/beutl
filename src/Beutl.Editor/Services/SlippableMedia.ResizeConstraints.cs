@@ -5,6 +5,10 @@ internal static partial class SlippableMedia
     internal sealed class ResizeConstraints(MediaTime elementStart, MediaTime elementLength, List<Target> targets,
         MediaTime? providerDuration = null, Func<MediaTime, MediaTime, List<Target>>? targetsAt = null)
     {
+        public IReadOnlyList<Target> MediaTargets => targets;
+
+        public bool IsSupported => targets.All(t => t.IsSupported);
+
         public bool HasMonotonicDuration => targets.All(t => !t.HasVariableDuration);
 
         public bool HasSharedClock => targetsAt != null || targets.Any(t => t.HasSharedClock);

@@ -6,6 +6,32 @@ namespace Beutl.UnitTests.Engine.Expressions;
 [TestFixture]
 public class ExpressionTests
 {
+    [TestCase("false", false)]
+    [TestCase("true", true)]
+    [TestCase("1 == 2", false)]
+    [TestCase("!(1 == 2)", true)]
+    [TestCase("return false;", false)]
+    [TestCase("0", false)]
+    [TestCase("-0.5", true)]
+    [TestCase("null", false)]
+    public void ConstantResult_MatchesRuntimeConversion(string source, bool expected)
+    {
+        var expression = Expression.Create<bool>(source);
+        Assert.That(expression.TryGetConstantValue(out bool value), Is.True);
+        Assert.That(value, Is.EqualTo(expected));
+        Assert.That(value, Is.EqualTo(expression.Evaluate(TestHelper.CreateExpressionContext(MediaTime.Zero))));
+    }
+
+    [TestCase("Time > 1")]
+    [TestCase("GetProperty<bool>(\"Clear\")")]
+    [TestCase("throw new InvalidOperationException(); return false;")]
+    [TestCase("Func<bool> value = () => true; value()")]
+    [TestCase("invalid syntax ++")]
+    public void ConstantResult_DoesNotExecuteOrGuessDynamicScripts(string source)
+    {
+        Assert.That(Expression.Create<bool>(source).TryGetConstantValue(out _), Is.False);
+    }
+
     [TestCase("\"abc\"")]
     [TestCase("Time > 1")]
     [TestCase("return \"abc\";")]

@@ -101,10 +101,15 @@ internal sealed partial class MediaTimeMapping
     }
 
     public Interval? SampledRange(MediaTime from, MediaTime to, MediaTime startDelta = default, MediaTime lengthDelta = default,
-        bool conservative = true)
+        bool conservative = true, TimeRange? window = null)
     {
         var elementRange = new TimeRange(_elementRange.Start + startDelta, _elementRange.Duration + lengthDelta);
         Interval range = Interval.Between(from, to).Shift(elementRange.Start);
+        if (window is { } active)
+        {
+            if (range.Max <= active.Start || range.Min >= active.End) return null;
+            range = new Interval(Max(range.Min, active.Start), Min(range.Max, active.End));
+        }
         if (_clipToSourceRange)
         {
             // Audio is evaluated only within its own range; portal input is supplied

@@ -19,6 +19,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -353,7 +354,7 @@ public class TimelineMediaDurationTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
-    public async Task EdgeDrag_PortalBecomesActive_PreviewsAndCommitsSourceBounds(bool leftEdge)
+    public async Task EdgeDrag_PortalBecomesActive_PreservesTheRequestedDisplayInterval(bool leftEdge)
     {
         using var configuration = new EditorConfigScope(clamp: true, snap: false);
         ElementViewModel model = await OpenElement(new DrawableTimeController { Speed = { Value = 50 } },
@@ -381,10 +382,129 @@ public class TimelineMediaDurationTests
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
             CapturePreview(view.Window, $"portal-new-overlap-left-{leftEdge}");
-            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 2).TimeToPixel(scale)).Within(0.0001));
+            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 5 : 3).TimeToPixel(scale)).Within(0.0001));
         });
-        Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-        Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 2)));
+        Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 0 : 1)));
+        Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 5 : 3)));
+    }
+
+    [AvaloniaTest]
+    [TestCase(true, 1.0)]
+    [TestCase(true, -0.5)]
+    [TestCase(false, 6.0)]
+    public async Task EdgeDrag_PortalWithTenLayers_FollowsTheRequestedEdge(bool leftEdge, double requested)
+    {
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
+        ElementViewModel model = await OpenElement(new PortalObject { Count = { Value = 10 } }, startSeconds: 1, lengthSeconds: 5);
+        model.Model.Name.Value = "Portal: Count 10";
+        for (int layer = 1; layer <= 2; layer++)
+            AddPortalProvider(model, layer + 1, 1, layer, CreateSound(1, 0, 100));
+
+        AssertPortalDrag(model, leftEdge, requested, leftEdge ? 5 - requested : requested);
+        Assert.That(model.HasOriginalDuration(), Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EdgeDrag_PortalLocalVideo_ExtendsSafelyAcrossAProviderBoundary(bool leftEdge)
+    {
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
+        ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: leftEdge ? 2 : 1, lengthSeconds: 0.3);
+        model.Model.Objects.Insert(0, new PortalObject { Count = { Value = 10 } });
+        model.Model.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+        model.Model.Name.Value = "Portal with local video";
+        AddPortalProvider(model, 1, leftEdge ? 1.2 : 0.8, 1, CreateDurationVideo());
+
+        double length = leftEdge ? 0.5 : 0.8;
+        AssertPortalDrag(model, leftEdge, leftEdge ? -1 : 1.5, length);
+        Assert.That(model.HasOriginalDuration(), Is.True);
+        model.ChangeToOriginalDuration.Execute();
+        HeadlessTestHelpers.Settle();
+        Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(length)));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EdgeDrag_PortalTransition_PreviewsAndCommitsTheLocalControllerBound(bool leftEdge)
+    {
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
+        SourceVideo local = CreateDurationVideo();
+        ElementViewModel model = await OpenElement(local, startSeconds: leftEdge ? 1.4 : 1, lengthSeconds: 0.3);
+        model.Model.Objects.Insert(0, new PortalObject { Count = { Value = 10 } });
+        for (int i = 0; i < 2; i++) model.Model.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+        model.Model.Name.Value = "Portal: transition and local video";
+        AddPortalProvider(model, 1, 1, 1, new RectShape());
+        Element incoming = AddPortalProvider(model, 1 + 1.0 / 3, 1, 1, new EllipseShape());
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.Zero } };
+
+        AssertPortalDrag(model, leftEdge, leftEdge ? -0.6 : 1.5, 0.5, () =>
+        {
+            using var compositor = new SceneCompositor(model.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+            var controllers = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<DrawableTimeController.Resource>().ToArray();
+            Assert.That(controllers[0].Target!.GetOriginal().GetType().Name, Is.EqualTo("ClipTransitionPresenter"));
+            Assert.That(controllers[1].Target!.GetOriginal(), Is.SameAs(local));
+            Assert.That(((SourceVideo.Resource)controllers[1].Target!).RequestedPosition, Is.LessThan(MediaTime.FromSeconds(1)));
+        });
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task EdgeDrag_PortalClearExpression_PreservesLocalBoundsAndSafeExtension(bool leftEdge, bool clear)
+    {
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
+        SourceVideo local = CreateDurationVideo();
+        ElementViewModel model = await OpenElement(local, startSeconds: leftEdge ? 2 : 1, lengthSeconds: 0.3);
+        model.Model.Objects.Add(new PortalObject { Clear = { Value = !clear, Expression = Expression.Create<bool>(clear ? "true" : "false") } });
+        model.Model.Name.Value = $"Local video, Clear = {clear}";
+
+        AssertPortalDrag(model, leftEdge, leftEdge ? -1 : 1.5, clear ? leftEdge ? 1.3 : 1.5 : 1, () =>
+        {
+            Assert.That(local.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+            using var compositor = new SceneCompositor(model.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+            var videos = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<SourceVideo.Resource>().ToArray();
+            Assert.That(videos, Has.Length.EqualTo(clear ? 0 : 1));
+            if (!clear) Assert.That(videos[0].RequestedPosition, Is.LessThan(MediaTime.FromSeconds(1)));
+        });
+    }
+
+    private static Element AddPortalProvider(ElementViewModel model, double start, double length, int layer, EngineObject obj)
+    {
+        var element = new Element { Start = { Value = MediaTime.FromSeconds(start) }, Length = { Value = MediaTime.FromSeconds(length) }, ZIndex = { Value = layer } };
+        element.Objects.Add(obj);
+        model.Scene.Children.Add(element);
+        return element;
+    }
+
+    private static void AssertPortalDrag(ElementViewModel model, bool leftEdge, double requested, double expectedLength, Action? afterCommit = null)
+    {
+        model.Timeline.ClearSelected();
+        model.Timeline.SelectElement(model);
+        HeadlessTestHelpers.Settle();
+        using var view = OpenTimelineView(model, width: 1600);
+        double y = view.Border.Bounds.Height / 2;
+        Point press = view.Border.TranslatePoint(new Point(leftEdge ? 2 : view.Border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = view.Border.TranslatePoint(new Point(MediaTime.FromSeconds(requested).TimeToPixel(view.Scale), y), view.Window)!.Value;
+        TimeRange before = model.Model.Range;
+        MediaTime length = MediaTime.FromSeconds(expectedLength);
+        string capture = TestContext.CurrentContext.Test.Name;
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
+        {
+            CapturePreview(view.Window, capture);
+            Assert.That(model.Width.Value, Is.EqualTo(length.TimeToPixel(view.Scale)).Within(0.0001));
+            Assert.That(model.Model.Range, Is.EqualTo(before), "Preview must not mutate the element.");
+        });
+        Assert.That(model.Model.Range, Is.EqualTo(new TimeRange(leftEdge ? before.End - length : before.Start, length)));
+        afterCommit?.Invoke();
+        HeadlessTestHelpers.Render(5);
+        CapturePreview(view.Window, capture + "-committed");
+        Assert.That(((EditViewModel)model.Timeline.EditorContext).HistoryManager.Undo(), Is.True);
+        HeadlessTestHelpers.Settle();
+        Assert.That(model.Model.Range, Is.EqualTo(before));
     }
 
     [AvaloniaTest]

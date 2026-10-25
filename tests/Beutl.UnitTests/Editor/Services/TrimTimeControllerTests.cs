@@ -1115,7 +1115,7 @@ public class TrimTimeControllerTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Resize_PortalInput_ClampsAgainstInjectedVideo(bool emptyStoredTarget)
+    public void Resize_PortalInput_PreservesIndependentDisplayDuration(bool emptyStoredTarget)
     {
         var imported = CreateVideo(6);
         Element owner = AddElement(0, 5, imported);
@@ -1131,8 +1131,8 @@ public class TrimTimeControllerTests
         var resource = compositor.EvaluateGraphics(element.Range.End - Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.Multiple(() =>
         {
-            Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
-            Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(6));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(5)));
+            Assert.That(resource.Target!.GetOriginal(), Is.SameAs(imported));
             Assert.That(imported.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(stored.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
@@ -1140,7 +1140,7 @@ public class TrimTimeControllerTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Trim_AmbiguousPortal_RejectsLinkedChanges(bool expressionCount)
+    public void AmbiguousPortal_KeepsSlipValidationWithoutConstrainingResize(bool expressionCount)
     {
         var first = CreateVideo(10);
         Element ownerA = AddElement(0, 1, first);
@@ -1166,8 +1166,8 @@ public class TrimTimeControllerTests
         {
             Assert.That(first.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(linkedVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(element.Length.Value, Is.EqualTo(Seconds(2)));
-            Assert.That(linked.Length.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
+            Assert.That(linked.Length.Value, Is.EqualTo(Seconds(3)));
         });
     }
 
@@ -1553,7 +1553,7 @@ public class TrimTimeControllerTests
     [TestCase(false, true)]
     [TestCase(true, false)]
     [TestCase(true, true)]
-    public void Resize_PortalNewOverlap_ClampsTheProposedSampledWindow(bool leftEdge, bool ripple)
+    public void Resize_PortalNewOverlap_PreservesTheRequestedDisplayInterval(bool leftEdge, bool ripple)
     {
         var video = CreateVideo(leftEdge ? 2 : 6);
         AddElement(leftEdge ? 0 : 2, leftEdge ? 3 : 8, video).ZIndex.Value = 1;
@@ -1570,11 +1570,10 @@ public class TrimTimeControllerTests
         var resource = compositor.EvaluateGraphics(Seconds(2.9)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.Multiple(() =>
         {
-            Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 2 : 3)));
-            Assert.That(element.Start.Value, Is.EqualTo(Seconds(leftEdge ? 2 : 0)));
-            Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
+            Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 1 : 5)));
+            Assert.That(element.Start.Value, Is.EqualTo(Seconds(leftEdge ? 1 : 0)));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(leftEdge ? 4 : 5)));
             Assert.That(resource.Target!.GetOriginal(), Is.SameAs(video));
-            Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(leftEdge ? 2 : 6));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
     }
