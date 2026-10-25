@@ -8,8 +8,6 @@ namespace Beutl.Editor.Services;
 
 public sealed class ElementDuplicateService : IElementDuplicateService
 {
-    private const int MaxSearchSteps = 100_000;
-
     private static readonly ILogger s_logger = Log.CreateLogger<ElementDuplicateService>();
 
     private readonly HistoryManager _historyManager;
@@ -55,12 +53,18 @@ public sealed class ElementDuplicateService : IElementDuplicateService
             // Snapshot once: the bounded spiral search probes these per candidate.
             var rowOffsets = regenerated.Select(r => r.ZIndex.Value - minZIndex).ToHashSet();
             HashSet<int> lockedRows = scene.Layers.Where(l => l.IsLocked.Value).Select(l => l.ZIndex.Value).ToHashSet();
-            (anchorStart, anchorZIndex) =
-                CorrectPosition(scene, seedRange, rowOffsets, lockedRows, clickedFrame, clickedLayer);
+            var anchor = ElementPlacementHelper.FindFreeAnchor(
+                scene, seedRange, rowOffsets, lockedRows, clickedFrame, clickedLayer);
+            if (anchor is null)
+            {
+                return DuplicateOutcome.Failed;
+            }
 
-            // CorrectPosition avoids locked rows, but its give-up fallback can
-            // still land on one; never place content inside a locked layer.
-            if (AnyDestinationRowLocked(anchorZIndex, rowOffsets, lockedRows))
+            (anchorStart, anchorZIndex) = anchor.Value;
+
+            // The search only returns unlocked destinations; keep the guard at the
+            // insertion boundary so placement never depends on that invariant alone.
+            if (ElementPlacementHelper.AnyDestinationRowLocked(anchorZIndex, rowOffsets, lockedRows))
             {
                 return DuplicateOutcome.Failed;
             }
@@ -108,101 +112,5 @@ public sealed class ElementDuplicateService : IElementDuplicateService
     {
         ArgumentNullException.ThrowIfNull(sources);
         return DuplicateHelper.WouldOverlapSources(sources, anchorStart, anchorZIndex);
-    }
-
-    /// <summary>
-    /// Spiral search around the clicked position for a non-overlapping slot,
-    /// bounded by <see cref="MaxSearchSteps"/> so a packed timeline can't hang.
-    /// </summary>
-    private static (MediaTime Start, int ZIndex) CorrectPosition(
-        Scene scene,
-        TimeRange range,
-        HashSet<int> rowOffsets,
-        HashSet<int> lockedRows,
-        MediaTime clickedFrame,
-        int clickedLayer)
-    {
-        MediaTime step = SceneTimeRangeService.GetFrameDuration(scene);
-        MediaTime length = range.Duration;
-
-        MediaTime newStart = clickedFrame;
-        int newZIndex = clickedLayer;
-
-        if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, rowOffsets, lockedRows))
-        {
-            return (newStart, newZIndex);
-        }
-
-        // 時計回り: 右→下→左→上
-        int[] dx = [1, 0, -1, 0];
-        int[] dz = [0, 1, 0, -1];
-
-        int dir = 0;
-        int stepLen = 1;
-        int stepped = 0;
-        int turnCount = 0;
-        int searchSteps = 0;
-
-        while (true)
-        {
-            newStart += new MediaTime(step.Flicks * dx[dir]);
-            newZIndex += dz[dir];
-
-            if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
-            if (newZIndex < 0) newZIndex = 0;
-
-            if (IsPlacementFree(scene, new TimeRange(newStart, length), newZIndex, rowOffsets, lockedRows))
-            {
-                return (newStart, newZIndex);
-            }
-
-            if (++searchSteps >= MaxSearchSteps)
-            {
-                s_logger.LogWarning(
-                    "CorrectPosition gave up after {Steps} steps; using last candidate at start={Start}, zIndex={ZIndex}.",
-                    searchSteps, newStart, newZIndex);
-                return (newStart, newZIndex);
-            }
-
-            stepped++;
-            if (stepped == stepLen)
-            {
-                stepped = 0;
-                dir = (dir + 1) & 3;
-                turnCount++;
-                if ((turnCount & 1) == 0)
-                    stepLen++;
-            }
-        }
-    }
-
-    private static bool IsPlacementFree(
-        Scene scene, TimeRange range, int anchorZIndex, HashSet<int> rowOffsets, HashSet<int> lockedRows)
-        => !IsOverlapping(scene, range, anchorZIndex, rowOffsets)
-           && !AnyDestinationRowLocked(anchorZIndex, rowOffsets, lockedRows);
-
-    private static bool AnyDestinationRowLocked(int anchorZIndex, HashSet<int> rowOffsets, HashSet<int> lockedRows)
-    {
-        foreach (int offset in rowOffsets)
-        {
-            if (lockedRows.Contains(anchorZIndex + offset)) return true;
-        }
-
-        return false;
-    }
-
-    private static bool IsOverlapping(Scene scene, TimeRange range, int anchorZIndex, HashSet<int> rowOffsets)
-    {
-        foreach (Element child in scene.Children)
-        {
-            if (!rowOffsets.Contains(child.ZIndex.Value - anchorZIndex)) continue;
-            TimeRange other = child.Range;
-            if (other == range || other.Intersects(range) || other.Contains(range) || range.Contains(other))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
