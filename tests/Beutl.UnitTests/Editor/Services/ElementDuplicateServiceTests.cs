@@ -31,6 +31,15 @@ public class ElementDuplicateServiceTests
     private Element AddElement(MediaTime start, MediaTime length, int zIndex = 0)
         => _harness.AddElement(start, length, zIndex);
 
+    private void LockRowsAbove(int zIndex)
+    {
+        // Cover every row the bounded spiral can reach so the search has no free slot.
+        for (int z = zIndex + 1; z <= zIndex + 512; z++)
+        {
+            _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = z }, IsLocked = { Value = true } });
+        }
+    }
+
     [Test]
     public void Constructor_NullHistoryManager_Throws()
     {
@@ -224,6 +233,25 @@ public class ElementDuplicateServiceTests
 
         DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
             _scene, [locked], MediaTime.FromSeconds(20), 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Success, Is.False);
+            Assert.That(_scene.Children.Count, Is.EqualTo(childrenBefore));
+            Assert.That(_history.UndoCount, Is.EqualTo(before));
+        });
+    }
+
+    [Test]
+    public void DuplicateAtClickedPosition_NoFreeSlot_ReturnsFailed()
+    {
+        Element source = AddElement(MediaTime.Zero, MediaTime.FromSeconds(60));
+        LockRowsAbove(0);
+        int childrenBefore = _scene.Children.Count;
+        int before = _history.UndoCount;
+
+        DuplicateOutcome outcome = _service.DuplicateAtClickedPosition(
+            _scene, [source], MediaTime.Zero, 0);
 
         Assert.Multiple(() =>
         {

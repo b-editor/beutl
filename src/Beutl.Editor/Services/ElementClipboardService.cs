@@ -320,19 +320,27 @@ public sealed class ElementClipboardService : IElementClipboardService
             .Where(l => l.IsLocked.Value)
             .Select(l => l.ZIndex.Value)
             .ToHashSet();
-        (MediaTime start, int zIndex) = ElementPlacementHelper.FindFreeAnchor(
+        var anchor = ElementPlacementHelper.FindFreeAnchor(
             scene,
             newElement.Range,
             rowOffsets,
             lockedRows,
             newElement.Start.Value,
             newElement.ZIndex.Value);
+        if (anchor is null)
+        {
+            s_logger.LogWarning("AddPastedElement skipped: free-slot search was exhausted.");
+            return ElementPasteOutcome.Empty;
+        }
 
-        // The bounded search falls back to its last probe; never place content inside a locked layer.
+        (MediaTime start, int zIndex) = anchor.Value;
+
+        // The search only returns unlocked destinations; keep the guard at the
+        // insertion boundary so placement never depends on that invariant alone.
         if (ElementPlacementHelper.AnyDestinationRowLocked(zIndex, rowOffsets, lockedRows))
         {
             s_logger.LogWarning(
-                "AddPastedElement skipped: free-slot search ended on locked layer {Layer}.", zIndex);
+                "AddPastedElement skipped: free-slot search returned a locked layer {Layer}.", zIndex);
             return ElementPasteOutcome.Empty;
         }
 

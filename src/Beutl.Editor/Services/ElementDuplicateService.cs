@@ -53,11 +53,17 @@ public sealed class ElementDuplicateService : IElementDuplicateService
             // Snapshot once: the bounded spiral search probes these per candidate.
             var rowOffsets = regenerated.Select(r => r.ZIndex.Value - minZIndex).ToHashSet();
             HashSet<int> lockedRows = scene.Layers.Where(l => l.IsLocked.Value).Select(l => l.ZIndex.Value).ToHashSet();
-            (anchorStart, anchorZIndex) = ElementPlacementHelper.FindFreeAnchor(
+            var anchor = ElementPlacementHelper.FindFreeAnchor(
                 scene, seedRange, rowOffsets, lockedRows, clickedFrame, clickedLayer);
+            if (anchor is null)
+            {
+                return DuplicateOutcome.Failed;
+            }
 
-            // FindFreeAnchor avoids locked rows, but its give-up fallback can
-            // still land on one; never place content inside a locked layer.
+            (anchorStart, anchorZIndex) = anchor.Value;
+
+            // The search only returns unlocked destinations; keep the guard at the
+            // insertion boundary so placement never depends on that invariant alone.
             if (ElementPlacementHelper.AnyDestinationRowLocked(anchorZIndex, rowOffsets, lockedRows))
             {
                 return DuplicateOutcome.Failed;

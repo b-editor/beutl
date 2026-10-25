@@ -54,6 +54,15 @@ public class ElementClipboardServiceTests
             && child.ZIndex.Value == element.ZIndex.Value
             && child.Range.Intersects(element.Range));
 
+    private void LockRowsAbove(int zIndex)
+    {
+        // Cover every row the bounded spiral can reach so the search has no free slot.
+        for (int z = zIndex + 1; z <= zIndex + 512; z++)
+        {
+            _scene.Layers.Add(new TimelineLayer { ZIndex = { Value = z }, IsLocked = { Value = true } });
+        }
+    }
+
     [Test]
     public async Task CopyAsync_MultipleElements_WritesElementsFormat()
     {
@@ -359,6 +368,46 @@ public class ElementClipboardServiceTests
             Assert.That(pasted.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)),
                 "a pasted bitmap keeps its 5s length instead of being shortened to the gap");
             Assert.That(OverlapsAnotherChild(_scene, pasted), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_SingleElementFormat_NoFreeSlot_IsRefused()
+    {
+        Element original = AddElement(MediaTime.Zero, MediaTime.FromSeconds(60));
+        LockRowsAbove(0);
+        string json = CoreSerializer.SerializeToJsonString(original);
+        _clipboard.SetSingle(BeutlClipboardFormats.Element, json);
+        Element[] childrenBefore = [.. _scene.Children];
+        int historyBefore = _history.UndoCount;
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.Zero, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(_scene.Children, Is.EqualTo(childrenBefore));
+            Assert.That(_history.UndoCount, Is.EqualTo(historyBefore));
+        });
+    }
+
+    [Test]
+    public async Task PasteAsync_Bitmap_NoFreeSlot_IsRefusedAndDeletesTheResource()
+    {
+        AddElement(MediaTime.Zero, MediaTime.FromSeconds(60));
+        LockRowsAbove(0);
+        _clipboard.SetBitmap([1, 2, 3, 4]);
+        Element[] childrenBefore = [.. _scene.Children];
+        string resDir = Path.Combine(_harness.BasePath, "resources");
+
+        ElementPasteOutcome outcome = await _service.PasteAsync(_scene, MediaTime.Zero, 0);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(outcome.Pasted, Is.False);
+            Assert.That(_scene.Children, Is.EqualTo(childrenBefore));
+            Assert.That(Directory.Exists(resDir) ? Directory.GetFiles(resDir) : [], Is.Empty,
+                "a refused paste must not leave the written image behind");
         });
     }
 

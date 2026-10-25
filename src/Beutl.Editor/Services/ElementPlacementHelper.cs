@@ -18,12 +18,13 @@ internal static class ElementPlacementHelper
     /// <summary>
     /// Spiral search around the clicked position for a non-overlapping slot,
     /// bounded by <see cref="MaxSearchSteps"/> so a packed timeline can't hang.
+    /// Returns <see langword="null"/> when no free slot was found within the limit.
     /// </summary>
     /// <param name="rowOffsets">
     /// Layer offsets, from the anchor layer, that the inserted clips occupy. A sparse selection
     /// (layers 0 and 2) is not blocked by content or a lock on a layer it never lands on.
     /// </param>
-    internal static (MediaTime Start, int ZIndex) FindFreeAnchor(
+    internal static (MediaTime Start, int ZIndex)? FindFreeAnchor(
         Scene scene,
         TimeRange range,
         IReadOnlySet<int> rowOffsets,
@@ -68,9 +69,9 @@ internal static class ElementPlacementHelper
             if (++searchSteps >= MaxSearchSteps)
             {
                 s_logger.LogWarning(
-                    "FindFreeAnchor gave up after {Steps} steps; using last candidate at start={Start}, zIndex={ZIndex}.",
-                    searchSteps, newStart, newZIndex);
-                return (newStart, newZIndex);
+                    "FindFreeAnchor gave up after {Steps} steps without finding a free slot.",
+                    searchSteps);
+                return null;
             }
 
             stepped++;
