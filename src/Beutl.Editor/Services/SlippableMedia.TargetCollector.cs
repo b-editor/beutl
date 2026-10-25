@@ -2,6 +2,7 @@
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Transitions;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 
@@ -17,6 +18,7 @@ internal static partial class SlippableMedia
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
         private readonly bool _includePortalInputs;
+        private readonly PortalFlowSnapshot? _portalFlow;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
         private readonly List<Target> _targets = new();
@@ -32,7 +34,8 @@ internal static partial class SlippableMedia
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates, bool includePortalInputs,
-            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null)
+            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null,
+            PortalFlowSnapshot? portalFlow = null)
         {
             _element = element;
             _timingPeers = timingPeers;
@@ -40,6 +43,7 @@ internal static partial class SlippableMedia
             _timingRoles = timingRoles;
             _portalCandidates = portalCandidates;
             _includePortalInputs = includePortalInputs;
+            _portalFlow = portalFlow;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
             if (element.HierarchicalParent is Scene layerScene)
@@ -74,7 +78,7 @@ internal static partial class SlippableMedia
                 var enabled = new HashSet<DrawableTimeController>();
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
-                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, _includePortalInputs, enabled, _sourceDurations);
+                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, _includePortalInputs, enabled, _sourceDurations, _portalFlow);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -93,6 +97,32 @@ internal static partial class SlippableMedia
 
         private bool IsEnabled(EngineObject obj)
             => obj.IsEnabled.Value || obj is DrawableTimeController controller && _reenabledControllers?.Contains(controller) == true;
+
+        public Element[] GetResizeCandidates(Scene scene)
+        {
+            PortalObject[] portals = _element.Objects.OfType<PortalObject>().Where(p => p.IsEnabled.Value).ToArray();
+            Element[] providers = scene.Children.Where(child => child != _element && child.IsEnabled.Value
+                && LayerVisible(child, CompositionTarget.Graphics)
+                && portals.Any(p => p.Count.HasExpression || p.ZIndex.Value < child.ZIndex.Value
+                    && (long)p.ZIndex.Value + p.Count.Value >= child.ZIndex.Value)).ToArray();
+            var transitionLayers = providers.Where(child => child.EnterTransition.Value is { IsEnabled.Value: true }
+                    || child.ExitTransition.Value is { IsEnabled.Value: true })
+                .Select(child => child.ZIndex.Value).ToHashSet();
+            // All neighbours on a transitioning layer affect pairing, even an
+            // otherwise empty clip. Plain audio clips cannot affect graphic flow.
+            var relevant = providers.Where(child => transitionLayers.Contains(child.ZIndex.Value)
+                || child.Objects.Any(obj => obj.IsEnabled.Value && obj.GetCompositionTarget() != CompositionTarget.Audio)).ToHashSet();
+            // An earlier portal can consume a provider before this element does.
+            // Keep its edges, but not unrelated clips on those earlier layers.
+            foreach (Element child in scene.Children)
+                if (child != _element && child.IsEnabled.Value && child.ZIndex.Value <= _element.ZIndex.Value
+                    && LayerVisible(child, CompositionTarget.Graphics)
+                    && child.Objects.OfType<PortalObject>().Any(p => p.IsEnabled.Value
+                        && (p.Count.HasExpression || providers.Any(provider => p.ZIndex.Value < provider.ZIndex.Value
+                            && (long)p.ZIndex.Value + p.Count.Value >= provider.ZIndex.Value))))
+                    relevant.Add(child);
+            return scene.Children.Where(relevant.Contains).ToArray();
+        }
 
         private MediaTime? GetSourceDuration(MediaSource? source)
         {
@@ -172,10 +202,11 @@ internal static partial class SlippableMedia
                     && (_includePortalInputs || obj.GetCompositionTarget() != CompositionTarget.Audio);
             int firstLayer = portal.ZIndex.Value + 1;
             int lastLayer = portal.ZIndex.Value + portal.Count.Value;
-            Element[] candidates = scene.Children.Reverse().Where(candidate => candidate.IsEnabled.Value && candidate.ZIndex.Value >= firstLayer && candidate.ZIndex.Value <= lastLayer
+            Element[] candidates = (_portalFlow?.Candidates ?? (IReadOnlyList<Element>)scene.Children).Reverse().Where(candidate => candidate.IsEnabled.Value && candidate.ZIndex.Value >= firstLayer && candidate.ZIndex.Value <= lastLayer
                 && IsPortalCandidate(candidate)
                 && !_consumedPortalElements.Contains(candidate)
-                && candidate.Objects.Any(obj => IsRelevantInput(candidate, obj))).OrderBy(candidate => candidate.ZIndex.Value).ToArray();
+                && (_portalFlow?.Transitions.ContainsKey(candidate) == true || candidate.Objects.Any(obj => IsRelevantInput(candidate, obj))))
+                .OrderBy(candidate => candidate.ZIndex.Value).ToArray();
             if (candidates.Length == 0) return [];
             // Offset writes still require a stable input set. Resize snapshots
             // describe one interval and can retain all plain providers in renderer
@@ -186,6 +217,14 @@ internal static partial class SlippableMedia
             {
                 EngineObject[] objects = owner.Objects.Where(obj => IsRelevantInput(owner, obj)).ToArray();
                 if (HasNonPlainProviderObject(objects)) return null;
+                if (_portalFlow?.Transitions.TryGetValue(owner, out TransitionBoundary transition) == true)
+                {
+                    Element? partner = transition.Outgoing == owner ? transition.Incoming : transition.Outgoing;
+                    if (partner != null && HasNonPlainProviderObject(partner.Objects.Where(obj => IsRelevantInput(partner, obj)).ToArray())) return null;
+                    // The compositor replaces the participating clips with one
+                    // drawable, including fades on clips with several objects.
+                    objects = [new ClipTransitionPresenter { ZIndex = { Value = owner.ZIndex.Value } }];
+                }
                 if (IsClaimedByEarlierPortal(scene, owner, objects)) return null;
                 _consumedPortalElements.Add(owner);
                 imported.AddRange(objects.Select(obj => new Node(obj, [], PortalInput: true)));
@@ -202,7 +241,7 @@ internal static partial class SlippableMedia
             => objects.Any(obj => obj is IFlowOperator or IPresenter<Drawable> || obj is not Drawable and not Sound);
 
         private bool IsClaimedByEarlierPortal(Scene scene, Element owner, EngineObject[] objects)
-            => scene.Children.Any(other => other.IsEnabled.Value && other != _element && other.ZIndex.Value <= _element.ZIndex.Value && IsPortalCandidate(other)
+            => (_portalFlow?.Candidates ?? (IReadOnlyList<Element>)scene.Children).Any(other => other.IsEnabled.Value && other != _element && other.ZIndex.Value <= _element.ZIndex.Value && IsPortalCandidate(other)
                 && objects.Any(obj => LayerVisible(other, obj.GetCompositionTarget()))
                 && other.Objects.OfType<PortalObject>().Any(prior => prior.IsEnabled.Value
                     && (prior.Count.HasExpression || prior.ZIndex.Value < owner.ZIndex.Value && prior.ZIndex.Value + prior.Count.Value >= owner.ZIndex.Value)));

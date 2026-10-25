@@ -2,6 +2,7 @@
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transitions;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
@@ -37,11 +38,14 @@ public class PortalResizeTests
     [TestCase(5, false)]
     [TestCase(-5, false)]
     [TestCase(5, true)]
-    public void EmptyPortal_MaximumDuration_IsUnboundedWithoutOverflow(double start, bool resizePeer)
+    [TestCase(5, true, true)]
+    [TestCase(-5, true, true)]
+    public void EmptyPortal_MaximumDuration_IsUnboundedWithoutOverflow(double start, bool resizePeer, bool transition = false)
     {
         Element element = AddElement(start, 1, new PortalObject { Count = { Value = 10 } });
         Element peer = AddElement(start + 1, 2, new RectShape());
         peer.ZIndex.Value = 1;
+        if (transition) peer.ExitTransition.Value = new CrossDissolveTransition { Duration = { Value = Seconds(1) } };
 
         var constraints = SlippableMedia.CreateResizeConstraints(element, resizePeer ? new HashSet<Element> { element, peer } : null);
 
@@ -206,6 +210,131 @@ public class PortalResizeTests
         if (controlled) element.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
 
         Assert.That(SlippableMedia.CreateResizeConstraints(element).ClampLength(Seconds(10)), Is.EqualTo(Seconds(controlled ? 3 : 6)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Transitions_UseOneInputForBothProviders(bool transition)
+    {
+        AddElement(0, 6, CreateVideo(20)).ZIndex.Value = 1;
+        Element incoming = AddElement(2, 6, CreateVideo(20));
+        incoming.ZIndex.Value = 1;
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.Zero }, IsEnabled = { Value = transition } };
+        var local = CreateVideo(6);
+        Element element = AddElement(0, 8, new PortalObject { Count = { Value = 10 } }, local,
+            new DrawableTimeController { Speed = { Value = 200 } }, new DrawableTimeController { Speed = { Value = 200 } });
+        using var compositor = CreateCompositor(_harness.Scene);
+        var controllers = compositor.EvaluateGraphics(Seconds(4)).Objects.OfType<DrawableTimeController.Resource>().ToArray();
+        Assert.That(controllers, Has.Length.EqualTo(2));
+        if (transition)
+        {
+            Assert.That(controllers[0].Target, Is.TypeOf<ClipTransitionPresenter.Resource>());
+            Assert.That(controllers[1].Target!.GetOriginal(), Is.SameAs(local));
+            Assert.That(((SourceVideo.Resource)controllers[1].Target!).RequestedPosition, Is.EqualTo(Seconds(8)));
+        }
+        element.Length.Value = Seconds(1);
+
+        MediaTime maximum = Seconds(transition ? 3 : 6);
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(maximum));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(maximum));
+        Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(maximum));
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, MediaTime.Zero, maximum, 0)]);
+        Assert.That(element.Length.Value, Is.EqualTo(maximum), "Safe extension must remain possible.");
+    }
+
+    [TestCase("enter", 4)]
+    [TestCase("exit", 3)]
+    [TestCase("disabled", 4)]
+    public void Transitions_ChangeInputCountAtTheirOwnBoundaries(string edge, double maximum)
+    {
+        Element provider = AddElement(0, 4, new RectShape(), new EllipseShape());
+        provider.ZIndex.Value = 1;
+        var transition = new CrossDissolveTransition { Duration = { Value = Seconds(1) }, IsEnabled = { Value = edge != "disabled" } };
+        if (edge == "enter") provider.EnterTransition.Value = transition;
+        else provider.ExitTransition.Value = transition;
+        Element element = AddElement(0, 1, new PortalObject { Count = { Value = 10 } }, CreateVideo(6),
+            new DrawableTimeController { Speed = { Value = 200 } }, new DrawableTimeController { Speed = { Value = 200 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.ClampLength(Seconds(6)), Is.EqualTo(Seconds(maximum)));
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(maximum)));
+    }
+
+    [Test]
+    public void Transitions_KeepTheOutgoingProviderHiddenAfterHandover()
+    {
+        AddElement(0, 5, new RectShape()).ZIndex.Value = 1;
+        Element incoming = AddElement(2, 4, new EllipseShape());
+        incoming.ZIndex.Value = 1;
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = Seconds(0.5) } };
+        incoming.ExitTransition.Value = new CrossDissolveTransition { Duration = { Value = Seconds(0.5) } };
+        var local = CreateVideo(9);
+        Element element = AddElement(0, 6, new PortalObject { Count = { Value = 10 } }, local,
+            new DrawableTimeController { Speed = { Value = 200 } }, new DrawableTimeController { Speed = { Value = 200 } });
+        using var compositor = CreateCompositor(_harness.Scene);
+        var controllers = compositor.EvaluateGraphics(Seconds(4.25)).Objects.OfType<DrawableTimeController.Resource>().ToArray();
+        Assert.That(controllers[0].Target!.GetOriginal(), Is.SameAs(incoming.Objects[0]));
+        Assert.That(controllers[1].Target!.GetOriginal(), Is.SameAs(local));
+        element.Length.Value = Seconds(1);
+
+        Assert.That(SlippableMedia.CreateResizeConstraints(element).ClampLength(Seconds(6)), Is.EqualTo(Seconds(4.5)));
+    }
+
+    [Test]
+    public void Transitions_CoverTheToleratedGapBetweenProviders()
+    {
+        Element outgoing = AddElement(0, 2, new RectShape(), new EllipseShape());
+        outgoing.ZIndex.Value = 1;
+        outgoing.Length.Value -= MediaTime.FromTimeSpan(TimeSpan.FromTicks(1));
+        Element incoming = AddElement(2, 2, new RectShape(), new EllipseShape());
+        incoming.ZIndex.Value = 1;
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = Seconds(0.5) } };
+        Element element = AddElement(0, 1, new PortalObject { Count = { Value = 10 } }, CreateVideo(6),
+            new DrawableTimeController { Speed = { Value = 200 } }, new DrawableTimeController { Speed = { Value = 200 } });
+
+        Assert.That(SlippableMedia.CreateResizeConstraints(element).ClampLength(Seconds(4)), Is.EqualTo(Seconds(4)));
+    }
+
+    [TestCase(false, 3)]
+    [TestCase(true, 6)]
+    public void Transitions_UseTheResizedProvidersBoundary(bool resizePeer, double maximum)
+    {
+        Element provider = AddElement(0, 4, new RectShape(), new EllipseShape());
+        provider.ZIndex.Value = 1;
+        provider.ExitTransition.Value = new CrossDissolveTransition { Duration = { Value = Seconds(1) } };
+        Element element = AddElement(0, 1, new PortalObject { Count = { Value = 10 } }, CreateVideo(6),
+            new DrawableTimeController { Speed = { Value = 200 } }, new DrawableTimeController { Speed = { Value = 200 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element, resizePeer ? new HashSet<Element> { element, provider } : null);
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(maximum)));
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(maximum)));
+        Assert.That(provider.Length.Value, Is.EqualTo(Seconds(4)), "Probing geometry must not mutate the provider.");
+    }
+
+    [TestCase("disabled")]
+    [TestCase("outside")]
+    [TestCase("audio")]
+    [TestCase("muted")]
+    public void UnrelatedClips_DoNotMultiplyFlowSnapshots(string kind)
+    {
+        AddElement(0, 4, new RectShape()).ZIndex.Value = 1;
+        Element element = AddElement(0, 1, new PortalObject { Count = { Value = 10 } }, CreateVideo(6),
+            new DrawableTimeController { Speed = { Value = 200 } });
+        var baseline = SlippableMedia.CreateResizeConstraints(element);
+        MediaTime? maximum = baseline.GetMaximumDuration();
+        int mappings = baseline.MediaTargets.Count;
+        if (kind == "muted") _harness.AddLayer(5).IsVideoMuted.Value = true;
+        for (int i = 0; i < 100; i++)
+        {
+            Element other = AddElement(i / 50.0, 0.005, kind == "audio" ? new SceneSound() : new RectShape());
+            other.ZIndex.Value = kind == "outside" ? 20 : kind == "muted" ? 5 : 1;
+            other.IsEnabled.Value = kind != "disabled";
+        }
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(maximum));
+        Assert.That(constraints.MediaTargets, Has.Count.EqualTo(mappings), "Unrelated clip edges must not create additional flow mappings.");
     }
 
     private Element AddElement(double start, double length, params EngineObject[] objects)

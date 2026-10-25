@@ -195,54 +195,77 @@ internal static partial class SlippableMedia
             return new(element.Start.Value, element.Length.Value, Collect(element, timingPeers, ignoreLoops), duration);
 
         TimeRange original = element.Range;
-        var ranges = scene.Children.Select(child => (Element: child, child.Range)).ToArray();
+        Element[] candidates = new TargetCollector(element, timingPeers, ignoreLoops, null, null, includePortalInputs: false).GetResizeCandidates(scene);
+        var ranges = candidates.ToDictionary(child => child, child => child.Range);
+        var transitionLayers = candidates.Where(child => child.EnterTransition.Value is { IsEnabled.Value: true }
+                || child.ExitTransition.Value is { IsEnabled.Value: true }).Select(child => child.ZIndex.Value).ToHashSet();
+        TransitionBoundary[] GetTransitions(IReadOnlyDictionary<Element, TimeRange> geometry)
+            => candidates.Where(child => transitionLayers.Contains(child.ZIndex.Value))
+                .SelectMany(child => new[] { ElementTransitions.GetBoundaryAtStart(child, ranges: geometry), ElementTransitions.GetBoundaryAtEnd(child, ranges: geometry) })
+                .Where(boundary => boundary.HasValue).Select(boundary => boundary!.Value).Distinct().ToArray();
+        TransitionBoundary[] originalTransitions = GetTransitions(ranges);
+        bool movingTransitions = candidates.Any(child => timingPeers?.Contains(child) == true && transitionLayers.Contains(child.ZIndex.Value));
         var targets = new List<Target>();
         var sourceDurations = new Dictionary<MediaSource, MediaTime?>(ReferenceEqualityComparer.Instance);
-        var cache = new List<(HashSet<Element> Active, List<Target> Targets)>();
-        List<Target> Snapshot(HashSet<Element> active)
+        var cache = new List<(PortalFlowSnapshot Flow, List<Target> Targets)>();
+        List<Target> Snapshot(PortalFlowSnapshot flow)
         {
             foreach (var entry in cache)
-                if (entry.Active.SetEquals(active)) return entry.Targets;
-            List<Target> collected = new TargetCollector(element, timingPeers, ignoreLoops, null, active,
-                includePortalInputs: false, sourceDurations: sourceDurations).Collect();
-            cache.Add((active, collected));
+                if (entry.Flow.Matches(flow)) return entry.Targets;
+            List<Target> collected = new TargetCollector(element, timingPeers, ignoreLoops, null, flow.Active,
+                includePortalInputs: false, sourceDurations: sourceDurations, portalFlow: flow).Collect();
+            cache.Add((flow, collected));
             targets.AddRange(collected);
             return collected;
         }
 
         // Flow is selected before controllers remap time. Rebuild it at provider
         // boundaries, including gaps, and use each clock only while it is active.
-        // Cache the clocks by active set; changing geometry only clips their windows.
+        // A transition supplies one presenter instead of its providers' objects.
+        // Its boundaries and handover can change Flow without a clip starting/ending.
         List<Target> Resolve(MediaTime length, MediaTime startDelta)
         {
             Int128 windowStart = (Int128)original.Start.Flicks + startDelta.Flicks;
             Int128 windowEnd = windowStart + length.Flicks;
-            var shifted = ranges.Select(entry =>
+            var shifted = ranges.ToDictionary(entry => entry.Key, entry =>
             {
-                Int128 start = entry.Range.Start.Flicks;
-                Int128 end = start + entry.Range.Duration.Flicks;
-                if (entry.Element == element || timingPeers?.Contains(entry.Element) == true)
+                Int128 start = entry.Value.Start.Flicks;
+                Int128 end = start + entry.Value.Duration.Flicks;
+                if (timingPeers?.Contains(entry.Key) == true)
                 {
                     start += startDelta.Flicks;
                     end += (Int128)startDelta.Flicks + length.Flicks - original.Duration.Flicks;
                 }
-                return (entry.Element, Start: start, End: end);
-            }).Where(entry => entry.Start < entry.End && entry.Start < windowEnd && windowStart < entry.End).ToArray();
+                // A peer can extend beyond representable time during an unbounded
+                // duration probe. Only its representable interval can be sampled.
+                start = Int128.Clamp(start, long.MinValue, long.MaxValue);
+                end = Int128.Clamp(end, start, Int128.Min(long.MaxValue, start + long.MaxValue));
+                return new TimeRange(new MediaTime((long)start), new MediaTime((long)(end - start)));
+            });
+            TransitionBoundary[] transitions = movingTransitions ? GetTransitions(shifted) : originalTransitions;
             var boundaries = new SortedSet<long> { 0, length.Flicks };
-            foreach (var entry in shifted)
+            void AddBoundary(Int128 time)
             {
-                if (entry.Start > windowStart) boundaries.Add((long)(entry.Start - windowStart));
-                if (entry.End < windowEnd) boundaries.Add((long)(entry.End - windowStart));
+                if (time > windowStart && time < windowEnd) boundaries.Add((long)(time - windowStart));
+            }
+            foreach (TimeRange range in shifted.Values)
+            {
+                AddBoundary(range.Start.Flicks);
+                AddBoundary(range.End.Flicks);
+            }
+            foreach (TransitionBoundary transition in transitions)
+            {
+                AddBoundary(transition.Region.Start.Flicks);
+                AddBoundary(transition.Region.End.Flicks);
             }
             long[] points = boundaries.ToArray();
             var result = new List<Target>();
             for (int i = 1; i < points.Length; i++)
             {
                 Int128 from = windowStart + points[i - 1];
-                HashSet<Element> active = shifted.Where(entry => entry.Start <= from && from < entry.End)
-                    .Select(entry => entry.Element).ToHashSet();
                 var window = new TimeRange(new MediaTime((long)from), new MediaTime(points[i] - points[i - 1]));
-                foreach (Target target in Snapshot(active)) result.Add(target.WithWindow(window));
+                PortalFlowSnapshot flow = PortalFlowSnapshot.Create(candidates, shifted, transitions, window.Start);
+                foreach (Target target in Snapshot(flow)) result.Add(target.WithWindow(window));
             }
             return result;
         }

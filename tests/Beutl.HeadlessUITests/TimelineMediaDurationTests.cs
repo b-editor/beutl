@@ -19,6 +19,7 @@ using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -472,6 +473,58 @@ public class TimelineMediaDurationTests
         model.ChangeToOriginalDuration.Execute();
         HeadlessTestHelpers.Settle();
         Assert.That(model.Model.Length.Value, Is.EqualTo(length));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task EdgeDrag_PortalTransition_PreviewsAndCommitsTheLocalControllerBound(bool leftEdge)
+    {
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
+        SourceVideo local = CreateDurationVideo();
+        ElementViewModel model = await OpenElement(local, startSeconds: leftEdge ? 1.4 : 1, lengthSeconds: 0.3);
+        model.Model.Objects.Insert(0, new PortalObject { Count = { Value = 10 } });
+        model.Model.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+        model.Model.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+        model.Model.Name.Value = "Portal: transition and local video";
+        var timeline = model.Timeline;
+        var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
+        Assert.That((await adder.AddAsync([
+            new ElementDescription(Start: MediaTime.FromSeconds(1), Length: MediaTime.FromSeconds(1), Layer: 1,
+                Source: new ElementSource.EngineObject(() => new RectShape())),
+            new ElementDescription(Start: MediaTime.FromSeconds(1 + 1.0 / 3), Length: MediaTime.FromSeconds(1), Layer: 1,
+                Source: new ElementSource.EngineObject(() => new EllipseShape()))], CancellationToken.None)).IsSuccess, Is.True);
+        Element incoming = model.Scene.Children.OrderBy(e => e.Start.Value).Last(e => e != model.Model);
+        // The add service avoids collisions; restore the intended transition overlap.
+        incoming.Start.Value = MediaTime.FromSeconds(1 + 1.0 / 3);
+        incoming.Length.Value = MediaTime.FromSeconds(1);
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.Zero } };
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        HeadlessTestHelpers.Settle();
+        using var view = OpenTimelineView(model, width: 1200);
+        double y = view.Border.Bounds.Height / 2;
+        Point press = view.Border.TranslatePoint(new Point(leftEdge ? 2 : view.Border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = view.Border.TranslatePoint(new Point(MediaTime.FromSeconds(leftEdge ? -0.6 : 1.5).TimeToPixel(view.Scale), y), view.Window)!.Value;
+        TimeRange before = model.Model.Range;
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
+        {
+            CapturePreview(view.Window, $"portal-transition-left-{leftEdge}");
+            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(0.5).TimeToPixel(view.Scale)).Within(0.0001));
+            Assert.That(model.Model.Range, Is.EqualTo(before));
+        });
+        Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 1.2 : 1)));
+        Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(0.5)));
+        using var compositor = new SceneCompositor(model.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var controllers = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<DrawableTimeController.Resource>().ToArray();
+        Assert.That(controllers[0].Target!.GetOriginal().GetType().Name, Is.EqualTo("ClipTransitionPresenter"));
+        Assert.That(controllers[1].Target!.GetOriginal(), Is.SameAs(local));
+        Assert.That(((SourceVideo.Resource)controllers[1].Target!).RequestedPosition, Is.LessThan(MediaTime.FromSeconds(1)));
+        HeadlessTestHelpers.Render(5);
+        CapturePreview(view.Window, $"portal-transition-left-{leftEdge}-committed");
+        Assert.That(((EditViewModel)timeline.EditorContext).HistoryManager.Undo(), Is.True);
+        HeadlessTestHelpers.Settle();
+        Assert.That(model.Model.Range, Is.EqualTo(before));
     }
 
     [AvaloniaTest]
