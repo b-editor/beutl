@@ -199,11 +199,11 @@ internal static partial class SlippableMedia
             if (candidates.Length != 1) return null;
             Element owner = candidates[0];
             // Resize only needs the Flow positions of imported drawables, not an
-            // exact offset mapping, so multiple controllers and presented objects
-            // can still consume them in renderer order.
+            // exact offset mapping, so multiple controllers can still consume them
+            // in renderer order.
             if (!structural && HasCompetingFlowConsumer()) return null;
             EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled.Value && LayerVisible(owner, obj.GetCompositionTarget())).ToArray();
-            if (!structural && HasNonPlainProviderObject(objects)) return null;
+            if (HasNonPlainProviderObject(objects)) return null;
             if (IsClaimedByEarlierPortal(scene, owner, objects)) return null;
             _consumedPortalElements.Add(owner);
             return objects.Select(obj => new Node(obj, [], PortalInput: true)).ToList();
