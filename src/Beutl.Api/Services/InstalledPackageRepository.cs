@@ -27,10 +27,6 @@ public class InstalledPackageRepository : IBeutlApiResource
         Restore();
     }
 
-    /// <summary>
-    /// True when the last restore could not read the file or skipped an entry. Saving is
-    /// blocked so the file on disk is not replaced by the incomplete in-memory registry.
-    /// </summary>
     public bool RestoreFailed => _saveBlocked;
 
     public IEnumerable<PackageIdentity> GetLocalPackages()
