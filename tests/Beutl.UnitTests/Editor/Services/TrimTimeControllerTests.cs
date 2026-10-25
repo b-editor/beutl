@@ -928,7 +928,7 @@ public class TrimTimeControllerTests
     [TestCase(false, true)]
     [TestCase(true, false)]
     [TestCase(true, true)]
-    public void Resize_SharedTargetOwner_ResizesBothClocksTogether(bool leftEdge, bool reverseOrder)
+    public void Resize_PortalAndProvider_KeepIndependentIntervals(bool leftEdge, bool reverseOrder)
     {
         var video = CreateVideo(5, speed: 200);
         Element owner = AddElement(5, 2, video);
@@ -950,23 +950,22 @@ public class TrimTimeControllerTests
         {
             Assert.That(owner.Start.Value, Is.EqualTo(Seconds(leftEdge ? 4.5 : 5)));
             Assert.That(owner.Length.Value, Is.EqualTo(Seconds(2.5)));
-            Assert.That(presented.Range, Is.EqualTo(owner.Range));
-            Assert.That(ReadPosition(compositor.EvaluateGraphics(presented.Start.Value).Objects.OfType<DrawableTimeController.Resource>().Single()),
-                Is.EqualTo(5).Within(0.000001));
+            Assert.That(presented.Start.Value, Is.EqualTo(Seconds(leftEdge ? 4 : 5)));
+            Assert.That(presented.Length.Value, Is.EqualTo(Seconds(3)));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
         _harness.History.Undo();
         Assert.That(owner.Range, Is.EqualTo(new TimeRange(Seconds(5), Seconds(2))));
-        Assert.That(presented.Range, Is.EqualTo(owner.Range));
+        Assert.That(presented.Range, Is.EqualTo(new TimeRange(Seconds(5), Seconds(2))));
         _harness.History.Redo();
-        Assert.That(presented.Range, Is.EqualTo(owner.Range));
         Assert.That(owner.Length.Value, Is.EqualTo(Seconds(2.5)));
+        Assert.That(presented.Length.Value, Is.EqualTo(Seconds(3)));
     }
 
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(true, true)]
-    public void Resize_SharedTargetOwner_UsesTheTighterPeerLimit(bool ripple, bool barrier)
+    public void Resize_PortalAndProvider_ClampOnlyTheProvider(bool ripple, bool barrier)
     {
         var video = CreateVideo(5, speed: 200);
         Element owner = AddElement(5, 1, video);
@@ -985,7 +984,7 @@ public class TrimTimeControllerTests
             [new(owner, owner.Start.Value, Seconds(3), 1), new(presented, presented.Start.Value, Seconds(3), 0)], ripple);
 
         Assert.That(owner.Length.Value, Is.EqualTo(Seconds(barrier ? 1.25 : 1.5)));
-        Assert.That(presented.Range, Is.EqualTo(owner.Range));
+        Assert.That(presented.Length.Value, Is.EqualTo(Seconds(3)));
     }
 
     [TestCase(false)]
@@ -1140,7 +1139,7 @@ public class TrimTimeControllerTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Resize_PortalInput_ClampsAgainstInjectedVideo(bool emptyStoredTarget)
+    public void Resize_PortalInput_DoesNotConstrainThePortalLength(bool emptyStoredTarget)
     {
         var imported = CreateVideo(6);
         Element owner = AddElement(0, 5, imported);
@@ -1152,12 +1151,10 @@ public class TrimTimeControllerTests
         element.Objects.Insert(0, new PortalObject { Count = { Value = 1 } });
 
         new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(5), 0)]);
-        using var compositor = CreateCompositor(_harness.Scene);
-        var resource = compositor.EvaluateGraphics(element.Range.End - Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
+
         Assert.Multiple(() =>
         {
-            Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
-            Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(6));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(5)));
             Assert.That(imported.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(stored.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
@@ -1165,7 +1162,7 @@ public class TrimTimeControllerTests
 
     [TestCase(false)]
     [TestCase(true)]
-    public void Trim_AmbiguousPortal_RejectsLinkedChanges(bool expressionCount)
+    public void Trim_AmbiguousPortal_RejectsSlipButAllowsResize(bool expressionCount)
     {
         var first = CreateVideo(10);
         Element ownerA = AddElement(0, 1, first);
@@ -1191,8 +1188,8 @@ public class TrimTimeControllerTests
         {
             Assert.That(first.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
             Assert.That(linkedVideo.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
-            Assert.That(element.Length.Value, Is.EqualTo(Seconds(2)));
-            Assert.That(linked.Length.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
+            Assert.That(linked.Length.Value, Is.EqualTo(Seconds(3)));
         });
     }
 
@@ -1578,7 +1575,7 @@ public class TrimTimeControllerTests
     [TestCase(false, true)]
     [TestCase(true, false)]
     [TestCase(true, true)]
-    public void Resize_PortalNewOverlap_ClampsTheProposedSampledWindow(bool leftEdge, bool ripple)
+    public void Resize_PortalNewOverlap_KeepsTheRequestedInterval(bool leftEdge, bool ripple)
     {
         var video = CreateVideo(leftEdge ? 2 : 6);
         AddElement(leftEdge ? 0 : 2, leftEdge ? 3 : 8, video).ZIndex.Value = 1;
@@ -1595,11 +1592,10 @@ public class TrimTimeControllerTests
         var resource = compositor.EvaluateGraphics(Seconds(2.9)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.Multiple(() =>
         {
-            Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 2 : 3)));
-            Assert.That(element.Start.Value, Is.EqualTo(Seconds(leftEdge ? 2 : 0)));
-            Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
+            Assert.That(preview, Is.EqualTo(Seconds(leftEdge ? 1 : 5)));
+            Assert.That(element.Start.Value, Is.EqualTo(Seconds(leftEdge ? 1 : 0)));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(leftEdge ? 4 : 5)));
             Assert.That(resource.Target!.GetOriginal(), Is.SameAs(video));
-            Assert.That(ReadPosition(resource), Is.LessThanOrEqualTo(leftEdge ? 2 : 6));
             Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
         });
     }

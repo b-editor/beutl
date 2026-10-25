@@ -353,7 +353,7 @@ public class TimelineMediaDurationTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
-    public async Task EdgeDrag_PortalBecomesActive_PreviewsAndCommitsSourceBounds(bool leftEdge)
+    public async Task EdgeDrag_PortalInput_DoesNotBoundTheElement(bool leftEdge)
     {
         using var configuration = new EditorConfigScope(clamp: true, snap: false);
         ElementViewModel model = await OpenElement(new DrawableTimeController { Speed = { Value = 50 } },
@@ -381,10 +381,10 @@ public class TimelineMediaDurationTests
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
             CapturePreview(view.Window, $"portal-new-overlap-left-{leftEdge}");
-            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 2).TimeToPixel(scale)).Within(0.0001));
+            Assert.That(model.Width.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 5 : 3).TimeToPixel(scale)).Within(0.0001));
         });
-        Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
-        Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 4 : 2)));
+        Assert.That(model.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 0 : 1)));
+        Assert.That(model.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(leftEdge ? 5 : 3)));
     }
 
     [AvaloniaTest]
@@ -508,7 +508,7 @@ public class TimelineMediaDurationTests
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]
-    public async Task GroupedResize_SharedTargetOwner_PreviewsAndCommitsTheSameEdge(bool leftEdge, bool subFrameStarts)
+    public async Task GroupedResize_KeepsThePortalIntervalIndependentOfItsProvider(bool leftEdge, bool subFrameStarts)
     {
         using var configuration = new EditorConfigScope(clamp: true);
         SourceVideo video = CreateDurationVideo();
@@ -542,6 +542,8 @@ public class TimelineMediaDurationTests
         owner.GroupSelectedElements.Execute();
         HeadlessTestHelpers.Settle();
         Assert.That(presented.GetGroupOrSelectedElements(), Has.Count.EqualTo(2));
+        MediaTime peerStart = peer.Start.Value;
+        MediaTime peerEnd = peer.Range.End;
         using var view = OpenTimelineView(presented, width: 1200);
         Border border = view.Border;
         float scale = view.Scale;
@@ -551,19 +553,22 @@ public class TimelineMediaDurationTests
         view.Drag(press, release, RawInputModifiers.Alt, () =>
         {
             CapturePreview(view.Window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}");
+            MediaTime previewStart = leftEdge ? peerStart - MediaTime.FromSeconds(0.35) : peerStart;
+            MediaTime previewEnd = leftEdge ? peerEnd : peerStart + MediaTime.FromSeconds(0.75);
             Assert.Multiple(() =>
             {
                 Assert.That(owner.Width.Value, Is.EqualTo(MediaTime.FromSeconds(0.5).TimeToPixel(scale)).Within(0.0001));
+                Assert.That(presented.BorderMargin.Value.Left, Is.EqualTo(previewStart.TimeToPixel(scale)).Within(0.0001));
                 Assert.That(presented.BorderMargin.Value.Left + presented.Width.Value,
-                    Is.EqualTo(owner.BorderMargin.Value.Left + owner.Width.Value).Within(0.0001));
+                    Is.EqualTo(previewEnd.TimeToPixel(scale)).Within(0.0001));
             });
         });
         Assert.Multiple(() =>
         {
             Assert.That(owner.Model.Length.Value, Is.EqualTo(MediaTime.FromSeconds(subFrameStarts ? 0.495 : 0.5)));
             Assert.That(owner.Model.Start.Value, Is.EqualTo(subFrameStarts ? MediaTime.FromTimeSpan(TimeSpan.FromTicks(10050000)) : MediaTime.FromSeconds(leftEdge ? 0.9 : 1)));
-            Assert.That(peer.Start.Value, Is.EqualTo(subFrameStarts ? MediaTime.FromTimeSpan(TimeSpan.FromTicks(10200000)) : MediaTime.FromSeconds(leftEdge ? 0.9 : 1)));
-            Assert.That(peer.Range.End, Is.EqualTo(owner.Model.Range.End));
+            Assert.That(peer.Start.Value, Is.EqualTo(leftEdge ? MediaTime.FromSeconds(2.0 / 3) : peerStart));
+            Assert.That(peer.Range.End, Is.EqualTo(leftEdge ? peerEnd : MediaTime.FromSeconds(53.0 / 30)));
         });
         HeadlessTestHelpers.Render(5);
         CapturePreview(view.Window, $"grouped-shared-clock-left-{leftEdge}-subframe-{subFrameStarts}-committed");

@@ -3,14 +3,15 @@
 internal static partial class SlippableMedia
 {
     internal sealed class ResizeConstraints(MediaTime elementStart, MediaTime elementLength, List<Target> targets,
-        MediaTime? providerDuration = null, Func<MediaTime, MediaTime, List<Target>>? targetsAt = null)
+        MediaTime? providerDuration = null)
     {
+        public IReadOnlyList<Target> MediaTargets => targets;
+
+        public bool IsSupported => targets.All(t => t.IsSupported);
+
         public bool HasMonotonicDuration => targets.All(t => !t.HasVariableDuration);
 
-        public bool HasSharedClock => targetsAt != null || targets.Any(t => t.HasSharedClock);
-
-        private List<Target> Targets(MediaTime length, MediaTime startDelta = default)
-            => targetsAt?.Invoke(length, startDelta) ?? targets;
+        public bool HasSharedClock => targets.Any(t => t.HasSharedClock);
 
         public MediaTime ClampEdgeDelta(MediaTime delta, bool leftEdge)
             => leftEdge ? ClampStart(elementStart + delta) - elementStart
@@ -22,7 +23,7 @@ internal static partial class SlippableMedia
             if (requestedStart > end) requestedStart = end;
             MediaTime delta = requestedStart - elementStart;
             bool Fits(MediaTime length) => FitsProvider(length, allowRecovery: true)
-                && Targets(length, elementLength - length).All(t => t.Fits(length, elementLength - length, allowRecovery: true));
+                && targets.All(t => t.Fits(length, elementLength - length, allowRecovery: true));
             MediaTime result = elementLength - ClampDelta(delta, d => Fits(elementLength - d));
             if (!HasMonotonicDuration)
                 result = SearchDurationPhases(result, end - requestedStart, delta, Fits, movingStart: true);
@@ -36,7 +37,7 @@ internal static partial class SlippableMedia
             // A loop period can depend on the new element length. Validate each
             // requested duration even if it is below a previously valid maximum.
             bool Fits(MediaTime length) => FitsProvider(length, allowRecovery: true)
-                && Targets(length, startDelta).All(t => t.Fits(length, startDelta, allowRecovery: true));
+                && targets.All(t => t.Fits(length, startDelta, allowRecovery: true));
             MediaTime result = initialLength + ClampDelta(requestedLength - initialLength, d => Fits(initialLength + d));
             return HasMonotonicDuration ? result : SearchDurationPhases(result, requestedLength, startDelta, Fits);
         }
@@ -44,11 +45,11 @@ internal static partial class SlippableMedia
         // Null means unbounded; zero means a known source is exhausted.
         public MediaTime? GetMaximumDuration(MediaTime? start = null)
         {
-            if (Targets(elementLength).Any(t => !t.IsSupported)) return MediaTime.Zero;
-            if (targetsAt == null && providerDuration == null && targets.All(t => t.Total == null)) return null;
+            if (targets.Any(t => !t.IsSupported)) return MediaTime.Zero;
+            if (providerDuration == null && targets.All(t => t.Total == null)) return null;
             MediaTime startDelta = (start ?? elementStart) - elementStart;
             bool Fits(MediaTime length) => FitsProvider(length, allowRecovery: false)
-                && Targets(length, startDelta).All(t => t.Fits(length, startDelta));
+                && targets.All(t => t.Fits(length, startDelta));
             if (!Fits(MediaTime.Zero)) return MediaTime.Zero;
 
             long maximum = long.MaxValue - Math.Max(0, (start ?? elementStart).Flicks);

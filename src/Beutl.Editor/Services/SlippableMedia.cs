@@ -122,8 +122,9 @@ internal static partial class SlippableMedia
     }
 
     public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
-        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null)
-        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates).Collect();
+        IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null,
+        bool includePortalInputs = true)
+        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates, includePortalInputs: includePortalInputs).Collect();
 
     public static MediaTime ClampSharedDelta(IReadOnlyList<Target> targets, MediaTime delta)
     {
@@ -177,41 +178,14 @@ internal static partial class SlippableMedia
         return delta;
     }
 
-    public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null)
+    public static ResizeConstraints CreateResizeConstraints(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false)
     {
-        List<Target> targets = Collect(element, timingPeers);
         MediaTime? duration = GetProviderDuration(element);
-        if (element.HierarchicalParent is not Scene scene || !element.Objects.OfType<PortalObject>().Any(p => p.IsEnabled.Value))
-            return new(element.Start.Value, element.Length.Value, targets, duration);
-
-        TimeRange original = element.Range;
-        var ranges = scene.Children.Select(child => (Element: child, child.Range)).ToArray();
-        HashSet<Element> Active(MediaTime length, MediaTime startDelta)
-        {
-            var window = new TimeRange(original.Start + startDelta, length);
-            return ranges.Where(entry =>
-            {
-                TimeRange range = entry.Range;
-                if (entry.Element == element || timingPeers?.Contains(entry.Element) == true)
-                    range = new TimeRange(range.Start + startDelta, range.Duration + length - original.Duration);
-                return range.Start < window.End && window.Start < range.End;
-            }).Select(entry => entry.Element).ToHashSet();
-        }
-
-        // Only a change in active providers needs a new flow/clock snapshot, not
-        // every bisection tick. Keep all discovered clocks for loop-phase searches.
-        var cache = new List<(HashSet<Element> Active, List<Target> Targets)> { (Active(original.Duration, MediaTime.Zero), [.. targets]) };
-        List<Target> Resolve(MediaTime length, MediaTime startDelta)
-        {
-            HashSet<Element> active = Active(length, startDelta);
-            foreach (var entry in cache)
-                if (entry.Active.SetEquals(active)) return entry.Targets;
-            List<Target> collected = Collect(element, timingPeers, portalCandidates: active);
-            cache.Add((active, collected));
-            targets.AddRange(collected);
-            return collected;
-        }
-        return new(original.Start, original.Duration, targets, duration, Resolve);
+        // A portal observes the layers around it. Those clips belong to other elements,
+        // so their media cannot bound this element's interval. Only media owned by this
+        // element limits its length.
+        return new(element.Start.Value, element.Length.Value,
+            Collect(element, timingPeers, ignoreLoops, includePortalInputs: false), duration);
     }
 
     public static MediaTime ClampSharedResizeDelta(IReadOnlyList<ResizeConstraints> constraints, MediaTime delta, bool leftEdge)
@@ -230,25 +204,24 @@ internal static partial class SlippableMedia
 
     public static bool HasOriginalDuration(Element element)
     {
-        List<Target> targets = Collect(element);
-        return targets.All(t => t.IsSupported)
-            && (element.HasOriginalDuration() || targets.Any(t => t.Total.HasValue));
+        ResizeConstraints constraints = CreateResizeConstraints(element);
+        return constraints.IsSupported
+            && (element.HasOriginalDuration() || constraints.MediaTargets.Any(t => t.Total.HasValue));
     }
 
     public static MediaTime? GetOriginalDuration(Element element)
     {
-        List<Target> mapped = Collect(element);
-        if (mapped.Any(t => !t.IsSupported)) return null;
-        MediaTime? maximum = new ResizeConstraints(element.Start.Value, element.Length.Value, mapped,
-            GetProviderDuration(element)).GetMaximumDuration();
+        ResizeConstraints constraints = CreateResizeConstraints(element);
+        if (!constraints.IsSupported) return null;
+        MediaTime? maximum = constraints.GetMaximumDuration();
         if (maximum.HasValue) return maximum;
         // Repetition can be unbounded while the underlying source still has an
         // original length. Offer one cycle; a frozen source falls back to source time.
-        List<Target> targets = Collect(element, ignoreLoops: true);
-        MediaTime? duration = new ResizeConstraints(element.Start.Value, element.Length.Value, targets,
-            GetProviderDuration(element)).GetMaximumDuration();
+        constraints = CreateResizeConstraints(element, ignoreLoops: true);
+        if (!constraints.IsSupported) return null;
+        MediaTime? duration = constraints.GetMaximumDuration();
         if (duration.HasValue) return duration;
-        foreach (Target target in targets)
+        foreach (Target target in constraints.MediaTargets)
         {
             if (target.Total is not { } total) continue;
             MediaTime remaining = total > target.InitialOffset ? total - target.InitialOffset : MediaTime.Zero;

@@ -16,6 +16,7 @@ internal static partial class SlippableMedia
         private readonly bool _ignoreLoops;
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
+        private readonly bool _includePortalInputs;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
         private readonly List<Target> _targets = new();
@@ -30,13 +31,15 @@ internal static partial class SlippableMedia
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
-            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null)
+            IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null,
+            bool includePortalInputs = true)
         {
             _element = element;
             _timingPeers = timingPeers;
             _ignoreLoops = ignoreLoops;
             _timingRoles = timingRoles;
             _portalCandidates = portalCandidates;
+            _includePortalInputs = includePortalInputs;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
             if (element.HierarchicalParent is Scene layerScene)
@@ -68,7 +71,7 @@ internal static partial class SlippableMedia
                 var enabled = new HashSet<DrawableTimeController>();
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
-                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, enabled, _sourceDurations);
+                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates, enabled, _sourceDurations, _includePortalInputs);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -120,7 +123,19 @@ internal static partial class SlippableMedia
                 {
                     portalFlow = true;
                     if (portal.Clear.Value || portal.Clear.HasExpression) flow.Clear();
-                    List<Node>? imported = portal.Clear.HasExpression ? null : ResolvePortal(portal);
+                    List<Node>? imported;
+                    if (!_includePortalInputs)
+                    {
+                        // Keep a consumable slot for the imported clips that are not being
+                        // collected, so following controllers do not bind to local media.
+                        imported = portal.Count.HasExpression || portal.Count.Value > 0
+                            ? [new Node(portal, [], PortalInput: true)]
+                            : [];
+                    }
+                    else
+                    {
+                        imported = portal.Clear.HasExpression ? null : ResolvePortal(portal);
+                    }
                     if (imported == null)
                     {
                         flow.Add(new Node(portal, [], Opaque: true));
@@ -133,7 +148,12 @@ internal static partial class SlippableMedia
                 IReadOnlyList<Node> inputs = [];
                 if (obj is DrawableTimeController controller)
                 {
-                    int index = flow.FindIndex(node => node.Opaque || node.Object is Drawable && IsEnabled(node.Object));
+                    // A portal still occupies a slot in the Flow even when its imported
+                    // clips are excluded. Without the placeholder a later controller
+                    // would bind to local media that actually follows the portal.
+                    int index = flow.FindIndex(node => node.Opaque
+                        || (node.Object is PortalObject && node.PortalInput)
+                        || (IsEnabled(node.Object) && node.Object is Drawable));
                     if (index >= 0)
                     {
                         Node input = flow[index];
