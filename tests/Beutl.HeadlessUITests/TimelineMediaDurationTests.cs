@@ -528,6 +528,48 @@ public class TimelineMediaDurationTests
     }
 
     [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task EdgeDrag_PortalClearExpression_PreservesLocalBoundsAndSafeExtension(bool leftEdge, bool clear)
+    {
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
+        SourceVideo local = CreateDurationVideo();
+        ElementViewModel model = await OpenElement(local, startSeconds: leftEdge ? 2 : 1, lengthSeconds: 0.3);
+        model.Model.Objects.Add(new PortalObject { Clear = { Value = !clear, Expression = Expression.Create<bool>(clear ? "true" : "false") } });
+        model.Model.Name.Value = $"Local video, Clear = {clear}";
+        var timeline = model.Timeline;
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        HeadlessTestHelpers.Settle();
+        using var view = OpenTimelineView(model, width: 1200);
+        double y = view.Border.Bounds.Height / 2;
+        Point press = view.Border.TranslatePoint(new Point(leftEdge ? 2 : view.Border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = view.Border.TranslatePoint(new Point(MediaTime.FromSeconds(leftEdge ? -1 : 1.5).TimeToPixel(view.Scale), y), view.Window)!.Value;
+        TimeRange before = model.Model.Range;
+        MediaTime length = MediaTime.FromSeconds(clear ? leftEdge ? 1.3 : 1.5 : 1);
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
+        {
+            CapturePreview(view.Window, $"portal-clear-{clear}-left-{leftEdge}");
+            Assert.That(model.Width.Value, Is.EqualTo(length.TimeToPixel(view.Scale)).Within(0.0001));
+            Assert.That(model.Model.Range, Is.EqualTo(before));
+        });
+        Assert.That(model.Model.Length.Value, Is.EqualTo(length));
+        Assert.That(model.Model.Start.Value, Is.EqualTo(leftEdge ? before.End - length : before.Start));
+        Assert.That(local.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+        using var compositor = new SceneCompositor(model.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+        var videos = compositor.EvaluateGraphics(model.Model.Range.End - OneFrameAt30).Objects.OfType<SourceVideo.Resource>().ToArray();
+        Assert.That(videos, Has.Length.EqualTo(clear ? 0 : 1));
+        if (!clear) Assert.That(videos[0].RequestedPosition, Is.LessThan(MediaTime.FromSeconds(1)));
+        HeadlessTestHelpers.Render(5);
+        CapturePreview(view.Window, $"portal-clear-{clear}-left-{leftEdge}-committed");
+        Assert.That(((EditViewModel)timeline.EditorContext).HistoryManager.Undo(), Is.True);
+        HeadlessTestHelpers.Settle();
+        Assert.That(model.Model.Range, Is.EqualTo(before));
+    }
+
+    [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
     public async Task EdgeDrag_DisabledFlowController_PreservesSafeBoundsForReenabling(bool leftEdge)

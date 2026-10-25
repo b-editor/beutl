@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transitions;
@@ -335,6 +336,84 @@ public class PortalResizeTests
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(maximum));
         Assert.That(constraints.MediaTargets, Has.Count.EqualTo(mappings), "Unrelated clip edges must not create additional flow mappings.");
+    }
+
+    [TestCase(false, "false", 6d)]
+    [TestCase(true, "false", 6d)]
+    [TestCase(true, "1 == 2", 6d)]
+    [TestCase(false, "true", null)]
+    [TestCase(true, "true", null)]
+    [TestCase(false, "Time < 3", 6d)]
+    public void ClearExpression_PreservesTheLocalMediaPath(bool storedClear, string expression, double? maximum)
+    {
+        SourceVideo local = CreateVideo(6);
+        var portal = new PortalObject { Count = { Value = 0 }, Clear = { Value = storedClear, Expression = Expression.Create<bool>(expression) } };
+        Element element = AddElement(0, 8, local, portal);
+        using var compositor = CreateCompositor(_harness.Scene);
+        var frame = compositor.EvaluateGraphics(Seconds(7));
+        Assert.That(frame.Objects.OfType<SourceVideo.Resource>().Any(resource => resource.GetOriginal() == local), Is.EqualTo(maximum.HasValue));
+        element.Length.Value = Seconds(1);
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.IsSupported, Is.True);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(maximum.HasValue ? Seconds(maximum.Value) : (MediaTime?)null));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(maximum ?? 8)));
+        Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(maximum.HasValue ? Seconds(maximum.Value) : (MediaTime?)null));
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, MediaTime.Zero, Seconds(8), 0)]);
+        Assert.That(element.Length.Value, Is.EqualTo(Seconds(maximum ?? 8)));
+        Assert.That(local.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+    }
+
+    [TestCase("false", 3)]
+    [TestCase("true", 2)]
+    [TestCase("Time >= 1", 2)]
+    public void ClearExpression_PreservesBothPossibleControllerInputs(string expression, double maximum)
+    {
+        SourceVideo before = CreateVideo(6);
+        SourceVideo after = CreateVideo(4);
+        var portal = new PortalObject { Clear = { Expression = Expression.Create<bool>(expression) } };
+        Element element = AddElement(0, 8, before, portal, after, new DrawableTimeController { Speed = { Value = 200 } });
+        using var compositor = CreateCompositor(_harness.Scene);
+        foreach (double time in new[] { 0.5, 1.5 })
+        {
+            var controller = compositor.EvaluateGraphics(Seconds(time)).Objects.OfType<DrawableTimeController.Resource>().Single();
+            bool cleared = expression == "true" || expression == "Time >= 1" && time >= 1;
+            Assert.That(controller.Target!.GetOriginal(), Is.SameAs(cleared ? after : before));
+        }
+        element.Length.Value = Seconds(1);
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.IsSupported, Is.True);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(maximum)));
+        Assert.That(constraints.ClampLength(Seconds(maximum)), Is.EqualTo(Seconds(maximum)), "Safe extension must remain possible.");
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(maximum)));
+    }
+
+    [Test]
+    public void ClearExpression_PortalOnly_RemainsUnbounded()
+    {
+        AddElement(0, 8, CreateVideo(1)).ZIndex.Value = 1;
+        Element element = AddElement(0, 1, new PortalObject { Count = { Value = 10 }, Clear = { Expression = Expression.Create<bool>("Time > 1") } },
+            new DrawableTimeController { Speed = { Value = 200 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.Null);
+        Assert.That(constraints.ClampLength(Seconds(20)), Is.EqualTo(Seconds(20)));
+    }
+
+    [Test]
+    public void ClearExpression_MultiplePaths_DoNotCountADisabledControllerMoreThanOnce()
+    {
+        Element element = AddElement(0, 1, CreateVideo(6));
+        for (int i = 0; i < 8; i++)
+            element.Objects.Add(new PortalObject { Clear = { Expression = Expression.Create<bool>("Time > 1") } });
+        element.Objects.Add(CreateVideo(6));
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 200 }, IsEnabled = { Value = false } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.IsSupported, Is.True);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(3)));
+        Assert.That(constraints.ClampLength(Seconds(3)), Is.EqualTo(Seconds(3)));
     }
 
     private Element AddElement(double start, double length, params EngineObject[] objects)

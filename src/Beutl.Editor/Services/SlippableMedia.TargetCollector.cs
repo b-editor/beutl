@@ -1,6 +1,7 @@
 ﻿using Beutl.Audio;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Graphics;
 using Beutl.Graphics.Transitions;
 using Beutl.Media.Source;
@@ -144,52 +145,66 @@ internal static partial class SlippableMedia
 
         private List<Node> BuildFlow()
         {
-            var flow = new List<Node>();
+            var flows = new List<List<Node>> { new() };
             bool portalFlow = false;
             foreach (EngineObject obj in _element.Objects)
             {
                 if (obj is PortalObject { IsEnabled.Value: true } portal)
                 {
                     portalFlow = true;
-                    if (portal.Clear.Value || portal.Clear.HasExpression) flow.Clear();
-                    List<Node>? imported = portal.Clear.HasExpression ? null : ResolvePortal(portal);
+                    bool? clear = portal.Clear.Value;
+                    if (portal.Clear.HasExpression)
+                        clear = _includePortalInputs ? true
+                            : portal.Clear.Expression is StringExpression<bool> expression && expression.TryGetConstantValue(out bool value) ? value : null;
+                    if (clear == true) flows.Clear();
+                    // Clear only removes the accumulated Flow, not consumed scene
+                    // providers. An unknown result adds one cleared path alongside
+                    // the retained paths; it must not erase their local media.
+                    if (clear != false) flows.Add([]);
+                    List<Node>? imported = _includePortalInputs && portal.Clear.HasExpression ? null : ResolvePortal(portal);
                     if (imported == null)
                     {
-                        flow.Add(new Node(portal, [], Opaque: true, PortalInput: true));
+                        imported = [new Node(portal, [], Opaque: true, PortalInput: true)];
                         _opaqueConsumption = true;
                     }
-                    else flow.AddRange(imported);
-                    flow.Add(new Node(portal, []));
+                    foreach (List<Node> flow in flows)
+                    {
+                        flow.AddRange(imported);
+                        flow.Add(new Node(portal, []));
+                    }
                     continue;
                 }
-                IReadOnlyList<Node> inputs = [];
-                if (obj is DrawableTimeController controller)
+                foreach (List<Node> flow in flows)
                 {
-                    int index = flow.FindIndex(node => node.Opaque || node.Object is Drawable && IsEnabled(node.Object));
-                    if (index >= 0)
+                    IReadOnlyList<Node> inputs = [];
+                    if (obj is DrawableTimeController controller)
                     {
-                        Node input = flow[index];
-                        if (IsEnabled(controller))
+                        int index = flow.FindIndex(node => node.Opaque || node.Object is Drawable && IsEnabled(node.Object));
+                        if (index >= 0)
                         {
-                            inputs = [input];
-                            flow.RemoveAt(index);
-                        }
-                        else
-                        {
-                            _disabledFlowControllers.Add(controller);
+                            Node input = flow[index];
+                            if (IsEnabled(controller))
+                            {
+                                inputs = [input];
+                                flow.RemoveAt(index);
+                            }
+                            else if (!_disabledFlowControllers.Contains(controller))
+                            {
+                                _disabledFlowControllers.Add(controller);
+                            }
                         }
                     }
+                    else if (obj.IsEnabled.Value && obj is SoundGroup or DrawableGroup or DrawableDecorator)
+                    {
+                        bool Consumes(Node node) => node.Opaque || IsEnabled(node.Object)
+                            && (obj is SoundGroup ? node.Object is Sound : node.Object is Drawable);
+                        inputs = flow.FindAll(Consumes);
+                        flow.RemoveAll(Consumes);
+                    }
+                    flow.Add(new Node(obj, inputs, FlowResolved: portalFlow));
                 }
-                else if (obj.IsEnabled.Value && obj is SoundGroup or DrawableGroup or DrawableDecorator)
-                {
-                    bool Consumes(Node node) => node.Opaque || IsEnabled(node.Object)
-                        && (obj is SoundGroup ? node.Object is Sound : node.Object is Drawable);
-                    inputs = flow.FindAll(Consumes);
-                    flow.RemoveAll(Consumes);
-                }
-                flow.Add(new Node(obj, inputs, FlowResolved: portalFlow));
             }
-            return flow;
+            return flows.SelectMany(flow => flow).Distinct().ToList();
         }
 
         private List<Node>? ResolvePortal(PortalObject portal)
