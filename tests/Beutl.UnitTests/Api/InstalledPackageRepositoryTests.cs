@@ -1,4 +1,5 @@
-﻿using Beutl.Api.Services;
+﻿using System.Text.Json;
+using Beutl.Api.Services;
 using Beutl.Testing.Headless;
 using NuGet.Packaging.Core;
 using NuGet.Versioning;
@@ -11,6 +12,8 @@ public class InstalledPackageRepositoryTests
 {
     private static string InstalledPackagesFile => Path.Combine(Helper.AppRoot, "installedPackages.json");
 
+    private static string BackupFile => InstalledPackagesFile + ".bak";
+
     [SetUp]
     public void SetUp()
     {
@@ -19,6 +22,7 @@ public class InstalledPackageRepositoryTests
             Is.EqualTo(BeutlHomeIsolation.CurrentHome));
 
         File.Delete(InstalledPackagesFile);
+        File.Delete(BackupFile);
     }
 
     [TearDown]
@@ -29,7 +33,94 @@ public class InstalledPackageRepositoryTests
             Is.EqualTo(BeutlHomeIsolation.CurrentHome));
 
         File.Delete(InstalledPackagesFile);
+        File.Delete(BackupFile);
     }
+
+    [Test]
+    public void Restore_SkipsOnlyTheInvalidEntryAndKeepsTheOtherRegistrations()
+    {
+        const string original = """
+            [
+              { "Name": "Beutl.Package.RestoreTest.One", "Version": "1.0.0" },
+              { "Name": "Beutl.Package.RestoreTest.Two", "Version": "not-a-version" },
+              null,
+              { "Name": "Beutl.Package.RestoreTest.BadType", "Version": 123 },
+              { "Name": "Beutl.Package.RestoreTest.Three", "Version": "3.0.0", "BeutlVersion": "0.0.0" }
+            ]
+            """;
+        File.WriteAllText(InstalledPackagesFile, original);
+
+        var repo = new InstalledPackageRepository();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(repo.ExistsPackage("Beutl.Package.RestoreTest.One", "1.0.0"), Is.True);
+            Assert.That(repo.ExistsPackage("Beutl.Package.RestoreTest.Two"), Is.False);
+            Assert.That(repo.ExistsPackage("Beutl.Package.RestoreTest.Three", "3.0.0"), Is.True);
+            Assert.That(repo.RestoreFailed, Is.False,
+                "valid entries remain, so saving may drop the invalid ones");
+            Assert.That(File.Exists(BackupFile), Is.True,
+                "a later save drops the invalid entry, so the file as read is kept");
+            Assert.That(File.ReadAllText(BackupFile), Is.EqualTo(original));
+        });
+
+        repo.SetResolvedBeutlVersion("Beutl.Package.RestoreTest.One", "1.0.0");
+
+        Entry[] saved = JsonSerializer.Deserialize<Entry[]>(File.ReadAllText(InstalledPackagesFile))!;
+        Assert.That(saved.Select(entry => entry.Name), Is.EquivalentTo(new[]
+        {
+            "Beutl.Package.RestoreTest.One",
+            "Beutl.Package.RestoreTest.Three",
+        }));
+    }
+
+    [Test]
+    public void Restore_UnreadableFile_BacksUpAndBlocksSaving()
+    {
+        const string original = "{ this is not a package array";
+        File.WriteAllText(InstalledPackagesFile, original);
+
+        var repo = new InstalledPackageRepository();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(repo.GetLocalPackages(), Is.Empty);
+            Assert.That(repo.RestoreFailed, Is.True);
+            Assert.That(File.Exists(BackupFile), Is.True);
+            Assert.That(File.ReadAllText(BackupFile), Is.EqualTo(original));
+        });
+
+        repo.SetResolvedBeutlVersion("Beutl.Package.RestoreTest.One", "1.0.0");
+
+        Assert.That(File.ReadAllText(InstalledPackagesFile), Is.EqualTo(original),
+            "an unreadable registry must not be replaced by the empty in-memory list");
+    }
+
+    [Test]
+    public void Restore_NoEntrySurvives_BlocksSavingTheEmptyList()
+    {
+        const string original = """
+            [
+              { "Name": "Beutl.Package.RestoreTest.One", "Version": "not-a-version" }
+            ]
+            """;
+        File.WriteAllText(InstalledPackagesFile, original);
+
+        var repo = new InstalledPackageRepository();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(repo.GetLocalPackages(), Is.Empty);
+            Assert.That(repo.RestoreFailed, Is.True);
+            Assert.That(File.Exists(BackupFile), Is.True);
+        });
+
+        repo.SetResolvedBeutlVersion("Beutl.Package.RestoreTest.One", "1.0.0");
+
+        Assert.That(File.ReadAllText(InstalledPackagesFile), Is.EqualTo(original));
+    }
+
+    private sealed record Entry(string Name, string Version, string? BeutlVersion);
 
     [Test]
     public void FailedUpgradePersistence_KeepsThePreviousInMemoryRegistration()

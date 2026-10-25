@@ -21,10 +21,16 @@ public class CleanViewModel
     {
         _installer = app.GetResource<PackageInstaller>();
         PackageCleanContext context = _installer.PrepareForClean(null);
+        RegistryRestoreFailed = context.RegistryRestoreFailed;
 
         Items = context.UnnecessaryPackages.Select(v => new CleanPackage(v, new(true)))
             .Do(v => v.Condition.Skip(1).Subscribe(c => ConditionChanged(v.Package, c)))
             .ToArray();
+
+        if (RegistryRestoreFailed)
+        {
+            ErrorMessage.Value = Strings.Installed_package_registry_is_empty;
+        }
 
         SizeToBeReleased.Value = context.SizeToBeReleased;
         SizeToBeReleasedString = SizeToBeReleased.Select(v => StringFormats.ToHumanReadableSize(v))
@@ -65,6 +71,11 @@ public class CleanViewModel
 
     public CleanPackage[] Items { get; }
 
+    /// <summary>
+    /// True when the installed-package registry could not be restored, so cleaning was skipped.
+    /// </summary>
+    public bool RegistryRestoreFailed { get; }
+
     public ReactiveProperty<long> SizeToBeReleased { get; } = new();
 
     public ReadOnlyReactiveProperty<string> SizeToBeReleasedString { get; }
@@ -87,6 +98,13 @@ public class CleanViewModel
     {
         try
         {
+            if (RegistryRestoreFailed)
+            {
+                ErrorMessage.Value = Strings.Installed_package_registry_is_empty;
+                Failed.Value = true;
+                return;
+            }
+
             _logger.LogInformation("Starting to delete unnecessary packages.");
 
             PackageCleanContext context = _installer.PrepareForClean(Items.Where(v => !v.Condition.Value).Select(v => v.Package), token);

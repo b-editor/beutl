@@ -161,6 +161,9 @@ Este archivo de paquete puede haber sido manipulado.</value>
   <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
     <value>Selecciona los paquetes que se eliminarán.</value>
   </data>
+  <data name="Installed_package_registry_is_empty" xml:space="preserve">
+    <value>El registro de paquetes instalados está vacío, por lo que no se seleccionó nada para limpiar. Restaura installedPackages.json e inténtalo de nuevo.</value>
+  </data>
   <data name="XXX_will_be_released" xml:space="preserve">
     <value>{0} será liberado.</value>
   </data>

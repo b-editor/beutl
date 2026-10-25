@@ -218,6 +218,9 @@
   <data name="Select_the_packages_to_be_deleted" xml:space="preserve">
     <value>削除するパッケージを選択してください。</value>
   </data>
+  <data name="Installed_package_registry_is_empty" xml:space="preserve">
+    <value>インストール済みパッケージのレジストリが空のため、クリーン対象は選択されませんでした。installedPackages.json を復元してから再試行してください。</value>
+  </data>
   <data name="XXX_will_be_released" xml:space="preserve">
     <value>{0}が解放されます。</value>
   </data>

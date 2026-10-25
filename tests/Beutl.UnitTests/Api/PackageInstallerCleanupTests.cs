@@ -49,6 +49,32 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
         Assert.That(Helper.ResolveInstalledDirectory(package), Is.EqualTo(directory));
     }
 
+    [Test]
+    public void PrepareForClean_UnreadableRegistry_PreservesEveryExtractedPackage()
+    {
+        // Without this guard an unreadable installedPackages.json makes every extracted
+        // package look unnecessary, and clean also deletes its materials/templates payload.
+        var package = new PackageIdentity("Beutl.Package.CleanTest.UnreadableRegistry", NuGetVersion.Parse("1.0.0"));
+        (string directory, _) = CreateInstalledDirectory(package);
+        File.WriteAllText(
+            Path.Combine(directory, package.Id + ".nuspec"),
+            $"<package><metadata><id>{package.Id}</id><version>{package.Version}</version><authors>tests</authors><description>tests</description></metadata></package>");
+        File.WriteAllText(Path.Combine(Helper.AppRoot, "installedPackages.json"), "{ this is not a package array");
+        using var client = new HttpClient();
+        _repository = new InstalledPackageRepository();
+        _installer = new PackageInstaller(client, ownsHttpClient: false, _repository, apiApplication: null!);
+
+        PackageCleanContext context = _installer.PrepareForClean();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_repository.RestoreFailed, Is.True);
+            Assert.That(context.RegistryRestoreFailed, Is.True);
+            Assert.That(context.UnnecessaryPackages, Is.Empty);
+            Assert.That(Directory.Exists(directory), Is.True);
+        });
+    }
+
     // No .nupkg: PackagePathResolver.GetInstalledPath resolves such a directory to null even though
     // its files are still on disk, which is the case cleanup must not skip.
     private (string Directory, long Size) CreateInstalledDirectory(PackageIdentity package)

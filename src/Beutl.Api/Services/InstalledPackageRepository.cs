@@ -19,12 +19,21 @@ public class InstalledPackageRepository : IBeutlApiResource
     private readonly HashSet<PackageIdentity> _packages = [];
     private readonly Dictionary<string, string?> _resolvedBeutlVersions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Subject<(PackageIdentity Package, bool Exists)> _subject = new();
+    // Set when the file could not be read as a whole, or no entry in it survived, so an
+    // empty in-memory list must not replace the file the user still has.
+    private bool _saveBlocked;
     private const string FileName = "installedPackages.json";
 
     public InstalledPackageRepository()
     {
         Restore();
     }
+
+    /// <summary>
+    /// True when the last restore could not read the file or no entry survived. Saving is
+    /// blocked so the file on disk is not replaced by the empty in-memory list.
+    /// </summary>
+    public bool RestoreFailed => _saveBlocked;
 
     public IEnumerable<PackageIdentity> GetLocalPackages()
     {
@@ -162,6 +171,13 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     private void Save(IEnumerable<S_Package> packages)
     {
+        if (_saveBlocked)
+        {
+            _logger.LogWarning(
+                "Skipping save of installed packages because installedPackages.json could not be restored.");
+            return;
+        }
+
         _logger.LogInformation("Saving installed packages to file.");
         string fileName = Path.Combine(Helper.AppRoot, FileName);
         JsonSerializer.SerializeToNode(packages.ToArray())!.JsonSave(fileName);
@@ -171,39 +187,86 @@ public class InstalledPackageRepository : IBeutlApiResource
     {
         _logger.LogInformation("Restoring installed packages from file.");
         string fileName = Path.Combine(Helper.AppRoot, FileName);
-        if (File.Exists(fileName))
-        {
-            using (FileStream stream = File.OpenRead(fileName))
-            {
-                try
-                {
-                    if (JsonSerializer.Deserialize<S_Package[]>(stream) is S_Package[] packages)
-                    {
-                        _packages.Clear();
-                        _resolvedBeutlVersions.Clear();
-
-                        _packages.AddRange(packages.Select(x => new PackageIdentity(x.Name, new NuGetVersion(x.Version))));
-
-                        foreach (S_Package pkg in packages)
-                        {
-                            if (pkg.BeutlVersion is { } beutlVersion)
-                            {
-                                _resolvedBeutlVersions[pkg.Name] = beutlVersion;
-                            }
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to restore packages from file.");
-                }
-            }
-
-            _logger.LogInformation("Restored {Count} packages from file.", _packages.Count);
-        }
-        else
+        if (!File.Exists(fileName))
         {
             _logger.LogWarning("No installed packages file found.");
+            return;
+        }
+
+        int skipped = 0;
+        _packages.Clear();
+        _resolvedBeutlVersions.Clear();
+        try
+        {
+            using FileStream stream = File.OpenRead(fileName);
+            using JsonDocument document = JsonDocument.Parse(stream);
+            if (document.RootElement.ValueKind != JsonValueKind.Array)
+                throw new JsonException("The installed packages file does not contain an array.");
+
+            int index = -1;
+            foreach (JsonElement element in document.RootElement.EnumerateArray())
+            {
+                index++;
+                try
+                {
+                    S_Package? pkg = element.Deserialize<S_Package>();
+                    if (pkg is null)
+                    {
+                        skipped++;
+                        _logger.LogWarning("Skipping a null installed package entry at index {Index}.", index);
+                        continue;
+                    }
+
+                    _packages.Add(new PackageIdentity(pkg.Name, new NuGetVersion(pkg.Version)));
+                    if (pkg.BeutlVersion is { } beutlVersion)
+                    {
+                        _resolvedBeutlVersions[pkg.Name] = beutlVersion;
+                    }
+                }
+                catch (Exception ex) when (ex is JsonException or ArgumentException or FormatException)
+                {
+                    skipped++;
+                    _logger.LogWarning(
+                        ex,
+                        "Skipping invalid installed package entry at index {Index}.", index);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            // An unreadable file must not be replaced by the empty in-memory list.
+            _logger.LogError(ex, "Failed to restore packages from file; keeping the file unchanged.");
+            KeepBackup(fileName);
+            _saveBlocked = true;
+            return;
+        }
+
+        if (skipped > 0)
+        {
+            // A later save drops the invalid entries, so keep the file as it was read.
+            KeepBackup(fileName);
+            if (_packages.Count == 0)
+                _saveBlocked = true;
+        }
+
+        _logger.LogInformation(
+            "Restored {Count} packages from file ({Skipped} invalid entries skipped).",
+            _packages.Count,
+            skipped);
+    }
+
+    private string? KeepBackup(string fileName)
+    {
+        string backup = fileName + ".bak";
+        try
+        {
+            File.Copy(fileName, backup, overwrite: true);
+            return backup;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not keep a backup of installedPackages.json.");
+            return null;
         }
     }
 

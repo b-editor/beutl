@@ -70,6 +70,18 @@ public partial class PackageInstaller
             cancellationToken.ThrowIfCancellationRequested();
             excludedPackages ??= [];
 
+            // An incomplete registry cannot tell which extracted packages are live. Without
+            // this guard every directory looks unnecessary, and cleaning a data package also
+            // deletes its materials/templates payload outside the install path.
+            if (_installedPackageRepository.RestoreFailed
+                && Directory.Exists(Helper.InstallPath)
+                && Directory.EnumerateDirectories(Helper.InstallPath).Any())
+            {
+                _logger.LogWarning(
+                    "The installed package registry could not be restored; skipping clean to preserve extracted packages and their data.");
+                return new PackageCleanContext([], 0) { RegistryRestoreFailed = true };
+            }
+
             PackageIdentity[] unnecessaryPackages = UnnecessaryPackages()
                 .Except(excludedPackages, PackageIdentityComparer.Default)
                 .ToArray();
