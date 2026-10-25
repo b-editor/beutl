@@ -100,6 +100,15 @@ internal sealed partial class MediaTimeMapping
         return Map(range, elementRange, extrapolate, conservative, sourceOffset);
     }
 
+    public MediaTime MapControllerTime(MediaTime localTime)
+    {
+        TimeRange sourceRange = _sourceClock.GetRange(_elementRange);
+        var time = new Interval(_elementRange.Start + localTime, _elementRange.Start + localTime);
+        foreach (Controller controller in _controllers)
+            time = controller.Map(time, _elementRange);
+        return time.Min - sourceRange.Start;
+    }
+
     public Interval? SampledRange(MediaTime from, MediaTime to, MediaTime startDelta = default, MediaTime lengthDelta = default,
         bool conservative = true)
     {
