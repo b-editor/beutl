@@ -7,7 +7,6 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Transformation;
 using Beutl.Helpers;
-using Beutl.JsonConverters;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -109,8 +108,7 @@ internal sealed partial class ElementAdderImpl
 
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         MediaTime frame = MediaTime.FromFrames(1, rate);
-        MediaTime snapped = MediaTimeJsonConverter.SnapToFrame(duration, rate);
-        MediaTime floored = snapped.RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
+        MediaTime floored = duration.RoundToFrame(rate, MidpointRounding.ToNegativeInfinity);
         return floored >= frame ? floored : frame;
     }
 
