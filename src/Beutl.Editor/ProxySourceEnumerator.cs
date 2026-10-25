@@ -205,11 +205,14 @@ public static partial class ProxySourceEnumerator
 
                 case SceneDrawable sceneDrawable
                     when ResolveExpressionValue<Scene>(sceneDrawable, sceneDrawable.ReferencedScene, walkContext: walkContext) is { } referencedScene:
-                    // A SceneDrawable renders only the referenced scene's graphics, in element-local time,
-                    // so narrow to Graphics and pass localRange unchanged as both windows.
+                    // A SceneDrawable renders only the referenced scene's graphics over the element-local
+                    // window, evaluated from the referenced scene's own window start, so narrow to
+                    // Graphics and pass the window shifted into referenced-scene time as both windows.
+                    // A null localRange (a time remap dropped it) still means the broad walk.
+                    TimeRange? graphicsWindow = localRange?.AddStart(referencedScene.Start.Value);
                     foreach (IFileSource source in EnumerateReferencedSceneSources(
                         referencedScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Graphics,
-                        localRange, localRange))
+                        graphicsWindow, graphicsWindow))
                         yield return source;
 
                     break;
@@ -277,7 +280,10 @@ public static partial class ProxySourceEnumerator
         if (obj is SceneSound sceneSound
             && ResolveExpressionValue<Scene>(sceneSound, sceneSound.ReferencedScene, walkContext: walkContext) is { } soundScene)
         {
-            TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange : null;
+            // The embed composes the referenced scene's audio over the element-local window from its
+            // own window start, so shift the window into referenced-scene time like the render does.
+            // A null localRange (a time remap dropped it) still means the broad walk.
+            TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange?.AddStart(soundScene.Start.Value) : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
                 soundScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))
                 yield return source;
