@@ -28,8 +28,8 @@ public class InstalledPackageRepository : IBeutlApiResource
     }
 
     /// <summary>
-    /// True when the last restore could not read the file or no entry survived. Saving is
-    /// blocked so the file on disk is not replaced by the empty in-memory list.
+    /// True when the last restore could not read the file or skipped an entry. Saving is
+    /// blocked so the file on disk is not replaced by the incomplete in-memory registry.
     /// </summary>
     public bool RestoreFailed => _saveBlocked;
 
@@ -45,6 +45,12 @@ public class InstalledPackageRepository : IBeutlApiResource
 
     internal Action UpgradePackagesAndDeferNotifications(PackageIdentity package)
     {
+        if (_saveBlocked)
+        {
+            throw new InvalidOperationException(
+                "Cannot register an installed package because installedPackages.json could not be restored.");
+        }
+
         _logger.LogInformation("Upgrading package: {PackageId} to version: {PackageVersion}", package.Id, package.Version);
         PackageIdentity[] removedItems = [];
         if (_subject.HasObservers)
@@ -240,10 +246,10 @@ public class InstalledPackageRepository : IBeutlApiResource
 
         if (skipped > 0)
         {
-            // A later save drops the invalid entries, so keep the file as it was read.
+            // Keep the incomplete registry unchanged so the protection remains active
+            // after the next start, including for clean.
             KeepBackup(fileName);
-            if (_packages.Count == 0)
-                _saveBlocked = true;
+            _saveBlocked = true;
         }
 
         _logger.LogInformation(

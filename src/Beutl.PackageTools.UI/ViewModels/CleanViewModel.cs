@@ -29,7 +29,7 @@ public class CleanViewModel
 
         if (RegistryRestoreFailed)
         {
-            ErrorMessage.Value = Strings.Installed_package_registry_is_empty;
+            ErrorMessage.Value = Strings.Installed_package_registry_could_not_be_restored;
         }
 
         SizeToBeReleased.Value = context.SizeToBeReleased;
@@ -97,7 +97,7 @@ public class CleanViewModel
         {
             if (RegistryRestoreFailed)
             {
-                ErrorMessage.Value = Strings.Installed_package_registry_is_empty;
+                ErrorMessage.Value = Strings.Installed_package_registry_could_not_be_restored;
                 Failed.Value = true;
                 return;
             }

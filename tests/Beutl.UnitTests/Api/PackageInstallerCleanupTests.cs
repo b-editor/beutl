@@ -56,13 +56,9 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
         // package look unnecessary, and clean also deletes its materials/templates payload.
         var package = new PackageIdentity("Beutl.Package.CleanTest.UnreadableRegistry", NuGetVersion.Parse("1.0.0"));
         (string directory, _) = CreateInstalledDirectory(package);
-        File.WriteAllText(
-            Path.Combine(directory, package.Id + ".nuspec"),
-            $"<package><metadata><id>{package.Id}</id><version>{package.Version}</version><authors>tests</authors><description>tests</description></metadata></package>");
+        WriteNuspec(directory, package);
         File.WriteAllText(Path.Combine(Helper.AppRoot, "installedPackages.json"), "{ this is not a package array");
-        using var client = new HttpClient();
-        _repository = new InstalledPackageRepository();
-        _installer = new PackageInstaller(client, ownsHttpClient: false, _repository, apiApplication: null!);
+        ReloadRepository();
 
         PackageCleanContext context = _installer.PrepareForClean();
 
@@ -74,6 +70,42 @@ public class PackageInstallerCleanupTests : PackageInstallerFixture
             Assert.That(Directory.Exists(directory), Is.True);
         });
     }
+
+    [Test]
+    public void PrepareForClean_PartiallyCorruptRegistry_PreservesTheSkippedPackage()
+    {
+        var valid = new PackageIdentity("Beutl.Package.CleanTest.ValidEntry", NuGetVersion.Parse("1.0.0"));
+        var skipped = new PackageIdentity("Beutl.Package.CleanTest.SkippedEntry", NuGetVersion.Parse("1.0.0"));
+        (string validDirectory, _) = CreateInstalledDirectory(valid);
+        (string skippedDirectory, _) = CreateInstalledDirectory(skipped);
+        WriteNuspec(validDirectory, valid);
+        WriteNuspec(skippedDirectory, skipped);
+        File.WriteAllText(
+            Path.Combine(Helper.AppRoot, "installedPackages.json"),
+            $$"""
+            [
+              { "Name": "{{valid.Id}}", "Version": "{{valid.Version}}" },
+              { "Name": "{{skipped.Id}}", "Version": "not-a-version" }
+            ]
+            """);
+        ReloadRepository();
+
+        PackageCleanContext context = _installer.PrepareForClean();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(_repository.RestoreFailed, Is.True);
+            Assert.That(context.RegistryRestoreFailed, Is.True);
+            Assert.That(context.UnnecessaryPackages, Is.Empty);
+            Assert.That(Directory.Exists(validDirectory), Is.True);
+            Assert.That(Directory.Exists(skippedDirectory), Is.True);
+        });
+    }
+
+    private static void WriteNuspec(string directory, PackageIdentity package)
+        => File.WriteAllText(
+            Path.Combine(directory, package.Id + ".nuspec"),
+            $"<package><metadata><id>{package.Id}</id><version>{package.Version}</version><authors>tests</authors><description>tests</description></metadata></package>");
 
     // No .nupkg: PackagePathResolver.GetInstalledPath resolves such a directory to null even though
     // its files are still on disk, which is the case cleanup must not skip.
