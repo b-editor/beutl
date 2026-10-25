@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.Services;
+﻿using Beutl.Audio;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.ProjectSystem;
@@ -138,6 +139,104 @@ public class PortalResizeTests
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(3)));
         Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(3)));
+    }
+
+    [Test]
+    public void PortalWithoutProvider_MapsLocalMediaThroughItsController()
+    {
+        SourceVideo local = CreateVideo(6);
+        Element element = AddPortal(MediaTime.Zero, Seconds(1), count: 1, local,
+            new DrawableTimeController { Speed = { Value = 200 } });
+
+        using var compositor = CreateCompositor(_harness.Scene);
+        DrawableTimeController.Resource controller = compositor.EvaluateGraphics(MediaTime.Zero)
+            .Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(controller.Target!.GetOriginal(), Is.SameAs(local));
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(3)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(3)));
+    }
+
+    [Test]
+    public void AudioOnlyProvider_MapsLocalDrawableThroughItsController()
+    {
+        Element provider = _harness.AddElement(MediaTime.Zero, Seconds(20));
+        AddMedia(provider, nameof(SourceSound), speed: 100, durationSeconds: 20);
+        provider.ZIndex.Value = 1;
+        SourceVideo local = CreateVideo(6);
+        Element element = AddPortal(MediaTime.Zero, Seconds(1), count: 1, local,
+            new DrawableTimeController { Speed = { Value = 200 } });
+
+        using var compositor = CreateCompositor(_harness.Scene);
+        DrawableTimeController.Resource controller = compositor.EvaluateGraphics(MediaTime.Zero)
+            .Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(controller.Target!.GetOriginal(), Is.SameAs(local));
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(3)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(3)));
+    }
+
+    [Test]
+    public void GroupedLocalMediaAfterPortal_IsMappedThroughItsController()
+    {
+        AddProviders(1, Seconds(20));
+        SourceVideo local = CreateVideo(6);
+        var group = new DrawableGroup();
+        Element element = AddPortal(MediaTime.Zero, Seconds(1), count: 1, local, group,
+            new DrawableTimeController { Speed = { Value = 200 } });
+
+        using var compositor = CreateCompositor(_harness.Scene);
+        DrawableTimeController.Resource controller = compositor.EvaluateGraphics(MediaTime.Zero)
+            .Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(controller.Target, Is.Not.Null);
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(3)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(3)));
+    }
+
+    [Test]
+    public void MultipleImportedDrawables_DoNotStealTheLocalControllerInput()
+    {
+        Element provider = _harness.AddElement(MediaTime.Zero, Seconds(20));
+        provider.Objects.Add(CreateVideo(20));
+        provider.Objects.Add(CreateVideo(20));
+        provider.ZIndex.Value = 1;
+        SourceVideo local = CreateVideo(6);
+        Element element = AddPortal(MediaTime.Zero, Seconds(1), count: 1, local,
+            new DrawableTimeController { Speed = { Value = 200 } },
+            new DrawableTimeController { Speed = { Value = 200 } });
+
+        using var compositor = CreateCompositor(_harness.Scene);
+        DrawableTimeController.Resource[] controllers = compositor.EvaluateGraphics(MediaTime.Zero)
+            .Objects.OfType<DrawableTimeController.Resource>().ToArray();
+        Assert.That(controllers, Has.Length.EqualTo(2));
+        Assert.That(controllers[0].Target!.GetOriginal(), Is.SameAs(provider.Objects[0]));
+        Assert.That(controllers[1].Target!.GetOriginal(), Is.SameAs(provider.Objects[1]));
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(6)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(6)));
+    }
+
+    [Test]
+    public void UnknownClearExpression_KeepsLocalMediaBounds()
+    {
+        SourceVideo local = CreateVideo(6);
+        var portal = new PortalObject
+        {
+            Count = { Value = 0 },
+            Clear = { Expression = Beutl.Engine.Expressions.Expression.Create<bool>("false") }
+        };
+        Element element = _harness.AddElement(MediaTime.Zero, Seconds(1));
+        element.Objects.Add(local);
+        element.Objects.Add(portal);
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(6)));
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(6)));
     }
 
     [Test]

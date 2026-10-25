@@ -124,7 +124,20 @@ internal static partial class SlippableMedia
     public static List<Target> Collect(Element element, IReadOnlySet<Element>? timingPeers = null, bool ignoreLoops = false,
         IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null,
         bool includePortalInputs = true)
-        => new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates, includePortalInputs: includePortalInputs).Collect();
+    {
+        var collector = new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates,
+            includePortalInputs: includePortalInputs);
+        List<Target> targets = collector.Collect();
+        if (includePortalInputs || !collector.HasUnresolvedPortalInputs) return targets;
+
+        // When the portal's imported flow cannot be resolved, a controller may
+        // consume either the import or local media that follows it. Bound both
+        // paths so the local source cannot be overrun.
+        var fallback = new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates,
+            includePortalInputs: false, suppressPortalImports: true);
+        targets.AddRange(fallback.Collect());
+        return targets;
+    }
 
     public static MediaTime ClampSharedDelta(IReadOnlyList<Target> targets, MediaTime delta)
     {
