@@ -111,7 +111,7 @@ public class PortalResizeTests
     }
 
     [Test]
-    public void LocalMediaAfterThePortal_IsNotMappedThroughTheImportedInput()
+    public void LocalMediaAfterThePortal_KeepsTheControllerFallbackBound()
     {
         Element provider = AddProviders(1, Seconds(20))[0];
         SourceVideo local = CreateVideo(6);
@@ -125,8 +125,9 @@ public class PortalResizeTests
             "The controller consumes the imported clip; the local clip stays a separate input.");
 
         var constraints = SlippableMedia.CreateResizeConstraints(element);
-        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(6)));
-        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(6)));
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(3)),
+            "If the provider ends during the resize, the controller falls back to the local clip.");
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(3)));
     }
 
     [Test]
@@ -198,7 +199,7 @@ public class PortalResizeTests
     }
 
     [Test]
-    public void MultipleImportedDrawables_DoNotStealTheLocalControllerInput()
+    public void MultipleImportedDrawables_KeepEveryControllerFallbackBound()
     {
         Element provider = _harness.AddElement(MediaTime.Zero, Seconds(20));
         provider.Objects.Add(CreateVideo(20));
@@ -217,8 +218,9 @@ public class PortalResizeTests
         Assert.That(controllers[1].Target!.GetOriginal(), Is.SameAs(provider.Objects[1]));
 
         var constraints = SlippableMedia.CreateResizeConstraints(element);
-        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(6)));
-        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(Seconds(6)));
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(MediaTime.FromSeconds(1.5)),
+            "One fewer import makes the controller chain fall back to the local clip.");
+        Assert.That(constraints.ClampLength(Seconds(8)), Is.EqualTo(MediaTime.FromSeconds(1.5)));
     }
 
     [Test]

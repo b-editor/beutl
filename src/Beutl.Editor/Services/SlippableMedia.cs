@@ -125,17 +125,48 @@ internal static partial class SlippableMedia
         IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles = null, IReadOnlySet<Element>? portalCandidates = null,
         bool includePortalInputs = true)
     {
-        var collector = new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates,
-            includePortalInputs: includePortalInputs);
-        List<Target> targets = collector.Collect();
-        if (includePortalInputs || !collector.HasUnresolvedPortalInputs) return targets;
+        if (includePortalInputs)
+        {
+            return new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates).Collect();
+        }
 
-        // When the portal's imported flow cannot be resolved, a controller may
-        // consume either the import or local media that follows it. Bound both
-        // paths so the local source cannot be overrun.
-        var fallback = new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates,
-            includePortalInputs: false, suppressPortalImports: true);
-        targets.AddRange(fallback.Collect());
+        int firstPortal = -1;
+        bool canImport = false;
+        bool dynamicClear = false;
+        for (int i = 0; i < element.Objects.Count; i++)
+        {
+            if (element.Objects[i] is not PortalObject { IsEnabled.Value: true } portal) continue;
+            if (firstPortal < 0) firstPortal = i;
+            canImport |= portal.Count.HasExpression || portal.Count.Value > 0;
+            dynamicClear |= portal.Clear.HasExpression;
+        }
+
+        if (firstPortal < 0)
+        {
+            return new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates,
+                includePortalInputs: false, simulatedPortalImports: 0).Collect();
+        }
+
+        // Imported clips do not bound the element, but the number that is present
+        // changes which controller consumes local media. Enumerate the possible
+        // counts instead of assuming the current providers last for the whole resize.
+        int controllers = 0;
+        for (int i = firstPortal + 1; i < element.Objects.Count; i++)
+            if (element.Objects[i] is DrawableTimeController) controllers++;
+
+        var targets = new List<Target>();
+        int maximumImports = canImport ? controllers : 0;
+        bool?[] clearValues = dynamicClear ? [true, false] : [null];
+        foreach (bool? clearEarlierLocal in clearValues)
+        {
+            for (int imports = 0; imports <= maximumImports; imports++)
+            {
+                targets.AddRange(new TargetCollector(element, timingPeers, ignoreLoops, timingRoles, portalCandidates,
+                    includePortalInputs: false, simulatedPortalImports: imports,
+                    clearEarlierLocal: clearEarlierLocal).Collect());
+            }
+        }
+
         return targets;
     }
 

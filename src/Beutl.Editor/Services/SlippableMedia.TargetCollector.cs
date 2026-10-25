@@ -17,7 +17,8 @@ internal static partial class SlippableMedia
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<Element>? _portalCandidates;
         private readonly bool _includePortalInputs;
-        private readonly bool _suppressPortalImports;
+        private readonly int _simulatedPortalImports;
+        private readonly bool? _clearEarlierLocal;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
         private readonly List<Target> _targets = new();
@@ -30,12 +31,10 @@ internal static partial class SlippableMedia
         private readonly HashSet<Element> _consumedPortalElements = new();
         private bool _opaqueConsumption;
 
-        public bool HasUnresolvedPortalInputs { get; private set; }
-
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates,
             IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null,
-            bool includePortalInputs = true, bool suppressPortalImports = false)
+            bool includePortalInputs = true, int simulatedPortalImports = -1, bool? clearEarlierLocal = null)
         {
             _element = element;
             _timingPeers = timingPeers;
@@ -43,7 +42,8 @@ internal static partial class SlippableMedia
             _timingRoles = timingRoles;
             _portalCandidates = portalCandidates;
             _includePortalInputs = includePortalInputs;
-            _suppressPortalImports = suppressPortalImports;
+            _simulatedPortalImports = simulatedPortalImports;
+            _clearEarlierLocal = clearEarlierLocal;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
             if (element.HierarchicalParent is Scene layerScene)
@@ -76,10 +76,9 @@ internal static partial class SlippableMedia
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
                 var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, _portalCandidates,
-                    enabled, _sourceDurations, _includePortalInputs, _suppressPortalImports);
+                    enabled, _sourceDurations, _includePortalInputs, _simulatedPortalImports, _clearEarlierLocal);
                 foreach (Target reenabled in collector.Collect())
                 {
-                    HasUnresolvedPortalInputs |= collector.HasUnresolvedPortalInputs;
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
                     if (owners.Length == 0)
                     {
@@ -123,6 +122,7 @@ internal static partial class SlippableMedia
         {
             var flow = new List<Node>();
             bool portalFlow = false;
+            bool simulatedImportsPlaced = false;
             foreach (EngineObject obj in _element.Objects)
             {
                 if (obj is PortalObject { IsEnabled.Value: true } portal)
@@ -137,14 +137,24 @@ internal static partial class SlippableMedia
                     else
                     {
                         // A dynamic Clear may or may not remove the earlier local inputs.
-                        // Keep them so their bounds still apply; only a constant true clears.
-                        if (!portal.Clear.HasExpression && portal.Clear.Value) flow.Clear();
-                        imported = _suppressPortalImports ? [] : ResolvePortal(portal, structural: true);
+                        // Resize runs both Clear outcomes; a constant only applies its value.
+                        bool clear = _clearEarlierLocal
+                            ?? (!portal.Clear.HasExpression && portal.Clear.Value);
+                        if (clear) flow.Clear();
+                        if (!simulatedImportsPlaced && _simulatedPortalImports > 0)
+                        {
+                            // Imported clips contribute Flow positions but no duration bounds.
+                            // One pass per possible count lets local media see every controller
+                            // that could consume it when a provider starts or ends.
+                            for (int i = 0; i < _simulatedPortalImports; i++)
+                                flow.Add(new Node(portal, [], Opaque: true, PortalInput: true));
+                        }
+                        simulatedImportsPlaced = true;
+                        imported = [];
                     }
                     if (imported == null)
                     {
-                        HasUnresolvedPortalInputs = true;
-                        flow.Add(new Node(portal, [], Opaque: true, PortalInput: true));
+                        flow.Add(new Node(portal, [], Opaque: true));
                         _opaqueConsumption = true;
                     }
                     else flow.AddRange(imported);
@@ -181,7 +191,7 @@ internal static partial class SlippableMedia
             return flow;
         }
 
-        private List<Node>? ResolvePortal(PortalObject portal, bool structural = false)
+        private List<Node>? ResolvePortal(PortalObject portal)
         {
             if (portal.Count.HasExpression) return null;
             if (portal.Count.Value <= 0) return [];
@@ -198,10 +208,7 @@ internal static partial class SlippableMedia
             // model; never substitute the controller's stored target for them.
             if (candidates.Length != 1) return null;
             Element owner = candidates[0];
-            // Resize only needs the Flow positions of imported drawables, not an
-            // exact offset mapping, so multiple controllers can still consume them
-            // in renderer order.
-            if (!structural && HasCompetingFlowConsumer()) return null;
+            if (HasCompetingFlowConsumer()) return null;
             EngineObject[] objects = owner.Objects.Where(obj => obj.IsEnabled.Value && LayerVisible(owner, obj.GetCompositionTarget())).ToArray();
             if (HasNonPlainProviderObject(objects)) return null;
             if (IsClaimedByEarlierPortal(scene, owner, objects)) return null;
