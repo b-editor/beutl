@@ -314,6 +314,11 @@ public class FileSystemItemViewModel : IDisposable
 
         try
         {
+            if (_childrenLoaded && Children is not null)
+            {
+                FileSystemEnumerator.RefreshCollection(Children, FullPath);
+                return;
+            }
             RefreshEntriesForDirectory(FullPath);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

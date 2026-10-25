@@ -396,6 +396,39 @@ public class DirectoryWatcherServiceTests
 
     [TestCase(false)]
     [TestCase(true)]
+    public async Task Same_path_navigation_does_not_reuse_a_failed_watcher(bool errorBeforeNavigation)
+    {
+        var started = new System.Collections.Concurrent.ConcurrentQueue<FileSystemWatcher>();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, _ => { }, watcher =>
+        {
+            started.Enqueue(watcher);
+            entered.TrySetResult();
+            if (!release.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The test did not release watcher startup.");
+        });
+        Task first = service.WatchAsync(_projectRoot, includeSubdirectories: false);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            FileSystemWatcher failed = started.First();
+            var error = new ErrorEventArgs(new InternalBufferOverflowException());
+            if (errorBeforeNavigation) service.OnWatcherError(failed, error);
+            Task navigation = service.WatchAsync(_projectRoot, includeSubdirectories: false);
+            if (!errorBeforeNavigation) service.OnWatcherError(failed, error);
+            release.Set();
+            await Task.WhenAll(first, navigation);
+
+            Assert.That(started, Has.Count.EqualTo(2));
+            Assert.That(started.Last(), Is.Not.SameAs(failed));
+            Assert.That(started.Last().IncludeSubdirectories, Is.False);
+        }
+        finally { release.Set(); await first; }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task Error_recovery_only_refreshes_its_own_navigation_request(bool navigate)
     {
         string next = Directory.CreateDirectory(Path.Combine(_projectRoot, "next")).FullName;

@@ -114,6 +114,8 @@ public class FileBrowserWatchingTests
             browser.SelectedItems.Add(textItem);
 
             File.WriteAllText(file, new string('x', 4096));
+            string added = Path.Combine(root, "aaa-added.txt");
+            File.WriteAllText(added, "new entry before the selection");
             DateTime modified = File.GetLastWriteTimeUtc(image).AddSeconds(2);
             WriteImage(image, SKColors.Blue);
             File.SetLastWriteTimeUtc(image, modified);
@@ -122,15 +124,17 @@ public class FileBrowserWatchingTests
                 && imageItem.Thumbnail.Value is not null && imageItem.Thumbnail.Value != thumbnail);
             Assert.That(items.Single(item => item.FullPath == file), Is.SameAs(textItem));
             Assert.That(items.Single(item => item.FullPath == image), Is.SameAs(imageItem));
+            Assert.That(items.Any(item => item.FullPath == added), Is.True);
             Assert.That(browser.SelectedItems, Does.Contain(textItem));
         }
         finally { startup.Resume(); browser.Dispose(); Directory.Delete(root, true); }
     }
 
     [AvaloniaTest]
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Home_startup_keeps_selection_and_reconciles_media_results(bool changeMedia)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public async Task Home_startup_keeps_selection_and_reconciles_media_results(bool changeMedia, bool changeProject)
     {
         string root = Directory.CreateTempSubdirectory("beutl-browser-home-start-").FullName;
         string assets = Directory.CreateDirectory(Path.Combine(root, "assets")).FullName;
@@ -139,6 +143,9 @@ public class FileBrowserWatchingTests
         string added = Path.Combine(assets, "added.png");
         WriteImage(keep, SKColors.Red);
         WriteImage(removed, SKColors.Blue);
+        string removedProjectFile = Path.Combine(root, "removed.txt");
+        string addedProjectDirectory = Path.Combine(root, "a-added");
+        if (changeProject) File.WriteAllText(removedProjectFile, "removed");
         var context = new Mock<IEditorContext>();
         context.Setup(x => x.GetService(typeof(Scene))).Returns(new Scene { Uri = new Uri(Path.Combine(root, "main.scene")) });
         using var startup = new PausedWatcher();
@@ -153,7 +160,8 @@ public class FileBrowserWatchingTests
             var mediaItems = browser.MediaFileItems.ToArray();
             var retained = mediaItems.Single(item => item.FullPath == keep);
             var items = changeMedia ? browser.MediaFileItems : browser.ProjectDirectoryItems;
-            var selected = changeMedia ? retained : projectItems.Single();
+            var selected = changeMedia ? retained : projectItems.Single(item => item.FullPath == assets);
+            if (changeProject) selected.IsExpanded.Value = true;
             window.Show();
             HeadlessTestHelpers.Render();
             var list = window.GetVisualDescendants().OfType<ListBox>()
@@ -167,10 +175,23 @@ public class FileBrowserWatchingTests
                 File.Delete(removed);
                 WriteImage(added, SKColors.Green);
             }
+            if (changeProject)
+            {
+                File.Delete(removedProjectFile);
+                Directory.CreateDirectory(addedProjectDirectory);
+            }
             startup.Resume();
             await HeadlessTestHelpers.WaitUntilAsync(() => rescans > 0 && !browser.IsLoadingMediaFiles.Value);
             HeadlessTestHelpers.Render();
-            Assert.That(browser.ProjectDirectoryItems, Is.EqualTo(projectItems));
+            if (changeProject)
+            {
+                Assert.That(browser.ProjectDirectoryItems.Select(item => item.FullPath),
+                    Is.EqualTo(new[] { addedProjectDirectory, assets }));
+                Assert.That(browser.ProjectDirectoryItems[1], Is.SameAs(selected));
+                Assert.That(selected.IsExpanded.Value, Is.True);
+            }
+            else
+                Assert.That(browser.ProjectDirectoryItems, Is.EqualTo(projectItems));
             Assert.That(browser.FavoriteItems, Is.EqualTo(favorites));
             Assert.That(list.SelectedItem, Is.SameAs(selected));
             Assert.That(browser.SelectedItems, Does.Contain(selected));
@@ -179,7 +200,7 @@ public class FileBrowserWatchingTests
                 Assert.That(browser.MediaFileItems.Select(item => item.FullPath), Is.EquivalentTo(new[] { keep, added }));
             else
                 Assert.That(browser.MediaFileItems, Is.EqualTo(mediaItems));
-            HeadlessCapture.SaveIfRequested(window, nameof(FileBrowserWatchingTests), $"home-startup-{changeMedia}");
+            HeadlessCapture.SaveIfRequested(window, nameof(FileBrowserWatchingTests), $"home-startup-{changeMedia}-{changeProject}");
         }
         finally { startup.Resume(); window.Close(); browser.Dispose(); Directory.Delete(root, true); }
     }
@@ -196,8 +217,11 @@ public class FileBrowserWatchingTests
         string blocked = Directory.CreateDirectory(Path.Combine(root, "a-blocked")).FullName;
         string readable = Directory.CreateDirectory(Path.Combine(root, "b-readable")).FullName;
         string added = Path.Combine(readable, "arrived.txt");
+        File.WriteAllText(Path.Combine(readable, "keep.txt"), "keep");
         UnixFileMode permissions = File.GetUnixFileMode(blocked);
-        using var startup = new PausedWatcher();
+        // Linux reports an Error for an unreadable inotify child and rearms the watcher. This test
+        // isolates entry catch-up; native watching and error recovery are covered separately.
+        using var startup = new PausedWatcher(enableNativeWatcher: false);
         using var browser = new FileBrowserTabViewModel(new Mock<IEditorContext>().Object, null, startup.Service);
         try
         {
@@ -213,12 +237,15 @@ public class FileBrowserWatchingTests
             await startup.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var sibling = browser.TreeRootItems.Single(item => item.FullPath == readable);
             sibling.IsExpanded.Value = true;
-            Assert.That(sibling.Children, Is.Empty);
+            var keptChild = sibling.Children!.Single();
+            browser.SelectedItems.Add(keptChild);
             File.WriteAllText(added, "arrived");
             startup.Resume();
             await HeadlessTestHelpers.WaitUntilAsync(() => sibling.Children!.Any(item => item.FullPath == added));
             Assert.That(browser.TreeRootItems.Single(item => item.FullPath == readable), Is.SameAs(sibling));
             Assert.That(sibling.IsExpanded.Value, Is.True);
+            Assert.That(sibling.Children, Does.Contain(keptChild));
+            Assert.That(browser.SelectedItems, Does.Contain(keptChild));
         }
         finally
         {
@@ -244,14 +271,14 @@ public class FileBrowserWatchingTests
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public DirectoryWatcherService Service { get; }
 
-        public PausedWatcher()
+        public PausedWatcher(bool enableNativeWatcher = true)
         {
             Service = new DirectoryWatcherService(TimeSpan.Zero, action => Dispatcher.UIThread.Post(action), watcher =>
             {
                 Entered.TrySetResult();
                 if (!_release.Task.Wait(TimeSpan.FromSeconds(10)))
                     throw new TimeoutException("The test did not release watcher startup.");
-                watcher.EnableRaisingEvents = true;
+                if (enableNativeWatcher) watcher.EnableRaisingEvents = true;
             });
         }
 

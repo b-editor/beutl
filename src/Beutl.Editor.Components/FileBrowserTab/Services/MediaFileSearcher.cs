@@ -62,20 +62,7 @@ internal sealed class MediaFileSearcher : IDisposable
                         return;
 
                     // A startup rescan keeps displayed results and selection while it runs.
-                    foreach (var item in MediaFileItems.ToArray())
-                    {
-                        if (results.Remove(item.FullPath))
-                            item.RefreshLoadedEntries();
-                        else
-                        {
-                            MediaFileItems.Remove(item);
-                            item.Dispose();
-                        }
-                    }
-                    foreach (string filePath in results)
-                    {
-                        MediaFileItems.Add(new FileSystemItemViewModel(filePath, false));
-                    }
+                    FileSystemEnumerator.RefreshCollection(MediaFileItems, results.Select(path => (path, false)));
 
                     IsLoadingMediaFiles.Value = false;
                     HasNoMediaFiles.Value = MediaFileItems.Count == 0;

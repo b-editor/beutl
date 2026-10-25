@@ -25,6 +25,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
     private const int MaxErrorRearms = 3;
 
     private FileSystemWatcher? _watcher;
+    private bool _watcherFailed;
     private string? _watchedCanonicalPath;
     private string? _watchedRequestedPath;
     private CancellationTokenSource? _debounceCts;
@@ -196,6 +197,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         {
             if (!_disposed
                 && request == _watchRequest
+                && !_watcherFailed
                 && ReferenceEquals(_watcher, currentWatcher)
                 && string.Equals(
                     _watchedCanonicalPath,
@@ -273,6 +275,7 @@ internal sealed partial class DirectoryWatcherService : IDisposable
                 return false;
 
             _watcher = watcher;
+            _watcherFailed = false;
             _watcherRequest = request;
             _watchedCanonicalPath = canonicalPath;
             _watchedRequestedPath = Path.GetFullPath(path);
@@ -306,6 +309,10 @@ internal sealed partial class DirectoryWatcherService : IDisposable
         long request;
         lock (_stateSync)
         {
+            if (_disposed || !ReferenceEquals(_watcher, sender))
+                return;
+            // A newer same-path request may supersede the repair, but cannot reuse this watcher.
+            _watcherFailed = true;
             if (!IsCurrentWatcher(sender))
                 return;
             request = _watchRequest;

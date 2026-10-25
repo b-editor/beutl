@@ -133,16 +133,20 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
             || path != (IsHomeView.Value ? _projectDirectory : RootPath.Value))
             return;
 
-        // Catch up with changes made while the watcher was starting. Keep the existing items
-        // and selection when the listing has not changed.
-        if (IsHomeView.Value)
-            RefreshHomeView(preserveExisting: true);
-        else
+        // Catch up with startup changes while retaining items that still exist and their selection.
+        try
         {
-            RefreshDirectoryEntries([path]);
-            bool tree = ViewMode.Value == FileBrowserViewMode.Tree;
-            foreach (var item in tree ? TreeRootItems : Items)
-                item.RefreshLoadedEntries(includeChildren: tree);
+            if (IsHomeView.Value)
+                RefreshHomeView(preserveExisting: true);
+            else
+            {
+                bool tree = ViewMode.Value == FileBrowserViewMode.Tree;
+                FileSystemEnumerator.RefreshCollection(tree ? TreeRootItems : Items, path, includeChildren: tree);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Failed to check file browser entries after watcher startup");
         }
     }
 
@@ -388,11 +392,10 @@ public sealed partial class FileBrowserTabViewModel : IToolContext
         {
             try
             {
-                if (!preserveExisting || FileSystemEnumerator.HasEntriesChanged(ProjectDirectoryItems, _projectDirectory))
-                    FileSystemEnumerator.PopulateCollection(ProjectDirectoryItems, _projectDirectory);
                 if (preserveExisting)
-                    foreach (var item in ProjectDirectoryItems)
-                        item.RefreshLoadedEntries();
+                    FileSystemEnumerator.RefreshCollection(ProjectDirectoryItems, _projectDirectory);
+                else
+                    FileSystemEnumerator.PopulateCollection(ProjectDirectoryItems, _projectDirectory);
             }
             catch (Exception ex)
             {
