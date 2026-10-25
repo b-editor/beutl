@@ -246,6 +246,70 @@ public class VideoFileImportTests
     }
 
     [AvaloniaTest]
+    public async Task ImportAudioOnlyVideoContainer_ImportsItsAudioStream()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("audio-only-container-import");
+        RegisterImportDecoder();
+        string path = CreateImportFile("audio-only-container", withAudio: false, extension: ".audio-container");
+
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        ElementAddResult result = await adder.AddAsync([
+            new ElementDescription(
+                Start: MediaTime.Zero,
+                Length: MediaTime.FromSeconds(5),
+                Layer: 0,
+                Source: new ElementSource.File(path)),
+        ], CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+
+        Assert.That(result.IsSuccess, Is.True,
+            "an audio-only container whose extension also lists video must not be refused");
+        Element element = editor.Scene.Children.Single();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(element.Objects.Single(), Is.TypeOf<SourceSound>(),
+                "the readable audio stream is imported instead of a video element");
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ImportTransientlyLockedMediaFile_KeepsRequestedLength()
+    {
+        (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("locked-media-import");
+        RegisterImportDecoder();
+        string path = CreateImportFile("locked", withAudio: false, extension: ".locked-media");
+        var decoder = new LockedFileDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            using var held = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+            var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+            ElementAddResult result = await adder.AddAsync([
+                new ElementDescription(
+                    Start: MediaTime.Zero,
+                    Length: MediaTime.FromSeconds(5),
+                    Layer: 0,
+                    Source: new ElementSource.File(path)),
+            ], CancellationToken.None);
+            HeadlessTestHelpers.Settle();
+
+            Assert.That(result.IsSuccess, Is.True,
+                "a transient lock is not a permanent decode failure");
+            Element element = editor.Scene.Children.Single();
+            using (Assert.EnterMultipleScope())
+            {
+                Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+                Assert.That(SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration(), Is.Null);
+            }
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    [AvaloniaTest]
     public async Task ImportPresentButUndecodableVideoFile_IsRefused()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("undecodable-import");
@@ -284,14 +348,39 @@ public class VideoFileImportTests
         }
     }
 
-    private static string CreateImportFile(string stem, bool withAudio)
+    private static string CreateImportFile(string stem, bool withAudio, string? extension = null)
     {
         s_tempDir ??= Path.Combine(Path.GetTempPath(), $"beutl-import-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(s_tempDir);
-        string ext = withAudio ? ".vaudio" : ".vonly";
+        string ext = extension ?? (withAudio ? ".vaudio" : ".vonly");
         string path = Path.Combine(s_tempDir, $"{stem}-{Guid.NewGuid():N}{ext}");
         File.WriteAllBytes(path, []);
         return path;
+    }
+
+    private sealed class LockedFileDecoderInfo : IDecoderInfo
+    {
+        public string Name => "Locked file test decoder";
+
+        public MediaReader? Open(string file, MediaOptions options)
+        {
+            try
+            {
+                // Like the real decoders, a failed open is reported as null.
+                using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+                return options.StreamsToLoad.HasFlag(MediaMode.Video)
+                    ? new ImportTestReader(hasVideo: true, hasAudio: false)
+                    : null;
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+        }
+
+        public IEnumerable<string> VideoExtensions() => [".locked-media"];
+
+        public IEnumerable<string> AudioExtensions() => [];
     }
 
     private sealed class ImportTestDecoderInfo : IDecoderInfo
@@ -309,6 +398,14 @@ public class VideoFileImportTests
                     : null;
             }
 
+            if (ext == ".audio-container")
+            {
+                // Simulates an audio-only .webm: the extension also lists video.
+                return options.StreamsToLoad.HasFlag(MediaMode.Audio)
+                    ? new ImportTestReader(hasVideo: false, hasAudio: true)
+                    : null;
+            }
+
             if (ext is not (".vonly" or ".vaudio"))
                 return null;
 
@@ -317,7 +414,7 @@ public class VideoFileImportTests
             return video || audio ? new ImportTestReader(video, audio) : null;
         }
 
-        public IEnumerable<string> VideoExtensions() => [".vonly", ".vaudio", ".bad"];
+        public IEnumerable<string> VideoExtensions() => [".vonly", ".vaudio", ".bad", ".audio-container"];
 
         public IEnumerable<string> AudioExtensions() => [".aonly"];
     }

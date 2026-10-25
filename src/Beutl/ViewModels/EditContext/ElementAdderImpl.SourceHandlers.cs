@@ -156,8 +156,18 @@ internal sealed partial class ElementAdderImpl
         }
         catch (UnsupportedMediaException ex)
         {
-            // The file is present, so a decoder failure is permanent (for example,
-            // an unsupported codec) rather than a temporary transport problem.
+            // A decoder reports "unsupported" when it cannot open a file that exists,
+            // but that also covers transient failures such as an exclusive lock. Verify
+            // the file is readable before treating the failure as permanent.
+            if (!CanReadFile(filePath))
+            {
+                _logger.LogWarning(
+                    ex,
+                    "The file '{File}' is temporarily unreadable; importing it as offline media.",
+                    filePath);
+                return new MediaProbe(MediaProbeState.Unavailable, false, false);
+            }
+
             _logger.LogWarning(ex, "The file '{File}' exists but could not be decoded.", filePath);
             return new MediaProbe(MediaProbeState.Unsupported, false, false);
         }
@@ -167,6 +177,20 @@ internal sealed partial class ElementAdderImpl
             // placeholder; the requested length is kept until it becomes readable.
             _logger.LogWarning(ex, "Failed to open '{File}'; importing it as offline media.", filePath);
             return new MediaProbe(MediaProbeState.Unavailable, false, false);
+        }
+    }
+
+    private static bool CanReadFile(string filePath)
+    {
+        try
+        {
+            using var stream = new FileStream(
+                filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            return false;
         }
     }
 
@@ -313,14 +337,26 @@ internal sealed partial class ElementAdderImpl
             MediaProbe probe = kind == FileSourceKind.Image
                 ? new MediaProbe(MediaProbeState.Opened, true, false)
                 : await Task.Run(() => owner.ProbeMediaFile(fileName), cancellationToken);
-            bool streamMissing = probe.State == MediaProbeState.Opened
-                && (kind switch
+            bool reject = probe.State == MediaProbeState.Unsupported;
+            if (probe.State == MediaProbeState.Opened)
+            {
+                // Containers such as .webm belong to both extension lists. When the
+                // opened stream has no video, import the audio that is actually there
+                // instead of rejecting a readable file because of its extension.
+                if (kind == FileSourceKind.Video && !probe.HasVideo && probe.HasAudio)
+                {
+                    kind = FileSourceKind.Audio;
+                }
+
+                reject = kind switch
                 {
                     FileSourceKind.Video => !probe.HasVideo,
                     FileSourceKind.Audio => !probe.HasAudio,
                     _ => false,
-                });
-            if (probe.State == MediaProbeState.Unsupported || streamMissing)
+                };
+            }
+
+            if (reject)
             {
                 return ElementSourcePreflightResult.Rejected(
                     new UnsupportedElementSourceFailure(
