@@ -1,4 +1,5 @@
-﻿using Beutl.Editor.Services;
+﻿using Beutl.Audio;
+using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.ProjectSystem;
@@ -59,15 +60,17 @@ public class PortalResizeTests
         });
     }
 
-    [TestCase("SourceVideo", 0)]
-    [TestCase("SourceVideo", 8)]
-    [TestCase("SourceSound", 0)]
-    public void LocalMedia_KeepsItsOwnDurationLimit(string mediaType, int disabledControllers)
+    [TestCase("SourceVideo", 0, false)]
+    [TestCase("SourceVideo", 8, false)]
+    [TestCase("SourceSound", 0, false)]
+    [TestCase("SourceSound", 0, true)]
+    public void LocalMedia_KeepsItsOwnDurationLimit(string mediaType, int disabledControllers, bool soundGroup)
     {
         using var clamp = new ClampResizeToOriginalLengthScope(true);
         using var harness = new SceneHistoryHarness("beutl_portal_resize");
         Element element = AddPortal(harness, 2);
         var (_, offset) = AddMedia(element, mediaType, speed: 200, offsetSeconds: 1, durationSeconds: 6);
+        if (soundGroup) element.Objects.Add(new SoundGroup());
         for (int i = 0; i < disabledControllers; i++)
             element.Objects.Add(new DrawableTimeController { IsEnabled = { Value = false } });
         Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(2.5)));
@@ -83,15 +86,18 @@ public class PortalResizeTests
         Assert.That(element.Length.Value, Is.EqualTo(Seconds(2.5)));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void Controller_OnlyHasAFixedDurationWhenItsLocalInputIsKnown(bool localBeforePortal)
+    [TestCase(false, false, 200)]
+    [TestCase(true, false, 200)]
+    [TestCase(false, true, 50)]
+    [TestCase(true, true, 50)]
+    public void Controller_OnlyHasAFixedDurationWhenItsLocalInputIsKnown(bool localBeforePortal, bool soundGroup, float speed)
     {
         using var harness = new SceneHistoryHarness("beutl_portal_resize");
         Element element = AddPortal(harness, 2);
+        if (soundGroup) element.Objects.Add(new SoundGroup());
         var video = CreateVideo(6);
-        element.Objects.Insert(localBeforePortal ? 0 : 1, video);
-        element.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+        element.Objects.Insert(localBeforePortal ? 0 : element.Objects.Count, video);
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = speed } });
         foreach (Element provider in harness.Scene.Children.Where(child => child != element)) provider.Length.Value = Seconds(1);
         using var compositor = CreateCompositor(harness.Scene);
         var before = compositor.EvaluateGraphics(Seconds(2.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
@@ -99,10 +105,12 @@ public class PortalResizeTests
         var after = compositor.EvaluateGraphics(Seconds(3.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
         Assert.That(after.Target!.GetOriginal(), Is.SameAs(video));
 
-        Assert.That(SlippableMedia.CreateResizeConstraints(element).GetMaximumDuration(),
-            Is.EqualTo(localBeforePortal ? Seconds(3) : (MediaTime?)null));
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        MediaTime? duration = localBeforePortal ? Seconds(600 / speed) : null;
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(duration));
         Assert.That(SlippableMedia.GetOriginalDuration(element),
-            Is.EqualTo(localBeforePortal ? Seconds(3) : (MediaTime?)null));
+            Is.EqualTo(duration));
+        Assert.That(constraints.ClampLength(Seconds(14)), Is.EqualTo(duration ?? Seconds(14)));
         Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
     }
 

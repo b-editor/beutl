@@ -170,8 +170,10 @@ internal static partial class SlippableMedia
                 }
                 else if (obj.IsEnabled.Value && obj is SoundGroup or DrawableGroup or DrawableDecorator)
                 {
-                    bool Consumes(Node node) => node.Opaque || IsEnabled(node.Object)
-                        && (obj is SoundGroup ? node.Object is Sound : node.Object is Drawable);
+                    // A sound group leaves possible imported drawables in Flow.
+                    bool Consumes(Node node) => obj is SoundGroup
+                        ? IsEnabled(node.Object) && node.Object is Sound
+                        : node.Opaque || IsEnabled(node.Object) && node.Object is Drawable;
                     inputs = flow.FindAll(Consumes);
                     flow.RemoveAll(Consumes);
                 }
