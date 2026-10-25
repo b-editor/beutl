@@ -22,7 +22,7 @@ internal sealed class MediaFileSearcher : IDisposable
 
     // 指定ディレクトリ内のメディアファイルを非同期で検索する。
     // 前回の検索はキャンセルされる。
-    public void SearchAsync(string? searchDirectory)
+    public void SearchAsync(string? searchDirectory, bool preserveExisting = false)
     {
         // A DirectoryWatcher event can post a refresh after the owning tab (and this searcher) has
         // been disposed; ignore it rather than touching the already-disposed CancellationTokenSource.
@@ -33,12 +33,14 @@ internal sealed class MediaFileSearcher : IDisposable
         _searchCts = new CancellationTokenSource();
         var token = _searchCts.Token;
 
-        FileSystemEnumerator.DisposeAndClear(MediaFileItems);
+        if (!preserveExisting)
+            FileSystemEnumerator.DisposeAndClear(MediaFileItems);
         IsLoadingMediaFiles.Value = true;
         HasNoMediaFiles.Value = false;
 
         if (string.IsNullOrEmpty(searchDirectory) || !Directory.Exists(searchDirectory))
         {
+            FileSystemEnumerator.DisposeAndClear(MediaFileItems);
             IsLoadingMediaFiles.Value = false;
             HasNoMediaFiles.Value = true;
             return;
@@ -59,10 +61,8 @@ internal sealed class MediaFileSearcher : IDisposable
                     if (token.IsCancellationRequested)
                         return;
 
-                    foreach (string filePath in results)
-                    {
-                        MediaFileItems.Add(new FileSystemItemViewModel(filePath, false));
-                    }
+                    // A startup rescan keeps displayed results and selection while it runs.
+                    FileSystemEnumerator.RefreshCollection(MediaFileItems, results.Select(path => (path, false)));
 
                     IsLoadingMediaFiles.Value = false;
                     HasNoMediaFiles.Value = MediaFileItems.Count == 0;
@@ -76,8 +76,10 @@ internal sealed class MediaFileSearcher : IDisposable
                 _logger.LogWarning(ex, "Error searching media files in {Path}", searchDirectory);
                 Dispatcher.UIThread.Post(() =>
                 {
+                    if (token.IsCancellationRequested)
+                        return;
                     IsLoadingMediaFiles.Value = false;
-                    HasNoMediaFiles.Value = true;
+                    HasNoMediaFiles.Value = MediaFileItems.Count == 0;
                 });
             }
         }, token);

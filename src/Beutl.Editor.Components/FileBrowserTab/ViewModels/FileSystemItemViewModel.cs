@@ -23,6 +23,7 @@ public class FileSystemItemViewModel : IDisposable
     private bool _disposed;
     private bool _childrenLoaded;
     private int _mediaInfoLoad;
+    private (long Length, DateTime LastWriteTime)? _detailsStamp;
 
     public FileSystemItemViewModel(string fullPath, bool isDirectory)
         : this(fullPath, isDirectory, loadDetails: true)
@@ -62,8 +63,7 @@ public class FileSystemItemViewModel : IDisposable
 
         if (!IsDirectory && loadDetails)
         {
-            _ = LoadThumbnailAsync();
-            _ = LoadMediaInfoAsync();
+            ReloadDetailsIfChanged();
         }
     }
 
@@ -90,7 +90,7 @@ public class FileSystemItemViewModel : IDisposable
 
     // A template's category is read from the file; a .json that is not a loadable template
     // falls back to the file description.
-    private async Task<bool> LoadTemplateInfoAsync()
+    private async Task<bool> LoadTemplateInfoAsync(int load)
     {
         try
         {
@@ -98,8 +98,11 @@ public class FileSystemItemViewModel : IDisposable
             if (item == null)
                 return false;
 
-            IconSymbol.Value = GetTemplateIconSymbol(item.BaseType);
-            MediaInfoText.Value = TypeDisplayHelpers.GetLocalizedName(item.ActualType);
+            if (!_disposed && load == _mediaInfoLoad)
+            {
+                IconSymbol.Value = GetTemplateIconSymbol(item.BaseType);
+                MediaInfoText.Value = TypeDisplayHelpers.GetLocalizedName(item.ActualType);
+            }
             return true;
         }
         catch
@@ -125,12 +128,14 @@ public class FileSystemItemViewModel : IDisposable
 
     private async Task LoadMediaInfoAsync()
     {
+        int load = Interlocked.Increment(ref _mediaInfoLoad);
         var service = FileThumbnailService.Instance;
         if (service.IsObjectTemplateFile(FullPath))
         {
-            if (await LoadTemplateInfoAsync())
+            if (await LoadTemplateInfoAsync(load) || _disposed || load != _mediaInfoLoad)
                 return;
 
+            IconSymbol.Value = GetIconSymbol();
             SetFileDescription();
             return;
         }
@@ -145,7 +150,6 @@ public class FileSystemItemViewModel : IDisposable
         {
             // A reload reads the file as it is now, so an earlier load still running must not
             // replace what the reload shows.
-            int load = Interlocked.Increment(ref _mediaInfoLoad);
             CancellationToken token = _metadataCts.Token;
             var info = await service.GetMediaInfoAsync(FullPath, token);
             if (!token.IsCancellationRequested && info != null && load == Volatile.Read(ref _mediaInfoLoad))
@@ -179,9 +183,12 @@ public class FileSystemItemViewModel : IDisposable
 
         try
         {
+            _thumbnailCts?.Cancel();
+            _thumbnailCts?.Dispose();
             _thumbnailCts = new CancellationTokenSource();
-            var bitmap = await service.GetThumbnailAsync(FullPath, _thumbnailCts.Token);
-            if (bitmap != null)
+            CancellationToken token = _thumbnailCts.Token;
+            var bitmap = await service.GetThumbnailAsync(FullPath, token);
+            if (!token.IsCancellationRequested)
             {
                 Thumbnail.Value = bitmap;
             }
@@ -292,6 +299,55 @@ public class FileSystemItemViewModel : IDisposable
             foreach (var child in Children)
                 child.RefreshEntriesForDirectory(directory);
         }
+    }
+
+    // Catch up the displayed tree after asynchronous watcher startup, without walking unopened subtrees.
+    internal void RefreshLoadedEntries(bool includeChildren = true)
+    {
+        if (_disposed) return;
+        if (!IsDirectory)
+        {
+            ReloadDetailsIfChanged();
+            return;
+        }
+        if (!includeChildren) return;
+
+        try
+        {
+            if (_childrenLoaded && Children is not null)
+            {
+                FileSystemEnumerator.RefreshCollection(Children, FullPath);
+                return;
+            }
+            RefreshEntriesForDirectory(FullPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // An inaccessible item must not stop catch-up for its siblings or loaded children.
+        }
+        if (_childrenLoaded && Children is not null)
+        {
+            foreach (var child in Children)
+                child.RefreshLoadedEntries();
+        }
+    }
+
+    private void ReloadDetailsIfChanged()
+    {
+        try
+        {
+            var info = new FileInfo(FullPath);
+            var stamp = (info.Length, info.LastWriteTimeUtc);
+            if (_detailsStamp == stamp) return;
+            _detailsStamp = stamp;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+
+        _ = LoadThumbnailAsync();
+        _ = LoadMediaInfoAsync();
     }
 
     // Reads the size and details of the listed files at or below the given paths again.

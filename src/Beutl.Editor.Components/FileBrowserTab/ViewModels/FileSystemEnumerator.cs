@@ -18,22 +18,48 @@ internal static class FileSystemEnumerator
 
     public static IEnumerable<FileSystemItemViewModel> EnumerateDirectory(string path)
     {
-        var dirInfo = new DirectoryInfo(path);
-
-        foreach (var dir in dirInfo.GetDirectories().OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase))
+        foreach (var entry in EnumerateEntries(path))
         {
-            if (IsVisible(dir))
+            yield return new FileSystemItemViewModel(entry.Path, entry.IsDirectory);
+        }
+    }
+
+    private static IEnumerable<(string Path, bool IsDirectory)> EnumerateEntries(string path)
+        => new DirectoryInfo(path).EnumerateFileSystemInfos().Where(IsVisible)
+            .OrderByDescending(entry => entry is DirectoryInfo)
+            .ThenBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => (entry.FullName, entry is DirectoryInfo));
+
+    internal static void RefreshCollection(ObservableCollection<FileSystemItemViewModel> collection, string path,
+        bool includeChildren = true)
+        => RefreshCollection(collection, EnumerateEntries(path), includeChildren);
+
+    // Reconcile startup snapshots without replacing selected or expanded items that still exist.
+    internal static void RefreshCollection(ObservableCollection<FileSystemItemViewModel> collection,
+        IEnumerable<(string Path, bool IsDirectory)> entries, bool includeChildren = true)
+    {
+        var desired = entries.ToArray();
+        var paths = desired.ToHashSet();
+        var existing = collection.ToDictionary(item => (item.FullPath, item.IsDirectory));
+        for (int i = collection.Count - 1; i >= 0; i--)
+        {
+            var item = collection[i];
+            if (!paths.Contains((item.FullPath, item.IsDirectory)))
             {
-                yield return new FileSystemItemViewModel(dir.FullName, true);
+                collection.RemoveAt(i);
+                item.Dispose();
             }
         }
-
-        foreach (var file in dirInfo.GetFiles().OrderBy(f => f.Name, StringComparer.OrdinalIgnoreCase))
+        for (int i = 0; i < desired.Length; i++)
         {
-            if (IsVisible(file))
+            if (existing.TryGetValue(desired[i], out var item))
             {
-                yield return new FileSystemItemViewModel(file.FullName, false);
+                if (!ReferenceEquals(collection[i], item))
+                    collection.Move(collection.IndexOf(item), i);
+                item.RefreshLoadedEntries(includeChildren);
             }
+            else
+                collection.Insert(i, new FileSystemItemViewModel(desired[i].Path, desired[i].IsDirectory));
         }
     }
 

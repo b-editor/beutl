@@ -155,7 +155,7 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Existing_directory_changed_is_ignored_while_child_editor_writes_still_update_entries()
+    public async Task Existing_directory_changed_is_ignored_while_child_editor_writes_still_update_entries()
     {
         string child = Path.Combine(_projectRoot, "child");
         Directory.CreateDirectory(child);
@@ -165,7 +165,7 @@ public class DirectoryWatcherServiceTests
         FileSystemWatcher? registeredWatcher = null;
         using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue,
             watcher => registeredWatcher = watcher);
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
         FileSystemWatcher watcher = registeredWatcher ?? throw new AssertionException("A watcher must be registered.");
         int reloads = 0;
         IReadOnlyCollection<string>? entries = null;
@@ -190,7 +190,7 @@ public class DirectoryWatcherServiceTests
     [TestCase(WatcherChangeTypes.Created)]
     [TestCase(WatcherChangeTypes.Deleted)]
     [TestCase(WatcherChangeTypes.Renamed)]
-    public void Directory_lifecycle_events_continue_to_refresh_the_tree(WatcherChangeTypes changeType)
+    public async Task Directory_lifecycle_events_continue_to_refresh_the_tree(WatcherChangeTypes changeType)
     {
         const string name = "child";
         if (changeType != WatcherChangeTypes.Deleted)
@@ -199,7 +199,7 @@ public class DirectoryWatcherServiceTests
         FileSystemWatcher? registeredWatcher = null;
         using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue,
             watcher => registeredWatcher = watcher);
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
         FileSystemWatcher watcher = registeredWatcher ?? throw new AssertionException("A watcher must be registered.");
         int reloads = 0;
         int entryChecks = 0;
@@ -274,7 +274,7 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Changing_folders_discards_pending_editor_entry_checks()
+    public async Task Changing_folders_discards_pending_editor_entry_checks()
     {
         string document = CreateFile("main.scene");
         string next = Path.Combine(_projectRoot, "next");
@@ -285,7 +285,7 @@ public class DirectoryWatcherServiceTests
         service.EntriesChanged += paths => entries = paths;
         service.NotifyPathChanged(document);
         Action stale = TakePostedAction(posted);
-        service.Watch(next);
+        await service.WatchAsync(next);
         string nextDocument = Path.Combine(next, "next.scene");
         service.NotifyPathChanged(nextDocument);
         Action current = TakePostedAction(posted);
@@ -327,7 +327,7 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Changing_the_watched_path_invalidates_an_already_queued_delivery()
+    public async Task Changing_the_watched_path_invalidates_an_already_queued_delivery()
     {
         string path = CreateFile("assets/clip.png");
         string nextDirectory = Path.Combine(_projectRoot, "next");
@@ -339,11 +339,114 @@ public class DirectoryWatcherServiceTests
 
         service.NotifyPathChanged(path);
         Action staleDelivery = TakePostedAction(posted);
-        service.Watch(nextDirectory);
+        await service.WatchAsync(nextDirectory);
 
         staleDelivery();
 
         Assert.That(deliveries, Is.Zero);
+    }
+
+    [Test]
+    public async Task Navigation_invalidates_old_events_before_background_setup_can_finish()
+    {
+        string next = Directory.CreateDirectory(Path.Combine(_projectRoot, "next")).FullName;
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        var started = new System.Collections.Concurrent.ConcurrentQueue<FileSystemWatcher>();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue, watcher =>
+        {
+            started.Enqueue(watcher);
+            if (started.Count == 1)
+            {
+                entered.SetResult();
+                if (!release.Wait(TimeSpan.FromSeconds(10)))
+                    throw new TimeoutException("The test did not release watcher startup.");
+            }
+        });
+        int deliveries = 0;
+        service.Changed += () => deliveries++;
+        Task first = service.WatchAsync(_projectRoot);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            FileSystemWatcher old = started.First();
+            var change = new FileSystemEventArgs(WatcherChangeTypes.Changed, _projectRoot, "old.txt");
+            service.OnFileSystemEvent(old, change);
+            Action queued = TakePostedAction(posted);
+
+            Task navigation = service.WatchAsync(next);
+            queued();
+            service.OnFileSystemEvent(old, change);
+            Assert.That(deliveries, Is.Zero);
+            Assert.That(posted, Is.Empty, "Events from the previous request must also be rejected.");
+
+            release.Set();
+            await Task.WhenAll(first, navigation);
+            service.OnFileSystemEvent(started.Last(), new FileSystemEventArgs(WatcherChangeTypes.Changed, next, "new.txt"));
+            TakePostedAction(posted)();
+            Assert.That(deliveries, Is.EqualTo(1), "The destination watcher must still deliver changes.");
+        }
+        finally
+        {
+            release.Set();
+            await first;
+        }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Same_path_navigation_does_not_reuse_a_failed_watcher(bool errorBeforeNavigation)
+    {
+        var started = new System.Collections.Concurrent.ConcurrentQueue<FileSystemWatcher>();
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, _ => { }, watcher =>
+        {
+            started.Enqueue(watcher);
+            entered.TrySetResult();
+            if (!release.Wait(TimeSpan.FromSeconds(10)))
+                throw new TimeoutException("The test did not release watcher startup.");
+        });
+        Task first = service.WatchAsync(_projectRoot, includeSubdirectories: false);
+        try
+        {
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            FileSystemWatcher failed = started.First();
+            var error = new ErrorEventArgs(new InternalBufferOverflowException());
+            if (errorBeforeNavigation) service.OnWatcherError(failed, error);
+            Task navigation = service.WatchAsync(_projectRoot, includeSubdirectories: false);
+            if (!errorBeforeNavigation) service.OnWatcherError(failed, error);
+            release.Set();
+            await Task.WhenAll(first, navigation);
+
+            Assert.That(started, Has.Count.EqualTo(2));
+            Assert.That(started.Last(), Is.Not.SameAs(failed));
+            Assert.That(started.Last().IncludeSubdirectories, Is.False);
+        }
+        finally { release.Set(); await first; }
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Error_recovery_only_refreshes_its_own_navigation_request(bool navigate)
+    {
+        string next = Directory.CreateDirectory(Path.Combine(_projectRoot, "next")).FullName;
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
+        var started = new System.Collections.Concurrent.ConcurrentQueue<FileSystemWatcher>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue, started.Enqueue);
+        int deliveries = 0;
+        service.Changed += () => deliveries++;
+        await service.WatchAsync(_projectRoot);
+        service.OnWatcherError(started.Last(), new ErrorEventArgs(new InternalBufferOverflowException()));
+        Action recovered = TakePostedAction(posted);
+        Assert.That(started, Has.Count.EqualTo(2));
+        if (navigate) await service.WatchAsync(next);
+
+        recovered();
+
+        Assert.That(deliveries, Is.EqualTo(navigate ? 0 : 1));
+        Assert.That(service.IsWatching, Is.True);
     }
 
     [Test]
@@ -365,15 +468,15 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Watch_accepts_empty_and_null_paths_when_stopping()
+    public async Task Watch_accepts_empty_and_null_paths_when_stopping()
     {
         using var service = new DirectoryWatcherService();
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
         Assert.That(service.IsWatching, Is.True);
 
-        Assert.DoesNotThrow(() => service.Watch(string.Empty));
+        await service.WatchAsync(string.Empty);
         Assert.That(service.IsWatching, Is.False);
-        Assert.DoesNotThrow(() => service.Watch(null));
+        await service.WatchAsync(null);
         Assert.That(service.IsWatching, Is.False);
     }
 
@@ -618,7 +721,7 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Same_target_navigation_refreshes_the_alias_used_for_error_rearm()
+    public async Task Same_target_navigation_refreshes_the_alias_used_for_error_rearm()
     {
         string firstTarget = Path.Combine(_projectRoot, "first-target");
         string secondTarget = Path.Combine(_projectRoot, "second-target");
@@ -634,12 +737,12 @@ public class DirectoryWatcherServiceTests
             static action => action(),
             watcher => startedPaths.Add(watcher.Path));
 
-        service.Watch(firstAlias);
-        service.Watch(secondAlias);
+        await service.WatchAsync(firstAlias);
+        await service.WatchAsync(secondAlias);
         Directory.Delete(secondAlias);
         SymbolicLinks.CreateOrIgnore(secondAlias, secondTarget, directory: true);
 
-        Assert.That(service.TryRearmAfterError(), Is.True);
+        Assert.That(await service.TryRearmAfterErrorAsync(), Is.True);
         Assert.That(startedPaths.Last(), Is.EqualTo(FilePathComparison.ResolveCanonicalPath(secondTarget)));
     }
 
@@ -675,12 +778,12 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Rearms_the_watcher_after_an_error()
+    public async Task Rearms_the_watcher_after_an_error()
     {
         using var service = new DirectoryWatcherService();
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
 
-        bool rearmed = service.TryRearmAfterError();
+        bool rearmed = await service.TryRearmAfterErrorAsync();
 
         Assert.Multiple(() =>
         {
@@ -690,15 +793,28 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Stops_rearming_once_the_retry_budget_is_spent()
+    public async Task Error_rearm_preserves_nonrecursive_watching()
+    {
+        var scopes = new List<bool>();
+        using var service = new DirectoryWatcherService(TimeSpan.Zero, _ => { },
+            watcher => scopes.Add(watcher.IncludeSubdirectories));
+
+        await service.WatchAsync(_projectRoot, includeSubdirectories: false);
+        Assert.That(await service.TryRearmAfterErrorAsync(), Is.True);
+
+        Assert.That(scopes, Is.EqualTo(new[] { false, false }));
+    }
+
+    [Test]
+    public async Task Stops_rearming_once_the_retry_budget_is_spent()
     {
         using var service = new DirectoryWatcherService();
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
 
         var results = new List<bool>();
         for (int i = 0; i < 5; i++)
         {
-            results.Add(service.TryRearmAfterError());
+            results.Add(await service.TryRearmAfterErrorAsync());
         }
 
         Assert.Multiple(() =>
@@ -709,70 +825,77 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Navigating_to_another_folder_restores_the_retry_budget()
+    public async Task Navigating_to_another_folder_restores_the_retry_budget()
     {
         using var service = new DirectoryWatcherService();
         string other = Path.Combine(_projectRoot, "other");
         Directory.CreateDirectory(other);
-        service.Watch(_projectRoot);
-        while (service.TryRearmAfterError())
+        await service.WatchAsync(_projectRoot);
+        while (await service.TryRearmAfterErrorAsync())
         {
         }
 
-        service.Watch(other);
+        await service.WatchAsync(other);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(service.IsWatching, Is.True);
-            Assert.That(service.TryRearmAfterError(), Is.True);
-        });
+            Assert.That(await service.TryRearmAfterErrorAsync(), Is.True);
+        }
     }
 
     [Test]
-    public void Watching_the_same_path_twice_keeps_the_original_watcher()
+    public async Task Watching_the_same_path_twice_keeps_the_original_watcher()
     {
         int starts = 0;
+        int deliveries = 0;
+        FileSystemWatcher? active = null;
+        var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
         using var service = new DirectoryWatcherService(
             TimeSpan.Zero,
-            _ => { },
-            _ => starts++);
-        service.Watch(_projectRoot);
-        service.Watch(_projectRoot);
+            posted.Enqueue,
+            watcher => { active = watcher; starts++; });
+        service.Changed += () => deliveries++;
+        await service.WatchAsync(_projectRoot);
+        await service.WatchAsync(_projectRoot);
+        service.OnFileSystemEvent(active!, new FileSystemEventArgs(WatcherChangeTypes.Changed, _projectRoot, "file.txt"));
+        TakePostedAction(posted)();
 
         Assert.Multiple(() =>
         {
             Assert.That(service.IsWatching, Is.True);
             Assert.That(starts, Is.EqualTo(1));
+            Assert.That(deliveries, Is.EqualTo(1));
         });
     }
 
     [Test]
-    public void Watching_the_same_path_does_not_restore_spent_retries()
+    public async Task Watching_the_same_path_does_not_restore_spent_retries()
     {
         using var service = new DirectoryWatcherService();
-        service.Watch(_projectRoot);
-        while (service.TryRearmAfterError())
+        await service.WatchAsync(_projectRoot);
+        while (await service.TryRearmAfterErrorAsync())
         {
         }
 
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(service.IsWatching, Is.True);
-            Assert.That(service.TryRearmAfterError(), Is.False);
+            Assert.That(await service.TryRearmAfterErrorAsync(), Is.False);
             Assert.That(service.IsWatching, Is.False);
-        });
+        }
     }
 
     [Test]
-    public void A_watcher_that_delivers_again_gets_its_retries_back()
+    public async Task A_watcher_that_delivers_again_gets_its_retries_back()
     {
         var posted = new System.Collections.Concurrent.ConcurrentQueue<Action>();
         using var service = new DirectoryWatcherService(TimeSpan.Zero, posted.Enqueue);
-        service.Watch(_projectRoot);
-        service.TryRearmAfterError();
-        service.TryRearmAfterError();
+        await service.WatchAsync(_projectRoot);
+        await service.TryRearmAfterErrorAsync();
+        await service.TryRearmAfterErrorAsync();
 
         service.NotifyPathChanged(Path.Combine(_projectRoot, "clip.png"));
         TakePostedAction(posted)();
@@ -780,44 +903,44 @@ public class DirectoryWatcherServiceTests
         var results = new List<bool>();
         for (int i = 0; i < 4; i++)
         {
-            results.Add(service.TryRearmAfterError());
+            results.Add(await service.TryRearmAfterErrorAsync());
         }
 
         Assert.That(results, Is.EqualTo(new[] { true, true, true, false }));
     }
 
     [Test]
-    public void A_rebuild_that_cannot_construct_a_watcher_spends_the_whole_budget()
+    public async Task A_rebuild_that_cannot_construct_a_watcher_spends_the_whole_budget()
     {
         using var service = new DirectoryWatcherService();
         string doomed = Path.Combine(_projectRoot, "doomed");
         Directory.CreateDirectory(doomed);
-        service.Watch(doomed);
+        await service.WatchAsync(doomed);
         Directory.Delete(doomed);
 
-        bool rearmed = service.TryRearmAfterError();
+        bool rearmed = await service.TryRearmAfterErrorAsync();
 
         // Re-Watching does not restore the budget — the path is still the failing one.
         Directory.CreateDirectory(doomed);
-        service.Watch(doomed);
+        await service.WatchAsync(doomed);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(rearmed, Is.False);
             Assert.That(service.IsWatching, Is.True);
-            Assert.That(service.TryRearmAfterError(), Is.False);
-        });
+            Assert.That(await service.TryRearmAfterErrorAsync(), Is.False);
+        }
     }
 
     [Test]
-    public void Watching_after_disposal_cannot_rearm_the_watcher()
+    public async Task Watching_after_disposal_cannot_rearm_the_watcher()
     {
         var service = new DirectoryWatcherService();
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
         service.Dispose();
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
         Assert.That(service.IsWatching, Is.False);
-        Assert.That(service.TryRearmAfterError(), Is.False);
+        Assert.That(await service.TryRearmAfterErrorAsync(), Is.False);
     }
 
     [Test]
@@ -826,7 +949,7 @@ public class DirectoryWatcherServiceTests
         for (int iteration = 0; iteration < 100; iteration++)
         {
             var service = new DirectoryWatcherService();
-            service.Watch(_projectRoot);
+            await service.WatchAsync(_projectRoot);
             service.NotifyPathChanged(Path.Combine(_projectRoot, "before.txt"));
             using var start = new ManualResetEventSlim();
             Task callbacks = Task.Run(() =>
@@ -835,7 +958,7 @@ public class DirectoryWatcherServiceTests
                 for (int i = 0; i < 10; i++)
                     service.NotifyPathChanged(Path.Combine(_projectRoot, "event.txt"));
             });
-            Task watch = Task.Run(() => { start.Wait(); service.Watch(_projectRoot); });
+            Task watch = Task.Run(async () => { start.Wait(); await service.WatchAsync(_projectRoot); });
             Task dispose = Task.Run(() => { start.Wait(); service.Dispose(); });
             start.Set();
             await Task.WhenAll(callbacks, watch, dispose).WaitAsync(TimeSpan.FromSeconds(5));
@@ -844,34 +967,34 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Watching_a_missing_path_leaves_nothing_armed()
+    public async Task Watching_a_missing_path_leaves_nothing_armed()
     {
         using var service = new DirectoryWatcherService();
 
-        service.Watch(Path.Combine(_projectRoot, "does-not-exist"));
+        await service.WatchAsync(Path.Combine(_projectRoot, "does-not-exist"));
 
         Assert.That(service.IsWatching, Is.False);
     }
 
     [Test]
-    public void Failed_watcher_start_does_not_publish_a_disposed_instance()
+    public async Task Failed_watcher_start_does_not_publish_a_disposed_instance()
     {
         using var service = new DirectoryWatcherService(
             TimeSpan.Zero,
             _ => { },
             _ => throw new IOException("Injected watcher start failure."));
 
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
 
-        Assert.Multiple(() =>
+        using (Assert.EnterMultipleScope())
         {
             Assert.That(service.IsWatching, Is.False);
-            Assert.That(service.TryRearmAfterError(), Is.False);
-        });
+            Assert.That(await service.TryRearmAfterErrorAsync(), Is.False);
+        }
     }
 
     [Test]
-    public void Retargeted_symbolic_link_rebuilds_the_watcher_for_the_new_identity()
+    public async Task Retargeted_symbolic_link_rebuilds_the_watcher_for_the_new_identity()
     {
         string firstTarget = Path.Combine(_projectRoot, "first-target");
         string secondTarget = Path.Combine(_projectRoot, "second-target");
@@ -890,10 +1013,10 @@ public class DirectoryWatcherServiceTests
                 watcher.EnableRaisingEvents = true;
             });
 
-        service.Watch(alias);
+        await service.WatchAsync(alias);
         Directory.Delete(alias);
         Directory.CreateSymbolicLink(alias, secondTarget);
-        service.Watch(alias);
+        await service.WatchAsync(alias);
 
         Assert.That(
             startedPaths,
@@ -905,7 +1028,7 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Error_rearm_resolves_the_original_symbolic_link_again()
+    public async Task Error_rearm_resolves_the_original_symbolic_link_again()
     {
         string firstTarget = Path.Combine(_projectRoot, "first-error-target");
         string secondTarget = Path.Combine(_projectRoot, "second-error-target");
@@ -919,11 +1042,11 @@ public class DirectoryWatcherServiceTests
             TimeSpan.Zero,
             _ => { },
             watcher => startedPaths.Add(watcher.Path));
-        service.Watch(alias);
+        await service.WatchAsync(alias);
         Directory.Delete(alias);
         Directory.CreateSymbolicLink(alias, secondTarget);
 
-        bool rearmed = service.TryRearmAfterError();
+        bool rearmed = await service.TryRearmAfterErrorAsync();
 
         Assert.Multiple(() =>
         {
@@ -935,27 +1058,27 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Concurrent_rearms_cannot_exceed_the_retry_budget()
+    public async Task Concurrent_rearms_cannot_exceed_the_retry_budget()
     {
         int starts = 0;
         using var service = new DirectoryWatcherService(
             TimeSpan.Zero,
             _ => { },
             _ => Interlocked.Increment(ref starts));
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
         var failures = new System.Collections.Concurrent.ConcurrentQueue<Exception>();
 
-        Parallel.For(0, 128, _ =>
+        await Task.WhenAll(Enumerable.Range(0, 128).Select(async _ =>
         {
             try
             {
-                service.TryRearmAfterError();
+                await service.TryRearmAfterErrorAsync();
             }
             catch (Exception ex)
             {
                 failures.Enqueue(ex);
             }
-        });
+        }));
 
         Assert.Multiple(() =>
         {
@@ -965,16 +1088,16 @@ public class DirectoryWatcherServiceTests
     }
 
     [Test]
-    public void Navigating_to_a_symbolic_link_cycle_does_not_escape_path_comparison()
+    public async Task Navigating_to_a_symbolic_link_cycle_does_not_escape_path_comparison()
     {
         string cycle = Path.Combine(_projectRoot, "cycle");
         SymbolicLinks.CreateOrIgnore(cycle, cycle, directory: true);
 
         using var service = new DirectoryWatcherService();
-        service.Watch(_projectRoot);
+        await service.WatchAsync(_projectRoot);
         Assert.That(service.IsWatching, Is.True);
 
-        Assert.DoesNotThrow(() => service.Watch(cycle));
+        await service.WatchAsync(cycle);
         Assert.That(service.IsWatching, Is.False);
     }
 
