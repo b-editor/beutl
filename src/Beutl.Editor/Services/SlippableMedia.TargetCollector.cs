@@ -28,6 +28,8 @@ internal static partial class SlippableMedia
         private readonly int _sampleRate;
         private readonly HashSet<Element> _consumedPortalElements = new();
         private bool _opaqueConsumption;
+        private bool _hasLocalVideo;
+        private Node? _unresolvedControllerInput;
 
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles, IReadOnlySet<Element>? portalCandidates, bool includePortalInputs,
@@ -51,6 +53,11 @@ internal static partial class SlippableMedia
         public List<Target> Collect()
         {
             foreach (Node node in BuildFlow()) CollectNode(node);
+            // An unresolved portal input may disappear during the interval,
+            // letting its controller consume local video instead. Reject that
+            // unproven local clock even when imported source bounds are excluded.
+            if (!_includePortalInputs && _hasLocalVideo && _unresolvedControllerInput != null)
+                CollectNode(_unresolvedControllerInput with { PortalInput = false });
             // Re-enabling controllers has no resize bounds to tighten without local media.
             if (!_includePortalInputs && _targets.Count == 0) return _targets;
             if (_reenabledControllers != null || _disabledFlowControllers.Count == 0 || _targets.Any(t => !t.IsSupported)) return _targets;
@@ -250,6 +257,7 @@ internal static partial class SlippableMedia
             {
                 case SourceVideo video:
                     {
+                        _hasLocalVideo |= !portalInput;
                         MediaTime? duration = GetSourceDuration(video.Source.Value);
                         _targets.Add(new Target(video.OffsetPosition, duration,
                             new MediaTimeMapping(_element, video, video.Speed, _controllers, 60, duration, _timingPeers, _ignoreLoops, _timingRoles, portalInput), _element.Length.Value));
@@ -276,6 +284,7 @@ internal static partial class SlippableMedia
                     Node? input = inputs?.FirstOrDefault();
                     if (input?.Opaque == true)
                     {
+                        if (input.PortalInput) _unresolvedControllerInput = input;
                         CollectNode(input);
                         break;
                     }

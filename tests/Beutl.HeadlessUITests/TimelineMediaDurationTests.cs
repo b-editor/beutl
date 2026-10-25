@@ -444,6 +444,42 @@ public class TimelineMediaDurationTests
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
+    public async Task EdgeDrag_PortalWithIntermittentInputs_PreservesUnprovenLocalVideoLength(bool leftEdge)
+    {
+        using var configuration = new EditorConfigScope(clamp: true, snap: false);
+        ElementViewModel model = await OpenElement(CreateDurationVideo(), startSeconds: 1, lengthSeconds: 0.4);
+        model.Model.Objects.Insert(0, new PortalObject { Count = { Value = 10 } });
+        model.Model.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+        model.Model.Name.Value = "Portal with local video";
+        var timeline = model.Timeline;
+        var adder = (IElementAdder)timeline.EditorContext.GetService(typeof(IElementAdder))!;
+        for (int layer = 1; layer <= 2; layer++)
+            Assert.That((await adder.AddAsync([new ElementDescription(
+                Start: MediaTime.FromSeconds(layer == 1 ? 1 : 1.2), Length: MediaTime.FromSeconds(0.1), Layer: layer,
+                Source: new ElementSource.EngineObject(() => new RectShape()))], CancellationToken.None)).IsSuccess, Is.True);
+        timeline.ClearSelected();
+        timeline.SelectElement(model);
+        HeadlessTestHelpers.Settle();
+        using var view = OpenTimelineView(model, width: 1200);
+        Border border = view.Border;
+        double y = border.Bounds.Height / 2;
+        Point press = border.TranslatePoint(new Point(leftEdge ? 2 : border.Bounds.Width - 2, y), view.Window)!.Value;
+        Point release = border.TranslatePoint(new Point(MediaTime.FromSeconds(leftEdge ? -0.2 : 1).TimeToPixel(view.Scale), y), view.Window)!.Value;
+        TimeRange before = model.Model.Range;
+        view.Drag(press, release, RawInputModifiers.Alt, () =>
+        {
+            CapturePreview(view.Window, $"portal-intermittent-left-{leftEdge}");
+            Assert.That(model.Width.Value, Is.EqualTo(before.Duration.TimeToPixel(view.Scale)).Within(0.0001));
+            Assert.That(model.Model.Range, Is.EqualTo(before));
+        });
+        Assert.That(model.Model.Range, Is.EqualTo(before));
+        HeadlessTestHelpers.Render(5);
+        CapturePreview(view.Window, $"portal-intermittent-left-{leftEdge}-committed");
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
     public async Task EdgeDrag_DisabledFlowController_PreservesSafeBoundsForReenabling(bool leftEdge)
     {
         using var configuration = new EditorConfigScope(clamp: true, snap: false);

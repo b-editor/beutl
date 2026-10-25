@@ -44,7 +44,9 @@ internal static partial class SlippableMedia
         // Null means unbounded; zero means a known source is exhausted.
         public MediaTime? GetMaximumDuration(MediaTime? start = null)
         {
-            if (Targets(elementLength).Any(t => !t.IsSupported)) return MediaTime.Zero;
+            // An unresolved portal clock cannot justify a new length. Preserve
+            // the current width instead of making the UI clamp it to one frame.
+            if (Targets(elementLength).Any(t => !t.IsSupported)) return targetsAt == null ? MediaTime.Zero : elementLength;
             if (targetsAt == null && providerDuration == null && targets.All(t => t.Total == null)) return null;
             MediaTime startDelta = (start ?? elementStart) - elementStart;
             bool Fits(MediaTime length) => FitsProvider(length, allowRecovery: false)

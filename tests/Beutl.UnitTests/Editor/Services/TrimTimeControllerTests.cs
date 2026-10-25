@@ -1303,6 +1303,59 @@ public class TrimTimeControllerTests
 
     [TestCase(false)]
     [TestCase(true)]
+    public void Portal_IntermittentDrawableInputs_RejectUnprovenLocalVideoResize(bool disabledController)
+    {
+        var first = CreateVideo(20);
+        AddElement(0, 1, first).ZIndex.Value = 1;
+        AddElement(2, 1, CreateVideo(20)).ZIndex.Value = 5;
+        var local = CreateVideo(6);
+        Element element = AddElement(0, 6, local);
+        element.Objects.Insert(0, new PortalObject { Count = { Value = 10 } });
+        var controller = new DrawableTimeController { Speed = { Value = 200 } };
+        element.Objects.Add(controller);
+        using var compositor = CreateCompositor(_harness.Scene);
+        var resource = compositor.EvaluateGraphics(Seconds(0.5)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(resource.Target!.GetOriginal(), Is.SameAs(first));
+        resource = compositor.EvaluateGraphics(Seconds(4)).Objects.OfType<DrawableTimeController.Resource>().Single();
+        Assert.That(resource.Target!.GetOriginal(), Is.SameAs(local));
+        Assert.That(ReadPosition(resource), Is.GreaterThan(6), "Extending into the provider gap would overrun the local video.");
+
+        element.Length.Value = Seconds(3);
+        controller.IsEnabled.Value = !disabledController;
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.Multiple(() =>
+        {
+            Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(3)));
+            Assert.That(constraints.ClampLength(Seconds(6)), Is.EqualTo(Seconds(3)));
+            Assert.That(SlippableMedia.HasOriginalDuration(element), Is.False);
+            Assert.That(SlippableMedia.GetOriginalDuration(element), Is.Null);
+        });
+
+        new ElementResizeService(_harness.History).Resize(_harness.Scene, [new(element, element.Start.Value, Seconds(6), 0)]);
+        Assert.That(element.Length.Value, Is.EqualTo(Seconds(3)));
+        Assert.That(local.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Portal_IntermittentDrawableInputs_DoNotBlockUnrelatedAudio(bool localAudio)
+    {
+        AddElement(0, 1, CreateVideo(20)).ZIndex.Value = 1;
+        AddElement(2, 1, CreateVideo(20)).ZIndex.Value = 5;
+        Element element = _harness.AddElement(MediaTime.Zero, Seconds(3));
+        element.Objects.Add(new PortalObject { Count = { Value = 10 } });
+        if (localAudio)
+            element.Objects.Add(new SceneSound { ReferencedScene = { Value = new Scene { Duration = { Value = Seconds(6) } } } });
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+
+        Assert.That(constraints.ClampLength(Seconds(6)), Is.EqualTo(Seconds(6)));
+        Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(localAudio ? Seconds(6) : (MediaTime?)null));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
     public void Portal_DisabledControllerLimit_OnlyConstrainsLocalMedia(bool localMedia)
     {
         AddElement(0, 10, CreateVideo(10)).ZIndex.Value = 1;
@@ -1315,7 +1368,7 @@ public class TrimTimeControllerTests
         var constraints = SlippableMedia.CreateResizeConstraints(element);
         Assert.Multiple(() =>
         {
-            Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(localMedia ? MediaTime.Zero : (MediaTime?)null));
+            Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(localMedia ? Seconds(1) : (MediaTime?)null));
             Assert.That(constraints.ClampLength(Seconds(10)), Is.EqualTo(Seconds(localMedia ? 1 : 10)));
             Assert.That(_slip.Slip(_harness.Scene, [element], Seconds(1)), Is.False);
         });
