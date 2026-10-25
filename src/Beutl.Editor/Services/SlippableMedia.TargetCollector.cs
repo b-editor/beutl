@@ -148,10 +148,12 @@ internal static partial class SlippableMedia
                         Node input = flow[index];
                         if (_forResize && input.Opaque && IsEnabled(controller))
                         {
-                            // The first drawable may come from the portal or from
-                            // local media as providers appear/disappear. There is no
-                            // fixed original duration for this time-remapped output.
-                            flow.RemoveAll(node => node.Opaque || node.Object is Drawable && IsEnabled(node.Object));
+                            // With no imported drawable, only the first local
+                            // drawable can become this controller's input. Later
+                            // drawables keep their bounds. Retain the portal's place
+                            // in Flow for subsequent controllers.
+                            int localIndex = flow.FindIndex(node => node.Object is Drawable && IsEnabled(node.Object));
+                            if (localIndex >= 0) flow.RemoveAt(localIndex);
                             flow.Add(new Node(controller, [], Opaque: true));
                             continue;
                         }

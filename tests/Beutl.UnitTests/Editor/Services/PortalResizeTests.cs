@@ -106,6 +106,52 @@ public class PortalResizeTests
         Assert.That(video.OffsetPosition.Value, Is.EqualTo(MediaTime.Zero));
     }
 
+    [TestCase(false, 1)]
+    [TestCase(true, 1)]
+    [TestCase(false, 2)]
+    [TestCase(true, 2)]
+    public void Controller_PreservesLimitsForUnconsumedLocalVideo(bool videoInputs, int controllers)
+    {
+        using var clamp = new ClampResizeToOriginalLengthScope(true);
+        using var harness = new SceneHistoryHarness("beutl_portal_resize");
+        Element element = AddPortal(harness, 2);
+        element.Length.Value = Seconds(0.5);
+        foreach (Element provider in harness.Scene.Children.Where(child => child != element)) provider.Length.Value = Seconds(0.25);
+        for (int i = 0; i < controllers; i++) element.Objects.Add(videoInputs ? CreateVideo(10) : new RectShape());
+        var video = CreateVideo(1);
+        element.Objects.Add(video);
+        for (int i = 0; i < controllers; i++) element.Objects.Add(new DrawableTimeController { Speed = { Value = 200 } });
+
+        using var compositor = CreateCompositor(harness.Scene);
+        foreach (double time in new[] { 2.1, 2.4 })
+        {
+            var objects = compositor.EvaluateGraphics(Seconds(time)).Objects;
+            Assert.That(objects.OfType<SourceVideo.Resource>().Any(resource => ReferenceEquals(resource.GetOriginal(), video)), Is.True);
+            Assert.That(objects.OfType<DrawableTimeController.Resource>().All(resource => !ReferenceEquals(resource.Target?.GetOriginal(), video)), Is.True);
+        }
+
+        var constraints = SlippableMedia.CreateResizeConstraints(element);
+        Assert.Multiple(() =>
+        {
+            Assert.That(SlippableMedia.GetOriginalDuration(element), Is.EqualTo(Seconds(1)));
+            Assert.That(constraints.GetMaximumDuration(), Is.EqualTo(Seconds(1)));
+            Assert.That(constraints.ClampLength(Seconds(2)), Is.EqualTo(Seconds(1)));
+            Assert.That(constraints.ClampStart(Seconds(1)), Is.EqualTo(Seconds(1.5)));
+            Assert.That(constraints.ClampLength(Seconds(0.75)), Is.EqualTo(Seconds(0.75)));
+        });
+        harness.History.Commit();
+        foreach (bool leftEdge in new[] { false, true })
+        {
+            new ElementResizeService(harness.History).Resize(harness.Scene,
+                [new(element, Seconds(leftEdge ? 1 : 2), Seconds(leftEdge ? 1.5 : 2), 0)]);
+            Assert.That(element.Start.Value, Is.EqualTo(Seconds(leftEdge ? 1.5 : 2)));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(1)));
+            harness.History.Undo();
+            Assert.That(element.Start.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(element.Length.Value, Is.EqualTo(Seconds(0.5)));
+        }
+    }
+
     private static Element AddPortal(SceneHistoryHarness harness, int providers)
     {
         Element element = harness.AddElement(Seconds(2), Seconds(3));
