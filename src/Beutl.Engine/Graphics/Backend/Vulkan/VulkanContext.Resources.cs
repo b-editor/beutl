@@ -178,6 +178,8 @@ internal sealed unsafe partial class VulkanContext
             .ToArray();
         var vulkanVertexInput = VulkanFlagConverter.ToVulkan(vertexInput);
         var pipelineOptions = options ?? PipelineOptions.Default;
+        if (pipelineOptions.Topology == PrimitiveTopology.TriangleFan && !SupportsTriangleFans)
+            throw new NotSupportedException("This device does not support triangle fans.");
         ImmutableArray<SpecializationConstant> specializationConstants =
             ValidateSpecializationConstants(pipelineOptions.SpecializationConstants, nameof(options));
         ValidateSpecializationConstantPrecision(specializationConstants, nameof(options));

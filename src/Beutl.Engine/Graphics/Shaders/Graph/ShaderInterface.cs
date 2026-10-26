@@ -15,6 +15,7 @@ internal sealed class ShaderInterface
     private readonly Dictionary<uint, uint> _constants = [];
     private readonly List<(uint Type, uint Id, uint Storage)> _variables = [];
     private readonly Dictionary<(uint Location, uint Component), string> _inputs = [];
+    private readonly Dictionary<(uint Location, uint Component), uint> _inputTypes = [];
     private readonly Dictionary<(uint Location, uint Component), string> _outputs = [];
 
     internal sealed record Binding(int Slot, DescriptorType Type, int MinimumSize, int ArrayStride,
@@ -189,6 +190,8 @@ internal sealed class ShaderInterface
             if (valueLocation == uint.MaxValue)
                 throw new NotSupportedException("Shader stage inputs and outputs must declare a location or a built-in.");
             variables.Add((valueLocation, valueComponent), InterfaceType(valueType));
+            if (ReferenceEquals(variables, _inputs))
+                _inputTypes.Add((valueLocation, valueComponent), valueType);
         }
     }
 
@@ -227,6 +230,34 @@ internal sealed class ShaderInterface
         {
             if (!vertex._outputs.TryGetValue(location, out string? outputType) || outputType != type)
                 throw new ArgumentException($"Pass '{passName}': fragment input at location {location.Location}, component {location.Component} does not match a vertex output.");
+        }
+    }
+
+    private void ValidateVertexInputs(ShaderPassDescription pass)
+    {
+        foreach ((var location, uint type) in _inputTypes)
+            Validate(type, location.Location);
+
+        void Validate(uint type, uint location)
+        {
+            (ushort op, uint[] args) = _types[type];
+            if (op is 24 or 28) // matrix columns and array elements occupy consecutive locations
+            {
+                uint count = op == 24 ? args[1] : _constants[args[1]];
+                for (uint i = 0; i < count; i++)
+                    Validate(args[0], checked(location + i * LocationCount(args[0])));
+                return;
+            }
+            if (op == 23)
+                (op, args) = _types[args[0]];
+            int category = op == 22 ? 0 : op == 21 ? (args[1] == 1 ? 1 : 2) : -1;
+            if (!pass.Draw.Attributes.Any(a => a.Location == location))
+                throw new ArgumentException($"Pass '{pass.Name}': missing vertex attribute at location {location}.");
+            VertexAttributeDescription attribute = pass.Draw.Attributes.First(a => a.Location == location);
+            // Vulkan fills missing vector components with (0,0,0,1) and discards unused components.
+            // Numeric category and bit width must match, including component-packed shader inputs.
+            if (category < 0 || args[0] != 32 || (int)attribute.Format / 4 != category)
+                throw new ArgumentException($"Pass '{pass.Name}': vertex attribute at location {location} does not match the shader's numeric type.");
         }
     }
 
@@ -269,8 +300,8 @@ internal sealed class ShaderInterface
 
     public void Validate(ShaderPassDescription pass, ShaderStage stage, IReadOnlySet<int>? writableBindings = null)
     {
-        if (stage == ShaderStage.Vertex && _inputs.Count != 0)
-            throw new NotSupportedException($"Pass '{pass.Name}': vertex attributes are not supported by shader graphs yet; use vertex indices or storage buffers.");
+        if (stage == ShaderStage.Vertex)
+            ValidateVertexInputs(pass);
         if (PushConstantSize > 128 || pass.Constants.Length < PushConstantSize)
             throw new ArgumentException($"Pass '{pass.Name}' requires {PushConstantSize} push-constant bytes; supplied {pass.Constants.Length}.");
         foreach (Binding declared in Bindings)

@@ -179,7 +179,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 var inputAssembly = new PipelineInputAssemblyStateCreateInfo
                 {
                     SType = StructureType.PipelineInputAssemblyStateCreateInfo,
-                    Topology = PrimitiveTopology.TriangleList,
+                    Topology = state.Topology,
                     PrimitiveRestartEnable = Vk.False
                 };
 

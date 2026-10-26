@@ -347,7 +347,7 @@ internal sealed unsafe class VulkanPresentPipeline : IDisposable
                 var inputAssembly = new PipelineInputAssemblyStateCreateInfo
                 {
                     SType = StructureType.PipelineInputAssemblyStateCreateInfo,
-                    Topology = PrimitiveTopology.TriangleList
+                    Topology = Silk.NET.Vulkan.PrimitiveTopology.TriangleList
                 };
 
                 var viewportState = new PipelineViewportStateCreateInfo

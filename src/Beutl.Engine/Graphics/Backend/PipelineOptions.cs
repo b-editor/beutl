@@ -7,6 +7,9 @@ namespace Beutl.Graphics.Backend;
 /// </summary>
 public struct PipelineOptions
 {
+    /// <summary>Gets or sets primitive assembly (default: triangle list, without primitive restart).</summary>
+    public PrimitiveTopology Topology { get; set; }
+
     /// <summary>
     /// Gets or sets the immutable specialization constants applied when the pipeline is created.
     /// A default or empty array applies no specialization.
