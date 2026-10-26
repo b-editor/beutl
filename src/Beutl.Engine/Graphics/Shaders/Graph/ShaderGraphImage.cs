@@ -36,10 +36,14 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
             ImageType = description.Kind == ImageKind.Image3D ? ImageType.Type3D : ImageType.Type2D,
             Format = description.Format.ToVulkanFormat(),
             Extent = new((uint)description.Width, (uint)description.Height, (uint)description.Depth),
-            MipLevels = (uint)description.MipLevels, ArrayLayers = (uint)description.ArrayLayers,
-            Samples = SampleCountFlags.Count1Bit, Tiling = ImageTiling.Optimal,
-            Usage = usage, SharingMode = SharingMode.Exclusive,
-            Flags = CubeFlags(description), InitialLayout = ImageLayout.Undefined,
+            MipLevels = (uint)description.MipLevels,
+            ArrayLayers = (uint)description.ArrayLayers,
+            Samples = SampleCountFlags.Count1Bit,
+            Tiling = ImageTiling.Optimal,
+            Usage = usage,
+            SharingMode = SharingMode.Exclusive,
+            Flags = CubeFlags(description),
+            InitialLayout = ImageLayout.Undefined,
         };
         NativeImage image;
         Result result = context.Vk.CreateImage(context.Device, &info, null, &image);
@@ -79,7 +83,9 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
             range.AspectMask = ImageAspectFlags.DepthBit;
         var info = new ImageViewCreateInfo
         {
-            SType = StructureType.ImageViewCreateInfo, Image = Handle, Format = image.Format.ToVulkanFormat(),
+            SType = StructureType.ImageViewCreateInfo,
+            Image = Handle,
+            Format = image.Format.ToVulkanFormat(),
             ViewType = image.Kind switch
             {
                 ImageKind.Image2D => ImageViewType.Type2D,
@@ -119,25 +125,28 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
         }
         _context.ThrowIfRenderPassActive();
         for (uint mip = range.BaseMipLevel; mip < range.BaseMipLevel + range.LevelCount; mip++)
-        for (uint layer = range.BaseArrayLayer; layer < range.BaseArrayLayer + range.LayerCount; layer++)
-        {
-            ImageLayout previous = _layouts[mip, layer];
-            if (previous == layout)
-                continue;
-            var barrier = new ImageMemoryBarrier
+            for (uint layer = range.BaseArrayLayer; layer < range.BaseArrayLayer + range.LayerCount; layer++)
             {
-                SType = StructureType.ImageMemoryBarrier,
-                OldLayout = previous, NewLayout = layout, Image = Handle,
-                SrcQueueFamilyIndex = Vk.QueueFamilyIgnored, DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-                SrcAccessMask = previous == ImageLayout.Undefined ? 0 : AccessFlags.MemoryReadBit | AccessFlags.MemoryWriteBit,
-                DstAccessMask = AccessFlags.MemoryReadBit | AccessFlags.MemoryWriteBit,
-                SubresourceRange = new(Description.Format.GetAspectMask(), mip, 1, layer, 1),
-            };
-            _context.Vk.CmdPipelineBarrier(_context.GetRecordingCommandBuffer(),
-                previous == ImageLayout.Undefined ? PipelineStageFlags.TopOfPipeBit : PipelineStageFlags.AllCommandsBit,
-                PipelineStageFlags.AllCommandsBit, 0, 0, null, 0, null, 1, &barrier);
-            _layouts[mip, layer] = layout;
-        }
+                ImageLayout previous = _layouts[mip, layer];
+                if (previous == layout)
+                    continue;
+                var barrier = new ImageMemoryBarrier
+                {
+                    SType = StructureType.ImageMemoryBarrier,
+                    OldLayout = previous,
+                    NewLayout = layout,
+                    Image = Handle,
+                    SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                    DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
+                    SrcAccessMask = previous == ImageLayout.Undefined ? 0 : AccessFlags.MemoryReadBit | AccessFlags.MemoryWriteBit,
+                    DstAccessMask = AccessFlags.MemoryReadBit | AccessFlags.MemoryWriteBit,
+                    SubresourceRange = new(Description.Format.GetAspectMask(), mip, 1, layer, 1),
+                };
+                _context.Vk.CmdPipelineBarrier(_context.GetRecordingCommandBuffer(),
+                    previous == ImageLayout.Undefined ? PipelineStageFlags.TopOfPipeBit : PipelineStageFlags.AllCommandsBit,
+                    PipelineStageFlags.AllCommandsBit, 0, 0, null, 0, null, 1, &barrier);
+                _layouts[mip, layer] = layout;
+            }
     }
 
     public void Dispose()

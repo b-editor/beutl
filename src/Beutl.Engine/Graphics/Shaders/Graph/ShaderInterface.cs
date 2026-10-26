@@ -138,8 +138,11 @@ internal sealed class ShaderInterface
                     throw new NotSupportedException($"Binding {slot}: multisampled images are not supported.");
                 kind = (image[1], image[3]) switch
                 {
-                    (1, 0) => ImageKind.Image2D, (1, 1) => ImageKind.Image2DArray,
-                    (2, 0) => ImageKind.Image3D, (3, 0) => ImageKind.Cube, (3, 1) => ImageKind.CubeArray,
+                    (1, 0) => ImageKind.Image2D,
+                    (1, 1) => ImageKind.Image2DArray,
+                    (2, 0) => ImageKind.Image3D,
+                    (3, 0) => ImageKind.Cube,
+                    (3, 1) => ImageKind.CubeArray,
                     _ => throw new NotSupportedException($"Binding {slot}: unsupported image dimensionality."),
                 };
                 category = NumericCategory(image[0]);

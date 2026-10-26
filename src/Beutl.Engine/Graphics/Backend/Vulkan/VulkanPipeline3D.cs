@@ -176,7 +176,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 shaderStages[stageIndex++] = DescribeShaderStage(VulkanFlagConverter.ToVulkan(stage), module, mainPtr, null);
             var tessellation = new PipelineTessellationStateCreateInfo
             {
-                SType = StructureType.PipelineTessellationStateCreateInfo, PatchControlPoints = _patchControlPoints,
+                SType = StructureType.PipelineTessellationStateCreateInfo,
+                PatchControlPoints = _patchControlPoints,
             };
 
             fixed (VertexInputBindingDescription* bindingsPtr = vertexInput.Bindings)
@@ -319,7 +320,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             DepthCompareOp = state.DepthCompare,
             DepthBoundsTestEnable = Vk.False,
             StencilTestEnable = state.StencilEnabled,
-            Front = state.StencilFront, Back = state.StencilBack
+            Front = state.StencilFront,
+            Back = state.StencilBack
         };
 
     private static PipelineColorBlendAttachmentState DescribeColorBlendAttachment(

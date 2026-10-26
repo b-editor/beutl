@@ -269,12 +269,19 @@ public sealed partial class ShaderPassBuilder
         var draw = new ShaderDrawDescription(
             [.. _vertexBindings.OrderBy(b => b.Binding)], [.. _vertexAttributes.OrderBy(a => a.Location)],
             [.. _vertices.Values.OrderBy(v => v.Binding)], _indexed ? _indices : null,
-            _topology, _firstElement, _vertexOffset, _firstInstance) { Indirect = _indirect };
+            _topology, _firstElement, _vertexOffset, _firstInstance)
+        { Indirect = _indirect };
         draw.Validate(_name, work.X, work.Y);
         return new(_name, _program, [.. _bindings.Values.OrderBy(b => b.Binding)], [.. attachments],
             _constants, _blend, work, _threads)
-        { Draw = draw, DepthAttachment = _depthAttachment, DepthStencil = _depthStencil,
-            CullMode = _cullMode, FrontFace = _frontFace, PatchControlPoints = _patchControlPoints };
+        {
+            Draw = draw,
+            DepthAttachment = _depthAttachment,
+            DepthStencil = _depthStencil,
+            CullMode = _cullMode,
+            FrontFace = _frontFace,
+            PatchControlPoints = _patchControlPoints
+        };
     }
 }
 

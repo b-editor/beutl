@@ -1,5 +1,6 @@
 ﻿using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
+using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics3DTests;
 
@@ -7,6 +8,33 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class VulkanTextureTransferTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public void CopyTexture_PreservesStorageAndAttachmentDestinations(bool colorAttachment)
+    {
+        VulkanContext context = GpuTestEnvironment.EnsureVulkanAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            const int width = 3;
+            const int height = 2;
+            byte[] expected = Enumerable.Range(0, width * height * 4).Select(i => (byte)(i * 7)).ToArray();
+            using ITexture2D source = context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm);
+            source.Upload(expected);
+            ImageUsageFlags usage = ImageUsageFlags.StorageBit | ImageUsageFlags.SampledBit
+                | ImageUsageFlags.TransferSrcBit | ImageUsageFlags.TransferDstBit;
+            if (colorAttachment) usage |= ImageUsageFlags.ColorAttachmentBit;
+            using VulkanTexture2D destination = context.CreateTexture2D(width, height, TextureFormat.RGBA8Unorm, usage);
+
+            context.CopyTexture(source, destination);
+
+            // Inspect the tracked layout before readback establishes its own transfer layout.
+            var layout = (ImageLayout)destination.CreateSkiaImageInfo().ImageLayout;
+            Assert.That(layout, Is.EqualTo(colorAttachment
+                ? VulkanTexture2D.SkiaInteropLayout : ImageLayout.TransferDstOptimal));
+            Assert.That(destination.DownloadPixels(), Is.EqualTo(expected));
+        });
+    }
+
     [TestCase(TextureFormat.RGBA8Unorm, 4)]
     [TestCase(TextureFormat.BGRA8Unorm, 4)]
     [TestCase(TextureFormat.RGBA16Float, 8)]

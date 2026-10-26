@@ -162,9 +162,13 @@ internal static class VulkanFlagConverter
 
     public static StencilOpState ToVulkan(StencilFaceState value) => new()
     {
-        CompareOp = ToVulkan(value.Compare), CompareMask = value.CompareMask,
-        WriteMask = value.WriteMask, Reference = value.Reference,
-        FailOp = ToVulkan(value.Fail), DepthFailOp = ToVulkan(value.DepthFail), PassOp = ToVulkan(value.Pass),
+        CompareOp = ToVulkan(value.Compare),
+        CompareMask = value.CompareMask,
+        WriteMask = value.WriteMask,
+        Reference = value.Reference,
+        FailOp = ToVulkan(value.Fail),
+        DepthFailOp = ToVulkan(value.DepthFail),
+        PassOp = ToVulkan(value.Pass),
     };
 
     private static StencilOp ToVulkan(StencilOperation value) => value switch

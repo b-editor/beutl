@@ -40,9 +40,15 @@ public sealed partial class ShaderGraphBuilder
         AddName(_resourceNames, name);
         ImageDescription? description = image.Description;
         if (description is { } desc)
-            description = desc with { Kind = kind, Width = Math.Max(1, desc.Width >> baseMip),
-                Height = Math.Max(1, desc.Height >> baseMip), Depth = Math.Max(1, desc.Depth >> baseMip),
-                ArrayLayers = arrayLayers, MipLevels = mipLevels };
+            description = desc with
+            {
+                Kind = kind,
+                Width = Math.Max(1, desc.Width >> baseMip),
+                Height = Math.Max(1, desc.Height >> baseMip),
+                Depth = Math.Max(1, desc.Depth >> baseMip),
+                ArrayLayers = arrayLayers,
+                MipLevels = mipLevels
+            };
         else if (kind != ImageKind.Image2D)
             throw new ArgumentException("A composition-sized image has one 2D layer.");
         var view = new ShaderImage(this, _resources.Count, name, image.Format, image,

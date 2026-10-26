@@ -71,8 +71,10 @@ internal static unsafe class ShaderGraphTransfers
             case ShaderTransferKind.ClearImage:
                 var color = new ClearColorValue
                 {
-                    Uint32_0 = transfer.Color.X, Uint32_1 = transfer.Color.Y,
-                    Uint32_2 = transfer.Color.Z, Uint32_3 = transfer.Color.W,
+                    Uint32_0 = transfer.Color.X,
+                    Uint32_1 = transfer.Color.Y,
+                    Uint32_2 = transfer.Color.Z,
+                    Uint32_3 = transfer.Color.W,
                 };
                 context.Vk.CmdClearColorImage(command, owner.Handle, ImageLayout.TransferDstOptimal, &color, 1, &range);
                 break;
