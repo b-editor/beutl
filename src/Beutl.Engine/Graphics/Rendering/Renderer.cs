@@ -883,7 +883,7 @@ public class Renderer : IRenderer
     }
 
     // A cached 3D preview may contain a handle even after its selection changed. Replay 3D frames
-    // with the existing delivery intent into a separate target, preserving the editor surface.
+    // without gizmos, preserving both the editor surface and preview allocation-failure behavior.
     internal Bitmap? SnapshotWithoutGizmos()
     {
         _dispatcher.VerifyAccess();
@@ -893,7 +893,10 @@ public class Renderer : IRenderer
         _completeTarget.UpdateRoots(_allCurrentEntries.Select(static entry => (RenderNode)entry.Node));
         using var raster = _frameRenderer.Rasterize(_frameRenderer.DefaultRequest with
         {
-            Intent = RenderIntent.Delivery,
+            SuppressGizmos = true,
+            // Editor output caches may contain handles; do not read or replace them for this replay.
+            CacheOptions = RenderCacheOptions.Disabled,
+            ManageCacheLifecycle = false,
             Purpose = RenderRequestPurpose.Auxiliary,
             RequestedRegion = new Rect(default, FrameSize.ToSize(1)),
         });

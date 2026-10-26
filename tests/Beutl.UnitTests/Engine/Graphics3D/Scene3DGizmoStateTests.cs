@@ -1,7 +1,9 @@
 ﻿using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Gizmo;
 using Beutl.Graphics3D.Primitives;
@@ -11,6 +13,7 @@ using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
 using Beutl.UnitTests.TestInfrastructure;
+using Moq;
 
 namespace Beutl.UnitTests.Engine.Graphics3D;
 
@@ -116,6 +119,61 @@ public sealed class Scene3DGizmoStateTests
                     "the control: the preview draws the gizmo, so a frame with it can be told apart");
                 Assert.That(exportWith, Is.EqualTo(exportWithout), "an export must not carry the gizmo");
             });
+        });
+    }
+
+    [Test]
+    public void Presentation_KeepsPreviewAllocationFailureBehavior()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var device = new Mock<IGraphicsContext>();
+            device.SetupGet(c => c.Supports3DRendering).Returns(true);
+            device.SetupGet(c => c.MaxAttachmentDimension).Returns(8192);
+            device.SetupGet(c => c.MaxCubeFaceDimension).Returns(8192);
+            device.SetupGet(c => c.SkiaContext).Returns(GraphicsContextFactory.SharedContext!.SkiaContext);
+            device.Setup(c => c.CreateShaderCompiler()).Returns(Mock.Of<IShaderCompiler>());
+            device.Setup(c => c.CreateTextureArray(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<uint>(), It.IsAny<TextureFormat>()))
+                .Throws(new InvalidOperationException("Simulated 3D allocation failure."));
+            InstalledGraphics previous = GraphicsContextFactory.ExchangeInstalledGraphics(
+                new InstalledGraphics(device.Object, null, null, FailedToInitialize: false));
+            // Keep the 2D target available while the 3D device refuses its allocation.
+            var allocationContext = RenderTarget.ExchangeAllocationContext(() => null);
+            try
+            {
+                var scene = new Scene(160, 120, string.Empty);
+                var threeD = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
+                threeD.AddObject(new Scene3D
+                {
+                    RenderWidth = { Value = 160 },
+                    RenderHeight = { Value = 120 },
+                    BackgroundColor = { Value = Colors.Blue },
+                });
+                scene.Children.Add(threeD);
+                var twoD = new Element { Length = { Value = MediaTime.FromSeconds(1) }, ZIndex = { Value = 1 } };
+                twoD.AddObject(new RectShape
+                {
+                    Width = { Value = 60 },
+                    Height = { Value = 50 },
+                    Fill = { Value = new SolidColorBrush(Colors.Red) },
+                });
+                scene.Children.Add(twoD);
+                using var renderer = new SceneRenderer(scene, RenderIntent.Preview);
+                renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.Zero));
+                using Bitmap preview = renderer.Snapshot();
+                using Bitmap clean = renderer.SnapshotWithoutGizmos()!;
+                Assert.That(clean, Is.Not.Null);
+                Assert.That(clean.GetPixelSpan().ToArray(), Is.EqualTo(preview.GetPixelSpan().ToArray()));
+                Assert.That(clean.GetPixelSpan().ToArray(), Has.Some.Not.Zero, "The 2D content must still be drawn.");
+                device.Verify(c => c.CreateTextureArray(It.IsAny<int>(), It.IsAny<int>(), It.IsAny<uint>(), It.IsAny<TextureFormat>()),
+                    Times.AtLeastOnce, "The control must exercise a real 3D allocation failure.");
+            }
+            finally
+            {
+                RenderTarget.ExchangeAllocationContext(allocationContext);
+                GraphicsContextFactory.ExchangeInstalledGraphics(previous);
+            }
         });
     }
 

@@ -107,7 +107,8 @@ internal sealed class Scene3DRenderNode(Scene3D.Resource scene) : RenderNode
         Light3D.Resource[] lights = scene.Lights.Where(static item => item.IsEnabled).ToArray();
         // The gizmo is camera mode's handle on the selected object, drawn for the editor. An export renders the
         // same scene while camera mode may still have something selected, and must not carry the handle.
-        Object3D.Resource? gizmoTarget = context.Intent == RenderIntent.Preview && scene.GizmoTarget is { } targetId
+        Object3D.Resource? gizmoTarget = context.Intent == RenderIntent.Preview
+            && !context.SuppressGizmos && scene.GizmoTarget is { } targetId
             ? FindObjectById(objects, targetId)
             : null;
         GizmoMode gizmoMode = gizmoTarget is null ? GizmoMode.None : scene.GizmoMode;
