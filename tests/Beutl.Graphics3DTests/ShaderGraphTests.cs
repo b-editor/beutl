@@ -226,7 +226,7 @@ public sealed class ShaderGraphTests
             Assert.That(() => fragment.ValidateInputs(vertex, "linked"), Throws.Nothing);
         else
             Assert.That(() => fragment.ValidateInputs(vertex, "mismatched"),
-                Throws.ArgumentException.With.Message.Contains("fragment input"));
+                Throws.ArgumentException.With.Message.Contains("stage input"));
     }
 
     [Test]
@@ -300,7 +300,18 @@ public sealed class ShaderGraphTests
             layout(location = 0) out vec4 color;
             void main() { color = vec4(texture(image, {{coordinate}})); }
             """, ShaderStage.Fragment);
-        Assert.Throws<NotSupportedException>(() => new ShaderInterface(bytes, ShaderStage.Fragment));
+        var shader = new ShaderInterface(bytes, ShaderStage.Fragment);
+        ShaderGraphDescription graph = ShaderGraphBuilder.Build(0, (builder, _) =>
+        {
+            ShaderImage output = builder.Image2D("output", builder.Source);
+            builder.Fullscreen("sample", ColorProgram, pass =>
+            {
+                pass.SampledImage(0, builder.Source);
+                pass.ColorAttachment(0, output);
+            });
+            return builder.Output(output);
+        });
+        Assert.Throws<ArgumentException>(() => shader.Validate(graph.Passes[0], ShaderStage.Fragment));
     }
 
     [TestCase("ivec4", "ivec4(1)")]
@@ -314,6 +325,10 @@ public sealed class ShaderGraphTests
             layout(location = 0) out {{type}} color;
             void main() { color = {{value}}; }
             """, ShaderStage.Fragment);
-        Assert.Throws<NotSupportedException>(() => new ShaderInterface(bytes, ShaderStage.Fragment));
+        if (type.Contains('['))
+            Assert.Throws<NotSupportedException>(() => new ShaderInterface(bytes, ShaderStage.Fragment));
+        else
+            Assert.Throws<ArgumentException>(() => new ShaderInterface(bytes, ShaderStage.Fragment)
+                .Validate(ColorGraph(Vector4.One).Passes[0], ShaderStage.Fragment));
     }
 }

@@ -6,7 +6,7 @@ namespace Beutl.Graphics.Shaders;
 
 /// <summary>Declares bindings, attachments, parameter bytes and one draw or dispatch.</summary>
 /// <remarks>Bindings refer to set zero in the shader. The compiled interface is validated before execution.</remarks>
-public sealed class ShaderPassBuilder
+public sealed partial class ShaderPassBuilder
 {
     private readonly ShaderGraphBuilder _graph;
     private readonly string _name;
@@ -41,7 +41,9 @@ public sealed class ShaderPassBuilder
     {
         SamplerState state = sampler ?? SamplerState.LinearTransparent;
         if (!Enum.IsDefined(state.MinFilter) || !Enum.IsDefined(state.MagFilter)
-            || !Enum.IsDefined(state.AddressU) || !Enum.IsDefined(state.AddressV))
+            || !Enum.IsDefined(state.AddressU) || !Enum.IsDefined(state.AddressV) || !Enum.IsDefined(state.AddressW)
+            || !Enum.IsDefined(state.MipmapFilter) || state.Compare is { } comparison && !Enum.IsDefined(comparison)
+            || !float.IsFinite(state.MinLod) || !float.IsFinite(state.MaxLod) || state.MinLod < 0 || state.MaxLod < state.MinLod)
             throw new ArgumentOutOfRangeException(nameof(sampler));
         AddBinding(binding, image, DescriptorType.CombinedImageSampler, ResourceAccess.Read, state);
     }
@@ -57,8 +59,10 @@ public sealed class ShaderPassBuilder
     /// </remarks>
     public void StorageImage(int binding, ShaderImage image, ResourceAccess access)
     {
-        if (ReferenceEquals(image, _graph.Source) && (access & ResourceAccess.Write) != 0)
+        if (ReferenceEquals(image.Root, _graph.Source) && (access & ResourceAccess.Write) != 0)
             throw new ArgumentException("The source image is read-only.", nameof(image));
+        if (image.MipLevels != 1 || image.Format.IsDepthFormat())
+            throw new ArgumentException("Storage image bindings select one color mip level.", nameof(image));
         AddBinding(binding, image, DescriptorType.StorageImage, access, default);
     }
 
@@ -93,8 +97,10 @@ public sealed class ShaderPassBuilder
         ArgumentOutOfRangeException.ThrowIfNegative(location);
         if (!Enum.IsDefined(load))
             throw new ArgumentOutOfRangeException(nameof(load));
-        if (ReferenceEquals(image, _graph.Source))
+        if (ReferenceEquals(image.Root, _graph.Source))
             throw new ArgumentException("The source image is read-only.", nameof(image));
+        if (!image.IsAttachment || image.Format.IsDepthFormat())
+            throw new ArgumentException("A color attachment selects one 2D color subresource.", nameof(image));
         if (!_attachments.TryAdd(location, new(location, image, load)))
             throw new ArgumentException($"Pass '{_name}' already writes location {location}.", nameof(location));
     }
@@ -193,6 +199,7 @@ public sealed class ShaderPassBuilder
         _firstElement = firstElement;
         _vertexOffset = vertexOffset;
         _firstInstance = firstInstance;
+        _indirect = null;
     }
 
     /// <summary>Dispatches workgroups with the local size declared by the compute shader.</summary>
@@ -201,6 +208,7 @@ public sealed class ShaderPassBuilder
         EnsureCompute();
         SetWork(x, y, z);
         _threads = false;
+        _indirect = null;
     }
 
     /// <summary>Rounds invocation counts up to the compiled local size. The shader must guard excess invocations.</summary>
@@ -209,6 +217,7 @@ public sealed class ShaderPassBuilder
         EnsureCompute();
         SetWork(x, y, z);
         _threads = true;
+        _indirect = null;
     }
 
     private void SetWork(int x, int y, int z)
@@ -242,28 +251,30 @@ public sealed class ShaderPassBuilder
         if (_work is not { } work)
             throw new InvalidOperationException($"Pass '{_name}' requires a draw or dispatch.");
         ShaderColorAttachment[] attachments = _attachments.Values.OrderBy(a => a.Location).ToArray();
-        if (!_program.IsCompute && attachments.Length == 0)
-            throw new InvalidOperationException($"Pass '{_name}' requires a color attachment.");
+        if (!_program.IsCompute && attachments.Length == 0 && _depthAttachment is null)
+            throw new InvalidOperationException($"Pass '{_name}' requires an attachment.");
         for (int i = 0; i < attachments.Length; i++)
         {
             if (attachments[i].Location != i)
                 throw new InvalidOperationException($"Pass '{_name}' requires consecutive color locations starting at zero.");
             if (attachments[i].Load != attachments[0].Load)
                 throw new NotSupportedException($"Pass '{_name}' requires a shared attachment load operation.");
-            if (attachments.Take(i).Any(a => ReferenceEquals(a.Image, attachments[i].Image))
-                || _bindings.Values.Any(b => !b.Metadata && ReferenceEquals(b.Resource, attachments[i].Image)))
+            if (attachments.Take(i).Any(a => a.Image.Overlaps(attachments[i].Image))
+                || _bindings.Values.Any(b => !b.Metadata && b.Resource is ShaderImage image && image.Overlaps(attachments[i].Image)))
                 throw new InvalidOperationException($"Pass '{_name}' aliases attachment '{attachments[i].Image.Name}'.");
         }
         if (_indexed && _indices is null)
             throw new InvalidOperationException($"Pass '{_name}' requires an index buffer.");
+        ValidateDepth();
         var draw = new ShaderDrawDescription(
             [.. _vertexBindings.OrderBy(b => b.Binding)], [.. _vertexAttributes.OrderBy(a => a.Location)],
             [.. _vertices.Values.OrderBy(v => v.Binding)], _indexed ? _indices : null,
-            _topology, _firstElement, _vertexOffset, _firstInstance);
+            _topology, _firstElement, _vertexOffset, _firstInstance) { Indirect = _indirect };
         draw.Validate(_name, work.X, work.Y);
         return new(_name, _program, [.. _bindings.Values.OrderBy(b => b.Binding)], [.. attachments],
             _constants, _blend, work, _threads)
-        { Draw = draw };
+        { Draw = draw, DepthAttachment = _depthAttachment, DepthStencil = _depthStencil,
+            CullMode = _cullMode, FrontFace = _frontFace, PatchControlPoints = _patchControlPoints };
     }
 }
 
@@ -271,10 +282,17 @@ internal sealed record ShaderPassBinding(int Binding, ShaderResource Resource, D
     ResourceAccess Access, SamplerState Sampler, bool Metadata);
 
 internal sealed record ShaderColorAttachment(int Location, ShaderImage Image, AttachmentLoadOp Load);
+internal sealed record ShaderDepthAttachment(ShaderImage Image, AttachmentLoadOp Load, float ClearDepth, uint ClearStencil);
 
-internal sealed record ShaderPassDescription(string Name, ShaderProgram Program,
+internal sealed record ShaderPassDescription(string Name, ShaderProgram? Program,
     ImmutableArray<ShaderPassBinding> Bindings, ImmutableArray<ShaderColorAttachment> Attachments,
     ImmutableArray<byte> Constants, BlendState Blend, (int X, int Y, int Z) Work, bool DispatchThreads)
 {
     public ShaderDrawDescription Draw { get; init; } = ShaderDrawDescription.Empty;
+    public ShaderDepthAttachment? DepthAttachment { get; init; }
+    public DepthStencilState DepthStencil { get; init; }
+    public CullMode CullMode { get; init; }
+    public FrontFace FrontFace { get; init; }
+    public int PatchControlPoints { get; init; } = 3;
+    public ShaderTransfer? Transfer { get; init; }
 }

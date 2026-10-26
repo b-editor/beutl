@@ -72,7 +72,7 @@ public sealed class ShaderGraphStorageImageTests
         ShaderPassDescription pass = graph.Passes[0];
         using var compiler = new VulkanShaderCompiler();
         var shader = new ShaderInterface(compiler.CompileToSpirv(
-            pass.Program.Stages[ShaderStage.Compute].Text, ShaderStage.Compute), ShaderStage.Compute);
+            pass.Program!.Stages[ShaderStage.Compute].Text, ShaderStage.Compute), ShaderStage.Compute);
         Assert.That(() => shader.Validate(pass, ShaderStage.Compute), Throws.Nothing);
         var wrongImage = new ShaderImage(graph, -1, "wrong-format", TextureFormat.BGRA8Unorm, null, null, 0, 1);
         Assert.That(() => shader.Validate(pass with

@@ -7,6 +7,14 @@ namespace Beutl.Graphics.Backend;
 /// </summary>
 public struct PipelineOptions
 {
+    /// <summary>Gets or sets the depth comparison (default: Less).</summary>
+    public CompareFunction DepthCompare { get; set; }
+
+    /// <summary>Gets or sets stencil testing and the front/back face operations.</summary>
+    public bool StencilEnabled { get; set; }
+    public StencilFaceState StencilFront { get; set; }
+    public StencilFaceState StencilBack { get; set; }
+
     /// <summary>Gets or sets primitive assembly (default: triangle list, without primitive restart).</summary>
     public PrimitiveTopology Topology { get; set; }
 

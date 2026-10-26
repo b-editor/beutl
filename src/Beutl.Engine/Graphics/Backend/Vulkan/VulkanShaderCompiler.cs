@@ -97,6 +97,9 @@ internal sealed unsafe class VulkanShaderCompiler : IShaderCompiler, IDisposable
             ShaderStage.Vertex => ShaderKind.VertexShader,
             ShaderStage.Fragment => ShaderKind.FragmentShader,
             ShaderStage.Compute => ShaderKind.ComputeShader,
+            ShaderStage.Geometry => ShaderKind.GeometryShader,
+            ShaderStage.TessellationControl => ShaderKind.TessControlShader,
+            ShaderStage.TessellationEvaluation => ShaderKind.TessEvaluationShader,
             _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
         };
     }

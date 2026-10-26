@@ -17,7 +17,9 @@ internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
         SamplerFilter magFilter = SamplerFilter.Linear,
         SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
         SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge,
-        bool transparentBorder = false)
+        bool transparentBorder = false, SamplerAddressMode? addressModeW = null,
+        SamplerFilter mipmapFilter = SamplerFilter.Linear, float minLod = 0, float maxLod = 0,
+        CompareFunction? compare = null, bool integerBorder = false)
     {
         _context = context;
         MinFilter = minFilter;
@@ -35,17 +37,19 @@ internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
             MagFilter = ToVulkanFilter(magFilter),
             AddressModeU = ToVulkanAddressMode(addressModeU),
             AddressModeV = ToVulkanAddressMode(addressModeV),
-            AddressModeW = ToVulkanAddressMode(addressModeU),
+            AddressModeW = ToVulkanAddressMode(addressModeW ?? addressModeU),
             AnisotropyEnable = false,
             MaxAnisotropy = 1.0f,
-            BorderColor = transparentBorder ? BorderColor.FloatTransparentBlack : BorderColor.FloatOpaqueBlack,
+            BorderColor = integerBorder
+                ? (transparentBorder ? BorderColor.IntTransparentBlack : BorderColor.IntOpaqueBlack)
+                : (transparentBorder ? BorderColor.FloatTransparentBlack : BorderColor.FloatOpaqueBlack),
             UnnormalizedCoordinates = false,
-            CompareEnable = false,
-            CompareOp = CompareOp.Always,
-            MipmapMode = SamplerMipmapMode.Linear,
+            CompareEnable = compare.HasValue,
+            CompareOp = VulkanFlagConverter.ToVulkan(compare ?? CompareFunction.Always),
+            MipmapMode = mipmapFilter == SamplerFilter.Linear ? SamplerMipmapMode.Linear : SamplerMipmapMode.Nearest,
             MipLodBias = 0.0f,
-            MinLod = 0.0f,
-            MaxLod = 0.0f
+            MinLod = minLod,
+            MaxLod = maxLod
         };
 
         Sampler sampler;

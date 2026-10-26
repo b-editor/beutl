@@ -16,21 +16,27 @@ public sealed class ShaderGraphDescription
         Output = output;
         LastUses = new int[resources.Length];
         Array.Fill(LastUses, -1);
-        var initialized = new HashSet<int> { 0 };
-        foreach (ShaderBuffer buffer in resources.OfType<ShaderBuffer>())
-        {
-            if (!buffer.InitialData.IsEmpty)
-                initialized.Add(buffer.Id);
-        }
-
+        var initialized = resources.OfType<ShaderBuffer>().Where(b => !b.InitialData.IsEmpty).Select(b => b.Id).ToHashSet();
+        var images = new HashSet<(int Image, int Mip, int Layer, int Aspect)> { (0, 0, 0, 0) };
         for (int index = 0; index < passes.Length; index++)
         {
             ShaderPassDescription pass = passes[index];
+            if (pass.Transfer is { } transfer)
+            {
+                if (transfer.Source is { } source)
+                {
+                    RequireInitialized(source, pass.Name, firstMipOnly: transfer.Kind == ShaderTransferKind.GenerateMipmaps);
+                    Touch(source, index);
+                }
+                Initialize(transfer.Destination);
+                Touch(transfer.Destination, index);
+                continue;
+            }
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
                 if (!binding.Metadata && (binding.Access & ResourceAccess.Read) != 0)
-                    RequireInitialized(binding.Resource, pass.Name);
-                LastUses[binding.Resource.Id] = index;
+                    RequireInitialized(binding.Resource, pass.Name, aspect: binding.Resource is ShaderImage img && img.Format.IsDepthFormat() ? 1 : null);
+                Touch(binding.Resource, index);
             }
             foreach (ShaderColorAttachment attachment in pass.Attachments)
             {
@@ -38,30 +44,67 @@ public sealed class ShaderGraphDescription
                     RequireInitialized(attachment.Image, pass.Name);
                 if (attachment.Load == AttachmentLoadOp.DontCare && pass.Blend.Enabled)
                     throw new InvalidOperationException($"Pass '{pass.Name}' cannot blend into undefined attachment contents.");
-                LastUses[attachment.Image.Id] = index;
+                Touch(attachment.Image, index);
+            }
+            if (pass.DepthAttachment is { } depth)
+            {
+                if (depth.Load == AttachmentLoadOp.Load)
+                {
+                    if (pass.DepthStencil.ReadsDepth) RequireInitialized(depth.Image, pass.Name, aspect: 1);
+                    if (pass.DepthStencil.ReadsStencil) RequireInitialized(depth.Image, pass.Name, aspect: 2);
+                }
+                Touch(depth.Image, index);
             }
             foreach (ShaderBuffer buffer in pass.Draw.ReadBuffers)
             {
                 RequireInitialized(buffer, pass.Name);
-                LastUses[buffer.Id] = index;
+                Touch(buffer, index);
             }
             foreach (ShaderPassBinding binding in pass.Bindings)
-            {
                 if ((binding.Access & ResourceAccess.Write) != 0)
-                    initialized.Add(binding.Resource.Id);
-            }
+                    Initialize(binding.Resource);
             foreach (ShaderColorAttachment attachment in pass.Attachments)
-                initialized.Add(attachment.Image.Id);
+                Initialize(attachment.Image);
+            if (pass.DepthAttachment is { } writtenDepth)
+            {
+                if (writtenDepth.Load == AttachmentLoadOp.DontCare)
+                    images.ExceptWith(writtenDepth.Image.Subresources);
+                if (writtenDepth.Load == AttachmentLoadOp.Clear)
+                    Initialize(writtenDepth.Image);
+                else
+                {
+                    if (pass.DepthStencil.WritesDepth) Initialize(writtenDepth.Image, 1);
+                    if (pass.DepthStencil.WritesStencil) Initialize(writtenDepth.Image, 2);
+                }
+            }
         }
         RequireInitialized(output.Image, "output");
-        LastUses[output.Image.Id] = passes.Length;
+        Touch(output.Image, passes.Length);
         StructuralIdentity = CreateIdentity(includeValues: false);
         OutputIdentity = new ShaderGraphValueIdentity(CreateIdentity(includeValues: true),
             resources.OfType<ShaderBuffer>().Select(b => b.InitialData).ToImmutableArray());
 
-        void RequireInitialized(ShaderResource resource, string pass)
+        void Touch(ShaderResource resource, int index)
         {
-            if (!initialized.Contains(resource.Id))
+            LastUses[resource.Id] = index;
+            if (resource is ShaderImage image)
+                LastUses[image.Root.Id] = index;
+        }
+
+        void Initialize(ShaderResource resource, int? aspect = null)
+        {
+            if (resource is ShaderImage image)
+                images.UnionWith(image.Subresources.Where(s => aspect is null || s.Aspect == aspect));
+            else
+                initialized.Add(resource.Id);
+        }
+
+        void RequireInitialized(ShaderResource resource, string pass, bool firstMipOnly = false, int? aspect = null)
+        {
+            bool ready = resource is ShaderImage image
+                ? image.Subresources.Where(s => (!firstMipOnly || s.Mip == image.BaseMipLevel) && (aspect is null || s.Aspect == aspect)).All(images.Contains)
+                : initialized.Contains(resource.Id);
+            if (!ready)
                 throw new InvalidOperationException($"Pass '{pass}' reads uninitialized resource '{resource.Name}'.");
         }
     }
@@ -87,7 +130,7 @@ public sealed class ShaderGraphDescription
     {
         foreach (ShaderImage image in Resources.OfType<ShaderImage>())
         {
-            if (LastUses[image.Id] < 0)
+            if (LastUses[image.Id] < 0 || image.Description.HasValue)
                 continue;
             Rect bounds = image.ResolveBounds(sourceBounds).Translate(gridOffset);
             scale = Math.Min(scale, BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
@@ -107,6 +150,14 @@ public sealed class ShaderGraphDescription
             if (resource is ShaderImage image)
             {
                 writer.Write((int)image.Format);
+                writer.Write((int)image.Kind);
+                writer.Write(image.Root.Id);
+                writer.Write(image.BaseMipLevel);
+                writer.Write(image.BaseArrayLayer);
+                writer.Write(image.MipLevels);
+                writer.Write(image.ArrayLayers);
+                writer.Write(image.Depth);
+                writer.Write(image.Description.HasValue);
                 writer.Write(image.Like?.Id ?? -1);
                 writer.Write(image.ExplicitBounds.HasValue);
                 if (includeValues)
@@ -133,7 +184,34 @@ public sealed class ShaderGraphDescription
         writer.Write(Passes.Length);
         foreach (ShaderPassDescription pass in Passes)
         {
+            writer.Write(pass.Transfer is not null);
+            if (pass.Transfer is { } transfer)
+            {
+                writer.Write((int)transfer.Kind);
+                writer.Write(transfer.Source?.Id ?? -1);
+                writer.Write(transfer.Destination.Id);
+                writer.Write((int)transfer.Filter);
+                if (includeValues)
+                {
+                    writer.Write(transfer.Color.X); writer.Write(transfer.Color.Y);
+                    writer.Write(transfer.Color.Z); writer.Write(transfer.Color.W);
+                    writer.Write(transfer.Depth); writer.Write(transfer.Value);
+                }
+                continue;
+            }
             WritePipelineIdentity(writer, pass);
+            writer.Write(pass.DepthAttachment?.Image.Id ?? -1);
+            if (includeValues && pass.DepthAttachment is { } depth)
+            {
+                writer.Write(depth.ClearDepth);
+                writer.Write(depth.ClearStencil);
+            }
+            writer.Write(pass.Draw.Indirect?.Buffer.Id ?? -1);
+            if (includeValues && pass.Draw.Indirect is { } indirect)
+            {
+                writer.Write(indirect.Offset); writer.Write(indirect.Count);
+                writer.Write(indirect.Stride); writer.Write(indirect.CommandSize);
+            }
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
                 writer.Write(binding.Resource.Id);
@@ -181,7 +259,7 @@ public sealed class ShaderGraphDescription
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write("ShaderGraphPipeline/v2");
+        writer.Write("ShaderGraphPipeline/v3");
         WritePipelineIdentity(writer, pass);
         writer.Flush();
         return ShaderProgramIdentity.CreateSpirv(Convert.ToBase64String(stream.GetBuffer(), 0, checked((int)stream.Length)));
@@ -189,6 +267,21 @@ public sealed class ShaderGraphDescription
 
     private static void WritePipelineIdentity(BinaryWriter writer, ShaderPassDescription pass)
     {
+        writer.Write(pass.DepthAttachment is not null);
+        if (pass.DepthAttachment is { } depth)
+        {
+            writer.Write((int)depth.Image.Format);
+            writer.Write((int)depth.Load);
+        }
+        writer.Write(pass.DepthStencil.TestEnabled);
+        writer.Write(pass.DepthStencil.WriteEnabled);
+        writer.Write((int)pass.DepthStencil.Compare);
+        writer.Write(pass.DepthStencil.StencilEnabled);
+        WriteStencil(pass.DepthStencil.Front);
+        WriteStencil(pass.DepthStencil.Back);
+        writer.Write((int)pass.CullMode);
+        writer.Write((int)pass.FrontFace);
+        writer.Write(pass.PatchControlPoints);
         writer.Write((int)pass.Draw.Topology);
         writer.Write(pass.Draw.Bindings.Length);
         foreach (VertexBindingDescription binding in pass.Draw.Bindings)
@@ -205,7 +298,7 @@ public sealed class ShaderGraphDescription
             writer.Write((int)attribute.Format);
             writer.Write(attribute.Offset);
         }
-        writer.Write(pass.Program.Stages.Count);
+        writer.Write(pass.Program!.Stages.Count);
         foreach ((ShaderStage stage, ShaderSource source) in pass.Program.Stages.OrderBy(s => s.Key))
         {
             writer.Write((int)stage);
@@ -221,6 +314,11 @@ public sealed class ShaderGraphDescription
             writer.Write((int)binding.Sampler.MagFilter);
             writer.Write((int)binding.Sampler.AddressU);
             writer.Write((int)binding.Sampler.AddressV);
+            writer.Write((int)binding.Sampler.AddressW);
+            writer.Write((int)binding.Sampler.MipmapFilter);
+            writer.Write(binding.Sampler.MinLod);
+            writer.Write(binding.Sampler.MaxLod);
+            writer.Write((int?)binding.Sampler.Compare ?? -1);
         }
         writer.Write(pass.Attachments.Length);
         foreach (ShaderColorAttachment attachment in pass.Attachments)
@@ -235,6 +333,13 @@ public sealed class ShaderGraphDescription
         writer.Write((int)pass.Blend.SourceAlpha);
         writer.Write((int)pass.Blend.DestinationAlpha);
         writer.Write((int)pass.Blend.AlphaOperation);
+
+        void WriteStencil(StencilFaceState face)
+        {
+            writer.Write((int)face.Compare); writer.Write((int)face.Fail);
+            writer.Write((int)face.DepthFail); writer.Write((int)face.Pass);
+            writer.Write(face.CompareMask); writer.Write(face.WriteMask); writer.Write(face.Reference);
+        }
     }
 }
 

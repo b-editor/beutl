@@ -147,6 +147,39 @@ internal static class VulkanFlagConverter
         };
     }
 
+    public static CompareOp ToVulkan(CompareFunction value) => value switch
+    {
+        CompareFunction.Less => CompareOp.Less,
+        CompareFunction.LessOrEqual => CompareOp.LessOrEqual,
+        CompareFunction.Equal => CompareOp.Equal,
+        CompareFunction.GreaterOrEqual => CompareOp.GreaterOrEqual,
+        CompareFunction.Greater => CompareOp.Greater,
+        CompareFunction.NotEqual => CompareOp.NotEqual,
+        CompareFunction.Always => CompareOp.Always,
+        CompareFunction.Never => CompareOp.Never,
+        _ => throw new ArgumentOutOfRangeException(nameof(value)),
+    };
+
+    public static StencilOpState ToVulkan(StencilFaceState value) => new()
+    {
+        CompareOp = ToVulkan(value.Compare), CompareMask = value.CompareMask,
+        WriteMask = value.WriteMask, Reference = value.Reference,
+        FailOp = ToVulkan(value.Fail), DepthFailOp = ToVulkan(value.DepthFail), PassOp = ToVulkan(value.Pass),
+    };
+
+    private static StencilOp ToVulkan(StencilOperation value) => value switch
+    {
+        StencilOperation.Keep => StencilOp.Keep,
+        StencilOperation.Zero => StencilOp.Zero,
+        StencilOperation.Replace => StencilOp.Replace,
+        StencilOperation.IncrementClamp => StencilOp.IncrementAndClamp,
+        StencilOperation.DecrementClamp => StencilOp.DecrementAndClamp,
+        StencilOperation.Invert => StencilOp.Invert,
+        StencilOperation.IncrementWrap => StencilOp.IncrementAndWrap,
+        StencilOperation.DecrementWrap => StencilOp.DecrementAndWrap,
+        _ => throw new ArgumentOutOfRangeException(nameof(value)),
+    };
+
     public static Silk.NET.Vulkan.PrimitiveTopology ToVulkan(Backend.PrimitiveTopology topology) => topology switch
     {
         Backend.PrimitiveTopology.TriangleList => Silk.NET.Vulkan.PrimitiveTopology.TriangleList,
@@ -154,6 +187,11 @@ internal static class VulkanFlagConverter
         Backend.PrimitiveTopology.TriangleFan => Silk.NET.Vulkan.PrimitiveTopology.TriangleFan,
         Backend.PrimitiveTopology.LineList => Silk.NET.Vulkan.PrimitiveTopology.LineList,
         Backend.PrimitiveTopology.LineStrip => Silk.NET.Vulkan.PrimitiveTopology.LineStrip,
+        Backend.PrimitiveTopology.PatchList => Silk.NET.Vulkan.PrimitiveTopology.PatchList,
+        Backend.PrimitiveTopology.LineListAdjacency => Silk.NET.Vulkan.PrimitiveTopology.LineListWithAdjacency,
+        Backend.PrimitiveTopology.LineStripAdjacency => Silk.NET.Vulkan.PrimitiveTopology.LineStripWithAdjacency,
+        Backend.PrimitiveTopology.TriangleListAdjacency => Silk.NET.Vulkan.PrimitiveTopology.TriangleListWithAdjacency,
+        Backend.PrimitiveTopology.TriangleStripAdjacency => Silk.NET.Vulkan.PrimitiveTopology.TriangleStripWithAdjacency,
         Backend.PrimitiveTopology.PointList => Silk.NET.Vulkan.PrimitiveTopology.PointList,
         _ => throw new ArgumentOutOfRangeException(nameof(topology)),
     };

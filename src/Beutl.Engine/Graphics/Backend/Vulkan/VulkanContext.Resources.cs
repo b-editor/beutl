@@ -178,6 +178,9 @@ internal sealed unsafe partial class VulkanContext
             .ToArray();
         var vulkanVertexInput = VulkanFlagConverter.ToVulkan(vertexInput);
         var pipelineOptions = options ?? PipelineOptions.Default;
+        if (pipelineOptions.Topology is PrimitiveTopology.PatchList or PrimitiveTopology.LineListAdjacency
+            or PrimitiveTopology.LineStripAdjacency or PrimitiveTopology.TriangleListAdjacency or PrimitiveTopology.TriangleStripAdjacency)
+            throw new NotSupportedException("Patch and adjacency topologies require tessellation or geometry stages supplied through a shader graph.");
         if (pipelineOptions.Topology == PrimitiveTopology.TriangleFan && !SupportsTriangleFans)
             throw new NotSupportedException("This device does not support triangle fans.");
         ImmutableArray<SpecializationConstant> specializationConstants =
