@@ -345,16 +345,12 @@ public sealed partial class ElementViewModel : IDisposable
 
     public IReadOnlyList<ElementViewModel> GetGroupOrSelectedElements()
     {
-        var ids = new HashSet<Guid>();
+        HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
+            Timeline.SelectedElements.Select(item => item.Model.Id.Value), Scene.Groups);
 
         if (_elementGroup is { } group)
         {
             ids.UnionWith(group);
-        }
-
-        foreach (ElementViewModel item in Timeline.SelectedElements)
-        {
-            ids.Add(item.Model.Id.Value);
         }
 
         if (ids.Count == 0)
