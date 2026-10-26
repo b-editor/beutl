@@ -10,7 +10,6 @@ public partial class PlayerViewModel
     private readonly object _cleanPreviewLock = new();
     private volatile bool _cleanPreviewEnabled;
     private Size _presentationFrameSize;
-    private Size _effectiveFrameSize;
 
     public ReactivePropertySlim<Ref<Bitmap>?> CleanPreviewImage { get; } = new();
 
@@ -23,14 +22,11 @@ public partial class PlayerViewModel
         bool changed;
         lock (_cleanPreviewLock)
         {
-            changed = _cleanPreviewEnabled != (enabled && !_isDisposing);
-            _cleanPreviewEnabled = enabled && !_isDisposing;
+            enabled &= !_isDisposing;
+            changed = _cleanPreviewEnabled != enabled;
+            _cleanPreviewEnabled = enabled;
             if (!_cleanPreviewEnabled)
-            {
-                var old = CleanPreviewImage.Value;
-                CleanPreviewImage.Value = null;
-                old?.Dispose();
-            }
+                ReplaceImage(CleanPreviewImage, null);
         }
 
         if (changed)
@@ -73,10 +69,9 @@ public partial class PlayerViewModel
 
         var frame = Scene.FrameSize.Value;
         float Fit(Size size) => MathF.Min(size.Width / frame.Width, size.Height / frame.Height);
-        _effectiveFrameSize = frame.Width > 0 && frame.Height > 0
+        EditViewModel.PreviewSurfaceSize.Value = frame.Width > 0 && frame.Height > 0
             && Fit(_presentationFrameSize) > Fit(_maxFrameSize)
                 ? _presentationFrameSize : _maxFrameSize;
-        EditViewModel.PreviewSurfaceSize.Value = _effectiveFrameSize;
         ApplyMaxFrameSizeToCacheOptions(EditViewModel.FrameCacheManager.Value);
     }
 }

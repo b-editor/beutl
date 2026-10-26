@@ -1,6 +1,5 @@
 ﻿using Avalonia.Threading;
 using Beutl.Media;
-using Beutl.Media.Source;
 using Beutl.Models;
 using Microsoft.Extensions.Logging;
 
@@ -165,16 +164,13 @@ public partial class PlayerViewModel
                 while (_playerImpl.TryDequeue(out BufferedPlayer.Frame frame))
                 {
                     dequeued = true;
-                    using (frame)
+                    if (!_owner._sessionGuard.Owns(_generation))
                     {
-                        if (!_owner._sessionGuard.Owns(_generation))
-                        {
-                            _tcs.TrySetResult(true);
-                            return;
-                        }
-
-                        Show(frame.Bitmap.Clone(), frame.CleanBitmap?.Clone(), frame.Time);
+                        frame.Dispose();
+                        _tcs.TrySetResult(true);
+                        return;
                     }
+                    Show(frame);
 
                     // タイマーが正確じゃないから、だんだんとフレームがずれてくる
                     // そのため、フレームを消費しすぎたら、そのフレーム番号とexpectFrameが一致するまでスキップする
@@ -223,9 +219,10 @@ public partial class PlayerViewModel
 
         // A frame that the UI thread has not shown yet is replaced by a newer one, so a busy UI thread shows the
         // newest frame next instead of falling behind the clock while it holds every frame posted meanwhile.
-        private void Show(Ref<Bitmap> preview, Ref<Bitmap>? cleanPreview, int time)
+        // Takes ownership of the dequeued frame until it is displayed or superseded.
+        private void Show(BufferedPlayer.Frame frame)
         {
-            Interlocked.Exchange(ref _pendingFrame, new PendingFrame(preview, cleanPreview, time))?.Dispose();
+            Interlocked.Exchange(ref _pendingFrame, new PendingFrame(frame))?.Frame.Dispose();
             if (Interlocked.Exchange(ref _framePostQueued, 1) == 0)
                 Dispatcher.UIThread.Post(ShowPendingFrame, DispatcherPriority.Normal);
         }
@@ -234,10 +231,10 @@ public partial class PlayerViewModel
         {
             // Cleared before taking the frame, so a frame stored after the take queues another post.
             Volatile.Write(ref _framePostQueued, 0);
-            if (Interlocked.Exchange(ref _pendingFrame, null) is not { } frame)
+            if (Interlocked.Exchange(ref _pendingFrame, null) is not { } pending)
                 return;
 
-            bool shown = false;
+            using BufferedPlayer.Frame frame = pending.Frame;
             try
             {
                 if (_retired)
@@ -245,9 +242,7 @@ public partial class PlayerViewModel
 
                 _owner._sessionGuard.TryApply(_generation, () =>
                 {
-                    // PreviewImage owns the frame from here on.
-                    shown = true;
-                    _owner.UpdateImage(frame.Preview, frame.CleanPreview);
+                    _owner.UpdateImage(frame.Bitmap, frame.CleanBitmap);
                     _owner.ClearPreviewRenderError(_generation);
 
                     if (_owner.Scene != null)
@@ -261,12 +256,6 @@ public partial class PlayerViewModel
             {
                 // An exception that escapes a UI dispatcher job ends the process too.
                 Stop(ex);
-            }
-            finally
-            {
-                if (!shown)
-                    frame.Preview.Dispose();
-                frame.CleanPreview?.Dispose();
             }
         }
 
@@ -316,13 +305,7 @@ public partial class PlayerViewModel
             _tcs.TrySetResult(true);
         }
 
-        private sealed record PendingFrame(Ref<Bitmap> Preview, Ref<Bitmap>? CleanPreview, int Time) : IDisposable
-        {
-            public void Dispose()
-            {
-                Preview.Dispose();
-                CleanPreview?.Dispose();
-            }
-        }
+        // Interlocked.Exchange requires a reference type; the frame retains both bitmap owners.
+        private sealed record PendingFrame(BufferedPlayer.Frame Frame);
     }
 }

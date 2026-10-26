@@ -419,7 +419,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     {
         frameCacheManager.Options = frameCacheManager.Options with
         {
-            Size = PreviewFrameCacheSizing.DeriveCacheSize(_effectiveFrameSize, frameCacheManager.FrameSize)
+            Size = PreviewFrameCacheSizing.DeriveCacheSize(EditViewModel.PreviewSurfaceSize.Value, frameCacheManager.FrameSize)
         };
     }
 

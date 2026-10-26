@@ -6,26 +6,31 @@ using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.Logging;
+using Reactive.Bindings;
 using SkiaSharp;
 
 namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
-    private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource = null)
+    // Both displayed images retain their own reference; the caller still owns the supplied frames.
+    private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource)
     {
         lock (_cleanPreviewLock)
         {
-            var oldClean = CleanPreviewImage.Value;
-            CleanPreviewImage.Value = _cleanPreviewEnabled ? cleanSource?.Clone() : null;
-            oldClean?.Dispose();
+            ReplaceImage(CleanPreviewImage, _cleanPreviewEnabled ? cleanSource : null);
         }
 
-        var oldBitmap = PreviewImage.Value;
-        PreviewImage.Value = source;
-        oldBitmap?.Dispose();
+        ReplaceImage(PreviewImage, source);
 
         PreviewInvalidated?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static void ReplaceImage(ReactivePropertySlim<Ref<Bitmap>?> target, Ref<Bitmap>? source)
+    {
+        var previous = target.Value;
+        target.Value = source?.Clone();
+        previous?.Dispose();
     }
 
     private void ReportPreviewRenderError(CancellationToken token)
@@ -214,7 +219,6 @@ public partial class PlayerViewModel
         int frame = 0;
         bool useOnionSkin = false;
         int onionSampleCount = 0;
-        Ref<Bitmap>? cleanFrame = null;
         try
         {
             SceneRenderer renderer = EditViewModel.Renderer.Value;
@@ -232,8 +236,6 @@ public partial class PlayerViewModel
             MediaTime time = _editorClock.CurrentTime.Value;
             frame = (int)time.ToFrame(rate, MidpointRounding.AwayFromZero);
             time = MediaTime.FromFrames(frame, rate);
-            Ref<Bitmap>? bitmapRef;
-
             // A side contributes nothing when its opacity is 0, so fold opacity into the
             // effective count. When both sides are invisible useOnionSkin stays false and
             // the empty-samples fallback below routes through the cheaper cache-aware path.
@@ -262,24 +264,18 @@ public partial class PlayerViewModel
                 }
             }
 
-            if (useOnionSkin)
+            using Ref<Bitmap> bitmapRef = GetPreviewFrame(renderer, cacheManager, time, frame, useCache: !useOnionSkin);
+            Bitmap bitmap = bitmapRef.Value;
+            using Ref<Bitmap>? cleanFrame = CopyCleanFrame(renderer, bitmap);
+            using (var canvas = new SKCanvas(bitmap.SKBitmap))
             {
-                bitmapRef = RenderOnionSkinFrame(renderer, time, frame, onionSamples, token, out cleanFrame);
-            }
-            else if (cacheManager.TryGet(frame, out var cache))
-            {
-                bitmapRef = RenderCachedFrame(renderer, time, cache, out cleanFrame);
-            }
-            else
-            {
-                bitmapRef = RenderAndCacheFrame(renderer, cacheManager, time, frame, out cleanFrame);
+                if (useOnionSkin)
+                    DrawOnionSkin(renderer, canvas, time, frame, onionSamples, token);
+                DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
             }
 
             if (token.IsCancellationRequested)
-            {
-                bitmapRef.Dispose();
                 return;
-            }
 
             UpdateImage(bitmapRef, cleanFrame);
 
@@ -302,77 +298,73 @@ public partial class PlayerViewModel
                 useOnionSkin, onionSampleCount, frame);
             ReportPreviewRenderError(token);
         }
-        finally
-        {
-            cleanFrame?.Dispose();
-        }
     }
 
-    private Ref<Bitmap> RenderOnionSkinFrame(
+    private static Ref<Bitmap> GetPreviewFrame(
+        SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame, bool useCache)
+    {
+        var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
+        if (useCache && cacheManager.TryGet(frame, out var cache))
+        {
+            using (cache)
+            {
+                renderer.UpdateFrame(compositionFrame);
+                // The caller will paint editor overlays into this image.
+                return Ref<Bitmap>.Create(cache.Value.Clone());
+            }
+        }
+
+        renderer.Render(compositionFrame);
+        using var bitmap = Ref<Bitmap>.Create(renderer.Snapshot());
+        // Onion skin bypasses the frame cache, which must contain only the current frame.
+        if (useCache && cacheManager.IsEnabled)
+        {
+            cacheManager.Add(frame, bitmap);
+            cacheManager.UpdateBlocks();
+        }
+        return bitmap.Clone();
+    }
+
+    private void DrawOnionSkin(
         SceneRenderer renderer,
+        SKCanvas canvas,
         MediaTime time,
         int frame,
         IReadOnlyList<OnionSkinSample> onionSamples,
-        CancellationToken token,
-        out Ref<Bitmap>? cleanFrame)
+        CancellationToken token)
     {
-        cleanFrame = null;
-        // Render the current frame; its Snapshot bitmap doubles as the composition
-        // canvas. Onion-composited frames are intentionally NOT pushed into
-        // cacheManager: the cache is keyed on frame number alone, and an
-        // onion-disabled re-render would otherwise return the composite.
-        var currentCompositionFrame = renderer.Compositor.EvaluateGraphics(time);
-        renderer.Render(currentCompositionFrame);
-        Bitmap? currentBitmap = null;
         Bitmap? onionScratch = null;
 
         try
         {
-            currentBitmap = renderer.Snapshot();
-            cleanFrame = CopyCleanFrame(renderer, currentBitmap);
-            using (var canvas = new SKCanvas(currentBitmap.SKBitmap))
+            foreach (var sample in onionSamples)
             {
-                foreach (var sample in onionSamples)
+                // Superseded by a newer render: stop sampling, but still restore the playhead.
+                if (token.IsCancellationRequested)
+                    break;
+
+                var compFrame = renderer.Compositor.EvaluateGraphics(sample.Time);
+                renderer.Render(compFrame);
+
+                // Reuse one scratch bitmap across all onion samples (up to 20).
+                onionScratch ??= renderer.CreateSnapshotBitmap();
+                renderer.SnapshotInto(onionScratch);
+
+                using var paint = new SKPaint
                 {
-                    // Superseded by a newer render: stop sampling, but break so the playhead
-                    // restore and boundary draw below still run.
-                    if (token.IsCancellationRequested)
-                        break;
+                    Color = new SKColor(255, 255, 255, (byte)Math.Round(sample.Alpha * 255)),
+                    BlendMode = SKBlendMode.SrcOver,
+                };
 
-                    var compFrame = renderer.Compositor.EvaluateGraphics(sample.Time);
-                    renderer.Render(compFrame);
-
-                    // Reuse one scratch bitmap across all onion samples (up to 20),
-                    // turning per-sample LOH allocations into a single one.
-                    // CreateSnapshotBitmap gives it the format SnapshotInto requires.
-                    onionScratch ??= renderer.CreateSnapshotBitmap();
-                    renderer.SnapshotInto(onionScratch);
-
-                    using var paint = new SKPaint
-                    {
-                        Color = new SKColor(255, 255, 255, (byte)Math.Round(sample.Alpha * 255)),
-                        BlendMode = SKBlendMode.SrcOver,
-                    };
-
-                    // canvas is a CPU raster SKCanvas, so DrawBitmap blends the scratch
-                    // pixels synchronously — safe to overwrite onionScratch next sample.
-                    canvas.DrawBitmap(onionScratch.SKBitmap, 0, 0, SKSamplingOptions.Default, paint);
-                }
-
-                // Restore renderer entries to the playhead BEFORE drawing
-                // boundaries so the selection box uses the current frame's
-                // geometry, not the last onion sample's.
-                renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
-
-                DrawBoundaries(renderer, canvas, new(currentBitmap.Width, currentBitmap.Height));
+                // This CPU canvas blends synchronously, so the next sample can reuse the scratch.
+                canvas.DrawBitmap(onionScratch.SKBitmap, 0, 0, SKSamplingOptions.Default, paint);
             }
 
-            // Last in the try, so the catch never disposes the bitmap the returned Ref owns.
-            return Ref<Bitmap>.Create(currentBitmap);
+            // Selection bounds and subsequent queries must use the current frame's geometry.
+            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(time));
         }
         catch
         {
-            currentBitmap?.Dispose();
             // Best-effort: restore the playhead even on failure so later
             // HitTest / GetBoundary use the current frame, not a leftover onion
             // sample. Guard the restore so it can't mask the original exception.
@@ -393,53 +385,6 @@ public partial class PlayerViewModel
         {
             onionScratch?.Dispose();
         }
-    }
-
-    private Ref<Bitmap> RenderCachedFrame(
-        SceneRenderer renderer, MediaTime time, Ref<Bitmap> cache, out Ref<Bitmap>? cleanFrame)
-    {
-        cleanFrame = null;
-        using (cache)
-        {
-            var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
-
-            renderer.UpdateFrame(compositionFrame);
-            var bitmap = cache.Value.Clone();
-            Ref<Bitmap> bitmapRef = Ref<Bitmap>.Create(bitmap);
-            cleanFrame = CopyCleanFrame(renderer, bitmap);
-
-            using (var canvas = new SKCanvas(bitmap.SKBitmap))
-            {
-                DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
-            }
-
-            return bitmapRef;
-        }
-    }
-
-    private Ref<Bitmap> RenderAndCacheFrame(
-        SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame,
-        out Ref<Bitmap>? cleanFrame)
-    {
-        cleanFrame = null;
-        var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
-        renderer.Render(compositionFrame);
-        var bitmap = renderer.Snapshot();
-        Ref<Bitmap> bitmapRef = Ref<Bitmap>.Create(bitmap);
-        cleanFrame = CopyCleanFrame(renderer, bitmap);
-
-        if (cacheManager.IsEnabled)
-        {
-            cacheManager.Add(frame, bitmapRef);
-            cacheManager.UpdateBlocks();
-        }
-
-        using (var canvas = new SKCanvas(bitmap.SKBitmap))
-        {
-            DrawBoundaries(renderer, canvas, new(bitmap.Width, bitmap.Height));
-        }
-
-        return bitmapRef;
     }
 
     private void UpdateCurrentFrame(MediaTime timeSpan)
