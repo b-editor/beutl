@@ -25,6 +25,52 @@ public class MFEncodingTests
     [TearDown]
     public void TearDown() => Directory.Delete(_directory, recursive: true);
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Encode_H264PixelsMatchBt709TransferMatrixAndLimitedRange(bool hardware)
+    {
+        var controller = CreateController();
+        controller.VideoSettings.UseHardwareAcceleration.Value = hardware;
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value =
+            new PixelSize(ColorBarsFrameProvider.Width, ColorBarsFrameProvider.Height);
+        using var frames = new ColorBarsFrameProvider();
+        using var samples = new TrackedSamples(0, 0);
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        MFThread.Dispatcher.Invoke(() =>
+        {
+            using var source = MediaFactory.MFCreateSourceReaderFromURL(controller.OutputFile, null);
+            int stream = (int)SourceReaderIndex.FirstVideoStream;
+            source.SetStreamSelection((int)SourceReaderIndex.AllStreams, false);
+            source.SetStreamSelection(stream, true);
+            using var type = MediaFactory.MFCreateMediaType();
+            type.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video).CheckError();
+            // Decode directly to YUV so an RGB converter cannot hide a wrong encoded matrix or range.
+            type.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.NV12).CheckError();
+            source.SetCurrentMediaType(stream, type);
+            using var current = source.GetCurrentMediaType(stream);
+            int stride = (int)MediaFactory.MFGetAttributeUInt32(current, MediaTypeAttributeKeys.DefaultStride, ColorBarsFrameProvider.Width);
+            using var sample = source.ReadSample(stream, SourceReaderControlFlag.None, out _, out _, out _);
+            Assert.That(sample, Is.Not.Null);
+            using var buffer = sample.ConvertToContiguousBuffer();
+            byte[] bytes = CopyBuffer(buffer);
+
+            // Red/green/blue, sRGB gray 128 converted to BT.709, black and white.
+            int[][] expected = [[63, 102, 240], [173, 42, 26], [32, 240, 118], [115, 128, 128], [16, 128, 128], [235, 128, 128]];
+            Assert.Multiple(() =>
+            {
+                for (int patch = 0; patch < expected.Length; patch++)
+                {
+                    int x = patch * 32 + 16;
+                    int chroma = stride * ColorBarsFrameProvider.Height + 16 * stride + x;
+                    Assert.That(bytes[32 * stride + x], Is.EqualTo(expected[patch][0]).Within(3), $"Patch {patch}, Y");
+                    Assert.That(bytes[chroma], Is.EqualTo(expected[patch][1]).Within(3), $"Patch {patch}, U");
+                    Assert.That(bytes[chroma + 1], Is.EqualTo(expected[patch][2]).Within(3), $"Patch {patch}, V");
+                }
+            });
+        });
+    }
+
     [TestCase(false, 44100, 2)]
     [TestCase(false, 48000, 1)]
     [TestCase(true, 48000, 2)]

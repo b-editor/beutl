@@ -297,6 +297,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         if (context.ColorTrc == AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED)
             context.ColorTrc = rgb || jpeg ? AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1
                 : AVColorTransferCharacteristic.AVCOL_TRC_BT709;
+        // The bitmap color-space mapper falls back to sRGB for unsupported logarithmic curves.
+        if (context.ColorTrc is AVColorTransferCharacteristic.AVCOL_TRC_LOG or AVColorTransferCharacteristic.AVCOL_TRC_LOG_SQRT)
+            context.ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1;
         bool hdr = ColorSpaceHelper.IsHdrTransfer(context.ColorTrc);
 
         // Resolve unspecified values at encode time so saved presets and all callers get the same defaults.

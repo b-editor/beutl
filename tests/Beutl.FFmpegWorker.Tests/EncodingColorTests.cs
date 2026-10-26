@@ -60,13 +60,16 @@ public sealed class EncodingColorTests
             "Resolving defaults must not overwrite saved settings.");
     }
 
-    [Test]
-    public async Task UnspecifiedRgbOutputStaysFullRangeSrgb()
+    [TestCase(FFColorTransfer.UNSPECIFIED)]
+    [TestCase(FFColorTransfer.LOG)]
+    [TestCase(FFColorTransfer.LOG_SQRT)]
+    public async Task RgbOutputTagsMatchTheSrgbPixels(FFColorTransfer transfer)
     {
         var controller = CreateController("rgb.mkv");
         controller.VideoSettings.Codec.Value = new CodecRecord("ffv1", "FFV1");
         controller.VideoSettings.Format.Value = (int)AVPixelFormat.AV_PIX_FMT_BGRA;
         controller.VideoSettings.Options.Value.Clear();
+        controller.VideoSettings.ColorTrc.Value = transfer;
         await Encode(controller);
         using MediaFrame frame = ReadFirstFrame(controller.OutputFile);
         Assert.Multiple(() =>
@@ -82,6 +85,7 @@ public sealed class EncodingColorTests
                 Assert.That(new ReadOnlySpan<byte>(frame.Data[0] + y * frame.Linesize[0], source.Width * 4)
                     .SequenceEqual(source.GetRow(y)), Is.True);
         }
+        Assert.That(controller.VideoSettings.ColorTrc.Value, Is.EqualTo(transfer), "Keep the saved selection unchanged.");
     }
 
     [Test]

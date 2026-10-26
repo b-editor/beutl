@@ -74,7 +74,9 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             VideoSettings.UseHardwareAcceleration.Value).CheckError();
         using var writer = MediaFactory.MFCreateSinkWriterFromURL(outputFile, null, attributes);
 
-        int videoStream = frameCount > 0 ? AddVideoStream(writer, videoCodec) : -1;
+        // H.264/HEVC carry explicit colorimetry. Keep the legacy Windows Media/RGB path unchanged.
+        bool rec709Output = videoCodec is MFVideoCodec.H264 or MFVideoCodec.HEVC;
+        int videoStream = frameCount > 0 ? AddVideoStream(writer, videoCodec, rec709Output) : -1;
         int audioStream = audioType != null ? AddAudioStream(writer, audioType, checked((int)samples.SampleRate)) : -1;
         writer.BeginWriting();
 
@@ -82,9 +84,9 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         long sample = 0;
         long rateNumerator = VideoSettings.FrameRate.Value.Numerator;
         long rateDenominator = VideoSettings.FrameRate.Value.Denominator;
-        BitmapColorSpace colorSpace = videoCodec == MFVideoCodec.RGB32
-            ? BitmapColorSpace.Srgb
-            : BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709);
+        BitmapColorSpace colorSpace = rec709Output
+            ? BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709)
+            : BitmapColorSpace.Srgb;
         while (frame < frameCount || sample < sampleCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -144,15 +146,14 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         }
     }
 
-    private int AddVideoStream(IMFSinkWriter writer, MFVideoCodec codec)
+    private int AddVideoStream(IMFSinkWriter writer, MFVideoCodec codec, bool rec709Output)
     {
-        bool rgbOutput = codec == MFVideoCodec.RGB32;
-        using var outputType = CreateVideoType(MFEncodingFormat.VideoSubtype(codec), rgbOutput);
+        using var outputType = CreateVideoType(MFEncodingFormat.VideoSubtype(codec), rec709Output);
         if (codec != MFVideoCodec.RGB32)
             outputType.Set(MediaTypeAttributeKeys.AvgBitrate, (uint)VideoSettings.Bitrate.Value).CheckError();
         int stream = writer.AddStream(outputType);
 
-        using var inputType = CreateVideoType(VideoFormatGuids.Rgb32, rgbOutput);
+        using var inputType = CreateVideoType(VideoFormatGuids.Rgb32, rec709Output);
         using var parameters = MediaFactory.MFCreateAttributes(1);
         if (codec is MFVideoCodec.H264 or MFVideoCodec.HEVC)
         {
@@ -179,7 +180,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     [DllImport("propsys.dll", ExactSpelling = true)]
     private static extern int PSCreateMemoryPropertyStore(in Guid riid, out nint propertyStore);
 
-    private IMFMediaType CreateVideoType(Guid subtype, bool rgbOutput)
+    private IMFMediaType CreateVideoType(Guid subtype, bool rec709Output)
     {
         var type = MediaFactory.MFCreateMediaType();
         try
@@ -192,14 +193,16 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 Pack(VideoSettings.FrameRate.Value.Numerator, VideoSettings.FrameRate.Value.Denominator)).CheckError();
             type.Set(MediaTypeAttributeKeys.PixelAspectRatio, Pack(1, 1)).CheckError();
             type.Set(MediaTypeAttributeKeys.InterlaceMode, (uint)VideoInterlaceMode.Progressive).CheckError();
-            // Input pixels already have the output transfer function; the MFT only converts full RGB to YUV.
-            type.Set(MediaTypeAttributeKeys.VideoPrimaries, (uint)VideoPrimaries.Bt709).CheckError();
-            type.Set(MediaTypeAttributeKeys.TransferFunction,
-                (uint)(rgbOutput ? VideoTransferFunction.FuncSRGB : VideoTransferFunction.Func709)).CheckError();
-            type.Set(MediaTypeAttributeKeys.VideoNominalRange,
-                (uint)(subtype == VideoFormatGuids.Rgb32 ? NominalRange.Range0_255 : NominalRange.Range16_235)).CheckError();
-            if (subtype != VideoFormatGuids.Rgb32)
-                type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)VideoTransferMatrix.Bt709).CheckError();
+            if (rec709Output)
+            {
+                // Input pixels already have the output transfer function; the MFT only converts full RGB to YUV.
+                type.Set(MediaTypeAttributeKeys.VideoPrimaries, (uint)VideoPrimaries.Bt709).CheckError();
+                type.Set(MediaTypeAttributeKeys.TransferFunction, (uint)VideoTransferFunction.Func709).CheckError();
+                type.Set(MediaTypeAttributeKeys.VideoNominalRange,
+                    (uint)(subtype == VideoFormatGuids.Rgb32 ? NominalRange.Range0_255 : NominalRange.Range16_235)).CheckError();
+                if (subtype != VideoFormatGuids.Rgb32)
+                    type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)VideoTransferMatrix.Bt709).CheckError();
+            }
             if (subtype == VideoFormatGuids.Rgb32)
                 type.Set(MediaTypeAttributeKeys.DefaultStride, checked((uint)VideoSettings.DestinationSize.Value.Width * 4)).CheckError();
             return type;
