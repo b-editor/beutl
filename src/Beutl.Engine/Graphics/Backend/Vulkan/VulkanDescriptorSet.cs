@@ -111,10 +111,21 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
     }
 
     public void UpdateTexture(int binding, ITexture2D texture, ISampler sampler)
+        => UpdateTexture(binding, texture, sampler, ImageLayout.ShaderReadOnlyOptimal);
+
+    internal void UpdateTexture(int binding, ITexture2D texture, ISampler sampler, ImageLayout layout)
         => UpdateCombinedImageSampler(
             binding,
             _context.RequireOwned<VulkanTexture2D>(texture, nameof(texture)).ImageViewHandle,
-            sampler);
+            sampler, layout);
+
+    internal void UpdateStorageImage(int binding, ITexture2D texture)
+    {
+        VulkanTexture2D image = _context.RequireOwned<VulkanTexture2D>(texture, nameof(texture));
+        if ((image.Usage & ImageUsageFlags.StorageBit) == 0)
+            throw new ArgumentException("The image was not created for storage access.", nameof(texture));
+        UpdateImage(binding, image.ImageViewHandle, default, ImageLayout.General, Silk.NET.Vulkan.DescriptorType.StorageImage);
+    }
 
     public void UpdateTextureCube(int binding, ITextureCube texture, ISampler sampler)
         => UpdateCombinedImageSampler(
@@ -134,18 +145,24 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
             _context.RequireOwned<VulkanTextureCubeArray>(texture, nameof(texture)).ImageViewHandle,
             sampler);
 
-    private void UpdateCombinedImageSampler(int binding, ImageView imageView, ISampler sampler)
+    private void UpdateCombinedImageSampler(int binding, ImageView imageView, ISampler sampler,
+        ImageLayout layout = ImageLayout.ShaderReadOnlyOptimal)
+    {
+        VulkanSampler vulkanSampler = _context.RequireOwned<VulkanSampler>(sampler, nameof(sampler));
+        UpdateImage(binding, imageView, vulkanSampler.Handle, layout, Silk.NET.Vulkan.DescriptorType.CombinedImageSampler);
+    }
+
+    private void UpdateImage(int binding, ImageView imageView, Sampler sampler, ImageLayout layout,
+        Silk.NET.Vulkan.DescriptorType type)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-
-        _bindings.ValidateWrite(binding, Silk.NET.Vulkan.DescriptorType.CombinedImageSampler, nameof(binding));
-        VulkanSampler vulkanSampler = _context.RequireOwned<VulkanSampler>(sampler, nameof(sampler));
+        _bindings.ValidateWrite(binding, type, nameof(binding));
 
         var imageInfo = new DescriptorImageInfo
         {
             ImageView = imageView,
-            ImageLayout = ImageLayout.ShaderReadOnlyOptimal,
-            Sampler = vulkanSampler.Handle
+            ImageLayout = layout,
+            Sampler = sampler
         };
 
         var writeDescriptor = new WriteDescriptorSet
@@ -155,7 +172,7 @@ internal sealed unsafe class VulkanDescriptorSet : IDescriptorSet, IVulkanContex
             DstBinding = (uint)binding,
             DstArrayElement = FirstArrayElement,
             DescriptorCount = SingleDescriptor,
-            DescriptorType = Silk.NET.Vulkan.DescriptorType.CombinedImageSampler,
+            DescriptorType = type,
             PImageInfo = &imageInfo
         };
 

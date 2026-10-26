@@ -9,11 +9,6 @@ internal sealed unsafe partial class VulkanContext
 {
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
-        // The driver does not refuse an extent it cannot make: SwiftShader answers success past its
-        // framebuffer limit, MoltenVK aborts the process. The usage below carries an attachment bit, which
-        // makes the framebuffer limits apply at creation whether the texture is ever attached or not.
-        ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
-
         ImageUsageFlags usage;
         if (format.IsDepthFormat())
         {
@@ -23,6 +18,22 @@ internal sealed unsafe partial class VulkanContext
         else
         {
             usage = VulkanTexture2D.ColorTextureUsage;
+        }
+        return CreateTexture2D(width, height, format, usage);
+    }
+
+    internal VulkanTexture2D CreateTexture2D(int width, int height, TextureFormat format, ImageUsageFlags usage)
+    {
+        // Attachment usage imposes framebuffer limits even when the image is never attached. Some
+        // drivers do not reject oversized attachments safely, so retain this check before allocation.
+        if ((usage & (ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.DepthStencilAttachmentBit)) != 0)
+            ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
+        else
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
+            if (width > MaxImageDimension2D || height > MaxImageDimension2D)
+                throw new InvalidOperationException($"Image dimensions exceed {MaxImageDimension2D} pixels.");
         }
         var texture = new VulkanTexture2D(this, width, height, format, usage);
         RecordTextureAllocation(format);

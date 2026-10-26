@@ -48,7 +48,8 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 _interfaces.Add(stage, shaderInterface);
                 foreach (uint capability in shaderInterface.Capabilities)
                 {
-                    bool supported = capability is 0 or 1 or 50 or 51
+                    // Extended storage formats are checked individually through their format features.
+                    bool supported = capability is 0 or 1 or 49 or 50 or 51
                         || capability == 10 && context.SupportsShaderFloat64
                         || capability == 11 && context.SupportsShaderInt64;
                     if (!supported)
@@ -96,8 +97,20 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
 
     public void Validate(ShaderPassDescription pass)
     {
+        var writableBindings = _interfaces.Values.SelectMany(shader => shader.Bindings)
+            .Where(binding => !binding.ReadOnly).Select(binding => binding.Slot).ToHashSet();
         foreach ((ShaderStage stage, ShaderInterface shaderInterface) in _interfaces)
-            shaderInterface.Validate(pass, stage);
+        {
+            shaderInterface.Validate(pass, stage, writableBindings);
+            bool storesSupported = stage switch
+            {
+                ShaderStage.Vertex => _context.SupportsVertexStores,
+                ShaderStage.Fragment => _context.SupportsFragmentStores,
+                _ => true,
+            };
+            if (!storesSupported && shaderInterface.Bindings.Any(binding => !binding.ReadOnly))
+                throw new NotSupportedException($"Pass '{pass.Name}': this device does not support storage writes in the {stage} stage.");
+        }
         if (!pass.Program.IsCompute)
             _interfaces[ShaderStage.Fragment].ValidateInputs(_interfaces[ShaderStage.Vertex], pass.Name);
         if (pass.Attachments.Length > _limits.MaxColorAttachments)
@@ -110,6 +123,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     Math.Min(_limits.MaxPerStageDescriptorSamplers, _limits.MaxPerStageDescriptorSampledImages),
                     Math.Min(_limits.MaxDescriptorSetSamplers, _limits.MaxDescriptorSetSampledImages)),
                 DescriptorType.StorageBuffer => Math.Min(_limits.MaxPerStageDescriptorStorageBuffers, _limits.MaxDescriptorSetStorageBuffers),
+                DescriptorType.StorageImage => Math.Min(_limits.MaxPerStageDescriptorStorageImages, _limits.MaxDescriptorSetStorageImages),
                 DescriptorType.UniformBuffer => Math.Min(_limits.MaxPerStageDescriptorUniformBuffers, _limits.MaxDescriptorSetUniformBuffers),
                 _ => 0,
             };
@@ -128,8 +142,10 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
             }
             else if (!binding.Metadata && binding.Resource is ShaderImage image)
             {
-                FormatFeatureFlags flags = FormatFeatureFlags.SampledImageBit;
-                if (binding.Sampler.MinFilter == SamplerFilter.Linear || binding.Sampler.MagFilter == SamplerFilter.Linear)
+                FormatFeatureFlags flags = binding.Type == DescriptorType.StorageImage
+                    ? FormatFeatureFlags.StorageImageBit : FormatFeatureFlags.SampledImageBit;
+                if (binding.Type == DescriptorType.CombinedImageSampler
+                    && (binding.Sampler.MinFilter == SamplerFilter.Linear || binding.Sampler.MagFilter == SamplerFilter.Linear))
                     flags |= FormatFeatureFlags.SampledImageFilterLinearBit;
                 ValidateFormat(image.Format, flags, pass.Name);
             }
@@ -183,14 +199,31 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         var parameterBuffers = new List<IBuffer>();
         try
         {
+            // One image can be bound both as a sampler and as storage. Every descriptor for it must
+            // name the same layout for the entire pass; transitioning in binding order would invalidate
+            // whichever descriptor was written first.
+            var layouts = new Dictionary<int, ImageLayout>();
+            foreach (var group in pass.Bindings.Where(b => !b.Metadata && b.Resource is ShaderImage)
+                         .GroupBy(b => b.Resource.Id))
+            {
+                ImageLayout layout = group.Any(b => b.Type == DescriptorType.StorageImage)
+                    ? ImageLayout.General : ImageLayout.ShaderReadOnlyOptimal;
+                VulkanTexture2D image = _context.RequireOwned<VulkanTexture2D>(images[group.Key], nameof(images));
+                if (group.Any(b => (b.Access & ResourceAccess.Write) != 0))
+                    image.MarkContentsUnknown();
+                image.TransitionTo(layout);
+                layouts.Add(group.Key, layout);
+            }
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
                 switch (binding.Type)
                 {
                     case DescriptorType.CombinedImageSampler:
-                        ITexture2D image = images[binding.Resource.Id];
-                        image.PrepareForSampling();
-                        descriptors.UpdateTexture(binding.Binding, image, _samplers[binding.Binding]);
+                        descriptors.UpdateTexture(binding.Binding, images[binding.Resource.Id],
+                            _samplers[binding.Binding], layouts[binding.Resource.Id]);
+                        break;
+                    case DescriptorType.StorageImage:
+                        descriptors.UpdateStorageImage(binding.Binding, images[binding.Resource.Id]);
                         break;
                     case DescriptorType.StorageBuffer:
                         descriptors.UpdateStorageBuffer(binding.Binding, buffers[binding.Resource.Id]);
@@ -242,8 +275,6 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 {
                     _renderPass.End();
                 }
-                foreach (ITexture2D target in targets)
-                    target.PrepareForSampling();
             }
         }
         finally
