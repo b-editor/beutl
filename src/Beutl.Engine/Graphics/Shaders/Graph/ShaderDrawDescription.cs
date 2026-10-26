@@ -46,14 +46,18 @@ internal sealed record ShaderDrawDescription(
             ShaderVertexBuffer vertex = Vertices.FirstOrDefault(v => v.Binding == attribute.Binding)
                 ?? throw new ArgumentException($"Pass '{name}', location {attribute.Location}: missing vertex buffer {attribute.Binding}.");
             VertexBindingDescription binding = Bindings.First(b => b.Binding == attribute.Binding);
-            if (Indices is not null && binding.InputRate == VertexInputRate.Vertex)
-                continue; // Index values may be produced on the device; initial bytes are not authoritative.
-            long first = binding.InputRate == VertexInputRate.Instance ? FirstInstance : FirstElement;
+            bool indexed = Indices is not null && binding.InputRate == VertexInputRate.Vertex;
+            long first = indexed ? 0 : binding.InputRate == VertexInputRate.Instance ? FirstInstance : FirstElement;
             long elements = binding.InputRate == VertexInputRate.Instance ? instanceCount : count;
             long address = checked(vertex.Offset + first * binding.Stride + attribute.Offset);
-            long end = checked(address + (elements - 1) * binding.Stride + AttributeSize(attribute.Format));
-            if (address % 4 != 0 || elements > 1 && binding.Stride % 4 != 0)
+            // For unknown indices, reject only alignment that no index can satisfy: gcd(stride, 4).
+            // An odd stride can still fetch aligned addresses when the indices select suitable vertices.
+            uint alignment = indexed ? (binding.Stride % 4) switch { 0 => 4u, 2 => 2u, _ => 1u } : 4u;
+            if (address % alignment != 0 || !indexed && elements > 1 && binding.Stride % 4 != 0)
                 throw new ArgumentException($"Pass '{name}', location {attribute.Location}: vertex fetch addresses must be aligned to four bytes.");
+            if (indexed)
+                continue; // Index values may be produced on the device; initial bytes are not authoritative.
+            long end = checked(address + (elements - 1) * binding.Stride + AttributeSize(attribute.Format));
             if (end > vertex.Buffer.ByteLength)
                 throw new ArgumentException($"Pass '{name}', location {attribute.Location}: draw exceeds vertex buffer '{vertex.Buffer.Name}'.");
         }

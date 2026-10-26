@@ -338,6 +338,38 @@ public sealed class ShaderGraphVertexInputTests
         }), Throws.InstanceOf<ArgumentException>());
     }
 
+    [TestCase(8u, 1, false)]
+    [TestCase(8u, 0, true)]
+    [TestCase(6u, 1, false)]
+    [TestCase(6u, 2, true)]
+    [TestCase(5u, 1, true)]
+    public void IndexedAlignmentChecksOnlyIndexIndependentFailures(uint stride, long offset, bool valid)
+    {
+        ShaderGraphDescription Record() => ShaderGraphBuilder.Build(0, (builder, _) =>
+        {
+            var vertices = builder.Buffer<byte>("vertices", new byte[64]);
+            var indices = builder.Buffer<uint>("indices", new[] { stride % 2 == 1 ? 3u : 1u });
+            var output = builder.Image2D("output", builder.Source);
+            builder.Render("indexed", s_program, pass =>
+            {
+                pass.VertexInput(new()
+                {
+                    Bindings = [new() { Stride = stride }],
+                    Attributes = [new() { Format = VertexFormat.Float2 }]
+                });
+                pass.VertexBuffer(0, vertices, offset);
+                pass.IndexBuffer(indices);
+                pass.DrawIndexed(1);
+                pass.ColorAttachment(0, output);
+            });
+            return builder.Output(output);
+        });
+        if (valid)
+            Assert.That(Record, Throws.Nothing);
+        else
+            Assert.That(Record, Throws.ArgumentException.With.Message.Contains("aligned"));
+    }
+
     [Test]
     public void DrawRangesAreValidatedAgainOnCacheHits()
     {
