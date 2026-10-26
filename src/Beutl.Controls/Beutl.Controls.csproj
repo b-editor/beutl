@@ -23,7 +23,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AvaloniaResource Include="Assets\**" />
+    <!-- The UI fonts are runtime assets of the host app. Leave them out of the
+         NuGet package so the assembly stays under the feed's upload limit. -->
+    <AvaloniaResource Include="Assets\**" Exclude="Assets\Fonts\**" />
+    <AvaloniaResource Include="Assets\Fonts\**" Condition="'$(BeutlNuGetPack)' != 'true'" />
   </ItemGroup>
 
   <ItemGroup>

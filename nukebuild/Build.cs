@@ -309,12 +309,14 @@ class Build : NukeBuild
                     .When(_ => framework != "", s => s.SetFramework(framework))
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                    .SetProperty("BeutlNuGetPack", "true")
                     .SetProjectFile(project));
 
                 DotNetPack(s => s
                     .EnableNoRestore()
                     .SetConfiguration(Configuration)
                     .SetVersions(Version, AssemblyVersion, InformationalVersion)
+                    .SetProperty("BeutlNuGetPack", "true")
                     .SetOutputDirectory(ArtifactsDirectory)
                     .SetProject(project));
             }
