@@ -315,18 +315,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if ! body=$(gh release view "$TAG" -R "$REPO" --json body -q .body); then
+          body_file="$RUNNER_TEMP/release-body.md"
+          if ! gh release view "$TAG" -R "$REPO" --json body -q .body > "$body_file"; then
             echo "::error::Failed to fetch release $TAG to verify its notes (gh release view errored)."
             exit 1
           fi
-          if printf '%s' "$body" | grep -qF "releases/download/$TAG/"; then
+          # grep exits on the first match, so it reads a file rather than a pipe that would
+          # break when the body is larger than the pipe buffer.
+          if grep -qF "releases/download/$TAG/" "$body_file"; then
             echo "Release notes contain the platform download links — reformatting succeeded."
           else
             echo "::error::Release notes for $TAG were not reformatted (no download links found)."
             exit 1
           fi
           flatpak_url="https://github.com/$REPO/releases/download/$TAG/Beutl-$SEM_VER.flatpak"
-          if printf '%s' "$body" | grep -qF "$flatpak_url"; then
+          if grep -qF "$flatpak_url" "$body_file"; then
             echo "Release notes link the Flatpak bundle."
           else
             echo "::error::Release notes for $TAG are missing the Flatpak download link ($flatpak_url)."
