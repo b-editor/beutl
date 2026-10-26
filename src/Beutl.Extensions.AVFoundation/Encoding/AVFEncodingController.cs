@@ -27,15 +27,9 @@ public class AVFEncodingController : EncodingController
         var audioConfig = BuildAudioConfig((int)sampleProvider.SampleRate);
 
         bool isHdr = VideoSettings.IsHdr;
-        // For HDR, pre-compute the Skia target color space once so every frame's Bitmap.Convert
-        // uses an identical (and correctly luminance-scaled) destination — matching the FFmpeg
-        // encoder's behavior in ColorSpaceHelper.BuildHdrColorSpace.
-        BitmapColorSpace? hdrTargetColorSpace = isHdr
-            ? ColorSpaceMapper.BuildColorSpace(
-                isHdr: true,
-                MapTransfer(VideoSettings.ColorTransfer.Value),
-                MapPrimaries(VideoSettings.ColorPrimaries.Value))
-            : null;
+        // Convert pixels to the same transfer/primaries as the encoded stream, including SDR.
+        BitmapColorSpace targetColorSpace = ColorSpaceMapper.BuildColorSpace(
+            isHdr, (BitmapColorTransfer)videoConfig.ColorTransfer, (BitmapColorPrimaries)videoConfig.ColorPrimaries);
 
         BeutlAVFException.ThrowIfFailed(
             BeutlAVFNative.beutl_avf_writer_create(
@@ -65,7 +59,7 @@ public class AVFEncodingController : EncodingController
                 {
                     encodeVideo = await WriteVideoFrameAsync(
                         handle, frameProvider, frameCount, frameRateNum, frameRateDen,
-                        hdrTargetColorSpace);
+                        targetColorSpace, isHdr);
                     frameCount++;
                     if (frameCount >= frameProvider.FrameCount)
                     {
@@ -97,7 +91,8 @@ public class AVFEncodingController : EncodingController
         long frame,
         long frameRateNum,
         long frameRateDen,
-        BitmapColorSpace? hdrTargetColorSpace)
+        BitmapColorSpace targetColorSpace,
+        bool isHdr)
     {
         using Bitmap? image = await frameProvider.ReadNextFrame();
         if (image is null)
@@ -105,12 +100,12 @@ public class AVFEncodingController : EncodingController
 
         long ptsNum = frame * frameRateDen;
 
-        using var converted = hdrTargetColorSpace is not null
+        using var converted = isHdr
             // Skia converts the renderer's LinearSrgb working space to the HDR target
             // (e.g. Rec.2020 + PQ with luminance scaling baked into the gamut matrix),
             // emitting 16-bit-per-channel unpremultiplied RGBA for the Writer input.
-            ? image.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, hdrTargetColorSpace)
-            : image.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+            ? image.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, targetColorSpace)
+            : image.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, targetColorSpace);
         BeutlAVFException.ThrowIfFailed(
             BeutlAVFNative.beutl_avf_writer_append_video(
                 handle,
@@ -168,6 +163,17 @@ public class AVFEncodingController : EncodingController
             ? (int)AVFVideoEncoderSettings.VideoCodec.HEVC
             : (int)VideoSettings.Codec.Value;
 
+        var transfer = MapTransfer(VideoSettings.ColorTransfer.Value);
+        var primaries = MapPrimaries(VideoSettings.ColorPrimaries.Value);
+        var matrix = MapMatrix(VideoSettings.YCbCrMatrix.Value);
+        // Keep native HDR/JPEG defaults; SDR H.264/HEVC must not rely on a player's color guesses.
+        if (!isHdr && codec != (int)AVFVideoEncoderSettings.VideoCodec.JPEG)
+        {
+            if (transfer == BitmapColorTransfer.Unknown) transfer = BitmapColorTransfer.Bt709;
+            if (primaries == BitmapColorPrimaries.Unknown) primaries = BitmapColorPrimaries.Bt709;
+            if (matrix == BeutlYCbCrMatrix.Unknown) matrix = BeutlYCbCrMatrix.Bt709;
+        }
+
         return new BeutlVideoEncoderConfig
         {
             Width = VideoSettings.DestinationSize.Value.Width,
@@ -182,9 +188,9 @@ public class AVFEncodingController : EncodingController
             FrameRateDen = (int)VideoSettings.FrameRate.Value.Denominator,
             JpegQuality = VideoSettings.JPEGQuality.Value,
             IsHdr = isHdr ? 1 : 0,
-            ColorTransfer = (int)MapTransfer(VideoSettings.ColorTransfer.Value),
-            ColorPrimaries = (int)MapPrimaries(VideoSettings.ColorPrimaries.Value),
-            YCbCrMatrix = (int)MapMatrix(VideoSettings.YCbCrMatrix.Value),
+            ColorTransfer = (int)transfer,
+            ColorPrimaries = (int)primaries,
+            YCbCrMatrix = (int)matrix,
         };
     }
 

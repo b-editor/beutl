@@ -26,6 +26,50 @@ public class EncodeDecodeRoundTripTests
         catch { /* best-effort cleanup */ }
     }
 
+    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default, AVFVideoEncoderSettings.YCbCrMatrixType.Default)]
+    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default, AVFVideoEncoderSettings.YCbCrMatrixType.Bt601)]
+    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Srgb, AVFVideoEncoderSettings.YCbCrMatrixType.Bt709)]
+    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear, AVFVideoEncoderSettings.YCbCrMatrixType.Bt709)]
+    public async Task SdrColorTagsAndPixelsRoundTrip(
+        AVFVideoEncoderSettings.ColorTransferCharacteristic transfer, AVFVideoEncoderSettings.YCbCrMatrixType matrix)
+    {
+        string outputPath = Path.Combine(_workDir, "colors.mp4");
+        var controller = new AVFEncodingController(outputPath);
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value =
+            new PixelSize(ColorBarsFrameProvider.Width, ColorBarsFrameProvider.Height);
+        controller.VideoSettings.FrameRate.Value = new Rational(30, 1);
+        controller.VideoSettings.ColorTransfer.Value = transfer;
+        controller.VideoSettings.YCbCrMatrix.Value = matrix;
+        using var frames = new ColorBarsFrameProvider();
+        using var samples = new SineSampleProvider(4410, 44100);
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using var reader = new AVFReader(outputPath, new MediaOptions(), new AVFDecodingExtension());
+        Assert.That(reader.ReadVideo(0, out var decoded), Is.True);
+        using (decoded)
+        {
+            var expectedTransfer = transfer == AVFVideoEncoderSettings.ColorTransferCharacteristic.Default
+                ? BitmapColorTransfer.Bt709 : (BitmapColorTransfer)transfer;
+            var expectedColorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(expectedTransfer, BitmapColorPrimaries.Bt709);
+            Assert.That(decoded!.Value.ColorSpace, Is.EqualTo(expectedColorSpace));
+            // Compare in the encoded transfer domain, without amplifying quantization noise near linear black.
+            using Bitmap actual = decoded.Value.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, expectedColorSpace);
+            using Bitmap source = ColorBarsFrameProvider.CreateFrame();
+            using Bitmap expected = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, expectedColorSpace);
+            for (int patch = 0; patch < 6; patch++)
+            {
+                for (int channel = 0; channel < 3; channel++)
+                {
+                    int offset = (patch * 32 + 16) * 4 + channel;
+                    Assert.That(actual.GetRow(32)[offset], Is.EqualTo(expected.GetRow(32)[offset]).Within(5),
+                        $"Patch {patch}, channel {channel}");
+                }
+            }
+        }
+        Assert.That(controller.VideoSettings.YCbCrMatrix.Value, Is.EqualTo(matrix));
+        Assert.That(controller.VideoSettings.ColorTransfer.Value, Is.EqualTo(transfer));
+    }
+
     // A provider without frames returns null on its first read; one audio block keeps the file non-empty.
     [Test]
     public async Task EncodesAClipWithoutFrames()

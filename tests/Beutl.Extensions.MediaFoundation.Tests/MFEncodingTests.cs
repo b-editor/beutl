@@ -50,6 +50,10 @@ public class MFEncodingTests
             using var video = source.GetNativeMediaType((int)SourceReaderIndex.FirstVideoStream, 0);
             using var audio = source.GetNativeMediaType((int)SourceReaderIndex.FirstAudioStream, 0);
             Assert.That(video.GetGUID(MediaTypeAttributeKeys.Subtype), Is.EqualTo(VideoFormatGuids.H264));
+            Assert.That(video.GetUInt32(MediaTypeAttributeKeys.VideoPrimaries), Is.EqualTo((uint)VideoPrimaries.Bt709));
+            Assert.That(video.GetUInt32(MediaTypeAttributeKeys.TransferFunction), Is.EqualTo((uint)VideoTransferFunction.Func709));
+            Assert.That(video.GetUInt32(MediaTypeAttributeKeys.YuvMatrix), Is.EqualTo((uint)VideoTransferMatrix.Bt709));
+            Assert.That(video.GetUInt32(MediaTypeAttributeKeys.VideoNominalRange), Is.EqualTo((uint)NominalRange.Range16_235));
             Assert.That(audio.GetGUID(MediaTypeAttributeKeys.Subtype), Is.EqualTo(AudioFormatGuids.Aac));
             Assert.That(audio.GetUInt32(MediaTypeAttributeKeys.AudioNumChannels), Is.EqualTo(channels));
             Assert.That(audio.GetUInt32(MediaTypeAttributeKeys.AudioSamplesPerSecond), Is.EqualTo(sampleRate));

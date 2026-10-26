@@ -82,6 +82,9 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         long sample = 0;
         long rateNumerator = VideoSettings.FrameRate.Value.Numerator;
         long rateDenominator = VideoSettings.FrameRate.Value.Denominator;
+        BitmapColorSpace colorSpace = videoCodec == MFVideoCodec.RGB32
+            ? BitmapColorSpace.Srgb
+            : BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709);
         while (frame < frameCount || sample < sampleCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -92,7 +95,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 using var bitmap = await frames.ReadNextFrame()
                     ?? throw new InvalidOperationException("The frame provider ended before its frame count.");
                 cancellationToken.ThrowIfCancellationRequested();
-                WriteVideoFrame(writer, videoStream, bitmap, videoTime,
+                WriteVideoFrame(writer, videoStream, bitmap, colorSpace, videoTime,
                     GetTimestamp(frame + 1, rateNumerator, rateDenominator) - videoTime);
                 frame++;
             }
@@ -143,12 +146,13 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
 
     private int AddVideoStream(IMFSinkWriter writer, MFVideoCodec codec)
     {
-        using var outputType = CreateVideoType(MFEncodingFormat.VideoSubtype(codec));
+        bool rgbOutput = codec == MFVideoCodec.RGB32;
+        using var outputType = CreateVideoType(MFEncodingFormat.VideoSubtype(codec), rgbOutput);
         if (codec != MFVideoCodec.RGB32)
             outputType.Set(MediaTypeAttributeKeys.AvgBitrate, (uint)VideoSettings.Bitrate.Value).CheckError();
         int stream = writer.AddStream(outputType);
 
-        using var inputType = CreateVideoType(VideoFormatGuids.Rgb32);
+        using var inputType = CreateVideoType(VideoFormatGuids.Rgb32, rgbOutput);
         using var parameters = MediaFactory.MFCreateAttributes(1);
         if (codec is MFVideoCodec.H264 or MFVideoCodec.HEVC)
         {
@@ -175,7 +179,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     [DllImport("propsys.dll", ExactSpelling = true)]
     private static extern int PSCreateMemoryPropertyStore(in Guid riid, out nint propertyStore);
 
-    private IMFMediaType CreateVideoType(Guid subtype)
+    private IMFMediaType CreateVideoType(Guid subtype, bool rgbOutput)
     {
         var type = MediaFactory.MFCreateMediaType();
         try
@@ -188,6 +192,14 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 Pack(VideoSettings.FrameRate.Value.Numerator, VideoSettings.FrameRate.Value.Denominator)).CheckError();
             type.Set(MediaTypeAttributeKeys.PixelAspectRatio, Pack(1, 1)).CheckError();
             type.Set(MediaTypeAttributeKeys.InterlaceMode, (uint)VideoInterlaceMode.Progressive).CheckError();
+            // Input pixels already have the output transfer function; the MFT only converts full RGB to YUV.
+            type.Set(MediaTypeAttributeKeys.VideoPrimaries, (uint)VideoPrimaries.Bt709).CheckError();
+            type.Set(MediaTypeAttributeKeys.TransferFunction,
+                (uint)(rgbOutput ? VideoTransferFunction.FuncSRGB : VideoTransferFunction.Func709)).CheckError();
+            type.Set(MediaTypeAttributeKeys.VideoNominalRange,
+                (uint)(subtype == VideoFormatGuids.Rgb32 ? NominalRange.Range0_255 : NominalRange.Range16_235)).CheckError();
+            if (subtype != VideoFormatGuids.Rgb32)
+                type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)VideoTransferMatrix.Bt709).CheckError();
             if (subtype == VideoFormatGuids.Rgb32)
                 type.Set(MediaTypeAttributeKeys.DefaultStride, checked((uint)VideoSettings.DestinationSize.Value.Width * 4)).CheckError();
             return type;
@@ -293,9 +305,10 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         return stream;
     }
 
-    private void WriteVideoFrame(IMFSinkWriter writer, int stream, Bitmap bitmap, long time, long duration)
+    private void WriteVideoFrame(IMFSinkWriter writer, int stream, Bitmap bitmap, BitmapColorSpace colorSpace,
+        long time, long duration)
     {
-        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, colorSpace);
         using var source = new SKBitmap();
         var sourceInfo = new SKImageInfo(converted.Width, converted.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
         if (!source.InstallPixels(sourceInfo, converted.Data, converted.RowBytes))
