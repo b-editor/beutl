@@ -101,6 +101,7 @@ public sealed partial class SceneDrawable : Drawable
                 Frame = ReferencedScene is { } referencedScene
                     ? _compositor?.EvaluateGraphics(referencedScene.FromWindowTime(context.Time - obj.Start))
                     : null;
+                context.ContainsScene3D |= Frame?.ContainsScene3D == true;
 
                 if (oldFrame.HasValue && Frame.HasValue)
                 {

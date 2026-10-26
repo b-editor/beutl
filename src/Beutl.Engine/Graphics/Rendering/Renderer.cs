@@ -20,6 +20,7 @@ public class Renderer : IRenderer
     private readonly Dispatcher _dispatcher;
     private readonly ConditionalWeakTable<Drawable, Entry> _nodeCache = new();
     private readonly List<Entry> _allCurrentEntries = [];
+    private bool _frameContainsScene3D;
 
     private readonly ClearRenderNode _frameClear;
     private readonly CompleteTargetRenderNode _completeTarget;
@@ -352,6 +353,7 @@ public class Renderer : IRenderer
 
         InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
+        _frameContainsScene3D = frame.ContainsScene3D;
     }
 
     private void PrepareEntries(CompositionFrame frame, List<Entry> destination)
@@ -505,6 +507,7 @@ public class Renderer : IRenderer
         PrepareEntries(frame, pendingEntries);
         InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
+        _frameContainsScene3D = frame.ContainsScene3D;
     }
 
     public Drawable? HitTest(CompositionFrame frame, Point point)
@@ -887,7 +890,7 @@ public class Renderer : IRenderer
     internal Bitmap? SnapshotWithoutGizmos()
     {
         _dispatcher.VerifyAccess();
-        if (!_allCurrentEntries.Any(entry => RequiresCleanReplay(entry.Node)))
+        if (!_frameContainsScene3D && !_allCurrentEntries.Any(entry => ContainsScene3DNode(entry.Node)))
             return null;
 
         _completeTarget.UpdateRoots(_allCurrentEntries.Select(static entry => (RenderNode)entry.Node));
@@ -902,18 +905,14 @@ public class Renderer : IRenderer
         });
         return raster.Bitmap!.Clone();
 
-        static bool RequiresCleanReplay(RenderNode node)
+        static bool ContainsScene3DNode(RenderNode node)
         {
-            // Drawable-brush content is materialized later and is not in ChildNodes. Effects can
-            // introduce that content while recording too, so replay those without inspecting them.
-            if (node is Graphics3D.Scene3DRenderNode or FilterEffectRenderNode
-                || node is BrushRenderNode brush && RenderNodeContext.ContainsDrawableBrush(brush.Fill?.Resource, brush.Pen?.Resource)
-                || node is TextRenderNode text && RenderNodeContext.ContainsDrawableBrush(text.Text.Brush, text.Text.Pen)
-                || node is OpacityMaskRenderNode mask && RenderNodeContext.ContainsDrawableBrush(mask.Mask?.Resource))
+            // Also support render nodes supplied directly, outside composition reconciliation.
+            if (node is Graphics3D.Scene3DRenderNode)
                 return true;
 
             foreach (RenderNode child in node.ChildNodes)
-                if (RequiresCleanReplay(child))
+                if (ContainsScene3DNode(child))
                     return true;
             return false;
         }

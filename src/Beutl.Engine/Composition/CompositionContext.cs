@@ -22,6 +22,9 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
 
     public IList<EngineObject.Resource>? Flow { get; set; }
 
+    // Set while reconciling resources, including drawables held by brushes and effects.
+    internal bool ContainsScene3D { get; set; }
+
     internal FlowNode? ReplayedFlow { get; set; }
 
     public bool DisableResourceShare { get; set; }

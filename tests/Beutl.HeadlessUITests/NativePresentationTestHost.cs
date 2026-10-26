@@ -64,8 +64,12 @@ internal static partial class NativeTimelineTestHost
 
                 output.ToggleFullScreen();
                 elapsed.Restart();
-                while (IsNativeFullScreen() && elapsed.Elapsed < TimeSpan.FromSeconds(5))
+                while ((output.WindowState != WindowState.Normal || IsNativeFullScreen())
+                       && elapsed.Elapsed < TimeSpan.FromSeconds(5))
                     await Task.Delay(50);
+                // X11's WindowState getter reads the state confirmed by the window manager.
+                // A resize during the transition alone must not count as leaving fullscreen.
+                Assert.That(output.WindowState, Is.EqualTo(WindowState.Normal));
                 Assert.That(IsNativeFullScreen(), Is.False);
                 await Task.Delay(750);
                 output.Close();

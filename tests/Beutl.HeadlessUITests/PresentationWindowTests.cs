@@ -1,11 +1,15 @@
 ﻿using System.Security.Cryptography;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics3D;
 using Beutl.Graphics3D.Gizmo;
@@ -123,19 +127,69 @@ public class PresentationWindowTests
     }
 
     [AvaloniaTest]
-    public async Task Playback_shares_the_current_frame_and_frame_step_pauses_the_shared_player()
+    public async Task Output_menu_opens_toggles_and_closes_the_window()
+    {
+        var (_, view, owner) = await OpenView();
+        try
+        {
+            Button button = view.GetVisualDescendants().OfType<Button>()
+                .Single(b => AutomationProperties.GetName(b) == Language.Strings.PresentationWindow);
+            void ClickItem(int index)
+            {
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                HeadlessTestHelpers.Settle();
+                var popup = owner.OpenedPopups.Single(p => p.Child is MenuFlyoutPresenter);
+                var menu = (MenuFlyoutPresenter)popup.Child!;
+                menu.Items.OfType<MenuItem>().ElementAt(index).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                popup.IsOpen = false;
+                HeadlessTestHelpers.Settle();
+            }
+
+            // The windowed entry is followed by one fullscreen entry per connected display.
+            for (int index = 0; index <= owner.Screens.All.Count; index++)
+            {
+                ClickItem(index);
+                PresentationWindow output = view.Presentation!;
+                WindowState initialState = index == 0 ? WindowState.Normal : WindowState.FullScreen;
+                Assert.That(output.WindowState, Is.EqualTo(initialState));
+                ClickItem(0);
+                Assert.That(output.WindowState, Is.Not.EqualTo(initialState));
+                ClickItem(1);
+                Assert.That(view.Presentation, Is.Null);
+                Assert.That(output.IsVisible, Is.False);
+            }
+        }
+        finally { owner.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task Playback_shares_the_current_frame_and_frame_step_pauses_the_shared_player(bool cache, bool effects)
     {
         TestGpu.RequireAnyDevice();
         var (editor, view, owner) = await OpenView();
         try
         {
-            await TestShell.AddElementAsync(editor, () => new RectShape
+            var shape = new RectShape
             {
                 Width = { Value = 60 },
                 Height = { Value = 50 },
                 Fill = { Value = new SolidColorBrush(Colors.Red) },
-            }, MediaTime.Zero, MediaTime.FromSeconds(10));
+            };
+            await TestShell.AddElementAsync(editor, () => effects
+                ? new RectShape
+                {
+                    Width = { Value = 60 },
+                    Height = { Value = 50 },
+                    Fill = { Value = new DrawableBrush(shape) },
+                    FilterEffect = { Value = new Blur { Sigma = { Value = new Size(2, 2) } } },
+                }
+                : shape, MediaTime.Zero, MediaTime.FromSeconds(10));
             view.OpenPresentation(null, false);
+            editor.FrameCacheManager.Value.IsEnabled = cache;
+            editor.Player.QueuePreviewRender();
             RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
             PresentationWindow output = view.Presentation!;
             Press(output, Key.Space);
@@ -239,11 +293,12 @@ public class PresentationWindowTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, false, false)]
-    [TestCase(true, false, false)]
-    [TestCase(false, true, false)]
-    [TestCase(true, false, true)]
-    public async Task Output_omits_3D_gizmos_while_the_editor_keeps_them(bool cache, bool onion, bool brush)
+    [TestCase(false, false, 0)]
+    [TestCase(true, false, 0)]
+    [TestCase(false, true, 0)]
+    [TestCase(true, false, 1)]
+    [TestCase(true, false, 2)]
+    public async Task Output_omits_3D_gizmos_while_the_editor_keeps_them(bool cache, bool onion, int nesting)
     {
         TestGpu.RequireAnyDevice();
         var config = GlobalConfiguration.Instance.EditorConfig;
@@ -261,14 +316,23 @@ public class PresentationWindowTests
                 RenderHeight = { Value = 240 },
             };
             scene3D.Objects.Add(cube);
-            await TestShell.AddElementAsync(editor, () => brush
-                ? new RectShape
+            await TestShell.AddElementAsync(editor, () => nesting switch
+            {
+                1 => new RectShape
                 {
                     Width = { Value = 320 },
                     Height = { Value = 240 },
                     Fill = { Value = new DrawableBrush(scene3D) },
-                }
-                : (Drawable)scene3D, MediaTime.Zero, MediaTime.FromSeconds(10));
+                },
+                2 => new RectShape
+                {
+                    Width = { Value = 320 },
+                    Height = { Value = 240 },
+                    Fill = { Value = new SolidColorBrush(Colors.White) },
+                    FilterEffect = { Value = new BlendEffect { Brush = { Value = new DrawableBrush(scene3D) } } },
+                },
+                _ => scene3D,
+            }, MediaTime.Zero, MediaTime.FromSeconds(10));
             editor.PreviewScale.Value = RenderScale.Full;
             editor.Player.IsCameraMode.Value = true;
             editor.Player.ApplyTimecodeSeek(MediaTime.FromSeconds(1));
@@ -291,8 +355,8 @@ public class PresentationWindowTests
                 Assert.That(HashPixels(editor.Player.PreviewImage.Value!.Value), Is.Not.EqualTo(editorWithoutGizmo));
             }
             HeadlessTestHelpers.Render();
-            HeadlessCapture.SaveIfRequested(owner, nameof(PresentationWindowTests), $"editor-3d-{cache}-{onion}-{brush}");
-            HeadlessCapture.SaveIfRequested(view.Presentation!, nameof(PresentationWindowTests), $"output-3d-{cache}-{onion}-{brush}");
+            HeadlessCapture.SaveIfRequested(owner, nameof(PresentationWindowTests), $"editor-3d-{cache}-{onion}-{nesting}");
+            HeadlessCapture.SaveIfRequested(view.Presentation!, nameof(PresentationWindowTests), $"output-3d-{cache}-{onion}-{nesting}");
 
             // Opening output during playback must replace read-ahead made without a clean image,
             // including cached frames, without ever publishing the editor's baked-in handle.

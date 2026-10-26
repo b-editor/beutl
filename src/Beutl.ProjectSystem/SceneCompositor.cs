@@ -150,7 +150,10 @@ public sealed class SceneCompositor : ICompositor
             [.. allResources],
             new(time, new MediaTime(1)),
             Scene.FrameSize.Value,
-            null);
+            null)
+        {
+            ContainsScene3D = ctx.ContainsScene3D,
+        };
     }
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)
