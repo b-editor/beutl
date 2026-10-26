@@ -33,7 +33,7 @@ jobs:
       - name: Install gh actions-lock
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh extension install github/gh-actions-lock --pin v0.1.6
+        run: gh extension install github/gh-actions-lock --pin v0.4.0
 
       - name: Verify workflow dependencies
         env:
@@ -42,7 +42,7 @@ jobs:
         run: gh actions-lock --no-fix --no-interactive
 
       - name: Verify transitive dependency coverage
-        # gh actions-lock v0.1.6 does not reject missing transitive lockfile entries.
+        # Keep the coverage check independent of the lock tool's version.
         run: |
           ruby -ryaml <<'RUBY'
           lock = YAML.safe_load(File.read('.github/workflows/actions.lock'))
