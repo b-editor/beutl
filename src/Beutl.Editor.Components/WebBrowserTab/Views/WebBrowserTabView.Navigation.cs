@@ -34,13 +34,13 @@ internal partial class WebBrowserTabView
 
         _latestNavigationRequest = e.Request;
 
-        // The macOS WebView adapter forwards policy decisions for every target frame through this event,
-        // without exposing IsMainFrame. Only completed navigation identifies the top-level URL.
+        // The macOS delegate filters subframes before Avalonia reports policy decisions here.
+        // Actual main-frame starts and commits arrive through separate native callbacks.
         // App-initiated navigation and explicit download links are handled separately.
         if (_navigationStartedIncludesSubframes)
         {
-            // Script offers expire without treating a frame as a new page. Captured native
-            // responses survive iframe activity; the WK delegate reports their main-frame starts.
+            // Expire script offers at the policy decision, but keep a captured native response
+            // until the WK delegate confirms that a new main-frame navigation has started.
             if (_pendingPageDownloadRequest?.Source == null) InvalidatePageDownloadRequests();
             return;
         }
