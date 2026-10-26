@@ -51,10 +51,13 @@ public sealed class ShaderGraphResourceTests
     [TestCase(ImageKind.CubeArray, "CubeArray", "vec4(1,0,0,1)", 12, 1f)]
     public void ComputeWritesArraysVolumesAndCubeFaces(ImageKind kind, string suffix, string coordinates, int slices, float expected)
     {
-        OnDevice(capabilities =>
+        IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
+        ShaderCapabilities capabilities = GpuTestEnvironment.InvokeOnRenderThread(() => ShaderCapabilities.Query(context));
+        if (kind == ImageKind.CubeArray && !capabilities.CubeArrays)
+            Assert.Ignore("This device does not enable cube arrays.");
+
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            if (kind == ImageKind.CubeArray && !capabilities.CubeArrays)
-                Assert.Ignore("This device does not enable cube arrays.");
             var description = new ImageDescription(kind, 4, 4, Depth: kind == ImageKind.Image3D ? slices : 1,
                 ArrayLayers: kind is ImageKind.Image3D or ImageKind.Image2D ? 1 : slices);
             Assert.That(capabilities.SupportsImage(description, ImageUsage.Storage | ImageUsage.Sampled), Is.True);
