@@ -14,10 +14,16 @@ public partial class PlayerViewModel
 
     public ReactivePropertySlim<Ref<Bitmap>?> CleanPreviewImage { get; } = new();
 
+    internal bool IsCleanPreviewEnabled => _cleanPreviewEnabled;
+
+    internal event EventHandler? CleanPreviewChanged;
+
     internal void SetCleanPreviewEnabled(bool enabled)
     {
+        bool changed;
         lock (_cleanPreviewLock)
         {
+            changed = _cleanPreviewEnabled != (enabled && !_isDisposing);
             _cleanPreviewEnabled = enabled && !_isDisposing;
             if (!_cleanPreviewEnabled)
             {
@@ -27,14 +33,31 @@ public partial class PlayerViewModel
             }
         }
 
+        if (changed)
+            CleanPreviewChanged?.Invoke(this, EventArgs.Empty);
+
         if (_cleanPreviewEnabled && !IsPlaying.Value)
             QueueRender();
     }
 
     // Ref.Clone retains the same pixels. The editor will paint into its bitmap, so retain a pixel
-    // copy for the clean output. Playback already supplies an unmodified frame and shares its ref.
-    private Ref<Bitmap>? CopyCleanFrame(Bitmap bitmap)
-        => _cleanPreviewEnabled ? Ref<Bitmap>.Create(bitmap.Clone()) : null;
+    // copy for the clean output. Playback shares its ref unless a 3D gizmo requires a separate image.
+    private Ref<Bitmap>? CopyCleanFrame(SceneRenderer renderer, Bitmap bitmap)
+        => _cleanPreviewEnabled
+            ? Ref<Bitmap>.Create(renderer.SnapshotWithoutGizmos() ?? bitmap.Clone())
+            : null;
+
+    internal Ref<Bitmap>? CreatePlaybackCleanFrame(SceneRenderer renderer, Ref<Bitmap> bitmap, MediaTime? cachedTime = null)
+    {
+        if (!_cleanPreviewEnabled)
+            return null;
+
+        if (cachedTime.HasValue)
+            renderer.UpdateFrame(renderer.Compositor.EvaluateGraphics(cachedTime.Value));
+        return renderer.SnapshotWithoutGizmos() is { } clean
+            ? Ref<Bitmap>.Create(clean)
+            : bitmap.Clone();
+    }
 
     internal void SetPresentationFrameSize(Size size)
     {

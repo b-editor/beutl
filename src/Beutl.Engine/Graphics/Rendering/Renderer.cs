@@ -882,6 +882,35 @@ public class Renderer : IRenderer
         return _surface.Snapshot();
     }
 
+    // A cached 3D preview may contain a handle even after its selection changed. Replay 3D frames
+    // with the existing delivery intent into a separate target, preserving the editor surface.
+    internal Bitmap? SnapshotWithoutGizmos()
+    {
+        _dispatcher.VerifyAccess();
+        if (!_allCurrentEntries.Any(entry => ContainsScene3D(entry.Node)))
+            return null;
+
+        _completeTarget.UpdateRoots(_allCurrentEntries.Select(static entry => (RenderNode)entry.Node));
+        using var raster = _frameRenderer.Rasterize(_frameRenderer.DefaultRequest with
+        {
+            Intent = RenderIntent.Delivery,
+            Purpose = RenderRequestPurpose.Auxiliary,
+            RequestedRegion = new Rect(default, FrameSize.ToSize(1)),
+        });
+        return raster.Bitmap!.Clone();
+
+        static bool ContainsScene3D(RenderNode node)
+        {
+            if (node is Graphics3D.Scene3DRenderNode)
+                return true;
+
+            foreach (RenderNode child in node.ChildNodes)
+                if (ContainsScene3D(child))
+                    return true;
+            return false;
+        }
+    }
+
     /// <summary>
     /// Reads the current surface into an existing <paramref name="destination"/> bitmap, reusing it
     /// instead of allocating a fresh snapshot. See <see cref="RenderTarget.SnapshotInto(Bitmap)"/>.

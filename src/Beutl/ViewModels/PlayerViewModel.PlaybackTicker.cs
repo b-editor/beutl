@@ -165,7 +165,7 @@ public partial class PlayerViewModel
                 while (_playerImpl.TryDequeue(out BufferedPlayer.Frame frame))
                 {
                     dequeued = true;
-                    using (frame.Bitmap)
+                    using (frame)
                     {
                         if (!_owner._sessionGuard.Owns(_generation))
                         {
@@ -173,7 +173,7 @@ public partial class PlayerViewModel
                             return;
                         }
 
-                        Show(frame.Bitmap.Clone(), frame.Time);
+                        Show(frame.Bitmap.Clone(), frame.CleanBitmap?.Clone(), frame.Time);
                     }
 
                     // タイマーが正確じゃないから、だんだんとフレームがずれてくる
@@ -223,9 +223,9 @@ public partial class PlayerViewModel
 
         // A frame that the UI thread has not shown yet is replaced by a newer one, so a busy UI thread shows the
         // newest frame next instead of falling behind the clock while it holds every frame posted meanwhile.
-        private void Show(Ref<Bitmap> preview, int time)
+        private void Show(Ref<Bitmap> preview, Ref<Bitmap>? cleanPreview, int time)
         {
-            Interlocked.Exchange(ref _pendingFrame, new PendingFrame(preview, time))?.Preview.Dispose();
+            Interlocked.Exchange(ref _pendingFrame, new PendingFrame(preview, cleanPreview, time))?.Dispose();
             if (Interlocked.Exchange(ref _framePostQueued, 1) == 0)
                 Dispatcher.UIThread.Post(ShowPendingFrame, DispatcherPriority.Normal);
         }
@@ -247,7 +247,7 @@ public partial class PlayerViewModel
                 {
                     // PreviewImage owns the frame from here on.
                     shown = true;
-                    _owner.UpdateImage(frame.Preview, frame.Preview);
+                    _owner.UpdateImage(frame.Preview, frame.CleanPreview);
                     _owner.ClearPreviewRenderError(_generation);
 
                     if (_owner.Scene != null)
@@ -266,6 +266,7 @@ public partial class PlayerViewModel
             {
                 if (!shown)
                     frame.Preview.Dispose();
+                frame.CleanPreview?.Dispose();
             }
         }
 
@@ -315,6 +316,13 @@ public partial class PlayerViewModel
             _tcs.TrySetResult(true);
         }
 
-        private sealed record PendingFrame(Ref<Bitmap> Preview, int Time);
+        private sealed record PendingFrame(Ref<Bitmap> Preview, Ref<Bitmap>? CleanPreview, int Time) : IDisposable
+        {
+            public void Dispose()
+            {
+                Preview.Dispose();
+                CleanPreview?.Dispose();
+            }
+        }
     }
 }

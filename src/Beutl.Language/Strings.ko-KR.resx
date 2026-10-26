@@ -1234,6 +1234,24 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="Preview" xml:space="preserve">
     <value>미리 보기</value>
   </data>
+  <data name="PresentationWindow" xml:space="preserve">
+    <value>다른 창에서 미리 보기 표시</value>
+  </data>
+  <data name="PresentationWindowed" xml:space="preserve">
+    <value>창으로 열기</value>
+  </data>
+  <data name="PresentationFullScreen" xml:space="preserve">
+    <value>전체 화면</value>
+  </data>
+  <data name="PresentationToggleFullScreen" xml:space="preserve">
+    <value>전체 화면 전환 (F11)</value>
+  </data>
+  <data name="PresentationClose" xml:space="preserve">
+    <value>미리 보기 출력 닫기</value>
+  </data>
+  <data name="PresentationDisplay" xml:space="preserve">
+    <value>디스플레이 {0}</value>
+  </data>
   <data name="PreviewSettings" xml:space="preserve">
     <value>미리 보기 설정</value>
   </data>

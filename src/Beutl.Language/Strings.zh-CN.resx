@@ -1234,6 +1234,24 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="Preview" xml:space="preserve">
     <value>预览</value>
   </data>
+  <data name="PresentationWindow" xml:space="preserve">
+    <value>在另一窗口中显示预览</value>
+  </data>
+  <data name="PresentationWindowed" xml:space="preserve">
+    <value>在窗口中打开</value>
+  </data>
+  <data name="PresentationFullScreen" xml:space="preserve">
+    <value>全屏</value>
+  </data>
+  <data name="PresentationToggleFullScreen" xml:space="preserve">
+    <value>切换全屏 (F11)</value>
+  </data>
+  <data name="PresentationClose" xml:space="preserve">
+    <value>关闭预览输出</value>
+  </data>
+  <data name="PresentationDisplay" xml:space="preserve">
+    <value>显示器 {0}</value>
+  </data>
   <data name="PreviewSettings" xml:space="preserve">
     <value>预览设置</value>
   </data>

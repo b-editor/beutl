@@ -329,7 +329,7 @@ public partial class PlayerViewModel
         try
         {
             currentBitmap = renderer.Snapshot();
-            cleanFrame = CopyCleanFrame(currentBitmap);
+            cleanFrame = CopyCleanFrame(renderer, currentBitmap);
             using (var canvas = new SKCanvas(currentBitmap.SKBitmap))
             {
                 foreach (var sample in onionSamples)
@@ -406,7 +406,7 @@ public partial class PlayerViewModel
             renderer.UpdateFrame(compositionFrame);
             var bitmap = cache.Value.Clone();
             Ref<Bitmap> bitmapRef = Ref<Bitmap>.Create(bitmap);
-            cleanFrame = CopyCleanFrame(bitmap);
+            cleanFrame = CopyCleanFrame(renderer, bitmap);
 
             using (var canvas = new SKCanvas(bitmap.SKBitmap))
             {
@@ -426,7 +426,7 @@ public partial class PlayerViewModel
         renderer.Render(compositionFrame);
         var bitmap = renderer.Snapshot();
         Ref<Bitmap> bitmapRef = Ref<Bitmap>.Create(bitmap);
-        cleanFrame = CopyCleanFrame(bitmap);
+        cleanFrame = CopyCleanFrame(renderer, bitmap);
 
         if (cacheManager.IsEnabled)
         {

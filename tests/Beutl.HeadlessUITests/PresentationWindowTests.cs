@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+﻿using System.Security.Cryptography;
+using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
@@ -6,6 +7,9 @@ using Beutl.Configuration;
 using Beutl.Editor.Services;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics3D;
+using Beutl.Graphics3D.Gizmo;
+using Beutl.Graphics3D.Primitives;
 using Beutl.Media;
 using Beutl.Media.Pixel;
 using Beutl.Models;
@@ -226,6 +230,90 @@ public class PresentationWindowTests
             config.OnionSkinNextCount.Value = oldNextCount;
             config.OnionSkinPrevOpacity.Value = oldOpacity;
         }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public async Task Output_omits_3D_gizmos_while_the_editor_keeps_them(bool cache, bool onion)
+    {
+        TestGpu.RequireAnyDevice();
+        var config = GlobalConfiguration.Instance.EditorConfig;
+        bool oldOnion = config.IsOnionSkinEnabled.Value;
+        bool oldHdr = config.UseHdrPreview.Value;
+        var (editor, view, owner) = await OpenView();
+        try
+        {
+            config.IsOnionSkinEnabled.Value = onion;
+            config.UseHdrPreview.Value = false;
+            var cube = new Cube3D();
+            var scene3D = new Scene3D
+            {
+                RenderWidth = { Value = 320 },
+                RenderHeight = { Value = 240 },
+            };
+            scene3D.Objects.Add(cube);
+            await TestShell.AddElementAsync(editor, () => scene3D, MediaTime.Zero, MediaTime.FromSeconds(10));
+            editor.PreviewScale.Value = RenderScale.Full;
+            editor.Player.IsCameraMode.Value = true;
+            editor.Player.ApplyTimecodeSeek(MediaTime.FromSeconds(1));
+            view.OpenPresentation(null, false);
+            editor.FrameCacheManager.Value.IsEnabled = cache;
+            editor.Player.QueuePreviewRender();
+            RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
+            string cleanHash = HashPixels(editor.Player.CleanPreviewImage.Value!.Value);
+            string editorWithoutGizmo = HashPixels(editor.Player.PreviewImage.Value!.Value);
+
+            scene3D.GizmoTarget.Value = cube.Id.Value;
+            scene3D.GizmoMode.Value = GizmoMode.Translate;
+            // Prime a decorated cache entry, then exercise that entry on the second pass.
+            editor.FrameCacheManager.Value.Clear();
+            for (int pass = 0; pass < 2; pass++)
+            {
+                editor.Player.QueuePreviewRender();
+                RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
+                Assert.That(HashPixels(editor.Player.CleanPreviewImage.Value!.Value), Is.EqualTo(cleanHash));
+                Assert.That(HashPixels(editor.Player.PreviewImage.Value!.Value), Is.Not.EqualTo(editorWithoutGizmo));
+            }
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(owner, nameof(PresentationWindowTests), $"editor-3d-{cache}-{onion}");
+            HeadlessCapture.SaveIfRequested(view.Presentation!, nameof(PresentationWindowTests), $"output-3d-{cache}-{onion}");
+
+            // Opening output during playback must replace read-ahead made without a clean image,
+            // including cached frames, without ever publishing the editor's baked-in handle.
+            view.Presentation!.Close();
+            editor.Player.Play();
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.CurrentFrame.Value > MediaTime.FromSeconds(1));
+            view.OpenPresentation(null, false);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.CleanPreviewImage.Value is not null);
+            Assert.Multiple(() =>
+            {
+                Assert.That(HashPixels(editor.Player.CleanPreviewImage.Value!.Value), Is.EqualTo(cleanHash));
+                Assert.That(HashPixels(editor.Player.PreviewImage.Value!.Value), Is.Not.EqualTo(cleanHash));
+                Assert.That(scene3D.GizmoTarget.Value, Is.EqualTo(cube.Id.Value));
+                Assert.That(scene3D.GizmoMode.Value, Is.EqualTo(GizmoMode.Translate));
+            });
+
+            await editor.Player.Pause();
+            scene3D.GizmoTarget.Value = null;
+            editor.Player.QueuePreviewRender();
+            RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
+            Assert.That(HashPixels(editor.Player.CleanPreviewImage.Value!.Value), Is.EqualTo(cleanHash));
+        }
+        finally
+        {
+            await editor.Player.Pause();
+            owner.Close();
+            config.IsOnionSkinEnabled.Value = oldOnion;
+            config.UseHdrPreview.Value = oldHdr;
+        }
+    }
+
+    private static string HashPixels(Bitmap bitmap)
+    {
+        using var srgb = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+        return Convert.ToHexString(SHA256.HashData(srgb.GetPixelSpan()));
     }
 
     [AvaloniaTest]
