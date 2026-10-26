@@ -97,7 +97,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 using var bitmap = await frames.ReadNextFrame()
                     ?? throw new InvalidOperationException("The frame provider ended before its frame count.");
                 cancellationToken.ThrowIfCancellationRequested();
-                WriteVideoFrame(writer, videoStream, bitmap, colorSpace, videoTime,
+                WriteVideoFrame(writer, videoStream, bitmap, colorSpace, rec709Output, videoTime,
                     GetTimestamp(frame + 1, rateNumerator, rateDenominator) - videoTime);
                 frame++;
             }
@@ -153,7 +153,9 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             outputType.Set(MediaTypeAttributeKeys.AvgBitrate, (uint)VideoSettings.Bitrate.Value).CheckError();
         int stream = writer.AddStream(outputType);
 
-        using var inputType = CreateVideoType(VideoFormatGuids.Rgb32, rec709Output);
+        // Sink Writer's implicit RGB converter uses BT.601 even when the H.264 output is tagged BT.709.
+        // Supply already-converted YUV so the encoder only compresses it.
+        using var inputType = CreateVideoType(rec709Output ? VideoFormatGuids.Iyuv : VideoFormatGuids.Rgb32, rec709Output);
         using var parameters = MediaFactory.MFCreateAttributes(1);
         if (codec is MFVideoCodec.H264 or MFVideoCodec.HEVC)
         {
@@ -195,16 +197,16 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             type.Set(MediaTypeAttributeKeys.InterlaceMode, (uint)VideoInterlaceMode.Progressive).CheckError();
             if (rec709Output)
             {
-                // Input pixels already have the output transfer function; the MFT only converts full RGB to YUV.
+                // Input YUV pixels already match these output tags.
                 type.Set(MediaTypeAttributeKeys.VideoPrimaries, (uint)VideoPrimaries.Bt709).CheckError();
                 type.Set(MediaTypeAttributeKeys.TransferFunction, (uint)VideoTransferFunction.Func709).CheckError();
-                type.Set(MediaTypeAttributeKeys.VideoNominalRange,
-                    (uint)(subtype == VideoFormatGuids.Rgb32 ? NominalRange.Range0_255 : NominalRange.Range16_235)).CheckError();
-                if (subtype != VideoFormatGuids.Rgb32)
-                    type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)VideoTransferMatrix.Bt709).CheckError();
+                type.Set(MediaTypeAttributeKeys.VideoNominalRange, (uint)NominalRange.Range16_235).CheckError();
+                type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)VideoTransferMatrix.Bt709).CheckError();
             }
             if (subtype == VideoFormatGuids.Rgb32)
                 type.Set(MediaTypeAttributeKeys.DefaultStride, checked((uint)VideoSettings.DestinationSize.Value.Width * 4)).CheckError();
+            else if (subtype == VideoFormatGuids.Iyuv)
+                type.Set(MediaTypeAttributeKeys.DefaultStride, (uint)VideoSettings.DestinationSize.Value.Width).CheckError();
             return type;
         }
         catch
@@ -309,7 +311,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     }
 
     private void WriteVideoFrame(IMFSinkWriter writer, int stream, Bitmap bitmap, BitmapColorSpace colorSpace,
-        long time, long duration)
+        bool rec709Output, long time, long duration)
     {
         using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, colorSpace);
         using var source = new SKBitmap();
@@ -327,22 +329,27 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         }
 
         int rowBytes = checked(size.Width * 4);
-        using var buffer = MediaFactory.MFCreateMemoryBuffer(checked(rowBytes * size.Height));
+        int bufferSize = rec709Output ? YuvConversion.GetI420BufferSize(size.Width, size.Height) : checked(rowBytes * size.Height);
+        using var buffer = MediaFactory.MFCreateMemoryBuffer(bufferSize);
         buffer.Lock(out nint destination, out _, out _);
         try
         {
             unsafe
             {
-                for (int y = 0; y < size.Height; y++)
-                    Buffer.MemoryCopy((byte*)scaled.GetPixels() + y * scaled.RowBytes,
-                        (byte*)destination + y * rowBytes, rowBytes, rowBytes);
+                if (rec709Output)
+                    YuvConversion.BgraToI420((byte*)scaled.GetPixels(), scaled.RowBytes, (byte*)destination,
+                        size.Width, size.Height, bt709: true);
+                else
+                    for (int y = 0; y < size.Height; y++)
+                        Buffer.MemoryCopy((byte*)scaled.GetPixels() + y * scaled.RowBytes,
+                            (byte*)destination + y * rowBytes, rowBytes, rowBytes);
             }
         }
         finally
         {
             buffer.Unlock();
         }
-        buffer.CurrentLength = checked(rowBytes * size.Height);
+        buffer.CurrentLength = bufferSize;
         WriteSample(writer, stream, buffer, time, duration);
     }
 

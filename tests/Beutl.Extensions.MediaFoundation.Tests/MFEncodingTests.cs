@@ -25,14 +25,15 @@ public class MFEncodingTests
     [TearDown]
     public void TearDown() => Directory.Delete(_directory, recursive: true);
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public async Task Encode_H264PixelsMatchBt709TransferMatrixAndLimitedRange(bool hardware)
+    [TestCase(false, 192)]
+    [TestCase(true, 192)]
+    [TestCase(false, 194)]
+    public async Task Encode_H264PixelsMatchBt709TransferMatrixAndLimitedRange(bool hardware, int width)
     {
         var controller = CreateController();
         controller.VideoSettings.UseHardwareAcceleration.Value = hardware;
-        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value =
-            new PixelSize(ColorBarsFrameProvider.Width, ColorBarsFrameProvider.Height);
+        controller.VideoSettings.SourceSize.Value = new PixelSize(ColorBarsFrameProvider.Width, ColorBarsFrameProvider.Height);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(width, ColorBarsFrameProvider.Height);
         using var frames = new ColorBarsFrameProvider();
         using var samples = new TrackedSamples(0, 0);
         await controller.Encode(frames, samples, CancellationToken.None);
@@ -49,7 +50,7 @@ public class MFEncodingTests
             type.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.NV12).CheckError();
             source.SetCurrentMediaType(stream, type);
             using var current = source.GetCurrentMediaType(stream);
-            int stride = (int)MediaFactory.MFGetAttributeUInt32(current, MediaTypeAttributeKeys.DefaultStride, ColorBarsFrameProvider.Width);
+            int stride = (int)MediaFactory.MFGetAttributeUInt32(current, MediaTypeAttributeKeys.DefaultStride, (uint)width);
             using var sample = source.ReadSample(stream, SourceReaderControlFlag.None, out _, out _, out _);
             Assert.That(sample, Is.Not.Null);
             using var buffer = sample.ConvertToContiguousBuffer();
@@ -61,8 +62,8 @@ public class MFEncodingTests
             {
                 for (int patch = 0; patch < expected.Length; patch++)
                 {
-                    int x = patch * 32 + 16;
-                    int chroma = stride * ColorBarsFrameProvider.Height + 16 * stride + x;
+                    int x = (patch * 32 + 16) * width / ColorBarsFrameProvider.Width;
+                    int chroma = stride * ColorBarsFrameProvider.Height + 16 * stride + (x & ~1);
                     Assert.That(bytes[32 * stride + x], Is.EqualTo(expected[patch][0]).Within(3), $"Patch {patch}, Y");
                     Assert.That(bytes[chroma], Is.EqualTo(expected[patch][1]).Within(3), $"Patch {patch}, U");
                     Assert.That(bytes[chroma + 1], Is.EqualTo(expected[patch][2]).Within(3), $"Patch {patch}, V");
