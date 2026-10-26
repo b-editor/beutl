@@ -388,7 +388,7 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
         return new JsonObject
         {
             ["Extension"] = TypeFormat.ToString(item.Context.Extension.GetType()),
-            ["File"] = item.Context.Object.Uri!.LocalPath,
+            ["ObjectId"] = item.Context.Object.Id.Value,
             [nameof(Context)] = ctxJson
         };
     }
@@ -406,23 +406,27 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             OutputExtension? extension = Array.Find(extensionProvider.GetExtensions<OutputExtension>(),
                 x => x.GetType() == extensionType);
 
-            string file = obj["File"]!.AsValue().GetValue<string>();
+            // Legacy profiles are stored with their scene directory. Its old absolute path
+            // may no longer exist after a move; the next save replaces it with the object ID.
+            bool matchesObject = obj.TryGetPropertyValue("ObjectId", out JsonNode? objectId)
+                ? objectId?.GetValue<Guid>() == editorContext.Object.Id.Value
+                : obj["File"]?.GetValue<string>() is { Length: > 0 };
 
             if (contextJson != null
                 && extension != null
-                && File.Exists(file)
+                && matchesObject
                 && ExtensionGuard.Call(extension, () => extension.TryCreateContext(editorContext, out IOutputContext? created) ? created : null)
                     is { } context)
             {
                 context.ReadFromJson(contextJson.AsObject());
-                logger.LogInformation("OutputProfileItem created from JSON. File: {File}, Context: {Context}", file,
-                    context);
+                logger.LogInformation("OutputProfileItem created from JSON. ObjectId: {ObjectId}, Context: {Context}",
+                    context.Object.Id.Value, context);
                 return new OutputProfileItem(context, editorContext, runHost);
             }
             else
             {
-                logger.LogWarning("Failed to create OutputProfileItem from JSON. File: {File}, Extension: {Extension}",
-                    file, extensionStr);
+                logger.LogWarning("Failed to create OutputProfileItem from JSON. ObjectId: {ObjectId}, Extension: {Extension}",
+                    objectId, extensionStr);
                 return null;
             }
         }
