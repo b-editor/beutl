@@ -102,6 +102,11 @@ internal sealed partial class RegionAnalyzer
         if (reference.Inputs.Length != 1)
             throw new InvalidOperationException("A target scope requires exactly one input fragment.");
 
+        // MaterializeValueReplayMap skips the input when the selected output is empty. Resolve even a
+        // Full requirement against that output before a singular transform requests its complete input.
+        if (reference.CanBeUsedAsValueInput && outputRequirement.Intersect(reference.Bounds).IsEmpty)
+            return [RequiredRegion.Empty];
+
         RequiredRegion required;
         if (bounds.RequiresFullInput)
         {

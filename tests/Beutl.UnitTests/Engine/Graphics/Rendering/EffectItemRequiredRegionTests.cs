@@ -3,6 +3,7 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using static Beutl.UnitTests.Engine.Graphics.Rendering.Golden.ImageMetrics;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 
@@ -196,6 +197,48 @@ public sealed class EffectItemRequiredRegionTests
             Assert.That(bounds, Is.EqualTo(sourceBounds));
             Assert.That(alpha, Has.Some.GreaterThan(0.01f), "the frame must not be blank");
         });
+    }
+
+    [TestCase(RenderIntent.Preview, true)]
+    [TestCase(RenderIntent.Preview, false)]
+    [TestCase(RenderIntent.Delivery, true)]
+    [TestCase(RenderIntent.Delivery, false)]
+    public void LayerEffect_RendersAcrossCollapsedInputTransforms(RenderIntent intent, bool collapseX)
+    {
+        using var layer = new FilterEffectRenderNode(new LayerEffect().ToResource(CompositionContext.Default));
+        var transform = new TransformRenderNode(Matrix.Identity, TransformOperator.Prepend);
+        transform.AddChild(new RectangleRenderNode(new Rect(0, 0, 20, 20), Brushes.Resource.White, null));
+        layer.AddChild(transform);
+        layer.AddChild(new RectangleRenderNode(new Rect(40, 40, 10, 10), Brushes.Resource.White, null));
+        using var destination = new CpuRenderTarget(64, 64);
+        using var canvas = new ImmediateCanvas(destination, intent);
+        using var renderer = new RenderNodeRenderer(layer, new RenderNodeRenderRequest
+        {
+            Intent = intent,
+            CacheOptions = Beutl.Graphics.Rendering.Cache.RenderCacheOptions.Disabled,
+        }, new CpuRenderTargetFactory());
+
+        // Keep the same renderer across the boundary so a plan reused after a collapsed frame must
+        // restore the input's requirements. The other rectangle must remain visible throughout.
+        foreach (float scale in new[] { 1f, 0f, 0.1f, 1f })
+        {
+            transform.Update(
+                Matrix.CreateScale(collapseX ? scale : 1, collapseX ? 1 : scale),
+                TransformOperator.Prepend);
+            canvas.Clear();
+
+            renderer.Render(canvas);
+
+            using Bitmap result = destination.Snapshot();
+            Assert.Multiple(() =>
+            {
+                Assert.That(AlphaAt(result, 1, 1), Is.EqualTo(scale == 0 ? 0f : 1f).Within(0.01f),
+                    $"the transformed input must follow its scale ({scale})");
+                Assert.That(AlphaAt(result, 45, 45), Is.GreaterThan(0.99f),
+                    "collapsing one input must preserve the other layer input");
+                Assert.That(AlphaAt(result, 30, 30), Is.Zero);
+            });
+        }
     }
 
     private static FilterEffectRenderNode CreateBlurNode(float sigma)
