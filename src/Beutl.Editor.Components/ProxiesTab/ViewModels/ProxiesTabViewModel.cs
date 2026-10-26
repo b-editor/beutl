@@ -29,8 +29,9 @@ public sealed partial class ProxiesTabViewModel : IDisposable, IToolContext
     ];
 
     // Heaviness floor for the bulk "generate all" action. Coarse heuristics that should become
-    // user-configurable and metadata-driven later. Original resolution is only known once a proxy entry exists, so never-proxied
-    // clips fall back to the file-size floor as a rough bitrate x duration proxy.
+    // user-configurable and metadata-driven later. Original resolution comes from an existing proxy entry;
+    // a never-proxied clip is probed through the file browser's media metadata, and the file-size floor is
+    // only the fallback when that probe cannot determine the resolution.
     private const long MinBulkSourcePixelCount = 1920L * 1080L;
     private const long MinBulkSourceFileBytes = 32L * 1024L * 1024L;
 

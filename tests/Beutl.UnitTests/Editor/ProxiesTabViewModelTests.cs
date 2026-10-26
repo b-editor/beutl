@@ -854,11 +854,51 @@ public sealed class ProxiesTabViewModelTests
         Assert.That(notifications.Single().Type, Is.EqualTo(NotificationType.Error));
     }
 
-    // The real store's Delete removes the index entry but only best-effort-deletes the file; a surviving
-    // .mp4 (a sharing violation while preview decodes it) is a real failure the UI must surface, even
-    // though Delete returned true.
+    // The store removes the index entry before reclaiming the file. A preview reader pins the proxy, so
+    // the store retires it and unlinks it when the last reader unpins it; that deferred cleanup must not
+    // be reported as an in-use failure. Otherwise the entry is already gone when the user reads the error,
+    // and a second click "succeeds" only because there is nothing left to delete.
     [Test]
-    public void Delete_WhenProxyFileSurvivesDelete_SurfacesFailureInStatusMessage()
+    public void Delete_PinnedProxy_ReportsSuccessAndDefersFileCleanup()
+    {
+        string root = CreateRoot();
+        string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(sourcePath);
+        ProxyEntry entry = ReadyEntry(fingerprint);
+        RegisterProxyEntry(store, entry);
+        string proxyPath = Path.Combine(
+            store.StoreRootPath,
+            entry.ProxyFileRelative.Replace('/', Path.DirectorySeparatorChar));
+
+        var resolver = new ProxyResolver(store);
+        var resolution = new ProxyResolution(
+            proxyPath,
+            entry.Source,
+            entry.Preset,
+            entry.OriginalLogicalFrameSize,
+            entry.ProxyDecodedFrameSize);
+        using IDisposable pin = resolver.Pin(resolution);
+        using var reader = new FileStream(proxyPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, sourcePath)) { Notify = notifications.Add };
+        ProxyClipViewModel clip = viewModel.Clips.Single();
+
+        viewModel.Delete(clip);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(notifications, Is.Empty);
+            Assert.That(store.TryGet(fingerprint, ProxyPreset.Quarter), Is.Null);
+            Assert.That(File.Exists(proxyPath), Is.True, "the pinned file is retired, not deleted synchronously");
+        });
+    }
+
+    // A file that survives a successful Delete for any other reason (for example an external sharing
+    // violation) is also pending reclaim, not a failure of the index removal.
+    [Test]
+    public void Delete_WhenProxyFileSurvivesDelete_DoesNotReportFailure()
     {
         string root = CreateRoot();
         string sourcePath = CreateSourceFile(root, "clip.mov", 1024);
@@ -872,8 +912,11 @@ public sealed class ProxiesTabViewModelTests
 
         viewModel.Delete(clip);
 
-        Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyDeleteFailedSingular));
-        Assert.That(notifications.Single().Type, Is.EqualTo(NotificationType.Error));
+        Assert.Multiple(() =>
+        {
+            Assert.That(notifications, Is.Empty);
+            Assert.That(inner.TryGet(fingerprint, ProxyPreset.Quarter), Is.Null);
+        });
     }
 
     [Test]
@@ -1149,6 +1192,7 @@ public sealed class ProxiesTabViewModelTests
         var queue = new TestProxyJobQueue();
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path));
+        viewModel.ProbeSourceFrameSizeAsync = _ => Task.FromResult<PixelSize?>(null);
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
 
@@ -1229,6 +1273,7 @@ public sealed class ProxiesTabViewModelTests
         var queue = new TestProxyJobQueue();
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, heavyPath, foregroundPath));
+        viewModel.ProbeSourceFrameSizeAsync = _ => Task.FromResult<PixelSize?>(null);
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
         ProxyClipViewModel foregroundClip = viewModel.Clips.Single(static c => c.FileName == "foreground.mov");
@@ -1253,6 +1298,7 @@ public sealed class ProxiesTabViewModelTests
 
         var notifications = new List<Notification>();
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, firstPath, secondPath)) { Notify = notifications.Add };
+        viewModel.ProbeSourceFrameSizeAsync = _ => Task.FromResult<PixelSize?>(null);
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
 
@@ -1263,6 +1309,121 @@ public sealed class ProxiesTabViewModelTests
             Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
             Assert.That(notifications.Single().Type, Is.EqualTo(NotificationType.Information));
         });
+    }
+
+    // A never-proxied clip has no store entry to record its dimensions, so the size floor alone would
+    // classify a short 4K clip (well under 32 MB) as light and skip it.
+    [Test]
+    public async Task GenerateAll_ProbesHeavySourceWhenNoProxyEntryExists()
+    {
+        string root = CreateRoot();
+        string path = CreateSourceFile(root, "short-4k.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var queue = new TestProxyJobQueue();
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path)) { Notify = notifications.Add };
+        ProxyFingerprint fingerprint = ProxyFingerprint.FromFile(path);
+        string? probedPath = null;
+        viewModel.ProbeSourceFrameSizeAsync = sourcePath =>
+        {
+            probedPath = sourcePath;
+            return Task.FromResult<PixelSize?>(new PixelSize(3840, 2160));
+        };
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(probedPath, Is.EqualTo(fingerprint.SourcePath));
+            Assert.That(queue.Pending().Select(static job => job.Source), Does.Contain(fingerprint));
+            Assert.That(notifications, Is.Empty);
+        });
+    }
+
+    [Test]
+    public async Task GenerateAll_ProbedSubHdSource_RemainsIneligible()
+    {
+        string root = CreateRoot();
+        string path = CreateSourceFile(root, "short-720p.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var queue = new TestProxyJobQueue();
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path)) { Notify = notifications.Add };
+        viewModel.ProbeSourceFrameSizeAsync = _ => Task.FromResult<PixelSize?>(new PixelSize(1280, 720));
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(queue.Pending(), Is.Empty);
+            Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
+        });
+    }
+
+    // Resolution wins over the size floor: a long 720p source is cheap to decode even when its file
+    // is well above 32 MB, so the probe must run before the fallback.
+    [Test]
+    public async Task GenerateAll_ProbedSubHdLargeFile_RemainsIneligible()
+    {
+        string root = CreateRoot();
+        string path = Path.Combine(root, "long-720p.mov");
+        using (FileStream fs = File.Create(path))
+            fs.SetLength(33L * 1024 * 1024); // >= MinBulkSourceFileBytes, sparse (no real 33 MB write)
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var queue = new TestProxyJobQueue();
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path)) { Notify = notifications.Add };
+        viewModel.ProbeSourceFrameSizeAsync = _ => Task.FromResult<PixelSize?>(new PixelSize(1280, 720));
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(queue.Pending(), Is.Empty);
+            Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
+        });
+    }
+
+    // Probing is asynchronous, so a scene/store edit can rebuild Clips while it runs. The action must
+    // queue the rows that exist afterward, with their current presets, not the pre-await snapshot.
+    [Test]
+    public async Task GenerateAll_ReconcilesCurrentRowsAfterProbing()
+    {
+        string root = CreateRoot();
+        string keptPath = CreateSourceFile(root, "kept.mov", 4096);
+        string removedPath = CreateSourceFile(root, "removed.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var queue = new TestProxyJobQueue();
+        Scene scene = CreateScene(root, "test.scene");
+        AddSourceVideo(scene, root, keptPath);
+        Element removed = AddSourceVideo(scene, root, removedPath);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store, queue))
+        {
+            RefreshScheduler = static action => action(),
+        };
+        var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var probeResult = new TaskCompletionSource<PixelSize?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.ProbeSourceFrameSizeAsync = _ =>
+        {
+            probeStarted.TrySetResult();
+            return probeResult.Task;
+        };
+
+        Task generation = viewModel.GenerateAllCommand.ExecuteAsync();
+        await probeStarted.Task;
+
+        // Both probes are pending: one source disappears, and the surviving row switches preset.
+        scene.Children.Remove(removed);
+        ProxyClipViewModel kept = viewModel.Clips.Single();
+        kept.Preset.Value = ProxyPreset.Half;
+
+        probeResult.SetResult(new PixelSize(3840, 2160));
+        await generation;
+
+        Assert.That(
+            queue.Pending().Select(static job => (job.Source, job.Preset)),
+            Is.EquivalentTo(new[] { (ProxyFingerprint.FromFile(keptPath), ProxyPreset.Half) }));
     }
 
     private static TestEditorContext CreateContext(string root, IProxyStore store, params string[] sourcePaths)

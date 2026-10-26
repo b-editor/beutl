@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Editor.Components.FileBrowserTab.Services;
 using Beutl.Media;
 using Beutl.Media.Proxy;
 using Beutl.Services;
@@ -45,33 +46,17 @@ public sealed partial class ProxiesTabViewModel
         return TryDeleteEntry(clip.EntrySource ?? clip.Source, clip.Preset.Value);
     }
 
-    // Two shapes of a real failure are surfaced, both typically a sharing violation while the preview
-    // decodes that proxy: Delete returns false with the entry still present, or Delete returns true (index
-    // removed) yet its best-effort file delete left the .mp4 on disk. Delete returning false for an
-    // already-gone entry is a benign race (eviction / another instance), not surfaced.
+    // Delete reports whether the store removed the proxy entry, not whether its .mp4 could be unlinked in
+    // the same call. A preview reader pins the file, so the store deliberately retires it and reclaims it
+    // when the last pin is released; checking File.Exists here turned that normal deferred cleanup into an
+    // "in use" failure even though the entry was already gone, and the second click then "succeeded".
+    // Delete returning false for an already-gone entry is a benign race (eviction / another instance).
     private bool TryDeleteEntry(ProxyFingerprint source, ProxyPreset preset)
     {
         if (_store is not { } store)
             return true;
 
-        string? proxyPath = ResolveProxyFilePath(store, source, preset);
-
-        if (store.Delete(source, preset))
-            return proxyPath is null || !File.Exists(proxyPath);
-
-        return store.TryGet(source, preset) is null;
-    }
-
-    // The proxy file's absolute path from its store entry, captured before Delete removes the entry so a
-    // surviving orphan can be detected afterward. Null when no entry exists to resolve.
-    private static string? ResolveProxyFilePath(IProxyStore store, ProxyFingerprint source, ProxyPreset preset)
-    {
-        if (store.TryGet(source, preset) is not { } entry)
-            return null;
-
-        return ProxyPathUtilities.TryResolveRelativePath(store.StoreRootPath, entry.ProxyFileRelative, out string path)
-            ? path
-            : null;
+        return store.Delete(source, preset) || store.TryGet(source, preset) is null;
     }
 
     private void ReportDeleteFailures(int failed)
@@ -143,16 +128,30 @@ public sealed partial class ProxiesTabViewModel
         if (!EnsureQueueAvailable())
             return;
 
-        ProxyClipViewModel[] eligible = [.. Clips.Where(IsEligibleForBulkGeneration)];
-        if (eligible.Length == 0)
+        ProxyClipViewModel[] snapshot = [.. Clips];
+        bool[] eligibleResults = await Task.WhenAll(snapshot.Select(IsEligibleForBulkGenerationAsync));
+        if (_isDisposed)
+            return;
+
+        HashSet<ProxyFingerprint> eligibleSources =
+            [.. snapshot.Where((_, index) => eligibleResults[index]).Select(static clip => clip.Source)];
+
+        if (eligibleSources.Count == 0)
         {
             // An all-light project would otherwise no-op silently on an explicit action; tell the
             // user nothing met the heaviness floor and point them at per-clip generate.
-            if (Clips.Count > 0)
+            if (snapshot.Length > 0)
                 ReportActionStatus(Strings.ProxyBulkNoEligibleClips, NotificationType.Information);
 
             return;
         }
+
+        // A scene/store edit can rebuild Clips while the probes are pending. Reconcile the result
+        // against the current rows so a removed or replaced source is not queued, and a preset chosen
+        // (or changed) while probing is honored.
+        ProxyClipViewModel[] eligible = [.. Clips.Where(clip => eligibleSources.Contains(clip.Source))];
+        if (eligible.Length == 0)
+            return;
 
         foreach (ProxyClipViewModel clip in eligible)
         {
@@ -162,12 +161,34 @@ public sealed partial class ProxiesTabViewModel
         RefreshJobs();
     }
 
-    private bool IsEligibleForBulkGeneration(ProxyClipViewModel clip)
+    private async Task<bool> IsEligibleForBulkGenerationAsync(ProxyClipViewModel clip)
     {
         if (TryGetSourcePixelCount(clip.Source) is { } pixelCount)
             return pixelCount >= MinBulkSourcePixelCount;
 
+        // The source resolution is unknown until a proxy exists. Probe it first so a light but large
+        // file is not mistaken for heavy; the file-size floor only covers sources the probe cannot read.
+        if (await ProbeSourceFrameSizeAsync(clip.Source.SourcePath).ConfigureAwait(false) is { } frameSize)
+            return (long)frameSize.Width * frameSize.Height >= MinBulkSourcePixelCount;
+
         return clip.Source.FileSizeBytes >= MinBulkSourceFileBytes;
+    }
+
+    // Test seam: the unit-test environment has no decoders for the synthetic source files, so tests
+    // that exercise the eligibility decision inject a frame size instead of opening the media.
+    internal Func<string, Task<PixelSize?>> ProbeSourceFrameSizeAsync { get; set; }
+        = ProbeSourceFrameSizeFromMetadataAsync;
+
+    private static async Task<PixelSize?> ProbeSourceFrameSizeFromMetadataAsync(string path)
+    {
+        FileThumbnailService service = FileThumbnailService.Instance;
+        if (!service.CanGetMediaInfo(path))
+            return null;
+
+        MediaFileInfo? info = await service.GetMediaInfoAsync(path).ConfigureAwait(false);
+        return info is { Width: { } width, Height: { } height } && width > 0 && height > 0
+            ? new PixelSize(width, height)
+            : null;
     }
 
     private long? TryGetSourcePixelCount(ProxyFingerprint source)
