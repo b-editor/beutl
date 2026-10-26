@@ -118,6 +118,10 @@ internal sealed unsafe class VulkanDevice : IDisposable
     /// <summary>Whether the logical device enabled cube-array image views and sampling.</summary>
     public bool SupportsImageCubeArray => _enabledFeatures.ImageCubeArray;
 
+    internal bool SupportsVertexStores => _enabledFeatures.VertexPipelineStoresAndAtomics;
+
+    internal bool SupportsFragmentStores => _enabledFeatures.FragmentStoresAndAtomics;
+
 
     private string[] GetRequiredDeviceExtensions()
     {
@@ -163,6 +167,9 @@ internal sealed unsafe class VulkanDevice : IDisposable
             ShaderInt64 = available.ShaderInt64,
             ShaderFloat64 = available.ShaderFloat64,
             ImageCubeArray = available.ImageCubeArray,
+            VertexPipelineStoresAndAtomics = available.VertexPipelineStoresAndAtomics,
+            FragmentStoresAndAtomics = available.FragmentStoresAndAtomics,
+            ShaderStorageImageExtendedFormats = available.ShaderStorageImageExtendedFormats,
         };
         enabledFeatures = features;
 

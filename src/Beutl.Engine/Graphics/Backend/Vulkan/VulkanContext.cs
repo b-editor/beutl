@@ -148,6 +148,10 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
     /// <inheritdoc cref="VulkanDevice.SupportsImageCubeArray"/>
     public bool SupportsImageCubeArray => _vulkanDevice.SupportsImageCubeArray;
 
+    internal bool SupportsVertexStores => _vulkanDevice.SupportsVertexStores;
+
+    internal bool SupportsFragmentStores => _vulkanDevice.SupportsFragmentStores;
+
     public uint GraphicsQueueFamilyIndex => _vulkanDevice.GraphicsQueueFamilyIndex;
 
     public IEnumerable<string> EnabledExtensions =>

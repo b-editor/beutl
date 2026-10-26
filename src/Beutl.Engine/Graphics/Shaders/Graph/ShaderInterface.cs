@@ -17,7 +17,8 @@ internal sealed class ShaderInterface
     private readonly Dictionary<(uint Location, uint Component), string> _inputs = [];
     private readonly Dictionary<(uint Location, uint Component), string> _outputs = [];
 
-    internal sealed record Binding(int Slot, DescriptorType Type, int MinimumSize, int ArrayStride, bool ReadOnly);
+    internal sealed record Binding(int Slot, DescriptorType Type, int MinimumSize, int ArrayStride,
+        bool ReadOnly, TextureFormat? ImageFormat);
 
     public List<Binding> Bindings { get; } = [];
     public HashSet<int> ColorLocations { get; } = [];
@@ -115,14 +116,30 @@ internal sealed class ShaderInterface
             int size = 0;
             int stride = 0;
             bool readOnly = true;
-            if (storage == 0 && op == 27)
+            TextureFormat? imageFormat = null;
+            if (storage == 0 && op is 25 or 27)
             {
-                uint[] image = _types[args[0]].Args;
+                uint[] image = op == 27 ? _types[args[0]].Args : args;
                 if (image[1] != 1 || image[3] != 0 || image[4] != 0)
                     throw new NotSupportedException($"Binding {slot}: a non-arrayed, single-sample 2D image is required.");
                 if (image[2] == 1 || _types[image[0]].Op != 22 || _types[image[0]].Args[0] != 32)
-                    throw new NotSupportedException($"Binding {slot}: current graph image formats require a floating-point sampler2D without depth comparison.");
-                descriptor = DescriptorType.CombinedImageSampler;
+                    throw new NotSupportedException($"Binding {slot}: current graph image formats require a floating-point 2D image without depth comparison.");
+                descriptor = op == 27 ? DescriptorType.CombinedImageSampler : DescriptorType.StorageImage;
+                if (descriptor == DescriptorType.StorageImage)
+                {
+                    // SPIR-V Image Format operands map to Vulkan image view formats, not texel byte size.
+                    imageFormat = image[6] switch
+                    {
+                        1 => TextureFormat.RGBA32Float,
+                        2 => TextureFormat.RGBA16Float,
+                        3 => TextureFormat.R32Float,
+                        4 => TextureFormat.RGBA8Unorm,
+                        9 => TextureFormat.R16Float,
+                        15 => TextureFormat.R8Unorm,
+                        _ => throw new NotSupportedException($"Binding {slot}: storage images require an explicit format supported by graph images."),
+                    };
+                    readOnly = _decorations.ContainsKey((id, 24)) || _decorations.ContainsKey((type, 24));
+                }
             }
             else if (storage == 12 || storage == 2 && _decorations.ContainsKey((type, 3)))
             {
@@ -142,7 +159,7 @@ internal sealed class ShaderInterface
             }
             else
                 throw new NotSupportedException($"Binding {slot}: this shader resource type is not supported yet.");
-            Bindings.Add(new(checked((int)slot), descriptor, size, stride, readOnly));
+            Bindings.Add(new(checked((int)slot), descriptor, size, stride, readOnly, imageFormat));
         }
     }
 
@@ -250,7 +267,7 @@ internal sealed class ShaderInterface
         return size;
     }
 
-    public void Validate(ShaderPassDescription pass, ShaderStage stage)
+    public void Validate(ShaderPassDescription pass, ShaderStage stage, IReadOnlySet<int>? writableBindings = null)
     {
         if (stage == ShaderStage.Vertex && _inputs.Count != 0)
             throw new NotSupportedException($"Pass '{pass.Name}': vertex attributes are not supported by shader graphs yet; use vertex indices or storage buffers.");
@@ -263,16 +280,21 @@ internal sealed class ShaderInterface
                 throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: expected {declared.Type}.");
             if (bound.Metadata && declared.MinimumSize > 48)
                 throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: image parameters contain three vec4 values.");
+            if (declared.ImageFormat is { } format && bound.Resource is ShaderImage image && image.Format != format)
+                throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: shader image format {format} does not match {image.Format}.");
             if (bound.Resource is ShaderBuffer buffer)
             {
                 if (buffer.ByteLength < declared.MinimumSize || declared.ArrayStride != 0 && buffer.Stride != declared.ArrayStride)
                     throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: buffer size or element stride does not match the shader.");
+            }
+            if (declared.Type is DescriptorType.StorageBuffer or DescriptorType.StorageImage)
+            {
+                string kind = declared.Type == DescriptorType.StorageBuffer ? "buffer" : "image";
                 if (!declared.ReadOnly && (bound.Access & ResourceAccess.Write) == 0)
-                    throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: declare a readonly buffer in the shader or a writable binding in the graph.");
-                if (declared.ReadOnly && (bound.Access & ResourceAccess.Write) != 0)
-                    throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: a readonly buffer cannot have write access in the graph.");
-                if (!declared.ReadOnly && stage != ShaderStage.Compute)
-                    throw new NotSupportedException($"Pass '{pass.Name}': writable storage buffers in graphics stages are not enabled by this backend.");
+                    throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: declare a readonly {kind} in the shader or a writable binding in the graph.");
+                if (declared.ReadOnly && (bound.Access & ResourceAccess.Write) != 0
+                    && writableBindings?.Contains(declared.Slot) != true)
+                    throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: a readonly {kind} cannot have write access in the graph.");
             }
         }
         if (stage == ShaderStage.Fragment

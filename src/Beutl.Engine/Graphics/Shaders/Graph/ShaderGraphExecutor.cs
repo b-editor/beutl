@@ -4,6 +4,7 @@ using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using ImageUsageFlags = Silk.NET.Vulkan.ImageUsageFlags;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -47,6 +48,19 @@ internal static class ShaderGraphExecutor
         long liveBytes = 0;
         var availableImages = new List<ITexture2D>();
         var sizes = new Dictionary<int, long>();
+        var usages = graph.Resources.OfType<ShaderImage>().ToDictionary(image => image.Id, _ => (ImageUsageFlags)0);
+        foreach (ShaderPassDescription pass in graph.Passes)
+        {
+            foreach (ShaderPassBinding binding in pass.Bindings)
+            {
+                if (!binding.Metadata && binding.Resource is ShaderImage image)
+                    usages[image.Id] |= binding.Type == DescriptorType.StorageImage
+                        ? ImageUsageFlags.StorageBit : ImageUsageFlags.SampledBit;
+            }
+            foreach (ShaderColorAttachment attachment in pass.Attachments)
+                usages[attachment.Image.Id] |= ImageUsageFlags.ColorAttachmentBit;
+        }
+        usages[graph.Output.Image.Id] |= ImageUsageFlags.SampledBit;
         try
         {
             foreach (ShaderResource resource in graph.Resources)
@@ -59,9 +73,10 @@ internal static class ShaderGraphExecutor
                     RenderRectValidation.ThrowIfInvalidInput(bounds, nameof(graph));
                     float density = scale * image.ResolutionScale;
                     PixelRect pixels = PixelRect.FromRect(bounds.Translate(gridOffset), density);
-                    if (pixels.Width <= 0 || pixels.Height <= 0 || pixels.Width > context.MaxAttachmentDimension
-                        || pixels.Height > context.MaxAttachmentDimension)
-                        throw new InvalidOperationException($"Image '{image.Name}' exceeds the supported attachment dimensions.");
+                    int limit = (usages[image.Id] & ImageUsageFlags.ColorAttachmentBit) != 0
+                        ? context.MaxAttachmentDimension : context.MaxImageDimension2D;
+                    if (pixels.Width <= 0 || pixels.Height <= 0 || pixels.Width > limit || pixels.Height > limit)
+                        throw new InvalidOperationException($"Image '{image.Name}' exceeds the supported dimensions ({limit}).");
                     frames.Add(image.Id, new(bounds,
                         new Rect(pixels.X / density - gridOffset.X, pixels.Y / density - gridOffset.Y,
                             pixels.Width / density, pixels.Height / density), pixels.Size, density));
@@ -105,6 +120,18 @@ internal static class ShaderGraphExecutor
             ProgramCacheLease<ShaderGraphPipeline> copyLease = acquireProgram(context, copy);
             leases.Add(copyLease);
 
+            // Renderer-owned inputs need not have storage usage. Keep them read-only and make a
+            // graph-owned copy only when a storage read requires it, within the same allocation budget.
+            if ((usages[0] & ImageUsageFlags.StorageBit) != 0
+                && (context.RequireOwned<VulkanTexture2D>(source, nameof(source)).Usage & ImageUsageFlags.StorageBit) == 0)
+            {
+                usages[0] |= VulkanTexture2D.ColorTextureUsage;
+                sizes[0] = checked((long)source.Width * source.Height * BytesPerPixel(source.Format));
+                images.Remove(0);
+                Allocate(graph.Resources[0]);
+                context.CopyTexture(source, images[0]);
+            }
+
             for (int index = 0; index < graph.Passes.Length; index++)
             {
                 ShaderPassDescription pass = graph.Passes[index];
@@ -119,7 +146,7 @@ internal static class ShaderGraphExecutor
 
                 foreach (ShaderResource resource in graph.Resources)
                 {
-                    if (resource.Id != 0 && graph.LastUses[resource.Id] == index)
+                    if (graph.LastUses[resource.Id] == index)
                         Release(resource.Id);
                 }
             }
@@ -160,7 +187,8 @@ internal static class ShaderGraphExecutor
             {
                 ShaderImageFrame footprint = frames[resource.Id];
                 int reuseIndex = availableImages.FindIndex(image => image.Format == reusable.Format
-                    && image.Width == footprint.PixelSize.Width && image.Height == footprint.PixelSize.Height);
+                    && image.Width == footprint.PixelSize.Width && image.Height == footprint.PixelSize.Height
+                    && (((VulkanTexture2D)image).Usage & usages[resource.Id]) == usages[resource.Id]);
                 if (reuseIndex >= 0)
                 {
                     images.Add(resource.Id, availableImages[reuseIndex]);
@@ -174,7 +202,7 @@ internal static class ShaderGraphExecutor
             if (resource is ShaderImage image)
             {
                 ShaderImageFrame frame = frames[image.Id];
-                images.Add(image.Id, context.CreateTexture2D(frame.PixelSize.Width, frame.PixelSize.Height, image.Format));
+                images.Add(image.Id, context.CreateTexture2D(frame.PixelSize.Width, frame.PixelSize.Height, image.Format, usages[image.Id]));
                 ownedImages.Add(image.Id);
             }
             else if (resource is ShaderBuffer buffer)

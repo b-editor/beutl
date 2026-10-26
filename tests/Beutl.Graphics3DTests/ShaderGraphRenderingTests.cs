@@ -16,6 +16,7 @@ namespace Beutl.Graphics3DTests;
 public sealed class ShaderGraphRenderingTests
 {
     private static readonly Rect s_bounds = new(4, 6, 12, 8);
+    internal static Rect SourceBounds => s_bounds;
 
     [TestCase(0.5f)]
     [TestCase(1f)]
@@ -324,7 +325,7 @@ public sealed class ShaderGraphRenderingTests
             return builder.Output(output);
         });
 
-    private static float[] Render(ShaderGraphDescription graph, Rect targetBounds, float scale = 1,
+    internal static float[] Render(ShaderGraphDescription graph, Rect targetBounds, float scale = 1,
         Rect? requestedRegion = null, ProgramCache<ShaderGraphPipeline>? cache = null,
         RenderTargetPool? sharedPool = null, Action<FilterEffectContext>? beforeGraph = null, bool nestedGraph = false)
     {

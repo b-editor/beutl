@@ -40,6 +40,19 @@ public sealed class ShaderPassBuilder
     public void StorageBuffer(int binding, ShaderBuffer buffer, ResourceAccess access)
         => AddBinding(binding, buffer, DescriptorType.StorageBuffer, access, default);
 
+    /// <summary>Binds a typed 2D image for shader image loads and stores.</summary>
+    /// <remarks>
+    /// The shader's image format must match the image format. ReadWrite requires an earlier write;
+    /// Write declares that this pass initializes the image contents used by subsequent passes.
+    /// The source image can only be read. Graphics-stage writes require device support.
+    /// </remarks>
+    public void StorageImage(int binding, ShaderImage image, ResourceAccess access)
+    {
+        if (ReferenceEquals(image, _graph.Source) && (access & ResourceAccess.Write) != 0)
+            throw new ArgumentException("The source image is read-only.", nameof(image));
+        AddBinding(binding, image, DescriptorType.StorageImage, access, default);
+    }
+
     public void UniformBuffer(int binding, ShaderBuffer buffer)
         => AddBinding(binding, buffer, DescriptorType.UniformBuffer, ResourceAccess.Read, default);
 

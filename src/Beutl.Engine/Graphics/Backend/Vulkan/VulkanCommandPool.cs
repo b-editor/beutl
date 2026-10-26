@@ -697,7 +697,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
                 PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit,
                 AccessFlags.DepthStencilAttachmentReadBit | AccessFlags.DepthStencilAttachmentWriteBit),
             ImageLayout.ShaderReadOnlyOptimal => (
-                PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit,
+                PipelineStageFlags.VertexShaderBit | PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit,
                 AccessFlags.ShaderReadBit),
             ImageLayout.TransferSrcOptimal => (PipelineStageFlags.TransferBit, AccessFlags.TransferReadBit),
             ImageLayout.TransferDstOptimal => (PipelineStageFlags.TransferBit, AccessFlags.TransferWriteBit),
@@ -713,7 +713,7 @@ internal sealed unsafe class VulkanCommandPool : IDisposable
                 PipelineStageFlags.EarlyFragmentTestsBit | PipelineStageFlags.LateFragmentTestsBit,
                 AccessFlags.DepthStencilAttachmentReadBit | AccessFlags.DepthStencilAttachmentWriteBit),
             ImageLayout.ShaderReadOnlyOptimal => (
-                PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit,
+                PipelineStageFlags.VertexShaderBit | PipelineStageFlags.FragmentShaderBit | PipelineStageFlags.ComputeShaderBit,
                 AccessFlags.ShaderReadBit),
             ImageLayout.TransferSrcOptimal => (PipelineStageFlags.TransferBit, AccessFlags.TransferReadBit),
             ImageLayout.TransferDstOptimal => (PipelineStageFlags.TransferBit, AccessFlags.TransferWriteBit),

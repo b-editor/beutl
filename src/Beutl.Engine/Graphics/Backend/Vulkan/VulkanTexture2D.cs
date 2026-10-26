@@ -45,6 +45,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         _width = width;
         _height = height;
         _format = format;
+        Usage = usage;
 
         var vk = context.Vk;
         var device = context.Device;
@@ -70,6 +71,8 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     public int Height => _height;
 
     public TextureFormat Format => _format;
+
+    internal ImageUsageFlags Usage { get; }
 
     public IntPtr NativeHandle => (IntPtr)_image.Handle;
 
@@ -158,7 +161,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     }
 
     /// <summary>
-    /// The usage every color texture of this backend is created with, and the usage Skia is told when it wraps one.
+    /// The default usage of renderer-owned color textures, including those shared with Skia.
     /// </summary>
     internal const ImageUsageFlags ColorTextureUsage =
         ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.SampledBit |
@@ -184,7 +187,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         ImageTiling = (uint)ImageTiling.Optimal,
         ImageLayout = (uint)_currentLayout,
         Format = (uint)_format.ToVulkanFormat(),
-        ImageUsageFlags = (uint)ColorTextureUsage,
+        ImageUsageFlags = (uint)Usage,
         SampleCount = 1,
         LevelCount = 1,
         CurrentQueueFamily = _context.GraphicsQueueFamilyIndex,
