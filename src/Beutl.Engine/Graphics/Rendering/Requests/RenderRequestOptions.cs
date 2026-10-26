@@ -17,7 +17,8 @@ internal sealed class RenderRequestOptions
         RenderRequestOwner? owner = null,
         NestedRenderTargetBinding? targetBinding = null,
         bool supports3DRendering = true,
-        Device3DExtentBudget device3DExtentBudget = default)
+        Device3DExtentBudget device3DExtentBudget = default,
+        bool suppressGizmos = false)
     {
         if (!Enum.IsDefined(intent))
         {
@@ -51,6 +52,7 @@ internal sealed class RenderRequestOptions
         TargetBinding = targetBinding;
         Supports3DRendering = supports3DRendering;
         Device3DExtentBudget = device3DExtentBudget;
+        SuppressGizmos = suppressGizmos;
         PlanIdentity = new RenderRequestPlanIdentity(
             Purpose,
             FusionMode,
@@ -59,6 +61,8 @@ internal sealed class RenderRequestOptions
     }
 
     public RenderIntent Intent { get; }
+
+    public bool SuppressGizmos { get; }
 
     public RenderRequestPurpose Purpose { get; }
 
@@ -125,7 +129,8 @@ internal sealed class RenderRequestOptions
             Owner,
             targetBinding,
             Supports3DRendering,
-            Device3DExtentBudget);
+            Device3DExtentBudget,
+            SuppressGizmos);
         nested.NestedPolicyParent = this;
         return nested;
     }

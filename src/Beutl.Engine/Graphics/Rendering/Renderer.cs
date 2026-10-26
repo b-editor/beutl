@@ -20,6 +20,7 @@ public class Renderer : IRenderer
     private readonly Dispatcher _dispatcher;
     private readonly ConditionalWeakTable<Drawable, Entry> _nodeCache = new();
     private readonly List<Entry> _allCurrentEntries = [];
+    private bool _frameContainsScene3D;
 
     private readonly ClearRenderNode _frameClear;
     private readonly CompleteTargetRenderNode _completeTarget;
@@ -352,6 +353,7 @@ public class Renderer : IRenderer
 
         InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
+        _frameContainsScene3D = frame.ContainsScene3D;
     }
 
     private void PrepareEntries(CompositionFrame frame, List<Entry> destination)
@@ -505,6 +507,7 @@ public class Renderer : IRenderer
         PrepareEntries(frame, pendingEntries);
         InvalidateEntryBounds(pendingEntries);
         _allCurrentEntries.AddRange(pendingEntries);
+        _frameContainsScene3D = frame.ContainsScene3D;
     }
 
     public Drawable? HitTest(CompositionFrame frame, Point point)
@@ -880,6 +883,39 @@ public class Renderer : IRenderer
     {
         _dispatcher.VerifyAccess();
         return _surface.Snapshot();
+    }
+
+    // A cached 3D preview may contain a handle even after its selection changed. Replay 3D frames
+    // without gizmos, preserving both the editor surface and preview allocation-failure behavior.
+    internal Bitmap? SnapshotWithoutGizmos()
+    {
+        _dispatcher.VerifyAccess();
+        if (!_frameContainsScene3D && !_allCurrentEntries.Any(entry => ContainsScene3DNode(entry.Node)))
+            return null;
+
+        _completeTarget.UpdateRoots(_allCurrentEntries.Select(static entry => (RenderNode)entry.Node));
+        using var raster = _frameRenderer.Rasterize(_frameRenderer.DefaultRequest with
+        {
+            SuppressGizmos = true,
+            // Editor output caches may contain handles; do not read or replace them for this replay.
+            CacheOptions = RenderCacheOptions.Disabled,
+            ManageCacheLifecycle = false,
+            Purpose = RenderRequestPurpose.Auxiliary,
+            RequestedRegion = new Rect(default, FrameSize.ToSize(1)),
+        });
+        return raster.Bitmap!.Clone();
+
+        static bool ContainsScene3DNode(RenderNode node)
+        {
+            // Also support render nodes supplied directly, outside composition reconciliation.
+            if (node is Graphics3D.Scene3DRenderNode)
+                return true;
+
+            foreach (RenderNode child in node.ChildNodes)
+                if (ContainsScene3DNode(child))
+                    return true;
+            return false;
+        }
     }
 
     /// <summary>

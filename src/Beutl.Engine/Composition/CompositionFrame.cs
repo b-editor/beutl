@@ -17,4 +17,7 @@ public readonly record struct CompositionFrame(
     ImmutableArray<EngineObject.Resource> Objects,
     TimeRange Time,
     PixelSize Size,
-    CompositionEligibility? Eligibility);
+    CompositionEligibility? Eligibility)
+{
+    internal bool ContainsScene3D { get; init; }
+}

@@ -45,6 +45,7 @@ public sealed partial class RenderNodeContext
     private readonly NodeRecordingTransaction _transaction;
     private readonly RenderFragmentHandle[] _inputs;
     private readonly RenderIntent _intent;
+    private readonly bool _suppressGizmos;
     private readonly RenderRequestPurpose _purpose;
     private readonly Rect? _targetDomain;
     private readonly float _outputScale;
@@ -57,6 +58,7 @@ public sealed partial class RenderNodeContext
         _transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
         _inputs = transaction.InputHandles;
         _intent = transaction.Request.Options.Intent;
+        _suppressGizmos = transaction.Request.Options.SuppressGizmos;
         _purpose = transaction.Request.Options.Purpose;
         _targetDomain = transaction.Request.Options.TargetDomain;
         _outputScale = transaction.Request.Options.OutputScale;
@@ -75,6 +77,11 @@ public sealed partial class RenderNodeContext
     public RenderIntent Intent
     {
         get { VerifyActive(); return _intent; }
+    }
+
+    internal bool SuppressGizmos
+    {
+        get { VerifyActive(); return _suppressGizmos; }
     }
 
     /// <summary>Gets the purpose of the current request.</summary>

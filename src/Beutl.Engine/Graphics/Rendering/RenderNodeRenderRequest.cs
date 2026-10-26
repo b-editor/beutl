@@ -56,6 +56,8 @@ public sealed record RenderNodeRenderRequest
 
     internal bool ManageCacheLifecycle { get; init; } = true;
 
+    internal bool SuppressGizmos { get; init; }
+
     internal FusionMode FusionMode { get; init; } = FusionMode.Enabled;
 
     /// <summary>Gets whether the request may expect a 3D-capable backend, or <see langword="null"/> to predict it.</summary>

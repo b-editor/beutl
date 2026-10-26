@@ -129,14 +129,23 @@
             </StackPanel>
         </Player.InnerLeftContent>
         <Player.InnerRightContent>
-            <Button Padding="5,6,5,6"
-                    VerticalAlignment="Top"
-                    Command="{Binding OpenPreviewSettings}"
-                    Theme="{StaticResource TransparentButton}"
-                    AutomationProperties.Name="{x:Static lang:Strings.PreviewSettings}"
-                    ToolTip.Tip="{x:Static lang:Strings.PreviewSettings}">
-                <icons:FluentIcon Icon="Settings" />
-            </Button>
+            <StackPanel>
+                <Button Padding="5,6,5,6"
+                        Click="OnPresentationClick"
+                        Theme="{StaticResource TransparentButton}"
+                        AutomationProperties.Name="{x:Static lang:Strings.PresentationWindow}"
+                        ToolTip.Tip="{x:Static lang:Strings.PresentationWindow}">
+                    <icons:FluentIcon Icon="Desktop" />
+                </Button>
+                <Button Padding="5,6,5,6"
+                        VerticalAlignment="Top"
+                        Command="{Binding OpenPreviewSettings}"
+                        Theme="{StaticResource TransparentButton}"
+                        AutomationProperties.Name="{x:Static lang:Strings.PreviewSettings}"
+                        ToolTip.Tip="{x:Static lang:Strings.PreviewSettings}">
+                    <icons:FluentIcon Icon="Settings" />
+                </Button>
+            </StackPanel>
         </Player.InnerRightContent>
         <Player.Content>
             <Grid>

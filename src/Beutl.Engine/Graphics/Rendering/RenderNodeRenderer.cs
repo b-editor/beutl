@@ -683,7 +683,8 @@ public sealed class RenderNodeRenderer : IDisposable
             supports3DRendering: renderRequest.Supports3DRendering
                                  ?? GraphicsContextFactory.Predict3DRenderingSupport(),
             device3DExtentBudget: renderRequest.Device3DExtentBudget
-                                  ?? GraphicsContextFactory.Predict3DExtentBudget()));
+                                  ?? GraphicsContextFactory.Predict3DExtentBudget(),
+            suppressGizmos: renderRequest.SuppressGizmos));
 
     private RenderNodeRenderRequest ResolveRequest(RenderNodeRenderRequest? request)
         => request is null

@@ -4,7 +4,6 @@ using System.Globalization;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
@@ -146,23 +145,7 @@ public partial class PlayerView : UserControl
 
         _boundsSubscription?.Dispose();
 
-        Control newImage;
-        if (useHdr)
-        {
-            var hdr = new HdrBitmapView();
-            hdr.Bind(HdrBitmapView.SourceProperty, new ReflectionBinding("PreviewImage.Value") { Mode = BindingMode.OneWay });
-            hdr.Bind(HdrBitmapView.ToneMappingProperty, new ReflectionBinding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
-            hdr.Bind(HdrBitmapView.ToneMappingExposureProperty, new ReflectionBinding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
-            newImage = hdr;
-        }
-        else
-        {
-            var sdr = new BitmapView();
-            sdr.Bind(BitmapView.SourceProperty, new ReflectionBinding("PreviewImage.Value") { Mode = BindingMode.OneWay });
-            sdr.Bind(BitmapView.ToneMappingProperty, new ReflectionBinding("ToneMappingMode.Value") { Mode = BindingMode.OneWay });
-            sdr.Bind(BitmapView.ToneMappingExposureProperty, new ReflectionBinding("ToneMappingExposure.Value") { Mode = BindingMode.OneWay });
-            newImage = sdr;
-        }
+        Control newImage = PreviewSurface.CreateImage(useHdr, "PreviewImage.Value");
 
         image = newImage;
 
@@ -209,6 +192,7 @@ public partial class PlayerView : UserControl
 
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        Presentation?.Close();
         // The visual parent is already gone during detachment. Use the original subscription source.
         if (_scalingTopLevel is { } topLevel)
         {
@@ -243,16 +227,12 @@ public partial class PlayerView : UserControl
                 (float)(size.Width * topLevel.RenderScaling),
                 (float)(size.Height * topLevel.RenderScaling));
             player.MaxFrameSize = deviceSize;
-            // Feed previewer size for FitToPreviewer, but skip during playback to avoid mid-play rebuilds.
-            if (!player.IsPlaying.Value)
-            {
-                player.EditViewModel.PreviewSurfaceSize.Value = deviceSize;
-            }
         }
     }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
+        Presentation?.Close();
         base.OnDataContextChanged(e);
         _disposables.Clear();
 

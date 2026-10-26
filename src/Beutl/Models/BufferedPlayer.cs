@@ -13,7 +13,14 @@ namespace Beutl.Models;
 
 internal sealed class BufferedPlayer : IDisposable
 {
-    public record struct Frame(Ref<Bitmap> Bitmap, int Time);
+    public record struct Frame(Ref<Bitmap> Bitmap, int Time, Ref<Bitmap>? CleanBitmap = null) : IDisposable
+    {
+        public void Dispose()
+        {
+            Bitmap.Dispose();
+            CleanBitmap?.Dispose();
+        }
+    }
 
     // The most frames playback renders ahead.
     private const int MaxReadAheadFrames = 120;
@@ -88,6 +95,7 @@ internal sealed class BufferedPlayer : IDisposable
         });
         _scene = editViewModel.Scene;
         _scene.Edited += OnSceneEdited;
+        _editViewModel.Player.CleanPreviewChanged += OnCleanPreviewChanged;
     }
 
     // The caller computes the range once, from the playhead it starts the ticker and the audio from.
@@ -265,19 +273,27 @@ internal sealed class BufferedPlayer : IDisposable
         }
 
         foreach (Frame frame in frames)
-            frame.Bitmap.Dispose();
+            frame.Dispose();
     }
+
+    private void OnCleanPreviewChanged(object? sender, EventArgs e)
+        => InvalidateQueuedFrames([(int.MinValue, int.MaxValue)], invalidateCache: false);
 
     // Drops the queued frames from the first one an edit changes, and their cache, so it shows on the next frame.
     private void OnSceneEdited(object? sender, EventArgs e)
     {
-        if (_isDisposed || _producerStopped)
-            return;
-
         // Without a range, as a replace or reset of the elements sends, the edit may change any frame.
         (int Start, int End)[] ranges = e is ElementEditedEventArgs { AffectedRange.IsDefaultOrEmpty: false } edited
             ? [.. WithTransitionRegions(edited.AffectedRange).Select(range => FrameCacheRanges.ToFrameRange(range, _rate))]
             : [(int.MinValue, int.MaxValue)];
+        InvalidateQueuedFrames(ranges, invalidateCache: true);
+    }
+
+    private void InvalidateQueuedFrames((int Start, int End)[] ranges, bool invalidateCache)
+    {
+        if (_isDisposed || _producerStopped)
+            return;
+
         var dropped = new List<Frame>();
         lock (_queue)
         {
@@ -296,12 +312,12 @@ internal sealed class BufferedPlayer : IDisposable
 
             // Under the lock, so a frame job that sees the new count also finds these frames gone from the cache.
             FrameCacheManager cacheManager = _editViewModel.FrameCacheManager.Value;
-            if (!cacheManager.IsDisposed)
+            if (invalidateCache && !cacheManager.IsDisposed)
                 cacheManager.DeleteAndUpdateBlocks(ranges);
         }
 
         foreach (Frame frame in dropped)
-            frame.Bitmap.Dispose();
+            frame.Dispose();
 
         if (dropped.Count > 0)
             Wake();
@@ -313,7 +329,8 @@ internal sealed class BufferedPlayer : IDisposable
 
     private int MaxQueuedFrames(SceneRenderer renderer)
         => ReadAheadBudget.FrameCount(
-            ReadAheadBudget.SnapshotBytes(renderer.DeviceSize), MaxReadAheadFrames, ReadAheadBytes);
+            ReadAheadBudget.SnapshotBytes(renderer.DeviceSize) * (_editViewModel.Player.IsCleanPreviewEnabled ? 2 : 1),
+            MaxReadAheadFrames, ReadAheadBytes);
 
     // Queues the frame from the cache, or renders, queues and caches it. A frame rendered across an edit is shown
     // but not cached, so edits that come faster than frames render cannot hold playback.
@@ -323,11 +340,14 @@ internal sealed class BufferedPlayer : IDisposable
         // cacheは参照を既に追加されている
         if (cacheManager.TryGet(frame, out Ref<Bitmap>? cache))
         {
-            if (!IsCanceled)
-                return TryQueue(cache, frame);
+            using (cache)
+            {
+                if (IsCanceled)
+                    return EnqueueResult.Canceled;
 
-            cache.Dispose();
-            return EnqueueResult.Canceled;
+                using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, cache, time);
+                return TryQueue(new(cache.Clone(), frame, clean?.Clone()));
+            }
         }
 
         var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
@@ -340,7 +360,8 @@ internal sealed class BufferedPlayer : IDisposable
             if (IsCanceled)
                 return EnqueueResult.Canceled;
 
-            EnqueueResult result = TryQueue(bitmap.Clone(), frame);
+            using var clean = _editViewModel.Player.CreatePlaybackCleanFrame(renderer, bitmap);
+            EnqueueResult result = TryQueue(new(bitmap.Clone(), frame, clean?.Clone()));
             // Outside the lock, which the consumer waits for. An edit since the frame was queued may have deleted
             // its cache before this Add, so the frame is taken back out.
             if (result == EnqueueResult.Queued && !EditedSince(editVersion))
@@ -355,18 +376,18 @@ internal sealed class BufferedPlayer : IDisposable
     }
 
     // Takes the bitmap. A frame after the first one an edit dropped would come out of order, so it is drawn again.
-    private EnqueueResult TryQueue(Ref<Bitmap> bitmap, int frame)
+    private EnqueueResult TryQueue(Frame frame)
     {
         lock (_queue)
         {
             if (!_restartFrame.HasValue)
             {
-                _queue.Enqueue(new(bitmap, frame));
+                _queue.Enqueue(frame);
                 return EnqueueResult.Queued;
             }
         }
 
-        bitmap.Dispose();
+        frame.Dispose();
         return EnqueueResult.Dropped;
     }
 
@@ -419,6 +440,7 @@ internal sealed class BufferedPlayer : IDisposable
 
             _isDisposed = true;
             _scene.Edited -= OnSceneEdited;
+            _editViewModel.Player.CleanPreviewChanged -= OnCleanPreviewChanged;
             _waitRenderGate.Cancel();
             // A parked producer runs once more to see the disposal and stop.
             Wake();

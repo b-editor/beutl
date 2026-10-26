@@ -158,6 +158,7 @@ public partial class Scene3D : Drawable, IFlowOperator
 
         partial void PostReconcile(Scene3D obj, CompositionContext context)
         {
+            context.ContainsScene3D = true;
             bool changed = false;
             if (Time != context.Time)
             {
