@@ -129,6 +129,12 @@ public class PresentationWindowTests
         var (editor, view, owner) = await OpenView();
         try
         {
+            await TestShell.AddElementAsync(editor, () => new RectShape
+            {
+                Width = { Value = 60 },
+                Height = { Value = 50 },
+                Fill = { Value = new SolidColorBrush(Colors.Red) },
+            }, MediaTime.Zero, MediaTime.FromSeconds(10));
             view.OpenPresentation(null, false);
             RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
             PresentationWindow output = view.Presentation!;
@@ -233,10 +239,11 @@ public class PresentationWindowTests
     }
 
     [AvaloniaTest]
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(false, true)]
-    public async Task Output_omits_3D_gizmos_while_the_editor_keeps_them(bool cache, bool onion)
+    [TestCase(false, false, false)]
+    [TestCase(true, false, false)]
+    [TestCase(false, true, false)]
+    [TestCase(true, false, true)]
+    public async Task Output_omits_3D_gizmos_while_the_editor_keeps_them(bool cache, bool onion, bool brush)
     {
         TestGpu.RequireAnyDevice();
         var config = GlobalConfiguration.Instance.EditorConfig;
@@ -254,7 +261,14 @@ public class PresentationWindowTests
                 RenderHeight = { Value = 240 },
             };
             scene3D.Objects.Add(cube);
-            await TestShell.AddElementAsync(editor, () => scene3D, MediaTime.Zero, MediaTime.FromSeconds(10));
+            await TestShell.AddElementAsync(editor, () => brush
+                ? new RectShape
+                {
+                    Width = { Value = 320 },
+                    Height = { Value = 240 },
+                    Fill = { Value = new DrawableBrush(scene3D) },
+                }
+                : (Drawable)scene3D, MediaTime.Zero, MediaTime.FromSeconds(10));
             editor.PreviewScale.Value = RenderScale.Full;
             editor.Player.IsCameraMode.Value = true;
             editor.Player.ApplyTimecodeSeek(MediaTime.FromSeconds(1));
@@ -277,8 +291,8 @@ public class PresentationWindowTests
                 Assert.That(HashPixels(editor.Player.PreviewImage.Value!.Value), Is.Not.EqualTo(editorWithoutGizmo));
             }
             HeadlessTestHelpers.Render();
-            HeadlessCapture.SaveIfRequested(owner, nameof(PresentationWindowTests), $"editor-3d-{cache}-{onion}");
-            HeadlessCapture.SaveIfRequested(view.Presentation!, nameof(PresentationWindowTests), $"output-3d-{cache}-{onion}");
+            HeadlessCapture.SaveIfRequested(owner, nameof(PresentationWindowTests), $"editor-3d-{cache}-{onion}-{brush}");
+            HeadlessCapture.SaveIfRequested(view.Presentation!, nameof(PresentationWindowTests), $"output-3d-{cache}-{onion}-{brush}");
 
             // Opening output during playback must replace read-ahead made without a clean image,
             // including cached frames, without ever publishing the editor's baked-in handle.

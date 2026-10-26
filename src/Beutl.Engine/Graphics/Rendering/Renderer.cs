@@ -887,7 +887,7 @@ public class Renderer : IRenderer
     internal Bitmap? SnapshotWithoutGizmos()
     {
         _dispatcher.VerifyAccess();
-        if (!_allCurrentEntries.Any(entry => ContainsScene3D(entry.Node)))
+        if (!_allCurrentEntries.Any(entry => RequiresCleanReplay(entry.Node)))
             return null;
 
         _completeTarget.UpdateRoots(_allCurrentEntries.Select(static entry => (RenderNode)entry.Node));
@@ -902,13 +902,18 @@ public class Renderer : IRenderer
         });
         return raster.Bitmap!.Clone();
 
-        static bool ContainsScene3D(RenderNode node)
+        static bool RequiresCleanReplay(RenderNode node)
         {
-            if (node is Graphics3D.Scene3DRenderNode)
+            // Drawable-brush content is materialized later and is not in ChildNodes. Effects can
+            // introduce that content while recording too, so replay those without inspecting them.
+            if (node is Graphics3D.Scene3DRenderNode or FilterEffectRenderNode
+                || node is BrushRenderNode brush && RenderNodeContext.ContainsDrawableBrush(brush.Fill?.Resource, brush.Pen?.Resource)
+                || node is TextRenderNode text && RenderNodeContext.ContainsDrawableBrush(text.Text.Brush, text.Text.Pen)
+                || node is OpacityMaskRenderNode mask && RenderNodeContext.ContainsDrawableBrush(mask.Mask?.Resource))
                 return true;
 
             foreach (RenderNode child in node.ChildNodes)
-                if (ContainsScene3D(child))
+                if (RequiresCleanReplay(child))
                     return true;
             return false;
         }

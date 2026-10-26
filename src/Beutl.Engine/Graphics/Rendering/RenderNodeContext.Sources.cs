@@ -261,10 +261,10 @@ public sealed partial class RenderNodeContext
         return count == distinct.Length ? distinct : distinct[..count];
     }
 
-    private static bool ContainsDrawableBrush(Brush.Resource? fill, Pen.Resource? pen)
+    internal static bool ContainsDrawableBrush(Brush.Resource? fill, Pen.Resource? pen)
         => ContainsDrawableBrush(fill) || ContainsDrawableBrush(pen?.Brush);
 
-    private static bool ContainsDrawableBrush(Brush.Resource? brush)
+    internal static bool ContainsDrawableBrush(Brush.Resource? brush)
     {
         // A presenter chain is normally absent and never long, so the cycle guard is built only once one
         // is actually being walked - this runs once per fill and once per pen on every recording.
