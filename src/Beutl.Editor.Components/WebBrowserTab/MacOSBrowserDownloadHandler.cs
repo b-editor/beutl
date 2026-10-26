@@ -115,10 +115,17 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             {
                 nint request = Send(navigationAction, sel_registerName("request"));
                 nint targetFrame = Send(navigationAction, sel_registerName("targetFrame"));
+                bool isMainFrame = targetFrame != 0 && SendBool(targetFrame, sel_registerName("isMainFrame"));
+                if (targetFrame != 0 && !isMainFrame)
+                {
+                    // Avalonia's NavigationStarted omits frame identity. Keep embedded documents
+                    // (including CAPTCHA srcdoc frames) out of the app's top-level URL policy.
+                    CompletePolicy(decisionHandler, 1); // WKNavigationActionPolicy.Allow
+                    return;
+                }
                 string? address = GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("absoluteString")));
                 Uri.TryCreate(address, UriKind.Absolute, out Uri? uri);
-                handler._navigation.RecordRequest(uri, GetString(Send(request, sel_registerName("HTTPMethod"))),
-                    targetFrame != 0 && SendBool(targetFrame, sel_registerName("isMainFrame")));
+                handler._navigation.RecordRequest(uri, GetString(Send(request, sel_registerName("HTTPMethod"))), isMainFrame);
             }
             catch
             {

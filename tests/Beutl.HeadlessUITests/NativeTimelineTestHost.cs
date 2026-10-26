@@ -28,6 +28,9 @@ internal static partial class NativeTimelineTestHost
         if (args is ["--agent-host-instance", string directory, string name, string port])
             return AgentHostInstanceTestWorker.Run(directory, name, int.Parse(port, System.Globalization.CultureInfo.InvariantCulture));
 
+        if (OperatingSystem.IsMacOS() && args is ["--native-browser-frames"])
+            return NativeBrowserFrameTestHost.Run(args);
+
         if (!OperatingSystem.IsMacOS() || args is not ["--native-timeline-scroll"])
             return 64;
 
