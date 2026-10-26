@@ -106,6 +106,9 @@
                 </ItemsPanelTemplate>
             </Setter>
         </Style>
+        <Style Selector="ListBox#StorageItems.icons ListBoxItem:selected /template/ Rectangle#SelectionIndicator">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
         <Style Selector="ListBox#StorageItems ListBoxItem">
             <Setter Property="Padding" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
