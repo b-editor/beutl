@@ -1192,6 +1192,7 @@ public sealed class ProxiesTabViewModelTests
         var queue = new TestProxyJobQueue();
 
         using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path));
+        viewModel.ProbeSourceFrameSizeAsync = _ => Task.FromResult<PixelSize?>(null);
 
         await viewModel.GenerateAllCommand.ExecuteAsync();
 
@@ -1357,6 +1358,72 @@ public sealed class ProxiesTabViewModelTests
             Assert.That(queue.Pending(), Is.Empty);
             Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
         });
+    }
+
+    // Resolution wins over the size floor: a long 720p source is cheap to decode even when its file
+    // is well above 32 MB, so the probe must run before the fallback.
+    [Test]
+    public async Task GenerateAll_ProbedSubHdLargeFile_RemainsIneligible()
+    {
+        string root = CreateRoot();
+        string path = Path.Combine(root, "long-720p.mov");
+        using (FileStream fs = File.Create(path))
+            fs.SetLength(33L * 1024 * 1024); // >= MinBulkSourceFileBytes, sparse (no real 33 MB write)
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var queue = new TestProxyJobQueue();
+        var notifications = new List<Notification>();
+        using var viewModel = new ProxiesTabViewModel(CreateContext(root, store, queue, path)) { Notify = notifications.Add };
+        viewModel.ProbeSourceFrameSizeAsync = _ => Task.FromResult<PixelSize?>(new PixelSize(1280, 720));
+
+        await viewModel.GenerateAllCommand.ExecuteAsync();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(queue.Pending(), Is.Empty);
+            Assert.That(notifications.Single().Message, Is.EqualTo(Strings.ProxyBulkNoEligibleClips));
+        });
+    }
+
+    // Probing is asynchronous, so a scene/store edit can rebuild Clips while it runs. The action must
+    // queue the rows that exist afterward, with their current presets, not the pre-await snapshot.
+    [Test]
+    public async Task GenerateAll_ReconcilesCurrentRowsAfterProbing()
+    {
+        string root = CreateRoot();
+        string keptPath = CreateSourceFile(root, "kept.mov", 4096);
+        string removedPath = CreateSourceFile(root, "removed.mov", 4096);
+        var store = new ProxyStore(Path.Combine(root, "proxies"));
+        var queue = new TestProxyJobQueue();
+        Scene scene = CreateScene(root, "test.scene");
+        AddSourceVideo(scene, root, keptPath);
+        Element removed = AddSourceVideo(scene, root, removedPath);
+
+        using var viewModel = new ProxiesTabViewModel(CreateContext(scene, store, queue))
+        {
+            RefreshScheduler = static action => action(),
+        };
+        var probeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var probeResult = new TaskCompletionSource<PixelSize?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        viewModel.ProbeSourceFrameSizeAsync = _ =>
+        {
+            probeStarted.TrySetResult();
+            return probeResult.Task;
+        };
+
+        Task generation = viewModel.GenerateAllCommand.ExecuteAsync();
+        await probeStarted.Task;
+
+        // Both probes are pending: one source disappears, and the surviving row switches preset.
+        scene.Children.Remove(removed);
+        ProxyClipViewModel kept = viewModel.Clips.Single();
+        kept.Preset.Value = ProxyPreset.Half;
+
+        probeResult.SetResult(new PixelSize(3840, 2160));
+        await generation;
+
+        Assert.That(
+            queue.Pending().Select(static job => (job.Source, job.Preset)),
+            Is.EquivalentTo(new[] { (ProxyFingerprint.FromFile(keptPath), ProxyPreset.Half) }));
     }
 
     private static TestEditorContext CreateContext(string root, IProxyStore store, params string[] sourcePaths)

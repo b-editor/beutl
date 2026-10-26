@@ -128,21 +128,30 @@ public sealed partial class ProxiesTabViewModel
         if (!EnsureQueueAvailable())
             return;
 
-        ProxyClipViewModel[] clips = [.. Clips];
-        bool[] eligibleResults = await Task.WhenAll(clips.Select(IsEligibleForBulkGenerationAsync));
+        ProxyClipViewModel[] snapshot = [.. Clips];
+        bool[] eligibleResults = await Task.WhenAll(snapshot.Select(IsEligibleForBulkGenerationAsync));
         if (_isDisposed)
             return;
 
-        ProxyClipViewModel[] eligible = [.. clips.Where((_, index) => eligibleResults[index])];
-        if (eligible.Length == 0)
+        HashSet<ProxyFingerprint> eligibleSources =
+            [.. snapshot.Where((_, index) => eligibleResults[index]).Select(static clip => clip.Source)];
+
+        if (eligibleSources.Count == 0)
         {
             // An all-light project would otherwise no-op silently on an explicit action; tell the
             // user nothing met the heaviness floor and point them at per-clip generate.
-            if (clips.Length > 0)
+            if (snapshot.Length > 0)
                 ReportActionStatus(Strings.ProxyBulkNoEligibleClips, NotificationType.Information);
 
             return;
         }
+
+        // A scene/store edit can rebuild Clips while the probes are pending. Reconcile the result
+        // against the current rows so a removed or replaced source is not queued, and a preset chosen
+        // (or changed) while probing is honored.
+        ProxyClipViewModel[] eligible = [.. Clips.Where(clip => eligibleSources.Contains(clip.Source))];
+        if (eligible.Length == 0)
+            return;
 
         foreach (ProxyClipViewModel clip in eligible)
         {
@@ -157,15 +166,12 @@ public sealed partial class ProxiesTabViewModel
         if (TryGetSourcePixelCount(clip.Source) is { } pixelCount)
             return pixelCount >= MinBulkSourcePixelCount;
 
-        if (clip.Source.FileSizeBytes >= MinBulkSourceFileBytes)
-            return true;
-
-        // A never-proxied clip has no stored dimensions, so the size floor alone would misclassify a
-        // short high-resolution clip as light. Probe the source before deciding.
+        // The source resolution is unknown until a proxy exists. Probe it first so a light but large
+        // file is not mistaken for heavy; the file-size floor only covers sources the probe cannot read.
         if (await ProbeSourceFrameSizeAsync(clip.Source.SourcePath).ConfigureAwait(false) is { } frameSize)
             return (long)frameSize.Width * frameSize.Height >= MinBulkSourcePixelCount;
 
-        return false;
+        return clip.Source.FileSizeBytes >= MinBulkSourceFileBytes;
     }
 
     // Test seam: the unit-test environment has no decoders for the synthetic source files, so tests
