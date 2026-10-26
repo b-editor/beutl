@@ -284,15 +284,19 @@ public sealed class RenderPassTransferScopeTests
     }
 
 
-    [Test]
-    public void ADrawAfterAResumedPass_StillSeesEveryBindingMadeBeforeTheSplit()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ADrawAfterAResumedPass_StillSeesEveryBindingMadeBeforeTheSplit(bool multipleBindings)
     {
         IGraphicsContext context = GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
             IShaderCompiler compiler = context.CreateShaderCompiler();
             using IDisposable? compilerLifetime = compiler as IDisposable;
-            byte[] vertexSpirv = compiler.CompileToSpirv(TexturedQuadVertexShader, ShaderStage.Vertex);
+            string vertexSource = multipleBindings ? TexturedQuadVertexShader
+                .Replace("layout(location = 0) in vec2 inPosition;", "layout(location = 0) in vec2 inPosition; layout(location = 1) in vec2 offset;")
+                .Replace("vec4(inPosition,", "vec4(inPosition + offset,") : TexturedQuadVertexShader;
+            byte[] vertexSpirv = compiler.CompileToSpirv(vertexSource, ShaderStage.Vertex);
             byte[] fragmentSpirv = compiler.CompileToSpirv(TintedFragmentShader, ShaderStage.Fragment);
 
             // Opaque white, so the drawn color is the push-constant tint alone.
@@ -329,6 +333,14 @@ public sealed class RenderPassTransferScopeTests
                 ],
             };
 
+            if (multipleBindings)
+            {
+                vertexInput.Bindings = [.. vertexInput.Bindings,
+                    new() { Binding = 3, Stride = 8, InputRate = VertexInputRate.Instance }];
+                vertexInput.Attributes = [.. vertexInput.Attributes,
+                    new() { Location = 1, Binding = 3, Format = VertexFormat.Float2 }];
+            }
+
             using IPipeline3D pipeline = context.CreatePipeline3D(
                 renderPass,
                 vertexSpirv,
@@ -343,6 +355,8 @@ public sealed class RenderPassTransferScopeTests
 
             float[] corners = [-1f, -1f, 1f, -1f, 1f, 1f, -1f, 1f];
             uint[] quadIndices = [0, 1, 2, 0, 2, 3];
+            if (multipleBindings)
+                corners = [100, 100, .. corners];
             using IBuffer vertexBuffer = context.CreateBuffer(
                 (ulong)(corners.Length * sizeof(float)),
                 BufferUsage.VertexBuffer,
@@ -352,14 +366,30 @@ public sealed class RenderPassTransferScopeTests
                 BufferUsage.IndexBuffer,
                 MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
             vertexBuffer.Upload<float>(corners);
-            indexBuffer.Upload<uint>(quadIndices);
+            if (multipleBindings)
+                indexBuffer.Upload<ushort>(new ushort[] { ushort.MaxValue, 0, 1, 2, 0, 2, 3 });
+            else
+                indexBuffer.Upload<uint>(quadIndices);
+            using IBuffer? instanceBuffer = multipleBindings ? context.CreateBuffer(16, BufferUsage.VertexBuffer,
+                MemoryProperty.HostVisible | MemoryProperty.HostCoherent) : null;
+            instanceBuffer?.Upload<float>(new float[] { 100, 100, 0, 0 });
 
             var tint = new TintPushConstants { Red = 1f, Green = 0f, Blue = 0.5f, Alpha = 1f };
 
             renderPass.Begin(framebuffer, [Colors.Transparent]);
             renderPass.BindPipeline(pipeline);
-            renderPass.BindVertexBuffer(vertexBuffer);
-            renderPass.BindIndexBuffer(indexBuffer);
+            if (multipleBindings)
+            {
+                var nativePass = (VulkanRenderPass3D)renderPass;
+                nativePass.BindVertexBuffer(0, vertexBuffer, 8);
+                nativePass.BindVertexBuffer(3, instanceBuffer!, 8);
+                nativePass.BindIndexBuffer(indexBuffer, Silk.NET.Vulkan.IndexType.Uint16, 2);
+            }
+            else
+            {
+                renderPass.BindVertexBuffer(vertexBuffer);
+                renderPass.BindIndexBuffer(indexBuffer);
+            }
             renderPass.BindDescriptorSet(pipeline, descriptorSet);
             renderPass.SetPushConstants(tint);
 

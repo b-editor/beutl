@@ -147,6 +147,17 @@ internal static class VulkanFlagConverter
         };
     }
 
+    public static Silk.NET.Vulkan.PrimitiveTopology ToVulkan(Backend.PrimitiveTopology topology) => topology switch
+    {
+        Backend.PrimitiveTopology.TriangleList => Silk.NET.Vulkan.PrimitiveTopology.TriangleList,
+        Backend.PrimitiveTopology.TriangleStrip => Silk.NET.Vulkan.PrimitiveTopology.TriangleStrip,
+        Backend.PrimitiveTopology.TriangleFan => Silk.NET.Vulkan.PrimitiveTopology.TriangleFan,
+        Backend.PrimitiveTopology.LineList => Silk.NET.Vulkan.PrimitiveTopology.LineList,
+        Backend.PrimitiveTopology.LineStrip => Silk.NET.Vulkan.PrimitiveTopology.LineStrip,
+        Backend.PrimitiveTopology.PointList => Silk.NET.Vulkan.PrimitiveTopology.PointList,
+        _ => throw new ArgumentOutOfRangeException(nameof(topology)),
+    };
+
     public static Silk.NET.Vulkan.VertexInputRate ToVulkan(Backend.VertexInputRate inputRate)
     {
         return inputRate switch

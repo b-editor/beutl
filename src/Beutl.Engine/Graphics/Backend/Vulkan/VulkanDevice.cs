@@ -122,6 +122,10 @@ internal sealed unsafe class VulkanDevice : IDisposable
 
     internal bool SupportsFragmentStores => _enabledFeatures.FragmentStoresAndAtomics;
 
+    internal bool SupportsTriangleFans { get; private set; } = true;
+    internal bool SupportsVertexAttributeBeyondStride { get; private set; } = true;
+    internal uint VertexStrideAlignment { get; private set; }
+
 
     private string[] GetRequiredDeviceExtensions()
     {
@@ -170,6 +174,7 @@ internal sealed unsafe class VulkanDevice : IDisposable
             VertexPipelineStoresAndAtomics = available.VertexPipelineStoresAndAtomics,
             FragmentStoresAndAtomics = available.FragmentStoresAndAtomics,
             ShaderStorageImageExtendedFormats = available.ShaderStorageImageExtendedFormats,
+            FullDrawIndexUint32 = available.FullDrawIndexUint32,
         };
         enabledFeatures = features;
 
@@ -203,6 +208,41 @@ internal sealed unsafe class VulkanDevice : IDisposable
                 timelineFeatures.PNext = null;
                 createInfo.PNext = &timelineFeatures;
             }
+        }
+
+        var portability = new PhysicalDevicePortabilitySubsetFeaturesKHR
+        {
+            SType = StructureType.PhysicalDevicePortabilitySubsetFeaturesKhr,
+        };
+        if (extensions.Contains("VK_KHR_portability_subset"))
+        {
+            var features2 = new PhysicalDeviceFeatures2
+            {
+                SType = StructureType.PhysicalDeviceFeatures2,
+                PNext = &portability,
+            };
+            _vk.GetPhysicalDeviceFeatures2(_physicalDevice, &features2);
+            SupportsTriangleFans = portability.TriangleFans;
+            SupportsVertexAttributeBeyondStride = portability.VertexAttributeAccessBeyondStride;
+            portability = new()
+            {
+                SType = StructureType.PhysicalDevicePortabilitySubsetFeaturesKhr,
+                TriangleFans = portability.TriangleFans,
+                VertexAttributeAccessBeyondStride = portability.VertexAttributeAccessBeyondStride,
+                PNext = createInfo.PNext,
+            };
+            createInfo.PNext = &portability;
+            var portabilityProperties = new PhysicalDevicePortabilitySubsetPropertiesKHR
+            {
+                SType = StructureType.PhysicalDevicePortabilitySubsetPropertiesKhr,
+            };
+            var properties2 = new PhysicalDeviceProperties2
+            {
+                SType = StructureType.PhysicalDeviceProperties2,
+                PNext = &portabilityProperties,
+            };
+            _vk.GetPhysicalDeviceProperties2(_physicalDevice, &properties2);
+            VertexStrideAlignment = Math.Max(1, portabilityProperties.MinVertexInputBindingStrideAlignment);
         }
 
         using var extensionNames = new VulkanNameArray(extensions);

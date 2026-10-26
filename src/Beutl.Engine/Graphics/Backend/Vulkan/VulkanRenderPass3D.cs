@@ -17,8 +17,10 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     private VulkanPipeline3D? _currentPipeline;
     private VulkanFramebuffer3D? _currentFramebuffer;
     private RenderPass _resumeRenderPass;
-    private Silk.NET.Vulkan.Buffer _boundVertexBuffer;
+    private readonly Dictionary<uint, (Silk.NET.Vulkan.Buffer Buffer, ulong Offset)> _boundVertexBuffers = [];
     private Silk.NET.Vulkan.Buffer _boundIndexBuffer;
+    private ulong _boundIndexOffset;
+    private IndexType _boundIndexType;
     private DescriptorSet _boundDescriptorSet;
     private PipelineLayout _boundDescriptorSetPipelineLayout;
     private PipelineLayout _pushConstantLayout;
@@ -350,16 +352,16 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
                 null);
         }
 
-        if (_boundVertexBuffer.Handle != 0)
+        foreach ((uint binding, var value) in _boundVertexBuffers)
         {
-            Silk.NET.Vulkan.Buffer vertexBuffer = _boundVertexBuffer;
-            ulong offset = 0;
-            vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &vertexBuffer, &offset);
+            Silk.NET.Vulkan.Buffer vertexBuffer = value.Buffer;
+            ulong offset = value.Offset;
+            vk.CmdBindVertexBuffers(_currentCommandBuffer, binding, 1, &vertexBuffer, &offset);
         }
 
         if (_boundIndexBuffer.Handle != 0)
         {
-            vk.CmdBindIndexBuffer(_currentCommandBuffer, _boundIndexBuffer, 0, IndexType.Uint32);
+            vk.CmdBindIndexBuffer(_currentCommandBuffer, _boundIndexBuffer, _boundIndexOffset, _boundIndexType);
         }
 
         if (_pushConstantSize != 0)
@@ -381,8 +383,10 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     private void ForgetRecordedState()
     {
         _currentPipeline = null;
-        _boundVertexBuffer = default;
+        _boundVertexBuffers.Clear();
         _boundIndexBuffer = default;
+        _boundIndexOffset = 0;
+        _boundIndexType = IndexType.Uint32;
         _boundDescriptorSet = default;
         _boundDescriptorSetPipelineLayout = default;
         _pushConstantLayout = default;
@@ -432,23 +436,30 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     }
 
     public void BindVertexBuffer(IBuffer buffer)
+        => BindVertexBuffer(0, buffer, 0);
+
+    internal void BindVertexBuffer(uint binding, IBuffer buffer, ulong offset)
     {
         ThrowIfNotInRenderPass();
 
         var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         var bufferHandle = vulkanBuffer.Handle;
-        ulong offset = 0;
-        _boundVertexBuffer = bufferHandle;
-        _context.Vk.CmdBindVertexBuffers(_currentCommandBuffer, 0, 1, &bufferHandle, &offset);
+        _boundVertexBuffers[binding] = (bufferHandle, offset);
+        _context.Vk.CmdBindVertexBuffers(_currentCommandBuffer, binding, 1, &bufferHandle, &offset);
     }
 
     public void BindIndexBuffer(IBuffer buffer)
+        => BindIndexBuffer(buffer, IndexType.Uint32, 0);
+
+    internal void BindIndexBuffer(IBuffer buffer, IndexType type, ulong offset)
     {
         ThrowIfNotInRenderPass();
 
         var vulkanBuffer = _context.RequireOwned<VulkanBuffer>(buffer, nameof(buffer));
         _boundIndexBuffer = vulkanBuffer.Handle;
-        _context.Vk.CmdBindIndexBuffer(_currentCommandBuffer, vulkanBuffer.Handle, 0, IndexType.Uint32);
+        _boundIndexType = type;
+        _boundIndexOffset = offset;
+        _context.Vk.CmdBindIndexBuffer(_currentCommandBuffer, vulkanBuffer.Handle, offset, type);
     }
 
     /// <remarks>

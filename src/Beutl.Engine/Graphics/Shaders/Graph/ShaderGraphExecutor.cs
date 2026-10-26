@@ -142,6 +142,8 @@ internal static class ShaderGraphExecutor
                 }
                 foreach (ShaderColorAttachment attachment in pass.Attachments)
                     Allocate(attachment.Image);
+                foreach (ShaderBuffer buffer in pass.Draw.ReadBuffers)
+                    Allocate(buffer);
                 leases[index].Program.Execute(pass, images, buffers, frames);
 
                 foreach (ShaderResource resource in graph.Resources)
@@ -208,7 +210,7 @@ internal static class ShaderGraphExecutor
             else if (resource is ShaderBuffer buffer)
             {
                 IBuffer allocated = context.CreateBuffer((ulong)bytes,
-                    BufferUsage.StorageBuffer | BufferUsage.UniformBuffer,
+                    BufferUsage.StorageBuffer | BufferUsage.UniformBuffer | BufferUsage.VertexBuffer | BufferUsage.IndexBuffer,
                     MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
                 buffers.Add(buffer.Id, allocated);
                 if (!buffer.InitialData.IsEmpty)

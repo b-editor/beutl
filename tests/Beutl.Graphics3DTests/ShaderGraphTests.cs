@@ -189,7 +189,7 @@ public sealed class ShaderGraphTests
     }
 
     [Test]
-    public void VertexAttributesAreRejectedBeforePipelineCreation()
+    public void MissingVertexAttributesAreRejectedBeforePipelineCreation()
     {
         using var compiler = new VulkanShaderCompiler();
         byte[] bytes = compiler.CompileToSpirv("""
@@ -199,7 +199,7 @@ public sealed class ShaderGraphTests
             """, ShaderStage.Vertex);
         var shader = new ShaderInterface(bytes, ShaderStage.Vertex);
         Assert.That(() => shader.Validate(ColorGraph(Vector4.One).Passes[0], ShaderStage.Vertex),
-            Throws.TypeOf<NotSupportedException>().With.Message.Contains("vertex attributes"));
+            Throws.ArgumentException.With.Message.Contains("missing vertex attribute at location 0"));
     }
 
     [TestCase("vec2", "vec2", 0, 0, true)]

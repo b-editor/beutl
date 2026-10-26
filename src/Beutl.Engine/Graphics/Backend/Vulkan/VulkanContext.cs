@@ -152,6 +152,10 @@ internal sealed unsafe partial class VulkanContext : IGraphicsContext
 
     internal bool SupportsFragmentStores => _vulkanDevice.SupportsFragmentStores;
 
+    internal bool SupportsTriangleFans => _vulkanDevice.SupportsTriangleFans;
+    internal bool SupportsVertexAttributeBeyondStride => _vulkanDevice.SupportsVertexAttributeBeyondStride;
+    internal uint VertexStrideAlignment => _vulkanDevice.VertexStrideAlignment;
+
     public uint GraphicsQueueFamilyIndex => _vulkanDevice.GraphicsQueueFamilyIndex;
 
     public IEnumerable<string> EnabledExtensions =>

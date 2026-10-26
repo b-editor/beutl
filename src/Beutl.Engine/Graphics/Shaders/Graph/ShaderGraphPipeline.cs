@@ -15,7 +15,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
     private readonly Dictionary<ShaderStage, ShaderInterface> _interfaces = [];
     private readonly Dictionary<int, VulkanSampler> _samplers = [];
     private readonly PhysicalDeviceLimits _limits;
-    private IRenderPass3D? _renderPass;
+    private VulkanRenderPass3D? _renderPass;
     private VulkanPipeline3D? _graphics;
     private VulkanComputePipeline? _compute;
     private bool _disposed;
@@ -73,11 +73,13 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
             }
             else
             {
-                _renderPass = context.CreateRenderPass3D(
+                _renderPass = (VulkanRenderPass3D)context.CreateRenderPass3D(
                     pass.Attachments.Select(a => a.Image.Format).ToArray(), null, pass.Attachments[0].Load);
+                PipelineOptions options = pass.Blend.ToPipelineOptions();
+                options.Topology = pass.Draw.Topology;
                 _graphics = (VulkanPipeline3D)context.CreatePipeline3D(_renderPass,
                     stages[ShaderStage.Vertex], stages[ShaderStage.Fragment], bindings,
-                    VertexInputDescription.Empty, pass.Blend.ToPipelineOptions());
+                    pass.Draw.GetVertexInput(), options);
             }
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
@@ -112,7 +114,10 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 throw new NotSupportedException($"Pass '{pass.Name}': this device does not support storage writes in the {stage} stage.");
         }
         if (!pass.Program.IsCompute)
+        {
             _interfaces[ShaderStage.Fragment].ValidateInputs(_interfaces[ShaderStage.Vertex], pass.Name);
+            ValidateDraw(pass);
+        }
         if (pass.Attachments.Length > _limits.MaxColorAttachments)
             throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxColorAttachments ({_limits.MaxColorAttachments}).");
         foreach (IGrouping<DescriptorType, ShaderPassBinding> group in pass.Bindings.GroupBy(b => b.Type))
@@ -166,6 +171,33 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
             (uint gx, uint gy, uint gz) = ResolveGroups(pass);
             if (gx > limits.MaxComputeWorkGroupCount[0] || gy > limits.MaxComputeWorkGroupCount[1] || gz > limits.MaxComputeWorkGroupCount[2])
                 throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxComputeWorkGroupCount.");
+        }
+    }
+
+    private void ValidateDraw(ShaderPassDescription pass)
+    {
+        ShaderDrawDescription draw = pass.Draw;
+        draw.Validate(pass.Name, pass.Work.X, pass.Work.Y);
+        if (draw.Bindings.Length > _limits.MaxVertexInputBindings
+            || draw.Bindings.Any(b => b.Binding >= _limits.MaxVertexInputBindings || b.Stride > _limits.MaxVertexInputBindingStride)
+            || draw.Vertices.Any(v => v.Binding >= _limits.MaxVertexInputBindings))
+            throw new NotSupportedException($"Pass '{pass.Name}' exceeds vertex binding or stride limits.");
+        if (draw.Attributes.Length > _limits.MaxVertexInputAttributes
+            || draw.Attributes.Any(a => a.Location >= _limits.MaxVertexInputAttributes || a.Offset > _limits.MaxVertexInputAttributeOffset))
+            throw new NotSupportedException($"Pass '{pass.Name}' exceeds vertex attribute location or offset limits.");
+        uint alignment = _context.VertexStrideAlignment;
+        if (alignment > 0 && draw.Bindings.Any(b => b.Stride < alignment || b.Stride % alignment != 0))
+            throw new NotSupportedException($"Pass '{pass.Name}': this device requires vertex strides in positive multiples of {alignment} bytes.");
+        foreach (VertexAttributeDescription attribute in draw.Attributes)
+        {
+            _context.Vk.GetPhysicalDeviceFormatProperties(_context.PhysicalDevice,
+                VulkanFlagConverter.ToVulkan(attribute.Format), out FormatProperties properties);
+            if ((properties.BufferFeatures & FormatFeatureFlags.VertexBufferBit) == 0)
+                throw new NotSupportedException($"Pass '{pass.Name}': format {attribute.Format} does not support vertex input.");
+            if (!_context.SupportsVertexAttributeBeyondStride
+                && (ulong)attribute.Offset + (uint)ShaderDrawDescription.AttributeSize(attribute.Format)
+                    > draw.Bindings.First(b => b.Binding == attribute.Binding).Stride)
+                throw new NotSupportedException($"Pass '{pass.Name}': this device requires vertex attributes to fit within the binding stride.");
         }
     }
 
@@ -269,7 +301,18 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     _renderPass.BindDescriptorSet(_graphics!, descriptors);
                     SetConstants(_context.GetRecordingCommandBuffer(), _graphics!.PipelineLayoutHandle,
                         VulkanPipeline3D.PushConstantStages, pass);
-                    _renderPass.Draw((uint)pass.Work.X, (uint)pass.Work.Y);
+                    foreach (ShaderVertexBuffer vertex in pass.Draw.Vertices)
+                        _renderPass.BindVertexBuffer((uint)vertex.Binding, buffers[vertex.Buffer.Id], (ulong)vertex.Offset);
+                    if (pass.Draw.Indices is { } indices)
+                    {
+                        _renderPass.BindIndexBuffer(buffers[indices.Buffer.Id],
+                            indices.Format == IndexFormat.UInt16 ? IndexType.Uint16 : IndexType.Uint32, (ulong)indices.Offset);
+                        _renderPass.DrawIndexed((uint)pass.Work.X, (uint)pass.Work.Y, (uint)pass.Draw.FirstElement,
+                            pass.Draw.VertexOffset, (uint)pass.Draw.FirstInstance);
+                    }
+                    else
+                        _renderPass.Draw((uint)pass.Work.X, (uint)pass.Work.Y,
+                            (uint)pass.Draw.FirstElement, (uint)pass.Draw.FirstInstance);
                 }
                 finally
                 {

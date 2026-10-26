@@ -40,6 +40,11 @@ public sealed class ShaderGraphDescription
                     throw new InvalidOperationException($"Pass '{pass.Name}' cannot blend into undefined attachment contents.");
                 LastUses[attachment.Image.Id] = index;
             }
+            foreach (ShaderBuffer buffer in pass.Draw.ReadBuffers)
+            {
+                RequireInitialized(buffer, pass.Name);
+                LastUses[buffer.Id] = index;
+            }
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
                 if ((binding.Access & ResourceAccess.Write) != 0)
@@ -137,6 +142,22 @@ public sealed class ShaderGraphDescription
             }
             foreach (ShaderColorAttachment attachment in pass.Attachments)
                 writer.Write(attachment.Image.Id);
+            writer.Write(pass.Draw.Vertices.Length);
+            foreach (ShaderVertexBuffer vertex in pass.Draw.Vertices)
+            {
+                writer.Write(vertex.Binding);
+                writer.Write(vertex.Buffer.Id);
+                if (includeValues)
+                    writer.Write(vertex.Offset);
+            }
+            writer.Write(pass.Draw.Indices is not null);
+            if (pass.Draw.Indices is { } indices)
+            {
+                writer.Write(indices.Buffer.Id);
+                writer.Write((int)indices.Format);
+                if (includeValues)
+                    writer.Write(indices.Offset);
+            }
             if (includeValues)
             {
                 writer.Write(pass.Constants.Length);
@@ -145,6 +166,9 @@ public sealed class ShaderGraphDescription
                 writer.Write(pass.Work.Y);
                 writer.Write(pass.Work.Z);
                 writer.Write(pass.DispatchThreads);
+                writer.Write(pass.Draw.FirstElement);
+                writer.Write(pass.Draw.VertexOffset);
+                writer.Write(pass.Draw.FirstInstance);
             }
         }
         writer.Write(Output.Image.Id);
@@ -157,7 +181,7 @@ public sealed class ShaderGraphDescription
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write("ShaderGraphPipeline/v1");
+        writer.Write("ShaderGraphPipeline/v2");
         WritePipelineIdentity(writer, pass);
         writer.Flush();
         return ShaderProgramIdentity.CreateSpirv(Convert.ToBase64String(stream.GetBuffer(), 0, checked((int)stream.Length)));
@@ -165,6 +189,22 @@ public sealed class ShaderGraphDescription
 
     private static void WritePipelineIdentity(BinaryWriter writer, ShaderPassDescription pass)
     {
+        writer.Write((int)pass.Draw.Topology);
+        writer.Write(pass.Draw.Bindings.Length);
+        foreach (VertexBindingDescription binding in pass.Draw.Bindings)
+        {
+            writer.Write(binding.Binding);
+            writer.Write(binding.Stride);
+            writer.Write((int)binding.InputRate);
+        }
+        writer.Write(pass.Draw.Attributes.Length);
+        foreach (VertexAttributeDescription attribute in pass.Draw.Attributes)
+        {
+            writer.Write(attribute.Location);
+            writer.Write(attribute.Binding);
+            writer.Write((int)attribute.Format);
+            writer.Write(attribute.Offset);
+        }
         writer.Write(pass.Program.Stages.Count);
         foreach ((ShaderStage stage, ShaderSource source) in pass.Program.Stages.OrderBy(s => s.Key))
         {

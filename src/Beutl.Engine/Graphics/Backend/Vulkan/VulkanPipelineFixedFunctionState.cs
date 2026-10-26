@@ -16,7 +16,8 @@ internal readonly record struct VulkanPipelineFixedFunctionState(
     Silk.NET.Vulkan.BlendFactor SrcAlphaBlendFactor,
     Silk.NET.Vulkan.BlendFactor DstAlphaBlendFactor,
     Silk.NET.Vulkan.BlendOp ColorBlendOp,
-    Silk.NET.Vulkan.BlendOp AlphaBlendOp)
+    Silk.NET.Vulkan.BlendOp AlphaBlendOp,
+    Silk.NET.Vulkan.PrimitiveTopology Topology)
 {
     /// <summary>Converts the backend-neutral options a pipeline was requested with.</summary>
     public static VulkanPipelineFixedFunctionState From(PipelineOptions options) => new(
@@ -30,5 +31,6 @@ internal readonly record struct VulkanPipelineFixedFunctionState(
         VulkanFlagConverter.ToVulkan(options.SrcAlphaBlendFactor),
         VulkanFlagConverter.ToVulkan(options.DstAlphaBlendFactor),
         VulkanFlagConverter.ToVulkan(options.ColorBlendOp),
-        VulkanFlagConverter.ToVulkan(options.AlphaBlendOp));
+        VulkanFlagConverter.ToVulkan(options.AlphaBlendOp),
+        VulkanFlagConverter.ToVulkan(options.Topology));
 }
