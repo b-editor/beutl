@@ -12,7 +12,6 @@ using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Logging;
 using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings.Extensions;
 using MouseFlags = Beutl.Editor.Components.Helpers.TimelineHelper.MouseFlags;
@@ -36,7 +35,6 @@ public sealed partial class TimelineTabView : UserControl
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
     private TopLevel? _nativeInputRoot;
     private IDisposable? _nativeInputRegistration;
-    private ElementView? _selectedElement;
     private CancellationTokenSource? _scrollCts;
 
     public TimelineTabView()
@@ -104,7 +102,6 @@ public sealed partial class TimelineTabView : UserControl
         ViewModel = null;
 
         TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
-        _selectedElement = null;
 
         _disposables.Clear();
     }
@@ -150,24 +147,6 @@ public sealed partial class TimelineTabView : UserControl
         vm.CurrentTime
             .ObserveOnUIDispatcher()
             .Subscribe(OnCurrentTimeChangedForAutoScroll)
-            .DisposeWith(_disposables);
-
-        ViewModel.EditorContext.GetRequiredService<Beutl.Editor.Services.IEditorSelection>().SelectedObject.Subscribe(e =>
-            {
-                if (_selectedElement != null)
-                {
-                    ViewModel.ClearSelected();
-
-                    _selectedElement = null;
-                }
-
-                if (e is Element element && FindElementView(element) is
-                    { DataContext: ElementViewModel viewModel } newView)
-                {
-                    _selectedElement = newView;
-                    ViewModel.SelectElement(viewModel);
-                }
-            })
             .DisposeWith(_disposables);
 
         vm.IsRazorMode

@@ -51,9 +51,6 @@ public sealed partial class ElementView
             var selection = timeline.EditorContext.GetRequiredService<IEditorSelection>();
             // Clicking the selected clip again still tells the editor, which reopens a closed property tab on it.
             selection.Select(obj.ViewModel.Model, notifyIfSelected: true);
-
-            timeline.ClearSelected();
-            timeline.SelectElement(obj.ViewModel);
         }
 
         private bool IsSelected(ElementView obj, TimelineTabViewModel timeline)
@@ -88,22 +85,7 @@ public sealed partial class ElementView
                     {
                         if (e.KeyModifiers is KeyModifiers.None or KeyModifiers.Alt)
                         {
-                            // In a trim mode, pressing a selected clip keeps the selection: the behaviors after this
-                            // one use it for a multi-clip Slip/Roll/Slide.
-                            bool trimMode = timelineVm.IsSlipMode.Value
-                                || timelineVm.IsRollMode.Value
-                                || timelineVm.IsSlideMode.Value;
-                            if (!trimMode || !timelineVm.SelectedElements.Contains(obj.ViewModel))
-                            {
-                                Select(obj, obj._timeline.ViewModel);
-                            }
-                            else
-                            {
-                                // Keep the multi-selection, but still point the single selection
-                                // (property tab, keyframe scope) at the pressed clip.
-                                timelineVm.EditorContext.GetRequiredService<IEditorSelection>()
-                                    .Select(obj.ViewModel.Model);
-                            }
+                            Select(obj, timelineVm);
                         }
                         else
                         {
