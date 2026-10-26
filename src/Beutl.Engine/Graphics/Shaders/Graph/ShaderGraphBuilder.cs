@@ -10,7 +10,7 @@ namespace Beutl.Graphics.Shaders;
 /// Records a graph synchronously. Callbacks run only while recording; no author callback is retained for rendering.
 /// Passes are ordered, and each read must follow initialization of its resource. Repeated writes describe updates.
 /// </summary>
-public sealed class ShaderGraphBuilder
+public sealed partial class ShaderGraphBuilder
 {
     private readonly List<ShaderResource> _resources = [];
     private readonly List<ShaderPassDescription> _passes = [];
@@ -68,8 +68,8 @@ public sealed class ShaderGraphBuilder
         TextureFormat format, float padding, float resolutionScale)
     {
         EnsureRecording();
-        if (!Enum.IsDefined(format) || format is TextureFormat.Depth32Float or TextureFormat.Depth24Stencil8)
-            throw new ArgumentOutOfRangeException(nameof(format), "A color image format is required.");
+        if (!Enum.IsDefined(format))
+            throw new ArgumentOutOfRangeException(nameof(format));
         if (!float.IsFinite(padding) || padding < 0)
             throw new ArgumentOutOfRangeException(nameof(padding));
         if (!float.IsFinite(resolutionScale) || resolutionScale <= 0)
@@ -143,6 +143,8 @@ public sealed class ShaderGraphBuilder
         ValidateResource(image);
         if (!Enum.IsDefined(color))
             throw new ArgumentOutOfRangeException(nameof(color));
+        if (!image.IsAttachment || image.Format.IsDepthFormat() || image.Format.NumericCategory() != 0)
+            throw new ArgumentException("The graph output must be a single 2D color subresource with floating-point sample values. Convert numeric or depth data in an explicit pass.", nameof(image));
         return new(image, color);
     }
 

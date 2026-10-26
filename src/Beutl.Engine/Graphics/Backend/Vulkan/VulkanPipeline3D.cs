@@ -16,6 +16,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     private readonly VulkanDescriptorBindingTable _descriptorBindings;
     private readonly ShaderModule _vertexShader;
     private readonly ShaderModule _fragmentShader;
+    private readonly Dictionary<ShaderStage, ShaderModule> _additionalShaders = [];
+    private readonly uint _patchControlPoints;
     private bool _disposed;
 
     public VulkanContext OwnerContext => _context;
@@ -30,9 +32,11 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         ImmutableArray<SpecializationConstant> specializationConstants,
         int colorAttachmentCount,
         bool hasDepthAttachment,
-        in VulkanPipelineFixedFunctionState fixedFunctionState)
+        in VulkanPipelineFixedFunctionState fixedFunctionState,
+        IReadOnlyDictionary<ShaderStage, byte[]>? additionalStages = null, uint patchControlPoints = 3)
     {
         _context = context;
+        _patchControlPoints = patchControlPoints;
         _compatibleRenderPass = renderPass;
         _descriptorBindings = new VulkanDescriptorBindingTable(descriptorBindings);
         var vk = context.Vk;
@@ -43,6 +47,9 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         {
             _vertexShader = CreateShaderModule(vk, device, vertexShaderSpirv);
             _fragmentShader = CreateShaderModule(vk, device, fragmentShaderSpirv);
+            if (additionalStages is not null)
+                foreach (var (stage, bytes) in additionalStages)
+                    _additionalShaders.Add(stage, CreateShaderModule(vk, device, bytes));
 
             fixed (DescriptorSetLayoutBinding* bindingsPtr = descriptorBindings)
             {
@@ -105,7 +112,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
     /// them. Reading it from here rather than from the caller is what keeps the two in step.
     /// </remarks>
     public const ShaderStageFlags PushConstantStages =
-        ShaderStageFlags.VertexBit | ShaderStageFlags.FragmentBit;
+        ShaderStageFlags.AllGraphics;
 
     /// <summary>The size of the pipeline layout's push-constant range, in bytes.</summary>
     /// <remarks>128 is the minimum every Vulkan implementation guarantees.</remarks>
@@ -152,7 +159,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             var vertexSpecializationInfo = DescribeSpecialization(vertexSpecialization, vertexEntriesPtr, vertexDataPtr);
             var fragmentSpecializationInfo = DescribeSpecialization(
                 fragmentSpecialization, fragmentEntriesPtr, fragmentDataPtr);
-            var shaderStages = stackalloc PipelineShaderStageCreateInfo[2];
+            var shaderStages = stackalloc PipelineShaderStageCreateInfo[2 + _additionalShaders.Count];
             shaderStages[0] = DescribeShaderStage(
                 ShaderStageFlags.VertexBit,
                 _vertexShader,
@@ -163,6 +170,15 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 _fragmentShader,
                 mainPtr,
                 fragmentSpecialization.MapEntries.Length == 0 ? null : &fragmentSpecializationInfo);
+
+            int stageIndex = 2;
+            foreach (var (stage, module) in _additionalShaders)
+                shaderStages[stageIndex++] = DescribeShaderStage(VulkanFlagConverter.ToVulkan(stage), module, mainPtr, null);
+            var tessellation = new PipelineTessellationStateCreateInfo
+            {
+                SType = StructureType.PipelineTessellationStateCreateInfo,
+                PatchControlPoints = _patchControlPoints,
+            };
 
             fixed (VertexInputBindingDescription* bindingsPtr = vertexInput.Bindings)
             fixed (VertexInputAttributeDescription* attributesPtr = vertexInput.Attributes)
@@ -226,7 +242,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 var pipelineInfo = new GraphicsPipelineCreateInfo
                 {
                     SType = StructureType.GraphicsPipelineCreateInfo,
-                    StageCount = 2,
+                    StageCount = (uint)stageIndex,
+                    PTessellationState = _additionalShaders.ContainsKey(ShaderStage.TessellationControl) ? &tessellation : null,
                     PStages = shaderStages,
                     PVertexInputState = &vertexInputInfo,
                     PInputAssemblyState = &inputAssembly,
@@ -300,9 +317,11 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             SType = StructureType.PipelineDepthStencilStateCreateInfo,
             DepthTestEnable = state.DepthTestEnabled ? Vk.True : Vk.False,
             DepthWriteEnable = state.DepthWriteEnabled ? Vk.True : Vk.False,
-            DepthCompareOp = CompareOp.Less,
+            DepthCompareOp = state.DepthCompare,
             DepthBoundsTestEnable = Vk.False,
-            StencilTestEnable = Vk.False
+            StencilTestEnable = state.StencilEnabled,
+            Front = state.StencilFront,
+            Back = state.StencilBack
         };
 
     private static PipelineColorBlendAttachmentState DescribeColorBlendAttachment(
@@ -408,6 +427,8 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 vk.DestroyShaderModule(device, vertexShader, null);
             if (fragmentShader.Handle != 0)
                 vk.DestroyShaderModule(device, fragmentShader, null);
+            foreach (ShaderModule module in _additionalShaders.Values)
+                vk.DestroyShaderModule(device, module, null);
         });
     }
 }

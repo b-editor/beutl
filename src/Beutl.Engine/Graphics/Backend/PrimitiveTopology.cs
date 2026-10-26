@@ -9,6 +9,11 @@ public enum PrimitiveTopology
     LineList,
     LineStrip,
     PointList,
+    PatchList,
+    LineListAdjacency,
+    LineStripAdjacency,
+    TriangleListAdjacency,
+    TriangleStripAdjacency,
 }
 
 /// <summary>The unsigned element format of an index buffer.</summary>

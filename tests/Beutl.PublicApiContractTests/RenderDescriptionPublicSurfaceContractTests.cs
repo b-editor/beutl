@@ -163,6 +163,12 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
                 nameof(ShaderGraphDescription.Resources), nameof(ShaderGraphDescription.Output),
                 nameof(ShaderGraphDescription.PassNames),
             ]),
+            (typeof(ImageDescription),
+            [
+                nameof(ImageDescription.Kind), nameof(ImageDescription.Width), nameof(ImageDescription.Height),
+                nameof(ImageDescription.Format), nameof(ImageDescription.Depth), nameof(ImageDescription.ArrayLayers),
+                nameof(ImageDescription.MipLevels), ".ctor", "Deconstruct", "Equals", "GetHashCode", "ToString",
+            ]),
             (typeof(TargetCaptureDescription),
             [
                 nameof(TargetCaptureDescription.SourceRegion), nameof(TargetCaptureDescription.Bounds),
@@ -203,6 +209,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
             "Beutl.Graphics.Rendering.TargetCaptureDescription",
             "Beutl.Graphics.Rendering.TargetCommandDescription",
             "Beutl.Graphics.Rendering.TargetScopeDescription",
+            "Beutl.Graphics.Shaders.ImageDescription",
             "Beutl.Graphics.Shaders.ShaderDescription",
             "Beutl.Graphics.Shaders.ShaderGraphDescription",
         ];
@@ -361,6 +368,7 @@ public sealed class RenderDescriptionPublicSurfaceContractTests
         yield return typeof(GeometryDescription);
         yield return typeof(ShaderDescription);
         yield return typeof(ShaderGraphDescription);
+        yield return typeof(ImageDescription);
     }
 
     /// <summary>Enumerates public factories that retain resource bindings.</summary>

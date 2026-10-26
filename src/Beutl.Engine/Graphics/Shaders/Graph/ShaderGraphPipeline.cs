@@ -2,7 +2,9 @@
 using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Media;
 using Silk.NET.Vulkan;
+using AttachmentLoadOp = Beutl.Graphics.Backend.AttachmentLoadOp;
 using DescriptorType = Beutl.Graphics.Backend.DescriptorType;
+using PrimitiveTopology = Beutl.Graphics.Backend.PrimitiveTopology;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -39,7 +41,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         try
         {
             using var compiler = new VulkanShaderCompiler();
-            foreach ((ShaderStage stage, ShaderSource source) in pass.Program.Stages)
+            foreach ((ShaderStage stage, ShaderSource source) in pass.Program!.Stages)
             {
                 byte[] bytes = compiler.CompileToSpirv(source.Text, stage);
                 stages.Add(stage, bytes);
@@ -49,7 +51,12 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 foreach (uint capability in shaderInterface.Capabilities)
                 {
                     // Extended storage formats are checked individually through their format features.
-                    bool supported = capability is 0 or 1 or 49 or 50 or 51
+                    bool supported = capability is 0 or 1 or 50 or 51
+                        || capability == 49 && context.EnabledFeatures.ShaderStorageImageExtendedFormats
+                        || capability == 2 && context.EnabledFeatures.GeometryShader
+                        || capability == 3 && context.EnabledFeatures.TessellationShader
+                        || capability is 23 or 24 && context.EnabledFeatures.ShaderTessellationAndGeometryPointSize
+                        || capability is 34 or 45 && context.SupportsImageCubeArray
                         || capability == 10 && context.SupportsShaderFloat64
                         || capability == 11 && context.SupportsShaderInt64;
                     if (!supported)
@@ -57,10 +64,10 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 }
             }
             Validate(pass);
-            ShaderStage visibility = pass.Program.IsCompute ? ShaderStage.Compute : ShaderStage.Vertex | ShaderStage.Fragment;
+            ShaderStage visibility = pass.Program!.Stages.Keys.Aggregate(ShaderStage.None, (all, stage) => all | stage);
             DescriptorBinding[] bindings = pass.Bindings
                 .Select(b => new DescriptorBinding((uint)b.Binding, b.Type, 1, visibility)).ToArray();
-            if (pass.Program.IsCompute)
+            if (pass.Program!.IsCompute)
             {
                 uint count = 0;
                 context.Vk.GetPhysicalDeviceQueueFamilyProperties(context.PhysicalDevice, &count, null);
@@ -74,12 +81,24 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
             else
             {
                 _renderPass = (VulkanRenderPass3D)context.CreateRenderPass3D(
-                    pass.Attachments.Select(a => a.Image.Format).ToArray(), null, pass.Attachments[0].Load);
+                    pass.Attachments.Select(a => a.Image.Format).ToArray(), pass.DepthAttachment?.Image.Format,
+                    pass.Attachments.FirstOrDefault()?.Load ?? AttachmentLoadOp.Clear,
+                    pass.DepthAttachment?.Load ?? AttachmentLoadOp.Clear);
                 PipelineOptions options = pass.Blend.ToPipelineOptions();
                 options.Topology = pass.Draw.Topology;
-                _graphics = (VulkanPipeline3D)context.CreatePipeline3D(_renderPass,
-                    stages[ShaderStage.Vertex], stages[ShaderStage.Fragment], bindings,
-                    pass.Draw.GetVertexInput(), options);
+                options.DepthTestEnabled = pass.DepthStencil.TestEnabled;
+                options.DepthWriteEnabled = pass.DepthStencil.WriteEnabled;
+                options.DepthCompare = pass.DepthStencil.Compare;
+                options.StencilEnabled = pass.DepthStencil.StencilEnabled;
+                options.StencilFront = pass.DepthStencil.Front;
+                options.StencilBack = pass.DepthStencil.Back;
+                options.CullMode = pass.CullMode;
+                options.FrontFace = pass.FrontFace;
+                _graphics = new VulkanPipeline3D(context, _renderPass.Handle,
+                    stages[ShaderStage.Vertex], stages[ShaderStage.Fragment],
+                    VulkanFlagConverter.ToVulkan(pass.Draw.GetVertexInput()), bindings.Select(VulkanFlagConverter.ToVulkan).ToArray(),
+                    [], pass.Attachments.Length, pass.DepthAttachment is not null, VulkanPipelineFixedFunctionState.From(options),
+                    stages.Where(s => s.Key is not (ShaderStage.Vertex or ShaderStage.Fragment)).ToDictionary(), (uint)pass.PatchControlPoints);
             }
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
@@ -87,7 +106,9 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     continue;
                 SamplerState sampler = binding.Sampler;
                 _samplers.Add(binding.Binding, new VulkanSampler(context, sampler.MinFilter, sampler.MagFilter,
-                    sampler.AddressU, sampler.AddressV, transparentBorder: true));
+                    sampler.AddressU, sampler.AddressV, transparentBorder: true, sampler.AddressW,
+                    sampler.MipmapFilter, sampler.MinLod, sampler.MaxLod, sampler.Compare,
+                    ((ShaderImage)binding.Resource).Format.NumericCategory() != 0));
             }
         }
         catch (Exception ex)
@@ -106,16 +127,23 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
             shaderInterface.Validate(pass, stage, writableBindings);
             bool storesSupported = stage switch
             {
-                ShaderStage.Vertex => _context.SupportsVertexStores,
+                ShaderStage.Vertex or ShaderStage.Geometry or ShaderStage.TessellationControl or ShaderStage.TessellationEvaluation => _context.SupportsVertexStores,
                 ShaderStage.Fragment => _context.SupportsFragmentStores,
                 _ => true,
             };
             if (!storesSupported && shaderInterface.Bindings.Any(binding => !binding.ReadOnly))
                 throw new NotSupportedException($"Pass '{pass.Name}': this device does not support storage writes in the {stage} stage.");
         }
-        if (!pass.Program.IsCompute)
+        if (!pass.Program!.IsCompute)
         {
-            _interfaces[ShaderStage.Fragment].ValidateInputs(_interfaces[ShaderStage.Vertex], pass.Name);
+            ShaderInterface previous = _interfaces[ShaderStage.Vertex];
+            foreach (ShaderStage stage in new[] { ShaderStage.TessellationControl, ShaderStage.TessellationEvaluation, ShaderStage.Geometry, ShaderStage.Fragment })
+            {
+                if (!_interfaces.TryGetValue(stage, out ShaderInterface? current)) continue;
+                current.ValidateInputs(previous, pass.Name);
+                previous = current;
+            }
+            ValidateGraphicsStages(pass);
             ValidateDraw(pass);
         }
         if (pass.Attachments.Length > _limits.MaxColorAttachments)
@@ -149,8 +177,9 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
             {
                 FormatFeatureFlags flags = binding.Type == DescriptorType.StorageImage
                     ? FormatFeatureFlags.StorageImageBit : FormatFeatureFlags.SampledImageBit;
-                if (binding.Type == DescriptorType.CombinedImageSampler
-                    && (binding.Sampler.MinFilter == SamplerFilter.Linear || binding.Sampler.MagFilter == SamplerFilter.Linear))
+                if (binding.Type == DescriptorType.CombinedImageSampler && !binding.Sampler.Compare.HasValue
+                    && (binding.Sampler.MinFilter == SamplerFilter.Linear || binding.Sampler.MagFilter == SamplerFilter.Linear
+                        || binding.Sampler.MipmapFilter == SamplerFilter.Linear))
                     flags |= FormatFeatureFlags.SampledImageFilterLinearBit;
                 ValidateFormat(image.Format, flags, pass.Name);
             }
@@ -158,7 +187,9 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         foreach (ShaderColorAttachment attachment in pass.Attachments)
             ValidateFormat(attachment.Image.Format, FormatFeatureFlags.ColorAttachmentBit
                 | (pass.Blend.Enabled ? FormatFeatureFlags.ColorAttachmentBlendBit : 0), pass.Name);
-        if (pass.Program.IsCompute)
+        if (pass.DepthAttachment is { } depth)
+            ValidateFormat(depth.Image.Format, FormatFeatureFlags.DepthStencilAttachmentBit, pass.Name);
+        if (pass.Program!.IsCompute)
         {
             ShaderInterface shader = _interfaces[ShaderStage.Compute];
             (uint x, uint y, uint z) = shader.LocalSize;
@@ -168,16 +199,55 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 || z > limits.MaxComputeWorkGroupSize[2] || (ulong)x * y * z > limits.MaxComputeWorkGroupInvocations
                 || shader.SharedMemorySize > limits.MaxComputeSharedMemorySize)
                 throw new NotSupportedException($"Pass '{pass.Name}' exceeds compute local-size or shared-memory limits.");
-            (uint gx, uint gy, uint gz) = ResolveGroups(pass);
+            (uint gx, uint gy, uint gz) = pass.Draw.Indirect is null ? ResolveGroups(pass) : (0u, 0u, 0u);
             if (gx > limits.MaxComputeWorkGroupCount[0] || gy > limits.MaxComputeWorkGroupCount[1] || gz > limits.MaxComputeWorkGroupCount[2])
                 throw new NotSupportedException($"Pass '{pass.Name}' exceeds maxComputeWorkGroupCount.");
         }
+    }
+
+    private void ValidateGraphicsStages(ShaderPassDescription pass)
+    {
+        bool tessellation = _interfaces.TryGetValue(ShaderStage.TessellationControl, out ShaderInterface? control);
+        if (tessellation != (pass.Draw.Topology == PrimitiveTopology.PatchList))
+            throw new ArgumentException($"Pass '{pass.Name}': tessellation stages require patch topology, and patches require tessellation stages.");
+        if (tessellation && (pass.PatchControlPoints > _limits.MaxTessellationPatchSize
+                || control!.ExecutionModes.GetValueOrDefault(26u) > _limits.MaxTessellationPatchSize))
+            throw new NotSupportedException($"Pass '{pass.Name}' exceeds the tessellation patch size limit.");
+        if (_interfaces.TryGetValue(ShaderStage.Geometry, out ShaderInterface? geometry))
+        {
+            uint primitive = pass.Draw.Topology switch
+            {
+                PrimitiveTopology.PointList => 19,
+                PrimitiveTopology.LineList or PrimitiveTopology.LineStrip => 20,
+                PrimitiveTopology.LineListAdjacency or PrimitiveTopology.LineStripAdjacency => 21,
+                PrimitiveTopology.TriangleListAdjacency or PrimitiveTopology.TriangleStripAdjacency => 23,
+                _ => 22,
+            };
+            if (tessellation)
+            {
+                var evaluation = _interfaces[ShaderStage.TessellationEvaluation].ExecutionModes;
+                primitive = evaluation.ContainsKey(10) ? 19u : evaluation.ContainsKey(25) ? 20u : 22u;
+            }
+            if (!geometry.ExecutionModes.ContainsKey(primitive))
+                throw new ArgumentException($"Pass '{pass.Name}': geometry input primitive does not match the preceding stage or topology.");
+            if (geometry.ExecutionModes.GetValueOrDefault(0u, 1u) > _limits.MaxGeometryShaderInvocations
+                || geometry.ExecutionModes.GetValueOrDefault(26u) > _limits.MaxGeometryOutputVertices)
+                throw new NotSupportedException($"Pass '{pass.Name}' exceeds geometry invocation or output vertex limits.");
+        }
+        else if (pass.Draw.Topology is PrimitiveTopology.LineListAdjacency or PrimitiveTopology.LineStripAdjacency
+                 or PrimitiveTopology.TriangleListAdjacency or PrimitiveTopology.TriangleStripAdjacency)
+            throw new ArgumentException($"Pass '{pass.Name}': adjacency topology requires a geometry stage.");
     }
 
     private void ValidateDraw(ShaderPassDescription pass)
     {
         ShaderDrawDescription draw = pass.Draw;
         draw.Validate(pass.Name, pass.Work.X, pass.Work.Y);
+        if (draw.Indirect is { } indirect
+            && (indirect.Count > _limits.MaxDrawIndirectCount || indirect.Count > 1 && !_context.EnabledFeatures.MultiDrawIndirect))
+            throw new NotSupportedException($"Pass '{pass.Name}' exceeds the enabled indirect draw count limit.");
+        if (draw.Topology == PrimitiveTopology.TriangleFan && !_context.SupportsTriangleFans)
+            throw new NotSupportedException($"Pass '{pass.Name}': this device does not support triangle fans.");
         if (draw.Bindings.Length > _limits.MaxVertexInputBindings
             || draw.Bindings.Any(b => b.Binding >= _limits.MaxVertexInputBindings || b.Stride > _limits.MaxVertexInputBindingStride)
             || draw.Vertices.Any(v => v.Binding >= _limits.MaxVertexInputBindings))
@@ -236,15 +306,17 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
             // whichever descriptor was written first.
             var layouts = new Dictionary<int, ImageLayout>();
             foreach (var group in pass.Bindings.Where(b => !b.Metadata && b.Resource is ShaderImage)
-                         .GroupBy(b => b.Resource.Id))
+                         .GroupBy(b => ((ShaderImage)b.Resource).Root.Id))
             {
                 ImageLayout layout = group.Any(b => b.Type == DescriptorType.StorageImage)
                     ? ImageLayout.General : ImageLayout.ShaderReadOnlyOptimal;
-                VulkanTexture2D image = _context.RequireOwned<VulkanTexture2D>(images[group.Key], nameof(images));
-                if (group.Any(b => (b.Access & ResourceAccess.Write) != 0))
-                    image.MarkContentsUnknown();
-                image.TransitionTo(layout);
-                layouts.Add(group.Key, layout);
+                foreach (ShaderPassBinding binding in group)
+                {
+                    VulkanTexture2D image = _context.RequireOwned<VulkanTexture2D>(images[binding.Resource.Id], nameof(images));
+                    if ((binding.Access & ResourceAccess.Write) != 0) image.MarkContentsUnknown();
+                    image.TransitionTo(layout);
+                    layouts[binding.Resource.Id] = layout;
+                }
             }
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
@@ -283,18 +355,24 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 DescriptorSet set = descriptors.Handle;
                 _context.Vk.CmdBindDescriptorSets(command, PipelineBindPoint.Compute, compute.Layout, 0, 1, &set, 0, null);
                 SetConstants(command, compute.Layout, ShaderStageFlags.ComputeBit, pass);
-                (uint x, uint y, uint z) = ResolveGroups(pass);
-                _context.Vk.CmdDispatch(command, x, y, z);
+                if (pass.Draw.Indirect is { } indirect)
+                    _context.Vk.CmdDispatchIndirect(command,
+                        _context.RequireOwned<VulkanBuffer>(buffers[indirect.Buffer.Id], nameof(buffers)).Handle, (ulong)indirect.Offset);
+                else
+                {
+                    (uint x, uint y, uint z) = ResolveGroups(pass);
+                    _context.Vk.CmdDispatch(command, x, y, z);
+                }
             }
             else
             {
                 ITexture2D[] targets = pass.Attachments.Select(a => images[a.Image.Id]).ToArray();
                 if (targets.Any(t => t.Width != targets[0].Width || t.Height != targets[0].Height))
                     throw new InvalidOperationException($"Pass '{pass.Name}' requires matching attachment dimensions.");
-                foreach (ITexture2D target in targets)
-                    target.PrepareForRender();
-                using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(_renderPass!, targets, null);
-                _renderPass!.Begin(framebuffer, new Color[targets.Length]);
+                ITexture2D? depthTarget = pass.DepthAttachment is { } depth ? images[depth.Image.Id] : null;
+                using IFramebuffer3D framebuffer = _context.CreateFramebuffer3D(_renderPass!, targets, depthTarget);
+                _renderPass!.Begin(framebuffer, new Color[targets.Length], pass.DepthAttachment?.ClearDepth ?? 1,
+                    pass.DepthAttachment?.ClearStencil ?? 0);
                 try
                 {
                     _renderPass.BindPipeline(_graphics!);
@@ -307,6 +385,12 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     {
                         _renderPass.BindIndexBuffer(buffers[indices.Buffer.Id],
                             indices.Format == IndexFormat.UInt16 ? IndexType.Uint16 : IndexType.Uint32, (ulong)indices.Offset);
+                    }
+                    if (pass.Draw.Indirect is { } indirect)
+                        _renderPass.DrawIndirect(buffers[indirect.Buffer.Id], (ulong)indirect.Offset, (uint)indirect.Count,
+                            (uint)indirect.Stride, pass.Draw.Indices is not null);
+                    else if (pass.Draw.Indices is not null)
+                    {
                         _renderPass.DrawIndexed((uint)pass.Work.X, (uint)pass.Work.Y, (uint)pass.Draw.FirstElement,
                             pass.Draw.VertexOffset, (uint)pass.Draw.FirstInstance);
                     }

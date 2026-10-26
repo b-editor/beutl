@@ -68,9 +68,10 @@ internal sealed unsafe partial class VulkanContext
 
         vulkanDest.MarkContentsUnknown();
 
-        // The destination is wrapped for Skia without a further transition, so it has to land in the
-        // layout that wrap declares.
-        vulkanDest.TransitionTo(VulkanTexture2D.SkiaInteropLayout);
+        // Skia-writable destinations must land in the layout their wrap declares. Storage-only
+        // destinations retain the transfer layout until their next use establishes its layout.
+        if ((vulkanDest.Usage & ImageUsageFlags.ColorAttachmentBit) != 0)
+            vulkanDest.TransitionTo(VulkanTexture2D.SkiaInteropLayout);
 
         vulkanSource.TransitionTo(ImageLayout.ShaderReadOnlyOptimal);
     }

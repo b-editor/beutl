@@ -36,14 +36,23 @@ public sealed class ShaderProgram
     internal bool IsCompute => Stages.ContainsKey(ShaderStage.Compute);
 
     public static ShaderProgram Graphics(ShaderSource vertex, ShaderSource fragment)
+        => Graphics(vertex, fragment, null, null, null);
+
+    /// <summary>Adds optional geometry or paired tessellation stages to a graphics program.</summary>
+    public static ShaderProgram Graphics(ShaderSource vertex, ShaderSource fragment, ShaderSource? geometry = null,
+        ShaderSource? tessellationControl = null, ShaderSource? tessellationEvaluation = null)
     {
         ArgumentNullException.ThrowIfNull(vertex);
         ArgumentNullException.ThrowIfNull(fragment);
-        return new(new Dictionary<ShaderStage, ShaderSource>
-        {
-            [ShaderStage.Vertex] = vertex,
-            [ShaderStage.Fragment] = fragment,
-        }.ToImmutableDictionary());
+        if ((tessellationControl is null) != (tessellationEvaluation is null))
+            throw new ArgumentException("Tessellation control and evaluation stages must be provided together.");
+        var stages = ImmutableDictionary.CreateBuilder<ShaderStage, ShaderSource>();
+        stages.Add(ShaderStage.Vertex, vertex);
+        stages.Add(ShaderStage.Fragment, fragment);
+        if (geometry is not null) stages.Add(ShaderStage.Geometry, geometry);
+        if (tessellationControl is not null) stages.Add(ShaderStage.TessellationControl, tessellationControl);
+        if (tessellationEvaluation is not null) stages.Add(ShaderStage.TessellationEvaluation, tessellationEvaluation);
+        return new(stages.ToImmutable());
     }
 
     public static ShaderProgram Compute(ShaderSource source)

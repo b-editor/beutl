@@ -14,15 +14,17 @@ internal sealed class ShaderInterface
     private readonly Dictionary<(uint Id, uint Member, uint Decoration), uint> _members = [];
     private readonly Dictionary<uint, uint> _constants = [];
     private readonly List<(uint Type, uint Id, uint Storage)> _variables = [];
-    private readonly Dictionary<(uint Location, uint Component), string> _inputs = [];
-    private readonly Dictionary<(uint Location, uint Component), uint> _inputTypes = [];
-    private readonly Dictionary<(uint Location, uint Component), string> _outputs = [];
+    private readonly Dictionary<(uint Location, uint Component, bool Patch), string> _inputs = [];
+    private readonly Dictionary<(uint Location, uint Component, bool Patch), uint> _inputTypes = [];
+    private readonly Dictionary<(uint Location, uint Component, bool Patch), string> _outputs = [];
 
     internal sealed record Binding(int Slot, DescriptorType Type, int MinimumSize, int ArrayStride,
-        bool ReadOnly, TextureFormat? ImageFormat);
+        bool ReadOnly, TextureFormat? ImageFormat, ImageKind? Kind, int NumericCategory, bool Comparison);
 
     public List<Binding> Bindings { get; } = [];
     public HashSet<int> ColorLocations { get; } = [];
+    private readonly Dictionary<int, int> _colorCategories = [];
+    public Dictionary<uint, uint> ExecutionModes { get; } = [];
     public HashSet<uint> Capabilities { get; } = [];
     public (uint X, uint Y, uint Z) LocalSize { get; private set; } = (1, 1, 1);
     public int PushConstantSize { get; private set; }
@@ -45,6 +47,9 @@ internal sealed class ShaderInterface
             {
                 case 16 when args[1] == 17: // OpExecutionMode LocalSize
                     LocalSize = (args[2], args[3], args[4]);
+                    break;
+                case 16: // OpExecutionMode
+                    ExecutionModes[args[1]] = args.Length > 2 ? args[2] : 1;
                     break;
                 case 17: // OpCapability
                     Capabilities.Add(args[0]);
@@ -90,19 +95,24 @@ internal sealed class ShaderInterface
                 SharedMemorySize = checked(SharedMemorySize + SizeOf(type));
                 continue;
             }
-            if (storage == 1 || storage == 3 && stage == ShaderStage.Vertex)
+            if (storage == 1 || storage == 3 && stage is not (ShaderStage.Fragment or ShaderStage.Compute))
             {
+                bool perVertexArray = storage == 1 && stage is ShaderStage.Geometry or ShaderStage.TessellationControl or ShaderStage.TessellationEvaluation
+                    || storage == 3 && stage == ShaderStage.TessellationControl;
+                if (perVertexArray && !_decorations.ContainsKey((id, 15)) && _types[type].Op == 28)
+                    type = _types[type].Args[0];
                 ReadStageVariables(type, id, storage == 1 ? _inputs : _outputs);
                 continue;
             }
             if (storage == 3 && stage == ShaderStage.Fragment
                 && _decorations.TryGetValue((id, 30), out uint location))
             {
-                if (!IsFloat32(type)
+                if (NumericCategory(type) < 0
                     || _decorations.GetValueOrDefault((id, 31u)) != 0
                     || _decorations.GetValueOrDefault((id, 32u)) != 0)
-                    throw new NotSupportedException($"Color location {location}: a float or float vector output without component packing or dual-source blending is required.");
+                    throw new NotSupportedException($"Color location {location}: a 32-bit scalar or vector output without component packing or dual-source blending is required.");
                 ColorLocations.Add(checked((int)location));
+                _colorCategories.Add((int)location, NumericCategory(type));
                 continue;
             }
             if (storage is not (0 or 2 or 12))
@@ -118,13 +128,27 @@ internal sealed class ShaderInterface
             int stride = 0;
             bool readOnly = true;
             TextureFormat? imageFormat = null;
+            ImageKind? kind = null;
+            int category = 0;
+            bool comparison = false;
             if (storage == 0 && op is 25 or 27)
             {
                 uint[] image = op == 27 ? _types[args[0]].Args : args;
-                if (image[1] != 1 || image[3] != 0 || image[4] != 0)
-                    throw new NotSupportedException($"Binding {slot}: a non-arrayed, single-sample 2D image is required.");
-                if (image[2] == 1 || _types[image[0]].Op != 22 || _types[image[0]].Args[0] != 32)
-                    throw new NotSupportedException($"Binding {slot}: current graph image formats require a floating-point 2D image without depth comparison.");
+                if (image[4] != 0)
+                    throw new NotSupportedException($"Binding {slot}: multisampled images are not supported.");
+                kind = (image[1], image[3]) switch
+                {
+                    (1, 0) => ImageKind.Image2D,
+                    (1, 1) => ImageKind.Image2DArray,
+                    (2, 0) => ImageKind.Image3D,
+                    (3, 0) => ImageKind.Cube,
+                    (3, 1) => ImageKind.CubeArray,
+                    _ => throw new NotSupportedException($"Binding {slot}: unsupported image dimensionality."),
+                };
+                category = NumericCategory(image[0]);
+                comparison = image[2] == 1;
+                if (category < 0)
+                    throw new NotSupportedException($"Binding {slot}: image components must use 32-bit float or integer types.");
                 descriptor = op == 27 ? DescriptorType.CombinedImageSampler : DescriptorType.StorageImage;
                 if (descriptor == DescriptorType.StorageImage)
                 {
@@ -135,6 +159,11 @@ internal sealed class ShaderInterface
                         2 => TextureFormat.RGBA16Float,
                         3 => TextureFormat.R32Float,
                         4 => TextureFormat.RGBA8Unorm,
+                        6 => TextureFormat.RG32Float,
+                        21 => TextureFormat.RGBA32SInt,
+                        24 => TextureFormat.R32SInt,
+                        30 => TextureFormat.RGBA32UInt,
+                        33 => TextureFormat.R32UInt,
                         9 => TextureFormat.R16Float,
                         15 => TextureFormat.R8Unorm,
                         _ => throw new NotSupportedException($"Binding {slot}: storage images require an explicit format supported by graph images."),
@@ -160,11 +189,11 @@ internal sealed class ShaderInterface
             }
             else
                 throw new NotSupportedException($"Binding {slot}: this shader resource type is not supported yet.");
-            Bindings.Add(new(checked((int)slot), descriptor, size, stride, readOnly, imageFormat));
+            Bindings.Add(new(checked((int)slot), descriptor, size, stride, readOnly, imageFormat, kind, category, comparison));
         }
     }
 
-    private void ReadStageVariables(uint type, uint id, Dictionary<(uint, uint), string> variables)
+    private void ReadStageVariables(uint type, uint id, Dictionary<(uint, uint, bool), string> variables)
     {
         if (_decorations.ContainsKey((id, 11))) // BuiltIn
             return;
@@ -178,20 +207,21 @@ internal sealed class ShaderInterface
                 if (_members.ContainsKey((type, member, 11)))
                     continue;
                 location = _members.GetValueOrDefault((type, member, 30u), location);
-                Add(args[member], location, _members.GetValueOrDefault((type, member, 31u), component));
+                Add(args[member], location, _members.GetValueOrDefault((type, member, 31u), component),
+                    _members.ContainsKey((type, member, 15)) || _decorations.ContainsKey((id, 15)));
                 location = checked(location + LocationCount(args[member]));
             }
         }
         else
-            Add(type, location, component);
+            Add(type, location, component, _decorations.ContainsKey((id, 15)));
 
-        void Add(uint valueType, uint valueLocation, uint valueComponent)
+        void Add(uint valueType, uint valueLocation, uint valueComponent, bool patch)
         {
             if (valueLocation == uint.MaxValue)
                 throw new NotSupportedException("Shader stage inputs and outputs must declare a location or a built-in.");
-            variables.Add((valueLocation, valueComponent), InterfaceType(valueType));
+            variables.Add((valueLocation, valueComponent, patch), InterfaceType(valueType));
             if (ReferenceEquals(variables, _inputs))
-                _inputTypes.Add((valueLocation, valueComponent), valueType);
+                _inputTypes.Add((valueLocation, valueComponent, patch), valueType);
         }
     }
 
@@ -229,7 +259,7 @@ internal sealed class ShaderInterface
         foreach ((var location, string type) in _inputs)
         {
             if (!vertex._outputs.TryGetValue(location, out string? outputType) || outputType != type)
-                throw new ArgumentException($"Pass '{passName}': fragment input at location {location.Location}, component {location.Component} does not match a vertex output.");
+                throw new ArgumentException($"Pass '{passName}': stage input at location {location.Location}, component {location.Component} does not match the preceding stage output.");
         }
     }
 
@@ -261,11 +291,12 @@ internal sealed class ShaderInterface
         }
     }
 
-    private bool IsFloat32(uint type)
+    private int NumericCategory(uint type)
     {
         (ushort op, uint[] args) = _types[type];
-        return op == 22 && args[0] == 32
-            || op == 23 && args[1] <= 4 && _types[args[0]].Op == 22 && _types[args[0]].Args[0] == 32;
+        if (op == 23 && args[1] <= 4) (op, args) = _types[args[0]];
+        return args.Length > 0 && args[0] == 32
+            ? op == 22 ? 0 : op == 21 ? args[1] == 1 ? 1 : 2 : -1 : -1;
     }
 
     private int SizeOf(uint type, int matrixStride = 0, bool rowMajor = false)
@@ -313,6 +344,11 @@ internal sealed class ShaderInterface
                 throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: image parameters contain three vec4 values.");
             if (declared.ImageFormat is { } format && bound.Resource is ShaderImage image && image.Format != format)
                 throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: shader image format {format} does not match {image.Format}.");
+            if (declared.Kind is { } imageKind && bound.Resource is ShaderImage sampled
+                && (sampled.Kind != imageKind || sampled.Format.NumericCategory() != declared.NumericCategory
+                    || declared.Type == DescriptorType.CombinedImageSampler
+                        && (declared.Comparison != bound.Sampler.Compare.HasValue || declared.Comparison && !sampled.Format.IsDepthFormat())))
+                throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: image dimensions, numeric type or depth comparison do not match the shader.");
             if (bound.Resource is ShaderBuffer buffer)
             {
                 if (buffer.ByteLength < declared.MinimumSize || declared.ArrayStride != 0 && buffer.Stride != declared.ArrayStride)
@@ -328,6 +364,10 @@ internal sealed class ShaderInterface
                     throw new ArgumentException($"Pass '{pass.Name}', binding {declared.Slot}: a readonly {kind} cannot have write access in the graph.");
             }
         }
+        if (stage == ShaderStage.Fragment)
+            foreach (ShaderColorAttachment attachment in pass.Attachments)
+                if (_colorCategories.TryGetValue(attachment.Location, out int category) && category != attachment.Image.Format.NumericCategory())
+                    throw new ArgumentException($"Pass '{pass.Name}': color location {attachment.Location} does not match the attachment's numeric type.");
         if (stage == ShaderStage.Fragment
             && !ColorLocations.SetEquals(Enumerable.Range(0, pass.Attachments.Length)))
             throw new ArgumentException($"Pass '{pass.Name}': fragment output locations do not match the color attachments.");

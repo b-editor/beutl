@@ -19,9 +19,11 @@ internal sealed record ShaderDrawDescription(
     int FirstElement, int VertexOffset, int FirstInstance)
 {
     public static ShaderDrawDescription Empty { get; } = new([], [], [], null, PrimitiveTopology.TriangleList, 0, 0, 0);
+    public ShaderIndirectCommand? Indirect { get; init; }
 
     public IEnumerable<ShaderBuffer> ReadBuffers => Vertices.Select(v => v.Buffer)
-        .Concat(Indices is { } indices ? [indices.Buffer] : []);
+        .Concat(Indices is { } indices ? [indices.Buffer] : [])
+        .Concat(Indirect is { } indirect ? [indirect.Buffer] : []);
 
     public VertexInputDescription GetVertexInput() => new() { Bindings = [.. Bindings], Attributes = [.. Attributes] };
 
@@ -29,6 +31,7 @@ internal sealed record ShaderDrawDescription(
 
     public void Validate(string name, int count, int instanceCount)
     {
+        Indirect?.Validate();
         if (Bindings.Select(b => b.Binding).Distinct().Count() != Bindings.Length
             || Attributes.Select(a => a.Location).Distinct().Count() != Attributes.Length)
             throw new ArgumentException($"Pass '{name}' has duplicate vertex bindings or attribute locations.");
@@ -46,7 +49,7 @@ internal sealed record ShaderDrawDescription(
             ShaderVertexBuffer vertex = Vertices.FirstOrDefault(v => v.Binding == attribute.Binding)
                 ?? throw new ArgumentException($"Pass '{name}', location {attribute.Location}: missing vertex buffer {attribute.Binding}.");
             VertexBindingDescription binding = Bindings.First(b => b.Binding == attribute.Binding);
-            bool indexed = Indices is not null && binding.InputRate == VertexInputRate.Vertex;
+            bool indexed = Indirect is not null || Indices is not null && binding.InputRate == VertexInputRate.Vertex;
             long first = indexed ? 0 : binding.InputRate == VertexInputRate.Instance ? FirstInstance : FirstElement;
             long elements = binding.InputRate == VertexInputRate.Instance ? instanceCount : count;
             long address = checked(vertex.Offset + first * binding.Stride + attribute.Offset);
@@ -61,7 +64,7 @@ internal sealed record ShaderDrawDescription(
             if (end > vertex.Buffer.ByteLength)
                 throw new ArgumentException($"Pass '{name}', location {attribute.Location}: draw exceeds vertex buffer '{vertex.Buffer.Name}'.");
         }
-        if (Indices is { } index
+        if (Indirect is null && Indices is { } index
             && ((long)FirstElement + count) * index.ElementSize > index.Buffer.ByteLength - index.Offset)
             throw new ArgumentException($"Pass '{name}': draw exceeds index buffer '{index.Buffer.Name}'.");
     }

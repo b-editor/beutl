@@ -33,6 +33,19 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
     {
     }
 
+    // A graph subresource owns only its view; its parent owns the shared image and memory.
+    protected VulkanTexture2D(VulkanContext context, int width, int height, TextureFormat format,
+        Silk.NET.Vulkan.Image image, ImageView view, ImageUsageFlags usage)
+    {
+        _context = context;
+        _width = width;
+        _height = height;
+        _format = format;
+        _image = image;
+        _imageView = view;
+        Usage = usage;
+    }
+
     protected VulkanTexture2D(
         VulkanContext context,
         int width,
@@ -106,16 +119,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
         TransitionTo(ImageLayout.TransferSrcOptimal);
 
-        int bytesPerPixel = _format switch
-        {
-            TextureFormat.RGBA8Unorm or TextureFormat.BGRA8Unorm => 4,
-            TextureFormat.RGBA16Float => 8,
-            TextureFormat.RGBA32Float => 16,
-            TextureFormat.R8Unorm => 1,
-            TextureFormat.R16Float => 2,
-            TextureFormat.R32Float => 4,
-            _ => 4
-        };
+        int bytesPerPixel = _format.BytesPerTexel();
 
         ulong bufferSize = (ulong)(_width * _height * bytesPerPixel);
         var pixelData = new byte[bufferSize];
@@ -337,7 +341,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
         _hasTransparentContents = true;
     }
 
-    public void TransitionTo(ImageLayout layout)
+    public virtual void TransitionTo(ImageLayout layout)
     {
         if (_skiaBackendTexture != null && _accessDomain == TextureAccessDomain.Skia)
         {

@@ -29,8 +29,8 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
         _renderPass = renderPass;
         _colorTextures = new List<VulkanTexture2D>(colorTextures);
         _depthTexture = depthTexture;
-        _width = colorTextures[0].Width;
-        _height = colorTextures[0].Height;
+        _width = (colorTextures.FirstOrDefault() ?? depthTexture!).Width;
+        _height = (colorTextures.FirstOrDefault() ?? depthTexture!).Height;
 
         var vk = context.Vk;
         var device = context.Device;
@@ -122,9 +122,9 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
         IReadOnlyList<VulkanTexture2D> colorTextures,
         VulkanTexture2D? depthTexture)
     {
-        if (colorTextures.Count == 0)
+        if (colorTextures.Count == 0 && depthTexture is null)
         {
-            throw new ArgumentException("At least one color texture is required", nameof(colorTextures));
+            throw new ArgumentException("At least one attachment is required", nameof(colorTextures));
         }
 
         if (colorTextures.Count != renderPass.ColorAttachmentCount)
@@ -158,8 +158,8 @@ internal sealed unsafe class VulkanFramebuffer3D : IFramebuffer3D, IVulkanContex
                 nameof(depthTexture));
         }
 
-        int width = colorTextures[0].Width;
-        int height = colorTextures[0].Height;
+        int width = (colorTextures.FirstOrDefault() ?? depthTexture!).Width;
+        int height = (colorTextures.FirstOrDefault() ?? depthTexture!).Height;
 
         foreach (VulkanTexture2D colorTexture in colorTextures)
         {

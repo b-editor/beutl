@@ -41,9 +41,9 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         AttachmentLoadOp colorLoadOp = AttachmentLoadOp.Clear,
         AttachmentLoadOp depthLoadOp = AttachmentLoadOp.Clear)
     {
-        if (colorFormats.Count == 0)
+        if (colorFormats.Count == 0 && !depthFormat.HasValue)
         {
-            throw new ArgumentException("At least one color format is required", nameof(colorFormats));
+            throw new ArgumentException("At least one attachment format is required", nameof(colorFormats));
         }
 
         _context = context;
@@ -124,8 +124,8 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
                 Samples = SampleCountFlags.Count1Bit,
                 LoadOp = depthLoadOp,
                 StoreOp = AttachmentStoreOp.Store,
-                StencilLoadOp = Silk.NET.Vulkan.AttachmentLoadOp.DontCare,
-                StencilStoreOp = AttachmentStoreOp.DontCare,
+                StencilLoadOp = depthLoadOp,
+                StencilStoreOp = AttachmentStoreOp.Store,
                 InitialLayout = ImageLayout.DepthStencilAttachmentOptimal,
                 FinalLayout = ImageLayout.DepthStencilAttachmentOptimal
             };
@@ -200,6 +200,9 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     public bool HasDepthAttachment => _depthFormat.HasValue;
 
     public void Begin(IFramebuffer3D framebuffer, ReadOnlySpan<Color> clearColors, float clearDepth = 1.0f)
+        => Begin(framebuffer, clearColors, clearDepth, 0);
+
+    internal void Begin(IFramebuffer3D framebuffer, ReadOnlySpan<Color> clearColors, float clearDepth, uint clearStencil)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -242,7 +245,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         }
         if (HasDepthAttachment)
         {
-            clearValues[_colorAttachmentCount].DepthStencil = new ClearDepthStencilValue(clearDepth, 0);
+            clearValues[_colorAttachmentCount].DepthStencil = new ClearDepthStencilValue(clearDepth, clearStencil);
         }
 
         var renderPassBeginInfo = new RenderPassBeginInfo
@@ -536,6 +539,17 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         ValidateDrawState();
 
         _context.Vk.CmdDraw(_currentCommandBuffer, vertexCount, instanceCount, firstVertex, firstInstance);
+    }
+
+    internal void DrawIndirect(IBuffer commands, ulong offset, uint count, uint stride, bool indexed)
+    {
+        ThrowIfNotInRenderPass();
+        ValidateDrawState();
+        var buffer = _context.RequireOwned<VulkanBuffer>(commands, nameof(commands));
+        if (indexed)
+            _context.Vk.CmdDrawIndexedIndirect(_currentCommandBuffer, buffer.Handle, offset, count, stride);
+        else
+            _context.Vk.CmdDrawIndirect(_currentCommandBuffer, buffer.Handle, offset, count, stride);
     }
 
     public void SetPushConstants<T>(T data) where T : unmanaged

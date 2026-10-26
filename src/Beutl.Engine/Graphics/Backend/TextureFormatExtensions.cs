@@ -8,6 +8,22 @@ namespace Beutl.Graphics.Backend;
 /// </summary>
 public static class TextureFormatExtensions
 {
+    internal static int NumericCategory(this TextureFormat format) => format switch
+    {
+        TextureFormat.R32SInt or TextureFormat.RGBA32SInt => 1,
+        TextureFormat.R32UInt or TextureFormat.RGBA32UInt => 2,
+        _ => 0,
+    };
+
+    internal static int BytesPerTexel(this TextureFormat format) => format switch
+    {
+        TextureFormat.RGBA32Float or TextureFormat.RGBA32SInt or TextureFormat.RGBA32UInt => 16,
+        TextureFormat.RGBA16Float or TextureFormat.RG32Float or TextureFormat.Depth32FloatStencil8 => 8,
+        TextureFormat.R8Unorm => 1,
+        TextureFormat.R16Float => 2,
+        _ => 4,
+    };
+
     /// <summary>
     /// Converts <see cref="TextureFormat"/> to Vulkan <see cref="Format"/>.
     /// </summary>
@@ -24,6 +40,12 @@ public static class TextureFormatExtensions
             TextureFormat.R32Float => Format.R32Sfloat,
             TextureFormat.Depth32Float => Format.D32Sfloat,
             TextureFormat.Depth24Stencil8 => Format.D24UnormS8Uint,
+            TextureFormat.Depth32FloatStencil8 => Format.D32SfloatS8Uint,
+            TextureFormat.RG32Float => Format.R32G32Sfloat,
+            TextureFormat.R32SInt => Format.R32Sint,
+            TextureFormat.R32UInt => Format.R32Uint,
+            TextureFormat.RGBA32SInt => Format.R32G32B32A32Sint,
+            TextureFormat.RGBA32UInt => Format.R32G32B32A32Uint,
             _ => Format.R8G8B8A8Unorm
         };
     }
@@ -42,6 +64,8 @@ public static class TextureFormatExtensions
             TextureFormat.R8Unorm => SKColorType.Gray8,
             TextureFormat.R16Float => SKColorType.AlphaF16,
             TextureFormat.R32Float => SKColorType.RgbaF32, // Fallback: no single-channel F32
+            TextureFormat.RG32Float or TextureFormat.R32SInt or TextureFormat.R32UInt
+                or TextureFormat.RGBA32SInt or TextureFormat.RGBA32UInt => throw new NotSupportedException($"Skia does not support {format}."),
             _ => SKColorType.Rgba8888
         };
     }
@@ -54,16 +78,19 @@ public static class TextureFormatExtensions
         return format switch
         {
             TextureFormat.Depth32Float => ImageAspectFlags.DepthBit,
-            TextureFormat.Depth24Stencil8 => ImageAspectFlags.DepthBit | ImageAspectFlags.StencilBit,
+            TextureFormat.Depth24Stencil8 or TextureFormat.Depth32FloatStencil8 => ImageAspectFlags.DepthBit | ImageAspectFlags.StencilBit,
             _ => ImageAspectFlags.ColorBit
         };
     }
+
+    internal static bool HasStencil(this TextureFormat format)
+        => format is TextureFormat.Depth24Stencil8 or TextureFormat.Depth32FloatStencil8;
 
     /// <summary>
     /// Returns true if this format is a depth or depth-stencil format.
     /// </summary>
     public static bool IsDepthFormat(this TextureFormat format)
     {
-        return format is TextureFormat.Depth32Float or TextureFormat.Depth24Stencil8;
+        return format is TextureFormat.Depth32Float or TextureFormat.Depth24Stencil8 or TextureFormat.Depth32FloatStencil8;
     }
 }

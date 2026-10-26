@@ -25,6 +25,12 @@ public readonly record struct SamplerState(
     SamplerAddressMode AddressU,
     SamplerAddressMode AddressV)
 {
+    public SamplerAddressMode AddressW { get; init; } = AddressU;
+    public SamplerFilter MipmapFilter { get; init; } = MinFilter;
+    public float MinLod { get; init; }
+    public float MaxLod { get; init; } = 1000;
+    public CompareFunction? Compare { get; init; }
+
     public static SamplerState LinearTransparent => new(
         SamplerFilter.Linear, SamplerFilter.Linear,
         SamplerAddressMode.ClampToBorder, SamplerAddressMode.ClampToBorder);
@@ -87,7 +93,8 @@ public abstract class ShaderResource
 public sealed class ShaderImage : ShaderResource
 {
     internal ShaderImage(object owner, int id, string name, TextureFormat format,
-        ShaderImage? like, Rect? bounds, float padding, float resolutionScale)
+        ShaderImage? like, Rect? bounds, float padding, float resolutionScale,
+        ImageDescription? description = null, ShaderImage? root = null, int baseMip = 0, int baseLayer = 0)
         : base(owner, id, name)
     {
         Format = format;
@@ -95,10 +102,40 @@ public sealed class ShaderImage : ShaderResource
         ExplicitBounds = bounds;
         Padding = padding;
         ResolutionScale = resolutionScale;
+        Description = description;
+        Root = root ?? this;
+        BaseMipLevel = baseMip;
+        BaseArrayLayer = baseLayer;
     }
 
     public TextureFormat Format { get; }
     public float ResolutionScale { get; }
+    public ImageKind Kind => Description?.Kind ?? ImageKind.Image2D;
+    public int Depth => Description?.Depth ?? 1;
+    public int ArrayLayers => Description?.ArrayLayers ?? 1;
+    public int MipLevels => Description?.MipLevels ?? 1;
+    internal ImageDescription? Description { get; }
+    internal ShaderImage Root { get; }
+    internal int BaseMipLevel { get; }
+    internal int BaseArrayLayer { get; }
+    internal bool IsView => !ReferenceEquals(Root, this);
+    internal bool IsAttachment => Kind == ImageKind.Image2D && MipLevels == 1;
+    internal IEnumerable<(int Image, int Mip, int Layer, int Aspect)> Subresources
+    {
+        get
+        {
+            for (int mip = BaseMipLevel; mip < BaseMipLevel + MipLevels; mip++)
+                for (int layer = BaseArrayLayer; layer < BaseArrayLayer + ArrayLayers; layer++)
+                {
+                    yield return (Root.Id, mip, layer, Format.IsDepthFormat() ? 1 : 0);
+                    if (Format.HasStencil()) yield return (Root.Id, mip, layer, 2);
+                }
+        }
+    }
+
+    internal bool Overlaps(ShaderImage other) => ReferenceEquals(Root, other.Root)
+        && BaseMipLevel < other.BaseMipLevel + other.MipLevels && other.BaseMipLevel < BaseMipLevel + MipLevels
+        && BaseArrayLayer < other.BaseArrayLayer + other.ArrayLayers && other.BaseArrayLayer < BaseArrayLayer + ArrayLayers;
     internal ShaderImage? Like { get; }
     internal Rect? ExplicitBounds { get; }
     internal float Padding { get; }
