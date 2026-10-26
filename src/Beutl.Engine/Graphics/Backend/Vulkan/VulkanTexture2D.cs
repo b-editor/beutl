@@ -119,16 +119,7 @@ internal unsafe class VulkanTexture2D : ITexture2D, ITransparentClearableTexture
 
         TransitionTo(ImageLayout.TransferSrcOptimal);
 
-        int bytesPerPixel = _format switch
-        {
-            TextureFormat.RGBA8Unorm or TextureFormat.BGRA8Unorm => 4,
-            TextureFormat.RGBA16Float => 8,
-            TextureFormat.RGBA32Float => 16,
-            TextureFormat.R8Unorm => 1,
-            TextureFormat.R16Float => 2,
-            TextureFormat.R32Float => 4,
-            _ => 4
-        };
+        int bytesPerPixel = _format.BytesPerTexel();
 
         ulong bufferSize = (ulong)(_width * _height * bytesPerPixel);
         var pixelData = new byte[bufferSize];
