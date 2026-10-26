@@ -149,6 +149,7 @@ internal sealed partial class RenderRequestExecutor
                         _targets,
                         _programCache,
                         spirvProgramCache: _spirvProgramCache,
+                        graphProgramCache: _graphProgramCache,
                         shaderBackendPreference: _shaderBackendPreference);
                     using (canvas.PushTransform(Matrix.CreateTranslation(-executionBounds.X, -executionBounds.Y)))
                     {

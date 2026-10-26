@@ -16,7 +16,8 @@ internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
         SamplerFilter minFilter = SamplerFilter.Linear,
         SamplerFilter magFilter = SamplerFilter.Linear,
         SamplerAddressMode addressModeU = SamplerAddressMode.ClampToEdge,
-        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge)
+        SamplerAddressMode addressModeV = SamplerAddressMode.ClampToEdge,
+        bool transparentBorder = false)
     {
         _context = context;
         MinFilter = minFilter;
@@ -37,7 +38,7 @@ internal sealed unsafe class VulkanSampler : ISampler, IVulkanContextResource
             AddressModeW = ToVulkanAddressMode(addressModeU),
             AnisotropyEnable = false,
             MaxAnisotropy = 1.0f,
-            BorderColor = BorderColor.FloatOpaqueBlack,
+            BorderColor = transparentBorder ? BorderColor.FloatTransparentBlack : BorderColor.FloatOpaqueBlack,
             UnnormalizedCoordinates = false,
             CompareEnable = false,
             CompareOp = CompareOp.Always,

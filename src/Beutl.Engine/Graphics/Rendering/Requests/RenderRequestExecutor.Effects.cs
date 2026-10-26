@@ -283,7 +283,8 @@ internal sealed partial class RenderRequestExecutor
                             _drawableBrushMaterializer,
                             useExecutorManagedCanvas: true,
                             renderTargetLeaseSession: _targets,
-                            targetDomain: _options.TargetDomain);
+                            targetDomain: _options.TargetDomain,
+                            acquireShaderGraphProgram: AcquireShaderGraphProgram);
                         executor.Apply(effectContext);
                         executor.CompletePolicyBoundary(
                             payload.WorkingScalePolicy.HasValue);

@@ -1,0 +1,100 @@
+﻿using Silk.NET.Vulkan;
+
+namespace Beutl.Graphics.Backend.Vulkan;
+
+internal sealed unsafe class VulkanComputePipeline : IDisposable
+{
+    private readonly VulkanContext _context;
+    private ShaderModule _shader;
+    private bool _disposed;
+
+    public Pipeline Handle { get; private set; }
+    public PipelineLayout Layout { get; private set; }
+    public DescriptorSetLayout DescriptorLayout { get; private set; }
+    public VulkanDescriptorBindingTable Bindings { get; }
+
+    public VulkanComputePipeline(VulkanContext context, byte[] source, DescriptorBinding[] bindings)
+    {
+        _context = context;
+        DescriptorSetLayoutBinding[] declarations = bindings.Select(VulkanFlagConverter.ToVulkan).ToArray();
+        Bindings = new(declarations);
+        try
+        {
+            _shader = VulkanPipeline3D.CreateShaderModule(context.Vk, context.Device, source);
+            fixed (DescriptorSetLayoutBinding* data = declarations)
+            {
+                var info = new DescriptorSetLayoutCreateInfo
+                {
+                    SType = StructureType.DescriptorSetLayoutCreateInfo,
+                    BindingCount = (uint)declarations.Length,
+                    PBindings = data,
+                };
+                Check(context.Vk.CreateDescriptorSetLayout(context.Device, &info, null, out var layout));
+                DescriptorLayout = layout;
+            }
+            DescriptorSetLayout descriptorLayout = DescriptorLayout;
+            var range = new PushConstantRange(ShaderStageFlags.ComputeBit, 0, VulkanPipeline3D.MaxPushConstantsSize);
+            var layoutInfo = new PipelineLayoutCreateInfo
+            {
+                SType = StructureType.PipelineLayoutCreateInfo,
+                SetLayoutCount = 1,
+                PSetLayouts = &descriptorLayout,
+                PushConstantRangeCount = 1,
+                PPushConstantRanges = &range,
+            };
+            Check(context.Vk.CreatePipelineLayout(context.Device, &layoutInfo, null, out var pipelineLayout));
+            Layout = pipelineLayout;
+            fixed (byte* entryPoint = "main\0"u8)
+            {
+                var pipelineInfo = new ComputePipelineCreateInfo
+                {
+                    SType = StructureType.ComputePipelineCreateInfo,
+                    Layout = Layout,
+                    Stage = new PipelineShaderStageCreateInfo
+                    {
+                        SType = StructureType.PipelineShaderStageCreateInfo,
+                        Stage = ShaderStageFlags.ComputeBit,
+                        Module = _shader,
+                        PName = entryPoint,
+                    },
+                };
+                Result result = context.Vk.CreateComputePipelines(context.Device, default, 1, &pipelineInfo, null, out var pipeline);
+                Handle = pipeline;
+                Check(result);
+            }
+        }
+        catch
+        {
+            Dispose();
+            throw;
+        }
+    }
+
+    private static void Check(Result result)
+    {
+        if (result != Result.Success)
+            throw new InvalidOperationException($"Failed to create compute pipeline: {result}.");
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+        _disposed = true;
+        Pipeline pipeline = Handle;
+        PipelineLayout layout = Layout;
+        DescriptorSetLayout descriptorLayout = DescriptorLayout;
+        ShaderModule shader = _shader;
+        _context.DeferRelease(() =>
+        {
+            if (pipeline.Handle != 0)
+                _context.Vk.DestroyPipeline(_context.Device, pipeline, null);
+            if (layout.Handle != 0)
+                _context.Vk.DestroyPipelineLayout(_context.Device, layout, null);
+            if (descriptorLayout.Handle != 0)
+                _context.Vk.DestroyDescriptorSetLayout(_context.Device, descriptorLayout, null);
+            if (shader.Handle != 0)
+                _context.Vk.DestroyShaderModule(_context.Device, shader, null);
+        });
+    }
+}

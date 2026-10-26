@@ -198,6 +198,7 @@ internal sealed class RenderFragmentReference
                 or RenderFragmentKind.Blend
                 or RenderFragmentKind.OpacityMask
                 or RenderFragmentKind.Shader
+                or RenderFragmentKind.ShaderGraph
                 or RenderFragmentKind.Geometry
                 or RenderFragmentKind.OpaqueSource
                 or RenderFragmentKind.OpaqueMap
@@ -239,6 +240,7 @@ internal sealed class RenderFragmentReference
             RenderFragmentKind.RawTargetScope => true,
             RenderFragmentKind.ContributeValues
                 or RenderFragmentKind.Shader
+                or RenderFragmentKind.ShaderGraph
                 or RenderFragmentKind.Geometry
                 or RenderFragmentKind.OpaqueSource
                 or RenderFragmentKind.OpaqueMap

@@ -260,6 +260,7 @@ internal readonly record struct FilterEffectWorkingScalePolicy
                         fallbackBounds);
                     hasPendingSkiaWork = false;
                     break;
+                case FEItem_ShaderGraph:
                 case FEItem_Shader:
                 case FEItem_Geometry:
                     if (hasPendingSkiaWork)

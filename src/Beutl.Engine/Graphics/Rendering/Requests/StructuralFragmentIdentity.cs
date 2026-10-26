@@ -138,6 +138,10 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 components.AddReference(shader.Description.StructuralIdentity);
                 AddWorkingScalePolicy(shader.WorkingScalePolicy, ref components);
                 return;
+            case ShaderGraphRenderFragmentPayload graph:
+                components.AddReference(graph.Description.StructuralIdentity);
+                AddWorkingScalePolicy(graph.WorkingScalePolicy, ref components);
+                return;
             case GeometryRenderFragmentPayload geometry:
                 components.AddReference(geometry.Description.StructuralIdentity);
                 AddWorkingScalePolicy(geometry.WorkingScalePolicy, ref components);

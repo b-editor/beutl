@@ -17,6 +17,7 @@ public class CustomFilterEffectContext
     private readonly bool _useExecutorManagedCanvas;
     private readonly RenderTargetLeaseSession? _renderTargetLeaseSession;
     private readonly BufferDimensionBudget? _budget;
+    private readonly ShaderGraphProgramAcquirer? _shaderGraphProgramAcquirer;
 
     internal CustomFilterEffectContext(
         EffectTargets targets,
@@ -30,7 +31,8 @@ public class CustomFilterEffectContext
         bool useExecutorManagedCanvas = false,
         RenderTargetLeaseSession? renderTargetLeaseSession = null,
         BufferDimensionBudget? budget = null,
-        Rect? targetDomain = null)
+        Rect? targetDomain = null,
+        ShaderGraphProgramAcquirer? acquireShaderGraphProgram = null)
     {
         _budget = budget;
         Targets = targets;
@@ -45,6 +47,7 @@ public class CustomFilterEffectContext
         _drawableBrushMaterializer = drawableBrushMaterializer;
         _useExecutorManagedCanvas = useExecutorManagedCanvas;
         _renderTargetLeaseSession = renderTargetLeaseSession;
+        _shaderGraphProgramAcquirer = acquireShaderGraphProgram;
     }
 
     public EffectTargets Targets { get; }
@@ -621,6 +624,7 @@ public class CustomFilterEffectContext
             _useExecutorManagedCanvas,
             _renderTargetLeaseSession,
             _budget,
-            TargetDomain);
+            TargetDomain,
+            _shaderGraphProgramAcquirer);
     }
 }
