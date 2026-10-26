@@ -406,11 +406,15 @@ public sealed class OutputProfileItem : IDisposable, IOutputExecutionController
             OutputExtension? extension = Array.Find(extensionProvider.GetExtensions<OutputExtension>(),
                 x => x.GetType() == extensionType);
 
-            // Legacy profiles are stored with their scene directory. Its old absolute path
-            // may no longer exist after a move; the next save replaces it with the object ID.
+            // Resolve a legacy filename in the scene directory that contains these profiles.
+            // The directory can move, but sibling scene files must keep their own profiles.
             bool matchesObject = obj.TryGetPropertyValue("ObjectId", out JsonNode? objectId)
                 ? objectId?.GetValue<Guid>() == editorContext.Object.Id.Value
-                : obj["File"]?.GetValue<string>() is { Length: > 0 };
+                : obj["File"]?.GetValue<string>() is { Length: > 0 } file
+                  && editorContext.Object.Uri is { IsFile: true } uri
+                  && FilePathComparison.AreSameCanonicalPath(
+                      Path.Combine(Path.GetDirectoryName(uri.LocalPath)!, Path.GetFileName(file.Replace('\\', '/'))),
+                      uri.LocalPath);
 
             if (contextJson != null
                 && extension != null

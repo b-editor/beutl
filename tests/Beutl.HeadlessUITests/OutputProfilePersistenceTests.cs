@@ -7,6 +7,8 @@ using Beutl.Editor.Components.OutputTab.ViewModels;
 using Beutl.Editor.Components.OutputTab.Views;
 using Beutl.Extensibility;
 using Beutl.Media;
+using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Services.PrimitiveImpls;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
@@ -130,32 +132,65 @@ public sealed class OutputProfilePersistenceTests
     }
 
     [AvaloniaTest]
-    public async Task ObjectId_SelectsTheOwningSceneAndPreservesOtherProfiles()
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task SharedDirectory_RestoresOnlyTheOwningSceneAndPreservesOtherProfiles(bool legacy, bool move)
     {
-        EditViewModel editor = (await TestShell.OpenNewSceneAsync("output-identity", 320, 180)).Editor;
+        (Project project, Scene scene, EditViewModel editor) =
+            await TestShell.OpenNewSceneAsync("output-identity", 320, 180);
+        string projectPath = project.Uri!.LocalPath;
+        string scenePath = scene.Uri!.LocalPath;
+        Guid sceneId = scene.Id.Value;
+        string otherPath = Path.Combine(TestShell.ProjectRoot(editor), "other.scene");
+        CoreSerializer.StoreToUri(new Scene(320, 180, "Other"), UriHelper.CreateFromPath(otherPath));
+        TestShell.MainViewModel.MenuBar.OpenFileCore(otherPath);
+        Assert.That(project.Items, Has.Count.EqualTo(2), "Opening a sibling scene is supported by the editor.");
+
         string path = ProfilePath(editor);
         JsonObject profile;
         using (var template = new OutputTabViewModel(editor))
         {
-            template.Items.Single().Context.Name.Value = "Other scene";
+            template.Items.Single().Context.Name.Value = "Original scene";
             profile = OutputProfileItem.ToJson(template.Items[0]).AsObject();
         }
-        Guid otherId = Guid.NewGuid();
-        profile["ObjectId"] = otherId;
-        // Even a valid legacy path must not override an explicit object identity.
-        profile["File"] = editor.Scene.Uri!.LocalPath;
+        if (legacy)
+            profile.Remove("ObjectId");
+        // An explicit ID must win even if a legacy path names the other scene.
+        profile["File"] = legacy ? scenePath : otherPath;
+        await TestReset.ResetShellAsync();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         new JsonArray(profile).JsonSave(path);
 
-        using var service = new OutputService(editor);
-        service.RestoreItems();
-        Assert.That(service.Items, Is.Empty);
-        service.SaveItems();
-        Assert.That(JsonNode.DeepEquals(profile, JsonNode.Parse(File.ReadAllText(path))![0]), Is.True);
+        if (move)
+        {
+            string moved = Path.Combine(TestShell.NewWorkspace($"output-shared-{Guid.NewGuid():N}"), "moved");
+            Directory.Move(Path.GetDirectoryName(projectPath)!, moved);
+            projectPath = Path.Combine(moved, Path.GetFileName(projectPath));
+        }
+        Assert.That(File.Exists(scenePath), Is.EqualTo(!move));
 
-        editor.Scene.Id.Value = otherId;
-        service.RestoreItems();
-        Assert.That(service.Items.Single().Context.Name.Value, Is.EqualTo("Other scene"));
+        await TestShell.Project.OpenProject(projectPath);
+        Project reopened = TestShell.Project.CurrentProject.Value!;
+        TestShell.Editor.ActivateTabItem(reopened.Items.Single(item => item.Id.Value != sceneId));
+        var otherEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        using (var service = new OutputService(otherEditor))
+        {
+            service.RestoreItems();
+            Assert.That(service.Items, Is.Empty);
+            service.SaveItems();
+            Assert.That(JsonNode.DeepEquals(profile, JsonNode.Parse(File.ReadAllText(ProfilePath(otherEditor)))![0]), Is.True);
+        }
+
+        TestShell.Editor.ActivateTabItem(reopened.Items.Single(item => item.Id.Value == sceneId));
+        var ownerEditor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
+        using var ownerService = new OutputService(ownerEditor);
+        ownerService.RestoreItems();
+        Assert.That(ownerService.Items.Single().Context.Name.Value, Is.EqualTo("Original scene"));
+        ownerService.SaveItems();
+        JsonNode saved = JsonNode.Parse(File.ReadAllText(ProfilePath(ownerEditor)))![0]!;
+        Assert.That(saved["ObjectId"]!.GetValue<Guid>(), Is.EqualTo(sceneId));
+        Assert.That(saved.AsObject().ContainsKey("File"), Is.False);
     }
 
     private static string ProfilePath(EditViewModel editor)
