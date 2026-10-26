@@ -20,6 +20,11 @@
              mc:Ignorable="d">
 
     <UserControl.Styles>
+        <!--  グリッド表示ではListViewの選択インジケーターを表示しない  -->
+        <Style Selector="ListBox.icon-view ListBoxItem:selected /template/ Rectangle#SelectionIndicator">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
         <!--  共通コンテキストメニュー（file-itemクラスを持つBorderに適用）  -->
         <Style Selector="Border.file-item">
             <Setter Property="ContextFlyout">
@@ -316,7 +321,8 @@
                                     </Style>
                                 </ListBox.Styles>
                             </ListBox>
-                            <ListBox IsVisible="{Binding IsFavoritesIconView.Value}"
+                            <ListBox Classes="icon-view"
+                                     IsVisible="{Binding IsFavoritesIconView.Value}"
                                      ItemTemplate="{StaticResource FileItemTemplate}"
                                      ItemsSource="{Binding FavoriteItems}"
                                      SelectedItems="{Binding SelectedItems}"
@@ -380,7 +386,8 @@
                                     </Style>
                                 </ListBox.Styles>
                             </ListBox>
-                            <ListBox IsVisible="{Binding IsProjectDirIconView.Value}"
+                            <ListBox Classes="icon-view"
+                                     IsVisible="{Binding IsProjectDirIconView.Value}"
                                      ItemTemplate="{StaticResource FileItemTemplate}"
                                      ItemsSource="{Binding ProjectDirectoryItems}"
                                      SelectedItems="{Binding SelectedItems}"
@@ -453,7 +460,8 @@
                                         </Style>
                                     </ListBox.Styles>
                                 </ListBox>
-                                <ListBox IsVisible="{Binding IsMediaFilesIconView.Value}"
+                                <ListBox Classes="icon-view"
+                                         IsVisible="{Binding IsMediaFilesIconView.Value}"
                                          ItemTemplate="{StaticResource FileItemTemplate}"
                                          ItemsSource="{Binding MediaFileItems}"
                                          SelectedItems="{Binding SelectedItems}"
@@ -486,6 +494,7 @@
             <!--  ディレクトリブラウズビュー  -->
             <Panel IsVisible="{Binding !IsHomeView.Value}">
                 <ListBox x:Name="IconListBox"
+                         Classes="icon-view"
                          IsVisible="{Binding ViewMode.Value, Converter={x:Static vm:FileBrowserViewModeConverters.IsIcon}}"
                          ItemTemplate="{StaticResource FileItemTemplate}"
                          ItemsSource="{Binding Items}"
