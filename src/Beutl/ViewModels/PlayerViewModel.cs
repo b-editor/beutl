@@ -20,6 +20,7 @@ using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace Beutl.ViewModels;
 
@@ -87,6 +88,16 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         editViewModel.FrameCacheManager
             .Skip(1)
             .Subscribe(_ => QueueRender())
+            .DisposeWith(_disposables);
+
+        IsPlaying.Skip(1).Where(playing => !playing)
+            .ObserveOnUIDispatcher()
+            .Subscribe(playing =>
+            {
+                _ = _playbackTask.ContinueWith(
+                    _ => Avalonia.Threading.Dispatcher.UIThread.Post(UpdatePreviewSurfaceSize),
+                    CancellationToken.None, TaskContinuationOptions.None, TaskScheduler.Default);
+            })
             .DisposeWith(_disposables);
 
         PlayPause = new AsyncReactiveCommand(_isEnabled.AsObservable())
@@ -399,9 +410,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         get => _maxFrameSize;
         set
         {
-            if (_maxFrameSize == value) return;
             _maxFrameSize = value;
-            ApplyMaxFrameSizeToCacheOptions(EditViewModel.FrameCacheManager.Value);
+            UpdatePreviewSurfaceSize();
         }
     }
 
@@ -409,7 +419,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
     {
         frameCacheManager.Options = frameCacheManager.Options with
         {
-            Size = PreviewFrameCacheSizing.DeriveCacheSize(_maxFrameSize, frameCacheManager.FrameSize)
+            Size = PreviewFrameCacheSizing.DeriveCacheSize(_effectiveFrameSize, frameCacheManager.FrameSize)
         };
     }
 
@@ -422,6 +432,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         if (_isDisposing || _isPausing || IsPlaying.Value) return;
         if (!_isEnabled.Value || Scene == null) return;
 
+        UpdatePreviewSurfaceSize();
         UsageTelemetry.Current?.Record("playback.started", feature: "normal");
         PlaybackSpeed.Value = 1.0f;
         PlaybackDirection.Value = ViewModels.PlaybackDirection.Forward;
@@ -729,7 +740,11 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // Run after the caller's synchronous history mutation. During the drain, preview handoffs
         // were suppressed so they could not enqueue scene work behind the barriers.
         if (!_isDisposing)
-            Avalonia.Threading.Dispatcher.UIThread.Post(QueueRender, Avalonia.Threading.DispatcherPriority.Background);
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                UpdatePreviewSurfaceSize();
+                QueueRender();
+            }, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     // Waits at most timeout: true when the playback task finished (its fault is rethrown), false when a task
@@ -774,6 +789,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // never disposed under the request holding its token. Pause then drains the compose and render
         // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
+        SetCleanPreviewEnabled(false);
         await Pause();
         renderCts?.Dispose();
         Scene!.Edited -= OnSceneEdited;

@@ -1312,6 +1312,24 @@ Example: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="Preview" xml:space="preserve">
     <value>Preview</value>
   </data>
+  <data name="PresentationWindow" xml:space="preserve">
+    <value>Show Preview in Another Window</value>
+  </data>
+  <data name="PresentationWindowed" xml:space="preserve">
+    <value>Open in a Window</value>
+  </data>
+  <data name="PresentationFullScreen" xml:space="preserve">
+    <value>Full Screen</value>
+  </data>
+  <data name="PresentationToggleFullScreen" xml:space="preserve">
+    <value>Toggle Full Screen (F11)</value>
+  </data>
+  <data name="PresentationClose" xml:space="preserve">
+    <value>Close Preview Output</value>
+  </data>
+  <data name="PresentationDisplay" xml:space="preserve">
+    <value>Display {0}</value>
+  </data>
   <data name="PreviewSettings" xml:space="preserve">
     <value>Preview Settings</value>
   </data>

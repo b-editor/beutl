@@ -247,7 +247,7 @@ public partial class PlayerViewModel
                 {
                     // PreviewImage owns the frame from here on.
                     shown = true;
-                    _owner.UpdateImage(frame.Preview);
+                    _owner.UpdateImage(frame.Preview, frame.Preview);
                     _owner.ClearPreviewRenderError(_generation);
 
                     if (_owner.Scene != null)

@@ -31,16 +31,17 @@ internal static partial class NativeTimelineTestHost
         if (OperatingSystem.IsMacOS() && args is ["--native-browser-frames"])
             return NativeBrowserFrameTestHost.Run(args);
 
-        if (!OperatingSystem.IsMacOS() || args is not ["--native-timeline-scroll"])
+        bool presentation = args is ["--native-presentation-fullscreen"];
+        if (!OperatingSystem.IsMacOS() || (!presentation && args is not ["--native-timeline-scroll"]))
             return 64;
 
-        BeutlHomeIsolation.Begin("beutl-native-scroll");
+        BeutlHomeIsolation.Begin(presentation ? "beutl-native-presentation" : "beutl-native-scroll");
         OpenALPreload.EnsureLoaded();
         try
         {
             return AppBuilder.Configure<TestApp>()
                 .UsePlatformDetect()
-                .AfterSetup(_ => Dispatcher.UIThread.Post(Run, DispatcherPriority.Background))
+                .AfterSetup(_ => Dispatcher.UIThread.Post(presentation ? RunPresentation : Run, DispatcherPriority.Background))
                 .StartWithClassicDesktopLifetime(args, ShutdownMode.OnExplicitShutdown);
         }
         finally

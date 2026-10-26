@@ -1306,6 +1306,24 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="Preview" xml:space="preserve">
     <value>プレビュー</value>
   </data>
+  <data name="PresentationWindow" xml:space="preserve">
+    <value>別画面にプレビューを表示</value>
+  </data>
+  <data name="PresentationWindowed" xml:space="preserve">
+    <value>ウィンドウで開く</value>
+  </data>
+  <data name="PresentationFullScreen" xml:space="preserve">
+    <value>全画面</value>
+  </data>
+  <data name="PresentationToggleFullScreen" xml:space="preserve">
+    <value>全画面を切り替え (F11)</value>
+  </data>
+  <data name="PresentationClose" xml:space="preserve">
+    <value>プレビュー出力を閉じる</value>
+  </data>
+  <data name="PresentationDisplay" xml:space="preserve">
+    <value>ディスプレイ {0}</value>
+  </data>
   <data name="PreviewSettings" xml:space="preserve">
     <value>プレビュー設定</value>
   </data>

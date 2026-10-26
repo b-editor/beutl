@@ -12,8 +12,15 @@ namespace Beutl.ViewModels;
 
 public partial class PlayerViewModel
 {
-    private void UpdateImage(Ref<Bitmap> source)
+    private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource = null)
     {
+        lock (_cleanPreviewLock)
+        {
+            var oldClean = CleanPreviewImage.Value;
+            CleanPreviewImage.Value = _cleanPreviewEnabled ? cleanSource?.Clone() : null;
+            oldClean?.Dispose();
+        }
+
         var oldBitmap = PreviewImage.Value;
         PreviewImage.Value = source;
         oldBitmap?.Dispose();
@@ -207,6 +214,7 @@ public partial class PlayerViewModel
         int frame = 0;
         bool useOnionSkin = false;
         int onionSampleCount = 0;
+        Ref<Bitmap>? cleanFrame = null;
         try
         {
             SceneRenderer renderer = EditViewModel.Renderer.Value;
@@ -256,15 +264,15 @@ public partial class PlayerViewModel
 
             if (useOnionSkin)
             {
-                bitmapRef = RenderOnionSkinFrame(renderer, time, frame, onionSamples, token);
+                bitmapRef = RenderOnionSkinFrame(renderer, time, frame, onionSamples, token, out cleanFrame);
             }
             else if (cacheManager.TryGet(frame, out var cache))
             {
-                bitmapRef = RenderCachedFrame(renderer, time, cache);
+                bitmapRef = RenderCachedFrame(renderer, time, cache, out cleanFrame);
             }
             else
             {
-                bitmapRef = RenderAndCacheFrame(renderer, cacheManager, time, frame);
+                bitmapRef = RenderAndCacheFrame(renderer, cacheManager, time, frame, out cleanFrame);
             }
 
             if (token.IsCancellationRequested)
@@ -273,7 +281,7 @@ public partial class PlayerViewModel
                 return;
             }
 
-            UpdateImage(bitmapRef);
+            UpdateImage(bitmapRef, cleanFrame);
 
             // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
             if (!token.IsCancellationRequested)
@@ -294,6 +302,10 @@ public partial class PlayerViewModel
                 useOnionSkin, onionSampleCount, frame);
             ReportPreviewRenderError(token);
         }
+        finally
+        {
+            cleanFrame?.Dispose();
+        }
     }
 
     private Ref<Bitmap> RenderOnionSkinFrame(
@@ -301,8 +313,10 @@ public partial class PlayerViewModel
         MediaTime time,
         int frame,
         IReadOnlyList<OnionSkinSample> onionSamples,
-        CancellationToken token)
+        CancellationToken token,
+        out Ref<Bitmap>? cleanFrame)
     {
+        cleanFrame = null;
         // Render the current frame; its Snapshot bitmap doubles as the composition
         // canvas. Onion-composited frames are intentionally NOT pushed into
         // cacheManager: the cache is keyed on frame number alone, and an
@@ -315,6 +329,7 @@ public partial class PlayerViewModel
         try
         {
             currentBitmap = renderer.Snapshot();
+            cleanFrame = CopyCleanFrame(currentBitmap);
             using (var canvas = new SKCanvas(currentBitmap.SKBitmap))
             {
                 foreach (var sample in onionSamples)
@@ -380,8 +395,10 @@ public partial class PlayerViewModel
         }
     }
 
-    private Ref<Bitmap> RenderCachedFrame(SceneRenderer renderer, MediaTime time, Ref<Bitmap> cache)
+    private Ref<Bitmap> RenderCachedFrame(
+        SceneRenderer renderer, MediaTime time, Ref<Bitmap> cache, out Ref<Bitmap>? cleanFrame)
     {
+        cleanFrame = null;
         using (cache)
         {
             var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
@@ -389,6 +406,7 @@ public partial class PlayerViewModel
             renderer.UpdateFrame(compositionFrame);
             var bitmap = cache.Value.Clone();
             Ref<Bitmap> bitmapRef = Ref<Bitmap>.Create(bitmap);
+            cleanFrame = CopyCleanFrame(bitmap);
 
             using (var canvas = new SKCanvas(bitmap.SKBitmap))
             {
@@ -400,12 +418,15 @@ public partial class PlayerViewModel
     }
 
     private Ref<Bitmap> RenderAndCacheFrame(
-        SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame)
+        SceneRenderer renderer, FrameCacheManager cacheManager, MediaTime time, int frame,
+        out Ref<Bitmap>? cleanFrame)
     {
+        cleanFrame = null;
         var compositionFrame = renderer.Compositor.EvaluateGraphics(time);
         renderer.Render(compositionFrame);
         var bitmap = renderer.Snapshot();
         Ref<Bitmap> bitmapRef = Ref<Bitmap>.Create(bitmap);
+        cleanFrame = CopyCleanFrame(bitmap);
 
         if (cacheManager.IsEnabled)
         {
