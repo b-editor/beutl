@@ -49,10 +49,13 @@ public class MFEncodingTests
             // Decode directly to YUV so an RGB converter cannot hide a wrong encoded matrix or range.
             type.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.NV12).CheckError();
             source.SetCurrentMediaType(stream, type);
-            using var current = source.GetCurrentMediaType(stream);
-            int stride = (int)MediaFactory.MFGetAttributeUInt32(current, MediaTypeAttributeKeys.DefaultStride, (uint)width);
             using var sample = source.ReadSample(stream, SourceReaderControlFlag.None, out _, out _, out _);
             Assert.That(sample, Is.Not.Null);
+            // The first decode can change the output type to the macroblock-aligned coded size.
+            using var current = source.GetCurrentMediaType(stream);
+            ulong frameSize = current.GetUInt64(MediaTypeAttributeKeys.FrameSize);
+            int decodedHeight = (int)(uint)frameSize;
+            int stride = (int)MediaFactory.MFGetAttributeUInt32(current, MediaTypeAttributeKeys.DefaultStride, (uint)(frameSize >> 32));
             using var buffer = sample.ConvertToContiguousBuffer();
             byte[] bytes = CopyBuffer(buffer);
 
@@ -63,7 +66,7 @@ public class MFEncodingTests
                 for (int patch = 0; patch < expected.Length; patch++)
                 {
                     int x = (patch * 32 + 16) * width / ColorBarsFrameProvider.Width;
-                    int chroma = stride * ColorBarsFrameProvider.Height + 16 * stride + (x & ~1);
+                    int chroma = stride * decodedHeight + 16 * stride + (x & ~1);
                     Assert.That(bytes[32 * stride + x], Is.EqualTo(expected[patch][0]).Within(3), $"Patch {patch}, Y");
                     Assert.That(bytes[chroma], Is.EqualTo(expected[patch][1]).Within(3), $"Patch {patch}, U");
                     Assert.That(bytes[chroma + 1], Is.EqualTo(expected[patch][2]).Within(3), $"Patch {patch}, V");
