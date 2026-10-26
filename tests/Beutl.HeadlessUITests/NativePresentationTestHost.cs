@@ -16,7 +16,7 @@ namespace Beutl.HeadlessUITests;
 internal static partial class NativeTimelineTestHost
 {
     // Run the test assembly with --native-presentation-fullscreen. Headless only checks the
-    // requested WindowState; AppKit can refuse that request, so check the native style mask too.
+    // requested WindowState; also check the native style mask or actual fullscreen dimensions.
     private static async void RunPresentation()
     {
         var lifetime = (IClassicDesktopStyleApplicationLifetime)Application.Current!.ApplicationLifetime!;
@@ -44,14 +44,21 @@ internal static partial class NativeTimelineTestHost
                 menu.Items.OfType<MenuItem>().ElementAt(index + 1).RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
                 popup.IsOpen = false;
                 PresentationWindow output = view.Presentation!;
-                var handle = (IMacOSTopLevelPlatformHandle)output.TryGetPlatformHandle()!;
-                bool IsNativeFullScreen() => ((long)Send(handle.NSWindow, Selector("styleMask")) & (1L << 14)) != 0;
+                bool IsNativeFullScreen()
+                {
+                    if (output.TryGetPlatformHandle() is IMacOSTopLevelPlatformHandle handle)
+                        return ((long)Send(handle.NSWindow, Selector("styleMask")) & (1L << 14)) != 0;
+
+                    return output.WindowState == WindowState.FullScreen
+                        && Math.Abs(output.ClientSize.Width * output.RenderScaling - screens[index].Bounds.Width) < 2
+                        && Math.Abs(output.ClientSize.Height * output.RenderScaling - screens[index].Bounds.Height) < 2;
+                }
 
                 var elapsed = Stopwatch.StartNew();
                 while (!IsNativeFullScreen() && elapsed.Elapsed < TimeSpan.FromSeconds(5))
                     await Task.Delay(50);
-                Console.WriteLine($"Monitor {index + 1}: requested={output.WindowState}, nativeFullscreen={IsNativeFullScreen()}, collectionBehavior={Send(handle.NSWindow, Selector("collectionBehavior"))}");
-                Assert.That(IsNativeFullScreen(), Is.True, "AppKit must enter full screen, not only report the requested managed state.");
+                Console.WriteLine($"Monitor {index + 1}: state={output.WindowState}, nativeFullscreen={IsNativeFullScreen()}, size={output.ClientSize}, scaling={output.RenderScaling}");
+                Assert.That(IsNativeFullScreen(), Is.True, "The native window must fill the selected display, not only report the requested state.");
                 await Task.Delay(750); // Let the Space transition complete before inspecting placement or leaving.
                 Assert.That(output.Screens.ScreenFromWindow(output), Is.EqualTo(screens[index]));
 

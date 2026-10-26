@@ -54,8 +54,11 @@ internal sealed class PresentationWindow : Window
         // independent so it can enter fullscreen, and link only its lifetime to the editor.
         _editorWindow = owner;
         owner.Closed += OnEditorWindowClosed;
+        // Set X11's initial fullscreen hint before the window manager maps and sizes the window.
+        if (fullscreen && OperatingSystem.IsLinux())
+            WindowState = WindowState.FullScreen;
         Show();
-        if (fullscreen && !_closed)
+        if (fullscreen && !_closed && !OperatingSystem.IsLinux())
             WindowState = WindowState.FullScreen;
     }
 

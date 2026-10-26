@@ -32,7 +32,8 @@ internal static partial class NativeTimelineTestHost
             return NativeBrowserFrameTestHost.Run(args);
 
         bool presentation = args is ["--native-presentation-fullscreen"];
-        if (!OperatingSystem.IsMacOS() || (!presentation && args is not ["--native-timeline-scroll"]))
+        if ((!OperatingSystem.IsMacOS() && !(OperatingSystem.IsLinux() && presentation))
+            || (!presentation && args is not ["--native-timeline-scroll"]))
             return 64;
 
         BeutlHomeIsolation.Begin(presentation ? "beutl-native-presentation" : "beutl-native-scroll");
