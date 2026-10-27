@@ -42,7 +42,6 @@
 
         <Panel Grid.Row="1">
             <ScrollViewer HorizontalContentAlignment="Stretch"
-                          Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                           HorizontalScrollBarVisibility="Disabled"
                           IsVisible="{CompiledBinding !Items.Count}">
                 <Border Margin="24"

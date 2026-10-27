@@ -177,8 +177,7 @@
         </DataTemplate>
     </UserControl.Resources>
     <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
-        <controls:ToolTabBar x:Name="AddressBar"
-                             Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}">
+        <controls:ToolTabBar x:Name="AddressBar">
             <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="2">
                 <Button Grid.Column="0"
                         usage:UsageTracking.Feature="WebBrowser.Back"
@@ -505,7 +504,6 @@
                                 VerticalContentAlignment="Stretch" />
                 <ScrollViewer x:Name="BlankPagePanel"
                               HorizontalContentAlignment="Stretch"
-                              Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
                               HorizontalScrollBarVisibility="Disabled"
                               IsVisible="{Binding !HasWebAddress.Value}">
                     <StackPanel x:Name="BlankPageContent"
@@ -713,7 +711,7 @@
                 </ScrollViewer>
             </Grid>
             <Grid x:Name="ToolPanel"
-                  Background="{DynamicResource SolidBackgroundFillColorBaseBrush}"
+                  Background="Transparent"
                   IsVisible="False"
                   RowDefinitions="Auto,*">
                 <controls:ToolTabBar x:Name="ToolPanelHeader">
