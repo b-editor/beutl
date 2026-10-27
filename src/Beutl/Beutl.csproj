@@ -185,10 +185,12 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
+    <ProjectReference Include="..\Beutl.Extensions.FFmpeg.Core\Beutl.Extensions.FFmpeg.Core.csproj" />
     <ProjectReference Include="..\Beutl.Core\Beutl.Core.csproj" />
     <ProjectReference Include="..\Beutl.Extensibility\Beutl.Extensibility.csproj" />
     <ProjectReference Include="..\Beutl.Engine\Beutl.Engine.csproj" />
     <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
     <ProjectReference Include="..\Beutl.Utilities\Beutl.Utilities.csproj" />
   </ItemGroup>
+  <Import Project="PreviewStreaming/PreviewTransport.targets" />
 </Project>

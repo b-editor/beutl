@@ -20,7 +20,8 @@ internal sealed partial class MobilePreviewServer
             Endpoint = session.ViewerUrl,
             _pairingCode = session.PairingCode,
             _codeExpires = session.CodeExpires,
-            _relayClients = []
+            _relayClients = [],
+            _iceServers = session.IceServers ?? []
         };
         var socket = new ClientWebSocket();
         socket.Options.SetRequestHeader("Authorization", "Bearer " + session.PublisherToken);
@@ -33,6 +34,7 @@ internal sealed partial class MobilePreviewServer
             var client = new Client(socket, "relay");
             server._clients.Add("relay", client);
             server._encoderTask = Task.Run(server.EncodeFramesAsync);
+            server._audioTask = Task.Run(server.EncodeAudioAsync);
             server._relayTask = server.RunRelayAsync(client);
             return server;
         }
@@ -71,18 +73,22 @@ internal sealed partial class MobilePreviewServer
             client.Controls.Writer.TryWrite(JsonSerializer.Serialize(control));
     }
 
-    private bool HandleRelayMessage(string message)
+    private async Task HandleRelayMessageAsync(JsonElement message, CancellationToken ct)
     {
-        try
+        if (message.TryGetProperty("clients", out var clients))
         {
-            using var json = JsonDocument.Parse(message);
-            if (!json.RootElement.TryGetProperty("clients", out var clients)) return false;
             var snapshot = clients.EnumerateArray().Select(c => (
                 c.GetProperty("id").GetString()!, c.GetProperty("address").GetString()!)).ToArray();
-            lock (_gate) _relayClients = snapshot;
+            string[] removed;
+            lock (_gate)
+            {
+                removed = _peers.Keys.Except(snapshot.Select(c => c.Item1)).ToArray();
+                _relayClients = snapshot;
+            }
+            foreach (string id in removed) await RemovePeerAsync(id).ConfigureAwait(false);
             ClientsChanged?.Invoke(this, EventArgs.Empty);
-            return true;
         }
-        catch (JsonException) { return false; }
+        else if (message.TryGetProperty("signal", out var signal))
+            await HandleSignalAsync(message.GetProperty("id").GetString()!, signal, ct).ConfigureAwait(false);
     }
 }

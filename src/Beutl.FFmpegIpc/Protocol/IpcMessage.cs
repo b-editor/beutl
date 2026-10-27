@@ -86,6 +86,9 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(RequestSampleMessage))]
 [JsonSerializable(typeof(ProvideSampleMessage))]
 [JsonSerializable(typeof(EncodeCompleteMessage))]
+[JsonSerializable(typeof(PreviewEncoderStart))]
+[JsonSerializable(typeof(PreviewEncoderFrame))]
+[JsonSerializable(typeof(PreviewEncodedPacket))]
 // Codec queries
 [JsonSerializable(typeof(QueryCodecsRequest))]
 [JsonSerializable(typeof(QueryCodecsResponse))]

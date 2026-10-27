@@ -47,6 +47,12 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
+      - name: Setup Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: src/Beutl.PreviewTransport/go.mod
+          cache-dependency-path: src/Beutl.PreviewTransport/go.sum
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v6.0.0
         with:

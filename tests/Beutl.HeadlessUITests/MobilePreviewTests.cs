@@ -86,91 +86,59 @@ public sealed class MobilePreviewTests
     }
 
     [Test]
-    public async Task A_slow_viewer_gets_the_latest_frame_and_replaced_bitmaps_are_released()
+    public async Task Signaling_clients_keep_only_the_latest_bitmap_and_disconnect_releases_it()
     {
         await using var server = await MobilePreviewServer.StartAsync(IPAddress.Loopback);
         using var red = SolidFrame(255, 0, 0);
         server.Publish(red, UIToneMappingOperator.None, 0, false);
-        Assert.That(red.RefCount, Is.EqualTo(1), "A server with no viewers must not retain or encode frames.");
+        Assert.That(red.RefCount, Is.EqualTo(1));
         var cookies = new CookieContainer();
         using var http = CreateHttp(server, cookies);
         await Pair(http, server);
         using var socket = await Connect(server, cookies);
         await WaitUntil(() => server.GetClients().Length == 1);
         string id = server.GetClients().Single().Id;
-        server.Publish(red, UIToneMappingOperator.None, 0, false);
-        using var first = SKBitmap.Decode(await ReceiveImage(socket));
-        Assert.That(first.GetPixel(8, 8).Red, Is.GreaterThan(245));
-
-        var fastCookies = new CookieContainer();
-        using var fastHttp = CreateHttp(server, fastCookies);
-        await Pair(fastHttp, server);
-        using var fastSocket = await Connect(server, fastCookies);
-        await WaitUntil(() => server.GetClients().Length == 2);
-
         int released = 0;
         for (int i = 0; i < 100; i++)
         {
             using var transient = Ref<Bitmap>.Create(new Bitmap(16, 16), () => Interlocked.Increment(ref released));
             server.Publish(transient, UIToneMappingOperator.None, 0, true);
         }
-        Assert.That(Volatile.Read(ref released), Is.GreaterThanOrEqualTo(98));
         using var blue = SolidFrame(0, 0, 255);
         server.Publish(blue, UIToneMappingOperator.None, 0, false);
-        await WaitUntil(() => blue.RefCount == 1 && Volatile.Read(ref released) == 100);
-        // This viewer can receive while the first viewer has not acknowledged its initial image.
-        using var fastFrame = SKBitmap.Decode(await ReceiveImage(fastSocket));
-        // It may have already sent one intermediate frame before the final blue image arrived.
-        if (fastFrame.GetPixel(8, 8).Blue < 245)
-        {
-            await fastSocket.SendAsync("ready"u8.ToArray().AsMemory(), WebSocketMessageType.Text, true, CancellationToken.None);
-            using var fastLatest = SKBitmap.Decode(await ReceiveImage(fastSocket));
-            Assert.That(fastLatest.GetPixel(8, 8).Blue, Is.GreaterThan(245));
-        }
-        await socket.SendAsync("re"u8.ToArray().AsMemory(), WebSocketMessageType.Text, false, CancellationToken.None);
-        await socket.SendAsync("ady"u8.ToArray().AsMemory(), WebSocketMessageType.Text, true, CancellationToken.None);
-        using var latest = SKBitmap.Decode(await ReceiveImage(socket));
-        Assert.That(latest.GetPixel(8, 8).Blue, Is.GreaterThan(245), "Queued intermediate images must be discarded.");
+        await WaitUntil(() => Volatile.Read(ref released) == 100);
+        Assert.That(blue.RefCount, Is.GreaterThanOrEqualTo(2));
         server.Disconnect(id);
-        await WaitUntil(() => server.GetClients().Length == 1);
+        await WaitUntil(() => server.GetClients().Length == 0 && blue.RefCount == 1);
         Assert.That((await http.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
     }
 
     [Test]
-    public async Task Audio_is_opt_in_timestamped_and_does_not_block_video_or_pause()
+    public void Audio_selects_the_visible_time_and_playback_and_crosses_block_boundaries()
     {
-        await using var server = await MobilePreviewServer.StartAsync(IPAddress.Loopback);
-        var cookies = new CookieContainer();
-        using var http = CreateHttp(server, cookies);
-        await Pair(http, server);
-        using var socket = await Connect(server, cookies);
-        await WaitUntil(() => server.GetClients().Length == 1);
-        server.PublishAudio(new AudioFrameSnapshot([1, -1, 0.5f, -0.5f], 48000, 2, MediaTime.FromSeconds(2)) { PlaybackId = 7 });
-        // Muted viewers receive the video first, even when audio is available.
-        using var red = SolidFrame(255, 0, 0);
-        server.Publish(red, UIToneMappingOperator.None, 0, true, 2.1, 7);
-        byte[] video = await ReceivePacket(socket);
-        Assert.That(video[0], Is.EqualTo(1));
-        Assert.That(BinaryPrimitives.ReadDoubleLittleEndian(video.AsSpan(8)), Is.EqualTo(2.1));
-        Assert.That(BinaryPrimitives.ReadDoubleLittleEndian(video.AsSpan(16)), Is.EqualTo(7));
-        await socket.SendAsync("audio-on"u8.ToArray().AsMemory(), WebSocketMessageType.Text, true, CancellationToken.None);
-        byte[] audio = await ReceivePacket(socket);
-        Assert.That(audio[0], Is.EqualTo(2));
-        Assert.That(BinaryPrimitives.ReadDoubleLittleEndian(audio.AsSpan(8)), Is.EqualTo(2));
-        Assert.That(BinaryPrimitives.ReadDoubleLittleEndian(audio.AsSpan(16)), Is.EqualTo(7));
-        Assert.That(BinaryPrimitives.ReadInt16LittleEndian(audio.AsSpan(24)), Is.EqualTo(32767));
-        Assert.That(BinaryPrimitives.ReadInt16LittleEndian(audio.AsSpan(26)), Is.EqualTo(-32767));
-        // Neither media stream has acknowledged its packet. Pause must still be delivered.
-        server.PublishStopped();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        byte[] control = new byte[256];
-        var message = await socket.ReceiveAsync(control.AsMemory(), timeout.Token);
-        Assert.That(message.MessageType, Is.EqualTo(WebSocketMessageType.Text));
-        Assert.That(Encoding.UTF8.GetString(control, 0, message.Count), Does.Contain("\"playing\":false"));
-        await socket.SendAsync("audio-ready"u8.ToArray().AsMemory(), WebSocketMessageType.Text, true, timeout.Token);
-        server.PublishAudio(new AudioFrameSnapshot([0.25f, 0.25f], 48000, 2, MediaTime.Zero) { PlaybackId = 8 });
-        audio = await ReceivePacket(socket);
-        Assert.That(BinaryPrimitives.ReadDoubleLittleEndian(audio.AsSpan(16)), Is.EqualTo(8), "The next playback must replace old buffered audio.");
+        var blocks = new[] {
+            new AudioFrameSnapshot(Enumerable.Repeat(0.25f, 48000 * 2).ToArray(), 48000, 2, MediaTime.Zero) { PlaybackId = 7 },
+            new AudioFrameSnapshot(Enumerable.Repeat(0.5f, 48000 * 2).ToArray(), 48000, 2, MediaTime.FromSeconds(1)) { PlaybackId = 7 },
+            new AudioFrameSnapshot(Enumerable.Repeat(-0.25f, 48000 * 2).ToArray(), 48000, 2, MediaTime.Zero) { PlaybackId = 8 }
+        };
+        var sample = MobilePreviewServer.SampleAudio(blocks, 7, 0.99)!;
+        Assert.That(sample[0], Is.EqualTo(0.25f));
+        Assert.That(sample[^1], Is.EqualTo(0.5f));
+        Assert.That(MobilePreviewServer.SampleAudio(blocks, 8, 0)![0], Is.EqualTo(-0.25f));
+        Assert.That(MobilePreviewServer.SampleAudio(blocks, 9, 0), Is.Null);
+    }
+
+    [Test]
+    public void Hdr_conversion_preserves_highlights_above_reference_white()
+    {
+        using var bitmap = new Bitmap(32, 32, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+        bitmap.GetPixelSpan<RgbaF16>().Fill(new RgbaF16((Half)1, (Half)1, (Half)1, (Half)1));
+        ushort white = BinaryPrimitives.ReadUInt16LittleEndian(MobilePreviewServer.ConvertFrame(bitmap, true, UIToneMappingOperator.ACES, 0));
+        bitmap.GetPixelSpan<RgbaF16>().Fill(new RgbaF16((Half)4, (Half)4, (Half)4, (Half)1));
+        ushort highlight = BinaryPrimitives.ReadUInt16LittleEndian(MobilePreviewServer.ConvertFrame(bitmap, true, UIToneMappingOperator.ACES, 0));
+        Assert.That(white / 65535d, Is.EqualTo(0.581).Within(0.01), "PQ reference white is 203 nits.");
+        Assert.That(highlight / 65535d, Is.EqualTo(0.73).Within(0.02));
+        Assert.That(highlight, Is.GreaterThan(white));
     }
 
     [TestCase(UIToneMappingOperator.None, 0f, 0.25f, 137)]
@@ -183,7 +151,7 @@ public sealed class MobilePreviewTests
     {
         using var bitmap = new Bitmap(32, 32, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
         bitmap.GetPixelSpan<RgbaF16>().Fill(new RgbaF16((Half)intensity, (Half)intensity, (Half)intensity, (Half)1));
-        using var decoded = SKBitmap.Decode(MobilePreviewServer.EncodeJpeg(bitmap, mode, exposure));
+        using var decoded = SdrBitmap(bitmap, mode, exposure);
         SKColor pixel = decoded.GetPixel(16, 16);
         Assert.That(pixel.Red, Is.EqualTo(expected).Within(3));
         Assert.That(pixel.Green, Is.EqualTo(expected).Within(3));
@@ -203,9 +171,9 @@ public sealed class MobilePreviewTests
             window.Show();
             HeadlessTestHelpers.Render();
             using var screen = window.CaptureRenderedFrame()!;
-            using var jpeg = SKBitmap.Decode(MobilePreviewServer.EncodeJpeg(bitmap.Value, UIToneMappingOperator.Reinhard, 0));
+            using var preview = SdrBitmap(bitmap.Value, UIToneMappingOperator.Reinhard, 0);
             var expected = HeadlessTestHelpers.ReadPixel(screen, new Avalonia.PixelPoint(32, 32));
-            SKColor actual = jpeg.GetPixel(16, 16);
+            SKColor actual = preview.GetPixel(16, 16);
             Assert.That((int)actual.Red, Is.EqualTo(expected.R).Within(3));
             Assert.That((int)actual.Green, Is.EqualTo(expected.G).Within(3));
             Assert.That((int)actual.Blue, Is.EqualTo(expected.B).Within(3));
@@ -245,7 +213,8 @@ public sealed class MobilePreviewTests
             HeadlessTestHelpers.Settle();
             editor.Player.QueuePreviewRender();
             RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
-            using var clean = SKBitmap.Decode(await ReceiveImage(socket));
+            using var cleanFrame = editor.Player.GetCleanPreviewFrame().Image!;
+            using var clean = SdrBitmap(cleanFrame.Value, UIToneMappingOperator.None, 0);
             Assert.That(clean.Pixels.Count(p => p.Red > 200 && p.Green < 60 && p.Blue < 60), Is.GreaterThan(0));
             Assert.That(clean.Pixels.Count(p => p.Red > 240 && p.Green > 240 && p.Blue > 240), Is.Zero);
             HeadlessCapture.SaveIfRequested(mobile, nameof(MobilePreviewTests), "desktop-sharing");
@@ -328,22 +297,13 @@ public sealed class MobilePreviewTests
         return socket;
     }
 
-    private static async Task<byte[]> ReceiveImage(ClientWebSocket socket)
-        => (await ReceivePacket(socket))[PreviewMediaPacket.HeaderSize..];
-
-    private static async Task<byte[]> ReceivePacket(ClientWebSocket socket)
+    private static SKBitmap SdrBitmap(Bitmap image, UIToneMappingOperator mode, float exposure)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        using var image = new MemoryStream();
-        byte[] buffer = new byte[64 * 1024];
-        while (true)
-        {
-            var message = await socket.ReceiveAsync(buffer.AsMemory(), timeout.Token);
-            Assert.That(message.MessageType, Is.Not.EqualTo(WebSocketMessageType.Close));
-            if (message.MessageType != WebSocketMessageType.Binary) continue;
-            image.Write(buffer, 0, message.Count);
-            if (message.EndOfMessage) return image.ToArray();
-        }
+        var (width, height) = MobilePreviewServer.FrameSize(image);
+        var result = new SKBitmap(width, height, SKColorType.Bgra8888, SKAlphaType.Premul);
+        byte[] pixels = MobilePreviewServer.ConvertFrame(image, false, mode, exposure);
+        System.Runtime.InteropServices.Marshal.Copy(pixels, 0, result.GetPixels(), pixels.Length);
+        return result;
     }
 
     private static Ref<Bitmap> SolidFrame(byte red, byte green, byte blue)

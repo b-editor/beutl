@@ -73,6 +73,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
                 .Features.Get<IServerAddressesFeature>()!.Addresses.Single());
             cancellationToken.ThrowIfCancellationRequested();
             server._encoderTask = Task.Run(server.EncodeFramesAsync);
+            server._audioTask = Task.Run(server.EncodeAudioAsync);
             return server;
         }
         catch
@@ -142,20 +143,23 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
         response.Headers.XContentTypeOptions = "nosniff";
         response.Headers["Referrer-Policy"] = "no-referrer";
         response.Headers.ContentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self'; "
-            + $"img-src blob:; connect-src 'self' ws://{Endpoint.Authority}; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
+            + $"img-src 'self'; media-src 'self' blob:; connect-src 'self' ws://{Endpoint.Authority}; base-uri 'none'; frame-ancestors 'none'; form-action 'self'";
 
         string? resource = (request.Method, request.Path.Value) switch
         {
             ("GET", "/") => "index.html",
             ("GET", "/viewer.js") => "viewer.js",
-            ("GET", "/media-player.js") => "media-player.js",
+            ("GET", "/preview-connection.js") => "preview-connection.js",
+            ("GET", "/theme.css") => "theme.css",
+            ("GET", "/logo.svg") => "logo.svg",
             ("GET", "/viewer.css") => "viewer.css",
             _ => null
         };
         if (resource is not null)
         {
             response.ContentType = resource.EndsWith(".html") ? "text/html; charset=utf-8"
-                : resource.EndsWith(".js") ? "text/javascript; charset=utf-8" : "text/css; charset=utf-8";
+                : resource.EndsWith(".js") ? "text/javascript; charset=utf-8"
+                : resource.EndsWith(".svg") ? "image/svg+xml" : "text/css; charset=utf-8";
             await using Stream stream = typeof(MobilePreviewServer).Assembly
                 .GetManifestResourceStream("Beutl.PreviewStreaming.Client." + resource)!;
             await stream.CopyToAsync(response.Body, context.RequestAborted);
@@ -256,10 +260,11 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
             _clients[token] = client;
         }
         ClientsChanged?.Invoke(this, EventArgs.Empty);
+        client.Controls.Writer.TryWrite(System.Text.Json.JsonSerializer.Serialize(new { type = "config", iceServers = _iceServers }));
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token, context.RequestAborted);
         try
         {
-            await RunClientAsync(client, cancellation);
+            await RunClientAsync(client, cancellation, token);
         }
         finally
         {
@@ -269,10 +274,11 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
                     _clients.Remove(token);
                 if (_clients.Count == 0)
                 {
-                    _pending?.Dispose();
-                    _pending = null;
+                    _latest?.Dispose();
+                    _latest = null;
                 }
             }
+            await RemovePeerAsync(token, client);
             ClientsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
@@ -286,14 +292,20 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
     {
         _stop.Cancel();
         DisconnectAll();
-        _pending?.Dispose();
-        _pending = null;
+        _latest?.Dispose();
+        _latest = null;
         await _encoderTask.ConfigureAwait(false);
+        await _audioTask.ConfigureAwait(false);
         if (_relayTask is not null) await _relayTask.ConfigureAwait(false);
-        if (_app is null) return;
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-        try { await _app.StopAsync(timeout.Token).ConfigureAwait(false); }
-        finally { await _app.DisposeAsync().ConfigureAwait(false); }
+        if (_app is not null)
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            try { await _app.StopAsync(timeout.Token).ConfigureAwait(false); }
+            finally { await _app.DisposeAsync().ConfigureAwait(false); }
+        }
+        await _transportGate.WaitAsync().ConfigureAwait(false);
+        try { if (_transport is not null) await _transport.DisposeAsync().ConfigureAwait(false); }
+        finally { _transportGate.Release(); }
     }
 
 }

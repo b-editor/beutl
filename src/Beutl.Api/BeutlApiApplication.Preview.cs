@@ -1,5 +1,6 @@
 ﻿using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 
 namespace Beutl.Api;
 
@@ -21,4 +22,10 @@ public partial class BeutlApiApplication
 }
 
 public sealed record PreviewSessionResponse(
-    Uri ViewerUrl, Uri PublisherUrl, string PublisherToken, string PairingCode, DateTimeOffset CodeExpires);
+    Uri ViewerUrl, Uri PublisherUrl, string PublisherToken, string PairingCode, DateTimeOffset CodeExpires,
+    PreviewIceServer[]? IceServers = null);
+
+public sealed record PreviewIceServer(
+    [property: JsonPropertyName("urls")] string[] Urls,
+    [property: JsonPropertyName("username")] string? Username = null,
+    [property: JsonPropertyName("credential")] string? Credential = null);

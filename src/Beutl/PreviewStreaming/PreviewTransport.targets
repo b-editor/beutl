@@ -1,0 +1,26 @@
+<Project>
+  <PropertyGroup>
+    <_PreviewRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</_PreviewRid>
+    <_PreviewRid Condition="'$(_PreviewRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</_PreviewRid>
+    <_PreviewGoOS Condition="$(_PreviewRid.StartsWith('win'))">windows</_PreviewGoOS>
+    <_PreviewGoOS Condition="$(_PreviewRid.StartsWith('linux'))">linux</_PreviewGoOS>
+    <_PreviewGoOS Condition="$(_PreviewRid.StartsWith('osx'))">darwin</_PreviewGoOS>
+    <_PreviewGoArch Condition="$(_PreviewRid.EndsWith('x64'))">amd64</_PreviewGoArch>
+    <_PreviewGoArch Condition="$(_PreviewRid.EndsWith('arm64'))">arm64</_PreviewGoArch>
+    <_PreviewSuffix Condition="'$(_PreviewGoOS)' == 'windows'">.exe</_PreviewSuffix>
+    <_PreviewSource>$(MSBuildThisFileDirectory)../../Beutl.PreviewTransport</_PreviewSource>
+    <_PreviewBinary>$(BaseIntermediateOutputPath)preview-transport/$(_PreviewRid)/Beutl.PreviewTransport$(_PreviewSuffix)</_PreviewBinary>
+  </PropertyGroup>
+  <ItemGroup>
+    <_PreviewGoSource Include="$(_PreviewSource)/*.go;$(_PreviewSource)/go.mod;$(_PreviewSource)/go.sum" />
+    <Content Include="$(_PreviewBinary)" Link="Beutl.PreviewTransport$(_PreviewSuffix)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(_PreviewSource)/THIRD-PARTY-NOTICES.txt" Link="LICENSE.PreviewTransport" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="BuildPreviewTransport" BeforeTargets="PrepareForBuild;GetCopyToOutputDirectoryItems"
+          Inputs="@(_PreviewGoSource)" Outputs="$(_PreviewBinary)" Condition="'$(TargetFramework)' != '' And '$(DesignTimeBuild)' != 'true'">
+    <Error Condition="'$(_PreviewGoOS)' == '' Or '$(_PreviewGoArch)' == ''" Text="Unsupported WebRTC transport runtime: $(_PreviewRid)" />
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(_PreviewBinary)'))" />
+    <Exec WorkingDirectory="$(_PreviewSource)" EnvironmentVariables="CGO_ENABLED=0;GOOS=$(_PreviewGoOS);GOARCH=$(_PreviewGoArch)"
+          Command="go build -trimpath -mod=readonly -o &quot;$(MSBuildProjectDirectory)/$(_PreviewBinary)&quot; ." />
+  </Target>
+</Project>

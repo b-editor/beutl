@@ -1,8 +1,11 @@
-﻿using System.Threading.Channels;
-using Avalonia.Media.Imaging;
+﻿using System.Runtime.InteropServices;
+using System.Threading.Channels;
+using BitmapInterpolationMode = Avalonia.Media.Imaging.BitmapInterpolationMode;
 using Beutl.Configuration;
 using Beutl.Controls;
+using Beutl.Extensions.FFmpeg;
 using Beutl.Logging;
+using Beutl.Media;
 using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
@@ -14,78 +17,133 @@ internal sealed partial class MobilePreviewServer
 {
     private readonly Channel<bool> _updates = Channel.CreateBounded<bool>(
         new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
-    private PendingFrame? _pending;
+    private readonly Stopwatch _mediaClock = Stopwatch.StartNew();
+    private PendingFrame? _latest;
 
-    // Borrow the caller's ref. Only the newest frame waits for encoding; the render thread never
-    // waits for compression or for a slow browser. No clients means no retained pixels or encoding.
     internal void Publish(Ref<Bitmap>? image, UIToneMappingOperator toneMapping, float exposure, bool playing, double time = 0, long playbackId = 0)
     {
         lock (_gate)
         {
             if (_stop.IsCancellationRequested || (_relayClients?.Length ?? _clients.Count) == 0) return;
             if (image?.TryClone() is not { } reference) return;
-            _pending?.Dispose();
-            _pending = new PendingFrame(reference, toneMapping, exposure, playing, time, playbackId);
+            _latest?.Dispose();
+            _latest = new(reference, toneMapping, exposure, playing, time, playbackId, _mediaClock.Elapsed.TotalSeconds);
             _updates.Writer.TryWrite(true);
         }
     }
 
     private async Task EncodeFramesAsync()
     {
-        var nextFrame = Stopwatch.StartNew();
+        var encoders = new Dictionary<bool, (int Width, int Height, PreviewEncoder Encoder)>();
+        var cadence = Stopwatch.StartNew();
         try
         {
             while (await _updates.Reader.WaitToReadAsync(_stop.Token))
             {
-                // At most 15 fps; a paused scene is encoded only when its image/settings change.
-                var remaining = TimeSpan.FromSeconds(1d / 15) - nextFrame.Elapsed;
+                var remaining = TimeSpan.FromSeconds(1d / 15) - cadence.Elapsed;
                 if (remaining > TimeSpan.Zero) await Task.Delay(remaining, _stop.Token);
                 PendingFrame? frame;
+                bool[] profiles;
                 lock (_gate)
                 {
                     _updates.Reader.TryRead(out _);
-                    frame = _pending;
-                    _pending = null;
+                    frame = _latest?.Snapshot();
+                    profiles = _peers.Values.Distinct().ToArray();
                 }
                 if (frame is null) continue;
                 using (frame)
                 {
-                    try
+                    bool keyFrame = Interlocked.Exchange(ref _keyFrame, 0) != 0;
+                    var (width, height) = FrameSize(frame.Image.Value);
+                    foreach (bool hdr in profiles)
                     {
-                        byte[] jpeg = EncodeJpeg(frame.Image.Value, frame.ToneMapping, frame.Exposure);
-                        byte[] encoded = PreviewMediaPacket.Video(jpeg, frame.Playing, frame.Time, frame.PlaybackId);
-                        lock (_gate)
-                            foreach (var client in _clients.Values) client.Frames.Writer.TryWrite(encoded);
+                        try
+                        {
+                            bool reset = !encoders.TryGetValue(hdr, out var entry) || entry.Width != width || entry.Height != height;
+                            if (reset)
+                            {
+                                entry.Encoder?.Dispose();
+                                entry = (width, height, new PreviewEncoder(width, height, hdr));
+                                encoders[hdr] = entry;
+                            }
+                            byte[] pixels = ConvertFrame(frame.Image.Value, hdr, frame.ToneMapping, frame.Exposure);
+                            byte[] data = await entry.Encoder.EncodeAsync(pixels, keyFrame || reset, _stop.Token).ConfigureAwait(false);
+                            if (data.Length != 0 && _transport is { } transport)
+                                await transport.SendAsync(new
+                                {
+                                    type = "video",
+                                    hdr,
+                                    data,
+                                    timestamp = (uint)(frame.Clock * 90000)
+                                }, _stop.Token).ConfigureAwait(false);
+                        }
+                        catch (Exception ex) when (hdr && !_stop.IsCancellationRequested)
+                        {
+                            // A build without 10-bit VP9 can still provide the normal SDR preview.
+                            Log.CreateLogger<MobilePreviewServer>().LogWarning(ex, "HDR preview encoding is unavailable.");
+                            if (encoders.Remove(hdr, out var failed)) failed.Encoder.Dispose();
+                            lock (_gate)
+                                foreach (string id in _peers.Where(p => p.Value).Select(p => p.Key))
+                                    SendToViewer(id, "{\"type\":\"error\",\"message\":\"hdr-unavailable\"}");
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        Log.CreateLogger<MobilePreviewServer>().LogError(ex, "Could not encode a mobile preview frame.");
-                    }
+                    lock (_gate)
+                        foreach (string id in _peers.Keys)
+                            SendToViewer(id, System.Text.Json.JsonSerializer.Serialize(new { type = "playback", playing = frame.Playing }));
                 }
-                nextFrame.Restart();
+                cadence.Restart();
             }
         }
         catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
+        catch (Exception ex)
+        {
+            Log.CreateLogger<MobilePreviewServer>().LogError(ex, "Could not encode mobile preview.");
+            OnTransportStopped();
+        }
+        finally { foreach (var entry in encoders.Values) entry.Encoder.Dispose(); }
     }
 
-    internal static byte[] EncodeJpeg(Bitmap bitmap, UIToneMappingOperator toneMapping, float exposure)
+    internal static (int Width, int Height) FrameSize(Bitmap bitmap)
     {
         float scale = Math.Min(1f, 1280f / Math.Max(bitmap.Width, bitmap.Height));
-        int width = Math.Max(1, (int)MathF.Round(bitmap.Width * scale));
-        int height = Math.Max(1, (int)MathF.Round(bitmap.Height * scale));
+        return (Math.Max(2, (int)(bitmap.Width * scale) / 2 * 2), Math.Max(2, (int)(bitmap.Height * scale) / 2 * 2));
+    }
+
+    internal static byte[] ConvertFrame(Bitmap bitmap, bool hdr, UIToneMappingOperator toneMapping, float exposure)
+    {
+        var (width, height) = FrameSize(bitmap);
+        if (hdr)
+        {
+            // Resize in floating-point linear light. Converting to PQ only after resizing preserves
+            // values above SDR white; Skia’s PQ transfer already uses 203 nit reference white.
+            using var resized = new Bitmap(width, height, BitmapColorType.RgbaF16, BitmapAlphaType.Premul, BitmapColorSpace.LinearSrgb);
+            using (var canvas = new SKCanvas(resized.SKBitmap))
+            using (var image = SKImage.FromBitmap(bitmap.SKBitmap))
+            {
+                canvas.Clear(SKColors.Black);
+                canvas.DrawImage(image, SKRect.Create(width, height), new SKSamplingOptions(SKFilterMode.Linear));
+            }
+            var pq = BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Pq, BitmapColorPrimaries.Rec2020);
+            using var converted = resized.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, pq);
+            var result = new byte[converted.ByteCount];
+            Marshal.Copy(converted.Data, result, 0, result.Length);
+            return result;
+        }
         using var surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Premul));
         surface.Canvas.Clear(SKColors.Black);
         PreviewFrameRenderer.Draw(surface.Canvas, bitmap, SKRect.Create(bitmap.Width, bitmap.Height),
-            SKRect.Create(width, height), BitmapInterpolationMode.HighQuality, toneMapping, exposure);
-        using var image = surface.Snapshot();
-        using var data = image.Encode(SKEncodedImageFormat.Jpeg, 85);
-        return data.ToArray();
+            SKRect.Create(width, height), BitmapInterpolationMode.HighQuality,
+            toneMapping, exposure);
+        using var pixels = surface.PeekPixels();
+        var bytes = new byte[width * height * 4];
+        Marshal.Copy(pixels.GetPixels(), bytes, 0, bytes.Length);
+        return bytes;
     }
 
-    private sealed record PendingFrame(Ref<Bitmap> Image, UIToneMappingOperator ToneMapping, float Exposure, bool Playing, double Time, long PlaybackId)
-        : IDisposable
+    private sealed record PendingFrame(Ref<Bitmap> Image, UIToneMappingOperator ToneMapping, float Exposure,
+        bool Playing, double Time, long PlaybackId, double Clock) : IDisposable
     {
+        internal PendingFrame Snapshot() => this with { Image = Image.Clone() };
         public void Dispose() => Image.Dispose();
     }
-
 }

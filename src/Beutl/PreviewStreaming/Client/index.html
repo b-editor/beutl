@@ -1,40 +1,45 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
-  <title>Beutl Preview</title>
+  <title>Preview · Beutl</title>
+  <link rel="stylesheet" href="theme.css">
   <link rel="stylesheet" href="viewer.css">
   <script src="viewer.js" type="module"></script>
 </head>
 <body>
   <main id="pairing">
-    <section class="card">
-      <div class="brand">BEUTL <span>PREVIEW</span></div>
-      <h1 data-text="title">Your preview, here.</h1>
-      <p data-text="instructions">Enter the 6-digit code shown in Beutl.</p>
-      <form id="pair-form">
-        <label for="code" data-text="code">Connection code</label>
-        <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
-               pattern="[0-9]{6}" maxlength="6" placeholder="000000" required>
-        <button id="pair-button" type="submit" data-text="connect">Connect</button>
-      </form>
-      <p id="pair-status" role="status" aria-live="polite"></p>
-      <div class="note" data-text="note">Live preview · View only</div>
-    </section>
+    <div class="pairing-shell">
+      <div class="brand"><img src="logo.svg" width="36" height="36" alt=""><span>Beutl</span></div>
+      <section class="card" aria-labelledby="title">
+        <h1 id="title" data-text="title">Connect to preview</h1>
+        <p data-text="instructions">Enter the 6-digit code shown in Beutl.</p>
+        <form id="pair-form">
+          <label for="code" data-text="code">Connection code</label>
+          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                 pattern="[0-9]{6}" maxlength="6" placeholder="000000" aria-describedby="pair-status" required>
+          <button id="pair-button" type="submit" data-text="connect">Connect</button>
+        </form>
+        <p id="pair-status" role="status" aria-live="polite"></p>
+      </section>
+      <p class="note" data-text="note">Live preview · View only</p>
+    </div>
   </main>
-  <section id="viewer" hidden>
+  <section id="viewer" hidden aria-label="Beutl preview">
     <header>
-      <div class="brand">BEUTL <span>PREVIEW</span></div>
-      <div class="actions"><button id="audio" type="button" aria-pressed="false" data-text="audioOn">Enable audio</button>
-      <button id="fullscreen" type="button" data-text="fullscreen">Full screen</button></div>
+      <div class="brand"><img src="logo.svg" width="24" height="24" alt=""><span>Beutl</span><span class="section-name" data-text="preview">Preview</span></div>
+      <div class="actions">
+        <button id="audio" class="secondary" type="button" aria-pressed="false" data-text="audioOn">Enable audio</button>
+        <button id="fullscreen" class="secondary" type="button" data-text="fullscreen">Full screen</button>
+      </div>
     </header>
     <div id="stage">
-      <img id="frame" alt="Beutl preview" hidden>
+      <video id="frame" autoplay playsinline muted disablepictureinpicture></video>
       <div id="connection" role="status" aria-live="polite"></div>
     </div>
-    <footer><span id="state"></span><span data-text="note">Live preview · View only</span></footer>
+    <footer><div class="stream-state"><span id="state"></span><span id="range" class="badge" hidden></span></div><span data-text="note">Live preview · View only</span></footer>
   </section>
 </body>
 </html>
