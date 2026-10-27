@@ -12,6 +12,7 @@ set(NO_EXAMPLES ON CACHE BOOL "" FORCE)
 set(NO_TESTS ON CACHE BOOL "" FORCE)
 # libdatachannel's find module omits X509's dependency on Crypto, leaving
 # certificate-writing symbols unresolved with a single-pass static linker.
+file(TO_CMAKE_PATH "${DATACHANNEL_SOURCE}" DATACHANNEL_SOURCE)
 list(APPEND CMAKE_MODULE_PATH "${DATACHANNEL_SOURCE}/cmake/Modules")
 find_package(MbedTLS 3 REQUIRED MODULE)
 set_property(TARGET MbedTLS::MbedX509 APPEND PROPERTY INTERFACE_LINK_LIBRARIES MbedTLS::MbedCrypto)
