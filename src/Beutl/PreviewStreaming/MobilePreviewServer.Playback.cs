@@ -25,7 +25,7 @@ internal sealed partial class MobilePreviewServer
             if (_stop.IsCancellationRequested) return;
             _playbackState = JsonSerializer.Serialize(new { type = "playback", playing, position, minimum, duration, frameRate, enabled });
             foreach (string id in _relayClients.Select(c => c.Id))
-                SendToViewer(id, _playbackState, playback: true);
+                _transport?.SendPlayback(id, _playbackState);
         }
     }
 

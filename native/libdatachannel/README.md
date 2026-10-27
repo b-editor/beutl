@@ -5,6 +5,8 @@ and Opus buffers are passed directly from .NET. `preview.cpp` handles track
 negotiation; `packetizer.hpp` adds the VP8/VP9 payload fragmentation absent from
 upstream. libdatachannel owns ICE, DTLS/SRTP, RTP headers, RTCP reports, NACK and PLI.
 Mbed TLS and the upstream submodules are linked statically into one native library.
+Playhead updates use the negotiated `beutl-playback` DataChannel (ID 0) so ongoing
+playback does not send periodic messages through the signaling Durable Object.
 
 `source.json` pins source commits; `runtimes` contains prebuilt libraries, source
 pins and SHA-256 manifests. `THIRD-PARTY-NOTICES.txt` contains the bundled licenses.

@@ -57,33 +57,6 @@ public sealed class MobilePreviewTests
     }
 
     [Test]
-    public async Task Playback_updates_are_coalesced_without_dropping_required_messages()
-    {
-        var queue = new PreviewMessageQueue();
-        for (int update = 0; update < 1000; update++)
-        {
-            for (int viewer = 0; viewer < 4; viewer++) queue.Enqueue($"{viewer}:{update}", viewer.ToString());
-            if (update == 100) queue.Enqueue("answer");
-            if (update == 200) queue.Enqueue("pairing");
-            if (update == 300) queue.Enqueue("disconnect");
-        }
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await using var reader = queue.ReadAllAsync(timeout.Token).GetAsyncEnumerator();
-        var received = new List<string>();
-        for (int i = 0; i < 7; i++)
-        {
-            Assert.That(await reader.MoveNextAsync(), Is.True);
-            received.Add(reader.Current);
-        }
-        Assert.That(received, Is.EquivalentTo(new[] { "0:999", "1:999", "2:999", "3:999", "answer", "pairing", "disconnect" }));
-        var next = reader.MoveNextAsync();
-        Assert.That(next.IsCompleted, Is.False, "There must be no stale playback messages left to send.");
-        queue.Enqueue("0:1000", "0");
-        Assert.That(await next, Is.True);
-        Assert.That(reader.Current, Is.EqualTo("0:1000"));
-    }
-
-    [Test]
     public async Task Relay_keeps_other_viewers_alive_after_malformed_signals_and_lists_offline_devices()
     {
         await using var host = await RelayHost.StartAsync();
@@ -94,11 +67,11 @@ public sealed class MobilePreviewTests
         await Send(new { clients = devices, paired = devices });
         await WaitUntil(() => server.GetClients().Length == 2);
         Assert.That(server.GetDevices().All(d => d.Connected), Is.True);
-        server.PublishPlayback(true, 2.5, 0, 10, 1, true);
-        await ReadMessage(relay, m => m.GetProperty("type").GetString() == "signal"
-            && m.GetProperty("signal").TryGetProperty("position", out var position) && position.GetDouble() == 2.5);
+        for (int i = 0; i < 1000; i++) server.PublishPlayback(true, i / 10.0, 0, 120, 30, true);
         server.RenewPairingCode();
-        var pairing = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "pairing");
+        var pairing = await ReadMessage(relay, _ => true);
+        Assert.That(pairing.GetProperty("type").GetString(), Is.EqualTo("pairing"),
+            "Frequent playback updates must never enter the billed relay, even before WebRTC is ready.");
         Assert.That(pairing.GetProperty("code").GetString(), Is.EqualTo(server.PairingCode));
 
         server.ControlRequested = (id, _, _) => Task.FromResult(id == "two");
@@ -313,11 +286,9 @@ public sealed class MobilePreviewTests
             var server = mobile.Server!;
             var socket = await host.AcceptAsync();
             await Roster(socket, ["one"]);
-            var state = await ReadSignal(socket, m => m.GetProperty("type").GetString() == "playback" && m.GetProperty("enabled").GetBoolean());
-            Assert.That(state.GetProperty("frameRate").GetDouble(), Is.EqualTo(editor.Player.GetFrameRate().ToDouble()));
+            await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1, pump: false);
 
             editor.Player.CurrentFrame.Value = MediaTime.FromSeconds(1);
-            await ReadSignal(socket, m => m.GetProperty("type").GetString() == "playback" && m.GetProperty("position").GetDouble() == 1);
             int request = 0;
             async Task<bool> Control(string action, double position = 0)
             {

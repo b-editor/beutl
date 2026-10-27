@@ -83,6 +83,15 @@ internal sealed class PreviewTransport : IAsyncDisposable
         }
     }
 
+    internal void SendPlayback(string id, string state)
+    {
+        lock (_gate)
+        {
+            if (_peers.TryGetValue(id, out var peer) && peer.Handle != IntPtr.Zero && Playback(peer.Handle, state) != 0)
+                _events.Writer.TryWrite((peer, 3, "failed", ""));
+        }
+    }
+
     private static void OnNativeEvent(long token, int kind, IntPtr value, IntPtr mid)
     {
         // Never call native code or block a native callback on the rendering/signaling locks.
@@ -101,6 +110,7 @@ internal sealed class PreviewTransport : IAsyncDisposable
                 2 => new { type = "candidate", id = peer.Id, connectionId = peer.ConnectionId, candidate = new { candidate = value, sdpMid = mid } },
                 3 => new { type = "state", id = peer.Id, connectionId = peer.ConnectionId, state = value },
                 4 => new { type = "keyframe", id = peer.Id, connectionId = peer.ConnectionId },
+                5 => new { type = "playback-ready", id = peer.Id, connectionId = peer.ConnectionId },
                 _ => null
             };
             if (signal is not null) _message(JsonSerializer.SerializeToElement(signal));
@@ -142,6 +152,8 @@ internal sealed class PreviewTransport : IAsyncDisposable
     private static extern int Send(IntPtr peer, int video, [In] byte[] data, int size, uint timestamp);
     [DllImport(Library, EntryPoint = "beutl_rtc_delete", CallingConvention = CallingConvention.Cdecl)]
     private static extern void Delete(IntPtr peer);
+    [DllImport(Library, EntryPoint = "beutl_rtc_playback", CallingConvention = CallingConvention.Cdecl)]
+    private static extern int Playback(IntPtr peer, [MarshalAs(UnmanagedType.LPUTF8Str)] string state);
     [DllImport(Library, EntryPoint = "beutl_rtc_error", CallingConvention = CallingConvention.Cdecl)]
     private static extern IntPtr Error();
 }

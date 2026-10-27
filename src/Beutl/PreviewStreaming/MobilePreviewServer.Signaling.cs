@@ -1,6 +1,7 @@
 ﻿using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 using Beutl.Api;
 
 namespace Beutl.PreviewStreaming;
@@ -29,6 +30,11 @@ internal sealed partial class MobilePreviewServer
         string type = message.GetProperty("type").GetString()!;
         lock (_gate)
         {
+            if (type == "playback-ready")
+            {
+                _transport?.SendPlayback(id, _playbackState);
+                return;
+            }
             if (type == "keyframe" || (type == "state" && message.GetProperty("state").GetString() == "connected"))
             {
                 Interlocked.Exchange(ref _keyFrame, 1);
@@ -39,9 +45,9 @@ internal sealed partial class MobilePreviewServer
         }
     }
 
-    private void SendToViewer(string id, string json, bool playback = false)
+    private void SendToViewer(string id, string json)
     {
-        SendRelayControl(new { type = "signal", id, signal = JsonSerializer.Deserialize<JsonElement>(json) }, playback ? id : null);
+        SendRelayControl(new { type = "signal", id, signal = JsonSerializer.Deserialize<JsonElement>(json) });
     }
 
     private async Task HandleSignalAsync(string id, JsonElement signal, CancellationToken ct)
@@ -105,7 +111,7 @@ internal sealed partial class MobilePreviewServer
 
         async Task SendControlsAsync()
         {
-            await foreach (string control in client.Controls.ReadAllAsync(token))
+            await foreach (string control in client.Controls.Reader.ReadAllAsync(token))
                 await client.Socket.SendAsync(Encoding.UTF8.GetBytes(control).AsMemory(), WebSocketMessageType.Text, true, token);
         }
 
@@ -131,6 +137,6 @@ internal sealed partial class MobilePreviewServer
 
     private sealed record Client(WebSocket Socket)
     {
-        internal PreviewMessageQueue Controls { get; } = new();
+        internal Channel<string> Controls { get; } = Channel.CreateUnbounded<string>(new() { SingleReader = true });
     }
 }

@@ -24,6 +24,8 @@ public sealed class PreviewTransportTests
         string sdp = (await Read("answer", "first")).GetProperty("sdp").GetString()!;
         Assert.That(sdp, Does.Contain("a=rtpmap:98 VP8/90000"));
         Assert.That(sdp, Does.Contain("a=rtpmap:109 opus/48000/2"));
+        Assert.That(sdp, Does.Contain("m=application"));
+        transport.SendPlayback("phone", "{\"type\":\"playback\",\"position\":1}");
         // A malformed or stale trickled candidate must not close a valid connection.
         transport.AddCandidate("phone", "first", JsonSerializer.SerializeToElement(new { candidate = 17 }));
         transport.AddCandidate("phone", "first", JsonSerializer.SerializeToElement("invalid"));
@@ -41,7 +43,7 @@ public sealed class PreviewTransportTests
         o=- 1 1 IN IP4 127.0.0.1
         s=-
         t=0 0
-        a=group:BUNDLE 0 1
+        a=group:BUNDLE 0 1 2
         a=ice-ufrag:preview
         a=ice-pwd:preview-test-password-123456
         a=fingerprint:sha-256 AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA:AA
@@ -62,5 +64,9 @@ public sealed class PreviewTransportTests
         a=rtcp-mux
         a=rtpmap:109 opus/48000/2
         a=extmap:1 urn:ietf:params:rtp-hdrext:sdes:mid
+        m=application 9 UDP/DTLS/SCTP webrtc-datachannel
+        c=IN IP4 0.0.0.0
+        a=mid:2
+        a=sctp-port:5000
         """.Replace("\n", "\r\n") + "\r\n";
 }
