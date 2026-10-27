@@ -77,7 +77,6 @@
         <!--  Signed out or without a plan, one centered panel replaces the disabled form; the section strip stays.  -->
         <ScrollViewer Grid.Row="1"
                       HorizontalContentAlignment="Stretch"
-                      Background="Transparent"
                       HorizontalScrollBarVisibility="Disabled"
                       IsVisible="{CompiledBinding IsGateOpen.Value}">
             <Border x:Name="AiGatePanel"

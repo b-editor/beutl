@@ -504,7 +504,6 @@
                                 VerticalContentAlignment="Stretch" />
                 <ScrollViewer x:Name="BlankPagePanel"
                               HorizontalContentAlignment="Stretch"
-                              Background="Transparent"
                               HorizontalScrollBarVisibility="Disabled"
                               IsVisible="{Binding !HasWebAddress.Value}">
                     <StackPanel x:Name="BlankPageContent"

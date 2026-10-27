@@ -154,7 +154,6 @@
 
                 <Grid Grid.Row="2">
                     <ScrollViewer HorizontalContentAlignment="Stretch"
-                                  Background="Transparent"
                                   HorizontalScrollBarVisibility="Disabled"
                                   IsVisible="{Binding !IsTracked.Value}">
                         <Border x:Name="UntrackedProjectPanel"
