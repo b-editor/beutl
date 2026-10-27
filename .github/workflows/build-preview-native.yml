@@ -24,8 +24,17 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - name: Install build tools
-        run: python3 -m pip install cmake==4.4.4 ninja==1.13.2
+      - name: Install isolated build tools
+        shell: python {0}
+        run: |
+          import os, pathlib, subprocess, sys
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'preview-build-tools'
+          subprocess.run([sys.executable, '-m', 'venv', str(root)], check=True)
+          binary = root / ('Scripts' if os.name == 'nt' else 'bin')
+          python = binary / ('python.exe' if os.name == 'nt' else 'python3')
+          subprocess.run([str(python), '-m', 'pip', 'install', 'cmake==4.4.4', 'ninja==1.13.2'], check=True)
+          with open(os.environ['GITHUB_PATH'], 'a') as stream:
+              stream.write(str(binary) + '\n')
       - name: Configure Windows compiler
         if: runner.os == 'Windows'
         shell: pwsh
