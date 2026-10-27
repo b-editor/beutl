@@ -27,6 +27,9 @@ workflows:
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-dotnet@v6.0.0'
         - 'actions/upload-artifact@v7.0.2'
+    '.github/workflows/build-preview-native.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'actions/upload-artifact@v7.0.2'
     '.github/workflows/build-skia-native.yml':
         - 'actions/cache@v6.1.0'
         - 'actions/checkout@v7.0.1'
