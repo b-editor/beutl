@@ -304,6 +304,33 @@ public sealed class DynamicRenderExecutionTests
         using var result = renderer.Rasterize();
     }
 
+    // Extensions that drew a drawable onto an effect canvas move to RenderDependency.
+    [Test]
+    public void EffectCanvasesDrawDrawablesThroughRenderDependencies()
+    {
+        var shape = new Beutl.Graphics.Shapes.RectShape
+        {
+            Width = { Value = 8 }, Height = { Value = 8 }, Fill = { Value = new SolidColorBrush(Colors.White) },
+        };
+        using var drawable = shape.ToResource(CompositionContext.Default);
+        bool rendered = false;
+        using var root = Effect(context => context.CustomEffect(0, (_, execution) =>
+        {
+            using (ImmediateCanvas canvas = execution.Open(execution.Targets[0]))
+            {
+                Assert.That(() => canvas.DrawDrawable(drawable),
+                    Throws.InvalidOperationException.With.Message.Contains("cannot be launched"));
+            }
+            using var node = new DrawableRenderNode(drawable);
+            using (var graphics = new GraphicsContext2D(node, Domain.Size)) drawable.Render(graphics);
+            using var image = execution.ExecutionContext!.RenderDependency(node, "drawable", Domain);
+            rendered = image.Image.Width > 0;
+        }));
+        using var renderer = Renderer(root);
+        using var result = renderer.Rasterize();
+        Assert.That(rendered, Is.True);
+    }
+
     [Test]
     public void TargetCommandInputImageSurvivesTheCommandWhenItsLeaseEscapes()
     {

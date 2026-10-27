@@ -57,6 +57,11 @@ Reading the scale while authoring:
   that already applies `CreateScale(density)`, so logical content is drawn directly. For device-pixel work,
   wrap the drawing in `canvas.PushDeviceSpace()` and scale literals by the target's actual density,
   `target.Scale.Value`, which can be lower than `WorkingScale` after the per-buffer limit.
+- A `CustomEffect` callback run by the renderer cannot launch another `RenderNodeRenderer`, including through
+  `DrawDrawable` or `DrawNode` on a canvas from `Open`; such a call throws `InvalidOperationException`.
+  Record the drawable into a `RenderNode` and render it with
+  `CustomFilterEffectContext.ExecutionContext.RenderDependency(root, identity, domain)`, then draw the returned
+  image. The dependency shares the request's allocation, working density, cancellation and cycle detection.
 
 The built-in effects follow these rules; for example, Mosaic multiplies its tile size by `w`, and the SKSL
 and GLSL script effects pass `w` to shaders.
