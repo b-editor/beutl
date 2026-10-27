@@ -83,9 +83,9 @@ public sealed partial class SchemaGenerator
                     CreateBrightness(115)),
                 blendMode: BlendMode.Plus,
                 opacity: 60f,
-                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true to get a fresh objectId inside a DrawableGroup, then apply this patch's <element-id>/<drawable-id> against that new object so the additive layer glows over the untouched original.",
+                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=false, then apply this patch's <element-id>/<drawable-id> against the returned copy so the additive layer glows over the untouched original.",
                 "Lower Opacity (e.g. 35-50) or switch BlendMode to Screen (14) for bright footage that blows out; BlendMode 12 is Plus (additive).",
-                "Do not duplicate into two plain drawables: wrapInGroup=true makes the Element contain an IFlowOperator, so both drawables flow through the group."),
+                "Feed the original and copy through a DrawableGroup: use Element.Objects = [original, copy, PortalObject(Count=0, Clear=false), DrawableGroup] with empty group Children, or put the sources on timeline rows within the group's PortalObject.Count span. Prefer these flow inputs over directly adding to Children."),
             CreateEffectRecipe(
                 "screen-light-leak",
                 "Soft Screen light-leak and lens-wash glow for a duplicated drawable copy: gentler than additive Plus and self-limiting on bright footage.",
@@ -95,7 +95,7 @@ public sealed partial class SchemaGenerator
                     CreateBrightness(120)),
                 blendMode: BlendMode.Screen,
                 opacity: 50f,
-                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true and apply this patch to the returned copy to preserve the source drawable.",
+                "Apply to a COPY, never the original: call duplicate_object with wrapInGroup=false, apply this patch to the returned copy, and group through Element.Objects = [original, copy, PortalObject(Count=0, Clear=false), DrawableGroup] with empty group Children, or through captured timeline layers.",
                 "BlendMode 14 is Screen; it cannot exceed white, making it the safe choice for bright content that would blow out under Plus."),
             CreateEffectRecipe(
                 "multiply-contrast-glaze",
@@ -106,7 +106,7 @@ public sealed partial class SchemaGenerator
                     CreateBrightness(80)),
                 blendMode: BlendMode.Multiply,
                 opacity: 50f,
-                "Apply to a COPY, never the original: call duplicate_object on the source drawable with wrapInGroup=true and apply this patch to the returned copy to preserve the source drawable.",
+                "Apply to a COPY, never the original: call duplicate_object with wrapInGroup=false, apply this patch to the returned copy, and group through Element.Objects = [original, copy, PortalObject(Count=0, Clear=false), DrawableGroup] with empty group Children, or through captured timeline layers.",
                 "This is the self-composite darkening glaze part; a true edge vignette also needs the drawable's own dark radial fill."),
             CreateEffectRecipe(
                 "chromatic-aberration-lite",

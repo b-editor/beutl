@@ -13,7 +13,9 @@ Inspect the target with `read_document` and query unfamiliar properties with `ge
 
 Patch the target through `apply_edit` with PascalCase properties and runtime `$type` discriminators. Id-keyed arrays preserve unmentioned entries. Effect order matters; inspect the existing chain before changing it. Preserve unrelated timing and media bindings. Use natural content-based names in the user's language.
 
-`duplicate_object(wrapInGroup:true)` places the source and copy under a `DrawableGroup` for effects such as additive bloom. Use separate Elements when timing or z-order must differ. `LayerEffect` on a group flattens its children before group opacity, avoiding overlapping children showing through one another during a group fade.
+When scoping effects with an `IFlowOperator` such as `DrawableGroup` or `DrawableDecorator`, prefer input through flow over directly populating its `Children`. For shared timing, use `Element.Objects = [sources..., PortalObject(Count=0, Clear=false), operator]`. For separate timing or timeline rows, place sources at `ZIndex = z+1` through `z+Count`, where `z` is the operator Element's `ZIndex`, and keep a `PortalObject` immediately before the operator. Ordinary effect/transform collections such as `FilterEffectGroup.Children` still use direct children.
+
+For effects such as additive bloom, use `duplicate_object(wrapInGroup:false)` and feed the original and copy into the group through one of those arrangements. Existing nested groups remain editable. `LayerEffect` on a group flattens its content before group opacity, avoiding overlapping inputs showing through one another during a group fade.
 
 A matte uses drawable blend/compositing behavior, not a generic `Mask` property. `Clipping` provides an animatable rectangular crop. Scope compositing with a group/decorator and verify its actual rendered bounds. `measure_object_bounds` measures direct `Element.Objects`; nested drawables require measuring their containing group or an isolated probe.
 

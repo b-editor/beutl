@@ -226,7 +226,7 @@ public sealed class SchemaGenerationTests
     [Test]
     public void Camera_rig_push_in_example_applies_through_merge_patch_and_reconciler()
     {
-        Scene scene = TestWorkspace.CreateScene("camera-nested");
+        Scene scene = TestWorkspace.CreateScene("camera-same-element-flow");
         scene.Duration.Value = MediaTime.FromSeconds(8);
         using var session = new AgentToolkitTestSession(scene);
 
@@ -241,13 +241,16 @@ public sealed class SchemaGenerationTests
         Element rigElement = scene.Children.Single();
         Assert.Multiple(() =>
         {
-            Assert.That(rigElement.Objects, Has.Count.EqualTo(2));
-            Assert.That(rigElement.Objects[0], Is.InstanceOf<PortalObject>());
-            Assert.That(((PortalObject)rigElement.Objects[0]).Count.Value, Is.EqualTo(0));
-            Assert.That(rigElement.Objects[1], Is.InstanceOf<DrawableGroup>());
-            var group = (DrawableGroup)rigElement.Objects[1];
-            Assert.That(group.Children, Has.Count.EqualTo(2));
-            Assert.That(group.Children[1], Is.InstanceOf<TextBlock>());
+            Assert.That(rigElement.Objects, Has.Count.EqualTo(4));
+            Assert.That(rigElement.Objects[0], Is.InstanceOf<RectShape>());
+            Assert.That(rigElement.Objects[1], Is.InstanceOf<TextBlock>());
+            Assert.That(rigElement.Objects[2], Is.InstanceOf<PortalObject>());
+            var portal = (PortalObject)rigElement.Objects[2];
+            Assert.That(portal.Count.Value, Is.EqualTo(0));
+            Assert.That(portal.Clear.Value, Is.False);
+            Assert.That(rigElement.Objects[3], Is.InstanceOf<DrawableGroup>());
+            var group = (DrawableGroup)rigElement.Objects[3];
+            Assert.That(group.Children, Is.Empty);
             var transformGroup = (TransformGroup)group.Transform.Value!;
             Assert.That(transformGroup.Children.OfType<ScaleTransform>().Count(), Is.EqualTo(1));
             Assert.That(transformGroup.Children.OfType<TranslateTransform>().Count(), Is.EqualTo(1));

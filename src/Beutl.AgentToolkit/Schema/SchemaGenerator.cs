@@ -7,6 +7,7 @@ using Beutl.AgentToolkit.Common;
 using Beutl.AgentToolkit.Reconciliation;
 using Beutl.Animation;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Graphics.Transformation;
 using Beutl.Media;
@@ -185,6 +186,13 @@ public sealed partial class SchemaGenerator
     private static TypeDescriptor CreateDescriptor(string category, Type type, string discriminator, bool includeProperties)
     {
         LibraryItem? item = LibraryService.Current.FindItem(type);
+        string? description = item?.Description;
+        if (typeof(IFlowOperator).IsAssignableFrom(type))
+        {
+            const string flowHint = "IFlowOperator: prefer supplying input objects through flow instead of adding them directly to Children or similar nested content properties. Use separate timeline Elements below the operator's Element, within its PortalObject.Count span (ZIndex z+1 through z+Count), or put inputs earlier in the same Element.Objects. Keep a PortalObject immediately before the operator: for same-Element input use [inputs..., PortalObject(Count=0, Clear=false), operator]. Existing nested content remains supported. See get_examples insert-camera-rig-push-in and insert-camera-rig-portal.";
+            description = string.IsNullOrWhiteSpace(description) ? flowHint : $"{description} {flowHint}";
+        }
+
         return new TypeDescriptor(
             type.FullName ?? type.Name,
             discriminator,
@@ -192,7 +200,7 @@ public sealed partial class SchemaGenerator
             includeProperties ? CreateBaseFields(type) : [],
             includeProperties ? CreateProperties(type) : [],
             item?.DisplayName ?? (TypeRegistration.Types.Any(entry => entry.Type == type) ? type.Name : null),
-            item?.Description);
+            description);
     }
 
     private static IReadOnlyList<FieldDescriptor> CreateBaseFields(Type type)
@@ -284,11 +292,16 @@ public sealed partial class SchemaGenerator
         }
         else if (ownerType == typeof(PortalObject) && propertyName == nameof(PortalObject.Count))
         {
-            hints.Add("Portal flow intake. A PortalObject placed immediately before a flow operator (DrawableGroup, DrawableDecorator, SoundGroup, Scene3D) in Element.Objects pulls every active timeline Element whose ZIndex lies in the inclusive span portalZIndex+1..portalZIndex+Count out of normal composition and feeds their output into that flow operator (e.g. as DrawableGroup children), while each keeps its own Start/Length. Count is a ZIndex span, not an element count: all active Elements on those rows are pulled, and empty rows contribute nothing. Count=0 pulls no timeline rows; the operator then consumes whatever is already in the Element's flow — only its nested Children when the portal is the Element's first object — and Clear=true explicitly discards earlier same-Element flow first. Keep grouped rows directly above the rig Element, and note that pulled Elements render ungrouped at times when the rig Element is not active. See get_examples insert-camera-rig-portal.");
+            hints.Add("Portal flow intake. A PortalObject immediately before an IFlowOperator in Element.Objects pulls every active timeline Element in the inclusive ZIndex span portalZIndex+1..portalZIndex+Count (rows below the portal's Element) out of normal composition and feeds its output to the operator, preserving each source's Start/Length. Prefer these source layers or upstream Element.Objects over directly populating the operator's Children. Count is a layer span, not an object count; empty rows contribute nothing. Count=0 pulls no timeline rows and preserves earlier same-Element flow when Clear=false; put same-Element sources before the portal. Update Count when moving source layers. Pulled Elements render ungrouped when the operator's Element is inactive. See get_examples insert-camera-rig-portal and insert-camera-rig-push-in.");
         }
         else if (ownerType == typeof(PortalObject) && propertyName == nameof(PortalObject.Clear))
         {
             hints.Add("When true, the portal empties the Element's object flow before pulling, so the following flow operator consumes only this portal's intake instead of also consuming earlier objects in the same Element.");
+        }
+        else if (typeof(Drawable).IsAssignableFrom(ownerType)
+                 && propertyName is nameof(Drawable.AlignmentX) or nameof(Drawable.AlignmentY))
+        {
+            hints.Add("Start with AlignmentX=Center and AlignmentY=Center, then choose each axis independently to suit the object, layout, and intended motion: Left/Center/Right on X and Top/Center/Bottom on Y. Preserve existing intentional alignment. Use TranslateTransform.X/Y to offset the chosen alignment. When animating alignment or drawable size, check for unintended shifts of the placement anchor. For a normal drawable with both axes centered and only translation, an intended center (cx, cy) uses X=cx-frameWidth/2 and Y=cy-frameHeight/2. Check measure_object_bounds for geometry offsets or compound transforms.");
         }
 
         if (type == typeof(Color))
