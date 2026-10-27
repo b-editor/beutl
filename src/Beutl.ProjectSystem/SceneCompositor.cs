@@ -157,6 +157,8 @@ public sealed partial class SceneCompositor : ICompositor
         CompositionContext? conditions = null, CancellationToken cancellationToken = default, Rational? frameRate = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        // A layer query evaluates the requester's frame, not one of this compositor's own.
+        if (services is null) BeginQueryGeneration();
         DisposeDetachedResources();
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements, CompositionTarget.Graphics);
@@ -201,6 +203,7 @@ public sealed partial class SceneCompositor : ICompositor
     internal CompositionFrame EvaluateAudio(TimeRange timeRange, CompositionContext? conditions)
     {
         conditions?.CancellationToken.ThrowIfCancellationRequested();
+        BeginQueryGeneration();
         DisposeDetachedResources();
         using var eligibleElements = new PooledList<Element>();
         LayerSnapshot snapshot = GetLayerSnapshot();
@@ -601,6 +604,7 @@ public sealed partial class SceneCompositor : ICompositor
 
     public void Dispose()
     {
+        DisposeQueryPools();
         Scene.Layers.CollectionChanged -= OnLayersCollectionChanged;
         Scene.Edited -= OnSceneEdited;
         Scene.Children.CollectionChanged -= OnChildrenCollectionChanged;

@@ -53,19 +53,16 @@ public sealed partial class SceneCompositor
             var key = (zIndex, time);
             var range = new TimeRange(time, MediaTime.Zero);
             EnterQuery(zIndex, range);
-            SceneCompositor? compositor = null;
+            LayerQuery? query = null;
             try
             {
-                compositor = new SceneCompositor(owner.Scene)
-                {
-                    DisableResourceShare = true,
-                    ForceOriginalSource = owner.ForceOriginalSource
-                };
-                CompositionFrame frame = compositor.EvaluateGraphics(time, zIndex, this, conditions, conditions.CancellationToken, conditions.FrameRate);
+                query = owner.RentLayerQuery(zIndex, time);
+                CompositionFrame frame = query.Compositor.EvaluateGraphics(time, zIndex, this, conditions, conditions.CancellationToken, conditions.FrameRate);
                 IReadOnlyList<EngineObject.Resource> resources = frame.Objects;
+                LayerQuery rented = query;
                 void Release()
                 {
-                    try { compositor.Dispose(); }
+                    try { owner.ReturnLayerQuery(rented, time); }
                     finally
                     {
                         if (_completedLayers.TryGetValue(key, out var current) && ReferenceEquals(current, resources))
@@ -77,7 +74,8 @@ public sealed partial class SceneCompositor
             }
             catch
             {
-                compositor?.Dispose();
+                // A failed or cancelled evaluation is not reused.
+                query?.Compositor.Dispose();
                 throw;
             }
             finally { _queryPath.Remove((zIndex, range)); }
@@ -98,12 +96,20 @@ public sealed partial class SceneCompositor
             if (duration <= MediaTime.Zero) return null;
             var range = new TimeRange(start, duration);
             EnterQuery(null, range);
+            AudioQuery? query = null;
             try
             {
-                using var composer = new SceneComposer(owner.Scene, disableResourceShare: true,
-                    forceOriginalSource: owner.ForceOriginalSource);
-                CompositionFrame frame = composer.Compositor.EvaluateAudio(range, conditions);
-                return composer.Compose(range, frame);
+                query = owner.RentAudioQuery(start);
+                CompositionFrame frame = query.Composer.Compositor.EvaluateAudio(range, conditions);
+                AudioBuffer? buffer = query.Composer.Compose(range, frame);
+                owner.ReturnAudioQuery(query, range.End);
+                query = null;
+                return buffer;
+            }
+            catch
+            {
+                query?.Composer.Dispose();
+                throw;
             }
             finally { _queryPath.Remove((null, range)); }
         }

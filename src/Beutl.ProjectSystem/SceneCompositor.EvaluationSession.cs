@@ -30,6 +30,7 @@ public sealed partial class SceneCompositor
         public override void Update(CompositionContext source, MediaTime time)
         {
             base.Update(source, time);
+            _compositor.BeginQueryGeneration();
             _compositor.DisposeDetachedResources();
             _elements.Clear();
             var context = (CompositorContext)Context;

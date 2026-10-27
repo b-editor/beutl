@@ -33,6 +33,7 @@ public class CompositionEvaluationServicesTests
         ICompositionEvaluationServices services = capture.Services!;
         var original = frame.Objects.OfType<RectShape.Resource>().Single();
         Assert.That(services.GetLayers(MediaTime.Zero).Select(x => x.ZIndex), Is.EqualTo(new[] { 0, 1 }));
+        RectShape.Resource? previous = null;
         foreach (int second in new[] { 3, 1, 2 })
         {
             MediaTime time = MediaTime.FromSeconds(second);
@@ -41,13 +42,34 @@ public class CompositionEvaluationServicesTests
             Assert.That(resource.Width, Is.EqualTo(100 + second * 100).Within(0.01));
             Assert.That(services.ReadLayer(1, time, resources => resources.Single()), Is.SameAs(resource));
             Assert.That(original.Width, Is.EqualTo(100), "A query must not reconcile the active preview's resources.");
+            if (previous != null)
+                Assert.That(resource, Is.SameAs(previous), "A released query is reevaluated in place for the next one.");
+            previous = resource;
             lease.Dispose();
-            Assert.That(resource.IsDisposed, Is.True);
             Assert.That(() => lease.Resources, Throws.TypeOf<ObjectDisposedException>());
         }
         Assert.That(services.TryReadFrame(value => value.Objects, out var objects), Is.True);
         Assert.That(objects, Is.EqualTo(frame.Objects));
         Assert.That(original.IsDisposed, Is.False);
+        Assert.That(previous!.IsDisposed, Is.False);
+        compositor.Dispose();
+        Assert.That(previous.IsDisposed, Is.True, "Disposing the owner releases its idle queries.");
+    }
+
+    [Test]
+    public void IdleLayerQueriesAreReleasedOnceTheyStopBeingUsed()
+    {
+        (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+        Add(scene, new RectShape(), 1);
+        using var compositor = new SceneCompositor(scene);
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        EngineObject.Resource layer;
+        using (var lease = capture.Services!.EvaluateLayer(1, MediaTime.Zero)) layer = lease.Resources.Single();
+        compositor.EvaluateGraphics(MediaTime.FromSeconds(1));
+        compositor.EvaluateGraphics(MediaTime.FromSeconds(2));
+        Assert.That(layer.IsDisposed, Is.False, "A query survives two frames without use.");
+        compositor.EvaluateGraphics(MediaTime.FromSeconds(3));
+        Assert.That(layer.IsDisposed, Is.True, "The next frame releases a query that stopped.");
     }
 
     [Test]
@@ -131,6 +153,8 @@ public class CompositionEvaluationServicesTests
             Assert.That(retainedResource!.IsDisposed, Is.False);
         }
         finally { retained?.Dispose(); }
+        Assert.That(() => retained!.Resources, Throws.TypeOf<ObjectDisposedException>());
+        compositor.Dispose();
         Assert.That(retainedResource!.IsDisposed, Is.True);
     }
 
@@ -159,7 +183,7 @@ public class CompositionEvaluationServicesTests
         Assert.That(() => services.EvaluateLayer(0, MediaTime.Zero),
             Throws.InvalidOperationException.With.Message.Contains("Circular composition query"));
         Assert.That(evaluations, Is.EqualTo(1));
-        Assert.That(resource.IsDisposed, Is.True);
+        Assert.That(() => second.Resources, Throws.TypeOf<ObjectDisposedException>());
         capture.OnEvaluate = null;
         using var recovered = services.EvaluateLayer(0, MediaTime.Zero);
         Assert.That(recovered.Resources.Single().IsDisposed, Is.False);
@@ -200,6 +224,8 @@ public class CompositionEvaluationServicesTests
         independent.EvaluateGraphics(MediaTime.Zero);
         Assert.That(queried.Count, Is.EqualTo(2));
         Assert.That(queried[0], Is.Not.SameAs(queried[1]));
+        compositor.Dispose();
+        independent.Dispose();
         Assert.That(queried.All(resource => resource.IsDisposed), Is.True);
     }
 
@@ -265,27 +291,46 @@ public class CompositionEvaluationServicesTests
     }
 
     [Test]
-    public void DisposedLayerQueriesReleaseObjectSubscriptionsIncludingFailedEvaluation()
+    public void ReusedLayerQueriesKeepOneSubscriptionAndReleaseItWithFailuresAndTheOwner()
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
-        using var compositor = new SceneCompositor(scene);
-        compositor.EvaluateGraphics(MediaTime.Zero);
-        var services = capture.Services!;
         var field = typeof(Hierarchical).GetField("DetachedFromHierarchy",
             System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
         int Subscriptions() => ((Delegate?)field.GetValue(capture))?.GetInvocationList().Length ?? 0;
+        int initial = Subscriptions();
+        var compositor = new SceneCompositor(scene);
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        var services = capture.Services!;
         int before = Subscriptions();
         for (int i = 0; i < 4; i++)
         {
             using (services.EvaluateLayer(0, MediaTime.FromSeconds(i))) { }
-            Assert.That(Subscriptions(), Is.EqualTo(before));
+            Assert.That(Subscriptions(), Is.EqualTo(before + 1), "the released query is reused, not recreated");
         }
         capture.OnEvaluate = _ => throw new InvalidOperationException("query failed");
         Assert.That(() => services.EvaluateLayer(0, MediaTime.Zero), Throws.InvalidOperationException);
-        Assert.That(Subscriptions(), Is.EqualTo(before));
+        Assert.That(Subscriptions(), Is.EqualTo(before), "a failed query is discarded");
         capture.OnEvaluate = null;
         using (services.EvaluateLayer(0, MediaTime.Zero)) { }
-        Assert.That(Subscriptions(), Is.EqualTo(before));
+        Assert.That(Subscriptions(), Is.EqualTo(before + 1));
+        compositor.Dispose();
+        Assert.That(Subscriptions(), Is.EqualTo(initial));
+    }
+
+    [Test]
+    public void AudioQueriesReevaluateTheirSoundsInPlace()
+    {
+        (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+        var sound = new EvaluationCaptureSound();
+        Add(scene, sound, 1);
+        using var compositor = new SceneCompositor(scene);
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        MediaTime duration = MediaTime.FromSeconds(0.01);
+        using (capture.Services!.ReadAudio(MediaTime.Zero, duration)) { }
+        Sound.Resource? first = sound.LastResource;
+        using (capture.Services.ReadAudio(duration, duration)) { }
+        Assert.That(first, Is.Not.Null);
+        Assert.That(sound.LastResource, Is.SameAs(first), "the next range continues on the same composer");
     }
 
     [Test]
@@ -353,6 +398,7 @@ internal sealed partial class EvaluationCaptureSound : Sound
 {
     public EvaluationCaptureSound() => ScanProperties<EvaluationCaptureSound>();
     public bool? PreferProxy { get; private set; }
+    public Sound.Resource? LastResource { get; private set; }
     public Action<CompositionContext>? OnEvaluate { get; set; }
     public override void Compose(AudioContext context, Sound.Resource resource) { }
 
@@ -361,6 +407,7 @@ internal sealed partial class EvaluationCaptureSound : Sound
         public override SoundSource.Resource? GetSoundSource() => null;
         partial void PostReconcile(EvaluationCaptureSound obj, CompositionContext context)
         {
+            obj.LastResource = this;
             obj.PreferProxy = context.PreferProxy;
             obj.OnEvaluate?.Invoke(context);
         }
