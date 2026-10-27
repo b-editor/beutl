@@ -88,6 +88,39 @@ bounds, `s_out`, and `MaxWorkingScale` through `RenderScaleContext`. Its result 
 and the per-buffer limit, but it is not raised to `s_out`. Override `Process` only when the effect needs a
 different topology, not merely a different density.
 
+## Evaluating an effect input at another time
+
+An effect resource can override `UsesInputEvaluation`, `PrepareInput` and `RenderInput` to sample its
+input before drawing. Call `input.Evaluate(time)` in `PrepareInput` and retain the returned
+`FilterEffectInputSample` objects for `RenderInput`. Return `true` from preparation to supply the
+replacement drawing. An ordinary `ApplyTo` effect needs none of these hooks.
+
+`input.EvaluationContext` captures the input's clock, effective output `FrameRate`, proxy policy,
+target domain and cancellation token. Sample times use that clock, including any enclosing time
+controller mapping. Each sample owns independent resources and replays the flow actually consumed by
+the source. Its effect prefix stops at the authored occurrence, including through groups and presenters;
+its own effect and suffix are not reconciled again. When a reference switches to a chain without that
+occurrence, the new chain is evaluated, stopping at any active sampling ancestor to prevent recursion.
+
+`sample.Draw(graphics)` records an isolated value with the sampled transform, opacity and preceding
+effects in the drawable's **parent coordinates**. The engine runs following effects on the replacement
+once, then composites the owning blend mode once. For weighted accumulation, an effect can wrap each
+`Draw` in `PushBlendMode(BlendMode.Plus)` and `PushOpacity(weight)`. Do not reapply the current drawable's
+transform or opacity, and do not clip the result to its current bounds. Sample bounds participate in
+normal render measurement, including content outside the current drawable's footprint.
+
+For a custom execution callback, `RenderExecutionContext.RenderDependency(sample, availableSize, domain)`
+renders the same sample through the current request's allocator, working density and dependency cache.
+Choose a parent-coordinate domain covering the required input and dispose the returned image lease.
+`sample.CreateRenderNode` also exposes the recording without creating another renderer.
+
+The input context owns its samples until the source's next reconciliation or disposal; a sample may be
+disposed earlier. Never retain a sample or its resource across that boundary. Host integrations override
+`CompositionContext.CreateEvaluationSession` to isolate their caches while retaining the source document
+snapshot. `SceneCompositor` implements this for preview and export. Evaluate all samples during preparation
+so their dependencies, bounds and 3D requirements are known before recording. Cancellation discards the
+incomplete evaluation or render request; an effect should allow `OperationCanceledException` to propagate.
+
 ## Sources, brushes, and custom render nodes
 
 - **Bitmap sources.** A decoded image or video reports the density its pixels exist at, separately from its

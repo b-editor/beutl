@@ -83,6 +83,8 @@ public partial class SceneNode : GraphNode
                 PreferredProxyPreset = context.PreferredProxyPreset,
                 TargetDomain = context.TargetDomain,
                 EvaluationServices = context.EvaluationServices,
+                FrameRate = context.FrameRate,
+                CancellationToken = context.CancellationToken,
             };
 
             try
@@ -116,7 +118,7 @@ public partial class SceneNode : GraphNode
             Size size = node.Object.Value.MeasureInternal(Size.Infinity, _sceneResource);
             using (var gc2d = new GraphicsContext2D(output, size))
             {
-                node.Object.Value.Render(gc2d, _sceneResource);
+                _sceneResource.Render(gc2d);
             }
 
             Output = output;

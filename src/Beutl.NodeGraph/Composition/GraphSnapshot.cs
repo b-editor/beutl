@@ -227,6 +227,8 @@ public sealed class GraphSnapshot : IDisposable
                 PreferProxy = context.PreferProxy,
                 PreferredProxyPreset = context.PreferredProxyPreset,
                 TargetDomain = context.TargetDomain,
+                FrameRate = context.FrameRate,
+                CancellationToken = context.CancellationToken,
                 EvaluationServices = context.EvaluationServices,
             };
         }
@@ -358,6 +360,8 @@ public sealed class GraphSnapshot : IDisposable
             ctx.PreferProxy = context.PreferProxy;
             ctx.PreferredProxyPreset = context.PreferredProxyPreset;
             ctx.TargetDomain = context.TargetDomain;
+            ctx.FrameRate = context.FrameRate;
+            ctx.CancellationToken = context.CancellationToken;
             ctx.EvaluationServices = context.EvaluationServices;
 
             LoadAnimatedValues(ctx.Resource, ctx.Time);

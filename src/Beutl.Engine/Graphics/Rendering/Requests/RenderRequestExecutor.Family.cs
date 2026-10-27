@@ -216,6 +216,7 @@ internal sealed partial class RenderRequestExecutor
             spirvProgramCache,
             graphProgramCache,
             _shaderBackendPreference,
+            _cancellationToken,
             (root, identity, domain, scale) => ExecuteDependency(request, root, identity, domain, scale,
                 destination, programCache, spirvProgramCache, graphProgramCache, frames, cleanupFailures));
         if (nestedPreviewDropObserved)
@@ -250,6 +251,7 @@ internal sealed partial class RenderRequestExecutor
                 }
             }
 
+            _cancellationToken.ThrowIfCancellationRequested();
             state.ValidateExecutionCompleted(
                 allowSkippedIslands: replayBounds.Width == 0 || replayBounds.Height == 0);
             state.PrepareBuiltInBackdropCaptures();

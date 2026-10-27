@@ -33,7 +33,7 @@ internal sealed partial class RenderRequestExecutor
                     inputs.SelectToArray(static input => input.EffectiveScale), inputBounds, bufferBounds,
                     _options.OutputScale, _options.MaxWorkingScale).Value;
                 using var execution = new RenderExecutionContext(_renderDependency, density,
-                    _options.MaxWorkingScale, destination);
+                    _options.MaxWorkingScale, destination, _cancellationToken);
                 using var builder = new SKImageFilterBuilder();
                 using var executor = new FilterEffectExecutor(targets, builder, _options.Intent, _options.Purpose,
                     _options.OutputScale, density, _options.MaxWorkingScale, _activeDeviceGridOffset,

@@ -388,6 +388,34 @@ public sealed class DynamicRenderExecutionTests
         Assert.That(calls, Is.EqualTo(1));
     }
 
+    [Test]
+    public void EvaluatedInputsUseTheCurrentDependencyAllocatorAndCanShareACompletedSample()
+    {
+        int calls = 0;
+        var shape = FilterEffectInputTests.Rectangle();
+        var chain = new FilterEffectGroup();
+        chain.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, _) => calls++)));
+        chain.Children.Add(new SampleInputEffect { Offsets = [0] });
+        shape.FilterEffect.Value = chain;
+        using var source = shape.ToResource(new CompositionContext(MediaTime.FromSeconds(1)));
+        var sample = ((SampleInputEffect.Resource)((FilterEffectGroup.Resource)source.FilterEffect!).Children[1]).Samples.Single();
+        var domain = new Rect(0, 0, 96, 64);
+        using var root = Effect(context => context.CustomEffect(0, (_, execution) =>
+        {
+            using var first = execution.ExecutionContext!.RenderDependency(sample, domain.Size, domain);
+            using var second = execution.ExecutionContext.RenderDependency(sample, domain.Size, domain);
+            using var pixels = SKBitmap.FromImage(first.Image);
+            Assert.That(pixels.GetPixel(48, 32).Alpha, Is.EqualTo(255));
+            Assert.That(second.Image.Width, Is.EqualTo(96));
+        }));
+        var factory = new CountingFactory();
+        using var renderer = Renderer(root, factory);
+        using var output = renderer.Rasterize();
+        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(factory.Sizes, Does.Contain(new PixelSize(96, 64)));
+    }
+
     private static FilterEffectRenderNode Effect(Action<FilterEffectContext> record)
     {
         var effect = new EffectItemSuffixCallbackFilterEffect((context, _) => record(context));

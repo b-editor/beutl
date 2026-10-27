@@ -106,6 +106,72 @@ public abstract partial class Drawable : EngineObject
 
     protected abstract void OnDraw(GraphicsContext2D context, Resource resource);
 
+    public abstract partial class Resource
+    {
+        private FilterEffectInputContext? _input;
+
+        internal IReadOnlyList<FilterEffectInputChain.Entry>? EvaluatedInputChain { get; set; }
+
+        /// <summary>Completes source-dependent effects after derived properties and consumed flow are ready.</summary>
+        /// <remarks>Generated resources call this automatically. Hand-written resources call it last in Reconcile.</remarks>
+        protected void CompleteReconciliation(CompositionContext context)
+        {
+            if (ReferenceEquals(context.SampledDrawable, GetOriginal())) return;
+            PrepareFilterEffectInput(context, null);
+        }
+
+        internal void PrepareFilterEffectInput(CompositionContext context,
+            IReadOnlyList<FilterEffectInputChain.Entry>? chain)
+        {
+            bool hadInput = _input != null;
+            _input?.Dispose();
+            _input = null;
+            if (hadInput) Version++;
+            if (!IsEnabled || !FilterEffectInputChain.HasInputEvaluation(FilterEffect)) return;
+            chain ??= FilterEffectInputChain.Capture(FilterEffect);
+            for (int i = chain.Count - 1; i >= 0; i--)
+            {
+                if (!chain[i].Enabled || !chain[i].Resource.UsesInputEvaluation) continue;
+                context.CancellationToken.ThrowIfCancellationRequested();
+                var input = new FilterEffectInputContext(this, context, chain, i);
+                try
+                {
+                    if (chain[i].Resource.PrepareInput(input))
+                    {
+                        context.CancellationToken.ThrowIfCancellationRequested();
+                        _input = input;
+                        context.ContainsScene3D |= input.EvaluationContext.ContainsScene3D;
+                        // Sampled properties can change while every current-time property stays unchanged.
+                        Version++;
+                        return;
+                    }
+                }
+                catch
+                {
+                    input.Dispose();
+                    Version++;
+                    throw;
+                }
+                input.Dispose();
+            }
+        }
+
+        /// <summary>Records this evaluated drawable, including effects that replace its time-sampled input.</summary>
+        public void Render(GraphicsContext2D context)
+        {
+            if (!IsEnabled) return;
+            if (_input != null) _input.Render(context);
+            else RequireOriginal().Render(context, this);
+        }
+
+        partial void PreDispose(bool disposing)
+        {
+            _input?.Dispose();
+            _input = null;
+        }
+    }
+
+
     /// <summary>
     /// Places <paramref name="bounds"/> inside <paramref name="canvasSize"/> by the given alignment; an axis whose
     /// canvas extent is unbounded stays at zero.

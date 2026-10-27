@@ -92,8 +92,12 @@ public sealed partial class SceneCompositor : ICompositor
                 && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
             PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
             TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1));
-            EvaluationServices = new EvaluationServices(compositor);
+            FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+            EvaluationServices = new EvaluationServices(compositor, this);
         }
+
+        public override CompositionEvaluationSession CreateEvaluationSession()
+            => new SceneEvaluationSession(_compositor.Scene, Target);
 
         public IList<Element> CurrentElements { get; set; }
 
@@ -129,8 +133,18 @@ public sealed partial class SceneCompositor : ICompositor
 
     public CompositionFrame EvaluateGraphics(MediaTime time) => EvaluateGraphics(time, null, null);
 
-    private CompositionFrame EvaluateGraphics(MediaTime time, int? layer, EvaluationServices? services)
+    /// <summary>Evaluates a frame with the output's actual rate and cancellation policy.</summary>
+    public CompositionFrame EvaluateGraphics(MediaTime time, CancellationToken cancellationToken, Rational? frameRate = null)
+        => EvaluateGraphics(time, null, null, null, cancellationToken, frameRate);
+
+    /// <summary>Evaluates a nested scene while inheriting its caller's evaluation conditions.</summary>
+    internal CompositionFrame EvaluateGraphicsWithContext(MediaTime time, CompositionContext conditions)
+        => EvaluateGraphics(time, null, null, conditions, conditions.CancellationToken, conditions.FrameRate);
+
+    private CompositionFrame EvaluateGraphics(MediaTime time, int? layer, EvaluationServices? services,
+        CompositionContext? conditions = null, CancellationToken cancellationToken = default, Rational? frameRate = null)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         DisposeDetachedResources();
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements, CompositionTarget.Graphics);
@@ -139,12 +153,21 @@ public sealed partial class SceneCompositor : ICompositor
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
+        ctx.CancellationToken = cancellationToken;
+        if (frameRate.HasValue) ctx.FrameRate = frameRate.Value;
+        if (conditions != null)
+        {
+            ctx.PreferProxy = conditions.PreferProxy;
+            ctx.PreferredProxyPreset = conditions.PreferredProxyPreset;
+            ctx.DisableResourceShare = conditions.DisableResourceShare || DisableResourceShare;
+        }
         if (services is not null)
             ctx.EvaluationServices = services;
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (layer.HasValue && currentElements[index].ZIndex.Value != layer.Value) continue;
             flow.Clear();
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
@@ -159,6 +182,7 @@ public sealed partial class SceneCompositor : ICompositor
             null)
         {
             ContainsScene3D = ctx.ContainsScene3D,
+            CancellationToken = cancellationToken,
         };
         if (services is null)
             ((EvaluationServices)ctx.EvaluationServices!).Frame = frame;

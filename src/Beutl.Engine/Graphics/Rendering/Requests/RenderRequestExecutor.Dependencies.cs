@@ -15,6 +15,7 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<ShaderGraphPipeline> graphProgramCache,
         ICollection<RenderRequestExecutionState> frames, ICollection<Exception> cleanupFailures)
     {
+        _cancellationToken.ThrowIfCancellationRequested();
         RenderDescriptionValidation.ThrowUnlessFiniteNonEmpty(domain, nameof(domain));
         if (_activeDependencies.Count >= 32 || !_activeDependencies.Add(identity))
             throw new InvalidOperationException($"Circular render dependency: {identity}.");

@@ -1,5 +1,6 @@
 ﻿using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Media.Proxy;
 
 namespace Beutl.Composition;
@@ -26,6 +27,18 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
     internal bool ContainsScene3D { get; set; }
 
     internal FlowNode? ReplayedFlow { get; set; }
+
+    internal Drawable? SampledDrawable { get; set; }
+
+    internal IReadOnlyList<FilterEffectInputBoundary> InputBoundaries { get; set; } = [];
+
+    /// <summary>The effective output frame rate, including an export's rate override.</summary>
+    public Rational FrameRate { get; set; } = new(30, 1);
+
+    public CancellationToken CancellationToken { get; set; }
+
+    /// <summary>Creates an isolated resource-evaluation session retaining the current host and snapshot.</summary>
+    public virtual CompositionEvaluationSession CreateEvaluationSession() => new(WithTime(Time));
 
     public bool DisableResourceShare { get; set; }
 

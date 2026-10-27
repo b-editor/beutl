@@ -9,7 +9,7 @@ namespace Beutl;
 
 public sealed partial class SceneCompositor
 {
-    private sealed class EvaluationServices(SceneCompositor owner) : ICompositionEvaluationServices
+    private sealed class EvaluationServices(SceneCompositor owner, CompositionContext conditions) : ICompositionEvaluationServices
     {
         // Nested queries share this frame's services, while separate preview/export evaluations are isolated.
         private readonly Dictionary<(int Layer, MediaTime Time), IReadOnlyList<EngineObject.Resource>?> _queries = [];
@@ -21,7 +21,7 @@ public sealed partial class SceneCompositor
 
         public PixelSize FrameSize => owner.Scene.FrameSize.Value;
 
-        public Rational FrameRate => owner.Scene.FindHierarchicalParent<Project>().GetFrameRate();
+        public Rational FrameRate => conditions.FrameRate;
 
         public bool TryReadFrame<T>(Func<CompositionFrame, T> read, out T result)
         {
@@ -44,6 +44,7 @@ public sealed partial class SceneCompositor
 
         public CompositionLayerLease EvaluateLayer(int zIndex, MediaTime time)
         {
+            conditions.CancellationToken.ThrowIfCancellationRequested();
             var key = (zIndex, time);
             if (_queries.ContainsKey(key))
                 throw new InvalidOperationException($"Circular composition query at layer {zIndex}, time {time}.");
@@ -62,7 +63,7 @@ public sealed partial class SceneCompositor
             }
             try
             {
-                CompositionFrame frame = compositor.EvaluateGraphics(time, zIndex, this);
+                CompositionFrame frame = compositor.EvaluateGraphics(time, zIndex, this, conditions, conditions.CancellationToken, conditions.FrameRate);
                 _queries[key] = frame.Objects;
                 return new CompositionLayerLease(frame.Objects, Release);
             }

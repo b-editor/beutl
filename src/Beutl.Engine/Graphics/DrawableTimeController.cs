@@ -129,7 +129,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        r.Target?.RequireOriginal().Render(context, r.Target);
+        r.Target?.Render(context);
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)

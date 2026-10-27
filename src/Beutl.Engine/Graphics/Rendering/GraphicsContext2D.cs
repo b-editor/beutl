@@ -374,8 +374,7 @@ public sealed class GraphicsContext2D(
         CompleteRecordingOperation(wasFaulted);
         try
         {
-            var obj = drawable.RequireOriginal();
-            obj.Render(this, drawable);
+            drawable.Render(this);
         }
         catch
         {

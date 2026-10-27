@@ -76,7 +76,7 @@ public partial class TextNode : GraphNode
             Size size = node.Object.Value.MeasureInternal(Size.Infinity, resource);
             using (var gc2d = new GraphicsContext2D(output, size))
             {
-                node.Object.Value.Render(gc2d, resource);
+                resource.Render(gc2d);
             }
 
             Output = output;

@@ -19,7 +19,7 @@ public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        r.Target?.RequireOriginal().Render(context, r.Target);
+        r.Target?.Render(context);
     }
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)

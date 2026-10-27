@@ -13,6 +13,19 @@ public abstract partial class FilterEffect : EngineObject
 
     public abstract partial class Resource
     {
+        /// <summary>Whether this effect participates in source input evaluation before recording.</summary>
+        public virtual bool UsesInputEvaluation => false;
+
+        /// <summary>Prepares time samples of the input immediately before this effect.</summary>
+        /// <returns>True to render through <see cref="RenderInput"/> instead of ApplyTo.</returns>
+        /// <remarks>Runs after source reconciliation, even when current-time values did not change.</remarks>
+        public virtual bool PrepareInput(FilterEffectInputContext context) => false;
+
+        /// <summary>Records the replacement input in the drawable's parent coordinates.</summary>
+        /// <remarks>The engine applies subsequent effects and the owner's blend mode once afterwards.</remarks>
+        public virtual void RenderInput(GraphicsContext2D context, FilterEffectInputContext input)
+            => input.Evaluate(input.EvaluationContext.Time).Draw(context);
+
         /// <summary>Whether this effect needs to control the remaining effects in its containing chain.</summary>
         /// <remarks>Such chains are recorded together so callbacks can retain and execute their suffix.</remarks>
         public virtual bool ControlsContinuation => false;

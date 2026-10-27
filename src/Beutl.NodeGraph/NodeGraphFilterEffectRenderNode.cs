@@ -40,6 +40,9 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             _compositionContext.PreferredProxyPreset = graphResource.PreferredProxyPreset;
             _compositionContext.DisableResourceShare = graphResource.DisableResourceShare;
             _compositionContext.TargetDomain = context.TargetDomain;
+            _compositionContext.FrameRate = graphResource.EvaluationContext?.FrameRate ?? new Rational(30, 1);
+            _compositionContext.CancellationToken = graphResource.EvaluationContext?.CancellationToken ?? default;
+            _compositionContext.EvaluationServices = graphResource.EvaluationContext?.EvaluationServices;
             graphResource.Snapshot.Evaluate(_compositionContext);
 
             var outputRenderNodes = new List<RenderNode>();

@@ -1,5 +1,6 @@
 ﻿using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics.Effects;
 using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
@@ -14,9 +15,10 @@ public sealed class RenderExecutionContext : IDisposable
 
     internal RenderExecutionContext(
         Func<RenderNode, object, Rect, float, RenderTargetImageLease> render,
-        float workingScale, float maxWorkingScale, ImmediateCanvas? target = null)
+        float workingScale, float maxWorkingScale, ImmediateCanvas? target = null, CancellationToken cancellationToken = default)
     {
         _render = render;
+        CancellationToken = cancellationToken;
         WorkingScale = workingScale;
         MaxWorkingScale = maxWorkingScale;
         _target = target;
@@ -25,8 +27,10 @@ public sealed class RenderExecutionContext : IDisposable
     internal RenderExecutionContext CreateCallbackScope(float workingScale)
     {
         VerifyAccess();
-        return new RenderExecutionContext(_render!, workingScale, MaxWorkingScale, _target);
+        return new RenderExecutionContext(_render!, workingScale, MaxWorkingScale, _target, CancellationToken);
     }
+
+    public CancellationToken CancellationToken { get; }
 
     public float WorkingScale { get; }
     public float MaxWorkingScale { get; }
@@ -57,9 +61,19 @@ public sealed class RenderExecutionContext : IDisposable
             var node = new DrawableRenderNode(drawable);
             nodes.AddChild(node);
             using var context = new GraphicsContext2D(node, frame.Size.ToSize(1), WorkingScale);
-            drawable.RequireOriginal().Render(context, drawable);
+            drawable.Render(context);
         }
         return RenderDependency(nodes, identity, new Rect(default, frame.Size.ToSize(1)));
+    }
+
+    /// <summary>Renders a time-sampled input using this request's allocation, density and cache policy.</summary>
+    /// <remarks>Domain is in the drawable's parent coordinates; it must cover all input needed by the caller.</remarks>
+    public RenderTargetImageLease RenderDependency(FilterEffectInputSample sample, Size availableSize, Rect domain)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        VerifyAccess();
+        using var root = sample.CreateRenderNode(availableSize, WorkingScale);
+        return RenderDependency(root, sample, domain);
     }
 
     /// <summary>Samples the preceding composition target without a CPU pixel readback.</summary>
@@ -91,6 +105,7 @@ public sealed class RenderExecutionContext : IDisposable
     private void VerifyAccess()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        CancellationToken.ThrowIfCancellationRequested();
         if (Environment.CurrentManagedThreadId != _threadId)
             throw new InvalidOperationException("Render execution access belongs to the callback thread.");
     }
