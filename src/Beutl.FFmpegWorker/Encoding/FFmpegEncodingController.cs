@@ -39,17 +39,21 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         int height = VideoSettings.SourceSize.Value.Height;
         var srcPixFmt = _isHdr ? AVPixelFormat.AV_PIX_FMT_RGBA64LE : AVPixelFormat.AV_PIX_FMT_BGRA;
         var fps = VideoSettings.FrameRate.Value;
-        var timeBase = new AVRational { num = (int)fps.Denominator, den = (int)fps.Numerator };
-        var sar = new AVRational { num = 1, den = 1 };
-        var frameRate = new AVRational { num = (int)fps.Numerator, den = (int)fps.Denominator };
-
+        // The bitmap is full-range RGB, even when the encoded output is limited-range YUV.
         _bufferSrcCtx = _filterGraph.AddVideoSrcFilter(
-            bufferSrc, width, height, srcPixFmt, timeBase, sar, frameRate);
+            bufferSrc, $"video_size={width}x{height}:pix_fmt={(int)srcPixFmt}"
+                + $":time_base={fps.Denominator}/{fps.Numerator}:pixel_aspect=1/1"
+                + $":frame_rate={fps.Numerator}/{fps.Denominator}:colorspace=gbr:range=pc");
         _bufferSinkCtx = _filterGraph.AddVideoSinkFilter(bufferSink, [encoder.PixFmt]);
 
         // An output of another aspect ratio gets the whole frame with black bars rather than a stretched one.
         (string scaleStr, string? padStr) = FrameFit.GetFilterArguments(
             VideoSettings.SourceSize.Value, VideoSettings.DestinationSize.Value);
+        // Codec tags do not configure swscale. Use the same matrix/range for the pixels and the bitstream.
+        scaleStr += $":in_range=pc:out_range={(int)encoder.ColorRange}";
+        // swscale rejects matrices it cannot produce; those keep its default matrix, as before the tags were used.
+        if (encoder.Colorspace != AVColorSpace.AVCOL_SPC_RGB && ffmpeg.sws_test_colorspace(encoder.Colorspace, 1) > 0)
+            scaleStr += $":out_color_matrix={(int)encoder.Colorspace}";
         var scaleFilter = new MediaFilter("scale");
         var scaleCtx = _filterGraph.AddFilter(scaleFilter, scaleStr);
 
@@ -244,10 +248,7 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             codecContext.GopSize = VideoSettings.KeyframeRate.Value;
             codecContext.ThreadCount = ResolveThreadCount(settings.ThreadCount.Value);
 
-            codecContext.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries.Value;
-            codecContext.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value;
-            codecContext.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace.Value;
-            codecContext.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange.Value;
+            ConfigureVideoColor(codecContext, outFormat);
 
             var hwType = HardwareAcceleration.ToHWDeviceType((int)settings.Acceleration.Value);
             codecContext.InitHWDeviceContext(hwType);
@@ -266,10 +267,10 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             stream.Codecpar->codec_tag = 0x31637668;
         }
 
-        _isHdr = ColorSpaceHelper.IsHdrTransfer((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value);
+        _isHdr = ColorSpaceHelper.IsHdrTransfer(encoder.ColorTrc);
         _targetColorSpace = _isHdr
-            ? ColorSpaceHelper.BuildHdrColorSpace((AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value, (AVColorPrimaries)(int)VideoSettings.ColorPrimaries.Value)
-            : null;
+            ? ColorSpaceHelper.BuildHdrColorSpace(encoder.ColorTrc, encoder.ColorPrimaries)
+            : ColorSpaceHelper.BuildTargetColorSpace(encoder.ColorTrc, encoder.ColorPrimaries);
 
         InitEncodeFilterGraph(encoder);
 
@@ -278,12 +279,53 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
         videoFrame.Format = _isHdr
             ? (int)AVPixelFormat.AV_PIX_FMT_RGBA64LE
             : (int)AVPixelFormat.AV_PIX_FMT_BGRA;
-        videoFrame.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries.Value;
-        videoFrame.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value;
-        videoFrame.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace.Value;
-        videoFrame.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange.Value;
+        videoFrame.ColorPrimaries = encoder.ColorPrimaries;
+        videoFrame.ColorTrc = encoder.ColorTrc;
+        videoFrame.Colorspace = AVColorSpace.AVCOL_SPC_RGB;
+        videoFrame.ColorRange = AVColorRange.AVCOL_RANGE_JPEG;
         videoFrame.AllocateBuffer();
     }
+
+    private unsafe void ConfigureVideoColor(MediaCodecContext context, OutputFormat format)
+    {
+        context.ColorTrc = (AVColorTransferCharacteristic)(int)VideoSettings.ColorTrc.Value;
+        context.ColorPrimaries = (AVColorPrimaries)(int)VideoSettings.ColorPrimaries.Value;
+        context.Colorspace = (AVColorSpace)(int)VideoSettings.ColorSpace.Value;
+        context.ColorRange = (AVColorRange)(int)VideoSettings.ColorRange.Value;
+        // The bitmap color-space mapper falls back to sRGB for unsupported logarithmic curves.
+        if (context.ColorTrc is AVColorTransferCharacteristic.AVCOL_TRC_LOG or AVColorTransferCharacteristic.AVCOL_TRC_LOG_SQRT)
+            context.ColorTrc = AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1;
+        bool hdr = ColorSpaceHelper.IsHdrTransfer(context.ColorTrc);
+        // Where nothing records the tags, readers assume the untagged BT.601 output that FFmpeg writes by default.
+        if (!hdr && !RecordsColor(context.CodecId, format))
+            return;
+
+        bool rgb = (ffmpeg.av_pix_fmt_desc_get(context.PixFmt)->flags & ffmpeg.AV_PIX_FMT_FLAG_RGB) != 0;
+        bool jpeg = context.CodecId is AVCodecID.AV_CODEC_ID_MJPEG or AVCodecID.AV_CODEC_ID_MJPEGB;
+        bool fullRange = rgb || context.PixFmt is AVPixelFormat.AV_PIX_FMT_YUVJ420P
+            or AVPixelFormat.AV_PIX_FMT_YUVJ422P or AVPixelFormat.AV_PIX_FMT_YUVJ444P
+            or AVPixelFormat.AV_PIX_FMT_YUVJ440P or AVPixelFormat.AV_PIX_FMT_YUVJ411P;
+
+        // Resolve unspecified values at encode time so saved presets and all callers get the same defaults.
+        if (context.ColorTrc == AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED)
+            context.ColorTrc = rgb || jpeg ? AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1
+                : AVColorTransferCharacteristic.AVCOL_TRC_BT709;
+        if (context.ColorPrimaries == AVColorPrimaries.AVCOL_PRI_UNSPECIFIED)
+            context.ColorPrimaries = hdr ? AVColorPrimaries.AVCOL_PRI_BT2020 : AVColorPrimaries.AVCOL_PRI_BT709;
+        if (context.Colorspace == AVColorSpace.AVCOL_SPC_UNSPECIFIED)
+            context.Colorspace = rgb ? AVColorSpace.AVCOL_SPC_RGB
+                : hdr ? AVColorSpace.AVCOL_SPC_BT2020_NCL
+                : jpeg ? AVColorSpace.AVCOL_SPC_SMPTE170M : AVColorSpace.AVCOL_SPC_BT709;
+        if (context.ColorRange == AVColorRange.AVCOL_RANGE_UNSPECIFIED)
+            context.ColorRange = fullRange ? AVColorRange.AVCOL_RANGE_JPEG : AVColorRange.AVCOL_RANGE_MPEG;
+    }
+
+    // Bitstreams with a colour description, or containers that store one for any codec.
+    private static bool RecordsColor(AVCodecID codec, OutputFormat format)
+        => codec is AVCodecID.AV_CODEC_ID_H264 or AVCodecID.AV_CODEC_ID_HEVC or AVCodecID.AV_CODEC_ID_VVC
+            or AVCodecID.AV_CODEC_ID_AV1 or AVCodecID.AV_CODEC_ID_VP9 or AVCodecID.AV_CODEC_ID_MPEG2VIDEO
+            or AVCodecID.AV_CODEC_ID_PRORES
+            || format.Name is "mov" or "mp4" or "matroska" or "webm";
 
     public override async ValueTask Encode(IFrameProvider frameProvider, ISampleProvider sampleProvider,
         CancellationToken cancellationToken)
@@ -472,10 +514,9 @@ public class FFmpegEncodingController(string outputFile, FFmpegEncodingSettings 
             return null;
 
         using (var converted = _isHdr
-            // Skia: LinearSrgb → ターゲット色空間（例: BT.2020/PQ）
+            // Match both the transfer function and primaries declared by the encoder.
             ? bitmap.Convert(BitmapColorType.Rgba16161616, BitmapAlphaType.Unpremul, _targetColorSpace!)
-            // Skia: LinearSrgb → Bgra8888/Srgb
-            : bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb))
+            : bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, _targetColorSpace!))
         {
             unsafe
             {

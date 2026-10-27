@@ -4,10 +4,17 @@ namespace Beutl.Media;
 
 public static class YuvConversion
 {
-    // BT.601 coefficients (same as OpenCV)
+    // Existing callers default to BT.601 coefficients (same as OpenCV).
 
     public static unsafe void BgraToI420(byte* src, int srcStride, byte* dst, int width, int height)
+        => BgraToI420(src, srcStride, dst, width, height, bt709: false);
+
+    public static unsafe void BgraToI420(byte* src, int srcStride, byte* dst, int width, int height, bool bt709)
     {
+        // Full-range R'G'B' to limited-range YUV; transfer/gamut conversion belongs to the caller.
+        (int yr, int yg, int yb, int ur, int ug, int vr, int vg, int vb) = bt709
+            ? (47, 157, 16, -26, -86, 112, -102, -10)
+            : (66, 129, 25, -38, -74, 112, -94, -18);
         int yPlaneSize = width * height;
         int uvWidth = (width + 1) / 2;
         int uvHeight = (height + 1) / 2;
@@ -27,7 +34,7 @@ public static class YuvConversion
                 int b = srcRow[x * 4];
                 int g = srcRow[x * 4 + 1];
                 int r = srcRow[x * 4 + 2];
-                yRow[x] = (byte)(((66 * r + 129 * g + 25 * b + 128) >> 8) + 16);
+                yRow[x] = (byte)(((yr * r + yg * g + yb * b + 128) >> 8) + 16);
             }
         });
 
@@ -57,8 +64,8 @@ public static class YuvConversion
                 g = (g + 2) >> 2;
                 r = (r + 2) >> 2;
 
-                uRow[uvX] = (byte)(((-38 * r - 74 * g + 112 * b + 128) >> 8) + 128);
-                vRow[uvX] = (byte)(((112 * r - 94 * g - 18 * b + 128) >> 8) + 128);
+                uRow[uvX] = (byte)(((ur * r + ug * g + 112 * b + 128) >> 8) + 128);
+                vRow[uvX] = (byte)(((vr * r + vg * g + vb * b + 128) >> 8) + 128);
             }
         });
     }

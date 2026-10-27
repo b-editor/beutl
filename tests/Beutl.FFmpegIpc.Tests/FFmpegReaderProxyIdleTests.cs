@@ -347,7 +347,6 @@ public class FFmpegReaderProxyIdleTests
         {
             ThreadCount = { Value = 3 },
             Acceleration = { Value = FFmpegDecodingSettings.AccelerationOptions.D3D11VA },
-            ForceSrgbGamma = { Value = false },
         };
         var decoderInfo = new FFmpegDecoderInfo(settings, _ => _worker.Connection, _tracker);
 
@@ -361,7 +360,6 @@ public class FFmpegReaderProxyIdleTests
             Assert.That(request.StreamsToLoad, Is.EqualTo((int)MediaMode.Video));
             Assert.That(request.ThreadCount, Is.EqualTo(3));
             Assert.That(request.Acceleration, Is.EqualTo((int)FFmpegDecodingSettings.AccelerationOptions.D3D11VA));
-            Assert.That(request.ForceSrgbGamma, Is.False);
             Assert.That(_tracker.TrackedCount, Is.EqualTo(1));
             Assert.That(ReadFirstByte(reader!, 0), Is.EqualTo(FakeWorker.PixelValue(reader!.ReaderId, 0)));
         });

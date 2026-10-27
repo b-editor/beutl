@@ -827,7 +827,7 @@ Beutl.Utilities
   keys: Bitrate, Codec, CodecOptions, ColorPrimaries, ColorTransfer, DestinationSize, FrameRate, Id, JPEGQuality, KeyframeRate, Name, ProfileLevelH264, SourceSize, YCbCrMatrix
 [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Decoding:FFmpegDecodingSettings
   sealed
-  keys: Acceleration, ForceSrgbGamma, ThreadCount
+  keys: Acceleration, ThreadCount
 [Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Encoding:AdditionalOption
   sealed
   keys: Id, Name, Value

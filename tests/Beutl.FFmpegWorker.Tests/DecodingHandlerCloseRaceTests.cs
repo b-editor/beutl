@@ -62,27 +62,6 @@ public sealed class DecodingHandlerCloseRaceTests
     }
 
     [Test]
-    public void UpdateDecoderSettings_SkipsAReaderClosedAfterItsLookup()
-    {
-        using var handler = new DecodingHandler();
-        int closedId = Open(handler, VideoFixturePath, MediaMode.Video);
-        int keptId = Open(handler, VideoFixturePath, MediaMode.Video);
-        var close = CloseAfterLookup.Arm(handler, closedId);
-
-        IpcMessage response = handler.HandleUpdateDecoderSettings(IpcMessage.Create(
-            3, MessageType.UpdateDecoderSettings, new UpdateDecoderSettingsRequest { ForceSrgbGamma = true }));
-        IpcMessage kept = handler.HandleReadVideo(IpcMessage.Create(
-            4, MessageType.ReadVideo, new ReadVideoRequest { ReaderId = keptId, Frame = 0 }));
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(close.Response?.Type, Is.EqualTo(MessageType.CloseReaderResult), "the close must run after the lookup");
-            Assert.That(response.Type, Is.EqualTo(MessageType.UpdateDecoderSettingsResult), response.Error);
-            Assert.That(kept.GetPayload<ReadVideoResponse>()?.Success, Is.True, "the other reader must keep working");
-        });
-    }
-
-    [Test]
     public void Close_WaitsForAReadInProgress_AndCompletesOnceTheReadEnds()
     {
         using var handler = new DecodingHandler();
