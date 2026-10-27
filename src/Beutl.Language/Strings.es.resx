@@ -3447,4 +3447,55 @@ cuando el registro del historial está activado.</value>
   <data name="FontFamilyPicker_NoResults" xml:space="preserve">
     <value>No hay fuentes coincidentes</value>
   </data>
+  <data name="MobilePreview" xml:space="preserve">
+    <value>Vista previa móvil</value>
+  </data>
+  <data name="MobilePreviewDescription" xml:space="preserve">
+    <value>Comparte la vista previa limpia con audio en el navegador del teléfono.</value>
+  </data>
+  <data name="MobilePreviewAddress" xml:space="preserve">
+    <value>Dirección de red</value>
+  </data>
+  <data name="MobilePreviewReady" xml:space="preserve">
+    <value>Pulsa Iniciar para compartir la vista previa.</value>
+  </data>
+  <data name="MobilePreviewNoNetwork" xml:space="preserve">
+    <value>Conéctate a una red Wi-Fi o Ethernet y vuelve a abrir esta ventana.</value>
+  </data>
+  <data name="MobilePreviewRunning" xml:space="preserve">
+    <value>Compartiendo · Hasta 15 fps · SDR · Audio</value>
+  </data>
+  <data name="MobilePreviewScan" xml:space="preserve">
+    <value>Escanea el código QR con el móvil e introduce el código de conexión en su navegador.</value>
+  </data>
+  <data name="MobilePreviewCode" xml:space="preserve">
+    <value>Código de conexión</value>
+  </data>
+  <data name="MobilePreviewExpires" xml:space="preserve">
+    <value>Nuevas conexiones: código válido hasta {0}</value>
+  </data>
+  <data name="MobilePreviewRenewCode" xml:space="preserve">
+    <value>Renovar código</value>
+  </data>
+  <data name="MobilePreviewClients" xml:space="preserve">
+    <value>Conectados: {0} / 4</value>
+  </data>
+  <data name="MobilePreviewDisconnectAll" xml:space="preserve">
+    <value>Desconectar todos</value>
+  </data>
+  <data name="MobilePreviewLifetime" xml:space="preserve">
+    <value>Cambiar de pestaña del editor o cerrar esta ventana detiene la transmisión.</value>
+  </data>
+  <data name="MobilePreviewFailed" xml:space="preserve">
+    <value>No se pudo iniciar. Comprueba la conexión y el inicio de sesión en Beutl Web.</value>
+  </data>
+  <data name="MobilePreviewInternet" xml:space="preserve">
+    <value>Conectar por Internet</value>
+  </data>
+  <data name="MobilePreviewInternetDescription" xml:space="preserve">
+    <value>Utiliza Beutl Web. Inicia sesión para compartir; los espectadores solo necesitan el enlace y el código. Si se desactiva, usa la misma red local.</value>
+  </data>
+  <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
+    <value>La conexión con el servidor terminó. Pulsa Iniciar para crear una nueva sesión.</value>
+  </data>
 </root>

@@ -1,0 +1,51 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:lang="using:Beutl.Language"
+        x:Class="Beutl.Views.MobilePreviewWindow"
+        Title="{x:Static lang:Strings.MobilePreview}"
+        Width="480" Height="720" MinWidth="400" MinHeight="480"
+        WindowStartupLocation="CenterOwner">
+    <ScrollViewer>
+        <StackPanel Margin="24" Spacing="12">
+            <TextBlock Text="{x:Static lang:Strings.MobilePreview}" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Text="{x:Static lang:Strings.MobilePreviewDescription}" TextWrapping="Wrap" />
+            <CheckBox x:Name="InternetBox" Content="{x:Static lang:Strings.MobilePreviewInternet}"
+                      IsChecked="True" IsCheckedChanged="OnModeChanged" />
+            <TextBlock Text="{x:Static lang:Strings.MobilePreviewInternetDescription}" TextWrapping="Wrap" FontSize="12" />
+            <StackPanel Spacing="6">
+                <TextBlock Text="{x:Static lang:Strings.MobilePreviewAddress}" />
+                <Grid ColumnDefinitions="*,Auto">
+                    <ComboBox x:Name="AddressBox" HorizontalAlignment="Stretch" />
+                    <Button x:Name="ToggleButton" Grid.Column="1" Margin="8,0,0,0"
+                            Click="OnToggleClick" Content="{x:Static lang:Strings.Start}" MinWidth="80"
+                            HorizontalContentAlignment="Center" />
+                </Grid>
+            </StackPanel>
+            <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" />
+            <StackPanel x:Name="SharingPanel" Spacing="12" IsVisible="False">
+                <TextBlock Text="{x:Static lang:Strings.MobilePreviewScan}" TextWrapping="Wrap" />
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border Background="White" Padding="8" HorizontalAlignment="Left">
+                        <Image x:Name="QrImage" Width="160" Height="160" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="4" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{x:Static lang:Strings.MobilePreviewCode}" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="CodeText" FontSize="32" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                        <TextBlock x:Name="ExpiryText" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" />
+                        <Button Click="OnRenewCodeClick" Content="{x:Static lang:Strings.MobilePreviewRenewCode}" HorizontalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBox x:Name="AddressText" IsReadOnly="True" />
+                    <Button Grid.Column="1" Margin="8,0,0,0" Click="OnCopyClick" Content="{x:Static lang:Strings.Copy}" />
+                </Grid>
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock x:Name="ClientsText" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Click="OnDisconnectAllClick" Content="{x:Static lang:Strings.MobilePreviewDisconnectAll}" />
+                </Grid>
+                <StackPanel x:Name="ClientList" Spacing="6" />
+            </StackPanel>
+            <TextBlock Text="{x:Static lang:Strings.MobilePreviewLifetime}" TextWrapping="Wrap" Opacity="0.7" />
+        </StackPanel>
+    </ScrollViewer>
+</Window>

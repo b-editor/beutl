@@ -70,6 +70,7 @@
     <PackageReference Include="ModelContextProtocol.AspNetCore" />
     <PackageReference Include="OpenTelemetry" />
     <PackageReference Include="ReactiveProperty" />
+    <PackageReference Include="QRCoder" />
     <PackageReference Include="Dock.Avalonia" />
     <PackageReference Include="Dock.Model.Inpc" />
     <PackageReference Include="Dock.Avalonia.Themes.Fluent" />
@@ -180,6 +181,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\osx-update.sh" />
     <EmbeddedResource Include="Resources\linux-update.sh" />
+    <EmbeddedResource Include="PreviewStreaming\Client\*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />
