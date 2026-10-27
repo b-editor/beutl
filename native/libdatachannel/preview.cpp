@@ -18,10 +18,12 @@ struct IceServer { const char *url; const char *username; const char *password; 
 struct Peer {
     std::shared_ptr<rtc::PeerConnection> pc;
     std::shared_ptr<rtc::Track> video, audio;
+    std::shared_ptr<rtc::DataChannel> playback;
     std::shared_ptr<rtc::RtpPacketizationConfig> videoConfig, audioConfig;
     ~Peer() {
         if (video) video->resetCallbacks();
         if (audio) audio->resetCallbacks();
+        if (playback) playback->resetCallbacks();
         if (pc) { pc->resetCallbacks(); pc->close(); }
     }
 };
@@ -103,6 +105,13 @@ API Peer *beutl_rtc_create(const char *sdp, int hdr, int relayOnly, const IceSer
             else { peer->audio = track; peer->audioConfig = rtp; }
         }
         if (!peer->video || !peer->audio) throw std::runtime_error("codec-unavailable");
+        rtc::DataChannelInit playbackInit;
+        playbackInit.negotiated = true;
+        playbackInit.id = 0;
+        peer->playback = peer->pc->createDataChannel("beutl-playback", playbackInit);
+        peer->playback->onOpen([=]() { callback(token, 5, "", ""); });
+        // This channel only publishes state; controls use the authenticated signaling path.
+        peer->playback->onMessage([](rtc::message_variant) {});
         peer->pc->setRemoteDescription(offer);
         peer->pc->setLocalDescription(rtc::Description::Type::Answer);
         return peer.release();
@@ -123,3 +132,9 @@ API int beutl_rtc_send(Peer *peer, int video, const uint8_t *data, int size, uin
     } catch (const std::exception &e) { lastError = e.what(); return -1; }
 }
 API void beutl_rtc_delete(Peer *peer) { delete peer; }
+API int beutl_rtc_playback(Peer *peer, const char *state) {
+    try {
+        if (peer->playback->isOpen()) peer->playback->send(std::string(state));
+        return 0;
+    } catch (const std::exception &e) { lastError = e.what(); return -1; }
+}
