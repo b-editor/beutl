@@ -1589,6 +1589,21 @@
   <data name="Bloom_Threshold" xml:space="preserve">
     <value>임계값</value>
   </data>
+  <data name="Bloom_SoftKnee" xml:space="preserve">
+    <value>부드러움 (%)</value>
+  </data>
+  <data name="Bloom_SoftKnee_Description" xml:space="preserve">
+    <value>밝기 임계값 부근을 부드럽게 합니다. 0%는 선명한 경계이며, 100%는 밝기 0부터 임계값의 두 배까지 점진적으로 전환합니다.</value>
+  </data>
+  <data name="Bloom_Radius_Description" xml:space="preserve">
+    <value>컴포지션 단위의 발광 반경입니다.</value>
+  </data>
+  <data name="Bloom_Threshold_Description" xml:space="preserve">
+    <value>발광할 부분을 선택하는 선형 밝기의 기준입니다. 1은 기준 흰색입니다.</value>
+  </data>
+  <data name="Bloom_Intensity_Description" xml:space="preserve">
+    <value>발광 강도 배율입니다. 0은 비활성화, 1은 기본 강도입니다.</value>
+  </data>
   <data name="Bloom_Intensity" xml:space="preserve">
     <value>강도</value>
   </data>

@@ -1585,6 +1585,21 @@
   <data name="Bloom_Threshold" xml:space="preserve">
     <value>しきい値</value>
   </data>
+  <data name="Bloom_SoftKnee" xml:space="preserve">
+    <value>滑らかさ (%)</value>
+  </data>
+  <data name="Bloom_SoftKnee_Description" xml:space="preserve">
+    <value>明るさのしきい値付近を滑らかにします。0%は従来の境界、100%は明るさ0からしきい値の2倍まで徐々に変化します。</value>
+  </data>
+  <data name="Bloom_Radius_Description" xml:space="preserve">
+    <value>発光の広がりをコンポジション上の半径で指定します。</value>
+  </data>
+  <data name="Bloom_Threshold_Description" xml:space="preserve">
+    <value>発光させる部分を選ぶリニア光の明るさの基準です。1が基準の白です。</value>
+  </data>
+  <data name="Bloom_Intensity_Description" xml:space="preserve">
+    <value>発光の強さの倍率です。0で無効、1が標準の強さです。</value>
+  </data>
   <data name="Bloom_Intensity" xml:space="preserve">
     <value>強度</value>
   </data>

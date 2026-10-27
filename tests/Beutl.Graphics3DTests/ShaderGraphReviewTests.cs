@@ -69,7 +69,13 @@ public sealed class ShaderGraphReviewTests
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var effect = new Bloom { Radius = { Value = 64 }, Threshold = { Value = 0 }, PreserveAlpha = { Value = preserveAlpha } };
+            var effect = new Bloom
+            {
+                Radius = { Value = 64 },
+                Threshold = { Value = 1 },
+                SoftKnee = { Value = 100 },
+                PreserveAlpha = { Value = preserveAlpha },
+            };
             ShaderGraphDescription graph = ShaderGraphEffectTests.Record(effect);
             Rect source = new(3, -5, 9, 7);
             PixelRect output = PixelRect.FromRect(graph.TransformBounds(source), scale);

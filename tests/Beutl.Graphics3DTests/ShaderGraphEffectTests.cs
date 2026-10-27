@@ -173,7 +173,7 @@ public sealed class ShaderGraphEffectTests
 
     internal static FilterEffect Create(bool refraction) => refraction
         ? new WaveRefraction { Amount = { Value = 4 }, Wavelength = { Value = 12 }, Phase = { Value = 45 } }
-        : new Bloom { Radius = { Value = 4 }, Threshold = { Value = 0.05f } };
+        : new Bloom { Radius = { Value = 4 }, Threshold = { Value = 0.05f }, SoftKnee = { Value = 50 } };
 
     internal static ShaderGraphDescription Record(FilterEffect effect)
     {

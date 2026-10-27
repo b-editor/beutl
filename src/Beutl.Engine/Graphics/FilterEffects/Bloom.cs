@@ -14,17 +14,26 @@ public sealed partial class Bloom : FilterEffect
     public Bloom() => ScanProperties<Bloom>();
 
     /// <summary>The glow's sampling radius in composition units.</summary>
-    [Display(Name = nameof(GraphicsStrings.Radius), ResourceType = typeof(GraphicsStrings))]
+    [Display(Name = nameof(GraphicsStrings.Radius), Description = nameof(GraphicsStrings.Bloom_Radius_Description),
+        ResourceType = typeof(GraphicsStrings))]
     [Range(0, float.MaxValue)]
     public IExpressionProperty<float> Radius { get; } = Property.CreateAnimatable(12f);
 
-    /// <summary>The straight, linear luminance above which pixels contribute to the glow.</summary>
-    [Display(Name = nameof(GraphicsStrings.Bloom_Threshold), ResourceType = typeof(GraphicsStrings))]
-    [Range(0, float.MaxValue)]
+    /// <summary>The straight, linear luminance at the center of the highlight threshold.</summary>
+    [Display(Name = nameof(GraphicsStrings.Bloom_Threshold), Description = nameof(GraphicsStrings.Bloom_Threshold_Description),
+        ResourceType = typeof(GraphicsStrings))]
+    [Range(0, float.MaxValue), NumberStep(0.1, 0.01)]
     public IExpressionProperty<float> Threshold { get; } = Property.CreateAnimatable(0.5f);
 
-    [Display(Name = nameof(GraphicsStrings.Bloom_Intensity), ResourceType = typeof(GraphicsStrings))]
-    [Range(0, float.MaxValue)]
+    /// <summary>The transition's half-width as a percentage of Threshold. Zero preserves the hard threshold.</summary>
+    [Display(Name = nameof(GraphicsStrings.Bloom_SoftKnee), Description = nameof(GraphicsStrings.Bloom_SoftKnee_Description),
+        ResourceType = typeof(GraphicsStrings))]
+    [Range(0, 100)]
+    public IExpressionProperty<float> SoftKnee { get; } = Property.CreateAnimatable(0f);
+
+    [Display(Name = nameof(GraphicsStrings.Bloom_Intensity), Description = nameof(GraphicsStrings.Bloom_Intensity_Description),
+        ResourceType = typeof(GraphicsStrings))]
+    [Range(0, float.MaxValue), NumberStep(0.1, 0.01)]
     public IExpressionProperty<float> Intensity { get; } = Property.CreateAnimatable(1f);
 
     /// <summary>Masks the glow with the original alpha instead of extending the image silhouette.</summary>
@@ -35,29 +44,21 @@ public sealed partial class Bloom : FilterEffect
     {
         var r = (Resource)resource;
         if (!float.IsFinite(r.Radius) || r.Radius < 0 || !float.IsFinite(r.Threshold) || r.Threshold < 0
-            || !float.IsFinite(r.Intensity) || r.Intensity <= 0)
+            || !float.IsFinite(r.SoftKnee) || !float.IsFinite(r.Intensity) || r.Intensity <= 0)
             return;
 
-        context.ShaderGraph(new Vector4(r.Radius, r.Threshold, r.Intensity, r.PreserveAlpha ? 1 : 0),
+        context.ShaderGraph((r.Radius, r.Threshold, SoftKnee: Math.Clamp(r.SoftKnee, 0, 100) / 100,
+                r.Intensity, r.PreserveAlpha),
             static (graph, values) =>
             {
-                ShaderImage bright = graph.Image2D("bright", graph.Source, padding: values.X);
+                ShaderImage bright = graph.Image2D("bright", graph.Source, padding: values.Radius);
                 ShaderImage mask = graph.Image2D("mask", bright, TextureFormat.R16Float);
-                ShaderImage output = graph.Image2D("output", graph.Source, padding: values.W == 0 ? values.X : 0);
-                graph.Fullscreen("extract", s_extract, pass =>
-                {
-                    pass.SampledImage(0, graph.Source);
-                    pass.ImageParameters(1, graph.Source);
-                    pass.ImageParameters(2, bright);
-                    pass.PushConstants(values);
-                    pass.InputRegion(0, new(Matrix.Identity));
-                    pass.ColorAttachment(0, bright);
-                    pass.ColorAttachment(1, mask);
-                });
+                ShaderImage output = graph.Image2D("output", graph.Source, padding: values.PreserveAlpha ? 0 : values.Radius);
+                LightEffectPasses.ExtractHighlights(graph, graph.Source, bright, mask, values.Threshold, values.SoftKnee);
                 // Reduce in 2x steps so even a one-pixel highlight survives the filtering.
                 // The final blur radius stays at most 16 texels per unit of working scale.
                 ShaderImage reduced = bright;
-                for (int level = 1; values.X * reduced.ResolutionScale > 16; level++)
+                for (int level = 1; values.Radius * reduced.ResolutionScale > 16; level++)
                 {
                     ShaderImage source = reduced;
                     reduced = graph.Image2D($"downsample-{level}", source, resolutionScale: source.ResolutionScale / 2);
@@ -73,23 +74,9 @@ public sealed partial class Bloom : FilterEffect
                 }
                 ShaderImage horizontal = graph.Image2D("horizontal", reduced, resolutionScale: reduced.ResolutionScale);
                 ShaderImage glow = graph.Image2D("glow", reduced, resolutionScale: reduced.ResolutionScale);
-                Blur(graph, "blur-horizontal", reduced, horizontal, new(values.X, 1, 0, 0));
-                Blur(graph, "blur-vertical", horizontal, glow, new(values.X, 0, 1, 0));
-                graph.Fullscreen("composite", s_composite, pass =>
-                {
-                    pass.SampledImage(0, graph.Source);
-                    pass.SampledImage(1, glow);
-                    pass.SampledImage(2, mask);
-                    pass.ImageParameters(3, graph.Source);
-                    pass.ImageParameters(4, glow);
-                    pass.ImageParameters(5, output);
-                    pass.ImageParameters(6, mask);
-                    pass.PushConstants(values);
-                    pass.InputRegion(0, new(Matrix.Identity));
-                    pass.InputRegion(1, new(Matrix.Identity));
-                    pass.InputRegion(2, new(Matrix.Identity));
-                    pass.ColorAttachment(0, output);
-                });
+                Blur(graph, "blur-horizontal", reduced, horizontal, new(values.Radius, 1, 0, 0));
+                Blur(graph, "blur-vertical", horizontal, glow, new(values.Radius, 0, 1, 0));
+                LightEffectPasses.Composite(graph, graph.Source, glow, mask, output, values.Intensity, values.PreserveAlpha);
                 return graph.Output(output);
             });
     }
@@ -104,24 +91,6 @@ public sealed partial class Bloom : FilterEffect
             pass.InputRegion(0, new(Matrix.Identity, values.X));
             pass.ColorAttachment(0, output);
         });
-
-    private static readonly ShaderProgram s_extract = ShaderProgram.Fullscreen(new ShaderSource("""
-        #version 450
-        layout(binding = 0) uniform sampler2D image;
-        layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
-        layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
-        layout(push_constant) uniform Values { vec4 value; } pc;
-        layout(location = 0) out vec4 bright;
-        layout(location = 1) out float mask;
-        void main() {
-            vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
-            vec4 color = texture(image, (position - src.raster.xy) / src.raster.zw);
-            float luminance = color.a > 0 ? dot(color.rgb / color.a, vec3(0.2126, 0.7152, 0.0722)) : 0;
-            float weight = luminance > 0 ? max(luminance - pc.value.y, 0) / luminance : 0;
-            bright = color * weight;
-            mask = color.a;
-        }
-        """));
 
     // The separable [1, 3, 3, 1] / 8 filter preserves small highlights and their center
     // as the grid gets coarser. Four bilinear samples cover its 4x4 source footprint.
@@ -162,31 +131,6 @@ public sealed partial class Bloom : FilterEffect
                 total += weight;
             }
             color /= total;
-        }
-        """));
-
-    private static readonly ShaderProgram s_composite = ShaderProgram.Fullscreen(new ShaderSource("""
-        #version 450
-        layout(binding = 0) uniform sampler2D image;
-        layout(binding = 1) uniform sampler2D blurred;
-        layout(binding = 2) uniform sampler2D mask;
-        layout(binding = 3, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
-        layout(binding = 4, std140) uniform Glow { vec4 logical; vec4 raster; vec4 size; } glow;
-        layout(binding = 5, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
-        layout(binding = 6, std140) uniform Mask { vec4 logical; vec4 raster; vec4 size; } maskFrame;
-        layout(push_constant) uniform Values { vec4 value; } pc;
-        layout(location = 0) out vec4 color;
-        void main() {
-            vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
-            vec4 original = texture(image, (position - src.raster.xy) / src.raster.zw);
-            vec2 uv = (position - glow.raster.xy) / glow.raster.zw;
-            vec4 light = texture(blurred, uv) * pc.value.z;
-            if (pc.value.w != 0) {
-                vec2 maskUv = (position - maskFrame.raster.xy) / maskFrame.raster.zw;
-                color = vec4(original.rgb + light.rgb * texture(mask, maskUv).r, original.a);
-            } else {
-                color = vec4(original.rgb + light.rgb, original.a + clamp(light.a, 0, 1) * (1 - original.a));
-            }
         }
         """));
 }

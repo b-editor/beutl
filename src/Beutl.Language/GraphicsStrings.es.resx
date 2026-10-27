@@ -1589,6 +1589,21 @@
   <data name="Bloom_Threshold" xml:space="preserve">
     <value>Umbral</value>
   </data>
+  <data name="Bloom_SoftKnee" xml:space="preserve">
+    <value>Suavidad (%)</value>
+  </data>
+  <data name="Bloom_SoftKnee_Description" xml:space="preserve">
+    <value>Suaviza el umbral de brillo. 0% mantiene un corte definido; 100% extiende la transición desde cero hasta el doble del umbral.</value>
+  </data>
+  <data name="Bloom_Radius_Description" xml:space="preserve">
+    <value>Radio del resplandor en unidades de composición.</value>
+  </data>
+  <data name="Bloom_Threshold_Description" xml:space="preserve">
+    <value>Brillo usado para seleccionar las zonas luminosas en luz lineal. 1 es el blanco de referencia.</value>
+  </data>
+  <data name="Bloom_Intensity_Description" xml:space="preserve">
+    <value>Multiplicador de intensidad del resplandor. 0 lo desactiva; 1 es la intensidad normal.</value>
+  </data>
   <data name="Bloom_Intensity" xml:space="preserve">
     <value>Intensidad</value>
   </data>
