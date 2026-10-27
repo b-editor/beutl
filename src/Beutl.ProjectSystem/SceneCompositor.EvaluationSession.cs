@@ -12,13 +12,16 @@ public sealed partial class SceneCompositor
         private readonly SceneCompositor _compositor;
         private readonly PooledList<Element> _elements;
 
-        public SceneEvaluationSession(Scene scene, CompositionTarget target)
-            : this(new SceneCompositor(scene) { DisableResourceShare = true }, new PooledList<Element>(), target)
+        public SceneEvaluationSession(Scene scene, CompositionTarget target, bool forceOriginalSource,
+            EvaluationServices services)
+            : this(new SceneCompositor(scene) { DisableResourceShare = true, ForceOriginalSource = forceOriginalSource },
+                new PooledList<Element>(), target, services)
         {
         }
 
-        private SceneEvaluationSession(SceneCompositor compositor, PooledList<Element> elements, CompositionTarget target)
-            : base(new CompositorContext(MediaTime.Zero, compositor, [], elements, target))
+        private SceneEvaluationSession(SceneCompositor compositor, PooledList<Element> elements, CompositionTarget target,
+            EvaluationServices services)
+            : base(new CompositorContext(MediaTime.Zero, compositor, [], elements, target, services))
         {
             _compositor = compositor;
             _elements = elements;

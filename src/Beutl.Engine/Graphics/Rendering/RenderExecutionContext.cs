@@ -67,13 +67,13 @@ public sealed class RenderExecutionContext : IDisposable
     }
 
     /// <summary>Renders a time-sampled input using this request's allocation, density and cache policy.</summary>
-    /// <remarks>Domain is in the drawable's parent coordinates; it must cover all input needed by the caller.</remarks>
+    /// <remarks>Domain must be finite and non-empty, in the drawable's parent coordinates, and cover all input needed by the caller.</remarks>
     public RenderTargetImageLease RenderDependency(FilterEffectInputSample sample, Size availableSize, Rect domain)
     {
         ArgumentNullException.ThrowIfNull(sample);
         VerifyAccess();
         using var root = sample.CreateRenderNode(availableSize, WorkingScale);
-        return RenderDependency(root, sample, domain);
+        return RenderDependency(root, (sample, availableSize), domain);
     }
 
     /// <summary>Samples the preceding composition target without a CPU pixel readback.</summary>

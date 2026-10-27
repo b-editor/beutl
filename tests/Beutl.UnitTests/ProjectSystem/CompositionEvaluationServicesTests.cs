@@ -1,10 +1,17 @@
 ﻿using Beutl.Animation;
+using Beutl.Audio;
+using Beutl.Audio.Graph;
 using Beutl.Composition;
+using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics;
 
 namespace Beutl.UnitTests.ProjectSystem;
 
@@ -89,6 +96,105 @@ public class CompositionEvaluationServicesTests
     }
 
     [Test]
+    public void SampledLayerQueriesShareCycleDetectionAndReleaseItAfterFailure()
+    {
+        (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+        capture.FilterEffect.Value = new SampleInputEffect { Offsets = [1] };
+        int queries = 0;
+        capture.OnEvaluate = context =>
+        {
+            if (context.Time <= MediaTime.Zero) return;
+            // Bound the regression on the broken implementation instead of exhausting the stack.
+            if (++queries > 4) throw new InvalidOperationException("cycle guard was reset");
+            context.EvaluationServices!.ReadLayer(0, MediaTime.Zero, resources => resources.Count);
+        };
+        using var compositor = new SceneCompositor(scene);
+        Assert.That(() => compositor.EvaluateGraphics(MediaTime.Zero),
+            Throws.InvalidOperationException.With.Message.Contains("Circular composition query"));
+        Assert.That(queries, Is.EqualTo(2));
+        capture.OnEvaluate = null;
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        using (capture.Services!.EvaluateLayer(0, MediaTime.Zero)) { }
+
+        var target = new RectShape();
+        Add(scene, target, 1);
+        var queried = new List<EngineObject.Resource>();
+        capture.OnEvaluate = context =>
+        {
+            if (context.Time <= MediaTime.Zero) return;
+            using var layer = context.EvaluationServices!.EvaluateLayer(1, MediaTime.Zero);
+            queried.Add(layer.Resources.Single());
+        };
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        using var independent = new SceneCompositor(scene) { ForceOriginalSource = true };
+        independent.EvaluateGraphics(MediaTime.Zero);
+        Assert.That(queried.Count, Is.EqualTo(2));
+        Assert.That(queried[0], Is.Not.SameAs(queried[1]));
+        Assert.That(queried.All(resource => resource.IsDisposed), Is.True);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RecursiveAudioQueriesShareThePathAndCanRetry(bool throughLayer)
+    {
+        (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+        var sound = new EvaluationCaptureSound();
+        Add(scene, sound, 1);
+        using var compositor = new SceneCompositor(scene);
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        var services = capture.Services!;
+        MediaTime duration = MediaTime.FromSeconds(0.01);
+        int audioEvaluations = 0;
+        sound.OnEvaluate = context =>
+        {
+            if (++audioEvaluations > 4) throw new InvalidOperationException("audio cycle guard was reset");
+            if (throughLayer)
+                context.EvaluationServices!.ReadLayer(0, MediaTime.Zero, resources => resources.Count);
+            else
+                using (context.EvaluationServices!.ReadAudio(MediaTime.Zero, duration)) { }
+        };
+        if (throughLayer)
+            capture.OnEvaluate = context =>
+            {
+                using var audio = context.EvaluationServices!.ReadAudio(MediaTime.Zero, duration);
+            };
+        Assert.That(() => services.ReadAudio(MediaTime.Zero, duration),
+            Throws.InvalidOperationException.With.Message.Contains("Circular composition query"));
+        Assert.That(audioEvaluations, Is.EqualTo(1));
+        sound.OnEvaluate = null;
+        capture.OnEvaluate = null;
+        using var recovered = services.ReadAudio(MediaTime.Zero, duration);
+        Assert.That(recovered, Is.Not.Null);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    [NonParallelizable]
+    public void SampledAudioQueriesPreserveTheHostSourcePolicy(bool forceOriginalSource)
+    {
+        PreviewSourceMode previous = GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = PreviewSourceMode.PreferProxy;
+            (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+            var sound = new EvaluationCaptureSound();
+            Add(scene, sound, 1);
+            capture.FilterEffect.Value = new SampleInputEffect { Offsets = [1] };
+            capture.OnEvaluate = context =>
+            {
+                if (context.Time <= MediaTime.Zero) return;
+                using var audio = context.EvaluationServices!.ReadAudio(MediaTime.Zero, MediaTime.FromSeconds(0.01));
+                Assert.That(audio, Is.Not.Null);
+            };
+            using var compositor = new SceneCompositor(scene) { ForceOriginalSource = forceOriginalSource };
+            compositor.EvaluateGraphics(MediaTime.Zero);
+            Assert.That(sound.PreferProxy, Is.EqualTo(!forceOriginalSource));
+            Assert.That(capture.PreferProxy, Is.EqualTo(!forceOriginalSource));
+        }
+        finally { GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value = previous; }
+    }
+
+    [Test]
     public void DisposedLayerQueriesReleaseObjectSubscriptionsIncludingFailedEvaluation()
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
@@ -167,6 +273,24 @@ internal sealed partial class EvaluationCaptureDrawable : Drawable
         partial void PostReconcile(EvaluationCaptureDrawable obj, CompositionContext context)
         {
             obj.Services = context.EvaluationServices;
+            obj.PreferProxy = context.PreferProxy;
+            obj.OnEvaluate?.Invoke(context);
+        }
+    }
+}
+
+internal sealed partial class EvaluationCaptureSound : Sound
+{
+    public EvaluationCaptureSound() => ScanProperties<EvaluationCaptureSound>();
+    public bool? PreferProxy { get; private set; }
+    public Action<CompositionContext>? OnEvaluate { get; set; }
+    public override void Compose(AudioContext context, Sound.Resource resource) { }
+
+    public partial class Resource
+    {
+        public override SoundSource.Resource? GetSoundSource() => null;
+        partial void PostReconcile(EvaluationCaptureSound obj, CompositionContext context)
+        {
             obj.PreferProxy = context.PreferProxy;
             obj.OnEvaluate?.Invoke(context);
         }

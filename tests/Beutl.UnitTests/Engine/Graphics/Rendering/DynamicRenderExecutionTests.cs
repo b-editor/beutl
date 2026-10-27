@@ -389,7 +389,7 @@ public sealed class DynamicRenderExecutionTests
     }
 
     [Test]
-    public void EvaluatedInputsUseTheCurrentDependencyAllocatorAndCanShareACompletedSample()
+    public void EvaluatedInputsCacheByLayoutAndShareTheCurrentDependencyAllocator()
     {
         int calls = 0;
         var shape = FilterEffectInputTests.Rectangle();
@@ -408,11 +408,16 @@ public sealed class DynamicRenderExecutionTests
             using var pixels = SKBitmap.FromImage(first.Image);
             Assert.That(pixels.GetPixel(48, 32).Alpha, Is.EqualTo(255));
             Assert.That(second.Image.Width, Is.EqualTo(96));
+            using var resized = execution.ExecutionContext.RenderDependency(sample, new Size(64, 64), domain);
+            using var resizedPixels = SKBitmap.FromImage(resized.Image);
+            Assert.That(resizedPixels.GetPixel(32, 32).Alpha, Is.EqualTo(255));
+            Assert.That(resizedPixels.GetPixel(48, 32).Alpha, Is.Zero,
+                "A different layout must not reuse pixels aligned to the first canvas.");
         }));
         var factory = new CountingFactory();
         using var renderer = Renderer(root, factory);
         using var output = renderer.Rasterize();
-        Assert.That(calls, Is.EqualTo(1));
+        Assert.That(calls, Is.EqualTo(2));
         Assert.That(factory.Sizes, Does.Contain(new PixelSize(96, 64)));
     }
 

@@ -37,6 +37,68 @@ public class IndividualContinuationTests
         Assert.That(calls, Is.EqualTo(6));
     }
 
+    [TestCase(0, 1)]
+    [TestCase(2, 1)]
+    [TestCase(2, 3)]
+    public void PresentedContinuationControlsTheFollowingEffect(int repetitions, int presenterDepth)
+    {
+        int calls = 0;
+        FilterEffect controller = new RepeatingContinuationEffect(repetitions);
+        for (int i = 0; i < presenterDepth; i++)
+            controller = new FilterEffectPresenter { Target = { Value = controller } };
+        var group = new FilterEffectGroup();
+        group.Children.Add(controller);
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, _) => calls++)));
+        var shape = new Beutl.Graphics.Shapes.RectShape { FilterEffect = { Value = group } };
+        using var resource = shape.ToResource(CompositionContext.Default);
+        using var root = new ContainerRenderNode();
+        using (var context = new GraphicsContext2D(root, new Size(32, 24)))
+            context.DrawDrawable(resource);
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            Purpose = RenderRequestPurpose.Frame,
+            TargetDomain = new Rect(0, 0, 32, 24),
+        }, new CpuRenderTargetFactory());
+        using var output = renderer.Rasterize();
+        Assert.That(calls, Is.EqualTo(repetitions));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void TargetAccessInspectionReleasesOnlyItsOwnResources(bool fail)
+    {
+        var retained = new DisposalProbe();
+        var inspected = new DisposalProbe();
+        using var context = new FilterEffectContext(new Rect(0, 0, 8, 8));
+        context.Own(retained);
+        context.CustomEffect(0, static (_, _) => { }, CustomFilterEffectOptions.ControlsContinuation);
+        var effect = new EffectItemSuffixCallbackFilterEffect((child, _) =>
+        {
+            child.Own(inspected);
+            if (fail) throw new InvalidOperationException("inspection failed");
+            child.CustomEffect(0, static (_, _) => { });
+        });
+        using var resource = effect.ToResource(CompositionContext.Default);
+        if (fail)
+            Assert.That(() => context.Apply(resource), Throws.InvalidOperationException.With.Message.EqualTo("inspection failed"));
+        else
+            context.Apply(resource);
+        Assert.That(inspected.Disposals, Is.EqualTo(1));
+        Assert.That(retained.Disposals, Is.Zero);
+        Assert.That(context.CountItems(), Is.EqualTo(fail ? 1 : 2));
+        context.Dispose();
+        Assert.That(retained.Disposals, Is.EqualTo(1));
+        Assert.That(inspected.Disposals, Is.EqualTo(1));
+    }
+
+    private sealed class DisposalProbe : IDisposable
+    {
+        public int Disposals { get; private set; }
+        public void Dispose() => Disposals++;
+    }
+
     [TestCase(false)]
     [TestCase(true)]
     public void DeferredTargetEffectRetainsAccessThroughNestedGroups(bool nested)
@@ -75,12 +137,13 @@ public class IndividualContinuationTests
         Assert.That(calls, Is.EqualTo(2));
     }
 
-    [TestCase(false, false, true)]
-    [TestCase(true, false, true)]
-    [TestCase(false, true, false)]
-    [TestCase(true, true, false)]
-    [TestCase(true, true, true)]
-    public void ContinuationRetainsRequirementsAcrossEvaluationTimes(bool nested, bool accessesTarget, bool changesEnabled)
+    [TestCase(0, false, true)]
+    [TestCase(1, false, true)]
+    [TestCase(0, true, false)]
+    [TestCase(1, true, false)]
+    [TestCase(1, true, true)]
+    [TestCase(2, true, true)]
+    public void ContinuationRetainsRequirementsAcrossEvaluationTimes(int wrapper, bool accessesTarget, bool changesEnabled)
     {
         var clock = new CompositionContext(MediaTime.Zero);
         var seen = new List<int>();
@@ -102,7 +165,9 @@ public class IndividualContinuationTests
                     execution.Continuation!.ApplyTo(execution.Targets,
                         new FilterEffectInstance(second, 3, MediaTime.FromSeconds(second), MediaTime.Zero));
             }, CustomFilterEffectOptions.ControlsContinuation)));
-        if (nested)
+        if (wrapper == 2)
+            group.Children.Add(new FilterEffectPresenter { Target = { Value = tail } });
+        else if (wrapper == 1)
         {
             var inner = new FilterEffectGroup();
             inner.Children.Add(tail);

@@ -111,8 +111,9 @@ normal render measurement, including content outside the current drawable's foot
 
 For a custom execution callback, `RenderExecutionContext.RenderDependency(sample, availableSize, domain)`
 renders the same sample through the current request's allocator, working density and dependency cache.
-Choose a parent-coordinate domain covering the required input and dispose the returned image lease.
-`sample.CreateRenderNode` also exposes the recording without creating another renderer.
+Choose a finite, non-empty parent-coordinate domain covering the required input, and dispose the returned image lease.
+`sample.CreateRenderNode` also exposes the recording without creating another renderer. The caller owns
+the returned node and must dispose it before disposing the sample.
 
 The input context owns its samples until the source's next reconciliation or disposal; a sample may be
 disposed earlier. Never retain a sample or its resource across that boundary. Host integrations override

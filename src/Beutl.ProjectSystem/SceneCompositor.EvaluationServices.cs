@@ -9,11 +9,16 @@ namespace Beutl;
 
 public sealed partial class SceneCompositor
 {
-    private sealed class EvaluationServices(SceneCompositor owner, CompositionContext conditions) : ICompositionEvaluationServices
+    private sealed class EvaluationServices(SceneCompositor owner, CompositionContext conditions,
+        HashSet<(int? Layer, TimeRange Range)>? queryPath = null) : ICompositionEvaluationServices
     {
-        // Nested queries share this frame's services, while separate preview/export evaluations are isolated.
-        private readonly Dictionary<(int Layer, MediaTime Time), IReadOnlyList<EngineObject.Resource>?> _queries = [];
+        // Samples own their resources but share the active query path with their originating evaluation.
+        private readonly HashSet<(int? Layer, TimeRange Range)> _queryPath = queryPath ?? [];
+        private readonly Dictionary<(int Layer, MediaTime Time), IReadOnlyList<EngineObject.Resource>> _queries = [];
         private const int MaxQueryDepth = 32;
+
+        public EvaluationServices Fork(SceneCompositor compositor, CompositionContext context)
+            => new(compositor, context, _queryPath);
 
         internal CompositionFrame? Frame { get; set; }
 
@@ -46,11 +51,8 @@ public sealed partial class SceneCompositor
         {
             conditions.CancellationToken.ThrowIfCancellationRequested();
             var key = (zIndex, time);
-            if (_queries.ContainsKey(key))
-                throw new InvalidOperationException($"Circular composition query at layer {zIndex}, time {time}.");
-            if (_queries.Count >= MaxQueryDepth)
-                throw new InvalidOperationException($"Composition queries exceeded {MaxQueryDepth} nested layers.");
-            _queries.Add(key, null);
+            var range = new TimeRange(time, MediaTime.Zero);
+            EnterQuery(zIndex, range);
             var compositor = new SceneCompositor(owner.Scene)
             {
                 DisableResourceShare = true,
@@ -59,7 +61,11 @@ public sealed partial class SceneCompositor
             void Release()
             {
                 try { compositor.Dispose(); }
-                finally { _queries.Remove(key); }
+                finally
+                {
+                    _queries.Remove(key);
+                    _queryPath.Remove((zIndex, range));
+                }
             }
             try
             {
@@ -77,7 +83,7 @@ public sealed partial class SceneCompositor
         public T ReadLayer<T>(int zIndex, MediaTime time, Func<IReadOnlyList<EngineObject.Resource>, T> read)
         {
             ArgumentNullException.ThrowIfNull(read);
-            if (_queries.TryGetValue((zIndex, time), out var resources) && resources is not null)
+            if (_queries.TryGetValue((zIndex, time), out var resources))
                 return read(resources);
             using var layer = EvaluateLayer(zIndex, time);
             return read(layer.Resources);
@@ -85,10 +91,30 @@ public sealed partial class SceneCompositor
 
         public AudioBuffer? ReadAudio(MediaTime start, MediaTime duration)
         {
+            conditions.CancellationToken.ThrowIfCancellationRequested();
             if (duration <= MediaTime.Zero) return null;
-            using var composer = new SceneComposer(owner.Scene, disableResourceShare: true,
-                forceOriginalSource: owner.ForceOriginalSource);
-            return composer.Compose(new TimeRange(start, duration));
+            var range = new TimeRange(start, duration);
+            EnterQuery(null, range);
+            try
+            {
+                using var composer = new SceneComposer(owner.Scene, disableResourceShare: true,
+                    forceOriginalSource: owner.ForceOriginalSource);
+                CompositionFrame frame = composer.Compositor.EvaluateAudio(range, conditions);
+                return composer.Compose(range, frame);
+            }
+            finally { _queryPath.Remove((null, range)); }
+        }
+
+        private void EnterQuery(int? layer, TimeRange range)
+        {
+            if (_queryPath.Contains((layer, range)))
+            {
+                string target = layer.HasValue ? $"layer {layer.Value}, time {range.Start}" : $"audio range {range}";
+                throw new InvalidOperationException($"Circular composition query at {target}.");
+            }
+            if (_queryPath.Count >= MaxQueryDepth)
+                throw new InvalidOperationException($"Composition queries exceeded {MaxQueryDepth} nested queries.");
+            _queryPath.Add((layer, range));
         }
     }
 }

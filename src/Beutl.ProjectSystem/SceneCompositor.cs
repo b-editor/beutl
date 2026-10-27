@@ -81,7 +81,7 @@ public sealed partial class SceneCompositor : ICompositor
             SceneCompositor compositor,
             IList<EngineObject.Resource> flow,
             IList<Element> currentElements,
-            CompositionTarget target) : base(time)
+            CompositionTarget target, EvaluationServices? services = null) : base(time)
         {
             _compositor = compositor;
             CurrentElements = currentElements;
@@ -93,11 +93,23 @@ public sealed partial class SceneCompositor : ICompositor
             PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
             TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1));
             FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            EvaluationServices = new EvaluationServices(compositor, this);
+            EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this);
         }
 
         public override CompositionEvaluationSession CreateEvaluationSession()
-            => new SceneEvaluationSession(_compositor.Scene, Target);
+            => new SceneEvaluationSession(_compositor.Scene, Target, _compositor.ForceOriginalSource,
+                (EvaluationServices)EvaluationServices!);
+
+        public void InheritConditions(CompositionContext? conditions)
+        {
+            if (conditions is null) return;
+            PreferProxy = conditions.PreferProxy;
+            PreferredProxyPreset = conditions.PreferredProxyPreset;
+            DisableResourceShare |= conditions.DisableResourceShare;
+            InputBoundaries = conditions.InputBoundaries;
+            FrameRate = conditions.FrameRate;
+            CancellationToken = conditions.CancellationToken;
+        }
 
         public IList<Element> CurrentElements { get; set; }
 
@@ -153,14 +165,9 @@ public sealed partial class SceneCompositor : ICompositor
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
+        ctx.InheritConditions(conditions);
         ctx.CancellationToken = cancellationToken;
         if (frameRate.HasValue) ctx.FrameRate = frameRate.Value;
-        if (conditions != null)
-        {
-            ctx.PreferProxy = conditions.PreferProxy;
-            ctx.PreferredProxyPreset = conditions.PreferredProxyPreset;
-            ctx.DisableResourceShare = conditions.DisableResourceShare || DisableResourceShare;
-        }
         if (services is not null)
             ctx.EvaluationServices = services;
 
@@ -189,8 +196,11 @@ public sealed partial class SceneCompositor : ICompositor
         return frame;
     }
 
-    public CompositionFrame EvaluateAudio(TimeRange timeRange)
+    public CompositionFrame EvaluateAudio(TimeRange timeRange) => EvaluateAudio(timeRange, null);
+
+    internal CompositionFrame EvaluateAudio(TimeRange timeRange, CompositionContext? conditions)
     {
+        conditions?.CancellationToken.ThrowIfCancellationRequested();
         DisposeDetachedResources();
         using var eligibleElements = new PooledList<Element>();
         LayerSnapshot snapshot = GetLayerSnapshot();
@@ -222,7 +232,9 @@ public sealed partial class SceneCompositor : ICompositor
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
-        var ctx = new CompositorContext(timeRange.Start, this, flow, currentElements, CompositionTarget.Audio);
+        var ctx = new CompositorContext(timeRange.Start, this, flow, currentElements, CompositionTarget.Audio,
+            conditions?.EvaluationServices as EvaluationServices);
+        ctx.InheritConditions(conditions);
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)

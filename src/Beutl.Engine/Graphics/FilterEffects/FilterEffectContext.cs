@@ -382,10 +382,15 @@ public sealed partial class FilterEffectContext : IDisposable
                 {
                     // Preserve requirements of the current recording as well as those declared for
                     // other times. The operations themselves use the continuation's clock and bounds.
-                    using var child = CreateChildContext();
-                    child.ApplyTransactional(resource.RequireOriginal(), resource);
-                    foreach (IFEItem_Custom item in child.GetOrderedItems().OfType<IFEItem_Custom>())
-                        options |= item.Options & CustomFilterEffectOptions.AccessesTarget;
+                    int resourceCount = _resourceState.Count;
+                    try
+                    {
+                        using var child = CreateChildContext();
+                        child.ApplyTransactional(resource.RequireOriginal(), resource);
+                        foreach (IFEItem_Custom item in child.GetOrderedItems().OfType<IFEItem_Custom>())
+                            options |= item.Options & CustomFilterEffectOptions.AccessesTarget;
+                    }
+                    finally { _resourceState.RollbackTo(resourceCount); }
                 }
                 CustomEffect(resource, ApplyContinuationResource, options);
             });
