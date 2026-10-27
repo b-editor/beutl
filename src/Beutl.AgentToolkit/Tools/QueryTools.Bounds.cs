@@ -89,7 +89,7 @@ public sealed partial class QueryTools
             time.ToTimeSpan().ToString("c"),
             timeFiltered,
             "Scene pixel coordinates. TransformedBounds are authoritative axis-aligned scene-space RenderNodeMeasurement.QueryBounds from contributing query fragments. LocalBounds are normalized from the query extents for size only and are not Drawable.MeasureCore results.",
-            "Default Drawable AlignmentX/AlignmentY is Center, so a pure TranslateTransform(x, y) moves the object relative to the alignment-resolved position. For a centered object in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeRenderer.Measure().QueryBounds rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
+            "Default Drawable AlignmentX/AlignmentY is Center. Choose Left/Center/Right and Top/Center/Bottom independently to suit the object, layout, and intended motion, and check for unintended anchor shifts when animating alignment or drawable size. A pure TranslateTransform(x, y) offsets the chosen alignment-resolved position; for a normal centered drawable in a 1920x1080 scene, TranslateTransform(0, 0) centers it at (960, 540). Bounds are measured through DrawableRenderNode and RenderNodeRenderer.Measure().QueryBounds rather than per-type Drawable.Measure/FilterEffect.TransformBounds estimates.",
             measurements);
     }
 

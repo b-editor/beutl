@@ -173,28 +173,30 @@ public sealed partial class SchemaGenerator
     private static DeclarativeExample CreateCameraRigPushInExample()
     {
         DrawableGroup rig = CreateCameraRigGroup("[role:camera-rig] Shot 1 camera");
-        rig.Children.Add(new RectShape
+        var plate = new RectShape
         {
             Name = { Value = "[role:text-backing] Shot 1 title plate" },
             Width = { Value = 760 },
             Height = { Value = 240 },
             Fill = { Value = CreateLinearGradient("#ff1c2a4a", "#ff2f4a7a") }
-        });
-        rig.Children.Add(new TextBlock
+        };
+        var title = new TextBlock
         {
             Name = { Value = "Shot 1 hero title" },
             Text = { Value = "Camera move" },
             Size = { Value = 96 },
             Fill = { Value = new SolidColorBrush(Colors.White) }
-        });
+        };
 
-        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, s_exampleElementLength, rig);
+        Element element = CreateElement("[role:camera-rig] Shot 1 rig", zIndex: 10, s_exampleElementLength, plate);
+        element.AddObject(title);
+        element.AddObject(rig);
         JsonObject elementJson = SerializeWithoutIds(element);
         AddCameraRigPushInAnimations(GetFlowGroupJson(elementJson));
 
         return new DeclarativeExample(
             "insert-camera-rig-push-in",
-            "Camera (viewpoint) move for a 2D shot, nested variant: Beutl has no scene camera, so wrap the shot's content in a [role:camera-rig] DrawableGroup and animate the rig's TransformGroup. This example is a slow eased push-in (ScaleTransform.Scale 100 -> 106; Scale is percent) with a slight pan (TranslateTransform.X; camera-left = rig-right, camera-in = scale-up). Keep the PortalObject entry that precedes the DrawableGroup in Element.Objects — a flow operator without it is rejected; its Count stays 0 here, pulling no timeline rows, so with the portal as the Element's first object the group transforms only its nested Children. Nested children have no Element timing of their own, so when grouped content needs per-item Start/Length or should stay visible as timeline layers, prefer the portal variant in insert-camera-rig-portal. Replace the placeholder children with the shot's drawables, keep locked background plates outside the rig in their own Elements, use a fast large translate for a whip-pan cut bridge, and animate per-depth-band rigs at different translate amplitudes for parallax.",
+            "Camera move for a 2D shot using same-Element flow. Element.Objects contains the title plate, title, PortalObject(Count=0, Clear=false), then the [role:camera-rig] DrawableGroup with empty Children. The group consumes the earlier drawables; author new input in Element.Objects rather than in the group's Children. Keep the portal immediately before the group. Count=0 pulls no timeline rows and Clear=false retains the earlier objects. Animate the rig's TransformGroup for a slow eased push-in (ScaleTransform.Scale 100 -> 106, in percent) and slight pan (TranslateTransform.X; camera-left = rig-right). All inputs share the Element's Start/Length; use insert-camera-rig-portal when they need independent timing or timeline rows. Keep locked background plates outside the rig in their own Elements.",
             new JsonObject
             {
                 ["Elements"] = new JsonArray(elementJson)
@@ -236,7 +238,7 @@ public sealed partial class SchemaGenerator
 
         return new DeclarativeExample(
             "insert-camera-rig-portal",
-            "Camera (viewpoint) move for a 2D shot, timeline-flow variant — preferred when grouped content needs its own Element timing or should stay visible as timeline layers. The shot's content stays as ordinary one-object Elements on contiguous ZIndex rows (11 and 12 here), and the rig Element directly below them (ZIndex 10) holds a PortalObject with Count=2 followed by a DrawableGroup with empty Children. The portal pulls every active Element in the inclusive ZIndex span rigZIndex+1..rigZIndex+Count (a span of rows, not an element count) out of normal composition into the flow and the DrawableGroup consumes them as children, so animating the rig's TransformGroup (eased push-in + pan here) moves the whole shot while each content Element keeps its own Start/Length. Keep the grouped layers ZIndex-contiguous directly above the rig and time-aligned with it — pulled Elements render ungrouped whenever the rig Element is not active. The same portal+flow grouping works for the other IFlowOperators: DrawableDecorator, SoundGroup (audio), and Scene3D.",
+            "Camera move for a 2D shot using timeline flow, preferred when inputs need independent timing or timeline rows. The rig Element at ZIndex 10 holds PortalObject(Count=2) followed by a DrawableGroup with empty Children. Put the source drawables in Elements on the two rows below it (ZIndex 11 and 12), rather than in the group's Children. The portal pulls active Elements in the inclusive span rigZIndex+1..rigZIndex+Count out of normal composition, and the group consumes their output while each source keeps its own Start/Length. Count is a layer span, not an object count. Keep the rig active while its sources need grouping; sources render ungrouped outside that time. The same input arrangement applies to other IFlowOperators such as DrawableDecorator, SoundGroup, DrawableObject3D, and Scene3D, using their compatible input types. See insert-camera-rig-push-in for same-Element inputs.",
             new JsonObject
             {
                 ["Elements"] = new JsonArray(
