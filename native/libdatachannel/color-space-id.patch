@@ -1,0 +1,11 @@
+--- a/src/rtppacketizer.cpp
++++ b/src/rtppacketizer.cpp
+@@ -48,7 +48,7 @@
+ 	if ((setVideoRotation && rtpConfig->videoOrientationId > 14) ||
+ 	    (rtpConfig->mid.has_value() && rtpConfig->midId > 14) ||
+ 	    (rtpConfig->rid.has_value() && rtpConfig->ridId > 14) ||
+-	    rtpConfig->playoutDelayId > 14) {
++	    rtpConfig->playoutDelayId > 14 || rtpConfig->colorSpaceId > 14) {
+ 		twoByteHeader = true;
+ 	}
+ 	size_t headerSize = twoByteHeader ? 2 : 1;

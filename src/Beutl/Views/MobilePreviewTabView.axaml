@@ -1,0 +1,141 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.ViewModels"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             x:Class="Beutl.Views.MobilePreviewTabView"
+             x:DataType="vm:MobilePreviewTabViewModel"
+             x:CompileBindings="True">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="Button.icon">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="8" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Theme" Value="{StaticResource TransparentButton}" />
+        </Style>
+    </UserControl.Styles>
+    <Grid>
+        <ScrollViewer x:Name="StartPage" IsVisible="{Binding !IsSharing.Value}"
+                      HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel MaxWidth="320" Margin="24" VerticalAlignment="Center" Spacing="24">
+                <Border Width="64" Height="64" HorizontalAlignment="Center" CornerRadius="20"
+                        Background="{DynamicResource SubtleFillColorSecondaryBrush}">
+                    <icons:FluentIcon Icon="Phone" FontSize="30" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                </Border>
+                <TextBlock Text="{x:Static lang:Strings.MobilePreviewDescription}" Classes="secondary" TextAlignment="Center" />
+                <Button x:Name="StartButton" Click="OnToggleClick" IsEnabled="{Binding CanToggle.Value}"
+                        HorizontalAlignment="Center" ToolTip.Tip="{x:Static lang:Strings.MobilePreviewInternetDescription}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Panel Width="16" Height="16" VerticalAlignment="Center">
+                            <icons:FluentIcon x:Name="StartIcon" Icon="Play" FontSize="16" IsVisible="{Binding !IsBusy.Value}" />
+                            <controls:ProgressRing x:Name="StartProgress" Width="16" Height="16" MinWidth="0" MinHeight="0"
+                                                   BorderThickness="2" IsIndeterminate="{Binding IsBusy.Value}"
+                                                   IsVisible="{Binding IsBusy.Value}" />
+                        </Panel>
+                        <TextBlock Text="{x:Static lang:Strings.Start}" />
+                    </StackPanel>
+                </Button>
+                <TextBlock Text="{Binding Status.Value}" Classes="secondary" TextAlignment="Center"
+                           IsVisible="{Binding Status.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid IsVisible="{Binding IsSharing.Value}" RowDefinitions="Auto,*">
+            <controls:ToolTabBar>
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Panel IsVisible="{Binding !ShowDetails.Value}">
+                        <Button x:Name="DetailsButton" Click="OnDetailsClick" Classes="icon"
+                                IsVisible="{Binding HasConnected.Value}" AutomationProperties.Name="{x:Static lang:Strings.Details}"
+                                ToolTip.Tip="{x:Static lang:Strings.Details}">
+                            <icons:FluentIcon Icon="ArrowLeft" FontSize="16" />
+                        </Button>
+                    </Panel>
+                    <TextBlock Grid.Column="1" Text="{x:Static lang:Strings.MobilePreviewConnectionInfo}"
+                               IsVisible="{Binding !ShowDetails.Value}" Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+                    <TextBlock Grid.Column="1" Text="{Binding ClientsText.Value}"
+                               IsVisible="{Binding ShowDetails.Value}" Theme="{StaticResource ToolTabBarTitleTextBlockTheme}" />
+                    <Button Grid.Column="2" x:Name="StopButton" Click="OnToggleClick" Content="{x:Static lang:Strings.Stop}"
+                            IsEnabled="{Binding CanToggle.Value}" Theme="{StaticResource ToolTabBarIconButtonTheme}" />
+                </Grid>
+            </controls:ToolTabBar>
+
+            <ScrollViewer Grid.Row="1" x:Name="ConnectionPage" IsVisible="{Binding !ShowDetails.Value}"
+                          HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel MaxWidth="320" Margin="12,8" VerticalAlignment="Center" Spacing="6">
+                    <Border Background="White" Padding="8" CornerRadius="12" HorizontalAlignment="Center"
+                            ToolTip.Tip="{x:Static lang:Strings.MobilePreviewScan}">
+                        <Image x:Name="QrImage" Source="{Binding QrImage.Value}" Width="136" Height="136"
+                               AutomationProperties.Name="{x:Static lang:Strings.MobilePreviewScan}" />
+                    </Border>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="{x:Static lang:Strings.MobilePreviewCode}" Classes="secondary" TextAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
+                            <SelectableTextBlock Text="{Binding Code.Value}" FontSize="{DynamicResource ControlContentThemeFontSize}" FontWeight="SemiBold"
+                                                 VerticalAlignment="Center" />
+                            <Button Click="OnRenewCodeClick" Classes="icon" ToolTip.Tip="{x:Static lang:Strings.MobilePreviewRenewCode}"
+                                    AutomationProperties.Name="{x:Static lang:Strings.MobilePreviewRenewCode}">
+                                <icons:FluentIcon Icon="ArrowClockwise" FontSize="16" />
+                            </Button>
+                        </StackPanel>
+                        <TextBlock x:Name="ExpiryText" Text="{Binding Expiry.Value}" Classes="secondary" TextAlignment="Center" />
+                    </StackPanel>
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                        <TextBox x:Name="AddressText" Text="{Binding Address.Value, Mode=OneWay}" IsReadOnly="True"
+                                 AutomationProperties.Name="{x:Static lang:Strings.MobilePreviewConnectionInfo}" />
+                        <Button Grid.Column="1" Click="OnCopyClick" Classes="icon"
+                                AutomationProperties.Name="{x:Static lang:Strings.Copy}" ToolTip.Tip="{x:Static lang:Strings.Copy}">
+                            <icons:FluentIcon Icon="Copy" FontSize="16" />
+                        </Button>
+                    </Grid>
+                </StackPanel>
+            </ScrollViewer>
+
+            <ScrollViewer Grid.Row="1" x:Name="DetailsPage" IsVisible="{Binding ShowDetails.Value}"
+                          HorizontalContentAlignment="Stretch" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="12" Spacing="12">
+                    <ItemsControl ItemsSource="{Binding Clients}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MobilePreviewDevice">
+                                <Border Margin="0,0,0,8" Padding="10" CornerRadius="10" BorderThickness="1"
+                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                        <icons:FluentIcon Icon="Phone" FontSize="22" VerticalAlignment="Center"
+                                                          Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Name}" Theme="{StaticResource BodyStrongTextBlockStyle}"
+                                                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                            <TextBlock Text="{Binding Status}" Classes="secondary" />
+                                        </StackPanel>
+                                        <Button Grid.Column="2" Click="OnDisconnectClick" Classes="icon" VerticalAlignment="Center"
+                                                AutomationProperties.Name="{x:Static lang:Strings.Disconnect}" ToolTip.Tip="{x:Static lang:Strings.Disconnect}">
+                                            <icons:FluentIcon Icon="Dismiss" FontSize="16" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <WrapPanel ItemSpacing="8" LineSpacing="8">
+                        <Button Click="OnConnectionInfoClick" x:Name="AddDeviceButton">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <icons:FluentIcon Icon="Add" FontSize="16" VerticalAlignment="Center" />
+                                <TextBlock Text="{x:Static lang:Strings.MobilePreviewAddDevice}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Click="OnDisconnectAllClick" Content="{x:Static lang:Strings.MobilePreviewDisconnectAll}"
+                                Theme="{StaticResource TransparentButton}" />
+                    </WrapPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

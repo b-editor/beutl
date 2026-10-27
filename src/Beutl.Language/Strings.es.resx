@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -3446,5 +3446,50 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="FontFamilyPicker_NoResults" xml:space="preserve">
     <value>No hay fuentes coincidentes</value>
+  </data>
+  <data name="MobilePreview" xml:space="preserve">
+    <value>Vista previa móvil</value>
+  </data>
+  <data name="MobilePreviewDescription" xml:space="preserve">
+    <value>Previsualiza vídeo y audio y controla la reproducción desde el móvil.</value>
+  </data>
+  <data name="MobilePreviewScan" xml:space="preserve">
+    <value>Escanea el código QR con el móvil e introduce el código de conexión en su navegador.</value>
+  </data>
+  <data name="MobilePreviewCode" xml:space="preserve">
+    <value>Código de conexión</value>
+  </data>
+  <data name="MobilePreviewExpires" xml:space="preserve">
+    <value>Caduca en {0}</value>
+  </data>
+  <data name="MobilePreviewCodeExpired" xml:space="preserve">
+    <value>Código caducado</value>
+  </data>
+  <data name="MobilePreviewRenewCode" xml:space="preserve">
+    <value>Renovar código</value>
+  </data>
+  <data name="MobilePreviewClients" xml:space="preserve">
+    <value>Conectados: {0} / 4</value>
+  </data>
+  <data name="MobilePreviewDisconnectAll" xml:space="preserve">
+    <value>Desconectar todos</value>
+  </data>
+  <data name="MobilePreviewFailed" xml:space="preserve">
+    <value>No se pudo iniciar. Comprueba la conexión y el inicio de sesión en Beutl Web.</value>
+  </data>
+  <data name="MobilePreviewInternetDescription" xml:space="preserve">
+    <value>Inicia sesión en Beutl Web para compartir.</value>
+  </data>
+  <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
+    <value>La conexión con el servidor terminó. Pulsa Iniciar para crear una nueva sesión.</value>
+  </data>
+  <data name="MobilePreviewConnectionInfo" xml:space="preserve">
+    <value>Información de conexión</value>
+  </data>
+  <data name="MobilePreviewConnected" xml:space="preserve">
+    <value>Conectado</value>
+  </data>
+  <data name="MobilePreviewAddDevice" xml:space="preserve">
+    <value>Añadir dispositivo</value>
   </data>
 </root>

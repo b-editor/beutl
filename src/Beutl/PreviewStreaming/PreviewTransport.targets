@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+    <_PreviewRid>$(RuntimeIdentifier)</_PreviewRid>
+    <_PreviewRid Condition="'$(_PreviewRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</_PreviewRid>
+    <_PreviewRid Condition="$(_PreviewRid.StartsWith('osx-'))">osx</_PreviewRid>
+    <_PreviewNativeRoot>$(MSBuildThisFileDirectory)../../../native/libdatachannel/runtimes/$(_PreviewRid)/native/</_PreviewNativeRoot>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(TargetFramework)' != ''">
+    <Content Include="$(_PreviewNativeRoot)*BeutlDataChannel.*" Link="%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(MSBuildThisFileDirectory)../../../native/libdatachannel/THIRD-PARTY-NOTICES.txt" Link="licenses/libdatachannel.txt"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="RequirePreviewTransport" BeforeTargets="Build;Publish" Condition="'$(TargetFramework)' != ''">
+    <Error Condition="!Exists('$(_PreviewNativeRoot)manifest.json')" Text="Missing libdatachannel native runtime for $(_PreviewRid). See native/libdatachannel/README.md." />
+  </Target>
+</Project>

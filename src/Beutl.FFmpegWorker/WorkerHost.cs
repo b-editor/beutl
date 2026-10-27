@@ -9,6 +9,7 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
     private readonly DecodingHandler _decodingHandler = new();
     private readonly EncodingHandler _encodingHandler = new();
     private readonly CodecQueryHandler _codecQueryHandler = new();
+    private readonly PreviewEncodingHandler _previewEncoder = new();
 
     public async Task RunAsync(CancellationToken ct)
     {
@@ -85,6 +86,8 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             {
                 MessageType.StartEncode => await _encodingHandler.HandleStartAsync(message, connection, ct),
                 MessageType.CancelEncode => _encodingHandler.HandleCancel(message),
+                MessageType.StartPreviewEncoder => _previewEncoder.Start(message),
+                MessageType.EncodePreviewFrame => _previewEncoder.Encode(message),
                 MessageType.Shutdown => HandleShutdown(message),
                 _ => IpcMessage.CreateError(message.Id, $"Unknown message type: {message.Type}"),
             };
@@ -129,5 +132,6 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
     public void Dispose()
     {
         _decodingHandler.Dispose();
+        _previewEncoder.Dispose();
     }
 }

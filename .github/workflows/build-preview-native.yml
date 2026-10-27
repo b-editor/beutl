@@ -1,0 +1,56 @@
+# This workflow is managed by gh actions-lock.
+name: Build preview native
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'native/libdatachannel/*.cpp'
+      - 'native/libdatachannel/*.hpp'
+      - 'native/libdatachannel/*.py'
+      - 'native/libdatachannel/*.patch'
+      - 'native/libdatachannel/CMakeLists.txt'
+      - 'native/libdatachannel/source.json'
+      - '.github/workflows/build-preview-native.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [linux-x64, linux-arm64, win-x64, win-arm64, osx]
+    runs-on: ${{ matrix.rid == 'linux-arm64' && 'ubuntu-22.04-arm' || startsWith(matrix.rid, 'win-') && 'windows-latest' || matrix.rid == 'osx' && 'macos-latest' || 'ubuntu-22.04' }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install isolated build tools
+        shell: python {0}
+        run: |
+          import os, pathlib, subprocess, sys
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'preview-build-tools'
+          subprocess.run([sys.executable, '-m', 'venv', str(root)], check=True)
+          binary = root / ('Scripts' if os.name == 'nt' else 'bin')
+          python = binary / ('python.exe' if os.name == 'nt' else 'python3')
+          subprocess.run([str(python), '-m', 'pip', 'install', 'cmake==4.4.4', 'ninja==1.13.2'], check=True)
+          with open(os.environ['GITHUB_PATH'], 'a') as stream:
+              stream.write(str(binary) + '\n')
+      - name: Configure Windows compiler
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vs = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+          Import-Module "$vs/Common7/Tools/Microsoft.VisualStudio.DevShell.dll"
+          $arch = '${{ matrix.rid }}'.Substring(4)
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments "-arch=$arch -host_arch=x64"
+          foreach ($name in @('PATH', 'INCLUDE', 'LIB', 'LIBPATH', 'VCINSTALLDIR', 'VCToolsInstallDir', 'VCToolsVersion', 'WindowsSdkDir', 'WindowsSDKVersion', 'VSINSTALLDIR')) {
+            "$name=$([Environment]::GetEnvironmentVariable($name))" >> $env:GITHUB_ENV
+          }
+
+      - name: Build and test pinned native transport
+        run: python3 native/libdatachannel/build.py --rid ${{ matrix.rid }} --output native/libdatachannel/artifacts/runtimes
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: preview-native-${{ matrix.rid }}
+          path: native/libdatachannel/artifacts/
+          if-no-files-found: error

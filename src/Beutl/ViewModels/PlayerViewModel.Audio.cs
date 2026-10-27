@@ -24,7 +24,10 @@ public partial class PlayerViewModel
         var interleaved = new float[audio.SampleCount * 2];
         AudioConversion.Interleave(audio, interleaved);
         // Teardown completes the subject so a racing publish is ignored.
-        _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, audio.SampleRate, 2, startTime));
+        _audioFramePushed.OnNext(new AudioFrameSnapshot(interleaved, audio.SampleRate, 2, startTime)
+        {
+            PlaybackId = Interlocked.Read(ref _previewPlaybackId)
+        });
     }
 
     async Task<AudioFrameSnapshot?> IPreviewPlayer.ComposeAudioAsync(MediaTime start, MediaTime duration, CancellationToken ct)

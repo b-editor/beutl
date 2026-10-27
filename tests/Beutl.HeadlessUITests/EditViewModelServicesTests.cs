@@ -16,7 +16,7 @@ public sealed class EditViewModelServicesTests
     [
         typeof(IProxyStore), typeof(IProxyResolver), typeof(IProxyJobQueue), typeof(ProxyEvictionService),
         typeof(IProxyStoreCapInfo), typeof(IGenerativePromptLibrary), typeof(IGenerativeModelCatalog),
-        typeof(IGenerativeNodeExecutor),
+        typeof(IGenerativeNodeExecutor), typeof(Beutl.Api.BeutlApiApplication),
     ];
 
     [AvaloniaTest]

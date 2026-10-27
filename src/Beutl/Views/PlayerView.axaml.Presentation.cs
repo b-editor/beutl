@@ -42,7 +42,24 @@ public partial class PlayerView
                 menu.Items.Add(item);
             }
         }
+        menu.Items.Add(new Separator());
+        var mobile = new MenuItem { Header = Strings.MobilePreview };
+        mobile.Click += (_, _) => OpenMobilePreview();
+        menu.Items.Add(mobile);
         menu.ShowAt(button);
+    }
+
+    internal void OpenMobilePreview()
+    {
+        if (DataContext is not PlayerViewModel player) return;
+        var editor = player.EditViewModel;
+        if (editor.FindToolTab<MobilePreviewTabViewModel>() is { } existing)
+            editor.OpenToolTab(existing);
+        else
+        {
+            var tab = new MobilePreviewTabViewModel(editor);
+            if (!editor.OpenToolTab(tab)) tab.Dispose();
+        }
     }
 
     internal void OpenPresentation(Screen? screen, bool fullscreen)

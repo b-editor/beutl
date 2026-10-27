@@ -49,6 +49,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         GraphEditorTabExtension.Instance,
         SceneSettingsTabExtension.Instance,
         PreviewSettingsTabExtension.Instance,
+        MobilePreviewTabExtension.Instance,
         ProxiesTabExtension.Instance,
         WaveReaderExtension.Instance,
         PathEditorTabExtension.Instance,

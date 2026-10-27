@@ -42,6 +42,11 @@ public enum MessageType
     QueryEncoderOptions = 48,
     QueryEncoderOptionsResult = 49,
 
+    StartPreviewEncoder = 50,
+    StartPreviewEncoderResult = 51,
+    EncodePreviewFrame = 52,
+    EncodePreviewFrameResult = 53,
+
     // エラー
     Error = 99,
 }
