@@ -289,7 +289,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
     }
 
     public void Execute(ShaderPassDescription pass, IReadOnlyDictionary<int, ITexture2D> images,
-        IReadOnlyDictionary<int, IBuffer> buffers, IReadOnlyDictionary<int, ShaderImageFrame> frames)
+        IReadOnlyDictionary<int, IBuffer> buffers, IReadOnlyDictionary<int, ShaderImageFrame> frames, Beutl.Media.PixelRect? scissor = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         Validate(pass); // Runtime parameter sizes and buffer ranges are deliberately absent from the pipeline key.
@@ -377,6 +377,11 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 {
                     _renderPass.BindPipeline(_graphics!);
                     _renderPass.BindDescriptorSet(_graphics!, descriptors);
+                    if (scissor is { } area)
+                    {
+                        var rectangle = new Rect2D(new Offset2D(area.X, area.Y), new Extent2D((uint)area.Width, (uint)area.Height));
+                        _context.Vk.CmdSetScissor(_context.GetRecordingCommandBuffer(), 0, 1, &rectangle);
+                    }
                     SetConstants(_context.GetRecordingCommandBuffer(), _graphics!.PipelineLayoutHandle,
                         VulkanPipeline3D.PushConstantStages, pass);
                     foreach (ShaderVertexBuffer vertex in pass.Draw.Vertices)

@@ -78,8 +78,8 @@ public sealed class ShaderGraphDescription
                 }
             }
         }
-        RequireInitialized(output.Image, "output");
-        Touch(output.Image, passes.Length);
+        RequireInitialized(output.RenderingImage, "output");
+        Touch(output.RenderingImage, passes.Length);
         StructuralIdentity = CreateIdentity(includeValues: false);
         OutputIdentity = new ShaderGraphValueIdentity(CreateIdentity(includeValues: true),
             resources.OfType<ShaderBuffer>().Select(b => b.InitialData).ToImmutableArray());
@@ -159,6 +159,7 @@ public sealed class ShaderGraphDescription
                 writer.Write(image.Depth);
                 writer.Write(image.Description.HasValue);
                 writer.Write(image.Like?.Id ?? -1);
+                writer.Write(image.RasterSource?.Id ?? -1);
                 writer.Write(image.ExplicitBounds.HasValue);
                 if (includeValues)
                 {
@@ -184,6 +185,19 @@ public sealed class ShaderGraphDescription
         writer.Write(Passes.Length);
         foreach (ShaderPassDescription pass in Passes)
         {
+            writer.Write(pass.PartialRendering);
+            writer.Write(pass.InputRegions.Count);
+            foreach ((int binding, ShaderInputRegion region) in pass.InputRegions.OrderBy(p => p.Key))
+            {
+                writer.Write(binding);
+                if (includeValues)
+                {
+                    writer.Write(region.Transform.M11); writer.Write(region.Transform.M12);
+                    writer.Write(region.Transform.M21); writer.Write(region.Transform.M22);
+                    writer.Write(region.Transform.M31); writer.Write(region.Transform.M32);
+                    writer.Write(region.Padding);
+                }
+            }
             writer.Write(pass.Transfer is not null);
             if (pass.Transfer is { } transfer)
             {
@@ -250,7 +264,8 @@ public sealed class ShaderGraphDescription
             }
         }
         writer.Write(Output.Image.Id);
-        writer.Write((int)Output.Color);
+        writer.Write(Output.RenderingImage.Id);
+        if (includeValues) writer.Write((int)Output.Color);
         writer.Flush();
         return Convert.ToBase64String(stream.GetBuffer(), 0, checked((int)stream.Length));
     }

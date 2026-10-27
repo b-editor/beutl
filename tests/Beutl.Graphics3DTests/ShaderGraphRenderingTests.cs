@@ -339,7 +339,7 @@ public sealed class ShaderGraphRenderingTests
             RenderIntent.Preview, RenderRequestPurpose.Frame, targetDomain: targetBounds,
             requestedRegion: requestedRegion, outputScale: scale, maxWorkingScale: scale,
             cachePolicy: RenderCacheOptions.Disabled));
-        if (beforeGraph is null)
+        if (beforeGraph is null && !nestedGraph)
         {
             Assert.That(compiled.Graph.Fragments.Any(f => f.Kind == RenderFragmentKind.ShaderGraph), Is.True);
             Assert.That(compiled.Graph.Fragments.Any(f => f.Kind == RenderFragmentKind.FilterEffectSegment), Is.False);

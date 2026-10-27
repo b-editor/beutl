@@ -18,6 +18,9 @@ internal readonly record struct ShaderImageFrame(Rect Bounds, Rect RasterBounds,
     ];
 }
 
+internal readonly record struct ShaderGraphExecutionStatistics(int ProgramCacheHits, int ExecutedPasses,
+    long PeakResourceBytes, int ImageAllocations, int BufferAllocations, int ResourceReuses, long ScheduledPixels);
+
 internal static class ShaderGraphExecutor
 {
     // This is an active-allocation ceiling, not the target pool's retained-cache budget.
@@ -35,8 +38,8 @@ internal static class ShaderGraphExecutor
         }
         """));
 
-    public static int Execute(ShaderGraphDescription graph, ITexture2D source, ShaderImageFrame sourceFrame,
-        ITexture2D output, float scale, Vector gridOffset, ShaderGraphProgramAcquirer acquireProgram)
+    public static ShaderGraphExecutionStatistics Execute(ShaderGraphDescription graph, ITexture2D source, ShaderImageFrame sourceFrame,
+        ITexture2D output, float scale, Vector gridOffset, ShaderGraphProgramAcquirer acquireProgram, Rect? requiredOutput = null)
     {
         VulkanContext context = GLSLFilterPipeline.TryResolveVulkan(GraphicsContextFactory.SharedContext)
             ?? throw new NotSupportedException("Shader graphs require a Vulkan rendering context.");
@@ -45,11 +48,17 @@ internal static class ShaderGraphExecutor
         var storage = new Dictionary<int, ShaderGraphImage>();
         var ownedStorage = new HashSet<ShaderGraphImage>();
         var available = new List<ShaderGraphImage>();
+        var ownedBuffers = new HashSet<VulkanBuffer>();
+        var availableBuffers = new List<VulkanBuffer>();
         var leases = new List<ProgramCacheLease<ShaderGraphPipeline>>();
         var programs = new Dictionary<ShaderPassDescription, ShaderGraphPipeline>();
-        var frames = new Dictionary<int, ShaderImageFrame> { [0] = sourceFrame };
+        var regions = new ShaderGraphRegions(graph, sourceFrame, scale, gridOffset,
+            requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds));
+        Dictionary<int, ShaderImageFrame> frames = regions.Frames;
         var descriptions = new Dictionary<int, ImageDescription>();
         long liveBytes = 0;
+        long peakBytes = 0, scheduledPixels = 0;
+        int imageAllocations = 0, bufferAllocations = 0, reuses = 0, executedPasses = 0;
         var usages = graph.Resources.OfType<ShaderImage>().Where(i => !i.IsView)
             .ToDictionary(image => image.Id, _ => (ImageUsageFlags)0);
         foreach (ShaderPassDescription pass in graph.Passes)
@@ -68,26 +77,12 @@ internal static class ShaderGraphExecutor
                 if (transfer.Destination is ShaderImage dst) usages[dst.Root.Id] |= ImageUsageFlags.TransferDstBit;
             }
         }
-        usages[graph.Output.Image.Root.Id] |= ImageUsageFlags.SampledBit;
+        usages[graph.Output.RenderingImage.Root.Id] |= ImageUsageFlags.SampledBit;
         try
         {
             foreach (ShaderImage image in graph.Resources.OfType<ShaderImage>())
             {
                 if (image.Id != 0 && graph.LastUses[image.Id] < 0) continue;
-                if (image.Id != 0)
-                {
-                    Rect bounds = image.ResolveBounds(sourceFrame.Bounds);
-                    RenderRectValidation.ThrowIfInvalidInput(bounds, nameof(graph));
-                    float density = image.Description.HasValue ? 1 : scale * image.ResolutionScale;
-                    PixelRect pixels = image.Description is { } fixedSize
-                        ? new PixelRect(0, 0, fixedSize.Width, fixedSize.Height)
-                        : PixelRect.FromRect(bounds.Translate(gridOffset), density);
-                    if (pixels.Width <= 0 || pixels.Height <= 0)
-                        throw new InvalidOperationException($"Image '{image.Name}' has empty dimensions.");
-                    frames.Add(image.Id, new(bounds, image.Description.HasValue ? bounds
-                        : new Rect(pixels.X / density - gridOffset.X, pixels.Y / density - gridOffset.Y,
-                            pixels.Width / density, pixels.Height / density), pixels.Size, density));
-                }
                 if (!image.IsView)
                 {
                     ShaderImageFrame frame = frames[image.Id];
@@ -124,7 +119,7 @@ internal static class ShaderGraphExecutor
             }
 
             // The boundary conversion is also preflighted, before any authored pass executes.
-            ShaderImage selected = graph.Output.Image;
+            ShaderImage selected = graph.Output.RenderingImage;
             Rect selectedRaster = frames[selected.Id].RasterBounds;
             Rect outputBounds = graph.TransformBounds(sourceFrame.Bounds);
             PixelRect outputPixels = PixelRect.FromRect(outputBounds.Translate(gridOffset), scale);
@@ -156,11 +151,16 @@ internal static class ShaderGraphExecutor
             for (int index = 0; index < graph.Passes.Length; index++)
             {
                 ShaderPassDescription pass = graph.Passes[index];
-                if (pass.Transfer is { } transfer)
+                if (regions.PassRegions[index] is { IsEmpty: true })
+                {
+                    // Only independently evaluated color passes can be omitted.
+                }
+                else if (pass.Transfer is { } transfer)
                 {
                     if (transfer.Source is { } src) Allocate(src, createView: false);
                     Allocate(transfer.Destination, createView: false);
                     ShaderGraphTransfers.Execute(context, transfer, storage, buffers);
+                    executedPasses++;
                 }
                 else
                 {
@@ -169,7 +169,17 @@ internal static class ShaderGraphExecutor
                     foreach (ShaderColorAttachment attachment in pass.Attachments) Allocate(attachment.Image, attachment: true);
                     if (pass.DepthAttachment is { } depth) Allocate(depth.Image, attachment: true);
                     foreach (ShaderBuffer buffer in pass.Draw.ReadBuffers) Allocate(buffer);
-                    programs[pass].Execute(pass, images, buffers, frames);
+                    PixelRect? scissor = null;
+                    if (!pass.Attachments.IsEmpty)
+                    {
+                        ShaderImageFrame frame = frames[pass.Attachments[0].Image.Id];
+                        PixelRect area = regions.PassRegions[index] is { } region
+                            ? ShaderGraphRegions.Scissor(frame, region) : new(0, 0, frame.PixelSize.Width, frame.PixelSize.Height);
+                        scheduledPixels += (long)area.Width * area.Height;
+                        if (regions.PassRegions[index].HasValue) scissor = area;
+                    }
+                    programs[pass].Execute(pass, images, buffers, frames, scissor);
+                    executedPasses++;
                 }
                 foreach (ShaderResource resource in graph.Resources)
                     if (graph.LastUses[resource.Id] == index) Release(resource);
@@ -180,7 +190,8 @@ internal static class ShaderGraphExecutor
             Allocate(selected);
             images.Add(-1, output);
             copyLease.Program.Execute(copy, images, buffers, frames);
-            return leases.Count(lease => lease.IsCacheHit);
+            return new(leases.Count(lease => lease.IsCacheHit), executedPasses, peakBytes,
+                imageAllocations, bufferAllocations, reuses, scheduledPixels);
         }
         finally
         {
@@ -193,7 +204,7 @@ internal static class ShaderGraphExecutor
             finally
             {
                 foreach (ShaderGraphImage image in ownedStorage) image.Dispose();
-                foreach (IBuffer buffer in buffers.Values)
+                foreach (VulkanBuffer buffer in ownedBuffers)
                     buffer.Dispose();
                 foreach (ProgramCacheLease<ShaderGraphPipeline> lease in leases)
                     lease.Dispose();
@@ -213,6 +224,7 @@ internal static class ShaderGraphExecutor
                     {
                         owner = available[reuseIndex];
                         available.RemoveAt(reuseIndex);
+                        reuses++;
                     }
                     else
                     {
@@ -226,6 +238,8 @@ internal static class ShaderGraphExecutor
                         ownedStorage.Add(owner);
                         CheckBudget(checked((long)owner.AllocationSize), resource.Name);
                         liveBytes = checked(liveBytes + (long)owner.AllocationSize);
+                        peakBytes = Math.Max(peakBytes, liveBytes);
+                        imageAllocations++;
                     }
                     storage.Add(root.Id, owner);
                 }
@@ -233,19 +247,57 @@ internal static class ShaderGraphExecutor
             }
             else if (resource is ShaderBuffer buffer && !buffers.ContainsKey(buffer.Id))
             {
-                CheckBudget(buffer.ByteLength, buffer.Name);
-                IBuffer allocated = context.CreateBuffer((ulong)buffer.ByteLength,
-                    BufferUsage.StorageBuffer | BufferUsage.UniformBuffer | BufferUsage.VertexBuffer | BufferUsage.IndexBuffer
-                        | BufferUsage.IndirectBuffer | BufferUsage.TransferSource | BufferUsage.TransferDestination,
-                    MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+                // Host writes cannot overwrite bytes still read by earlier queued commands. Reuse
+                // only when a later GPU pass initializes the new logical buffer's contents.
+                int reuseIndex = buffer.InitialData.IsEmpty
+                    ? availableBuffers.FindIndex(b => b.Size == (ulong)buffer.ByteLength) : -1;
+                VulkanBuffer allocated;
+                if (reuseIndex >= 0)
+                {
+                    allocated = availableBuffers[reuseIndex];
+                    availableBuffers.RemoveAt(reuseIndex);
+                    reuses++;
+                }
+                else
+                {
+                    CheckBudget(buffer.ByteLength, buffer.Name);
+                    allocated = (VulkanBuffer)context.CreateBuffer((ulong)buffer.ByteLength,
+                        BufferUsage.StorageBuffer | BufferUsage.UniformBuffer | BufferUsage.VertexBuffer | BufferUsage.IndexBuffer
+                            | BufferUsage.IndirectBuffer | BufferUsage.TransferSource | BufferUsage.TransferDestination,
+                        MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
+                    ownedBuffers.Add(allocated);
+                    CheckBudget(checked((long)allocated.AllocationSize), buffer.Name);
+                    liveBytes = checked(liveBytes + (long)allocated.AllocationSize);
+                    peakBytes = Math.Max(peakBytes, liveBytes);
+                    bufferAllocations++;
+                }
                 buffers.Add(buffer.Id, allocated);
                 if (!buffer.InitialData.IsEmpty) allocated.Upload<byte>(buffer.InitialData.AsSpan());
-                liveBytes = checked(liveBytes + buffer.ByteLength);
             }
         }
 
         void CheckBudget(long bytes, string name)
         {
+            if (bytes > MaximumTransientBytes - liveBytes && (available.Count != 0 || availableBuffers.Count != 0))
+            {
+                // Reclaim retired, incompatible allocations only under pressure. Submission completion
+                // is required before their deferred native releases actually reduce memory usage.
+                foreach (ShaderGraphImage image in available)
+                {
+                    image.Dispose();
+                    ownedStorage.Remove(image);
+                    liveBytes -= checked((long)image.AllocationSize);
+                }
+                foreach (VulkanBuffer buffer in availableBuffers)
+                {
+                    buffer.Dispose();
+                    ownedBuffers.Remove(buffer);
+                    liveBytes -= checked((long)buffer.AllocationSize);
+                }
+                available.Clear();
+                availableBuffers.Clear();
+                context.FlushCommands(waitForCompletion: true);
+            }
             if (bytes > MaximumTransientBytes - liveBytes)
                 throw new InvalidOperationException($"Shader graph resource '{name}' exceeds the {MaximumTransientBytes}-byte active allocation budget.");
         }
@@ -256,7 +308,7 @@ internal static class ShaderGraphExecutor
             if (resource is ShaderImage { IsView: false } image && image.Id != 0
                 && storage.Remove(image.Id, out ShaderGraphImage? owner)) available.Add(owner);
             if (buffers.Remove(resource.Id, out IBuffer? buffer))
-                buffer.Dispose(); // Deferred destruction still occupies memory until submission completes.
+                availableBuffers.Add((VulkanBuffer)buffer);
         }
     }
 }

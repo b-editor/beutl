@@ -12,10 +12,15 @@ public enum ResourceAccess
     ReadWrite = Read | Write,
 }
 
-/// <summary>The color contract at the graph's output boundary. Intermediate images may contain arbitrary data.</summary>
+/// <summary>The color interpretation at an explicit boundary. Intermediate images may contain arbitrary data.</summary>
+/// <remarks>RGB uses sRGB primaries and D65 white. Linear variants omit the sRGB transfer function;
+/// premultiplied variants multiply the encoded RGB components by alpha.</remarks>
 public enum ColorEncoding
 {
     LinearPremultiplied,
+    LinearStraight,
+    SrgbPremultiplied,
+    SrgbStraight,
 }
 
 /// <summary>Immutable sampler configuration; it does not own a device sampler.</summary>
@@ -137,6 +142,7 @@ public sealed class ShaderImage : ShaderResource
         && BaseMipLevel < other.BaseMipLevel + other.MipLevels && other.BaseMipLevel < BaseMipLevel + MipLevels
         && BaseArrayLayer < other.BaseArrayLayer + other.ArrayLayers && other.BaseArrayLayer < BaseArrayLayer + ArrayLayers;
     internal ShaderImage? Like { get; }
+    internal ShaderImage? RasterSource { get; set; }
     internal Rect? ExplicitBounds { get; }
     internal float Padding { get; }
 
@@ -164,12 +170,14 @@ public sealed class ShaderBuffer : ShaderResource
 /// <summary>The selected image and its color interpretation at the graph boundary.</summary>
 public sealed class ShaderGraphOutput
 {
-    internal ShaderGraphOutput(ShaderImage image, ColorEncoding color)
+    internal ShaderGraphOutput(ShaderImage image, ColorEncoding color, ShaderImage? renderingImage = null)
     {
         Image = image;
         Color = color;
+        RenderingImage = renderingImage ?? image;
     }
 
     public ShaderImage Image { get; }
     public ColorEncoding Color { get; }
+    internal ShaderImage RenderingImage { get; }
 }

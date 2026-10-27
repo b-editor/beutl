@@ -31,7 +31,7 @@ internal sealed partial class RenderRequestExecutor
                 {
                     Rect bounds = graph.TransformBounds(input.CompleteBounds);
                     Rect required = ResolveFragmentRequirement(fragment, bounds);
-                    if (bounds.IsEmpty || required.IsEmpty)
+                    if (bounds.Width == 0 || bounds.Height == 0 || required.Width == 0 || required.Height == 0)
                         continue;
                     float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset);
                     MaterializedRenderValue output = CreateOwnedValue(bounds, EffectiveScale.At(density), bounds,
@@ -51,12 +51,13 @@ internal sealed partial class RenderRequestExecutor
                         ITexture2D destination = output.Target.Texture
                             ?? throw new NotSupportedException("Shader graph output requires a backend texture.");
                         sourceValue.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-                        _programCacheHits += ShaderGraphExecutor.Execute(graph, source,
+                        ShaderGraphExecutionStatistics execution = ShaderGraphExecutor.Execute(graph, source,
                             new(sourceValue.CompleteBounds, sourceValue.RasterBounds, sourceValue.DeviceBounds.Size, sourceValue.EffectiveScale.Value),
-                            destination, density, _activeDeviceGridOffset, AcquireShaderGraphProgram);
+                            destination, density, _activeDeviceGridOffset, AcquireShaderGraphProgram, required);
+                        _programCacheHits += execution.ProgramCacheHits;
                         _shaderRunExecutions++;
                         _spirvShaderRunExecutions++;
-                        _shaderStageExecutions += graph.Passes.Length;
+                        _shaderStageExecutions += execution.ExecutedPasses;
                         if (required != bounds)
                         {
                             MaterializedRenderValue cropped = CropValue(output, required, allowPreviewDrop: true);

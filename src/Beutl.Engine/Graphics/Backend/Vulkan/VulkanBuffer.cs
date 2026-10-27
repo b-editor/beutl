@@ -48,6 +48,7 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
 
         MemoryRequirements memReqs;
         vk.GetBufferMemoryRequirements(device, _buffer, &memReqs);
+        AllocationSize = memReqs.Size;
 
         uint memoryTypeIndex;
         try
@@ -86,6 +87,7 @@ internal sealed unsafe class VulkanBuffer : IBuffer, IVulkanContextResource
     }
 
     public ulong Size => _size;
+    internal ulong AllocationSize { get; }
 
     public Buffer Handle => _buffer;
 
