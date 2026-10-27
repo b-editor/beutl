@@ -52,7 +52,7 @@ def main():
     build = cache / args.rid
     prefix = build / 'tls-install'
     common = ['-G', 'Ninja', '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_POSITION_INDEPENDENT_CODE=ON',
-              '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded', '-DCMAKE_POLICY_VERSION_MINIMUM=3.5']
+              '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded', '-DCMAKE_POLICY_DEFAULT_CMP0091=NEW', '-DCMAKE_POLICY_VERSION_MINIMUM=3.5']
     if args.rid == 'osx':
         common += ['-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64', '-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0']
     run('cmake', '-S', tls, '-B', build / 'tls', *common, '-DENABLE_PROGRAMS=OFF', '-DENABLE_TESTING=OFF',
