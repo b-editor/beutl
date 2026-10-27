@@ -1589,6 +1589,21 @@
   <data name="Bloom_Threshold" xml:space="preserve">
     <value>阈值</value>
   </data>
+  <data name="Bloom_SoftKnee" xml:space="preserve">
+    <value>柔和度 (%)</value>
+  </data>
+  <data name="Bloom_SoftKnee_Description" xml:space="preserve">
+    <value>平滑亮度阈值附近的过渡。0%保持硬边界；100%使亮度从零到阈值的两倍逐渐过渡。</value>
+  </data>
+  <data name="Bloom_Radius_Description" xml:space="preserve">
+    <value>以合成单位表示的泛光半径。</value>
+  </data>
+  <data name="Bloom_Threshold_Description" xml:space="preserve">
+    <value>用于选择高光部分的线性亮度。1表示参考白色。</value>
+  </data>
+  <data name="Bloom_Intensity_Description" xml:space="preserve">
+    <value>泛光强度倍数。0表示禁用，1表示正常强度。</value>
+  </data>
   <data name="Bloom_Intensity" xml:space="preserve">
     <value>强度</value>
   </data>

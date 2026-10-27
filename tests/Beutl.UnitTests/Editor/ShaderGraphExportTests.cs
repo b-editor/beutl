@@ -111,8 +111,9 @@ public sealed class ShaderGraphExportTests
     {
         Scene scene = files.Scene;
         scene.FrameSize.Value = new PixelSize(48, 40);
-        var bloom = new Bloom { Threshold = { Value = 0.1f }, Intensity = { Value = 0.75f } };
+        var bloom = new Bloom { Threshold = { Value = 0.5f }, Intensity = { Value = 0.75f } };
         bloom.Radius.SetKeyFrameAnimation(Animation(2, 6));
+        bloom.SoftKnee.SetKeyFrameAnimation(Animation(0, 100));
         var refraction = new WaveRefraction { Amount = { Value = 3 }, Wavelength = { Value = 16 } };
         refraction.Phase.SetKeyFrameAnimation(Animation(0, 180));
         var effects = new FilterEffectGroup { Children = { bloom, refraction } };

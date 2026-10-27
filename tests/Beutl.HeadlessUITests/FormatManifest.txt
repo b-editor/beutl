@@ -367,7 +367,7 @@ Beutl.Utilities
   keys: Animations, BlendMode, Brush, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Effects:Bloom
   sealed
-  keys: Animations, Expressions, Id, Intensity, IsEnabled, Name, PreserveAlpha, Radius, Threshold
+  keys: Animations, Expressions, Id, Intensity, IsEnabled, Name, PreserveAlpha, Radius, SoftKnee, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:Blur
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Sigma

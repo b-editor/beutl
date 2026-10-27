@@ -1590,6 +1590,21 @@
   <data name="Bloom_Threshold" xml:space="preserve">
     <value>Threshold</value>
   </data>
+  <data name="Bloom_SoftKnee" xml:space="preserve">
+    <value>Softness (%)</value>
+  </data>
+  <data name="Bloom_SoftKnee_Description" xml:space="preserve">
+    <value>Smooths the brightness threshold. 0% keeps a hard cutoff; 100% spreads the transition from zero to twice the threshold.</value>
+  </data>
+  <data name="Bloom_Radius_Description" xml:space="preserve">
+    <value>Glow radius in composition units.</value>
+  </data>
+  <data name="Bloom_Threshold_Description" xml:space="preserve">
+    <value>Brightness used to select highlights in linear light. 1 is reference white.</value>
+  </data>
+  <data name="Bloom_Intensity_Description" xml:space="preserve">
+    <value>Glow strength multiplier. 0 disables the glow; 1 is normal strength.</value>
+  </data>
   <data name="Bloom_Intensity" xml:space="preserve">
     <value>Intensity</value>
   </data>

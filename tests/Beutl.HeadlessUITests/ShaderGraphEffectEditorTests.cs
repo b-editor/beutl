@@ -25,13 +25,14 @@ public sealed class ShaderGraphEffectEditorTests
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
         var models = new List<PropertyEditorViewModel>();
         var panel = new StackPanel();
-        var window = new Window { Width = 320, Height = 470, Content = panel };
+        var window = new Window { Width = 320, Height = 510, Content = panel };
         try
         {
             var bloom = new Bloom();
             panel.Children.Add(new TextBlock { Text = GraphicsStrings.Bloom });
             Add(bloom, bloom.Radius);
             Add(bloom, bloom.Threshold);
+            Add(bloom, bloom.SoftKnee);
             Add(bloom, bloom.Intensity);
             Add(bloom, bloom.PreserveAlpha);
             var refraction = new WaveRefraction();
@@ -44,6 +45,8 @@ public sealed class ShaderGraphEffectEditorTests
             Assert.That(panel.Children, Has.All.Matches<Control>(control => control is { Bounds.Width: > 0, Bounds.Height: > 0 }));
             Assert.That(GraphicsStrings.WaveRefraction, Is.EqualTo(language == "ja" ? "波紋屈折" : "Wave refraction"));
             Assert.That(models[1].Header, Is.EqualTo(language == "ja" ? "しきい値" : "Threshold"));
+            Assert.That(models[2].Header, Is.EqualTo(language == "ja" ? "滑らかさ (%)" : "Softness (%)"));
+            Assert.That(models[2].Description.Value, Is.Not.Null.And.Not.Empty);
             if (Environment.GetEnvironmentVariable("BEUTL_SHADER_GRAPH_CAPTURE") is { Length: > 0 } directory)
             {
                 Directory.CreateDirectory(directory);
