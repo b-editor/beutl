@@ -49,6 +49,7 @@ internal sealed partial class MobilePreviewServer
     private async Task HandleSignalAsync(string id, JsonElement signal, CancellationToken ct)
     {
         string? type = signal.TryGetProperty("type", out var kind) ? kind.GetString() : null;
+        if (type == "control") { await HandleControlAsync(id, signal, ct).ConfigureAwait(false); return; }
         if (type is not ("offer" or "candidate")) return;
         await _transportGate.WaitAsync(ct).ConfigureAwait(false);
         try

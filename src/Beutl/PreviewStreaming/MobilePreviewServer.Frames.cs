@@ -87,9 +87,6 @@ internal sealed partial class MobilePreviewServer
                                     SendToViewer(id, "{\"type\":\"error\",\"message\":\"hdr-unavailable\"}");
                         }
                     }
-                    lock (_gate)
-                        foreach (string id in _peers.Keys)
-                            SendToViewer(id, System.Text.Json.JsonSerializer.Serialize(new { type = "playback", playing = frame.Playing }));
                 }
                 cadence.Restart();
             }

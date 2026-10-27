@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
+using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -253,6 +254,119 @@ public sealed class MobilePreviewTests
     }
 
     [AvaloniaTest]
+    public async Task Paired_controls_follow_the_player_and_seek_safely_during_playback()
+    {
+        TestGpu.RequireAnyDevice();
+        var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-controls", 320, 240);
+        var owner = new Window();
+        var mobile = new MobilePreviewWindow(editor.Player);
+        try
+        {
+            await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(120));
+            owner.Show();
+            mobile.Show(owner);
+            await mobile.StartSharingAsync(IPAddress.Loopback);
+            var server = mobile.Server!;
+            var cookies = new CookieContainer();
+            using var http = CreateHttp(server, cookies);
+            await Pair(http, server);
+            using var socket = await Connect(server, cookies);
+            var state = await ReadMessage(socket, m => m.GetProperty("type").GetString() == "playback" && m.GetProperty("enabled").GetBoolean());
+            Assert.That(state.GetProperty("frameRate").GetDouble(), Is.EqualTo(editor.Player.GetFrameRate().ToDouble()));
+
+            editor.Player.CurrentFrame.Value = MediaTime.FromSeconds(1);
+            await ReadMessage(socket, m => m.GetProperty("type").GetString() == "playback" && m.GetProperty("position").GetDouble() == 1);
+            int request = 0;
+            async Task<bool> Control(string action, double position = 0)
+            {
+                int id = ++request;
+                await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(new { type = "control", requestId = id, action, position }),
+                    WebSocketMessageType.Text, true, CancellationToken.None);
+                var result = await ReadMessage(socket, m => m.GetProperty("type").GetString() == "control-result" && m.GetProperty("requestId").GetInt32() == id);
+                return result.GetProperty("ok").GetBoolean();
+            }
+
+            Assert.That(await Control("play"), Is.True);
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.CurrentFrame.Value > MediaTime.FromSeconds(1.1), pump: false);
+            Assert.That(await Control("seek", 2.5), Is.True);
+            Assert.That(editor.Player.IsPlaying.Value, Is.False);
+            Assert.That(editor.Player.CurrentFrame.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            MediaTime frame = MediaTime.FromFrames(1, editor.Player.GetFrameRate());
+            Assert.That(await Control("next"), Is.True);
+            Assert.That(editor.Player.CurrentFrame.Value, Is.EqualTo(MediaTime.FromSeconds(2.5) + frame));
+            Assert.That(await Control("previous"), Is.True);
+            Assert.That(editor.Player.CurrentFrame.Value, Is.EqualTo(MediaTime.FromSeconds(2.5)));
+            Assert.That(await Control("play"), Is.True);
+            Assert.That(await Control("pause"), Is.True);
+            Assert.That(editor.Player.IsPlaying.Value, Is.False);
+
+            editor.IsEnabled.Value = false;
+            var before = editor.Player.CurrentFrame.Value;
+            Assert.That(await Control("next"), Is.False);
+            Assert.That(editor.Player.CurrentFrame.Value, Is.EqualTo(before));
+            editor.IsEnabled.Value = true;
+            MediaTime end = editor.Player.Duration.Value;
+            Assert.That(await Control("seek", double.MaxValue), Is.True);
+            Assert.That(editor.Player.CurrentFrame.Value, Is.EqualTo(end));
+            Assert.That(await Control("next"), Is.True, "Stepping follows the desktop even beyond the scene end.");
+            Assert.That(editor.Player.CurrentFrame.Value, Is.EqualTo(end + frame));
+            Assert.That(await Control("seek", 0), Is.True);
+            Assert.That(await Control("previous"), Is.True);
+            Assert.That(editor.Player.CurrentFrame.Value, Is.EqualTo(-frame));
+        }
+        finally
+        {
+            editor.IsEnabled.Value = true;
+            await editor.Player.Pause();
+            mobile.Close();
+            await mobile.StopSharingAsync();
+            owner.Close();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
+    [Test]
+    public async Task Disconnecting_a_viewer_cancels_its_queued_controls()
+    {
+        await using var server = await MobilePreviewServer.StartAsync(IPAddress.Loopback);
+        var first = new CookieContainer();
+        var second = new CookieContainer();
+        using var firstHttp = CreateHttp(server, first);
+        using var secondHttp = CreateHttp(server, second);
+        await Pair(firstHttp, server);
+        await Pair(secondHttp, server);
+        using var one = await Connect(server, first);
+        await WaitUntil(() => server.GetClients().Length == 1);
+        string firstId = server.GetClients().Single().Id;
+        using var two = await Connect(server, second);
+        await WaitUntil(() => server.GetClients().Length == 2);
+        string secondId = server.GetClients().Single(c => c.Id != firstId).Id;
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int applied = 0;
+        server.ControlRequested = async (_, _, ct) =>
+        {
+            Interlocked.Increment(ref applied);
+            entered.TrySetResult();
+            await release.Task.WaitAsync(ct);
+            return true;
+        };
+        try
+        {
+            byte[] request = Encoding.UTF8.GetBytes("{\"type\":\"control\",\"requestId\":1,\"action\":\"next\"}");
+            await one.SendAsync(request, WebSocketMessageType.Text, true, CancellationToken.None);
+            await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            await two.SendAsync(request, WebSocketMessageType.Text, true, CancellationToken.None);
+            server.Disconnect(secondId);
+            release.TrySetResult();
+            await ReadMessage(one, m => m.GetProperty("type").GetString() == "control-result");
+            await server.DisposeAsync();
+            Assert.That(applied, Is.EqualTo(1));
+        }
+        finally { release.TrySetResult(); }
+    }
+
+    [AvaloniaTest]
     public async Task Closing_during_startup_leaves_no_listener_or_preview_consumer()
     {
         var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-preview-cancel");
@@ -295,6 +409,25 @@ public sealed class MobilePreviewTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await socket.ConnectAsync(SocketUri(server), timeout.Token);
         return socket;
+    }
+
+    private static async Task<JsonElement> ReadMessage(ClientWebSocket socket, Func<JsonElement, bool> predicate)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        byte[] buffer = new byte[65536];
+        while (true)
+        {
+            int count = 0;
+            ValueWebSocketReceiveResult message;
+            do
+            {
+                message = await socket.ReceiveAsync(buffer.AsMemory(count), timeout.Token);
+                Assert.That(message.MessageType, Is.EqualTo(WebSocketMessageType.Text));
+                count += message.Count;
+            } while (!message.EndOfMessage);
+            using var json = JsonDocument.Parse(buffer.AsMemory(0, count));
+            if (predicate(json.RootElement)) return json.RootElement.Clone();
+        }
     }
 
     private static SKBitmap SdrBitmap(Bitmap image, UIToneMappingOperator mode, float exposure)

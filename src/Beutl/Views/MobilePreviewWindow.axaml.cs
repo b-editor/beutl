@@ -132,6 +132,7 @@ public partial class MobilePreviewWindow : Window
             server.ClientsChanged += OnClientsChanged;
             server.RelayDisconnected += OnRelayDisconnected;
             _streamSubscriptions = [];
+            ConnectPlaybackControls(server);
             _streamSubscriptions.Add(_player.CleanPreviewImage.Subscribe(_ => PublishCurrent()));
             _streamSubscriptions.Add(((IPreviewPlayer)_player).AudioFramePushed.Subscribe(audio =>
             {
@@ -143,6 +144,7 @@ public partial class MobilePreviewWindow : Window
             _streamSubscriptions.Add(_player.IsPlaying.Subscribe(playing =>
             {
                 if (!playing) { server.PublishStopped(); PublishCurrent(); }
+                PublishPlayback(server);
             }));
             using var data = QRCodeGenerator.GenerateQrCode(server.Endpoint.AbsoluteUri, QRCodeGenerator.ECCLevel.M);
             using var qr = new PngByteQRCode(data);
@@ -191,6 +193,7 @@ public partial class MobilePreviewWindow : Window
         {
             server.ClientsChanged -= OnClientsChanged;
             server.RelayDisconnected -= OnRelayDisconnected;
+            server.ControlRequested = null;
         }
         _streamSubscriptions.Dispose();
         _cleanPreview?.Dispose();

@@ -3451,7 +3451,7 @@ when history recording is enabled.</value>
     <value>Mobile preview</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
-    <value>Share the clean preview with audio in a phone browser.</value>
+    <value>Share the clean preview with audio and control playback from your phone.</value>
   </data>
   <data name="MobilePreviewAddress" xml:space="preserve">
     <value>Network address</value>
@@ -3463,7 +3463,7 @@ when history recording is enabled.</value>
     <value>Connect to a Wi-Fi or Ethernet network, then reopen this window.</value>
   </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
-    <value>Sharing · Up to 15 fps · SDR · Audio</value>
+    <value>Sharing · Up to 15 fps · Audio · Playback controls</value>
   </data>
   <data name="MobilePreviewScan" xml:space="preserve">
     <value>Scan the QR code with your phone, then enter the connection code in its browser.</value>

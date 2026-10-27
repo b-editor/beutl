@@ -3446,7 +3446,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>スマホプレビュー</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
-    <value>クリーンなプレビューを音声付きでスマホのブラウザに共有します。</value>
+    <value>クリーンなプレビューを音声付きで共有し、スマホから再生を操作できます。</value>
   </data>
   <data name="MobilePreviewAddress" xml:space="preserve">
     <value>ネットワークアドレス</value>
@@ -3458,7 +3458,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>Wi-Fiまたは有線LANに接続して、このウィンドウを開き直してください。</value>
   </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
-    <value>配信中 · 最大15 fps · SDR · 音声あり</value>
+    <value>配信中 · 最大15 fps · 音声あり · 再生操作可能</value>
   </data>
   <data name="MobilePreviewScan" xml:space="preserve">
     <value>スマホでQRコードを読み取り、ブラウザに接続コードを入力してください。</value>

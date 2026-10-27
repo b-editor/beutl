@@ -28,7 +28,6 @@ internal sealed partial class MobilePreviewServer
         {
             _audio.Clear();
             if (_latest is { } frame) _latest = frame with { Playing = false };
-            foreach (string id in _peers.Keys) SendToViewer(id, "{\"type\":\"playback\",\"playing\":false}");
         }
     }
 

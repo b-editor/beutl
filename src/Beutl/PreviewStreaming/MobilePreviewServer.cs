@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.PreviewStreaming;
 
-// A session-scoped, read-only server. It has no reference to project files or editing APIs.
+// Session-scoped media/signaling and playback controls. Project mutation stays outside this server.
 internal sealed partial class MobilePreviewServer : IAsyncDisposable
 {
     private const int MaxClients = 4;
@@ -261,6 +261,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
         }
         ClientsChanged?.Invoke(this, EventArgs.Empty);
         client.Controls.Writer.TryWrite(System.Text.Json.JsonSerializer.Serialize(new { type = "config", iceServers = _iceServers }));
+        lock (_gate) client.Controls.Writer.TryWrite(_playbackState);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token, context.RequestAborted);
         try
         {

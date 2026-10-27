@@ -15,6 +15,7 @@ export class PreviewConnection {
     this.retry = 1000;
     this.allowHdr = true;
     this.ended = false;
+    this.controlSequence = 0;
   }
 
   close() {
@@ -23,6 +24,8 @@ export class PreviewConnection {
     if (this.socket) { this.socket.onclose = null; this.socket.close(); this.socket = null; }
     if (this.peer) { this.peer.close(); this.peer = null; }
     this.video.srcObject = null;
+    this.pendingControl?.finish(false);
+    this.state('disconnected');
   }
 
   async connect() {
@@ -57,7 +60,10 @@ export class PreviewConnection {
           } else if (signal.type === 'candidate') {
             if (this.peer?.remoteDescription) await this.peer.addIceCandidate(signal.candidate);
             else this.remoteCandidates.push(signal.candidate);
-          } else if (signal.type === 'playback') this.state(signal.playing ? 'playing' : 'paused');
+          } else if (signal.type === 'playback') this.state('playback', signal);
+          else if (signal.type === 'control-result') {
+            if (signal.requestId === this.pendingControl?.id) this.pendingControl.finish(signal.ok === true);
+          }
           else if (signal.type === 'error') {
             if (this.hdr && !signal.fatal) { this.allowHdr = false; this.reconnect(); }
             else { this.close(); this.state('error'); }
@@ -120,6 +126,19 @@ export class PreviewConnection {
     socket.send(JSON.stringify({ type: 'offer', sdp: offer.sdp, hdr: this.hdr }));
     offered = true;
     for (const candidate of candidates) socket.send(JSON.stringify(candidate));
+  }
+
+  control(action, position) {
+    if (this.pendingControl || this.socket?.readyState !== WebSocket.OPEN || this.peer?.connectionState !== 'connected')
+      return Promise.resolve(false);
+    return new Promise(resolve => {
+      const id = ++this.controlSequence;
+      const finish = ok => { clearTimeout(timer); this.pendingControl = null; resolve(ok); };
+      const timer = setTimeout(() => finish(false), 10000);
+      this.pendingControl = { id, finish };
+      try { this.socket.send(JSON.stringify({ type: 'control', requestId: id, action, position })); }
+      catch { finish(false); }
+    });
   }
 
   reconnect() {

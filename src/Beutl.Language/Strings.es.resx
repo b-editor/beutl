@@ -3451,7 +3451,7 @@ cuando el registro del historial está activado.</value>
     <value>Vista previa móvil</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
-    <value>Comparte la vista previa limpia con audio en el navegador del teléfono.</value>
+    <value>Comparte la vista previa limpia con audio y controla la reproducción desde tu teléfono.</value>
   </data>
   <data name="MobilePreviewAddress" xml:space="preserve">
     <value>Dirección de red</value>
@@ -3463,7 +3463,7 @@ cuando el registro del historial está activado.</value>
     <value>Conéctate a una red Wi-Fi o Ethernet y vuelve a abrir esta ventana.</value>
   </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
-    <value>Compartiendo · Hasta 15 fps · SDR · Audio</value>
+    <value>Compartiendo · Hasta 15 fps · Audio · Controles de reproducción</value>
   </data>
   <data name="MobilePreviewScan" xml:space="preserve">
     <value>Escanea el código QR con el móvil e introduce el código de conexión en su navegador.</value>

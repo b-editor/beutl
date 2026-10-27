@@ -3451,7 +3451,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>手机预览</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
-    <value>将带有音频的纯净预览分享到手机浏览器。</value>
+    <value>分享带有音频的纯净预览，并通过手机控制播放。</value>
   </data>
   <data name="MobilePreviewAddress" xml:space="preserve">
     <value>网络地址</value>
@@ -3463,7 +3463,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>请连接 Wi-Fi 或以太网，然后重新打开此窗口。</value>
   </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
-    <value>共享中 · 最高15 fps · SDR · 音频</value>
+    <value>共享中 · 最高15 fps · 音频 · 播放控制</value>
   </data>
   <data name="MobilePreviewScan" xml:space="preserve">
     <value>使用手机扫描二维码，然后在浏览器中输入连接码。</value>

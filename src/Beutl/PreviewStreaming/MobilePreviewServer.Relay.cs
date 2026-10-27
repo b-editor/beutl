@@ -84,6 +84,7 @@ internal sealed partial class MobilePreviewServer
             {
                 removed = _peers.Keys.Except(snapshot.Select(c => c.Item1)).ToArray();
                 _relayClients = snapshot;
+                foreach (var client in snapshot) SendToViewer(client.Item1, _playbackState);
             }
             foreach (string id in removed) await RemovePeerAsync(id).ConfigureAwait(false);
             ClientsChanged?.Invoke(this, EventArgs.Empty);
