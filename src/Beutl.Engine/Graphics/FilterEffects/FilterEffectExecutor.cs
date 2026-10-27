@@ -143,7 +143,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
     {
     }
 
-    private FilterEffectExecutor(
+    internal FilterEffectExecutor(
         EffectTargets targets,
         SKImageFilterBuilder builder,
         RenderIntent intent,
@@ -184,6 +184,10 @@ public sealed partial class FilterEffectExecutor : IDisposable
         _injectedProgramAcquirer = acquireProgram;
         _injectedShaderGraphProgramAcquirer = acquireShaderGraphProgram;
     }
+
+    internal RenderExecutionContext? ExecutionContext { get; set; }
+
+    internal FilterEffectInstance? Instance { get; set; }
 
     public SKImageFilterBuilder Builder { get; }
 
@@ -298,8 +302,15 @@ public sealed partial class FilterEffectExecutor : IDisposable
         if (CurrentTargets.Count == 0) return;
         context.PrepareStandaloneResourcesForExecution();
 
-        foreach (IFEItem item in context._items)
+        IReadOnlyList<IFEItem> items = context.GetOrderedItems();
+        for (int index = 0; index < items.Count; index++)
         {
+            if (index == context._items.Count && context._renderTimeItems.Count > 0)
+            {
+                Flush(false);
+                if (CurrentTargets.Count == 0) return;
+            }
+            IFEItem item = items[index];
             switch (item)
             {
                 case IFEItem_Skia skia:
@@ -310,7 +321,9 @@ public sealed partial class FilterEffectExecutor : IDisposable
                     // chain has to be forced out before it can see them.
                     Flush();
                     if (CurrentTargets.Count == 0) return;
-                    RunCustomEffectItem(custom);
+                    bool controlsContinuation = custom.Options.HasFlag(CustomFilterEffectOptions.ControlsContinuation);
+                    RunCustomEffectItem(custom, controlsContinuation ? items.Skip(index + 1).ToArray() : null);
+                    if (controlsContinuation) return;
                     break;
                 case FEItem_ShaderGraph graph:
                     Flush(false);
@@ -351,7 +364,6 @@ public sealed partial class FilterEffectExecutor : IDisposable
             }
         }
 
-        ApplyRenderTimeItems(context);
     }
 
     /// <summary>Adds one Skia item to the pending chain and maps every target's bounds through it.</summary>
@@ -387,7 +399,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
     }
 
     /// <summary>Hands the materialized targets to author code, and re-anchors what it left behind.</summary>
-    private void RunCustomEffectItem(IFEItem_Custom custom)
+    private void RunCustomEffectItem(IFEItem_Custom custom, IFEItem[]? continuation)
     {
         _customEffectBoundaryMaterialized = true;
 
@@ -405,29 +417,21 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _budget,
             _targetDomain,
             GetShaderGraphProgramAcquirer());
-        custom.Accepts(customContext);
+        using RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope();
+        customContext.ExecutionContext = execution;
+        customContext.Instance = Instance;
+        customContext.ProgramAcquirer = GetProgramAcquirer();
+        if (continuation is not null)
+            customContext.Continuation = new FilterEffectContinuation(customContext, continuation);
+        using RenderExecutionCallbackGuard.Scope guard = ExecutionContext is null
+            ? default : RenderExecutionCallbackGuard.Enter();
+        try { custom.Accepts(customContext); }
+        finally { customContext.EndCallback(); }
 
         foreach (EffectTarget t in CurrentTargets)
         {
             t.OriginalBounds = t.Bounds.WithX(0).WithY(0);
         }
-    }
-
-    /// <summary>Re-enters with the items that could only be recorded once the render was under way.</summary>
-    private void ApplyRenderTimeItems(FilterEffectContext context)
-    {
-        if (context._renderTimeItems.Count <= 0) return;
-
-        Flush(false);
-        if (CurrentTargets.Count == 0) return;
-        using var ctx = new FilterEffectContext(CurrentTargets.CalculateBounds(), OutputScale, WorkingScale);
-
-        foreach (IFEItem item in context._renderTimeItems)
-        {
-            ctx._items.Add(item);
-        }
-
-        Apply(ctx);
     }
 
     // Skia factories must not re-enter their executor.
@@ -453,7 +457,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _renderTargetLeaseSession,
             _budget,
             _targetDomain,
-            GetShaderGraphProgramAcquirer());
+            GetShaderGraphProgramAcquirer())
+        { ExecutionContext = ExecutionContext, Instance = Instance };
 
         executor.Apply(context);
         executor.Flush(false);

@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using Beutl.Graphics.Effects;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering;
@@ -14,6 +15,7 @@ public sealed class TargetCommandSession
     private readonly IReadOnlyList<RenderResourceBinding> _resourceBindings;
     private readonly Func<Bitmap>? _createSnapshot;
     private bool _snapshotUsed;
+    private readonly Action<FilterEffectContext, FilterEffectWorkingScalePolicy>? _executeFilters;
 
     internal TargetCommandSession(
         IList<RenderExecutionInput> inputs,
@@ -23,7 +25,8 @@ public sealed class TargetCommandSession
         RenderRequestPurpose purpose,
         RenderCallbackCanvas canvas,
         IReadOnlyList<RenderResourceBinding> resources,
-        Func<Bitmap>? createSnapshot)
+        Func<Bitmap>? createSnapshot,
+        Action<FilterEffectContext, FilterEffectWorkingScalePolicy>? executeFilters = null)
     {
         ArgumentNullException.ThrowIfNull(inputs);
         ArgumentNullException.ThrowIfNull(inputRanges);
@@ -38,6 +41,7 @@ public sealed class TargetCommandSession
         _canvas = canvas;
         _resourceBindings = resources;
         _createSnapshot = createSnapshot;
+        _executeFilters = executeFilters;
     }
 
     public IReadOnlyList<RenderExecutionInput> Inputs
@@ -107,6 +111,14 @@ public sealed class TargetCommandSession
         where T : class
     {
         _canvas.Token.UseResource(slot, _resourceBindings, use);
+    }
+
+    internal void ExecuteFilterEffects(FilterEffectContext program, FilterEffectWorkingScalePolicy policy)
+    {
+        _canvas.Token.ThrowIfInactive();
+        if (_executeFilters is null)
+            throw new InvalidOperationException("Filter execution is not available in this target command.");
+        _executeFilters(program, policy);
     }
 
     internal void ValidateCompletion()

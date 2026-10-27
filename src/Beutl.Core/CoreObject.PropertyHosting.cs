@@ -12,6 +12,10 @@ public abstract partial class CoreObject : IChildObjectSource
 
     public virtual IReadOnlyList<IProperty> Properties => RegisteredProperties;
 
+    /// <summary>Raised once when a property is added to this object's registry.</summary>
+    /// <remarks>Dynamic properties must have their name, attributes and owner set before registration.</remarks>
+    public event EventHandler<IProperty>? PropertyRegistered;
+
     // The properties registered here, whatever a derived type shows as Properties.
     internal IReadOnlyList<IProperty> RegisteredProperties => (IReadOnlyList<IProperty>?)_properties ?? [];
 
@@ -78,6 +82,7 @@ public abstract partial class CoreObject : IChildObjectSource
         if (!_properties.Contains(property))
         {
             _properties.Insert(Math.Min(index, _properties.Count), property);
+            PropertyRegistered?.Invoke(this, property);
         }
     }
 

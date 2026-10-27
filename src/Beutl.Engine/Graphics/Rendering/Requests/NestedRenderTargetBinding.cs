@@ -90,6 +90,14 @@ internal sealed class NestedRenderTargetBinding : IDisposable
         return _lease.Target.Texture;
     }
 
+    internal RenderTargetImageLease AcquireImage()
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        if (_state != NestedRenderTargetBindingState.Ready || _lease is null)
+            throw new InvalidOperationException("The dependency render target is not available.");
+        return _lease.Target.AcquireImage();
+    }
+
     public void Dispose()
     {
         if (IsDisposed)

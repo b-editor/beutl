@@ -357,7 +357,9 @@ public partial class PlayerView : UserControl
 
         var selection = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorSelection>();
         var clock = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorClock>();
-        if (selection.SelectedObject.Value is not Element element)
+        Element? element = selection.SelectedObject.Value as Element
+            ?? (selection.SelectedObject.Value as IHierarchical)?.FindHierarchicalParent<Element>();
+        if (element is null)
         {
             ClearTransformHandleOverlay();
             return;
@@ -411,6 +413,9 @@ public partial class PlayerView : UserControl
         }
 
         transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, viewport);
+        var selected = vm.EditViewModel.GetRequiredService<IEditorSelection>().SelectedObject.Value;
+        transformHandlesOverlay.UpdateEditingHandles(selected as Beutl.Engine.IEditingHandleProvider
+            ?? drawable as Beutl.Engine.IEditingHandleProvider, time);
     }
 
     // The render thread's answer, or fallback when it does not come within RenderThreadWait.

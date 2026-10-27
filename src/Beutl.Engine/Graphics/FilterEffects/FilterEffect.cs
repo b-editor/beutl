@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 using Beutl.Serialization;
 
@@ -12,6 +13,17 @@ public abstract partial class FilterEffect : EngineObject
 
     public abstract partial class Resource
     {
+        /// <summary>Whether this effect needs to control the remaining effects in its containing chain.</summary>
+        /// <remarks>Such chains are recorded together so callbacks can retain and execute their suffix.</remarks>
+        public virtual bool ControlsContinuation => false;
+
+        internal CompositionContext? EvaluationContext { get; private set; }
+
+        partial void PostReconcile(FilterEffect obj, CompositionContext context)
+        {
+            EvaluationContext = context.WithTime(context.Time);
+        }
+
         /// <summary>
         /// Creates the render node for this effect. Override to supply a custom
         /// <see cref="FilterEffectRenderNode"/> subclass with a different working scale.

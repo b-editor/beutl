@@ -59,11 +59,12 @@ internal sealed partial class RenderRequestExecutor
         ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions,
-        ref bool nestedPreviewDropObserved)
+        ref bool nestedPreviewDropObserved,
+        bool requireTarget = false)
     {
         NestedRenderTargetBinding binding = request.Request.Options.TargetBinding
             ?? throw new InvalidOperationException("A nested request has no separate-target binding.");
-        bool needsTarget = request.Measurement.HasContributingValues
+        bool needsTarget = requireTarget || request.Measurement.HasContributingValues
                            || request.Measurement.HasTargetEffects;
         if (!needsTarget)
         {
@@ -214,7 +215,9 @@ internal sealed partial class RenderRequestExecutor
             programCache,
             spirvProgramCache,
             graphProgramCache,
-            _shaderBackendPreference);
+            _shaderBackendPreference,
+            (root, identity, domain, scale) => ExecuteDependency(request, root, identity, domain, scale,
+                destination, programCache, spirvProgramCache, graphProgramCache, frames, cleanupFailures));
         if (nestedPreviewDropObserved)
             state.MarkPreviewAllocationDropped();
 

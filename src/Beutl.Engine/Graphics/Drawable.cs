@@ -60,7 +60,14 @@ public abstract partial class Drawable : EngineObject
 
     protected abstract Size MeasureCore(Size availableSize, Resource resource);
 
-    internal Size MeasureInternal(Size availableSize, Resource resource) => MeasureCore(availableSize, resource);
+    /// <summary>Measures this drawable using its already evaluated resource, without drawing it.</summary>
+    public Size Measure(Size availableSize, Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        return MeasureCore(availableSize, resource);
+    }
+
+    internal Size MeasureInternal(Size availableSize, Resource resource) => Measure(availableSize, resource);
 
     internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds, Resource resource)
     {

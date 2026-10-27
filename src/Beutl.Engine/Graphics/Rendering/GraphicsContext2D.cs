@@ -527,7 +527,7 @@ public sealed class GraphicsContext2D(
         PushedState result;
         switch (effect)
         {
-            case FilterEffectGroup.Resource group:
+            case FilterEffectGroup.Resource group when !group.ControlsContinuation:
                 for (int i = group.Children.Count - 1; i >= 0; i--)
                 {
                     FilterEffect.Resource item = group.Children[i];

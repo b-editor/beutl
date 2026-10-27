@@ -82,6 +82,7 @@ public partial class SceneNode : GraphNode
                 PreferProxy = context.PreferProxy,
                 PreferredProxyPreset = context.PreferredProxyPreset,
                 TargetDomain = context.TargetDomain,
+                EvaluationServices = context.EvaluationServices,
             };
 
             try

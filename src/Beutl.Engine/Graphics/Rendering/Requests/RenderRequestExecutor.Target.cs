@@ -84,7 +84,8 @@ internal sealed partial class RenderRequestExecutor
                             description.Resources,
                             description.Access == TargetAccess.Readback
                                 ? () => TakeTargetSnapshot(ref targetSnapshot)
-                                : null);
+                                : null,
+                            (program, policy) => ExecuteTargetFilterEffects(program, policy, values, destination, requiredRegion));
                         if (description.Access == TargetAccess.Readback)
                         {
                             RecordSynchronization();

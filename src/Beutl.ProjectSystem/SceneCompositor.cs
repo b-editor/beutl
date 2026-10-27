@@ -13,7 +13,7 @@ using Beutl.ProjectSystem;
 
 namespace Beutl;
 
-public sealed class SceneCompositor : ICompositor
+public sealed partial class SceneCompositor : ICompositor
 {
     private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
     private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
@@ -92,6 +92,7 @@ public sealed class SceneCompositor : ICompositor
                 && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
             PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
             TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1));
+            EvaluationServices = new EvaluationServices(compositor);
         }
 
         public IList<Element> CurrentElements { get; set; }
@@ -126,7 +127,9 @@ public sealed class SceneCompositor : ICompositor
         }
     }
 
-    public CompositionFrame EvaluateGraphics(MediaTime time)
+    public CompositionFrame EvaluateGraphics(MediaTime time) => EvaluateGraphics(time, null, null);
+
+    private CompositionFrame EvaluateGraphics(MediaTime time, int? layer, EvaluationServices? services)
     {
         DisposeDetachedResources();
         using var currentElements = new PooledList<Element>();
@@ -136,17 +139,20 @@ public sealed class SceneCompositor : ICompositor
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
+        if (services is not null)
+            ctx.EvaluationServices = services;
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
         {
+            if (layer.HasValue && currentElements[index].ZIndex.Value != layer.Value) continue;
             flow.Clear();
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
         }
 
-        return new CompositionFrame(
+        var frame = new CompositionFrame(
             [.. allResources],
             new(time, new MediaTime(1)),
             Scene.FrameSize.Value,
@@ -154,6 +160,9 @@ public sealed class SceneCompositor : ICompositor
         {
             ContainsScene3D = ctx.ContainsScene3D,
         };
+        if (services is null)
+            ((EvaluationServices)ctx.EvaluationServices!).Frame = frame;
+        return frame;
     }
 
     public CompositionFrame EvaluateAudio(TimeRange timeRange)

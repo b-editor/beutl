@@ -51,6 +51,9 @@ internal sealed partial class RenderRequestExecutor
         ObjectDisposedException.ThrowIf(request.IsDisposed, request);
         ObjectDisposedException.ThrowIf(destination.IsDisposed, destination);
         ValidateFamilyForExecution(request);
+        _dependencies.Clear();
+        _activeDependencies.Clear();
+        _dynamicRootAcquisitions = 0;
 
         ProgramCache<CachedSkRuntimeEffect>? localProgramCache = _programCache is null
             ? SkRuntimeEffectProgramCache.Create()
@@ -121,7 +124,9 @@ internal sealed partial class RenderRequestExecutor
         PublishFamilyOutputs(frames, cleanupFailures, ref primaryFailure);
         RejectUnpublishedCaptures(frames, cleanupFailures, ref primaryFailure);
 
-        Statistics = AggregateStatistics(frames, nestedRootAcquisitions);
+        Statistics = AggregateStatistics(frames, nestedRootAcquisitions + _dynamicRootAcquisitions);
+        _dependencies.Clear();
+        _activeDependencies.Clear();
 
         if (primaryFailure is not null)
         {
@@ -295,6 +300,7 @@ internal sealed partial class RenderRequestExecutor
 
     private sealed partial class RenderRequestExecutionState : IDisposable
     {
+        private readonly Func<RenderNode, object, Rect, float, RenderTargetImageLease> _renderDependency;
         private readonly RenderRequestOptions _options;
         private readonly RecordedRenderGraph _graph;
         private readonly ExecutionIslandPlan _executionPlan;
@@ -350,8 +356,10 @@ internal sealed partial class RenderRequestExecutor
             ProgramCache<CachedSkRuntimeEffect> programCache,
             ProgramCache<GLSLFilterPipeline> spirvProgramCache,
             ProgramCache<ShaderGraphPipeline> graphProgramCache,
-            ShaderBackendPreference shaderBackendPreference)
+            ShaderBackendPreference shaderBackendPreference,
+            Func<RenderNode, object, Rect, float, RenderTargetImageLease> renderDependency)
         {
+            _renderDependency = renderDependency;
             _options = options;
             _graph = graph ?? throw new ArgumentNullException(nameof(graph));
             _executionPlan = executionPlan;

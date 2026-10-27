@@ -42,6 +42,21 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
     /// </remarks>
     public Rect? TargetDomain { get; set; }
 
+    /// <summary>Optional scene queries. Detached evaluations need not provide these services.</summary>
+    public ICompositionEvaluationServices? EvaluationServices { get; set; }
+
+    /// <summary>Captures an independent evaluation clock while preserving this context's services and policies.</summary>
+    /// <remarks>The captured context belongs to the current render request; it must not outlive its services.</remarks>
+    public virtual CompositionContext WithTime(MediaTime time)
+    {
+        var result = (CompositionContext)MemberwiseClone();
+        result.Time = time;
+        result.DisableResourceShare = true;
+        result.Flow = null;
+        result.ReplayedFlow = null;
+        return result;
+    }
+
     public virtual T Get<T>(IProperty<T> property)
     {
         if (property == null)

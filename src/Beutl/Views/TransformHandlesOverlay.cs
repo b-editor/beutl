@@ -16,7 +16,7 @@ using Element = Beutl.ProjectSystem.Element;
 
 namespace Beutl.Views;
 
-internal sealed class TransformHandlesOverlay : Control
+internal sealed partial class TransformHandlesOverlay : Control
 {
     private const double HandleSize = 8.0;
     private const double EdgeHandleLength = 14.0;
@@ -124,6 +124,7 @@ internal sealed class TransformHandlesOverlay : Control
 
     public void Clear()
     {
+        ClearEditingHandles();
         _drawable = null;
         _element = null;
         _localBounds = default;
@@ -187,6 +188,7 @@ internal sealed class TransformHandlesOverlay : Control
         DrawEdgeHandle(context, LocalEdgeMid(1, 2), _imageCorners[2] - _imageCorners[1]);
         DrawEdgeHandle(context, LocalEdgeMid(2, 3), _imageCorners[3] - _imageCorners[2]);
         DrawEdgeHandle(context, LocalEdgeMid(3, 0), _imageCorners[0] - _imageCorners[3]);
+        RenderEditingHandles(context);
     }
 
     private static void DrawCornerHandle(DrawingContext context, AvaPoint p)

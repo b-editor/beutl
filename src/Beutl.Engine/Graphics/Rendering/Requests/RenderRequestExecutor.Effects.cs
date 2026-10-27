@@ -285,6 +285,9 @@ internal sealed partial class RenderRequestExecutor
                             renderTargetLeaseSession: _targets,
                             targetDomain: _options.TargetDomain,
                             acquireShaderGraphProgram: AcquireShaderGraphProgram);
+                        using var execution = new RenderExecutionContext(_renderDependency,
+                            executor.WorkingScale, executor.MaxWorkingScale);
+                        executor.ExecutionContext = execution;
                         executor.Apply(effectContext);
                         executor.CompletePolicyBoundary(
                             payload.WorkingScalePolicy.HasValue);
