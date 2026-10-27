@@ -24,6 +24,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     private const int AudioBlockSize = 1024;
     private const EnumFlag SoftwareEncoders = EnumFlag.EnumFlagSyncmft | EnumFlag.EnumFlagAsyncmft
         | EnumFlag.EnumFlagLocalmft | EnumFlag.EnumFlagTranscodeOnly | EnumFlag.EnumFlagSortandfilter;
+    private static readonly BitmapColorSpace s_rec709 =
+        BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709);
 
     public override MFVideoEncoderSettings VideoSettings { get; } = new();
 
@@ -310,8 +312,8 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     private void WriteVideoFrame(IMFSinkWriter writer, int stream, Bitmap bitmap, bool rec709Output, long time,
         long duration)
     {
-        // BT.709 output keeps sRGB code values, which Beutl's default readers and common players show as sRGB.
-        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul,
+            rec709Output ? s_rec709 : BitmapColorSpace.Srgb);
         using var source = new SKBitmap();
         var sourceInfo = new SKImageInfo(converted.Width, converted.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
         if (!source.InstallPixels(sourceInfo, converted.Data, converted.RowBytes))

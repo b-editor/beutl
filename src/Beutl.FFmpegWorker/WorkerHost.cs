@@ -111,7 +111,6 @@ internal sealed class WorkerHost(IpcConnection connection) : IDisposable
             MessageType.ReadVideo => _decodingHandler.HandleReadVideo,
             MessageType.ReadAudio => _decodingHandler.HandleReadAudio,
             MessageType.CloseReader => _decodingHandler.HandleClose,
-            MessageType.UpdateDecoderSettings => _decodingHandler.HandleUpdateDecoderSettings,
             MessageType.QueryCodecs => _codecQueryHandler.HandleQueryCodecs,
             MessageType.QueryPixelFormats => _codecQueryHandler.HandleQueryPixelFormats,
             MessageType.QuerySampleRates => _codecQueryHandler.HandleQuerySampleRates,

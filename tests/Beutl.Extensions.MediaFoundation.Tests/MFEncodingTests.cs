@@ -59,8 +59,8 @@ public class MFEncodingTests
             using var buffer = sample.ConvertToContiguousBuffer();
             byte[] bytes = CopyBuffer(buffer);
 
-            // Red/green/blue, gray 128, black and white; BT.709 keeps the sRGB code values.
-            int[][] expected = [[63, 102, 240], [173, 42, 26], [32, 240, 118], [126, 128, 128], [16, 128, 128], [235, 128, 128]];
+            // Red/green/blue, sRGB gray 128 converted to BT.709, black and white.
+            int[][] expected = [[63, 102, 240], [173, 42, 26], [32, 240, 118], [115, 128, 128], [16, 128, 128], [235, 128, 128]];
             Assert.Multiple(() =>
             {
                 for (int patch = 0; patch < expected.Length; patch++)

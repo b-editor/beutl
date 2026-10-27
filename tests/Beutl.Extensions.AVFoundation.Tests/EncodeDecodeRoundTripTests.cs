@@ -54,12 +54,10 @@ public class EncodeDecodeRoundTripTests
                 ? BitmapColorTransfer.Bt709 : (BitmapColorTransfer)transfer;
             var expectedColorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(expectedTransfer, BitmapColorPrimaries.Bt709);
             Assert.That(decoded!.Value.ColorSpace, Is.EqualTo(expectedColorSpace));
-            // Compare code values: BT.709 keeps sRGB's, as Beutl's default FFmpeg reader expects; linear stays linear.
-            Bitmap actual = decoded.Value;
+            // Compare in the encoded transfer domain, without amplifying quantization noise near linear black.
+            using Bitmap actual = decoded.Value.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, expectedColorSpace);
             using Bitmap source = ColorBarsFrameProvider.CreateFrame();
-            using Bitmap expected = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul,
-                transfer == AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear
-                    ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb);
+            using Bitmap expected = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, expectedColorSpace);
             for (int patch = 0; patch < 6; patch++)
             {
                 for (int channel = 0; channel < 3; channel++)

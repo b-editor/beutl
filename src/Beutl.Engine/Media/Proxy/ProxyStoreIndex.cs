@@ -2,7 +2,8 @@
 
 public sealed record ProxyStoreIndex
 {
-    public const int CurrentVersion = 2;
+    // 3: SDR sources decode by their transfer tags, so proxies made from the forced sRGB reading are stale.
+    public const int CurrentVersion = 3;
 
     public int Version { get; init; } = CurrentVersion;
 
@@ -13,7 +14,8 @@ public sealed record ProxyStoreIndex
 
 public sealed record ProxySourceMetadata
 {
-    public const int CurrentVersion = 2;
+    // 3: as ProxyStoreIndex, so a rebuilt index cannot pick up the stale proxies either.
+    public const int CurrentVersion = 3;
 
     public int Version { get; init; } = CurrentVersion;
 

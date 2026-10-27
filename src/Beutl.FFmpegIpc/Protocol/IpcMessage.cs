@@ -77,7 +77,6 @@ public sealed class IpcMessage
 [JsonSerializable(typeof(ReadAudioRequest))]
 [JsonSerializable(typeof(ReadAudioResponse))]
 [JsonSerializable(typeof(CloseReaderRequest))]
-[JsonSerializable(typeof(UpdateDecoderSettingsRequest))]
 // Encoding
 [JsonSerializable(typeof(EncodeStartRequest))]
 [JsonSerializable(typeof(EncodeStartAckMessage))]
