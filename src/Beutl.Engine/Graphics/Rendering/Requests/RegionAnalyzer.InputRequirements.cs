@@ -1,5 +1,8 @@
 ﻿using System.Collections.Immutable;
 
+using Beutl.Graphics.Shaders;
+using Beutl.Media;
+
 namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed partial class RegionAnalyzer
@@ -36,7 +39,7 @@ internal sealed partial class RegionAnalyzer
         {
             ShaderRenderFragmentPayload shader
                 => MapUnary(reference, outputRequirement, shader.Description.Bounds),
-            ShaderGraphRenderFragmentPayload => FullInputs(reference),
+            ShaderGraphRenderFragmentPayload graph => MapShaderGraph(reference, outputRequirement, graph.Description),
             GeometryRenderFragmentPayload geometry
                 => MapUnary(reference, outputRequirement, geometry.Description.Bounds),
             TargetScopeRenderFragmentPayload scope
@@ -69,6 +72,25 @@ internal sealed partial class RegionAnalyzer
                     ResolveTargetRegion(layer.Region, targetDomain)),
             _ => MapIdentityInputs(reference, outputRequirement),
         };
+    }
+
+    private static ImmutableArray<RequiredRegion> MapShaderGraph(RenderFragmentReference reference,
+        RequiredRegion outputRequirement, ShaderGraphDescription graph)
+    {
+        // A collection's union does not describe each value's coordinate frame or raster density.
+        if (outputRequirement.IsFull || reference.Inputs[0].ValueCardinality.Maximum != 1)
+            return FullInputs(reference);
+        Rect bounds = reference.Inputs[0].Bounds;
+        if (bounds.Width == 0 || bounds.Height == 0) return FullInputs(reference);
+        float scale = reference.EffectiveScale.Value;
+        float inputScale = reference.Inputs[0].EffectiveScale.IsUnbounded ? scale : reference.Inputs[0].EffectiveScale.Value;
+        PixelRect pixels = PixelRect.FromRect(bounds, inputScale);
+        var source = new ShaderImageFrame(bounds,
+            new Rect(pixels.X / inputScale, pixels.Y / inputScale, pixels.Width / inputScale, pixels.Height / inputScale),
+            pixels.Size, inputScale);
+        var regions = new ShaderGraphRegions(graph, source, scale, default, outputRequirement.Resolve(reference.Bounds));
+        // A generated output still needs the incoming value's existence and complete logical bounds.
+        return regions.SourceRegion.IsEmpty ? FullInputs(reference) : [RequiredRegion.Region(regions.SourceRegion)];
     }
 
     private static ImmutableArray<RequiredRegion> MapUnary(

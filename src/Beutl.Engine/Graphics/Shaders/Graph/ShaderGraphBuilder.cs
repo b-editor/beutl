@@ -39,6 +39,12 @@ public sealed partial class ShaderGraphBuilder
             ShaderGraphOutput output = record(builder, state)
                 ?? throw new InvalidOperationException("A shader graph must select an output.");
             builder.ValidateResource(output.Image);
+            if (output.Color != ColorEncoding.LinearPremultiplied)
+            {
+                ShaderImage converted = builder.ConvertColor(builder.InternalName("output-color"),
+                    output.Image, output.Color, ColorEncoding.LinearPremultiplied);
+                output = new(output.Image, output.Color, converted);
+            }
             return new ShaderGraphDescription([.. builder._resources], [.. builder._passes], output);
         }
         finally
@@ -146,6 +152,14 @@ public sealed partial class ShaderGraphBuilder
         if (!image.IsAttachment || image.Format.IsDepthFormat() || image.Format.NumericCategory() != 0)
             throw new ArgumentException("The graph output must be a single 2D color subresource with floating-point sample values. Convert numeric or depth data in an explicit pass.", nameof(image));
         return new(image, color);
+    }
+
+    private string InternalName(string purpose)
+    {
+        string name = "$" + purpose;
+        for (int i = 0; _resourceNames.Contains(name) || _passNames.Contains(name); i++)
+            name = "$" + purpose + i;
+        return name;
     }
 
     internal void ValidateResource(ShaderResource resource)

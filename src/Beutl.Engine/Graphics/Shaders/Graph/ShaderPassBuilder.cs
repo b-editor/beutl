@@ -27,6 +27,8 @@ public sealed partial class ShaderPassBuilder
     private int _firstElement;
     private int _vertexOffset;
     private int _firstInstance;
+    private bool _partialRendering;
+    private readonly Dictionary<int, ShaderInputRegion> _inputRegions = [];
 
     internal ShaderPassBuilder(ShaderGraphBuilder graph, string name, ShaderProgram program, bool fullscreen)
     {
@@ -46,6 +48,25 @@ public sealed partial class ShaderPassBuilder
             || !float.IsFinite(state.MinLod) || !float.IsFinite(state.MaxLod) || state.MinLod < 0 || state.MaxLod < state.MinLod)
             throw new ArgumentOutOfRangeException(nameof(sampler));
         AddBinding(binding, image, DescriptorType.CombinedImageSampler, ResourceAccess.Read, state);
+    }
+
+    /// <summary>Declares that color outputs can be evaluated independently for a requested rectangle.</summary>
+    /// <remarks>Undeclared input footprints remain full. Compute, depth, subresource views and storage writes
+    /// keep full execution. The viewport, UVs and image metadata always retain their complete-image coordinates.</remarks>
+    public void PartialRendering()
+    {
+        EnsureGraphics();
+        _partialRendering = true;
+    }
+
+    /// <summary>Declares the complete sampling footprint of a sampled-image binding and enables partial rendering.</summary>
+    /// <remarks>Output coordinates refer to the first color attachment's composition frame.</remarks>
+    public void InputRegion(int binding, ShaderInputRegion region)
+    {
+        PartialRendering();
+        ArgumentOutOfRangeException.ThrowIfNegative(binding);
+        region.Validate();
+        _inputRegions[binding] = region;
     }
 
     public void StorageBuffer(int binding, ShaderBuffer buffer, ResourceAccess access)
@@ -248,6 +269,9 @@ public sealed partial class ShaderPassBuilder
 
     internal ShaderPassDescription Build()
     {
+        foreach (int binding in _inputRegions.Keys)
+            if (!_bindings.TryGetValue(binding, out ShaderPassBinding? input) || input.Type != DescriptorType.CombinedImageSampler)
+                throw new InvalidOperationException($"Pass '{_name}' has an input region without sampled-image binding {binding}.");
         if (_work is not { } work)
             throw new InvalidOperationException($"Pass '{_name}' requires a draw or dispatch.");
         ShaderColorAttachment[] attachments = _attachments.Values.OrderBy(a => a.Location).ToArray();
@@ -280,7 +304,9 @@ public sealed partial class ShaderPassBuilder
             DepthStencil = _depthStencil,
             CullMode = _cullMode,
             FrontFace = _frontFace,
-            PatchControlPoints = _patchControlPoints
+            PatchControlPoints = _patchControlPoints,
+            PartialRendering = _partialRendering,
+            InputRegions = _inputRegions.ToImmutableDictionary()
         };
     }
 }
@@ -302,4 +328,6 @@ internal sealed record ShaderPassDescription(string Name, ShaderProgram? Program
     public FrontFace FrontFace { get; init; }
     public int PatchControlPoints { get; init; } = 3;
     public ShaderTransfer? Transfer { get; init; }
+    public bool PartialRendering { get; init; }
+    public ImmutableDictionary<int, ShaderInputRegion> InputRegions { get; init; } = ImmutableDictionary<int, ShaderInputRegion>.Empty;
 }
