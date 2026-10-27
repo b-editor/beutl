@@ -156,10 +156,10 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
                     _program = program;
                     Version++; // A successful retry must invalidate an already recorded pass-through.
                 }
-                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or NotSupportedException)
+                catch (Exception ex)
                 {
-                    // Cache invalid edits only after compiler initialization succeeds. Native pipeline allocation and
-                    // execution still belong to the renderer and retain the normal graph failure behavior.
+                    // Keep user-script preparation failures local, including unsupported reflection expressions.
+                    // Cache only after compiler initialization succeeds; renderer pipeline/execution errors remain visible.
                     s_logger.LogError(ex, "Failed to prepare the GLSL script; the effect is inactive.");
                 }
             }

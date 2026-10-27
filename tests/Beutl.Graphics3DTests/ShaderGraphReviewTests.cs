@@ -96,6 +96,13 @@ public sealed class ShaderGraphReviewTests
     [TestCase("unfinished shader")]
     [TestCase("#version 450\nlayout(binding=3) uniform sampler2D missing; layout(location=0) out vec4 color; void main(){color=texture(missing,vec2(0.5));}")]
     [TestCase("#version 450\nlayout(location=0) in vec3 wrongInput; layout(location=0) out vec4 color; void main(){color=vec4(wrongInput,1);}")]
+    [TestCase("""
+        #version 450
+        layout(constant_id = 0) const int n = 2;
+        layout(push_constant) uniform Values { float values[n + 1]; } pc;
+        layout(location = 0) out vec4 color;
+        void main() { color = vec4(pc.values[2]); }
+        """)]
     public void InvalidScriptIsInactiveAndARepairedScriptRenders(string invalid)
     {
         GpuTestEnvironment.EnsureAvailable();
