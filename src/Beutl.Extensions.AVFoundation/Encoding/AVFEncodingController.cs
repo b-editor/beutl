@@ -27,9 +27,12 @@ public class AVFEncodingController : EncodingController
         var audioConfig = BuildAudioConfig((int)sampleProvider.SampleRate);
 
         bool isHdr = VideoSettings.IsHdr;
-        // Convert pixels to the same transfer/primaries as the encoded stream, including SDR.
-        BitmapColorSpace targetColorSpace = ColorSpaceMapper.BuildColorSpace(
-            isHdr, (BitmapColorTransfer)videoConfig.ColorTransfer, (BitmapColorPrimaries)videoConfig.ColorPrimaries);
+        // Convert pixels to the transfer/primaries of the encoded stream; SDR BT.709 keeps sRGB code values.
+        var transfer = (BitmapColorTransfer)videoConfig.ColorTransfer;
+        var primaries = (BitmapColorPrimaries)videoConfig.ColorPrimaries;
+        BitmapColorSpace targetColorSpace = isHdr
+            ? ColorSpaceMapper.BuildColorSpace(isHdr, transfer, primaries)
+            : ColorSpaceMapper.BuildSdrOutputColorSpace(transfer, primaries);
 
         BeutlAVFException.ThrowIfFailed(
             BeutlAVFNative.beutl_avf_writer_create(

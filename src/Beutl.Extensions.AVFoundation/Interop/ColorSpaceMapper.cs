@@ -13,4 +13,11 @@ internal static class ColorSpaceMapper
         => isHdr
             ? BitmapColorSpaceMapping.BuildHdrColorSpace(transfer, primaries)
             : BitmapColorSpaceMapping.BuildTargetColorSpace(transfer, primaries);
+
+    // Beutl's default FFmpeg reader (ForceSrgbGamma), like common players, shows BT.709 SDR code values as sRGB,
+    // so the encoder keeps sRGB code values there. BT.709 primaries are sRGB's, keeping Skia's canonical sRGB.
+    public static BitmapColorSpace BuildSdrOutputColorSpace(BitmapColorTransfer transfer, BitmapColorPrimaries primaries)
+        => BitmapColorSpaceMapping.BuildTargetColorSpace(
+            transfer == BitmapColorTransfer.Bt709 ? BitmapColorTransfer.Srgb : transfer,
+            primaries == BitmapColorPrimaries.Bt709 ? BitmapColorPrimaries.Srgb : primaries);
 }

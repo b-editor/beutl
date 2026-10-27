@@ -50,14 +50,40 @@ public sealed class EncodingColorTests
         });
 
         // Independent reference values for red, green, blue, sRGB mid-gray, black and white.
-        // sRGB 128 becomes BT.709 R'G'B' 115 before limited-range YUV conversion.
+        // BT.709 keeps the sRGB code values, which Beutl's default reader decodes as sRGB.
         int[][] expected = explicitSettings
             ? [[76, 85, 255], [150, 44, 21], [29, 255, 107], [128, 128, 128], [0, 128, 128], [255, 128, 128]]
-            : [[63, 102, 240], [173, 42, 26], [32, 240, 118], [115, 128, 128], [16, 128, 128], [235, 128, 128]];
+            : [[63, 102, 240], [173, 42, 26], [32, 240, 118], [126, 128, 128], [16, 128, 128], [235, 128, 128]];
         AssertYuvPatches(frame, expected);
         Assert.That(controller.VideoSettings.ColorTrc.Value,
             Is.EqualTo(explicitSettings ? FFColorTransfer.IEC61966_2_1 : FFColorTransfer.UNSPECIFIED),
             "Resolving defaults must not overwrite saved settings.");
+    }
+
+    // AVI records no colour description, so the BT.601 matrix that readers assume for untagged video stays.
+    [Test]
+    public async Task UntaggableOutputKeepsTheUntaggedBt601Matrix()
+    {
+        var controller = CreateController("bars.avi");
+        await Encode(controller);
+        using MediaFrame frame = ReadFirstFrame(controller.OutputFile);
+        Assert.Multiple(() =>
+        {
+            Assert.That(frame.ColorPrimaries, Is.EqualTo(AVColorPrimaries.AVCOL_PRI_UNSPECIFIED));
+            Assert.That(frame.ColorTrc, Is.EqualTo(AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED));
+            Assert.That(frame.Colorspace, Is.EqualTo(AVColorSpace.AVCOL_SPC_UNSPECIFIED));
+        });
+        AssertYuvPatches(frame, [[81, 90, 240], [145, 54, 34], [41, 240, 110], [126, 128, 128], [16, 128, 128], [235, 128, 128]]);
+    }
+
+    [Test]
+    public async Task MatrixSwscaleCannotProduceStillEncodesWithItsTag()
+    {
+        var controller = CreateController("ictcp.mp4");
+        controller.VideoSettings.ColorSpace.Value = FFColorSpace.ICTCP;
+        await Encode(controller);
+        using MediaFrame frame = ReadFirstFrame(controller.OutputFile);
+        Assert.That(frame.Colorspace, Is.EqualTo(AVColorSpace.AVCOL_SPC_ICTCP));
     }
 
     [TestCase(FFColorTransfer.UNSPECIFIED)]

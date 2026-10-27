@@ -26,12 +26,14 @@ public class EncodeDecodeRoundTripTests
         catch { /* best-effort cleanup */ }
     }
 
-    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default, AVFVideoEncoderSettings.YCbCrMatrixType.Default)]
-    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default, AVFVideoEncoderSettings.YCbCrMatrixType.Bt601)]
-    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Srgb, AVFVideoEncoderSettings.YCbCrMatrixType.Bt709)]
-    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear, AVFVideoEncoderSettings.YCbCrMatrixType.Bt709)]
+    // The expected codes are the ISO/IEC 23091-2 transfer and matrix values in the mp4 colr box.
+    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default, AVFVideoEncoderSettings.YCbCrMatrixType.Default, 1, 1)]
+    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default, AVFVideoEncoderSettings.YCbCrMatrixType.Bt601, 1, 6)]
+    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Srgb, AVFVideoEncoderSettings.YCbCrMatrixType.Bt709, 13, 1)]
+    [TestCase(AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear, AVFVideoEncoderSettings.YCbCrMatrixType.Bt709, 8, 1)]
     public async Task SdrColorTagsAndPixelsRoundTrip(
-        AVFVideoEncoderSettings.ColorTransferCharacteristic transfer, AVFVideoEncoderSettings.YCbCrMatrixType matrix)
+        AVFVideoEncoderSettings.ColorTransferCharacteristic transfer, AVFVideoEncoderSettings.YCbCrMatrixType matrix,
+        int transferCode, int matrixCode)
     {
         string outputPath = Path.Combine(_workDir, "colors.mp4");
         var controller = new AVFEncodingController(outputPath);
@@ -52,10 +54,12 @@ public class EncodeDecodeRoundTripTests
                 ? BitmapColorTransfer.Bt709 : (BitmapColorTransfer)transfer;
             var expectedColorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(expectedTransfer, BitmapColorPrimaries.Bt709);
             Assert.That(decoded!.Value.ColorSpace, Is.EqualTo(expectedColorSpace));
-            // Compare in the encoded transfer domain, without amplifying quantization noise near linear black.
-            using Bitmap actual = decoded.Value.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, expectedColorSpace);
+            // Compare code values: BT.709 keeps sRGB's, as Beutl's default FFmpeg reader expects; linear stays linear.
+            Bitmap actual = decoded.Value;
             using Bitmap source = ColorBarsFrameProvider.CreateFrame();
-            using Bitmap expected = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, expectedColorSpace);
+            using Bitmap expected = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul,
+                transfer == AVFVideoEncoderSettings.ColorTransferCharacteristic.Linear
+                    ? BitmapColorSpace.LinearSrgb : BitmapColorSpace.Srgb);
             for (int patch = 0; patch < 6; patch++)
             {
                 for (int channel = 0; channel < 3; channel++)
@@ -66,8 +70,20 @@ public class EncodeDecodeRoundTripTests
                 }
             }
         }
+        Assert.That(ReadNclx(outputPath), Is.EqualTo((Primaries: 1, Transfer: transferCode, Matrix: matrixCode)));
         Assert.That(controller.VideoSettings.YCbCrMatrix.Value, Is.EqualTo(matrix));
         Assert.That(controller.VideoSettings.ColorTransfer.Value, Is.EqualTo(transfer));
+    }
+
+    // The reader folds an unknown transfer into sRGB and never reports the matrix, so read the colr box itself.
+    private static (int Primaries, int Transfer, int Matrix) ReadNclx(string path)
+    {
+        byte[] bytes = File.ReadAllBytes(path);
+        int at = bytes.AsSpan().IndexOf("colrnclx"u8);
+        if (at < 0) at = bytes.AsSpan().IndexOf("colrnclc"u8);
+        Assert.That(at, Is.GreaterThanOrEqualTo(0), "The video has no colr box.");
+        int Read(int offset) => (bytes[at + 8 + offset] << 8) | bytes[at + 9 + offset];
+        return (Read(0), Read(2), Read(4));
     }
 
     // A provider without frames returns null on its first read; one audio block keeps the file non-empty.
@@ -261,7 +277,7 @@ public class EncodeDecodeRoundTripTests
         controller.VideoSettings.SourceSize.Value = new PixelSize(width, height);
         controller.VideoSettings.FrameRate.Value = new Rational(frameRateNum, frameRateDen);
         // HDR PQ + Rec.2020 — this flips the writer to HEVC Main10 + CV64RGBALE input and
-        // stamps the AVVideoColorProperties tags on the output stream.
+        // tags the output stream through the input pixel buffers' color attachments.
         controller.VideoSettings.ColorTransfer.Value = AVFVideoEncoderSettings.ColorTransferCharacteristic.Pq;
         controller.VideoSettings.ColorPrimaries.Value = AVFVideoEncoderSettings.ColorPrimariesType.Rec2020;
         controller.VideoSettings.YCbCrMatrix.Value = AVFVideoEncoderSettings.YCbCrMatrixType.Rec2020;

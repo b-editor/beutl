@@ -314,8 +314,8 @@ final class Writer {
         case Int32(BEUTL_PRIMARIES_EBU3213): return AVVideoColorPrimaries_EBU_3213
         case Int32(BEUTL_PRIMARIES_SMPTE170M): return AVVideoColorPrimaries_SMPTE_C
         default:
-            // HDR without explicit tag → Rec.2020 gamut; SDR falls through to the encoder's
-            // default (BT.709 for H.264/HEVC, unset for JPEG).
+            // HDR without explicit tag → Rec.2020 gamut. The C# side resolves SDR H.264/HEVC
+            // to BT.709, so only JPEG reaches here untagged.
             return isHdr ? AVVideoColorPrimaries_ITU_R_2020 : nil
         }
     }

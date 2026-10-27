@@ -84,9 +84,6 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         long sample = 0;
         long rateNumerator = VideoSettings.FrameRate.Value.Numerator;
         long rateDenominator = VideoSettings.FrameRate.Value.Denominator;
-        BitmapColorSpace colorSpace = rec709Output
-            ? BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709)
-            : BitmapColorSpace.Srgb;
         while (frame < frameCount || sample < sampleCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -97,7 +94,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 using var bitmap = await frames.ReadNextFrame()
                     ?? throw new InvalidOperationException("The frame provider ended before its frame count.");
                 cancellationToken.ThrowIfCancellationRequested();
-                WriteVideoFrame(writer, videoStream, bitmap, colorSpace, rec709Output, videoTime,
+                WriteVideoFrame(writer, videoStream, bitmap, rec709Output, videoTime,
                     GetTimestamp(frame + 1, rateNumerator, rateDenominator) - videoTime);
                 frame++;
             }
@@ -310,10 +307,11 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         return stream;
     }
 
-    private void WriteVideoFrame(IMFSinkWriter writer, int stream, Bitmap bitmap, BitmapColorSpace colorSpace,
-        bool rec709Output, long time, long duration)
+    private void WriteVideoFrame(IMFSinkWriter writer, int stream, Bitmap bitmap, bool rec709Output, long time,
+        long duration)
     {
-        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, colorSpace);
+        // BT.709 output keeps sRGB code values, which Beutl's default readers and common players show as sRGB.
+        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
         using var source = new SKBitmap();
         var sourceInfo = new SKImageInfo(converted.Width, converted.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
         if (!source.InstallPixels(sourceInfo, converted.Data, converted.RowBytes))

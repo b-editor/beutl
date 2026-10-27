@@ -19,6 +19,18 @@ internal static class ColorSpaceHelper
         AVColorTransferCharacteristic trc, AVColorPrimaries primaries)
         => BitmapColorSpaceMapping.BuildHdrColorSpace(ToTransfer(trc), ToPrimaries(primaries));
 
+    // Beutl's default FFmpeg reader (ForceSrgbGamma), like common players, shows BT.709-family SDR code values
+    // as sRGB, so the encoder keeps sRGB code values there. BT.709 primaries are sRGB's, keeping Skia's canonical sRGB.
+    public static BitmapColorSpace BuildSdrOutputColorSpace(
+        AVColorTransferCharacteristic trc, AVColorPrimaries primaries)
+    {
+        BitmapColorTransfer transfer = ToTransfer(trc);
+        BitmapColorPrimaries gamut = ToPrimaries(primaries);
+        return BitmapColorSpaceMapping.BuildTargetColorSpace(
+            transfer is BitmapColorTransfer.Bt709 or BitmapColorTransfer.Rec2020 ? BitmapColorTransfer.Srgb : transfer,
+            gamut == BitmapColorPrimaries.Bt709 ? BitmapColorPrimaries.Srgb : gamut);
+    }
+
     private static BitmapColorTransfer ToTransfer(AVColorTransferCharacteristic trc)
     {
         return trc switch
