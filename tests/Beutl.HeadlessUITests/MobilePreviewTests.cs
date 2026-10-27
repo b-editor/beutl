@@ -124,6 +124,41 @@ public sealed class MobilePreviewTests
     }
 
     [Test]
+    public async Task Republishing_a_frame_preserves_audio_time_but_new_playback_resets_it()
+    {
+        await using var host = await RelayHost.StartAsync();
+        await using var server = await MobilePreviewServer.StartAsync(host.Session);
+        var relay = await host.AcceptAsync();
+        await Roster(relay, ["one"]);
+        await WaitUntil(() => server.GetClients().Length == 1);
+        using var image = SolidFrame(0, 0, 0);
+        var latest = typeof(MobilePreviewServer).GetField("_latest", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        MobilePreviewServer.PendingFrame Frame() => (MobilePreviewServer.PendingFrame)latest.GetValue(server)!;
+
+        server.Publish(image, UIToneMappingOperator.None, 0, true, 0, 7);
+        double clock = Frame().Clock;
+        await Task.Delay(100);
+        server.Publish(image, UIToneMappingOperator.ACES, 1, true, 0, 7);
+        Assert.That(Frame().Clock, Is.EqualTo(clock));
+        var samples = Enumerable.Repeat(0.25f, 24000 * 2).Concat(Enumerable.Repeat(0.5f, 24000 * 2)).ToArray();
+        var blocks = new[] { new AudioFrameSnapshot(samples, 48000, 2, MediaTime.Zero) { PlaybackId = 7 } };
+        long nextSample = (long)((clock + 0.55) * 48000);
+        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, Frame(), clock + 0.55, ref nextSample), Is.All.EqualTo(0.5f));
+
+        server.Publish(image, UIToneMappingOperator.None, 0, true, 1, 7);
+        Assert.That(Frame().Clock, Is.GreaterThan(clock), "A new video frame reanchors the audio timeline.");
+        clock = Frame().Clock;
+        await Task.Delay(20);
+        server.Publish(image, UIToneMappingOperator.None, 0, true, 1, 8);
+        Assert.That(Frame().Clock, Is.GreaterThan(clock), "A new playback session must not inherit the old clock.");
+        server.PublishStopped();
+        clock = Frame().Clock;
+        await Task.Delay(20);
+        server.Publish(image, UIToneMappingOperator.None, 0, true, 1, 8);
+        Assert.That(Frame().Clock, Is.GreaterThan(clock), "Resuming playback must reset the paused clock.");
+    }
+
+    [Test]
     public void Audio_selects_the_visible_time_and_playback_and_crosses_block_boundaries()
     {
         var blocks = new[] {

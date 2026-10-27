@@ -8,6 +8,26 @@ namespace Beutl.HeadlessUITests;
 public sealed class PreviewTransportTests
 {
     [Test]
+    public async Task Failed_offer_callback_does_not_hold_the_transport_lock()
+    {
+        PreviewTransport? current = null;
+        bool playbackCompleted = false;
+        Task? playback = null;
+        await using var transport = new PreviewTransport(message =>
+        {
+            if (message.GetProperty("type").GetString() != "error") return;
+            // Emulate the UI publishing while signaling reports an error to the server.
+            playback = Task.Run(() => current!.SendPlayback("phone", "{}"));
+            playbackCompleted = playback.Wait(TimeSpan.FromSeconds(2));
+        });
+        current = transport;
+        transport.Offer("phone", "hdr", Offer, true, [], false);
+        Assert.That(playback, Is.Not.Null);
+        await playback!;
+        Assert.That(playbackCompleted, Is.True, "The callback must not block another thread's playback publication.");
+    }
+
+    [Test]
     public async Task Native_transport_negotiates_payloads_and_replaces_failed_connections()
     {
         var messages = Channel.CreateUnbounded<JsonElement>();

@@ -68,7 +68,15 @@ internal sealed partial class MobilePreviewServer
             if (type == "offer")
             {
                 bool hdr = signal.TryGetProperty("hdr", out var value) && value.ValueKind == JsonValueKind.True;
-                lock (_gate) _peers[id] = hdr;
+                lock (_gate)
+                {
+                    if (hdr && _hdrUnavailable)
+                    {
+                        SendToViewer(id, JsonSerializer.Serialize(new { type = "error", connectionId, message = "hdr-unavailable" }));
+                        return;
+                    }
+                    _peers[id] = hdr;
+                }
                 var servers = signal.TryGetProperty("iceServers", out var ice) ? ice.Deserialize<PreviewIceServer[]>() ?? [] : [];
                 bool relayOnly = signal.TryGetProperty("relayOnly", out var relay) && relay.ValueKind == JsonValueKind.True;
                 _transport.Offer(id, connectionId, payload.GetString()!, hdr, servers, relayOnly);

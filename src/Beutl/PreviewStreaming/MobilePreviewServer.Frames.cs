@@ -19,6 +19,7 @@ internal sealed partial class MobilePreviewServer
         new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
     private readonly Stopwatch _mediaClock = Stopwatch.StartNew();
     private PendingFrame? _latest;
+    private bool _hdrUnavailable;
 
     internal void Publish(Ref<Bitmap>? image, UIToneMappingOperator toneMapping, float exposure, bool playing, double time = 0, long playbackId = 0)
     {
@@ -26,8 +27,12 @@ internal sealed partial class MobilePreviewServer
         {
             if (_stop.IsCancellationRequested || _relayClients.Length == 0) return;
             if (image?.TryClone() is not { } reference) return;
+            // Republishing a frame (for a new viewer or tone mapping) must not rewind audio.
+            double clock = _latest is { } previous && previous.Time == time
+                && previous.PlaybackId == playbackId && previous.Playing == playing
+                ? previous.Clock : _mediaClock.Elapsed.TotalSeconds;
             _latest?.Dispose();
-            _latest = new(reference, toneMapping, exposure, playing, time, playbackId, _mediaClock.Elapsed.TotalSeconds);
+            _latest = new(reference, toneMapping, exposure, playing, time, playbackId, clock);
             _updates.Writer.TryWrite(true);
         }
     }
@@ -48,11 +53,13 @@ internal sealed partial class MobilePreviewServer
                 {
                     _updates.Reader.TryRead(out _);
                     frame = _latest?.Snapshot();
-                    profiles = _peers.Values.Distinct().ToArray();
+                    profiles = _peers.Values.Distinct().Where(hdr => !hdr || !_hdrUnavailable).ToArray();
                 }
                 if (frame is null) continue;
                 using (frame)
                 {
+                    // A keyframe requested while paused is a new RTP frame, even with unchanged pixels.
+                    uint timestamp = (uint)(_mediaClock.Elapsed.TotalSeconds * 90000);
                     bool keyFrame = Interlocked.Exchange(ref _keyFrame, 0) != 0;
                     var (width, height) = FrameSize(frame.Image.Value);
                     foreach (bool hdr in profiles)
@@ -69,7 +76,7 @@ internal sealed partial class MobilePreviewServer
                             byte[] pixels = ConvertFrame(frame.Image.Value, hdr, frame.ToneMapping, frame.Exposure);
                             byte[] data = await entry.Encoder.EncodeAsync(pixels, keyFrame || reset, _stop.Token).ConfigureAwait(false);
                             if (data.Length != 0 && _transport is { } transport)
-                                transport.SendMedia(data, (uint)(frame.Clock * 90000), video: true, hdr);
+                                transport.SendMedia(data, timestamp, video: true, hdr);
                         }
                         catch (Exception ex) when (hdr && !_stop.IsCancellationRequested)
                         {
@@ -77,8 +84,11 @@ internal sealed partial class MobilePreviewServer
                             Log.CreateLogger<MobilePreviewServer>().LogWarning(ex, "HDR preview encoding is unavailable.");
                             if (encoders.Remove(hdr, out var failed)) failed.Encoder.Dispose();
                             lock (_gate)
+                            {
+                                _hdrUnavailable = true;
                                 foreach (string id in _peers.Where(p => p.Value).Select(p => p.Key))
                                     SendToViewer(id, "{\"type\":\"error\",\"message\":\"hdr-unavailable\"}");
+                            }
                         }
                     }
                 }

@@ -27,6 +27,7 @@ internal sealed class PreviewTransport : IAsyncDisposable
 
     internal void Offer(string id, string connectionId, string sdp, bool hdr, PreviewIceServer[] servers, bool relayOnly)
     {
+        string? error = null;
         lock (_gate)
         {
             Remove(id);
@@ -42,11 +43,13 @@ internal sealed class PreviewTransport : IAsyncDisposable
             peer.Handle = Create(sdp, hdr ? 1 : 0, relayOnly ? 1 : 0, ice, ice.Length, peer.Token, Callback);
             if (peer.Handle == IntPtr.Zero)
             {
-                string error = Marshal.PtrToStringUTF8(Error()) == "hdr-unavailable" ? "hdr-unavailable" : "negotiation-failed";
+                error = Marshal.PtrToStringUTF8(Error()) == "hdr-unavailable" ? "hdr-unavailable" : "negotiation-failed";
                 Remove(id);
-                _message(JsonSerializer.SerializeToElement(new { type = "error", id, connectionId, message = error }));
             }
         }
+        // Callers may acquire the server lock here, so never dispatch while holding the transport lock.
+        if (error is not null)
+            _message(JsonSerializer.SerializeToElement(new { type = "error", id, connectionId, message = error }));
     }
 
     internal void AddCandidate(string id, string connectionId, JsonElement candidate)
