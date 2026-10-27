@@ -43,8 +43,6 @@ public sealed partial class Bloom : FilterEffect
             {
                 ShaderImage bright = graph.Image2D("bright", graph.Source, padding: values.X);
                 ShaderImage mask = graph.Image2D("mask", bright, TextureFormat.R16Float);
-                ShaderImage horizontal = graph.Image2D("horizontal", bright);
-                ShaderImage glow = graph.Image2D("glow", bright);
                 ShaderImage output = graph.Image2D("output", graph.Source, padding: values.W == 0 ? values.X : 0);
                 graph.Fullscreen("extract", s_extract, pass =>
                 {
@@ -56,7 +54,26 @@ public sealed partial class Bloom : FilterEffect
                     pass.ColorAttachment(0, bright);
                     pass.ColorAttachment(1, mask);
                 });
-                Blur(graph, "blur-horizontal", bright, horizontal, new(values.X, 1, 0, 0));
+                // Reduce in 2x steps so even a one-pixel highlight survives the filtering.
+                // The final blur radius stays at most 16 texels per unit of working scale.
+                ShaderImage reduced = bright;
+                for (int level = 1; values.X * reduced.ResolutionScale > 16; level++)
+                {
+                    ShaderImage source = reduced;
+                    reduced = graph.Image2D($"downsample-{level}", source, resolutionScale: source.ResolutionScale / 2);
+                    ShaderImage destination = reduced;
+                    graph.Fullscreen(destination.Name, s_downsample, pass =>
+                    {
+                        pass.SampledImage(0, source);
+                        pass.ImageParameters(1, source);
+                        pass.ImageParameters(2, destination);
+                        pass.InputRegion(0, ShaderInputRegion.Identity);
+                        pass.ColorAttachment(0, destination);
+                    });
+                }
+                ShaderImage horizontal = graph.Image2D("horizontal", reduced, resolutionScale: reduced.ResolutionScale);
+                ShaderImage glow = graph.Image2D("glow", reduced, resolutionScale: reduced.ResolutionScale);
+                Blur(graph, "blur-horizontal", reduced, horizontal, new(values.X, 1, 0, 0));
                 Blur(graph, "blur-vertical", horizontal, glow, new(values.X, 0, 1, 0));
                 graph.Fullscreen("composite", s_composite, pass =>
                 {
@@ -66,6 +83,7 @@ public sealed partial class Bloom : FilterEffect
                     pass.ImageParameters(3, graph.Source);
                     pass.ImageParameters(4, glow);
                     pass.ImageParameters(5, output);
+                    pass.ImageParameters(6, mask);
                     pass.PushConstants(values);
                     pass.InputRegion(0, new(Matrix.Identity));
                     pass.InputRegion(1, new(Matrix.Identity));
@@ -105,7 +123,25 @@ public sealed partial class Bloom : FilterEffect
         }
         """));
 
-    // Keep adjacent samples within one source texel, including large radii and supersampled requests.
+    // The separable [1, 3, 3, 1] / 8 filter preserves small highlights and their center
+    // as the grid gets coarser. Four bilinear samples cover its 4x4 source footprint.
+    private static readonly ShaderProgram s_downsample = ShaderProgram.Fullscreen(new ShaderSource("""
+        #version 450
+        layout(binding = 0) uniform sampler2D image;
+        layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
+        layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
+        layout(location = 0) out vec4 color;
+        void main() {
+            vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
+            vec2 uv = (position - src.raster.xy) / src.raster.zw;
+            vec2 offset = vec2(0.75) / src.size.xy;
+            color = (texture(image, uv + offset) + texture(image, uv - offset)
+                + texture(image, uv + vec2(offset.x, -offset.y))
+                + texture(image, uv + vec2(-offset.x, offset.y))) * 0.25;
+        }
+        """));
+
+    // Sample count depends on working scale, but no longer grows with the logical radius.
     private static readonly ShaderProgram s_blur = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(binding = 0) uniform sampler2D image;
@@ -137,6 +173,7 @@ public sealed partial class Bloom : FilterEffect
         layout(binding = 3, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
         layout(binding = 4, std140) uniform Glow { vec4 logical; vec4 raster; vec4 size; } glow;
         layout(binding = 5, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
+        layout(binding = 6, std140) uniform Mask { vec4 logical; vec4 raster; vec4 size; } maskFrame;
         layout(push_constant) uniform Values { vec4 value; } pc;
         layout(location = 0) out vec4 color;
         void main() {
@@ -145,7 +182,8 @@ public sealed partial class Bloom : FilterEffect
             vec2 uv = (position - glow.raster.xy) / glow.raster.zw;
             vec4 light = texture(blurred, uv) * pc.value.z;
             if (pc.value.w != 0) {
-                color = vec4(original.rgb + light.rgb * texture(mask, uv).r, original.a);
+                vec2 maskUv = (position - maskFrame.raster.xy) / maskFrame.raster.zw;
+                color = vec4(original.rgb + light.rgb * texture(mask, maskUv).r, original.a);
             } else {
                 color = vec4(original.rgb + light.rgb, original.a + clamp(light.a, 0, 1) * (1 - original.a));
             }

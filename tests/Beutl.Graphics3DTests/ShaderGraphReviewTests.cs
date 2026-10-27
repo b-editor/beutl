@@ -14,27 +14,82 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class ShaderGraphReviewTests
 {
-    [TestCase(1f)]
-    [TestCase(2f)]
-    public void LargeBloomSpreadsASinglePixelWithoutGaps(float scale)
+    [TestCase(16f, 1f)]
+    [TestCase(16.01f, 1f)]
+    [TestCase(64f, 0.5f)]
+    [TestCase(64f, 1f)]
+    [TestCase(64f, 2f)]
+    [TestCase(512f, 1f)]
+    public void LargeBloomSpreadsASinglePixelWithoutGaps(float radius, float scale)
     {
         GpuTestEnvironment.EnsureAvailable();
         GpuTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var effect = new Bloom { Radius = { Value = 64 }, Threshold = { Value = 0 } };
+            var effect = new Bloom { Radius = { Value = radius }, Threshold = { Value = 0 } };
             ShaderGraphDescription graph = ShaderGraphEffectTests.Record(effect);
-            Rect source = new(0, 0, 1, 1);
+            Rect source = new(3, -5, 1, 1);
             PixelRect output = PixelRect.FromRect(graph.TransformBounds(source), scale);
             float[] pixels = ShaderGraphContractTests.Execute(graph, source, scale, sourceColor: Vector4.One).Pixels;
-            int y = -output.Y;
+            int y = (int)MathF.Floor(source.Y * scale) - output.Y;
+            int originX = (int)MathF.Floor(source.X * scale) - output.X;
             float previous = 1;
-            for (int x = (int)(2 * scale); x < (int)(32 * scale); x++)
+            for (int x = (int)(2 * scale); x < (int)(radius / 2 * scale); x++)
             {
-                float alpha = pixels[(y * output.Width + x - output.X) * 4 + 3];
+                float alpha = pixels[(y * output.Width + x + originX) * 4 + 3];
                 Assert.That(alpha, Is.GreaterThan(0), $"The glow has a gap at device x={x}.");
                 Assert.That(alpha, Is.LessThanOrEqualTo(previous + 0.000001f), $"The glow repeats a highlight at x={x}.");
                 previous = alpha;
             }
+        });
+    }
+
+    [TestCase(500f, 1920, 1080, 1f)]
+    [TestCase(500f, 1920, 1080, 2f)]
+    [TestCase(512f, 64, 64, 1f)]
+    [TestCase(512f, 64, 64, 2f)]
+    public void LargeBloomKeepsBlurTargetsSmall(float radius, int width, int height, float scale)
+    {
+        ShaderGraphDescription graph = ShaderGraphEffectTests.Record(new Bloom { Radius = { Value = radius } });
+        Rect source = new(0, 0, width, height);
+        var frame = new ShaderImageFrame(source, source, PixelRect.FromRect(source, scale).Size, scale);
+        var regions = new ShaderGraphRegions(graph, frame, scale, default, graph.TransformBounds(source));
+        foreach (ShaderPassDescription pass in graph.Passes.Where(p => p.Name.StartsWith("blur-")))
+        {
+            ShaderImageFrame target = regions.Frames[pass.Attachments.Single().Image.Id];
+            Assert.That(radius * target.Scale, Is.LessThanOrEqualTo(16 * scale));
+            Assert.That((long)target.PixelSize.Width * target.PixelSize.Height, Is.LessThan(25_000));
+        }
+    }
+
+    [TestCase(false, 0.5f)]
+    [TestCase(false, 2f)]
+    [TestCase(true, 1f)]
+    public void DownsampledBloomPreservesPartialRenderingAndAlpha(bool preserveAlpha, float scale)
+    {
+        GpuTestEnvironment.EnsureAvailable();
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var effect = new Bloom { Radius = { Value = 64 }, Threshold = { Value = 0 }, PreserveAlpha = { Value = preserveAlpha } };
+            ShaderGraphDescription graph = ShaderGraphEffectTests.Record(effect);
+            Rect source = new(3, -5, 9, 7);
+            PixelRect output = PixelRect.FromRect(graph.TransformBounds(source), scale);
+            Rect required = source.Inflate(preserveAlpha ? 0 : 4);
+            var color = new Vector4(0.5f);
+            float[] full = ShaderGraphContractTests.Execute(graph, source, scale, sourceColor: color).Pixels;
+            float[] partial = ShaderGraphContractTests.Execute(graph, source, scale, required, color).Pixels;
+            PixelRect selected = PixelRect.FromRect(required, scale);
+            for (int y = selected.Y; y < selected.Bottom; y++)
+                for (int x = selected.X; x < selected.Right; x++)
+                {
+                    int index = ((y - output.Y) * output.Width + x - output.X) * 4;
+                    for (int c = 0; c < 4; c++)
+                        Assert.That(partial[index + c], Is.EqualTo(full[index + c]).Within(0.001));
+                    if (preserveAlpha)
+                    {
+                        Assert.That(full[index + 3], Is.EqualTo(0.5f).Within(0.001));
+                        Assert.That(full[index], Is.GreaterThan(0.5f));
+                    }
+                }
         });
     }
 
@@ -65,6 +120,25 @@ public sealed class ShaderGraphReviewTests
                 Assert.That(pixel, Is.EqualTo(text == valid ? new[] { 1f, 0, 0, 1 } : new[] { 1f, 1, 1, 1 }));
             }
         });
+    }
+
+    [Test]
+    public void PendingScriptCompilationInvalidatesRecordedPassThrough()
+    {
+        var effect = new GLSLScriptEffect { FragmentShader = { Value = "" } };
+        using var resource = (GLSLScriptEffect.Resource)effect.ToResource(CompositionContext.Default);
+        // Reconciliation has copied the text, but compiler initialization has not succeeded yet.
+        effect.FragmentShader.Value = resource.FragmentShader = "#version 450\nlayout(location=0) out vec4 color; void main(){color=vec4(1);}";
+        using var node = new FilterEffectRenderNode(resource);
+        bool changed = false;
+        resource.Reconcile(effect, CompositionContext.Default, ref changed);
+        ShaderProgram? program = resource._program;
+        Assert.That(program, Is.Not.Null);
+        Assert.That(node.Update(resource), Is.True);
+
+        resource.Reconcile(effect, CompositionContext.Default, ref changed);
+        Assert.That(resource._program, Is.SameAs(program));
+        Assert.That(node.Update(resource), Is.False);
     }
 
     [TestCase(RadialBlurMode.Zoom)]

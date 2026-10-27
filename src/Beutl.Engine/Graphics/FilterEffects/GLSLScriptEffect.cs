@@ -138,24 +138,29 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
 
             if (_recordedShader != FragmentShader)
             {
-                _recordedShader = FragmentShader;
+                _recordedShader = null;
                 _program = null;
                 if (string.IsNullOrWhiteSpace(FragmentShader))
+                {
+                    _recordedShader = FragmentShader;
                     return;
+                }
                 try
                 {
-                    var program = ShaderProgram.Fullscreen(new ShaderSource(FragmentShader));
                     using var compiler = new VulkanShaderCompiler();
+                    _recordedShader = FragmentShader;
+                    var program = ShaderProgram.Fullscreen(new ShaderSource(FragmentShader));
                     var interfaces = program.Stages.ToDictionary(pair => pair.Key,
                         pair => new ShaderInterface(compiler.CompileToSpirv(pair.Value.Text, pair.Key), pair.Key));
                     ShaderInterface.ValidateProgram(interfaces, CreateGraph(program, default).Passes[0]);
                     _program = program;
+                    Version++; // A successful retry must invalidate an already recorded pass-through.
                 }
                 catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or NotSupportedException)
                 {
-                    // Invalid edits are inactive until their text changes. Native pipeline allocation and
+                    // Cache invalid edits only after compiler initialization succeeds. Native pipeline allocation and
                     // execution still belong to the renderer and retain the normal graph failure behavior.
-                    s_logger.LogError(ex, "Invalid GLSL script; the effect is inactive until the script changes.");
+                    s_logger.LogError(ex, "Failed to prepare the GLSL script; the effect is inactive.");
                 }
             }
         }
