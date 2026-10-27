@@ -18,6 +18,8 @@ public sealed partial class FilterEffectGroup : FilterEffect
     {
         public override bool ControlsContinuation
             => Children.Any(static child => child.IsEnabled && child.ControlsContinuation);
+
+        public override bool MayAccessTarget => Children.Any(static child => child.MayAccessTarget);
     }
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

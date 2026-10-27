@@ -185,6 +185,43 @@ public sealed class DynamicRenderExecutionTests
         Assert.That(calls, Is.EqualTo(1));
     }
 
+    [TestCase(1f, 2f)]
+    [TestCase(1f, 0.5f)]
+    [TestCase(0.6f, 1f)]
+    [TestCase(0.6f, 0.5f)]
+    public void DeclaringTargetAccessPreservesTheOrdinaryEffectRasterFootprint(float density, float boundsFactor)
+    {
+        SKColor[] Render(bool accessesTarget)
+        {
+            var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
+                context.CustomEffect(0, (_, execution) =>
+                {
+                    foreach (EffectTarget target in execution.Targets)
+                    {
+                        // Isolate output placement from how each path rasterizes the input edges.
+                        SKCanvas pixels = target.RenderTarget!.Value.Canvas;
+                        pixels.Clear(SKColors.Blue);
+                        using var stripe = new SKPaint { Color = SKColors.Red };
+                        pixels.DrawRect(0, 0, 2, target.RenderTarget.Height, stripe);
+                        target.Bounds = new Rect(target.Bounds.Position, target.Bounds.Size * boundsFactor);
+                    }
+                }, accessesTarget ? CustomFilterEffectOptions.AccessesTarget : CustomFilterEffectOptions.None));
+            using var root = new ScaledFilterNode(effect.ToResource(CompositionContext.Default), density);
+            root.AddChild(new RectangleRenderNode(new Rect(4, 3, 11, 7), Brushes.Resource.Blue, null));
+            using var renderer = Renderer(root);
+            using var target = new CpuRenderTarget(new PixelSize(32, 24));
+            using var canvas = new ImmediateCanvas(target, RenderIntent.Delivery, logicalSize: Domain.Size);
+            renderer.Render(canvas);
+            using var image = target.AcquireImage();
+            using var pixels = SKBitmap.FromImage(image.Image);
+            return pixels.Pixels;
+        }
+
+        SKColor[] expected = Render(false);
+        Assert.That(expected.Any(pixel => pixel.Alpha != 0), Is.True);
+        Assert.That(Render(true), Is.EqualTo(expected));
+    }
+
     [Test]
     public void DynamicCycleFailsAndTheNextRequestCanRun()
     {
@@ -369,10 +406,10 @@ public sealed class DynamicRenderExecutionTests
             CacheOptions = RenderCacheOptions.Disabled,
         }, factory ?? new CpuRenderTargetFactory());
 
-    private sealed class ScaledFilterNode(FilterEffect.Resource resource) : FilterEffectRenderNode(resource)
+    private sealed class ScaledFilterNode(FilterEffect.Resource resource, float density = 0.5f) : FilterEffectRenderNode(resource)
     {
         protected override RenderScaleContract? GetWorkingScaleContract()
-            => RenderScaleContract.Custom(static _ => 0.5f);
+            => RenderScaleContract.Custom(density, static (value, _) => value);
     }
 
     private sealed class CountingFactory : IRenderTargetFactory

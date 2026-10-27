@@ -17,6 +17,14 @@ public abstract partial class FilterEffect : EngineObject
         /// <remarks>Such chains are recorded together so callbacks can retain and execute their suffix.</remarks>
         public virtual bool ControlsContinuation => false;
 
+        /// <summary>Whether reevaluation at another time may read or replace the composition target.</summary>
+        /// <remarks>
+        /// Declare this independently of the evaluation time when a continuation can introduce an
+        /// <see cref="CustomFilterEffectOptions.AccessesTarget"/> operation absent from the current recording.
+        /// This requirement also applies while the current resource is disabled.
+        /// </remarks>
+        public virtual bool MayAccessTarget => false;
+
         internal CompositionContext? EvaluationContext { get; private set; }
 
         partial void PostReconcile(FilterEffect obj, CompositionContext context)

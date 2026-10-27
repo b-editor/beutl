@@ -75,6 +75,101 @@ public class IndividualContinuationTests
         Assert.That(calls, Is.EqualTo(2));
     }
 
+    [TestCase(false, false, true)]
+    [TestCase(true, false, true)]
+    [TestCase(false, true, false)]
+    [TestCase(true, true, false)]
+    [TestCase(true, true, true)]
+    public void ContinuationRetainsRequirementsAcrossEvaluationTimes(bool nested, bool accessesTarget, bool changesEnabled)
+    {
+        var clock = new CompositionContext(MediaTime.Zero);
+        var seen = new List<int>();
+        var following = new List<int>();
+        var tail = new TimeDependentEffect(execution =>
+        {
+            seen.Add(execution.Instance!.Value.Index);
+            if (!accessesTarget) return;
+            using var image = execution.ExecutionContext!.CaptureTarget();
+            using var pixels = SKBitmap.FromImage(image.Image);
+            Assert.That(pixels.GetPixel(1, 1), Is.EqualTo(SKColors.Red));
+            execution.ExecutionContext.ReplaceTarget(image.Image);
+        }, changesEnabled, accessesTarget);
+        var group = new FilterEffectGroup();
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, static (_, execution) =>
+            {
+                foreach (int second in new[] { 2, 0, 1 })
+                    execution.Continuation!.ApplyTo(execution.Targets,
+                        new FilterEffectInstance(second, 3, MediaTime.FromSeconds(second), MediaTime.Zero));
+            }, CustomFilterEffectOptions.ControlsContinuation)));
+        if (nested)
+        {
+            var inner = new FilterEffectGroup();
+            inner.Children.Add(tail);
+            group.Children.Add(inner);
+        }
+        else group.Children.Add(tail);
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, execution) => following.Add(execution.Instance!.Value.Index))));
+        using var root = new ContainerRenderNode();
+        var domain = new Rect(0, 0, 32, 24);
+        root.AddChild(new RectangleRenderNode(domain, Brushes.Resource.Red, null));
+        var effectNode = new FilterEffectRenderNode(group.ToResource(clock));
+        effectNode.AddChild(new RectangleRenderNode(domain, Brushes.Resource.Blue, null));
+        root.AddChild(effectNode);
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            Purpose = RenderRequestPurpose.Frame,
+            TargetDomain = domain,
+        }, new CpuRenderTargetFactory());
+        using var output = renderer.Rasterize();
+        Assert.That(seen, Is.EqualTo(new[] { 2, 1 }));
+        Assert.That(following, Is.EqualTo(new[] { 2, 0, 1 }), "Skipping a disabled effect must retain its suffix.");
+    }
+
+    [Test]
+    public void DirectApplicationSkipsDisabledResources()
+    {
+        var effect = new TimeDependentEffect(_ => { }, changesEnabled: true, accessesTarget: false);
+        using var context = new FilterEffectContext(new Rect(0, 0, 8, 8));
+        using var disabled = effect.ToResource(new CompositionContext(MediaTime.Zero));
+        context.Apply(disabled);
+        Assert.That(effect.Recordings, Is.Zero);
+        Assert.That(context.CountItems(), Is.Zero);
+        using var enabled = effect.ToResource(new CompositionContext(MediaTime.FromSeconds(1)));
+        context.Apply(enabled);
+        Assert.That(effect.Recordings, Is.EqualTo(1));
+        Assert.That(context.CountItems(), Is.EqualTo(1));
+    }
+
+    private sealed class TimeDependentEffect(Action<CustomFilterEffectContext> draw, bool changesEnabled, bool accessesTarget) : FilterEffect
+    {
+        public int Recordings { get; private set; }
+
+        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        {
+            Recordings++;
+            if (resource.EvaluationContext!.Time == MediaTime.Zero) return;
+            context.CustomEffect(0, (_, execution) => draw(execution),
+                accessesTarget ? CustomFilterEffectOptions.AccessesTarget : CustomFilterEffectOptions.None);
+        }
+
+        public override Resource ToResource(CompositionContext context)
+        {
+            var resource = new Resource(accessesTarget);
+            bool changed = true;
+            resource.Reconcile(this, context, ref changed);
+            if (changesEnabled) resource.IsEnabled = context.Time != MediaTime.Zero;
+            return resource;
+        }
+
+        public new sealed class Resource(bool accessesTarget) : FilterEffect.Resource
+        {
+            public override bool MayAccessTarget => accessesTarget;
+        }
+    }
+
     private sealed class RepeatingContinuationEffect(int count) : FilterEffect
     {
         public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)

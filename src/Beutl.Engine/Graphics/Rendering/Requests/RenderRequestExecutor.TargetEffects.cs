@@ -46,8 +46,11 @@ internal sealed partial class RenderRequestExecutor
                     executor.Apply(program);
                     executor.CompletePolicyBoundary(materializationRequired: true);
                     foreach (EffectTarget target in targets)
-                        if (target.RenderTarget is { } surface)
-                            destination.DrawRenderTargetScaled(surface, target.Bounds);
+                    {
+                        if (target.RenderTarget is not { } surface) continue;
+                        using MaterializedRenderValue value = MaterializeEffectItemTarget(target, surface, target.Bounds);
+                        DrawValue(value, destination);
+                    }
                 }
                 return true;
             }, normalizeGridPhase: true);

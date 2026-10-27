@@ -369,22 +369,28 @@ public sealed partial class FilterEffectContext : IDisposable
     {
         ArgumentNullException.ThrowIfNull(resource);
         ThrowIfDisposed();
-        if (!resource.IsEnabled) return;
         if (HasContinuation(_items.Span) || HasContinuation(_renderTimeItems.Span))
         {
             ApplyTransactional(() =>
             {
-                // Record execution requirements before hiding the child behind its evaluation boundary.
-                // Its operations still need to be authored against each continuation's clock and bounds.
-                using var child = CreateChildContext();
-                child.ApplyTransactional(resource.RequireOriginal(), resource);
                 var options = CustomFilterEffectOptions.ControlsContinuation;
-                foreach (IFEItem_Custom item in child.GetOrderedItems().OfType<IFEItem_Custom>())
-                    options |= item.Options & CustomFilterEffectOptions.AccessesTarget;
+                if (resource.MayAccessTarget)
+                {
+                    options |= CustomFilterEffectOptions.AccessesTarget;
+                }
+                else if (resource.IsEnabled)
+                {
+                    // Preserve requirements of the current recording as well as those declared for
+                    // other times. The operations themselves use the continuation's clock and bounds.
+                    using var child = CreateChildContext();
+                    child.ApplyTransactional(resource.RequireOriginal(), resource);
+                    foreach (IFEItem_Custom item in child.GetOrderedItems().OfType<IFEItem_Custom>())
+                        options |= item.Options & CustomFilterEffectOptions.AccessesTarget;
+                }
                 CustomEffect(resource, ApplyContinuationResource, options);
             });
         }
-        else
+        else if (resource.IsEnabled)
             ApplyTransactional(resource.RequireOriginal(), resource);
     }
 
