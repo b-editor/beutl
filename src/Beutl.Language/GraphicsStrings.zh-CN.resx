@@ -1583,4 +1583,28 @@
   <data name="RadialBlurMode_Spin" xml:space="preserve">
     <value>旋转</value>
   </data>
+  <data name="Bloom" xml:space="preserve">
+    <value>泛光</value>
+  </data>
+  <data name="Bloom_Threshold" xml:space="preserve">
+    <value>阈值</value>
+  </data>
+  <data name="Bloom_Intensity" xml:space="preserve">
+    <value>强度</value>
+  </data>
+  <data name="Bloom_PreserveAlpha" xml:space="preserve">
+    <value>保留透明度</value>
+  </data>
+  <data name="WaveRefraction" xml:space="preserve">
+    <value>波纹折射</value>
+  </data>
+  <data name="WaveRefraction_Amount" xml:space="preserve">
+    <value>位移</value>
+  </data>
+  <data name="WaveRefraction_Wavelength" xml:space="preserve">
+    <value>波长</value>
+  </data>
+  <data name="WaveRefraction_Phase" xml:space="preserve">
+    <value>相位（度）</value>
+  </data>
 </root>

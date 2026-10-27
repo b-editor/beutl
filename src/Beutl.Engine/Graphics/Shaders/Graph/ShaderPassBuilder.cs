@@ -129,11 +129,14 @@ public sealed partial class ShaderPassBuilder
     /// <summary>Copies parameter bytes. Use an explicitly laid out unmanaged struct matching the shader block.</summary>
     /// <remarks>The current backend accepts up to 128 bytes, in multiples of four. Values are not pipeline cache keys.</remarks>
     public void PushConstants<T>(T value) where T : unmanaged
+        => PushConstants(MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref value, 1)));
+
+    /// <summary>Copies packed push-constant bytes without requiring a CLR struct for their layout.</summary>
+    public void PushConstants(ReadOnlySpan<byte> bytes)
     {
         EnsureRecording();
-        ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref value, 1));
         if (bytes.Length > 128 || bytes.Length % 4 != 0)
-            throw new ArgumentException("Push constants must contain at most 128 bytes in multiples of four.", nameof(value));
+            throw new ArgumentException("Push constants must contain at most 128 bytes in multiples of four.", nameof(bytes));
         _constants = [.. bytes];
     }
 
