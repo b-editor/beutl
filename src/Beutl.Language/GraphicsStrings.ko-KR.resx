@@ -1649,4 +1649,37 @@
   <data name="WritingMode_VerticalRl" xml:space="preserve">
     <value>세로쓰기</value>
   </data>
+  <data name="MotionBlur" xml:space="preserve">
+    <value>모션 블러</value>
+  </data>
+  <data name="MotionBlur_Description" xml:space="preserve">
+    <value>이 오브젝트의 그리기, 변환, 불투명도와 앞선 효과를 여러 시점에서 평가합니다. 뒤에 오는 효과는 시간 평균을 낸 후 부모 좌표계에서 한 번 적용합니다.</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle" xml:space="preserve">
+    <value>셔터 각도 (°)</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
+    <value>한 프레임 기준 노출 시간입니다. 180°는 반 프레임, 360°는 한 프레임이며 0°는 시간 샘플링을 끕니다.</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition" xml:space="preserve">
+    <value>노출 기준 위치</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition_Description" xml:space="preserve">
+    <value>현재 프레임을 노출 구간의 시작, 중앙 또는 끝에 배치합니다.</value>
+  </data>
+  <data name="MotionBlur_Samples" xml:space="preserve">
+    <value>샘플 수</value>
+  </data>
+  <data name="MotionBlur_Samples_Description" xml:space="preserve">
+    <value>프레임당 1~64회 평가합니다. 샘플이 많으면 잔상 사이의 간격이 줄지만 렌더링 시간과 메모리 사용량이 증가합니다. 1은 현재 시점만 그립니다.</value>
+  </data>
+  <data name="MotionBlur_Center" xml:space="preserve">
+    <value>중앙</value>
+  </data>
+  <data name="MotionBlur_Start" xml:space="preserve">
+    <value>시작</value>
+  </data>
+  <data name="MotionBlur_End" xml:space="preserve">
+    <value>끝</value>
+  </data>
 </root>

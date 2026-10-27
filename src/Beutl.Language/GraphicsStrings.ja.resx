@@ -1645,4 +1645,37 @@
   <data name="WritingMode_VerticalRl" xml:space="preserve">
     <value>縦書き</value>
   </data>
+  <data name="MotionBlur" xml:space="preserve">
+    <value>モーションブラー</value>
+  </data>
+  <data name="MotionBlur_Description" xml:space="preserve">
+    <value>対象の描画・変換・透明度と前段のエフェクトを複数時刻で評価します。後段のエフェクトは時間合成後、親の座標系で適用します。</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle" xml:space="preserve">
+    <value>シャッター角 (°)</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
+    <value>1フレームに対する露光時間です。180°で半フレーム、360°で1フレーム、0°で時間サンプリングを無効にします。</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition" xml:space="preserve">
+    <value>露光の基準位置</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition_Description" xml:space="preserve">
+    <value>現在のフレームを露光区間の開始・中央・終了のどこに置くかを指定します。</value>
+  </data>
+  <data name="MotionBlur_Samples" xml:space="preserve">
+    <value>サンプル数</value>
+  </data>
+  <data name="MotionBlur_Samples_Description" xml:space="preserve">
+    <value>1フレームあたり1～64回評価します。増やすと残像の隙間が減り、描画時間とメモリ使用量が増えます。1の場合は現在の時刻だけを描画します。</value>
+  </data>
+  <data name="MotionBlur_Center" xml:space="preserve">
+    <value>中央</value>
+  </data>
+  <data name="MotionBlur_Start" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="MotionBlur_End" xml:space="preserve">
+    <value>終了</value>
+  </data>
 </root>

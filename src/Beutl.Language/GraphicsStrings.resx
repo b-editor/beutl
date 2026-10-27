@@ -1650,4 +1650,37 @@
   <data name="WritingMode_VerticalRl" xml:space="preserve">
     <value>Vertical</value>
   </data>
+  <data name="MotionBlur" xml:space="preserve">
+    <value>Motion blur</value>
+  </data>
+  <data name="MotionBlur_Description" xml:space="preserve">
+    <value>Samples this drawable, its transforms, opacity and preceding effects at explicit times. Following effects apply once to the average in parent coordinates.</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle" xml:space="preserve">
+    <value>Shutter angle (°)</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
+    <value>Exposure as a fraction of one frame: 180° is half a frame, 360° is a full frame. 0° disables temporal sampling.</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition" xml:space="preserve">
+    <value>Exposure reference</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition_Description" xml:space="preserve">
+    <value>Places the current frame at the start, center or end of the exposure interval.</value>
+  </data>
+  <data name="MotionBlur_Samples" xml:space="preserve">
+    <value>Samples</value>
+  </data>
+  <data name="MotionBlur_Samples_Description" xml:space="preserve">
+    <value>1–64 samples per frame. More samples reduce gaps and increase rendering and memory costs. 1 draws the current time only.</value>
+  </data>
+  <data name="MotionBlur_Center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="MotionBlur_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="MotionBlur_End" xml:space="preserve">
+    <value>End</value>
+  </data>
 </root>

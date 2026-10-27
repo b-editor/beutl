@@ -1649,4 +1649,37 @@
   <data name="WritingMode_VerticalRl" xml:space="preserve">
     <value>Vertical</value>
   </data>
+  <data name="MotionBlur" xml:space="preserve">
+    <value>Desenfoque de movimiento</value>
+  </data>
+  <data name="MotionBlur_Description" xml:space="preserve">
+    <value>Evalúa este objeto, sus transformaciones, opacidad y efectos anteriores en varios instantes. Los efectos posteriores se aplican una vez al promedio, en las coordenadas del objeto padre.</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle" xml:space="preserve">
+    <value>Ángulo de obturación (°)</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
+    <value>Exposición relativa a un fotograma: 180° es medio fotograma, 360° es uno completo. 0° desactiva el muestreo temporal.</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition" xml:space="preserve">
+    <value>Referencia de exposición</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition_Description" xml:space="preserve">
+    <value>Sitúa el fotograma actual al inicio, en el centro o al final de la exposición.</value>
+  </data>
+  <data name="MotionBlur_Samples" xml:space="preserve">
+    <value>Muestras</value>
+  </data>
+  <data name="MotionBlur_Samples_Description" xml:space="preserve">
+    <value>De 1 a 64 muestras por fotograma. Más muestras reducen los huecos y aumentan el tiempo de renderizado y la memoria. 1 dibuja solo el instante actual.</value>
+  </data>
+  <data name="MotionBlur_Center" xml:space="preserve">
+    <value>Centro</value>
+  </data>
+  <data name="MotionBlur_Start" xml:space="preserve">
+    <value>Inicio</value>
+  </data>
+  <data name="MotionBlur_End" xml:space="preserve">
+    <value>Final</value>
+  </data>
 </root>
