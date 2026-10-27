@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Channels;
@@ -35,7 +35,9 @@ internal sealed class PreviewTransport : IAsyncDisposable
             _peers[id] = peer;
             var ice = servers.SelectMany(server => server.Urls.Select(url => new NativeIceServer
             {
-                Url = url, Username = server.Username, Password = server.Credential
+                Url = url,
+                Username = server.Username,
+                Password = server.Credential
             })).ToArray();
             peer.Handle = Create(sdp, hdr ? 1 : 0, relayOnly ? 1 : 0, ice, ice.Length, peer.Token, Callback);
             if (peer.Handle == IntPtr.Zero)

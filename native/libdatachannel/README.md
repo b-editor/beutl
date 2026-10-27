@@ -7,8 +7,9 @@ upstream. libdatachannel owns ICE, DTLS/SRTP, RTP headers, RTCP reports, NACK an
 Mbed TLS and the upstream submodules are linked statically into one native library.
 
 `source.json` pins source commits; `runtimes` contains prebuilt libraries, source
-pins, SHA-256 manifests and third-party notices. Normal .NET builds do not download
-or compile native code. macOS is universal; Linux and Windows have x64/ARM64 builds.
+pins and SHA-256 manifests. `THIRD-PARTY-NOTICES.txt` contains the bundled licenses.
+Normal .NET builds do not download or compile native code. macOS is universal;
+Linux and Windows have x64/ARM64 builds.
 To rebuild, install Python, CMake 4.4.4, Ninja 1.13.2 and the platform C/C++ compiler:
 
 ```sh
