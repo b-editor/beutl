@@ -28,6 +28,7 @@ const words = ja ? {
 const $ = selector => document.querySelector(selector);
 const pairing = $('#pairing'), viewer = $('#viewer'), video = $('#frame'), notice = $('#connection');
 const controls = $('#controls'), seek = $('#seek'), play = $('#play'), audio = $('#audio'), full = $('#fullscreen');
+const timeDisplay = $('#time'), rangeDisplay = $('#range'), remoteButtons = document.querySelectorAll('[data-remote]');
 let connected = false, busy = false, seeking = false, wantsAudio = false, hideTimer;
 let playback = { playing: false, position: 0, minimum: 0, duration: 0, frameRate: 30, enabled: false };
 function label(element, key) { element.setAttribute('aria-label', words[key]); element.title = words[key]; }
@@ -35,14 +36,15 @@ document.documentElement.lang = ja ? 'ja' : 'en';
 document.querySelectorAll('[data-text]').forEach(el => { el.textContent = words[el.dataset.text]; });
 document.querySelectorAll('[data-label]').forEach(el => label(el, el.dataset.label));
 function message(text = '') { notice.textContent = text; notice.hidden = !text; }
+function canControl() { return connected && playback.enabled && !busy; }
 function time(seconds, fraction = false) {
   const ticks = Math.round(Math.abs(seconds) * 100), minutes = Math.floor(ticks / 6000);
   const second = fraction ? ((ticks % 6000) / 100).toFixed(2).padStart(5, '0') : String(Math.floor(ticks % 6000 / 100)).padStart(2, '0');
   return `${seconds < 0 ? '−' : ''}${minutes}:${second}`;
 }
 function renderPlayback() {
-  document.querySelectorAll('[data-remote]').forEach(el => { el.disabled = !connected || !playback.enabled || busy; });
-  seek.disabled = !connected || !playback.enabled || busy || playback.duration <= playback.minimum;
+  remoteButtons.forEach(el => { el.disabled = !canControl(); });
+  seek.disabled = !canControl() || playback.duration <= playback.minimum;
   audio.disabled = !connected;
   play.dataset.playing = String(playback.playing);
   label(play, playback.playing ? 'pause' : 'play');
@@ -51,32 +53,41 @@ function renderPlayback() {
     seek.step = 1 / playback.frameRate; seek.value = playback.position;
   }
   const position = seeking ? Number(seek.value) : playback.position;
-  $('#time').textContent = `${time(position, true)} / ${time(playback.duration)}`;
+  timeDisplay.textContent = `${time(position, true)} / ${time(playback.duration)}`;
   seek.setAttribute('aria-valuetext', time(position, true));
+}
+function setControlsVisible(visible) {
+  controls.classList.toggle('is-hidden', !visible); controls.inert = !visible;
 }
 function hideControls() {
   if (!connected || !playback.playing || busy || seeking || controls.querySelector(':focus-visible') || !notice.hidden) return;
-  controls.classList.add('is-hidden'); controls.inert = true;
+  setControlsVisible(false);
 }
 function showControls() {
-  clearTimeout(hideTimer); controls.classList.remove('is-hidden'); controls.inert = false;
-  hideTimer = setTimeout(hideControls, 3000);
+  clearTimeout(hideTimer); setControlsVisible(true);
+  if (connected && playback.playing) hideTimer = setTimeout(hideControls, 3000);
 }
-const connection = new PreviewConnection(video, (state, value) => {
-  if (state === 'disconnected') { connected = false; renderPlayback(); showControls(); return; }
+function refreshControls() { renderPlayback(); showControls(); }
+function setAudio(enabled) {
+  wantsAudio = enabled; video.muted = !enabled;
+  audio.setAttribute('aria-pressed', String(enabled)); label(audio, enabled ? 'audioOff' : 'audioOn');
+}
+function onConnectionState(state, value) {
+  if (state === 'disconnected') { connected = false; refreshControls(); return; }
   if (state === 'playback') {
     const changed = playback.playing !== value.playing;
     playback = { ...playback, ...value }; renderPlayback();
     if (changed) showControls();
     return;
   }
-  if (state === 'range') { $('#range').hidden = value !== 'HDR'; return; }
+  if (state === 'range') { rangeDisplay.hidden = value !== 'HDR'; return; }
   if (state === 'audioFailed') { message(words.audioFailed); showControls(); return; }
   pairing.hidden = state !== 'pair'; viewer.hidden = state === 'pair';
-  connected = state === 'connected'; renderPlayback(); showControls();
-  if (connected) { message(); video.muted = !wantsAudio; }
+  connected = state === 'connected'; refreshControls();
+  if (connected) { message(); setAudio(wantsAudio); }
   else if (state !== 'pair') message(words[state]);
-});
+}
+const connection = new PreviewConnection(video, onConnectionState);
 $('#pair-form').onsubmit = async event => {
   event.preventDefault(); const button = $('#pair-button'), status = $('#pair-status');
   button.disabled = true; status.textContent = words.connecting; status.dataset.error = 'false';
@@ -88,23 +99,23 @@ $('#pair-form').onsubmit = async event => {
   finally { button.disabled = false; }
 };
 async function control(action, position) {
-  if (busy || !connected || !playback.enabled) return;
-  busy = true; renderPlayback(); showControls();
-  const ok = await connection.control(action, position);
-  busy = false; seeking = false; renderPlayback(); showControls();
-  if (connected) message(ok ? '' : words.controlFailed);
+  if (!canControl()) return;
+  busy = true; refreshControls();
+  try {
+    const ok = await connection.control(action, position);
+    if (connected) message(ok ? '' : words.controlFailed);
+  } finally { busy = false; seeking = false; refreshControls(); }
 }
 play.onclick = () => control(playback.playing ? 'pause' : 'play');
 $('#previous').onclick = () => control('previous');
 $('#next').onclick = () => control('next');
-seek.oninput = () => { seeking = true; renderPlayback(); showControls(); };
+seek.oninput = () => { seeking = true; refreshControls(); };
 seek.onchange = () => control('seek', Number(seek.value));
-seek.onpointercancel = () => { seeking = false; renderPlayback(); showControls(); };
+seek.onpointercancel = () => { seeking = false; refreshControls(); };
 audio.onclick = async () => {
-  wantsAudio = !wantsAudio; video.muted = !wantsAudio;
+  setAudio(!wantsAudio);
   try { await video.play(); message(); }
-  catch { wantsAudio = false; video.muted = true; message(words.audioFailed); }
-  audio.setAttribute('aria-pressed', String(wantsAudio)); label(audio, wantsAudio ? 'audioOff' : 'audioOn');
+  catch { setAudio(false); message(words.audioFailed); }
 };
 function fullscreenLabel() { label(full, document.fullscreenElement || viewer.classList.contains('immersive') ? 'exitFullscreen' : 'fullscreen'); }
 full.onclick = async () => {
@@ -126,6 +137,7 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') { viewer.classList.remove('immersive'); fullscreenLabel(); }
   if (event.code === 'Space' && !event.target.closest('input, button')) { event.preventDefault(); play.click(); }
 });
-document.addEventListener('visibilitychange', () => { if (document.hidden) { seeking = false; connection.close(); } else connection.connect(); });
-window.addEventListener('pagehide', () => { clearTimeout(hideTimer); connection.close(); });
+function disconnectViewer() { seeking = false; connection.close(); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) disconnectViewer(); else connection.connect(); });
+window.addEventListener('pagehide', disconnectViewer);
 connection.connect();

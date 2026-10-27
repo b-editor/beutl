@@ -24,7 +24,7 @@ export class PreviewConnection {
     if (this.socket) { this.socket.onclose = null; this.socket.close(); this.socket = null; }
     if (this.peer) { this.peer.close(); this.peer = null; }
     this.video.srcObject = null;
-    this.pendingControl?.finish(false);
+    this.finishControl(false, this.pendingControl?.id);
     this.state('disconnected');
   }
 
@@ -46,33 +46,41 @@ export class PreviewConnection {
       socket.onmessage = event => {
         messages = messages.then(async () => {
           if (generation !== this.generation) return;
-          const signal = JSON.parse(event.data);
-          if (signal.ended) { this.end(); return; }
-          if (signal.type === 'config') await this.negotiate(signal.iceServers, socket, generation);
-          else if (signal.type === 'answer') {
-            const peer = this.peer;
-            await peer.setRemoteDescription({ type: 'answer', sdp: signal.sdp });
-            if (generation !== this.generation) return;
-            for (const candidate of this.remoteCandidates) await peer.addIceCandidate(candidate);
-            if (generation !== this.generation) return;
-            this.remoteCandidates = [];
-            this.state('range', signal.hdr ? 'HDR' : 'SDR');
-          } else if (signal.type === 'candidate') {
-            if (this.peer?.remoteDescription) await this.peer.addIceCandidate(signal.candidate);
-            else this.remoteCandidates.push(signal.candidate);
-          } else if (signal.type === 'playback') this.state('playback', signal);
-          else if (signal.type === 'control-result') {
-            if (signal.requestId === this.pendingControl?.id) this.pendingControl.finish(signal.ok === true);
-          }
-          else if (signal.type === 'error') {
-            if (this.hdr && !signal.fatal) { this.allowHdr = false; this.reconnect(); }
-            else { this.close(); this.state('error'); }
-          }
+          await this.handleSignal(JSON.parse(event.data), socket, generation);
         }).catch(() => { if (generation === this.generation) this.reconnect(); });
       };
       socket.onclose = () => { if (generation === this.generation) this.reconnect(); };
     } catch {
       if (generation === this.generation) this.reconnect();
+    }
+  }
+
+  async handleSignal(signal, socket, generation) {
+    if (signal.ended) { this.end(); return; }
+    switch (signal.type) {
+      case 'config':
+        await this.negotiate(signal.iceServers, socket, generation);
+        break;
+      case 'answer': {
+        const peer = this.peer;
+        await peer.setRemoteDescription({ type: 'answer', sdp: signal.sdp });
+        if (generation !== this.generation) return;
+        for (const candidate of this.remoteCandidates) await peer.addIceCandidate(candidate);
+        if (generation !== this.generation) return;
+        this.remoteCandidates = [];
+        this.state('range', signal.hdr ? 'HDR' : 'SDR');
+        break;
+      }
+      case 'candidate':
+        if (this.peer?.remoteDescription) await this.peer.addIceCandidate(signal.candidate);
+        else this.remoteCandidates.push(signal.candidate);
+        break;
+      case 'playback': this.state('playback', signal); break;
+      case 'control-result': this.finishControl(signal.ok === true, signal.requestId); break;
+      case 'error':
+        if (this.hdr && !signal.fatal) { this.allowHdr = false; this.reconnect(); }
+        else { this.close(); this.state('error'); }
+        break;
     }
   }
 
@@ -133,12 +141,19 @@ export class PreviewConnection {
       return Promise.resolve(false);
     return new Promise(resolve => {
       const id = ++this.controlSequence;
-      const finish = ok => { clearTimeout(timer); this.pendingControl = null; resolve(ok); };
-      const timer = setTimeout(() => finish(false), 10000);
-      this.pendingControl = { id, finish };
+      const timer = setTimeout(() => this.finishControl(false, id), 10000);
+      this.pendingControl = { id, timer, resolve };
       try { this.socket.send(JSON.stringify({ type: 'control', requestId: id, action, position })); }
-      catch { finish(false); }
+      catch { this.finishControl(false, id); }
     });
+  }
+
+  finishControl(ok, id) {
+    const pending = this.pendingControl;
+    if (!pending || pending.id !== id) return;
+    this.pendingControl = null;
+    clearTimeout(pending.timer);
+    pending.resolve(ok);
   }
 
   reconnect() {

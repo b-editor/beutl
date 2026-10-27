@@ -7,7 +7,6 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Threading;
 using Beutl.Api;
-using Beutl.Editor.Services;
 using Beutl.Logging;
 using Beutl.PreviewStreaming;
 using Beutl.ViewModels;
@@ -21,8 +20,7 @@ public partial class MobilePreviewWindow : Window
 {
     private readonly PlayerViewModel _player;
     private readonly CompositeDisposable _lifetime = [];
-    private CompositeDisposable _streamSubscriptions = [];
-    private IDisposable? _cleanPreview;
+    private MobilePreviewPlayer? _previewPlayer;
     private MobilePreviewServer? _server;
     private Bitmap? _qr;
     private CancellationTokenSource? _startupCancellation;
@@ -131,21 +129,7 @@ public partial class MobilePreviewWindow : Window
             _server = server;
             server.ClientsChanged += OnClientsChanged;
             server.RelayDisconnected += OnRelayDisconnected;
-            _streamSubscriptions = [];
-            ConnectPlaybackControls(server);
-            _streamSubscriptions.Add(_player.CleanPreviewImage.Subscribe(_ => PublishCurrent()));
-            _streamSubscriptions.Add(((IPreviewPlayer)_player).AudioFramePushed.Subscribe(audio =>
-            {
-                if (_player.IsPlaying.Value && audio.PlaybackId == _player.PreviewPlaybackId)
-                    server.PublishAudio(audio);
-            }));
-            _streamSubscriptions.Add(_player.ToneMappingMode.Subscribe(_ => PublishCurrent()));
-            _streamSubscriptions.Add(_player.ToneMappingExposure.Subscribe(_ => PublishCurrent()));
-            _streamSubscriptions.Add(_player.IsPlaying.Subscribe(playing =>
-            {
-                if (!playing) { server.PublishStopped(); PublishCurrent(); }
-                PublishPlayback(server);
-            }));
+            _previewPlayer = new MobilePreviewPlayer(_player, server);
             using var data = QRCodeGenerator.GenerateQrCode(server.Endpoint.AbsoluteUri, QRCodeGenerator.ECCLevel.M);
             using var qr = new PngByteQRCode(data);
             using var png = new MemoryStream(qr.GetGraphic(6));
@@ -193,11 +177,9 @@ public partial class MobilePreviewWindow : Window
         {
             server.ClientsChanged -= OnClientsChanged;
             server.RelayDisconnected -= OnRelayDisconnected;
-            server.ControlRequested = null;
         }
-        _streamSubscriptions.Dispose();
-        _cleanPreview?.Dispose();
-        _cleanPreview = null;
+        _previewPlayer?.Dispose();
+        _previewPlayer = null;
         QrImage.Source = null;
         _qr?.Dispose();
         _qr = null;
@@ -216,16 +198,6 @@ public partial class MobilePreviewWindow : Window
     {
         if (_server is not { } server) return;
         var clients = server.GetClients();
-        if (clients.Length == 0)
-        {
-            _cleanPreview?.Dispose();
-            _cleanPreview = null;
-        }
-        else
-        {
-            _cleanPreview ??= _player.AcquireCleanPreview();
-            PublishCurrent();
-        }
         ClientsText.Text = string.Format(Strings.MobilePreviewClients, clients.Length);
         ClientList.Children.Clear();
         foreach (var client in clients)
@@ -238,14 +210,6 @@ public partial class MobilePreviewWindow : Window
             row.Children.Add(new TextBlock { Text = client.Address, VerticalAlignment = VerticalAlignment.Center });
             ClientList.Children.Add(row);
         }
-    }
-
-    private void PublishCurrent()
-    {
-        var frame = _player.GetCleanPreviewFrame();
-        using (frame.Image)
-            _server?.Publish(frame.Image, _player.ToneMappingMode.Value, _player.ToneMappingExposure.Value,
-                _player.IsPlaying.Value, frame.Time.ToSeconds(), frame.PlaybackId);
     }
 
     private void OnModeChanged(object? sender, RoutedEventArgs e)
