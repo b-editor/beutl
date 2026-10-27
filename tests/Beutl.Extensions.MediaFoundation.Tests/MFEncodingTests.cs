@@ -75,6 +75,42 @@ public class MFEncodingTests
         });
     }
 
+    // MFReader follows the BT.709 matrix and transfer tags, so an export reads back as it was rendered.
+    [Test]
+    public async Task Encode_H264ReadsBackThroughMFReaderAsRendered()
+    {
+        var controller = CreateController();
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value =
+            new PixelSize(ColorBarsFrameProvider.Width, ColorBarsFrameProvider.Height);
+        using var frames = new ColorBarsFrameProvider();
+        using var samples = new TrackedSamples(0, 0);
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using var reader = new MFDecoderInfo(new MFDecodingExtension())
+            .Open(controller.OutputFile, new MediaOptions(MediaMode.Video));
+        Assert.That(reader!.ReadVideo(0, out var decoded), Is.True);
+        using (decoded)
+        {
+            Bitmap actual = decoded!.Value;
+            var colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709);
+            Assert.That(actual.ColorSpace, Is.EqualTo(colorSpace));
+            using Bitmap source = ColorBarsFrameProvider.CreateFrame();
+            using Bitmap expected = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, colorSpace);
+            Assert.Multiple(() =>
+            {
+                for (int patch = 0; patch < 6; patch++)
+                {
+                    for (int channel = 0; channel < 3; channel++)
+                    {
+                        int offset = (patch * 32 + 16) * 4 + channel;
+                        Assert.That(actual.GetRow(32)[offset], Is.EqualTo(expected.GetRow(32)[offset]).Within(5),
+                            $"Patch {patch}, channel {channel}");
+                    }
+                }
+            });
+        }
+    }
+
     [TestCase(false, 44100, 2)]
     [TestCase(false, 48000, 1)]
     [TestCase(true, 48000, 2)]
