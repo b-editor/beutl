@@ -1,7 +1,4 @@
-﻿using System.Net.WebSockets;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Channels;
+﻿using System.Text.Json;
 using Beutl.Api;
 
 namespace Beutl.PreviewStreaming;
@@ -11,44 +8,33 @@ internal sealed partial class MobilePreviewServer
     private PreviewTransport? _transport;
     private readonly SemaphoreSlim _transportGate = new(1);
     private readonly Dictionary<string, bool> _peers = [];
-    private int _keyFrame = 1;
 
-    private void OnEncodingFailed()
+    private void OnTransportMessage(PreviewTransportEvent message)
     {
-        lock (_gate)
+        if (message.Kind == PreviewTransportEventKind.PlaybackReady)
         {
-            if (_stop.IsCancellationRequested) return;
-            // A stopped encoder cannot recover by renegotiating a peer. End this sharing
-            // session through the same lifetime path as a lost publisher connection.
-            _relay?.Socket.Abort();
+            SendCurrentPlayback(message.Id);
+            return;
         }
-    }
+        if (message.Kind == PreviewTransportEventKind.KeyFrame
+            || (message.Kind == PreviewTransportEventKind.State && message.Value == "connected"))
+            RequestKeyFrame();
 
-    private void OnTransportMessage(JsonElement message)
-    {
-        string id = message.GetProperty("id").GetString()!;
-        string type = message.GetProperty("type").GetString()!;
-        lock (_gate)
+        string id = message.Id;
+        string connectionId = message.ConnectionId;
+        object? signal = message.Kind switch
         {
-            if (type == "playback-ready")
-            {
-                _transport?.SendPlayback(id, _playbackState);
-                return;
-            }
-            if (type == "keyframe" || (type == "state" && message.GetProperty("state").GetString() == "connected"))
-            {
-                Interlocked.Exchange(ref _keyFrame, 1);
-                _updates.Writer.TryWrite(true);
-            }
-            if (type == "keyframe") return;
-            SendToViewer(id, message.GetRawText());
-        }
+            PreviewTransportEventKind.Answer => new { type = "answer", id, connectionId, sdp = message.Value, hdr = message.Hdr },
+            PreviewTransportEventKind.Candidate => new { type = "candidate", id, connectionId, candidate = new { candidate = message.Value, sdpMid = message.Mid } },
+            PreviewTransportEventKind.State => new { type = "state", id, connectionId, state = message.Value },
+            PreviewTransportEventKind.Error => new { type = "error", id, connectionId, message = message.Value },
+            _ => null
+        };
+        if (signal is not null) SendToViewer(id, signal);
     }
 
-    private void SendToViewer(string id, string json)
-    {
-        SendRelayControl(new { type = "signal", id, signal = JsonSerializer.Deserialize<JsonElement>(json) });
-    }
+    private void SendToViewer(string id, object signal)
+        => SendRelayControl(new { type = "signal", id, signal });
 
     private async Task HandleSignalAsync(string id, JsonElement signal, CancellationToken ct)
     {
@@ -67,22 +53,32 @@ internal sealed partial class MobilePreviewServer
             _transport ??= new PreviewTransport(OnTransportMessage);
             if (type == "offer")
             {
+                if (!TryReadIceServers(signal, out var servers))
+                {
+                    SendToViewer(id, new { type = "error", connectionId, message = "negotiation-failed" });
+                    return;
+                }
                 bool hdr = signal.TryGetProperty("hdr", out var value) && value.ValueKind == JsonValueKind.True;
                 lock (_gate)
                 {
                     if (hdr && _hdrUnavailable)
                     {
-                        SendToViewer(id, JsonSerializer.Serialize(new { type = "error", connectionId, message = "hdr-unavailable" }));
+                        SendToViewer(id, new { type = "error", connectionId, message = "hdr-unavailable" });
                         return;
                     }
                     _peers[id] = hdr;
                 }
-                var servers = signal.TryGetProperty("iceServers", out var ice) ? ice.Deserialize<PreviewIceServer[]>() ?? [] : [];
                 bool relayOnly = signal.TryGetProperty("relayOnly", out var relay) && relay.ValueKind == JsonValueKind.True;
                 _transport.Offer(id, connectionId, payload.GetString()!, hdr, servers, relayOnly);
             }
-            else
-                _transport.AddCandidate(id, connectionId, payload);
+            else if (payload.ValueKind == JsonValueKind.Object
+                && payload.TryGetProperty("candidate", out var candidate) && candidate.ValueKind == JsonValueKind.String
+                && !string.IsNullOrEmpty(candidate.GetString()))
+            {
+                string mid = payload.TryGetProperty("sdpMid", out var value) && value.ValueKind == JsonValueKind.String
+                    ? value.GetString()! : "0";
+                _transport.AddCandidate(id, connectionId, candidate.GetString()!, mid);
+            }
         }
         finally { _transportGate.Release(); }
     }
@@ -103,48 +99,20 @@ internal sealed partial class MobilePreviewServer
         finally { _transportGate.Release(); }
     }
 
-    private async Task RunClientAsync(Client client, CancellationTokenSource cancellation)
+    private static bool TryReadIceServers(JsonElement signal, out PreviewIceServer[] servers)
     {
-        var token = cancellation.Token;
-        Task send = SendControlsAsync();
-        Task receive = ReceiveAsync();
-        try { await Task.WhenAny(send, receive); }
-        finally
+        servers = [];
+        if (!signal.TryGetProperty("iceServers", out var ice)) return true;
+        if (ice.ValueKind != JsonValueKind.Array) return false;
+        try
         {
-            cancellation.Cancel();
-            client.Socket.Abort();
-            try { await Task.WhenAll(send, receive); }
-            catch (Exception ex) when (ex is WebSocketException or OperationCanceledException) { }
+            servers = ice.Deserialize<PreviewIceServer[]>()!;
+            return servers.All(server => server?.Urls is { } urls && urls.All(url => url is not null));
         }
-
-        async Task SendControlsAsync()
+        catch (JsonException)
         {
-            await foreach (string control in client.Controls.Reader.ReadAllAsync(token))
-                await client.Socket.SendAsync(Encoding.UTF8.GetBytes(control).AsMemory(), WebSocketMessageType.Text, true, token);
+            // Reject the viewer's offer without ending the shared publisher connection.
+            return false;
         }
-
-        async Task ReceiveAsync()
-        {
-            byte[] buffer = new byte[64 * 1024];
-            while (!token.IsCancellationRequested)
-            {
-                int count = 0;
-                ValueWebSocketReceiveResult message;
-                do
-                {
-                    message = await client.Socket.ReceiveAsync(buffer.AsMemory(count), token);
-                    if (message.MessageType != WebSocketMessageType.Text) return;
-                    count += message.Count;
-                    if (count == buffer.Length && !message.EndOfMessage) return;
-                } while (!message.EndOfMessage);
-                using var json = JsonDocument.Parse(buffer.AsMemory(0, count));
-                await HandleRelayMessageAsync(json.RootElement, token);
-            }
-        }
-    }
-
-    private sealed record Client(WebSocket Socket)
-    {
-        internal Channel<string> Controls { get; } = Channel.CreateUnbounded<string>(new() { SingleReader = true });
     }
 }

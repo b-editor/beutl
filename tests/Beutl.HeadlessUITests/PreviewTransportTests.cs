@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Threading.Channels;
+﻿using System.Threading.Channels;
 using Beutl.PreviewStreaming;
 
 namespace Beutl.HeadlessUITests;
@@ -15,7 +14,7 @@ public sealed class PreviewTransportTests
         Task? playback = null;
         await using var transport = new PreviewTransport(message =>
         {
-            if (message.GetProperty("type").GetString() != "error") return;
+            if (message.Kind != PreviewTransportEventKind.Error) return;
             // Emulate the UI publishing while signaling reports an error to the server.
             playback = Task.Run(() => current!.SendPlayback("phone", "{}"));
             playbackCompleted = playback.Wait(TimeSpan.FromSeconds(2));
@@ -30,35 +29,33 @@ public sealed class PreviewTransportTests
     [Test]
     public async Task Native_transport_negotiates_payloads_and_replaces_failed_connections()
     {
-        var messages = Channel.CreateUnbounded<JsonElement>();
+        var messages = Channel.CreateUnbounded<PreviewTransportEvent>();
         await using var transport = new PreviewTransport(message => messages.Writer.TryWrite(message));
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        async Task<JsonElement> Read(string type, string connection)
+        async Task<PreviewTransportEvent> Read(PreviewTransportEventKind kind, string connection)
         {
             await foreach (var message in messages.Reader.ReadAllAsync(timeout.Token))
-                if (message.GetProperty("type").GetString() == type && message.GetProperty("connectionId").GetString() == connection)
+                if (message.Kind == kind && message.ConnectionId == connection)
                     return message;
             throw new AssertionException("No native response");
         }
         transport.Offer("phone", "first", Offer, false, [], false);
-        string sdp = (await Read("answer", "first")).GetProperty("sdp").GetString()!;
+        string sdp = (await Read(PreviewTransportEventKind.Answer, "first")).Value;
         Assert.That(sdp, Does.Contain("a=rtpmap:98 VP8/90000"));
         Assert.That(sdp, Does.Contain("a=rtpmap:109 opus/48000/2"));
         Assert.That(sdp, Does.Contain("m=application"));
         transport.SendPlayback("phone", "{\"type\":\"playback\",\"position\":1}");
-        // A malformed or stale trickled candidate must not close a valid connection.
-        transport.AddCandidate("phone", "first", JsonSerializer.SerializeToElement(new { candidate = 17 }));
-        transport.AddCandidate("phone", "first", JsonSerializer.SerializeToElement("invalid"));
-        transport.AddCandidate("phone", "old", JsonSerializer.SerializeToElement(new { candidate = "invalid" }));
+        // Stale trickled candidates must not close a valid connection.
+        transport.AddCandidate("phone", "old", "invalid", "0");
         transport.Offer("phone", "hdr", Offer, true, [], false);
-        Assert.That((await Read("error", "hdr")).GetProperty("message").GetString(), Is.EqualTo("hdr-unavailable"));
+        Assert.That((await Read(PreviewTransportEventKind.Error, "hdr")).Value, Is.EqualTo("hdr-unavailable"));
         transport.Offer("phone", "sdr", Offer, false, [], false);
-        Assert.That((await Read("answer", "sdr")).GetProperty("hdr").GetBoolean(), Is.False);
+        Assert.That((await Read(PreviewTransportEventKind.Answer, "sdr")).Hdr, Is.False);
         transport.Remove("phone");
-        transport.AddCandidate("phone", "sdr", JsonSerializer.SerializeToElement(new { candidate = "invalid" }));
+        transport.AddCandidate("phone", "sdr", "invalid", "0");
     }
 
-    private static readonly string Offer = """
+    internal static readonly string Offer = """
         v=0
         o=- 1 1 IN IP4 127.0.0.1
         s=-

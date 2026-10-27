@@ -85,6 +85,33 @@ public sealed class MobilePreviewTests
                      "{\"type\":\"offer\",\"sdp\":\"invalid SDP\",\"hdr\":\"false\"}",
                      "{\"type\":\"candidate\",\"candidate\":{\"candidate\":17}}" })
             await Send(new { type = "signal", id = "one", signal = JsonSerializer.Deserialize<JsonElement>(message) });
+
+        Task Offer(string id, string connectionId, object iceServers) => Send(new
+        {
+            type = "signal",
+            id,
+            signal = new { type = "offer", connectionId, sdp = PreviewTransportTests.Offer, iceServers }
+        });
+        async Task AssertAnswer(string connectionId)
+        {
+            var answer = await ReadSignal(relay, m => m.GetProperty("type").GetString() == "answer"
+                && m.GetProperty("connectionId").GetString() == connectionId);
+            Assert.That(answer.GetProperty("sdp").GetString(), Does.Contain("a=rtpmap:98 VP8/90000"));
+            Assert.That(answer.GetProperty("hdr").GetBoolean(), Is.False);
+        }
+        await Offer("two", "connected", Array.Empty<PreviewIceServer>());
+        await AssertAnswer("connected");
+        foreach (string ice in new[] { "{}", "null", "[null]", "[{}]", "[{\"urls\":null}]", "[{\"urls\":[null]}]", "[{\"urls\":[17]}]" })
+        {
+            await Offer("one", "malformed", JsonSerializer.Deserialize<JsonElement>(ice));
+            var error = await ReadSignal(relay, m => m.GetProperty("type").GetString() == "error"
+                && m.GetProperty("connectionId").GetString() == "malformed");
+            Assert.That(error.GetProperty("message").GetString(), Is.EqualTo("negotiation-failed"));
+        }
+        foreach (object candidate in new object[] { new { candidate = 17 }, "invalid", new { candidate = "" } })
+            await Send(new { type = "signal", id = "two", signal = new { type = "candidate", connectionId = "connected", candidate } });
+        await Offer("one", "recovered", Array.Empty<PreviewIceServer>());
+        await AssertAnswer("recovered");
         await Send(new { type = "signal", id = "two", signal = new { type = "control", requestId = 1, action = "play" } });
         var result = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "signal"
             && m.GetProperty("signal").GetProperty("type").GetString() == "control-result");

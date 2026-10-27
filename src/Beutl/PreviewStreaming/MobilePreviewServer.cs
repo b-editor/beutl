@@ -64,6 +64,17 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
         ClientsChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    private void OnEncodingFailed()
+    {
+        lock (_gate)
+        {
+            if (_stop.IsCancellationRequested) return;
+            // A stopped encoder cannot recover by renegotiating a peer. End this sharing
+            // session through the same lifetime path as a lost publisher connection.
+            _relay?.Socket.Abort();
+        }
+    }
+
     public ValueTask DisposeAsync()
     {
         lock (_gate) return new ValueTask(_disposeTask ??= DisposeCoreAsync());

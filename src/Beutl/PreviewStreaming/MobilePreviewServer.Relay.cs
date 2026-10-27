@@ -1,5 +1,7 @@
 ﻿using System.Net.WebSockets;
+using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 using Beutl.Api;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -70,8 +72,11 @@ internal sealed partial class MobilePreviewServer
 
     private void SendRelayControl(object control)
     {
-        if (_relay is { } client)
-            client.Controls.Writer.TryWrite(JsonSerializer.Serialize(control));
+        lock (_gate)
+        {
+            if (_relay is { } client)
+                client.Controls.Writer.TryWrite(JsonSerializer.Serialize(control));
+        }
     }
 
     private async Task HandleRelayMessageAsync(JsonElement message, CancellationToken ct)
@@ -99,5 +104,50 @@ internal sealed partial class MobilePreviewServer
         }
         else if (message.TryGetProperty("signal", out var signal))
             await HandleSignalAsync(message.GetProperty("id").GetString()!, signal, ct).ConfigureAwait(false);
+    }
+
+    private async Task RunClientAsync(Client client, CancellationTokenSource cancellation)
+    {
+        var token = cancellation.Token;
+        Task send = SendControlsAsync();
+        Task receive = ReceiveAsync();
+        try { await Task.WhenAny(send, receive); }
+        finally
+        {
+            cancellation.Cancel();
+            client.Socket.Abort();
+            try { await Task.WhenAll(send, receive); }
+            catch (Exception ex) when (ex is WebSocketException or OperationCanceledException) { }
+        }
+
+        async Task SendControlsAsync()
+        {
+            await foreach (string control in client.Controls.Reader.ReadAllAsync(token))
+                await client.Socket.SendAsync(Encoding.UTF8.GetBytes(control).AsMemory(), WebSocketMessageType.Text, true, token);
+        }
+
+        async Task ReceiveAsync()
+        {
+            byte[] buffer = new byte[64 * 1024];
+            while (!token.IsCancellationRequested)
+            {
+                int count = 0;
+                ValueWebSocketReceiveResult message;
+                do
+                {
+                    message = await client.Socket.ReceiveAsync(buffer.AsMemory(count), token);
+                    if (message.MessageType != WebSocketMessageType.Text) return;
+                    count += message.Count;
+                    if (count == buffer.Length && !message.EndOfMessage) return;
+                } while (!message.EndOfMessage);
+                using var json = JsonDocument.Parse(buffer.AsMemory(0, count));
+                await HandleRelayMessageAsync(json.RootElement, token);
+            }
+        }
+    }
+
+    private sealed record Client(WebSocket Socket)
+    {
+        internal Channel<string> Controls { get; } = Channel.CreateUnbounded<string>(new() { SingleReader = true });
     }
 }

@@ -20,6 +20,13 @@ internal sealed partial class MobilePreviewServer
     private readonly Stopwatch _mediaClock = Stopwatch.StartNew();
     private PendingFrame? _latest;
     private bool _hdrUnavailable;
+    private int _keyFrame = 1;
+
+    private void RequestKeyFrame()
+    {
+        Interlocked.Exchange(ref _keyFrame, 1);
+        _updates.Writer.TryWrite(true);
+    }
 
     internal void Publish(Ref<Bitmap>? image, UIToneMappingOperator toneMapping, float exposure, bool playing, double time = 0, long playbackId = 0)
     {
@@ -87,7 +94,7 @@ internal sealed partial class MobilePreviewServer
                             {
                                 _hdrUnavailable = true;
                                 foreach (string id in _peers.Where(p => p.Value).Select(p => p.Key))
-                                    SendToViewer(id, "{\"type\":\"error\",\"message\":\"hdr-unavailable\"}");
+                                    SendToViewer(id, new { type = "error", message = "hdr-unavailable" });
                             }
                         }
                     }

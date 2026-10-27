@@ -20,13 +20,30 @@ internal sealed partial class MobilePreviewServer
 
     internal void PublishPlayback(bool playing, double position, double minimum, double duration, double frameRate, bool enabled)
     {
+        PreviewTransport? transport;
+        (string Id, string Address)[] clients;
+        string state = JsonSerializer.Serialize(new { type = "playback", playing, position, minimum, duration, frameRate, enabled });
         lock (_gate)
         {
             if (_stop.IsCancellationRequested) return;
-            _playbackState = JsonSerializer.Serialize(new { type = "playback", playing, position, minimum, duration, frameRate, enabled });
-            foreach (string id in _relayClients.Select(c => c.Id))
-                _transport?.SendPlayback(id, _playbackState);
+            _playbackState = state;
+            transport = _transport;
+            clients = _relayClients;
         }
+        foreach (var client in clients)
+            transport?.SendPlayback(client.Id, state);
+    }
+
+    private void SendCurrentPlayback(string id)
+    {
+        PreviewTransport? transport;
+        string state;
+        lock (_gate)
+        {
+            transport = _transport;
+            state = _playbackState;
+        }
+        transport?.SendPlayback(id, state);
     }
 
     private async Task HandleControlAsync(string id, JsonElement message, CancellationToken ct)
@@ -51,6 +68,6 @@ internal sealed partial class MobilePreviewServer
             finally { _controlGate.Release(); }
         }
         lock (_gate)
-            if (IsClientConnected(id)) SendToViewer(id, JsonSerializer.Serialize(new { type = "control-result", requestId, ok }));
+            if (IsClientConnected(id)) SendToViewer(id, new { type = "control-result", requestId, ok });
     }
 }

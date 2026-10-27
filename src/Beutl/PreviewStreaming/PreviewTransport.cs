@@ -1,12 +1,12 @@
 ﻿using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
-using System.Text.Json;
 using System.Threading.Channels;
 using Beutl.Api;
 
 namespace Beutl.PreviewStreaming;
 
-// Native media stays binary; the only serialized messages are WebRTC signaling.
+// Owns native peer lifetimes and dispatches callbacks without holding the transport lock.
+// The server translates these events to the Web signaling protocol.
 internal sealed class PreviewTransport : IAsyncDisposable
 {
     private static readonly ConcurrentDictionary<long, Peer> Registrations = new();
@@ -14,12 +14,12 @@ internal sealed class PreviewTransport : IAsyncDisposable
     private static long s_nextToken;
     private readonly object _gate = new();
     private readonly Dictionary<string, Peer> _peers = [];
-    private readonly Channel<(Peer Peer, int Kind, string Value, string Mid)> _events =
-        Channel.CreateUnbounded<(Peer, int, string, string)>(new() { SingleReader = true });
-    private readonly Action<JsonElement> _message;
+    private readonly Channel<(Peer Peer, PreviewTransportEventKind Kind, string Value, string Mid)> _events =
+        Channel.CreateUnbounded<(Peer, PreviewTransportEventKind, string, string)>(new() { SingleReader = true });
+    private readonly Action<PreviewTransportEvent> _message;
     private readonly Task _eventTask;
 
-    internal PreviewTransport(Action<JsonElement> message)
+    internal PreviewTransport(Action<PreviewTransportEvent> message)
     {
         _message = message;
         _eventTask = ProcessEventsAsync();
@@ -49,19 +49,16 @@ internal sealed class PreviewTransport : IAsyncDisposable
         }
         // Callers may acquire the server lock here, so never dispatch while holding the transport lock.
         if (error is not null)
-            _message(JsonSerializer.SerializeToElement(new { type = "error", id, connectionId, message = error }));
+            _message(new PreviewTransportEvent(PreviewTransportEventKind.Error, id, connectionId, hdr, error));
     }
 
-    internal void AddCandidate(string id, string connectionId, JsonElement candidate)
+    internal void AddCandidate(string id, string connectionId, string candidate, string mid)
     {
         lock (_gate)
         {
             if (!_peers.TryGetValue(id, out var peer) || peer.ConnectionId != connectionId || peer.Handle == IntPtr.Zero) return;
-            if (candidate.ValueKind != JsonValueKind.Object || !candidate.TryGetProperty("candidate", out var value)
-                || value.ValueKind != JsonValueKind.String || string.IsNullOrEmpty(value.GetString())) return;
-            string mid = candidate.TryGetProperty("sdpMid", out var m) && m.ValueKind == JsonValueKind.String ? m.GetString()! : "0";
-            if (Candidate(peer.Handle, value.GetString()!, mid) != 0)
-                _events.Writer.TryWrite((peer, 3, "failed", ""));
+            if (Candidate(peer.Handle, candidate, mid) != 0)
+                _events.Writer.TryWrite((peer, PreviewTransportEventKind.State, "failed", ""));
         }
     }
 
@@ -72,7 +69,7 @@ internal sealed class PreviewTransport : IAsyncDisposable
             foreach (var peer in _peers.Values)
                 if (peer.Handle != IntPtr.Zero && (!video || peer.Hdr == hdr) &&
                     Send(peer.Handle, video ? 1 : 0, data, data.Length, timestamp) != 0)
-                    _events.Writer.TryWrite((peer, 3, "failed", ""));
+                    _events.Writer.TryWrite((peer, PreviewTransportEventKind.State, "failed", ""));
         }
     }
 
@@ -91,7 +88,7 @@ internal sealed class PreviewTransport : IAsyncDisposable
         lock (_gate)
         {
             if (_peers.TryGetValue(id, out var peer) && peer.Handle != IntPtr.Zero && Playback(peer.Handle, state) != 0)
-                _events.Writer.TryWrite((peer, 3, "failed", ""));
+                _events.Writer.TryWrite((peer, PreviewTransportEventKind.State, "failed", ""));
         }
     }
 
@@ -99,7 +96,8 @@ internal sealed class PreviewTransport : IAsyncDisposable
     {
         // Never call native code or block a native callback on the rendering/signaling locks.
         if (Registrations.TryGetValue(token, out var peer))
-            peer.Owner._events.Writer.TryWrite((peer, kind, Marshal.PtrToStringUTF8(value) ?? "", Marshal.PtrToStringUTF8(mid) ?? ""));
+            peer.Owner._events.Writer.TryWrite((peer, (PreviewTransportEventKind)kind,
+                Marshal.PtrToStringUTF8(value) ?? "", Marshal.PtrToStringUTF8(mid) ?? ""));
     }
 
     private async Task ProcessEventsAsync()
@@ -107,16 +105,7 @@ internal sealed class PreviewTransport : IAsyncDisposable
         await foreach (var (peer, kind, value, mid) in _events.Reader.ReadAllAsync())
         {
             if (!Registrations.ContainsKey(peer.Token)) continue;
-            object? signal = kind switch
-            {
-                1 => new { type = "answer", id = peer.Id, connectionId = peer.ConnectionId, sdp = value, hdr = peer.Hdr },
-                2 => new { type = "candidate", id = peer.Id, connectionId = peer.ConnectionId, candidate = new { candidate = value, sdpMid = mid } },
-                3 => new { type = "state", id = peer.Id, connectionId = peer.ConnectionId, state = value },
-                4 => new { type = "keyframe", id = peer.Id, connectionId = peer.ConnectionId },
-                5 => new { type = "playback-ready", id = peer.Id, connectionId = peer.ConnectionId },
-                _ => null
-            };
-            if (signal is not null) _message(JsonSerializer.SerializeToElement(signal));
+            _message(new PreviewTransportEvent(kind, peer.Id, peer.ConnectionId, peer.Hdr, value, mid));
         }
     }
 
