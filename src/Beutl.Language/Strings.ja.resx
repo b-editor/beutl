@@ -3448,9 +3448,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>クリーンなプレビューを音声付きで共有し、スマホから再生を操作できます。</value>
   </data>
-  <data name="MobilePreviewReady" xml:space="preserve">
-    <value>開始を押すとプレビューを共有します。</value>
-  </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
     <value>配信中 · 最大15 fps · 音声あり · 再生操作可能</value>
   </data>
@@ -3473,7 +3470,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>すべて切断</value>
   </data>
   <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>編集タブを切り替えるか、このウィンドウを閉じると配信を終了します。</value>
+    <value>編集タブを切り替えるか、このツールタブを閉じると配信を終了します。</value>
   </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>共有を開始できませんでした。接続とBeutl Webへのログインを確認し、再試行してください。</value>
@@ -3483,5 +3480,17 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>中継との接続が終了しました。開始を押して新しい共有を作成してください。</value>
+  </data>
+  <data name="MobilePreviewConnectionInfo" xml:space="preserve">
+    <value>接続情報</value>
+  </data>
+  <data name="MobilePreviewWaiting" xml:space="preserve">
+    <value>端末の接続を待っています</value>
+  </data>
+  <data name="MobilePreviewConnected" xml:space="preserve">
+    <value>接続中</value>
+  </data>
+  <data name="MobilePreviewAddDevice" xml:space="preserve">
+    <value>端末を追加</value>
   </data>
 </root>

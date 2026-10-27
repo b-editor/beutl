@@ -5,7 +5,7 @@ using Beutl.ViewModels;
 namespace Beutl.PreviewStreaming;
 
 // One sharing session's subscriptions, clean-frame lease and playback commands.
-// Created and disposed on the UI thread; the window owns the server's lifetime.
+// Created and disposed on the UI thread; the tool context owns the server's lifetime.
 internal sealed class MobilePreviewPlayer : IDisposable
 {
     private readonly PlayerViewModel _player;

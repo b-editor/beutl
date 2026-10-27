@@ -3453,9 +3453,6 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>편집 표시 없는 미리보기를 오디오와 함께 공유하고 휴대폰에서 재생을 제어합니다.</value>
   </data>
-  <data name="MobilePreviewReady" xml:space="preserve">
-    <value>시작을 눌러 미리보기를 공유합니다.</value>
-  </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
     <value>공유 중 · 최대 15 fps · 오디오 · 재생 제어</value>
   </data>
@@ -3478,7 +3475,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>모두 연결 해제</value>
   </data>
   <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>편집 탭을 전환하거나 이 창을 닫으면 공유가 중지됩니다.</value>
+    <value>편집 탭을 전환하거나 이 도구 탭을 닫으면 공유가 종료됩니다.</value>
   </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>공유를 시작할 수 없습니다. 연결과 Beutl Web 로그인을 확인하세요.</value>
@@ -3488,5 +3485,17 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>중계 연결이 종료되었습니다. 시작을 눌러 새 공유를 만드세요.</value>
+  </data>
+  <data name="MobilePreviewConnectionInfo" xml:space="preserve">
+    <value>연결 정보</value>
+  </data>
+  <data name="MobilePreviewWaiting" xml:space="preserve">
+    <value>기기 연결을 기다리는 중</value>
+  </data>
+  <data name="MobilePreviewConnected" xml:space="preserve">
+    <value>연결됨</value>
+  </data>
+  <data name="MobilePreviewAddDevice" xml:space="preserve">
+    <value>기기 추가</value>
   </data>
 </root>

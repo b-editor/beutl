@@ -3,11 +3,15 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading.Channels;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using Beutl.Api;
 using Beutl.Configuration;
+using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
@@ -16,6 +20,7 @@ using Beutl.Media.Pixel;
 using Beutl.Media.Source;
 using Beutl.PreviewStreaming;
 using Beutl.Testing.Headless;
+using Beutl.ViewModels;
 using Beutl.Views;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -234,9 +239,9 @@ public sealed class MobilePreviewTests
         await using var host = await RelayHost.StartAsync();
         TestGpu.RequireAnyDevice();
         var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-preview", 320, 240);
-        var owner = new Window { Content = new PlayerView { DataContext = editor.Player }, Width = 640, Height = 480 };
+        var owner = new Window { Content = new EditView { DataContext = editor }, Width = 1100, Height = 800 };
         var presentation = new PresentationWindow(editor.Player);
-        var mobile = new MobilePreviewWindow(editor.Player);
+        MobilePreviewTabViewModel? mobile = null;
         try
         {
             await TestShell.AddElementAsync(editor, () => new RectShape
@@ -247,26 +252,86 @@ public sealed class MobilePreviewTests
             }, MediaTime.Zero, MediaTime.FromSeconds(10));
             editor.GetRequiredService<IEditorSelection>().Select(editor.Scene.Children.Last());
             owner.Show();
+            HeadlessTestHelpers.Render();
+            var playerView = owner.GetVisualDescendants().OfType<PlayerView>().Single();
+            void OpenMobile()
+            {
+                var button = playerView.GetVisualDescendants().OfType<Button>()
+                    .Single(button => AutomationProperties.GetName(button) == Beutl.Language.Strings.PresentationWindow);
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                HeadlessTestHelpers.Render();
+                var popup = owner.OpenedPopups.Single(popup => popup.Child is MenuFlyoutPresenter);
+                HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "projection-menu");
+                var item = ((MenuFlyoutPresenter)popup.Child!).Items.OfType<MenuItem>()
+                    .Single(item => Equals(item.Header, Beutl.Language.Strings.MobilePreview));
+                item.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+                popup.IsOpen = false;
+            }
+            OpenMobile();
+            mobile = editor.FindToolTab<MobilePreviewTabViewModel>()!;
+            Assert.That(mobile, Is.Not.Null);
+            Assert.That(mobile.Extension.Header, Is.Null);
+            HeadlessTestHelpers.Render();
+            MobilePreviewTabView View() => owner.GetVisualDescendants().OfType<MobilePreviewTabView>().Single();
+            void AssertPage(string name)
+            {
+                foreach (string page in new[] { "StartPage", "ConnectionPage", "DetailsPage" })
+                    Assert.That(View().FindControl<ScrollViewer>(page)!.IsEffectivelyVisible, Is.EqualTo(page == name), page);
+            }
+            AssertPage("StartPage");
+            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-ready");
             presentation.ShowOnScreen(owner, null, false);
-            mobile.Show(owner);
+            OpenMobile();
+            Assert.That(editor.FindToolTab<MobilePreviewTabViewModel>(), Is.SameAs(mobile));
+            Assert.That(editor.DockHost.Factory.EnumerateTools().Count(t => t.ToolContext is MobilePreviewTabViewModel), Is.EqualTo(1));
             await mobile.StartSharingAsync(host.Session);
             var server = mobile.Server!;
             var socket = await host.AcceptAsync();
+            HeadlessTestHelpers.Render();
+            AssertPage("ConnectionPage");
+            Assert.That(View().FindControl<Button>("DetailsButton")!.IsEffectivelyVisible, Is.False);
+            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-waiting");
             await Roster(socket, ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
             HeadlessTestHelpers.Settle();
+            AssertPage("DetailsPage");
+            Assert.That(View().FindControl<Button>("DetailsButton")!.IsEffectivelyVisible, Is.False);
             editor.Player.QueuePreviewRender();
             RenderThreadDrain.Drain(TimeSpan.FromSeconds(10));
             using var cleanFrame = editor.Player.GetCleanPreviewFrame().Image!;
             using var clean = SdrBitmap(cleanFrame.Value, UIToneMappingOperator.None, 0);
             Assert.That(clean.Pixels.Count(p => p.Red > 200 && p.Green < 60 && p.Blue < 60), Is.GreaterThan(0));
             Assert.That(clean.Pixels.Count(p => p.Red > 240 && p.Green > 240 && p.Blue > 240), Is.Zero);
-            HeadlessCapture.SaveIfRequested(mobile, nameof(MobilePreviewTests), "desktop-sharing");
+            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-sharing");
+            if (HeadlessCapture.IsRequested && closePresentationFirst)
+            {
+                var theme = owner.RequestedThemeVariant;
+                owner.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+                HeadlessTestHelpers.Render();
+                HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-sharing-dark");
+                owner.RequestedThemeVariant = theme;
+                HeadlessTestHelpers.Render();
+            }
+            Assert.That(editor.OpenToolTab(new PreviewSettingsTabViewModel(editor)), Is.True);
+            HeadlessTestHelpers.Render();
+            Assert.That(mobile.Server, Is.SameAs(server), "Selecting another tool must keep sharing alive.");
+            OpenMobile();
+            HeadlessTestHelpers.Render();
+            AssertPage("DetailsPage");
+            View().FindControl<Button>("AddDeviceButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render();
+            AssertPage("ConnectionPage");
+            Assert.That(View().FindControl<Button>("DetailsButton")!.IsEffectivelyVisible, Is.True);
+            Assert.That(View().FindControl<Image>("QrImage")!.Source, Is.SameAs(mobile.QrImage.Value));
 
             await Roster(socket, [], ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 0);
             HeadlessTestHelpers.Settle();
-            HeadlessCapture.SaveIfRequested(mobile, nameof(MobilePreviewTests), "desktop-offline-device");
+            AssertPage("ConnectionPage");
+            View().FindControl<Button>("DetailsButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render();
+            AssertPage("DetailsPage");
+            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-offline-device");
             await Roster(socket, ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
             HeadlessTestHelpers.Settle();
@@ -285,19 +350,27 @@ public sealed class MobilePreviewTests
             }
             Assert.That(editor.Player.IsCleanPreviewEnabled, Is.False);
             Assert.That(editor.Player.CleanPreviewImage.Value, Is.Null);
+            HeadlessTestHelpers.Render();
+            AssertPage("StartPage");
 
             await mobile.StartSharingAsync(host.Session);
             Assert.That(mobile.Server, Is.Not.SameAs(server));
+            HeadlessTestHelpers.Render();
+            AssertPage("ConnectionPage");
+            Assert.That(View().FindControl<Button>("DetailsButton")!.IsEffectivelyVisible, Is.False);
             if (closePresentationFirst) TestShell.Editor.SelectedTabItem.Value = null;
-            else owner.Close();
+            else editor.CloseToolTab(mobile);
             await mobile.StopSharingAsync();
-            Assert.That(mobile.IsVisible, Is.False);
+            Assert.That(mobile.IsSharing.Value, Is.False);
             Assert.That(mobile.Server, Is.Null);
         }
         finally
         {
-            mobile.Close();
-            await mobile.StopSharingAsync();
+            if (mobile is not null)
+            {
+                editor.CloseToolTab(mobile);
+                await mobile.StopSharingAsync();
+            }
             presentation.Close();
             owner.Close();
             await TestReset.ResetShellAsync();
@@ -311,12 +384,12 @@ public sealed class MobilePreviewTests
         TestGpu.RequireAnyDevice();
         var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-controls", 320, 240);
         var owner = new Window();
-        var mobile = new MobilePreviewWindow(editor.Player);
+        var mobile = new MobilePreviewTabViewModel(editor);
         try
         {
             await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(120));
             owner.Show();
-            mobile.Show(owner);
+            Assert.That(editor.OpenToolTab(mobile), Is.True);
             await mobile.StartSharingAsync(host.Session);
             var server = mobile.Server!;
             var socket = await host.AcceptAsync();
@@ -365,7 +438,7 @@ public sealed class MobilePreviewTests
         {
             editor.IsEnabled.Value = true;
             await editor.Player.Pause();
-            mobile.Close();
+            editor.CloseToolTab(mobile);
             await mobile.StopSharingAsync();
             owner.Close();
             await TestReset.ResetShellAsync();
@@ -416,13 +489,13 @@ public sealed class MobilePreviewTests
         await using var host = await RelayHost.StartAsync();
         var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-preview-cancel");
         var owner = new Window();
-        var mobile = new MobilePreviewWindow(editor.Player);
+        var mobile = new MobilePreviewTabViewModel(editor);
         try
         {
             owner.Show();
-            mobile.Show(owner);
+            Assert.That(editor.OpenToolTab(mobile), Is.True);
             Task start = mobile.StartSharingAsync(host.Session);
-            mobile.Close();
+            editor.CloseToolTab(mobile);
             try { await start; } catch (OperationCanceledException) { }
             await mobile.StopSharingAsync();
             Assert.That(mobile.Server, Is.Null);

@@ -3453,9 +3453,6 @@ cuando el registro del historial está activado.</value>
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>Comparte la vista previa limpia con audio y controla la reproducción desde tu teléfono.</value>
   </data>
-  <data name="MobilePreviewReady" xml:space="preserve">
-    <value>Pulsa Iniciar para compartir la vista previa.</value>
-  </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
     <value>Compartiendo · Hasta 15 fps · Audio · Controles de reproducción</value>
   </data>
@@ -3478,7 +3475,7 @@ cuando el registro del historial está activado.</value>
     <value>Desconectar todos</value>
   </data>
   <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>Cambiar de pestaña del editor o cerrar esta ventana detiene la transmisión.</value>
+    <value>La transmisión termina al cambiar de pestaña de edición o cerrar esta pestaña de herramientas.</value>
   </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>No se pudo iniciar. Comprueba la conexión y el inicio de sesión en Beutl Web.</value>
@@ -3488,5 +3485,17 @@ cuando el registro del historial está activado.</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>La conexión con el servidor terminó. Pulsa Iniciar para crear una nueva sesión.</value>
+  </data>
+  <data name="MobilePreviewConnectionInfo" xml:space="preserve">
+    <value>Información de conexión</value>
+  </data>
+  <data name="MobilePreviewWaiting" xml:space="preserve">
+    <value>Esperando un dispositivo</value>
+  </data>
+  <data name="MobilePreviewConnected" xml:space="preserve">
+    <value>Conectado</value>
+  </data>
+  <data name="MobilePreviewAddDevice" xml:space="preserve">
+    <value>Añadir dispositivo</value>
   </data>
 </root>

@@ -193,7 +193,6 @@ public partial class PlayerView : UserControl
     protected override async void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         Presentation?.Close();
-        MobilePreview?.Close();
         // The visual parent is already gone during detachment. Use the original subscription source.
         if (_scalingTopLevel is { } topLevel)
         {
@@ -234,7 +233,6 @@ public partial class PlayerView : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         Presentation?.Close();
-        MobilePreview?.Close();
         base.OnDataContextChanged(e);
         _disposables.Clear();
 

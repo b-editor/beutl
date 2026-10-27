@@ -3453,9 +3453,6 @@ when history recording is enabled.</value>
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>Share the clean preview with audio and control playback from your phone.</value>
   </data>
-  <data name="MobilePreviewReady" xml:space="preserve">
-    <value>Press Start to share the preview.</value>
-  </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
     <value>Sharing · Up to 15 fps · Audio · Playback controls</value>
   </data>
@@ -3478,7 +3475,7 @@ when history recording is enabled.</value>
     <value>Disconnect all</value>
   </data>
   <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>Switching editor tabs or closing this window stops sharing.</value>
+    <value>Sharing ends when you switch editing tabs or close this tool tab.</value>
   </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>Could not start sharing. Check your connection and Beutl Web sign-in, then try again.</value>
@@ -3488,5 +3485,17 @@ when history recording is enabled.</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>The relay connection ended. Press Start to create a new sharing session.</value>
+  </data>
+  <data name="MobilePreviewConnectionInfo" xml:space="preserve">
+    <value>Connection information</value>
+  </data>
+  <data name="MobilePreviewWaiting" xml:space="preserve">
+    <value>Waiting for a device</value>
+  </data>
+  <data name="MobilePreviewConnected" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="MobilePreviewAddDevice" xml:space="preserve">
+    <value>Add device</value>
   </data>
 </root>

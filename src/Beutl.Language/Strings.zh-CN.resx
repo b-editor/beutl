@@ -3453,9 +3453,6 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>分享带有音频的纯净预览，并通过手机控制播放。</value>
   </data>
-  <data name="MobilePreviewReady" xml:space="preserve">
-    <value>点击开始以共享预览。</value>
-  </data>
   <data name="MobilePreviewRunning" xml:space="preserve">
     <value>共享中 · 最高15 fps · 音频 · 播放控制</value>
   </data>
@@ -3478,7 +3475,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>全部断开</value>
   </data>
   <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>切换编辑标签页或关闭此窗口将停止共享。</value>
+    <value>切换编辑标签页或关闭此工具标签页时，共享将结束。</value>
   </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>无法开始共享。请检查网络连接和Beutl Web登录状态。</value>
@@ -3488,5 +3485,17 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>中继连接已结束。点击开始以创建新的共享会话。</value>
+  </data>
+  <data name="MobilePreviewConnectionInfo" xml:space="preserve">
+    <value>连接信息</value>
+  </data>
+  <data name="MobilePreviewWaiting" xml:space="preserve">
+    <value>等待设备连接</value>
+  </data>
+  <data name="MobilePreviewConnected" xml:space="preserve">
+    <value>已连接</value>
+  </data>
+  <data name="MobilePreviewAddDevice" xml:space="preserve">
+    <value>添加设备</value>
   </data>
 </root>
