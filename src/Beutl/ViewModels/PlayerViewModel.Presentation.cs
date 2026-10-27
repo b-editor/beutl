@@ -9,7 +9,19 @@ public partial class PlayerViewModel
 {
     private readonly object _cleanPreviewLock = new();
     private volatile bool _cleanPreviewEnabled;
+    private int _cleanPreviewConsumers;
     private Size _presentationFrameSize;
+    private long _previewPlaybackId;
+    private MediaTime _cleanPreviewTime;
+    private long _cleanPreviewPlaybackId;
+
+    internal long PreviewPlaybackId => Interlocked.Read(ref _previewPlaybackId);
+
+    internal (Ref<Bitmap>? Image, MediaTime Time, long PlaybackId) GetCleanPreviewFrame()
+    {
+        lock (_cleanPreviewLock)
+            return (CleanPreviewImage.Value?.TryClone(), _cleanPreviewTime, _cleanPreviewPlaybackId);
+    }
 
     public ReactivePropertySlim<Ref<Bitmap>?> CleanPreviewImage { get; } = new();
 
@@ -17,12 +29,19 @@ public partial class PlayerViewModel
 
     internal event EventHandler? CleanPreviewChanged;
 
-    internal void SetCleanPreviewEnabled(bool enabled)
+    internal IDisposable AcquireCleanPreview()
+    {
+        UpdateCleanPreviewConsumers(1);
+        return Disposable.Create(() => UpdateCleanPreviewConsumers(-1));
+    }
+
+    private void UpdateCleanPreviewConsumers(int delta)
     {
         bool changed;
         lock (_cleanPreviewLock)
         {
-            enabled &= !_isDisposing;
+            _cleanPreviewConsumers = _isDisposing ? 0 : Math.Max(0, _cleanPreviewConsumers + delta);
+            bool enabled = _cleanPreviewConsumers > 0;
             changed = _cleanPreviewEnabled != enabled;
             _cleanPreviewEnabled = enabled;
             if (!_cleanPreviewEnabled)
@@ -32,7 +51,7 @@ public partial class PlayerViewModel
         if (changed)
             CleanPreviewChanged?.Invoke(this, EventArgs.Empty);
 
-        if (_cleanPreviewEnabled && !IsPlaying.Value)
+        if (changed && _cleanPreviewEnabled && !IsPlaying.Value)
             QueueRender();
     }
 

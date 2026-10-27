@@ -242,7 +242,8 @@ public partial class PlayerViewModel
 
                 _owner._sessionGuard.TryApply(_generation, () =>
                 {
-                    _owner.UpdateImage(frame.Bitmap, frame.CleanBitmap);
+                    _owner.UpdateImage(frame.Bitmap, frame.CleanBitmap,
+                        MediaTime.FromFrames(frame.Time, _rate), _owner._previewPlaybackId);
                     _owner.ClearPreviewRenderError(_generation);
 
                     if (_owner.Scene != null)

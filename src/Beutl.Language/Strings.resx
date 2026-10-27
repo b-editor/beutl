@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -3446,5 +3446,47 @@ when history recording is enabled.</value>
   </data>
   <data name="FontFamilyPicker_NoResults" xml:space="preserve">
     <value>No matching fonts</value>
+  </data>
+  <data name="MobilePreview" xml:space="preserve">
+    <value>Mobile preview</value>
+  </data>
+  <data name="MobilePreviewDescription" xml:space="preserve">
+    <value>Share the clean preview with audio and control playback from your phone.</value>
+  </data>
+  <data name="MobilePreviewReady" xml:space="preserve">
+    <value>Press Start to share the preview.</value>
+  </data>
+  <data name="MobilePreviewRunning" xml:space="preserve">
+    <value>Sharing · Up to 15 fps · Audio · Playback controls</value>
+  </data>
+  <data name="MobilePreviewScan" xml:space="preserve">
+    <value>Scan the QR code with your phone, then enter the connection code in its browser.</value>
+  </data>
+  <data name="MobilePreviewCode" xml:space="preserve">
+    <value>Connection code</value>
+  </data>
+  <data name="MobilePreviewExpires" xml:space="preserve">
+    <value>New connections: code valid until {0}</value>
+  </data>
+  <data name="MobilePreviewRenewCode" xml:space="preserve">
+    <value>Renew code</value>
+  </data>
+  <data name="MobilePreviewClients" xml:space="preserve">
+    <value>Connected: {0} / 4</value>
+  </data>
+  <data name="MobilePreviewDisconnectAll" xml:space="preserve">
+    <value>Disconnect all</value>
+  </data>
+  <data name="MobilePreviewLifetime" xml:space="preserve">
+    <value>Switching editor tabs or closing this window stops sharing.</value>
+  </data>
+  <data name="MobilePreviewFailed" xml:space="preserve">
+    <value>Could not start sharing. Check your connection and Beutl Web sign-in, then try again.</value>
+  </data>
+  <data name="MobilePreviewInternetDescription" xml:space="preserve">
+    <value>The viewer is hosted on Beutl Web. Sign in to start sharing. WebRTC can connect directly on the same network; other networks can use a relay.</value>
+  </data>
+  <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
+    <value>The relay connection ended. Press Start to create a new sharing session.</value>
   </data>
 </root>

@@ -1,4 +1,4 @@
-<?xml version='1.0' encoding='utf-8'?>
+﻿<?xml version='1.0' encoding='utf-8'?>
 <root xmlns:ns1="urn:schemas-microsoft-com:xml-msdata" xmlns:xs="http://www.w3.org/2001/XMLSchema">
   <xs:schema id="root">
     <xs:element name="root" ns1:IsDataSet="true">
@@ -3446,5 +3446,47 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   </data>
   <data name="FontFamilyPicker_NoResults" xml:space="preserve">
     <value>没有匹配的字体</value>
+  </data>
+  <data name="MobilePreview" xml:space="preserve">
+    <value>手机预览</value>
+  </data>
+  <data name="MobilePreviewDescription" xml:space="preserve">
+    <value>分享带有音频的纯净预览，并通过手机控制播放。</value>
+  </data>
+  <data name="MobilePreviewReady" xml:space="preserve">
+    <value>点击开始以共享预览。</value>
+  </data>
+  <data name="MobilePreviewRunning" xml:space="preserve">
+    <value>共享中 · 最高15 fps · 音频 · 播放控制</value>
+  </data>
+  <data name="MobilePreviewScan" xml:space="preserve">
+    <value>使用手机扫描二维码，然后在浏览器中输入连接码。</value>
+  </data>
+  <data name="MobilePreviewCode" xml:space="preserve">
+    <value>连接码</value>
+  </data>
+  <data name="MobilePreviewExpires" xml:space="preserve">
+    <value>新连接码有效期至 {0}</value>
+  </data>
+  <data name="MobilePreviewRenewCode" xml:space="preserve">
+    <value>更新连接码</value>
+  </data>
+  <data name="MobilePreviewClients" xml:space="preserve">
+    <value>已连接：{0} / 4</value>
+  </data>
+  <data name="MobilePreviewDisconnectAll" xml:space="preserve">
+    <value>全部断开</value>
+  </data>
+  <data name="MobilePreviewLifetime" xml:space="preserve">
+    <value>切换编辑标签页或关闭此窗口将停止共享。</value>
+  </data>
+  <data name="MobilePreviewFailed" xml:space="preserve">
+    <value>无法开始共享。请检查网络连接和Beutl Web登录状态。</value>
+  </data>
+  <data name="MobilePreviewInternetDescription" xml:space="preserve">
+    <value>预览页面由 Beutl Web 提供。开始共享需要登录。同一网络可通过 WebRTC 直接连接，必要时使用中继。</value>
+  </data>
+  <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
+    <value>中继连接已结束。点击开始以创建新的共享会话。</value>
   </data>
 </root>

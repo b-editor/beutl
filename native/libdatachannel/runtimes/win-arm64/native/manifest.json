@@ -1,0 +1,16 @@
+{
+  "sha256": "1b619f70558c95fcb56d61b628d12718ba1e7b113d6afd5ce40af430493610e4",
+  "architectures": [
+    "arm64"
+  ],
+  "sources": {
+    "libdatachannel": {
+      "repository": "https://github.com/paullouisageneau/libdatachannel.git",
+      "commit": "6b1e2e620f1e37f0eafeee702eaea0043cb305fd"
+    },
+    "mbedtls": {
+      "repository": "https://github.com/Mbed-TLS/mbedtls.git",
+      "commit": "068ff080b369adfac81509f9b57b2afabaf82dc5"
+    }
+  }
+}

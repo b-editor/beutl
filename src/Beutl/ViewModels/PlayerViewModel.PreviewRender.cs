@@ -14,10 +14,12 @@ namespace Beutl.ViewModels;
 public partial class PlayerViewModel
 {
     // Both displayed images retain their own reference; the caller still owns the supplied frames.
-    private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource)
+    private void UpdateImage(Ref<Bitmap> source, Ref<Bitmap>? cleanSource, MediaTime time, long playbackId = 0)
     {
         lock (_cleanPreviewLock)
         {
+            _cleanPreviewTime = time;
+            _cleanPreviewPlaybackId = playbackId;
             ReplaceImage(CleanPreviewImage, _cleanPreviewEnabled ? cleanSource : null);
         }
 
@@ -277,7 +279,7 @@ public partial class PlayerViewModel
             if (token.IsCancellationRequested)
                 return;
 
-            UpdateImage(bitmapRef, cleanFrame);
+            UpdateImage(bitmapRef, cleanFrame, time);
 
             // Dispose と並走した場合に AfterRendered が破棄されている可能性があるためトークンを確認する
             if (!token.IsCancellationRequested)

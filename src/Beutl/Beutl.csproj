@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <BeutlHostLibrary>true</BeutlHostLibrary>
@@ -49,6 +49,7 @@
 
   <ItemGroup>
     <PackageReference Include="AsyncImageLoader.Avalonia" />
+    <PackageReference Include="QRCoder" />
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Controls.ItemsRepeater" />
     <PackageReference Include="Avalonia.Desktop" />
@@ -189,4 +190,5 @@
     <ProjectReference Include="..\Beutl.ProjectSystem\Beutl.ProjectSystem.csproj" />
     <ProjectReference Include="..\Beutl.Utilities\Beutl.Utilities.csproj" />
   </ItemGroup>
+  <Import Project="PreviewStreaming/PreviewTransport.targets" />
 </Project>

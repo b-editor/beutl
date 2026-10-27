@@ -548,6 +548,7 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
                 DeletionStrategy = FrameCacheDeletionStrategy.BackwardBlock
             };
             frameCacheManager.CurrentFrame = range.StartFrame;
+            Interlocked.Increment(ref _previewPlaybackId);
             ready = true;
         }) || !ready)
         {
@@ -774,6 +775,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         return false;
     }
 
+    internal event EventHandler? Disposing;
+
     public async ValueTask DisposeAsync()
     {
         _logger.LogInformation("Disposing PlayerViewModel. ({SceneId})", _editViewModel.SceneId);
@@ -789,7 +792,8 @@ public sealed partial class PlayerViewModel : IAsyncDisposable, IPreviewPlayer, 
         // never disposed under the request holding its token. Pause then drains the compose and render
         // dispatchers, so the render thread cannot call OnNext on the subjects disposed below.
         renderCts?.Cancel();
-        SetCleanPreviewEnabled(false);
+        Disposing?.Invoke(this, EventArgs.Empty);
+        UpdateCleanPreviewConsumers(0);
         await Pause();
         renderCts?.Dispose();
         Scene!.Edited -= OnSceneEdited;

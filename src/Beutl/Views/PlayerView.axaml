@@ -138,6 +138,13 @@
                     <icons:FluentIcon Icon="Desktop" />
                 </Button>
                 <Button Padding="5,6,5,6"
+                        Click="OnMobilePreviewClick"
+                        Theme="{StaticResource TransparentButton}"
+                        AutomationProperties.Name="{x:Static lang:Strings.MobilePreview}"
+                        ToolTip.Tip="{x:Static lang:Strings.MobilePreview}">
+                    <icons:FluentIcon Icon="Phone" />
+                </Button>
+                <Button Padding="5,6,5,6"
                         VerticalAlignment="Top"
                         Command="{Binding OpenPreviewSettings}"
                         Theme="{StaticResource TransparentButton}"

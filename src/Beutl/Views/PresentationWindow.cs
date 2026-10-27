@@ -74,7 +74,7 @@ internal sealed class PresentationWindow : Window
         }
 
         _started = true;
-        _player.SetCleanPreviewEnabled(true);
+        _subscriptions.Add(_player.AcquireCleanPreview());
         _subscriptions.Add(service.SelectedTabItem.Where(current => current != tab)
             .Subscribe(_ => Close()));
         _subscriptions.Add(tab.Context.Where(context => context != _player.EditViewModel)
@@ -97,7 +97,6 @@ internal sealed class PresentationWindow : Window
         _surface.Dispose();
         if (_started)
         {
-            _player.SetCleanPreviewEnabled(false);
             _player.SetPresentationFrameSize(default);
         }
         base.OnClosed(e);
