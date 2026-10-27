@@ -16,7 +16,7 @@ public sealed class PreviewTransportTests
         {
             if (message.Kind != PreviewTransportEventKind.Error) return;
             // Emulate the UI publishing while signaling reports an error to the server.
-            playback = Task.Run(() => current!.SendPlayback("phone", "{}"));
+            playback = Task.Run(() => current!.SendPlayback("phone", new PreviewPlaybackState(0, "{}")));
             playbackCompleted = playback.Wait(TimeSpan.FromSeconds(2));
         });
         current = transport;
@@ -24,6 +24,35 @@ public sealed class PreviewTransportTests
         Assert.That(playback, Is.Not.Null);
         await playback!;
         Assert.That(playbackCompleted, Is.True, "The callback must not block another thread's playback publication.");
+    }
+
+    [Test]
+    public async Task Playback_drops_late_snapshots_but_replays_the_latest_state_when_a_channel_opens()
+    {
+        var sent = new List<string>();
+        await using var transport = new PreviewTransport(_ => { }, (_, json) =>
+        {
+            sent.Add(json);
+            return 0;
+        });
+        var old = new PreviewPlaybackState(1, "{\"type\":\"playback\",\"playing\":false,\"duration\":10}");
+        var current = new PreviewPlaybackState(2, "{\"type\":\"playback\",\"playing\":false,\"duration\":60}");
+        var next = new PreviewPlaybackState(3, "{\"type\":\"playback\",\"playing\":true,\"duration\":60}");
+        transport.Offer("phone", "first", Offer, false, [], false);
+
+        transport.SendPlayback("phone", current);
+        transport.SendPlayback("phone", old); // An initial snapshot delayed by a concurrent duration update.
+        transport.SendPlayback("phone", current); // The channel may have opened after this revision was first published.
+        transport.SendPlayback("phone", next);
+        transport.SendPlayback("phone", current);
+        Assert.That(sent, Is.EqualTo(new[] { current.Json, current.Json, next.Json }));
+
+        transport.Offer("tablet", "first", Offer, false, [], false);
+        transport.SendPlayback("tablet", old);
+        Assert.That(sent[^1], Is.EqualTo(old.Json), "Each viewer has its own publication order.");
+        transport.Offer("phone", "replacement", Offer, false, [], false);
+        transport.SendPlayback("phone", next);
+        Assert.That(sent[^1], Is.EqualTo(next.Json), "A replacement connection must receive the paused or playing state without waiting for another update.");
     }
 
     [Test]
@@ -44,7 +73,7 @@ public sealed class PreviewTransportTests
         Assert.That(sdp, Does.Contain("a=rtpmap:98 VP8/90000"));
         Assert.That(sdp, Does.Contain("a=rtpmap:109 opus/48000/2"));
         Assert.That(sdp, Does.Contain("m=application"));
-        transport.SendPlayback("phone", "{\"type\":\"playback\",\"position\":1}");
+        transport.SendPlayback("phone", new PreviewPlaybackState(1, "{\"type\":\"playback\",\"position\":1}"));
         // Stale trickled candidates must not close a valid connection.
         transport.AddCandidate("phone", "old", "invalid", "0");
         transport.Offer("phone", "hdr", Offer, true, [], false);

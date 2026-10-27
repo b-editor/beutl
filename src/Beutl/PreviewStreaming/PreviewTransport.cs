@@ -5,6 +5,8 @@ using Beutl.Api;
 
 namespace Beutl.PreviewStreaming;
 
+internal readonly record struct PreviewPlaybackState(long Revision, string Json);
+
 // Owns native peer lifetimes and dispatches callbacks without holding the transport lock.
 // The server translates these events to the Web signaling protocol.
 internal sealed class PreviewTransport : IAsyncDisposable
@@ -17,11 +19,13 @@ internal sealed class PreviewTransport : IAsyncDisposable
     private readonly Channel<(Peer Peer, PreviewTransportEventKind Kind, string Value, string Mid)> _events =
         Channel.CreateUnbounded<(Peer, PreviewTransportEventKind, string, string)>(new() { SingleReader = true });
     private readonly Action<PreviewTransportEvent> _message;
+    private readonly Func<IntPtr, string, int> _sendPlayback;
     private readonly Task _eventTask;
 
-    internal PreviewTransport(Action<PreviewTransportEvent> message)
+    internal PreviewTransport(Action<PreviewTransportEvent> message, Func<IntPtr, string, int>? sendPlayback = null)
     {
         _message = message;
+        _sendPlayback = sendPlayback ?? Playback;
         _eventTask = ProcessEventsAsync();
     }
 
@@ -83,11 +87,15 @@ internal sealed class PreviewTransport : IAsyncDisposable
         }
     }
 
-    internal void SendPlayback(string id, string state)
+    internal void SendPlayback(string id, PreviewPlaybackState state)
     {
         lock (_gate)
         {
-            if (_peers.TryGetValue(id, out var peer) && peer.Handle != IntPtr.Zero && Playback(peer.Handle, state) != 0)
+            if (!_peers.TryGetValue(id, out var peer) || peer.Handle == IntPtr.Zero
+                || state.Revision < peer.PlaybackRevision) return;
+            // A channel may open after this revision was first published, so allow its replay.
+            peer.PlaybackRevision = state.Revision;
+            if (_sendPlayback(peer.Handle, state.Json) != 0)
                 _events.Writer.TryWrite((peer, PreviewTransportEventKind.State, "failed", ""));
         }
     }
@@ -122,6 +130,7 @@ internal sealed class PreviewTransport : IAsyncDisposable
     private sealed record Peer(PreviewTransport Owner, string Id, string ConnectionId, bool Hdr, long Token)
     {
         internal IntPtr Handle;
+        internal long PlaybackRevision;
     }
 
     [StructLayout(LayoutKind.Sequential)]

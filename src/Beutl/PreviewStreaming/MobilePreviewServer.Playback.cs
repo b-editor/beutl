@@ -9,7 +9,7 @@ internal readonly record struct PreviewControl(string Action, double Position);
 internal sealed partial class MobilePreviewServer
 {
     private readonly SemaphoreSlim _controlGate = new(1);
-    private string _playbackState = "{\"type\":\"playback\",\"enabled\":false}";
+    private PreviewPlaybackState _playbackState = new(0, "{\"type\":\"playback\",\"enabled\":false}");
     internal Func<string, PreviewControl, CancellationToken, Task<bool>>? ControlRequested { get; set; }
 
     internal bool IsClientConnected(string id)
@@ -22,11 +22,12 @@ internal sealed partial class MobilePreviewServer
     {
         PreviewTransport? transport;
         (string Id, string Address)[] clients;
-        string state = JsonSerializer.Serialize(new { type = "playback", playing, position, minimum, duration, frameRate, enabled });
+        string json = JsonSerializer.Serialize(new { type = "playback", playing, position, minimum, duration, frameRate, enabled });
+        PreviewPlaybackState state;
         lock (_gate)
         {
             if (_stop.IsCancellationRequested) return;
-            _playbackState = state;
+            state = _playbackState = new(_playbackState.Revision + 1, json);
             transport = _transport;
             clients = _relayClients;
         }
@@ -37,7 +38,7 @@ internal sealed partial class MobilePreviewServer
     private void SendCurrentPlayback(string id)
     {
         PreviewTransport? transport;
-        string state;
+        PreviewPlaybackState state;
         lock (_gate)
         {
             transport = _transport;
