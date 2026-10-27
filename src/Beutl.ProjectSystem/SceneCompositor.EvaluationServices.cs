@@ -12,9 +12,9 @@ public sealed partial class SceneCompositor
     private sealed class EvaluationServices(SceneCompositor owner, CompositionContext conditions,
         HashSet<(int? Layer, TimeRange Range)>? queryPath = null) : ICompositionEvaluationServices
     {
-        // Samples own their resources but share the active query path with their originating evaluation.
+        // Share only in-progress queries across samples; completed layer resources stay local and lease-owned.
         private readonly HashSet<(int? Layer, TimeRange Range)> _queryPath = queryPath ?? [];
-        private readonly Dictionary<(int Layer, MediaTime Time), IReadOnlyList<EngineObject.Resource>> _queries = [];
+        private readonly Dictionary<(int Layer, MediaTime Time), IReadOnlyList<EngineObject.Resource>> _completedLayers = [];
         private const int MaxQueryDepth = 32;
 
         public EvaluationServices Fork(SceneCompositor compositor, CompositionContext context)
@@ -53,37 +53,40 @@ public sealed partial class SceneCompositor
             var key = (zIndex, time);
             var range = new TimeRange(time, MediaTime.Zero);
             EnterQuery(zIndex, range);
-            var compositor = new SceneCompositor(owner.Scene)
-            {
-                DisableResourceShare = true,
-                ForceOriginalSource = owner.ForceOriginalSource
-            };
-            void Release()
-            {
-                try { compositor.Dispose(); }
-                finally
-                {
-                    _queries.Remove(key);
-                    _queryPath.Remove((zIndex, range));
-                }
-            }
+            SceneCompositor? compositor = null;
             try
             {
+                compositor = new SceneCompositor(owner.Scene)
+                {
+                    DisableResourceShare = true,
+                    ForceOriginalSource = owner.ForceOriginalSource
+                };
                 CompositionFrame frame = compositor.EvaluateGraphics(time, zIndex, this, conditions, conditions.CancellationToken, conditions.FrameRate);
-                _queries[key] = frame.Objects;
-                return new CompositionLayerLease(frame.Objects, Release);
+                IReadOnlyList<EngineObject.Resource> resources = frame.Objects;
+                void Release()
+                {
+                    try { compositor.Dispose(); }
+                    finally
+                    {
+                        if (_completedLayers.TryGetValue(key, out var current) && ReferenceEquals(current, resources))
+                            _completedLayers.Remove(key);
+                    }
+                }
+                _completedLayers[key] = resources;
+                return new CompositionLayerLease(resources, Release);
             }
             catch
             {
-                Release();
+                compositor?.Dispose();
                 throw;
             }
+            finally { _queryPath.Remove((zIndex, range)); }
         }
 
         public T ReadLayer<T>(int zIndex, MediaTime time, Func<IReadOnlyList<EngineObject.Resource>, T> read)
         {
             ArgumentNullException.ThrowIfNull(read);
-            if (_queries.TryGetValue((zIndex, time), out var resources))
+            if (_completedLayers.TryGetValue((zIndex, time), out var resources))
                 return read(resources);
             using var layer = EvaluateLayer(zIndex, time);
             return read(layer.Resources);

@@ -96,6 +96,76 @@ public class CompositionEvaluationServicesTests
     }
 
     [Test]
+    public void CompletedLayerLeaseDoesNotBlockAnIndependentInputSample()
+    {
+        (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+        Add(scene, new RectShape { Width = { Value = 42 } }, 1);
+        capture.FilterEffect.Value = new SampleInputEffect { Offsets = [1] };
+        CompositionLayerLease? retained = null;
+        EngineObject.Resource? retainedResource = null;
+        int reads = 0;
+        capture.OnEvaluate = context =>
+        {
+            if (context.Time == MediaTime.Zero)
+            {
+                retained = context.EvaluationServices!.EvaluateLayer(1, MediaTime.Zero);
+                retainedResource = retained.Resources.Single();
+            }
+            else
+            {
+                context.EvaluationServices!.ReadLayer(1, MediaTime.Zero, resources =>
+                {
+                    var sampled = (RectShape.Resource)resources.Single();
+                    Assert.That(sampled.Width, Is.EqualTo(42));
+                    Assert.That(sampled, Is.Not.SameAs(retainedResource));
+                    reads++;
+                    return 0;
+                });
+            }
+        };
+        using var compositor = new SceneCompositor(scene);
+        try
+        {
+            compositor.EvaluateGraphics(MediaTime.Zero);
+            Assert.That(reads, Is.EqualTo(1));
+            Assert.That(retainedResource!.IsDisposed, Is.False);
+        }
+        finally { retained?.Dispose(); }
+        Assert.That(retainedResource!.IsDisposed, Is.True);
+    }
+
+    [Test]
+    public void OverlappingLayerLeasesDoNotRemoveAnotherEvaluationsCacheOrCycleGuard()
+    {
+        (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+        using var compositor = new SceneCompositor(scene);
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        var services = capture.Services!;
+        using var first = services.EvaluateLayer(0, MediaTime.Zero);
+        using var second = services.EvaluateLayer(0, MediaTime.Zero);
+        var resource = second.Resources.Single();
+        Assert.That(resource, Is.Not.SameAs(first.Resources.Single()));
+        first.Dispose();
+        Assert.That(resource.IsDisposed, Is.False);
+        Assert.That(services.ReadLayer(0, MediaTime.Zero, resources => resources.Single()), Is.SameAs(resource));
+
+        int evaluations = 0;
+        capture.OnEvaluate = context =>
+        {
+            if (++evaluations > 1) throw new InvalidOperationException("active query guard was removed");
+            second.Dispose();
+            using var recursive = context.EvaluationServices!.EvaluateLayer(0, MediaTime.Zero);
+        };
+        Assert.That(() => services.EvaluateLayer(0, MediaTime.Zero),
+            Throws.InvalidOperationException.With.Message.Contains("Circular composition query"));
+        Assert.That(evaluations, Is.EqualTo(1));
+        Assert.That(resource.IsDisposed, Is.True);
+        capture.OnEvaluate = null;
+        using var recovered = services.EvaluateLayer(0, MediaTime.Zero);
+        Assert.That(recovered.Resources.Single().IsDisposed, Is.False);
+    }
+
+    [Test]
     public void SampledLayerQueriesShareCycleDetectionAndReleaseItAfterFailure()
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
