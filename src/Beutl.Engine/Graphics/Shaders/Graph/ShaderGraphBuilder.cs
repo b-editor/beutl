@@ -95,10 +95,25 @@ public sealed partial class ShaderGraphBuilder
     public ShaderBuffer Buffer<T>(string name, ReadOnlySpan<T> values) where T : unmanaged
         => AddBuffer(name, values.Length, Unsafe.SizeOf<T>(), [.. MemoryMarshal.AsBytes(values)]);
 
+    /// <summary>Declares uninitialized storage with an explicit element layout, without a CLR element type.</summary>
+    /// <remarks>The stride must match the shader's array stride, including any layout padding.</remarks>
+    public ShaderBuffer Buffer(string name, int count, int stride)
+        => AddBuffer(name, count, stride, []);
+
+    /// <summary>Copies packed initial bytes with an explicit element stride.</summary>
+    public ShaderBuffer Buffer(string name, ReadOnlySpan<byte> data, int stride)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stride);
+        if (data.Length % stride != 0)
+            throw new ArgumentException("Buffer data must contain complete elements.", nameof(data));
+        return AddBuffer(name, data.Length / stride, stride, [.. data]);
+    }
+
     private ShaderBuffer AddBuffer(string name, int count, int stride, ImmutableArray<byte> data)
     {
         EnsureRecording();
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(stride);
         AddName(_resourceNames, name);
         var buffer = new ShaderBuffer(this, _resources.Count, name, count, stride, data);
         _resources.Add(buffer);

@@ -1584,4 +1584,28 @@
   <data name="RadialBlurMode_Spin" xml:space="preserve">
     <value>Spin</value>
   </data>
+  <data name="Bloom" xml:space="preserve">
+    <value>Bloom</value>
+  </data>
+  <data name="Bloom_Threshold" xml:space="preserve">
+    <value>Threshold</value>
+  </data>
+  <data name="Bloom_Intensity" xml:space="preserve">
+    <value>Intensity</value>
+  </data>
+  <data name="Bloom_PreserveAlpha" xml:space="preserve">
+    <value>Preserve alpha</value>
+  </data>
+  <data name="WaveRefraction" xml:space="preserve">
+    <value>Wave refraction</value>
+  </data>
+  <data name="WaveRefraction_Amount" xml:space="preserve">
+    <value>Displacement</value>
+  </data>
+  <data name="WaveRefraction_Wavelength" xml:space="preserve">
+    <value>Wavelength</value>
+  </data>
+  <data name="WaveRefraction_Phase" xml:space="preserve">
+    <value>Phase (degrees)</value>
+  </data>
 </root>

@@ -139,7 +139,7 @@ public sealed class PixelSortEffectSynchronizationTests
                 Assert.That(
                     allocations,
                     Does.Contain(TextureFormat.RGBA16Float),
-                    "The allocation observer must see the pixel-sort intermediate textures.");
+                    "The allocation observer must see the pixel-sort destination.");
                 Assert.That(
                     allocations,
                     Has.None.EqualTo(TextureFormat.Depth32Float),
@@ -149,7 +149,7 @@ public sealed class PixelSortEffectSynchronizationTests
     }
 
     [Test]
-    public void PixelSort_ReusesItsDestinationAndScratchTargetsAfterWarmup()
+    public void PixelSort_ReusesItsDestinationAndReleasesGraphResources()
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -169,14 +169,14 @@ public sealed class PixelSortEffectSynchronizationTests
             {
                 Assert.That(
                     firstAllocations.Count(static format => format == TextureFormat.RGBA16Float),
-                    Is.EqualTo(3),
-                    "PixelSort must warm one destination and two scratch slots.");
+                    Is.EqualTo(1),
+                    "The target pool owns the destination; graph intermediates have request lifetime.");
                 Assert.That(
                     secondAllocations,
                     Has.None.EqualTo(TextureFormat.RGBA16Float),
                     "The warmed PixelSort invocation must allocate no additional native targets.");
-                Assert.That(registry.Statistics.Creates, Is.EqualTo(3));
-                Assert.That(registry.Statistics.Reuses, Is.EqualTo(3));
+                Assert.That(registry.Statistics.Creates, Is.EqualTo(1));
+                Assert.That(registry.Statistics.Reuses, Is.EqualTo(1));
             });
             GpuResourceReclaimQueue.FlushAndDrain();
         });

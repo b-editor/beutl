@@ -145,9 +145,22 @@ public sealed class ShaderImage : ShaderResource
     internal ShaderImage? RasterSource { get; set; }
     internal Rect? ExplicitBounds { get; }
     internal float Padding { get; }
+    // Built-in radial sampling records affine extents around one origin for the complete input group.
+    internal ImmutableArray<Matrix> BoundsTransforms { get; set; } = [];
+    internal RelativePoint BoundsOrigin { get; set; } = RelativePoint.Center;
 
-    internal Rect ResolveBounds(Rect sourceBounds)
-        => Id == 0 ? sourceBounds : (ExplicitBounds ?? Like!.ResolveBounds(sourceBounds)).Inflate(Padding);
+    internal Rect ResolveBounds(Rect sourceBounds, Rect? referenceBounds = null)
+    {
+        Rect bounds = Id == 0 ? sourceBounds : (ExplicitBounds ?? Like!.ResolveBounds(sourceBounds, referenceBounds)).Inflate(Padding);
+        if (BoundsTransforms.IsEmpty || bounds.IsEmpty)
+            return bounds;
+        Rect reference = referenceBounds ?? sourceBounds;
+        Point origin = reference.Position + BoundsOrigin.ToPixels(reference.Size);
+        Rect result = bounds;
+        foreach (Matrix transform in BoundsTransforms)
+            result = result.Union(bounds.Translate(-origin).TransformToAABB(transform).Translate(origin));
+        return result;
+    }
 }
 
 /// <summary>A virtual buffer. Initial values, when supplied, are copied during graph recording.</summary>

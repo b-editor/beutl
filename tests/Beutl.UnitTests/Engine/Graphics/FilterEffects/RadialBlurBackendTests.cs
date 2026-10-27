@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-using Beutl.Composition;
+﻿using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
@@ -26,48 +25,37 @@ public sealed class RadialBlurBackendTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            GLSLShader first = GetShader();
-            ushort[] expected = Render();
-            Assert.That(expected, Has.Some.Not.Zero);
-            Assert.That(GetShader(), Is.SameAs(first));
-
-            using IGraphicsContext replacement = GraphicsContextFactory.CreateContext();
-            GLSLShader? second = null;
-            try
-            {
-                using var scope = InstalledGraphicsScope.Install(replacement);
-                second = GetShader();
-                // Check before drawing so a regression cannot submit resources from different devices.
-                Assert.That(second, Is.Not.SameAs(first));
-                Assert.That(() => first.InputCount, Throws.TypeOf<ObjectDisposedException>());
-                Assert.That(Render(), Is.EqualTo(expected));
-                Assert.That(GetShader(), Is.SameAs(second));
-            }
-            finally
-            {
-                // Restore the original context's shader before destroying the replacement device.
-                GetShader();
-            }
-
-            Assert.That(() => second!.InputCount, Throws.TypeOf<ObjectDisposedException>());
-            Assert.That(Render(), Is.EqualTo(expected));
-        });
-
-        static GLSLShader GetShader()
-            => (GLSLShader)typeof(RadialBlur)
-                .GetMethod("GetOrCreateShader", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, null)!;
-
-        ushort[] Render()
-        {
             var effect = new RadialBlur { Mode = { Value = mode }, Amount = { Value = 50 } };
             using var brush = (Brush.Resource)new SolidColorBrush(Colors.Red).ToResource(CompositionContext.Default);
             using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
             root.AddChild(new RectangleRenderNode(new Rect(4, 4, 16, 8), brush, null));
             using var renderer = new RenderNodeRenderer(root,
                 new RenderNodeRenderRequest { Intent = RenderIntent.Delivery, CacheOptions = RenderCacheOptions.Disabled });
-            using RenderNodeRasterization output = renderer.Rasterize();
-            return output.Bitmap!.GetPixelSpan<ushort>().ToArray();
-        }
+            ushort[] expected = Render();
+            Assert.That(expected, Has.Some.Not.Zero);
+            long misses = renderer.ProgramCacheStatistics.Misses;
+            Assert.That(Render(), Is.EqualTo(expected));
+            Assert.That(renderer.ProgramCacheStatistics.Misses, Is.EqualTo(misses));
+            Assert.That(renderer.ProgramCacheStatistics.Hits, Is.GreaterThan(0));
+
+            using IGraphicsContext replacement = GraphicsContextFactory.CreateContext();
+            using (InstalledGraphicsScope.Install(replacement))
+            {
+                Assert.That(Render(), Is.EqualTo(expected));
+                Assert.That(renderer.ProgramCacheStatistics.Misses, Is.GreaterThan(misses));
+                misses = renderer.ProgramCacheStatistics.Misses;
+                Assert.That(Render(), Is.EqualTo(expected));
+                Assert.That(renderer.ProgramCacheStatistics.Misses, Is.EqualTo(misses));
+            }
+            Assert.That(Render(), Is.EqualTo(expected));
+            Assert.That(renderer.ProgramCacheStatistics.Misses, Is.GreaterThan(misses));
+
+            ushort[] Render()
+            {
+                using RenderNodeRasterization output = renderer.Rasterize();
+                return output.Bitmap!.GetPixelSpan<ushort>().ToArray();
+            }
+        });
     }
 
     [TestCase(RenderIntent.Preview)]
@@ -122,34 +110,34 @@ public sealed class RadialBlurBackendTests
             var factory = new DecliningTargetFactory();
             using var pool = new RenderTargetPool(factory);
             using RenderTargetLeaseSession session = pool.BeginSession(intent);
-            var custom = new CustomFilterEffectContext(targets, intent, RenderRequestPurpose.Auxiliary,
-                renderTargetLeaseSession: session);
+            using var builder = new SKImageFilterBuilder();
+            using var executor = new FilterEffectExecutor(targets, builder, intent, RenderRequestPurpose.Auxiliary,
+                1, 1, 1, default, renderTargetLeaseSession: session);
             var effect = new RadialBlur { Mode = { Value = mode } };
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(bounds);
             context.ApplyTransactional(effect, resource);
-            var item = (IFEItem_Custom)context.GetOrderedItems().Single();
 
             if (intent == RenderIntent.Preview)
-                Assert.DoesNotThrow(() => item.Accepts(custom));
+                Assert.DoesNotThrow(() => executor.Apply(context));
             else
-                Assert.That(() => item.Accepts(custom), Throws.TypeOf<InvalidOperationException>()
+                Assert.That(() => executor.Apply(context), Throws.TypeOf<InvalidOperationException>()
                     .With.Message.Contains("could not allocate"));
 
             Assert.Multiple(() =>
             {
                 Assert.That(factory.Declined, Is.GreaterThan(0));
                 Assert.That(session.ContentDropObserved, Is.EqualTo(intent == RenderIntent.Preview));
-                Assert.That(targets[0], Is.SameAs(source));
+                Assert.That(targets.Single().Bounds, Is.EqualTo(source.Bounds));
             });
-            using Bitmap actual = source.RenderTarget!.Snapshot();
+            using Bitmap actual = targets.Single().RenderTarget!.Snapshot();
             Assert.That(actual.GetPixelSpan<ushort>().ToArray(), Is.EqualTo(expected.GetPixelSpan<ushort>().ToArray()));
         });
     }
 
     [TestCase(RadialBlurMode.Zoom)]
     [TestCase(RadialBlurMode.Spin)]
-    public void RadialBlur_BetweenSkslStages_PreservesOrderAndUsesGlsl(RadialBlurMode mode)
+    public void RadialBlur_BetweenSkslStages_PreservesOrderAndUsesShaderGraph(RadialBlurMode mode)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>

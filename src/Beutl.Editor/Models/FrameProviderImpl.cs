@@ -132,7 +132,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
             for (long frame = 0; frame < _frameCount && !_cts.Token.IsCancellationRequested; frame++)
             {
                 var bitmap = await RenderFrameCore(frame, _cts.Token);
-                await _channel.Writer.WriteAsync(bitmap, _cts.Token);
+                await WriteFrameAsync(_channel.Writer, bitmap, _cts.Token);
             }
         }
         catch (OperationCanceledException)
@@ -147,6 +147,21 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
         _logger.LogDebug("Frame rendering completed.");
         _channel.Writer.TryComplete();
+    }
+
+    // Ownership passes to the channel only after the write succeeds. Cancellation can arrive while
+    // a completed GPU readback is waiting for an encoder to drain the bounded channel.
+    internal static async ValueTask WriteFrameAsync(ChannelWriter<Bitmap> writer, Bitmap bitmap, CancellationToken token)
+    {
+        try
+        {
+            await writer.WriteAsync(bitmap, token);
+        }
+        catch
+        {
+            bitmap.Dispose();
+            throw;
+        }
     }
 
     public async ValueTask<Bitmap?> ReadNextFrame()

@@ -16,6 +16,36 @@ namespace Beutl.Graphics3DTests;
 public sealed class ShaderGraphCacheTests
 {
     [Test]
+    public void ResultCacheTracksSpecializationChangesAndReusesPreviousPipelines()
+    {
+        OnDevice(_ =>
+        {
+            Rect bounds = new(0, 0, 64, 32);
+            using var brush = (Brush.Resource)new SolidColorBrush(Colors.White).ToResource(CompositionContext.Default);
+            using var rectangle = new RectangleRenderNode(bounds, brush, null);
+            using var node = new GraphNode(rectangle, ShaderGraphSpecializationTests.Color(0.25f));
+            using var renderer = new RenderNodeRenderer(node, new()
+            {
+                Intent = RenderIntent.Preview,
+                Purpose = RenderRequestPurpose.Frame,
+                TargetDomain = bounds,
+                OutputScale = 1,
+                MaxWorkingScale = 1,
+                CacheOptions = RenderCacheOptions.Enabled
+            });
+            WarmCache(renderer);
+            Assert.That(node.Cache.IsCached, Is.True);
+            Assert.That(RenderRed(renderer), Is.EqualTo(0.25f));
+            node.SetGraph(ShaderGraphSpecializationTests.Color(0.75f));
+            Assert.That(RenderRed(renderer), Is.EqualTo(0.75f));
+            long creations = renderer.ProgramCacheStatistics.Creations;
+            node.SetGraph(ShaderGraphSpecializationTests.Color(0.25f));
+            Assert.That(RenderRed(renderer), Is.EqualTo(0.25f));
+            Assert.That(renderer.ProgramCacheStatistics.Creations, Is.EqualTo(creations));
+        });
+    }
+
+    [Test]
     public void ResultCacheTracksTimeResetAndColorWhileProgramsRemainReusable()
     {
         OnDevice(_ =>

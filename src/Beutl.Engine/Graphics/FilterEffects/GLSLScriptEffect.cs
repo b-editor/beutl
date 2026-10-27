@@ -3,10 +3,10 @@ using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
 using Beutl.Logging;
-
 using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
@@ -77,38 +77,31 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
     {
         var r = (Resource)resource;
 
-        if (r._shader == null)
+        if (r._program == null)
             return;
 
-        context.CustomEffect(
-            (progress: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader),
-            OnApplyTo,
-            static (_, r) => r);
+        context.ShaderGraph(CreateGraph(r._program, new PushConstants
+        {
+            Progress = r.Progress,
+            Duration = r.Duration,
+            Time = r.Time
+        }));
     }
 
-    private static void OnApplyTo(
-        (float progress, float duration, float time, GLSLShader shader) data,
-        CustomFilterEffectContext c)
-    {
-        // Push constants report device px at the clamped buffer density.
-        data.shader.Apply(c, target =>
+    private static ShaderGraphDescription CreateGraph(ShaderProgram program, PushConstants constants)
+        => ShaderGraphBuilder.Build((Program: program, Constants: constants), static (graph, state) =>
         {
-            float w = target.Scale.IsUnbounded ? c.ResolveTargetDensity(target.Bounds) : target.Scale.Value;
-            int devW = target.RenderTarget?.Width
-                ?? CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w).Width;
-            int devH = target.RenderTarget?.Height
-                ?? CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w).Height;
-            return new PushConstants
+            ShaderImage output = graph.Image2D("script", graph.Source);
+            output.RasterSource = graph.Source;
+            graph.Fullscreen("script", state.Program, pass =>
             {
-                Progress = data.progress,
-                Duration = data.duration,
-                Time = data.time,
-                Width = devW,
-                Height = devH,
-                Scale = w
-            };
+                pass.SampledImage(0, graph.Source, SamplerState.LinearClamp);
+                pass.ColorAttachment(0, output);
+                pass.PushConstants(state.Constants);
+                pass.ImageSizeConstants(output, 12);
+            });
+            return graph.Output(output);
         });
-    }
 
     // Field order must match the GLSL `layout(push_constant)` block.
     // Total size must stay within VulkanPipeline3D's 128-byte push-constant range.
@@ -125,9 +118,8 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
 
     public new partial class Resource
     {
-        internal GLSLShader? _shader;
-        internal string? _compiledShader;
-        internal string? _compileError;
+        internal ShaderProgram? _program;
+        private string? _recordedShader;
 
         private ScriptTimeline _timeline;
 
@@ -144,38 +136,33 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
                 Version++;
             }
 
-            CompileShader(FragmentShader);
-        }
-
-        private void CompileShader(string shader)
-        {
-            if (_compiledShader == shader)
-                return;
-
-            _shader?.Dispose();
-            _shader = null;
-            var prevError = _compileError;
-            _compileError = null;
-            _compiledShader = shader;
-
-            if (string.IsNullOrWhiteSpace(shader))
-                return;
-
-            if (!GLSLShader.TryCreate(shader, out _shader, out string? errorText))
+            if (_recordedShader != FragmentShader)
             {
-                _compileError = errorText;
-                if (prevError != _compileError)
+                _recordedShader = null;
+                _program = null;
+                if (string.IsNullOrWhiteSpace(FragmentShader))
                 {
-                    s_logger.LogError("Failed to compile GLSL shader: {Error}", errorText);
+                    _recordedShader = FragmentShader;
+                    return;
+                }
+                try
+                {
+                    using var compiler = new VulkanShaderCompiler();
+                    _recordedShader = FragmentShader;
+                    var program = ShaderProgram.Fullscreen(new ShaderSource(FragmentShader));
+                    var interfaces = program.Stages.ToDictionary(pair => pair.Key,
+                        pair => new ShaderInterface(compiler.CompileToSpirv(pair.Value.Text, pair.Key), pair.Key));
+                    ShaderInterface.ValidateProgram(interfaces, CreateGraph(program, default).Passes[0]);
+                    _program = program;
+                    Version++; // A successful retry must invalidate an already recorded pass-through.
+                }
+                catch (Exception ex)
+                {
+                    // Keep user-script preparation failures local, including unsupported reflection expressions.
+                    // Cache only after compiler initialization succeeds; renderer pipeline/execution errors remain visible.
+                    s_logger.LogError(ex, "Failed to prepare the GLSL script; the effect is inactive.");
                 }
             }
-        }
-
-        partial void PostDispose(bool disposing)
-        {
-            _shader?.Dispose();
-            _shader = null;
-            _compileError = null;
         }
     }
 }

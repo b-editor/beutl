@@ -14,6 +14,8 @@ public sealed partial class ShaderPassBuilder
     private readonly Dictionary<int, ShaderPassBinding> _bindings = [];
     private readonly Dictionary<int, ShaderColorAttachment> _attachments = [];
     private ImmutableArray<byte> _constants = [];
+    private (ShaderImage Image, int Offset)? _imageSizeConstants;
+    private (RelativePoint Origin, int Offset)? _boundsOriginConstants;
     private BlendState _blend = BlendState.Replace;
     private (int X, int Y, int Z)? _work;
     private bool _threads;
@@ -98,6 +100,20 @@ public sealed partial class ShaderPassBuilder
     public void ImageParameters(int binding, ShaderImage image)
         => AddBinding(binding, image, DescriptorType.UniformBuffer, ResourceAccess.Read, default, metadata: true);
 
+    // Preserve the legacy script ABI without retaining a render-time author callback.
+    internal void ImageSizeConstants(ShaderImage image, int offset)
+    {
+        EnsureRecording();
+        _graph.ValidateResource(image);
+        _imageSizeConstants = (image, offset);
+    }
+
+    internal void BoundsOriginConstants(RelativePoint origin, int offset)
+    {
+        EnsureRecording();
+        _boundsOriginConstants = (origin, offset);
+    }
+
     private void AddBinding(int binding, ShaderResource resource, DescriptorType type,
         ResourceAccess access, SamplerState sampler, bool metadata = false)
     {
@@ -129,11 +145,14 @@ public sealed partial class ShaderPassBuilder
     /// <summary>Copies parameter bytes. Use an explicitly laid out unmanaged struct matching the shader block.</summary>
     /// <remarks>The current backend accepts up to 128 bytes, in multiples of four. Values are not pipeline cache keys.</remarks>
     public void PushConstants<T>(T value) where T : unmanaged
+        => PushConstants(MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref value, 1)));
+
+    /// <summary>Copies packed push-constant bytes without requiring a CLR struct for their layout.</summary>
+    public void PushConstants(ReadOnlySpan<byte> bytes)
     {
         EnsureRecording();
-        ReadOnlySpan<byte> bytes = MemoryMarshal.AsBytes(MemoryMarshal.CreateReadOnlySpan(ref value, 1));
         if (bytes.Length > 128 || bytes.Length % 4 != 0)
-            throw new ArgumentException("Push constants must contain at most 128 bytes in multiples of four.", nameof(value));
+            throw new ArgumentException("Push constants must contain at most 128 bytes in multiples of four.", nameof(bytes));
         _constants = [.. bytes];
     }
 
@@ -296,6 +315,9 @@ public sealed partial class ShaderPassBuilder
             _topology, _firstElement, _vertexOffset, _firstInstance)
         { Indirect = _indirect };
         draw.Validate(_name, work.X, work.Y);
+        if (_imageSizeConstants is { } size && (size.Offset < 0 || size.Offset % 4 != 0 || size.Offset + 12 > _constants.Length)
+            || _boundsOriginConstants is { } origin && (origin.Offset < 0 || origin.Offset % 4 != 0 || origin.Offset + 8 > _constants.Length))
+            throw new InvalidOperationException($"Pass '{_name}' has runtime parameters outside its push constants.");
         return new(_name, _program, [.. _bindings.Values.OrderBy(b => b.Binding)], [.. attachments],
             _constants, _blend, work, _threads)
         {
@@ -306,7 +328,9 @@ public sealed partial class ShaderPassBuilder
             FrontFace = _frontFace,
             PatchControlPoints = _patchControlPoints,
             PartialRendering = _partialRendering,
-            InputRegions = _inputRegions.ToImmutableDictionary()
+            InputRegions = _inputRegions.ToImmutableDictionary(),
+            ImageSizeConstants = _imageSizeConstants,
+            BoundsOriginConstants = _boundsOriginConstants
         };
     }
 }
@@ -321,6 +345,8 @@ internal sealed record ShaderPassDescription(string Name, ShaderProgram? Program
     ImmutableArray<ShaderPassBinding> Bindings, ImmutableArray<ShaderColorAttachment> Attachments,
     ImmutableArray<byte> Constants, BlendState Blend, (int X, int Y, int Z) Work, bool DispatchThreads)
 {
+    public (ShaderImage Image, int Offset)? ImageSizeConstants { get; init; }
+    public (RelativePoint Origin, int Offset)? BoundsOriginConstants { get; init; }
     public ShaderDrawDescription Draw { get; init; } = ShaderDrawDescription.Empty;
     public ShaderDepthAttachment? DepthAttachment { get; init; }
     public DepthStencilState DepthStencil { get; init; }

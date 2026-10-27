@@ -8,7 +8,8 @@ using ImageUsageFlags = Silk.NET.Vulkan.ImageUsageFlags;
 
 namespace Beutl.Graphics.Shaders;
 
-internal readonly record struct ShaderImageFrame(Rect Bounds, Rect RasterBounds, PixelSize PixelSize, float Scale)
+// ReferenceBounds retains the complete input group when an effect receives several materialized pieces.
+internal readonly record struct ShaderImageFrame(Rect Bounds, Rect RasterBounds, PixelSize PixelSize, float Scale, Rect? ReferenceBounds = null)
 {
     public Vector4[] GetParameters() =>
     [
@@ -53,7 +54,7 @@ internal static class ShaderGraphExecutor
         var leases = new List<ProgramCacheLease<ShaderGraphPipeline>>();
         var programs = new Dictionary<ShaderPassDescription, ShaderGraphPipeline>();
         var regions = new ShaderGraphRegions(graph, sourceFrame, scale, gridOffset,
-            requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds));
+            requiredOutput ?? graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds));
         Dictionary<int, ShaderImageFrame> frames = regions.Frames;
         var descriptions = new Dictionary<int, ImageDescription>();
         long liveBytes = 0;
@@ -121,12 +122,15 @@ internal static class ShaderGraphExecutor
             // The boundary conversion is also preflighted, before any authored pass executes.
             ShaderImage selected = graph.Output.RenderingImage;
             Rect selectedRaster = frames[selected.Id].RasterBounds;
-            Rect outputBounds = graph.TransformBounds(sourceFrame.Bounds);
+            Rect outputBounds = graph.TransformBounds(sourceFrame.Bounds, sourceFrame.ReferenceBounds);
             PixelRect outputPixels = PixelRect.FromRect(outputBounds.Translate(gridOffset), scale);
             Vector4[] mapping =
             [
-                new(selectedRaster.X, selectedRaster.Y, selectedRaster.Width, selectedRaster.Height),
-                new(outputPixels.X / scale - gridOffset.X, outputPixels.Y / scale - gridOffset.Y,
+                // Form the relative origin before shader interpolation. Adding and subtracting world
+                // coordinates in float32 otherwise gives translated copies different filtering weights.
+                new(0, 0, selectedRaster.Width, selectedRaster.Height),
+                new(outputPixels.X / scale - gridOffset.X - selectedRaster.X,
+                    outputPixels.Y / scale - gridOffset.Y - selectedRaster.Y,
                     outputPixels.Width / scale, outputPixels.Height / scale),
             ];
             var resultImage = new ShaderImage(graph, -1, "result", TextureFormat.RGBA16Float, null, null, 0, 1);

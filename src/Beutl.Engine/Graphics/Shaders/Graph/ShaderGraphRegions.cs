@@ -23,7 +23,7 @@ internal sealed class ShaderGraphRegions
                 Frames.Add(image.Id, Frames[rasterSource.Id]);
                 continue;
             }
-            Rect bounds = image.ResolveBounds(source.Bounds);
+            Rect bounds = image.ResolveBounds(source.Bounds, source.ReferenceBounds);
             RenderRectValidation.ThrowIfInvalidInput(bounds, nameof(graph));
             float density = image.Description.HasValue ? 1 : scale * image.ResolutionScale;
             PixelRect pixels = image.Description is { } fixedSize

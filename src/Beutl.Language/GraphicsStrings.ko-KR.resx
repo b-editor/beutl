@@ -1583,4 +1583,28 @@
   <data name="RadialBlurMode_Spin" xml:space="preserve">
     <value>회전</value>
   </data>
+  <data name="Bloom" xml:space="preserve">
+    <value>블룸</value>
+  </data>
+  <data name="Bloom_Threshold" xml:space="preserve">
+    <value>임계값</value>
+  </data>
+  <data name="Bloom_Intensity" xml:space="preserve">
+    <value>강도</value>
+  </data>
+  <data name="Bloom_PreserveAlpha" xml:space="preserve">
+    <value>알파 유지</value>
+  </data>
+  <data name="WaveRefraction" xml:space="preserve">
+    <value>물결 굴절</value>
+  </data>
+  <data name="WaveRefraction_Amount" xml:space="preserve">
+    <value>변위</value>
+  </data>
+  <data name="WaveRefraction_Wavelength" xml:space="preserve">
+    <value>파장</value>
+  </data>
+  <data name="WaveRefraction_Phase" xml:space="preserve">
+    <value>위상 (도)</value>
+  </data>
 </root>

@@ -63,34 +63,15 @@ public class PixelSortEffectTests
         });
     }
 
-    [TestCase(RenderIntent.Preview, false, true, true)]
-    [TestCase(RenderIntent.Delivery, false, false, false)]
-    [TestCase(RenderIntent.Preview, true, false, false)]
-    public void TrySwallowPassFailure_RecordsOnlyDegradedPreviewFailures(
-        RenderIntent intent,
-        bool cancellation,
-        bool expectedSwallow,
-        bool expectedDrop)
+    [Test]
+    public void ApplyTo_RecordsThreeShaderPasses()
     {
-        using var pool = new RenderTargetPool(factory: null);
-        using RenderTargetLeaseSession session = pool.BeginSession(intent);
-        using var targets = new EffectTargets();
-        var context = new CustomFilterEffectContext(
-            targets,
-            intent,
-            RenderRequestPurpose.Auxiliary,
-            renderTargetLeaseSession: session);
-        Exception failure = cancellation
-            ? new OperationCanceledException()
-            : new InvalidOperationException("pass failed");
-
-        bool swallowed = PixelSortEffect.TrySwallowPassFailure(failure, context);
-
-        Assert.Multiple(() =>
-        {
-            Assert.That(swallowed, Is.EqualTo(expectedSwallow));
-            Assert.That(session.ContentDropObserved, Is.EqualTo(expectedDrop));
-        });
+        var effect = new PixelSortEffect();
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var context = new FilterEffectContext(new Rect(0, 0, 16, 16));
+        effect.ApplyTo(context, resource);
+        var item = (FEItem_ShaderGraph)context.GetOrderedItems().Single();
+        Assert.That(item.Description.PassNames, Is.EqualTo(new[] { "prepare", "rank", "gather" }));
     }
 
     [Test]

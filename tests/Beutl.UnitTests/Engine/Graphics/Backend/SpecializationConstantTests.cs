@@ -1,6 +1,5 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Graphics.Backend;
-using Beutl.Graphics.Backend.Vulkan;
 
 namespace Beutl.UnitTests.Engine.Graphics.Backend;
 
@@ -44,7 +43,7 @@ public sealed class SpecializationConstantTests
     [Test]
     public void ValidateSpecializationConstants_NormalizesDefaultToEmpty()
     {
-        ImmutableArray<SpecializationConstant> result = VulkanContext.ValidateSpecializationConstants(
+        ImmutableArray<SpecializationConstant> result = SpecializationConstant.Validate(
             default,
             "options");
 
@@ -61,7 +60,7 @@ public sealed class SpecializationConstantTests
             SpecializationConstant.Create(0, 2, ShaderStage.Fragment),
         ];
 
-        ImmutableArray<SpecializationConstant> result = VulkanContext.ValidateSpecializationConstants(
+        ImmutableArray<SpecializationConstant> result = SpecializationConstant.Validate(
             constants,
             "options");
 
@@ -78,7 +77,7 @@ public sealed class SpecializationConstantTests
         ];
 
         Assert.That(
-            () => VulkanContext.ValidateSpecializationConstants(constants, "options"),
+            () => SpecializationConstant.Validate(constants, "options"),
             Throws.ArgumentException.With.Property("ParamName").EqualTo("options"));
     }
 
@@ -91,7 +90,7 @@ public sealed class SpecializationConstantTests
         [SpecializationConstant.Create(0, 1, stages)];
 
         Assert.That(
-            () => VulkanContext.ValidateSpecializationConstants(constants, "options"),
+            () => SpecializationConstant.Validate(constants, "options"),
             Throws.ArgumentException.With.Property("ParamName").EqualTo("options"));
     }
 
@@ -101,7 +100,7 @@ public sealed class SpecializationConstantTests
         ImmutableArray<SpecializationConstant> constants = [default(SpecializationConstant)];
 
         Assert.That(
-            () => VulkanContext.ValidateSpecializationConstants(constants, "options"),
+            () => SpecializationConstant.Validate(constants, "options"),
             Throws.ArgumentException.With.Property("ParamName").EqualTo("options"));
     }
 }

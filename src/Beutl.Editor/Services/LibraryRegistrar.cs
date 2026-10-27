@@ -187,6 +187,8 @@ internal static class LibraryRegistrar
             .RegisterGroup(GraphicsStrings.FilterEffect, g => g
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
                 .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
+                .AddFilterEffect<Bloom>(GraphicsStrings.Bloom)
+                .AddFilterEffect<WaveRefraction>(GraphicsStrings.WaveRefraction)
                 .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow)
                 .AddFilterEffect<InnerShadow>(GraphicsStrings.InnerShadow)
                 .AddFilterEffect<FlatShadow>(GraphicsStrings.FlatShadow)

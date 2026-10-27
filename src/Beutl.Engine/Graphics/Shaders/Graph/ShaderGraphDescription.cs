@@ -32,6 +32,8 @@ public sealed class ShaderGraphDescription
                 Touch(transfer.Destination, index);
                 continue;
             }
+            if (pass.ImageSizeConstants is { } sizeConstants)
+                Touch(sizeConstants.Image, index);
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
                 if (!binding.Metadata && (binding.Access & ResourceAccess.Read) != 0)
@@ -117,22 +119,22 @@ public sealed class ShaderGraphDescription
     internal string StructuralIdentity { get; }
     internal ShaderGraphValueIdentity OutputIdentity { get; }
 
-    internal Rect TransformBounds(Rect sourceBounds)
+    internal Rect TransformBounds(Rect sourceBounds, Rect? referenceBounds = null)
     {
         if (sourceBounds.IsInvalid)
             return Rect.Invalid;
-        Rect bounds = Output.Image.ResolveBounds(sourceBounds);
+        Rect bounds = Output.Image.ResolveBounds(sourceBounds, referenceBounds);
         RenderRectValidation.ThrowIfInvalidInput(bounds, nameof(sourceBounds));
         return bounds;
     }
 
-    internal float ClampWorkingScale(Rect sourceBounds, float scale, Vector gridOffset)
+    internal float ClampWorkingScale(Rect sourceBounds, float scale, Vector gridOffset, Rect? referenceBounds = null)
     {
         foreach (ShaderImage image in Resources.OfType<ShaderImage>())
         {
             if (LastUses[image.Id] < 0 || image.Description.HasValue)
                 continue;
-            Rect bounds = image.ResolveBounds(sourceBounds).Translate(gridOffset);
+            Rect bounds = image.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
             scale = Math.Min(scale, BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                 bounds, scale * image.ResolutionScale) / image.ResolutionScale);
         }
@@ -161,6 +163,18 @@ public sealed class ShaderGraphDescription
                 writer.Write(image.Like?.Id ?? -1);
                 writer.Write(image.RasterSource?.Id ?? -1);
                 writer.Write(image.ExplicitBounds.HasValue);
+                writer.Write(image.BoundsTransforms.Length);
+                if (includeValues)
+                {
+                    writer.Write((int)image.BoundsOrigin.Unit);
+                    writer.Write(image.BoundsOrigin.Point.X); writer.Write(image.BoundsOrigin.Point.Y);
+                    foreach (Matrix transform in image.BoundsTransforms)
+                    {
+                        writer.Write(transform.M11); writer.Write(transform.M12);
+                        writer.Write(transform.M21); writer.Write(transform.M22);
+                        writer.Write(transform.M31); writer.Write(transform.M32);
+                    }
+                }
                 if (includeValues)
                 {
                     Rect bounds = image.ExplicitBounds ?? default;
@@ -185,6 +199,14 @@ public sealed class ShaderGraphDescription
         writer.Write(Passes.Length);
         foreach (ShaderPassDescription pass in Passes)
         {
+            writer.Write(pass.ImageSizeConstants?.Image.Id ?? -1);
+            writer.Write(pass.ImageSizeConstants?.Offset ?? -1);
+            writer.Write(pass.BoundsOriginConstants?.Offset ?? -1);
+            if (includeValues && pass.BoundsOriginConstants is { } origin)
+            {
+                writer.Write((int)origin.Origin.Unit);
+                writer.Write(origin.Origin.Point.X); writer.Write(origin.Origin.Point.Y);
+            }
             writer.Write(pass.PartialRendering);
             writer.Write(pass.InputRegions.Count);
             foreach ((int binding, ShaderInputRegion region) in pass.InputRegions.OrderBy(p => p.Key))
@@ -274,7 +296,7 @@ public sealed class ShaderGraphDescription
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write("ShaderGraphPipeline/v3");
+        writer.Write("ShaderGraphPipeline/v4");
         WritePipelineIdentity(writer, pass);
         writer.Flush();
         return ShaderProgramIdentity.CreateSpirv(Convert.ToBase64String(stream.GetBuffer(), 0, checked((int)stream.Length)));
@@ -314,11 +336,22 @@ public sealed class ShaderGraphDescription
             writer.Write(attribute.Offset);
         }
         writer.Write(pass.Program!.Stages.Count);
+        Span<byte> value = stackalloc byte[sizeof(ulong)];
         foreach ((ShaderStage stage, ShaderSource source) in pass.Program.Stages.OrderBy(s => s.Key))
         {
             writer.Write((int)stage);
             writer.Write((int)source.Language);
             writer.Write(source.Text);
+            SpecializationConstant[] constants = pass.Program.SpecializationConstants
+                .Where(c => (c.Stages & stage) != 0).OrderBy(c => c.ConstantId).ToArray();
+            writer.Write(constants.Length);
+            foreach (SpecializationConstant constant in constants)
+            {
+                writer.Write(constant.ConstantId);
+                writer.Write(constant.SizeInBytes);
+                constant.CopyValueTo(value);
+                writer.Write(value[..constant.SizeInBytes]);
+            }
         }
         writer.Write(pass.Bindings.Length);
         foreach (ShaderPassBinding binding in pass.Bindings)

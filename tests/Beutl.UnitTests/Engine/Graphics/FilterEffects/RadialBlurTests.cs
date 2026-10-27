@@ -2,6 +2,8 @@
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
+using Beutl.Graphics.Rendering.Requests;
+using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using Beutl.Serialization;
 using Beutl.UnitTests.Engine.Graphics.Backend;
@@ -17,7 +19,7 @@ public sealed class RadialBlurTests
 
     [TestCase(RadialBlurMode.Zoom)]
     [TestCase(RadialBlurMode.Spin)]
-    public void ApplyTo_RecordsOneCustomEffect(RadialBlurMode mode)
+    public void ApplyTo_RecordsOneShaderGraph(RadialBlurMode mode)
     {
         RadialBlur effect = Create(mode);
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
@@ -25,7 +27,7 @@ public sealed class RadialBlurTests
         context.ApplyTransactional(effect, resource);
 
         Assert.That(context.GetOrderedItems(), Has.Count.EqualTo(1));
-        Assert.That(context.GetOrderedItems().Single(), Is.InstanceOf<IFEItem_Custom>());
+        Assert.That(context.GetOrderedItems().Single(), Is.InstanceOf<FEItem_ShaderGraph>());
     }
 
     [TestCase(RadialBlurMode.Zoom, 0f)]
@@ -255,17 +257,17 @@ public sealed class RadialBlurTests
     [TestCase(RadialBlurMode.Spin, 2f, 1f)]
     [TestCase(RadialBlurMode.Zoom, 1f, 2f)]
     [TestCase(RadialBlurMode.Spin, 1f, 2f)]
-    public void CustomEffect_SamplesInputAtADifferentOutputScale(RadialBlurMode mode, float inputScale, float outputScale)
+    public void ShaderGraph_SamplesInputAtADifferentOutputScale(RadialBlurMode mode, float inputScale, float outputScale)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             (Bitmap reference, Rect expectedBounds) = RenderGpuMarker(Create(mode, 40), null, outputScale, default,
-                invokeCustomDirectly: true);
+                invokeGraphDirectly: true);
             using (reference)
             {
                 (Bitmap actual, Rect actualBounds) = RenderGpuMarker(Create(mode, 40), null, inputScale, default, outputScale,
-                    invokeCustomDirectly: true);
+                    invokeGraphDirectly: true);
                 using (actual)
                 {
                     Assert.That(actualBounds, Is.EqualTo(expectedBounds));
@@ -282,7 +284,9 @@ public sealed class RadialBlurTests
     [TestCase(RadialBlurMode.Spin, 1.5f, RelativeUnit.Relative)]
     [TestCase(RadialBlurMode.Zoom, 50f, RelativeUnit.Absolute)]
     [TestCase(RadialBlurMode.Spin, 50f, RelativeUnit.Absolute)]
-    public void FragmentedInputs_UseOneCenterForBoundsAndSampling(RadialBlurMode mode, float centerX, RelativeUnit unit)
+    [TestCase(RadialBlurMode.Zoom, 0.5f, RelativeUnit.Relative, true)]
+    [TestCase(RadialBlurMode.Spin, 0.5f, RelativeUnit.Relative, true)]
+    public void FragmentedInputs_UseOneCenterForBoundsAndSampling(RadialBlurMode mode, float centerX, RelativeUnit unit, bool opaque = false)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -299,7 +303,16 @@ public sealed class RadialBlurTests
             effect.Center.Value = new RelativePoint(centerX, unit == RelativeUnit.Relative ? 0.5f : 5, unit);
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(targets.CalculateBounds());
+            Rect expectedBounds = RecordBounds(effect, targets.CalculateBounds());
+            if (opaque)
+                context.CustomEffect(0, static (_, execution) =>
+                {
+                    foreach (EffectTarget target in execution.Targets)
+                        target.Bounds = target.Bounds.Translate(new Vector(100, 100));
+                });
             context.ApplyTransactional(effect, resource);
+            if (opaque)
+                expectedBounds = expectedBounds.Translate(new Vector(100, 100));
             using var builder = new SKImageFilterBuilder();
             using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Preview,
                 RenderRequestPurpose.Auxiliary, drawableBrushMaterializer: null);
@@ -310,10 +323,10 @@ public sealed class RadialBlurTests
             Rect actual = targets.CalculateBounds();
             Assert.Multiple(() =>
             {
-                Assert.That(actual.X, Is.EqualTo(context.Bounds.X).Within(0.001f));
-                Assert.That(actual.Y, Is.EqualTo(context.Bounds.Y).Within(0.001f));
-                Assert.That(actual.Right, Is.EqualTo(context.Bounds.Right).Within(0.001f));
-                Assert.That(actual.Bottom, Is.EqualTo(context.Bounds.Bottom).Within(0.001f));
+                Assert.That(actual.X, Is.EqualTo(expectedBounds.X).Within(0.001f));
+                Assert.That(actual.Y, Is.EqualTo(expectedBounds.Y).Within(0.001f));
+                Assert.That(actual.Right, Is.EqualTo(expectedBounds.Right).Within(0.001f));
+                Assert.That(actual.Bottom, Is.EqualTo(expectedBounds.Bottom).Within(0.001f));
             });
 
             float center = unit == RelativeUnit.Relative ? centerX * 100 : centerX;
@@ -323,6 +336,7 @@ public sealed class RadialBlurTests
                 Point trail = mode == RadialBlurMode.Zoom
                     ? new Point(center + offset * 1.5f, 5)
                     : new Point(center + offset * MathF.Cos(MathF.PI / 6), 5 - offset * MathF.Sin(MathF.PI / 6));
+                if (opaque) trail += new Vector(100, 100);
                 using Bitmap bitmap = targets[i].RenderTarget!.Snapshot();
                 Assert.That(AlphaAt(bitmap, targets[i].RasterBounds, (int)MathF.Floor(trail.X), (int)MathF.Floor(trail.Y)),
                     Is.GreaterThan(0.02f), "Both shapes must leave trails around the group's center.");
@@ -358,7 +372,7 @@ public sealed class RadialBlurTests
 
     private static (Bitmap, Rect) RenderGpuMarker(
         RadialBlur effect, SKColor? color, float scale, Vector translation, float? outputScale = null,
-        int? samplesOverride = null, bool invokeCustomDirectly = false)
+        int? samplesOverride = null, bool invokeGraphDirectly = false)
     {
         var bounds = new Rect(translation.X, translation.Y, 40, 40);
         using RenderTarget backing = RenderTarget.Create((int)(40 * scale), (int)(40 * scale))!;
@@ -378,14 +392,15 @@ public sealed class RadialBlurTests
             ((RadialBlur.Resource)resource).Samples = samples;
         using var context = new FilterEffectContext(bounds);
         context.ApplyTransactional(effect, resource);
-        if (invokeCustomDirectly)
+        if (invokeGraphDirectly)
         {
-            // The executor normally resamples before CustomEffect. Exercise the callback with unequal
-            // input/output densities directly, as can occur when its expanded output hits a buffer limit.
-            var custom = new CustomFilterEffectContext(targets, RenderIntent.Preview, RenderRequestPurpose.Auxiliary,
-                outputScale: outputScale ?? scale, workingScale: outputScale ?? scale,
-                maxWorkingScale: outputScale ?? scale);
-            ((IFEItem_Custom)context.GetOrderedItems().Single()).Accepts(custom);
+            using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
+            FilterEffectStageFallbackExecutor.ApplyShaderGraph(targets,
+                ((FEItem_ShaderGraph)context.GetOrderedItems().Single()).Description,
+                outputScale ?? scale, outputScale ?? scale, outputScale ?? scale,
+                RenderIntent.Preview, RenderRequestPurpose.Auxiliary, null, BufferDimensionBudget.EngineCeiling,
+                (device, pass) => ShaderGraphPipeline.Acquire(cache,
+                    new ProgramCacheContextKey(cache, device, "test", "test"), device, pass));
         }
         else
         {

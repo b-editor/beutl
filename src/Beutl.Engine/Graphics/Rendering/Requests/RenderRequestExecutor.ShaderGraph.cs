@@ -24,16 +24,17 @@ internal sealed partial class RenderRequestExecutor
             EffectiveScale scale = requestedScale ?? fragment.EffectiveScale;
             IReadOnlyList<MaterializedRenderValue> inputs = Materialize(fragment.Inputs[0], currentTarget,
                 fragment.Inputs[0].EffectiveScale.IsUnbounded ? scale : null);
+            Rect referenceBounds = inputs.Aggregate(Rect.Empty, (bounds, input) => bounds.Union(input.CompleteBounds));
             var results = new List<MaterializedRenderValue>();
             try
             {
                 foreach (MaterializedRenderValue input in inputs)
                 {
-                    Rect bounds = graph.TransformBounds(input.CompleteBounds);
+                    Rect bounds = graph.TransformBounds(input.CompleteBounds, referenceBounds);
                     Rect required = ResolveFragmentRequirement(fragment, bounds);
                     if (bounds.Width == 0 || bounds.Height == 0 || required.Width == 0 || required.Height == 0)
                         continue;
-                    float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset);
+                    float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset, referenceBounds);
                     MaterializedRenderValue output = CreateOwnedValue(bounds, EffectiveScale.At(density), bounds,
                         allowPreviewDrop: true);
                     bool keep = false;
@@ -52,7 +53,7 @@ internal sealed partial class RenderRequestExecutor
                             ?? throw new NotSupportedException("Shader graph output requires a backend texture.");
                         sourceValue.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                         ShaderGraphExecutionStatistics execution = ShaderGraphExecutor.Execute(graph, source,
-                            new(sourceValue.CompleteBounds, sourceValue.RasterBounds, sourceValue.DeviceBounds.Size, sourceValue.EffectiveScale.Value),
+                            new(sourceValue.CompleteBounds, sourceValue.RasterBounds, sourceValue.DeviceBounds.Size, sourceValue.EffectiveScale.Value, referenceBounds),
                             destination, density, _activeDeviceGridOffset, AcquireShaderGraphProgram, required);
                         _programCacheHits += execution.ProgramCacheHits;
                         _shaderRunExecutions++;
