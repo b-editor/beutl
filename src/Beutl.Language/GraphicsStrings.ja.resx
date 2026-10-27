@@ -1618,4 +1618,22 @@
   <data name="WaveRefraction_Phase" xml:space="preserve">
     <value>位相（度）</value>
   </data>
+  <data name="LightRays" xml:space="preserve">
+    <value>光線</value>
+  </data>
+  <data name="LightRays_Center_Description" xml:space="preserve">
+    <value>入力画像全体を基準にした中心です。画像の外側にも配置できます。</value>
+  </data>
+  <data name="LightRays_Length" xml:space="preserve">
+    <value>長さ (%)</value>
+  </data>
+  <data name="LightRays_Length_Description" xml:space="preserve">
+    <value>中心からの距離に対する伸び率です。100%で距離が2倍になり、0で光線を無効にします。</value>
+  </data>
+  <data name="LightRays_Decay" xml:space="preserve">
+    <value>減衰 (%)</value>
+  </data>
+  <data name="LightRays_Decay_Description" xml:space="preserve">
+    <value>光線に沿って光を弱めます。0%は均一な強さで、値が大きいほど早く弱まります。</value>
+  </data>
 </root>

@@ -459,6 +459,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:LayerEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:LightRays
+  sealed
+  keys: Animations, Center, Decay, Expressions, Id, Intensity, IsEnabled, Length, Name, SoftKnee, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:Lighting
   sealed
   keys: Add, Animations, Expressions, Id, IsEnabled, Multiply, Name

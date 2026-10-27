@@ -1622,4 +1622,22 @@
   <data name="WaveRefraction_Phase" xml:space="preserve">
     <value>위상 (도)</value>
   </data>
+  <data name="LightRays" xml:space="preserve">
+    <value>광선</value>
+  </data>
+  <data name="LightRays_Center_Description" xml:space="preserve">
+    <value>전체 입력 이미지를 기준으로 한 중심입니다. 이미지 바깥에도 배치할 수 있습니다.</value>
+  </data>
+  <data name="LightRays_Length" xml:space="preserve">
+    <value>길이 (%)</value>
+  </data>
+  <data name="LightRays_Length_Description" xml:space="preserve">
+    <value>중심으로부터의 거리에 대한 확장 비율입니다. 100%는 거리를 두 배로 늘리고, 0은 광선을 비활성화합니다.</value>
+  </data>
+  <data name="LightRays_Decay" xml:space="preserve">
+    <value>감쇠 (%)</value>
+  </data>
+  <data name="LightRays_Decay_Description" xml:space="preserve">
+    <value>광선을 따라 빛이 약해집니다. 0%는 일정한 강도이며, 값이 클수록 더 빠르게 약해집니다.</value>
+  </data>
 </root>

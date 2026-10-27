@@ -1623,4 +1623,22 @@
   <data name="WaveRefraction_Phase" xml:space="preserve">
     <value>Phase (degrees)</value>
   </data>
+  <data name="LightRays" xml:space="preserve">
+    <value>Light rays</value>
+  </data>
+  <data name="LightRays_Center_Description" xml:space="preserve">
+    <value>Relative to the complete input image. The center can also be placed outside the image.</value>
+  </data>
+  <data name="LightRays_Length" xml:space="preserve">
+    <value>Length (%)</value>
+  </data>
+  <data name="LightRays_Length_Description" xml:space="preserve">
+    <value>Outward extension relative to the distance from the center. 100% doubles that distance; 0 disables the rays.</value>
+  </data>
+  <data name="LightRays_Decay" xml:space="preserve">
+    <value>Decay (%)</value>
+  </data>
+  <data name="LightRays_Decay_Description" xml:space="preserve">
+    <value>Fades the light along each ray. 0% keeps an even strength; higher values fade more quickly.</value>
+  </data>
 </root>

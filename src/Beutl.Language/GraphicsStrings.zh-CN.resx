@@ -1622,4 +1622,22 @@
   <data name="WaveRefraction_Phase" xml:space="preserve">
     <value>相位（度）</value>
   </data>
+  <data name="LightRays" xml:space="preserve">
+    <value>光线</value>
+  </data>
+  <data name="LightRays_Center_Description" xml:space="preserve">
+    <value>相对于完整输入图像的中心，也可以放置在图像外。</value>
+  </data>
+  <data name="LightRays_Length" xml:space="preserve">
+    <value>长度 (%)</value>
+  </data>
+  <data name="LightRays_Length_Description" xml:space="preserve">
+    <value>相对于到中心距离的向外延伸比例。100%使距离加倍，0禁用光线。</value>
+  </data>
+  <data name="LightRays_Decay" xml:space="preserve">
+    <value>衰减 (%)</value>
+  </data>
+  <data name="LightRays_Decay_Description" xml:space="preserve">
+    <value>沿每条光线减弱光强。0%保持均匀强度，值越高衰减越快。</value>
+  </data>
 </root>

@@ -18,13 +18,15 @@ namespace Beutl.UnitTests.Editor;
 [NonParallelizable]
 public sealed class ShaderGraphExportTests
 {
-    [TestCase(1f)]
-    [TestCase(2f)]
-    public async Task SavedAnimatedEffectsMatchRandomSeeksAndExportedFrames(float scale)
+    [TestCase(1f, false)]
+    [TestCase(2f, false)]
+    [TestCase(1f, true)]
+    [TestCase(2f, true)]
+    public async Task SavedAnimatedEffectsMatchRandomSeeksAndExportedFrames(float scale, bool lightRays)
     {
         VulkanTestEnvironment.EnsureAvailable();
         using var files = new SceneHistoryHarness("shader-graph-export", duration: MediaTime.FromSeconds(1));
-        Scene scene = Populate(files);
+        Scene scene = Populate(files, lightRays);
         CoreSerializer.StoreToUri(scene, scene.Uri!);
         Scene restored = CoreSerializer.RestoreFromUri<Scene>(scene.Uri!);
         using var original = new SceneRenderer(scene, RenderIntent.Preview, scale);
@@ -56,7 +58,7 @@ public sealed class ShaderGraphExportTests
             {
                 string directory = Path.Combine(TestContext.CurrentContext.TestDirectory, "Artifacts");
                 Directory.CreateDirectory(directory);
-                string path = Path.Combine(directory, $"shader-graph-effects-{scale}x.png");
+                string path = Path.Combine(directory, $"shader-graph-{(lightRays ? "light-rays" : "effects")}-{scale}x.png");
                 Assert.That(bitmap.Save(path), Is.True);
                 TestContext.AddTestAttachment(path);
             }
@@ -107,16 +109,28 @@ public sealed class ShaderGraphExportTests
         Assert.That(await nextProvider.ReadNextFrame(), Is.Null);
     }
 
-    private static Scene Populate(SceneHistoryHarness files)
+    private static Scene Populate(SceneHistoryHarness files, bool lightRays = false)
     {
         Scene scene = files.Scene;
         scene.FrameSize.Value = new PixelSize(48, 40);
-        var bloom = new Bloom { Threshold = { Value = 0.5f }, Intensity = { Value = 0.75f } };
-        bloom.Radius.SetKeyFrameAnimation(Animation(2, 6));
-        bloom.SoftKnee.SetKeyFrameAnimation(Animation(0, 100));
-        var refraction = new WaveRefraction { Amount = { Value = 3 }, Wavelength = { Value = 16 } };
-        refraction.Phase.SetKeyFrameAnimation(Animation(0, 180));
-        var effects = new FilterEffectGroup { Children = { bloom, refraction } };
+        var effects = new FilterEffectGroup();
+        if (lightRays)
+        {
+            var rays = new LightRays { Center = { Value = new(-0.25f, 0.5f, RelativeUnit.Relative) } };
+            rays.Length.SetKeyFrameAnimation(Animation(20, 120));
+            rays.Decay.SetKeyFrameAnimation(Animation(0, 75));
+            effects.Children.Add(rays);
+        }
+        else
+        {
+            var bloom = new Bloom { Threshold = { Value = 0.5f }, Intensity = { Value = 0.75f } };
+            bloom.Radius.SetKeyFrameAnimation(Animation(2, 6));
+            bloom.SoftKnee.SetKeyFrameAnimation(Animation(0, 100));
+            var refraction = new WaveRefraction { Amount = { Value = 3 }, Wavelength = { Value = 16 } };
+            refraction.Phase.SetKeyFrameAnimation(Animation(0, 180));
+            effects.Children.Add(bloom);
+            effects.Children.Add(refraction);
+        }
         var shape = new RectShape
         {
             Width = { Value = 20 },

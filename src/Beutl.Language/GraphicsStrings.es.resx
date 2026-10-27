@@ -1622,4 +1622,22 @@
   <data name="WaveRefraction_Phase" xml:space="preserve">
     <value>Fase (grados)</value>
   </data>
+  <data name="LightRays" xml:space="preserve">
+    <value>Rayos de luz</value>
+  </data>
+  <data name="LightRays_Center_Description" xml:space="preserve">
+    <value>Relativo a la imagen de entrada completa. El centro también puede situarse fuera de la imagen.</value>
+  </data>
+  <data name="LightRays_Length" xml:space="preserve">
+    <value>Longitud (%)</value>
+  </data>
+  <data name="LightRays_Length_Description" xml:space="preserve">
+    <value>Extensión hacia fuera respecto a la distancia desde el centro. 100% duplica esa distancia; 0 desactiva los rayos.</value>
+  </data>
+  <data name="LightRays_Decay" xml:space="preserve">
+    <value>Atenuación (%)</value>
+  </data>
+  <data name="LightRays_Decay_Description" xml:space="preserve">
+    <value>Atenúa la luz a lo largo de cada rayo. 0% mantiene una intensidad uniforme; los valores más altos atenúan más rápido.</value>
+  </data>
 </root>
