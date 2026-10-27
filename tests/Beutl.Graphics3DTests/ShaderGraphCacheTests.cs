@@ -116,6 +116,54 @@ public sealed class ShaderGraphCacheTests
         });
     }
 
+    [TestCase(0f)]
+    [TestCase(0.25f)]
+    [TestCase(0.75f)]
+    public void SourceRegionAtTheDimensionLimitCoversTranslatedExecution(float phase)
+    {
+        if (GpuTestEnvironment.EnsureAvailable().MaxAttachmentDimension < BufferDimensionBudget.EngineCeiling.MaxDimension)
+            Assert.Ignore("This device cannot exercise the engine's full dimension limit.");
+
+        GpuTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            Rect bounds = new(0, 0, BufferDimensionBudget.EngineCeiling.MaxDimension, 8);
+            Rect region = new(bounds.Width / 2 + phase, 2 + phase, 8, 4);
+            using var brush = (Brush.Resource)new SolidColorBrush(Colors.White).ToResource(CompositionContext.Default);
+            using var rectangle = new RectangleRenderNode(bounds, brush, null);
+            ShaderGraphDescription description = Chain(2, partial: true);
+            using var node = new GraphNode(rectangle, description);
+            using var pool = new RenderTargetPool(factory: null);
+            using ProgramCache<ShaderGraphPipeline> programs = ShaderGraphPipeline.CreateCache();
+            using CompiledRenderRequest partial = Compile(region);
+            RenderFragmentReference graph = partial.Graph.Fragments.Single(f => f.Kind == RenderFragmentKind.ShaderGraph);
+            float density = description.ClampWorkingScale(bounds, graph.EffectiveScale.Value, -region.Position);
+            // Fractional phases must exercise the execution-time density reduction in the review finding.
+            Assert.That(density, phase == 0 ? Is.EqualTo(graph.EffectiveScale.Value) : Is.LessThan(graph.EffectiveScale.Value));
+            Rect required = partial.Regions.GetFragmentRequirement(graph.Inputs[0]).Resolve(bounds);
+            Assert.That(required.Width, Is.LessThan(bounds.Width / 2));
+            using CompiledRenderRequest full = Compile(null);
+            float[] expected = Draw(full);
+            float[] actual = Draw(partial);
+            Assert.That(expected, Has.Some.GreaterThan(0.9f));
+            // Fractional origins can allocate an extra row/column outside the requested logical rectangle.
+            int width = PixelRect.FromRect(region, 1).Width;
+            for (int y = 0; y < (int)region.Height; y++)
+                for (int x = 0; x < (int)region.Width; x++)
+                {
+                    int offset = (y * width + x) * 4;
+                    Assert.That(actual.Skip(offset).Take(4), Is.EqualTo(expected.Skip(offset).Take(4)).Within(0.002));
+                }
+
+            CompiledRenderRequest Compile(Rect? requested) => Graphics3DTestHelpers.Compile(node,
+                new(RenderIntent.Preview, RenderRequestPurpose.Frame, targetDomain: bounds, requestedRegion: requested,
+                    outputScale: 1, maxWorkingScale: 1, cachePolicy: RenderCacheOptions.Disabled));
+            float[] Draw(CompiledRenderRequest request) => Graphics3DTestHelpers.ExecuteIntoPool(pool, request, region,
+                region, 1, 1, translateToTarget: true,
+                createExecutor: targets => new RenderRequestExecutor(targets, graphProgramCache: programs)).Pixels
+                .Select(v => (float)BitConverter.UInt16BitsToHalf(v)).ToArray();
+        });
+    }
+
     private static float RenderRed(RenderNodeRenderer renderer)
     {
         using RenderNodeRasterization raster = renderer.Rasterize();
