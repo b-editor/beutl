@@ -278,8 +278,19 @@ public sealed class MobilePreviewTests
                 foreach (string page in new[] { "StartPage", "ConnectionPage", "DetailsPage" })
                     Assert.That(View().FindControl<ScrollViewer>(page)!.IsEffectivelyVisible, Is.EqualTo(page == name), page);
             }
+            void Capture(string name)
+            {
+                HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), name);
+                if (!HeadlessCapture.IsRequested || !closePresentationFirst) return;
+                var theme = owner.RequestedThemeVariant;
+                owner.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+                HeadlessTestHelpers.Render();
+                HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), name + "-dark");
+                owner.RequestedThemeVariant = theme;
+                HeadlessTestHelpers.Render();
+            }
             AssertPage("StartPage");
-            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-ready");
+            Capture("desktop-ready");
             presentation.ShowOnScreen(owner, null, false);
             OpenMobile();
             Assert.That(editor.FindToolTab<MobilePreviewTabViewModel>(), Is.SameAs(mobile));
@@ -290,7 +301,7 @@ public sealed class MobilePreviewTests
             HeadlessTestHelpers.Render();
             AssertPage("ConnectionPage");
             Assert.That(View().FindControl<Button>("DetailsButton")!.IsEffectivelyVisible, Is.False);
-            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-waiting");
+            Capture("desktop-waiting");
             await Roster(socket, ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
             HeadlessTestHelpers.Settle();
@@ -302,16 +313,7 @@ public sealed class MobilePreviewTests
             using var clean = SdrBitmap(cleanFrame.Value, UIToneMappingOperator.None, 0);
             Assert.That(clean.Pixels.Count(p => p.Red > 200 && p.Green < 60 && p.Blue < 60), Is.GreaterThan(0));
             Assert.That(clean.Pixels.Count(p => p.Red > 240 && p.Green > 240 && p.Blue > 240), Is.Zero);
-            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-sharing");
-            if (HeadlessCapture.IsRequested && closePresentationFirst)
-            {
-                var theme = owner.RequestedThemeVariant;
-                owner.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
-                HeadlessTestHelpers.Render();
-                HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-sharing-dark");
-                owner.RequestedThemeVariant = theme;
-                HeadlessTestHelpers.Render();
-            }
+            Capture("desktop-sharing");
             Assert.That(editor.OpenToolTab(new PreviewSettingsTabViewModel(editor)), Is.True);
             HeadlessTestHelpers.Render();
             Assert.That(mobile.Server, Is.SameAs(server), "Selecting another tool must keep sharing alive.");
@@ -331,7 +333,7 @@ public sealed class MobilePreviewTests
             View().FindControl<Button>("DetailsButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             HeadlessTestHelpers.Render();
             AssertPage("DetailsPage");
-            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-offline-device");
+            Capture("desktop-offline-device");
             await Roster(socket, ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
             HeadlessTestHelpers.Settle();

@@ -3451,10 +3451,7 @@ when history recording is enabled.</value>
     <value>Mobile preview</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
-    <value>Share the clean preview with audio and control playback from your phone.</value>
-  </data>
-  <data name="MobilePreviewRunning" xml:space="preserve">
-    <value>Sharing · Up to 15 fps · Audio · Playback controls</value>
+    <value>Preview video and audio, and control playback from your phone.</value>
   </data>
   <data name="MobilePreviewScan" xml:space="preserve">
     <value>Scan the QR code with your phone, then enter the connection code in its browser.</value>
@@ -3463,7 +3460,7 @@ when history recording is enabled.</value>
     <value>Connection code</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>New connections: code valid until {0}</value>
+    <value>Expires at {0}</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>Renew code</value>
@@ -3474,23 +3471,17 @@ when history recording is enabled.</value>
   <data name="MobilePreviewDisconnectAll" xml:space="preserve">
     <value>Disconnect all</value>
   </data>
-  <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>Sharing ends when you switch editing tabs or close this tool tab.</value>
-  </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>Could not start sharing. Check your connection and Beutl Web sign-in, then try again.</value>
   </data>
   <data name="MobilePreviewInternetDescription" xml:space="preserve">
-    <value>The viewer is hosted on Beutl Web. Sign in to start sharing. WebRTC can connect directly on the same network; other networks can use a relay.</value>
+    <value>Sign in to Beutl Web to start sharing.</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>The relay connection ended. Press Start to create a new sharing session.</value>
   </data>
   <data name="MobilePreviewConnectionInfo" xml:space="preserve">
     <value>Connection information</value>
-  </data>
-  <data name="MobilePreviewWaiting" xml:space="preserve">
-    <value>Waiting for a device</value>
   </data>
   <data name="MobilePreviewConnected" xml:space="preserve">
     <value>Connected</value>

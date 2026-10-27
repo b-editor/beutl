@@ -132,7 +132,7 @@ public sealed class MobilePreviewTabViewModel : IToolContext
             IsSharing.Value = true;
             UpdateCode();
             UpdateClients();
-            Status.Value = Strings.MobilePreviewRunning;
+            Status.Value = "";
         }
         catch
         {

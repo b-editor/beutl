@@ -3451,10 +3451,7 @@ cuando el registro del historial está activado.</value>
     <value>Vista previa móvil</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
-    <value>Comparte la vista previa limpia con audio y controla la reproducción desde tu teléfono.</value>
-  </data>
-  <data name="MobilePreviewRunning" xml:space="preserve">
-    <value>Compartiendo · Hasta 15 fps · Audio · Controles de reproducción</value>
+    <value>Previsualiza vídeo y audio y controla la reproducción desde el móvil.</value>
   </data>
   <data name="MobilePreviewScan" xml:space="preserve">
     <value>Escanea el código QR con el móvil e introduce el código de conexión en su navegador.</value>
@@ -3463,7 +3460,7 @@ cuando el registro del historial está activado.</value>
     <value>Código de conexión</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>Nuevas conexiones: código válido hasta {0}</value>
+    <value>Caduca a las {0}</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>Renovar código</value>
@@ -3474,23 +3471,17 @@ cuando el registro del historial está activado.</value>
   <data name="MobilePreviewDisconnectAll" xml:space="preserve">
     <value>Desconectar todos</value>
   </data>
-  <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>La transmisión termina al cambiar de pestaña de edición o cerrar esta pestaña de herramientas.</value>
-  </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>No se pudo iniciar. Comprueba la conexión y el inicio de sesión en Beutl Web.</value>
   </data>
   <data name="MobilePreviewInternetDescription" xml:space="preserve">
-    <value>El visor se aloja en Beutl Web. Inicia sesión para compartir. WebRTC puede conectar directamente en la misma red o usar un servidor de retransmisión.</value>
+    <value>Inicia sesión en Beutl Web para compartir.</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>La conexión con el servidor terminó. Pulsa Iniciar para crear una nueva sesión.</value>
   </data>
   <data name="MobilePreviewConnectionInfo" xml:space="preserve">
     <value>Información de conexión</value>
-  </data>
-  <data name="MobilePreviewWaiting" xml:space="preserve">
-    <value>Esperando un dispositivo</value>
   </data>
   <data name="MobilePreviewConnected" xml:space="preserve">
     <value>Conectado</value>

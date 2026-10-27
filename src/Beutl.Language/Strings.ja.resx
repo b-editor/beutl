@@ -3446,10 +3446,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>スマホプレビュー</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
-    <value>クリーンなプレビューを音声付きで共有し、スマホから再生を操作できます。</value>
-  </data>
-  <data name="MobilePreviewRunning" xml:space="preserve">
-    <value>配信中 · 最大15 fps · 音声あり · 再生操作可能</value>
+    <value>スマホで映像と音声を確認し、再生を操作できます。</value>
   </data>
   <data name="MobilePreviewScan" xml:space="preserve">
     <value>スマホでQRコードを読み取り、ブラウザに接続コードを入力してください。</value>
@@ -3458,7 +3455,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>接続コード</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>新規接続コードの有効期限: {0}</value>
+    <value>有効期限: {0}</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>コードを更新</value>
@@ -3469,23 +3466,17 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="MobilePreviewDisconnectAll" xml:space="preserve">
     <value>すべて切断</value>
   </data>
-  <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>編集タブを切り替えるか、このツールタブを閉じると配信を終了します。</value>
-  </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>共有を開始できませんでした。接続とBeutl Webへのログインを確認し、再試行してください。</value>
   </data>
   <data name="MobilePreviewInternetDescription" xml:space="preserve">
-    <value>画面はBeutl Webで配信されます。共有開始にはログインが必要です。同じネットワークではWebRTCで直接接続し、必要に応じて中継を利用します。</value>
+    <value>共有を開始するにはBeutl Webへのログインが必要です。</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>中継との接続が終了しました。開始を押して新しい共有を作成してください。</value>
   </data>
   <data name="MobilePreviewConnectionInfo" xml:space="preserve">
     <value>接続情報</value>
-  </data>
-  <data name="MobilePreviewWaiting" xml:space="preserve">
-    <value>端末の接続を待っています</value>
   </data>
   <data name="MobilePreviewConnected" xml:space="preserve">
     <value>接続中</value>

@@ -3451,10 +3451,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>手机预览</value>
   </data>
   <data name="MobilePreviewDescription" xml:space="preserve">
-    <value>分享带有音频的纯净预览，并通过手机控制播放。</value>
-  </data>
-  <data name="MobilePreviewRunning" xml:space="preserve">
-    <value>共享中 · 最高15 fps · 音频 · 播放控制</value>
+    <value>在手机上预览画面和声音，并控制播放。</value>
   </data>
   <data name="MobilePreviewScan" xml:space="preserve">
     <value>使用手机扫描二维码，然后在浏览器中输入连接码。</value>
@@ -3463,7 +3460,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>连接码</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>新连接码有效期至 {0}</value>
+    <value>有效期至 {0}</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>更新连接码</value>
@@ -3474,23 +3471,17 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewDisconnectAll" xml:space="preserve">
     <value>全部断开</value>
   </data>
-  <data name="MobilePreviewLifetime" xml:space="preserve">
-    <value>切换编辑标签页或关闭此工具标签页时，共享将结束。</value>
-  </data>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>无法开始共享。请检查网络连接和Beutl Web登录状态。</value>
   </data>
   <data name="MobilePreviewInternetDescription" xml:space="preserve">
-    <value>预览页面由 Beutl Web 提供。开始共享需要登录。同一网络可通过 WebRTC 直接连接，必要时使用中继。</value>
+    <value>登录 Beutl Web 即可开始共享。</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>中继连接已结束。点击开始以创建新的共享会话。</value>
   </data>
   <data name="MobilePreviewConnectionInfo" xml:space="preserve">
     <value>连接信息</value>
-  </data>
-  <data name="MobilePreviewWaiting" xml:space="preserve">
-    <value>等待设备连接</value>
   </data>
   <data name="MobilePreviewConnected" xml:space="preserve">
     <value>已连接</value>
