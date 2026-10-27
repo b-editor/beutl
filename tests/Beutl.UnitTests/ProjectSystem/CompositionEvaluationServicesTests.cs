@@ -89,6 +89,30 @@ public class CompositionEvaluationServicesTests
     }
 
     [Test]
+    public void DisposedLayerQueriesReleaseObjectSubscriptionsIncludingFailedEvaluation()
+    {
+        (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();
+        using var compositor = new SceneCompositor(scene);
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        var services = capture.Services!;
+        var field = typeof(Hierarchical).GetField("DetachedFromHierarchy",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        int Subscriptions() => ((Delegate?)field.GetValue(capture))?.GetInvocationList().Length ?? 0;
+        int before = Subscriptions();
+        for (int i = 0; i < 4; i++)
+        {
+            using (services.EvaluateLayer(0, MediaTime.FromSeconds(i))) { }
+            Assert.That(Subscriptions(), Is.EqualTo(before));
+        }
+        capture.OnEvaluate = _ => throw new InvalidOperationException("query failed");
+        Assert.That(() => services.EvaluateLayer(0, MediaTime.Zero), Throws.InvalidOperationException);
+        Assert.That(Subscriptions(), Is.EqualTo(before));
+        capture.OnEvaluate = null;
+        using (services.EvaluateLayer(0, MediaTime.Zero)) { }
+        Assert.That(Subscriptions(), Is.EqualTo(before));
+    }
+
+    [Test]
     public void AudioQueriesOwnTheirBuffersAndAreIndependentOfSeekOrder()
     {
         (Scene scene, EvaluationCaptureDrawable capture) = CreateScene();

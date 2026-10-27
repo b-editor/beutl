@@ -417,7 +417,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _budget,
             _targetDomain,
             GetShaderGraphProgramAcquirer());
-        using RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope();
+        using RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope(WorkingScale);
         customContext.ExecutionContext = execution;
         customContext.Instance = Instance;
         customContext.ProgramAcquirer = GetProgramAcquirer();
@@ -471,7 +471,8 @@ public sealed partial class FilterEffectExecutor : IDisposable
             if (t.RenderTarget == null) continue;
 
             SKSurface innerSurface = t.RenderTarget.Value;
-            using SKImage skImage = innerSurface.Snapshot();
+            using var snapshot = SurfaceSnapshot.Take(innerSurface);
+            SKImage skImage = snapshot.Image;
 
             Rect rasterBounds = t.RasterBounds;
             SKImageFilter image = SKImageFilter.CreateImage(

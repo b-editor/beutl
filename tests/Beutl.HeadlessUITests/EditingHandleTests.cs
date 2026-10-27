@@ -29,13 +29,16 @@ namespace Beutl.HeadlessUITests;
 public class EditingHandleTests
 {
     [AvaloniaTest]
-    [TestCase(false, 900)]
-    [TestCase(true, 420)]
-    public async Task ExtensionHandleTracksPreviewTransformAndCommitsOneUndoableEdit(bool light, int width)
+    [TestCase(false, 900, false)]
+    [TestCase(true, 420, false)]
+    [TestCase(false, 900, true)]
+    [TestCase(true, 420, true)]
+    public async Task ExtensionHandleTracksPreviewTransformAndCommitsOneUndoableEdit(bool light, int width, bool multiple)
     {
-        (EditViewModel editor, PlayerView view, Window window, EditingHandleTestEffect effect) = await Open(width, light);
+        (EditViewModel editor, PlayerView view, Window window, EditingHandleTestEffect effect) = await Open(width, light, multiple);
         try
         {
+            Assert.That(view.transformHandlesOverlay.Drawable, Is.SameAs(effect.FindHierarchicalParent<Drawable>()));
             Point before = effect.Position.Value;
             AvaPoint from = Position(view, before);
             AvaPoint to = from + new Avalonia.Vector(32, 19);
@@ -60,7 +63,7 @@ public class EditingHandleTests
                 Directory.CreateDirectory(directory);
                 using var image = window.CaptureRenderedFrame();
                 Assert.That(image, Is.Not.Null);
-                image!.Save(Path.Combine(directory, $"handles-{(light ? "light" : "dark")}-{width}.png"), PngBitmapEncoderOptions.Default);
+                image!.Save(Path.Combine(directory, $"handles-{(light ? "light" : "dark")}-{width}-{(multiple ? "multiple" : "single")}.png"), PngBitmapEncoderOptions.Default);
             }
         }
         finally { window.Close(); }
@@ -108,7 +111,7 @@ public class EditingHandleTests
         finally { window.Close(); }
     }
 
-    private static async Task<(EditViewModel, PlayerView, Window, EditingHandleTestEffect)> Open(int width, bool light)
+    private static async Task<(EditViewModel, PlayerView, Window, EditingHandleTestEffect)> Open(int width, bool light, bool multiple = false)
     {
         TestGpu.RequireAnyDevice();
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("editing-handles");
@@ -118,6 +121,14 @@ public class EditingHandleTests
         ((TransformGroup)shape.Transform.Value!).Children.Add(new RotationTransform(25));
         await editor.GetRequiredService<IElementAdder>().AddAsync([new ElementDescription(
             MediaTime.Zero, MediaTime.FromSeconds(4), 0, new ElementSource.EngineObject(() => shape))], CancellationToken.None);
+        if (multiple)
+        {
+            Element element = shape.FindHierarchicalParent<Element>()!;
+            var first = new RectShape { Width = { Value = 90 }, Height = { Value = 70 } };
+            ((TransformGroup)first.Transform.Value!).Children.Add(new TranslateTransform(-220, -100));
+            element.AddObject(first);
+            element.Objects.Move(element.Objects.IndexOf(first), element.Objects.IndexOf(shape));
+        }
         editor.GetRequiredService<IEditorSelection>().Select(effect);
         var view = new PlayerView { DataContext = editor.Player };
         var window = new Window

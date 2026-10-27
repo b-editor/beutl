@@ -14,7 +14,8 @@ namespace Beutl.Graphics3D;
 /// </summary>
 public interface IRenderer3D : IDisposable
 {
-    /// <summary>Creates a renderer on the graphics context's owning thread. The caller owns its lifetime.</summary>
+    /// <summary>Creates a renderer whose lifetime is owned by the caller.</summary>
+    /// <remarks>Call this method on the graphics context's owning thread.</remarks>
     static IRenderer3D Create(Beutl.Graphics.Backend.IGraphicsContext context, float surfaceDensity = 1)
     {
         ArgumentNullException.ThrowIfNull(context);

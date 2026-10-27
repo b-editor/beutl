@@ -22,10 +22,10 @@ public sealed class RenderExecutionContext : IDisposable
         _target = target;
     }
 
-    internal RenderExecutionContext CreateCallbackScope()
+    internal RenderExecutionContext CreateCallbackScope(float workingScale)
     {
         VerifyAccess();
-        return new RenderExecutionContext(_render!, WorkingScale, MaxWorkingScale, _target);
+        return new RenderExecutionContext(_render!, workingScale, MaxWorkingScale, _target);
     }
 
     public float WorkingScale { get; }

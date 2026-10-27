@@ -267,6 +267,90 @@ public sealed class DynamicRenderExecutionTests
         using var result = renderer.Rasterize();
     }
 
+    [Test]
+    public void TargetCommandInputImageSurvivesTheCommandWhenItsLeaseEscapes()
+    {
+        RenderTargetImageLease? retained = null;
+        using var source = Effect(context => context.CustomEffect(0, (_, execution) =>
+            retained = execution.Targets[0].RenderTarget!.AcquireImage()));
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, static (_, _) => { }, CustomFilterEffectOptions.AccessesTarget));
+        using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
+        root.AddChild(source);
+        using var renderer = Renderer(root);
+        try
+        {
+            using var result = renderer.Rasterize();
+            Assert.That(retained, Is.Not.Null);
+            Assert.That(retained!.Image.Handle, Is.Not.EqualTo(IntPtr.Zero));
+            using var pixels = SKBitmap.FromImage(retained.Image);
+            Assert.That(pixels.GetPixel(0, 0), Is.EqualTo(SKColors.Blue));
+        }
+        finally { retained?.Dispose(); }
+    }
+
+    [TestCase(RenderIntent.Preview)]
+    [TestCase(RenderIntent.Delivery)]
+    public void DependencyAllocationFailureFollowsTheRequestIntent(RenderIntent intent)
+    {
+        var childDomain = new Rect(0, 0, 17, 13);
+        using var child = new RectangleRenderNode(childDomain, Brushes.Resource.Red, null);
+        using var root = new ContainerRenderNode();
+        root.AddChild(Effect(context => context.CustomEffect(0, (_, execution) =>
+        {
+            using var image = execution.ExecutionContext!.RenderDependency(child, "unavailable", childDomain);
+        })));
+        root.AddChild(new RectangleRenderNode(new Rect(0, 0, 4, 4), Brushes.Resource.Lime, null));
+        var factory = new CountingFactory { RejectedSize = new PixelSize(17, 13) };
+        using var renderer = Renderer(root, factory, intent);
+        using var target = new CpuRenderTarget(new PixelSize(32, 24));
+        using var canvas = new ImmediateCanvas(target, intent, logicalSize: Domain.Size);
+        if (intent == RenderIntent.Delivery)
+            Assert.That(() => renderer.Render(canvas), Throws.Exception);
+        else
+        {
+            renderer.Render(canvas);
+            using var image = target.AcquireImage();
+            using var pixels = SKBitmap.FromImage(image.Image);
+            Assert.That(pixels.GetPixel(1, 1), Is.EqualTo(SKColors.Lime));
+            Assert.That(pixels.GetPixel(20, 20).Alpha, Is.Zero);
+        }
+        Assert.That(factory.Sizes, Does.Contain(new PixelSize(17, 13)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void CallbackAndDependenciesUseTheDensityAfterRuntimeExpansion(bool continuation)
+    {
+        using var target = new CpuRenderTarget(new PixelSize(8, 8));
+        using var targets = new EffectTargets { new(target, new Rect(0, 0, 8, 8)) };
+        using var builder = new SKImageFilterBuilder();
+        using var execution = new RenderExecutionContext((_, _, _, scale) =>
+        {
+            Assert.That(scale, Is.EqualTo(0.5f));
+            return target.AcquireImage();
+        }, 1, 1);
+        using var program = new FilterEffectContext(new Rect(0, 0, 8, 8));
+        if (continuation)
+            program.CustomEffect(0, static (_, context) => context.Continuation!.ApplyTo(context.Targets),
+                CustomFilterEffectOptions.ControlsContinuation);
+        program.CustomEffect(0, static (_, context) => context.Targets[0].Bounds = new Rect(0, 0, 128, 8));
+        int calls = 0;
+        program.CustomEffect(0, (_, context) =>
+        {
+            calls++;
+            Assert.That(context.WorkingScale, Is.EqualTo(0.5f));
+            Assert.That(context.ExecutionContext!.WorkingScale, Is.EqualTo(context.WorkingScale));
+            using var child = new ContainerRenderNode();
+            using var image = context.ExecutionContext.RenderDependency(child, "density", Domain);
+        });
+        using var executor = new FilterEffectExecutor(targets, builder, RenderIntent.Delivery,
+            RenderRequestPurpose.Frame, 1, 1, 1, default, budget: BufferDimensionBudget.Named(64))
+        { ExecutionContext = execution };
+        executor.Apply(program);
+        Assert.That(calls, Is.EqualTo(1));
+    }
+
     private static FilterEffectRenderNode Effect(Action<FilterEffectContext> record)
     {
         var effect = new EffectItemSuffixCallbackFilterEffect((context, _) => record(context));
@@ -275,10 +359,10 @@ public sealed class DynamicRenderExecutionTests
         return node;
     }
 
-    private static RenderNodeRenderer Renderer(RenderNode root, IRenderTargetFactory? factory = null)
+    private static RenderNodeRenderer Renderer(RenderNode root, IRenderTargetFactory? factory = null, RenderIntent intent = RenderIntent.Delivery)
         => new(root, new RenderNodeRenderRequest
         {
-            Intent = RenderIntent.Delivery,
+            Intent = intent,
             Purpose = RenderRequestPurpose.Frame,
             TargetDomain = Domain,
             MaxWorkingScale = 1,
@@ -293,11 +377,12 @@ public sealed class DynamicRenderExecutionTests
 
     private sealed class CountingFactory : IRenderTargetFactory
     {
+        public PixelSize? RejectedSize { get; init; }
         public List<PixelSize> Sizes { get; } = [];
         public RenderTarget? Create(RenderTargetAllocationDescriptor allocation)
         {
             Sizes.Add(allocation.DeviceSize);
-            return new CpuRenderTarget(allocation.DeviceSize);
+            return allocation.DeviceSize == RejectedSize ? null : new CpuRenderTarget(allocation.DeviceSize);
         }
     }
 }

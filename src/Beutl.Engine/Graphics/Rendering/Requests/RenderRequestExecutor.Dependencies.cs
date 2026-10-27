@@ -40,10 +40,20 @@ internal sealed partial class RenderRequestExecutor
                 bool dropped = false;
                 ExecuteNested(compiled, fallbackDestination, programCache, spirvProgramCache, graphProgramCache,
                     frames, cleanupFailures, ref _dynamicRootAcquisitions, ref dropped, requireTarget: true);
-                if (dropped) _targets.MarkContentDropped();
+                if (dropped)
+                {
+                    _targets.MarkContentDropped();
+                    if (!binding.IsReady)
+                        throw new PreviewAllocationDropException();
+                }
                 RenderTargetImageLease image = binding.AcquireImage();
-                _dependencies.Add(key, binding);
+                if (!dropped) _dependencies.Add(key, binding);
                 return image;
+            }
+            catch (PreviewAllocationDropException)
+            {
+                // Replay abandons this contribution and continues the preview's remaining roots.
+                throw;
             }
             catch (Exception ex)
             {

@@ -37,6 +37,44 @@ public class IndividualContinuationTests
         Assert.That(calls, Is.EqualTo(6));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void DeferredTargetEffectRetainsAccessThroughNestedGroups(bool nested)
+    {
+        int calls = 0;
+        var tail = new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, execution) =>
+            {
+                calls++;
+                using var image = execution.ExecutionContext!.CaptureTarget();
+                using var pixels = SKBitmap.FromImage(image.Image);
+                Assert.That(pixels.GetPixel(1, 1), Is.EqualTo(SKColors.Red));
+                execution.ExecutionContext.ReplaceTarget(image.Image);
+            }, CustomFilterEffectOptions.AccessesTarget));
+        var group = new FilterEffectGroup();
+        group.Children.Add(new RepeatingContinuationEffect(2));
+        if (nested)
+        {
+            var inner = new FilterEffectGroup();
+            inner.Children.Add(tail);
+            group.Children.Add(inner);
+        }
+        else group.Children.Add(tail);
+        using var root = new ContainerRenderNode();
+        root.AddChild(new RectangleRenderNode(new Rect(0, 0, 32, 24), Brushes.Resource.Red, null));
+        var effectNode = new FilterEffectRenderNode(group.ToResource(CompositionContext.Default));
+        effectNode.AddChild(new RectangleRenderNode(new Rect(0, 0, 32, 24), Brushes.Resource.Blue, null));
+        root.AddChild(effectNode);
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            Purpose = RenderRequestPurpose.Frame,
+            TargetDomain = new Rect(0, 0, 32, 24),
+        }, new CpuRenderTargetFactory());
+        using var output = renderer.Rasterize();
+        Assert.That(calls, Is.EqualTo(2));
+    }
+
     private sealed class RepeatingContinuationEffect(int count) : FilterEffect
     {
         public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
@@ -80,12 +118,12 @@ public class IndividualContinuationTests
         });
         var tail = new EffectItemSuffixCallbackFilterEffect((context, resource) =>
         {
-            resources.Add(resource);
             double time = resource.EvaluationContext!.Time.ToSeconds();
             Assert.That(resource.EvaluationContext.PreferProxy, Is.True);
             Assert.That(resource.EvaluationContext.DisableResourceShare, Is.True);
             // Even a stage with no operations at the original time must be evaluated at the new time.
             if (time == 3) return;
+            resources.Add(resource);
             context.CustomEffect(time, (value, execution) =>
             {
                 seen.Add((value, execution.Instance!.Value.Index, execution.Instance.Value.Count));

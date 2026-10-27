@@ -37,7 +37,7 @@ internal sealed partial class RenderRequestExecutor
                 }
             }
 
-            var images = new List<SKImage>(values.Count);
+            var images = new List<SurfaceSnapshot.Lease>(values.Count);
             Bitmap? targetSnapshot = null;
             RenderExecutionSessionToken token = CreateExecutionSessionToken();
             try
@@ -98,8 +98,8 @@ internal sealed partial class RenderRequestExecutor
             finally
             {
                 targetSnapshot?.Dispose();
-                foreach (SKImage image in images)
-                    image.Dispose();
+                foreach (SurfaceSnapshot.Lease snapshot in images)
+                    snapshot.Dispose();
                 foreach (RenderFragmentReference input in fragment.Inputs)
                     CompleteFragmentUse(input);
             }
@@ -272,7 +272,7 @@ internal sealed partial class RenderRequestExecutor
             RenderExecutionSessionToken token,
             IReadOnlyList<MaterializedRenderValue> values,
             IReadOnlyList<bool> inputReadbacks,
-            List<SKImage> images)
+            List<SurfaceSnapshot.Lease> images)
         {
             if (inputReadbacks.Count != values.Count)
                 throw new InvalidOperationException("Target-command input readback planning did not reconcile.");
@@ -281,10 +281,10 @@ internal sealed partial class RenderRequestExecutor
             for (int index = 0; index < values.Count; index++)
             {
                 MaterializedRenderValue value = values[index];
-                SKImage image = value.Target.Value.Snapshot();
-                images.Add(image);
+                var snapshot = SurfaceSnapshot.Take(value.Target.Value);
+                images.Add(snapshot);
                 bool requiresReadback = inputReadbacks[index];
-                inputs.Add(CreateExecutionInput(token, value, image, requiresReadback));
+                inputs.Add(CreateExecutionInput(token, value, snapshot.Image, requiresReadback));
             }
 
             return inputs;

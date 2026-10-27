@@ -17,6 +17,8 @@ internal sealed class NestedRenderTargetBinding : IDisposable
 
     public float Density { get; private set; }
 
+    internal bool IsReady => _state == NestedRenderTargetBindingState.Ready;
+
     public bool IsDisposed => _state == NestedRenderTargetBindingState.Disposed;
 
     public void Stage(

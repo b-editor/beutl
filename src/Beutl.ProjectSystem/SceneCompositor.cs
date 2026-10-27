@@ -15,7 +15,7 @@ namespace Beutl;
 
 public sealed partial class SceneCompositor : ICompositor
 {
-    private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
+    private readonly ConditionalWeakTable<EngineObject, ResourceEntry> _resourceCache = new();
     private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
     private readonly object _resourceCacheLock = new();
     // One presenter per transition draws it for this compositor; it lives as long as the transition does.
@@ -324,24 +324,34 @@ public sealed partial class SceneCompositor : ICompositor
         }
     }
 
+    private sealed class ResourceEntry(EngineObject.Resource resource, EventHandler<HierarchyAttachmentEventArgs> detached)
+    {
+        public EngineObject.Resource Resource { get; set; } = resource;
+        public EventHandler<HierarchyAttachmentEventArgs> Detached { get; } = detached;
+    }
+
     private EngineObject.Resource GetOrCreateResource(EngineObject obj, CompositionContext context)
     {
-        if (!_resourceCache.TryGetValue(obj, out var resource) || resource.IsDisposed)
+        if (!_resourceCache.TryGetValue(obj, out var entry))
         {
-            AddDetachedHandler(obj);
-            resource = obj.ToResource(context);
-            _resourceCache.AddOrUpdate(obj, resource);
+            var resource = obj.ToResource(context);
+            entry = new ResourceEntry(resource, AddDetachedHandler(obj));
+            _resourceCache.Add(obj, entry);
+        }
+        else if (entry.Resource.IsDisposed)
+        {
+            entry.Resource = obj.ToResource(context);
         }
         else
         {
             bool _ = false;
-            resource.Reconcile(obj, context, ref _);
+            entry.Resource.Reconcile(obj, context, ref _);
         }
 
-        return resource;
+        return entry.Resource;
     }
 
-    private void AddDetachedHandler(EngineObject obj)
+    private EventHandler<HierarchyAttachmentEventArgs> AddDetachedHandler(EngineObject obj)
     {
         var weakRef = new WeakReference<SceneCompositor>(this);
 
@@ -353,12 +363,12 @@ public sealed partial class SceneCompositor : ICompositor
             {
                 lock (compositor._resourceCacheLock)
                 {
-                    if (compositor._resourceCache.TryGetValue(senderObj, out var resource))
+                    if (compositor._resourceCache.TryGetValue(senderObj, out var entry))
                     {
                         compositor._resourceCache.Remove(senderObj);
                         // Detachment runs on the editing thread while the current frame may still use this
                         // resource's native handles. Transfer ownership before teardown can drain the queue.
-                        compositor._detachedResources.Enqueue(resource);
+                        compositor._detachedResources.Enqueue(entry.Resource);
                     }
                 }
             }
@@ -367,6 +377,7 @@ public sealed partial class SceneCompositor : ICompositor
         }
 
         obj.DetachedFromHierarchy += Handler;
+        return Handler;
     }
 
     private void DisposeDetachedResources()
@@ -568,7 +579,8 @@ public sealed partial class SceneCompositor : ICompositor
         {
             foreach (var kvp in _resourceCache)
             {
-                _detachedResources.Enqueue(kvp.Value);
+                kvp.Key.DetachedFromHierarchy -= kvp.Value.Detached;
+                _detachedResources.Enqueue(kvp.Value.Resource);
             }
 
             _resourceCache.Clear();
