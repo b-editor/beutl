@@ -3460,7 +3460,10 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>连接码</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>有效期至 {0}</value>
+    <value>剩余 {0}</value>
+  </data>
+  <data name="MobilePreviewCodeExpired" xml:space="preserve">
+    <value>代码已过期</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>更新连接码</value>

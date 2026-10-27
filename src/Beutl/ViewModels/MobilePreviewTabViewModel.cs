@@ -15,6 +15,7 @@ public sealed class MobilePreviewTabViewModel : IToolContext
 {
     private readonly PlayerViewModel _player;
     private readonly CompositeDisposable _lifetime = [];
+    private readonly DispatcherTimer _expiryTimer = new(DispatcherPriority.Background) { Interval = TimeSpan.FromSeconds(1) };
     private MobilePreviewPlayer? _previewPlayer;
     private MobilePreviewServer? _server;
     private Bitmap? _qr;
@@ -26,6 +27,7 @@ public sealed class MobilePreviewTabViewModel : IToolContext
     public MobilePreviewTabViewModel(EditViewModel editor)
     {
         _player = editor.Player;
+        _expiryTimer.Tick += (_, _) => UpdateExpiry();
         IsActive = editor.EditorService.SelectedTabItem
             .Select(tab => tab?.Context.Select(context => ReferenceEquals(context, editor)) ?? Observable.Return(false))
             .Switch().ToReadOnlyReactivePropertySlim().DisposeWith(_lifetime);
@@ -131,6 +133,7 @@ public sealed class MobilePreviewTabViewModel : IToolContext
             Address.Value = server.Endpoint.AbsoluteUri;
             IsSharing.Value = true;
             UpdateCode();
+            _expiryTimer.Start();
             UpdateClients();
             Status.Value = "";
         }
@@ -161,6 +164,7 @@ public sealed class MobilePreviewTabViewModel : IToolContext
 
     private async Task StopServerAsync()
     {
+        _expiryTimer.Stop();
         var server = _server;
         _server = null;
         if (server is not null)
@@ -212,7 +216,20 @@ public sealed class MobilePreviewTabViewModel : IToolContext
     {
         if (_server is not { } server) return;
         Code.Value = server.PairingCode;
-        Expiry.Value = string.Format(Strings.MobilePreviewExpires, server.CodeExpires.LocalDateTime.ToString("t"));
+        UpdateExpiry();
+    }
+
+    private void UpdateExpiry()
+    {
+        if (_server is { } server)
+            Expiry.Value = FormatExpiry(server.CodeExpires, DateTimeOffset.UtcNow);
+    }
+
+    internal static string FormatExpiry(DateTimeOffset expires, DateTimeOffset now)
+    {
+        if (expires <= now) return Strings.MobilePreviewCodeExpired;
+        long seconds = (long)Math.Ceiling((expires - now).TotalSeconds);
+        return string.Format(Strings.MobilePreviewExpires, FormattableString.Invariant($"{seconds / 60}:{seconds % 60:00}"));
     }
 
     public void RenewCode() { _server?.RenewPairingCode(); UpdateCode(); }

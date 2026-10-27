@@ -3460,7 +3460,10 @@ when history recording is enabled.</value>
     <value>Connection code</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>Expires at {0}</value>
+    <value>Expires in {0}</value>
+  </data>
+  <data name="MobilePreviewCodeExpired" xml:space="preserve">
+    <value>Code expired</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>Renew code</value>

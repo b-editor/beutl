@@ -3460,7 +3460,10 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>연결 코드</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>유효 기한: {0}</value>
+    <value>남은 시간: {0}</value>
+  </data>
+  <data name="MobilePreviewCodeExpired" xml:space="preserve">
+    <value>코드가 만료되었습니다</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>코드 갱신</value>

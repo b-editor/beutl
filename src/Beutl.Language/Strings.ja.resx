@@ -3455,7 +3455,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>接続コード</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>有効期限: {0}</value>
+    <value>残り {0}</value>
+  </data>
+  <data name="MobilePreviewCodeExpired" xml:space="preserve">
+    <value>期限切れ</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>コードを更新</value>

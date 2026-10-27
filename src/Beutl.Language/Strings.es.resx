@@ -3460,7 +3460,10 @@ cuando el registro del historial está activado.</value>
     <value>Código de conexión</value>
   </data>
   <data name="MobilePreviewExpires" xml:space="preserve">
-    <value>Caduca a las {0}</value>
+    <value>Caduca en {0}</value>
+  </data>
+  <data name="MobilePreviewCodeExpired" xml:space="preserve">
+    <value>Código caducado</value>
   </data>
   <data name="MobilePreviewRenewCode" xml:space="preserve">
     <value>Renovar código</value>

@@ -34,7 +34,12 @@
                 <Button x:Name="StartButton" Click="OnToggleClick" IsEnabled="{Binding CanToggle.Value}"
                         HorizontalAlignment="Center" ToolTip.Tip="{x:Static lang:Strings.MobilePreviewInternetDescription}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <icons:FluentIcon Icon="Play" FontSize="16" VerticalAlignment="Center" />
+                        <Panel Width="16" Height="16" VerticalAlignment="Center">
+                            <icons:FluentIcon x:Name="StartIcon" Icon="Play" FontSize="16" IsVisible="{Binding !IsBusy.Value}" />
+                            <controls:ProgressRing x:Name="StartProgress" Width="16" Height="16" MinWidth="0" MinHeight="0"
+                                                   BorderThickness="2" IsIndeterminate="{Binding IsBusy.Value}"
+                                                   IsVisible="{Binding IsBusy.Value}" />
+                        </Panel>
                         <TextBlock Text="{x:Static lang:Strings.Start}" />
                     </StackPanel>
                 </Button>
@@ -80,7 +85,7 @@
                                 <icons:FluentIcon Icon="ArrowClockwise" FontSize="16" />
                             </Button>
                         </StackPanel>
-                        <TextBlock Text="{Binding Expiry.Value}" Classes="secondary" TextAlignment="Center" />
+                        <TextBlock x:Name="ExpiryText" Text="{Binding Expiry.Value}" Classes="secondary" TextAlignment="Center" />
                     </StackPanel>
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
                         <TextBox x:Name="AddressText" Text="{Binding Address.Value, Mode=OneWay}" IsReadOnly="True"

@@ -33,6 +33,60 @@ namespace Beutl.HeadlessUITests;
 [NonParallelizable]
 public sealed class MobilePreviewTests
 {
+    [TestCase(600, "10:00")]
+    [TestCase(59.1, "1:00")]
+    [TestCase(0.1, "0:01")]
+    [TestCase(0, null)]
+    [TestCase(-1, null)]
+    public void Pairing_expiry_uses_remaining_time_across_midnight(double remainingSeconds, string? remaining)
+    {
+        var expires = new DateTimeOffset(2026, 10, 28, 0, 0, 0, TimeSpan.FromHours(9));
+        var now = expires.ToUniversalTime().AddSeconds(-remainingSeconds);
+        string expected = remaining is null ? Beutl.Language.Strings.MobilePreviewCodeExpired
+            : string.Format(Beutl.Language.Strings.MobilePreviewExpires, remaining);
+        Assert.That(MobilePreviewTabViewModel.FormatExpiry(expires, now), Is.EqualTo(expected));
+    }
+
+    [AvaloniaTest]
+    public async Task Pairing_expiry_updates_while_sharing_and_renewing_the_code_resets_it()
+    {
+        await using var host = await RelayHost.StartAsync();
+        var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-preview-expiry");
+        var mobile = new MobilePreviewTabViewModel(editor);
+        var view = new MobilePreviewTabView { DataContext = mobile };
+        var owner = new Window { Content = view, Width = 300, Height = 420 };
+        try
+        {
+            owner.Show();
+            Assert.That(editor.OpenToolTab(mobile), Is.True);
+            await mobile.StartSharingAsync(host.Session);
+            await host.AcceptAsync();
+            string initialExpiry = mobile.Expiry.Value;
+            Assert.That(mobile.Expiry.Value, Is.Not.EqualTo(Beutl.Language.Strings.MobilePreviewCodeExpired));
+            await HeadlessTestHelpers.WaitUntilAsync(() => mobile.Expiry.Value != initialExpiry);
+            await mobile.StopSharingAsync();
+            await mobile.StartSharingAsync(host.Session with { CodeExpires = DateTimeOffset.UtcNow.AddSeconds(-1) });
+            var relay = await host.AcceptAsync();
+            HeadlessTestHelpers.Render();
+            Assert.That(view.FindControl<Avalonia.Controls.TextBlock>("ExpiryText")!.Text, Is.EqualTo(Beutl.Language.Strings.MobilePreviewCodeExpired));
+            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-code-expired");
+
+            mobile.RenewCode();
+            Assert.That(mobile.Expiry.Value, Is.EqualTo(string.Format(Beutl.Language.Strings.MobilePreviewExpires, "10:00")));
+            var pairing = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "pairing");
+            Assert.That(pairing.GetProperty("expires").GetInt64(), Is.EqualTo(mobile.Server!.CodeExpires.ToUnixTimeMilliseconds()));
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(owner, nameof(MobilePreviewTests), "desktop-code-renewed");
+        }
+        finally
+        {
+            editor.CloseToolTab(mobile);
+            await mobile.StopSharingAsync();
+            owner.Close();
+            await TestReset.ResetShellAsync();
+        }
+    }
+
     [Test]
     public async Task Signaling_clients_keep_only_the_latest_bitmap_and_disconnect_releases_it()
     {
@@ -318,6 +372,22 @@ public sealed class MobilePreviewTests
             }
             AssertPage("StartPage");
             Capture("desktop-ready");
+            var start = View().FindControl<Button>("StartButton")!;
+            var icon = View().FindControl<FluentIcons.Avalonia.Fluent.FluentIcon>("StartIcon")!;
+            var progress = View().FindControl<Beutl.Controls.ProgressRing>("StartProgress")!;
+            var buttonSize = start.Bounds.Size;
+            mobile.IsBusy.Value = true;
+            await Task.Delay(250);
+            HeadlessTestHelpers.Render();
+            Assert.That(start.IsEnabled, Is.False);
+            Assert.That(icon.IsEffectivelyVisible, Is.False);
+            Assert.That(progress.IsEffectivelyVisible && progress.IsIndeterminate, Is.True);
+            Assert.That(start.Bounds.Size, Is.EqualTo(buttonSize));
+            Capture("desktop-starting");
+            mobile.IsBusy.Value = false;
+            HeadlessTestHelpers.Render();
+            Assert.That(start.IsEnabled && icon.IsEffectivelyVisible, Is.True);
+            Assert.That(progress.IsEffectivelyVisible, Is.False);
             presentation.ShowOnScreen(owner, null, false);
             OpenMobile();
             Assert.That(editor.FindToolTab<MobilePreviewTabViewModel>(), Is.SameAs(mobile));
