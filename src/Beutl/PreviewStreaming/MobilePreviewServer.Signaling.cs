@@ -1,7 +1,6 @@
 ﻿using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Channels;
 using Beutl.Api;
 
 namespace Beutl.PreviewStreaming;
@@ -40,29 +39,33 @@ internal sealed partial class MobilePreviewServer
         }
     }
 
-    private void SendToViewer(string id, string json)
+    private void SendToViewer(string id, string json, bool playback = false)
     {
-        if (_relayClients is not null) SendRelayControl(new { type = "signal", id, signal = JsonSerializer.Deserialize<JsonElement>(json) });
-        else if (_clients.TryGetValue(id, out var client)) client.Controls.Writer.TryWrite(json);
+        if (_relayClients is not null) SendRelayControl(new { type = "signal", id, signal = JsonSerializer.Deserialize<JsonElement>(json) }, playback ? id : null);
+        else if (_clients.TryGetValue(id, out var client)) client.Controls.Enqueue(json, playback ? id : null);
     }
 
     private async Task HandleSignalAsync(string id, JsonElement signal, CancellationToken ct)
     {
-        string? type = signal.TryGetProperty("type", out var kind) ? kind.GetString() : null;
+        if (signal.ValueKind != JsonValueKind.Object
+            || !signal.TryGetProperty("type", out var kind) || kind.ValueKind != JsonValueKind.String) return;
+        string? type = kind.GetString();
         if (type == "control") { await HandleControlAsync(id, signal, ct).ConfigureAwait(false); return; }
         if (type is not ("offer" or "candidate")) return;
+        if (!signal.TryGetProperty(type == "offer" ? "sdp" : "candidate", out var payload)) return;
+        if (type == "offer" && payload.ValueKind != JsonValueKind.String) return;
         await _transportGate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             _transport ??= new PreviewTransport(OnTransportMessage, OnTransportStopped);
             if (type == "offer")
             {
-                bool hdr = signal.TryGetProperty("hdr", out var value) && value.GetBoolean();
+                bool hdr = signal.TryGetProperty("hdr", out var value) && value.ValueKind == JsonValueKind.True;
                 lock (_gate) _peers[id] = hdr;
-                await _transport.SendAsync(new { type, id, hdr, sdp = signal.GetProperty("sdp").GetString(), iceServers = _iceServers }, ct).ConfigureAwait(false);
+                await _transport.SendAsync(new { type, id, hdr, sdp = payload.GetString(), iceServers = _iceServers }, ct).ConfigureAwait(false);
             }
             else
-                await _transport.SendAsync(new { type, id, candidate = signal.GetProperty("candidate") }, ct).ConfigureAwait(false);
+                await _transport.SendAsync(new { type, id, candidate = payload }, ct).ConfigureAwait(false);
         }
         finally { _transportGate.Release(); }
     }
@@ -101,7 +104,7 @@ internal sealed partial class MobilePreviewServer
 
         async Task SendControlsAsync()
         {
-            await foreach (string control in client.Controls.Reader.ReadAllAsync(token))
+            await foreach (string control in client.Controls.ReadAllAsync(token))
                 await client.Socket.SendAsync(Encoding.UTF8.GetBytes(control).AsMemory(), WebSocketMessageType.Text, true, token);
         }
 
@@ -128,6 +131,6 @@ internal sealed partial class MobilePreviewServer
 
     private sealed record Client(WebSocket Socket, string Address)
     {
-        internal Channel<string> Controls { get; } = Channel.CreateBounded<string>(64);
+        internal PreviewMessageQueue Controls { get; } = new();
     }
 }

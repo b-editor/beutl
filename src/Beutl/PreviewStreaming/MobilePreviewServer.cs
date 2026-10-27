@@ -2,7 +2,6 @@
 using System.Net.WebSockets;
 using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Channels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -21,7 +20,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly TimeProvider _clock;
     private readonly WebApplication? _app;
-    private readonly HashSet<string> _paired = [];
+    private readonly Dictionary<string, string> _paired = [];
     private readonly Dictionary<string, Client> _clients = [];
     private readonly string _cookieName = "beutl-preview-" + Guid.NewGuid().ToString("N");
     private string _pairingCode = "";
@@ -101,6 +100,13 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
             return _relayClients ?? _clients.Select(pair => (pair.Key, pair.Value.Address)).ToArray();
     }
 
+    internal (string Id, string Address, bool Connected)[] GetDevices()
+    {
+        lock (_gate)
+            return _paired.Select(pair => (pair.Key, pair.Value,
+                _relayClients?.Any(client => client.Id == pair.Key) ?? _clients.ContainsKey(pair.Key))).ToArray();
+    }
+
     internal void Disconnect(string id)
     {
         lock (_gate)
@@ -109,6 +115,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
             _paired.Remove(id);
             if (_clients.TryGetValue(id, out var client)) client.Socket.Abort();
         }
+        ClientsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     internal void DisconnectAll()
@@ -121,6 +128,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
                 foreach (var client in _clients.Values) client.Socket.Abort();
         }
         RenewPairingCode();
+        ClientsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private async Task HandleRequestAsync(HttpContext context)
@@ -179,7 +187,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
         }
         string? token = request.Cookies[_cookieName];
         bool authorized;
-        lock (_gate) authorized = token is not null && _paired.Contains(token);
+        lock (_gate) authorized = token is not null && _paired.ContainsKey(token);
         if (request.Method == "GET" && request.Path == "/api/session")
         {
             response.StatusCode = authorized ? StatusCodes.Status204NoContent : StatusCodes.Status401Unauthorized;
@@ -226,7 +234,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
                 return;
             }
             string? existing = context.Request.Cookies[_cookieName];
-            if (existing is not null && _paired.Contains(existing))
+            if (existing is not null && _paired.ContainsKey(existing))
             {
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
                 return;
@@ -237,7 +245,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
                 return;
             }
             string token = Convert.ToHexString(RandomNumberGenerator.GetBytes(32));
-            _paired.Add(token);
+            _paired.Add(token, context.Connection.RemoteIpAddress?.ToString() ?? "");
             context.Response.Cookies.Append(_cookieName, token, new CookieOptions
             {
                 HttpOnly = true,
@@ -247,6 +255,7 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
             });
             context.Response.StatusCode = StatusCodes.Status204NoContent;
         }
+        ClientsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private async Task StreamAsync(HttpContext context, string token)
@@ -255,13 +264,13 @@ internal sealed partial class MobilePreviewServer : IAsyncDisposable
         var client = new Client(socket, context.Connection.RemoteIpAddress?.ToString() ?? "");
         lock (_gate)
         {
-            if (!_paired.Contains(token) || _stop.IsCancellationRequested) return;
+            if (!_paired.ContainsKey(token) || _stop.IsCancellationRequested) return;
             if (_clients.TryGetValue(token, out var previous)) previous.Socket.Abort();
             _clients[token] = client;
         }
         ClientsChanged?.Invoke(this, EventArgs.Empty);
-        client.Controls.Writer.TryWrite(System.Text.Json.JsonSerializer.Serialize(new { type = "config", iceServers = _iceServers }));
-        lock (_gate) client.Controls.Writer.TryWrite(_playbackState);
+        client.Controls.Enqueue(System.Text.Json.JsonSerializer.Serialize(new { type = "config", iceServers = _iceServers }));
+        lock (_gate) client.Controls.Enqueue(_playbackState, token);
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token, context.RequestAborted);
         try
         {

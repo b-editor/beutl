@@ -9,7 +9,7 @@
     <_PreviewGoArch Condition="$(_PreviewRid.EndsWith('arm64'))">arm64</_PreviewGoArch>
     <_PreviewSuffix Condition="'$(_PreviewGoOS)' == 'windows'">.exe</_PreviewSuffix>
     <_PreviewSource>$(MSBuildThisFileDirectory)../../Beutl.PreviewTransport</_PreviewSource>
-    <_PreviewBinary>$(BaseIntermediateOutputPath)preview-transport/$(_PreviewRid)/Beutl.PreviewTransport$(_PreviewSuffix)</_PreviewBinary>
+    <_PreviewBinary>$(BaseIntermediateOutputPath)preview-transport/$(TargetFramework)/$(_PreviewRid)/Beutl.PreviewTransport$(_PreviewSuffix)</_PreviewBinary>
   </PropertyGroup>
   <ItemGroup>
     <_PreviewGoSource Include="$(_PreviewSource)/*.go;$(_PreviewSource)/go.mod;$(_PreviewSource)/go.sum" />

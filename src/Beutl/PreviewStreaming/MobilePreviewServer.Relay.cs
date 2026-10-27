@@ -67,10 +67,10 @@ internal sealed partial class MobilePreviewServer
         }
     }
 
-    private void SendRelayControl(object control)
+    private void SendRelayControl(object control, string? playbackId = null)
     {
         if (_relayClients is not null && _clients.TryGetValue("relay", out var client))
-            client.Controls.Writer.TryWrite(JsonSerializer.Serialize(control));
+            client.Controls.Enqueue(JsonSerializer.Serialize(control), playbackId);
     }
 
     private async Task HandleRelayMessageAsync(JsonElement message, CancellationToken ct)
@@ -84,7 +84,10 @@ internal sealed partial class MobilePreviewServer
             {
                 removed = _peers.Keys.Except(snapshot.Select(c => c.Item1)).ToArray();
                 _relayClients = snapshot;
-                foreach (var client in snapshot) SendToViewer(client.Item1, _playbackState);
+                _paired.Clear();
+                foreach (var device in message.TryGetProperty("paired", out var paired) ? paired.EnumerateArray() : clients.EnumerateArray())
+                    _paired[device.GetProperty("id").GetString()!] = device.GetProperty("address").GetString()!;
+                foreach (var client in snapshot) SendToViewer(client.Item1, _playbackState, playback: true);
             }
             foreach (string id in removed) await RemovePeerAsync(id).ConfigureAwait(false);
             ClientsChanged?.Invoke(this, EventArgs.Empty);

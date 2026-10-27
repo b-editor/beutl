@@ -66,11 +66,11 @@ public partial class MobilePreviewWindow : Window
         _closed = true;
         _lifetime.Dispose();
         _player.Disposing -= OnPlayerDisposing;
-        _ = StopAfterCloseAsync();
+        _ = StopSafelyAsync();
         base.OnClosed(e);
     }
 
-    private async Task StopAfterCloseAsync()
+    private async Task StopSafelyAsync()
     {
         try { await StopSharingAsync(); }
         catch (Exception ex) { Log.CreateLogger<MobilePreviewWindow>().LogError(ex, "Could not stop mobile preview."); }
@@ -200,14 +200,18 @@ public partial class MobilePreviewWindow : Window
         var clients = server.GetClients();
         ClientsText.Text = string.Format(Strings.MobilePreviewClients, clients.Length);
         ClientList.Children.Clear();
-        foreach (var client in clients)
+        foreach (var client in server.GetDevices())
         {
             var row = new DockPanel { LastChildFill = true };
             var disconnect = new Button { Content = Strings.Disconnect, HorizontalAlignment = HorizontalAlignment.Right };
             disconnect.Click += (_, _) => server.Disconnect(client.Id);
             DockPanel.SetDock(disconnect, Avalonia.Controls.Dock.Right);
             row.Children.Add(disconnect);
-            row.Children.Add(new TextBlock { Text = client.Address, VerticalAlignment = VerticalAlignment.Center });
+            row.Children.Add(new TextBlock
+            {
+                Text = client.Connected ? client.Address : $"{client.Address} ({MissingMediaStrings.Offline})",
+                VerticalAlignment = VerticalAlignment.Center
+            });
             ClientList.Children.Add(row);
         }
     }
@@ -222,7 +226,7 @@ public partial class MobilePreviewWindow : Window
     private void OnRelayDisconnected(object? sender, EventArgs e) => Dispatcher.UIThread.Post(async () =>
     {
         if (_closed || !ReferenceEquals(sender, _server)) return;
-        await StopSharingAsync();
+        await StopSafelyAsync();
         StatusText.Text = Strings.MobilePreviewRelayDisconnected;
     });
 

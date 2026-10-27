@@ -51,18 +51,24 @@ func emit(value any) {
 }
 
 func main() {
+	run(os.Stdin)
+}
+
+func run(input io.Reader) {
 	peers := map[string]*peer{}
 	defer func() {
 		for _, p := range peers {
 			_ = p.pc.Close()
 		}
 	}()
-	scanner := bufio.NewScanner(os.Stdin)
+	scanner := bufio.NewScanner(input)
 	scanner.Buffer(make([]byte, 64*1024), 8*1024*1024)
 	for scanner.Scan() {
 		var cmd command
 		if err := json.Unmarshal(scanner.Bytes(), &cmd); err != nil {
-			return
+			// A malformed browser candidate must not stop the other viewers' transport.
+			emit(map[string]any{"id": cmd.ID, "type": "error", "message": "invalid transport command"})
+			continue
 		}
 		var err error
 		switch cmd.Type {

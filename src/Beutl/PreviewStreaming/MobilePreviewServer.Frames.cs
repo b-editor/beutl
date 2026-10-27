@@ -137,7 +137,7 @@ internal sealed partial class MobilePreviewServer
         return bytes;
     }
 
-    private sealed record PendingFrame(Ref<Bitmap> Image, UIToneMappingOperator ToneMapping, float Exposure,
+    internal sealed record PendingFrame(Ref<Bitmap> Image, UIToneMappingOperator ToneMapping, float Exposure,
         bool Playing, double Time, long PlaybackId, double Clock) : IDisposable
     {
         internal PendingFrame Snapshot() => this with { Image = Image.Clone() };

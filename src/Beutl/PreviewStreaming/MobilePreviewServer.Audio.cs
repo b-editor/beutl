@@ -45,15 +45,9 @@ internal sealed partial class MobilePreviewServer
                 long playbackId;
                 lock (_gate)
                 {
-                    if (_peers.Count == 0 || _latest is not { Playing: true } frame) { nextSample = 0; continue; }
-                    // Playback's audio is read ahead in one-second blocks. Select only the 20 ms
-                    // being displayed now, not the entire block, so pause/seek cannot queue seconds of audio.
-                    if (clock - frame.Clock > 0.25) continue;
+                    if (_peers.Count == 0 || _latest is not { } frame) { nextSample = 0; continue; }
                     playbackId = frame.PlaybackId;
-                    // RTP audio timestamps advance by exactly one packet (960 samples). Wall-clock
-                    // jitter must not create overlaps/gaps that make Opus packets unusable at the receiver.
-                    if (nextSample == 0 || clock - nextSample / 48000d > 0.1) nextSample = (long)(clock * 48000);
-                    samples = SampleAudio(_audio, frame.PlaybackId, frame.Time + nextSample / 48000d - frame.Clock);
+                    samples = SampleCurrentAudio(_audio, frame, clock, ref nextSample);
                 }
                 if (samples is null) continue;
                 encoder ??= new PreviewEncoder(0, 0, false, audio: true);
@@ -73,6 +67,17 @@ internal sealed partial class MobilePreviewServer
             OnTransportStopped();
         }
         finally { encoder?.Dispose(); }
+    }
+
+    internal static float[]? SampleCurrentAudio(IReadOnlyList<AudioFrameSnapshot> blocks, PendingFrame frame,
+        double clock, ref long nextSample)
+    {
+        if (!frame.Playing) { nextSample = 0; return null; }
+        // Audio advances between video frames, including at 1 fps. Pause clears the audio blocks
+        // and Playing flag; seek/restart selects a different PlaybackId instead of expiring a frame.
+        // RTP timestamps advance by one packet (960 samples), independent of timer jitter.
+        if (nextSample == 0 || clock - nextSample / 48000d > 0.1) nextSample = (long)(clock * 48000);
+        return SampleAudio(blocks, frame.PlaybackId, frame.Time + nextSample / 48000d - frame.Clock);
     }
 
     internal static float[]? SampleAudio(IReadOnlyList<AudioFrameSnapshot> blocks, long playbackId, double time)

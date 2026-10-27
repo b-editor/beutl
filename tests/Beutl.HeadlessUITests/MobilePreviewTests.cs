@@ -6,6 +6,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Beutl.Api;
 using Beutl.Configuration;
 using Beutl.Editor.Models;
 using Beutl.Editor.Services;
@@ -16,7 +17,10 @@ using Beutl.Media.Source;
 using Beutl.PreviewStreaming;
 using Beutl.Testing.Headless;
 using Beutl.Views;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using SkiaSharp;
 
@@ -112,6 +116,155 @@ public sealed class MobilePreviewTests
         server.Disconnect(id);
         await WaitUntil(() => server.GetClients().Length == 0 && blue.RefCount == 1);
         Assert.That((await http.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+    }
+
+    [Test]
+    public async Task Disconnected_devices_remain_visible_reconnectable_and_individually_revocable()
+    {
+        await using var server = await MobilePreviewServer.StartAsync(IPAddress.Loopback);
+        var devices = Enumerable.Range(0, 4).Select(_ => new CookieContainer()).ToArray();
+        foreach (var cookies in devices)
+        {
+            using var http = CreateHttp(server, cookies);
+            await Pair(http, server);
+            using var socket = await Connect(server, cookies);
+            await WaitUntil(() => server.GetClients().Length == 1);
+            socket.Abort();
+            await WaitUntil(() => server.GetClients().Length == 0);
+        }
+        Assert.That(server.GetDevices(), Has.Length.EqualTo(4));
+        Assert.That(server.GetDevices().All(d => !d.Connected), Is.True);
+        using var extra = CreateHttp(server, new CookieContainer());
+        Assert.That((await extra.PostAsync("/api/pair", new StringContent(server.PairingCode))).StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
+
+        using var reconnect = await Connect(server, devices[0]);
+        await WaitUntil(() => server.GetClients().Length == 1);
+        string id = server.GetClients().Single().Id;
+        Assert.That(server.GetDevices().Single(d => d.Id == id).Connected, Is.True);
+        reconnect.Abort();
+        await WaitUntil(() => server.GetClients().Length == 0);
+        server.Disconnect(id);
+        Assert.That(server.GetDevices(), Has.Length.EqualTo(3));
+        using var revoked = CreateHttp(server, devices[0]);
+        Assert.That((await revoked.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
+        await Pair(extra, server);
+        using var remaining = await Connect(server, devices[1]);
+        await WaitUntil(() => server.GetClients().Length == 1);
+        Assert.That(server.GetDevices(), Has.Length.EqualTo(4));
+    }
+
+    [Test]
+    public async Task Playback_updates_are_coalesced_without_dropping_required_messages()
+    {
+        var queue = new PreviewMessageQueue();
+        for (int update = 0; update < 1000; update++)
+        {
+            for (int viewer = 0; viewer < 4; viewer++) queue.Enqueue($"{viewer}:{update}", viewer.ToString());
+            if (update == 100) queue.Enqueue("answer");
+            if (update == 200) queue.Enqueue("pairing");
+            if (update == 300) queue.Enqueue("disconnect");
+        }
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await using var reader = queue.ReadAllAsync(timeout.Token).GetAsyncEnumerator();
+        var received = new List<string>();
+        for (int i = 0; i < 7; i++)
+        {
+            Assert.That(await reader.MoveNextAsync(), Is.True);
+            received.Add(reader.Current);
+        }
+        Assert.That(received, Is.EquivalentTo(new[] { "0:999", "1:999", "2:999", "3:999", "answer", "pairing", "disconnect" }));
+        var next = reader.MoveNextAsync();
+        Assert.That(next.IsCompleted, Is.False, "There must be no stale playback messages left to send.");
+        queue.Enqueue("0:1000", "0");
+        Assert.That(await next, Is.True);
+        Assert.That(reader.Current, Is.EqualTo("0:1000"));
+    }
+
+    [Test]
+    public async Task Relay_keeps_other_viewers_alive_after_malformed_signals_and_lists_offline_devices()
+    {
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.Logging.ClearProviders();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        await using var app = builder.Build();
+        app.UseWebSockets();
+        var connected = new TaskCompletionSource<WebSocket>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        app.Run(async context =>
+        {
+            using var socket = await context.WebSockets.AcceptWebSocketAsync();
+            connected.SetResult(socket);
+            await release.Task;
+        });
+        await app.StartAsync();
+        try
+        {
+            var endpoint = new Uri(app.Urls.Single());
+            await using var server = await MobilePreviewServer.StartRemoteAsync(new PreviewSessionResponse(endpoint,
+                new UriBuilder(endpoint) { Scheme = "ws" }.Uri, "test-publisher", "123456", DateTimeOffset.UtcNow.AddMinutes(10)));
+            var relay = await connected.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            async Task Send(object message) => await relay.SendAsync(JsonSerializer.SerializeToUtf8Bytes(message),
+                WebSocketMessageType.Text, true, CancellationToken.None);
+            var devices = new[] { new { id = "one", address = "Phone 1" }, new { id = "two", address = "Phone 2" } };
+            await Send(new { clients = devices, paired = devices });
+            await WaitUntil(() => server.GetClients().Length == 2);
+            Assert.That(server.GetDevices().All(d => d.Connected), Is.True);
+            server.PublishPlayback(true, 2.5, 0, 10, 1, true);
+            await ReadMessage(relay, m => m.GetProperty("type").GetString() == "signal"
+                && m.GetProperty("signal").TryGetProperty("position", out var position) && position.GetDouble() == 2.5);
+            server.RenewPairingCode();
+            var pairing = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "pairing");
+            Assert.That(pairing.GetProperty("code").GetString(), Is.EqualTo(server.PairingCode));
+
+            server.ControlRequested = (id, _, _) => Task.FromResult(id == "two");
+            foreach (string message in new[] { "null", "[]", "{\"type\":false}", "{\"type\":\"offer\"}",
+                         "{\"type\":\"offer\",\"sdp\":17}", "{\"type\":\"candidate\"}",
+                         "{\"type\":\"offer\",\"sdp\":\"invalid SDP\",\"hdr\":\"false\"}",
+                         "{\"type\":\"candidate\",\"candidate\":{\"candidate\":17}}" })
+                await Send(new { type = "signal", id = "one", signal = JsonSerializer.Deserialize<JsonElement>(message) });
+            await Send(new { type = "signal", id = "two", signal = new { type = "control", requestId = 1, action = "play" } });
+            var result = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "signal"
+                && m.GetProperty("signal").GetProperty("type").GetString() == "control-result");
+            Assert.That(result.GetProperty("id").GetString(), Is.EqualTo("two"));
+            Assert.That(result.GetProperty("signal").GetProperty("ok").GetBoolean(), Is.True);
+
+            await Send(new { clients = devices[1..], paired = devices });
+            await WaitUntil(() => server.GetClients().Length == 1);
+            Assert.That(server.GetDevices().Single(d => d.Id == "one").Connected, Is.False);
+            server.Disconnect("one");
+            var disconnect = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "disconnect");
+            Assert.That(disconnect.GetProperty("id").GetString(), Is.EqualTo("one"));
+            await Send(new { clients = devices[1..], paired = devices[1..] });
+            await WaitUntil(() => server.GetDevices().Length == 1);
+
+            var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            server.RelayDisconnected += (_, _) => disconnected.TrySetResult();
+            await relay.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Test complete", CancellationToken.None);
+            await disconnected.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(server.GetClients(), Is.Empty);
+        }
+        finally { release.TrySetResult(); }
+    }
+
+    [TestCase(1)]
+    [TestCase(2)]
+    public void Audio_continues_between_low_rate_video_frames_and_stops_on_pause(int frameRate)
+    {
+        var blocks = new[] { new AudioFrameSnapshot(Enumerable.Repeat(0.25f, 48000 * 2).ToArray(),
+            48000, 2, MediaTime.Zero) { PlaybackId = 7 } };
+        using var frame = new MobilePreviewServer.PendingFrame(SolidFrame(0, 0, 0), UIToneMappingOperator.None,
+            0, true, 0, 7, 0);
+        long nextSample = 0;
+        for (int packet = 0; packet < 50 / frameRate; packet++)
+        {
+            var samples = MobilePreviewServer.SampleCurrentAudio(blocks, frame, packet * 0.02, ref nextSample);
+            Assert.That(samples, Is.Not.Null, $"Audio packet {packet} between {frameRate} fps frames.");
+            Assert.That(samples!, Is.All.EqualTo(0.25f));
+            nextSample += 960;
+        }
+        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, frame with { Playing = false }, 1, ref nextSample), Is.Null);
+        Assert.That(nextSample, Is.Zero);
+        Assert.That(MobilePreviewServer.SampleCurrentAudio(blocks, frame with { PlaybackId = 8 }, 1, ref nextSample), Is.Null);
     }
 
     [Test]
@@ -219,6 +372,14 @@ public sealed class MobilePreviewTests
             Assert.That(clean.Pixels.Count(p => p.Red > 200 && p.Green < 60 && p.Blue < 60), Is.GreaterThan(0));
             Assert.That(clean.Pixels.Count(p => p.Red > 240 && p.Green > 240 && p.Blue > 240), Is.Zero);
             HeadlessCapture.SaveIfRequested(mobile, nameof(MobilePreviewTests), "desktop-sharing");
+
+            socket.Abort();
+            await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 0);
+            HeadlessTestHelpers.Settle();
+            HeadlessCapture.SaveIfRequested(mobile, nameof(MobilePreviewTests), "desktop-offline-device");
+            using var reconnect = await Connect(server, cookies);
+            await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
+            HeadlessTestHelpers.Settle();
 
             if (closePresentationFirst)
             {
@@ -411,7 +572,7 @@ public sealed class MobilePreviewTests
         return socket;
     }
 
-    private static async Task<JsonElement> ReadMessage(ClientWebSocket socket, Func<JsonElement, bool> predicate)
+    private static async Task<JsonElement> ReadMessage(WebSocket socket, Func<JsonElement, bool> predicate)
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
         byte[] buffer = new byte[65536];

@@ -1,11 +1,35 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
 	"github.com/pion/webrtc/v4"
 )
+
+func TestMalformedCandidateDoesNotStopTransport(t *testing.T) {
+	var buffer bytes.Buffer
+	outputLock.Lock()
+	previous := output
+	output = json.NewEncoder(&buffer)
+	outputLock.Unlock()
+	defer func() {
+		outputLock.Lock()
+		output = previous
+		outputLock.Unlock()
+	}()
+	run(strings.NewReader(`{"id":"malformed","type":"candidate","candidate":{"candidate":17}}
+{"id":"following","type":"unknown"}
+`))
+	outputLock.Lock()
+	result := buffer.String()
+	outputLock.Unlock()
+	if !strings.Contains(result, `"id":"malformed"`) || !strings.Contains(result, `"id":"following"`) {
+		t.Fatalf("transport must process commands after a malformed candidate: %s", result)
+	}
+}
 
 func TestNegotiatedVideoProfile(t *testing.T) {
 	for _, tc := range []struct {
