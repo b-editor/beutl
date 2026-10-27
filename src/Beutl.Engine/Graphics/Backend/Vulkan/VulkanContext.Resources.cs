@@ -184,7 +184,7 @@ internal sealed unsafe partial class VulkanContext
         if (pipelineOptions.Topology == PrimitiveTopology.TriangleFan && !SupportsTriangleFans)
             throw new NotSupportedException("This device does not support triangle fans.");
         ImmutableArray<SpecializationConstant> specializationConstants =
-            ValidateSpecializationConstants(pipelineOptions.SpecializationConstants, nameof(options));
+            SpecializationConstant.Validate(pipelineOptions.SpecializationConstants, nameof(options));
         ValidateSpecializationConstantPrecision(specializationConstants, nameof(options));
 
         if (!vulkanRenderPass.HasDepthAttachment
@@ -206,50 +206,6 @@ internal sealed unsafe partial class VulkanContext
             vulkanRenderPass.ColorAttachmentCount,
             vulkanRenderPass.HasDepthAttachment,
             VulkanPipelineFixedFunctionState.From(pipelineOptions));
-    }
-
-    internal static ImmutableArray<SpecializationConstant> ValidateSpecializationConstants(
-        ImmutableArray<SpecializationConstant> constants,
-        string parameterName)
-    {
-        if (constants.IsDefaultOrEmpty)
-            return [];
-
-        const ShaderStage supportedStages = ShaderStage.Vertex | ShaderStage.Fragment;
-        var occupiedIds = new HashSet<(ShaderStage Stage, uint ConstantId)>();
-
-        foreach (SpecializationConstant constant in constants)
-        {
-            if (constant.SizeInBytes is not (sizeof(uint) or sizeof(ulong)))
-            {
-                throw new ArgumentException(
-                    $"Specialization constant {constant.ConstantId} has an invalid scalar size.",
-                    parameterName);
-            }
-
-            if (constant.Stages == ShaderStage.None
-                || (constant.Stages & ~supportedStages) != ShaderStage.None)
-            {
-                throw new ArgumentException(
-                    $"Specialization constant {constant.ConstantId} must target only vertex or fragment stages.",
-                    parameterName);
-            }
-
-            foreach (ShaderStage stage in new[] { ShaderStage.Vertex, ShaderStage.Fragment })
-            {
-                if ((constant.Stages & stage) != stage)
-                    continue;
-
-                if (!occupiedIds.Add((stage, constant.ConstantId)))
-                {
-                    throw new ArgumentException(
-                        $"Specialization constant {constant.ConstantId} is specified more than once for the {stage} stage.",
-                        parameterName);
-                }
-            }
-        }
-
-        return constants;
     }
 
     /// <summary>

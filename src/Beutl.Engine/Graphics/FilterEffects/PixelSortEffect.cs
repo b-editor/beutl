@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.Numerics;
 using Beutl.Engine;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
 
@@ -21,7 +22,7 @@ public sealed partial class PixelSortEffect : FilterEffect
         layout(location = 0) out vec4 outColor;
 
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
-        const int sortKeyType = SORT_KEY;
+        layout(constant_id = 0) const int sortKeyType = 0;
 
         layout(push_constant) uniform PushConstants {
             float thresholdMin;
@@ -72,7 +73,7 @@ public sealed partial class PixelSortEffect : FilterEffect
         layout(location = 0) out vec4 outColor;
 
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
-        const int sortDir = SORT_DIRECTION;
+        layout(constant_id = 0) const int sortDir = 0;
 
         void main() {
             ivec2 coord = ivec2(gl_FragCoord.xy);
@@ -134,8 +135,8 @@ public sealed partial class PixelSortEffect : FilterEffect
 
         layout(set = 0, binding = 0) uniform sampler2D rankTexture;
         layout(set = 0, binding = 1) uniform sampler2D originalTexture;
-        const int sortDir = SORT_DIRECTION;
-        const int ascending = SORT_ASCENDING;
+        layout(constant_id = 0) const int sortDir = 0;
+        layout(constant_id = 1) const int ascending = 1;
 
         void main() {
             ivec2 coord = ivec2(gl_FragCoord.xy);
@@ -193,13 +194,15 @@ public sealed partial class PixelSortEffect : FilterEffect
 
     // Only immutable definitions are retained here. Device pipelines belong to the renderer's cache.
     private static readonly PixelSortPipelineCache<ShaderProgram> s_programs = new(
-        static key => ShaderProgram.Fullscreen(new ShaderSource(
-            PrepareShaderSource.Replace("SORT_KEY", ((int)key).ToString(System.Globalization.CultureInfo.InvariantCulture)))),
-        static direction => ShaderProgram.Fullscreen(new ShaderSource(
-            RankShaderSource.Replace("SORT_DIRECTION", ((int)direction).ToString(System.Globalization.CultureInfo.InvariantCulture)))),
-        static (direction, ascending) => ShaderProgram.Fullscreen(new ShaderSource(
-            GatherRestoreShaderSource.Replace("SORT_DIRECTION", ((int)direction).ToString(System.Globalization.CultureInfo.InvariantCulture))
-                .Replace("SORT_ASCENDING", ascending ? "1" : "0"))));
+        static key => ShaderProgram.Fullscreen(new ShaderSource(PrepareShaderSource))
+            .Specialize([SpecializationConstant.Create(0, (int)key, ShaderStage.Fragment)]),
+        static direction => ShaderProgram.Fullscreen(new ShaderSource(RankShaderSource))
+            .Specialize([SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment)]),
+        static (direction, ascending) => ShaderProgram.Fullscreen(new ShaderSource(GatherRestoreShaderSource))
+            .Specialize([
+                SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment),
+                SpecializationConstant.Create(1, ascending ? 1 : 0, ShaderStage.Fragment)
+            ]));
 
     public PixelSortEffect()
     {

@@ -46,7 +46,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 byte[] bytes = compiler.CompileToSpirv(source.Text, stage);
                 stages.Add(stage, bytes);
                 RetainedByteSize = checked(RetainedByteSize + bytes.Length);
-                var shaderInterface = new ShaderInterface(bytes, stage);
+                var shaderInterface = new ShaderInterface(bytes, stage, pass.Program.SpecializationConstants);
                 _interfaces.Add(stage, shaderInterface);
                 foreach (uint capability in shaderInterface.Capabilities)
                 {
@@ -76,7 +76,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     context.Vk.GetPhysicalDeviceQueueFamilyProperties(context.PhysicalDevice, &count, data);
                 if ((families[context.GraphicsQueueFamilyIndex].QueueFlags & QueueFlags.ComputeBit) == 0)
                     throw new NotSupportedException("The rendering queue does not support compute dispatch.");
-                _compute = new VulkanComputePipeline(context, stages[ShaderStage.Compute], bindings);
+                _compute = new VulkanComputePipeline(context, stages[ShaderStage.Compute], bindings, pass.Program.SpecializationConstants);
             }
             else
             {
@@ -97,7 +97,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 _graphics = new VulkanPipeline3D(context, _renderPass.Handle,
                     stages[ShaderStage.Vertex], stages[ShaderStage.Fragment],
                     VulkanFlagConverter.ToVulkan(pass.Draw.GetVertexInput()), bindings.Select(VulkanFlagConverter.ToVulkan).ToArray(),
-                    [], pass.Attachments.Length, pass.DepthAttachment is not null, VulkanPipelineFixedFunctionState.From(options),
+                    pass.Program.SpecializationConstants, pass.Attachments.Length, pass.DepthAttachment is not null, VulkanPipelineFixedFunctionState.From(options),
                     stages.Where(s => s.Key is not (ShaderStage.Vertex or ShaderStage.Fragment)).ToDictionary(), (uint)pass.PatchControlPoints);
             }
             foreach (ShaderPassBinding binding in pass.Bindings)

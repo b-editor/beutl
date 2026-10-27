@@ -1,4 +1,5 @@
-﻿using Silk.NET.Vulkan;
+﻿using System.Collections.Immutable;
+using Silk.NET.Vulkan;
 
 namespace Beutl.Graphics.Backend.Vulkan;
 
@@ -13,7 +14,8 @@ internal sealed unsafe class VulkanComputePipeline : IDisposable
     public DescriptorSetLayout DescriptorLayout { get; private set; }
     public VulkanDescriptorBindingTable Bindings { get; }
 
-    public VulkanComputePipeline(VulkanContext context, byte[] source, DescriptorBinding[] bindings)
+    public VulkanComputePipeline(VulkanContext context, byte[] source, DescriptorBinding[] bindings,
+        ImmutableArray<SpecializationConstant> specializationConstants = default)
     {
         _context = context;
         DescriptorSetLayoutBinding[] declarations = bindings.Select(VulkanFlagConverter.ToVulkan).ToArray();
@@ -44,8 +46,12 @@ internal sealed unsafe class VulkanComputePipeline : IDisposable
             };
             Check(context.Vk.CreatePipelineLayout(context.Device, &layoutInfo, null, out var pipelineLayout));
             Layout = pipelineLayout;
+            var specialization = new VulkanSpecializationData(specializationConstants);
             fixed (byte* entryPoint = "main\0"u8)
+            fixed (SpecializationMapEntry* entries = specialization.MapEntries)
+            fixed (byte* data = specialization.Data)
             {
+                SpecializationInfo values = specialization.Describe(ShaderStage.Compute, entries, data);
                 var pipelineInfo = new ComputePipelineCreateInfo
                 {
                     SType = StructureType.ComputePipelineCreateInfo,
@@ -56,6 +62,7 @@ internal sealed unsafe class VulkanComputePipeline : IDisposable
                         Stage = ShaderStageFlags.ComputeBit,
                         Module = _shader,
                         PName = entryPoint,
+                        PSpecializationInfo = values.MapEntryCount == 0 ? null : &values,
                     },
                 };
                 Result result = context.Vk.CreateComputePipelines(context.Device, default, 1, &pipelineInfo, null, out var pipeline);

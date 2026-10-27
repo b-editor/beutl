@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Collections.Immutable;
+using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 
 namespace Beutl.Graphics.Shaders;
@@ -12,7 +13,7 @@ internal sealed class ShaderInterface
     private readonly Dictionary<uint, (ushort Op, uint[] Args)> _types = [];
     private readonly Dictionary<(uint Id, uint Decoration), uint> _decorations = [];
     private readonly Dictionary<(uint Id, uint Member, uint Decoration), uint> _members = [];
-    private readonly Dictionary<uint, uint> _constants = [];
+    private readonly Dictionary<uint, ulong> _constants = [];
     private readonly List<(uint Type, uint Id, uint Storage)> _variables = [];
     private readonly Dictionary<(uint Location, uint Component, bool Patch), string> _inputs = [];
     private readonly Dictionary<(uint Location, uint Component, bool Patch), uint> _inputTypes = [];
@@ -30,12 +31,17 @@ internal sealed class ShaderInterface
     public int PushConstantSize { get; private set; }
     public int SharedMemorySize { get; private set; }
 
-    public ShaderInterface(byte[] bytecode, ShaderStage stage)
+    public ShaderInterface(byte[] bytecode, ShaderStage stage,
+        ImmutableArray<SpecializationConstant> specializationConstants = default)
     {
         ReadOnlySpan<uint> words = MemoryMarshal.Cast<byte, uint>(bytecode);
         if (words.Length < 5 || words[0] != 0x07230203)
             throw new InvalidOperationException("The compiler returned invalid SPIR-V.");
         var composites = new Dictionary<uint, uint[]>();
+        var specializations = (specializationConstants.IsDefault ? [] : specializationConstants)
+            .Where(c => (c.Stages & stage) != 0).ToDictionary(c => c.ConstantId);
+        uint[]? localSizeIds = null;
+        Span<byte> scalar = stackalloc byte[sizeof(ulong)];
         for (int offset = 5; offset < words.Length;)
         {
             int length = (int)(words[offset] >> 16);
@@ -57,10 +63,21 @@ internal sealed class ShaderInterface
                 case >= 19 and <= 32: // type declarations
                     _types.Add(args[0], (op, args[1..]));
                     break;
-                case 43: // OpConstant
-                    _constants.Add(args[1], args[2]);
+                case 41 or 42 or 43: // OpConstantTrue, OpConstantFalse, OpConstant
+                case 48 or 49 or 50: // OpSpecConstantTrue, OpSpecConstantFalse, OpSpecConstant
+                    ulong value = op is 41 or 48 ? 1u : op is 42 or 49 ? 0u
+                        : args.Length > 3 ? args[2] | ((ulong)args[3] << 32) : args[2];
+                    if (op is 48 or 49 or 50 && _decorations.TryGetValue((args[1], 1u), out uint constantId)
+                        && specializations.TryGetValue(constantId, out SpecializationConstant constant))
+                    {
+                        if (constant.SizeInBytes != SizeOf(args[0]))
+                            throw new ArgumentException($"Specialization constant {constantId} in {stage} requires {SizeOf(args[0])} bytes; supplied {constant.SizeInBytes}.");
+                        constant.CopyValueTo(scalar);
+                        value = constant.SizeInBytes == sizeof(ulong) ? BitConverter.ToUInt64(scalar) : BitConverter.ToUInt32(scalar);
+                    }
+                    _constants.Add(args[1], value);
                     break;
-                case 44: // OpConstantComposite (including WorkgroupSize)
+                case 44 or 51: // OpConstantComposite / OpSpecConstantComposite (including WorkgroupSize)
                     composites.Add(args[1], args[2..]);
                     break;
                 case 59: // OpVariable
@@ -72,15 +89,18 @@ internal sealed class ShaderInterface
                 case 72: // OpMemberDecorate
                     _members[(args[0], args[1], args[2])] = args.Length > 3 ? args[3] : 0;
                     break;
-                case 331 when args[1] == 38: // LocalSizeId needs specialization support
-                    throw new NotSupportedException("Specialized compute local sizes are not supported by shader graphs yet.");
+                case 331 when args[1] == 38: // OpExecutionModeId LocalSizeId
+                    localSizeIds = args[2..];
+                    break;
             }
             offset += length;
         }
+        if (localSizeIds is { } ids)
+            LocalSize = (Constant(ids[0]), Constant(ids[1]), Constant(ids[2]));
         foreach ((uint id, uint[] values) in composites)
         {
             if (_decorations.GetValueOrDefault((id, 11u), uint.MaxValue) == 25)
-                LocalSize = (_constants[values[0]], _constants[values[1]], _constants[values[2]]);
+                LocalSize = (Constant(values[0]), Constant(values[1]), Constant(values[2]));
         }
         foreach ((uint pointer, uint id, uint storage) in _variables)
         {
@@ -193,6 +213,8 @@ internal sealed class ShaderInterface
         }
     }
 
+    private uint Constant(uint id) => checked((uint)_constants[id]);
+
     private void ReadStageVariables(uint type, uint id, Dictionary<(uint, uint, bool), string> variables)
     {
         if (_decorations.ContainsKey((id, 11))) // BuiltIn
@@ -248,7 +270,7 @@ internal sealed class ShaderInterface
             21 or 22 => 1u,
             23 => (_types[args[0]].Args[0] * args[1] + 127) / 128,
             24 => LocationCount(args[0]) * args[1],
-            28 => LocationCount(args[0]) * _constants[args[1]],
+            28 => LocationCount(args[0]) * Constant(args[1]),
             30 => args.Aggregate(0u, (count, member) => checked(count + LocationCount(member))),
             _ => throw new NotSupportedException($"Unsupported shader stage interface type (SPIR-V opcode {op})."),
         });
@@ -292,7 +314,7 @@ internal sealed class ShaderInterface
             (ushort op, uint[] args) = _types[type];
             if (op is 24 or 28) // matrix columns and array elements occupy consecutive locations
             {
-                uint count = op == 24 ? args[1] : _constants[args[1]];
+                uint count = op == 24 ? args[1] : Constant(args[1]);
                 for (uint i = 0; i < count; i++)
                     Validate(args[0], checked(location + i * LocationCount(args[0])));
                 return;

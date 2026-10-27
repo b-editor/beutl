@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Backend;
+﻿using System.Collections.Immutable;
+
+namespace Beutl.Graphics.Backend;
 
 /// <summary>
 /// Describes an immutable scalar value used to specialize one or more shader stages when a pipeline is created.
@@ -119,5 +121,49 @@ public readonly record struct SpecializationConstant
         {
             throw new InvalidOperationException("The specialization constant has an invalid scalar size.");
         }
+    }
+
+    internal static ImmutableArray<SpecializationConstant> Validate(
+        ImmutableArray<SpecializationConstant> constants,
+        string parameterName, ShaderStage supportedStages = ShaderStage.Vertex | ShaderStage.Fragment)
+    {
+        if (constants.IsDefaultOrEmpty)
+            return [];
+
+        var occupiedIds = new HashSet<(ShaderStage Stage, uint ConstantId)>();
+
+        foreach (SpecializationConstant constant in constants)
+        {
+            if (constant.SizeInBytes is not (sizeof(uint) or sizeof(ulong)))
+            {
+                throw new ArgumentException(
+                    $"Specialization constant {constant.ConstantId} has an invalid scalar size.",
+                    parameterName);
+            }
+
+            if (constant.Stages == ShaderStage.None
+                || (constant.Stages & ~supportedStages) != ShaderStage.None)
+            {
+                throw new ArgumentException(
+                    $"Specialization constant {constant.ConstantId} targets a stage not present in the program.",
+                    parameterName);
+            }
+
+            foreach (ShaderStage stage in new[] { ShaderStage.Vertex, ShaderStage.Fragment, ShaderStage.Compute, ShaderStage.Geometry,
+                         ShaderStage.TessellationControl, ShaderStage.TessellationEvaluation })
+            {
+                if ((constant.Stages & stage) != stage)
+                    continue;
+
+                if (!occupiedIds.Add((stage, constant.ConstantId)))
+                {
+                    throw new ArgumentException(
+                        $"Specialization constant {constant.ConstantId} is specified more than once for the {stage} stage.",
+                        parameterName);
+                }
+            }
+        }
+
+        return constants;
     }
 }

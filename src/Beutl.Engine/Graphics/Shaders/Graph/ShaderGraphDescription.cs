@@ -296,7 +296,7 @@ public sealed class ShaderGraphDescription
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        writer.Write("ShaderGraphPipeline/v3");
+        writer.Write("ShaderGraphPipeline/v4");
         WritePipelineIdentity(writer, pass);
         writer.Flush();
         return ShaderProgramIdentity.CreateSpirv(Convert.ToBase64String(stream.GetBuffer(), 0, checked((int)stream.Length)));
@@ -336,11 +336,22 @@ public sealed class ShaderGraphDescription
             writer.Write(attribute.Offset);
         }
         writer.Write(pass.Program!.Stages.Count);
+        Span<byte> value = stackalloc byte[sizeof(ulong)];
         foreach ((ShaderStage stage, ShaderSource source) in pass.Program.Stages.OrderBy(s => s.Key))
         {
             writer.Write((int)stage);
             writer.Write((int)source.Language);
             writer.Write(source.Text);
+            SpecializationConstant[] constants = pass.Program.SpecializationConstants
+                .Where(c => (c.Stages & stage) != 0).OrderBy(c => c.ConstantId).ToArray();
+            writer.Write(constants.Length);
+            foreach (SpecializationConstant constant in constants)
+            {
+                writer.Write(constant.ConstantId);
+                writer.Write(constant.SizeInBytes);
+                constant.CopyValueTo(value);
+                writer.Write(value[..constant.SizeInBytes]);
+            }
         }
         writer.Write(pass.Bindings.Length);
         foreach (ShaderPassBinding binding in pass.Bindings)

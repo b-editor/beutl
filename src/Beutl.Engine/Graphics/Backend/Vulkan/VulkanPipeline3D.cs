@@ -144,36 +144,23 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
         int colorAttachmentCount, bool hasDepthAttachment, in VulkanPipelineFixedFunctionState state,
         ImmutableArray<SpecializationConstant> specializationConstants)
     {
-        VulkanSpecializationData vertexSpecialization = CreateSpecializationData(
-            specializationConstants,
-            ShaderStage.Vertex);
-        VulkanSpecializationData fragmentSpecialization = CreateSpecializationData(
-            specializationConstants,
-            ShaderStage.Fragment);
+        var specialization = new VulkanSpecializationData(specializationConstants);
+        ShaderStage[] stages = [ShaderStage.Vertex, ShaderStage.Fragment, .. _additionalShaders.Keys];
         fixed (byte* mainPtr = "main\0"u8)
-        fixed (SpecializationMapEntry* vertexEntriesPtr = vertexSpecialization.MapEntries)
-        fixed (byte* vertexDataPtr = vertexSpecialization.Data)
-        fixed (SpecializationMapEntry* fragmentEntriesPtr = fragmentSpecialization.MapEntries)
-        fixed (byte* fragmentDataPtr = fragmentSpecialization.Data)
+        fixed (SpecializationMapEntry* entries = specialization.MapEntries)
+        fixed (byte* data = specialization.Data)
         {
-            var vertexSpecializationInfo = DescribeSpecialization(vertexSpecialization, vertexEntriesPtr, vertexDataPtr);
-            var fragmentSpecializationInfo = DescribeSpecialization(
-                fragmentSpecialization, fragmentEntriesPtr, fragmentDataPtr);
-            var shaderStages = stackalloc PipelineShaderStageCreateInfo[2 + _additionalShaders.Count];
-            shaderStages[0] = DescribeShaderStage(
-                ShaderStageFlags.VertexBit,
-                _vertexShader,
-                mainPtr,
-                vertexSpecialization.MapEntries.Length == 0 ? null : &vertexSpecializationInfo);
-            shaderStages[1] = DescribeShaderStage(
-                ShaderStageFlags.FragmentBit,
-                _fragmentShader,
-                mainPtr,
-                fragmentSpecialization.MapEntries.Length == 0 ? null : &fragmentSpecializationInfo);
-
-            int stageIndex = 2;
-            foreach (var (stage, module) in _additionalShaders)
-                shaderStages[stageIndex++] = DescribeShaderStage(VulkanFlagConverter.ToVulkan(stage), module, mainPtr, null);
+            var values = stackalloc SpecializationInfo[stages.Length];
+            var shaderStages = stackalloc PipelineShaderStageCreateInfo[stages.Length];
+            for (int i = 0; i < stages.Length; i++)
+            {
+                ShaderStage stage = stages[i];
+                ShaderModule module = stage == ShaderStage.Vertex ? _vertexShader
+                    : stage == ShaderStage.Fragment ? _fragmentShader : _additionalShaders[stage];
+                values[i] = specialization.Describe(stage, entries, data);
+                shaderStages[i] = DescribeShaderStage(VulkanFlagConverter.ToVulkan(stage), module, mainPtr,
+                    values[i].MapEntryCount == 0 ? null : &values[i]);
+            }
             var tessellation = new PipelineTessellationStateCreateInfo
             {
                 SType = StructureType.PipelineTessellationStateCreateInfo,
@@ -242,7 +229,7 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
                 var pipelineInfo = new GraphicsPipelineCreateInfo
                 {
                     SType = StructureType.GraphicsPipelineCreateInfo,
-                    StageCount = (uint)stageIndex,
+                    StageCount = (uint)stages.Length,
                     PTessellationState = _additionalShaders.ContainsKey(ShaderStage.TessellationControl) ? &tessellation : null,
                     PStages = shaderStages,
                     PVertexInputState = &vertexInputInfo,
@@ -271,18 +258,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
 
     // The Describe* builders only assemble structs; every pointer they store arrives as an argument that the
     // caller keeps pinned until vkCreateGraphicsPipelines returns.
-    private static SpecializationInfo DescribeSpecialization(
-        VulkanSpecializationData data,
-        SpecializationMapEntry* entries,
-        byte* bytes)
-        => new()
-        {
-            MapEntryCount = (uint)data.MapEntries.Length,
-            PMapEntries = entries,
-            DataSize = (nuint)data.Data.Length,
-            PData = bytes,
-        };
-
     private static PipelineShaderStageCreateInfo DescribeShaderStage(
         ShaderStageFlags stage,
         ShaderModule module,
@@ -338,38 +313,6 @@ internal sealed unsafe class VulkanPipeline3D : IPipeline3D, IVulkanContextResou
             DstAlphaBlendFactor = state.DstAlphaBlendFactor,
             AlphaBlendOp = state.AlphaBlendOp
         };
-
-    private static VulkanSpecializationData CreateSpecializationData(
-        ImmutableArray<SpecializationConstant> constants,
-        ShaderStage stage)
-    {
-        SpecializationConstant[] stageConstants = constants
-            .Where(constant => (constant.Stages & stage) == stage)
-            .OrderBy(constant => constant.ConstantId)
-            .ToArray();
-        var entries = new SpecializationMapEntry[stageConstants.Length];
-        var data = new byte[stageConstants.Sum(constant => constant.SizeInBytes)];
-        int offset = 0;
-
-        for (int i = 0; i < stageConstants.Length; i++)
-        {
-            SpecializationConstant constant = stageConstants[i];
-            entries[i] = new SpecializationMapEntry
-            {
-                ConstantID = constant.ConstantId,
-                Offset = (uint)offset,
-                Size = (nuint)constant.SizeInBytes,
-            };
-            constant.CopyValueTo(data.AsSpan(offset, constant.SizeInBytes));
-            offset += constant.SizeInBytes;
-        }
-
-        return new VulkanSpecializationData(entries, data);
-    }
-
-    private sealed record VulkanSpecializationData(
-        SpecializationMapEntry[] MapEntries,
-        byte[] Data);
 
     internal static ShaderModule CreateShaderModule(Vk vk, Device device, byte[] spirv)
     {

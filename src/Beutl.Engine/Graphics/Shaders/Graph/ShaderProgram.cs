@@ -29,9 +29,23 @@ public sealed record ShaderSource
 /// <summary>An immutable program definition, independent of a device and of per-request parameter values.</summary>
 public sealed class ShaderProgram
 {
-    private ShaderProgram(ImmutableDictionary<ShaderStage, ShaderSource> stages) => Stages = stages;
+    private ShaderProgram(ImmutableDictionary<ShaderStage, ShaderSource> stages,
+        ImmutableArray<SpecializationConstant> specializationConstants = default)
+    {
+        Stages = stages;
+        SpecializationConstants = specializationConstants.IsDefault ? [] : specializationConstants;
+    }
 
     public ImmutableDictionary<ShaderStage, ShaderSource> Stages { get; }
+
+    /// <summary>Immutable scalar values applied when this program's device pipeline is created.</summary>
+    public ImmutableArray<SpecializationConstant> SpecializationConstants { get; }
+
+    /// <summary>Returns a program with a snapshot of the supplied specialization values, replacing any previous values.</summary>
+    /// <remarks>IDs are scoped to shader stages. Unspecified constants retain their shader defaults.</remarks>
+    public ShaderProgram Specialize(ReadOnlySpan<SpecializationConstant> constants)
+        => new(Stages, SpecializationConstant.Validate([.. constants], nameof(constants),
+            Stages.Keys.Aggregate(ShaderStage.None, static (all, stage) => all | stage)));
 
     internal bool IsCompute => Stages.ContainsKey(ShaderStage.Compute);
 

@@ -29,12 +29,13 @@ public sealed class ShaderGraphStageTests
         #version 450
         layout(triangles) in;
         layout(triangle_strip, max_vertices = 3) out;
+        layout(constant_id = 0) const float factor = 1;
         layout(location = 0) in vec4 inputTint[];
         layout(location = 0) out vec4 tint;
         void main() {
             for (int i = 0; i < 3; i++) {
                 gl_Position = gl_in[i].gl_Position;
-                tint = inputTint[i];
+                tint = vec4(inputTint[i].rgb * factor, inputTint[i].a);
                 EmitVertex();
             }
             EndPrimitive();
@@ -43,11 +44,12 @@ public sealed class ShaderGraphStageTests
     private static readonly ShaderSource s_control = new("""
         #version 450
         layout(vertices = 3) out;
+        layout(constant_id = 0) const float factor = 1;
         layout(location = 0) in vec4 inputTint[];
         layout(location = 0) out vec4 tint[];
         void main() {
             gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
-            tint[gl_InvocationID] = inputTint[gl_InvocationID];
+            tint[gl_InvocationID] = vec4(inputTint[gl_InvocationID].rgb * factor, inputTint[gl_InvocationID].a);
             gl_TessLevelOuter[0] = 1; gl_TessLevelOuter[1] = 1; gl_TessLevelOuter[2] = 1;
             gl_TessLevelInner[0] = 1;
         }
@@ -55,21 +57,29 @@ public sealed class ShaderGraphStageTests
     private static readonly ShaderSource s_evaluation = new("""
         #version 450
         layout(triangles, equal_spacing, ccw) in;
+        layout(constant_id = 0) const float factor = 1;
         layout(location = 0) in vec4 inputTint[];
         layout(location = 0) out vec4 tint;
         void main() {
             gl_Position = gl_in[0].gl_Position * gl_TessCoord.x
                 + gl_in[1].gl_Position * gl_TessCoord.y + gl_in[2].gl_Position * gl_TessCoord.z;
-            tint = inputTint[0];
+            tint = vec4(inputTint[0].rgb * factor, inputTint[0].a);
         }
         """);
 
-    private static ShaderGraphDescription Graph(bool geometry, bool tessellation, int patchSize = 3)
+    private static ShaderGraphDescription Graph(bool geometry, bool tessellation, int patchSize = 3, bool specialize = false)
         => ShaderGraphBuilder.Build(0, (builder, _) =>
         {
             ShaderImage output = builder.Image2D("output", builder.Source);
-            builder.Render("stages", ShaderProgram.Graphics(s_vertex, s_fragment, geometry ? s_geometry : null,
-                tessellation ? s_control : null, tessellation ? s_evaluation : null), pass =>
+            ShaderProgram program = ShaderProgram.Graphics(s_vertex, s_fragment, geometry ? s_geometry : null,
+                tessellation ? s_control : null, tessellation ? s_evaluation : null);
+            if (specialize)
+            {
+                ShaderStage stages = (geometry ? ShaderStage.Geometry : ShaderStage.None)
+                    | (tessellation ? ShaderStage.TessellationControl | ShaderStage.TessellationEvaluation : ShaderStage.None);
+                program = program.Specialize([SpecializationConstant.Create(0, 0.5f, stages)]);
+            }
+            builder.Render("stages", program, pass =>
             {
                 pass.ColorAttachment(0, output);
                 if (tessellation) pass.PatchControlPoints(patchSize);
@@ -91,6 +101,21 @@ public sealed class ShaderGraphStageTests
                 Assert.That(() => Render(graph, SourceBounds), Throws.Exception.With.Message.Contains("unsupported SPIR-V capability"));
             else
                 AssertRed(graph, 0.5f);
+        });
+    }
+
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void OptionalStagesReceiveSpecializationValues(bool geometry, bool tessellation)
+    {
+        OnDevice(capabilities =>
+        {
+            ShaderGraphDescription graph = Graph(geometry, tessellation, specialize: true);
+            if (geometry && !capabilities.GeometryShaders || tessellation && !capabilities.TessellationShaders)
+                Assert.That(() => Render(graph, SourceBounds), Throws.Exception.With.Message.Contains("unsupported SPIR-V capability"));
+            else
+                AssertRed(graph, 0.5f * (geometry ? 0.5f : 1) * (tessellation ? 0.25f : 1));
         });
     }
 
