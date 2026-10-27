@@ -1326,6 +1326,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.WebBrowserTab.WebBrowserTabExtension#<guid>
 [Beutl.Editor.Components]Beutl.Services.PrimitiveImpls:TimelineTabExtension
   id: Beutl.Services.PrimitiveImpls.TimelineTabExtension
+[Beutl].Services.PrimitiveImpls:MobilePreviewTabExtension
+  id: Beutl.Services.PrimitiveImpls.MobilePreviewTabExtension
 
 ## Keymap
 # keymap.json: the id of every context command of every ViewExtension.
