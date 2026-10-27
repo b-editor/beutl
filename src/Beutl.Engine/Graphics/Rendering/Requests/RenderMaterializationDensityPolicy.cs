@@ -1,4 +1,6 @@
-﻿namespace Beutl.Graphics.Rendering.Requests;
+﻿using Beutl.Media;
+
+namespace Beutl.Graphics.Rendering.Requests;
 
 internal static class RenderMaterializationDensityPolicy
 {
@@ -19,7 +21,12 @@ internal static class RenderMaterializationDensityPolicy
         }
 
         if (fragment.Payload is ShaderGraphRenderFragmentPayload graph)
-            density = graph.Description.ClampWorkingScale(fragment.Inputs[0].Bounds, density, default);
+        {
+            RenderFragmentReference input = fragment.Inputs[0];
+            PixelSize sourceSize = PixelRect.FromRect(input.Bounds,
+                input.EffectiveScale.IsUnbounded ? density : input.EffectiveScale.Value).Size;
+            density = graph.Description.ClampWorkingScale(input.Bounds, density, default, sourceSize: sourceSize);
+        }
 
         Rect logicalBounds = fragment.Kind == RenderFragmentKind.Layer
                              && fragment.Payload is LayerRenderFragmentPayload layer

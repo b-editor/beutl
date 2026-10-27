@@ -27,6 +27,16 @@ internal static class ShaderGraphExecutor
     // This is an active-allocation ceiling, not the target pool's retained-cache budget.
     internal const long MaximumTransientBytes = 256L * 1024 * 1024;
 
+    internal static long EstimateImageBytes(ImageDescription description)
+    {
+        long bytes = 0;
+        for (int mip = 0; mip < description.MipLevels; mip++)
+            bytes = checked(bytes + (long)Math.Max(1, description.Width >> mip)
+                * Math.Max(1, description.Height >> mip) * Math.Max(1, description.Depth >> mip)
+                * description.ArrayLayers * description.Format.BytesPerTexel());
+        return bytes;
+    }
+
     private static readonly ShaderProgram s_copy = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(location = 0) in vec2 uv;
@@ -60,25 +70,7 @@ internal static class ShaderGraphExecutor
         long liveBytes = 0;
         long peakBytes = 0, scheduledPixels = 0;
         int imageAllocations = 0, bufferAllocations = 0, reuses = 0, executedPasses = 0;
-        var usages = graph.Resources.OfType<ShaderImage>().Where(i => !i.IsView)
-            .ToDictionary(image => image.Id, _ => (ImageUsageFlags)0);
-        foreach (ShaderPassDescription pass in graph.Passes)
-        {
-            foreach (ShaderPassBinding binding in pass.Bindings)
-                if (!binding.Metadata && binding.Resource is ShaderImage image)
-                    usages[image.Root.Id] |= binding.Type == DescriptorType.StorageImage
-                        ? ImageUsageFlags.StorageBit : ImageUsageFlags.SampledBit;
-            foreach (ShaderColorAttachment attachment in pass.Attachments)
-                usages[attachment.Image.Root.Id] |= ImageUsageFlags.ColorAttachmentBit;
-            if (pass.DepthAttachment is { } depth)
-                usages[depth.Image.Root.Id] |= ImageUsageFlags.DepthStencilAttachmentBit;
-            if (pass.Transfer is { } transfer)
-            {
-                if (transfer.Source is ShaderImage src) usages[src.Root.Id] |= ImageUsageFlags.TransferSrcBit;
-                if (transfer.Destination is ShaderImage dst) usages[dst.Root.Id] |= ImageUsageFlags.TransferDstBit;
-            }
-        }
-        usages[graph.Output.RenderingImage.Root.Id] |= ImageUsageFlags.SampledBit;
+        ImageUsageFlags[] usages = [.. graph.ImageUsages];
         try
         {
             foreach (ShaderImage image in graph.Resources.OfType<ShaderImage>())
@@ -232,12 +224,7 @@ internal static class ShaderGraphExecutor
                     }
                     else
                     {
-                        long estimate = 0;
-                        for (int mip = 0; mip < description.MipLevels; mip++)
-                            estimate = checked(estimate + (long)Math.Max(1, description.Width >> mip)
-                                * Math.Max(1, description.Height >> mip) * Math.Max(1, description.Depth >> mip)
-                                * description.ArrayLayers * description.Format.BytesPerTexel());
-                        CheckBudget(estimate, resource.Name);
+                        CheckBudget(EstimateImageBytes(description), resource.Name);
                         owner = new ShaderGraphImage(context, description, usages[root.Id]);
                         ownedStorage.Add(owner);
                         CheckBudget(checked((long)owner.AllocationSize), resource.Name);

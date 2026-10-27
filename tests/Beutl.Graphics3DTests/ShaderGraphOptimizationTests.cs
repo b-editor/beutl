@@ -1,10 +1,13 @@
 ﻿using System.Numerics;
+using System.Runtime.InteropServices;
 using Beutl.Graphics;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using static Beutl.Graphics3DTests.ShaderGraphContractTests;
 using static Beutl.Graphics3DTests.ShaderGraphResourceTests;
+using ImageUsageFlags = Silk.NET.Vulkan.ImageUsageFlags;
 
 namespace Beutl.Graphics3DTests;
 
@@ -129,6 +132,97 @@ public sealed class ShaderGraphOptimizationTests
     }
 
     [Test]
+    public void MetadataOnlyImagesRetainTheirCoordinatesWithoutReducingDensity()
+    {
+        OnDevice(_ =>
+        {
+            ShaderGraphDescription graph = ShaderGraphBuilder.Build(0, (builder, _) =>
+            {
+                ShaderImage metadata = builder.Image2D("metadata", new Rect(0, 0, 32768, 32768));
+                ShaderImage output = builder.Image2D("output", builder.Source);
+                builder.Fullscreen("read-metadata", ShaderProgram.Fullscreen(new ShaderSource("""
+                    #version 450
+                    layout(binding = 0, std140) uniform Frame { vec4 logical; vec4 raster; vec4 size; } frame;
+                    layout(location = 0) out vec4 color;
+                    void main() { color = vec4(frame.size.xy / 32768, 1, 1); }
+                    """)), pass =>
+                {
+                    pass.ImageParameters(0, metadata);
+                    pass.ColorAttachment(0, output);
+                });
+                return builder.Output(output);
+            });
+            Rect bounds = new(0, 0, 4, 2);
+            Assert.That(graph.ClampWorkingScale(bounds, 1, default), Is.EqualTo(1));
+            var result = Execute(graph, bounds);
+            Assert.That(result.Pixels, Has.All.EqualTo(1));
+            Assert.That(result.Statistics.ImageAllocations, Is.EqualTo(1));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void WorkingScaleReservesOnlyTheSourceCopyTheExecutorNeeds(bool sourceSupportsStorage)
+    {
+        OnDevice(_ =>
+        {
+            ShaderGraphDescription graph = ShaderGraphBuilder.Build(0, (builder, _) =>
+            {
+                ShaderImage image = builder.Image2D("read", builder.Source);
+                builder.Fullscreen("read-source", ShaderProgram.Fullscreen(new ShaderSource("""
+                    #version 450
+                    layout(binding = 0, rgba16f) readonly uniform image2D source;
+                    layout(location = 0) out vec4 color;
+                    void main() { color = imageLoad(source, ivec2(0)); }
+                    """)), pass =>
+                {
+                    pass.StorageImage(0, builder.Source, ResourceAccess.Read);
+                    pass.ColorAttachment(0, image);
+                });
+                return builder.Output(Sample(builder, image));
+            });
+            Rect bounds = new(0, 0, 4096, 4096);
+            PixelSize sourceSize = new(4096, 4096);
+            ImageUsageFlags usage = VulkanTexture2D.ColorTextureUsage | (sourceSupportsStorage ? ImageUsageFlags.StorageBit : 0);
+            float density = graph.ClampWorkingScale(bounds, 1, default, sourceSize: sourceSize, sourceUsage: usage);
+            Assert.That(density, sourceSupportsStorage ? Is.InRange(0.96f, 0.98f) : Is.InRange(0.65f, 0.67f));
+            Assert.That(graph.ClampWorkingScale(bounds, density, default, sourceSize: sourceSize, sourceUsage: usage),
+                Is.EqualTo(density), "The native input copy must not shrink when the output density changes.");
+            var context = GpuTestEnvironment.ResolveVulkan(GraphicsContextFactory.SharedContext!);
+            PixelRect pixels = PixelRect.FromRect(bounds, density);
+            using ITexture2D source = context.CreateTexture2D(sourceSize.Width, sourceSize.Height, TextureFormat.RGBA16Float, usage);
+            using ITexture2D output = context.CreateTexture2D(pixels.Width, pixels.Height, TextureFormat.RGBA16Float);
+            using (IRenderPass3D clear = context.CreateRenderPass3D([TextureFormat.RGBA16Float], null))
+            using (IFramebuffer3D framebuffer = context.CreateFramebuffer3D(clear, [source], null))
+            {
+                clear.Begin(framebuffer, [Colors.White]);
+                clear.End();
+            }
+            using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
+            ShaderGraphExecutionStatistics statistics = ShaderGraphExecutor.Execute(graph, source,
+                new(bounds, bounds, sourceSize, 1), output, density, default,
+                (device, pass) => ShaderGraphPipeline.Acquire(cache, new(context, context, "test", "test"), device, pass));
+            Assert.That(statistics.PeakResourceBytes, Is.LessThanOrEqualTo(ShaderGraphExecutor.MaximumTransientBytes));
+            Assert.That(statistics.ImageAllocations, Is.EqualTo(sourceSupportsStorage ? 2 : 3));
+            ReadOnlySpan<Half> values = MemoryMarshal.Cast<byte, Half>(output.DownloadPixels());
+            Assert.That((float)values[0], Is.EqualTo(1));
+            Assert.That((float)values[^1], Is.EqualTo(1));
+        });
+    }
+
+    [Test]
+    public void WorkingScaleUsesConcurrentLifetimesInsteadOfSummingRetiredImages()
+    {
+        ShaderGraphDescription graph = Chain(20, partial: true);
+        Rect bounds = new(0, 0, 3840, 2160);
+        Assert.That(graph.ClampWorkingScale(bounds, 1, default), Is.EqualTo(1));
+        float reduced = graph.ClampWorkingScale(bounds, 2, new(0.25f, -0.75f));
+        Assert.That(reduced, Is.InRange(1f, 2f));
+        Assert.That(graph.ClampWorkingScale(bounds, reduced, new(0.25f, -0.75f)), Is.EqualTo(reduced));
+        Assert.That(graph.ClampWorkingScale(bounds, 0.5f, default), Is.EqualTo(0.5f));
+    }
+
+    [Test]
     public void BudgetFailureAfterRecordedWorkDoesNotPoisonTheNextExecution()
     {
         OnDevice(_ =>
@@ -143,6 +237,8 @@ public sealed class ShaderGraphOptimizationTests
                 builder.Clear("over-budget", tooLarge);
                 return builder.Output(output);
             });
+            Assert.That(graph.ClampWorkingScale(new(0, 0, 4, 2), 1, default), Is.EqualTo(1),
+                "Fixed-size buffers cannot be made smaller by lowering raster density.");
             Assert.That(() => Execute(graph, new(0, 0, 4, 2)),
                 Throws.InvalidOperationException.With.Message.Contains("active allocation budget"));
             Assert.That(Execute(ShaderGraphTests.ColorGraph(Vector4.One), new(0, 0, 4, 2)).Pixels, Has.All.EqualTo(1));

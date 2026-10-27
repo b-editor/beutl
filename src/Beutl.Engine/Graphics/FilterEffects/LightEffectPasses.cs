@@ -38,6 +38,34 @@ internal static class LightEffectPasses
             pass.ColorAttachment(0, output);
         });
 
+    public static void Downsample(ShaderGraphBuilder graph, ShaderImage source, ShaderImage destination)
+        => graph.Fullscreen(destination.Name, s_downsample, pass =>
+        {
+            pass.SampledImage(0, source);
+            pass.ImageParameters(1, source);
+            pass.ImageParameters(2, destination);
+            pass.InputRegion(0, ShaderInputRegion.Identity);
+            pass.ColorAttachment(0, destination);
+        });
+
+    // The separable [1, 3, 3, 1] / 8 filter preserves small highlights and their center
+    // as the grid gets coarser. Four bilinear samples cover its 4x4 source footprint.
+    private static readonly ShaderProgram s_downsample = ShaderProgram.Fullscreen(new ShaderSource("""
+        #version 450
+        layout(binding = 0) uniform sampler2D image;
+        layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
+        layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
+        layout(location = 0) out vec4 color;
+        void main() {
+            vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
+            vec2 uv = (position - src.raster.xy) / src.raster.zw;
+            vec2 offset = vec2(0.75) / src.size.xy;
+            color = (texture(image, uv + offset) + texture(image, uv - offset)
+                + texture(image, uv + vec2(offset.x, -offset.y))
+                + texture(image, uv + vec2(-offset.x, offset.y))) * 0.25;
+        }
+        """));
+
     private static readonly ShaderProgram s_extract = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(binding = 0) uniform sampler2D image;

@@ -34,9 +34,7 @@ internal sealed partial class RenderRequestExecutor
                     Rect required = ResolveFragmentRequirement(fragment, bounds);
                     if (bounds.Width == 0 || bounds.Height == 0 || required.Width == 0 || required.Height == 0)
                         continue;
-                    float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset, referenceBounds);
-                    MaterializedRenderValue output = CreateOwnedValue(bounds, EffectiveScale.At(density), bounds,
-                        allowPreviewDrop: true);
+                    MaterializedRenderValue? output = null;
                     bool keep = false;
                     MaterializedRenderValue sourceValue = input;
                     try
@@ -49,6 +47,9 @@ internal sealed partial class RenderRequestExecutor
                             sourceValue = CropValue(input, input.CompleteBounds, allowPreviewDrop: true);
                         ITexture2D source = sourceValue.Target.Texture
                             ?? throw new NotSupportedException("Shader graphs require backend textures; CPU rendering is not a compatible fallback.");
+                        float density = graph.ClampWorkingScale(input.CompleteBounds, scale.Value, _activeDeviceGridOffset,
+                            referenceBounds, sourceValue.DeviceBounds.Size, ((VulkanTexture2D)source).Usage);
+                        output = CreateOwnedValue(bounds, EffectiveScale.At(density), bounds, allowPreviewDrop: true);
                         ITexture2D destination = output.Target.Texture
                             ?? throw new NotSupportedException("Shader graph output requires a backend texture.");
                         sourceValue.Target.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
@@ -72,7 +73,7 @@ internal sealed partial class RenderRequestExecutor
                     {
                         if (!ReferenceEquals(sourceValue, input))
                             ReleaseUnpublished(sourceValue);
-                        if (!keep)
+                        if (!keep && output is not null)
                             ReleaseUnpublished(output);
                     }
                 }

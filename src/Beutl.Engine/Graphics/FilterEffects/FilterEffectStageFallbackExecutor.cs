@@ -1,4 +1,6 @@
-﻿using Beutl.Graphics.Rendering;
+﻿using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
+using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Logging;
@@ -98,8 +100,11 @@ internal static class FilterEffectStageFallbackExecutor
             Rect bounds = description.TransformBounds(input.Bounds, referenceBounds);
             if (IsEmpty(bounds))
                 return null;
+            ITexture2D texture = inputTarget.Texture
+                ?? throw new NotSupportedException("The shader graph input requires a backend texture.");
             float density = description.ClampWorkingScale(input.Bounds,
-                ResolveSupplyDensity(input, environment), input.DeviceGridOffset, referenceBounds);
+                ResolveSupplyDensity(input, environment), input.DeviceGridOffset, referenceBounds,
+                input.DeviceBounds.Size, ((VulkanTexture2D)texture).Usage);
             EffectTarget? output = AllocateStageOutput(input, bounds, density, environment, native: true);
             if (output?.RenderTarget is not { } outputTarget)
             {
@@ -109,8 +114,7 @@ internal static class FilterEffectStageFallbackExecutor
             try
             {
                 inputTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-                ShaderGraphExecutor.Execute(description,
-                    inputTarget.Texture ?? throw new NotSupportedException("The shader graph input requires a backend texture."),
+                ShaderGraphExecutor.Execute(description, texture,
                     new(input.Bounds, input.RasterBounds, input.DeviceBounds.Size, input.Scale.Value, referenceBounds),
                     outputTarget.Texture ?? throw new NotSupportedException("The shader graph output requires a backend texture."),
                     output.Scale.Value, input.DeviceGridOffset, acquireProgram);

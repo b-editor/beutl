@@ -156,7 +156,7 @@ public sealed class ShaderGraphContractTests
 
     internal static (float[] Pixels, ShaderGraphExecutionStatistics Statistics) Execute(ShaderGraphDescription graph,
         Rect sourceBounds, float scale = 1, Rect? region = null, Vector4? sourceColor = null,
-        ProgramCache<ShaderGraphPipeline>? cache = null)
+        ProgramCache<ShaderGraphPipeline>? cache = null, Func<int, int, Vector4>? sourcePixel = null)
     {
         var context = GpuTestEnvironment.ResolveVulkan(GraphicsContextFactory.SharedContext!);
         PixelRect sourcePixels = PixelRect.FromRect(sourceBounds, scale);
@@ -167,7 +167,8 @@ public sealed class ShaderGraphContractTests
         for (int y = 0; y < sourcePixels.Height; y++)
             for (int x = 0; x < sourcePixels.Width; x++)
             {
-                Vector4 color = sourceColor ?? new Vector4((x + 0.5f) / sourcePixels.Width, (y + 0.5f) / sourcePixels.Height, 0, 1);
+                Vector4 color = sourceColor ?? sourcePixel?.Invoke(x, y)
+                    ?? new Vector4((x + 0.5f) / sourcePixels.Width, (y + 0.5f) / sourcePixels.Height, 0, 1);
                 int offset = (y * sourcePixels.Width + x) * 4;
                 data[offset] = (Half)color.X; data[offset + 1] = (Half)color.Y;
                 data[offset + 2] = (Half)color.Z; data[offset + 3] = (Half)color.W;

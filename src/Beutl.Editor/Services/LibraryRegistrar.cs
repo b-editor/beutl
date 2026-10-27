@@ -188,6 +188,7 @@ internal static class LibraryRegistrar
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
                 .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
                 .AddFilterEffect<Bloom>(GraphicsStrings.Bloom)
+                .AddFilterEffect<LightRays>(GraphicsStrings.LightRays)
                 .AddFilterEffect<WaveRefraction>(GraphicsStrings.WaveRefraction)
                 .AddFilterEffect<DropShadow>(GraphicsStrings.DropShadow)
                 .AddFilterEffect<InnerShadow>(GraphicsStrings.InnerShadow)
