@@ -1640,4 +1640,37 @@
   <data name="LightRays_Decay_Description" xml:space="preserve">
     <value>沿每条光线减弱光强。0%保持均匀强度，值越高衰减越快。</value>
   </data>
+  <data name="MotionBlur" xml:space="preserve">
+    <value>运动模糊</value>
+  </data>
+  <data name="MotionBlur_Description" xml:space="preserve">
+    <value>在多个时刻计算前面的绘制对象和子对象，包括其变换、效果和视频。此对象自身的效果在求平均后应用。</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle" xml:space="preserve">
+    <value>快门角度 (°)</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
+    <value>相对于一帧的曝光时间：180°为半帧，360°为一帧。0°关闭时间采样。</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition" xml:space="preserve">
+    <value>曝光参考位置</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition_Description" xml:space="preserve">
+    <value>将当前帧放在曝光区间的开始、中央或结束位置。</value>
+  </data>
+  <data name="MotionBlur_Samples" xml:space="preserve">
+    <value>采样数</value>
+  </data>
+  <data name="MotionBlur_Samples_Description" xml:space="preserve">
+    <value>每帧采样1至64次。增加采样可减少残影间隙，但会增加渲染时间和内存使用量。1仅绘制当前时刻。</value>
+  </data>
+  <data name="MotionBlur_Center" xml:space="preserve">
+    <value>中央</value>
+  </data>
+  <data name="MotionBlur_Start" xml:space="preserve">
+    <value>开始</value>
+  </data>
+  <data name="MotionBlur_End" xml:space="preserve">
+    <value>结束</value>
+  </data>
 </root>

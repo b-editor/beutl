@@ -162,6 +162,11 @@ internal static class LibraryRegistrar
                 .BindDrawable<DrawableTimeController>()
             );
 
+        LibraryService.Current
+            .AddMultiple(GraphicsStrings.MotionBlur, m => m
+                .BindDrawable<MotionBlur>()
+            );
+
         LibraryService.Current.RegisterGroup(GraphicsStrings.AudioVisualizer, g => g
             .AddMultiple(GraphicsStrings.AudioWaveform, m => m
                 .BindDrawable<AudioWaveformDrawable>()

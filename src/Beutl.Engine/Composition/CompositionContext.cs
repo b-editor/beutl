@@ -33,6 +33,14 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
 
     public ProxyPreset PreferredProxyPreset { get; set; } = ProxyPreset.Quarter;
 
+    /// <summary>The frame rate used to convert a shutter angle to an exposure duration.</summary>
+    public Rational FrameRate { get; set; } = new(30, 1);
+
+    public CancellationToken CancellationToken { get; set; }
+
+    /// <summary>Creates an independent evaluation scope for time samples, preserving host capabilities.</summary>
+    public virtual CompositionEvaluationSession CreateEvaluationSession() => new(new CompositionContext(Time));
+
     /// <summary>
     /// Gets or sets the finite logical composition domain available to auxiliary render-node evaluation.
     /// </summary>

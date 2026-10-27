@@ -318,6 +318,7 @@ public class Renderer : IRenderer
     public void Render(CompositionFrame frame)
     {
         _dispatcher.VerifyAccess();
+        frame.CancellationToken.ThrowIfCancellationRequested();
         if (IsGraphicsRendering)
             return;
 
@@ -344,7 +345,7 @@ public class Renderer : IRenderer
             PrepareEntries(frame, pendingEntries);
 
             _completeTarget.UpdateRoots(pendingEntries.Select(static entry => (RenderNode)entry.Node));
-            _frameRenderer.Render(_immediateCanvas);
+            _frameRenderer.Render(_immediateCanvas, null, frame.CancellationToken);
         }
         finally
         {
@@ -360,6 +361,7 @@ public class Renderer : IRenderer
     {
         foreach (var obj in frame.Objects)
         {
+            frame.CancellationToken.ThrowIfCancellationRequested();
             if (obj is not Drawable.Resource drawableResource)
                 continue;
 

@@ -92,7 +92,10 @@ public sealed class SceneCompositor : ICompositor
                 && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
             PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
             TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1));
+            FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
         }
+
+        public override CompositionEvaluationSession CreateEvaluationSession() => new SceneEvaluationSession(_compositor.Scene, Target);
 
         public IList<Element> CurrentElements { get; set; }
 
@@ -126,8 +129,46 @@ public sealed class SceneCompositor : ICompositor
         }
     }
 
-    public CompositionFrame EvaluateGraphics(MediaTime time)
+    private sealed class SceneEvaluationSession : CompositionEvaluationSession
     {
+        private readonly SceneCompositor _compositor;
+        private readonly PooledList<Element> _elements;
+
+        public SceneEvaluationSession(Scene scene, CompositionTarget target)
+            : this(new SceneCompositor(scene), new PooledList<Element>(), target)
+        {
+        }
+
+        private SceneEvaluationSession(SceneCompositor compositor, PooledList<Element> elements, CompositionTarget target)
+            : base(new CompositorContext(MediaTime.Zero, compositor, [], elements, target))
+        {
+            _compositor = compositor;
+            _elements = elements;
+        }
+
+        public override void Update(CompositionContext source, MediaTime time)
+        {
+            base.Update(source, time);
+            _compositor.DisposeDetachedResources();
+            _elements.Clear();
+            var context = (CompositorContext)Context;
+            context.FrameTime = null;
+            context.CurrentElements = _elements;
+            _compositor.SortLayers(time, _elements, context.Target);
+        }
+
+        public override void Dispose()
+        {
+            _compositor.Dispose();
+            _elements.Dispose();
+        }
+    }
+
+    public CompositionFrame EvaluateGraphics(MediaTime time) => EvaluateGraphics(time, default);
+
+    public CompositionFrame EvaluateGraphics(MediaTime time, CancellationToken cancellationToken, Rational? frameRate = null)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
         DisposeDetachedResources();
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements, CompositionTarget.Graphics);
@@ -136,10 +177,13 @@ public sealed class SceneCompositor : ICompositor
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
+        ctx.CancellationToken = cancellationToken;
+        if (frameRate.HasValue) ctx.FrameRate = frameRate.Value;
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             flow.Clear();
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
@@ -153,6 +197,7 @@ public sealed class SceneCompositor : ICompositor
             null)
         {
             ContainsScene3D = ctx.ContainsScene3D,
+            CancellationToken = cancellationToken,
         };
     }
 

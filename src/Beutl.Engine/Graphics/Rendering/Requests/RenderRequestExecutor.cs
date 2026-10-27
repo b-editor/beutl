@@ -15,6 +15,7 @@ internal sealed partial class RenderRequestExecutor
     private readonly ProgramCache<GLSLFilterPipeline>? _spirvProgramCache;
     private readonly ProgramCache<ShaderGraphPipeline>? _graphProgramCache;
     private readonly ShaderBackendPreference _shaderBackendPreference;
+    private readonly CancellationToken _cancellationToken;
 
     public RenderExecutionStatistics Statistics { get; private set; }
 
@@ -28,12 +29,14 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<CachedSkRuntimeEffect>? programCache = null,
         ProgramCache<GLSLFilterPipeline>? spirvProgramCache = null,
         ShaderBackendPreference shaderBackendPreference = ShaderBackendPreference.Auto,
-        ProgramCache<ShaderGraphPipeline>? graphProgramCache = null)
+        ProgramCache<ShaderGraphPipeline>? graphProgramCache = null,
+        CancellationToken cancellationToken = default)
     {
         _targets = targets ?? throw new ArgumentNullException(nameof(targets));
         _programCache = programCache;
         _spirvProgramCache = spirvProgramCache;
         _graphProgramCache = graphProgramCache;
+        _cancellationToken = cancellationToken;
         if (!Enum.IsDefined(shaderBackendPreference))
             throw new ArgumentOutOfRangeException(nameof(shaderBackendPreference));
         _shaderBackendPreference = shaderBackendPreference;
@@ -295,6 +298,7 @@ internal sealed partial class RenderRequestExecutor
 
     private sealed partial class RenderRequestExecutionState : IDisposable
     {
+        private readonly CancellationToken _cancellationToken;
         private readonly RenderRequestOptions _options;
         private readonly RecordedRenderGraph _graph;
         private readonly ExecutionIslandPlan _executionPlan;
@@ -350,8 +354,10 @@ internal sealed partial class RenderRequestExecutor
             ProgramCache<CachedSkRuntimeEffect> programCache,
             ProgramCache<GLSLFilterPipeline> spirvProgramCache,
             ProgramCache<ShaderGraphPipeline> graphProgramCache,
-            ShaderBackendPreference shaderBackendPreference)
+            ShaderBackendPreference shaderBackendPreference,
+            CancellationToken cancellationToken)
         {
+            _cancellationToken = cancellationToken;
             _options = options;
             _graph = graph ?? throw new ArgumentNullException(nameof(graph));
             _executionPlan = executionPlan;
@@ -453,6 +459,7 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas destination,
             EffectiveScale callerScale)
         {
+            _cancellationToken.ThrowIfCancellationRequested();
             _replayDepth++;
             try
             {

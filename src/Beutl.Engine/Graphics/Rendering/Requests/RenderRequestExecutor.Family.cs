@@ -214,7 +214,8 @@ internal sealed partial class RenderRequestExecutor
             programCache,
             spirvProgramCache,
             graphProgramCache,
-            _shaderBackendPreference);
+            _shaderBackendPreference,
+            _cancellationToken);
         if (nestedPreviewDropObserved)
             state.MarkPreviewAllocationDropped();
 

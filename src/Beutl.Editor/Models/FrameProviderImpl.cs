@@ -68,9 +68,9 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     public Rational FrameRate => _rate;
 
-    private Bitmap RenderCore(MediaTime time)
+    private Bitmap RenderCore(MediaTime time, CancellationToken cancellationToken)
     {
-        var frame = _renderer.Compositor.EvaluateGraphics(_scene.FromWindowTime(time));
+        var frame = _renderer.Compositor.EvaluateGraphics(_scene.FromWindowTime(time), cancellationToken, _rate);
         _renderer.Render(frame);
         Bitmap snapshot = _renderer.Snapshot();
 
@@ -117,11 +117,11 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
         if (RenderThread.Dispatcher.CheckAccess())
         {
-            return RenderCore(time);
+            return RenderCore(time, cancellationToken);
         }
         else
         {
-            return await RenderThread.Dispatcher.InvokeAsync(() => RenderCore(time), ct: cancellationToken);
+            return await RenderThread.Dispatcher.InvokeAsync(() => RenderCore(time, cancellationToken), ct: cancellationToken);
         }
     }
 

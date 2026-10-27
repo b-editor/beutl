@@ -99,7 +99,8 @@ public sealed partial class SceneDrawable : Drawable
                 // The embed plays the referenced scene's own window from the element's local time, matching
                 // the standalone renderer's FromWindowTime evaluation (#3603).
                 Frame = ReferencedScene is { } referencedScene
-                    ? _compositor?.EvaluateGraphics(referencedScene.FromWindowTime(context.Time - obj.Start))
+                    ? _compositor?.EvaluateGraphics(referencedScene.FromWindowTime(context.Time - obj.Start),
+                        context.CancellationToken, context.FrameRate)
                     : null;
                 context.ContainsScene3D |= Frame?.ContainsScene3D == true;
 

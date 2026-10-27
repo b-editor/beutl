@@ -701,6 +701,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics:FallbackDrawable
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:MotionBlur
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Children, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Samples, ShutterAngle, ShutterPosition, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Graphics:SourceBackdrop
   unsealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Clear, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
