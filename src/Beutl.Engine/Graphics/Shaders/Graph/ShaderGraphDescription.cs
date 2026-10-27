@@ -1,8 +1,10 @@
 ﻿using System.Collections.Immutable;
 using System.Text;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Rendering;
 using Beutl.Media;
+using ImageUsageFlags = Silk.NET.Vulkan.ImageUsageFlags;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -19,6 +21,7 @@ public sealed class ShaderGraphDescription
         Array.Fill(LastUses, -1);
         _firstUses = new int[resources.Length];
         Array.Fill(_firstUses, int.MaxValue);
+        ImageUsages = new ImageUsageFlags[resources.Length];
         var initialized = resources.OfType<ShaderBuffer>().Where(b => !b.InitialData.IsEmpty).Select(b => b.Id).ToHashSet();
         var images = new HashSet<(int Image, int Mip, int Layer, int Aspect)> { (0, 0, 0, 0) };
         for (int index = 0; index < passes.Length; index++)
@@ -29,10 +32,10 @@ public sealed class ShaderGraphDescription
                 if (transfer.Source is { } source)
                 {
                     RequireInitialized(source, pass.Name, firstMipOnly: transfer.Kind == ShaderTransferKind.GenerateMipmaps);
-                    Touch(source, index);
+                    Touch(source, index, ImageUsageFlags.TransferSrcBit);
                 }
                 Initialize(transfer.Destination);
-                Touch(transfer.Destination, index);
+                Touch(transfer.Destination, index, ImageUsageFlags.TransferDstBit);
                 continue;
             }
             if (pass.ImageSizeConstants is { } sizeConstants)
@@ -41,7 +44,8 @@ public sealed class ShaderGraphDescription
             {
                 if (!binding.Metadata && (binding.Access & ResourceAccess.Read) != 0)
                     RequireInitialized(binding.Resource, pass.Name, aspect: binding.Resource is ShaderImage img && img.Format.IsDepthFormat() ? 1 : null);
-                Touch(binding.Resource, index);
+                Touch(binding.Resource, index, binding.Metadata ? 0 : binding.Type == DescriptorType.StorageImage
+                    ? ImageUsageFlags.StorageBit : ImageUsageFlags.SampledBit);
             }
             foreach (ShaderColorAttachment attachment in pass.Attachments)
             {
@@ -49,7 +53,7 @@ public sealed class ShaderGraphDescription
                     RequireInitialized(attachment.Image, pass.Name);
                 if (attachment.Load == AttachmentLoadOp.DontCare && pass.Blend.Enabled)
                     throw new InvalidOperationException($"Pass '{pass.Name}' cannot blend into undefined attachment contents.");
-                Touch(attachment.Image, index);
+                Touch(attachment.Image, index, ImageUsageFlags.ColorAttachmentBit);
             }
             if (pass.DepthAttachment is { } depth)
             {
@@ -58,7 +62,7 @@ public sealed class ShaderGraphDescription
                     if (pass.DepthStencil.ReadsDepth) RequireInitialized(depth.Image, pass.Name, aspect: 1);
                     if (pass.DepthStencil.ReadsStencil) RequireInitialized(depth.Image, pass.Name, aspect: 2);
                 }
-                Touch(depth.Image, index);
+                Touch(depth.Image, index, ImageUsageFlags.DepthStencilAttachmentBit);
             }
             foreach (ShaderBuffer buffer in pass.Draw.ReadBuffers)
             {
@@ -84,20 +88,23 @@ public sealed class ShaderGraphDescription
             }
         }
         RequireInitialized(output.RenderingImage, "output");
-        Touch(output.RenderingImage, passes.Length);
+        Touch(output.RenderingImage, passes.Length, ImageUsageFlags.SampledBit);
         StructuralIdentity = CreateIdentity(includeValues: false);
         OutputIdentity = new ShaderGraphValueIdentity(CreateIdentity(includeValues: true),
             resources.OfType<ShaderBuffer>().Select(b => b.InitialData).ToImmutableArray());
 
-        void Touch(ShaderResource resource, int index)
+        void Touch(ShaderResource resource, int index, ImageUsageFlags usage = 0)
         {
-            _firstUses[resource.Id] = Math.Min(_firstUses[resource.Id], index);
             LastUses[resource.Id] = index;
             if (resource is ShaderImage image)
             {
-                _firstUses[image.Root.Id] = Math.Min(_firstUses[image.Root.Id], index);
                 LastUses[image.Root.Id] = index;
+                ImageUsages[image.Root.Id] |= usage;
+                // Metadata needs a coordinate frame, but does not allocate image storage.
+                if (usage == 0) return;
+                _firstUses[image.Root.Id] = Math.Min(_firstUses[image.Root.Id], index);
             }
+            _firstUses[resource.Id] = Math.Min(_firstUses[resource.Id], index);
         }
 
         void Initialize(ShaderResource resource, int? aspect = null)
@@ -123,6 +130,7 @@ public sealed class ShaderGraphDescription
     public ImmutableArray<string> PassNames => Passes.Select(p => p.Name).ToImmutableArray();
     internal ImmutableArray<ShaderPassDescription> Passes { get; }
     internal int[] LastUses { get; }
+    internal ImageUsageFlags[] ImageUsages { get; }
     private readonly int[] _firstUses;
     internal string StructuralIdentity { get; }
     internal ShaderGraphValueIdentity OutputIdentity { get; }
@@ -136,11 +144,18 @@ public sealed class ShaderGraphDescription
         return bounds;
     }
 
-    internal float ClampWorkingScale(Rect sourceBounds, float scale, Vector gridOffset, Rect? referenceBounds = null)
+    internal float ClampWorkingScale(Rect sourceBounds, float scale, Vector gridOffset, Rect? referenceBounds = null,
+        PixelSize? sourceSize = null, ImageUsageFlags sourceUsage = VulkanTexture2D.ColorTextureUsage)
     {
+        // The executor copies an incompatible source before the first pass and keeps it until
+        // execution ends. Its native extent does not shrink with the graph's working density.
+        PixelSize inputSize = sourceSize ?? PixelRect.FromRect(sourceBounds.Translate(gridOffset), scale).Size;
+        long sourceBytes = (ImageUsages[0] & ~sourceUsage) != 0
+            ? ShaderGraphExecutor.EstimateImageBytes(new(ImageKind.Image2D, inputSize.Width, inputSize.Height,
+                ((ShaderImage)Resources[0]).Format)) : 0;
         foreach (ShaderImage image in Resources.OfType<ShaderImage>())
         {
-            if (LastUses[image.Id] < 0 || image.Description.HasValue)
+            if (_firstUses[image.Id] == int.MaxValue || image.Description.HasValue)
                 continue;
             Rect bounds = image.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
             scale = Math.Min(scale, BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
@@ -165,12 +180,15 @@ public sealed class ShaderGraphDescription
             var changes = new long[Passes.Length + 2];
             foreach (ShaderResource resource in Resources)
             {
-                if (resource.Id == 0 || LastUses[resource.Id] < 0 || resource is ShaderImage { IsView: true }) continue;
+                if (resource.Id == 0 || _firstUses[resource.Id] == int.MaxValue || resource is ShaderImage { IsView: true }) continue;
                 long bytes;
                 if (resource is ShaderImage image)
                 {
-                    Rect bounds = image.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
-                    PixelSize size = PixelRect.FromRect(bounds, density * image.ResolutionScale).Size;
+                    ShaderImage raster = image;
+                    while (raster.RasterSource is { } inherited) raster = inherited;
+                    Rect bounds = raster.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
+                    PixelSize size = raster.Id == 0 ? inputSize
+                        : PixelRect.FromRect(bounds, density * raster.ResolutionScale).Size;
                     ImageDescription description = image.Description ?? new(ImageKind.Image2D,
                         Math.Max(1, size.Width), Math.Max(1, size.Height), image.Format);
                     bytes = ShaderGraphExecutor.EstimateImageBytes(description);
@@ -179,7 +197,7 @@ public sealed class ShaderGraphDescription
                 changes[_firstUses[resource.Id]] = checked(changes[_firstUses[resource.Id]] + bytes);
                 changes[LastUses[resource.Id] + 1] = checked(changes[LastUses[resource.Id] + 1] - bytes);
             }
-            long peak = 0, live = 0;
+            long peak = sourceBytes, live = sourceBytes;
             foreach (long change in changes)
             {
                 live = checked(live + change);

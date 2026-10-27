@@ -70,25 +70,7 @@ internal static class ShaderGraphExecutor
         long liveBytes = 0;
         long peakBytes = 0, scheduledPixels = 0;
         int imageAllocations = 0, bufferAllocations = 0, reuses = 0, executedPasses = 0;
-        var usages = graph.Resources.OfType<ShaderImage>().Where(i => !i.IsView)
-            .ToDictionary(image => image.Id, _ => (ImageUsageFlags)0);
-        foreach (ShaderPassDescription pass in graph.Passes)
-        {
-            foreach (ShaderPassBinding binding in pass.Bindings)
-                if (!binding.Metadata && binding.Resource is ShaderImage image)
-                    usages[image.Root.Id] |= binding.Type == DescriptorType.StorageImage
-                        ? ImageUsageFlags.StorageBit : ImageUsageFlags.SampledBit;
-            foreach (ShaderColorAttachment attachment in pass.Attachments)
-                usages[attachment.Image.Root.Id] |= ImageUsageFlags.ColorAttachmentBit;
-            if (pass.DepthAttachment is { } depth)
-                usages[depth.Image.Root.Id] |= ImageUsageFlags.DepthStencilAttachmentBit;
-            if (pass.Transfer is { } transfer)
-            {
-                if (transfer.Source is ShaderImage src) usages[src.Root.Id] |= ImageUsageFlags.TransferSrcBit;
-                if (transfer.Destination is ShaderImage dst) usages[dst.Root.Id] |= ImageUsageFlags.TransferDstBit;
-            }
-        }
-        usages[graph.Output.RenderingImage.Root.Id] |= ImageUsageFlags.SampledBit;
+        ImageUsageFlags[] usages = [.. graph.ImageUsages];
         try
         {
             foreach (ShaderImage image in graph.Resources.OfType<ShaderImage>())
