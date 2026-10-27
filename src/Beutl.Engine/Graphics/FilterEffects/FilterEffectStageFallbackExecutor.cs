@@ -83,34 +83,35 @@ internal static class FilterEffectStageFallbackExecutor
     {
         var environment = new StageEnvironment(outputScale, workingScale, maxWorkingScale,
             intent, purpose, leaseSession, budget);
+        Rect referenceBounds = targets.CalculateBounds();
         ReplaceTargets(targets, source =>
         {
             using EffectTarget? normalized = NormalizeInput(source, environment);
             if (normalized is null)
-                return null;
+                return source.IsMaterialized ? source.Clone() : null;
             PixelRect footprint = PixelRect.FromRect(normalized.Bounds.Translate(normalized.DeviceGridOffset), normalized.Scale.Value);
             using EffectTarget? cropped = normalized.DeviceBounds != footprint
                 ? CropTarget(normalized, normalized.Bounds, environment) : null;
             EffectTarget? input = normalized.DeviceBounds != footprint ? cropped : normalized;
             if (input?.RenderTarget is not { } inputTarget)
-                return null;
-            Rect bounds = description.TransformBounds(input.Bounds);
+                return source.Clone();
+            Rect bounds = description.TransformBounds(input.Bounds, referenceBounds);
             if (IsEmpty(bounds))
                 return null;
             float density = description.ClampWorkingScale(input.Bounds,
-                ResolveSupplyDensity(input, environment), input.DeviceGridOffset);
-            EffectTarget? output = AllocateStageOutput(input, bounds, density, environment);
+                ResolveSupplyDensity(input, environment), input.DeviceGridOffset, referenceBounds);
+            EffectTarget? output = AllocateStageOutput(input, bounds, density, environment, native: true);
             if (output?.RenderTarget is not { } outputTarget)
             {
                 output?.Dispose();
-                return null;
+                return source.Clone();
             }
             try
             {
                 inputTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
                 ShaderGraphExecutor.Execute(description,
                     inputTarget.Texture ?? throw new NotSupportedException("The shader graph input requires a backend texture."),
-                    new(input.Bounds, input.RasterBounds, input.DeviceBounds.Size, input.Scale.Value),
+                    new(input.Bounds, input.RasterBounds, input.DeviceBounds.Size, input.Scale.Value, referenceBounds),
                     outputTarget.Texture ?? throw new NotSupportedException("The shader graph output requires a backend texture."),
                     output.Scale.Value, input.DeviceGridOffset, acquireProgram);
                 EffectTarget result = output;
@@ -180,7 +181,8 @@ internal static class FilterEffectStageFallbackExecutor
         EffectTarget input,
         Rect outputBounds,
         float density,
-        StageEnvironment environment)
+        StageEnvironment environment,
+        bool native = false)
     {
         density = environment.Budget.ClampWorkingScaleToExactFootprint(
             outputBounds.Translate(input.DeviceGridOffset),
@@ -189,7 +191,8 @@ internal static class FilterEffectStageFallbackExecutor
             outputBounds,
             density,
             environment,
-            deviceGridOffset: input.DeviceGridOffset);
+            deviceGridOffset: input.DeviceGridOffset,
+            native: native);
     }
 
     /// <summary>Resolves the density a stage's output is rasterized at from the supply of its input.</summary>
@@ -625,7 +628,8 @@ internal static class FilterEffectStageFallbackExecutor
         float density,
         StageEnvironment environment,
         Rect? physicalBounds = null,
-        Vector deviceGridOffset = default)
+        Vector deviceGridOffset = default,
+        bool native = false)
     {
         if (IsEmpty(bounds))
             return null;
@@ -641,12 +645,19 @@ internal static class FilterEffectStageFallbackExecutor
             bounds,
             density,
             deviceBounds,
-            deviceGridOffset);
+            deviceGridOffset,
+            preferLease: native,
+            clearContents: !native);
         if (result is null)
         {
             ReportAllocationFailure(bounds, density, deviceBounds, environment.Intent, environment.LeaseSession);
             return null;
         }
+
+        // Graph attachments and the output-copy pass initialize their own pixels. A deferred Skia
+        // clear here could otherwise overwrite native output when another target flushes that surface.
+        if (native)
+            return result;
 
         try
         {

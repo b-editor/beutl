@@ -5,17 +5,12 @@ using Beutl.Engine;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
-using Beutl.Logging;
-
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.GLSLScriptEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<GLSLScriptEffect>();
-
     public GLSLScriptEffect()
     {
         ScanProperties<GLSLScriptEffect>();
@@ -77,36 +72,26 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
     {
         var r = (Resource)resource;
 
-        if (r._shader == null)
+        if (r._program == null)
             return;
 
-        context.CustomEffect(
-            (progress: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader),
-            OnApplyTo,
-            static (_, r) => r);
-    }
-
-    private static void OnApplyTo(
-        (float progress, float duration, float time, GLSLShader shader) data,
-        CustomFilterEffectContext c)
-    {
-        // Push constants report device px at the clamped buffer density.
-        data.shader.Apply(c, target =>
+        context.ShaderGraph((Program: r._program, Constants: new PushConstants
         {
-            float w = target.Scale.IsUnbounded ? c.ResolveTargetDensity(target.Bounds) : target.Scale.Value;
-            int devW = target.RenderTarget?.Width
-                ?? CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w).Width;
-            int devH = target.RenderTarget?.Height
-                ?? CustomFilterEffectContext.DeviceBufferSize(target.Bounds, w).Height;
-            return new PushConstants
+            Progress = r.Progress,
+            Duration = r.Duration,
+            Time = r.Time
+        }), static (graph, state) =>
+        {
+            ShaderImage output = graph.Image2D("script", graph.Source);
+            output.RasterSource = graph.Source;
+            graph.Fullscreen("script", state.Program, pass =>
             {
-                Progress = data.progress,
-                Duration = data.duration,
-                Time = data.time,
-                Width = devW,
-                Height = devH,
-                Scale = w
-            };
+                pass.SampledImage(0, graph.Source, SamplerState.LinearClamp);
+                pass.ColorAttachment(0, output);
+                pass.PushConstants(state.Constants);
+                pass.ImageSizeConstants(output, 12);
+            });
+            return graph.Output(output);
         });
     }
 
@@ -125,9 +110,8 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
 
     public new partial class Resource
     {
-        internal GLSLShader? _shader;
-        internal string? _compiledShader;
-        internal string? _compileError;
+        internal ShaderProgram? _program;
+        private string? _recordedShader;
 
         private ScriptTimeline _timeline;
 
@@ -144,38 +128,12 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
                 Version++;
             }
 
-            CompileShader(FragmentShader);
-        }
-
-        private void CompileShader(string shader)
-        {
-            if (_compiledShader == shader)
-                return;
-
-            _shader?.Dispose();
-            _shader = null;
-            var prevError = _compileError;
-            _compileError = null;
-            _compiledShader = shader;
-
-            if (string.IsNullOrWhiteSpace(shader))
-                return;
-
-            if (!GLSLShader.TryCreate(shader, out _shader, out string? errorText))
+            if (_recordedShader != FragmentShader)
             {
-                _compileError = errorText;
-                if (prevError != _compileError)
-                {
-                    s_logger.LogError("Failed to compile GLSL shader: {Error}", errorText);
-                }
+                _recordedShader = FragmentShader;
+                _program = string.IsNullOrWhiteSpace(FragmentShader) ? null
+                    : ShaderProgram.Fullscreen(new ShaderSource(FragmentShader));
             }
-        }
-
-        partial void PostDispose(bool disposing)
-        {
-            _shader?.Dispose();
-            _shader = null;
-            _compileError = null;
         }
     }
 }

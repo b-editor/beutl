@@ -1,27 +1,19 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.Runtime.InteropServices;
+using System.Numerics;
 using Beutl.Engine;
-using Beutl.Graphics.Backend;
-using Beutl.Graphics.Rendering;
-using Beutl.Graphics.Rendering.Requests;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
-using Beutl.Logging;
-using Beutl.Media;
-using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 /// <summary>
 /// Pixel sort filter effect using rank-based gather sort via GLSL fragment shaders.
-/// Only 3 draw calls regardless of image size: Prepare → Rank → Gather+Restore.
+/// Three sorting passes regardless of image size: Prepare → Rank → Gather+Restore.
 /// Each pixel computes its rank within its segment in O(L) where L is segment length.
 /// </summary>
 [Display(Name = nameof(GraphicsStrings.PixelSortEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class PixelSortEffect : FilterEffect
 {
-    private static readonly ILogger s_logger = Log.CreateLogger<PixelSortEffect>();
-
     private const string PrepareShaderSource = """
         #version 450
 
@@ -29,13 +21,11 @@ public sealed partial class PixelSortEffect : FilterEffect
         layout(location = 0) out vec4 outColor;
 
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
-        layout(constant_id = 0) const int sortKeyType = 0;
+        const int sortKeyType = SORT_KEY;
 
         layout(push_constant) uniform PushConstants {
             float thresholdMin;
             float thresholdMax;
-            float width;
-            float height;
         } pc;
 
         float hue(vec4 c) {
@@ -66,7 +56,7 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
 
         void main() {
-            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
+            ivec2 coord = ivec2(gl_FragCoord.xy);
             vec4 color = texelFetch(srcTexture, coord, 0);
             float key = computeKey(color);
             bool isAnchor = (key < pc.thresholdMin || key > pc.thresholdMax);
@@ -82,18 +72,13 @@ public sealed partial class PixelSortEffect : FilterEffect
         layout(location = 0) out vec4 outColor;
 
         layout(set = 0, binding = 0) uniform sampler2D srcTexture;
-        layout(constant_id = 0) const int sortDir = 0;
-
-        layout(push_constant) uniform PushConstants {
-            float width;
-            float height;
-        } pc;
+        const int sortDir = SORT_DIRECTION;
 
         void main() {
-            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
+            ivec2 coord = ivec2(gl_FragCoord.xy);
             int idx     = (sortDir == 0) ? coord.x : coord.y;
             int lineIdx = (sortDir == 0) ? coord.y : coord.x;
-            int maxIdx  = (sortDir == 0) ? int(pc.width) : int(pc.height);
+            int maxIdx  = (sortDir == 0) ? textureSize(srcTexture, 0).x : textureSize(srcTexture, 0).y;
 
             float myKey = texelFetch(srcTexture, coord, 0).a;
 
@@ -149,19 +134,14 @@ public sealed partial class PixelSortEffect : FilterEffect
 
         layout(set = 0, binding = 0) uniform sampler2D rankTexture;
         layout(set = 0, binding = 1) uniform sampler2D originalTexture;
-        layout(constant_id = 0) const int sortDir = 0;
-        layout(constant_id = 1) const int ascending = 1;
-
-        layout(push_constant) uniform PushConstants {
-            float width;
-            float height;
-        } pc;
+        const int sortDir = SORT_DIRECTION;
+        const int ascending = SORT_ASCENDING;
 
         void main() {
-            ivec2 coord = ivec2(fragCoord * vec2(pc.width, pc.height));
+            ivec2 coord = ivec2(gl_FragCoord.xy);
             int idx     = (sortDir == 0) ? coord.x : coord.y;
             int lineIdx = (sortDir == 0) ? coord.y : coord.x;
-            int maxIdx  = (sortDir == 0) ? int(pc.width) : int(pc.height);
+            int maxIdx  = (sortDir == 0) ? textureSize(rankTexture, 0).x : textureSize(rankTexture, 0).y;
 
             vec4 rankData = texelFetch(rankTexture, coord, 0);
 
@@ -211,22 +191,15 @@ public sealed partial class PixelSortEffect : FilterEffect
         }
         """;
 
-    // These fixed slots cover the complete finite specialization domain: six prepare, two rank,
-    // and four gather pipelines. They are retained for the process lifetime and never grow or evict.
-    private static readonly PixelSortPipelineCache<GLSLShader> s_shaderCache = new(
-        static sortKey => GLSLShader.CreateBuiltIn(
-            PrepareShaderSource,
-            [SpecializationConstant.Create(0, (int)sortKey, ShaderStage.Fragment)]),
-        static direction => GLSLShader.CreateBuiltIn(
-            RankShaderSource,
-            [SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment)]),
-        static (direction, ascending) => GLSLShader.CreateBuiltIn(
-            GatherRestoreShaderSource,
-            [
-                SpecializationConstant.Create(0, (int)direction, ShaderStage.Fragment),
-                SpecializationConstant.Create(1, ascending ? 1 : 0, ShaderStage.Fragment),
-            ],
-            inputCount: 2));
+    // Only immutable definitions are retained here. Device pipelines belong to the renderer's cache.
+    private static readonly PixelSortPipelineCache<ShaderProgram> s_programs = new(
+        static key => ShaderProgram.Fullscreen(new ShaderSource(
+            PrepareShaderSource.Replace("SORT_KEY", ((int)key).ToString(System.Globalization.CultureInfo.InvariantCulture)))),
+        static direction => ShaderProgram.Fullscreen(new ShaderSource(
+            RankShaderSource.Replace("SORT_DIRECTION", ((int)direction).ToString(System.Globalization.CultureInfo.InvariantCulture)))),
+        static (direction, ascending) => ShaderProgram.Fullscreen(new ShaderSource(
+            GatherRestoreShaderSource.Replace("SORT_DIRECTION", ((int)direction).ToString(System.Globalization.CultureInfo.InvariantCulture))
+                .Replace("SORT_ASCENDING", ascending ? "1" : "0"))));
 
     public PixelSortEffect()
     {
@@ -250,214 +223,36 @@ public sealed partial class PixelSortEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Ascending), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> Ascending { get; } = Property.CreateExpression(true);
 
-    private static PixelSortPipelines<GLSLShader>? GetOrCreateShaders(
-        PixelSortDirection direction,
-        PixelSortKey sortKey,
-        bool ascending)
-    {
-        try
-        {
-            return s_shaderCache.GetOrCreate(sortKey, direction, ascending);
-        }
-        catch (Exception ex)
-        {
-            s_logger.LogError(ex, "Failed to initialize a PixelSort GLSL shader variant.");
-            return null;
-        }
-    }
-
-    internal static bool TrySwallowPassFailure(
-        Exception exception,
-        CustomFilterEffectContext context)
-    {
-        if (exception is OperationCanceledException || context.Intent == RenderIntent.Delivery)
-            return false;
-
-        context.RenderTargetLeaseSession?.MarkContentDropped();
-        return true;
-    }
-
-    private readonly record struct EffectData(
-        PixelSortDirection Direction,
-        PixelSortKey SortKey,
-        float ThresholdMin,
-        float ThresholdMax,
-        bool Ascending);
-
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
-        var data = new EffectData(r.Direction, r.SortKey, r.ThresholdMin / 100f, r.ThresholdMax / 100f, r.Ascending);
-        context.CustomEffect(data, static (d, ctx) => OnApplyTo(d, ctx), static (_, b) => b);
-    }
-
-    private static void OnApplyTo(EffectData r, CustomFilterEffectContext ctx)
-    {
-        IGraphicsContext? gfx = GraphicsContextFactory.SharedContext;
-        if (gfx == null || !gfx.Supports3DRendering)
-        {
-            s_logger.LogWarning("Vulkan 3D rendering is not available; PixelSort effect will be inactive.");
+        if (s_programs.GetOrCreate(r.SortKey, r.Direction, r.Ascending) is not { } programs)
             return;
-        }
-
-        PixelSortPipelines<GLSLShader>? shaderPipelines = GetOrCreateShaders(
-            r.Direction,
-            r.SortKey,
-            r.Ascending);
-        if (shaderPipelines is not { } shaders)
-            return;
-
-        for (int i = 0; i < ctx.Targets.Count; i++)
+        context.ShaderGraph((Programs: programs,
+            Thresholds: new Vector2(r.ThresholdMin / 100, r.ThresholdMax / 100)), static (graph, state) =>
         {
-            EffectTarget target = ctx.Targets[i];
-            RenderTarget? renderTarget = target.RenderTarget;
-            if (renderTarget?.Texture == null) continue;
-
-            try
+            ShaderImage prepared = graph.Image2D("prepared", graph.Source);
+            ShaderImage ranks = graph.Image2D("ranks", graph.Source);
+            ShaderImage output = graph.Image2D("sorted", graph.Source);
+            prepared.RasterSource = ranks.RasterSource = output.RasterSource = graph.Source;
+            graph.Fullscreen("prepare", state.Programs.Prepare, pass =>
             {
-                // These passes read the backing texture from a separate Vulkan submission, which Skia's
-                // own ordering does not cover: an unsubmitted source reads back empty, and an empty
-                // source makes every pixel an anchor, so the gather pass returns the unsorted image.
-                renderTarget.PrepareForSampling(RenderTargetSamplingIntent.BackendInterop);
-
-                SortTarget(r, ctx, in shaders, gfx, i, target, renderTarget.Texture);
-            }
-            catch (Exception ex)
-            {
-                if (!TrySwallowPassFailure(ex, ctx))
-                {
-                    throw;
-                }
-
-                s_logger.LogWarning(ex, "PixelSort pass failed for target {Index}; leaving it unsorted.", i);
-                continue;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Sorts the target at <paramref name="index"/> through two scratch textures, which are released before
-    /// a failure reaches the caller.
-    /// </summary>
-    private static void SortTarget(
-        EffectData r,
-        CustomFilterEffectContext ctx,
-        in PixelSortPipelines<GLSLShader> shaders,
-        IGraphicsContext gfx,
-        int index,
-        EffectTarget target,
-        ITexture2D originalTexture)
-    {
-        int width = originalTexture.Width;
-        int height = originalTexture.Height;
-
-        var scratchSize = new PixelSize(width, height);
-        using NativeFilterTextureLease prepLease = ctx.TryAcquireNativeScratchTexture(
-            gfx,
-            width,
-            height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
-        using NativeFilterTextureLease rankLease = ctx.TryAcquireNativeScratchTexture(
-            gfx,
-            width,
-            height) ?? throw RenderTargetPool.CreateAllocationFailure(scratchSize);
-
-        ITexture2D prepTexture = prepLease.Texture;
-        ITexture2D rankTexture = rankLease.Texture;
-
-        // Pass 1: Prepare - encode sort key into alpha
-        shaders.Prepare.ExecuteSingleTarget(
-            originalTexture, prepTexture,
-            new PreparePushConstants
-            {
-                ThresholdMin = r.ThresholdMin,
-                ThresholdMax = r.ThresholdMax,
-                Width = width,
-                Height = height,
+                pass.SampledImage(0, graph.Source, SamplerState.NearestClamp);
+                pass.ColorAttachment(0, prepared);
+                pass.PushConstants(state.Thresholds);
             });
-
-        // Pass 2: Rank - compute each pixel's rank within its segment
-        shaders.Rank.ExecuteSingleTarget(
-            prepTexture, rankTexture,
-            new SizePushConstants
+            graph.Fullscreen("rank", state.Programs.Rank, pass =>
             {
-                Width = width,
-                Height = height,
+                pass.SampledImage(0, prepared, SamplerState.NearestClamp);
+                pass.ColorAttachment(0, ranks);
             });
-
-        // Pass 3: Gather + Restore - place pixels by rank, restore anchors
-        GatherIntoReplacement(ctx, shaders.Gather, index, target, rankTexture, originalTexture, scratchSize);
-    }
-
-    /// <summary>
-    /// Runs the gather pass into a new target and swaps it in at <paramref name="index"/>. A preview keeps the
-    /// source pixels when the pass or its target fails; a delivery render fails instead.
-    /// </summary>
-    private static void GatherIntoReplacement(
-        CustomFilterEffectContext ctx,
-        GLSLShader gather,
-        int index,
-        EffectTarget target,
-        ITexture2D rankTexture,
-        ITexture2D originalTexture,
-        PixelSize size)
-    {
-        EffectTarget newTarget = ctx.CreateNativeTargetLike(target);
-        RenderTarget? newRenderTarget = newTarget.RenderTarget;
-
-        if (newRenderTarget is null)
-        {
-            newTarget.Dispose();
-            return;
-        }
-
-        if (newRenderTarget.Texture is null)
-        {
-            newTarget.Dispose();
-            EffectTargetAllocation.FailDeliveryOrDrop(
-                ctx.Intent,
-                ctx.RenderTargetLeaseSession,
-                $"PixelSort output target {index} has no GPU texture; the delivery render fails instead of shipping unsorted pixels.");
-            return;
-        }
-
-        try
-        {
-            gather.ExecuteSingleTargetWithMask(
-                rankTexture, originalTexture, newRenderTarget.Texture,
-                new SizePushConstants
-                {
-                    Width = size.Width,
-                    Height = size.Height,
-                });
-            gather.SubmitPendingCommands();
-
-            ctx.Targets[index] = newTarget;
-        }
-        catch (Exception ex)
-        {
-            newTarget.Dispose();
-            if (!TrySwallowPassFailure(ex, ctx))
+            graph.Fullscreen("gather", state.Programs.Gather, pass =>
             {
-                throw;
-            }
-
-            s_logger.LogWarning(ex, "PixelSort gather pass failed for target {Index}; keeping the source pixels.", index);
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct PreparePushConstants
-    {
-        public float ThresholdMin;
-        public float ThresholdMax;
-        public float Width;
-        public float Height;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct SizePushConstants
-    {
-        public float Width;
-        public float Height;
+                pass.SampledImage(0, ranks, SamplerState.NearestClamp);
+                pass.SampledImage(1, graph.Source, SamplerState.NearestClamp);
+                pass.ColorAttachment(0, output);
+            });
+            return graph.Output(output);
+        });
     }
 }

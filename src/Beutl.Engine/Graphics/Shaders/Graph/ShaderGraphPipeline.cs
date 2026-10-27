@@ -354,7 +354,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 _context.Vk.CmdBindPipeline(command, PipelineBindPoint.Compute, compute.Handle);
                 DescriptorSet set = descriptors.Handle;
                 _context.Vk.CmdBindDescriptorSets(command, PipelineBindPoint.Compute, compute.Layout, 0, 1, &set, 0, null);
-                SetConstants(command, compute.Layout, ShaderStageFlags.ComputeBit, pass);
+                SetConstants(command, compute.Layout, ShaderStageFlags.ComputeBit, pass, frames);
                 if (pass.Draw.Indirect is { } indirect)
                     _context.Vk.CmdDispatchIndirect(command,
                         _context.RequireOwned<VulkanBuffer>(buffers[indirect.Buffer.Id], nameof(buffers)).Handle, (ulong)indirect.Offset);
@@ -383,7 +383,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                         _context.Vk.CmdSetScissor(_context.GetRecordingCommandBuffer(), 0, 1, &rectangle);
                     }
                     SetConstants(_context.GetRecordingCommandBuffer(), _graphics!.PipelineLayoutHandle,
-                        VulkanPipeline3D.PushConstantStages, pass);
+                        VulkanPipeline3D.PushConstantStages, pass, frames);
                     foreach (ShaderVertexBuffer vertex in pass.Draw.Vertices)
                         _renderPass.BindVertexBuffer((uint)vertex.Binding, buffers[vertex.Buffer.Id], (ulong)vertex.Offset);
                     if (pass.Draw.Indices is { } indices)
@@ -416,12 +416,27 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         }
     }
 
-    private void SetConstants(CommandBuffer command, PipelineLayout layout, ShaderStageFlags stages, ShaderPassDescription pass)
+    private void SetConstants(CommandBuffer command, PipelineLayout layout, ShaderStageFlags stages, ShaderPassDescription pass,
+        IReadOnlyDictionary<int, ShaderImageFrame> frames)
     {
         if (pass.Constants.IsEmpty)
             return;
-        fixed (byte* bytes = pass.Constants.AsSpan())
-            _context.Vk.CmdPushConstants(command, layout, stages, 0, (uint)pass.Constants.Length, bytes);
+        Span<byte> constants = stackalloc byte[pass.Constants.Length];
+        pass.Constants.AsSpan().CopyTo(constants);
+        if (pass.ImageSizeConstants is { } size)
+        {
+            ShaderImageFrame frame = frames[size.Image.Id];
+            var value = new System.Numerics.Vector3(frame.PixelSize.Width, frame.PixelSize.Height, frame.Scale);
+            System.Runtime.InteropServices.MemoryMarshal.Write(constants[size.Offset..], in value);
+        }
+        if (pass.BoundsOriginConstants is { } origin)
+        {
+            Rect bounds = frames[0].ReferenceBounds ?? frames[0].Bounds;
+            Point value = bounds.Position + origin.Origin.ToPixels(bounds.Size);
+            System.Runtime.InteropServices.MemoryMarshal.Write(constants[origin.Offset..], in value);
+        }
+        fixed (byte* bytes = constants)
+            _context.Vk.CmdPushConstants(command, layout, stages, 0, (uint)constants.Length, bytes);
     }
 
     internal static void SynchronizeResources(VulkanContext context)
