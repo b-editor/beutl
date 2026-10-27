@@ -1,6 +1,5 @@
 ﻿using System.Runtime.InteropServices;
 using System.Threading.Channels;
-using BitmapInterpolationMode = Avalonia.Media.Imaging.BitmapInterpolationMode;
 using Beutl.Configuration;
 using Beutl.Controls;
 using Beutl.Extensions.FFmpeg;
@@ -10,6 +9,7 @@ using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 using Bitmap = Beutl.Media.Bitmap;
+using BitmapInterpolationMode = Avalonia.Media.Imaging.BitmapInterpolationMode;
 
 namespace Beutl.PreviewStreaming;
 
