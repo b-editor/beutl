@@ -1,11 +1,16 @@
 ﻿using Beutl.Composition;
+using Beutl.Engine;
 
 namespace Beutl.Graphics.Effects;
 
 // Slices borrow resources from a complete evaluated chain. Their empty original group is never edited.
 internal sealed class FilterEffectInputChain : IDisposable
 {
-    internal sealed record Location(FilterEffect Original, FilterEffect[] Path, int Occurrence);
+    internal sealed record Location(FilterEffect Original, FilterEffect[] Path, int Occurrence)
+    {
+        public bool SameAs(Location other) => ReferenceEquals(Original, other.Original)
+            && Occurrence == other.Occurrence && Path.SequenceEqual(other.Path);
+    }
     internal sealed record Entry(FilterEffect.Resource Resource, Location Location, bool ParentEnabled)
     {
         public bool Enabled => ParentEnabled && Resource.IsEnabled;
@@ -57,8 +62,9 @@ internal sealed class FilterEffectInputChain : IDisposable
 
     // Resolve reference expressions to find the boundary first. Leaf properties/resources after it are
     // never evaluated: they can contain scene queries, media decoders or another time-sampling effect.
+    // A reused sample passes its previous prefix, whose effects reconcile in place to keep loaded resources.
     internal static FilterEffectGroup.Resource EvaluatePrefix(Drawable.Resource source,
-        FilterEffect? effect, CompositionContext context)
+        FilterEffect? effect, CompositionContext context, EngineObject.Resource? previous)
     {
         var locations = new List<(Location Location, bool Enabled)>();
         var occurrences = new Dictionary<FilterEffect, List<FilterEffect[]>>();
@@ -69,8 +75,16 @@ internal sealed class FilterEffectInputChain : IDisposable
             if (ReferenceEquals(boundary.Drawable, source.GetOriginal()))
                 end = Math.Min(end, boundary.Find(paths));
 
-        var prefix = new FilterEffectGroup().ToResource(context);
+        var reused = previous as FilterEffectGroup.Resource;
+        List<Entry>? reusable = reused != null && source.EvaluatedInputChain is { } evaluated
+            && evaluated.Select(static entry => entry.Resource).SequenceEqual(reused.Children)
+            ? [.. evaluated]
+            : null;
+        if (reusable == null) reused = null;
+
+        var prefix = reused ?? new FilterEffectGroup().ToResource(context);
         var entries = new List<Entry>();
+        var created = new List<FilterEffect.Resource>();
         try
         {
             for (int i = 0; i < end; i++)
@@ -78,18 +92,39 @@ internal sealed class FilterEffectInputChain : IDisposable
                 context.CancellationToken.ThrowIfCancellationRequested();
                 var (location, enabled) = locations[i];
                 if (!enabled) continue;
-                var resource = location.Original.ToResource(context);
-                prefix.Children.Add(resource);
+                int match = reusable?.FindIndex(entry => entry.Location.SameAs(location)) ?? -1;
+                FilterEffect.Resource resource;
+                if (match >= 0)
+                {
+                    resource = reusable![match].Resource;
+                    reusable.RemoveAt(match);
+                    ResourceReconciler.ReconcileInPlace(resource, location.Original, context);
+                }
+                else
+                {
+                    resource = location.Original.ToResource(context);
+                    created.Add(resource);
+                }
                 entries.Add(new(resource, location, true));
             }
-            source.EvaluatedInputChain = entries;
-            return prefix;
         }
         catch
         {
-            prefix.Dispose();
+            // Reconciled effects stay in the previous prefix, which its source still owns.
+            foreach (var resource in created) resource.Dispose();
+            if (reused == null) prefix.Dispose();
             throw;
         }
+
+        if (reusable != null)
+        {
+            foreach (var entry in reusable) entry.Resource.Dispose();
+        }
+        prefix.Children.Clear();
+        prefix.Children.AddRange(entries.Select(static entry => entry.Resource));
+        prefix.Version++;
+        source.EvaluatedInputChain = entries;
+        return prefix;
 
         void Collect(FilterEffect? current, FilterEffect[] path, bool enabled)
         {

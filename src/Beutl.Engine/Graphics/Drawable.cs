@@ -123,36 +123,50 @@ public abstract partial class Drawable : EngineObject
         internal void PrepareFilterEffectInput(CompositionContext context,
             IReadOnlyList<FilterEffectInputChain.Entry>? chain)
         {
-            bool hadInput = _input != null;
-            _input?.Dispose();
-            _input = null;
-            if (hadInput) Version++;
-            if (!IsEnabled || !FilterEffectInputChain.HasInputEvaluation(FilterEffect)) return;
-            chain ??= FilterEffectInputChain.Capture(FilterEffect);
-            for (int i = chain.Count - 1; i >= 0; i--)
+            bool evaluatesInput = IsEnabled && FilterEffectInputChain.HasInputEvaluation(FilterEffect);
+            if (_input == null && !evaluatesInput) return;
+            // The previous samples are reevaluated in place where the new ones claim them; failures discard them.
+            var recycled = new List<FilterEffectInputSlot>();
+            if (_input != null)
             {
-                if (!chain[i].Enabled || !chain[i].Resource.UsesInputEvaluation) continue;
-                context.CancellationToken.ThrowIfCancellationRequested();
-                var input = new FilterEffectInputContext(this, context, chain, i);
-                try
+                _input.Recycle(recycled);
+                _input = null;
+                Version++;
+            }
+            try
+            {
+                if (!evaluatesInput) return;
+                chain ??= FilterEffectInputChain.Capture(FilterEffect);
+                for (int i = chain.Count - 1; i >= 0; i--)
                 {
-                    if (chain[i].Resource.PrepareInput(input))
+                    if (!chain[i].Enabled || !chain[i].Resource.UsesInputEvaluation) continue;
+                    context.CancellationToken.ThrowIfCancellationRequested();
+                    var input = new FilterEffectInputContext(this, context, chain, i, recycled);
+                    try
                     {
-                        context.CancellationToken.ThrowIfCancellationRequested();
-                        _input = input;
-                        context.ContainsScene3D |= input.EvaluationContext.ContainsScene3D;
-                        // Sampled properties can change while every current-time property stays unchanged.
-                        Version++;
-                        return;
+                        if (chain[i].Resource.PrepareInput(input))
+                        {
+                            context.CancellationToken.ThrowIfCancellationRequested();
+                            _input = input;
+                            context.ContainsScene3D |= input.EvaluationContext.ContainsScene3D;
+                            // Sampled properties can change while every current-time property stays unchanged.
+                            Version++;
+                            return;
+                        }
                     }
+                    catch
+                    {
+                        input.Dispose();
+                        Version++;
+                        throw;
+                    }
+                    input.Recycle(recycled);
                 }
-                catch
-                {
-                    input.Dispose();
-                    Version++;
-                    throw;
-                }
-                input.Dispose();
+            }
+            finally
+            {
+                // Slots no new sample claimed: fewer samples, a removed effect, or a failed preparation.
+                FilterEffectInputSlot.DisposeAll(recycled);
             }
         }
 

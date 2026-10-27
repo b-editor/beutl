@@ -7,6 +7,7 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Proxy;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
@@ -95,6 +96,88 @@ public class FilterEffectInputTests
         Assert.That(((RectShape.Resource)((SampleInputEffect.Resource)source.FilterEffect!).Samples[0].Resource!).Width,
             Is.EqualTo(16.25));
         Assert.Throws<ObjectDisposedException>(() => _ = old[0].Resource);
+    }
+
+    [Test]
+    public void NextReconciliationReevaluatesSamplesInPlaceAtTheNearestOffset()
+    {
+        var shape = Rectangle();
+        var effect = new SampleInputEffect();
+        shape.FilterEffect.Value = effect;
+        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { FrameRate = new(2, 1) });
+        var first = Samples().ToArray();
+        var resources = first.Select(s => s.Resource!).ToArray();
+
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { FrameRate = new(2, 1) });
+        Assert.Multiple(() =>
+        {
+            Assert.That(first.All(s => s.IsDisposed), Is.True);
+            Assert.That(Samples().Select(s => ((RectShape.Resource)s.Resource!).Width),
+                Is.EqualTo(new[] { 23.125f, 24.375f, 25.625f, 26.875f }));
+            for (int i = 0; i < resources.Length; i++)
+                Assert.That(Samples()[i].Resource, Is.SameAs(resources[i]), "a sample keeps its offset's resource");
+        });
+
+        effect.Offsets = [-0.125, 0.125];
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { FrameRate = new(2, 1) });
+        Assert.Multiple(() =>
+        {
+            Assert.That(Samples()[0].Resource, Is.SameAs(resources[1]));
+            Assert.That(Samples()[1].Resource, Is.SameAs(resources[2]));
+            Assert.That(new[] { resources[0].IsDisposed, resources[3].IsDisposed }, Is.All.True,
+                "unclaimed samples are released");
+        });
+
+        shape.FilterEffect.Value = null;
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { FrameRate = new(2, 1) });
+        Assert.That(resources.All(r => r.IsDisposed), Is.True);
+
+        List<FilterEffectInputSample> Samples() => ((SampleInputEffect.Resource)source.FilterEffect!).Samples;
+    }
+
+    [Test]
+    public void VideoSamplesKeepTheirReadersAcrossFrames()
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        var media = new VideoSource();
+        media.ReadFrom(new Uri(TestMediaHelper.CreateTestVideoFile(16, 16, new(30, 1), 300)));
+        var video = new SourceVideo { Source = { Value = media } };
+        video.FilterEffect.Value = new SampleInputEffect();
+        using var compositor = new SceneCompositor(SceneWith(video)) { ForceOriginalSource = true };
+        var rate = new Rational(30, 1);
+        MediaReader?[] first = Readers(Seconds(1));
+        MediaReader?[] next = Readers(Seconds(1) + MediaTime.FromFrames(1, rate));
+        Assert.Multiple(() =>
+        {
+            Assert.That(first, Is.All.Not.Null);
+            Assert.That(first.Distinct().Count(), Is.EqualTo(first.Length), "each sample decodes independently");
+            for (int i = 0; i < first.Length; i++)
+                Assert.That(next[i], Is.SameAs(first[i]), "the next frame continues on the same reader");
+        });
+
+        MediaReader?[] Readers(MediaTime time)
+        {
+            var source = compositor.EvaluateGraphics(time, default, rate).Objects.OfType<Drawable.Resource>().Single();
+            return ((SampleInputEffect.Resource)source.FilterEffect!).Samples
+                .Select(s => ((SourceVideo.Resource)s.Resource!).Source!.MediaReader).ToArray();
+        }
+    }
+
+    [Test]
+    public void PrecedingEffectsOfReusedSamplesReconcileInPlace()
+    {
+        int disposed = 0;
+        var shape = Rectangle();
+        var chain = new FilterEffectGroup();
+        chain.Children.Add(new SampleInputEffect { UseSamples = false, AfterDispose = () => disposed++ });
+        chain.Children.Add(new SampleInputEffect());
+        shape.FilterEffect.Value = chain;
+        using var source = shape.ToResource(new CompositionContext(Seconds(1)) { FrameRate = new(2, 1) });
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { FrameRate = new(2, 1) });
+        Assert.That(disposed, Is.Zero, "sample prefixes are reconciled rather than rebuilt");
+        chain.Children.RemoveAt(0);
+        Reconcile(source, shape, new CompositionContext(Seconds(1.5)) { FrameRate = new(2, 1) });
+        Assert.That(disposed, Is.EqualTo(5), "the current chain and every sample prefix release the removed effect");
     }
 
     [Test]

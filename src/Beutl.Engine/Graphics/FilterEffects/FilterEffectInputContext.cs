@@ -20,10 +20,13 @@ public sealed class FilterEffectInputContext : IDisposable
     private readonly FilterEffectInputBoundary _boundary;
     private readonly FilterEffectInputChain _suffix;
     private readonly Dictionary<MediaTime, FilterEffectInputSample> _samples = [];
+    // The previous reconciliation's sessions and sources. Reusing them keeps each sample's media readers
+    // and caches open across frames instead of reopening them for every sample of every frame.
+    private readonly List<FilterEffectInputSlot>? _recycled;
     private bool _disposed;
 
     internal FilterEffectInputContext(Drawable.Resource source, CompositionContext context,
-        IReadOnlyList<FilterEffectInputChain.Entry> chain, int index)
+        IReadOnlyList<FilterEffectInputChain.Entry> chain, int index, List<FilterEffectInputSlot>? recycled = null)
     {
         _source = source;
         _flow = FlowNode.Capture(source)!;
@@ -31,6 +34,7 @@ public sealed class FilterEffectInputContext : IDisposable
         Effect = chain[index].Resource;
         _boundary = new(source.RequireOriginal(), chain[index].Location);
         _suffix = new(chain.Skip(index + 1));
+        _recycled = recycled;
     }
 
     /// <summary>A captured clock, output rate, decode policy, domain and cancellation token for this input.</summary>
@@ -42,8 +46,10 @@ public sealed class FilterEffectInputContext : IDisposable
     /// <remarks>
     /// Repeated times reuse the completed sample within this context. The context owns the returned sample;
     /// disposing it early is optional. It must not be used after the owning drawable is reconciled again.
-    /// A disabled or out-of-range drawable produces a transparent sample. An absent boundary in a switched
-    /// chain means that chain's complete output; an active sampling boundary always stops recursive sampling.
+    /// The next reconciliation reevaluates the sample resources at the nearest offset from the clock in place,
+    /// so sources keep their media readers. A disabled or out-of-range drawable produces a transparent sample.
+    /// An absent boundary in a switched chain means that chain's complete output; an active sampling
+    /// boundary always stops recursive sampling.
     /// </remarks>
     public FilterEffectInputSample Evaluate(MediaTime time)
     {
@@ -51,13 +57,15 @@ public sealed class FilterEffectInputContext : IDisposable
         EvaluationContext.CancellationToken.ThrowIfCancellationRequested();
         if (_samples.TryGetValue(time, out var ready) && !ready.IsDisposed) return ready;
 
-        CompositionEvaluationSession session = EvaluationContext.CreateEvaluationSession();
-        Drawable.Resource? source = null;
+        MediaTime offset = time - EvaluationContext.Time;
+        FilterEffectInputSlot slot = ClaimSlot(offset)
+            ?? new FilterEffectInputSlot(EvaluationContext.CreateEvaluationSession());
         FilterEffectInputSample? sample = null;
         try
         {
-            session.Update(EvaluationContext, time);
-            CompositionContext context = session.Context;
+            slot.Offset = offset;
+            slot.Session.Update(EvaluationContext, time);
+            CompositionContext context = slot.Session.Context;
             context.SampledDrawable = (Drawable)_flow.Object;
             context.InputBoundaries = [.. EvaluationContext.InputBoundaries, _boundary];
             var range = _flow.Object.TimeRange.Value;
@@ -65,9 +73,11 @@ public sealed class FilterEffectInputContext : IDisposable
             if (visible)
             {
                 bool changed = false;
-                _flow.Reconcile(context, ref source, ref changed);
+                _flow.Reconcile(context, ref slot.Source, ref changed);
             }
-            sample = new FilterEffectInputSample(time, source, session);
+            // A hidden sample keeps its slot's source unevaluated for when the drawable is visible again.
+            Drawable.Resource? source = visible ? slot.Source : null;
+            sample = new FilterEffectInputSample(time, source, slot);
             if (source != null)
             {
                 source.BlendMode = BlendMode.SrcOver;
@@ -81,13 +91,39 @@ public sealed class FilterEffectInputContext : IDisposable
         catch
         {
             if (sample != null) sample.Dispose();
-            else
-            {
-                source?.Dispose();
-                session.Dispose();
-            }
+            else slot.Dispose();
             throw;
         }
+    }
+
+    // Samples usually keep their offsets from frame to frame, so the nearest offset continues the same
+    // reader position instead of seeking another sample's.
+    private FilterEffectInputSlot? ClaimSlot(MediaTime offset)
+    {
+        if (_recycled is not { Count: > 0 } pool) return null;
+        int best = 0;
+        for (int i = 1; i < pool.Count; i++)
+        {
+            if (Distance(pool[i].Offset, offset) < Distance(pool[best].Offset, offset)) best = i;
+        }
+        FilterEffectInputSlot slot = pool[best];
+        pool.RemoveAt(best);
+        return slot;
+
+        static MediaTime Distance(MediaTime a, MediaTime b) => a > b ? a - b : b - a;
+    }
+
+    /// <summary>Ends this context and its samples, handing what they evaluated to the next reconciliation.</summary>
+    internal void Recycle(List<FilterEffectInputSlot> pool)
+    {
+        if (_disposed) return;
+        _disposed = true;
+        foreach (var sample in _samples.Values)
+        {
+            if (!sample.IsDisposed) pool.Add(sample.Detach());
+        }
+        _samples.Clear();
+        _suffix.Dispose();
     }
 
     internal void Render(GraphicsContext2D context)
@@ -124,14 +160,14 @@ public sealed class FilterEffectInputContext : IDisposable
 /// <remarks>The input context releases it automatically at the next reconciliation. Disposal is idempotent.</remarks>
 public sealed class FilterEffectInputSample : IDisposable
 {
-    private readonly CompositionEvaluationSession _session;
+    private readonly FilterEffectInputSlot _slot;
     private readonly Drawable.Resource? _source;
 
-    internal FilterEffectInputSample(MediaTime time, Drawable.Resource? source, CompositionEvaluationSession session)
+    internal FilterEffectInputSample(MediaTime time, Drawable.Resource? source, FilterEffectInputSlot slot)
     {
         Time = time;
         _source = source;
-        _session = session;
+        _slot = slot;
     }
 
     public MediaTime Time { get; }
@@ -153,7 +189,7 @@ public sealed class FilterEffectInputSample : IDisposable
     public void Draw(GraphicsContext2D context)
     {
         ObjectDisposedException.ThrowIf(IsDisposed, this);
-        _session.Context.CancellationToken.ThrowIfCancellationRequested();
+        _slot.Session.Context.CancellationToken.ThrowIfCancellationRequested();
         if (_source == null) return;
         using (context.PushNode(true,
                    static value => new DrawableGroup.ContentIsolationRenderNode(value),
@@ -183,7 +219,48 @@ public sealed class FilterEffectInputSample : IDisposable
     {
         if (IsDisposed) return;
         IsDisposed = true;
-        try { _source?.Dispose(); }
-        finally { _session.Dispose(); }
+        _slot.Dispose();
+    }
+
+    // Ends this sample without releasing what it evaluated, so the next reconciliation can reuse it.
+    internal FilterEffectInputSlot Detach()
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        IsDisposed = true;
+        return _slot;
+    }
+}
+
+// One sample's evaluation session and the source resource evaluated in it. It outlives its sample when the
+// next reconciliation reuses it, which keeps the source's media readers and the session's caches open.
+internal sealed class FilterEffectInputSlot(CompositionEvaluationSession session) : IDisposable
+{
+    public CompositionEvaluationSession Session { get; } = session;
+
+    public Drawable.Resource? Source;
+
+    // The sample time relative to the clock of the input that last evaluated this slot.
+    public MediaTime Offset;
+
+    public static void DisposeAll(List<FilterEffectInputSlot> slots)
+    {
+        List<Exception>? failures = null;
+        foreach (var slot in slots)
+        {
+            try { slot.Dispose(); }
+            catch (Exception ex) { CleanupFailures.Append(failures ??= [], ex); }
+        }
+        slots.Clear();
+        CleanupFailures.ThrowIfAny(failures, "Failed to release evaluated effect inputs.");
+    }
+
+    public void Dispose()
+    {
+        try { Source?.Dispose(); }
+        finally
+        {
+            Source = null;
+            Session.Dispose();
+        }
     }
 }

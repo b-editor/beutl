@@ -45,8 +45,8 @@ public static class ResourceReconciler
             && ReferenceEquals(property, sampledDrawable.FilterEffect))
         {
             var prefix = FilterEffectInputChain.EvaluatePrefix(drawable,
-                context.Get(property) as FilterEffect, context);
-            field?.Dispose();
+                context.Get(property) as FilterEffect, context, field);
+            if (!ReferenceEquals(field, prefix)) field?.Dispose();
             field = (TResource)(EngineObject.Resource)prefix;
             owner.BumpVersion(ref versionBumped);
             return;

@@ -5,6 +5,8 @@
 /// Hosts override <see cref="CompositionContext.CreateEvaluationSession"/> when evaluating a property can
 /// access host-owned caches. The session uses the same document snapshot as its source, never the live
 /// editor document in place of an export snapshot. Dispose evaluated resources before disposing the session.
+/// The engine updates a session again for later samples, including those of later frames, so its resources
+/// keep their media readers; <see cref="Update"/> derives every frame-dependent condition from its source.
 /// </remarks>
 public class CompositionEvaluationSession(CompositionContext context) : IDisposable
 {
@@ -25,6 +27,7 @@ public class CompositionEvaluationSession(CompositionContext context) : IDisposa
         Context.TargetDomain = source.TargetDomain;
         Context.FrameRate = source.FrameRate;
         Context.CancellationToken = source.CancellationToken;
+        Context.EvaluationServices = source.EvaluationServices;
     }
 
     public virtual void Dispose()

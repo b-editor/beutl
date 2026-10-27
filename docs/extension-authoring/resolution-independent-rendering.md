@@ -116,9 +116,12 @@ Choose a finite, non-empty parent-coordinate domain covering the required input,
 the returned node and must dispose it before disposing the sample.
 
 The input context owns its samples until the source's next reconciliation or disposal; a sample may be
-disposed earlier. Never retain a sample or its resource across that boundary. Host integrations override
+disposed earlier. Never retain a sample or its resource across that boundary: the next preparation
+reevaluates it in place for the new sample nearest its offset from the clock, so a video source keeps its
+decoder open and continues from its previous position. Host integrations override
 `CompositionContext.CreateEvaluationSession` to isolate their caches while retaining the source document
-snapshot. `SceneCompositor` implements this for preview and export. Evaluate all samples during preparation
+snapshot, and derive every frame-dependent condition in `CompositionEvaluationSession.Update`, which is
+called again when a session is reused. `SceneCompositor` implements this for preview and export. Evaluate all samples during preparation
 so their dependencies, bounds and 3D requirements are known before recording. Cancellation discards the
 incomplete evaluation or render request; an effect should allow `OperationCanceledException` to propagate.
 

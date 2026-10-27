@@ -33,6 +33,9 @@ public sealed partial class SceneCompositor
             _compositor.DisposeDetachedResources();
             _elements.Clear();
             var context = (CompositorContext)Context;
+            // A session reused by a later frame follows that frame's query path, not the one it was created in.
+            if (source.EvaluationServices is EvaluationServices services)
+                context.EvaluationServices = services.Fork(_compositor, context);
             context.FrameTime = null;
             context.CurrentElements = _elements;
             _compositor.SortLayers(time, _elements, context.Target);
