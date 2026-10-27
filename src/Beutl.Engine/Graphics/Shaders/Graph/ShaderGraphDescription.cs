@@ -2,6 +2,7 @@
 using System.Text;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Rendering;
+using Beutl.Media;
 
 namespace Beutl.Graphics.Shaders;
 
@@ -16,6 +17,8 @@ public sealed class ShaderGraphDescription
         Output = output;
         LastUses = new int[resources.Length];
         Array.Fill(LastUses, -1);
+        _firstUses = new int[resources.Length];
+        Array.Fill(_firstUses, int.MaxValue);
         var initialized = resources.OfType<ShaderBuffer>().Where(b => !b.InitialData.IsEmpty).Select(b => b.Id).ToHashSet();
         var images = new HashSet<(int Image, int Mip, int Layer, int Aspect)> { (0, 0, 0, 0) };
         for (int index = 0; index < passes.Length; index++)
@@ -88,9 +91,13 @@ public sealed class ShaderGraphDescription
 
         void Touch(ShaderResource resource, int index)
         {
+            _firstUses[resource.Id] = Math.Min(_firstUses[resource.Id], index);
             LastUses[resource.Id] = index;
             if (resource is ShaderImage image)
+            {
+                _firstUses[image.Root.Id] = Math.Min(_firstUses[image.Root.Id], index);
                 LastUses[image.Root.Id] = index;
+            }
         }
 
         void Initialize(ShaderResource resource, int? aspect = null)
@@ -116,6 +123,7 @@ public sealed class ShaderGraphDescription
     public ImmutableArray<string> PassNames => Passes.Select(p => p.Name).ToImmutableArray();
     internal ImmutableArray<ShaderPassDescription> Passes { get; }
     internal int[] LastUses { get; }
+    private readonly int[] _firstUses;
     internal string StructuralIdentity { get; }
     internal ShaderGraphValueIdentity OutputIdentity { get; }
 
@@ -138,7 +146,47 @@ public sealed class ShaderGraphDescription
             scale = Math.Min(scale, BufferDimensionBudget.EngineCeiling.ClampWorkingScaleToExactFootprint(
                 bounds, scale * image.ResolutionScale) / image.ResolutionScale);
         }
-        return scale;
+        // Retired allocations can be reclaimed by the executor; only overlapping lifetimes
+        // constrain density. Leave room for device-specific allocation alignment.
+        const long budget = ShaderGraphExecutor.MaximumTransientBytes * 15 / 16;
+        if (PeakBytes(scale) <= budget || PeakBytes(0) > budget)
+            return scale;
+        float lower = 0, upper = scale;
+        for (int i = 0; i < 24; i++)
+        {
+            float candidate = (lower + upper) / 2;
+            if (PeakBytes(candidate) <= budget) lower = candidate;
+            else upper = candidate;
+        }
+        return lower > 0 ? lower : scale;
+
+        long PeakBytes(float density)
+        {
+            var changes = new long[Passes.Length + 2];
+            foreach (ShaderResource resource in Resources)
+            {
+                if (resource.Id == 0 || LastUses[resource.Id] < 0 || resource is ShaderImage { IsView: true }) continue;
+                long bytes;
+                if (resource is ShaderImage image)
+                {
+                    Rect bounds = image.ResolveBounds(sourceBounds, referenceBounds).Translate(gridOffset);
+                    PixelSize size = PixelRect.FromRect(bounds, density * image.ResolutionScale).Size;
+                    ImageDescription description = image.Description ?? new(ImageKind.Image2D,
+                        Math.Max(1, size.Width), Math.Max(1, size.Height), image.Format);
+                    bytes = ShaderGraphExecutor.EstimateImageBytes(description);
+                }
+                else bytes = ((ShaderBuffer)resource).ByteLength;
+                changes[_firstUses[resource.Id]] = checked(changes[_firstUses[resource.Id]] + bytes);
+                changes[LastUses[resource.Id] + 1] = checked(changes[LastUses[resource.Id] + 1] - bytes);
+            }
+            long peak = 0, live = 0;
+            foreach (long change in changes)
+            {
+                live = checked(live + change);
+                peak = Math.Max(peak, live);
+            }
+            return peak;
+        }
     }
 
     private string CreateIdentity(bool includeValues)

@@ -1,6 +1,9 @@
-﻿using System.Numerics;
+﻿using System.Diagnostics;
+using System.Numerics;
+using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Graphics;
+using Beutl.Graphics.Backend;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Cache;
@@ -15,13 +18,64 @@ namespace Beutl.Graphics3DTests;
 [NonParallelizable]
 public sealed class LightRaysTests
 {
+    [TestCase(1920, 1080, 300f)]
+    [TestCase(3840, 2160, 50f)]
+    [TestCase(3840, 2160, 300f)]
+    public void VideoFramesStayWithinTheAllocationBudgetWithBoundedWork(int width, int height, float length)
+    {
+        OnDevice(() =>
+        {
+            var effect = new LightRays { Length = { Value = length } };
+            ShaderGraphDescription graph = ShaderGraphEffectTests.Record(effect);
+            Rect bounds = new(0, 0, width, height);
+            float density = graph.ClampWorkingScale(bounds, 1, default);
+            if (length == 50) Assert.That(density, Is.EqualTo(1), "Default 4K must retain native resolution.");
+            else Assert.That(density, Is.InRange(0.1f, 1f));
+            PixelRect pixels = PixelRect.FromRect(graph.TransformBounds(bounds), density);
+            var context = GpuTestEnvironment.ResolveVulkan(GraphicsContextFactory.SharedContext!);
+            using ITexture2D source = context.CreateTexture2D(width, height, TextureFormat.RGBA16Float);
+            using ITexture2D output = context.CreateTexture2D(pixels.Width, pixels.Height, TextureFormat.RGBA16Float);
+            using (IRenderPass3D clear = context.CreateRenderPass3D([TextureFormat.RGBA16Float], null))
+            using (IFramebuffer3D framebuffer = context.CreateFramebuffer3D(clear, [source], null))
+            {
+                clear.Begin(framebuffer, [Colors.White]);
+                clear.End();
+            }
+            using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();
+            ShaderGraphContractTests.Execute(graph, new(0, 0, 8, 8), cache: cache);
+            context.FlushCommands(waitForCompletion: true);
+            var timer = Stopwatch.StartNew();
+            ShaderGraphExecutionStatistics statistics = ShaderGraphExecutor.Execute(graph, source,
+                new(bounds, bounds, new(width, height), 1), output, density, default,
+                (device, pass) => ShaderGraphPipeline.Acquire(cache, new(context, context, "test", "test"), device, pass));
+            context.FlushCommands(waitForCompletion: true);
+            timer.Stop();
+            Assert.That(statistics.PeakResourceBytes, Is.LessThanOrEqualTo(ShaderGraphExecutor.MaximumTransientBytes));
+            Assert.That(statistics.ExecutedPasses, Is.EqualTo(8));
+            Assert.That(statistics.ProgramCacheHits, Is.EqualTo(9));
+            Assert.That(statistics.ScheduledPixels, Is.LessThan(3L * pixels.Width * pixels.Height + 2L * width * height));
+            ReadOnlySpan<Half> result = MemoryMarshal.Cast<byte, Half>(output.DownloadPixels());
+            int center = ((int)(height / 2 * density) - pixels.Y) * pixels.Width + (int)(width / 2 * density) - pixels.X;
+            Assert.That((float)result[center * 4], Is.GreaterThan(1), "The full-resolution source and its light are composed.");
+            int trailX = (int)((width + width * length / 400) * density) - pixels.X;
+            int trail = ((int)(height / 2 * density) - pixels.Y) * pixels.Width + trailX;
+            Assert.That((float)result[trail * 4 + 3], Is.GreaterThan(0), "The extended rays must also render.");
+            TestContext.Out.WriteLine($"{width}x{height}, length {length}%: density {density:F4}, "
+                + $"{statistics.PeakResourceBytes / 1048576.0:F1} MiB, {statistics.ScheduledPixels} scheduled pixels, "
+                + $"{timer.Elapsed.TotalMilliseconds:F0} ms including GPU completion (warm pipelines).");
+        });
+    }
+
     [TestCase(0.5f, 6f, 16f)]
     [TestCase(-1f, 10f, 24f)]
     public void BoundsIncludeTheOriginalAndOutwardRays(float center, float x, float width)
     {
         var effect = new LightRays { Center = { Value = new(center, 0.5f, RelativeUnit.Relative) }, Length = { Value = 100 } };
         ShaderGraphDescription graph = ShaderGraphEffectTests.Record(effect);
-        Assert.That(graph.Passes.Select(pass => pass.Name), Is.EqualTo(new[] { "extract", "rays", "composite" }));
+        Assert.That(graph.Passes.Select(pass => pass.Name), Is.EqualTo(new[]
+        {
+            "extract", "downsample", "rays-0", "rays-1", "rays-2", "rays-3", "rays-4", "composite",
+        }));
         Rect source = new(10, 20, 8, 6);
         Assert.That(graph.TransformBounds(source), Is.EqualTo(new Rect(x, 17, width, 12)));
         effect.Center.Value = new(center * source.Width, source.Height / 2, RelativeUnit.Absolute);
@@ -104,11 +158,47 @@ public sealed class LightRaysTests
             PixelRect output = PixelRect.FromRect(graph.TransformBounds(source), 1);
             float[] pixels = ShaderGraphContractTests.Execute(graph, source, sourceColor: new(1, 0.5f, 0.25f, 0.5f)).Pixels;
             int center = ((4 - output.Y) * output.Width + 4 - output.X) * 4;
-            float light = intensity / (decay / 25 + 1); // Integral of the falloff on a constant-color ray.
+            float light = intensity / (decay / 25 + 1); // Decay preserves its constant-color gain.
             Assert.That(pixels.AsSpan(center, 4).ToArray(), Is.EqualTo(new[]
             {
                 1 + light, (1 + light) * 0.5f, (1 + light) * 0.25f, 0.5f + Math.Min(light * 0.5f, 1) * 0.5f,
             }).Within(0.003));
+        });
+    }
+
+    [Test]
+    public void SinglePixelHighlightsSurviveEveryDownsamplingPhaseOnAnHdWidthImage()
+    {
+        OnDevice(() =>
+        {
+            var energies = new List<float>();
+            for (int phase = 0; phase < 4; phase++)
+            {
+                int pointX = 1500 + phase % 2, pointY = 16 + phase / 2;
+                var effect = new LightRays
+                {
+                    Center = { Value = new(960, pointY + 0.5f, RelativeUnit.Absolute) },
+                    Length = { Value = 300 },
+                    Decay = { Value = 0 },
+                    Threshold = { Value = 0 },
+                };
+                Rect source = new(0, 0, 1920, 32);
+                ShaderGraphDescription graph = ShaderGraphEffectTests.Record(effect);
+                PixelRect output = PixelRect.FromRect(graph.TransformBounds(source), 1);
+                float[] pixels = ShaderGraphContractTests.Execute(graph, source,
+                    sourcePixel: (x, y) => x == pointX && y == pointY ? Vector4.One : Vector4.Zero).Pixels;
+                float energy = 0;
+                int end = 960 + (pointX - 960) * 4;
+                for (int x = pointX + 3; x < end - 3; x++)
+                {
+                    float alpha = pixels[((pointY - output.Y) * output.Width + x - output.X) * 4 + 3];
+                    Assert.That(alpha, Is.GreaterThan(0.000001f), $"Phase {phase}, gap at x={x}.");
+                    energy += alpha;
+                }
+                energies.Add(energy);
+            }
+            Assert.That(energies.Min() / energies.Max(), Is.GreaterThan(0.9f),
+                "A one-pixel translation must not drop a thin highlight between downsampled texels.");
         });
     }
 

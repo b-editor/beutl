@@ -27,6 +27,16 @@ internal static class ShaderGraphExecutor
     // This is an active-allocation ceiling, not the target pool's retained-cache budget.
     internal const long MaximumTransientBytes = 256L * 1024 * 1024;
 
+    internal static long EstimateImageBytes(ImageDescription description)
+    {
+        long bytes = 0;
+        for (int mip = 0; mip < description.MipLevels; mip++)
+            bytes = checked(bytes + (long)Math.Max(1, description.Width >> mip)
+                * Math.Max(1, description.Height >> mip) * Math.Max(1, description.Depth >> mip)
+                * description.ArrayLayers * description.Format.BytesPerTexel());
+        return bytes;
+    }
+
     private static readonly ShaderProgram s_copy = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(location = 0) in vec2 uv;
@@ -232,12 +242,7 @@ internal static class ShaderGraphExecutor
                     }
                     else
                     {
-                        long estimate = 0;
-                        for (int mip = 0; mip < description.MipLevels; mip++)
-                            estimate = checked(estimate + (long)Math.Max(1, description.Width >> mip)
-                                * Math.Max(1, description.Height >> mip) * Math.Max(1, description.Depth >> mip)
-                                * description.ArrayLayers * description.Format.BytesPerTexel());
-                        CheckBudget(estimate, resource.Name);
+                        CheckBudget(EstimateImageBytes(description), resource.Name);
                         owner = new ShaderGraphImage(context, description, usages[root.Id]);
                         ownedStorage.Add(owner);
                         CheckBudget(checked((long)owner.AllocationSize), resource.Name);

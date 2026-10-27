@@ -60,23 +60,38 @@ public sealed partial class LightRays : FilterEffect
                 ShaderImage mask = graph.Image2D("mask", bright, TextureFormat.R16Float);
                 LightEffectPasses.ExtractHighlights(graph, graph.Source, bright, mask, values.Threshold, values.SoftKnee);
 
-                ShaderImage rays = graph.Image2D("rays", graph.Source);
-                // Share the same float32 transform and complete-input origin with rendering, as RadialBlur does.
+                // Prefilter before halving the raster density so isolated highlights survive every grid phase.
+                ShaderImage reduced = graph.Image2D("downsample", bright, resolutionScale: 0.5f);
+                LightEffectPasses.Downsample(graph, bright, reduced);
+                ShaderImage previous = reduced;
                 float stretch = 1 / values.InverseStretch;
-                rays.BoundsTransforms = [Matrix.CreateScale(stretch, stretch)];
-                rays.BoundsOrigin = values.Center;
-                graph.Fullscreen("rays", s_rays, pass =>
+                // Five radix-eight passes integrate 32768 positions with only 40 reads per light pixel.
+                // Zooms compose multiplicatively, so use equally spaced positions in log distance.
+                float step = 1f / 32768;
+                for (int level = 0; level < 5; level++, step *= 8)
                 {
-                    pass.SampledImage(0, bright);
-                    pass.ImageParameters(1, bright);
-                    pass.ImageParameters(2, rays);
-                    pass.PushConstants(new Vector4(0, 0, values.InverseStretch, values.Decay));
-                    pass.BoundsOriginConstants(values.Center, 0);
-                    // Rays can sample anywhere between the output pixel and the center: retain the full source.
-                    pass.ColorAttachment(0, rays);
-                });
-                ShaderImage output = graph.Image2D("output", rays);
-                LightEffectPasses.Composite(graph, graph.Source, rays, mask, output, values.Intensity, preserveAlpha: false);
+                    ShaderImage source = previous;
+                    ShaderImage rays = graph.Image2D($"rays-{level}", graph.Source, resolutionScale: 0.5f);
+                    rays.BoundsTransforms = [Matrix.CreateScale(stretch, stretch)];
+                    rays.BoundsOrigin = values.Center;
+                    float logStep = MathF.Log(stretch) * step;
+                    var constants = new Vector4(MathF.Exp(-logStep), MathF.Exp(-values.Decay * step),
+                        level == 0 ? MathF.Exp(-logStep / 2) : 1, 0);
+                    graph.Fullscreen(rays.Name, s_rays, pass =>
+                    {
+                        pass.SampledImage(0, source);
+                        pass.ImageParameters(1, source);
+                        pass.ImageParameters(2, rays);
+                        pass.PushConstants((Vector4.Zero, constants));
+                        pass.BoundsOriginConstants(values.Center, 0);
+                        // Keep the whole input: intermediate zooms can reach outside a requested output tile.
+                        pass.ColorAttachment(0, rays);
+                    });
+                    previous = rays;
+                }
+                ShaderImage output = graph.Image2D("output", previous);
+                LightEffectPasses.Composite(graph, graph.Source, previous, mask, output,
+                    values.Intensity / (values.Decay + 1), preserveAlpha: false);
                 return graph.Output(output);
             });
     }
@@ -86,44 +101,22 @@ public sealed partial class LightRays : FilterEffect
         layout(binding = 0) uniform sampler2D image;
         layout(binding = 1, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
         layout(binding = 2, std140) uniform Destination { vec4 logical; vec4 raster; vec4 size; } dst;
-        layout(push_constant) uniform Values { vec2 center; float inverseStretch; float decay; } pc;
+        layout(push_constant) uniform Values { vec4 center; vec4 step; } pc;
         layout(location = 0) out vec4 color;
         void main() {
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
-            vec2 end = pc.center + (position - pc.center) * pc.inverseStretch;
-            vec2 delta = end - position;
-            float first = 0;
-            float last = 1;
             color = vec4(0);
-            // Clip to the actual source before sampling. Distant centers do not add empty samples,
-            // and the support stays inside the forward-transformed source bounds.
-            for (int axis = 0; axis < 2; axis++) {
-                float low = src.logical[axis];
-                float high = low + src.logical[axis + 2];
-                if (delta[axis] == 0) {
-                    if (position[axis] < low || position[axis] >= high) return;
-                } else {
-                    float a = (low - position[axis]) / delta[axis];
-                    float b = (high - position[axis]) / delta[axis];
-                    first = max(first, min(a, b));
-                    last = min(last, max(a, b));
-                }
-            }
-            if (last <= first) return;
-            float span = last - first;
-            vec2 pixels = abs(delta) * span * src.size.z;
-            // At most one texel between samples keeps narrow highlights continuous at every scale.
-            // A small minimum also integrates the decay smoothly near the center.
-            int steps = max(16, int(ceil(max(pixels.x, pixels.y))));
-            for (int i = 0; i < steps; i++) {
-                float t = first + (float(i) + 0.5) * span / float(steps);
-                vec2 p = position + delta * t;
-                float weight = pc.decay > 0 ? pow(max(1 - t, 0), pc.decay) : 1;
-                // Loop counts vary by pixel, so avoid implicit texture derivatives in this control flow.
+            float total = 0;
+            float factor = pc.step.z;
+            float weight = 1;
+            for (int i = 0; i < 8; i++) {
+                vec2 p = pc.center.xy + (position - pc.center.xy) * factor;
                 color += textureLod(image, (p - src.raster.xy) / src.raster.zw, 0) * weight;
+                total += weight;
+                factor *= pc.step.x;
+                weight *= pc.step.y;
             }
-            // Normalize over the complete ray, including transparent regions outside the source.
-            color *= span / float(steps);
+            color /= total;
         }
         """));
 }

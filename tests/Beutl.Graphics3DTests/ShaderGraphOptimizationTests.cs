@@ -129,6 +129,18 @@ public sealed class ShaderGraphOptimizationTests
     }
 
     [Test]
+    public void WorkingScaleUsesConcurrentLifetimesInsteadOfSummingRetiredImages()
+    {
+        ShaderGraphDescription graph = Chain(20, partial: true);
+        Rect bounds = new(0, 0, 3840, 2160);
+        Assert.That(graph.ClampWorkingScale(bounds, 1, default), Is.EqualTo(1));
+        float reduced = graph.ClampWorkingScale(bounds, 2, new(0.25f, -0.75f));
+        Assert.That(reduced, Is.InRange(1f, 2f));
+        Assert.That(graph.ClampWorkingScale(bounds, reduced, new(0.25f, -0.75f)), Is.EqualTo(reduced));
+        Assert.That(graph.ClampWorkingScale(bounds, 0.5f, default), Is.EqualTo(0.5f));
+    }
+
+    [Test]
     public void BudgetFailureAfterRecordedWorkDoesNotPoisonTheNextExecution()
     {
         OnDevice(_ =>
@@ -143,6 +155,8 @@ public sealed class ShaderGraphOptimizationTests
                 builder.Clear("over-budget", tooLarge);
                 return builder.Output(output);
             });
+            Assert.That(graph.ClampWorkingScale(new(0, 0, 4, 2), 1, default), Is.EqualTo(1),
+                "Fixed-size buffers cannot be made smaller by lowering raster density.");
             Assert.That(() => Execute(graph, new(0, 0, 4, 2)),
                 Throws.InvalidOperationException.With.Message.Contains("active allocation budget"));
             Assert.That(Execute(ShaderGraphTests.ColorGraph(Vector4.One), new(0, 0, 4, 2)).Pixels, Has.All.EqualTo(1));
