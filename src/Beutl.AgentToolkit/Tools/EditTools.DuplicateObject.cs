@@ -17,9 +17,9 @@ namespace Beutl.AgentToolkit.Tools;
 public sealed partial class EditTools
 {
     [McpServerTool(Name = "duplicate_object")]
-    [Description("Duplicates one EngineObject (e.g. a Drawable) within its owning timeline Element.Objects, minting fresh Ids on every nested node, and returns the new object's Id. The copy is appended to Element.Objects. For grouped effects such as additive bloom, prefer wrapInGroup=false and arrange Element.Objects as [original, copy, PortalObject(Count=0, Clear=false), DrawableGroup] with empty group Children, or use separate Elements within the group's PortalObject.Count span. Apply the effect to the returned copy — see get_effect_recipe \"additive-bloom\". Use separate Elements when you need independent timing or z-order. wrapInGroup=true explicitly creates or extends nested group Children.")]
+    [Description("Duplicates one EngineObject with fresh Ids on every nested node and returns the new object's Id. With wrapInGroup=false, the source must be a direct Element.Objects entry and the copy is appended there. For new grouped effects such as additive bloom, prefer this mode and arrange [original, copy, PortalObject(Count=0, Clear=false), DrawableGroup] with empty group Children, or use captured timeline layers. Isolate unrelated content in separate Elements outside the portal span, preserving timing and draw order. For a drawable already nested in DrawableGroup.Children, use wrapInGroup=true to append the copy to its existing group; patch the returned copy ID at its actual nested path from read_document, preserving parent groups. For a direct drawable, wrapInGroup=true creates a nested group around the source and copy. See get_effect_recipe \"additive-bloom\".")]
     public ToolResult<DuplicateObjectResponse> DuplicateObject(
-        [Description("Id of the object to duplicate. Must be an object inside some timeline Element.Objects (e.g. a drawable).")]
+        [Description("Id of the object to duplicate. wrapInGroup=false searches direct Element.Objects entries; wrapInGroup=true also searches drawables nested inside DrawableGroup.Children.")]
         string objectId,
         [Description("Optional owning Element Id to scope the search; omit to search every element for objectId.")]
         string? elementId = null,

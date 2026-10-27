@@ -189,8 +189,12 @@ public sealed partial class SchemaGenerator
         string? description = item?.Description;
         if (typeof(IFlowOperator).IsAssignableFrom(type))
         {
-            const string flowHint = "IFlowOperator: prefer supplying input objects through flow instead of adding them directly to Children or similar nested content properties. Use separate timeline Elements below the operator's Element, within its PortalObject.Count span (ZIndex z+1 through z+Count), or put inputs earlier in the same Element.Objects. Keep a PortalObject immediately before the operator: for same-Element input use [inputs..., PortalObject(Count=0, Clear=false), operator]. Existing nested content remains supported. See get_examples insert-camera-rig-push-in and insert-camera-rig-portal.";
+            const string flowHint = "IFlowOperator: prefer supplying input objects through flow instead of adding them directly to Children or similar nested content properties. Use separate timeline Elements below the operator's Element, within its PortalObject.Count span (ZIndex z+1 through z+Count), or put inputs earlier in the same Element.Objects. Keep a PortalObject immediately before the operator: for same-Element input use [inputs..., PortalObject(Count=0, Clear=false), operator]. Earlier compatible objects can also be consumed. When grouping a subset, isolate its input/operator chain in its own Element and keep unrelated content in separate Elements outside the portal span, preserving timing and draw order. Existing nested content remains supported. See get_examples insert-camera-rig-push-in and insert-camera-rig-portal.";
             description = string.IsNullOrWhiteSpace(description) ? flowHint : $"{description} {flowHint}";
+            if (type == typeof(DrawableTimeController))
+            {
+                description += " DrawableTimeController consumes only the first upstream Drawable; other drawables remain in the flow without being retimed. To retime several drawables together, feed them through a DrawableGroup first, then place another PortalObject(Count=0, Clear=false) and the controller after that group.";
+            }
         }
 
         return new TypeDescriptor(
