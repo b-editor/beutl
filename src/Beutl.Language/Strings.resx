@@ -3453,9 +3453,6 @@ when history recording is enabled.</value>
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>Share the clean preview with audio and control playback from your phone.</value>
   </data>
-  <data name="MobilePreviewAddress" xml:space="preserve">
-    <value>Network address</value>
-  </data>
   <data name="MobilePreviewReady" xml:space="preserve">
     <value>Press Start to share the preview.</value>
   </data>
@@ -3489,11 +3486,8 @@ when history recording is enabled.</value>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>Could not start sharing. Check your connection and Beutl Web sign-in, then try again.</value>
   </data>
-  <data name="MobilePreviewInternet" xml:space="preserve">
-    <value>Connect over the Internet</value>
-  </data>
   <data name="MobilePreviewInternetDescription" xml:space="preserve">
-    <value>Uses Beutl Web. Sign-in is required to share; viewers only need the URL and connection code. Otherwise, use the same local network.</value>
+    <value>The viewer is hosted on Beutl Web. Sign in to start sharing. WebRTC can connect directly on the same network; other networks can use a relay.</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>The relay connection ended. Press Start to create a new sharing session.</value>

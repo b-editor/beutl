@@ -8,14 +8,15 @@ namespace Beutl.PreviewStreaming;
 
 internal sealed partial class MobilePreviewServer
 {
-    private (string Id, string Address)[]? _relayClients;
-    private Task? _relayTask;
+    private (string Id, string Address)[] _relayClients = [];
+    private Client? _relay;
+    private Task _relayTask = Task.CompletedTask;
     internal event EventHandler? RelayDisconnected;
 
-    internal static async Task<MobilePreviewServer> StartRemoteAsync(PreviewSessionResponse session,
+    internal static async Task<MobilePreviewServer> StartAsync(PreviewSessionResponse session,
         CancellationToken cancellationToken = default)
     {
-        var server = new MobilePreviewServer(null, TimeProvider.System)
+        var server = new MobilePreviewServer()
         {
             Endpoint = session.ViewerUrl,
             _pairingCode = session.PairingCode,
@@ -31,8 +32,8 @@ internal sealed partial class MobilePreviewServer
         {
             await socket.ConnectAsync(session.PublisherUrl, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
-            var client = new Client(socket, "relay");
-            server._clients.Add("relay", client);
+            var client = new Client(socket);
+            server._relay = client;
             server._encoderTask = Task.Run(server.EncodeFramesAsync);
             server._audioTask = Task.Run(server.EncodeAudioAsync);
             server._relayTask = server.RunRelayAsync(client);
@@ -60,7 +61,8 @@ internal sealed partial class MobilePreviewServer
             lock (_gate)
             {
                 _relayClients = [];
-                _clients.Clear();
+                _relay = null;
+                _paired.Clear();
             }
             ClientsChanged?.Invoke(this, EventArgs.Empty);
             if (!_stop.IsCancellationRequested) RelayDisconnected?.Invoke(this, EventArgs.Empty);
@@ -69,7 +71,7 @@ internal sealed partial class MobilePreviewServer
 
     private void SendRelayControl(object control, string? playbackId = null)
     {
-        if (_relayClients is not null && _clients.TryGetValue("relay", out var client))
+        if (_relay is { } client)
             client.Controls.Enqueue(JsonSerializer.Serialize(control), playbackId);
     }
 
@@ -84,6 +86,11 @@ internal sealed partial class MobilePreviewServer
             {
                 removed = _peers.Keys.Except(snapshot.Select(c => c.Item1)).ToArray();
                 _relayClients = snapshot;
+                if (snapshot.Length == 0)
+                {
+                    _latest?.Dispose();
+                    _latest = null;
+                }
                 _paired.Clear();
                 foreach (var device in message.TryGetProperty("paired", out var paired) ? paired.EnumerateArray() : clients.EnumerateArray())
                     _paired[device.GetProperty("id").GetString()!] = device.GetProperty("address").GetString()!;

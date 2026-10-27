@@ -24,7 +24,7 @@ internal sealed partial class MobilePreviewServer
     {
         lock (_gate)
         {
-            if (_stop.IsCancellationRequested || (_relayClients?.Length ?? _clients.Count) == 0) return;
+            if (_stop.IsCancellationRequested || _relayClients.Length == 0) return;
             if (image?.TryClone() is not { } reference) return;
             _latest?.Dispose();
             _latest = new(reference, toneMapping, exposure, playing, time, playbackId, _mediaClock.Elapsed.TotalSeconds);

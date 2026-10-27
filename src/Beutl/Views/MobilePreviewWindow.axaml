@@ -9,18 +9,9 @@
         <StackPanel Margin="24" Spacing="12">
             <TextBlock Text="{x:Static lang:Strings.MobilePreview}" FontSize="24" FontWeight="SemiBold" />
             <TextBlock Text="{x:Static lang:Strings.MobilePreviewDescription}" TextWrapping="Wrap" />
-            <CheckBox x:Name="InternetBox" Content="{x:Static lang:Strings.MobilePreviewInternet}"
-                      IsChecked="True" IsCheckedChanged="OnModeChanged" />
             <TextBlock Text="{x:Static lang:Strings.MobilePreviewInternetDescription}" TextWrapping="Wrap" FontSize="12" />
-            <StackPanel Spacing="6">
-                <TextBlock Text="{x:Static lang:Strings.MobilePreviewAddress}" />
-                <Grid ColumnDefinitions="*,Auto">
-                    <ComboBox x:Name="AddressBox" HorizontalAlignment="Stretch" />
-                    <Button x:Name="ToggleButton" Grid.Column="1" Margin="8,0,0,0"
-                            Click="OnToggleClick" Content="{x:Static lang:Strings.Start}" MinWidth="80"
-                            HorizontalContentAlignment="Center" />
-                </Grid>
-            </StackPanel>
+            <Button x:Name="ToggleButton" Click="OnToggleClick" Content="{x:Static lang:Strings.Start}"
+                    MinWidth="80" HorizontalContentAlignment="Center" />
             <TextBlock x:Name="StatusText" TextWrapping="Wrap" FontSize="12" />
             <StackPanel x:Name="SharingPanel" Spacing="12" IsVisible="False">
                 <TextBlock Text="{x:Static lang:Strings.MobilePreviewScan}" TextWrapping="Wrap" />

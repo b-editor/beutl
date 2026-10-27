@@ -3453,9 +3453,6 @@ cuando el registro del historial está activado.</value>
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>Comparte la vista previa limpia con audio y controla la reproducción desde tu teléfono.</value>
   </data>
-  <data name="MobilePreviewAddress" xml:space="preserve">
-    <value>Dirección de red</value>
-  </data>
   <data name="MobilePreviewReady" xml:space="preserve">
     <value>Pulsa Iniciar para compartir la vista previa.</value>
   </data>
@@ -3489,11 +3486,8 @@ cuando el registro del historial está activado.</value>
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>No se pudo iniciar. Comprueba la conexión y el inicio de sesión en Beutl Web.</value>
   </data>
-  <data name="MobilePreviewInternet" xml:space="preserve">
-    <value>Conectar por Internet</value>
-  </data>
   <data name="MobilePreviewInternetDescription" xml:space="preserve">
-    <value>Utiliza Beutl Web. Inicia sesión para compartir; los espectadores solo necesitan el enlace y el código. Si se desactiva, usa la misma red local.</value>
+    <value>El visor se aloja en Beutl Web. Inicia sesión para compartir. WebRTC puede conectar directamente en la misma red o usar un servidor de retransmisión.</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>La conexión con el servidor terminó. Pulsa Iniciar para crear una nueva sesión.</value>

@@ -181,7 +181,6 @@
   <ItemGroup>
     <EmbeddedResource Include="Resources\osx-update.sh" />
     <EmbeddedResource Include="Resources\linux-update.sh" />
-    <EmbeddedResource Include="PreviewStreaming\Client\*" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Beutl.Configuration\Beutl.Configuration.csproj" />

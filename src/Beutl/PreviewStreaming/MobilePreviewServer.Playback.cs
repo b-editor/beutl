@@ -15,8 +15,7 @@ internal sealed partial class MobilePreviewServer
     internal bool IsClientConnected(string id)
     {
         lock (_gate)
-            return !_stop.IsCancellationRequested && (_relayClients is { } clients
-                ? clients.Any(c => c.Id == id) : _paired.ContainsKey(id) && _clients.ContainsKey(id));
+            return !_stop.IsCancellationRequested && _paired.ContainsKey(id) && _relayClients.Any(c => c.Id == id);
     }
 
     internal void PublishPlayback(bool playing, double position, double minimum, double duration, double frameRate, bool enabled)
@@ -25,7 +24,7 @@ internal sealed partial class MobilePreviewServer
         {
             if (_stop.IsCancellationRequested) return;
             _playbackState = JsonSerializer.Serialize(new { type = "playback", playing, position, minimum, duration, frameRate, enabled });
-            foreach (string id in _relayClients?.Select(c => c.Id) ?? _clients.Keys)
+            foreach (string id in _relayClients.Select(c => c.Id))
                 SendToViewer(id, _playbackState, playback: true);
         }
     }

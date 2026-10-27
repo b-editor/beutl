@@ -41,8 +41,7 @@ internal sealed partial class MobilePreviewServer
 
     private void SendToViewer(string id, string json, bool playback = false)
     {
-        if (_relayClients is not null) SendRelayControl(new { type = "signal", id, signal = JsonSerializer.Deserialize<JsonElement>(json) }, playback ? id : null);
-        else if (_clients.TryGetValue(id, out var client)) client.Controls.Enqueue(json, playback ? id : null);
+        SendRelayControl(new { type = "signal", id, signal = JsonSerializer.Deserialize<JsonElement>(json) }, playback ? id : null);
     }
 
     private async Task HandleSignalAsync(string id, JsonElement signal, CancellationToken ct)
@@ -70,15 +69,13 @@ internal sealed partial class MobilePreviewServer
         finally { _transportGate.Release(); }
     }
 
-    private async Task RemovePeerAsync(string id, Client? client = null)
+    private async Task RemovePeerAsync(string id)
     {
         await _transportGate.WaitAsync().ConfigureAwait(false);
         try
         {
             lock (_gate)
             {
-                // A reconnect can replace the socket before the previous request finishes.
-                if (client is not null && _clients.TryGetValue(id, out var current) && current != client) return;
                 _peers.Remove(id);
             }
             if (_transport is not null && !_stop.IsCancellationRequested)
@@ -88,7 +85,7 @@ internal sealed partial class MobilePreviewServer
         finally { _transportGate.Release(); }
     }
 
-    private async Task RunClientAsync(Client client, CancellationTokenSource cancellation, string? id = null)
+    private async Task RunClientAsync(Client client, CancellationTokenSource cancellation)
     {
         var token = cancellation.Token;
         Task send = SendControlsAsync();
@@ -123,13 +120,12 @@ internal sealed partial class MobilePreviewServer
                     if (count == buffer.Length && !message.EndOfMessage) return;
                 } while (!message.EndOfMessage);
                 using var json = JsonDocument.Parse(buffer.AsMemory(0, count));
-                if (id is not null) await HandleSignalAsync(id, json.RootElement, token);
-                else await HandleRelayMessageAsync(json.RootElement, token);
+                await HandleRelayMessageAsync(json.RootElement, token);
             }
         }
     }
 
-    private sealed record Client(WebSocket Socket, string Address)
+    private sealed record Client(WebSocket Socket)
     {
         internal PreviewMessageQueue Controls { get; } = new();
     }

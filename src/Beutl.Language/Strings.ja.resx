@@ -3448,9 +3448,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="MobilePreviewDescription" xml:space="preserve">
     <value>クリーンなプレビューを音声付きで共有し、スマホから再生を操作できます。</value>
   </data>
-  <data name="MobilePreviewAddress" xml:space="preserve">
-    <value>ネットワークアドレス</value>
-  </data>
   <data name="MobilePreviewReady" xml:space="preserve">
     <value>開始を押すとプレビューを共有します。</value>
   </data>
@@ -3484,11 +3481,8 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="MobilePreviewFailed" xml:space="preserve">
     <value>共有を開始できませんでした。接続とBeutl Webへのログインを確認し、再試行してください。</value>
   </data>
-  <data name="MobilePreviewInternet" xml:space="preserve">
-    <value>インターネット経由で接続</value>
-  </data>
   <data name="MobilePreviewInternetDescription" xml:space="preserve">
-    <value>Beutl Webを使用します。配信にはログインが必要です。閲覧者はURLと接続コードだけで接続できます。オフの場合は同じローカルネットワークで接続します。</value>
+    <value>画面はBeutl Webで配信されます。共有開始にはログインが必要です。同じネットワークではWebRTCで直接接続し、必要に応じて中継を利用します。</value>
   </data>
   <data name="MobilePreviewRelayDisconnected" xml:space="preserve">
     <value>中継との接続が終了しました。開始を押して新しい共有を作成してください。</value>

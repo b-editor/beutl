@@ -1,7 +1,4 @@
-﻿using System.Net;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -32,17 +29,6 @@ public partial class MobilePreviewWindow : Window
     {
         _player = player;
         InitializeComponent();
-        var addresses = NetworkInterface.GetAllNetworkInterfaces()
-            .Where(n => n.OperationalStatus == OperationalStatus.Up && n.NetworkInterfaceType != NetworkInterfaceType.Loopback)
-            .OrderByDescending(n => n.GetIPProperties().GatewayAddresses.Any(g => g.Address.AddressFamily == AddressFamily.InterNetwork))
-            .ThenByDescending(n => n.NetworkInterfaceType is NetworkInterfaceType.Ethernet or NetworkInterfaceType.Wireless80211)
-            .SelectMany(n => n.GetIPProperties().UnicastAddresses
-                .Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a.Address))
-                .Select(a => new NetworkAddress(n.Name, a.Address))).ToArray();
-        AddressBox.ItemsSource = addresses;
-        AddressBox.SelectedIndex = addresses.Length > 0 ? 0 : -1;
-        ToggleButton.IsEnabled = true;
-        AddressBox.IsEnabled = false;
         StatusText.Text = Strings.MobilePreviewReady;
     }
 
@@ -82,8 +68,7 @@ public partial class MobilePreviewWindow : Window
         try
         {
             if (_server is not null) await StopSharingAsync();
-            else if (InternetBox.IsChecked == true) await StartSharingAsync(null);
-            else if (AddressBox.SelectedItem is NetworkAddress address) await StartSharingAsync(address.Address);
+            else await StartSharingAsync();
         }
         catch (OperationCanceledException) when (_closed) { }
         catch (Exception ex)
@@ -91,36 +76,31 @@ public partial class MobilePreviewWindow : Window
             StatusText.Text = Strings.MobilePreviewFailed;
             Log.CreateLogger<MobilePreviewWindow>().LogError(ex, "Could not start mobile preview.");
         }
-        finally { ToggleButton.IsEnabled = !_closed && (InternetBox.IsChecked == true || AddressBox.SelectedItem is not null); }
+        finally { ToggleButton.IsEnabled = !_closed; }
     }
 
-    internal Task StartSharingAsync(IPAddress? address)
+    internal Task StartSharingAsync(PreviewSessionResponse? session = null)
     {
         if (_closed || _server is not null || !_startup.IsCompleted) return _startup;
         _shutdown = null;
-        return _startup = StartCoreAsync(address);
+        return _startup = StartCoreAsync(session);
     }
 
-    private async Task StartCoreAsync(IPAddress? address)
+    private async Task StartCoreAsync(PreviewSessionResponse? session)
     {
         using var cancellation = new CancellationTokenSource();
         _startupCancellation = cancellation;
-        InternetBox.IsChecked = address is null;
-        AddressBox.IsEnabled = false;
-        InternetBox.IsEnabled = false;
         try
         {
-            MobilePreviewServer server;
-            if (address is null)
+            if (session is null)
             {
                 if (Owner?.DataContext is not MainViewModel main)
                     throw new InvalidOperationException("The account service is unavailable.");
                 BeutlApiApplication api = main._beutlClients;
                 if (api.AuthenticatedUser.Value is null) await api.SignInAsync(cancellation.Token);
-                var session = await api.CreatePreviewSessionAsync(cancellation.Token);
-                server = await MobilePreviewServer.StartRemoteAsync(session, cancellation.Token);
+                session = await api.CreatePreviewSessionAsync(cancellation.Token);
             }
-            else server = await MobilePreviewServer.StartAsync(address, cancellation.Token);
+            var server = await MobilePreviewServer.StartAsync(session, cancellation.Token);
             if (_closed || cancellation.IsCancellationRequested)
             {
                 await server.DisposeAsync();
@@ -150,8 +130,6 @@ public partial class MobilePreviewWindow : Window
         finally
         {
             _startupCancellation = null;
-            AddressBox.IsEnabled = _server is null && InternetBox.IsChecked != true;
-            InternetBox.IsEnabled = _server is null;
         }
     }
 
@@ -187,8 +165,7 @@ public partial class MobilePreviewWindow : Window
         ClientList.Children.Clear();
         ToggleButton.Content = Strings.Start;
         StatusText.Text = Strings.MobilePreviewReady;
-        try { if (server is not null) await server.DisposeAsync(); }
-        finally { AddressBox.IsEnabled = InternetBox.IsChecked != true; InternetBox.IsEnabled = true; }
+        if (server is not null) await server.DisposeAsync();
     }
 
     private void OnClientsChanged(object? sender, EventArgs e)
@@ -216,13 +193,6 @@ public partial class MobilePreviewWindow : Window
         }
     }
 
-    private void OnModeChanged(object? sender, RoutedEventArgs e)
-    {
-        if (AddressBox is null || ToggleButton is null) return;
-        AddressBox.IsEnabled = InternetBox.IsChecked != true;
-        ToggleButton.IsEnabled = InternetBox.IsChecked == true || AddressBox.SelectedItem is not null;
-    }
-
     private void OnRelayDisconnected(object? sender, EventArgs e) => Dispatcher.UIThread.Post(async () =>
     {
         if (_closed || !ReferenceEquals(sender, _server)) return;
@@ -246,8 +216,4 @@ public partial class MobilePreviewWindow : Window
             await clipboard.SetTextAsync(server.Endpoint.AbsoluteUri);
     }
 
-    private sealed record NetworkAddress(string Name, IPAddress Address)
-    {
-        public override string ToString() => $"{Name} — {Address}";
-    }
 }

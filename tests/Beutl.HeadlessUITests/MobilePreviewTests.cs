@@ -1,8 +1,8 @@
 ﻿using System.Buffers.Binary;
 using System.Net;
 using System.Net.WebSockets;
-using System.Text;
 using System.Text.Json;
+using System.Threading.Channels;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -21,7 +21,6 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Time.Testing;
 using SkiaSharp;
 
 namespace Beutl.HeadlessUITests;
@@ -30,77 +29,15 @@ namespace Beutl.HeadlessUITests;
 public sealed class MobilePreviewTests
 {
     [Test]
-    public async Task Pairing_requires_the_local_origin_and_an_unexpired_code_and_limits_attempts()
-    {
-        var clock = new FakeTimeProvider();
-        await using var server = await MobilePreviewServer.StartAsync(IPAddress.Loopback, clock: clock);
-        var cookies = new CookieContainer();
-        using var http = CreateHttp(server, cookies);
-        Assert.That((await http.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
-        Assert.That(await http.GetStringAsync("/"), Does.Contain("src=\"viewer.js\""));
-        Assert.That((await http.PostAsync("/edit", new StringContent(""))).StatusCode, Is.EqualTo(HttpStatusCode.NotFound));
-
-        using var foreignHost = new HttpRequestMessage(HttpMethod.Get, "/");
-        foreignHost.Headers.Host = "attacker.invalid";
-        Assert.That((await http.SendAsync(foreignHost)).StatusCode, Is.EqualTo(HttpStatusCode.Forbidden));
-        foreach (string? origin in new[] { null, "http://attacker.invalid" })
-        {
-            using var anonymous = new HttpClient { BaseAddress = server.Endpoint };
-            if (origin is not null) anonymous.DefaultRequestHeaders.Add("Origin", origin);
-            Assert.That((await anonymous.PostAsync("/api/pair", new StringContent(server.PairingCode))).StatusCode,
-                Is.EqualTo(HttpStatusCode.Forbidden));
-        }
-        Assert.That((await http.PostAsync("/api/pair", new StringContent("wrong!"))).StatusCode,
-            Is.EqualTo(HttpStatusCode.Unauthorized));
-        using var paired = await http.PostAsync("/api/pair", new StringContent(server.PairingCode));
-        Assert.That(paired.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
-        string cookie = paired.Headers.GetValues("Set-Cookie").Single();
-        Assert.That(cookie, Does.Contain("httponly").IgnoreCase.And.Contain("samesite=strict").IgnoreCase);
-        Assert.That((await http.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
-        using var foreignSocket = new ClientWebSocket();
-        foreignSocket.Options.Cookies = cookies;
-        foreignSocket.Options.SetRequestHeader("Origin", "http://attacker.invalid");
-        await Assert.ThrowsAsync<WebSocketException>(async () => await foreignSocket.ConnectAsync(SocketUri(server), CancellationToken.None));
-
-        clock.Advance(TimeSpan.FromMinutes(11));
-        using var another = CreateHttp(server, new CookieContainer());
-        Assert.That((await another.PostAsync("/api/pair", new StringContent(server.PairingCode))).StatusCode,
-            Is.EqualTo(HttpStatusCode.Unauthorized));
-        Assert.That((await http.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.NoContent),
-            "Code expiry must not interrupt an already paired viewer.");
-        server.RenewPairingCode();
-        for (int i = 0; i < 10; i++)
-            Assert.That((await another.PostAsync("/api/pair", new StringContent("wrong!"))).StatusCode,
-                Is.EqualTo(HttpStatusCode.Unauthorized));
-        Assert.That((await another.PostAsync("/api/pair", new StringContent(server.PairingCode))).StatusCode,
-            Is.EqualTo(HttpStatusCode.TooManyRequests));
-        clock.Advance(TimeSpan.FromMinutes(1));
-        Assert.That((await another.PostAsync("/api/pair", new StringContent(server.PairingCode))).StatusCode,
-            Is.EqualTo(HttpStatusCode.NoContent));
-        for (int i = 0; i < 2; i++)
-        {
-            using var device = CreateHttp(server, new CookieContainer());
-            await Pair(device, server);
-        }
-        using var extra = CreateHttp(server, new CookieContainer());
-        Assert.That((await extra.PostAsync("/api/pair", new StringContent(server.PairingCode))).StatusCode,
-            Is.EqualTo(HttpStatusCode.Conflict));
-        server.DisconnectAll();
-        Assert.That((await http.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
-        await Pair(extra, server);
-    }
-
-    [Test]
     public async Task Signaling_clients_keep_only_the_latest_bitmap_and_disconnect_releases_it()
     {
-        await using var server = await MobilePreviewServer.StartAsync(IPAddress.Loopback);
+        await using var host = await RelayHost.StartAsync();
+        await using var server = await MobilePreviewServer.StartAsync(host.Session);
         using var red = SolidFrame(255, 0, 0);
         server.Publish(red, UIToneMappingOperator.None, 0, false);
         Assert.That(red.RefCount, Is.EqualTo(1));
-        var cookies = new CookieContainer();
-        using var http = CreateHttp(server, cookies);
-        await Pair(http, server);
-        using var socket = await Connect(server, cookies);
+        var socket = await host.AcceptAsync();
+        await Roster(socket, ["one"]);
         await WaitUntil(() => server.GetClients().Length == 1);
         string id = server.GetClients().Single().Id;
         int released = 0;
@@ -114,43 +51,9 @@ public sealed class MobilePreviewTests
         await WaitUntil(() => Volatile.Read(ref released) == 100);
         Assert.That(blue.RefCount, Is.GreaterThanOrEqualTo(2));
         server.Disconnect(id);
+        await Roster(socket, []);
         await WaitUntil(() => server.GetClients().Length == 0 && blue.RefCount == 1);
-        Assert.That((await http.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
-    }
-
-    [Test]
-    public async Task Disconnected_devices_remain_visible_reconnectable_and_individually_revocable()
-    {
-        await using var server = await MobilePreviewServer.StartAsync(IPAddress.Loopback);
-        var devices = Enumerable.Range(0, 4).Select(_ => new CookieContainer()).ToArray();
-        foreach (var cookies in devices)
-        {
-            using var http = CreateHttp(server, cookies);
-            await Pair(http, server);
-            using var socket = await Connect(server, cookies);
-            await WaitUntil(() => server.GetClients().Length == 1);
-            socket.Abort();
-            await WaitUntil(() => server.GetClients().Length == 0);
-        }
-        Assert.That(server.GetDevices(), Has.Length.EqualTo(4));
-        Assert.That(server.GetDevices().All(d => !d.Connected), Is.True);
-        using var extra = CreateHttp(server, new CookieContainer());
-        Assert.That((await extra.PostAsync("/api/pair", new StringContent(server.PairingCode))).StatusCode, Is.EqualTo(HttpStatusCode.Conflict));
-
-        using var reconnect = await Connect(server, devices[0]);
-        await WaitUntil(() => server.GetClients().Length == 1);
-        string id = server.GetClients().Single().Id;
-        Assert.That(server.GetDevices().Single(d => d.Id == id).Connected, Is.True);
-        reconnect.Abort();
-        await WaitUntil(() => server.GetClients().Length == 0);
-        server.Disconnect(id);
-        Assert.That(server.GetDevices(), Has.Length.EqualTo(3));
-        using var revoked = CreateHttp(server, devices[0]);
-        Assert.That((await revoked.GetAsync("/api/session")).StatusCode, Is.EqualTo(HttpStatusCode.Unauthorized));
-        await Pair(extra, server);
-        using var remaining = await Connect(server, devices[1]);
-        await WaitUntil(() => server.GetClients().Length == 1);
-        Assert.That(server.GetDevices(), Has.Length.EqualTo(4));
+        Assert.That(server.GetDevices(), Is.Empty);
     }
 
     [Test]
@@ -183,67 +86,47 @@ public sealed class MobilePreviewTests
     [Test]
     public async Task Relay_keeps_other_viewers_alive_after_malformed_signals_and_lists_offline_devices()
     {
-        var builder = WebApplication.CreateSlimBuilder();
-        builder.Logging.ClearProviders();
-        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
-        await using var app = builder.Build();
-        app.UseWebSockets();
-        var connected = new TaskCompletionSource<WebSocket>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        app.Run(async context =>
-        {
-            using var socket = await context.WebSockets.AcceptWebSocketAsync();
-            connected.SetResult(socket);
-            await release.Task;
-        });
-        await app.StartAsync();
-        try
-        {
-            var endpoint = new Uri(app.Urls.Single());
-            await using var server = await MobilePreviewServer.StartRemoteAsync(new PreviewSessionResponse(endpoint,
-                new UriBuilder(endpoint) { Scheme = "ws" }.Uri, "test-publisher", "123456", DateTimeOffset.UtcNow.AddMinutes(10)));
-            var relay = await connected.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            async Task Send(object message) => await relay.SendAsync(JsonSerializer.SerializeToUtf8Bytes(message),
-                WebSocketMessageType.Text, true, CancellationToken.None);
-            var devices = new[] { new { id = "one", address = "Phone 1" }, new { id = "two", address = "Phone 2" } };
-            await Send(new { clients = devices, paired = devices });
-            await WaitUntil(() => server.GetClients().Length == 2);
-            Assert.That(server.GetDevices().All(d => d.Connected), Is.True);
-            server.PublishPlayback(true, 2.5, 0, 10, 1, true);
-            await ReadMessage(relay, m => m.GetProperty("type").GetString() == "signal"
-                && m.GetProperty("signal").TryGetProperty("position", out var position) && position.GetDouble() == 2.5);
-            server.RenewPairingCode();
-            var pairing = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "pairing");
-            Assert.That(pairing.GetProperty("code").GetString(), Is.EqualTo(server.PairingCode));
+        await using var host = await RelayHost.StartAsync();
+        await using var server = await MobilePreviewServer.StartAsync(host.Session);
+        var relay = await host.AcceptAsync();
+        Task Send(object message) => SendMessage(relay, message);
+        var devices = new[] { new { id = "one", address = "Phone 1" }, new { id = "two", address = "Phone 2" } };
+        await Send(new { clients = devices, paired = devices });
+        await WaitUntil(() => server.GetClients().Length == 2);
+        Assert.That(server.GetDevices().All(d => d.Connected), Is.True);
+        server.PublishPlayback(true, 2.5, 0, 10, 1, true);
+        await ReadMessage(relay, m => m.GetProperty("type").GetString() == "signal"
+            && m.GetProperty("signal").TryGetProperty("position", out var position) && position.GetDouble() == 2.5);
+        server.RenewPairingCode();
+        var pairing = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "pairing");
+        Assert.That(pairing.GetProperty("code").GetString(), Is.EqualTo(server.PairingCode));
 
-            server.ControlRequested = (id, _, _) => Task.FromResult(id == "two");
-            foreach (string message in new[] { "null", "[]", "{\"type\":false}", "{\"type\":\"offer\"}",
-                         "{\"type\":\"offer\",\"sdp\":17}", "{\"type\":\"candidate\"}",
-                         "{\"type\":\"offer\",\"sdp\":\"invalid SDP\",\"hdr\":\"false\"}",
-                         "{\"type\":\"candidate\",\"candidate\":{\"candidate\":17}}" })
-                await Send(new { type = "signal", id = "one", signal = JsonSerializer.Deserialize<JsonElement>(message) });
-            await Send(new { type = "signal", id = "two", signal = new { type = "control", requestId = 1, action = "play" } });
-            var result = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "signal"
-                && m.GetProperty("signal").GetProperty("type").GetString() == "control-result");
-            Assert.That(result.GetProperty("id").GetString(), Is.EqualTo("two"));
-            Assert.That(result.GetProperty("signal").GetProperty("ok").GetBoolean(), Is.True);
+        server.ControlRequested = (id, _, _) => Task.FromResult(id == "two");
+        foreach (string message in new[] { "null", "[]", "{\"type\":false}", "{\"type\":\"offer\"}",
+                     "{\"type\":\"offer\",\"sdp\":17}", "{\"type\":\"candidate\"}",
+                     "{\"type\":\"offer\",\"sdp\":\"invalid SDP\",\"hdr\":\"false\"}",
+                     "{\"type\":\"candidate\",\"candidate\":{\"candidate\":17}}" })
+            await Send(new { type = "signal", id = "one", signal = JsonSerializer.Deserialize<JsonElement>(message) });
+        await Send(new { type = "signal", id = "two", signal = new { type = "control", requestId = 1, action = "play" } });
+        var result = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "signal"
+            && m.GetProperty("signal").GetProperty("type").GetString() == "control-result");
+        Assert.That(result.GetProperty("id").GetString(), Is.EqualTo("two"));
+        Assert.That(result.GetProperty("signal").GetProperty("ok").GetBoolean(), Is.True);
 
-            await Send(new { clients = devices[1..], paired = devices });
-            await WaitUntil(() => server.GetClients().Length == 1);
-            Assert.That(server.GetDevices().Single(d => d.Id == "one").Connected, Is.False);
-            server.Disconnect("one");
-            var disconnect = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "disconnect");
-            Assert.That(disconnect.GetProperty("id").GetString(), Is.EqualTo("one"));
-            await Send(new { clients = devices[1..], paired = devices[1..] });
-            await WaitUntil(() => server.GetDevices().Length == 1);
+        await Send(new { clients = devices[1..], paired = devices });
+        await WaitUntil(() => server.GetClients().Length == 1);
+        Assert.That(server.GetDevices().Single(d => d.Id == "one").Connected, Is.False);
+        server.Disconnect("one");
+        var disconnect = await ReadMessage(relay, m => m.GetProperty("type").GetString() == "disconnect");
+        Assert.That(disconnect.GetProperty("id").GetString(), Is.EqualTo("one"));
+        await Send(new { clients = devices[1..], paired = devices[1..] });
+        await WaitUntil(() => server.GetDevices().Length == 1);
 
-            var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            server.RelayDisconnected += (_, _) => disconnected.TrySetResult();
-            await relay.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Test complete", CancellationToken.None);
-            await disconnected.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            Assert.That(server.GetClients(), Is.Empty);
-        }
-        finally { release.TrySetResult(); }
+        var disconnected = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        server.RelayDisconnected += (_, _) => disconnected.TrySetResult();
+        await relay.CloseOutputAsync(WebSocketCloseStatus.NormalClosure, "Test complete", CancellationToken.None);
+        await disconnected.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.That(server.GetClients(), Is.Empty);
     }
 
     [TestCase(1)]
@@ -340,6 +223,7 @@ public sealed class MobilePreviewTests
     [TestCase(false)]
     public async Task Presentation_and_mobile_outputs_have_independent_lifetimes(bool closePresentationFirst)
     {
+        await using var host = await RelayHost.StartAsync();
         TestGpu.RequireAnyDevice();
         var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-preview", 320, 240);
         var owner = new Window { Content = new PlayerView { DataContext = editor.Player }, Width = 640, Height = 480 };
@@ -357,12 +241,10 @@ public sealed class MobilePreviewTests
             owner.Show();
             presentation.ShowOnScreen(owner, null, false);
             mobile.Show(owner);
-            await mobile.StartSharingAsync(IPAddress.Loopback);
+            await mobile.StartSharingAsync(host.Session);
             var server = mobile.Server!;
-            var cookies = new CookieContainer();
-            using var http = CreateHttp(server, cookies);
-            await Pair(http, server);
-            using var socket = await Connect(server, cookies);
+            var socket = await host.AcceptAsync();
+            await Roster(socket, ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
             HeadlessTestHelpers.Settle();
             editor.Player.QueuePreviewRender();
@@ -373,11 +255,11 @@ public sealed class MobilePreviewTests
             Assert.That(clean.Pixels.Count(p => p.Red > 240 && p.Green > 240 && p.Blue > 240), Is.Zero);
             HeadlessCapture.SaveIfRequested(mobile, nameof(MobilePreviewTests), "desktop-sharing");
 
-            socket.Abort();
+            await Roster(socket, [], ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 0);
             HeadlessTestHelpers.Settle();
             HeadlessCapture.SaveIfRequested(mobile, nameof(MobilePreviewTests), "desktop-offline-device");
-            using var reconnect = await Connect(server, cookies);
+            await Roster(socket, ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
             HeadlessTestHelpers.Settle();
 
@@ -396,7 +278,7 @@ public sealed class MobilePreviewTests
             Assert.That(editor.Player.IsCleanPreviewEnabled, Is.False);
             Assert.That(editor.Player.CleanPreviewImage.Value, Is.Null);
 
-            await mobile.StartSharingAsync(IPAddress.Loopback);
+            await mobile.StartSharingAsync(host.Session);
             Assert.That(mobile.Server, Is.Not.SameAs(server));
             if (closePresentationFirst) TestShell.Editor.SelectedTabItem.Value = null;
             else owner.Close();
@@ -417,6 +299,7 @@ public sealed class MobilePreviewTests
     [AvaloniaTest]
     public async Task Paired_controls_follow_the_player_and_seek_safely_during_playback()
     {
+        await using var host = await RelayHost.StartAsync();
         TestGpu.RequireAnyDevice();
         var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-controls", 320, 240);
         var owner = new Window();
@@ -426,24 +309,21 @@ public sealed class MobilePreviewTests
             await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.Zero, MediaTime.FromSeconds(120));
             owner.Show();
             mobile.Show(owner);
-            await mobile.StartSharingAsync(IPAddress.Loopback);
+            await mobile.StartSharingAsync(host.Session);
             var server = mobile.Server!;
-            var cookies = new CookieContainer();
-            using var http = CreateHttp(server, cookies);
-            await Pair(http, server);
-            using var socket = await Connect(server, cookies);
-            var state = await ReadMessage(socket, m => m.GetProperty("type").GetString() == "playback" && m.GetProperty("enabled").GetBoolean());
+            var socket = await host.AcceptAsync();
+            await Roster(socket, ["one"]);
+            var state = await ReadSignal(socket, m => m.GetProperty("type").GetString() == "playback" && m.GetProperty("enabled").GetBoolean());
             Assert.That(state.GetProperty("frameRate").GetDouble(), Is.EqualTo(editor.Player.GetFrameRate().ToDouble()));
 
             editor.Player.CurrentFrame.Value = MediaTime.FromSeconds(1);
-            await ReadMessage(socket, m => m.GetProperty("type").GetString() == "playback" && m.GetProperty("position").GetDouble() == 1);
+            await ReadSignal(socket, m => m.GetProperty("type").GetString() == "playback" && m.GetProperty("position").GetDouble() == 1);
             int request = 0;
             async Task<bool> Control(string action, double position = 0)
             {
                 int id = ++request;
-                await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(new { type = "control", requestId = id, action, position }),
-                    WebSocketMessageType.Text, true, CancellationToken.None);
-                var result = await ReadMessage(socket, m => m.GetProperty("type").GetString() == "control-result" && m.GetProperty("requestId").GetInt32() == id);
+                await SendMessage(socket, new { type = "signal", id = "one", signal = new { type = "control", requestId = id, action, position } });
+                var result = await ReadSignal(socket, m => m.GetProperty("type").GetString() == "control-result" && m.GetProperty("requestId").GetInt32() == id);
                 return result.GetProperty("ok").GetBoolean();
             }
 
@@ -489,19 +369,11 @@ public sealed class MobilePreviewTests
     [Test]
     public async Task Disconnecting_a_viewer_cancels_its_queued_controls()
     {
-        await using var server = await MobilePreviewServer.StartAsync(IPAddress.Loopback);
-        var first = new CookieContainer();
-        var second = new CookieContainer();
-        using var firstHttp = CreateHttp(server, first);
-        using var secondHttp = CreateHttp(server, second);
-        await Pair(firstHttp, server);
-        await Pair(secondHttp, server);
-        using var one = await Connect(server, first);
-        await WaitUntil(() => server.GetClients().Length == 1);
-        string firstId = server.GetClients().Single().Id;
-        using var two = await Connect(server, second);
+        await using var host = await RelayHost.StartAsync();
+        await using var server = await MobilePreviewServer.StartAsync(host.Session);
+        var relay = await host.AcceptAsync();
+        await Roster(relay, ["one", "two"]);
         await WaitUntil(() => server.GetClients().Length == 2);
-        string secondId = server.GetClients().Single(c => c.Id != firstId).Id;
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         int applied = 0;
@@ -512,24 +384,30 @@ public sealed class MobilePreviewTests
             await release.Task.WaitAsync(ct);
             return true;
         };
+        Task Control(string id, int requestId) => SendMessage(relay, new
+        {
+            type = "signal",
+            id,
+            signal = new { type = "control", requestId, action = "next" }
+        });
         try
         {
-            byte[] request = Encoding.UTF8.GetBytes("{\"type\":\"control\",\"requestId\":1,\"action\":\"next\"}");
-            await one.SendAsync(request, WebSocketMessageType.Text, true, CancellationToken.None);
+            await Control("one", 1);
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-            await two.SendAsync(request, WebSocketMessageType.Text, true, CancellationToken.None);
-            server.Disconnect(secondId);
+            await Control("two", 2);
+            server.Disconnect("two");
             release.TrySetResult();
-            await ReadMessage(one, m => m.GetProperty("type").GetString() == "control-result");
-            await server.DisposeAsync();
-            Assert.That(applied, Is.EqualTo(1));
+            await Control("one", 3);
+            await ReadSignal(relay, m => m.GetProperty("type").GetString() == "control-result" && m.GetProperty("requestId").GetInt32() == 3);
+            Assert.That(applied, Is.EqualTo(2), "The revoked device's queued command must not run; the remaining device still works.");
         }
         finally { release.TrySetResult(); }
     }
 
     [AvaloniaTest]
-    public async Task Closing_during_startup_leaves_no_listener_or_preview_consumer()
+    public async Task Closing_during_startup_leaves_no_relay_or_preview_consumer()
     {
+        await using var host = await RelayHost.StartAsync();
         var (_, _, editor) = await TestShell.OpenNewSceneAsync("mobile-preview-cancel");
         var owner = new Window();
         var mobile = new MobilePreviewWindow(editor.Player);
@@ -537,7 +415,7 @@ public sealed class MobilePreviewTests
         {
             owner.Show();
             mobile.Show(owner);
-            Task start = mobile.StartSharingAsync(IPAddress.Loopback);
+            Task start = mobile.StartSharingAsync(host.Session);
             mobile.Close();
             try { await start; } catch (OperationCanceledException) { }
             await mobile.StopSharingAsync();
@@ -547,29 +425,61 @@ public sealed class MobilePreviewTests
         finally { owner.Close(); await TestReset.ResetShellAsync(); }
     }
 
-    private static HttpClient CreateHttp(MobilePreviewServer server, CookieContainer cookies)
+    private static async Task SendMessage(WebSocket socket, object message)
+        => await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(message), WebSocketMessageType.Text, true, CancellationToken.None);
+
+    private static Task Roster(WebSocket socket, string[] connected, string[]? paired = null)
+        => SendMessage(socket, new
+        {
+            clients = connected.Select(id => new { id, address = "Phone " + id }),
+            paired = (paired ?? connected).Select(id => new { id, address = "Phone " + id })
+        });
+
+    private static async Task<JsonElement> ReadSignal(WebSocket socket, Func<JsonElement, bool> predicate)
     {
-        var client = new HttpClient(new HttpClientHandler { CookieContainer = cookies }) { BaseAddress = server.Endpoint };
-        client.DefaultRequestHeaders.Add("Origin", server.Endpoint.GetLeftPart(UriPartial.Authority));
-        return client;
+        var message = await ReadMessage(socket, m => m.GetProperty("type").GetString() == "signal" && predicate(m.GetProperty("signal")));
+        return message.GetProperty("signal").Clone();
     }
 
-    private static async Task Pair(HttpClient http, MobilePreviewServer server)
+    // Only the test host listens on HTTP. It supplies authenticated publisher signaling,
+    // while the production desktop owns neither pairing endpoints nor viewer assets.
+    private sealed class RelayHost(WebApplication app) : IAsyncDisposable
     {
-        using var result = await http.PostAsync("/api/pair", new StringContent(server.PairingCode));
-        Assert.That(result.StatusCode, Is.EqualTo(HttpStatusCode.NoContent));
-    }
+        private readonly Channel<WebSocket> _sockets = Channel.CreateUnbounded<WebSocket>();
+        private readonly TaskCompletionSource _stop = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal PreviewSessionResponse Session { get; private set; } = null!;
 
-    private static Uri SocketUri(MobilePreviewServer server) => new UriBuilder(server.Endpoint) { Scheme = "ws", Path = "/stream" }.Uri;
+        internal static async Task<RelayHost> StartAsync()
+        {
+            var builder = WebApplication.CreateSlimBuilder();
+            builder.Logging.ClearProviders();
+            builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+            var app = builder.Build();
+            var host = new RelayHost(app);
+            app.UseWebSockets();
+            app.Run(async context =>
+            {
+                using var socket = await context.WebSockets.AcceptWebSocketAsync();
+                await host._sockets.Writer.WriteAsync(socket);
+                await host._stop.Task;
+            });
+            await app.StartAsync();
+            host.Session = new PreviewSessionResponse(new Uri("https://beutl.beditor.net/preview/" + new string('a', 64) + "/" + Guid.NewGuid() + "/"),
+                new UriBuilder(app.Urls.Single()) { Scheme = "ws" }.Uri, "test-publisher", "123456", DateTimeOffset.UtcNow.AddMinutes(10));
+            return host;
+        }
 
-    private static async Task<ClientWebSocket> Connect(MobilePreviewServer server, CookieContainer cookies)
-    {
-        var socket = new ClientWebSocket();
-        socket.Options.Cookies = cookies;
-        socket.Options.SetRequestHeader("Origin", server.Endpoint.GetLeftPart(UriPartial.Authority));
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-        await socket.ConnectAsync(SocketUri(server), timeout.Token);
-        return socket;
+        internal async Task<WebSocket> AcceptAsync()
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            return await _sockets.Reader.ReadAsync(timeout.Token);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            _stop.TrySetResult();
+            await app.DisposeAsync();
+        }
     }
 
     private static async Task<JsonElement> ReadMessage(WebSocket socket, Func<JsonElement, bool> predicate)
