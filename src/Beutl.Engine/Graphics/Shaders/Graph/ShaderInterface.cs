@@ -254,6 +254,25 @@ internal sealed class ShaderInterface
         });
     }
 
+    // Shared by renderer preflight and user-script validation; this requires no device resources.
+    internal static void ValidateProgram(IReadOnlyDictionary<ShaderStage, ShaderInterface> interfaces,
+        ShaderPassDescription pass)
+    {
+        var writableBindings = interfaces.Values.SelectMany(shader => shader.Bindings)
+            .Where(binding => !binding.ReadOnly).Select(binding => binding.Slot).ToHashSet();
+        foreach ((ShaderStage stage, ShaderInterface shader) in interfaces)
+            shader.Validate(pass, stage, writableBindings);
+        if (pass.Program!.IsCompute)
+            return;
+        ShaderInterface previous = interfaces[ShaderStage.Vertex];
+        foreach (ShaderStage stage in new[] { ShaderStage.TessellationControl, ShaderStage.TessellationEvaluation, ShaderStage.Geometry, ShaderStage.Fragment })
+        {
+            if (!interfaces.TryGetValue(stage, out ShaderInterface? current)) continue;
+            current.ValidateInputs(previous, pass.Name);
+            previous = current;
+        }
+    }
+
     public void ValidateInputs(ShaderInterface vertex, string passName)
     {
         foreach ((var location, string type) in _inputs)

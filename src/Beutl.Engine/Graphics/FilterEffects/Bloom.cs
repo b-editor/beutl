@@ -105,7 +105,7 @@ public sealed partial class Bloom : FilterEffect
         }
         """));
 
-    // A fixed quadrature in logical coordinates keeps the footprint and cost independent of render density.
+    // Keep adjacent samples within one source texel, including large radii and supersampled requests.
     private static readonly ShaderProgram s_blur = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(binding = 0) uniform sampler2D image;
@@ -117,8 +117,9 @@ public sealed partial class Bloom : FilterEffect
             vec2 position = dst.raster.xy + gl_FragCoord.xy / dst.size.z;
             color = vec4(0);
             float total = 0;
-            for (int i = -16; i <= 16; i++) {
-                float x = float(i) / 16;
+            int steps = max(16, int(ceil(pc.value.x * src.size.z)));
+            for (int i = -steps; i <= steps; i++) {
+                float x = float(i) / float(steps);
                 float weight = exp(-4.5 * x * x);
                 vec2 samplePosition = position + pc.value.yz * (x * pc.value.x);
                 color += texture(image, (samplePosition - src.raster.xy) / src.raster.zw) * weight;

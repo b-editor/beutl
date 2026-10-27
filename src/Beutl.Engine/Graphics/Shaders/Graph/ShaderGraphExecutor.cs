@@ -126,8 +126,11 @@ internal static class ShaderGraphExecutor
             PixelRect outputPixels = PixelRect.FromRect(outputBounds.Translate(gridOffset), scale);
             Vector4[] mapping =
             [
-                new(selectedRaster.X, selectedRaster.Y, selectedRaster.Width, selectedRaster.Height),
-                new(outputPixels.X / scale - gridOffset.X, outputPixels.Y / scale - gridOffset.Y,
+                // Form the relative origin before shader interpolation. Adding and subtracting world
+                // coordinates in float32 otherwise gives translated copies different filtering weights.
+                new(0, 0, selectedRaster.Width, selectedRaster.Height),
+                new(outputPixels.X / scale - gridOffset.X - selectedRaster.X,
+                    outputPixels.Y / scale - gridOffset.Y - selectedRaster.Y,
                     outputPixels.Width / scale, outputPixels.Height / scale),
             ];
             var resultImage = new ShaderImage(graph, -1, "result", TextureFormat.RGBA16Float, null, null, 0, 1);

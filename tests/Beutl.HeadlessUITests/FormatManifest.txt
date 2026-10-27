@@ -365,6 +365,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:BlendEffect
   sealed
   keys: Animations, BlendMode, Brush, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Effects:Bloom
+  sealed
+  keys: Animations, Expressions, Id, Intensity, IsEnabled, Name, PreserveAlpha, Radius, Threshold
 [Beutl.Engine]Beutl.Graphics.Effects:Blur
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Sigma
@@ -504,6 +507,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:TransformEffect
   sealed
   keys: Animations, ApplyToTarget, BitmapInterpolationMode, Expressions, Id, IsEnabled, Name, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics.Effects:WaveRefraction
+  sealed
+  keys: Amount, Animations, Expressions, Id, IsEnabled, Name, Phase, Wavelength
 [Beutl.Engine]Beutl.Graphics.Particles:ParticleEmitter
   unsealed
   keys: AirResistance, AlignmentX, AlignmentY, AngularVelocity, Animations, BlendMode, Direction, EmissionRate, EmitterHeight, EmitterShape, EmitterWidth, EndColor, EndOpacityMultiplier, EndSizeMultiplier, Expressions, FilterEffect, Gravity, Id, InitialRotation, InitialRotationRandom, IsEnabled, Lifetime, LifetimeRandom, MaxParticles, Name, Opacity, ParticleColor, ParticleDrawable, ParticleOpacity, ParticleSize, PrewarmDuration, Seed, SizeRandom, Speed, SpeedRandom, Spread, Transform, TransformOrigin, TurbulenceScale, TurbulenceSpeed, TurbulenceStrength, UseEndColor

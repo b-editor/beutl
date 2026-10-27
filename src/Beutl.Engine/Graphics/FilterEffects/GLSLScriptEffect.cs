@@ -3,14 +3,19 @@ using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Backend;
+using Beutl.Graphics.Backend.Vulkan;
 using Beutl.Graphics.Shaders;
 using Beutl.Language;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Beutl.Graphics.Effects;
 
 [Display(Name = nameof(GraphicsStrings.GLSLScriptEffect), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEffect
 {
+    private static readonly ILogger s_logger = Log.CreateLogger<GLSLScriptEffect>();
+
     public GLSLScriptEffect()
     {
         ScanProperties<GLSLScriptEffect>();
@@ -75,12 +80,16 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
         if (r._program == null)
             return;
 
-        context.ShaderGraph((Program: r._program, Constants: new PushConstants
+        context.ShaderGraph(CreateGraph(r._program, new PushConstants
         {
             Progress = r.Progress,
             Duration = r.Duration,
             Time = r.Time
-        }), static (graph, state) =>
+        }));
+    }
+
+    private static ShaderGraphDescription CreateGraph(ShaderProgram program, PushConstants constants)
+        => ShaderGraphBuilder.Build((Program: program, Constants: constants), static (graph, state) =>
         {
             ShaderImage output = graph.Image2D("script", graph.Source);
             output.RasterSource = graph.Source;
@@ -93,7 +102,6 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
             });
             return graph.Output(output);
         });
-    }
 
     // Field order must match the GLSL `layout(push_constant)` block.
     // Total size must stay within VulkanPipeline3D's 128-byte push-constant range.
@@ -131,8 +139,24 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
             if (_recordedShader != FragmentShader)
             {
                 _recordedShader = FragmentShader;
-                _program = string.IsNullOrWhiteSpace(FragmentShader) ? null
-                    : ShaderProgram.Fullscreen(new ShaderSource(FragmentShader));
+                _program = null;
+                if (string.IsNullOrWhiteSpace(FragmentShader))
+                    return;
+                try
+                {
+                    var program = ShaderProgram.Fullscreen(new ShaderSource(FragmentShader));
+                    using var compiler = new VulkanShaderCompiler();
+                    var interfaces = program.Stages.ToDictionary(pair => pair.Key,
+                        pair => new ShaderInterface(compiler.CompileToSpirv(pair.Value.Text, pair.Key), pair.Key));
+                    ShaderInterface.ValidateProgram(interfaces, CreateGraph(program, default).Passes[0]);
+                    _program = program;
+                }
+                catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or NotSupportedException)
+                {
+                    // Invalid edits are inactive until their text changes. Native pipeline allocation and
+                    // execution still belong to the renderer and retain the normal graph failure behavior.
+                    s_logger.LogError(ex, "Invalid GLSL script; the effect is inactive until the script changes.");
+                }
             }
         }
     }

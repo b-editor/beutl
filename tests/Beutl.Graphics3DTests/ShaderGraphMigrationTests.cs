@@ -77,12 +77,13 @@ public sealed class ShaderGraphMigrationTests
     }
 
     [Test]
-    public void ScriptRecordingDoesNotCompileOrOwnADeviceProgram()
+    public void ScriptRecordingRejectsInvalidSourceWithoutCreatingADeviceProgram()
     {
         var effect = new GLSLScriptEffect { FragmentShader = { Value = "unfinished user shader" } };
-        ShaderGraphDescription graph = Record(effect);
-        Assert.That(graph.PassNames, Is.EqualTo(new[] { "script" }));
-        Assert.That(graph.Passes[0].Program!.Stages.Values, Has.Some.Property("Text").EqualTo("unfinished user shader"));
+        using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
+        using var context = new FilterEffectContext(new(0, 0, 8, 8));
+        effect.ApplyTo(context, resource);
+        Assert.That(context.GetOrderedItems(), Is.Empty);
     }
 
     [Test]

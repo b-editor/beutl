@@ -120,11 +120,9 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
 
     public void Validate(ShaderPassDescription pass)
     {
-        var writableBindings = _interfaces.Values.SelectMany(shader => shader.Bindings)
-            .Where(binding => !binding.ReadOnly).Select(binding => binding.Slot).ToHashSet();
+        ShaderInterface.ValidateProgram(_interfaces, pass);
         foreach ((ShaderStage stage, ShaderInterface shaderInterface) in _interfaces)
         {
-            shaderInterface.Validate(pass, stage, writableBindings);
             bool storesSupported = stage switch
             {
                 ShaderStage.Vertex or ShaderStage.Geometry or ShaderStage.TessellationControl or ShaderStage.TessellationEvaluation => _context.SupportsVertexStores,
@@ -136,13 +134,6 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         }
         if (!pass.Program!.IsCompute)
         {
-            ShaderInterface previous = _interfaces[ShaderStage.Vertex];
-            foreach (ShaderStage stage in new[] { ShaderStage.TessellationControl, ShaderStage.TessellationEvaluation, ShaderStage.Geometry, ShaderStage.Fragment })
-            {
-                if (!_interfaces.TryGetValue(stage, out ShaderInterface? current)) continue;
-                current.ValidateInputs(previous, pass.Name);
-                previous = current;
-            }
             ValidateGraphicsStages(pass);
             ValidateDraw(pass);
         }
