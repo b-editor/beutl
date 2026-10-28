@@ -59,13 +59,15 @@ public partial class CustomFilterEffectContext
     }
     internal void ThrowIfCallbackEnded() => ObjectDisposedException.ThrowIf(_callbackEnded, this);
 
-    /// <summary>The suffix controlled by this callback, or null for an ordinary custom effect.</summary>
-    public FilterEffectContinuation? Continuation { get; internal set; }
+    // Handed to ContinuationEffect and TargetEffect callbacks as arguments.
+    internal FilterEffectContinuation? Continuation { get; set; }
 
-    /// <summary>The individual input selected by an enclosing continuation, if any.</summary>
+    internal CompositionTargetAccess? TargetAccess { get; set; }
+
+    /// <summary>The individual input an enclosing continuation is executing, or null outside one.</summary>
     public FilterEffectInstance? Instance { get; internal set; }
 
-    /// <summary>The active request's dependency and declared target access, when executed by the renderer.</summary>
+    /// <summary>Renders dependencies through the active request, or null when the effect runs outside the renderer.</summary>
     public RenderExecutionContext? ExecutionContext { get; internal set; }
 
     public EffectTargets Targets { get; }

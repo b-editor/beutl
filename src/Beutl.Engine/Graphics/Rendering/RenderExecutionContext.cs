@@ -5,8 +5,9 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Rendering;
 
-/// <summary>Callback-scoped access to dependencies and explicitly declared composition-target work.</summary>
-public sealed class RenderExecutionContext : IDisposable
+/// <summary>Callback-scoped access to dependencies rendered through the active request.</summary>
+/// <remarks>The renderer ends it when the callback returns; later calls throw <see cref="ObjectDisposedException"/>.</remarks>
+public sealed class RenderExecutionContext
 {
     private Func<RenderNode, object, Rect, float, RenderTargetImageLease>? _render;
     private ImmediateCanvas? _target;
@@ -34,7 +35,7 @@ public sealed class RenderExecutionContext : IDisposable
 
     public float WorkingScale { get; }
     public float MaxWorkingScale { get; }
-    public bool CanAccessTarget => _target is not null;
+    internal bool CanAccessTarget => _target is not null;
 
     /// <summary>Evaluates a dynamic dependency through the current request family and target allocator.</summary>
     /// <remarks>
@@ -76,16 +77,14 @@ public sealed class RenderExecutionContext : IDisposable
         return RenderDependency(root, (sample, availableSize), domain);
     }
 
-    /// <summary>Samples the preceding composition target without a CPU pixel readback.</summary>
-    public RenderTargetImageLease CaptureTarget()
+    internal RenderTargetImageLease CaptureTarget()
     {
         ImmediateCanvas target = RequireTarget();
         using RenderTarget surface = RenderTarget.GetRenderTarget(target);
         return surface.AcquireImage();
     }
 
-    /// <summary>Replaces the declared composition target, including transparent pixels.</summary>
-    public void ReplaceTarget(SKImage image)
+    internal void ReplaceTarget(SKImage image)
     {
         ArgumentNullException.ThrowIfNull(image);
         ImmediateCanvas target = RequireTarget();
@@ -110,7 +109,7 @@ public sealed class RenderExecutionContext : IDisposable
             throw new InvalidOperationException("Render execution access belongs to the callback thread.");
     }
 
-    public void Dispose()
+    internal void End()
     {
         _disposed = true;
         _render = null;

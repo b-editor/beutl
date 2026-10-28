@@ -9,6 +9,11 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 internal sealed partial class EffectItemSuffixCallbackFilterEffect(
     Action<FilterEffectContext, FilterEffect.Resource> apply) : FilterEffect
 {
+    // The engine reads these declarations before recording, so tests that record such effects set them.
+    public bool DeclaresContinuation { get; init; }
+
+    public bool DeclaresTargetAccess { get; init; }
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
         => apply(context, resource);
 
@@ -20,5 +25,12 @@ internal sealed partial class EffectItemSuffixCallbackFilterEffect(
         return resource;
     }
 
-    public new sealed class Resource : FilterEffect.Resource;
+    public new sealed class Resource : FilterEffect.Resource
+    {
+        public override bool ControlsContinuation
+            => GetOriginal() is EffectItemSuffixCallbackFilterEffect { DeclaresContinuation: true };
+
+        public override bool MayAccessTarget
+            => GetOriginal() is EffectItemSuffixCallbackFilterEffect { DeclaresTargetAccess: true };
+    }
 }

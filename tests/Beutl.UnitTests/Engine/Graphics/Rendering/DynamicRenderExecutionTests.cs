@@ -22,10 +22,10 @@ public sealed class DynamicRenderExecutionTests
     {
         int recordings = 0, executions = 0;
         using var program = new FilterEffectContext(Domain);
-        program.CustomEffect(repetitions, static (count, execution) =>
+        program.ContinuationEffect(repetitions, static (count, execution, continuation) =>
         {
-            for (int i = 0; i < count; i++) execution.Continuation!.ApplyTo(execution.Targets);
-        }, CustomFilterEffectOptions.ControlsContinuation);
+            for (int i = 0; i < count; i++) continuation.ApplyTo(execution.Targets);
+        });
         var tail = new EffectItemSuffixCallbackFilterEffect((context, _) =>
         {
             recordings++;
@@ -51,11 +51,11 @@ public sealed class DynamicRenderExecutionTests
     {
         using var root = Effect(context =>
         {
-            context.CustomEffect(0, static (_, execution) =>
+            context.ContinuationEffect(0, static (_, execution, continuation) =>
             {
-                execution.Continuation!.ApplyTo(execution.Targets);
-                execution.Continuation.ApplyTo(execution.Targets);
-            }, CustomFilterEffectOptions.ControlsContinuation);
+                continuation.ApplyTo(execution.Targets);
+                continuation.ApplyTo(execution.Targets);
+            });
             context.Shader(Beutl.Graphics.Shaders.ShaderDescription.CurrentPixel(
                 "uniform float gain; half4 apply(half4 color) { return color * gain; }",
                 static bindings => bindings.Uniform("gain", 0.5f)));
@@ -75,17 +75,17 @@ public sealed class DynamicRenderExecutionTests
         FilterEffectContinuation? captured = null;
         using var node = Effect(context =>
         {
-            context.CustomEffect(0, (_, execution) =>
+            context.ContinuationEffect(0, (_, execution, continuation) =>
             {
-                captured = execution.Continuation;
-                captured!.ApplyTo(execution.Targets);
+                captured = continuation;
                 captured.ApplyTo(execution.Targets);
-            }, CustomFilterEffectOptions.ControlsContinuation);
-            context.CustomEffect(0, static (_, execution) =>
+                captured.ApplyTo(execution.Targets);
+            });
+            context.ContinuationEffect(0, static (_, execution, continuation) =>
             {
-                execution.Continuation!.ApplyTo(execution.Targets);
-                execution.Continuation.ApplyTo(execution.Targets);
-            }, CustomFilterEffectOptions.ControlsContinuation);
+                continuation.ApplyTo(execution.Targets);
+                continuation.ApplyTo(execution.Targets);
+            });
             context.CustomEffect(0, (_, _) => calls++);
         });
         using var renderer = Renderer(node);
@@ -100,13 +100,12 @@ public sealed class DynamicRenderExecutionTests
     [Test]
     public void ExecutionAccessExpiresBeforeTheNextCallbackInTheSameProgram()
     {
-        RenderExecutionContext? captured = null;
+        CompositionTargetAccess? captured = null;
         using var root = Effect(context =>
         {
-            context.CustomEffect(0, (_, execution) => captured = execution.ExecutionContext,
-                CustomFilterEffectOptions.AccessesTarget);
+            context.TargetEffect(0, (_, _, target) => captured = target);
             context.CustomEffect(0, (_, _) =>
-                Assert.That(() => captured!.CaptureTarget(), Throws.TypeOf<ObjectDisposedException>()));
+                Assert.That(() => captured!.Capture(), Throws.TypeOf<ObjectDisposedException>()));
         });
         using var renderer = Renderer(root);
         using var result = renderer.Rasterize();
@@ -172,12 +171,12 @@ public sealed class DynamicRenderExecutionTests
     {
         int calls = 0;
         var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-            context.CustomEffect(0, (_, execution) =>
+            context.TargetEffect(0, (_, execution, _) =>
             {
                 calls++;
                 Assert.That(execution.WorkingScale, Is.EqualTo(0.5f));
                 Assert.That(execution.ExecutionContext!.WorkingScale, Is.EqualTo(0.5f));
-            }, CustomFilterEffectOptions.AccessesTarget));
+            })) { DeclaresTargetAccess = true };
         using var root = new ScaledFilterNode(effect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(Domain, Brushes.Resource.Red, null));
         using var renderer = Renderer(root);
@@ -193,19 +192,24 @@ public sealed class DynamicRenderExecutionTests
     {
         SKColor[] Render(bool accessesTarget)
         {
-            var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-                context.CustomEffect(0, (_, execution) =>
+            void Draw(CustomFilterEffectContext execution)
+            {
+                foreach (EffectTarget target in execution.Targets)
                 {
-                    foreach (EffectTarget target in execution.Targets)
-                    {
-                        // Isolate output placement from how each path rasterizes the input edges.
-                        SKCanvas pixels = target.RenderTarget!.Value.Canvas;
-                        pixels.Clear(SKColors.Blue);
-                        using var stripe = new SKPaint { Color = SKColors.Red };
-                        pixels.DrawRect(0, 0, 2, target.RenderTarget.Height, stripe);
-                        target.Bounds = new Rect(target.Bounds.Position, target.Bounds.Size * boundsFactor);
-                    }
-                }, accessesTarget ? CustomFilterEffectOptions.AccessesTarget : CustomFilterEffectOptions.None));
+                    // Isolate output placement from how each path rasterizes the input edges.
+                    SKCanvas pixels = target.RenderTarget!.Value.Canvas;
+                    pixels.Clear(SKColors.Blue);
+                    using var stripe = new SKPaint { Color = SKColors.Red };
+                    pixels.DrawRect(0, 0, 2, target.RenderTarget.Height, stripe);
+                    target.Bounds = new Rect(target.Bounds.Position, target.Bounds.Size * boundsFactor);
+                }
+            }
+
+            var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            {
+                if (accessesTarget) context.TargetEffect(0, (_, execution, _) => Draw(execution));
+                else context.CustomEffect(0, (_, execution) => Draw(execution));
+            }) { DeclaresTargetAccess = accessesTarget };
             using var root = new ScaledFilterNode(effect.ToResource(CompositionContext.Default), density);
             root.AddChild(new RectangleRenderNode(new Rect(4, 3, 11, 7), Brushes.Resource.Blue, null));
             using var renderer = Renderer(root);
@@ -250,21 +254,21 @@ public sealed class DynamicRenderExecutionTests
     [Test]
     public void DeclaredTargetEffectSamplesAndErasesPrecedingContent()
     {
-        RenderExecutionContext? captured = null;
+        CompositionTargetAccess? captured = null;
         using var root = new ContainerRenderNode();
         root.AddChild(new RectangleRenderNode(Domain, Brushes.Resource.Red, null));
-        root.AddChild(Effect(context => context.CustomEffect(0, (_, execution) =>
+        root.AddChild(Effect(context => context.TargetEffect(0, (_, execution, target) =>
         {
-            captured = execution.ExecutionContext!;
-            using var before = captured.CaptureTarget();
+            captured = target;
+            using var before = target.Capture();
             using var pixels = SKBitmap.FromImage(before.Image);
             Assert.That(pixels.GetPixel(15, 12).Red, Is.GreaterThan(240));
             using var blank = new SKBitmap(32, 24);
             blank.Erase(SKColors.Transparent);
             using var image = SKImage.FromBitmap(blank);
-            captured.ReplaceTarget(image);
+            target.Replace(image);
             execution.Targets.Clear();
-        }, CustomFilterEffectOptions.AccessesTarget)));
+        })));
         root.AddChild(new RectangleRenderNode(new Rect(0, 0, 4, 4), Brushes.Resource.Lime, null));
         using var renderer = Renderer(root);
         using var target = new CpuRenderTarget(new PixelSize(32, 24));
@@ -274,7 +278,7 @@ public sealed class DynamicRenderExecutionTests
         using var bitmap = SKBitmap.FromImage(result.Image);
         Assert.That(bitmap.GetPixel(15, 12).Alpha, Is.Zero);
         Assert.That(bitmap.GetPixel(1, 1).Green, Is.GreaterThan(240));
-        Assert.That(() => captured!.CaptureTarget(), Throws.TypeOf<ObjectDisposedException>());
+        Assert.That(() => captured!.Capture(), Throws.TypeOf<ObjectDisposedException>());
     }
 
     [Test]
@@ -340,7 +344,7 @@ public sealed class DynamicRenderExecutionTests
         using var source = Effect(context => context.CustomEffect(0, (_, execution) =>
             retained = execution.Targets[0].RenderTarget!.AcquireImage()));
         var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-            context.CustomEffect(0, static (_, _) => { }, CustomFilterEffectOptions.AccessesTarget));
+            context.TargetEffect(0, static (_, _, _) => { })) { DeclaresTargetAccess = true };
         using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         root.AddChild(source);
         using var renderer = Renderer(root);
@@ -391,15 +395,14 @@ public sealed class DynamicRenderExecutionTests
         using var target = new CpuRenderTarget(new PixelSize(8, 8));
         using var targets = new EffectTargets { new(target, new Rect(0, 0, 8, 8)) };
         using var builder = new SKImageFilterBuilder();
-        using var execution = new RenderExecutionContext((_, _, _, scale) =>
+        var execution = new RenderExecutionContext((_, _, _, scale) =>
         {
             Assert.That(scale, Is.EqualTo(0.5f));
             return target.AcquireImage();
         }, 1, 1);
         using var program = new FilterEffectContext(new Rect(0, 0, 8, 8));
         if (continuation)
-            program.CustomEffect(0, static (_, context) => context.Continuation!.ApplyTo(context.Targets),
-                CustomFilterEffectOptions.ControlsContinuation);
+            program.ContinuationEffect(0, static (_, context, suffix) => suffix.ApplyTo(context.Targets));
         program.CustomEffect(0, static (_, context) => context.Targets[0].Bounds = new Rect(0, 0, 128, 8));
         int calls = 0;
         program.CustomEffect(0, (_, context) =>
@@ -450,9 +453,14 @@ public sealed class DynamicRenderExecutionTests
         Assert.That(factory.Sizes, Does.Contain(new PixelSize(96, 64)));
     }
 
+    // A standalone root is never split, so declaring both capabilities only satisfies the record-time check.
     private static FilterEffectRenderNode Effect(Action<FilterEffectContext> record)
     {
-        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) => record(context));
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) => record(context))
+        {
+            DeclaresContinuation = true,
+            DeclaresTargetAccess = true,
+        };
         var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         node.AddChild(new RectangleRenderNode(Domain, Brushes.Resource.Blue, null));
         return node;

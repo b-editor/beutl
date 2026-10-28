@@ -2,7 +2,7 @@
 
 /// <summary>Execution requirements of an opaque custom effect.</summary>
 [Flags]
-public enum CustomFilterEffectOptions
+internal enum CustomFilterEffectOptions
 {
     None = 0,
     /// <summary>The callback owns the recorded suffix and explicitly chooses whether and how often to execute it.</summary>

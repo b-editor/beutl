@@ -417,16 +417,22 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _budget,
             _targetDomain,
             GetShaderGraphProgramAcquirer());
-        using RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope(WorkingScale);
+        RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope(WorkingScale);
         customContext.ExecutionContext = execution;
         customContext.Instance = Instance;
         customContext.ProgramAcquirer = GetProgramAcquirer();
         if (continuation is not null)
             customContext.Continuation = new FilterEffectContinuation(customContext, continuation);
+        if (execution is { CanAccessTarget: true })
+            customContext.TargetAccess = new CompositionTargetAccess(execution);
         using RenderExecutionCallbackGuard.Scope guard = ExecutionContext is null
             ? default : RenderExecutionCallbackGuard.Enter();
         try { custom.Accepts(customContext); }
-        finally { customContext.EndCallback(); }
+        finally
+        {
+            customContext.EndCallback();
+            execution?.End();
+        }
 
         foreach (EffectTarget t in CurrentTargets)
         {

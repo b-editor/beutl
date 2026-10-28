@@ -32,7 +32,7 @@ internal sealed partial class RenderRequestExecutor
                 float density = policy.Resolve(
                     inputs.SelectToArray(static input => input.EffectiveScale), inputBounds, bufferBounds,
                     _options.OutputScale, _options.MaxWorkingScale).Value;
-                using var execution = new RenderExecutionContext(_renderDependency, density,
+                var execution = new RenderExecutionContext(_renderDependency, density,
                     _options.MaxWorkingScale, destination, _cancellationToken);
                 using var builder = new SKImageFilterBuilder();
                 using var executor = new FilterEffectExecutor(targets, builder, _options.Intent, _options.Purpose,
@@ -43,8 +43,12 @@ internal sealed partial class RenderRequestExecutor
                 { ExecutionContext = execution };
                 using (destination.PushClip(requiredRegion))
                 {
-                    executor.Apply(program);
-                    executor.CompletePolicyBoundary(materializationRequired: true);
+                    try
+                    {
+                        executor.Apply(program);
+                        executor.CompletePolicyBoundary(materializationRequired: true);
+                    }
+                    finally { execution.End(); }
                     foreach (EffectTarget target in targets)
                     {
                         if (target.RenderTarget is not { } surface) continue;
