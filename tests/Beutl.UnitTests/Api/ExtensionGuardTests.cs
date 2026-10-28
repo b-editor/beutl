@@ -77,13 +77,13 @@ public sealed class ExtensionGuardTests
     }
 
     [Test]
-    public void A_canceled_command_is_not_a_failure()
+    public async Task A_canceled_command_is_not_a_failure()
     {
         var extension = new NamedExtension();
         ExtensionGuard.SetPackage(extension, "Canceling.Package");
         using var notifications = NotificationCapture.Install();
 
-        Assert.CatchAsync<OperationCanceledException>(
+        await Assert.CatchAsync<OperationCanceledException>(
             () => ExtensionGuard.CallAsync(extension, () => Task.FromCanceled(new CancellationToken(canceled: true))));
 
         using (Assert.EnterMultipleScope())
