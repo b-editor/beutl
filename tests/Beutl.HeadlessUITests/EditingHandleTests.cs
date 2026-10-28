@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
+using Beutl.Animation;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -70,6 +71,37 @@ public class EditingHandleTests
     }
 
     [AvaloniaTest]
+    public async Task BoundHandleMovesTheKeyFrameAtTheCurrentTimeAsOneUndoableEdit()
+    {
+        (EditViewModel editor, PlayerView view, Window window, EditingHandleTestEffect effect) =
+            await Open(900, false, bound: true);
+        try
+        {
+            var keyFrames = effect.Position.GetKeyFrameAnimation()!.KeyFrames;
+            var current = (KeyFrame<Point>)keyFrames[0];
+            var later = (KeyFrame<Point>)keyFrames[1];
+            Point before = current.Value.Value;
+            Point laterBefore = later.Value.Value;
+            Point valueBefore = effect.Position.Value;
+            AvaPoint from = Position(view, before);
+            AvaPoint to = from + new Avalonia.Vector(32, 19);
+            var overlay = view.transformHandlesOverlay;
+            AvaPoint targetFrame = overlay.Viewport!.ToFrame(to);
+            Point expected = overlay.UserMatrix.Invert().Transform(new Point((float)targetFrame.X, (float)targetFrame.Y));
+            window.MouseDown(ToWindow(view, window, from), MouseButton.Left);
+            window.MouseMove(ToWindow(view, window, to), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(ToWindow(view, window, to), MouseButton.Left);
+            Assert.That(current.Value.Value.X, Is.EqualTo(expected.X).Within(0.01));
+            Assert.That(current.Value.Value.Y, Is.EqualTo(expected.Y).Within(0.01));
+            Assert.That(later.Value.Value, Is.EqualTo(laterBefore), "only the keyframe at the current time moves");
+            Assert.That(effect.Position.Value, Is.EqualTo(valueBefore), "an animated property is edited through its keyframes");
+            editor.HistoryManager.Undo();
+            Assert.That(current.Value.Value, Is.EqualTo(before));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
     [TestCase(0)]
     [TestCase(1)]
     [TestCase(2)]
@@ -111,11 +143,23 @@ public class EditingHandleTests
         finally { window.Close(); }
     }
 
-    private static async Task<(EditViewModel, PlayerView, Window, EditingHandleTestEffect)> Open(int width, bool light, bool multiple = false)
+    private static async Task<(EditViewModel, PlayerView, Window, EditingHandleTestEffect)> Open(
+        int width, bool light, bool multiple = false, bool bound = false)
     {
         TestGpu.RequireAnyDevice();
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("editing-handles");
-        var effect = new EditingHandleTestEffect();
+        var effect = new EditingHandleTestEffect { Bound = bound };
+        if (bound)
+        {
+            effect.Position.SetKeyFrameAnimation(new KeyFrameAnimation<Point>
+            {
+                KeyFrames =
+                {
+                    new KeyFrame<Point> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = new Point(35, 25) } },
+                    new KeyFrame<Point> { KeyTime = { Value = MediaTime.FromSeconds(4) }, Value = { Value = new Point(70, 50) } },
+                },
+            });
+        }
         var shape = new RectShape { Width = { Value = 180 }, Height = { Value = 120 } };
         ((FilterEffectGroup)shape.FilterEffect.Value!).Children.Add(effect);
         ((TransformGroup)shape.Transform.Value!).Children.Add(new RotationTransform(25));
@@ -168,8 +212,17 @@ internal sealed partial class EditingHandleTestEffect : FilterEffect, IEditingHa
 {
     public EditingHandleTestEffect() => ScanProperties<EditingHandleTestEffect>();
 
-    public IProperty<Point> Position { get; } = Property.CreateValue(new Point(35, 25));
-    public IReadOnlyList<EditingHandle> GetEditingHandles(MediaTime time) => [new("point", Position.Value, "Point")];
+    public IExpressionProperty<Point> Position { get; } = Property.CreateAnimatable(new Point(35, 25));
+
+    // A bound handle leaves the write to the host instead of MoveEditingHandle.
+    public bool Bound { get; set; }
+
+    public IReadOnlyList<EditingHandle> GetEditingHandles(MediaTime time)
+        => [new("point", Position.GetKeyFrameAnimation()?.GetAnimatedValue(time) ?? Position.Value, "Point")
+        {
+            Property = Bound ? Position : null,
+        }];
+
     public void MoveEditingHandle(string id, Point position, MediaTime time) => Position.Value = position;
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource) { }
 }

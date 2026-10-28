@@ -1,11 +1,14 @@
 ﻿using Avalonia;
 using Avalonia.Media;
+using Beutl.Controls;
 using Beutl.Engine;
 
 namespace Beutl.Views;
 
 internal sealed partial class TransformHandlesOverlay
 {
+    private static readonly Color DefaultEditingHandleColor = Color.FromUInt32(0xff1e90ff);
+
     private IEditingHandleProvider? _editingHandleProvider;
     private IReadOnlyList<EditingHandle> _editingHandles = [];
 
@@ -40,7 +43,7 @@ internal sealed partial class TransformHandlesOverlay
         foreach (EditingHandle handle in _editingHandles)
         {
             Point position = LocalToImage(handle.Position.X, handle.Position.Y);
-            var fill = new SolidColorBrush(Color.FromUInt32(handle.Color));
+            var fill = new SolidColorBrush(handle.Color?.ToAvaColor() ?? DefaultEditingHandleColor);
             context.DrawEllipse(fill, new Pen(Brushes.White, 1.5), position, 4.5, 4.5);
         }
     }
