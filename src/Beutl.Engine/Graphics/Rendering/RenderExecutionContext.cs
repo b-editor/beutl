@@ -46,7 +46,8 @@ public sealed class RenderExecutionContext
     /// The identity must be immutable and identify the evaluated content and time within this frame.
     /// The caller retains the node and its resources through the call, and owns the returned image lease.
     /// Repeated identities from the same recorded effect with the same domain and density reuse the completed
-    /// dependency in this request; another effect never receives it, even with an equal identity.
+    /// dependency in this request; another effect never receives it, even with an equal identity. A dependency
+    /// that re-enters the same identity from the same effect, or nests more than 32 deep, fails as circular.
     /// </remarks>
     public RenderTargetImageLease RenderDependency(RenderNode root, object identity, Rect domain)
     {

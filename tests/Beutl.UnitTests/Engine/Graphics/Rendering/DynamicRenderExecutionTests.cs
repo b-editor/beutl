@@ -333,6 +333,25 @@ public sealed class DynamicRenderExecutionTests
         Assert.That(seen[1].Green, Is.GreaterThan(240), "another effect's dependency must not be reused");
     }
 
+    [Test]
+    public void AnInnerEffectMayReuseAnOuterEffectsIdentity()
+    {
+        int innerCalls = 0;
+        using var leaf = new RectangleRenderNode(Domain, Brushes.Resource.Red, null);
+        using var inner = Effect(context => context.CustomEffect(0, (_, execution) =>
+        {
+            using var image = execution.ExecutionContext!.RenderDependency(leaf, "shared", Domain);
+            innerCalls++;
+        }));
+        using var root = Effect(context => context.CustomEffect(0, (_, execution) =>
+        {
+            using var image = execution.ExecutionContext!.RenderDependency(inner, "shared", Domain);
+        }));
+        using var renderer = Renderer(root);
+        Assert.That(() => { using var output = renderer.Rasterize(); }, Throws.Nothing);
+        Assert.That(innerCalls, Is.EqualTo(1));
+    }
+
     // Extensions that drew a drawable onto an effect canvas move to RenderDependency.
     [Test]
     public void EffectCanvasesDrawDrawablesThroughRenderDependencies()
