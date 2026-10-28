@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Transitions;
 using Beutl.JsonConverters;
 using Beutl.Language;
@@ -32,6 +33,9 @@ public partial class Element : Hierarchical, INotifyEdited
             Edited?.Invoke(this, EventArgs.Empty);
         };
         IsEnabled.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        MatteSourceZIndex.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        MatteMode.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        IsVisibleInOutput.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
         EnterTransition.ValueChanged += (_, e) => OnTransitionChanged(e);
         ExitTransition.ValueChanged += (_, e) => OnTransitionChanged(e);
         Objects.Attached += OnObjectAttached;
@@ -52,6 +56,14 @@ public partial class Element : Hierarchical, INotifyEdited
     public IProperty<Color> AccentColor { get; } = Property.CreateValue(Colors.Teal);
 
     public IProperty<bool> IsEnabled { get; } = Property.CreateValue(true);
+
+    /// <summary>The timeline layer whose graphics supply this element's track matte.</summary>
+    public IProperty<int?> MatteSourceZIndex { get; } = Property.CreateValue<int?>(null);
+
+    public IProperty<MatteMode> MatteMode { get; } = Property.CreateValue(Graphics.MatteMode.None);
+
+    /// <summary>Whether to draw this element in the scene. Hidden elements can still supply a matte.</summary>
+    public IProperty<bool> IsVisibleInOutput { get; } = Property.CreateValue(true);
 
     // Editor-only; does not affect composition. Timeline and property editors refuse
     // edits when this is true or its TimelineLayer.IsLocked is.

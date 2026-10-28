@@ -68,6 +68,8 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
         _disposable1?.Dispose();
         _disposable1 = null;
+        TrackMatte.Value?.Dispose();
+        TrackMatte.Value = element == null ? null : new TrackMatteSettingsViewModel(element, _editorContext);
         ClearItems();
         if (element != null)
         {
@@ -147,6 +149,8 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
 
     public CoreList<EngineObjectPropertyViewModel> Items { get; } = [];
 
+    public ReactivePropertySlim<TrackMatteSettingsViewModel?> TrackMatte { get; } = new();
+
     public ToolTabExtension Extension => ElementPropertyTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
@@ -195,6 +199,7 @@ public sealed class ElementPropertyTabViewModel : IPinnableToolContext
         _pin.Dispose();
         RevealRequested.Dispose();
         Element.Dispose();
+        TrackMatte.Dispose();
         _editorContext = null!;
     }
 

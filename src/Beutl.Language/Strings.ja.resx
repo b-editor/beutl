@@ -3487,4 +3487,25 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>端末を追加</value>
   </data>
+  <data name="TrackMatte" xml:space="preserve">
+    <value>トラックマット</value>
+  </data>
+  <data name="MatteSource" xml:space="preserve">
+    <value>ソースレイヤー</value>
+  </data>
+  <data name="MatteAlpha" xml:space="preserve">
+    <value>アルファ</value>
+  </data>
+  <data name="MatteLuma" xml:space="preserve">
+    <value>輝度</value>
+  </data>
+  <data name="MatteInvertedAlpha" xml:space="preserve">
+    <value>アルファ反転</value>
+  </data>
+  <data name="MatteInvertedLuma" xml:space="preserve">
+    <value>輝度反転</value>
+  </data>
+  <data name="IsVisibleInOutput" xml:space="preserve">
+    <value>出力に表示</value>
+  </data>
 </root>

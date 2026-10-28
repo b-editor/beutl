@@ -710,6 +710,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics:SourceVideo
   unsealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, IsLoop, Name, OffsetPosition, Opacity, Source, Speed, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:TrackMattePresenter
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media.Encoding:AudioEncoderSettings
   unsealed
   keys: Bitrate, Channels, CodecOptions, Id, Name, SampleRate
@@ -1258,7 +1261,7 @@ Beutl.Utilities
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.ProjectSystem]:Element
   unsealed
-  keys: AccentColor, Id, IsEnabled, IsLocked, Length, Name, Objects, Start, ZIndex
+  keys: AccentColor, Id, IsEnabled, IsLocked, IsVisibleInOutput, Length, MatteMode, MatteSourceZIndex, Name, Objects, Start, ZIndex
 [Beutl.ProjectSystem]:MediaFingerprintFile
   sealed
   keys: Fingerprints, Version
