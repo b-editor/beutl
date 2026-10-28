@@ -57,6 +57,9 @@ internal sealed partial class DeclarativeDocumentApplier
             case IKeyFrameAnimation animation:
                 ApplyKeyFrameAnimation(animation, desired);
                 break;
+            case IComponentAnimation:
+                ApplyComponentAnimation(target, desired);
+                break;
             case IKeyFrame keyFrame:
                 ApplyKeyFrame(keyFrame, desired);
                 break;

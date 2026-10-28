@@ -13,6 +13,11 @@ public class TypeFormatTests
         AssertRoundTrip(typeof(double));
     }
 
+    [TestCase(typeof(Dictionary<string, int>))]
+    [TestCase(typeof(Dictionary<string, Dictionary<int, List<float>>>))]
+    [TestCase(typeof(Tuple<int, string, double>))]
+    public void RoundTrip_MultipleGenericArguments(Type type) => AssertRoundTrip(type);
+
     [Test]
     public void RoundTrip_BeutlOptional()
     {

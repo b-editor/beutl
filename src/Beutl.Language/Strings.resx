@@ -3492,4 +3492,7 @@ when history recording is enabled.</value>
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>Add device</value>
   </data>
+  <data name="SeparateComponents" xml:space="preserve">
+    <value>Separate components</value>
+  </data>
 </root>

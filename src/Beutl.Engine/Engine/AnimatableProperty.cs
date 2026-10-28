@@ -12,7 +12,7 @@ namespace Beutl.Engine;
 public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHost, IChildObjectSource
 {
     private T _currentValue;
-    private KeyFrameAnimation<T>? _keyFrames;
+    private IPropertyAnimation<T>? _keyFrames;
     private ExpressionEvaluationState<T>? _expressionState;
     private IValidator<T>? _validator;
     private Attribute[]? _attributes;
@@ -37,7 +37,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public bool IsReference => false;
 
-    public T DefaultValue { get; }
+    public T DefaultValue { get; internal set; }
 
     public T Value
     {
@@ -75,7 +75,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     public bool IsValueSet { get; private set; }
 
-    public bool HasExpression => Expression is not null and not KeyFrameAnimation<T>;
+    public bool HasExpression => Expression is not null and not IPropertyAnimation<T>;
 
     public string? ExpressionError => Volatile.Read(ref _expressionState)?.Error;
 
@@ -100,11 +100,11 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
 
     void IExpressionChainHost.SetKeyFrames(IExpression? keyFrames)
     {
-        if (keyFrames is not null and not KeyFrameAnimation<T>)
-            throw new ArgumentException($"Property '{_name}' takes KeyFrameAnimation<{typeof(T).Name}>.", nameof(keyFrames));
+        if (keyFrames is not null and not IPropertyAnimation<T>)
+            throw new ArgumentException($"Property '{_name}' takes an animation of {typeof(T).Name}.", nameof(keyFrames));
 
         if (ReferenceEquals(keyFrames, _keyFrames)) return;
-        IExpression<T>? chain = ExpressionChain.WithKeyFrames(Expression, (KeyFrameAnimation<T>?)keyFrames);
+        IExpression<T>? chain = ExpressionChain.WithKeyFrames(Expression, (IPropertyAnimation<T>?)keyFrames);
         if (ExpressionChain.FindKeyFrames(chain) != keyFrames)
             throw new InvalidOperationException($"The expression on property '{_name}' cannot hold keyframes below it.");
 
@@ -116,14 +116,15 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         if (Expression == chain) return;
 
         Volatile.Write(ref _expressionState, chain == null ? null : new ExpressionEvaluationState<T>(chain));
-        var keyFrames = ExpressionChain.FindKeyFrames(chain) as KeyFrameAnimation<T>;
-        KeyFrameAnimation<T>? oldKeyFrames = _keyFrames;
+        var keyFrames = ExpressionChain.FindKeyFrames(chain) as IPropertyAnimation<T>;
+        IPropertyAnimation<T>? oldKeyFrames = _keyFrames;
         if (keyFrames != oldKeyFrames)
         {
             _keyFrames = keyFrames;
-            if (keyFrames != null && _validator != null)
+            if (keyFrames is IComponentAnimation components) components.Configure(this);
+            if (keyFrames is IKeyFrameAnimation animation && _validator != null)
             {
-                keyFrames.Validator = _validator;
+                animation.Validator = _validator;
             }
         }
 
@@ -187,7 +188,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         }
         if (_keyFrames is { } keyFrames)
         {
-            value = keyFrames.GetAnimatedValue(context.Time) ?? _currentValue;
+            value = keyFrames.EvaluateAt(context.Time) ?? _currentValue;
             value = ValidateAndCoerce(value);
         }
         else
@@ -216,10 +217,8 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
     public void SetValidator(IValidator validator)
     {
         _validator = (IValidator<T>)validator;
-        if (_keyFrames != null)
-        {
-            _keyFrames.Validator = _validator;
-        }
+        if (_keyFrames is IKeyFrameAnimation animation) animation.Validator = _validator;
+        if (_keyFrames is IComponentAnimation components) components.Configure(this);
     }
 
     public IValidator? GetValidator() => _validator;
@@ -309,7 +308,7 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
     // Keyframes are written under "Animations"; the rest of the chain is written here, as before.
     public JsonNode? SerializeExpression()
     {
-        return Expression is { } expression and not KeyFrameAnimation<T>
+        return Expression is { } expression and not IPropertyAnimation<T>
             ? Expressions.Expression.ToNode(expression)
             : null;
     }

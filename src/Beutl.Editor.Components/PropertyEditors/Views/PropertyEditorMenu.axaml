@@ -33,6 +33,11 @@
                         </MultiBinding>
                     </ui:FAMenuFlyoutItem.IsEnabled>
                 </ui:FAMenuFlyoutItem>
+                <ui:FAMenuFlyoutItem x:Name="separateComponentsItem"
+                                   IsVisible="{Binding CanSeparateComponents}"
+                                   IsEnabled="{Binding CanEditProperty.Value}"
+                                   Click="SeparateComponents_Click"
+                                   Text="{x:Static lang:Strings.SeparateComponents}" />
                 <ui:FAMenuFlyoutItem x:Name="editAnimationItem"
                                    IsEnabled="{Binding CanEditProperty.Value}"
                                    Click="EditAnimation_Click"

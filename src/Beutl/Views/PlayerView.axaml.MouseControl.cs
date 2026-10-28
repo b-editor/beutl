@@ -18,6 +18,8 @@ public partial class PlayerView
 {
     private sealed class KeyFrameState<T>(KeyFrame<T>? previous, KeyFrame<T>? next)
     {
+        public IComponentAnimation<T>? Components { get; init; }
+        public MediaTime Time { get; init; }
         public KeyFrame<T>? Previous { get; } = previous;
 
         public KeyFrame<T>? Next { get; } = next;
@@ -28,6 +30,9 @@ public partial class PlayerView
     {
         Rational rate = scene.FindHierarchicalParent<Project>().GetFrameRate();
         MediaTime globalKeyTime = clock.CurrentTime.Value;
+
+        if (property.GetPropertyAnimation() is IComponentAnimation<T> components)
+            return new(null, null) { Components = components, Time = globalKeyTime };
 
         if (property.GetKeyFrameAnimation() is KeyFrameAnimation<T> animation)
         {

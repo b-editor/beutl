@@ -3487,4 +3487,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>端末を追加</value>
   </data>
+  <data name="SeparateComponents" xml:space="preserve">
+    <value>成分を分離</value>
+  </data>
 </root>

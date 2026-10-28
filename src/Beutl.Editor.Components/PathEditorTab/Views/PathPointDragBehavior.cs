@@ -499,6 +499,6 @@ public sealed class PathPointDragBehavior : Behavior<Thumb>
             return new(property, segment, prev as KeyFrame<BtlPoint>, next as KeyFrame<BtlPoint>);
         }
 
-        return new(property, segment, null, null);
+        return new(property, segment, null, null, globalkeyTime);
     }
 }

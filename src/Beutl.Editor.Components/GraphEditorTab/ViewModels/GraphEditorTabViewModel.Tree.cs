@@ -173,6 +173,24 @@ public sealed partial class GraphEditorTabViewModel
 
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
+        var componentAnimation = (item.Property ?? item.Adapter?.GetEngineProperty())?.GetPropertyAnimation() as IComponentAnimation;
+        if (componentAnimation != null)
+        {
+            item.CanAnimate.Value = false;
+            item.CanRemoveAnimation.Value = false;
+            item.HasAnimation.Value = true;
+            var components = new List<GraphEditorTreeItemViewModel>();
+            foreach (var property in componentAnimation.Components)
+            {
+                var child = GetTreeItem($"{item.Key}/component:{property.Name}", Property.GetLocalizedName(property), item, used);
+                child.Property = property;
+                child.AnimationOwner = item.AnimationOwner;
+                UpdatePropertyItem(child, canAnimate, used, ancestors);
+                components.Add(child);
+            }
+            Synchronize(item.Children, components);
+            return;
+        }
         var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType) : null;
         item.CanAnimate.Value = canAnimate && factory != null;
         // Removing an animation that holds what could not be loaded repairs a recovery-protected clip.

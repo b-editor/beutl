@@ -16,6 +16,8 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public sealed partial class PropertyEditorMenu : UserControl
 {
+    private IDisposable? _componentSubscription;
+
     public PropertyEditorMenu()
     {
         InitializeComponent();
@@ -40,10 +42,23 @@ public sealed partial class PropertyEditorMenu : UserControl
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
         uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
 
+        _componentSubscription?.Dispose();
+        _componentSubscription = null;
         bool supportsAnimation = DataContext is PropertyEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
-        editAnimationItem.IsVisible = supportsAnimation;
-        editInlineAnimationItem.IsVisible = supportsAnimation;
-        removeAnimationItem.IsVisible = supportsAnimation;
+        if (DataContext is PropertyEditorViewModel model)
+        {
+            _componentSubscription = model.SeparatedComponents.Subscribe(components =>
+            {
+                editAnimationItem.IsVisible = supportsAnimation && components == null;
+                editInlineAnimationItem.IsVisible = supportsAnimation && components == null;
+                removeAnimationItem.IsVisible = supportsAnimation && components == null;
+                separateComponentsItem.IsVisible = model.CanSeparateComponents && components == null;
+            });
+            model.Own(_componentSubscription);
+        }
+        editAnimationItem.IsVisible = supportsAnimation && (DataContext as PropertyEditorViewModel)?.SeparatedComponents.Value == null;
+        editInlineAnimationItem.IsVisible = editAnimationItem.IsVisible;
+        removeAnimationItem.IsVisible = editAnimationItem.IsVisible;
 
         bool supportsExpression = DataContext is PropertyEditorViewModel viewModel && SupportsTextExpression(viewModel);
         expressionSeparator.IsVisible = supportsExpression;
@@ -54,6 +69,11 @@ public sealed partial class PropertyEditorMenu : UserControl
         copyPropertyPathSeparator.IsVisible = isEngineProperty;
         copyPropertyPathItem.IsVisible = isEngineProperty;
         copyGetPropertyCodeItem.IsVisible = isEngineProperty;
+    }
+
+    private void SeparateComponents_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PropertyEditorViewModel model) model.SeparateComponents();
     }
 
     private void Button_Click(object? sender, RoutedEventArgs e)
