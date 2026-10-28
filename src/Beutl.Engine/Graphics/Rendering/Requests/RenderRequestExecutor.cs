@@ -304,7 +304,7 @@ internal sealed partial class RenderRequestExecutor
     private sealed partial class RenderRequestExecutionState : IDisposable
     {
         private readonly CancellationToken _cancellationToken;
-        private readonly Func<RenderNode, object, Rect, float, RenderTargetImageLease> _renderDependency;
+        private readonly Func<RenderNode, object?, object, Rect, float, RenderTargetImageLease> _renderDependency;
         private readonly RenderRequestOptions _options;
         private readonly RecordedRenderGraph _graph;
         private readonly ExecutionIslandPlan _executionPlan;
@@ -362,7 +362,7 @@ internal sealed partial class RenderRequestExecutor
             ProgramCache<ShaderGraphPipeline> graphProgramCache,
             ShaderBackendPreference shaderBackendPreference,
             CancellationToken cancellationToken,
-            Func<RenderNode, object, Rect, float, RenderTargetImageLease> renderDependency)
+            Func<RenderNode, object?, object, Rect, float, RenderTargetImageLease> renderDependency)
         {
             _renderDependency = renderDependency;
             _cancellationToken = cancellationToken;

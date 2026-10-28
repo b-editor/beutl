@@ -308,6 +308,31 @@ public sealed class DynamicRenderExecutionTests
         using var result = renderer.Rasterize();
     }
 
+    [Test]
+    public void EqualIdentitiesFromDifferentEffectsDoNotShareDependencies()
+    {
+        using var red = new RectangleRenderNode(Domain, Brushes.Resource.Red, null);
+        using var lime = new RectangleRenderNode(Domain, Brushes.Resource.Lime, null);
+        var seen = new List<SKColor>();
+        void Sample(CustomFilterEffectContext execution, RenderNode content)
+        {
+            using var image = execution.ExecutionContext!.RenderDependency(content, "shared", Domain);
+            using var pixels = SKBitmap.FromImage(image.Image);
+            seen.Add(pixels.GetPixel(16, 12));
+        }
+
+        using var root = Effect(context =>
+        {
+            context.CustomEffect(0, (_, execution) => Sample(execution, red));
+            context.CustomEffect(0, (_, execution) => Sample(execution, lime));
+        });
+        using var renderer = Renderer(root);
+        using var output = renderer.Rasterize();
+        Assert.That(seen, Has.Count.EqualTo(2));
+        Assert.That(seen[0].Red, Is.GreaterThan(240));
+        Assert.That(seen[1].Green, Is.GreaterThan(240), "another effect's dependency must not be reused");
+    }
+
     // Extensions that drew a drawable onto an effect canvas move to RenderDependency.
     [Test]
     public void EffectCanvasesDrawDrawablesThroughRenderDependencies()
@@ -395,7 +420,7 @@ public sealed class DynamicRenderExecutionTests
         using var target = new CpuRenderTarget(new PixelSize(8, 8));
         using var targets = new EffectTargets { new(target, new Rect(0, 0, 8, 8)) };
         using var builder = new SKImageFilterBuilder();
-        var execution = new RenderExecutionContext((_, _, _, scale) =>
+        var execution = new RenderExecutionContext((_, _, _, _, scale) =>
         {
             Assert.That(scale, Is.EqualTo(0.5f));
             return target.AcquireImage();

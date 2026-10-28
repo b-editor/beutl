@@ -1,15 +1,16 @@
-﻿using Beutl.Graphics.Shaders;
+﻿using System.Runtime.CompilerServices;
+using Beutl.Graphics.Shaders;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
 internal sealed partial class RenderRequestExecutor
 {
     private readonly HashSet<object> _activeDependencies = [];
-    private readonly Dictionary<(object Identity, Rect Domain, float Scale), NestedRenderTargetBinding> _dependencies = [];
+    private readonly Dictionary<DependencyKey, NestedRenderTargetBinding> _dependencies = [];
     private int _dynamicRootAcquisitions;
 
     private RenderTargetImageLease ExecuteDependency(
-        CompiledRenderRequest parent, RenderNode root, object identity, Rect domain, float scale,
+        CompiledRenderRequest parent, RenderNode root, object? owner, object identity, Rect domain, float scale,
         ImmediateCanvas fallbackDestination, ProgramCache<CachedSkRuntimeEffect> programCache,
         ProgramCache<GLSLFilterPipeline> spirvProgramCache,
         ProgramCache<ShaderGraphPipeline> graphProgramCache,
@@ -21,7 +22,7 @@ internal sealed partial class RenderRequestExecutor
             throw new InvalidOperationException($"Circular render dependency: {identity}.");
         try
         {
-            var key = (identity, domain, scale);
+            var key = new DependencyKey(owner, identity, domain, scale);
             if (_dependencies.TryGetValue(key, out NestedRenderTargetBinding? ready))
                 return ready.AcquireImage();
 
@@ -69,5 +70,24 @@ internal sealed partial class RenderRequestExecutor
             }
         }
         finally { _activeDependencies.Remove(identity); }
+    }
+
+    // Recorded effect items are records, so the owner compares by reference: two effects with equal data and
+    // an equal identity may still render different content. Cycles are still detected by identity alone.
+    private readonly struct DependencyKey(object? owner, object identity, Rect domain, float scale)
+        : IEquatable<DependencyKey>
+    {
+        private readonly object? _owner = owner;
+        private readonly object _identity = identity;
+        private readonly Rect _domain = domain;
+        private readonly float _scale = scale;
+
+        public bool Equals(DependencyKey other) => ReferenceEquals(_owner, other._owner)
+            && _identity.Equals(other._identity) && _domain == other._domain && _scale.Equals(other._scale);
+
+        public override bool Equals(object? obj) => obj is DependencyKey other && Equals(other);
+
+        public override int GetHashCode()
+            => HashCode.Combine(RuntimeHelpers.GetHashCode(_owner), _identity, _domain, _scale);
     }
 }

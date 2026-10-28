@@ -417,7 +417,7 @@ public sealed partial class FilterEffectExecutor : IDisposable
             _budget,
             _targetDomain,
             GetShaderGraphProgramAcquirer());
-        RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope(WorkingScale);
+        RenderExecutionContext? execution = ExecutionContext?.CreateCallbackScope(WorkingScale, custom);
         customContext.ExecutionContext = execution;
         customContext.Instance = Instance;
         customContext.ProgramAcquirer = GetProgramAcquirer();

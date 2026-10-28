@@ -9,26 +9,30 @@ namespace Beutl.Graphics.Rendering;
 /// <remarks>The renderer ends it when the callback returns; later calls throw <see cref="ObjectDisposedException"/>.</remarks>
 public sealed class RenderExecutionContext
 {
-    private Func<RenderNode, object, Rect, float, RenderTargetImageLease>? _render;
+    private Func<RenderNode, object?, object, Rect, float, RenderTargetImageLease>? _render;
     private ImmediateCanvas? _target;
+    // The recorded effect calling back; dependencies are cached per owner so equal identities never cross effects.
+    private readonly object? _owner;
     private readonly int _threadId = Environment.CurrentManagedThreadId;
     private bool _disposed;
 
     internal RenderExecutionContext(
-        Func<RenderNode, object, Rect, float, RenderTargetImageLease> render,
-        float workingScale, float maxWorkingScale, ImmediateCanvas? target = null, CancellationToken cancellationToken = default)
+        Func<RenderNode, object?, object, Rect, float, RenderTargetImageLease> render,
+        float workingScale, float maxWorkingScale, ImmediateCanvas? target = null, CancellationToken cancellationToken = default,
+        object? owner = null)
     {
         _render = render;
+        _owner = owner;
         CancellationToken = cancellationToken;
         WorkingScale = workingScale;
         MaxWorkingScale = maxWorkingScale;
         _target = target;
     }
 
-    internal RenderExecutionContext CreateCallbackScope(float workingScale)
+    internal RenderExecutionContext CreateCallbackScope(float workingScale, object owner)
     {
         VerifyAccess();
-        return new RenderExecutionContext(_render!, workingScale, MaxWorkingScale, _target, CancellationToken);
+        return new RenderExecutionContext(_render!, workingScale, MaxWorkingScale, _target, CancellationToken, owner);
     }
 
     public CancellationToken CancellationToken { get; }
@@ -41,14 +45,15 @@ public sealed class RenderExecutionContext
     /// <remarks>
     /// The identity must be immutable and identify the evaluated content and time within this frame.
     /// The caller retains the node and its resources through the call, and owns the returned image lease.
-    /// Repeated identities with the same domain and density reuse the completed dependency in this request.
+    /// Repeated identities from the same recorded effect with the same domain and density reuse the completed
+    /// dependency in this request; another effect never receives it, even with an equal identity.
     /// </remarks>
     public RenderTargetImageLease RenderDependency(RenderNode root, object identity, Rect domain)
     {
         VerifyAccess();
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(identity);
-        return _render!(root, identity, domain, MathF.Min(WorkingScale, MaxWorkingScale));
+        return _render!(root, _owner, identity, domain, MathF.Min(WorkingScale, MaxWorkingScale));
     }
 
     /// <summary>Records the evaluated drawables into a dependency without constructing another renderer.</summary>

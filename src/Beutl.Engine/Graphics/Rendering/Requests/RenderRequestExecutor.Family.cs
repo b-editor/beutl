@@ -217,7 +217,7 @@ internal sealed partial class RenderRequestExecutor
             graphProgramCache,
             _shaderBackendPreference,
             _cancellationToken,
-            (root, identity, domain, scale) => ExecuteDependency(request, root, identity, domain, scale,
+            (root, owner, identity, domain, scale) => ExecuteDependency(request, root, owner, identity, domain, scale,
                 destination, programCache, spirvProgramCache, graphProgramCache, frames, cleanupFailures));
         if (nestedPreviewDropObserved)
             state.MarkPreviewAllocationDropped();
