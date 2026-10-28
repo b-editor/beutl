@@ -11,9 +11,10 @@ namespace Beutl.Graphics.Effects;
 /// consumed flow, has been evaluated. Sample times use <see cref="EvaluationContext"/>'s clock. Samples
 /// include source transforms, opacity and preceding effects in the drawable's parent coordinates.
 /// The engine applies the owning drawable's blend mode and the following effects once to RenderInput's
-/// output. The context and its samples live until the next reconciliation or disposal of the drawable.
+/// output. The engine owns the context and its samples; they stay valid until the drawable is reconciled again
+/// or disposed.
 /// </remarks>
-public sealed class FilterEffectInputContext : IDisposable
+public sealed class FilterEffectInputContext
 {
     private readonly Drawable.Resource _source;
     private readonly FlowNode _flow;
@@ -44,8 +45,8 @@ public sealed class FilterEffectInputContext : IDisposable
 
     /// <summary>Evaluates and retains an independent input at <paramref name="time"/>.</summary>
     /// <remarks>
-    /// Repeated times reuse the completed sample within this context. The context owns the returned sample;
-    /// disposing it early is optional. It must not be used after the owning drawable is reconciled again.
+    /// Repeated times reuse the completed sample within this context. The context owns the returned sample, which
+    /// must not be used after the owning drawable is reconciled again.
     /// The next reconciliation reevaluates the sample resources at the nearest offset from the clock in place,
     /// so sources keep their media readers. A disabled or out-of-range drawable produces a transparent sample.
     /// An absent boundary in a switched chain means that chain's complete output; an active sampling
@@ -140,7 +141,7 @@ public sealed class FilterEffectInputContext : IDisposable
         }
     }
 
-    public void Dispose()
+    internal void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
@@ -156,9 +157,12 @@ public sealed class FilterEffectInputContext : IDisposable
     }
 }
 
-/// <summary>An owned, evaluated source and effect prefix for one time.</summary>
-/// <remarks>The input context releases it automatically at the next reconciliation. Disposal is idempotent.</remarks>
-public sealed class FilterEffectInputSample : IDisposable
+/// <summary>An evaluated source and effect prefix for one time, owned by its input context.</summary>
+/// <remarks>
+/// At the next reconciliation the engine ends it and reevaluates its resources for the new sample nearest its
+/// offset, after which <see cref="IsDisposed"/> is true.
+/// </remarks>
+public sealed class FilterEffectInputSample
 {
     private readonly FilterEffectInputSlot _slot;
     private readonly Drawable.Resource? _source;
@@ -215,7 +219,7 @@ public sealed class FilterEffectInputSample : IDisposable
         }
     }
 
-    public void Dispose()
+    internal void Dispose()
     {
         if (IsDisposed) return;
         IsDisposed = true;
