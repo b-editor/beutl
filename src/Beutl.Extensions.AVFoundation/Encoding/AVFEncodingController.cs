@@ -166,13 +166,13 @@ public class AVFEncodingController : EncodingController
         var transfer = MapTransfer(VideoSettings.ColorTransfer.Value);
         var primaries = MapPrimaries(VideoSettings.ColorPrimaries.Value);
         var matrix = MapMatrix(VideoSettings.YCbCrMatrix.Value);
-        // Keep native HDR/JPEG defaults; SDR H.264/HEVC must not rely on a player's color guesses.
-        if (!isHdr && codec != (int)AVFVideoEncoderSettings.VideoCodec.JPEG)
-        {
-            if (transfer == BitmapColorTransfer.Unknown) transfer = BitmapColorTransfer.Bt709;
-            if (primaries == BitmapColorPrimaries.Unknown) primaries = BitmapColorPrimaries.Bt709;
-            if (matrix == BeutlYCbCrMatrix.Unknown) matrix = BeutlYCbCrMatrix.Bt709;
-        }
+        // The MOV/MP4 containers record tags for every codec, so players need not guess.
+        VideoColorTags defaults = VideoColorDefaults.Get(
+            codec == (int)AVFVideoEncoderSettings.VideoCodec.JPEG ? VideoColorTarget.Jpeg : VideoColorTarget.YCbCr,
+            isHdr, recordsColor: true);
+        if (transfer == BitmapColorTransfer.Unknown) transfer = defaults.Transfer;
+        if (primaries == BitmapColorPrimaries.Unknown) primaries = defaults.Primaries;
+        if (matrix == BeutlYCbCrMatrix.Unknown) matrix = MapMatrix(defaults.Matrix);
 
         return new BeutlVideoEncoderConfig
         {
@@ -237,6 +237,14 @@ public class AVFEncodingController : EncodingController
         AVFVideoEncoderSettings.ColorPrimariesType.Dcip3 => BitmapColorPrimaries.Dcip3,
         AVFVideoEncoderSettings.ColorPrimariesType.Smpte170M => BitmapColorPrimaries.Smpte170M,
         _ => BitmapColorPrimaries.Unknown,
+    };
+
+    private static BeutlYCbCrMatrix MapMatrix(VideoColorMatrix m) => m switch
+    {
+        VideoColorMatrix.Bt709 => BeutlYCbCrMatrix.Bt709,
+        VideoColorMatrix.Bt601 => BeutlYCbCrMatrix.Bt601,
+        VideoColorMatrix.Bt2020 => BeutlYCbCrMatrix.Rec2020,
+        _ => BeutlYCbCrMatrix.Unknown,
     };
 
     private static BeutlYCbCrMatrix MapMatrix(AVFVideoEncoderSettings.YCbCrMatrixType m) => m switch

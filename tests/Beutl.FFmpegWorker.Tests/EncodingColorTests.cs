@@ -127,6 +127,24 @@ public sealed class EncodingColorTests
         AssertYuvPatches(frame, [[76, 85, 255], [150, 44, 21], [29, 255, 107], [128, 128, 128], [0, 128, 128], [255, 128, 128]]);
     }
 
+    // LJPEG is JPEG-family, so it gets the JFIF defaults rather than the BT.709 of other full-range YUV.
+    [Test]
+    public async Task LosslessJpegDefaultsFollowJfif()
+    {
+        var controller = CreateController("ljpeg.mkv");
+        controller.VideoSettings.Codec.Value = new CodecRecord("ljpeg", "Lossless JPEG");
+        controller.VideoSettings.Format.Value = (int)AVPixelFormat.AV_PIX_FMT_YUVJ420P;
+        controller.VideoSettings.Options.Value.Clear();
+        await Encode(controller);
+        using (var demuxer = MediaDemuxer.Open(controller.OutputFile))
+        {
+            MediaStream stream = demuxer.Single(s => s.CodecparRef.codec_type == AVMediaType.AVMEDIA_TYPE_VIDEO);
+            Assert.That(stream.CodecparRef.color_space, Is.EqualTo(AVColorSpace.AVCOL_SPC_SMPTE170M));
+        }
+        using MediaFrame frame = ReadFirstFrame(controller.OutputFile);
+        AssertYuvPatches(frame, [[76, 85, 255], [150, 44, 21], [29, 255, 107], [128, 128, 128], [0, 128, 128], [255, 128, 128]]);
+    }
+
     [TestCase(FFColorTransfer.SMPTE2084)]
     [TestCase(FFColorTransfer.ARIB_STD_B67)]
     public async Task HdrDefaultsKeepTheHdrTransferAndUseRec2020(FFColorTransfer transfer)
