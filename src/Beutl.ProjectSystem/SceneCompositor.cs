@@ -155,7 +155,7 @@ public sealed partial class SceneCompositor : ICompositor
     public CompositionFrame EvaluateGraphics(MediaTime time) => EvaluateGraphics(time, null, null);
 
     /// <summary>Evaluates a frame with the output's actual rate and cancellation policy.</summary>
-    public CompositionFrame EvaluateGraphics(MediaTime time, CancellationToken cancellationToken, Rational? frameRate = null)
+    public CompositionFrame EvaluateGraphics(MediaTime time, Rational? frameRate, CancellationToken cancellationToken = default)
         => EvaluateGraphics(time, null, null, null, cancellationToken, frameRate);
 
     /// <summary>Evaluates a nested scene while inheriting its caller's evaluation conditions.</summary>

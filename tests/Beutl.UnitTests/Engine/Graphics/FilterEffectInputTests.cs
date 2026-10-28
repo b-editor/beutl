@@ -59,7 +59,7 @@ public class FilterEffectInputTests
         owner.FilterEffect.Value = new SampleInputEffect();
         var scene = ReferenceEquals(owner, controller) ? SceneWith(video, controller) : SceneWith(video, controller, owner);
         using var compositor = new SceneCompositor(scene) { ForceOriginalSource = true };
-        var source = compositor.EvaluateGraphics(Seconds(1), default, new(2, 1)).Objects.OfType<Drawable.Resource>().Single();
+        var source = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
         var samples = ((SampleInputEffect.Resource)source.FilterEffect!).Samples;
         Assert.That(samples.Select(s => Video(s.Resource!).RequestedPosition.ToSeconds()),
             Is.EqualTo(new[] { 1.8125, 1.9375, 2.0625, 2.1875 }).Within(0.000001));
@@ -157,7 +157,7 @@ public class FilterEffectInputTests
 
         MediaReader?[] Readers(MediaTime time)
         {
-            var source = compositor.EvaluateGraphics(time, default, rate).Objects.OfType<Drawable.Resource>().Single();
+            var source = compositor.EvaluateGraphics(time, rate).Objects.OfType<Drawable.Resource>().Single();
             return ((SampleInputEffect.Resource)source.FilterEffect!).Samples
                 .Select(s => ((SourceVideo.Resource)s.Resource!).Source!.MediaReader).ToArray();
         }
@@ -292,7 +292,7 @@ public class FilterEffectInputTests
         shape.FilterEffect.Value = new SampleInputEffect();
         var nested = new SceneDrawable { ReferencedScene = { Value = SceneWith(shape) } };
         using var compositor = new SceneCompositor(SceneWith(nested));
-        var frame = compositor.EvaluateGraphics(MediaTime.Zero, default, new(120, 1));
+        var frame = compositor.EvaluateGraphics(MediaTime.Zero, new Rational(120, 1));
         var scene = (SceneDrawable.Resource)frame.Objects.OfType<Drawable.Resource>().Single();
         var source = scene.Frame!.Value.Objects.OfType<Drawable.Resource>().Single();
         var effect = (SampleInputEffect.Resource)source.FilterEffect!;
@@ -358,8 +358,8 @@ public class FilterEffectInputTests
         shape.Width.Value = 80;
         using var export = new SceneCompositor(snapshot) { DisableResourceShare = true, ForceOriginalSource = true };
         using var preview = new SceneCompositor(live);
-        var saved = export.EvaluateGraphics(Seconds(1), default, new(2, 1)).Objects.OfType<Drawable.Resource>().Single();
-        var edited = preview.EvaluateGraphics(Seconds(1), default, new(2, 1)).Objects.OfType<Drawable.Resource>().Single();
+        var saved = export.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
+        var edited = preview.EvaluateGraphics(Seconds(1), new Rational(2, 1)).Objects.OfType<Drawable.Resource>().Single();
         float Width(Drawable.Resource source) => ((RectShape.Resource)((SampleInputEffect.Resource)source.FilterEffect!).Samples[0].Resource!).Width;
         Assert.That(Width(saved), Is.EqualTo(18.125f));
         Assert.That(Width(edited), Is.EqualTo(80));

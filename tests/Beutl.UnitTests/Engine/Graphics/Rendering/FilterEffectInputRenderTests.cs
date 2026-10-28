@@ -293,7 +293,7 @@ public class FilterEffectInputRenderTests
 
     private static Bitmap Render(SceneRenderer renderer, double time)
     {
-        renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(time), default, new(2, 1)));
+        renderer.Render(renderer.Compositor.EvaluateGraphics(MediaTime.FromSeconds(time), new Rational(2, 1)));
         return renderer.Snapshot();
     }
 }

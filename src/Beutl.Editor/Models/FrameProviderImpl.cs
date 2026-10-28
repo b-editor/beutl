@@ -70,7 +70,7 @@ public sealed class FrameProviderImpl : IFrameProvider, IDisposable
 
     private Bitmap RenderCore(MediaTime time, CancellationToken cancellationToken)
     {
-        var frame = _renderer.Compositor.EvaluateGraphics(_scene.FromWindowTime(time), cancellationToken, _rate);
+        var frame = _renderer.Compositor.EvaluateGraphics(_scene.FromWindowTime(time), _rate, cancellationToken);
         _renderer.Render(frame);
         Bitmap snapshot = _renderer.Snapshot();
 
