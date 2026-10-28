@@ -82,13 +82,21 @@ public class IndividualContinuationTests
         Assert.That(() => context.Apply(undeclared), Throws.InvalidOperationException.With.Message.Contains(declaration));
         Assert.That(context.CountItems(), Is.Zero, "the rejected recording is rolled back");
 
-        using var declared = new EffectItemSuffixCallbackFilterEffect(Record)
-        {
-            DeclaresContinuation = !target,
-            DeclaresTargetAccess = target,
-        }.ToResource(CompositionContext.Default);
+        using var declared = new EffectItemSuffixCallbackFilterEffect(Record,
+            declaresContinuation: !target, declaresTargetAccess: target).ToResource(CompositionContext.Default);
         context.Apply(declared);
         Assert.That(context.CountItems(), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void PresenterSkipsADisabledContinuationTarget()
+    {
+        var target = new RepeatingContinuationEffect(2) { IsEnabled = { Value = false } };
+        var presenter = new FilterEffectPresenter { Target = { Value = target } };
+        using var resource = presenter.ToResource(CompositionContext.Default);
+        using var context = new FilterEffectContext(new Rect(0, 0, 8, 8));
+        Assert.That(() => context.Apply(resource), Throws.Nothing);
+        Assert.That(context.CountItems(), Is.Zero);
     }
 
     [TestCase(false)]
@@ -104,7 +112,7 @@ public class IndividualContinuationTests
                 using var pixels = SKBitmap.FromImage(image.Image);
                 Assert.That(pixels.GetPixel(1, 1), Is.EqualTo(SKColors.Red));
                 target.Replace(image.Image);
-            })) { DeclaresTargetAccess = true };
+            }), declaresTargetAccess: true);
         var group = new FilterEffectGroup();
         group.Children.Add(new RepeatingContinuationEffect(2));
         if (nested)
@@ -156,7 +164,7 @@ public class IndividualContinuationTests
                 foreach (int second in new[] { 2, 0, 1 })
                     continuation.ApplyTo(execution.Targets,
                         new FilterEffectInstance(second, 3, MediaTime.FromSeconds(second), MediaTime.Zero));
-            })) { DeclaresContinuation = true });
+            }), declaresContinuation: true));
         if (wrapper == 2)
             group.Children.Add(new FilterEffectPresenter { Target = { Value = tail } });
         else if (wrapper == 1)
@@ -268,7 +276,7 @@ public class IndividualContinuationTests
                     continuation.ApplyTo(execution.Targets,
                         new FilterEffectInstance(i, 3, MediaTime.FromSeconds(i), clock.Time));
             });
-        }) { DeclaresContinuation = true };
+        }, declaresContinuation: true);
         var tail = new EffectItemSuffixCallbackFilterEffect((context, resource) =>
         {
             double time = resource.EvaluationContext!.Time.ToSeconds();

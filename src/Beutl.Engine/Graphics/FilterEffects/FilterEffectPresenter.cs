@@ -27,7 +27,8 @@ public sealed partial class FilterEffectPresenter : FilterEffect, IPresenter<Fil
     {
         var r = (Resource)resource;
 
+        // Apply skips a disabled target, matching ControlsContinuation, which a disabled target does not declare.
         if (r.Target is { } target)
-            context.ApplyTransactional(target.RequireOriginal(), target);
+            context.Apply(target);
     }
 }
