@@ -310,7 +310,9 @@ public sealed class DynamicRenderExecutionTests
     {
         var shape = new Beutl.Graphics.Shapes.RectShape
         {
-            Width = { Value = 8 }, Height = { Value = 8 }, Fill = { Value = new SolidColorBrush(Colors.White) },
+            Width = { Value = 8 },
+            Height = { Value = 8 },
+            Fill = { Value = new SolidColorBrush(Colors.White) },
         };
         using var drawable = shape.ToResource(CompositionContext.Default);
         bool rendered = false;
