@@ -1,0 +1,121 @@
+<UserControl x:Class="Beutl.Views.Tools.YouTubeUploadSettingsView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:upload="using:Beutl.Services.VideoUpload"
+             x:CompileBindings="True"
+             x:DataType="upload:YouTubeUploadContext">
+    <StackPanel Spacing="16">
+        <StackPanel Spacing="8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <icons:FluentIcon VerticalAlignment="Center"
+                                      FontSize="16"
+                                      Icon="Person"
+                                      IsVisible="{Binding !IsSigningIn.Value}" />
+                    <ui:FAProgressRing Width="16"
+                                       Height="16"
+                                       IsIndeterminate="True"
+                                       IsVisible="{Binding IsSigningIn.Value}" />
+                    <TextBlock x:Name="ConnectionStatus"
+                               Grid.Column="1"
+                               VerticalAlignment="Center"
+                               Text="{Binding ConnectionStatus.Value}"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            Spacing="4">
+                    <Button x:Name="ConnectButton"
+                            Click="SignInClick"
+                            Content="{x:Static lang:Strings.VideoUpload_Connect}"
+                            ToolTip.Tip="{x:Static lang:Strings.VideoUpload_YouTubeSetup}">
+                        <Button.IsVisible>
+                            <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                <Binding Path="!IsSignedIn.Value" />
+                                <Binding Path="!IsSigningIn.Value" />
+                            </MultiBinding>
+                        </Button.IsVisible>
+                    </Button>
+                    <Button Click="CancelSignInClick"
+                            Content="{x:Static lang:Strings.Cancel}"
+                            IsVisible="{Binding IsSigningIn.Value}" />
+                    <Button Click="SignOutClick"
+                            Content="{x:Static lang:Strings.VideoUpload_Disconnect}"
+                            IsVisible="{Binding IsSignedIn.Value}" />
+                    <Button AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_SetupHelp}"
+                            Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                            ToolTip.Tip="{x:Static lang:Strings.VideoUpload_SetupHelp}">
+                        <icons:FluentIcon FontSize="16" Icon="QuestionCircle" />
+                        <Button.Flyout>
+                            <Flyout>
+                                <StackPanel Width="240" Spacing="12">
+                                    <TextBlock Text="{x:Static lang:Strings.VideoUpload_YouTubeSetup}" TextWrapping="Wrap" />
+                                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{x:Static lang:Strings.VideoUpload_ConnectionLifetime}"
+                                               TextWrapping="Wrap" />
+                                    <Button Click="SetupHelpClick" Content="{x:Static lang:Strings.VideoUpload_SetupHelp}" />
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </StackPanel>
+            </Grid>
+            <TextBlock x:Name="ConnectionMessage"
+                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                       IsVisible="{Binding ConnectionMessage.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Text="{Binding ConnectionMessage.Value}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.VideoUpload_VideoTitle}" />
+            <TextBox x:Name="VideoTitleInput"
+                     AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_VideoTitle}"
+                     MaxLength="100"
+                     PlaceholderText="{x:Static lang:Strings.VideoUpload_TitleHint}"
+                     Text="{Binding Title.Value}" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.VideoUpload_Description}" />
+            <TextBox x:Name="VideoDescriptionInput"
+                     MinHeight="64"
+                     MaxHeight="160"
+                     AcceptsReturn="True"
+                     AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_Description}"
+                     Text="{Binding Description.Value}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.VideoUpload_Visibility}" />
+            <ComboBox x:Name="VisibilityInput"
+                      HorizontalAlignment="Stretch"
+                      AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_Visibility}"
+                      ItemsSource="{Binding Visibilities}"
+                      SelectedItem="{Binding Visibility.Value}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="upload:YouTubeUploadContext+UploadChoice">
+                        <TextBlock Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+        <StackPanel Spacing="4">
+            <TextBlock Text="{x:Static lang:Strings.VideoUpload_Audience}" />
+            <ComboBox x:Name="AudienceInput"
+                      HorizontalAlignment="Stretch"
+                      AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_Audience}"
+                      ItemsSource="{Binding Audiences}"
+                      PlaceholderText="{x:Static lang:Strings.VideoUpload_ChooseAudience}"
+                      SelectedItem="{Binding Audience.Value}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="upload:YouTubeUploadContext+UploadChoice">
+                        <TextBlock Text="{Binding DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

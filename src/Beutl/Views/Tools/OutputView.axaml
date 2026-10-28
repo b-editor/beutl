@@ -1,13 +1,16 @@
 <UserControl x:Class="Beutl.Views.Tools.OutputView"
              xmlns="https://github.com/avaloniaui"
-             xmlns:propertyEditors="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
              xmlns:converters="using:Beutl.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:propertyEditors="using:Beutl.Editor.Components.PropertyEditors.Views"
              xmlns:usage="using:Beutl.Editor.Components.Helpers"
              xmlns:viewModel="using:Beutl.ViewModels.Tools"
+             xmlns:views="using:Beutl.Views.Tools"
              Name="Root"
              d:DesignHeight="800"
              d:DesignWidth="600"
@@ -15,12 +18,82 @@
              x:DataType="viewModel:OutputViewModel"
              mc:Ignorable="d">
     <StackPanel Spacing="4">
-        <Grid Margin="4" ColumnDefinitions="*,Auto">
+        <controls:ToolTabBar>
+            <TabStrip x:Name="SectionStrip"
+                      Classes="toolTabNavigation"
+                      SelectedIndex="0">
+                <TabStripItem x:Name="EncodingSection"
+                              AutomationProperties.Name="{x:Static lang:Strings.Encode}"
+                              ToolTip.Tip="{x:Static lang:Strings.Encode}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <icons:FluentIcon Icon="Video" />
+                        <TextBlock Grid.Column="1"
+                                   IsVisible="True"
+                                   Text="{x:Static lang:Strings.Encode}" />
+                    </Grid>
+                </TabStripItem>
+                <TabStripItem x:Name="UploadSection"
+                              AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_Title}"
+                              ToolTip.Tip="{x:Static lang:Strings.VideoUpload_Title}">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <icons:FluentIcon Icon="ArrowUpload" />
+                        <TextBlock Grid.Column="1"
+                                   IsVisible="True"
+                                   Text="{x:Static lang:Strings.VideoUpload_Title}" />
+                    </Grid>
+                </TabStripItem>
+            </TabStrip>
+        </controls:ToolTabBar>
+
+        <Grid Margin="8,4"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="12"
+              IsEnabled="{Binding !IsRunning.Value, ElementName=Root}">
+            <TextBlock VerticalAlignment="Center"
+                       Text="{x:Static lang:Strings.VideoUpload_Automatic}"
+                       TextWrapping="Wrap" />
+            <ToggleSwitch x:Name="AutomaticUploadSwitch"
+                          Grid.Column="1"
+                          AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_Automatic}"
+                          Classes="left"
+                          IsChecked="{Binding Upload.Automatic.Value}"
+                          OffContent="{x:Static lang:Strings.Off}"
+                          OnContent="{x:Static lang:Strings.On}"
+                          Theme="{StaticResource CompactToggleSwitchStyle}" />
+        </Grid>
+        <TextBlock Margin="8,0"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   IsVisible="{Binding !Upload.CanAutoUpload.Value}"
+                   Text="{x:Static lang:Strings.VideoUpload_NotReady}"
+                   TextWrapping="Wrap" />
+        <TextBlock Margin="8,0"
+                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                   IsVisible="{Binding AutoUploadVideoWarning.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                   Text="{Binding AutoUploadVideoWarning.Value}"
+                   TextWrapping="Wrap" />
+
+        <Grid x:Name="RunningProgress"
+              Margin="8,4"
+              ColumnDefinitions="*,Auto"
+              ColumnSpacing="8"
+              IsVisible="{Binding IsRunning.Value, ElementName=Root}">
             <StackPanel Spacing="6">
-                <TextBlock Margin="0,8,0,0" Text="{Binding ProgressText.Value}" />
+                <TextBlock Margin="0,8,0,0"
+                           IsVisible="{Binding !IsUploadRun.Value}"
+                           Text="{Binding ProgressText.Value}" />
+                <TextBlock x:Name="UploadStatusText"
+                           Margin="0,8,0,0"
+                           IsVisible="{Binding IsUploadRun.Value}"
+                           Text="{Binding Upload.Status.Value}"
+                           TextWrapping="Wrap" />
                 <ProgressBar Margin="0,0,8,0"
+                             IsVisible="{Binding !IsUploadRun.Value}"
                              Maximum="{Binding ProgressMax.Value}"
                              Value="{Binding ProgressValue.Value}" />
+                <ProgressBar Margin="0,0,8,0"
+                             IsVisible="{Binding IsUploadRun.Value}"
+                             Maximum="1"
+                             Value="{Binding Upload.Progress.Value}" />
                 <StackPanel IsVisible="{Binding IsEncoding.Value}"
                             Orientation="Horizontal"
                             Spacing="12">
@@ -31,15 +104,8 @@
                     <TextBlock Text="{Binding FrameProgressText.Value}" />
                 </StackPanel>
             </StackPanel>
-            <Button Grid.Column="1"
-                    VerticalAlignment="Bottom"
-                    usage:UsageTracking.Feature="Output.StartOutput"
-                    Classes="accent"
-                    Click="StartOutputClick"
-                    Content="{x:Static lang:Strings.Encode}"
-                    IsEnabled="{Binding CanEncode.Value}"
-                    IsVisible="{Binding !IsRunning.Value, ElementName=Root}" />
-            <Button Grid.Column="1"
+            <Button x:Name="CancelOutputButton"
+                    Grid.Column="1"
                     VerticalAlignment="Bottom"
                     usage:UsageTracking.Feature="Output.CancelOutput"
                     Click="CancelOutputClick"
@@ -47,109 +113,135 @@
                     IsVisible="{Binding IsRunning.Value, ElementName=Root}" />
         </Grid>
 
-        <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.DestinationToSaveTo_Tip}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="3*" />
-            </Grid.ColumnDefinitions>
+        <StackPanel x:Name="EncodingPanel"
+                    IsVisible="{Binding IsSelected, ElementName=EncodingSection}"
+                    Spacing="4">
+            <Grid Margin="8,4"
+                  ColumnDefinitions="*,Auto"
+                  ColumnSpacing="8"
+                  IsVisible="{Binding !IsRunning.Value, ElementName=Root}">
+                <TextBlock VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Text="{Binding ProgressText.Value}"
+                           TextWrapping="Wrap" />
+                <Button x:Name="EncodeButton"
+                        Grid.Column="1"
+                        VerticalAlignment="Bottom"
+                        usage:UsageTracking.Feature="Output.StartOutput"
+                        Classes="accent"
+                        Click="StartOutputClick"
+                        Content="{x:Static lang:Strings.Encode}"
+                        IsEnabled="{Binding CanEncode.Value}" />
+            </Grid>
+            <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.DestinationToSaveTo_Tip}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="3*" />
+                </Grid.ColumnDefinitions>
 
-            <TextBlock HorizontalAlignment="Left"
-                       VerticalAlignment="Center"
-                       ClipToBounds="False"
-                       Text="{x:Static lang:Strings.DestinationToSaveTo}"
-                       TextTrimming="CharacterEllipsis" />
+                <TextBlock HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           ClipToBounds="False"
+                           Text="{x:Static lang:Strings.DestinationToSaveTo}"
+                           TextTrimming="CharacterEllipsis" />
 
-            <GridSplitter Grid.Column="1" Background="Transparent" />
+                <GridSplitter Grid.Column="1" Background="Transparent" />
 
-            <TextBox x:Name="DestinationInputTextBox"
-                     Grid.Column="2"
-                     MinWidth="120"
-                     Margin="0,4"
-                     Text="{Binding DestinationFile.Value, Mode=TwoWay}"
-                     ToolTip.Tip="{Binding DestinationFile.Value}">
-                <TextBox.InnerRightContent>
-                    <Button usage:UsageTracking.Feature="Output.SelectDestinationFile"
-                            Click="SelectDestinationFileClick"
-                            Theme="{StaticResource TextBoxOpenButtonStyle}" />
-                </TextBox.InnerRightContent>
-            </TextBox>
-        </Grid>
+                <TextBox x:Name="DestinationInputTextBox"
+                         Grid.Column="2"
+                         MinWidth="120"
+                         Margin="0,4"
+                         Text="{Binding DestinationFile.Value, Mode=TwoWay}"
+                         ToolTip.Tip="{Binding DestinationFile.Value}">
+                    <TextBox.InnerRightContent>
+                        <Button usage:UsageTracking.Feature="Output.SelectDestinationFile"
+                                Click="SelectDestinationFileClick"
+                                Theme="{StaticResource TextBoxOpenButtonStyle}" />
+                    </TextBox.InnerRightContent>
+                </TextBox>
+            </Grid>
 
-        <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.Encoder_Tip}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="3*" />
-            </Grid.ColumnDefinitions>
+            <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.Encoder_Tip}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="3*" />
+                </Grid.ColumnDefinitions>
 
-            <TextBlock HorizontalAlignment="Left"
-                       VerticalAlignment="Center"
-                       ClipToBounds="False"
-                       Text="{x:Static lang:Strings.Encoder}"
-                       TextTrimming="CharacterEllipsis" />
+                <TextBlock HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           ClipToBounds="False"
+                           Text="{x:Static lang:Strings.Encoder}"
+                           TextTrimming="CharacterEllipsis" />
 
-            <GridSplitter Grid.Column="1" Background="Transparent" />
+                <GridSplitter Grid.Column="1" Background="Transparent" />
 
-            <ComboBox Grid.Column="2"
-                      MinWidth="120"
-                      Margin="0,4"
-                      HorizontalAlignment="Stretch"
-                      ItemsSource="{Binding Encoders}"
-                      SelectedItem="{Binding SelectedEncoder.Value}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding DisplayName}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-        </Grid>
+                <ComboBox Grid.Column="2"
+                          MinWidth="120"
+                          Margin="0,4"
+                          HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding Encoders}"
+                          SelectedItem="{Binding SelectedEncoder.Value}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </Grid>
 
-        <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.Supersampling_Tip}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="2*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="3*" />
-            </Grid.ColumnDefinitions>
+            <Grid Margin="8,0" ToolTip.Tip="{x:Static lang:Strings.Supersampling_Tip}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="3*" />
+                </Grid.ColumnDefinitions>
 
-            <TextBlock HorizontalAlignment="Left"
-                       VerticalAlignment="Center"
-                       ClipToBounds="False"
-                       Text="{x:Static lang:Strings.Supersampling}"
-                       TextTrimming="CharacterEllipsis" />
+                <TextBlock HorizontalAlignment="Left"
+                           VerticalAlignment="Center"
+                           ClipToBounds="False"
+                           Text="{x:Static lang:Strings.Supersampling}"
+                           TextTrimming="CharacterEllipsis" />
 
-            <GridSplitter Grid.Column="1" Background="Transparent" />
+                <GridSplitter Grid.Column="1" Background="Transparent" />
 
-            <ComboBox Grid.Column="2"
-                      MinWidth="120"
-                      Margin="0,4"
-                      HorizontalAlignment="Stretch"
-                      ItemsSource="{Binding SupersampleFactors}"
-                      SelectedItem="{Binding SupersampleFactor.Value}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="x:Int32">
-                        <TextBlock Text="{Binding Converter={x:Static converters:SupersampleFactorNameConverter.Instance}}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-        </Grid>
+                <ComboBox Grid.Column="2"
+                          MinWidth="120"
+                          Margin="0,4"
+                          HorizontalAlignment="Stretch"
+                          ItemsSource="{Binding SupersampleFactors}"
+                          SelectedItem="{Binding SupersampleFactor.Value}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="x:Int32">
+                            <TextBlock Text="{Binding Converter={x:Static converters:SupersampleFactorNameConverter.Instance}}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </Grid>
 
-        <TextBlock Margin="8,0"
-                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
-                   IsVisible="{Binding SupersampleWarning.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
-                   Text="{Binding SupersampleWarning.Value}"
-                   TextWrapping="Wrap" />
+            <TextBlock Margin="8,0"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       IsVisible="{Binding SupersampleWarning.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                       Text="{Binding SupersampleWarning.Value}"
+                       TextWrapping="Wrap" />
 
-        <TextBlock Margin="8,16,0,0"
-                   Text="{x:Static lang:Strings.Video}"
-                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+            <TextBlock Margin="8,16,0,0"
+                       Text="{x:Static lang:Strings.Video}"
+                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-        <propertyEditors:PropertiesEditor DataContext="{Binding VideoSettings.Value}" HideMenu="True" />
+            <propertyEditors:PropertiesEditor DataContext="{Binding VideoSettings.Value}" HideMenu="True" />
 
-        <TextBlock Margin="8,16,0,0"
-                   Text="{x:Static lang:Strings.Audio}"
-                   Theme="{StaticResource BodyStrongTextBlockStyle}" />
+            <TextBlock Margin="8,16,0,0"
+                       Text="{x:Static lang:Strings.Audio}"
+                       Theme="{StaticResource BodyStrongTextBlockStyle}" />
 
-        <propertyEditors:PropertiesEditor DataContext="{Binding AudioSettings.Value}" HideMenu="True" />
+            <propertyEditors:PropertiesEditor DataContext="{Binding AudioSettings.Value}" HideMenu="True" />
+        </StackPanel>
+        <views:VideoUploadView x:Name="UploadPanel"
+                               DataContext="{Binding Upload}"
+                               IsRunning="{Binding IsRunning.Value, ElementName=Root}"
+                               IsVisible="{Binding IsSelected, ElementName=UploadSection}"
+                               UploadRequested="StartUploadClick" />
     </StackPanel>
 </UserControl>

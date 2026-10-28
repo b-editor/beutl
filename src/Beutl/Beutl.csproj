@@ -63,6 +63,7 @@
     <PackageReference Include="Dotnet.Bundle" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="FluentAvaloniaUI" />
+    <PackageReference Include="Google.Apis.YouTube.v3" />
     <PackageReference Include="FluentIcons.Avalonia.Fluent" />
     <PackageReference Include="LiveMarkdown.Avalonia" />
     <PackageReference Include="Markdig" />

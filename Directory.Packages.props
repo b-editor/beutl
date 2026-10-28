@@ -42,6 +42,7 @@
     <PackageVersion Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded" Version="8.1.0" />
     <PackageVersion Include="FFmpeg4Sharp" Version="7.0.1" />
     <PackageVersion Include="FluentAvaloniaUI" Version="3.1.0" />
+    <PackageVersion Include="Google.Apis.YouTube.v3" Version="1.77.0.4309" />
     <PackageVersion Include="FluentIcons.Avalonia.Fluent" Version="2.1.344" />
     <PackageVersion Include="LiveMarkdown.Avalonia" Version="2.5.1" />
     <PackageVersion Include="Markdig" Version="1.5.0" />

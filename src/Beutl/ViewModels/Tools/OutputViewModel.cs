@@ -42,11 +42,13 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     private readonly CompositeDisposable _disposable = [];
     private string? _activeDestination;
     private long _totalFrames;
+    private VideoUploadViewModel.UploadJob? _pendingUpload;
 
     public OutputViewModel(EditViewModel editViewModel)
     {
         _editViewModel = editViewModel;
         Model = editViewModel.Scene;
+        Upload = new VideoUploadViewModel(editViewModel.ExtensionProvider).DisposeWith(_disposable);
         Controller = SelectedEncoder
             .CombineLatest(DestinationFile)
             .CombineWithPrevious()
@@ -128,11 +130,17 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
             {
                 DestinationFile.Select(x => x != null),
                 SelectedEncoder.Select(x => x != null),
+                Upload.CanAutoUpload,
+                Upload.Automatic.CombineLatest(videoEnabled, (automatic, enabled) => !automatic || enabled),
                 SupersampleWarning.Select(w => w == null)
             }
             .CombineLatestValuesAreAllTrue()
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposable);
+
+        AutoUploadVideoWarning = Upload.Automatic.CombineLatest(videoEnabled,
+                (automatic, enabled) => automatic && !enabled ? Strings.VideoUpload_VideoRequired : null)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_disposable);
 
         _editViewModel.ExtensionProvider
             .GetExtensions<ControllableEncodingExtension>()
@@ -198,6 +206,36 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public IReadOnlyReactiveProperty<bool> IsEncoding => _isEncoding;
 
+    public VideoUploadViewModel Upload { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> AutoUploadVideoWarning { get; }
+
+    public ReactivePropertySlim<bool> IsUploadRun { get; } = new();
+
+    // Both buttons use the profile's existing execution controller, cancellation and workspace lease.
+    // A later upload supplies a captured upload operation instead of running the encoder again.
+    internal bool TryStartUpload(IOutputExecutionController execution, out Task? task)
+    {
+        task = null;
+        if (execution.IsRunning.Value || _pendingUpload != null) return false;
+        string file = Upload.CompletedFile.Value
+            ?? throw new InvalidOperationException(Strings.VideoUpload_FileMissing);
+        _pendingUpload = Upload.CreateUpload(file);
+        try
+        {
+            if (execution.TryStart(out task)) return true;
+        }
+        catch
+        {
+            _pendingUpload?.Dispose();
+            _pendingUpload = null;
+            throw;
+        }
+        _pendingUpload.Dispose();
+        _pendingUpload = null;
+        return false;
+    }
+
     public FilePickerFileType[] GetFilePickerFileTypes()
     {
         static string[] ToPatterns(ControllableEncodingExtension encoder)
@@ -240,17 +278,46 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        using UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("export");
-        try
+        if (_pendingUpload is { } pending)
         {
-            await RunCoreAsync(cancellationToken);
-            usage?.Complete();
+            _pendingUpload = null;
+            using (pending)
+                await RunUploadAsync(pending, cancellationToken);
+            return;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+
+        IsUploadRun.Value = false;
+        using VideoUploadViewModel.UploadJob? upload = Upload.Automatic.Value
+            ? Upload.CreateUpload(DestinationFile.Value ?? throw new InvalidOperationException(Strings.VideoUpload_FileMissing))
+            : null;
+        if (upload != null && Controller.Value?.IsVideoEnabled == false)
+            throw new InvalidOperationException(Strings.VideoUpload_VideoRequired);
+
+        using (UsageTelemetry.Operation? usage = UsageTelemetry.Current?.Begin("export"))
         {
-            usage?.Complete("cancelled");
-            throw;
+            try
+            {
+                await RunCoreAsync(cancellationToken);
+                usage?.Complete();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                usage?.Complete("cancelled");
+                throw;
+            }
         }
+
+        // Kept outside the encoding failure handler: a failed upload must not turn a completed
+        // local export into an encoding failure, remove its file or require another encode.
+        if (upload != null)
+            await RunUploadAsync(upload, cancellationToken);
+    }
+
+    private async Task RunUploadAsync(VideoUploadViewModel.UploadJob upload, CancellationToken cancellationToken)
+    {
+        IsUploadRun.Value = true;
+        WasCancelled.Value = false;
+        await Upload.RunAsync(upload, cancellationToken);
     }
 
     private async Task RunCoreAsync(CancellationToken cancellationToken)
@@ -343,6 +410,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
             output.Commit(cancellationToken);
             succeeded = true;
+            Upload.RecordCompletedFile(videoEnabled ? output.DestinationPath : null);
             ShowCompletedProgress();
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -742,6 +810,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     public void Dispose()
     {
         _logger.LogInformation("Disposing OutputViewModel.");
+        _pendingUpload?.Dispose();
+        _pendingUpload = null;
         _disposable.Dispose();
         _logger.LogInformation("OutputViewModel disposed.");
     }
@@ -785,6 +855,9 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         json[nameof(AudioSettings)] = SerializeEncoderSettings(AudioSettings.Value?.Settings);
 
         json[nameof(SupersampleFactor)] = SupersampleFactor.Value;
+        var upload = new JsonObject();
+        Upload.WriteToJson(upload);
+        json[nameof(Upload)] = upload;
 
         _logger.LogInformation("State written to JSON.");
     }
@@ -806,6 +879,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
 
         if (!applyingPreset)
         {
+            if (json[nameof(Upload)] is JsonObject upload)
+                TryPopulate(() => Upload.ReadFromJson(upload));
             if (json.TryGetPropertyValueAsJsonValue(nameof(DestinationFile), out string? dstFile))
             {
                 DestinationFile.Value = dstFile;
@@ -880,6 +955,8 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
     {
         var obj = new JsonObject();
         WriteToJson(obj);
+        // Encoding presets must not carry another project's upload destination, metadata or files.
+        obj.Remove(nameof(Upload));
         return obj;
     }
 }

@@ -47,6 +47,12 @@ public partial class OutputView : UserControl
     }
 
     private async void StartOutputClick(object? sender, RoutedEventArgs e)
+        => await StartAsync(uploadOnly: false);
+
+    private async void StartUploadClick(object? sender, RoutedEventArgs e)
+        => await StartAsync(uploadOnly: true);
+
+    private async Task StartAsync(bool uploadOnly)
     {
         if (DataContext is not OutputViewModel viewModel) return;
 
@@ -54,7 +60,11 @@ public partial class OutputView : UserControl
         {
             IOutputExecutionController outputExecution = _execution
                 ?? throw new InvalidOperationException("The output execution controller was not provided.");
-            if (!outputExecution.TryStart(out Task? execution))
+            Task? execution;
+            bool started = uploadOnly
+                ? viewModel.TryStartUpload(outputExecution, out execution)
+                : outputExecution.TryStart(out execution);
+            if (!started || execution == null)
             {
                 return;
             }

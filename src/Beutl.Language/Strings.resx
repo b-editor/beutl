@@ -3492,4 +3492,133 @@ when history recording is enabled.</value>
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>Add device</value>
   </data>
+  <data name="VideoUpload_Title" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="VideoUpload_Target" xml:space="preserve">
+    <value>Upload to</value>
+  </data>
+  <data name="VideoUpload_SelectTarget" xml:space="preserve">
+    <value>Select an upload service</value>
+  </data>
+  <data name="VideoUpload_Automatic" xml:space="preserve">
+    <value>Upload after encoding</value>
+  </data>
+  <data name="VideoUpload_CompletedFile" xml:space="preserve">
+    <value>Encoded video</value>
+  </data>
+  <data name="VideoUpload_Review" xml:space="preserve">
+    <value>Play</value>
+  </data>
+  <data name="VideoUpload_Upload" xml:space="preserve">
+    <value>Upload</value>
+  </data>
+  <data name="VideoUpload_OpenUploaded" xml:space="preserve">
+    <value>Open uploaded video</value>
+  </data>
+  <data name="VideoUpload_Private" xml:space="preserve">
+    <value>Private</value>
+  </data>
+  <data name="VideoUpload_Unlisted" xml:space="preserve">
+    <value>Unlisted</value>
+  </data>
+  <data name="VideoUpload_Public" xml:space="preserve">
+    <value>Public</value>
+  </data>
+  <data name="VideoUpload_NotForKids" xml:space="preserve">
+    <value>No, it is not made for kids</value>
+  </data>
+  <data name="VideoUpload_ForKids" xml:space="preserve">
+    <value>Yes, it is made for kids</value>
+  </data>
+  <data name="VideoUpload_YouTubeSetup" xml:space="preserve">
+    <value>A Google Desktop app client JSON file is required to connect.</value>
+  </data>
+  <data name="VideoUpload_SigningIn" xml:space="preserve">
+    <value>Waiting for sign-in…</value>
+  </data>
+  <data name="VideoUpload_DesktopClientRequired" xml:space="preserve">
+    <value>Select a client JSON file created for a Google Desktop app.</value>
+  </data>
+  <data name="VideoUpload_SignedIn" xml:space="preserve">
+    <value>Connected</value>
+  </data>
+  <data name="VideoUpload_SignInCancelled" xml:space="preserve">
+    <value>Sign-in cancelled or timed out.</value>
+  </data>
+  <data name="VideoUpload_SignInFailed" xml:space="preserve">
+    <value>Could not connect. Check the Desktop app client JSON, enable YouTube Data API v3, and allow access in your browser.</value>
+  </data>
+  <data name="VideoUpload_NotReady" xml:space="preserve">
+    <value>The upload connection or required settings are incomplete.</value>
+  </data>
+  <data name="VideoUpload_InvalidMetadata" xml:space="preserve">
+    <value>Check the title (1–100 characters), description (up to 5,000 UTF-8 bytes, no &lt; or &gt;), and audience.</value>
+  </data>
+  <data name="VideoUpload_EmptyFile" xml:space="preserve">
+    <value>The video file is empty.</value>
+  </data>
+  <data name="VideoUpload_Failed" xml:space="preserve">
+    <value>Upload failed. Check your channel before retrying.</value>
+  </data>
+  <data name="VideoUpload_MissingReceipt" xml:space="preserve">
+    <value>The service did not confirm the uploaded video. Check your channel before retrying.</value>
+  </data>
+  <data name="VideoUpload_FileMissing" xml:space="preserve">
+    <value>The completed video could not be found. Restore the file or encode it again.</value>
+  </data>
+  <data name="VideoUpload_Uploading" xml:space="preserve">
+    <value>Uploading video…</value>
+  </data>
+  <data name="VideoUpload_Completed" xml:space="preserve">
+    <value>Upload complete. The service may still be processing the video.</value>
+  </data>
+  <data name="VideoUpload_Cancelled" xml:space="preserve">
+    <value>Upload cancelled. The service may have kept a draft.</value>
+  </data>
+  <data name="VideoUpload_VideoRequired" xml:space="preserve">
+    <value>Automatic video upload requires video encoding to be enabled.</value>
+  </data>
+  <data name="VideoUpload_Connect" xml:space="preserve">
+    <value>Connect…</value>
+  </data>
+  <data name="VideoUpload_Disconnect" xml:space="preserve">
+    <value>Disconnect</value>
+  </data>
+  <data name="VideoUpload_SetupHelp" xml:space="preserve">
+    <value>Setup help</value>
+  </data>
+  <data name="VideoUpload_VideoTitle" xml:space="preserve">
+    <value>Video title</value>
+  </data>
+  <data name="VideoUpload_TitleHint" xml:space="preserve">
+    <value>Use the file name when empty</value>
+  </data>
+  <data name="VideoUpload_Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="VideoUpload_Visibility" xml:space="preserve">
+    <value>Visibility</value>
+  </data>
+  <data name="VideoUpload_Audience" xml:space="preserve">
+    <value>Audience</value>
+  </data>
+  <data name="VideoUpload_ChooseAudience" xml:space="preserve">
+    <value>Select whether this video is made for kids</value>
+  </data>
+  <data name="VideoUpload_SelectClient" xml:space="preserve">
+    <value>Select Google Desktop app client JSON</value>
+  </data>
+  <data name="VideoUpload_PreviewUnavailable" xml:space="preserve">
+    <value>This file cannot be opened as a video. Open its folder to inspect it.</value>
+  </data>
+  <data name="VideoUpload_NoFile" xml:space="preserve">
+    <value>No encoded video yet</value>
+  </data>
+  <data name="VideoUpload_NotConnected" xml:space="preserve">
+    <value>Not connected</value>
+  </data>
+  <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
+    <value>The connection lasts until this project is closed.</value>
+  </data>
 </root>

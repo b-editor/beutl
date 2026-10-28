@@ -41,6 +41,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         OutputTabExtension.Instance,
         SceneEditorExtension.Instance,
         SceneOutputExtension.Instance,
+        VideoUpload.YouTubeUploadExtension.Instance,
         TimelineTabExtension.Instance,
         ObjectPropertyTabExtension.Instance,
         ElementPropertyTabExtension.Instance,

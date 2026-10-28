@@ -1,0 +1,98 @@
+<UserControl x:Class="Beutl.Views.Tools.VideoUploadView"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:converters="using:Beutl.Editor.Components.Converters"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:vm="using:Beutl.ViewModels.Tools"
+             Name="Root"
+             x:CompileBindings="True"
+             x:DataType="vm:VideoUploadViewModel">
+    <StackPanel Margin="8" Spacing="16">
+        <Border Padding="12" Classes="options-group">
+            <StackPanel Spacing="10">
+                <TextBlock Text="{x:Static lang:Strings.VideoUpload_CompletedFile}" Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           IsVisible="{Binding CompletedFile.Value, Converter={x:Static ObjectConverters.IsNull}}"
+                           Text="{x:Static lang:Strings.VideoUpload_NoFile}"
+                           TextWrapping="Wrap" />
+                <StackPanel x:Name="CompletedVideoPanel"
+                            IsVisible="{Binding CompletedFile.Value, Converter={x:Static ObjectConverters.IsNotNull}}"
+                            Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <TextBlock x:Name="CompletedFileName"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding CompletedFile.Value, Converter={x:Static converters:FileNameConverter.Instance}}"
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding CompletedFile.Value}" />
+                        <Button Grid.Column="1"
+                                AutomationProperties.Name="{x:Static lang:Strings.OpenFolder}"
+                                Click="OpenFolderClick"
+                                Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                ToolTip.Tip="{x:Static lang:Strings.OpenFolder}">
+                            <icons:FluentIcon FontSize="16" Icon="FolderOpen" />
+                        </Button>
+                    </Grid>
+                    <WrapPanel ItemSpacing="8" LineSpacing="8">
+                        <Button x:Name="PreviewButton" Click="PreviewClick">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <icons:FluentIcon VerticalAlignment="Center"
+                                                  FontSize="16"
+                                                  Icon="Play" />
+                                <TextBlock Text="{x:Static lang:Strings.VideoUpload_Review}" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="UploadButton"
+                                Classes="accent"
+                                Click="UploadClick"
+                                Content="{x:Static lang:Strings.VideoUpload_Upload}">
+                            <Button.IsEnabled>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="CanUpload.Value" />
+                                    <Binding ElementName="Root" Path="!IsRunning" />
+                                </MultiBinding>
+                            </Button.IsEnabled>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
+                <StackPanel Spacing="8">
+                    <StackPanel.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="!IsUploading.Value" />
+                            <Binding Converter="{x:Static StringConverters.IsNotNullOrEmpty}" Path="Status.Value" />
+                        </MultiBinding>
+                    </StackPanel.IsVisible>
+                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               Text="{Binding Status.Value}"
+                               TextWrapping="Wrap" />
+                    <Button HorizontalAlignment="Left"
+                            Click="OpenUploadedClick"
+                            Content="{x:Static lang:Strings.VideoUpload_OpenUploaded}"
+                            IsVisible="{Binding UploadedUrl.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+
+        <StackPanel IsEnabled="{Binding !IsRunning, ElementName=Root}" Spacing="16">
+            <Grid ColumnDefinitions="2*,3*" ColumnSpacing="12">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.VideoUpload_Target}"
+                           TextWrapping="Wrap" />
+                <ComboBox x:Name="TargetInput"
+                          Grid.Column="1"
+                          HorizontalAlignment="Stretch"
+                          AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_Target}"
+                          ItemsSource="{Binding Targets}"
+                          PlaceholderText="{x:Static lang:Strings.VideoUpload_SelectTarget}"
+                          SelectedItem="{Binding SelectedTarget.Value}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </Grid>
+            <ContentControl HorizontalContentAlignment="Stretch" Content="{Binding SettingsControl.Value}" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>
