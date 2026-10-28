@@ -133,7 +133,7 @@ public sealed class FFmpegDecoderInfoTests
     }
 
     [Test]
-    public void ProxyGenerator_ReadsTheSourceAsBackgroundWork()
+    public async Task ProxyGenerator_ReadsTheSourceAsBackgroundWork()
     {
         var decoder = new RecordingDecoderInfo();
         DecoderRegistry.Register(decoder);
@@ -147,7 +147,7 @@ public sealed class FFmpegDecoderInfoTests
             var job = new ProxyJob(ProxyFingerprint.FromFile(source), ProxyPreset.Quarter);
 
             // The decoder opens nothing, so generation fails after the open and the audio probe that follows it.
-            Assert.CatchAsync(() => generator.GenerateAsync(job).AsTask());
+            await Assert.CatchAsync(() => generator.GenerateAsync(job).AsTask());
             Assert.Multiple(() =>
             {
                 Assert.That(
