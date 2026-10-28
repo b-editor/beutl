@@ -73,6 +73,39 @@ public class EncodeDecodeRoundTripTests
         Assert.That(controller.VideoSettings.ColorTransfer.Value, Is.EqualTo(transfer));
     }
 
+    // JPEG follows JFIF: sRGB code values under the BT.601 matrix, tagged like FFmpeg's MJPEG.
+    [Test]
+    public async Task JpegDefaultsAreTaggedLikeJfif()
+    {
+        string outputPath = Path.Combine(_workDir, "colors.mov");
+        var controller = new AVFEncodingController(outputPath);
+        controller.VideoSettings.Codec.Value = AVFVideoEncoderSettings.VideoCodec.JPEG;
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value =
+            new PixelSize(ColorBarsFrameProvider.Width, ColorBarsFrameProvider.Height);
+        controller.VideoSettings.FrameRate.Value = new Rational(30, 1);
+        using var frames = new ColorBarsFrameProvider();
+        using var samples = new SineSampleProvider(4410, 44100);
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        Assert.That(ReadNclx(outputPath), Is.EqualTo((Primaries: 1, Transfer: 13, Matrix: 6)));
+        using var reader = new AVFReader(outputPath, new MediaOptions(), new AVFDecodingExtension());
+        Assert.That(reader.ReadVideo(0, out var decoded), Is.True);
+        using (decoded)
+        {
+            Bitmap actual = decoded!.Value;
+            using Bitmap expected = ColorBarsFrameProvider.CreateFrame();
+            for (int patch = 0; patch < 6; patch++)
+            {
+                for (int channel = 0; channel < 3; channel++)
+                {
+                    int offset = (patch * 32 + 16) * 4 + channel;
+                    Assert.That(actual.GetRow(32)[offset], Is.EqualTo(expected.GetRow(32)[offset]).Within(8),
+                        $"Patch {patch}, channel {channel}");
+                }
+            }
+        }
+    }
+
     // The reader folds an unknown transfer into sRGB and never reports the matrix, so read the colr box itself.
     private static (int Primaries, int Transfer, int Matrix) ReadNclx(string path)
     {
