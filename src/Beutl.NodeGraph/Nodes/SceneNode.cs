@@ -79,12 +79,7 @@ public partial class SceneNode : GraphNode
             var sceneContext = new CompositionContext(Time)
             {
                 DisableResourceShare = context.DisableResourceShare,
-                PreferProxy = context.PreferProxy,
-                PreferredProxyPreset = context.PreferredProxyPreset,
-                TargetDomain = context.TargetDomain,
-                EvaluationServices = context.EvaluationServices,
-                FrameRate = context.FrameRate,
-                CancellationToken = context.CancellationToken,
+                Conditions = context.Conditions,
             };
 
             try

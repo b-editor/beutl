@@ -88,12 +88,15 @@ public sealed partial class SceneCompositor : ICompositor
             Target = target;
             Flow = flow;
             DisableResourceShare = compositor.DisableResourceShare;
-            PreferProxy = !compositor.ForceOriginalSource
-                && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
-            PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
-            TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1));
-            FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate();
-            EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this);
+            Conditions = new CompositionConditions
+            {
+                PreferProxy = !compositor.ForceOriginalSource
+                    && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy,
+                PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value),
+                TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1)),
+                FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate(),
+                EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this),
+            };
         }
 
         public override CompositionEvaluationSession CreateEvaluationSession()
@@ -103,15 +106,21 @@ public sealed partial class SceneCompositor : ICompositor
         public void InheritConditions(CompositionContext? conditions)
         {
             if (conditions is null) return;
-            PreferProxy = conditions.PreferProxy;
-            PreferredProxyPreset = conditions.PreferredProxyPreset;
+            // A nested scene keeps its own frame domain and query services.
+            Conditions = conditions.Conditions with { TargetDomain = TargetDomain, EvaluationServices = EvaluationServices };
             DisableResourceShare |= conditions.DisableResourceShare;
             InputBoundaries = conditions.InputBoundaries;
-            FrameRate = conditions.FrameRate;
-            CancellationToken = conditions.CancellationToken;
         }
 
         public IList<Element> CurrentElements { get; set; }
+
+        // A captured context outlives this frame's pooled element list, which is released after evaluation.
+        public override CompositionContext WithTime(MediaTime time)
+        {
+            var result = (CompositorContext)base.WithTime(time);
+            result.CurrentElements = [];
+            return result;
+        }
 
         public CompositionTarget Target { get; set; }
 

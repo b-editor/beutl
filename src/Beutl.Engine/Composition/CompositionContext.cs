@@ -10,9 +10,8 @@ namespace Beutl.Composition;
 /// decode selection, the resource-sharing toggle, and the resolve-time proxy density cap.
 /// </summary>
 /// <remarks>
-/// <see cref="PreferProxy"/> is the only decode-selection signal consumers read.
-/// It and <see cref="DisableResourceShare"/> are <c>set</c>, not <c>init</c>, because node-graph render nodes reuse a cached context.
-/// <see cref="PreferredProxyPreset"/> is the resolve-time density cap passed to <see cref="ProxyResolver.Resolve(Uri, ProxyPreset)"/>.
+/// Output conditions live in the immutable <see cref="Conditions"/>; the individual properties replace it.
+/// They and <see cref="DisableResourceShare"/> are <c>set</c>, not <c>init</c>, because node-graph render nodes reuse a cached context.
 /// </remarks>
 public class CompositionContext(MediaTime time) : EvaluationContext(time)
 {
@@ -32,31 +31,55 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
 
     internal IReadOnlyList<FilterEffectInputBoundary> InputBoundaries { get; set; } = [];
 
-    /// <summary>The effective output frame rate, including an export's rate override.</summary>
-    public Rational FrameRate { get; set; } = new(30, 1);
-
-    public CancellationToken CancellationToken { get; set; }
-
     /// <summary>Creates an isolated resource-evaluation session retaining the current host and snapshot.</summary>
     public virtual CompositionEvaluationSession CreateEvaluationSession() => new(WithTime(Time));
 
     public bool DisableResourceShare { get; set; }
 
-    public bool PreferProxy { get; set; }
+    /// <summary>The output conditions this evaluation inherits; assign it to pass every condition on at once.</summary>
+    public CompositionConditions Conditions { get; set; } = CompositionConditions.Default;
 
-    public ProxyPreset PreferredProxyPreset { get; set; } = ProxyPreset.Quarter;
+    /// <inheritdoc cref="CompositionConditions.FrameRate"/>
+    public Rational FrameRate
+    {
+        get => Conditions.FrameRate;
+        set => Conditions = Conditions with { FrameRate = value };
+    }
 
-    /// <summary>
-    /// Gets or sets the finite logical composition domain available to auxiliary render-node evaluation.
-    /// </summary>
-    /// <remarks>
-    /// Scene composition supplies its frame rectangle. A null value means the caller has no finite target domain;
-    /// self-bounded render graphs remain valid, while root <c>TargetRegion.Full</c> access requires a value.
-    /// </remarks>
-    public Rect? TargetDomain { get; set; }
+    /// <inheritdoc cref="CompositionConditions.CancellationToken"/>
+    public CancellationToken CancellationToken
+    {
+        get => Conditions.CancellationToken;
+        set => Conditions = Conditions with { CancellationToken = value };
+    }
 
-    /// <summary>Optional scene queries. Detached evaluations need not provide these services.</summary>
-    public ICompositionEvaluationServices? EvaluationServices { get; set; }
+    /// <inheritdoc cref="CompositionConditions.PreferProxy"/>
+    public bool PreferProxy
+    {
+        get => Conditions.PreferProxy;
+        set => Conditions = Conditions with { PreferProxy = value };
+    }
+
+    /// <inheritdoc cref="CompositionConditions.PreferredProxyPreset"/>
+    public ProxyPreset PreferredProxyPreset
+    {
+        get => Conditions.PreferredProxyPreset;
+        set => Conditions = Conditions with { PreferredProxyPreset = value };
+    }
+
+    /// <inheritdoc cref="CompositionConditions.TargetDomain"/>
+    public Rect? TargetDomain
+    {
+        get => Conditions.TargetDomain;
+        set => Conditions = Conditions with { TargetDomain = value };
+    }
+
+    /// <inheritdoc cref="CompositionConditions.EvaluationServices"/>
+    public ICompositionEvaluationServices? EvaluationServices
+    {
+        get => Conditions.EvaluationServices;
+        set => Conditions = Conditions with { EvaluationServices = value };
+    }
 
     /// <summary>Captures an independent evaluation clock while preserving this context's services and policies.</summary>
     /// <remarks>The captured context belongs to the current render request; it must not outlive its services.</remarks>

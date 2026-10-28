@@ -22,12 +22,7 @@ public class CompositionEvaluationSession(CompositionContext context) : IDisposa
         Context.InputBoundaries = source.InputBoundaries;
         Context.ContainsScene3D = false;
         Context.DisableResourceShare = true;
-        Context.PreferProxy = source.PreferProxy;
-        Context.PreferredProxyPreset = source.PreferredProxyPreset;
-        Context.TargetDomain = source.TargetDomain;
-        Context.FrameRate = source.FrameRate;
-        Context.CancellationToken = source.CancellationToken;
-        Context.EvaluationServices = source.EvaluationServices;
+        Context.Conditions = source.Conditions;
     }
 
     public virtual void Dispose()
