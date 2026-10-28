@@ -102,7 +102,19 @@ public static class YuvConversion
     }
 
     public static unsafe void Yuy2ToBgra(byte* src, byte* dst, int dstStride, int width, int height)
+        => Yuy2ToBgra(src, dst, dstStride, width, height, bt709: false, fullRange: false);
+
+    public static unsafe void Yuy2ToBgra(
+        byte* src, byte* dst, int dstStride, int width, int height, bool bt709, bool fullRange)
     {
+        // YUV to full-range R'G'B' in 8.8 fixed point; the transfer function stays with the caller's color space.
+        (int ym, int yo, int rv, int gu, int gv, int bu) = (bt709, fullRange) switch
+        {
+            (false, false) => (298, 16, 409, 100, 208, 516),
+            (true, false) => (298, 16, 459, 55, 136, 541),
+            (false, true) => (256, 0, 359, 88, 183, 454),
+            (true, true) => (256, 0, 403, 48, 120, 475),
+        };
         nint srcAddr = (nint)src;
         nint dstAddr = (nint)dst;
 
@@ -123,18 +135,18 @@ public static class YuvConversion
                 int e = v - 128;
 
                 // Pixel 0
-                int c0 = y0 - 16;
-                dstRow[i * 8] = Clamp((298 * c0 + 516 * d + 128) >> 8);             // B
-                dstRow[i * 8 + 1] = Clamp((298 * c0 - 100 * d - 208 * e + 128) >> 8); // G
-                dstRow[i * 8 + 2] = Clamp((298 * c0 + 409 * e + 128) >> 8);         // R
-                dstRow[i * 8 + 3] = 255;                                             // A
+                int c0 = ym * (y0 - yo);
+                dstRow[i * 8] = Clamp((c0 + bu * d + 128) >> 8);             // B
+                dstRow[i * 8 + 1] = Clamp((c0 - gu * d - gv * e + 128) >> 8); // G
+                dstRow[i * 8 + 2] = Clamp((c0 + rv * e + 128) >> 8);         // R
+                dstRow[i * 8 + 3] = 255;                                      // A
 
                 // Pixel 1
-                int c1 = y1 - 16;
-                dstRow[i * 8 + 4] = Clamp((298 * c1 + 516 * d + 128) >> 8);             // B
-                dstRow[i * 8 + 5] = Clamp((298 * c1 - 100 * d - 208 * e + 128) >> 8); // G
-                dstRow[i * 8 + 6] = Clamp((298 * c1 + 409 * e + 128) >> 8);         // R
-                dstRow[i * 8 + 7] = 255;                                             // A
+                int c1 = ym * (y1 - yo);
+                dstRow[i * 8 + 4] = Clamp((c1 + bu * d + 128) >> 8);             // B
+                dstRow[i * 8 + 5] = Clamp((c1 - gu * d - gv * e + 128) >> 8); // G
+                dstRow[i * 8 + 6] = Clamp((c1 + rv * e + 128) >> 8);         // R
+                dstRow[i * 8 + 7] = 255;                                      // A
             }
 
             // Handle last pixel for odd width
@@ -144,13 +156,13 @@ public static class YuvConversion
                 int y0 = srcRow[off];
                 int u = srcRow[off + 1];
 
-                int c0 = y0 - 16;
+                int c0 = ym * (y0 - yo);
                 int d = u - 128;
                 int dstOff = pairs * 8;
-                dstRow[dstOff] = Clamp((298 * c0 + 516 * d + 128) >> 8);             // B
-                dstRow[dstOff + 1] = Clamp((298 * c0 - 100 * d + 128) >> 8);         // G
-                dstRow[dstOff + 2] = Clamp((298 * c0 + 128) >> 8);                   // R
-                dstRow[dstOff + 3] = 255;                                             // A
+                dstRow[dstOff] = Clamp((c0 + bu * d + 128) >> 8);     // B
+                dstRow[dstOff + 1] = Clamp((c0 - gu * d + 128) >> 8); // G
+                dstRow[dstOff + 2] = Clamp((c0 + 128) >> 8);          // R
+                dstRow[dstOff + 3] = 255;                              // A
             }
         });
     }

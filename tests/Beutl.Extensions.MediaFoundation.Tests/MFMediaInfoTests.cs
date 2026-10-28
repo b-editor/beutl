@@ -1,5 +1,7 @@
 ﻿using Beutl.Embedding.MediaFoundation.Decoding;
+using Beutl.Media;
 
+using Vortice.MediaFoundation;
 using Vortice.Win32;
 
 using Windows.Win32.Media.MediaFoundation;
@@ -30,6 +32,35 @@ public class MFMediaInfoTests
             Assert.That(text, Does.Contain("FrameSize: 1920x1080"));
             Assert.That(text, Does.Contain("Fps: 30"));
             Assert.That(text, Does.Contain("TotalFrameCount: 30"));
+        });
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    [Platform("Win")]
+    public void ReadColorTags_KeepsTheUntaggedReadingForHdr(bool hdr)
+    {
+        MFMediaInfo info = MFThread.Dispatcher.Invoke(() =>
+        {
+            using IMFMediaType type = MediaFactory.MFCreateMediaType();
+            type.Set(MediaTypeAttributeKeys.TransferFunction,
+                (uint)(hdr ? VideoTransferFunction.Func2084 : VideoTransferFunction.Func709)).CheckError();
+            type.Set(MediaTypeAttributeKeys.VideoPrimaries,
+                (uint)(hdr ? VideoPrimaries.Bt2020 : VideoPrimaries.Bt709)).CheckError();
+            type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)VideoTransferMatrix.Bt709).CheckError();
+            type.Set(MediaTypeAttributeKeys.VideoNominalRange, (uint)NominalRange.Range0_255).CheckError();
+            var result = new MFMediaInfo();
+            MFDecoder.ReadColorTags(type, ref result);
+            return result;
+        });
+
+        Assert.Multiple(() =>
+        {
+            // The 8-bit YUY2 path cannot show HDR, so it keeps all four BT.601 limited-range sRGB defaults.
+            Assert.That(info.Bt709Matrix, Is.EqualTo(!hdr));
+            Assert.That(info.FullRange, Is.EqualTo(!hdr));
+            Assert.That(info.Transfer, Is.EqualTo(hdr ? BitmapColorTransfer.Unknown : BitmapColorTransfer.Bt709));
+            Assert.That(info.Primaries, Is.EqualTo(hdr ? BitmapColorPrimaries.Unknown : BitmapColorPrimaries.Bt709));
         });
     }
 }
