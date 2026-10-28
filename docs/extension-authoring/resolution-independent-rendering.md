@@ -62,6 +62,14 @@ Reading the scale while authoring:
   Record the drawable into a `RenderNode` and render it with
   `CustomFilterEffectContext.ExecutionContext.RenderDependency(root, identity, domain)`, then draw the returned
   image. The dependency shares the request's allocation, working density, cancellation and cycle detection.
+  A repeated identity reuses the image only within the same recorded effect, never across effects.
+  `ExecutionContext` is null when the effect runs outside the renderer.
+- `FilterEffectContext.ContinuationEffect` hands its callback the `FilterEffectContinuation` of the operations
+  recorded after it, to run any number of times. `TargetEffect` hands its callback a `CompositionTargetAccess`
+  to capture or replace the composition target beneath it. The resource recording them must return true from
+  `ControlsContinuation` or `MayAccessTarget` respectively, for every evaluation time; the engine splits chains
+  and routes target work from these declarations before recording, so an undeclared recording throws.
+  A composite effect applies its children with `FilterEffectContext.Apply(resource)`, not `ApplyTo`.
 
 The built-in effects follow these rules; for example, Mosaic multiplies its tile size by `w`, and the SKSL
 and GLSL script effects pass `w` to shaders.
@@ -98,10 +106,12 @@ different topology, not merely a different density.
 An effect resource can override `UsesInputEvaluation`, `PrepareInput` and `RenderInput` to sample its
 input before drawing. Call `input.Evaluate(time)` in `PrepareInput` and retain the returned
 `FilterEffectInputSample` objects for `RenderInput`. Return `true` from preparation to supply the
-replacement drawing. An ordinary `ApplyTo` effect needs none of these hooks.
+replacement drawing. An ordinary `ApplyTo` effect needs none of these hooks. Draw and measure an evaluated
+drawable through `Drawable.Resource.Render` and `Drawable.Resource.Measure`: `Drawable.Render(context, resource)`
+is only the override point and skips the replacement.
 
-`input.EvaluationContext` captures the input's clock, effective output `FrameRate`, proxy policy,
-target domain and cancellation token. Sample times use that clock, including any enclosing time
+`input.EvaluationContext` captures the input's clock and its `Conditions`: effective output `FrameRate`,
+proxy policy, target domain, scene queries and cancellation token. Sample times use that clock, including any enclosing time
 controller mapping. Each sample owns independent resources and replays the flow actually consumed by
 the source. Its effect prefix stops at the authored occurrence, including through groups and presenters;
 its own effect and suffix are not reconciled again. When a reference switches to a chain without that
@@ -118,15 +128,15 @@ For a custom execution callback, `RenderExecutionContext.RenderDependency(sample
 renders the same sample through the current request's allocator, working density and dependency cache.
 Choose a finite, non-empty parent-coordinate domain covering the required input, and dispose the returned image lease.
 `sample.CreateRenderNode` also exposes the recording without creating another renderer. The caller owns
-the returned node and must dispose it before disposing the sample.
+the returned node and must dispose it before the source's next reconciliation.
 
-The input context owns its samples until the source's next reconciliation or disposal; a sample may be
-disposed earlier. Never retain a sample or its resource across that boundary: the next preparation
-reevaluates it in place for the new sample nearest its offset from the clock, so a video source keeps its
-decoder open and continues from its previous position. Host integrations override
+The engine owns the input context and its samples until the source's next reconciliation or disposal.
+Never retain a sample or its resource across that boundary: the next preparation reevaluates it in place
+for the new sample nearest its offset from the clock, so a video source keeps its decoder open and
+continues from its previous position. Host integrations override
 `CompositionContext.CreateEvaluationSession` to isolate their caches while retaining the source document
-snapshot, and derive every frame-dependent condition in `CompositionEvaluationSession.Update`, which is
-called again when a session is reused. `SceneCompositor` implements this for preview and export. Evaluate all samples during preparation
+snapshot. `CompositionEvaluationSession.Update`, which runs again whenever a session is reused, takes the
+source's `Conditions` as one value. `SceneCompositor` implements this for preview and export. Evaluate all samples during preparation
 so their dependencies, bounds and 3D requirements are known before recording. Cancellation discards the
 incomplete evaluation or render request; an effect should allow `OperationCanceledException` to propagate.
 
