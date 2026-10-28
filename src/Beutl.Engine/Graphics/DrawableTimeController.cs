@@ -186,9 +186,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             }
 
             var originalContextTime = context.Time;
+            bool wasRemapped = context.IsTimeRemapped;
             try
             {
                 context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
+                context.IsTimeRemapped = true;
                 bool changed = false;
                 if (_flowTarget != null)
                     _flowTarget.Reconcile(context, ref _target, ref changed);
@@ -204,6 +206,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             finally
             {
                 context.Time = originalContextTime;
+                context.IsTimeRemapped = wasRemapped;
             }
         }
 

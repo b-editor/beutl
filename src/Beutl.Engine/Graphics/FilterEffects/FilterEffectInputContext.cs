@@ -69,8 +69,10 @@ public sealed class FilterEffectInputContext
             CompositionContext context = slot.Session.Context;
             context.SampledDrawable = (Drawable)_flow.Object;
             context.InputBoundaries = [.. EvaluationContext.InputBoundaries, _boundary];
+            // A retimed target is drawn at any mapped time, as its controller draws it; otherwise the
+            // sample follows the element's range on the composition clock.
             var range = _flow.Object.TimeRange.Value;
-            bool visible = range.Duration <= MediaTime.Zero || range.Contains(time);
+            bool visible = EvaluationContext.IsTimeRemapped || range.Duration <= MediaTime.Zero || range.Contains(time);
             if (visible)
             {
                 bool changed = false;

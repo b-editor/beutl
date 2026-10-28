@@ -80,6 +80,21 @@ public class FilterEffectInputTests
     }
 
     [Test]
+    public void SamplesOfARetimedTargetFollowTheControllersVisibility()
+    {
+        var shape = Rectangle();
+        shape.FilterEffect.Value = new SampleInputEffect();
+        var controller = new DrawableTimeController { OffsetPosition = { Value = Seconds(10) } };
+        using var compositor = new SceneCompositor(SceneWith(shape, controller));
+        var frame = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
+        var target = ((DrawableTimeController.Resource)frame.Objects.OfType<Drawable.Resource>().Single()).Target!;
+        var effect = (SampleInputEffect.Resource)target.FilterEffect!;
+        Assert.That(effect.Input!.EvaluationContext.Time, Is.EqualTo(Seconds(11)), "the target runs on the mapped clock");
+        Assert.That(effect.Samples.Select(s => s.IsVisible), Is.All.True,
+            "the controller draws its target outside the element's range, so its samples must too");
+    }
+
+    [Test]
     public void AnimationEditsWithTheSameCurrentValueInvalidateAndReleaseOldSamples()
     {
         var shape = Rectangle();
