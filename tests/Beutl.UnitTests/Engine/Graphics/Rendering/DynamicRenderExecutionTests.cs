@@ -176,7 +176,7 @@ public sealed class DynamicRenderExecutionTests
                 calls++;
                 Assert.That(execution.WorkingScale, Is.EqualTo(0.5f));
                 Assert.That(execution.ExecutionContext!.WorkingScale, Is.EqualTo(0.5f));
-            })) { DeclaresTargetAccess = true };
+            }), declaresTargetAccess: true);
         using var root = new ScaledFilterNode(effect.ToResource(CompositionContext.Default));
         root.AddChild(new RectangleRenderNode(Domain, Brushes.Resource.Red, null));
         using var renderer = Renderer(root);
@@ -209,7 +209,7 @@ public sealed class DynamicRenderExecutionTests
             {
                 if (accessesTarget) context.TargetEffect(0, (_, execution, _) => Draw(execution));
                 else context.CustomEffect(0, (_, execution) => Draw(execution));
-            }) { DeclaresTargetAccess = accessesTarget };
+            }, declaresTargetAccess: accessesTarget);
             using var root = new ScaledFilterNode(effect.ToResource(CompositionContext.Default), density);
             root.AddChild(new RectangleRenderNode(new Rect(4, 3, 11, 7), Brushes.Resource.Blue, null));
             using var renderer = Renderer(root);
@@ -369,7 +369,7 @@ public sealed class DynamicRenderExecutionTests
         using var source = Effect(context => context.CustomEffect(0, (_, execution) =>
             retained = execution.Targets[0].RenderTarget!.AcquireImage()));
         var effect = new EffectItemSuffixCallbackFilterEffect((context, _) =>
-            context.TargetEffect(0, static (_, _, _) => { })) { DeclaresTargetAccess = true };
+            context.TargetEffect(0, static (_, _, _) => { }), declaresTargetAccess: true);
         using var root = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         root.AddChild(source);
         using var renderer = Renderer(root);
@@ -481,11 +481,8 @@ public sealed class DynamicRenderExecutionTests
     // A standalone root is never split, so declaring both capabilities only satisfies the record-time check.
     private static FilterEffectRenderNode Effect(Action<FilterEffectContext> record)
     {
-        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) => record(context))
-        {
-            DeclaresContinuation = true,
-            DeclaresTargetAccess = true,
-        };
+        var effect = new EffectItemSuffixCallbackFilterEffect((context, _) => record(context),
+            declaresContinuation: true, declaresTargetAccess: true);
         var node = new FilterEffectRenderNode(effect.ToResource(CompositionContext.Default));
         node.AddChild(new RectangleRenderNode(Domain, Brushes.Resource.Blue, null));
         return node;

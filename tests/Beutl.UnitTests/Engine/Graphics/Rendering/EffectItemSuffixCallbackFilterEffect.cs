@@ -7,12 +7,14 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 /// <summary>A filter effect whose <see cref="ApplyTo"/> is the delegate a test passes in.</summary>
 [SuppressResourceClassGeneration]
 internal sealed partial class EffectItemSuffixCallbackFilterEffect(
-    Action<FilterEffectContext, FilterEffect.Resource> apply) : FilterEffect
+    Action<FilterEffectContext, FilterEffect.Resource> apply,
+    bool declaresContinuation = false,
+    bool declaresTargetAccess = false) : FilterEffect
 {
     // The engine reads these declarations before recording, so tests that record such effects set them.
-    public bool DeclaresContinuation { get; init; }
+    public bool DeclaresContinuation => declaresContinuation;
 
-    public bool DeclaresTargetAccess { get; init; }
+    public bool DeclaresTargetAccess => declaresTargetAccess;
 
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
         => apply(context, resource);
