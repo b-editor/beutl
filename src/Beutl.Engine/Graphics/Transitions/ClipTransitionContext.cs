@@ -224,6 +224,33 @@ public readonly struct ClipTransitionContext
         }
     }
 
+    /// <summary>
+    /// Reveals the incoming side inside <paramref name="clip"/> and the outgoing side outside it.
+    /// Complementary clips keep both sides opaque along their shared antialiased edge.
+    /// </summary>
+    public void DrawClipped(Geometry.Resource clip)
+    {
+        using (PushIsolation())
+        {
+            if (from.Count > 0)
+            {
+                using (graphics.PushClip(clip, ClipOperation.Difference))
+                {
+                    DrawClip(from);
+                }
+            }
+
+            if (to.Count > 0)
+            {
+                using (graphics.PushBlendMode(BlendMode.Plus))
+                using (graphics.PushClip(clip))
+                {
+                    DrawClip(to);
+                }
+            }
+        }
+    }
+
     // The distance a clip moves to cross the frame in direction.
     private Vector GetTravel(ClipTransitionDirection direction)
     {

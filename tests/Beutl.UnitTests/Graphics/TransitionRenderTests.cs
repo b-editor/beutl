@@ -13,7 +13,7 @@ namespace Beutl.UnitTests.Graphics;
 
 [TestFixture]
 [NonParallelizable]
-public class TransitionRenderTests
+public partial class TransitionRenderTests
 {
     private const int Width = 64;
     private const int Height = 32;

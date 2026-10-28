@@ -1550,6 +1550,48 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>División</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>Persianas</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>Número de franjas</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>Tablero de ajedrez</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>Columnas</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>Filas</value>
+  </data>
+  <data name="ClockWipeTransition" xml:space="preserve">
+    <value>Barrido de reloj</value>
+  </data>
+  <data name="ClockWipeTransition_Clockwise" xml:space="preserve">
+    <value>Sentido horario</value>
+  </data>
+  <data name="BoxWipeTransition" xml:space="preserve">
+    <value>Barrido rectangular</value>
+  </data>
+  <data name="DiamondWipeTransition" xml:space="preserve">
+    <value>Barrido de rombo</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>Desenfoque de zoom</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>Barrido rápido</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>Glitch</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>Fuga de luz</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>Intensidad (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>Orientación</value>
   </data>

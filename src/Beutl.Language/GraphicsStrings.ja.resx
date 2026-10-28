@@ -1546,6 +1546,48 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>スプリット</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>ブラインド</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>分割数</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>チェッカーボード</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="ClockWipeTransition" xml:space="preserve">
+    <value>クロックワイプ</value>
+  </data>
+  <data name="ClockWipeTransition_Clockwise" xml:space="preserve">
+    <value>時計回り</value>
+  </data>
+  <data name="BoxWipeTransition" xml:space="preserve">
+    <value>ボックスワイプ</value>
+  </data>
+  <data name="DiamondWipeTransition" xml:space="preserve">
+    <value>ダイヤモンドワイプ</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>ズームブラー</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>ウィップパン</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>グリッチ</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>ライトリーク</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>強さ (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>向き</value>
   </data>

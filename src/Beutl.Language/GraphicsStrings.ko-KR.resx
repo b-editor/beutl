@@ -1550,6 +1550,48 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>분할</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>블라인드</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>분할 수</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>체크무늬</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>열</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>행</value>
+  </data>
+  <data name="ClockWipeTransition" xml:space="preserve">
+    <value>시계 와이프</value>
+  </data>
+  <data name="ClockWipeTransition_Clockwise" xml:space="preserve">
+    <value>시계 방향</value>
+  </data>
+  <data name="BoxWipeTransition" xml:space="preserve">
+    <value>사각 와이프</value>
+  </data>
+  <data name="DiamondWipeTransition" xml:space="preserve">
+    <value>마름모 와이프</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>줌 블러</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>휩 팬</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>글리치</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>빛샘</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>강도 (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>방향</value>
   </data>

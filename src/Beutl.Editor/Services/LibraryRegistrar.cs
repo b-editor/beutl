@@ -245,6 +245,15 @@ internal static class LibraryRegistrar
                 .AddClipTransition<ZoomTransition>(GraphicsStrings.ZoomTransition)
                 .AddClipTransition<IrisTransition>(GraphicsStrings.IrisTransition)
                 .AddClipTransition<SplitTransition>(GraphicsStrings.SplitTransition)
+                .AddClipTransition<BlindsTransition>(GraphicsStrings.BlindsTransition)
+                .AddClipTransition<CheckerboardTransition>(GraphicsStrings.CheckerboardTransition)
+                .AddClipTransition<ClockWipeTransition>(GraphicsStrings.ClockWipeTransition)
+                .AddClipTransition<BoxWipeTransition>(GraphicsStrings.BoxWipeTransition)
+                .AddClipTransition<DiamondWipeTransition>(GraphicsStrings.DiamondWipeTransition)
+                .AddClipTransition<ZoomBlurTransition>(GraphicsStrings.ZoomBlurTransition)
+                .AddClipTransition<WhipPanTransition>(GraphicsStrings.WhipPanTransition)
+                .AddClipTransition<GlitchTransition>(GraphicsStrings.GlitchTransition)
+                .AddClipTransition<LightLeakTransition>(GraphicsStrings.LightLeakTransition)
             );
 
         LibraryService.Current

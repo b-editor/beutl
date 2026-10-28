@@ -689,6 +689,37 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    [Test]
+    public void AddedTransitions_RoundTripWithTheirSettings()
+    {
+        ClipTransition[] transitions =
+        [
+            new BlindsTransition { Count = { Value = 12 }, Direction = { Value = ClipTransitionDirection.BottomToTop } },
+            new CheckerboardTransition { Columns = { Value = 5 }, Rows = { Value = 3 } },
+            new ClockWipeTransition { Clockwise = { Value = false } },
+            new BoxWipeTransition(), new DiamondWipeTransition(),
+            new ZoomBlurTransition { Strength = { Value = 40 } },
+            new WhipPanTransition { Strength = { Value = 80 }, Direction = { Value = ClipTransitionDirection.BottomToTop } },
+            new GlitchTransition { Strength = { Value = 35 } },
+            new LightLeakTransition { Strength = { Value = 90 } },
+        ];
+        foreach (ClipTransition transition in transitions)
+        {
+            transition.Duration.Value = Seconds(0.8);
+            transition.Easing.Value = new SplineEasing(0.25f, 0.1f, 0.4f, 1f);
+            var element = new Element { Length = { Value = Seconds(3) }, EnterTransition = { Value = transition } };
+            JsonObject json = CoreSerializer.SerializeToJsonObject(element);
+            var restored = (Element)CoreSerializer.DeserializeFromJsonObject(json, typeof(Element));
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored.EnterTransition.Value, Is.TypeOf(transition.GetType()));
+                Assert.That(restored.EnterTransition.Value?.HierarchicalParent, Is.SameAs(restored));
+                Assert.That(CoreSerializer.SerializeToJsonObject(restored).ToJsonString(), Is.EqualTo(json.ToJsonString()),
+                    "the type, settings, duration and easing survive saving the element");
+            });
+        }
+    }
+
     // A transition whose type is not available, such as one from an extension that is not installed, still
     // loads, blends its boundary, and is saved back as what it was.
     [Test]

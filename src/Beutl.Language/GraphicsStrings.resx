@@ -1551,6 +1551,48 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>Split</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>Blinds</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>Slats</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>Checkerboard</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="ClockWipeTransition" xml:space="preserve">
+    <value>Clock Wipe</value>
+  </data>
+  <data name="ClockWipeTransition_Clockwise" xml:space="preserve">
+    <value>Clockwise</value>
+  </data>
+  <data name="BoxWipeTransition" xml:space="preserve">
+    <value>Box Wipe</value>
+  </data>
+  <data name="DiamondWipeTransition" xml:space="preserve">
+    <value>Diamond Wipe</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>Zoom Blur</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>Whip Pan</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>Glitch</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>Light Leak</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>Strength (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>Orientation</value>
   </data>

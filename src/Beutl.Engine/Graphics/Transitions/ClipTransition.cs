@@ -92,6 +92,43 @@ public abstract partial class ClipTransition : EngineObject
             }
         }
 
+        // Owns the changing outline used by geometric reveals. Each side is drawn just once, even when
+        // the outline contains many tiles, and the resource version invalidates the previous frame's clip.
+        private protected sealed class GeometryMask : IDisposable
+        {
+            private SKPathGeometry.Resource? _geometry;
+
+            public void Draw(ClipTransitionContext context, GeometryContext path)
+            {
+                if (context.Progress <= 0 || context.Progress >= 1)
+                {
+                    context.DrawClip(context.Progress <= 0 ? context.From : context.To);
+                    return;
+                }
+
+                _geometry ??= new SKPathGeometry().ToResource(CompositionContext.Default);
+                _geometry.SetSKPath(path.NativeObject, clone: true);
+                context.DrawClipped(_geometry);
+            }
+
+            public static void AddRectangle(IGeometryContext path, Rect rect)
+            {
+                if (rect.Width <= 0 || rect.Height <= 0) return;
+
+                path.MoveTo(rect.TopLeft);
+                path.LineTo(rect.TopRight);
+                path.LineTo(rect.BottomRight);
+                path.LineTo(rect.BottomLeft);
+                path.Close();
+            }
+
+            public void Dispose()
+            {
+                _geometry?.Dispose();
+                _geometry = null;
+            }
+        }
+
         // The colour a dip passes through, as a resource of a brush owned by the transition.
         private protected sealed class DipFill
         {
