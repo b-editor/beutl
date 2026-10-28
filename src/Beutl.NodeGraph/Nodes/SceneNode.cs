@@ -115,7 +115,7 @@ public partial class SceneNode : GraphNode
             else
                 output.Update(_sceneResource);
 
-            Size size = node.Object.Value.MeasureInternal(Size.Infinity, _sceneResource);
+            Size size = _sceneResource.Measure(Size.Infinity);
             using (var gc2d = new GraphicsContext2D(output, size))
             {
                 _sceneResource.Render(gc2d);

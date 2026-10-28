@@ -29,6 +29,6 @@ public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        return r.Target?.RequireOriginal().MeasureInternal(availableSize, r.Target) ?? Size.Empty;
+        return r.Target?.Measure(availableSize) ?? Size.Empty;
     }
 }

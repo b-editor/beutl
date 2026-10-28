@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel;
+using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -60,15 +61,6 @@ public abstract partial class Drawable : EngineObject
 
     protected abstract Size MeasureCore(Size availableSize, Resource resource);
 
-    /// <summary>Measures this drawable using its already evaluated resource, without drawing it.</summary>
-    public Size Measure(Size availableSize, Resource resource)
-    {
-        ArgumentNullException.ThrowIfNull(resource);
-        return MeasureCore(availableSize, resource);
-    }
-
-    internal Size MeasureInternal(Size availableSize, Resource resource) => Measure(availableSize, resource);
-
     internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds, Resource resource)
     {
         Vector pt = CalculateAlignmentTranslate(resource.AlignmentX, resource.AlignmentY, coreBounds, availableSize);
@@ -86,6 +78,12 @@ public abstract partial class Drawable : EngineObject
         }
     }
 
+    /// <summary>The override point for drawing an evaluated resource.</summary>
+    /// <remarks>
+    /// Call <see cref="Resource.Render(GraphicsContext2D)"/> instead: calling this method directly skips effects
+    /// that replace the drawable's time-sampled input. Drawing will move onto <see cref="Resource"/>.
+    /// </remarks>
+    [EditorBrowsable(EditorBrowsableState.Never)]
     public virtual void Render(GraphicsContext2D context, Resource resource)
     {
         if (resource.IsEnabled)
@@ -169,6 +167,9 @@ public abstract partial class Drawable : EngineObject
                 FilterEffectInputSlot.DisposeAll(recycled);
             }
         }
+
+        /// <summary>Measures this evaluated drawable's content without drawing it.</summary>
+        public Size Measure(Size availableSize) => RequireOriginal().MeasureCore(availableSize, this);
 
         /// <summary>Records this evaluated drawable, including effects that replace its time-sampled input.</summary>
         public void Render(GraphicsContext2D context)

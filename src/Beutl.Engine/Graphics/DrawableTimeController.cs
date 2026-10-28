@@ -135,7 +135,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        return r.Target?.RequireOriginal().MeasureInternal(availableSize, r.Target) ?? Size.Empty;
+        return r.Target?.Measure(availableSize) ?? Size.Empty;
     }
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)

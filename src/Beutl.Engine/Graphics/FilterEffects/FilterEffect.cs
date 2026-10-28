@@ -9,6 +9,11 @@ namespace Beutl.Graphics.Effects;
 [PresenterType(typeof(FilterEffectPresenter))]
 public abstract partial class FilterEffect : EngineObject
 {
+    /// <summary>Records this effect's operations for an evaluated resource.</summary>
+    /// <remarks>
+    /// To apply another effect, such as a composite's child, call <see cref="FilterEffectContext.Apply"/>:
+    /// calling this method directly bypasses continuation boundaries and the enabled state.
+    /// </remarks>
     public abstract void ApplyTo(FilterEffectContext context, Resource resource);
 
     public abstract partial class Resource

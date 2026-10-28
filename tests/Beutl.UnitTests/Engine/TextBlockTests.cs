@@ -149,7 +149,7 @@ public class TextBlockTests
         using var node = new DrawableRenderNode(resource);
         Record(block, resource, node);
         Rect[] before = RenderLineBounds(node);
-        Size size = block.MeasureInternal(Size.Infinity, resource);
+        Size size = resource.Measure(Size.Infinity);
         int version = resource.Version;
 
         block.TextAlignment.Value = TextAlignment.End;
@@ -162,7 +162,7 @@ public class TextBlockTests
         Assert.Multiple(() =>
         {
             Assert.That(resource.Version, Is.GreaterThan(version));
-            Assert.That(block.MeasureInternal(Size.Infinity, resource), Is.EqualTo(size));
+            Assert.That(resource.Measure(Size.Infinity), Is.EqualTo(size));
             Assert.That(after[0], Is.EqualTo(before[0]));
             Assert.That(after[1].Left, Is.GreaterThan(before[1].Left));
             Assert.That(after[1].Right, Is.EqualTo(after[0].Right).Within(1));

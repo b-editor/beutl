@@ -478,7 +478,7 @@ public partial class PlayerView : UserControl
         }
         BtlDrawable.Resource? resource = _transformHandleResource;
 
-        BtlSize localSize = target.MeasureInternal(availableSize, resource);
+        BtlSize localSize = resource.Measure(availableSize);
         if (localSize.Width <= 0 || localSize.Height <= 0) return null;
 
         BtlPoint pivot = resource.TransformOrigin.ToPixels(localSize);

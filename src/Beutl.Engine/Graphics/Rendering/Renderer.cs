@@ -780,7 +780,7 @@ public class Renderer : IRenderer
         if (MeasureContent(frame.Translate(new Vector(frame.Width, frame.Height))) != bounds)
         {
             if (drawn.Node.Drawable?.Resource is not { } resource) return null;
-            bounds = new Rect(resource.RequireOriginal().MeasureInternal(frame.Size, resource));
+            bounds = new Rect(resource.Measure(frame.Size));
             if (!HasArea(bounds)) return null;
         }
 
