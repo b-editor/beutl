@@ -44,7 +44,7 @@ public sealed partial class SceneCompositor
         {
             using var elements = new PooledList<Element>();
             owner.SortLayers(time, elements, CompositionTarget.Graphics);
-            return elements.Select(x => new CompositionLayerInfo(x.Id.Value, x.ZIndex.Value, x.Range)).ToArray();
+            return elements.Select(x => new CompositionLayerInfo(x.ZIndex.Value, x.Id.Value, x.Range)).ToArray();
         }
 
         public CompositionLayerLease EvaluateLayer(int zIndex, MediaTime time)
