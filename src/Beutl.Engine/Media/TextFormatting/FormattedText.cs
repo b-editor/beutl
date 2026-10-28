@@ -6,9 +6,15 @@ using Beutl.Graphics;
 using Beutl.Graphics.Rendering;
 using Beutl.Reactive;
 using SkiaSharp;
-using SkiaSharp.HarfBuzz;
 
 namespace Beutl.Media.TextFormatting;
+
+internal enum TextRunOrientation
+{
+    Horizontal,
+    Upright,
+    Sideways,
+}
 
 [DebuggerDisplay("{Text}")]
 public class FormattedText : IEquatable<FormattedText>, IDisposable
@@ -18,6 +24,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     private FontFamily _font = FontFamily.Default;
     private float _size = 11;
     private float _spacing = 0;
+    private TextRunOrientation _orientation;
     private StringSpan _text = StringSpan.Empty;
     private FontMetrics _metrics = default;
     private Rect _bounds = default;
@@ -105,6 +112,13 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     {
         get => _spacing;
         set => SetProperty(ref _spacing, value);
+    }
+
+    // Both vertical orientations space whole clusters; only upright runs shape top to bottom.
+    internal TextRunOrientation Orientation
+    {
+        get => _orientation;
+        set => SetProperty(ref _orientation, value);
     }
 
     // 改行コードは含まない
@@ -341,15 +355,17 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
     {
         if (_shapedGlyph is { } glyph)
         {
-            return [new ShapedRun(glyph.Typeface, new SKShaper.Result(
+            return [new ShapedRun(glyph.Typeface, new TextShaper.Result(
                 [glyph.Id], [0],
                 [new SKPoint(glyph.Position.X * density, glyph.Position.Y * density)],
-                glyph.Width * density))];
+                new SKPoint(glyph.Width * density, 0)))];
         }
 
         using var buffer = new HarfBuzzSharp.Buffer();
         buffer.AddUtf16(Text.AsSpan());
         buffer.GuessSegmentProperties();
+        if (Orientation == TextRunOrientation.Upright)
+            buffer.Direction = HarfBuzzSharp.Direction.TopToBottom;
         long revision = FontManager.Instance.Revision;
         if (_fontRuns is null || _fontRunsRevision != revision || !ReferenceEquals(_fontRunsPrimary, font.Typeface))
         {
@@ -362,7 +378,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         {
             using SKFont runFont = CreateSKFont(runs[0].Typeface, density);
             using var shaper = new TextShaper(runs[0].Typeface);
-            return [new ShapedRun(runs[0].Typeface, shaper.Shape(buffer, runFont))];
+            return [new ShapedRun(runs[0].Typeface, shaper.ShapeWithAdvance(buffer, runFont))];
         }
 
         var shapedRuns = new List<ShapedRun>(runs.Count);
@@ -386,7 +402,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 runBuffer.Direction = buffer.Direction;
                 runBuffer.Language = buffer.Language;
                 runBuffer.GuessSegmentProperties();
-                shapedRuns.Add(new ShapedRun(run.Typeface, shaper.Shape(runBuffer, runFont)));
+                shapedRuns.Add(new ShapedRun(run.Typeface, shaper.ShapeWithAdvance(runBuffer, runFont)));
             }
         }
         finally
@@ -398,7 +414,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         return shapedRuns;
     }
 
-    private readonly record struct ShapedRun(SKTypeface Typeface, SKShaper.Result Result);
+    private readonly record struct ShapedRun(SKTypeface Typeface, TextShaper.Result Result);
 
     private readonly record struct ShapedGlyph(SKTypeface Typeface, ushort Id, SKPoint Position, float Width);
 
@@ -447,23 +463,30 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         Rect rasterBounds = default;
         FontMetrics metrics = font.Metrics.ToFontMetrics();
         int glyphOffset = 0;
+        int clusterCount = 0;
         float advance = 0;
         Span<SKRect> glyphBounds = stackalloc SKRect[1];
         Span<float> glyphWidth = stackalloc float[1];
         foreach (ShapedRun shapedRun in shapedRuns)
         {
             using SKFont runFont = CreateSKFont(shapedRun.Typeface, density);
-            SKShaper.Result result = shapedRun.Result;
+            TextShaper.Result result = shapedRun.Result;
             SKPositionedRunBuffer run = builder.AllocatePositionedRun(runFont, result.Codepoints.Length);
             Span<ushort> glyphs = run.Glyphs;
             Span<SKPoint> positions = run.Positions;
             for (int i = 0; i < result.Codepoints.Length; i++)
             {
+                if (i == 0 || result.Clusters[i] != result.Clusters[i - 1])
+                    clusterCount++;
                 glyphs[i] = (ushort)result.Codepoints[i];
 
                 int glyphIndex = glyphOffset + i;
                 SKPoint point = result.Points[i];
-                point.X += advance + glyphIndex * spacing;
+                int spacingIndex = Orientation == TextRunOrientation.Horizontal ? glyphIndex : clusterCount - 1;
+                if (Orientation == TextRunOrientation.Upright)
+                    point.Y += advance + spacingIndex * spacing;
+                else
+                    point.X += advance + spacingIndex * spacing;
                 positions[i] = point;
 
                 SKPath? tmp = runFont.GetGlyphPath(glyphs[i]);
@@ -517,19 +540,22 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 Top = MathF.Min(metrics.Top, runMetrics.Top),
                 Bottom = MathF.Max(metrics.Bottom, runMetrics.Bottom),
             };
-            advance += result.Width;
+            advance += Orientation == TextRunOrientation.Upright ? result.Advance.Y : result.Advance.X;
             glyphOffset += glyphs.Length;
         }
 
         SKPath fillPath = fillBuilder.Detach();
         SKPath? strokePath = null;
         // Measure from the advance and the letter spacing so leading and trailing spaces count toward the width.
-        float width = MathF.Max(0, (Math.Max(0, glyphCount - 1) * spacing) + advance);
+        int spacingCount = Orientation == TextRunOrientation.Horizontal ? glyphCount : clusterCount;
+        float width = MathF.Max(0, (Math.Max(0, spacingCount - 1) * spacing) + advance);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
         Rect fillBounds = actualBounds.Union(nonOutlineBounds);
         // A split glyph is already positioned, just like the neighboring geometries. Its brush must
-        // follow that ink rectangle; only a complete text run uses zero-origin layout bounds.
-        var bounds = _shapedGlyph is null ? new Rect(0, 0, width, fillBounds.Height) : fillBounds;
+        // follow that ink rectangle; complete runs use layout bounds along their writing axis.
+        var bounds = _shapedGlyph is not null ? fillBounds
+            : Orientation == TextRunOrientation.Upright ? new Rect(-Size * density / 2, 0, Size * density, width)
+            : new Rect(0, 0, width, fillBounds.Height);
         SKTextBlob? textBlob = builder.Build();
 
         if (glyphCount > 0)
@@ -673,6 +699,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                && Style == other?.Style
                && Font.Equals(other?.Font)
                && Size == other?.Size
+               && Orientation == other?.Orientation
                && Spacing == other?.Spacing
                && Text.Equals(other?.Text)
                && BeginOnNewLine == other?.BeginOnNewLine
@@ -689,6 +716,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         hash.Add(Font);
         hash.Add(Size);
         hash.Add(Spacing);
+        hash.Add(Orientation);
         hash.Add(Text);
         hash.Add(BeginOnNewLine);
         hash.Add(_shapedGlyph);

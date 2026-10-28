@@ -47,7 +47,15 @@ internal sealed class TextShaper : IDisposable
         }
     }
 
+    internal readonly record struct Result(uint[] Codepoints, uint[] Clusters, SKPoint[] Points, SKPoint Advance);
+
     public SKShaper.Result Shape(HarfBuzzSharp.Buffer buffer, SKFont font)
+    {
+        Result result = ShapeWithAdvance(buffer, font);
+        return new SKShaper.Result(result.Codepoints, result.Clusters, result.Points, result.Advance.X);
+    }
+
+    public Result ShapeWithAdvance(HarfBuzzSharp.Buffer buffer, SKFont font)
     {
         _font.Shape(buffer);
 
@@ -70,10 +78,10 @@ internal sealed class TextShaper : IDisposable
             points[i] = new SKPoint(x + positions[i].XOffset * textSizeX, y - positions[i].YOffset * textSizeY);
 
             x += positions[i].XAdvance * textSizeX;
-            y += positions[i].YAdvance * textSizeY;
+            y -= positions[i].YAdvance * textSizeY;
         }
 
-        return new SKShaper.Result(codepoints, clusters, points, x);
+        return new Result(codepoints, clusters, points, new SKPoint(x, y));
     }
 
     public bool HasVariationGlyph(int unicode, uint selector) =>
