@@ -211,6 +211,21 @@ public sealed class SceneCompositor : ICompositor
             new CompositionEligibility(eligibleObjects));
     }
 
+    // Analyze a selected element through the same flow as playback, including its SoundGroups and
+    // portal inputs. Other tracks are available to portals but are not mixed as independent roots.
+    internal CompositionFrame EvaluateElementAudio(Element element, TimeRange timeRange)
+    {
+        DisposeDetachedResources();
+        using var currentElements = new PooledList<Element>();
+        SortLayers(timeRange, currentElements, CompositionTarget.Audio);
+        using var objects = new PooledList<EngineObject>();
+        using var flow = new PooledList<EngineObject.Resource>();
+        var context = new CompositorContext(timeRange.Start, this, flow, currentElements, CompositionTarget.Audio);
+        CollectResourcesFromElement(element, context, objects);
+        return new CompositionFrame([.. flow], timeRange, Scene.FrameSize.Value,
+            new CompositionEligibility(flow.Select(resource => resource.RequireOriginal())));
+    }
+
     private void CollectResourcesFromElement(
         Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
     {

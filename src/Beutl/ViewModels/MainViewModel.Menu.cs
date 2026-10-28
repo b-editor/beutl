@@ -121,12 +121,7 @@ public sealed partial class MainViewModel
         },
         new(Strings.Tools)
         {
-            Items = ToMenuItems(
-                ToolWindowExtensions.ToObservableChangeSet().ObserveOnUIDispatcher(),
-                extension => new MainMenuItem(extension.DisplayName)
-                {
-                    Command = MenuBar.OpenToolWindow, CommandParameter = extension, IconSource = ExtensionGuard.Call(extension, extension.GetIcon)
-                })
+            Items = CreateToolsMenuItems()
         },
         new(Strings.Scene)
         {
@@ -178,6 +173,27 @@ public sealed partial class MainViewModel
     ];
 
     private IObservable<bool> UnderDebugger => Observable.Return(IsDebuggerAttached);
+
+    private ObservableCollection<MainMenuItem> CreateToolsMenuItems()
+    {
+        var silenceItem = new MainMenuItem(Strings.AutoSplitBySilence) { Command = MenuBar.AutoSplitBySilence, Icon = Icon.Cut };
+        var items = new ObservableCollection<MainMenuItem> { silenceItem };
+        _menuSubscriptions.Add(ToolWindowExtensions.ToObservableChangeSet().ToCollection().ObserveOnUIDispatcher()
+            .Subscribe(extensions =>
+            {
+                items.Clear();
+                items.Add(silenceItem);
+                if (extensions.Count > 0) items.Add(MainMenuItem.Separator);
+                foreach (var extension in extensions)
+                    items.Add(new(extension.DisplayName)
+                    {
+                        Command = MenuBar.OpenToolWindow,
+                        CommandParameter = extension,
+                        IconSource = ExtensionGuard.Call(extension, extension.GetIcon)
+                    });
+            }));
+        return items;
+    }
 
     // Shown only while the selected tab's file is one the editor can open.
     private MainMenuItem CreateEditorItem(EditorExtension extension) => new(extension.DisplayName)

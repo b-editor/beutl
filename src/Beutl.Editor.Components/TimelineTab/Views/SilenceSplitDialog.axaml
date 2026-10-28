@@ -1,0 +1,44 @@
+<ui:FAContentDialog xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="using:FluentAvalonia.UI.Controls"
+                    xmlns:lang="using:Beutl.Language"
+                    xmlns:local="using:Beutl.Editor.Components.TimelineTab.Views"
+                    xmlns:vm="using:Beutl.Editor.Components.TimelineTab.ViewModels"
+                    x:Class="Beutl.Editor.Components.TimelineTab.Views.SilenceSplitDialog"
+                    x:DataType="vm:SilenceSplitViewModel"
+                    Title="{x:Static lang:Strings.AutoSplitBySilence}"
+                    PrimaryButtonText="{x:Static lang:Strings.Apply}"
+                    CloseButtonText="{x:Static lang:Strings.Cancel}"
+                    IsPrimaryButtonEnabled="{Binding CanApply.Value}">
+    <ui:FAContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMaxWidth">680</x:Double>
+    </ui:FAContentDialog.Resources>
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <StackPanel Spacing="12">
+            <TextBlock Text="{x:Static lang:Strings.SilenceSplit_Description}" TextWrapping="Wrap" />
+            <Border Background="{DynamicResource ControlFillColorSecondaryBrush}" CornerRadius="4" Padding="8">
+                <local:WaveformControl x:Name="Waveform" Height="120" WaveformBrush="{DynamicResource TextFillColorPrimaryBrush}" />
+            </Border>
+            <TextBlock Text="{x:Static lang:Strings.SilenceSplit_PreviewHint}" TextWrapping="Wrap" FontSize="12" />
+            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy.Value}" />
+            <Grid ColumnDefinitions="*,140" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="8">
+                <TextBlock Text="{x:Static lang:Strings.SilenceSplit_Threshold}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <NumericUpDown x:Name="Threshold" Grid.Column="1" Minimum="-120" Maximum="0" Increment="1" Value="{Binding ThresholdDb.Value}" AutomationProperties.Name="{x:Static lang:Strings.SilenceSplit_Threshold}" />
+                <TextBlock Grid.Row="1" Text="{x:Static lang:Strings.SilenceSplit_Minimum}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <NumericUpDown x:Name="Minimum" Grid.Row="1" Grid.Column="1" Minimum="20" Maximum="3600000" Increment="20" Value="{Binding MinimumMilliseconds.Value}" AutomationProperties.Name="{x:Static lang:Strings.SilenceSplit_Minimum}" />
+                <TextBlock Grid.Row="2" Text="{x:Static lang:Strings.SilenceSplit_Padding}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <NumericUpDown x:Name="PaddingEditor" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="3600000" Increment="20" Value="{Binding PaddingMilliseconds.Value}" AutomationProperties.Name="{x:Static lang:Strings.SilenceSplit_Padding}" />
+            </Grid>
+            <TextBlock Text="{x:Static lang:Strings.SilenceSplit_Mode}" />
+            <ComboBox x:Name="Mode" HorizontalAlignment="Stretch" SelectedIndex="{Binding ModeIndex.Value}">
+                <ComboBoxItem Content="{x:Static lang:Strings.SilenceSplit_SplitOnly}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.SilenceSplit_Delete}" />
+                <ComboBoxItem Content="{x:Static lang:Strings.SilenceSplit_Ripple}" />
+            </ComboBox>
+            <CheckBox x:Name="Linked" IsVisible="{Binding HasLinkedElements}" IsChecked="{Binding IncludeLinked.Value}">
+                <TextBlock Text="{x:Static lang:Strings.SilenceSplit_Linked}" TextWrapping="Wrap" />
+            </CheckBox>
+            <TextBlock Text="{Binding Status.Value}" TextWrapping="Wrap" />
+        </StackPanel>
+    </ScrollViewer>
+</ui:FAContentDialog>

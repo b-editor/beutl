@@ -39,31 +39,36 @@ public sealed class ElementStructureService : IElementStructureService
 
         if (!targets.Any(target => !scene.IsElementLocked(target) && LeavesAFrameOnEachSide(scene, target, at)))
             return;
+        _historyManager.ExecuteInTransaction(() => SplitCore(scene, targets, at), CommandNames.SplitElement);
+    }
+
+    // Shared by single-cut Razor and batch edits; the caller owns the history transaction.
+    internal static IReadOnlyList<Element> SplitCore(Scene scene, IReadOnlyList<Element> targets, MediaTime at)
+    {
         var groupUpdates = new Dictionary<int, List<Guid>>();
-
-        _historyManager.ExecuteInTransaction(() =>
+        var added = new List<Element>();
+        foreach (Element target in targets)
         {
-            foreach (Element target in targets)
+            if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
+
+            Element backward = SplitElement(scene, target, at);
+            added.Add(backward);
+
+            int groupIndex = FindGroupIndex(scene, target.Id.Value);
+            if (groupIndex >= 0)
             {
-                if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
-
-                Element backward = SplitElement(scene, target, at);
-
-                int groupIndex = FindGroupIndex(scene, target.Id.Value);
-                if (groupIndex >= 0)
+                if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
                 {
-                    if (!groupUpdates.TryGetValue(groupIndex, out List<Guid>? newIds))
-                    {
-                        newIds = [];
-                        groupUpdates.Add(groupIndex, newIds);
-                    }
-
-                    newIds.Add(backward.Id.Value);
+                    newIds = [];
+                    groupUpdates.Add(groupIndex, newIds);
                 }
-            }
 
-            InsertSplitGroups(scene, groupUpdates);
-        }, CommandNames.SplitElement);
+                newIds.Add(backward.Id.Value);
+            }
+        }
+
+        InsertSplitGroups(scene, groupUpdates);
+        return added;
     }
 
     private static Element SplitElement(Scene scene, Element target, MediaTime at)

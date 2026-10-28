@@ -11,7 +11,7 @@ using Beutl.Media.Source;
 namespace Beutl.ProjectSystem;
 
 [Display(Name = nameof(AudioStrings.SceneSound), ResourceType = typeof(AudioStrings))]
-public sealed partial class SceneSound : Sound
+public sealed partial class SceneSound : Sound, ISplittable
 {
     public SceneSound()
     {
@@ -20,6 +20,11 @@ public sealed partial class SceneSound : Sound
 
     [Display(Name = nameof(AudioStrings.SceneSound_ReferencedScene), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
+
+    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
+    {
+        if (backward) OffsetPosition.Value += startDelta;
+    }
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {

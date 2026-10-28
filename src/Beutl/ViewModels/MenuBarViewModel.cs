@@ -37,6 +37,7 @@ public sealed partial class MenuBarViewModel
         InitializeSceneCommands(isSceneOpened);
         InitializeViewCommands(isSceneOpened);
         InitializeAiCommands(isSceneOpened);
+        AutoSplitBySilence = new ReactiveCommandSlim(isSceneOpened);
 
         Undo = new AsyncReactiveCommand(IsProjectOpened)
             .WithSubscribe(OnUndo);
@@ -45,6 +46,8 @@ public sealed partial class MenuBarViewModel
     }
 
     public AsyncReactiveCommand Undo { get; }
+
+    public ReactiveCommandSlim AutoSplitBySilence { get; }
 
     public AsyncReactiveCommand Redo { get; }
 

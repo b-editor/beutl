@@ -208,4 +208,7 @@
   <data name="ChangeTransitionDuration" xml:space="preserve">
     <value>トランジションの長さを変更</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>無音区間で自動分割</value>
+  </data>
 </root>

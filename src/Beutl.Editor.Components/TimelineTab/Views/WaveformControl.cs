@@ -16,6 +16,21 @@ public sealed class WaveformControl : Control
 
     private readonly Dictionary<int, WaveformChunk> _chunks = new();
     private ScrollViewer? _scrollViewer;
+    private IReadOnlyList<(double Start, double End)> _highlights = [];
+
+    public void SetHighlights(IReadOnlyList<(double Start, double End)> ranges)
+    {
+        _highlights = ranges;
+        InvalidateVisual();
+    }
+
+    public void SetChunks(IReadOnlyList<WaveformChunk> chunks)
+    {
+        ChunkCount = chunks.Count;
+        _chunks.Clear();
+        foreach (var chunk in chunks) _chunks[chunk.Index] = chunk;
+        InvalidateVisual();
+    }
 
     static WaveformControl()
     {
@@ -79,6 +94,14 @@ public sealed class WaveformControl : Control
 
         double slotWidth = width / count;
         double centerY = height / 2;
+
+        foreach (var range in _highlights)
+        {
+            double left = Math.Clamp(range.Start, 0, 1) * width;
+            double right = Math.Clamp(range.End, 0, 1) * width;
+            if (right > left)
+                context.FillRectangle(new SolidColorBrush(Color.FromArgb(90, 245, 150, 45)), new Rect(left, 0, right - left, height));
+        }
 
         var (startIndex, endIndex) = TimelineSlotRange.Compute(this, _scrollViewer, count, buffer: 1);
 

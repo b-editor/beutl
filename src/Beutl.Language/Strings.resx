@@ -3492,4 +3492,58 @@ when history recording is enabled.</value>
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>Add device</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>Auto Split by Silence</value>
+  </data>
+  <data name="SilenceSplit_Description" xml:space="preserve">
+    <value>Detect quiet intervals using stereo peak levels. Adjust the threshold and preview the cuts before applying.</value>
+  </data>
+  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
+    <value>Orange: intervals to split or remove, including padding and frame alignment. Analysis resolution: 20 ms.</value>
+  </data>
+  <data name="SilenceSplit_Threshold" xml:space="preserve">
+    <value>Threshold (dB)</value>
+  </data>
+  <data name="SilenceSplit_Minimum" xml:space="preserve">
+    <value>Minimum silence (ms)</value>
+  </data>
+  <data name="SilenceSplit_Padding" xml:space="preserve">
+    <value>Speech padding (ms per side)</value>
+  </data>
+  <data name="SilenceSplit_Mode" xml:space="preserve">
+    <value>Apply mode</value>
+  </data>
+  <data name="SilenceSplit_SplitOnly" xml:space="preserve">
+    <value>Split only</value>
+  </data>
+  <data name="SilenceSplit_Delete" xml:space="preserve">
+    <value>Split and delete silence</value>
+  </data>
+  <data name="SilenceSplit_Ripple" xml:space="preserve">
+    <value>Split, delete and ripple</value>
+  </data>
+  <data name="SilenceSplit_Linked" xml:space="preserve">
+    <value>Apply the same cuts and deletions to grouped elements</value>
+  </data>
+  <data name="SilenceSplit_Analyzing" xml:space="preserve">
+    <value>Analyzing waveform…</value>
+  </data>
+  <data name="SilenceSplit_Summary" xml:space="preserve">
+    <value>{0} intervals · {1:F2} seconds</value>
+  </data>
+  <data name="SilenceSplit_Failed" xml:space="preserve">
+    <value>Could not complete silence split: {0}</value>
+  </data>
+  <data name="SilenceSplit_Stale" xml:space="preserve">
+    <value>The scene changed. Close this dialog and analyze again.</value>
+  </data>
+  <data name="SilenceSplit_LockedLinked" xml:space="preserve">
+    <value>A grouped element is locked. Unlock it or turn off grouped editing.</value>
+  </data>
+  <data name="SilenceSplit_InvalidParameters" xml:space="preserve">
+    <value>Enter a threshold from −120 to 0 dB, a positive minimum duration and non-negative padding.</value>
+  </data>
+  <data name="SilenceSplit_SelectAudio" xml:space="preserve">
+    <value>Select one unlocked element containing source or scene audio.</value>
+  </data>
 </root>

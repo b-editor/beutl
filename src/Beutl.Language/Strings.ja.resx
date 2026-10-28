@@ -3487,4 +3487,58 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>端末を追加</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>無音区間で自動分割</value>
+  </data>
+  <data name="SilenceSplit_Description" xml:space="preserve">
+    <value>左右チャンネルのピーク値から無音区間を検出します。閾値を調整し、分割位置を確認してから適用できます。</value>
+  </data>
+  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
+    <value>オレンジ：保護時間とフレーム位置を反映した分割・削除区間。解析の間隔：20 ms。</value>
+  </data>
+  <data name="SilenceSplit_Threshold" xml:space="preserve">
+    <value>閾値（dB）</value>
+  </data>
+  <data name="SilenceSplit_Minimum" xml:space="preserve">
+    <value>最小無音時間（ms）</value>
+  </data>
+  <data name="SilenceSplit_Padding" xml:space="preserve">
+    <value>音声の前後の保護時間（ms）</value>
+  </data>
+  <data name="SilenceSplit_Mode" xml:space="preserve">
+    <value>適用モード</value>
+  </data>
+  <data name="SilenceSplit_SplitOnly" xml:space="preserve">
+    <value>分割のみ</value>
+  </data>
+  <data name="SilenceSplit_Delete" xml:space="preserve">
+    <value>分割して無音区間を削除</value>
+  </data>
+  <data name="SilenceSplit_Ripple" xml:space="preserve">
+    <value>分割・削除して後続を前詰め</value>
+  </data>
+  <data name="SilenceSplit_Linked" xml:space="preserve">
+    <value>グループ内の映像などにも同じ分割・削除を適用する</value>
+  </data>
+  <data name="SilenceSplit_Analyzing" xml:space="preserve">
+    <value>波形を解析しています…</value>
+  </data>
+  <data name="SilenceSplit_Summary" xml:space="preserve">
+    <value>{0} 区間・合計 {1:F2} 秒</value>
+  </data>
+  <data name="SilenceSplit_Failed" xml:space="preserve">
+    <value>無音区間の処理に失敗しました：{0}</value>
+  </data>
+  <data name="SilenceSplit_Stale" xml:space="preserve">
+    <value>シーンが変更されました。ダイアログを閉じて、もう一度解析してください。</value>
+  </data>
+  <data name="SilenceSplit_LockedLinked" xml:space="preserve">
+    <value>グループ内にロックされた要素があります。ロックを解除するか、グループへの適用をオフにしてください。</value>
+  </data>
+  <data name="SilenceSplit_InvalidParameters" xml:space="preserve">
+    <value>閾値は −120～0 dB、最小無音時間は正の値、保護時間は 0 以上で入力してください。</value>
+  </data>
+  <data name="SilenceSplit_SelectAudio" xml:space="preserve">
+    <value>音声ソースまたはシーン音声を含む、ロックされていない要素を1つ選択してください。</value>
+  </data>
 </root>
