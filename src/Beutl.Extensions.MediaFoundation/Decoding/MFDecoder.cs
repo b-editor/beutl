@@ -343,20 +343,29 @@ internal sealed class MFDecoder : IMediaFoundationVideoDecoder
         // The source reports the container/bitstream tags on the native type.
         using (IMFMediaType nativeType = sourceReader.GetNativeMediaType(_mediaInfo.VideoStreamIndex, 0))
         {
-            _mediaInfo.Bt709Matrix = MediaFactory.MFGetAttributeUInt32(nativeType, MediaTypeAttributeKeys.YuvMatrix, 0)
-                == (uint)VideoTransferMatrix.Bt709;
-            _mediaInfo.FullRange = MediaFactory.MFGetAttributeUInt32(nativeType, MediaTypeAttributeKeys.VideoNominalRange, 0)
-                == (uint)NominalRange.Range0_255;
-            _mediaInfo.Transfer = ToTransfer((VideoTransferFunction)MediaFactory.MFGetAttributeUInt32(
-                nativeType, MediaTypeAttributeKeys.TransferFunction, 0));
-            _mediaInfo.Primaries = ToPrimaries((VideoPrimaries)MediaFactory.MFGetAttributeUInt32(
-                nativeType, MediaTypeAttributeKeys.VideoPrimaries, 0));
+            ReadColorTags(nativeType, ref _mediaInfo);
         }
 
         _logger.LogInformation("ChechMediaInfo: \n{MediaInfo}", _mediaInfo.GetMediaInfoText());
     }
 
-    // The YUY2 output is 8-bit SDR, so HDR transfers keep the untagged sRGB reading.
+    // The YUY2 output is 8-bit SDR, so HDR streams keep the whole untagged BT.601 limited-range sRGB reading.
+    internal static void ReadColorTags(IMFMediaType nativeType, ref MFMediaInfo info)
+    {
+        var transfer = (VideoTransferFunction)MediaFactory.MFGetAttributeUInt32(
+            nativeType, MediaTypeAttributeKeys.TransferFunction, 0);
+        if (transfer is VideoTransferFunction.Func2084 or VideoTransferFunction.FuncHlg)
+            return;
+
+        info.Bt709Matrix = MediaFactory.MFGetAttributeUInt32(nativeType, MediaTypeAttributeKeys.YuvMatrix, 0)
+            == (uint)VideoTransferMatrix.Bt709;
+        info.FullRange = MediaFactory.MFGetAttributeUInt32(nativeType, MediaTypeAttributeKeys.VideoNominalRange, 0)
+            == (uint)NominalRange.Range0_255;
+        info.Transfer = ToTransfer(transfer);
+        info.Primaries = ToPrimaries((VideoPrimaries)MediaFactory.MFGetAttributeUInt32(
+            nativeType, MediaTypeAttributeKeys.VideoPrimaries, 0));
+    }
+
     private static BitmapColorTransfer ToTransfer(VideoTransferFunction transfer) => transfer switch
     {
         VideoTransferFunction.Func10 => BitmapColorTransfer.Linear,
