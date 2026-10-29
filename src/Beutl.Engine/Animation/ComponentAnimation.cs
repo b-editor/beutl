@@ -174,7 +174,8 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
             var definition = _definitions[i];
             _components[i].DefaultValue = definition.Get(owner.DefaultValue);
             _components[i].SetAttributes(definition.Name,
-                owner.GetAttributes()?.Where(x => x is NumberStepAttribute or UnitAttribute or DisplayFormatAttribute or RangeAttribute).ToArray() ?? []);
+                [ComponentAnimations.GetDisplayAttribute(definition.Name),
+                    .. owner.GetAttributes()?.Where(x => x is NumberStepAttribute or UnitAttribute or DisplayFormatAttribute or RangeAttribute) ?? []]);
             if (owner.GetValidator() is IValidator<T> validator)
                 _components[i].SetValidator(new ComponentValidator(validator, definition, this));
         }

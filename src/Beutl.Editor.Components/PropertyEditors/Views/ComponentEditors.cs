@@ -1,8 +1,10 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Beutl.Animation;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
@@ -17,7 +19,11 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
     private readonly PropertyEditorViewModel _owner;
     private readonly Control _combined;
     private readonly DockPanel _header = new() { Margin = new Thickness(8, 0, 4, 0) };
-    private readonly StackPanel _components = new() { Margin = new Thickness(12, 0, 0, 0) };
+    private readonly StackPanel _components = new();
+    private readonly TreeLineDecorator _tree = new()
+    {
+        [!TreeLineDecorator.LineBrushProperty] = new DynamicResourceExtension("DividerStrokeColorDefaultBrush")
+    };
     private readonly List<IPropertyEditorContext> _contexts = [];
     private readonly IDisposable _subscription;
     private readonly IDisposable _editability;
@@ -40,7 +46,8 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
         });
         Children.Add(combined);
         Children.Add(_header);
-        Children.Add(_components);
+        _tree.Child = _components;
+        Children.Add(_tree);
         _subscription = owner.SeparatedComponents.Subscribe(Rebuild);
         _editability = owner.CanEditProperty.Subscribe(enabled => _components.IsEnabled = enabled);
     }
@@ -49,7 +56,7 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
     {
         _combined.IsVisible = animation == null;
         _header.IsVisible = animation != null;
-        _components.IsVisible = animation != null;
+        _tree.IsVisible = animation != null;
         _components.Children.Clear();
         foreach (var context in _contexts) context.Dispose();
         _contexts.Clear();

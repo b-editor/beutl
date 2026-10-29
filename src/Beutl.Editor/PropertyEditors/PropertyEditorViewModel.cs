@@ -167,6 +167,10 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         Commit();
     }
 
+    public virtual void UnseparateComponents()
+    {
+    }
+
     internal void Own(IDisposable disposable) => Disposables.Add(disposable);
 
     public bool CanReset => GetDefaultValue() != null;

@@ -3495,4 +3495,22 @@ when history recording is enabled.</value>
   <data name="SeparateComponents" xml:space="preserve">
     <value>Separate components</value>
   </data>
+  <data name="TopLeft" xml:space="preserve">
+    <value>Top left</value>
+  </data>
+  <data name="TopRight" xml:space="preserve">
+    <value>Top right</value>
+  </data>
+  <data name="BottomRight" xml:space="preserve">
+    <value>Bottom right</value>
+  </data>
+  <data name="BottomLeft" xml:space="preserve">
+    <value>Bottom left</value>
+  </data>
+  <data name="UnseparateComponents" xml:space="preserve">
+    <value>Unseparate components</value>
+  </data>
+  <data name="UnseparateComponents_Description" xml:space="preserve">
+    <value>Keep the value at the current time and remove component keyframes and expressions.</value>
+  </data>
 </root>

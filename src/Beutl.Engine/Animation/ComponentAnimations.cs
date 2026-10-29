@@ -1,4 +1,6 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Numerics;
+using Beutl.Language;
 
 namespace Beutl.Animation;
 
@@ -93,6 +95,17 @@ public static class ComponentAnimations
 
     internal static ComponentDefinition<T, TComponent>[] GetDefinitions<T, TComponent>()
         => (ComponentDefinition<T, TComponent>[])s_definitions[typeof(T)];
+
+    internal static DisplayAttribute GetDisplayAttribute(string name)
+        => name switch
+        {
+            "R" => new() { Name = nameof(Strings.Red), ResourceType = typeof(Strings) },
+            "G" => new() { Name = nameof(Strings.Green), ResourceType = typeof(Strings) },
+            "B" => new() { Name = nameof(Strings.Blue), ResourceType = typeof(Strings) },
+            "A" => new() { Name = nameof(GraphicsStrings.Opacity), ResourceType = typeof(GraphicsStrings) },
+            "X" or "Y" or "Z" or "W" => new() { Name = name },
+            _ => new() { Name = name, ResourceType = typeof(Strings) }
+        };
 
     public static bool IsSupported(Type type) => s_factories.ContainsKey(type);
 

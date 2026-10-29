@@ -53,6 +53,7 @@ public sealed partial class PropertyEditorMenu : UserControl
                 editInlineAnimationItem.IsVisible = supportsAnimation && components == null;
                 removeAnimationItem.IsVisible = supportsAnimation && components == null;
                 separateComponentsItem.IsVisible = model.CanSeparateComponents && components == null;
+                unseparateComponentsItem.IsVisible = components != null;
             });
             model.Own(_componentSubscription);
         }
@@ -74,6 +75,11 @@ public sealed partial class PropertyEditorMenu : UserControl
     private void SeparateComponents_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PropertyEditorViewModel model) model.SeparateComponents();
+    }
+
+    private void UnseparateComponents_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PropertyEditorViewModel model) model.UnseparateComponents();
     }
 
     private void Button_Click(object? sender, RoutedEventArgs e)
