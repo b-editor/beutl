@@ -186,6 +186,7 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         int slot = list.Connections.Index().FirstOrDefault(i => i.Item.Id == connection.Id.Value, (-1, default)).Index;
         if (slot < 0) return false;
 
+        ConnectionStatus status = connection.Status.Value;
         try
         {
             _historyManager.ExecuteInTransaction(() =>
@@ -202,6 +203,8 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         }
         catch (NodeConnectionRejectedException)
         {
+            // History leaves Status out, so the rollback keeps the Disconnected that the removal set.
+            connection.Status.Value = status;
             return false;
         }
     }

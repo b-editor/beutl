@@ -305,6 +305,8 @@ public class NodeGraphMutationServiceTests
             Assert.That(list.InputPort.Connections[0].Value, Is.SameAs(moved));
             Assert.That(_graph.AllConnections, Does.Contain(moved));
             Assert.That(first.Output.Connections.Select(c => c.Value), Is.EqualTo(new[] { moved }));
+            // History leaves Status out, so the rollback cannot bring it back from the Disconnected the removal set.
+            Assert.That(moved.Status.Value, Is.EqualTo(ConnectionStatus.Connected));
             Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
         });
     }
