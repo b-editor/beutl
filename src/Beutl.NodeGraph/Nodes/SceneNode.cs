@@ -79,9 +79,7 @@ public partial class SceneNode : GraphNode
             var sceneContext = new CompositionContext(Time)
             {
                 DisableResourceShare = context.DisableResourceShare,
-                PreferProxy = context.PreferProxy,
-                PreferredProxyPreset = context.PreferredProxyPreset,
-                TargetDomain = context.TargetDomain,
+                Conditions = context.Conditions,
             };
 
             try
@@ -112,10 +110,10 @@ public partial class SceneNode : GraphNode
             else
                 output.Update(_sceneResource);
 
-            Size size = node.Object.Value.MeasureInternal(Size.Infinity, _sceneResource);
+            Size size = _sceneResource.Measure(Size.Infinity);
             using (var gc2d = new GraphicsContext2D(output, size))
             {
-                node.Object.Value.Render(gc2d, _sceneResource);
+                _sceneResource.Render(gc2d);
             }
 
             Output = output;

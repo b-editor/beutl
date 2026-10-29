@@ -267,6 +267,8 @@ public partial class ParticleEmitter : Drawable
             {
                 Version++;
             }
+
+            CompleteReconciliation(context);
         }
 
         protected override void Dispose(bool disposing)

@@ -61,6 +61,8 @@ public sealed class RenderNodeDrawable : Drawable
                     versionBumped = true;
                 }
             }
+
+            CompleteReconciliation(context);
         }
     }
 }

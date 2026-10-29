@@ -15,6 +15,7 @@ internal sealed partial class RenderRequestExecutor
     private readonly ProgramCache<GLSLFilterPipeline>? _spirvProgramCache;
     private readonly ProgramCache<ShaderGraphPipeline>? _graphProgramCache;
     private readonly ShaderBackendPreference _shaderBackendPreference;
+    private readonly CancellationToken _cancellationToken;
 
     public RenderExecutionStatistics Statistics { get; private set; }
 
@@ -28,12 +29,14 @@ internal sealed partial class RenderRequestExecutor
         ProgramCache<CachedSkRuntimeEffect>? programCache = null,
         ProgramCache<GLSLFilterPipeline>? spirvProgramCache = null,
         ShaderBackendPreference shaderBackendPreference = ShaderBackendPreference.Auto,
-        ProgramCache<ShaderGraphPipeline>? graphProgramCache = null)
+        ProgramCache<ShaderGraphPipeline>? graphProgramCache = null,
+        CancellationToken cancellationToken = default)
     {
         _targets = targets ?? throw new ArgumentNullException(nameof(targets));
         _programCache = programCache;
         _spirvProgramCache = spirvProgramCache;
         _graphProgramCache = graphProgramCache;
+        _cancellationToken = cancellationToken;
         if (!Enum.IsDefined(shaderBackendPreference))
             throw new ArgumentOutOfRangeException(nameof(shaderBackendPreference));
         _shaderBackendPreference = shaderBackendPreference;
@@ -51,6 +54,9 @@ internal sealed partial class RenderRequestExecutor
         ObjectDisposedException.ThrowIf(request.IsDisposed, request);
         ObjectDisposedException.ThrowIf(destination.IsDisposed, destination);
         ValidateFamilyForExecution(request);
+        _dependencies.Clear();
+        _activeDependencies.Clear();
+        _dynamicRootAcquisitions = 0;
 
         ProgramCache<CachedSkRuntimeEffect>? localProgramCache = _programCache is null
             ? SkRuntimeEffectProgramCache.Create()
@@ -121,7 +127,9 @@ internal sealed partial class RenderRequestExecutor
         PublishFamilyOutputs(frames, cleanupFailures, ref primaryFailure);
         RejectUnpublishedCaptures(frames, cleanupFailures, ref primaryFailure);
 
-        Statistics = AggregateStatistics(frames, nestedRootAcquisitions);
+        Statistics = AggregateStatistics(frames, nestedRootAcquisitions + _dynamicRootAcquisitions);
+        _dependencies.Clear();
+        _activeDependencies.Clear();
 
         if (primaryFailure is not null)
         {
@@ -295,6 +303,8 @@ internal sealed partial class RenderRequestExecutor
 
     private sealed partial class RenderRequestExecutionState : IDisposable
     {
+        private readonly CancellationToken _cancellationToken;
+        private readonly Func<RenderNode, object?, object, Rect, float, RenderTargetImageLease> _renderDependency;
         private readonly RenderRequestOptions _options;
         private readonly RecordedRenderGraph _graph;
         private readonly ExecutionIslandPlan _executionPlan;
@@ -350,8 +360,12 @@ internal sealed partial class RenderRequestExecutor
             ProgramCache<CachedSkRuntimeEffect> programCache,
             ProgramCache<GLSLFilterPipeline> spirvProgramCache,
             ProgramCache<ShaderGraphPipeline> graphProgramCache,
-            ShaderBackendPreference shaderBackendPreference)
+            ShaderBackendPreference shaderBackendPreference,
+            CancellationToken cancellationToken,
+            Func<RenderNode, object?, object, Rect, float, RenderTargetImageLease> renderDependency)
         {
+            _renderDependency = renderDependency;
+            _cancellationToken = cancellationToken;
             _options = options;
             _graph = graph ?? throw new ArgumentNullException(nameof(graph));
             _executionPlan = executionPlan;
@@ -453,6 +467,7 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas destination,
             EffectiveScale callerScale)
         {
+            _cancellationToken.ThrowIfCancellationRequested();
             _replayDepth++;
             try
             {

@@ -357,7 +357,9 @@ public partial class PlayerView : UserControl
 
         var selection = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorSelection>();
         var clock = vm.EditViewModel.GetRequiredService<Beutl.Editor.Services.IEditorClock>();
-        if (selection.SelectedObject.Value is not Element element)
+        Element? element = selection.SelectedObject.Value as Element
+            ?? (selection.SelectedObject.Value as IHierarchical)?.FindHierarchicalParent<Element>();
+        if (element is null)
         {
             ClearTransformHandleOverlay();
             return;
@@ -378,7 +380,11 @@ public partial class PlayerView : UserControl
             return;
         }
 
-        BtlDrawable? drawable = ResolveOverlayDrawable(element);
+        var selected = selection.SelectedObject.Value;
+        var provider = selected as Beutl.Engine.IEditingHandleProvider;
+        BtlDrawable? drawable = provider is null
+            ? ResolveOverlayDrawable(element)
+            : selected as BtlDrawable ?? (selected as IHierarchical)?.FindHierarchicalParent<BtlDrawable>();
         if (drawable == null)
         {
             ClearTransformHandleOverlay();
@@ -411,6 +417,7 @@ public partial class PlayerView : UserControl
         }
 
         transformHandlesOverlay.Update(drawable, element, s.localBounds, s.userMatrix, s.pivotLocal, viewport);
+        transformHandlesOverlay.UpdateEditingHandles(provider ?? drawable as Beutl.Engine.IEditingHandleProvider, time);
     }
 
     // The render thread's answer, or fallback when it does not come within RenderThreadWait.
@@ -471,7 +478,7 @@ public partial class PlayerView : UserControl
         }
         BtlDrawable.Resource? resource = _transformHandleResource;
 
-        BtlSize localSize = target.MeasureInternal(availableSize, resource);
+        BtlSize localSize = resource.Measure(availableSize);
         if (localSize.Width <= 0 || localSize.Height <= 0) return null;
 
         BtlPoint pivot = resource.TransformOrigin.ToPixels(localSize);
