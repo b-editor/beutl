@@ -48,9 +48,12 @@ public sealed partial class Dim : FilterEffect
 
     public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(50f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        context.Saturate(((Resource)resource).Amount / 100f);
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Saturate(Amount / 100f);
+        }
     }
 }
 """

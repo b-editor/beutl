@@ -63,31 +63,6 @@ internal sealed partial class TrackMattePresenter : Drawable
         ScanProperties<TrackMattePresenter>();
     }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.Matte is not { } matte) return;
-
-        var domain = new Rect(context.Size);
-        using (context.PushNode((r.Mode, domain),
-                   static p => new TrackMatteRenderNode(p.Mode, p.domain),
-                   static (node, p) => node.Update(p.Mode, p.domain)))
-        {
-            foreach (Drawable.Resource drawable in r.Content.Drawables)
-                context.DrawDrawable(drawable);
-
-            context.DrawNode((matte, context.Size, context.OutputScale),
-                static p => new TrackMatteSourceRenderNode(p.matte, p.Size, p.OutputScale),
-                static (node, p) => node.Update(p.matte, p.Size, p.OutputScale));
-        }
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => Size.Empty;
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
     public new partial class Resource
     {
         private int _matteVersion = -1;
@@ -103,6 +78,30 @@ internal sealed partial class TrackMattePresenter : Drawable
         public TrackMatteContent? Matte { get; private set; }
 
         public MatteMode Mode { get; private set; }
+
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            if (Matte is not { } matte) return;
+
+            var domain = new Rect(context.Size);
+            using (context.PushNode((Mode, domain),
+                       static p => new TrackMatteRenderNode(p.Mode, p.domain),
+                       static (node, p) => node.Update(p.Mode, p.domain)))
+            {
+                foreach (Drawable.Resource drawable in Content.Drawables)
+                    context.DrawDrawable(drawable);
+
+                context.DrawNode((matte, context.Size, context.OutputScale),
+                    static p => new TrackMatteSourceRenderNode(p.matte, p.Size, p.OutputScale),
+                    static (node, p) => node.Update(p.matte, p.Size, p.OutputScale));
+            }
+        }
+
+        protected override Size MeasureCore(Size availableSize) => Size.Empty;
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
 
         internal void SetInputs(ReadOnlySpan<EngineObject.Resource> content, TrackMatteContent matte, MatteMode mode)
         {

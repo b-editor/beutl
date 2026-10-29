@@ -328,7 +328,9 @@ internal sealed partial class BlockingThumbnailDrawable(
 
     public void ReleaseRender() => _releaseRender.TrySetResult(true);
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private Size ContentSize => new(width, height);
+
+    private void RenderBlocking(GraphicsContext2D context)
     {
         if (width > 0 && height > 0 && fill is not null)
         {
@@ -342,10 +344,15 @@ internal sealed partial class BlockingThumbnailDrawable(
         _releaseRender.Task.GetAwaiter().GetResult();
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(width, height);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderBlocking(context);
+
+        protected override Size MeasureCore(Size availableSize) => RequireOriginal().ContentSize;
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 

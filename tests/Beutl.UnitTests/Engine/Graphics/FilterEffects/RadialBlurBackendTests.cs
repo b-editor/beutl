@@ -83,7 +83,7 @@ public sealed class RadialBlurBackendTests
         var effect = new RadialBlur();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
-        effect.ApplyTo(context, resource);
+        context.ApplyTransactional(resource);
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(targets, builder, intent,
             RenderRequestPurpose.Auxiliary, drawableBrushMaterializer: null);
@@ -116,7 +116,7 @@ public sealed class RadialBlurBackendTests
             var effect = new RadialBlur { Mode = { Value = mode } };
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(bounds);
-            context.ApplyTransactional(effect, resource);
+            context.ApplyTransactional(resource);
 
             if (intent == RenderIntent.Preview)
                 Assert.DoesNotThrow(() => executor.Apply(context));

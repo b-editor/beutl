@@ -220,14 +220,16 @@ internal sealed partial class TypedOperationBeforeBrushEffect : FilterEffect
 
     public IExpressionProperty<Brush?> Brush { get; } = Property.CreateExpression<Brush?>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.Shader(ShaderDescription.CurrentPixel(IdentityShader));
-        context.CustomEffect(
-            new BrushPaintState(r.Brush),
-            BrushPaintOperation.PaintBrush,
-            static (_, bounds) => bounds);
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Shader(ShaderDescription.CurrentPixel(IdentityShader));
+            context.CustomEffect(
+                new BrushPaintState(Brush),
+                BrushPaintOperation.PaintBrush,
+                static (_, bounds) => bounds);
+        }
     }
 }
 
@@ -241,13 +243,15 @@ internal sealed partial class NestedActivateBrushEffect : FilterEffect
 
     public IExpressionProperty<Brush?> Brush { get; } = Property.CreateExpression<Brush?>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.CustomEffect(
-            new BrushPaintState(r.Brush),
-            BrushPaintOperation.PaintBrush,
-            static (_, bounds) => bounds);
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.CustomEffect(
+                new BrushPaintState(Brush),
+                BrushPaintOperation.PaintBrush,
+                static (_, bounds) => bounds);
+        }
     }
 }
 

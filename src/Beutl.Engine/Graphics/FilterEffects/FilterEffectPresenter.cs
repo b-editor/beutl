@@ -21,14 +21,12 @@ public sealed partial class FilterEffectPresenter : FilterEffect, IPresenter<Fil
         public override bool ControlsContinuation => Target is { IsEnabled: true, ControlsContinuation: true };
 
         public override bool MayAccessTarget => Target?.MayAccessTarget ?? false;
-    }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-
-        // Apply skips a disabled target, matching ControlsContinuation, which a disabled target does not declare.
-        if (r.Target is { } target)
-            context.Apply(target);
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            // Apply skips a disabled target, matching ControlsContinuation, which a disabled target does not declare.
+            if (Target is { } target)
+                context.Apply(target);
+        }
     }
 }

@@ -73,21 +73,6 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
         }
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-
-        if (r._program == null)
-            return;
-
-        context.ShaderGraph(CreateGraph(r._program, new PushConstants
-        {
-            Progress = r.Progress,
-            Duration = r.Duration,
-            Time = r.Time
-        }));
-    }
-
     private static ShaderGraphDescription CreateGraph(ShaderProgram program, PushConstants constants)
         => ShaderGraphBuilder.Build((Program: program, Constants: constants), static (graph, state) =>
         {
@@ -163,6 +148,19 @@ public sealed partial class GLSLScriptEffect : FilterEffect, IScriptCompilableEf
                     s_logger.LogError(ex, "Failed to prepare the GLSL script; the effect is inactive.");
                 }
             }
+        }
+
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (_program == null)
+                return;
+
+            context.ShaderGraph(CreateGraph(_program, new PushConstants
+            {
+                Progress = Progress,
+                Duration = Duration,
+                Time = Time
+            }));
         }
     }
 }

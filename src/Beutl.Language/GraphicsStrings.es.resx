@@ -1640,4 +1640,13 @@
   <data name="LightRays_Decay_Description" xml:space="preserve">
     <value>Atenúa la luz a lo largo de cada rayo. 0% mantiene una intensidad uniforme; los valores más altos atenúan más rápido.</value>
   </data>
+  <data name="TextBlock_WritingMode" xml:space="preserve">
+    <value>Dirección del texto</value>
+  </data>
+  <data name="WritingMode_HorizontalTb" xml:space="preserve">
+    <value>Horizontal</value>
+  </data>
+  <data name="WritingMode_VerticalRl" xml:space="preserve">
+    <value>Vertical</value>
+  </data>
 </root>

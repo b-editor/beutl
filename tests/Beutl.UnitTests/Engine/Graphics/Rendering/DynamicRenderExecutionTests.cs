@@ -33,7 +33,7 @@ public sealed class DynamicRenderExecutionTests
             context.Saturate(0);
         });
         using var resource = tail.ToResource(CompositionContext.Default);
-        tail.ApplyTo(program, resource);
+        program.ApplyTransactional(resource);
         using var target = new CpuRenderTarget(new PixelSize(32, 24));
         target.Value.Canvas.Clear(SKColors.Red);
         using var targets = new EffectTargets { new(target, Domain) };

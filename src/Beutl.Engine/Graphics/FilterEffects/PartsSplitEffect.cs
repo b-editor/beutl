@@ -11,13 +11,7 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.PartsSplitEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class PartsSplitEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        // Every traced contour comes from the source's own alpha, so no part leaves the incoming extent.
-        context.CustomEffect(Unit.Default, ApplyCore, static (_, bounds) => bounds);
-    }
-
-    private void ApplyCore(Unit unit, CustomFilterEffectContext context)
+    private static void ApplyCore(Unit unit, CustomFilterEffectContext context)
     {
         for (int i = 0; i < context.Targets.Count; i++)
         {
@@ -145,5 +139,14 @@ public partial class PartsSplitEffect : FilterEffect
         }
 
         return true;
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            // Every traced contour comes from the source's own alpha, so no part leaves the incoming extent.
+            context.CustomEffect(Unit.Default, ApplyCore, static (_, bounds) => bounds);
+        }
     }
 }

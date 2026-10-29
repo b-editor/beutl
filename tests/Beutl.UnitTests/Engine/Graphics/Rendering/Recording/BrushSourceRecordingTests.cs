@@ -25,7 +25,7 @@ public sealed class BrushSourceRecordingTests
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_shape.Size))
         {
-            shape.Render(context, resource);
+            resource.Render(context);
         }
 
         using var owner = new RenderRequestOwner();

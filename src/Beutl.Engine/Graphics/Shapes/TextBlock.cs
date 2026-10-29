@@ -6,6 +6,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Shapes;
 
@@ -42,6 +43,9 @@ public partial class TextBlock : Drawable
     [Display(Name = nameof(GraphicsStrings.TextBlock_TextAlignment), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<TextAlignment> TextAlignment { get; } = Property.CreateAnimatable(Media.TextAlignment.Start);
 
+    [Display(Name = nameof(GraphicsStrings.TextBlock_WritingMode), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<WritingMode> WritingMode { get; } = Property.CreateExpression(Media.WritingMode.HorizontalTb);
+
     [Display(Name = nameof(GraphicsStrings.TextBlock_SplitByCharacters), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> SplitByCharacters { get; } = Property.CreateAnimatable<bool>(false);
 
@@ -57,39 +61,39 @@ public partial class TextBlock : Drawable
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
     public IExpressionProperty<Brush?> Fill { get; } = Property.CreateExpression<Brush?>();
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+    private static void DrawVertical(GraphicsContext2D context, Resource resource)
     {
-        var r = (Resource)resource;
-        float width = 0;
-        float height = 0;
-        var elements = r.GetTextElements();
-
-        foreach (Span<FormattedText> line in elements.Lines)
+        VerticalTextLayout layout = resource.GetVerticalLayout();
+        float right = layout.Size.Width;
+        foreach (var column in layout.Columns)
         {
-            Size bounds = MeasureLine(line);
-            width = MathF.Max(bounds.Width, width);
-            height += bounds.Height;
+            float center = right - column.Width / 2;
+            float top = GetLineOffset(resource.TextAlignment, layout.Size.Height, column.Height);
+            foreach (var run in column.Runs)
+            {
+                FormattedText text = run.Text;
+                using var transform = context.PushTransform(VerticalTextLayout.GetTransform(run, center, top));
+                if (!resource.SplitByCharacters)
+                {
+                    context.DrawText(text, text.Brush ?? resource.Fill, text.Pen ?? resource.Pen);
+                }
+                else
+                {
+                    ReadOnlySpan<Geometry.Resource> geometries = text.ToGeometries();
+                    for (int i = 0; i < geometries.Length; i++)
+                    {
+                        if (text.GetNonOutlineGlyph(i) is { } glyph)
+                            context.DrawText(glyph, text.Brush ?? resource.Fill, text.Pen ?? resource.Pen);
+                        else
+                            context.DrawGeometry(geometries[i], text.Brush ?? resource.Fill, text.Pen ?? resource.Pen);
+                    }
+                }
+            }
+            right -= column.Width;
         }
-
-        return new Size(width, height);
     }
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        float width = r.TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size, resource).Width;
-
-        if (r.SplitByCharacters)
-        {
-            DrawSplitted(context, r, width);
-        }
-        else
-        {
-            DrawGrouped(context, r, width);
-        }
-    }
-
-    private void DrawGrouped(GraphicsContext2D context, Resource resource, float width)
+    private static void DrawGrouped(GraphicsContext2D context, Resource resource, float width)
     {
         var elements = resource.GetTextElements();
         using (context.Push())
@@ -125,7 +129,7 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private void DrawSplitted(GraphicsContext2D context, Resource resource, float width)
+    private static void DrawSplitted(GraphicsContext2D context, Resource resource, float width)
     {
         var elements = resource.GetTextElements();
         float prevBottom = 0;
@@ -212,8 +216,16 @@ public partial class TextBlock : Drawable
         private Pen.Resource? _pen;
         private (Brush.Resource Resource, int Version)? _fillCache;
         private TextElements? _elements;
+        private VerticalTextLayout? _verticalLayout;
+        private Dictionary<(SKTypeface Typeface, string Cluster), bool>? _verticalAlternates;
         private bool _isDirty = true;
         private long _fontRevision;
+
+        internal VerticalTextLayout GetVerticalLayout()
+        {
+            ObjectDisposedException.ThrowIf(IsDisposed, this);
+            return _verticalLayout ??= new VerticalTextLayout(GetTextElements(), _verticalAlternates ??= []);
+        }
 
         public FontStyle FontStyle { get; private set; }
 
@@ -228,6 +240,43 @@ public partial class TextBlock : Drawable
         public float Spacing { get; private set; }
 
         public Pen.Resource? Pen => _pen;
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            if (WritingMode == Media.WritingMode.VerticalRl)
+                return GetVerticalLayout().Size;
+            float width = 0;
+            float height = 0;
+            var elements = GetTextElements();
+
+            foreach (Span<FormattedText> line in elements.Lines)
+            {
+                Size bounds = MeasureLine(line);
+                width = MathF.Max(bounds.Width, width);
+                height += bounds.Height;
+            }
+
+            return new Size(width, height);
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            if (WritingMode == Media.WritingMode.VerticalRl)
+            {
+                DrawVertical(context, this);
+                return;
+            }
+            float width = TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size).Width;
+
+            if (SplitByCharacters)
+            {
+                DrawSplitted(context, this, width);
+            }
+            else
+            {
+                DrawGrouped(context, this, width);
+            }
+        }
 
         public TextElements GetTextElements()
         {
@@ -261,6 +310,9 @@ public partial class TextBlock : Drawable
         partial void PostDispose(bool disposing)
         {
             _pen?.Dispose();
+            _verticalLayout?.Dispose();
+            _verticalLayout = null;
+            _verticalAlternates = null;
             _elements?.Dispose();
             _elements = null;
         }
@@ -301,6 +353,10 @@ public partial class TextBlock : Drawable
                 _isDirty = true;
             }
 
+            // Font selection and text changes invalidate alternates; size, spacing and paint do not.
+            if (_isDirty)
+                _verticalAlternates?.Clear();
+
             var size = context.Get(obj.Size);
             if (Size != size)
             {
@@ -336,6 +392,8 @@ public partial class TextBlock : Drawable
             if (_isDirty)
             {
                 Version++;
+                _verticalLayout?.Dispose();
+                _verticalLayout = null;
                 _elements?.Dispose();
                 _elements = null;
                 _isDirty = false;

@@ -532,7 +532,7 @@ Beutl.Utilities
   abstract
 [Beutl.Engine]Beutl.Graphics.Shapes:TextBlock
   unsealed
-  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, FontFamily, FontStyle, FontWeight, Id, IsEnabled, Name, Opacity, Pen, Size, Spacing, SplitByCharacters, Text, TextAlignment, Transform, TransformOrigin
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, Fill, FilterEffect, FontFamily, FontStyle, FontWeight, Id, IsEnabled, Name, Opacity, Pen, Size, Spacing, SplitByCharacters, Text, TextAlignment, Transform, TransformOrigin, WritingMode
 [Beutl.Engine]Beutl.Graphics.Transformation:FallbackTransform
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
@@ -1110,6 +1110,9 @@ Beutl.Utilities
   unsealed
   keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:TextAlignment>
+  unsealed
+  keys: (no public parameterless constructor)
+[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:WritingMode>
   unsealed
   keys: (no public parameterless constructor)
 [Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.ProjectSystem]:Scene>

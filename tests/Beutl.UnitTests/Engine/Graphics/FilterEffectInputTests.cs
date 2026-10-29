@@ -429,13 +429,13 @@ public sealed partial class SampleInputEffect : FilterEffect
     public Action? AfterDispose { get; set; }
     public Action<CompositionContext>? AfterReconcile { get; set; }
     public Action<FilterEffectInputSample>? AfterSample { get; set; }
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource) { }
 
     public partial class Resource
     {
         public FilterEffectInputContext? Input { get; private set; }
         public List<FilterEffectInputSample> Samples { get; } = [];
         public override bool UsesInputEvaluation => RequireOriginal().UseSamples;
+        protected override void ApplyTo(FilterEffectContext context) { }
 
         partial void PostReconcile(SampleInputEffect obj, CompositionContext context) => obj.AfterReconcile?.Invoke(context);
 

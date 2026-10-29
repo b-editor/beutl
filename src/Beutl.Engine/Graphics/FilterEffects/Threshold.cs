@@ -55,16 +55,18 @@ public sealed partial class Threshold : FilterEffect
     [Range(0, 100)]
     public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.Shader(ShaderDescription.CurrentPixel(
-            s_shaderSource,
-            bindings =>
-            {
-                bindings.Uniform("threshold", r.Value / 100f);
-                bindings.Uniform("smoothness", r.Smoothness / 100f);
-                bindings.Uniform("strength", r.Strength / 100f);
-            }));
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Shader(ShaderDescription.CurrentPixel(
+                s_shaderSource,
+                bindings =>
+                {
+                    bindings.Uniform("threshold", Value / 100f);
+                    bindings.Uniform("smoothness", Smoothness / 100f);
+                    bindings.Uniform("strength", Strength / 100f);
+                }));
+        }
     }
 }

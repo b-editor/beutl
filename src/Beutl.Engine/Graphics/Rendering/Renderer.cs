@@ -753,7 +753,7 @@ public class Renderer : IRenderer
     /// </summary>
     /// <returns>
     /// <see langword="null"/> when the drawable is not in the current frame, draws nothing, does not draw its
-    /// content under a transform of its own the way <see cref="Drawable.Render"/> does, or is drawn under a
+    /// content under a transform of its own the way <see cref="Drawable.Resource.RenderCore"/> does, or is drawn under a
     /// perspective transform that takes part of the box past its camera plane.
     /// </returns>
     /// <remarks>

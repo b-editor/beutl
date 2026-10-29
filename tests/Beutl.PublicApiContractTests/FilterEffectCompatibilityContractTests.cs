@@ -140,7 +140,7 @@ public sealed class FilterEffectCompatibilityContractTests
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds, outputScale: 2, workingScale: 1.5f);
 
-        effect.ApplyTo(context, resource);
+        context.Apply(resource);
         bool hasWorkingScale = context.TryGetWorkingScale(out float workingScale);
 
         Assert.Multiple(() =>
@@ -412,7 +412,7 @@ public sealed class FilterEffectCompatibilityContractTests
     [SuppressResourceClassGeneration]
     private sealed partial class EffectItemPluginEffect(List<string> executionOrder, string prefix) : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context)
         {
             // Deliberately uses only the pre-Shader/Geometry ApplyTo surface, to pin source compatibility.
             context.Brightness(1);
@@ -444,7 +444,11 @@ public sealed class FilterEffectCompatibilityContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource;
+        public new sealed class Resource : FilterEffect.Resource
+        {
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((EffectItemPluginEffect)RequireOriginal()).ApplyEffect(context);
+        }
     }
 
     private sealed record EffectItemMarker(List<string> Order, string Name);
@@ -454,7 +458,7 @@ public sealed class FilterEffectCompatibilityContractTests
         Action<FilterEffectContext> observe,
         Action<FilterEffectContext> record) : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context)
         {
             observe(context);
             record(context);
@@ -468,7 +472,11 @@ public sealed class FilterEffectCompatibilityContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource;
+        public new sealed class Resource : FilterEffect.Resource
+        {
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((WorkingScaleProbeEffect)RequireOriginal()).ApplyEffect(context);
+        }
     }
 
     private sealed class BoundsDependentWorkingScaleFilterNode(FilterEffect.Resource resource)

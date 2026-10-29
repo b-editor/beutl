@@ -38,8 +38,8 @@ public sealed class SKSLScriptEffectShaderTests
         using var context = new FilterEffectContext(s_bounds);
         using var secondContext = new FilterEffectContext(s_bounds);
 
-        context.ApplyTransactional(effect, resource);
-        secondContext.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
+        secondContext.ApplyTransactional(resource);
 
         IReadOnlyList<IFEItem> items = context.GetOrderedItems();
         var shader = (FEItem_Shader)items.Single();
@@ -130,7 +130,7 @@ public sealed class SKSLScriptEffectShaderTests
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
 
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
 
         IReadOnlyList<IFEItem> items = context.GetOrderedItems();
         Assert.Multiple(() =>
@@ -163,7 +163,7 @@ public sealed class SKSLScriptEffectShaderTests
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var recording = new FilterEffectContext(s_bounds);
-        recording.ApplyTransactional(effect, resource);
+        recording.ApplyTransactional(resource);
         ShaderDescription description = ((FEItem_Shader)recording.GetOrderedItems().Single()).Description;
         var token = new RenderExecutionSessionToken();
 
@@ -301,7 +301,7 @@ public sealed class SKSLScriptEffectShaderTests
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(new Rect(0, 0, 2, 2));
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         var shader = (FEItem_Shader)context.GetOrderedItems().Single();
         using RenderTarget backing = new CpuRenderTarget(2, 2);
         backing.Value.Canvas.Clear(SKColors.Transparent);

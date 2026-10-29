@@ -98,7 +98,7 @@ public sealed class PathEditorViewModel : IDisposable, IPathEditorContext
                 matrix *= Graphics.Matrix.CreateTranslation(thickness, thickness);
             }
 
-            Matrix mat = drawable.RequireOriginal().GetTransformMatrix(frameSize, size, drawable);
+            Matrix mat = drawable.GetTransformMatrix(frameSize, size);
             matrix *= mat;
         }
 

@@ -178,7 +178,6 @@ public sealed class FilterEffectRecordingTransactionTests
     public void NestedApplyTransaction_RollsBackEarlierChildrenWhenLaterChildFails()
     {
         using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));
-        FilterEffect.Resource resource = new Blur().ToResource(CompositionContext.Default);
         var first = new CallbackFilterEffect((recording, _) =>
             recording.Shader(ShaderDescription.CurrentPixel(IdentityShader)));
         var second = new CallbackFilterEffect((recording, _) =>
@@ -189,14 +188,17 @@ public sealed class FilterEffectRecordingTransactionTests
                 RenderHitTestContract.AnyInput));
             throw new InvalidOperationException("nested-failure");
         });
-        var group = new CallbackFilterEffect((recording, childResource) =>
+        FilterEffect.Resource firstResource = first.ToResource(CompositionContext.Default);
+        FilterEffect.Resource secondResource = second.ToResource(CompositionContext.Default);
+        var group = new CallbackFilterEffect((recording, _) =>
         {
-            recording.ApplyTransactional(first, childResource);
-            recording.ApplyTransactional(second, childResource);
+            recording.ApplyTransactional(firstResource);
+            recording.ApplyTransactional(secondResource);
         });
+        FilterEffect.Resource resource = group.ToResource(CompositionContext.Default);
 
         Assert.That(
-            () => context.ApplyTransactional(group, resource),
+            () => context.ApplyTransactional(resource),
             Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("nested-failure"));
         Assert.Multiple(() =>
         {
@@ -229,7 +231,7 @@ public sealed class FilterEffectRecordingTransactionTests
         FilterEffect.Resource groupResource = group.ToResource(CompositionContext.Default);
 
         Assert.That(
-            () => group.ApplyTo(context, groupResource),
+            () => groupResource.Record(context),
             Throws.TypeOf<InvalidOperationException>().With.Message.EqualTo("group-child-failure"));
         Assert.Multiple(() =>
         {
@@ -273,10 +275,10 @@ public sealed class FilterEffectRecordingTransactionTests
             recording.Shader(ShaderDescription.CurrentPixel(IdentityShader));
             throw primary;
         });
-        FilterEffect.Resource resource = new Blur().ToResource(CompositionContext.Default);
+        FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
 
         AggregateException? thrown = Assert.Throws<AggregateException>(
-            () => context.ApplyTransactional(effect, resource));
+            () => context.ApplyTransactional(resource));
 
         Assert.Multiple(() =>
         {
@@ -321,7 +323,7 @@ public sealed class FilterEffectRecordingTransactionTests
 internal sealed partial class CallbackFilterEffect(
     Action<FilterEffectContext, FilterEffect.Resource> apply) : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    private void ApplyEffect(FilterEffectContext context, FilterEffect.Resource resource)
         => apply(context, resource);
 
     public override Resource ToResource(CompositionContext context)
@@ -334,5 +336,7 @@ internal sealed partial class CallbackFilterEffect(
 
     public new sealed class Resource : FilterEffect.Resource
     {
+        protected override void ApplyTo(FilterEffectContext context)
+            => ((CallbackFilterEffect)RequireOriginal()).ApplyEffect(context, this);
     }
 }

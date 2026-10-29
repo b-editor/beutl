@@ -31,15 +31,6 @@ public partial class StrokeEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.StrokeEffect_Style), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<StrokeStyles> Style { get; } = Property.CreateAnimatable(StrokeStyles.Background);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect(
-            (r.Offset, r.Pen, r.Style),
-            Apply,
-            TransformBounds);
-    }
-
     private static Rect TransformBounds((Point Offset, Pen.Resource? Pen, StrokeStyles Style) data, Rect rect)
     {
         Rect borderBounds = PenHelper.GetBounds(rect, data.Pen);
@@ -98,6 +89,17 @@ public partial class StrokeEffect : FilterEffect
 
                 context.Targets[i] = newTarget;
             }
+        }
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.CustomEffect(
+                (Offset, Pen, Style),
+                Apply,
+                TransformBounds);
         }
     }
 }

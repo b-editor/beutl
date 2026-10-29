@@ -1306,10 +1306,6 @@ public class NodeGraphFilterEffectRenderNodeTests
 [SuppressResourceClassGeneration]
 internal sealed partial class ScaleProbeEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -1321,6 +1317,10 @@ internal sealed partial class ScaleProbeEffect : FilterEffect
     public new sealed class Resource : FilterEffect.Resource
     {
         public override FilterEffectRenderNode CreateRenderNode() => new ScaleProbeRenderNode(this);
+
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+        }
     }
 }
 

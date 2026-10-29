@@ -22,9 +22,11 @@ public sealed partial class BlendEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.BlendEffect_BlendMode), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<BlendMode> BlendMode { get; } = Property.CreateAnimatable(Graphics.BlendMode.SrcIn);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.BlendMode(r.Brush, r.BlendMode);
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.BlendMode(Brush, BlendMode);
+        }
     }
 }

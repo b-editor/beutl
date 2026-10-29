@@ -277,7 +277,7 @@ public sealed class FilterEffectCropTests
     [SuppressResourceClassGeneration]
     private sealed partial class CropEffect(Rect crop, GradientSpreadMethod spreadMethod, Size blur) : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context)
         {
             context.Crop(crop, spreadMethod);
             if (blur.Width > 0 || blur.Height > 0)
@@ -297,6 +297,9 @@ public sealed class FilterEffectCropTests
             public Resource()
             {
             }
+
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((CropEffect)RequireOriginal()).ApplyEffect(context);
         }
     }
 }

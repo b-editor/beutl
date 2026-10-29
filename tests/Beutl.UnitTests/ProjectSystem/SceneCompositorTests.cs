@@ -1047,14 +1047,14 @@ internal sealed partial class SceneCompositorContextCaptureDrawable : Drawable
 {
     public List<bool> CapturedPreferProxy { get; } = [];
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => Size.Empty;
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
     public partial class Resource
     {
+        protected override Size MeasureCore(Size availableSize) => Size.Empty;
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
+
         partial void PostReconcile(SceneCompositorContextCaptureDrawable obj, CompositionContext context)
         {
             obj.CapturedPreferProxy.Add(context.PreferProxy);
