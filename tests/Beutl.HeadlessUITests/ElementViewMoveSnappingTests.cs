@@ -20,6 +20,51 @@ namespace Beutl.HeadlessUITests;
 public class ElementViewMoveSnappingTests
 {
     [AvaloniaTest]
+    public async Task Move_RealizesAnOffscreenGroupMemberDuringPreview()
+    {
+        await TestReset.ResetShellAsync();
+        using var host = await TimelineTestHost.CreateAsync("move-offscreen-group", MediaTime.FromSeconds(120),
+        [
+            new(MediaTime.FromSeconds(40), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new RectShape())),
+            new(MediaTime.FromSeconds(25), MediaTime.FromSeconds(2), 1, new ElementSource.EngineObject(() => new RectShape()))
+        ]);
+        ElementViewModel pressed = host.Model.Elements.Single(e => e.Model.ZIndex.Value == 0);
+        ElementViewModel companion = host.Model.Elements.Single(e => e.Model.ZIndex.Value == 1);
+        host.Scene.Groups.Add([pressed.Model.Id.Value, companion.Model.Id.Value]);
+        host.Model.ClearSelected();
+        host.Content.Offset = new Vector(MediaTime.FromSeconds(40).TimeToPixel(1), 0);
+        HeadlessTestHelpers.Render();
+        Assert.That(FindView(companion), Is.Null);
+        Border border = FindView(pressed)!.FindControl<Border>("border")!;
+        Point press = border.TranslatePoint(new Point(30, border.Bounds.Height / 2), host.Window)!.Value;
+        TimelineTestHost.WaitForHitTest(host.Window, border, press);
+        Point release = press + new Vector(MediaTime.FromSeconds(15).TimeToPixel(1), 0);
+        try
+        {
+            host.Window.MouseMove(press);
+            host.Window.MouseDown(press, MouseButton.Left);
+            host.Window.MouseMove(release, RawInputModifiers.LeftMouseButton);
+            HeadlessTestHelpers.Render();
+            Assert.That(FindView(companion), Is.Not.Null, "the grouped clip enters the viewport during the drag preview");
+            Assert.That(FindView(pressed), Is.Not.Null, "the pressed view must retain pointer capture outside the viewport");
+            Assert.That(companion.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(25)), "preview does not edit the scene");
+            Assert.That(companion.BorderMargin.Value.Left, Is.EqualTo(MediaTime.FromSeconds(40).TimeToPixel(1)));
+            host.Window.MouseUp(release, MouseButton.Left);
+            await Task.Delay(300);
+            HeadlessTestHelpers.Render();
+            Assert.That(pressed.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(55)));
+            Assert.That(companion.Model.Start.Value, Is.EqualTo(MediaTime.FromSeconds(40)));
+        }
+        finally
+        {
+            host.Window.MouseUp(release, MouseButton.Left);
+        }
+
+        ElementView? FindView(ElementViewModel model)
+            => host.View.GetVisualDescendants().OfType<ElementView>().SingleOrDefault(v => v.DataContext == model);
+    }
+
+    [AvaloniaTest]
     [TestCase(150, 1f, false)]
     [TestCase(151, 1f, false)]
     [TestCase(20, 1f, false)]

@@ -62,6 +62,9 @@ public sealed partial class ElementView : UserControl
 
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
 
+    internal bool HasActiveInteraction => _draggingTransitionEdge != null || border.ContextFlyout?.IsOpen == true
+        || IsKeyboardFocusWithin || IsPointerOver;
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -249,12 +252,14 @@ public sealed partial class ElementView : UserControl
         obj.ThumbnailsClear -= OnThumbnailsClear;
         obj.WaveformChunkReady -= OnWaveformChunkReady;
         obj.WaveformClear -= OnWaveformClear;
+        obj.UpdateThumbnailsAsync();
 
         _disposables.Clear();
     }
 
     private void OnDataContextAttached(ElementViewModel obj)
     {
+        obj.InitializeViewState();
         obj.AnimationRequested = async (args, token) =>
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -286,6 +291,7 @@ public sealed partial class ElementView : UserControl
         obj.ThumbnailsClear += OnThumbnailsClear;
         obj.WaveformChunkReady += OnWaveformChunkReady;
         obj.WaveformClear += OnWaveformClear;
+        obj.UpdateThumbnailsAsync();
     }
 
     private void OnThumbnailReady(int index, WriteableBitmap? thumbnail)

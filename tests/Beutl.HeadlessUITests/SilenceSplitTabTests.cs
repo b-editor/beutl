@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using System.Reactive;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
@@ -36,6 +37,69 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SilenceSplitTabTests
 {
+    [AvaloniaTest]
+    [TestCase(12)]
+    [TestCase(8445, Explicit = true)]
+    public async Task Apply_BatchUpdatesTimelineAndRetainsLinkedGroups(int silenceCount)
+    {
+        MediaTime duration = MediaTime.FromSeconds(21600);
+        var (editor, timeline) = await TimelineTestHost.OpenTimelineAsync("silence-batch-timeline",
+        [
+            new(MediaTime.Zero, duration, 0, new ElementSource.EngineObject(() => new SourceSound())),
+            new(MediaTime.Zero, duration, 1, new ElementSource.EngineObject(() => new Beutl.Graphics.SourceVideo()))
+        ]);
+        Scene scene = editor.Scene;
+        scene.Duration.Value = duration;
+        Element[] original = scene.Children.ToArray();
+        scene.Groups.Add([.. original.Select(e => e.Id.Value)]);
+        editor.HistoryManager.Commit("Setup");
+        timeline.ClearSelected();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 1000, Height = 420 };
+        window.Show();
+        try
+        {
+            HeadlessTestHelpers.Render();
+            var ranges = Enumerable.Range(0, silenceCount).Select(i => TimeRange.FromRange(
+                MediaTime.FromSeconds(3 + i * 2.5), MediaTime.FromSeconds(4 + i * 2.5))).ToArray();
+            int undoCount = editor.HistoryManager.UndoCount;
+            var watch = Stopwatch.StartNew();
+            new SilenceSplitService(editor.HistoryManager).Apply(scene, original[0], ranges, SilenceSplitMode.RippleDelete, true);
+            TestContext.Out.WriteLine($"Apply with open timeline / {silenceCount} silences / linked audio + video: {watch.Elapsed.TotalSeconds:F2} s");
+            HeadlessTestHelpers.Render();
+            TestContext.Out.WriteLine($"Including timeline render and auto-save: {watch.Elapsed.TotalSeconds:F2} s");
+            Assert.That(timeline.Elements, Has.Count.EqualTo((silenceCount + 1) * 2));
+            Assert.That(view.GetVisualDescendants().OfType<ElementView>().Count(), Is.LessThan(40),
+                "off-screen fragments must not allocate a control tree");
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+            ElementViewModel fragment = timeline.Elements[2];
+            var linked = fragment.GetGroupOrSelectedElements();
+            Assert.That(linked, Has.Count.EqualTo(2));
+            Assert.That(linked.All(e => e.Model.Range == fragment.Model.Range), Is.True);
+            view.FindControl<ScrollViewer>("ContentScroll")!.Offset = new Vector(fragment.BorderMargin.Value.Left, 0);
+            HeadlessTestHelpers.Render();
+            Assert.That(view.GetVisualDescendants().OfType<ElementView>().Any(v => v.DataContext == fragment), Is.True,
+                "scrolling must realize the newly visible clip");
+            HeadlessCapture.SaveIfRequested(view, nameof(SilenceSplitTabTests), $"batch-{silenceCount}");
+
+            // Existing view models must observe membership changes and their undo without caching old groups.
+            var structure = (IElementStructureService)editor.GetService(typeof(IElementStructureService))!;
+            structure.Ungroup(scene, linked.Select(e => e.Model.Id.Value).ToArray());
+            Assert.That(fragment.GetGroupOrSelectedElements(), Is.Empty);
+            editor.HistoryManager.Undo();
+            Assert.That(fragment.GetGroupOrSelectedElements(), Is.EquivalentTo(linked));
+            editor.HistoryManager.Undo();
+            HeadlessTestHelpers.Render();
+            Assert.That(timeline.Elements.Select(e => e.Model), Is.EqualTo(original));
+            Assert.That(original.All(e => e.Length.Value == duration), Is.True);
+            Assert.That(timeline.Elements[0].GetGroupOrSelectedElements(), Has.Count.EqualTo(2));
+        }
+        finally
+        {
+            TimelineTestHost.Close(view, window);
+        }
+    }
+
     [AvaloniaTest]
     public async Task ElementMenu_OpensTheClickedAudioAndReusesTheHiddenToolTab()
     {

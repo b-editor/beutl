@@ -43,7 +43,8 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     // Shared by single-cut Razor and batch edits; the caller owns the history transaction.
-    internal static IReadOnlyList<Element> SplitCore(Scene scene, IReadOnlyList<Element> targets, MediaTime at)
+    internal static IReadOnlyList<Element> SplitCore(Scene scene, IReadOnlyList<Element> targets, MediaTime at,
+        List<ImmutableHashSet<Guid>>? pendingGroups = null, Dictionary<(Type, Uri), MediaTime?>? sourceDurations = null)
     {
         var groupUpdates = new Dictionary<int, List<Guid>>();
         var added = new List<Element>();
@@ -51,7 +52,7 @@ public sealed class ElementStructureService : IElementStructureService
         {
             if (scene.IsElementLocked(target) || !LeavesAFrameOnEachSide(scene, target, at)) continue;
 
-            Element backward = SplitElement(scene, target, at);
+            Element backward = SplitElement(scene, target, at, deferAdd: pendingGroups != null, sourceDurations);
             added.Add(backward);
 
             int groupIndex = FindGroupIndex(scene, target.Id.Value);
@@ -67,16 +68,20 @@ public sealed class ElementStructureService : IElementStructureService
             }
         }
 
-        InsertSplitGroups(scene, groupUpdates);
+        if (pendingGroups == null) InsertSplitGroups(scene, groupUpdates);
+        else
+            foreach (List<Guid> ids in groupUpdates.Values)
+                if (ids.Count >= 2) pendingGroups.Add([.. ids]);
         return added;
     }
 
-    private static Element SplitElement(Scene scene, Element target, MediaTime at)
+    private static Element SplitElement(Scene scene, Element target, MediaTime at, bool deferAdd,
+        Dictionary<(Type, Uri), MediaTime?>? sourceDurations)
     {
         MediaTime forwardDuration = at - target.Start.Value;
         MediaTime backwardDuration = target.Length.Value - forwardDuration;
 
-        List<SplitSource> sources = CaptureSplitSources(target, forwardDuration);
+        List<SplitSource> sources = CaptureSplitSources(target, forwardDuration, sourceDurations);
 
         ObjectRegenerator.Regenerate(target, out Element backward);
 
@@ -88,9 +93,17 @@ public sealed class ElementStructureService : IElementStructureService
 
         backward.Uri = ElementFileNaming.GetUri(scene.Uri!, backward.Id.Value);
         target.ExitTransition.Value = null;
-        scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target);
-        scene.AddChild(backward);
-        ApplySplitSourceDeltas(backward, sources, forwardDuration);
+        if (deferAdd)
+        {
+            // A partition stays inside its original clip; no placement search or scene notification is needed.
+            target.Length.Value = forwardDuration;
+        }
+        else
+        {
+            scene.MoveChild(target.ZIndex.Value, target.Start.Value, forwardDuration, target);
+            scene.AddChild(backward);
+        }
+        ApplySplitSourceDeltas(backward, sources, forwardDuration, deferAdd ? scene : null, sourceDurations);
         target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
         return backward;
     }
@@ -259,13 +272,14 @@ public sealed class ElementStructureService : IElementStructureService
     private readonly record struct SplitSource(
         ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, bool WrapVideo, bool Supported);
 
-    private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration)
+    private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration,
+        Dictionary<(Type, Uri), MediaTime?>? sourceDurations)
     {
         List<ISplittable> splittables = TopLevelSplittables(element);
         var sources = new List<SplitSource>(splittables.Count);
         if (splittables.Count == 0) return sources;
 
-        Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables);
+        Dictionary<ISplittable, SlippableMedia.Target> targets = CollectSplitTargets(element, splittables, sourceDurations: sourceDurations);
         foreach (ISplittable splittable in splittables)
         {
             bool wrapsVideo = splittable is SourceVideo;
@@ -287,14 +301,15 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static Dictionary<ISplittable, SlippableMedia.Target> CollectSplitTargets(
-        Element element, IReadOnlyList<ISplittable> splittables)
+        Element element, IReadOnlyList<ISplittable> splittables, Scene? contextScene = null,
+        Dictionary<(Type, Uri), MediaTime?>? sourceDurations = null)
     {
         var targets = new Dictionary<ISplittable, SlippableMedia.Target>(ReferenceEqualityComparer.Instance);
         if (splittables.Count == 0) return targets;
 
         var owned = new HashSet<ISplittable>(splittables, ReferenceEqualityComparer.Instance);
         var conflicts = new HashSet<ISplittable>(ReferenceEqualityComparer.Instance);
-        foreach (SlippableMedia.Target target in SlippableMedia.Collect(element))
+        foreach (SlippableMedia.Target target in SlippableMedia.Collect(element, contextScene: contextScene, batchSourceDurations: sourceDurations))
         {
             if (target.Offset.GetOwnerObject() is not ISplittable owner || !owned.Contains(owner)) continue;
             if (!targets.TryAdd(owner, target))
@@ -307,7 +322,8 @@ public sealed class ElementStructureService : IElementStructureService
     }
 
     private static void ApplySplitSourceDeltas(
-        Element backward, IReadOnlyList<SplitSource> sources, MediaTime forwardDuration)
+        Element backward, IReadOnlyList<SplitSource> sources, MediaTime forwardDuration, Scene? contextScene = null,
+        Dictionary<(Type, Uri), MediaTime?>? sourceDurations = null)
     {
         List<ISplittable> copies = TopLevelSplittables(backward);
         if (copies.Count != sources.Count
@@ -317,7 +333,7 @@ public sealed class ElementStructureService : IElementStructureService
             return;
         }
 
-        Dictionary<ISplittable, SlippableMedia.Target> backTargets = CollectSplitTargets(backward, copies);
+        Dictionary<ISplittable, SlippableMedia.Target> backTargets = CollectSplitTargets(backward, copies, contextScene, sourceDurations);
         var supported = new bool[copies.Count];
         bool shifted = false;
         for (int i = 0; i < copies.Count; i++)
@@ -333,7 +349,7 @@ public sealed class ElementStructureService : IElementStructureService
         }
 
         if (shifted)
-            backTargets = CollectSplitTargets(backward, copies);
+            backTargets = CollectSplitTargets(backward, copies, contextScene, sourceDurations);
 
         for (int i = 0; i < copies.Count; i++)
         {

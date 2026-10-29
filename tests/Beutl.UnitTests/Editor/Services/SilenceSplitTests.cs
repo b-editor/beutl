@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
@@ -384,35 +385,148 @@ public class SilenceSplitTests
         Assert.That(h.Scene.Children.Count, Is.EqualTo(parts + 2));
     }
 
-    [Test]
-    public void Apply_LongRecordingMovesEachFollowerOnceAndUndoesOnce()
+    [TestCase(360, true)]
+    [TestCase(8445, false)]
+    [TestCase(8445, true)]
+    public void Apply_LongRecordingMovesEachFollowerOnceAndUndoesOnce(int silenceCount, bool linked)
     {
-        using var h = new SceneHistoryHarness("silence-batch", duration: Seconds(1820));
-        var audio = h.AddElement(Seconds(10), Seconds(1800));
-        audio.Objects.Add(new SourceSound());
-        var video = h.AddElement(Seconds(10), Seconds(1800), 1);
-        video.Objects.Add(new Beutl.Graphics.SourceVideo());
-        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
-        var follower = h.AddElement(Seconds(1812), Seconds(2));
+        TestMediaHelper.RegisterTestDecoder();
+        double duration = silenceCount == 360 ? 1800 : 21600;
+        using var h = new SceneHistoryHarness("silence-batch", duration: Seconds(duration + 20));
+        var audio = h.AddElement(Seconds(10), Seconds(duration));
+        TrimTestMedia.AddMedia(audio, nameof(SourceSound), 100, durationSeconds: (int)duration);
+        Element? video = null;
+        if (linked)
+        {
+            video = h.AddElement(Seconds(10), Seconds(duration), 1);
+            TrimTestMedia.AddMedia(video, nameof(Beutl.Graphics.SourceVideo), 100, durationSeconds: (int)duration);
+            h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        }
+        var follower = h.AddElement(Seconds(duration + 12), Seconds(2));
+        Element[] original = h.Scene.Children.ToArray();
         h.History.Commit("Setup");
         int before = h.History.UndoCount;
         int moves = -1;
         using var subscription = follower.Start.GetObservable().Subscribe(_ => moves++);
-        var ranges = Enumerable.Range(0, 360).Select(i => Range(13 + i * 5, 14 + i * 5)).ToArray();
+        double step = silenceCount == 360 ? 5 : 2.5;
+        var ranges = Enumerable.Range(0, silenceCount).Select(i => Range(13 + i * step, 14 + i * step)).ToArray();
         var watch = Stopwatch.StartNew();
-        new SilenceSplitService(h.History).Apply(h.Scene, audio, ranges, SilenceSplitMode.RippleDelete, true);
+        new SilenceSplitService(h.History).Apply(h.Scene, audio, ranges, SilenceSplitMode.RippleDelete, linked);
         watch.Stop();
-        TestContext.Out.WriteLine($"Apply 30 minutes / 360 silences / linked audio + video: {watch.Elapsed.TotalMilliseconds:F1} ms; follower moves: {moves}");
-        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(1452)));
-        Assert.That(h.Scene.Children, Has.Count.EqualTo(723));
+        TestContext.Out.WriteLine($"Apply {duration / 60} minutes / {silenceCount} silences / linked={linked}: {watch.Elapsed.TotalMilliseconds:F1} ms; follower moves: {moves}");
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(duration + 12 - silenceCount)));
+        Assert.That(h.Scene.Children, Has.Count.EqualTo((silenceCount + 1) * (linked ? 2 : 1) + 1));
         Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
         int appliedMoves = moves;
+        Assert.That(h.History.GetLatestCommittedOperations(h.History.Entries.Last().TransactionId).Count, Is.LessThan(16),
+            "batch history should not grow with the number of generated fragments");
         h.History.Undo();
-        Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video, follower }));
-        Assert.That(audio.Length.Value, Is.EqualTo(Seconds(1800)));
-        Assert.That(video.Length.Value, Is.EqualTo(Seconds(1800)));
-        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(1812)));
+        Assert.That(h.Scene.Children, Is.EquivalentTo(original));
+        Assert.That(audio.Length.Value, Is.EqualTo(Seconds(duration)));
+        if (video != null) Assert.That(video.Length.Value, Is.EqualTo(Seconds(duration)));
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(duration + 12)));
         Assert.That(appliedMoves, Is.EqualTo(1), "ripple should aggregate gaps instead of repeatedly moving every follower");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void BatchedSplitsMatchRazorForAnimatedMediaAndTimeControllers(bool globalClock)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        using var batch = new SceneHistoryHarness("silence-batch-clocks");
+        using var razor = new SceneHistoryHarness("silence-razor-clocks");
+        Element[] batchOriginals = Populate(batch);
+        Element[] razorOriginals = Populate(razor);
+        var ranges = new[] { Range(12, 13), Range(16, 18) };
+        new SilenceSplitService(batch.History).Apply(batch.Scene, batchOriginals[0], ranges, SilenceSplitMode.SplitOnly, true);
+        foreach (var at in ranges.SelectMany(r => new[] { r.Start, r.End }).OrderDescending())
+            new ElementStructureService(razor.History).Split(razor.Scene, razorOriginals, at);
+
+        var actual = batch.Scene.Children.OrderBy(e => e.ZIndex.Value).ThenBy(e => e.Start.Value).ToArray();
+        var expected = razor.Scene.Children.OrderBy(e => e.ZIndex.Value).ThenBy(e => e.Start.Value).ToArray();
+        Assert.That(actual, Has.Length.EqualTo(expected.Length));
+        for (int i = 0; i < actual.Length; i++)
+        {
+            Assert.That(actual[i].Range, Is.EqualTo(expected[i].Range));
+            var left = actual[i].Objects[0];
+            var right = expected[i].Objects[0];
+            if (left is SourceSound sound)
+                Assert.That(sound.OffsetPosition.Value, Is.EqualTo(((SourceSound)right).OffsetPosition.Value));
+            else
+                Assert.That(((Beutl.Graphics.SourceVideo)left).OffsetPosition.Value,
+                    Is.EqualTo(((Beutl.Graphics.SourceVideo)right).OffsetPosition.Value));
+        }
+        batch.History.Undo();
+        Assert.That(batch.Scene.Children, Is.EquivalentTo(batchOriginals));
+        Assert.That(batchOriginals[0].Length.Value, Is.EqualTo(Seconds(10)));
+        batch.History.Redo();
+        Assert.That(batch.Scene.Children, Is.EquivalentTo(actual));
+
+        Element[] Populate(SceneHistoryHarness h)
+        {
+            var project = new Project { SampleRate = { Value = 48000 } };
+            project.Items.Add(h.Scene);
+            var audio = h.AddElement(Seconds(10), Seconds(10));
+            var sound = new SourceSound { OffsetPosition = { Value = Seconds(1) } };
+            sound.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(globalClock));
+            audio.Objects.Add(sound);
+            var video = h.AddElement(Seconds(10), Seconds(10), 1);
+            var source = new Beutl.Graphics.SourceVideo { Source = { Value = TrimTestMedia.CreateVideoSource(10) }, IsLoop = { Value = true } };
+            source.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(globalClock));
+            video.Objects.Add(source);
+            video.Objects.Add(new Beutl.Graphics.DrawableTimeController { Speed = { Value = 200 }, Reverse = { Value = true } });
+            h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+            h.History.Commit("Setup");
+            return [audio, video];
+        }
+    }
+
+    [Test]
+    public void Apply_KeepsNewGroupsAfterTheSurvivingOriginalGroup()
+    {
+        using var h = new SceneHistoryHarness("silence-group-order");
+        Element audio = h.AddElement(Seconds(0), Seconds(10));
+        Element video = h.AddElement(Seconds(2), Seconds(8), 1);
+        Element caption = h.AddElement(Seconds(2), Seconds(8), 2);
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value, caption.Id.Value]);
+        h.History.Commit("Setup");
+        new SilenceSplitService(h.History).Apply(h.Scene, audio, [Range(0, 1), Range(3, 4)], SilenceSplitMode.DeleteSilence, true);
+        Assert.That(h.Scene.Groups, Has.Count.EqualTo(2));
+        Assert.That(h.Scene.Groups[0], Is.EquivalentTo(new[] { video.Id.Value, caption.Id.Value }));
+        Assert.That(h.Scene.Groups[1], Is.EquivalentTo(h.Scene.Children.Where(e => e.Start.Value == Seconds(4)).Select(e => e.Id.Value)));
+        h.History.Undo();
+        Assert.That(h.Scene.Groups.Single(), Is.EquivalentTo(new[] { audio.Id.Value, video.Id.Value, caption.Id.Value }));
+    }
+
+    [Test]
+    public void Apply_ReusesSourceMetadataAcrossFragmentsButNotAcrossEdits()
+    {
+        using var h = new SceneHistoryHarness("silence-source-metadata");
+        string path = Path.Combine(h.BasePath, "source.silence-test");
+        File.WriteAllBytes(path, []);
+        var decoder = new ReadFailureDecoder(path, false);
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(path));
+            var audio = h.AddElement(Seconds(0), Seconds(10));
+            audio.Objects.Add(new SourceSound { Source = { Value = source } });
+            h.History.Commit("Setup");
+            var service = new SilenceSplitService(h.History);
+            for (int edit = 1; edit <= 2; edit++)
+            {
+                service.Apply(h.Scene, audio, [Range(1, 2), Range(3, 4), Range(5, 6)], SilenceSplitMode.SplitOnly, false);
+                Assert.That(decoder.OpenedReaders, Is.EqualTo(edit), "cloned sources must not open a decoder for every cut");
+                foreach (Element part in h.Scene.Children)
+                    Assert.That(part.Objects.OfType<SourceSound>().Single().OffsetPosition.Value, Is.EqualTo(part.Start.Value));
+                h.History.Undo();
+            }
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
     }
 
     [Test]
@@ -471,12 +585,18 @@ public class SilenceSplitTests
 
     private sealed class ReadFailureDecoder(string path, bool fail) : IDecoderInfo
     {
+        public int OpenedReaders { get; private set; }
         public int SuccessfulReads { get; private set; }
         public int FailedReads { get; private set; }
         public string Name => "Silence read failure test";
         public IEnumerable<string> VideoExtensions() => [];
         public IEnumerable<string> AudioExtensions() => [".silence-test"];
-        public MediaReader? Open(string file, MediaOptions options) => file == path ? new Reader(this, fail) : null;
+        public MediaReader? Open(string file, MediaOptions options)
+        {
+            if (file != path) return null;
+            OpenedReaders++;
+            return new Reader(this, fail);
+        }
 
         private sealed class Reader(ReadFailureDecoder owner, bool fail) : MediaReader
         {
