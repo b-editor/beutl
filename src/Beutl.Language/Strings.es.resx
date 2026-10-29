@@ -3532,7 +3532,7 @@ cuando el registro del historial está activado.</value>
     <value>Sí, está creado para niños</value>
   </data>
   <data name="VideoUpload_YouTubeSetup" xml:space="preserve">
-    <value>Para conectarse se necesita un archivo JSON de cliente de Google para aplicaciones de escritorio.</value>
+    <value>Inicia sesión con tu cuenta de Google para subir vídeos a YouTube.</value>
   </data>
   <data name="VideoUpload_SigningIn" xml:space="preserve">
     <value>Esperando inicio de sesión…</value>
@@ -3547,7 +3547,7 @@ cuando el registro del historial está activado.</value>
     <value>Se canceló el inicio de sesión o se agotó el tiempo de espera.</value>
   </data>
   <data name="VideoUpload_SignInFailed" xml:space="preserve">
-    <value>No se pudo conectar. Comprueba el JSON del cliente de escritorio, activa YouTube Data API v3 y permite el acceso en el navegador.</value>
+    <value>No se pudo iniciar sesión. Comprueba la conexión y vuelve a intentarlo.</value>
   </data>
   <data name="VideoUpload_NotReady" xml:space="preserve">
     <value>La conexión de subida o los ajustes obligatorios están incompletos.</value>
@@ -3619,9 +3619,24 @@ cuando el registro del historial está activado.</value>
     <value>Sin conectar</value>
   </data>
   <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
-    <value>Tendrás que volver a conectarte al abrir de nuevo el proyecto.</value>
+    <value>La conexión se guarda en este dispositivo hasta que cierres sesión.</value>
   </data>
   <data name="VideoUpload_InvalidDescription" xml:space="preserve">
     <value>La descripción admite hasta 5.000 bytes UTF-8 y no puede contener &lt; ni &gt;.</value>
+  </data>
+  <data name="VideoUpload_ClientNotConfigured" xml:space="preserve">
+    <value>El inicio de sesión en YouTube no está configurado en esta compilación. Abre la configuración de conexión para importar un cliente de escritorio.</value>
+  </data>
+  <data name="VideoUpload_ConfigureClient" xml:space="preserve">
+    <value>Importar configuración del cliente…</value>
+  </data>
+  <data name="VideoUpload_RestoringConnection" xml:space="preserve">
+    <value>Restaurando conexión…</value>
+  </data>
+  <data name="VideoUpload_SignInAgain" xml:space="preserve">
+    <value>La conexión ha caducado o se ha revocado el acceso. Vuelve a iniciar sesión.</value>
+  </data>
+  <data name="VideoUpload_SignOutFailed" xml:space="preserve">
+    <value>No se pudo eliminar la conexión guardada. Comprueba el acceso a la configuración local e intenta cerrar sesión de nuevo.</value>
   </data>
 </root>

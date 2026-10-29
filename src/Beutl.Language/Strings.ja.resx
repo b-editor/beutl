@@ -3527,7 +3527,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>はい、子ども向けです</value>
   </data>
   <data name="VideoUpload_YouTubeSetup" xml:space="preserve">
-    <value>接続にはGoogleのデスクトップアプリ用クライアントJSONが必要です。</value>
+    <value>GoogleアカウントでサインインしてYouTubeに動画をアップロードします。</value>
   </data>
   <data name="VideoUpload_SigningIn" xml:space="preserve">
     <value>認証待ち…</value>
@@ -3542,7 +3542,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>接続をキャンセルしたか、時間切れになりました。</value>
   </data>
   <data name="VideoUpload_SignInFailed" xml:space="preserve">
-    <value>接続できませんでした。デスクトップアプリ用のJSON、YouTube Data API v3の有効化、ブラウザでのアクセス許可を確認してください。</value>
+    <value>サインインできませんでした。接続を確認して、もう一度お試しください。</value>
   </data>
   <data name="VideoUpload_NotReady" xml:space="preserve">
     <value>投稿先への接続または必須設定が未完了です。</value>
@@ -3614,9 +3614,24 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>未接続</value>
   </data>
   <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
-    <value>プロジェクトを開き直すと再接続が必要です。</value>
+    <value>サインアウトするまで、このデバイスに接続が保存されます。</value>
   </data>
   <data name="VideoUpload_InvalidDescription" xml:space="preserve">
     <value>説明はUTF-8で5,000バイト以内にしてください。&lt; と &gt; は使用できません。</value>
+  </data>
+  <data name="VideoUpload_ClientNotConfigured" xml:space="preserve">
+    <value>このビルドではYouTubeサインインが未設定です。接続設定のヘルプからデスクトップアプリのクライアント設定を読み込んでください。</value>
+  </data>
+  <data name="VideoUpload_ConfigureClient" xml:space="preserve">
+    <value>クライアント設定を読み込む…</value>
+  </data>
+  <data name="VideoUpload_RestoringConnection" xml:space="preserve">
+    <value>接続を復元中…</value>
+  </data>
+  <data name="VideoUpload_SignInAgain" xml:space="preserve">
+    <value>接続の有効期限が切れたか、アクセスが取り消されました。もう一度サインインしてください。</value>
+  </data>
+  <data name="VideoUpload_SignOutFailed" xml:space="preserve">
+    <value>保存された接続を削除できませんでした。ローカル設定へのアクセスを確認し、もう一度サインアウトしてください。</value>
   </data>
 </root>

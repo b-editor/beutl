@@ -3532,7 +3532,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>是，此视频是面向儿童的内容</value>
   </data>
   <data name="VideoUpload_YouTubeSetup" xml:space="preserve">
-    <value>连接需要Google桌面应用的客户端JSON文件。</value>
+    <value>使用Google帐号登录以将视频上传到YouTube。</value>
   </data>
   <data name="VideoUpload_SigningIn" xml:space="preserve">
     <value>等待登录…</value>
@@ -3547,7 +3547,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>登录已取消或超时。</value>
   </data>
   <data name="VideoUpload_SignInFailed" xml:space="preserve">
-    <value>无法连接。请检查桌面应用的客户端JSON，启用YouTube Data API v3，并在浏览器中允许访问。</value>
+    <value>无法登录。请检查连接后重试。</value>
   </data>
   <data name="VideoUpload_NotReady" xml:space="preserve">
     <value>上传连接或必填设置尚未完成。</value>
@@ -3619,9 +3619,24 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>未连接</value>
   </data>
   <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
-    <value>重新打开项目后需要重新连接。</value>
+    <value>连接将保存在此设备上，直到您退出登录。</value>
   </data>
   <data name="VideoUpload_InvalidDescription" xml:space="preserve">
     <value>说明不能超过5,000个UTF-8字节，且不能包含 &lt; 或 &gt;。</value>
+  </data>
+  <data name="VideoUpload_ClientNotConfigured" xml:space="preserve">
+    <value>此版本尚未配置YouTube登录。请打开连接设置帮助以导入桌面应用客户端设置。</value>
+  </data>
+  <data name="VideoUpload_ConfigureClient" xml:space="preserve">
+    <value>导入客户端设置…</value>
+  </data>
+  <data name="VideoUpload_RestoringConnection" xml:space="preserve">
+    <value>正在恢复连接…</value>
+  </data>
+  <data name="VideoUpload_SignInAgain" xml:space="preserve">
+    <value>连接已过期或访问权限已被撤销。请重新登录。</value>
+  </data>
+  <data name="VideoUpload_SignOutFailed" xml:space="preserve">
+    <value>无法删除保存的连接。请检查本地设置的访问权限，然后再次退出登录。</value>
   </data>
 </root>

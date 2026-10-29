@@ -31,8 +31,8 @@
                             Spacing="4">
                     <Button x:Name="ConnectButton"
                             Click="SignInClick"
-                            Content="{x:Static lang:Strings.VideoUpload_Connect}"
-                            ToolTip.Tip="{x:Static lang:Strings.VideoUpload_YouTubeSetup}">
+                            Content="{x:Static lang:SettingsStrings.SignIn}"
+                            IsEnabled="{Binding IsConfigured.Value}">
                         <Button.IsVisible>
                             <MultiBinding Converter="{x:Static BoolConverters.And}">
                                 <Binding Path="!IsSignedIn.Value" />
@@ -40,11 +40,13 @@
                             </MultiBinding>
                         </Button.IsVisible>
                     </Button>
-                    <Button Click="CancelSignInClick"
+                    <Button x:Name="CancelSignInButton"
+                            Click="CancelSignInClick"
                             Content="{x:Static lang:Strings.Cancel}"
                             IsVisible="{Binding IsSigningIn.Value}" />
-                    <Button Click="SignOutClick"
-                            Content="{x:Static lang:Strings.VideoUpload_Disconnect}"
+                    <Button x:Name="SignOutButton"
+                            Click="SignOutClick"
+                            Content="{x:Static lang:SettingsStrings.SignOut}"
                             IsVisible="{Binding IsSignedIn.Value}" />
                     <Button AutomationProperties.Name="{x:Static lang:Strings.VideoUpload_SetupHelp}"
                             Theme="{StaticResource ToolTabBarIconButtonTheme}"
@@ -57,6 +59,9 @@
                                     <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                Text="{x:Static lang:Strings.VideoUpload_ConnectionLifetime}"
                                                TextWrapping="Wrap" />
+                                    <Button Click="ConfigureClientClick"
+                                            Content="{x:Static lang:Strings.VideoUpload_ConfigureClient}"
+                                            IsEnabled="{Binding !IsSigningIn.Value}" />
                                     <Button Click="SetupHelpClick" Content="{x:Static lang:Strings.VideoUpload_SetupHelp}" />
                                 </StackPanel>
                             </Flyout>

@@ -12,6 +12,12 @@ public partial class YouTubeUploadSettingsView : UserControl
 
     private async void SignInClick(object? sender, RoutedEventArgs e)
     {
+        if (DataContext is YouTubeUploadContext context)
+            await context.SignInAsync();
+    }
+
+    private async void ConfigureClientClick(object? sender, RoutedEventArgs e)
+    {
         if (DataContext is not YouTubeUploadContext context || TopLevel.GetTopLevel(this) is not { } topLevel)
             return;
 
@@ -25,11 +31,11 @@ public partial class YouTubeUploadSettingsView : UserControl
             });
             using IStorageFile? file = files.FirstOrDefault();
             if (file?.TryGetLocalPath() is { } path)
-                await context.SignInAsync(path);
+                context.ConfigureClient(path);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            await ex.Handle();
+            context.ConnectionMessage.Value = Strings.VideoUpload_DesktopClientRequired;
         }
     }
 

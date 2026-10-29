@@ -3532,7 +3532,7 @@ when history recording is enabled.</value>
     <value>Yes, it is made for kids</value>
   </data>
   <data name="VideoUpload_YouTubeSetup" xml:space="preserve">
-    <value>A Google Desktop app client JSON file is required to connect.</value>
+    <value>Sign in with your Google account to upload videos to YouTube.</value>
   </data>
   <data name="VideoUpload_SigningIn" xml:space="preserve">
     <value>Waiting for sign-in…</value>
@@ -3547,7 +3547,7 @@ when history recording is enabled.</value>
     <value>Sign-in cancelled or timed out.</value>
   </data>
   <data name="VideoUpload_SignInFailed" xml:space="preserve">
-    <value>Could not connect. Check the Desktop app client JSON, enable YouTube Data API v3, and allow access in your browser.</value>
+    <value>Could not sign in. Check your connection and try again.</value>
   </data>
   <data name="VideoUpload_NotReady" xml:space="preserve">
     <value>The upload connection or required settings are incomplete.</value>
@@ -3619,9 +3619,24 @@ when history recording is enabled.</value>
     <value>Not connected</value>
   </data>
   <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
-    <value>The connection lasts until this project is closed.</value>
+    <value>Your connection is saved on this device until you sign out.</value>
   </data>
   <data name="VideoUpload_InvalidDescription" xml:space="preserve">
     <value>Use up to 5,000 UTF-8 bytes; &lt; and &gt; are not allowed.</value>
+  </data>
+  <data name="VideoUpload_ClientNotConfigured" xml:space="preserve">
+    <value>YouTube sign-in is not configured in this build. Open connection setup to import a desktop client.</value>
+  </data>
+  <data name="VideoUpload_ConfigureClient" xml:space="preserve">
+    <value>Import client settings…</value>
+  </data>
+  <data name="VideoUpload_RestoringConnection" xml:space="preserve">
+    <value>Restoring connection…</value>
+  </data>
+  <data name="VideoUpload_SignInAgain" xml:space="preserve">
+    <value>Your connection has expired or access was revoked. Sign in again.</value>
+  </data>
+  <data name="VideoUpload_SignOutFailed" xml:space="preserve">
+    <value>Could not remove the saved connection. Check access to your local settings and try signing out again.</value>
   </data>
 </root>

@@ -30,6 +30,11 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <!-- Supply the registered desktop OAuth client when building a distribution. -->
+  <ItemGroup Condition="'$(YouTubeOAuthClientFile)' != ''">
+    <EmbeddedResource Include="$(YouTubeOAuthClientFile)" LogicalName="Beutl.YouTubeOAuthClient.json" />
+  </ItemGroup>
+
   <PropertyGroup>
     <CFBundleName>Beutl</CFBundleName>
     <CFBundleDisplayName>Beutl</CFBundleDisplayName>

@@ -135,6 +135,7 @@ public sealed class YouTubeVideoUploadTests
             var settings = (YouTubeUploadSettingsView)vm.SettingsControl.Value!;
             var context = (YouTubeUploadContext)settings.DataContext!;
             context.IsSignedIn.Value = true;
+            context.ConnectionMessage.Value = "";
             context.Audience.Value = context.Audiences[0];
             var view = new VideoUploadView { DataContext = vm };
             using var host = new ControlHost(new Window
@@ -239,6 +240,7 @@ public sealed class YouTubeVideoUploadTests
 
             // Only the connected presentation is simulated; no credential or network upload is created.
             context.IsSignedIn.Value = true;
+            context.ConnectionMessage.Value = "";
             var automatic = view.FindControl<ToggleSwitch>("AutomaticUploadSwitch")!;
             automatic.IsChecked = true;
             sections.SelectedIndex = 0;

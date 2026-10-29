@@ -1,8 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 using Google.Apis.Auth.OAuth2;
-using Google.Apis.Auth.OAuth2.Flows;
 using Google.Apis.Services;
-using Google.Apis.Util.Store;
 using Google.Apis.YouTube.v3;
 using Google.Apis.YouTube.v3.Data;
 using Reactive.Bindings;
@@ -14,13 +12,34 @@ public sealed class YouTubeUploadContext : IVideoUploadContext
 {
     private readonly CompositeDisposable _subscriptions = [];
     private UserCredential? _credential;
-    private CancellationTokenSource? _signInCancellation;
+    private readonly YouTubeSignInService _signIn;
     private bool _disposed;
 
-    public YouTubeUploadContext()
+    public YouTubeUploadContext() : this(YouTubeSignInService.Default) { }
+
+    internal YouTubeUploadContext(YouTubeSignInService signIn)
     {
-        ConnectionStatus = IsSignedIn.CombineLatest(IsSigningIn,
-                (signedIn, signingIn) => signingIn ? Strings.VideoUpload_SigningIn
+        _signIn = signIn;
+        _signIn.Credential.Subscribe(credential =>
+        {
+            _credential = credential;
+            IsSignedIn.Value = credential != null;
+        }).DisposeWith(_subscriptions);
+        _signIn.IsBusy.Subscribe(value => IsSigningIn.Value = value).DisposeWith(_subscriptions);
+        _signIn.IsConfigured.Subscribe(value => IsConfigured.Value = value).DisposeWith(_subscriptions);
+        _signIn.Message.Subscribe(value => ConnectionMessage.Value = value switch
+        {
+            YouTubeSignInMessage.NotConfigured => Strings.VideoUpload_ClientNotConfigured,
+            YouTubeSignInMessage.Failed => Strings.VideoUpload_SignInFailed,
+            YouTubeSignInMessage.Cancelled => Strings.VideoUpload_SignInCancelled,
+            YouTubeSignInMessage.Expired => Strings.VideoUpload_SignInAgain,
+            YouTubeSignInMessage.SignOutFailed => Strings.VideoUpload_SignOutFailed,
+            YouTubeSignInMessage.InvalidClient => Strings.VideoUpload_DesktopClientRequired,
+            _ => ""
+        }).DisposeWith(_subscriptions);
+        ConnectionStatus = IsSignedIn.CombineLatest(IsSigningIn, _signIn.IsRestoring,
+                (signedIn, signingIn, restoring) => signingIn
+                    ? restoring ? Strings.VideoUpload_RestoringConnection : Strings.VideoUpload_SigningIn
                     : signedIn ? Strings.VideoUpload_SignedIn : Strings.VideoUpload_NotConnected)
             .ToReadOnlyReactivePropertySlim().DisposeWith(_subscriptions);
         DescriptionError = Description.Select(description => IsDescriptionValid(description)
@@ -32,6 +51,7 @@ public sealed class YouTubeUploadContext : IVideoUploadContext
                     && descriptionError == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_subscriptions);
+        _ = _signIn.InitializeAsync();
     }
 
     public ReactivePropertySlim<string> Title { get; } = new("");
@@ -51,73 +71,24 @@ public sealed class YouTubeUploadContext : IVideoUploadContext
     public ReactivePropertySlim<UploadChoice?> Audience { get; } = new();
     public ReactivePropertySlim<bool> IsSignedIn { get; } = new();
     public ReactivePropertySlim<bool> IsSigningIn { get; } = new();
+    public ReactivePropertySlim<bool> IsConfigured { get; } = new();
     public ReactivePropertySlim<string> ConnectionMessage { get; } = new("");
     public ReadOnlyReactivePropertySlim<string?> ConnectionStatus { get; }
     public ReadOnlyReactivePropertySlim<string?> DescriptionError { get; }
     public ReadOnlyReactivePropertySlim<bool> IsReady { get; }
     IReadOnlyReactiveProperty<bool> IVideoUploadContext.IsReady => IsReady;
 
-    // The desktop client's configuration is selected locally. Neither it nor OAuth tokens enter
-    // project files, presets or telemetry. The credential lives for this context's session only.
-    public async Task SignInAsync(string clientSecretsPath)
+    public Task SignInAsync()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (IsSigningIn.Value) return;
-
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-        _signInCancellation = cancellation;
-        IsSigningIn.Value = true;
-        ConnectionMessage.Value = "";
-        try
-        {
-            using FileStream file = File.OpenRead(clientSecretsPath);
-            var json = await JsonNode.ParseAsync(file, cancellationToken: cancellation.Token);
-            if (json?["installed"] is not JsonObject installed
-                || installed["client_id"]?.GetValue<string>() is not { Length: > 0 } clientId
-                || installed["client_secret"]?.GetValue<string>() is not { Length: > 0 } clientSecret)
-            {
-                throw new InvalidOperationException(Strings.VideoUpload_DesktopClientRequired);
-            }
-
-            _credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                new GoogleAuthorizationCodeFlow.Initializer
-                {
-                    ClientSecrets = new ClientSecrets { ClientId = clientId, ClientSecret = clientSecret }
-                },
-                [YouTubeService.Scope.YoutubeUpload], "beutl-upload", usePkce: true,
-                cancellation.Token, new NullDataStore());
-            cancellation.Token.ThrowIfCancellationRequested();
-            IsSignedIn.Value = true;
-        }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-        {
-            _credential = null;
-            IsSignedIn.Value = false;
-            ConnectionMessage.Value = Strings.VideoUpload_SignInCancelled;
-        }
-        catch (Exception)
-        {
-            _credential = null;
-            IsSignedIn.Value = false;
-            // Credential files and OAuth responses must not end up in error dialogs or logs.
-            ConnectionMessage.Value = Strings.VideoUpload_SignInFailed;
-        }
-        finally
-        {
-            _signInCancellation = null;
-            IsSigningIn.Value = false;
-        }
+        return _signIn.SignInAsync();
     }
 
-    public void CancelSignIn() => _signInCancellation?.Cancel();
+    public void ConfigureClient(string path) => _signIn.ConfigureClient(path);
 
-    public void SignOut()
-    {
-        CancelSignIn();
-        _credential = null;
-        IsSignedIn.Value = false;
-        ConnectionMessage.Value = "";
-    }
+    public void CancelSignIn() => _signIn.Cancel();
+
+    public void SignOut() => _signIn.SignOut();
 
     public IVideoUploadOperation CreateUpload(string filePath)
     {
@@ -178,7 +149,6 @@ public sealed class YouTubeUploadContext : IVideoUploadContext
     public void Dispose()
     {
         _disposed = true;
-        SignOut();
         _subscriptions.Dispose();
     }
 
