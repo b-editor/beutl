@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using Avalonia;
 using Avalonia.Controls;
 
@@ -28,6 +29,7 @@ internal static partial class NativeHapticFeedback
         }
     }
 
+    [ExcludeFromCodeCoverage(Justification = "AppKit interop is covered by macOS-only tests; CI collects coverage on Linux.")]
     internal static partial class MacOS
     {
         private const string ObjC = "/usr/lib/libobjc.A.dylib";
