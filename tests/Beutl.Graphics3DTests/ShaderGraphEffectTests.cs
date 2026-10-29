@@ -21,7 +21,7 @@ public sealed class ShaderGraphEffectTests
         FilterEffect effect = Create(refraction);
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(ShaderGraphRenderingTests.SourceBounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         Assert.That(context.GetOrderedItems(), Has.Count.EqualTo(1));
         var item = (FEItem_ShaderGraph)context.GetOrderedItems().Single();
         Assert.That(item.Description.Passes, Has.Length.EqualTo(passes));
@@ -179,7 +179,7 @@ public sealed class ShaderGraphEffectTests
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(ShaderGraphRenderingTests.SourceBounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         return ((FEItem_ShaderGraph)context.GetOrderedItems().Single()).Description;
     }
 

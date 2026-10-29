@@ -24,7 +24,7 @@ public sealed class RadialBlurTests
         RadialBlur effect = Create(mode);
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
 
         Assert.That(context.GetOrderedItems(), Has.Count.EqualTo(1));
         Assert.That(context.GetOrderedItems().Single(), Is.InstanceOf<FEItem_ShaderGraph>());
@@ -37,7 +37,6 @@ public sealed class RadialBlurTests
     [TestCase(RadialBlurMode.Zoom, float.PositiveInfinity)]
     public void ZeroOrInvalidAmount_RecordsNothing(RadialBlurMode mode, float amount)
     {
-        var effect = new RadialBlur();
         using var resource = new RadialBlur.Resource
         {
             Mode = mode,
@@ -46,7 +45,7 @@ public sealed class RadialBlurTests
             Samples = 32,
         };
         using var context = new FilterEffectContext(s_bounds);
-        effect.ApplyTo(context, resource);
+        context.ApplyTransactional(resource);
 
         Assert.Multiple(() =>
         {
@@ -62,7 +61,7 @@ public sealed class RadialBlurTests
         effect.Center.Value = new RelativePoint(float.NaN, 0, RelativeUnit.Absolute);
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
 
         Assert.That(context.GetOrderedItems(), Is.Empty);
     }
@@ -310,7 +309,7 @@ public sealed class RadialBlurTests
                     foreach (EffectTarget target in execution.Targets)
                         target.Bounds = target.Bounds.Translate(new Vector(100, 100));
                 });
-            context.ApplyTransactional(effect, resource);
+            context.ApplyTransactional(resource);
             if (opaque)
                 expectedBounds = expectedBounds.Translate(new Vector(100, 100));
             using var builder = new SKImageFilterBuilder();
@@ -348,7 +347,7 @@ public sealed class RadialBlurTests
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         return context.Bounds;
     }
 
@@ -391,7 +390,7 @@ public sealed class RadialBlurTests
         if (samplesOverride is { } samples)
             ((RadialBlur.Resource)resource).Samples = samples;
         using var context = new FilterEffectContext(bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         if (invokeGraphDirectly)
         {
             using ProgramCache<ShaderGraphPipeline> cache = ShaderGraphPipeline.CreateCache();

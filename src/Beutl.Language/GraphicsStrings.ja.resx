@@ -1678,4 +1678,13 @@
   <data name="LightRays_Decay_Description" xml:space="preserve">
     <value>光線に沿って光を弱めます。0%は均一な強さで、値が大きいほど早く弱まります。</value>
   </data>
+  <data name="TextBlock_WritingMode" xml:space="preserve">
+    <value>書字方向</value>
+  </data>
+  <data name="WritingMode_HorizontalTb" xml:space="preserve">
+    <value>横書き</value>
+  </data>
+  <data name="WritingMode_VerticalRl" xml:space="preserve">
+    <value>縦書き</value>
+  </data>
 </root>

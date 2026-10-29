@@ -273,7 +273,7 @@ public sealed class GeometryAuthoringContractTests
 
         public Rect ObservedCanvasRasterBounds { get; private set; }
 
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context)
         {
             RenderResource<GeometryResource> token = context.Borrow(declaredResource);
             context.Geometry(GeometryDescription.Create(
@@ -327,6 +327,9 @@ public sealed class GeometryAuthoringContractTests
         public new sealed class Resource : FilterEffect.Resource
         {
             public override FilterEffectRenderNode CreateRenderNode() => new(this);
+
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((PluginGeometryEffect)RequireOriginal()).ApplyEffect(context);
         }
     }
 

@@ -198,7 +198,7 @@ public class GLSLShaderTests
                 bool versionBumped = false;
                 resource.Reconcile(effect, new CompositionContext(MediaTime.FromSeconds(time)), ref versionBumped);
                 using var context = new FilterEffectContext(new Rect(0, 0, 4, 4));
-                context.ApplyTransactional(effect, resource);
+                context.ApplyTransactional(resource);
                 using var targets = new EffectTargets { new EffectTarget(source, new Rect(0, 0, 4, 4)) };
                 using var builder = new SKImageFilterBuilder();
                 using var executor = new FilterEffectExecutor(

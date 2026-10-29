@@ -60,44 +60,6 @@ public sealed partial class RadialBlur : FilterEffect
     [Range(2, MaxSamples)]
     public IExpressionProperty<int> Samples { get; } = Property.CreateAnimatable(32);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        // Interpolation and detached resources can bypass the editor's ranges.
-        if (!float.IsFinite(r.Amount) || r.Amount <= 0
-            || !float.IsFinite(r.Center.Point.X) || !float.IsFinite(r.Center.Point.Y)
-            || r.Mode is not (RadialBlurMode.Zoom or RadialBlurMode.Spin))
-            return;
-
-        var data = new EffectData(r.Mode, r.Center, MathF.Min(r.Amount, 100), Math.Clamp(r.Samples, 2, MaxSamples));
-        context.ShaderGraph(data, static (graph, state) =>
-        {
-            var samples = new Vector2[state.Samples];
-            var transforms = new Matrix[state.Samples];
-            for (int i = 0; i < samples.Length; i++)
-            {
-                Vector2 inverse = samples[i] = state.GetSampleTransform(i);
-                var forward = new Vector2(inverse.X, -inverse.Y) / inverse.LengthSquared();
-                transforms[i] = new Matrix(forward.X, forward.Y, -forward.Y, forward.X, 0, 0);
-            }
-            ShaderBuffer sampleBuffer = graph.Buffer<Vector2>("samples", samples);
-            ShaderImage output = graph.Image2D("radial-blur", graph.Source);
-            output.BoundsTransforms = [.. transforms];
-            output.BoundsOrigin = state.Center;
-            graph.Fullscreen("radial-blur", s_program, pass =>
-            {
-                pass.SampledImage(0, graph.Source, SamplerState.NearestClamp);
-                pass.ImageParameters(1, graph.Source);
-                pass.ImageParameters(2, output);
-                pass.StorageBuffer(3, sampleBuffer, ResourceAccess.Read);
-                pass.PushConstants(Vector2.Zero);
-                pass.BoundsOriginConstants(state.Center, 0);
-                pass.ColorAttachment(0, output);
-            });
-            return graph.Output(output);
-        });
-    }
-
     private readonly record struct EffectData(RadialBlurMode Mode, RelativePoint Center, float Amount, int Samples)
     {
         // Rendering and bounds use the same CPU-computed, float32 sample transforms.
@@ -109,6 +71,46 @@ public sealed partial class RadialBlur : FilterEffect
 
             float angle = (progress - 0.5f) * Amount * (MathF.PI / 180);
             return new Vector2(MathF.Cos(angle), MathF.Sin(angle));
+        }
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            // Interpolation and detached resources can bypass the editor's ranges.
+            if (!float.IsFinite(Amount) || Amount <= 0
+                || !float.IsFinite(Center.Point.X) || !float.IsFinite(Center.Point.Y)
+                || Mode is not (RadialBlurMode.Zoom or RadialBlurMode.Spin))
+                return;
+
+            var data = new EffectData(Mode, Center, MathF.Min(Amount, 100), Math.Clamp(Samples, 2, MaxSamples));
+            context.ShaderGraph(data, static (graph, state) =>
+            {
+                var samples = new Vector2[state.Samples];
+                var transforms = new Matrix[state.Samples];
+                for (int i = 0; i < samples.Length; i++)
+                {
+                    Vector2 inverse = samples[i] = state.GetSampleTransform(i);
+                    var forward = new Vector2(inverse.X, -inverse.Y) / inverse.LengthSquared();
+                    transforms[i] = new Matrix(forward.X, forward.Y, -forward.Y, forward.X, 0, 0);
+                }
+                ShaderBuffer sampleBuffer = graph.Buffer<Vector2>("samples", samples);
+                ShaderImage output = graph.Image2D("radial-blur", graph.Source);
+                output.BoundsTransforms = [.. transforms];
+                output.BoundsOrigin = state.Center;
+                graph.Fullscreen("radial-blur", s_program, pass =>
+                {
+                    pass.SampledImage(0, graph.Source, SamplerState.NearestClamp);
+                    pass.ImageParameters(1, graph.Source);
+                    pass.ImageParameters(2, output);
+                    pass.StorageBuffer(3, sampleBuffer, ResourceAccess.Read);
+                    pass.PushConstants(Vector2.Zero);
+                    pass.BoundsOriginConstants(state.Center, 0);
+                    pass.ColorAttachment(0, output);
+                });
+                return graph.Output(output);
+            });
         }
     }
 }

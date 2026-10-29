@@ -26,5 +26,7 @@ package name, shows one notice and turns the extension off until it restarts.
   generated `PreUpdate`/`PostUpdate` hooks, and the `CompareAndUpdate` helpers.
 - [Property editor registration](property-editor-registration-migration.md): `PropertyEditorExtension` overrides
   of `MatchProperty`, `TryCreateContext*` and `TryCreateControl*`, and `IPropertyEditorFactory.MatchProperty`.
+- [Drawing on resources](drawing-on-resources-migration.md): overrides of `FilterEffect.ApplyTo` and
+  `Drawable.MeasureCore`, `OnDraw` and `Render`, which moved onto their `Resource` classes.
 
 Material and template packages for the store are described in [data packages](../data-packages.md).

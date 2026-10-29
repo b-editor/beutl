@@ -28,12 +28,6 @@ public partial class FlatShadow : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ShadowOnly), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> ShadowOnly { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect((r.Angle, r.Length, r.Brush, r.ShadowOnly), Apply, TransformBounds);
-    }
-
     private static Rect TransformBounds((float Angle, float Length, Brush.Resource? Brush, bool ShadowOnly) data,
         Rect rect)
     {
@@ -120,6 +114,14 @@ public partial class FlatShadow : FilterEffect
             }
 
             context.Targets[ii] = newTarget;
+        }
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.CustomEffect((Angle, Length, Brush, ShadowOnly), Apply, TransformBounds);
         }
     }
 }

@@ -72,6 +72,7 @@
       "FontWeight": 400,
       "Spacing": 0,
       "TextAlignment": 0,
+      "WritingMode": 0,
       "SplitByCharacters": false,
       "Text": "",
       "Pen": null,

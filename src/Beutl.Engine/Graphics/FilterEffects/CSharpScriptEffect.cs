@@ -104,17 +104,6 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
                 "Beutl.Graphics.Shaders");
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-
-        if (r._scriptRunner == null)
-            return;
-
-        var globals = new CSharpScriptEffectGlobals(context, r.Progress, r.Duration, r.Time, r.GlslPrograms);
-        r._scriptRunner(globals).GetAwaiter().GetResult();
-    }
-
     public new partial class Resource
     {
         internal ScriptRunner<object>? _scriptRunner;
@@ -175,5 +164,13 @@ public sealed partial class CSharpScriptEffect : FilterEffect, IScriptCompilable
             }
         }
 
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (_scriptRunner == null)
+                return;
+
+            var globals = new CSharpScriptEffectGlobals(context, Progress, Duration, Time, GlslPrograms);
+            _scriptRunner(globals).GetAwaiter().GetResult();
+        }
     }
 }

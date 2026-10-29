@@ -40,39 +40,6 @@ public sealed partial class Bloom : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Bloom_PreserveAlpha), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> PreserveAlpha { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (!float.IsFinite(r.Radius) || r.Radius < 0 || !float.IsFinite(r.Threshold) || r.Threshold < 0
-            || !float.IsFinite(r.SoftKnee) || !float.IsFinite(r.Intensity) || r.Intensity <= 0)
-            return;
-
-        context.ShaderGraph((r.Radius, r.Threshold, SoftKnee: Math.Clamp(r.SoftKnee, 0, 100) / 100,
-                r.Intensity, r.PreserveAlpha),
-            static (graph, values) =>
-            {
-                ShaderImage bright = graph.Image2D("bright", graph.Source, padding: values.Radius);
-                ShaderImage mask = graph.Image2D("mask", bright, TextureFormat.R16Float);
-                ShaderImage output = graph.Image2D("output", graph.Source, padding: values.PreserveAlpha ? 0 : values.Radius);
-                LightEffectPasses.ExtractHighlights(graph, graph.Source, bright, mask, values.Threshold, values.SoftKnee);
-                // Reduce in 2x steps so even a one-pixel highlight survives the filtering.
-                // The final blur radius stays at most 16 texels per unit of working scale.
-                ShaderImage reduced = bright;
-                for (int level = 1; values.Radius * reduced.ResolutionScale > 16; level++)
-                {
-                    ShaderImage source = reduced;
-                    reduced = graph.Image2D($"downsample-{level}", source, resolutionScale: source.ResolutionScale / 2);
-                    LightEffectPasses.Downsample(graph, source, reduced);
-                }
-                ShaderImage horizontal = graph.Image2D("horizontal", reduced, resolutionScale: reduced.ResolutionScale);
-                ShaderImage glow = graph.Image2D("glow", reduced, resolutionScale: reduced.ResolutionScale);
-                Blur(graph, "blur-horizontal", reduced, horizontal, new(values.Radius, 1, 0, 0));
-                Blur(graph, "blur-vertical", horizontal, glow, new(values.Radius, 0, 1, 0));
-                LightEffectPasses.Composite(graph, graph.Source, glow, mask, output, values.Intensity, values.PreserveAlpha);
-                return graph.Output(output);
-            });
-    }
-
     private static void Blur(ShaderGraphBuilder graph, string name, ShaderImage source, ShaderImage output, Vector4 values)
         => graph.Fullscreen(name, s_blur, pass =>
         {
@@ -107,4 +74,39 @@ public sealed partial class Bloom : FilterEffect
             color /= total;
         }
         """));
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (!float.IsFinite(Radius) || Radius < 0 || !float.IsFinite(Threshold) || Threshold < 0
+                || !float.IsFinite(SoftKnee) || !float.IsFinite(Intensity) || Intensity <= 0)
+                return;
+
+            context.ShaderGraph((Radius, Threshold, SoftKnee: Math.Clamp(SoftKnee, 0, 100) / 100,
+                    Intensity, PreserveAlpha),
+                static (graph, values) =>
+                {
+                    ShaderImage bright = graph.Image2D("bright", graph.Source, padding: values.Radius);
+                    ShaderImage mask = graph.Image2D("mask", bright, TextureFormat.R16Float);
+                    ShaderImage output = graph.Image2D("output", graph.Source, padding: values.PreserveAlpha ? 0 : values.Radius);
+                    LightEffectPasses.ExtractHighlights(graph, graph.Source, bright, mask, values.Threshold, values.SoftKnee);
+                    // Reduce in 2x steps so even a one-pixel highlight survives the filtering.
+                    // The final blur radius stays at most 16 texels per unit of working scale.
+                    ShaderImage reduced = bright;
+                    for (int level = 1; values.Radius * reduced.ResolutionScale > 16; level++)
+                    {
+                        ShaderImage source = reduced;
+                        reduced = graph.Image2D($"downsample-{level}", source, resolutionScale: source.ResolutionScale / 2);
+                        LightEffectPasses.Downsample(graph, source, reduced);
+                    }
+                    ShaderImage horizontal = graph.Image2D("horizontal", reduced, resolutionScale: reduced.ResolutionScale);
+                    ShaderImage glow = graph.Image2D("glow", reduced, resolutionScale: reduced.ResolutionScale);
+                    Blur(graph, "blur-horizontal", reduced, horizontal, new(values.Radius, 1, 0, 0));
+                    Blur(graph, "blur-vertical", horizontal, glow, new(values.Radius, 0, 1, 0));
+                    LightEffectPasses.Composite(graph, graph.Source, glow, mask, output, values.Intensity, values.PreserveAlpha);
+                    return graph.Output(output);
+                });
+        }
+    }
 }

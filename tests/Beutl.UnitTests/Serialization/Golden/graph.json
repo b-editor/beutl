@@ -349,13 +349,22 @@
           "Animations": {},
           "Expressions": {},
           "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:TextAlignment>"
+        },
+        {
+          "Connection": "00000000-0000-0000-0000-000000000003",
+          "IsEnabled": true,
+          "Id": "00000000-0000-0000-0000-000000000037",
+          "Name": "WritingMode",
+          "Animations": {},
+          "Expressions": {},
+          "$type": "[Beutl.NodeGraph]:EnginePropertyBackedInputPort<[Beutl.Engine]Beutl.Media:WritingMode>"
         }
       ],
       "NestedInputPorts": [
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000037",
+          "Id": "00000000-0000-0000-0000-000000000038",
           "Name": "Color",
           "Animations": {},
           "Expressions": {},
@@ -368,7 +377,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000038",
+          "Id": "00000000-0000-0000-0000-000000000039",
           "Name": "Opacity",
           "Animations": {},
           "Expressions": {},
@@ -381,7 +390,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000039",
+          "Id": "00000000-0000-0000-0000-000000000040",
           "Name": "Transform",
           "Animations": {},
           "Expressions": {},
@@ -394,7 +403,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000040",
+          "Id": "00000000-0000-0000-0000-000000000041",
           "Name": "TransformOrigin",
           "Animations": {},
           "Expressions": {},
@@ -407,7 +416,7 @@
       ],
       "Object": {
         "IsEnabled": true,
-        "Id": "00000000-0000-0000-0000-000000000041",
+        "Id": "00000000-0000-0000-0000-000000000042",
         "Name": "",
         "Animations": {},
         "Expressions": {},
@@ -417,12 +426,13 @@
         "FontWeight": 400,
         "Spacing": 0,
         "TextAlignment": 0,
+        "WritingMode": 0,
         "SplitByCharacters": false,
         "Text": "",
         "Pen": null,
         "Fill": {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000042",
+          "Id": "00000000-0000-0000-0000-000000000043",
           "Name": "",
           "Animations": {},
           "Expressions": {},
@@ -434,7 +444,7 @@
         },
         "Transform": {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000043",
+          "Id": "00000000-0000-0000-0000-000000000044",
           "Name": "",
           "Animations": {},
           "Expressions": {},
@@ -446,7 +456,7 @@
         "TransformOrigin": "50%, 50%",
         "FilterEffect": {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000044",
+          "Id": "00000000-0000-0000-0000-000000000045",
           "Name": "",
           "Animations": {},
           "Expressions": {},
@@ -462,7 +472,7 @@
     {
       "IsExpanded": true,
       "IsEnabled": true,
-      "Id": "00000000-0000-0000-0000-000000000045",
+      "Id": "00000000-0000-0000-0000-000000000046",
       "Name": "",
       "Animations": {},
       "Expressions": {},
@@ -470,7 +480,7 @@
       "Items": [
         {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000046",
+          "Id": "00000000-0000-0000-0000-000000000047",
           "Name": "Output",
           "Animations": {},
           "Expressions": {},
@@ -480,7 +490,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000047",
+          "Id": "00000000-0000-0000-0000-000000000048",
           "Name": "ReferencedScene",
           "Animations": {},
           "Expressions": {},
@@ -489,7 +499,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000048",
+          "Id": "00000000-0000-0000-0000-000000000049",
           "Name": "Time",
           "Animations": {},
           "Expressions": {},
@@ -498,7 +508,7 @@
         },
         {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000049",
+          "Id": "00000000-0000-0000-0000-000000000050",
           "Name": "Error",
           "Animations": {},
           "Expressions": {},
@@ -507,7 +517,7 @@
       ],
       "Object": {
         "IsEnabled": true,
-        "Id": "00000000-0000-0000-0000-000000000050",
+        "Id": "00000000-0000-0000-0000-000000000051",
         "Name": "",
         "Start": 0,
         "Duration": 222518016000000000,
@@ -517,7 +527,7 @@
         "ReferencedScene": null,
         "Transform": {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000051",
+          "Id": "00000000-0000-0000-0000-000000000052",
           "Name": "",
           "Animations": {},
           "Expressions": {},
@@ -529,7 +539,7 @@
         "TransformOrigin": "50%, 50%",
         "FilterEffect": {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000052",
+          "Id": "00000000-0000-0000-0000-000000000053",
           "Name": "",
           "Animations": {},
           "Expressions": {},
@@ -544,7 +554,7 @@
     {
       "IsExpanded": true,
       "IsEnabled": true,
-      "Id": "00000000-0000-0000-0000-000000000053",
+      "Id": "00000000-0000-0000-0000-000000000054",
       "Name": "",
       "Animations": {},
       "Expressions": {},
@@ -554,7 +564,7 @@
         "Nodes": [],
         "AllConnections": [],
         "IsEnabled": true,
-        "Id": "00000000-0000-0000-0000-000000000054",
+        "Id": "00000000-0000-0000-0000-000000000055",
         "Name": "Group",
         "Animations": {},
         "Expressions": {},
@@ -565,7 +575,7 @@
     {
       "IsExpanded": true,
       "IsEnabled": true,
-      "Id": "00000000-0000-0000-0000-000000000055",
+      "Id": "00000000-0000-0000-0000-000000000056",
       "Name": "",
       "Animations": {},
       "Expressions": {},
@@ -573,7 +583,7 @@
       "Items": [
         {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000056",
+          "Id": "00000000-0000-0000-0000-000000000057",
           "Name": "Image",
           "Animations": {},
           "Expressions": {},
@@ -583,7 +593,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000057",
+          "Id": "00000000-0000-0000-0000-000000000058",
           "Name": "Prompt",
           "Animations": {},
           "Expressions": {},
@@ -593,7 +603,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000058",
+          "Id": "00000000-0000-0000-0000-000000000059",
           "Name": "AspectRatio",
           "Animations": {},
           "Expressions": {},
@@ -603,7 +613,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000059",
+          "Id": "00000000-0000-0000-0000-000000000060",
           "Name": "Model",
           "Animations": {},
           "Expressions": {},
@@ -613,7 +623,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000060",
+          "Id": "00000000-0000-0000-0000-000000000061",
           "Name": "Background",
           "Animations": {},
           "Expressions": {},
@@ -623,7 +633,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000061",
+          "Id": "00000000-0000-0000-0000-000000000062",
           "Name": "Seed",
           "Animations": {},
           "Expressions": {},
@@ -633,7 +643,7 @@
         {
           "Connection": "00000000-0000-0000-0000-000000000003",
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000062",
+          "Id": "00000000-0000-0000-0000-000000000063",
           "Name": "SeedControl",
           "Animations": {},
           "Expressions": {},
@@ -642,7 +652,7 @@
         },
         {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000063",
+          "Id": "00000000-0000-0000-0000-000000000064",
           "Name": "References",
           "Animations": {},
           "Expressions": {},
@@ -651,7 +661,7 @@
         },
         {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000064",
+          "Id": "00000000-0000-0000-0000-000000000065",
           "Name": "GenerationPreview",
           "Animations": {},
           "Expressions": {},
@@ -659,14 +669,14 @@
         },
         {
           "IsEnabled": true,
-          "Id": "00000000-0000-0000-0000-000000000065",
+          "Id": "00000000-0000-0000-0000-000000000066",
           "Name": "GenerationStatus",
           "Animations": {},
           "Expressions": {},
           "$type": "[Beutl.NodeGraph]:NodeMonitor<[System.Private.CoreLib]System:String>"
         }
       ],
-      "RequestKeySeed": "00000000-0000-0000-0000-000000000066",
+      "RequestKeySeed": "00000000-0000-0000-0000-000000000067",
       "Generations": [
         {
           "Image": null,
@@ -678,11 +688,11 @@
           "Summary": "kept result",
           "CreatedAt": "2026-01-02T03:04:05+00:00",
           "IsPinned": true,
-          "Id": "00000000-0000-0000-0000-000000000067",
+          "Id": "00000000-0000-0000-0000-000000000068",
           "Name": ""
         }
       ],
-      "ActiveGenerationId": "00000000-0000-0000-0000-000000000067",
+      "ActiveGenerationId": "00000000-0000-0000-0000-000000000068",
       "$type": "[Beutl.NodeGraph].Nodes.Generative:AiImageGenerationNode"
     }
   ],
@@ -696,7 +706,7 @@
     }
   ],
   "IsEnabled": true,
-  "Id": "00000000-0000-0000-0000-000000000068",
+  "Id": "00000000-0000-0000-0000-000000000069",
   "Name": "",
   "Animations": {},
   "Expressions": {},

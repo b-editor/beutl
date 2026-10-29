@@ -20,17 +20,16 @@ public sealed partial class FilterEffectGroup : FilterEffect
             => Children.Any(static child => child.IsEnabled && child.ControlsContinuation);
 
         public override bool MayAccessTarget => Children.Any(static child => child.MayAccessTarget);
-    }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.ApplyTransactional(() =>
+        protected override void ApplyTo(FilterEffectContext context)
         {
-            foreach (FilterEffect.Resource item in r.Children)
+            context.ApplyTransactional(() =>
             {
-                context.Apply(item);
-            }
-        });
+                foreach (FilterEffect.Resource item in Children)
+                {
+                    context.Apply(item);
+                }
+            });
+        }
     }
 }

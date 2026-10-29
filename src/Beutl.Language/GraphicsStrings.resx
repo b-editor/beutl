@@ -1683,4 +1683,13 @@
   <data name="LightRays_Decay_Description" xml:space="preserve">
     <value>Fades the light along each ray. 0% keeps an even strength; higher values fade more quickly.</value>
   </data>
+  <data name="TextBlock_WritingMode" xml:space="preserve">
+    <value>Writing mode</value>
+  </data>
+  <data name="WritingMode_HorizontalTb" xml:space="preserve">
+    <value>Horizontal</value>
+  </data>
+  <data name="WritingMode_VerticalRl" xml:space="preserve">
+    <value>Vertical</value>
+  </data>
 </root>

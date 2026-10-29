@@ -226,36 +226,38 @@ public sealed partial class PixelSortEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.PixelSortEffect_Ascending), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> Ascending { get; } = Property.CreateExpression(true);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        if (s_programs.GetOrCreate(r.SortKey, r.Direction, r.Ascending) is not { } programs)
-            return;
-        context.ShaderGraph((Programs: programs,
-            Thresholds: new Vector2(r.ThresholdMin / 100, r.ThresholdMax / 100)), static (graph, state) =>
+        protected override void ApplyTo(FilterEffectContext context)
         {
-            ShaderImage prepared = graph.Image2D("prepared", graph.Source);
-            ShaderImage ranks = graph.Image2D("ranks", graph.Source);
-            ShaderImage output = graph.Image2D("sorted", graph.Source);
-            prepared.RasterSource = ranks.RasterSource = output.RasterSource = graph.Source;
-            graph.Fullscreen("prepare", state.Programs.Prepare, pass =>
+            if (s_programs.GetOrCreate(SortKey, Direction, Ascending) is not { } programs)
+                return;
+            context.ShaderGraph((Programs: programs,
+                Thresholds: new Vector2(ThresholdMin / 100, ThresholdMax / 100)), static (graph, state) =>
             {
-                pass.SampledImage(0, graph.Source, SamplerState.NearestClamp);
-                pass.ColorAttachment(0, prepared);
-                pass.PushConstants(state.Thresholds);
+                ShaderImage prepared = graph.Image2D("prepared", graph.Source);
+                ShaderImage ranks = graph.Image2D("ranks", graph.Source);
+                ShaderImage output = graph.Image2D("sorted", graph.Source);
+                prepared.RasterSource = ranks.RasterSource = output.RasterSource = graph.Source;
+                graph.Fullscreen("prepare", state.Programs.Prepare, pass =>
+                {
+                    pass.SampledImage(0, graph.Source, SamplerState.NearestClamp);
+                    pass.ColorAttachment(0, prepared);
+                    pass.PushConstants(state.Thresholds);
+                });
+                graph.Fullscreen("rank", state.Programs.Rank, pass =>
+                {
+                    pass.SampledImage(0, prepared, SamplerState.NearestClamp);
+                    pass.ColorAttachment(0, ranks);
+                });
+                graph.Fullscreen("gather", state.Programs.Gather, pass =>
+                {
+                    pass.SampledImage(0, ranks, SamplerState.NearestClamp);
+                    pass.SampledImage(1, graph.Source, SamplerState.NearestClamp);
+                    pass.ColorAttachment(0, output);
+                });
+                return graph.Output(output);
             });
-            graph.Fullscreen("rank", state.Programs.Rank, pass =>
-            {
-                pass.SampledImage(0, prepared, SamplerState.NearestClamp);
-                pass.ColorAttachment(0, ranks);
-            });
-            graph.Fullscreen("gather", state.Programs.Gather, pass =>
-            {
-                pass.SampledImage(0, ranks, SamplerState.NearestClamp);
-                pass.SampledImage(1, graph.Source, SamplerState.NearestClamp);
-                pass.ColorAttachment(0, output);
-            });
-            return graph.Output(output);
-        });
+        }
     }
 }

@@ -213,7 +213,7 @@ public class IndividualContinuationTests
     {
         public int Recordings { get; private set; }
 
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context, FilterEffect.Resource resource)
         {
             Recordings++;
             if (resource.EvaluationContext!.Time == MediaTime.Zero) return;
@@ -233,12 +233,15 @@ public class IndividualContinuationTests
         public new sealed class Resource(bool accessesTarget) : FilterEffect.Resource
         {
             public override bool MayAccessTarget => accessesTarget;
+
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((TimeDependentEffect)RequireOriginal()).ApplyEffect(context, this);
         }
     }
 
     private sealed class RepeatingContinuationEffect(int count) : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context)
             => context.ContinuationEffect(count, static (repetitions, execution, continuation) =>
             {
                 for (int index = 0; index < repetitions; index++)
@@ -256,6 +259,9 @@ public class IndividualContinuationTests
         public new sealed class Resource : FilterEffect.Resource
         {
             public override bool ControlsContinuation => true;
+
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((RepeatingContinuationEffect)RequireOriginal()).ApplyEffect(context);
         }
     }
 

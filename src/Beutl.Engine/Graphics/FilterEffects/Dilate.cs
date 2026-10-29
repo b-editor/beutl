@@ -18,9 +18,11 @@ public sealed partial class Dilate : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Dilate_RadiusY), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> RadiusY { get; } = Property.CreateAnimatable<float>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.Dilate(r.RadiusX, r.RadiusY);
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Dilate(RadiusX, RadiusY);
+        }
     }
 }

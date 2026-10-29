@@ -3,7 +3,7 @@
 /// <summary>
 /// Pure math helper used by the transform handle operations.
 /// Assumes the canonical [T, R, S] layout (application order S → R → T, with T outermost), and computes
-/// against the following structure of <see cref="Drawable.GetTransformMatrix"/>:
+/// against the following structure of <see cref="Drawable.Resource.GetTransformMatrix"/>:
 /// <code>screen = ((local - origin) * S_op * R_op) + T_op + origin + pt_alignment</code>
 /// </summary>
 internal static class TransformHandleMath

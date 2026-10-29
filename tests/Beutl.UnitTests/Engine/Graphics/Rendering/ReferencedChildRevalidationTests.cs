@@ -79,16 +79,21 @@ internal sealed partial class ReferencingDrawable : Drawable
 
     public bool LastRecordingObservedChange { get; private set; }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderContent(GraphicsContext2D context)
         => context.DrawNode(
             Child,
             static node => new ReferencesChildRenderNode(node),
             (reference, node) => LastRecordingObservedChange = reference.Update(node));
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderContent(context);
+
+        protected override Size MeasureCore(Size availableSize) => new(4, 4);
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 
@@ -98,7 +103,7 @@ internal sealed partial class SwitchableFaultingDrawable : Drawable
 
     public int RenderCalls { get; private set; }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderContent(GraphicsContext2D context)
     {
         RenderCalls++;
         context.DrawRectangle(new Rect(0, 0, 4, 4), Brushes.Resource.White, null);
@@ -108,9 +113,14 @@ internal sealed partial class SwitchableFaultingDrawable : Drawable
         }
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderContent(context);
+
+        protected override Size MeasureCore(Size availableSize) => new(4, 4);
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }

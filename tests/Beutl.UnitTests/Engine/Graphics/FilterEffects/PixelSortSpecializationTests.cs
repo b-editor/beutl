@@ -149,7 +149,7 @@ public sealed class PixelSortSpecializationTests
 
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         using var targets = new EffectTargets
         {
             new EffectTarget(source, s_bounds, EffectiveScale.At(1)),

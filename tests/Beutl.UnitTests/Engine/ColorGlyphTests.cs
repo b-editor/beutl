@@ -68,7 +68,7 @@ public class ColorGlyphTests
         using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
         using var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new Size(400, 160)))
-            block.Render(context, resource);
+            resource.Render(context);
 
         using var renderer = new RenderNodeRenderer(node, Request(scale));
         using RenderNodeRasterization raster = renderer.Rasterize();

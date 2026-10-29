@@ -164,7 +164,7 @@ public sealed class ShaderGraphReviewTests
             var effect = new RadialBlur { Mode = { Value = mode }, Amount = { Value = 90 }, Samples = { Value = 65 } };
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(new(0, 0, 100, 10));
-            effect.ApplyTo(context, resource);
+            context.ApplyTransactional(resource);
             using var brush = (Brush.Resource)new SolidColorBrush(Colors.White).ToResource(CompositionContext.Default);
             using var root = new FilterEffectRenderNode(resource);
             root.AddChild(new RectangleRenderNode(new(0, 0, 10, 10), brush, null));

@@ -22,56 +22,9 @@ public abstract partial class Shape : Drawable
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
     public IExpressionProperty<Brush?> Fill { get; } = Property.CreateExpression<Brush?>();
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        Geometry.Resource? geometry = r.GetGeometry();
-        if (geometry == null)
-        {
-            return default;
-        }
-
-        Size size = geometry.Bounds.Size;
-        if (r.Pen != null)
-        {
-            size = size.Inflate(ActualThickness(r.Pen));
-        }
-
-        return size;
-    }
-
     private static float ActualThickness(Pen.Resource pen)
     {
         return PenHelper.GetRealThickness(pen.StrokeAlignment, pen.Thickness);
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        Geometry.Resource? geometry = r.GetGeometry();
-        if (geometry == null)
-            return;
-
-        Matrix matrix = Matrix.Identity;
-
-        if (r.Pen != null)
-        {
-            float thickness = ActualThickness(r.Pen);
-
-            matrix *= Matrix.CreateTranslation(thickness, thickness);
-        }
-
-        using (context.PushTransform(matrix))
-        {
-            context.DrawGeometry(geometry, r.Fill, r.Pen);
-        }
-    }
-
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        // Rejects a resource that is not a shape's before drawing it the way every drawable is drawn.
-        _ = (Resource)resource;
-        base.Render(context, resource);
     }
 
     public abstract partial class Resource
@@ -79,6 +32,44 @@ public abstract partial class Shape : Drawable
         private Geometry.Resource? _geometryResource;
 
         public abstract Geometry.Resource? GetGeometry();
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            Geometry.Resource? geometry = GetGeometry();
+            if (geometry == null)
+            {
+                return default;
+            }
+
+            Size size = geometry.Bounds.Size;
+            if (Pen != null)
+            {
+                size = size.Inflate(ActualThickness(Pen));
+            }
+
+            return size;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            Geometry.Resource? geometry = GetGeometry();
+            if (geometry == null)
+                return;
+
+            Matrix matrix = Matrix.Identity;
+
+            if (Pen != null)
+            {
+                float thickness = ActualThickness(Pen);
+
+                matrix *= Matrix.CreateTranslation(thickness, thickness);
+            }
+
+            using (context.PushTransform(matrix))
+            {
+                context.DrawGeometry(geometry, Fill, Pen);
+            }
+        }
 
         /// <summary>The resource <see cref="ReconcileGeometry"/> keeps for a shape that builds its own geometry.</summary>
         private protected Geometry.Resource? GeometryResource => _geometryResource;

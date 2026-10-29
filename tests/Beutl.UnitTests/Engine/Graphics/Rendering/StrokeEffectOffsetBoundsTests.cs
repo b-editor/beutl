@@ -25,7 +25,7 @@ public class StrokeEffectOffsetBoundsTests
         var resource = effect.ToResource(CompositionContext.Default);
         var context = new FilterEffectContext(Source);
         // CustomEffect updates context.Bounds via TransformBounds — no GPU needed for the bounds pass.
-        resource.RequireOriginal().ApplyTo(context, resource);
+        context.ApplyTransactional(resource);
         return context.Bounds;
     }
 

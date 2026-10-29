@@ -119,7 +119,7 @@ public sealed class WholeSourceFilterEffectTests
         var restored = (DiagonalClipping)CoreSerializer.DeserializeFromJsonObject(json, typeof(DiagonalClipping));
         using DiagonalClipping.Resource resource = restored.ToResource(new CompositionContext(MediaTime.FromSeconds(seconds)));
         using var context = new FilterEffectContext(s_bounds);
-        context.ApplyTransactional(restored, resource);
+        context.ApplyTransactional(resource);
         ShaderDescription description = ((FEItem_Shader)context.GetOrderedItems().Single()).Description;
         Assert.Multiple(() =>
         {
@@ -233,7 +233,7 @@ public sealed class WholeSourceFilterEffectTests
         var requestedRegion = new Rect(20, 10, 30, 20);
         using FilterEffect.Resource resource = new MosaicEffect().ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(outputBounds);
-        context.ApplyTransactional(resource.RequireOriginal(), resource);
+        context.ApplyTransactional(resource);
         ShaderDescription description = ((FEItem_Shader)context.GetOrderedItems().Single()).Description;
         ShaderUniformBinding binding = description.Uniforms.Single(static item => item.Name == "origin");
         SkslUniformDeclaration declaration = description.Source.Uniforms["origin"];
@@ -294,7 +294,7 @@ public sealed class WholeSourceFilterEffectTests
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
 
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
 
         IReadOnlyList<IFEItem> items = context.GetOrderedItems();
         Assert.Multiple(() =>
@@ -326,7 +326,7 @@ public sealed class WholeSourceFilterEffectTests
         RenderResource? token = null;
         try
         {
-            context.ApplyTransactional(effect, resource);
+            context.ApplyTransactional(resource);
             token = ((FEItem_Shader)context.GetOrderedItems().Single())
                 .Description.Resources.Single().Resource;
             Assert.That(token.RegistrationState, Is.EqualTo(RenderResourceRegistrationState.Pending));

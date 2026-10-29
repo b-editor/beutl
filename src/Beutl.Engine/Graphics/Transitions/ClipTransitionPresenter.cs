@@ -13,23 +13,6 @@ internal sealed partial class ClipTransitionPresenter : Drawable
         ScanProperties<ClipTransitionPresenter>();
     }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.TransitionResource is not { IsDisposed: false } transition) return;
-
-        transition.Draw(new ClipTransitionContext(context, r.From, r.To, r.Progress));
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        return Size.Empty;
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
     public new partial class Resource
     {
         private readonly List<Drawable.Resource> _from = [];
@@ -48,6 +31,22 @@ internal sealed partial class ClipTransitionPresenter : Drawable
 
         // How far the transition has played, after its easing.
         public float Progress => _progress;
+
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            if (TransitionResource is not { IsDisposed: false } transition) return;
+
+            transition.Draw(new ClipTransitionContext(context, From, To, Progress));
+        }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return Size.Empty;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
 
         // The drawable a click on the transition selects: the incoming element's topmost drawable, or the
         // outgoing element's when the incoming side draws nothing.

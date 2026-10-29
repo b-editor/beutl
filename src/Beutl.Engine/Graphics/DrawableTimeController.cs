@@ -126,22 +126,6 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         return targetStart + baseTime;
     }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        r.Target?.Render(context);
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        return r.Target?.Measure(availableSize) ?? Size.Empty;
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
     public partial class Resource
     {
         internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
@@ -152,6 +136,20 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         internal override IReadOnlyList<FlowNode> FlowInputs => _flowInputs;
 
         public Drawable.Resource? Target => _target;
+
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            Target?.Render(context);
+        }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return Target?.Measure(availableSize) ?? Size.Empty;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
 
         partial void PostReconcile(DrawableTimeController obj, CompositionContext context)
         {

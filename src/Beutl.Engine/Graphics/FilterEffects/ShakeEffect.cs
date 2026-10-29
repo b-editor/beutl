@@ -39,28 +39,6 @@ public partial class ShakeEffect : FilterEffect
         _offset = new Random(hash).NextSingle() * 1000 - 500;
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect(
-            (time: r.Time, speed: r.Speed, strengthX: r.StrengthX, strengthY: r.StrengthY, random: _random, offset: _offset),
-            static (data, effectContext) =>
-            {
-                effectContext.ForEach((i, target) =>
-                {
-                    float a = data.time * data.speed / 100 + data.offset;
-                    float b = i + data.offset;
-                    float randomX = data.random.Perlin(a, b);
-                    float randomY = data.random.Perlin(b, a);
-                    randomX = (randomX - 0.5F) * 2F * data.strengthX;
-                    randomY = (randomY - 0.5F) * 2F * data.strengthY;
-                    randomX = ClampOffset(randomX);
-                    randomY = ClampOffset(randomY);
-                    target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
-                });
-            });
-    }
-
     private static float ClampOffset(float value)
     {
         const float maxOffset = 100_000f;
@@ -110,6 +88,28 @@ public partial class ShakeEffect : FilterEffect
             {
                 Version++;
             }
+        }
+
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            var effect = (ShakeEffect)RequireOriginal();
+            context.CustomEffect(
+                (time: Time, speed: Speed, strengthX: StrengthX, strengthY: StrengthY, random: effect._random, offset: effect._offset),
+                static (data, effectContext) =>
+                {
+                    effectContext.ForEach((i, target) =>
+                    {
+                        float a = data.time * data.speed / 100 + data.offset;
+                        float b = i + data.offset;
+                        float randomX = data.random.Perlin(a, b);
+                        float randomY = data.random.Perlin(b, a);
+                        randomX = (randomX - 0.5F) * 2F * data.strengthX;
+                        randomY = (randomY - 0.5F) * 2F * data.strengthY;
+                        randomX = ClampOffset(randomX);
+                        randomY = ClampOffset(randomY);
+                        target.Bounds = target.Bounds.Translate(new Vector(randomX, randomY));
+                    });
+                });
         }
     }
 }

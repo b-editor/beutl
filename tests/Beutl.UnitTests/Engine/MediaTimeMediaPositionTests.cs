@@ -46,7 +46,7 @@ public sealed class MediaTimeMediaPositionTests
                 bool versionBumped = false;
                 resource.Reconcile(video, new CompositionContext(at), ref versionBumped);
                 var node = new ContainerRenderNode();
-                video.DrawInternal(new GraphicsContext2D(node, new Size(16, 16)), resource);
+                resource.DrawInternal(new GraphicsContext2D(node, new Size(16, 16)));
                 if (node.Children.Single() is not VideoSourceRenderNode { Frame: var drawn } || drawn != frame)
                     mismatches.Add($"frame {frame} at {at.Flicks} flicks");
             }
@@ -95,7 +95,7 @@ public sealed class MediaTimeMediaPositionTests
             resource.Reconcile(video, context, ref versionBumped);
             using var root = new ContainerRenderNode();
             using (var drawing = new GraphicsContext2D(root, new Size(16, 16)))
-                video.DrawInternal(drawing, resource);
+                resource.DrawInternal(drawing);
             var drawableOutput = (VideoSourceRenderNode)root.Children.Single();
 
             videoNode.Time.Property!.SetValue(time);
@@ -139,7 +139,7 @@ public sealed class MediaTimeMediaPositionTests
             resource.Reconcile(video, new CompositionContext(MediaTime.FromFrames(outputFrame, new Rational(60))), ref versionBumped);
             using var root = new ContainerRenderNode();
             using (var drawing = new GraphicsContext2D(root, new Size(16, 16)))
-                video.DrawInternal(drawing, resource);
+                resource.DrawInternal(drawing);
 
             Assert.That(((VideoSourceRenderNode)root.Children.Single()).Frame, Is.EqualTo(expected));
         }

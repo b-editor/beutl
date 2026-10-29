@@ -388,7 +388,7 @@ public class FormattedTextFallbackTests
             using (var context = new GraphicsContext2D(node, new Size(800, 220)))
             {
                 context.Clear(Colors.White);
-                block.Render(context, resource);
+                resource.Render(context);
             }
             using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
             {

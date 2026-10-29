@@ -42,7 +42,7 @@ internal static class GoldenImageHarness
         using var node = new DrawableRenderNode(resource);
         using (var ctx = new GraphicsContext2D(node, logicalSize.ToSize(1), scale))
         {
-            resource.RequireOriginal().Render(ctx, resource);
+            resource.Render(ctx);
         }
 
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest

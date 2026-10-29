@@ -29,30 +29,29 @@ public sealed partial class NodeGraphDrawable : Drawable
         return resource;
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => availableSize;
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        foreach (var output in r.OutputRenderNode)
-        {
-            context.DrawNode(
-                output,
-                n => new ReferencesChildRenderNode(n),
-                (refNode, n) => refNode.Update(n));
-        }
-    }
-
     public new sealed class Resource : Drawable.Resource
     {
         private readonly GraphSnapshot _snapshot = new();
         private GraphModel? _model;
 
         public List<RenderNode> OutputRenderNode { get; private set; } = [];
+
+        protected override Size MeasureCore(Size availableSize) => availableSize;
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
+
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            foreach (var output in OutputRenderNode)
+            {
+                context.DrawNode(
+                    output,
+                    n => new ReferencesChildRenderNode(n),
+                    (refNode, n) => refNode.Update(n));
+            }
+        }
 
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {
