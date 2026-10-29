@@ -1,5 +1,6 @@
 ﻿using System.Buffers;
 using System.Diagnostics;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using Beutl.Composition;
 using Beutl.Graphics;
@@ -351,8 +352,9 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         _nonOutlineBounds.Clear();
     }
 
-    private List<ShapedRun> Shape(SKFont font, float density)
+    private List<ShapedRun> Shape(SKFont font, float density, out bool rightToLeft)
     {
+        rightToLeft = false;
         if (_shapedGlyph is { } glyph)
         {
             return [new ShapedRun(glyph.Typeface, new TextShaper.Result(
@@ -366,6 +368,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         buffer.GuessSegmentProperties();
         if (Orientation == TextRunOrientation.Upright)
             buffer.Direction = HarfBuzzSharp.Direction.TopToBottom;
+        rightToLeft = buffer.Direction == HarfBuzzSharp.Direction.RightToLeft;
+        bool letterSpacing = Orientation != TextRunOrientation.Horizontal && Spacing != 0;
         long revision = FontManager.Instance.Revision;
         if (_fontRuns is null || _fontRunsRevision != revision || !ReferenceEquals(_fontRunsPrimary, font.Typeface))
         {
@@ -378,12 +382,11 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         {
             using SKFont runFont = CreateSKFont(runs[0].Typeface, density);
             using var shaper = new TextShaper(runs[0].Typeface);
-            return [new ShapedRun(runs[0].Typeface, shaper.ShapeWithAdvance(buffer, runFont))];
+            return [new ShapedRun(runs[0].Typeface, shaper.ShapeWithAdvance(buffer, runFont, letterSpacing))];
         }
 
         var shapedRuns = new List<ShapedRun>(runs.Count);
         var shapers = new Dictionary<SKTypeface, TextShaper>();
-        bool rightToLeft = buffer.Direction == HarfBuzzSharp.Direction.RightToLeft;
         try
         {
             for (int i = 0; i < runs.Count; i++)
@@ -402,7 +405,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 runBuffer.Direction = buffer.Direction;
                 runBuffer.Language = buffer.Language;
                 runBuffer.GuessSegmentProperties();
-                shapedRuns.Add(new ShapedRun(run.Typeface, shaper.ShapeWithAdvance(runBuffer, runFont)));
+                shapedRuns.Add(new ShapedRun(run.Typeface, shaper.ShapeWithAdvance(runBuffer, runFont, letterSpacing)));
             }
         }
         finally
@@ -447,8 +450,10 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
 
         using SKFont font = ToSKFont(density);
 
-        List<ShapedRun> shapedRuns = Shape(font, density);
+        List<ShapedRun> shapedRuns = Shape(font, density, out bool rightToLeft);
         int glyphCount = shapedRuns.Sum(run => run.Result.Codepoints.Length);
+        int[]? graphemes = Orientation != TextRunOrientation.Horizontal && Spacing != 0 && _shapedGlyph is null
+            ? StringInfo.ParseCombiningCharacters(Text.ToString()) : null;
 
         using var builder = new SKTextBlobBuilder();
         using var fillBuilder = new SKPathBuilder();
@@ -464,6 +469,8 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         FontMetrics metrics = font.Metrics.ToFontMetrics();
         int glyphOffset = 0;
         int clusterCount = 0;
+        int previousGrapheme = graphemes?.Length ?? 0;
+        int graphemeSpacingIndex = 0;
         float advance = 0;
         Span<SKRect> glyphBounds = stackalloc SKRect[1];
         Span<float> glyphWidth = stackalloc float[1];
@@ -483,6 +490,21 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
                 int glyphIndex = glyphOffset + i;
                 SKPoint point = result.Points[i];
                 int spacingIndex = Orientation == TextRunOrientation.Horizontal ? glyphIndex : clusterCount - 1;
+                if (graphemes is not null)
+                {
+                    int grapheme = Array.BinarySearch(graphemes, (int)result.Clusters[i]);
+                    if (grapheme < 0)
+                        grapheme = ~grapheme - 1;
+                    if (!rightToLeft)
+                        graphemeSpacingIndex = grapheme;
+                    else if (grapheme != previousGrapheme)
+                    {
+                        // In RTL output a required ligature consumes all graphemes up to the previous cluster.
+                        graphemeSpacingIndex = graphemes.Length - previousGrapheme;
+                        previousGrapheme = grapheme;
+                    }
+                    spacingIndex = graphemeSpacingIndex;
+                }
                 if (Orientation == TextRunOrientation.Upright)
                     point.Y += advance + spacingIndex * spacing;
                 else
@@ -547,7 +569,7 @@ public class FormattedText : IEquatable<FormattedText>, IDisposable
         SKPath fillPath = fillBuilder.Detach();
         SKPath? strokePath = null;
         // Measure from the advance and the letter spacing so leading and trailing spaces count toward the width.
-        int spacingCount = Orientation == TextRunOrientation.Horizontal ? glyphCount : clusterCount;
+        int spacingCount = graphemes?.Length ?? (Orientation == TextRunOrientation.Horizontal ? glyphCount : clusterCount);
         float width = MathF.Max(0, (Math.Max(0, spacingCount - 1) * spacing) + advance);
         Rect actualBounds = fillPath.TightBounds.ToGraphicsRect();
         Rect fillBounds = actualBounds.Union(nonOutlineBounds);

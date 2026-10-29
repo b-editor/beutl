@@ -5,6 +5,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Media.Imaging;
 using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.PropertyAdapters;
 using Beutl.Testing.Headless;
@@ -40,7 +41,7 @@ public class VerticalTextEditorTests
             editor.RaiseEvent(new PropertyEditorValueChangedEventArgs<int>(1, 0, PropertyEditor.ValueConfirmedEvent));
             HeadlessTestHelpers.Render(3);
             Assert.That(block.WritingMode.Value, Is.EqualTo(WritingMode.VerticalRl));
-            Assert.That(editor.Items![1].DisplayName, Does.Contain(culture == "ja" ? "縦書き" : "Vertical"));
+            Assert.That(editor.Items![1].DisplayName, Is.EqualTo(GraphicsStrings.WritingMode_VerticalRl));
             if (Environment.GetEnvironmentVariable("BEUTL_VERTICAL_CAPTURE_DIR") is { } directory)
             {
                 using var frame = window.CaptureRenderedFrame();

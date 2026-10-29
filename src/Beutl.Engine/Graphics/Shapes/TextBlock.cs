@@ -6,6 +6,7 @@ using Beutl.Graphics.Rendering;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.Media.TextFormatting;
+using SkiaSharp;
 
 namespace Beutl.Graphics.Shapes;
 
@@ -255,13 +256,14 @@ public partial class TextBlock : Drawable
         private (Brush.Resource Resource, int Version)? _fillCache;
         private TextElements? _elements;
         private VerticalTextLayout? _verticalLayout;
+        private Dictionary<(SKTypeface Typeface, string Cluster), bool>? _verticalAlternates;
         private bool _isDirty = true;
         private long _fontRevision;
 
         internal VerticalTextLayout GetVerticalLayout()
         {
             ObjectDisposedException.ThrowIf(IsDisposed, this);
-            return _verticalLayout ??= new VerticalTextLayout(GetTextElements());
+            return _verticalLayout ??= new VerticalTextLayout(GetTextElements(), _verticalAlternates ??= []);
         }
 
         public FontStyle FontStyle { get; private set; }
@@ -312,6 +314,7 @@ public partial class TextBlock : Drawable
             _pen?.Dispose();
             _verticalLayout?.Dispose();
             _verticalLayout = null;
+            _verticalAlternates = null;
             _elements?.Dispose();
             _elements = null;
         }
@@ -351,6 +354,10 @@ public partial class TextBlock : Drawable
                 Text = text;
                 _isDirty = true;
             }
+
+            // Font selection and text changes invalidate alternates; size, spacing and paint do not.
+            if (_isDirty)
+                _verticalAlternates?.Clear();
 
             var size = context.Get(obj.Size);
             if (Size != size)

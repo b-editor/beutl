@@ -1,4 +1,6 @@
-﻿using Beutl.Composition;
+﻿using System.Collections;
+using System.Reflection;
+using Beutl.Composition;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
@@ -89,6 +91,77 @@ public class VerticalTextTests
             Assert.That(spaced[i].Bounds.X - unspaced[i].X, Is.EqualTo(i < 2 ? 0 : 10).Within(0.01),
                 "the base and its accent must move together");
         }
+    }
+
+    [TestCase("fi")]
+    [TestCase("ffi")]
+    public void SidewaysSpacing_SeparatesOptionalLigaturesOnlyWhenSpaced(string content)
+    {
+        using var text = TypefaceProvider.CreateText(content, 40);
+        text.Font = new FontFamily("Roboto");
+        text.Orientation = TextRunOrientation.Sideways;
+        int unspacedGlyphs = text.ToGeometries().Length;
+        Assert.That(unspacedGlyphs, Is.LessThan(content.Length), "the fixture must form a ligature");
+
+        text.Spacing = 10;
+        float width = text.Bounds.Width;
+        Assert.That(text.ToGeometries().Length, Is.EqualTo(content.Length));
+        text.Spacing = 20;
+        Assert.That(text.Bounds.Width - width, Is.EqualTo((content.Length - 1) * 10).Within(0.01));
+
+        text.Spacing = 0;
+        Assert.That(text.ToGeometries().Length, Is.EqualTo(unspacedGlyphs));
+        text.Orientation = TextRunOrientation.Horizontal;
+        text.Spacing = 10;
+        Assert.That(text.ToGeometries().Length, Is.EqualTo(unspacedGlyphs), "retain existing horizontal shaping");
+    }
+
+    [TestCase("👩‍💻👩‍💻", false)]
+    [TestCase("א👩‍💻", true)]
+    public void VerticalSpacing_CountsGraphemesWhenEmojiUseSeparateGlyphs(string content, bool sideways)
+    {
+        FontManager.Instance.SetFallbackFonts([], null);
+        using var text = TypefaceProvider.CreateText(content, 40);
+        text.Font = new FontFamily("Beutl Test Separate Emoji");
+        text.Orientation = sideways ? TextRunOrientation.Sideways : TextRunOrientation.Upright;
+        Assert.That(text.ToGeometries().Length, Is.GreaterThan(2), "the fixture must have separate component glyphs");
+        float before = sideways ? text.Bounds.Width : text.Bounds.Height;
+        text.Spacing = 10;
+        float after = sideways ? text.Bounds.Width : text.Bounds.Height;
+        Assert.That(after - before, Is.EqualTo(10).Within(0.01), "two graphemes have only one internal spacing gap");
+    }
+
+    [Test]
+    public void VerticalAlternates_AreReusedForTypographyAndInvalidatedForFontChanges()
+    {
+        TextBlock block = Create("ーーー");
+        block.FontFamily.Value = new FontFamily("Roboto");
+        using var resource = block.ToResource(CompositionContext.Default);
+        Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False,
+            "the Japanese fallback supplies a vertical alternate");
+        var cache = (IDictionary)typeof(TextBlock.Resource)
+            .GetField("_verticalAlternates", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(resource)!;
+        Assert.That(cache.Count, Is.EqualTo(1), "repeated punctuation shares the resolved typeface/cluster entry");
+
+        block.Size.Value = 60;
+        block.Spacing.Value = 5;
+        bool changed = false;
+        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        Assert.That(cache.Count, Is.EqualTo(1), "size and spacing do not invalidate alternate selection");
+        Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False);
+        Assert.That(cache.Count, Is.EqualTo(1));
+
+        FontManager.Instance.SetFallbackFonts([], null);
+        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        Assert.That(cache.Count, Is.Zero, "font revisions invalidate cached selections");
+        Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.True,
+            "Roboto alone has no vertical alternate for this character");
+        Assert.That(cache.Count, Is.EqualTo(1), "negative results are cached too");
+
+        block.FontFamily.Value = TypefaceProvider.Typeface().FontFamily;
+        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        Assert.That(cache.Count, Is.Zero);
+        Assert.That(resource.GetVerticalLayout().Columns.Single().Runs.Single().Sideways, Is.False);
     }
 
     [TestCase("日\n\n日\n")]
@@ -190,7 +263,7 @@ public class VerticalTextTests
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            var block = Create("「日本語」の縦書き。\n文字とABC123、長ー音。\n<size=55>大きな</size><#e04040>文字</#>\n\n<cspace=10>x\u0301x\u0301</cspace>・1\uFE0F\u20E3😀");
+            var block = Create("「日本語」の縦書き。\n文字とABC123、長ー音。\n<size=55>大きな</size><#e04040>文字</#>\n\n<cspace=10>x\u0301x\u0301</cspace>・1\uFE0F\u20E3😀\n<font='Roboto'><cspace=10>ffi</cspace></font>");
             block.Fill.Value = Brushes.Black;
             block.Pen.Value = new Pen { Brush = { Value = Brushes.Black }, Thickness = { Value = 1 } };
             using var resource = block.ToResource(CompositionContext.Default);

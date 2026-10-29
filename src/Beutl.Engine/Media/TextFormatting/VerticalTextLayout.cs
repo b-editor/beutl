@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using Beutl.Graphics;
 using Beutl.Graphics.Shapes;
+using SkiaSharp;
 
 namespace Beutl.Media.TextFormatting;
 
@@ -15,7 +16,7 @@ internal sealed class VerticalTextLayout : IDisposable
     public List<Column> Columns { get; } = [];
     public Size Size { get; private set; }
 
-    public VerticalTextLayout(TextElements elements)
+    public VerticalTextLayout(TextElements elements, Dictionary<(SKTypeface Typeface, string Cluster), bool> alternates)
     {
         try
         {
@@ -40,7 +41,7 @@ internal sealed class VerticalTextLayout : IDisposable
                     {
                         string cluster = enumerator.GetTextElement();
                         int orientation = VerticalOrientation.Get(cluster);
-                        bool sideways = orientation == 0 || (orientation == 2 && !HasVerticalAlternate(source, cluster));
+                        bool sideways = orientation == 0 || (orientation == 2 && !HasVerticalAlternate(source, cluster, alternates));
                         if (previousSideways is { } previous && previous != sideways)
                         {
                             AddRun(source, text[start..enumerator.ElementIndex], previous);
@@ -109,11 +110,19 @@ internal sealed class VerticalTextLayout : IDisposable
             * Matrix.CreateTranslation(center + (metrics.Ascent + metrics.Descent) / 2, top + run.Offset);
     }
 
-    private static bool HasVerticalAlternate(FormattedText source, string cluster)
+    private static bool HasVerticalAlternate(FormattedText source, string cluster,
+        Dictionary<(SKTypeface Typeface, string Cluster), bool> alternates)
     {
         using var font = source.ToSKFont();
         foreach (TextFontFallback.Run run in TextFontFallback.GetRuns(cluster.AsSpan(), font, source.Style, source.Weight))
         {
+            var key = (run.Typeface, cluster);
+            if (alternates.TryGetValue(key, out bool hasAlternate))
+            {
+                if (hasAlternate)
+                    return true;
+                continue;
+            }
             using var shaper = new TextShaper(run.Typeface);
             using var horizontal = new HarfBuzzSharp.Buffer();
             horizontal.AddUtf16(cluster.AsSpan(), run.Start, run.Length);
@@ -124,7 +133,9 @@ internal sealed class VerticalTextLayout : IDisposable
             vertical.GuessSegmentProperties();
             vertical.Direction = HarfBuzzSharp.Direction.TopToBottom;
             var v = shaper.ShapeWithAdvance(vertical, font);
-            if (!h.Codepoints.AsSpan().SequenceEqual(v.Codepoints))
+            hasAlternate = !h.Codepoints.AsSpan().SequenceEqual(v.Codepoints);
+            alternates.Add(key, hasAlternate);
+            if (hasAlternate)
                 return true;
         }
         return false;

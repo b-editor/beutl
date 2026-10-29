@@ -17,6 +17,7 @@ internal sealed class TextShaper : IDisposable
 {
     // SKShaper's scale: HarfBuzz reports positions in 1/512 em.
     private const int FontSizeScale = 512;
+    private static readonly Feature[] s_letterSpacingFeatures = [Feature.Parse("liga=0"), Feature.Parse("clig=0")];
 
     private readonly HarfBuzzSharp.Font _font;
 
@@ -55,9 +56,9 @@ internal sealed class TextShaper : IDisposable
         return new SKShaper.Result(result.Codepoints, result.Clusters, result.Points, result.Advance.X);
     }
 
-    public Result ShapeWithAdvance(HarfBuzzSharp.Buffer buffer, SKFont font)
+    public Result ShapeWithAdvance(HarfBuzzSharp.Buffer buffer, SKFont font, bool letterSpacing = false)
     {
-        _font.Shape(buffer);
+        _font.Shape(buffer, letterSpacing ? s_letterSpacingFeatures : []);
 
         int length = buffer.Length;
         ReadOnlySpan<GlyphInfo> infos = buffer.GetGlyphInfoSpan();
