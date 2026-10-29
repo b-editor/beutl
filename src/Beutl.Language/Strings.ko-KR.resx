@@ -3495,12 +3495,6 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>무음 기준 자동 분할</value>
   </data>
-  <data name="SilenceSplit_Description" xml:space="preserve">
-    <value>좌우 채널의 피크 레벨로 무음 구간을 감지합니다. 임계값을 조정하고 분할 위치를 미리 확인한 후 적용하세요.</value>
-  </data>
-  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>주황색은 분할 또는 삭제할 구간입니다. 확대하고 스크롤하여 세부 내용을 확인하세요. 적용 시 전체 클립을 처리합니다.</value>
-  </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>임계값 (dB)</value>
   </data>
@@ -3508,7 +3502,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>최소 무음 길이 (ms)</value>
   </data>
   <data name="SilenceSplit_Padding" xml:space="preserve">
-    <value>음성 보호 시간 (양쪽 각각, ms)</value>
+    <value>앞뒤 여백 (ms)</value>
   </data>
   <data name="SilenceSplit_Mode" xml:space="preserve">
     <value>적용 모드</value>
@@ -3517,13 +3511,16 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>분할만</value>
   </data>
   <data name="SilenceSplit_Delete" xml:space="preserve">
-    <value>분할 후 무음 삭제</value>
+    <value>무음 삭제</value>
   </data>
   <data name="SilenceSplit_Ripple" xml:space="preserve">
-    <value>분할 및 삭제 후 뒤의 클립 당기기</value>
+    <value>무음 삭제 후 당기기</value>
   </data>
   <data name="SilenceSplit_Linked" xml:space="preserve">
-    <value>그룹 요소에도 동일한 분할 및 삭제 적용</value>
+    <value>그룹 요소에도 적용</value>
+  </data>
+  <data name="SilenceSplit_Apply" xml:space="preserve">
+    <value>전체 클립에 적용</value>
   </data>
   <data name="SilenceSplit_Analyzing" xml:space="preserve">
     <value>파형 분석 중…</value>

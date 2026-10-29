@@ -32,12 +32,10 @@ public partial class SilenceSplitTabView : UserControl
         OptionsScroll.VerticalScrollBarVisibility = wide ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
         Waveform.Height = wide ? double.NaN : 112;
         Waveform.MinHeight = wide ? 0 : 64;
-        Description.IsVisible = !wide;
         PreviewPane.RowSpacing = wide ? 4 : 8;
         ParameterGroup.Padding = new(wide ? 8 : 12);
         OptionsStack.Spacing = wide ? 8 : 12;
         ModeStack.Spacing = wide ? 4 : 8;
-        SettingsHeading.IsVisible = !wide;
         FooterLayout.ColumnDefinitions = new(wide ? "*,Auto" : "*");
         FooterLayout.RowDefinitions = new(wide ? "Auto" : "Auto,Auto");
         Grid.SetColumn(ApplyButton, wide ? 1 : 0);

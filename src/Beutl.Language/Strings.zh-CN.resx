@@ -3495,12 +3495,6 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>按静音自动分割</value>
   </data>
-  <data name="SilenceSplit_Description" xml:space="preserve">
-    <value>根据左右声道的峰值检测静音区间。调整阈值，预览分割位置后再应用。</value>
-  </data>
-  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>橙色表示要分割或删除的区间。缩放和滚动可查看细节；应用时会处理整个片段。</value>
-  </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>阈值 (dB)</value>
   </data>
@@ -3508,7 +3502,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>最短静音时长 (ms)</value>
   </data>
   <data name="SilenceSplit_Padding" xml:space="preserve">
-    <value>语音保护时间（每侧，ms）</value>
+    <value>每侧留白 (ms)</value>
   </data>
   <data name="SilenceSplit_Mode" xml:space="preserve">
     <value>应用模式</value>
@@ -3517,13 +3511,16 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>仅分割</value>
   </data>
   <data name="SilenceSplit_Delete" xml:space="preserve">
-    <value>分割并删除静音</value>
+    <value>删除静音</value>
   </data>
   <data name="SilenceSplit_Ripple" xml:space="preserve">
-    <value>分割、删除并前移后续片段</value>
+    <value>删除静音并前移</value>
   </data>
   <data name="SilenceSplit_Linked" xml:space="preserve">
-    <value>对分组元素应用相同的分割和删除</value>
+    <value>同时处理分组元素</value>
+  </data>
+  <data name="SilenceSplit_Apply" xml:space="preserve">
+    <value>应用到整个片段</value>
   </data>
   <data name="SilenceSplit_Analyzing" xml:space="preserve">
     <value>正在分析波形…</value>

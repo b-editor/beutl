@@ -3495,12 +3495,6 @@ cuando el registro del historial está activado.</value>
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>Dividir automáticamente por silencio</value>
   </data>
-  <data name="SilenceSplit_Description" xml:space="preserve">
-    <value>Detecta intervalos silenciosos mediante los niveles de pico estéreo. Ajusta el umbral y revisa los cortes antes de aplicar.</value>
-  </data>
-  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>Naranja: intervalos para dividir o eliminar. Amplía y desplázate para ver los detalles; los cambios se aplican al clip completo.</value>
-  </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>Umbral (dB)</value>
   </data>
@@ -3508,7 +3502,7 @@ cuando el registro del historial está activado.</value>
     <value>Silencio mínimo (ms)</value>
   </data>
   <data name="SilenceSplit_Padding" xml:space="preserve">
-    <value>Margen de voz (ms por lado)</value>
+    <value>Margen por lado (ms)</value>
   </data>
   <data name="SilenceSplit_Mode" xml:space="preserve">
     <value>Modo de aplicación</value>
@@ -3517,13 +3511,16 @@ cuando el registro del historial está activado.</value>
     <value>Solo dividir</value>
   </data>
   <data name="SilenceSplit_Delete" xml:space="preserve">
-    <value>Dividir y eliminar silencios</value>
+    <value>Eliminar silencios</value>
   </data>
   <data name="SilenceSplit_Ripple" xml:space="preserve">
-    <value>Dividir, eliminar y desplazar los clips siguientes</value>
+    <value>Eliminar y cerrar huecos</value>
   </data>
   <data name="SilenceSplit_Linked" xml:space="preserve">
-    <value>Aplicar los mismos cortes y eliminaciones a los elementos agrupados</value>
+    <value>Incluir elementos agrupados</value>
+  </data>
+  <data name="SilenceSplit_Apply" xml:space="preserve">
+    <value>Aplicar a todo el clip</value>
   </data>
   <data name="SilenceSplit_Analyzing" xml:space="preserve">
     <value>Analizando la forma de onda…</value>

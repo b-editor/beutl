@@ -3495,12 +3495,6 @@ when history recording is enabled.</value>
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>Auto Split by Silence</value>
   </data>
-  <data name="SilenceSplit_Description" xml:space="preserve">
-    <value>Detect quiet intervals using stereo peak levels. Adjust the threshold and preview the cuts before applying.</value>
-  </data>
-  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>Orange: intervals to split or remove. Zoom and scroll to inspect details; applying affects the entire clip.</value>
-  </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>Threshold (dB)</value>
   </data>
@@ -3508,7 +3502,7 @@ when history recording is enabled.</value>
     <value>Minimum silence (ms)</value>
   </data>
   <data name="SilenceSplit_Padding" xml:space="preserve">
-    <value>Speech padding (ms per side)</value>
+    <value>Padding per side (ms)</value>
   </data>
   <data name="SilenceSplit_Mode" xml:space="preserve">
     <value>Apply mode</value>
@@ -3517,13 +3511,16 @@ when history recording is enabled.</value>
     <value>Split only</value>
   </data>
   <data name="SilenceSplit_Delete" xml:space="preserve">
-    <value>Split and delete silence</value>
+    <value>Delete silence</value>
   </data>
   <data name="SilenceSplit_Ripple" xml:space="preserve">
-    <value>Split, delete and ripple</value>
+    <value>Delete silence and ripple</value>
   </data>
   <data name="SilenceSplit_Linked" xml:space="preserve">
-    <value>Apply the same cuts and deletions to grouped elements</value>
+    <value>Include grouped elements</value>
+  </data>
+  <data name="SilenceSplit_Apply" xml:space="preserve">
+    <value>Apply to entire clip</value>
   </data>
   <data name="SilenceSplit_Analyzing" xml:space="preserve">
     <value>Analyzing waveform…</value>

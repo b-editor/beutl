@@ -3490,12 +3490,6 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>無音区間で自動分割</value>
   </data>
-  <data name="SilenceSplit_Description" xml:space="preserve">
-    <value>左右チャンネルのピーク値から無音区間を検出します。閾値を調整し、分割位置を確認してから適用できます。</value>
-  </data>
-  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>オレンジが分割・削除区間です。拡大・スクロールで細部を確認できます。適用はクリップ全体が対象です。</value>
-  </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>閾値（dB）</value>
   </data>
@@ -3503,7 +3497,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>最小無音時間（ms）</value>
   </data>
   <data name="SilenceSplit_Padding" xml:space="preserve">
-    <value>音声の前後の保護時間（ms）</value>
+    <value>前後の余白（ms）</value>
   </data>
   <data name="SilenceSplit_Mode" xml:space="preserve">
     <value>適用モード</value>
@@ -3512,13 +3506,16 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>分割のみ</value>
   </data>
   <data name="SilenceSplit_Delete" xml:space="preserve">
-    <value>分割して無音区間を削除</value>
+    <value>無音を削除</value>
   </data>
   <data name="SilenceSplit_Ripple" xml:space="preserve">
-    <value>分割・削除して後続を前詰め</value>
+    <value>無音を削除して前詰め</value>
   </data>
   <data name="SilenceSplit_Linked" xml:space="preserve">
-    <value>グループ内の映像などにも同じ分割・削除を適用する</value>
+    <value>グループにも適用</value>
+  </data>
+  <data name="SilenceSplit_Apply" xml:space="preserve">
+    <value>全体に適用</value>
   </data>
   <data name="SilenceSplit_Analyzing" xml:space="preserve">
     <value>波形を解析しています…</value>
