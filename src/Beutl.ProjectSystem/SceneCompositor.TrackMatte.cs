@@ -27,17 +27,19 @@ public sealed partial class SceneCompositor
     private void ApplyTrackMatte(
         Element element, int sourceZIndex, CompositorContext context, PooledList<EngineObject.Resource> flow)
     {
-        TrackMatteContent source = GetMatteSource(sourceZIndex, context.GraphicsState!);
+        TrackMatteContent source = GetMatteSource(sourceZIndex, context);
         TrackMattePresenter presenter = _mattePresenters.GetValue(element, static _ => new());
         presenter.ZIndex.Value = element.ZIndex.Value;
+        presenter.TimeRange.Value = element.Range;
         var resource = (TrackMattePresenter.Resource)GetOrCreateResource(presenter, context);
         resource.SetInputs(flow.Span, source, element.MatteMode.Value);
         flow.Clear();
         flow.Add(resource);
     }
 
-    private TrackMatteContent GetMatteSource(int zIndex, GraphicsFrameState state)
+    private TrackMatteContent GetMatteSource(int zIndex, CompositorContext parent)
     {
+        GraphicsFrameState state = parent.GraphicsState!;
         if (state.Sources.TryGetValue(zIndex, out TrackMatteContent? source)) return source;
         if (!state.ResolvingSources.Add(zIndex)) return new TrackMatteContent();
 
@@ -49,11 +51,13 @@ public sealed partial class SceneCompositor
             SortLayers(state.Time, elements, CompositionTarget.Graphics, ignoreSolo: true);
             using var objects = new PooledList<EngineObject>();
             using var flow = new PooledList<EngineObject.Resource>();
-            var context = new CompositorContext(state.Time, this, flow, elements, CompositionTarget.Graphics)
+            var context = new CompositorContext(state.Time, this, flow, elements, CompositionTarget.Graphics,
+                (EvaluationServices)parent.EvaluationServices!)
             {
                 GraphicsState = state,
                 IsMatteSource = true,
             };
+            context.InheritConditions(parent);
             for (int i = 0; i < elements.Count; i++)
             {
                 if (elements[i].ZIndex.Value == zIndex)

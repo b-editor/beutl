@@ -15,7 +15,7 @@ public sealed partial class ElementView
 
         IEnumerable<int> layers = viewModel.Scene.Layers.Select(layer => layer.ZIndex.Value)
             .Concat(viewModel.Scene.Children.Select(element => element.ZIndex.Value))
-            .Where(z => z < viewModel.Model.ZIndex.Value);
+            .Where(z => z != viewModel.Model.ZIndex.Value);
         // Keep a saved reference selectable after a layer move, or while its layer is empty.
         if (viewModel.Model.MatteSourceZIndex.Value is { } selected) layers = layers.Append(selected);
         foreach (int zIndex in layers.Distinct().Order())

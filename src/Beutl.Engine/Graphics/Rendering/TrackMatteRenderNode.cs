@@ -18,16 +18,38 @@ internal sealed class TrackMatteRenderNode(MatteMode mode, Rect domain) : Contai
 
     public override void Process(RenderNodeContext context)
     {
-        RenderFragmentHandle content = context.Inputs[0];
-        RenderFragmentHandle matte = context.Inputs[1];
+        RenderFragmentHandle[] inputs = context.Inputs.Take(context.Inputs.Count - 1).ToArray();
+        RenderFragmentHandle matte = context.Inputs[^1];
         if (mode is MatteMode.Luma or MatteMode.InvertedLuma)
             matte = context.Shader(matte, BuiltInColorFilterShader.LumaColor());
 
+        RenderFragmentHandle? backdrop = null;
+        if (inputs.Any(static input => !input.CanBeUsedAsValueInput))
+        {
+            // Blend and other target work must see the scene, not an empty matte buffer. Capture
+            // before entering any layer, then mask the completed change against the original target.
+            context.DisableRenderCache();
+            RenderFragmentHandle capture = context.TargetCapture(TargetCaptureDescription.Create(
+                TargetRegion.Region(domain), domain, RenderHitTestContract.None,
+                TargetCaptureScaleContract.PreserveTargetSupply));
+            context.Publish(capture);
+            backdrop = context.ContributeValues(capture);
+        }
+
+        RenderFragmentHandle content = context.Layer(backdrop == null ? inputs : [backdrop, .. inputs], domain);
         BlendMode blend = mode is MatteMode.InvertedAlpha or MatteMode.InvertedLuma
             ? BlendMode.DstOut : BlendMode.DstIn;
         // The finite layer includes transparent pixels outside the source's geometry. DstIn must
         // clear those pixels too, without touching any of the scene's layers behind this element.
-        context.Publish(context.Layer([content, context.Blend(matte, blend)], domain, s_hitTest));
+        RenderFragmentHandle masked = context.Layer([content, context.Blend(matte, blend)], domain, s_hitTest);
+        if (backdrop != null)
+        {
+            BlendMode inverse = blend == BlendMode.DstIn ? BlendMode.DstOut : BlendMode.DstIn;
+            RenderFragmentHandle untouched = context.Layer([backdrop, context.Blend(matte, inverse)], domain);
+            // Premultiplied interpolation also preserves erasing blends and partially transparent mattes.
+            masked = context.Blend(context.Layer([masked, context.Blend(untouched, BlendMode.Plus)], domain, s_hitTest), BlendMode.Src);
+        }
+        context.Publish(masked);
     }
 }
 

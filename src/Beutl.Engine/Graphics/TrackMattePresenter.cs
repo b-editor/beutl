@@ -1,4 +1,5 @@
-﻿using Beutl.Engine;
+﻿using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Graphics.Rendering;
 
 namespace Beutl.Graphics;
@@ -52,6 +53,11 @@ internal sealed class TrackMatteContent
 // Like a clip transition presenter, this is compositor-owned and never saved into the document.
 internal sealed partial class TrackMattePresenter : Drawable
 {
+    // Stable flow anchors keep the content and mask distinguishable when a controller replays them.
+    private readonly DrawableGroup _contentInput = new();
+    private readonly DrawableGroup _matteInput = new();
+    private MatteMode _mode;
+
     public TrackMattePresenter()
     {
         ScanProperties<TrackMattePresenter>();
@@ -67,13 +73,8 @@ internal sealed partial class TrackMattePresenter : Drawable
                    static p => new TrackMatteRenderNode(p.Mode, p.domain),
                    static (node, p) => node.Update(p.Mode, p.domain)))
         {
-            using (context.PushNode(domain,
-                       static bounds => new TrackMatteLayerRenderNode(bounds),
-                       static (node, bounds) => node.Update(bounds)))
-            {
-                foreach (Drawable.Resource drawable in r.Content.Drawables)
-                    context.DrawDrawable(drawable);
-            }
+            foreach (Drawable.Resource drawable in r.Content.Drawables)
+                context.DrawDrawable(drawable);
 
             context.DrawNode((matte, context.Size, context.OutputScale),
                 static p => new TrackMatteSourceRenderNode(p.matte, p.Size, p.OutputScale),
@@ -90,6 +91,12 @@ internal sealed partial class TrackMattePresenter : Drawable
     public new partial class Resource
     {
         private int _matteVersion = -1;
+        private IReadOnlyList<FlowNode> _flowInputs = [];
+        private DrawableGroup.Resource? _replayedContent;
+        private DrawableGroup.Resource? _replayedSource;
+        private readonly TrackMatteContent _replayedMatte = new();
+
+        internal override IReadOnlyList<FlowNode> FlowInputs => _flowInputs;
 
         public TrackMatteContent Content { get; } = new();
 
@@ -99,6 +106,8 @@ internal sealed partial class TrackMattePresenter : Drawable
 
         internal void SetInputs(ReadOnlySpan<EngineObject.Resource> content, TrackMatteContent matte, MatteMode mode)
         {
+            var original = (TrackMattePresenter)RequireOriginal();
+            original._mode = mode;
             bool changed = Content.Update(content);
             if (Matte != matte || _matteVersion != matte.Version || Mode != mode)
             {
@@ -108,13 +117,42 @@ internal sealed partial class TrackMattePresenter : Drawable
                 changed = true;
             }
 
+            FlowNode contentNode = Capture(original._contentInput, Content.Drawables, _flowInputs.FirstOrDefault());
+            FlowNode matteNode = Capture(original._matteInput, matte.Drawables, _flowInputs.LastOrDefault());
+            if (_flowInputs.Count != 2 || !ReferenceEquals(contentNode, _flowInputs[0]) || !ReferenceEquals(matteNode, _flowInputs[1]))
+            {
+                _flowInputs = [contentNode, matteNode];
+                changed = true;
+            }
+
             if (changed) Version++;
+        }
+
+        private static FlowNode Capture(DrawableGroup anchor, IReadOnlyList<Drawable.Resource> drawables, FlowNode? previous)
+        {
+            FlowNode[] inputs = drawables.Select(FlowNode.Capture).OfType<FlowNode>().ToArray();
+            return previous != null && previous.Inputs.SequenceEqual(inputs)
+                ? previous : new FlowNode(anchor, inputs);
+        }
+
+        partial void PostReconcile(TrackMattePresenter obj, CompositionContext context)
+        {
+            if (context.ReplayedFlow is not { } replay || !ReferenceEquals(replay.Object, obj)) return;
+            bool changed = false;
+            replay.Inputs[0].Reconcile(context, ref _replayedContent, ref changed);
+            replay.Inputs[1].Reconcile(context, ref _replayedSource, ref changed);
+            _replayedMatte.Update([.. _replayedSource!.Children]);
+            SetInputs([.. _replayedContent!.Children], _replayedMatte, obj._mode);
         }
 
         partial void PostDispose(bool disposing)
         {
             Content.Update([]);
             Matte = null;
+            _flowInputs = [];
+            _replayedContent?.Dispose();
+            _replayedSource?.Dispose();
+            _replayedMatte.Update([]);
         }
     }
 }

@@ -1,4 +1,6 @@
 ﻿using Beutl.Composition;
+using Beutl.Graphics;
+using Beutl.Media;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Editor;
@@ -33,11 +35,61 @@ internal readonly struct SceneLayerSkipModel
         return new SceneLayerSkipModel(byZIndex, hasSolo);
     }
 
-    public bool ShouldSkip(int zIndex, CompositionTarget target)
+    public bool ShouldSkip(int zIndex, CompositionTarget target, bool ignoreSolo = false)
     {
         _byZIndex.TryGetValue(zIndex, out TimelineLayer? layer);
-        if (_hasSolo && (layer is null || !layer.IsSolo.Value)) return true;
+        if (!ignoreSolo && _hasSolo && (layer is null || !layer.IsSolo.Value)) return true;
         if (layer is null) return false;
         return target == CompositionTarget.Graphics ? layer.IsVideoMuted.Value : layer.IsAudioMuted.Value;
+    }
+
+    // Both preflight entry points follow the same output and matte dependencies. A matte ignores solo
+    // and output visibility, but still obeys enable/mute and is needed only while its consumer is active.
+    public static IEnumerable<(Element Element, TimeRange Window)> EnumerateRenderableElements(
+        Scene scene, CompositionTarget target, TimeRange? window)
+    {
+        SceneLayerSkipModel layers = Build(scene);
+        var visiting = new HashSet<Element>();
+        foreach (Element element in scene.Children)
+            foreach (var item in Visit(element, window, false))
+                yield return item;
+
+        IEnumerable<(Element, TimeRange)> Visit(Element element, TimeRange? requested, bool matte)
+        {
+            if (!element.IsEnabled.Value
+                || layers.ShouldSkip(element.ZIndex.Value, target, ignoreSolo: matte)
+                || (target == CompositionTarget.Graphics && !matte && !element.IsVisibleInOutput.Value))
+                yield break;
+
+            TimeRange active = requested ?? element.Range;
+            if (active.IsEmpty ? !element.Range.Contains(active.Start) : !element.Range.Intersects(active))
+                yield break;
+            if (!active.IsEmpty)
+            {
+                MediaTime start = active.Start > element.Start.Value ? active.Start : element.Start.Value;
+                MediaTime end = active.End < element.Range.End ? active.End : element.Range.End;
+                active = new TimeRange(start, end - start);
+            }
+
+            if (!visiting.Add(element)) yield break;
+            try
+            {
+                yield return (element, active);
+                if (target == CompositionTarget.Graphics && element.MatteMode.Value != MatteMode.None
+                    && element.MatteSourceZIndex.Value is { } source)
+                {
+                    foreach (Element candidate in scene.Children)
+                    {
+                        if (candidate.ZIndex.Value != source) continue;
+                        foreach (var item in Visit(candidate, active, true))
+                            yield return item;
+                    }
+                }
+            }
+            finally
+            {
+                visiting.Remove(element);
+            }
+        }
     }
 }

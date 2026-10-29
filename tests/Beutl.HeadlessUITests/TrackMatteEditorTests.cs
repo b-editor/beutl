@@ -181,6 +181,35 @@ public sealed class TrackMatteEditorTests
     }
 
     [AvaloniaTest]
+    public async Task ContextMenu_OffersUnselectedLayersAboveAndBelowTheTarget()
+    {
+        (EditViewModel editor, TimelineTabViewModel timeline, _, Element target) = await Open();
+        var below = new Element { ZIndex = { Value = 3 }, Length = { Value = MediaTime.FromSeconds(4) } };
+        below.Objects.Add(new RectShape());
+        editor.Scene.Children.Add(below);
+        editor.HistoryManager.Commit();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 640, Height = 550 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            FAMenuFlyoutSubItem menu = OpenMatteMenu(FindElement(view, target));
+            FAMenuFlyoutSubItem sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
+            OpenSubMenu(sources);
+            Assert.That(sources.Items.OfType<FAToggleMenuFlyoutItem>().Select(item => item.Text),
+                Is.EqualTo(new[] { StatusStrings.None, "0", "3" }));
+            HeadlessCapture.SaveIfRequested(Item(sources, "3"), "track-matte", "sources-both-sides");
+            HeadlessTestHelpers.Click(Item(sources, "3"), move: true);
+            Assert.That(target.MatteSourceZIndex.Value, Is.EqualTo(3));
+            Assert.That(timeline.GetViewModelFor(target)!.MatteIndicator.Value, Is.EqualTo("↓ 3"));
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(target.MatteSourceZIndex.Value, Is.Null);
+        }
+        finally { TimelineTestHost.Close(view, window); }
+    }
+
+    [AvaloniaTest]
     public async Task EditingAHiddenSource_InvalidatesItsCachedOutput_OnEditAndUndo()
     {
         (EditViewModel editor, _, Element source, Element target) = await Open();

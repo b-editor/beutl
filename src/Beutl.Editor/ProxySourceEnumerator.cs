@@ -349,20 +349,24 @@ public static partial class ProxySourceEnumerator
         if (!visitedScenes.Add(key))
             yield break;
 
-        SceneLayerSkipModel layerSkip = SceneLayerSkipModel.Build(scene);
         try
         {
+            if (skipDisabledElements && renderTarget is { } target)
+            {
+                foreach ((Element child, TimeRange active) in SceneLayerSkipModel.EnumerateRenderableElements(scene, target, referencedSceneWindow))
+                {
+                    foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, true, target,
+                                 active.SubtractStart(child.Start.Value), active))
+                        yield return source;
+                }
+                yield break;
+            }
+
             foreach (Element child in scene.Children)
             {
                 // A disabled child never renders through SceneCompositor.SortLayers, so export preflight
                 // must not demand its original file exist; the render-independent IsEnabled gate applies.
                 if (skipDisabledElements && !child.IsEnabled.Value)
-                    continue;
-
-                // SortLayers also drops a muted / non-solo layer for the pass it composes, so the embedded
-                // scene never reads that child's source for this target — preflight must skip it too. Only
-                // in the export-preflight walk (skipDisabledElements), and only for a concrete target.
-                if (skipDisabledElements && renderTarget is { } skipTarget && layerSkip.ShouldSkip(child.ZIndex.Value, skipTarget))
                     continue;
 
                 // SortLayers only composes a child whose range intersects the sampled time, so a child

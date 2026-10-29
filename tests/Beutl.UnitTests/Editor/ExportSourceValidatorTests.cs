@@ -75,6 +75,48 @@ public sealed class ExportSourceValidatorTests
         });
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void MatteSources_FollowSoloTargets_AndSkipUnusedHiddenGraphics(bool nested, bool singleFrame)
+    {
+        string required = Path.Combine(_root, "matte.png");
+        string unused = Path.Combine(_root, "unused.png");
+        var scene = new Scene(64, 32, string.Empty);
+        Element matte = CreateImageElement(_root, required);
+        matte.IsVisibleInOutput.Value = false;
+        Element hidden = CreateImageElement(_root, unused);
+        hidden.ZIndex.Value = 2;
+        hidden.IsVisibleInOutput.Value = false;
+        Element target = ElementWith(_root, new RectShape());
+        target.ZIndex.Value = 1;
+        target.MatteSourceZIndex.Value = 0;
+        target.MatteMode.Value = MatteMode.Alpha;
+        scene.Children.AddRange([matte, target, hidden]);
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsSolo = { Value = true } });
+        Scene root = scene;
+        if (nested)
+        {
+            root = new Scene(64, 32, string.Empty);
+            var embedded = new SceneDrawable();
+            embedded.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, scene);
+            root.Children.Add(ElementWith(_root, embedded));
+        }
+
+        IReadOnlySet<string> Collect() => singleFrame
+            ? ExportSourceValidator.CollectRenderableSources(root, MediaTime.Zero)
+            : ExportSourceValidator.CollectRenderableSources(root, s_wholeScene);
+
+        Assert.That(Collect(), Is.EquivalentTo(new[] { required }));
+        scene.Layers[0].IsSolo.Value = false;
+        target.MatteMode.Value = MatteMode.None;
+        Assert.That(Collect(), Is.Empty, "unused hidden graphics do not block export or Save Frame");
+        target.MatteMode.Value = MatteMode.Alpha;
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsVideoMuted = { Value = true } });
+        Assert.That(Collect(), Is.Empty, "matte sources still obey video mute");
+    }
+
     // A SceneDrawable renders only the referenced scene's graphics (SceneDrawable.EvaluateGraphics), so
     // a missing image inside it blocks export, but an audio-only Sound the video render never opens must
     // not — even for a full export. A SceneSound (below) is what pulls that scene's audio.
@@ -103,6 +145,36 @@ public sealed class ExportSourceValidatorTests
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
 
         Assert.That(missing, Is.EqualTo(new[] { missingImage }));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void MatteSources_UseTheConsumerWindow_WithoutHidingAudioOrRecursingCycles(bool cyclic)
+    {
+        string required = Path.Combine(_root, "early.png");
+        string audio = Path.Combine(_root, "hidden.wav");
+        var scene = new Scene(64, 32, string.Empty);
+        Element early = CreateImageElement(_root, required);
+        early.Length.Value = MediaTime.FromSeconds(1);
+        early.IsVisibleInOutput.Value = false;
+        Element late = CreateImageElement(_root, Path.Combine(_root, "late.png"));
+        late.Start.Value = MediaTime.FromSeconds(3);
+        late.IsVisibleInOutput.Value = false;
+        Element target = ElementWith(_root, new RectShape(), length: MediaTime.FromSeconds(1));
+        target.ZIndex.Value = 1;
+        target.MatteSourceZIndex.Value = 0;
+        target.MatteMode.Value = MatteMode.Alpha;
+        if (cyclic)
+        {
+            early.MatteSourceZIndex.Value = 1;
+            early.MatteMode.Value = MatteMode.Alpha;
+        }
+        Element sound = CreateSoundElement(_root, audio);
+        sound.ZIndex.Value = 2;
+        sound.IsVisibleInOutput.Value = false;
+        scene.Children.AddRange([early, late, target, sound]);
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene),
+            Is.EquivalentTo(new[] { required, audio }));
     }
 
     // An embed renders the referenced scene from its own window start, so a clip before that window is

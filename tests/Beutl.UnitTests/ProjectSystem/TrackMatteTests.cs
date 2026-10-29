@@ -118,6 +118,78 @@ public sealed class TrackMatteTests
         Assert.That(Pixel(removed, 8, 16).A, Is.Zero);
     }
 
+    [TestCase(BlendMode.Multiply, 255, 0, 255)]
+    [TestCase(BlendMode.Multiply, 128, 187, 255)]
+    [TestCase(BlendMode.DstOut, 255, 0, 0)]
+    [TestCase(BlendMode.DstOut, 128, 255, 127)]
+    public void Matte_PreservesBlendingAgainstTheScene(BlendMode blend, int maskAlpha, int red, int alpha)
+    {
+        (Scene scene, _, Element target) = CreateScene(MatteMode.Alpha, Color.FromArgb((byte)maskAlpha, 255, 255, 255));
+        ((Drawable)target.Objects[0]).BlendMode.Value = blend;
+        Add(scene, -1, Rect(Colors.Red));
+        using var preview = new SceneRender(scene);
+        using var delivery = new SceneRender(scene, RenderIntent.Delivery);
+        using Bitmap actual = preview.Draw();
+        using Bitmap exported = delivery.Draw();
+        Assert.Multiple(() =>
+        {
+            Assert.That(Pixel(actual, 8, 16).R, Is.EqualTo(red).Within(2));
+            Assert.That(Pixel(actual, 8, 16).B, Is.Zero);
+            Assert.That(Pixel(actual, 8, 16).A, Is.EqualTo(alpha).Within(2));
+            Assert.That(Pixel(actual, 48, 16).R, Is.EqualTo(255), "unmasked backdrop survives");
+            Assert.That(Pixel(actual, 48, 16).A, Is.EqualTo(255));
+            Assert.That(actual.GetRow<Bgra8888>(16).ToArray(), Is.EqualTo(exported.GetRow<Bgra8888>(16).ToArray()));
+        });
+    }
+
+    [Test]
+    public void PortalAndTimeController_ReplayBothMatteInputsAtTheAdjustedTime()
+    {
+        (Scene scene, Element source, Element target) = CreateScene(MatteMode.InvertedAlpha, Colors.White);
+        target.ZIndex.Value = 3;
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 16 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = Seconds(1) }, Value = { Value = 48 } });
+        ((RectShape)source.Objects[0]).Width.SetKeyFrameAnimation(animation);
+        var portal = new Element { ZIndex = { Value = 2 }, Length = { Value = Seconds(4) } };
+        portal.Objects.Add(new PortalObject { Count = { Value = 1 } });
+        var controller = new DrawableTimeController();
+        portal.Objects.Add(controller);
+        scene.Children.Add(portal);
+        using var render = new SceneRender(scene);
+        using Bitmap initial = render.Draw();
+        Assert.That(Pixel(initial, 24, 16).A, Is.EqualTo(255), "default controller preserves the imported matte");
+        controller.OffsetPosition.Value = Seconds(1);
+        using Bitmap offset = render.Draw();
+        Assert.That(Pixel(offset, 24, 16).A, Is.Zero, "matte animation follows the replay time");
+        Assert.That(Pixel(offset, 56, 16).B, Is.EqualTo(255), "content and inverted mode survive replay");
+        controller.OffsetPosition.Value = MediaTime.Zero;
+        using Bitmap restored = render.Draw();
+        Assert.That(Pixel(restored, 24, 16).A, Is.EqualTo(255));
+    }
+
+    [Test]
+    public void Matte_BlendsMultipleDrawablesAsOneMaskedChange_AndRefreshesTheBackdrop()
+    {
+        (Scene scene, _, Element target) = CreateScene(MatteMode.Alpha, Color.FromArgb(128, 255, 255, 255));
+        RectShape eraser = Rect(Colors.White, 16);
+        eraser.BlendMode.Value = BlendMode.DstOut;
+        target.Objects.Add(eraser);
+        RectShape background = Rect(Colors.Red);
+        Add(scene, -1, background);
+        using var render = new SceneRender(scene);
+        for (int frame = 0; frame < 6; frame++) render.Draw().Dispose();
+        using Bitmap first = render.Draw();
+        Assert.That(Pixel(first, 8, 16).A, Is.EqualTo(127).Within(2));
+        // The working surface is linear; half intensity becomes about 188 in the sRGB snapshot.
+        Assert.That(Pixel(first, 24, 16).R, Is.EqualTo(187).Within(2));
+        Assert.That(Pixel(first, 24, 16).B, Is.EqualTo(188).Within(2));
+        background.Fill.Value = new SolidColorBrush(Colors.Lime);
+        using Bitmap changed = render.Draw();
+        Assert.That(Pixel(changed, 24, 16).G, Is.EqualTo(187).Within(2));
+        Assert.That(Pixel(changed, 48, 16).G, Is.EqualTo(255));
+    }
+
     [Test]
     public void SharedSource_IsRecordedOncePerFrame_AndRefreshesAfterAnEdit()
     {
