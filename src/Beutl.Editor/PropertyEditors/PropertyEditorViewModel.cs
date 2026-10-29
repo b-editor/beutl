@@ -77,7 +77,7 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
                 .Select(_ => engineProperty.GetPropertyAnimation() as IComponentAnimation)
                 .StartWith(engineProperty.GetPropertyAnimation() as IComponentAnimation)
                 .DistinctUntilChanged().ToReadOnlyReactivePropertySlim().AddTo(Disposables)
-            : Observable.Return<IComponentAnimation?>(null).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
+            : Observable.ReturnThenNever<IComponentAnimation?>(null).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
 
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
             ? anm.ObserveAnimation.Select(x => x != null)

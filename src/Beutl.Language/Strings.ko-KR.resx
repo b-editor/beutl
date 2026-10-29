@@ -3492,4 +3492,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>기기 추가</value>
   </data>
+  <data name="SeparateComponents" xml:space="preserve">
+    <value>구성 요소 분리</value>
+  </data>
 </root>

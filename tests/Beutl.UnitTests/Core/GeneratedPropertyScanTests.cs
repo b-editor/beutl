@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Text;
+using Beutl.Animation;
 using Beutl.Configuration;
 using Beutl.Engine;
 using Beutl.NodeGraph;
@@ -90,6 +91,10 @@ public class GeneratedPropertyScanTests
     {
         if (!type.IsGenericTypeDefinition)
             return [type];
+
+        // Component animations require a supported aggregate and its matching scalar type.
+        if (type == typeof(ComponentAnimation<,>))
+            return [typeof(ComponentAnimation<Beutl.Graphics.Point, float>)];
 
         IEnumerable<Type> constrained = type.GetGenericArguments()[0].GetGenericParameterConstraints()
             .Where(constraint => constraint.IsClass)

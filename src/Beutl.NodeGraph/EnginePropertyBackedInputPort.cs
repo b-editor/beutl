@@ -175,7 +175,7 @@ public class NodePortExpression<T> : IReplacingExpression<T>, INodePortExpressio
     // Keyframes below the connection are written under "Animations".
     JsonNode? IReplacedExpressionHolder.ReplacedToNode()
     {
-        return Replaced is null or KeyFrameAnimation<T> ? null : Expression.ToNode(Replaced);
+        return Replaced is null or IPropertyAnimation<T> ? null : Expression.ToNode(Replaced);
     }
 
     void IReplacedExpressionHolder.ReplacedFromNode(JsonNode node)

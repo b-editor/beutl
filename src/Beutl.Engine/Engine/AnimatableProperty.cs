@@ -129,7 +129,6 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
         }
 
         ExpressionChanged?.Invoke(chain);
-        Edited?.Invoke(this, EventArgs.Empty);
         if (keyFrames != oldKeyFrames)
         {
             PropertyValueOwnership.Reparent(_owner, oldKeyFrames, keyFrames);
@@ -138,6 +137,8 @@ public class AnimatableProperty<T> : IExpressionProperty<T>, IExpressionChainHos
             if (keyFrames != null)
                 keyFrames.Edited += OnChildEdited;
         }
+        // Editors must see the tracks after attachment has established their time origin.
+        Edited?.Invoke(this, EventArgs.Empty);
     }
 
     public void operator <<=(T value)

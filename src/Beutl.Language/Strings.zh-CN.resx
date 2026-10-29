@@ -3492,4 +3492,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>添加设备</value>
   </data>
+  <data name="SeparateComponents" xml:space="preserve">
+    <value>分离分量</value>
+  </data>
 </root>

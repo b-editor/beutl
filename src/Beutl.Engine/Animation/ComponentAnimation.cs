@@ -61,7 +61,9 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         {
             var component = _components[i];
             TComponent current = component.Value;
-            if (component.GetKeyFrameAnimation() is { KeyFrames.Count: > 0 } animation)
+            if (component.HasExpression)
+                current = component.Evaluate(new EvaluationContext(time));
+            else if (component.GetKeyFrameAnimation() is { KeyFrames.Count: > 0 } animation)
             {
                 var (before, after) = animation.GetPreviousAndNextKeyFrame(animation.ToLocal(time));
                 current = ((KeyFrame<TComponent>)(after ?? before)!).Value.Value!;

@@ -212,6 +212,68 @@ public class ComponentAnimationTests
     }
 
     [AvaloniaTest]
+    [TestCase(5, 10, 20)]
+    [TestCase(6, 30, 40)]
+    public async Task Separating_at_an_offset_refreshes_the_combined_editor(int time, float x, float y)
+    {
+        await TestReset.ResetShellAsync();
+        using var scope = await GraphScope.CreateAsync();
+        var owner = new ComponentTestObject<Vector2>();
+        scope.Model.Element!.Objects.Add(owner);
+        owner.IsTimeAnchor.Value = true;
+        owner.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
+        var animation = new KeyFrameAnimation<Vector2>();
+        for (int i = 0; i < 3; i++)
+            animation.KeyFrames.Add(new KeyFrame<Vector2>
+            {
+                KeyTime = { Value = MediaTime.FromSeconds(i * 2) },
+                Value = { Value = new Vector2(10 + i * 20, 20 + i * 20) }
+            });
+        owner.Value.SetKeyFrameAnimation(animation);
+        var clock = (IEditorClock)scope.Model.EditorContext.GetService(typeof(IEditorClock))!;
+        clock.Seek(MediaTime.FromSeconds(time));
+        using var vm = new ValueEditorViewModel<Vector2>(new AnimatablePropertyAdapter<Vector2>(owner.Value, owner));
+        vm.Accept(new PropertyEditorTestHost.ServiceVisitor((typeof(IEditorClock), clock), (typeof(HistoryManager), scope.Model.HistoryManager)));
+        vm.SeparateComponents();
+        Assert.That(vm.Value.Value, Is.EqualTo(new Vector2(x, y)));
+        vm.SetValue(vm.Value.Value with { X = 75 });
+        var split = (IComponentAnimation<Vector2>)owner.Value.GetPropertyAnimation()!;
+        Assert.That(split.GetEditingValue(clock.CurrentTime.Value), Is.EqualTo(new Vector2(75, y)));
+        Assert.That(split.Components[1].GetKeyFrameAnimation()!.KeyFrames.Select(key => key.Value),
+            Is.EqualTo(new object[] { 20f, 40f, 60f }));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Combined_color_evaluates_component_expressions_and_keeps_editable_key_endpoints(bool roundTrip)
+    {
+        var brush = new SolidColorBrush();
+        var split = ComponentAnimations.Separate(brush.Color);
+        var red = (AnimatableProperty<byte>)split.Components.Single(p => p.Name == "R");
+        red.SetKeyFrameAnimation(new KeyFrameAnimation<byte>
+        {
+            KeyFrames =
+            {
+                new KeyFrame<byte> { Value = { Value = 100 } },
+                new KeyFrame<byte> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = 200 } }
+            }
+        });
+        using var vm = new ValueEditorViewModel<BColor>((IPropertyAdapter<BColor>)PropertyAdapterFactory.CreateAdapter(brush.Color, brush));
+        red.Expression = Expression.Create<byte>("(byte)(Time * 10)");
+        Assert.That(vm.Value.Value, Is.EqualTo(Colors.Cyan), "an expression edit refreshes the existing picker");
+        if (roundTrip)
+            brush = (SolidColorBrush)CoreSerializer.DeserializeFromJsonObject(CoreSerializer.SerializeToJsonObject(brush), typeof(SolidColorBrush));
+        split = (IComponentAnimation)brush.Color.GetPropertyAnimation()!;
+        var components = (IComponentAnimation<BColor>)split;
+        using var reopened = new ValueEditorViewModel<BColor>((IPropertyAdapter<BColor>)PropertyAdapterFactory.CreateAdapter(brush.Color, brush));
+        Assert.That(reopened.Value.Value, Is.EqualTo(Colors.Cyan));
+        Assert.That(components.GetEditingValue(MediaTime.FromSeconds(1)).R, Is.EqualTo(10));
+        ((IExpressionProperty<byte>)split.Components.Single(p => p.Name == "R")).Expression = null;
+        Assert.That(components.GetEditingValue(MediaTime.FromSeconds(1)).R, Is.EqualTo(200), "ordinary keys use the editable endpoint");
+    }
+
+    [AvaloniaTest]
     public async Task Combined_editor_tracks_owner_moves_without_seeking()
     {
         await TestReset.ResetShellAsync();
