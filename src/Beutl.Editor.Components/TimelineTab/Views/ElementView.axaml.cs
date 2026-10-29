@@ -39,9 +39,17 @@ public sealed partial class ElementView : UserControl
     private ElementEdge? _draggingTransitionEdge;
     private double _transitionDragStartX;
     private MediaTime _transitionDragStartDuration;
+    private readonly Action<Visual, ulong> _alignmentFeedback;
+    private MediaTime? _lastSnapTarget;
 
     public ElementView()
+        : this(NativeHapticFeedback.PerformAlignment)
     {
+    }
+
+    internal ElementView(Action<Visual, ulong> alignmentFeedback)
+    {
+        _alignmentFeedback = alignmentFeedback;
         InitializeComponent();
         TimelineEditingModeMenu.Populate(editingModeMenu, "Timeline.");
 
@@ -407,15 +415,14 @@ public sealed partial class ElementView : UserControl
         }
     }
 
-    private MediaTime RoundStartTime(MediaTime time, float scale, bool flag, int? sameZIndex = null)
+    private SnapResult SnapTime(MediaTime time, float scale, bool disabled, int? sameZIndex = null)
     {
         Element model = ViewModel.Model;
         TimelineTabViewModel timeline = ViewModel.Timeline;
 
-        if (flag || !timeline.IsSnapEnabled.Value)
+        if (disabled || !timeline.IsSnapEnabled.Value)
         {
-            timeline.SnapBarPosition.Value = null;
-            return time;
+            return new SnapResult(time, false);
         }
 
         IEditorClock clock = timeline.EditorContext.GetRequiredService<IEditorClock>();
@@ -423,9 +430,26 @@ public sealed partial class ElementView : UserControl
             .CollectElementCandidates(timeline.Scene.Children, model, sameZIndex)
             .Concat(SnapHelper.CollectSceneCandidates(timeline.Scene, clock.CurrentTime.Value));
 
-        SnapResult result = SnapHelper.Snap(time, candidates, scale);
-        timeline.SnapBarPosition.Value = result.DidSnap ? result.Time.TimeToPixel(scale) : null;
-        return result.Time;
+        return SnapHelper.Snap(time, candidates, scale);
+    }
+
+    // Publish only the final preview, after any trim constraints have been applied.
+    // Intermediate calculations and commit/undo must not produce feedback.
+    private void UpdateSnapFeedback(MediaTime? target, float scale, ulong timestamp)
+    {
+        ViewModel.Timeline.SnapBarPosition.Value = target?.TimeToPixel(scale);
+        MediaTime? previous = _lastSnapTarget;
+        _lastSnapTarget = target;
+        if (target.HasValue && target != previous)
+        {
+            _alignmentFeedback(this, timestamp);
+        }
+    }
+
+    private void ClearSnapFeedback()
+    {
+        _lastSnapTarget = null;
+        ViewModel.Timeline.SnapBarPosition.Value = null;
     }
 
     // The pressed clip's group or selection and the clip itself. Locked members stay: the Roll/Slide check needs

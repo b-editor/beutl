@@ -76,12 +76,12 @@ public sealed partial class ElementView
             _relatedElements = [];
             if (AssociatedObject?._timeline is { } timeline) RemoveGhosts(timeline);
             ForceRestoreVisualToModel(relatedElements);
-            if (AssociatedObject is { ViewModel: { } viewModel })
+            if (AssociatedObject is { ViewModel: { } viewModel } view)
             {
                 // Selection modifiers can leave the pressed clip out of the participant list.
                 if (!relatedElements.Contains(viewModel))
                     ForceRestoreVisualToModel([viewModel]);
-                viewModel.Timeline.SnapBarPosition.Value = null;
+                view.ClearSnapFeedback();
             }
         }
 
@@ -112,7 +112,8 @@ public sealed partial class ElementView
 
                 if (_isSlipDrag)
                 {
-                    view.RoundStartTime(pointerFrame, scale, _lastAlt);
+                    SnapResult slipSnap = view.SnapTime(pointerFrame, scale, _lastAlt);
+                    viewModel.Timeline.SnapBarPosition.Value = slipSnap.DidSnap ? slipSnap.Time.TimeToPixel(scale) : null;
                     // Slip shifts the media window, not element geometry — there is no
                     // per-frame geometry preview to apply here. The Player overlay shows
                     // the media window shift; the service runs once on release.
@@ -126,7 +127,8 @@ public sealed partial class ElementView
                     .RoundToFrame(rate, MidpointRounding.AwayFromZero);
 
                 if (newStart < MediaTime.Zero) newStart = MediaTime.Zero;
-                newStart = view.RoundStartTime(newStart, scale, _lastAlt);
+                SnapResult snap = view.SnapTime(newStart, scale, _lastAlt);
+                newStart = snap.Time;
 
                 var newTop = Math.Max(e.GetPosition(timeline.TimelinePanel).Y - _start.Y, 0);
                 var newLeft = newStart.TimeToPixel(scale);
@@ -142,6 +144,8 @@ public sealed partial class ElementView
                     item.Margin.Value = new(0, item.Margin.Value.Top + deltaTop, 0, 0);
                     item.BorderMargin.Value = new(item.BorderMargin.Value.Left + deltaLeft, 0, 0, 0);
                 }
+
+                view.UpdateSnapFeedback(snap.DidSnap ? snap.Time : null, scale, e.Timestamp);
 
                 if (_duplicateMode && _ghosts.Count == 0)
                 {
@@ -235,10 +239,8 @@ public sealed partial class ElementView
             MediaTime delta = TrimDeltaCalculator.SnappedDelta(
                     _start.X.PixelToTime(scale),
                     _lastPosition.X.PixelToTime(scale),
-                    t => view.RoundStartTime(t, scale, alt))
+                    t => view.SnapTime(t, scale, alt).Time)
                 .RoundToFrame(rate, MidpointRounding.AwayFromZero);
-            // RoundStartTime re-sets the snap guide line as a side effect; clear it.
-            viewModel.Timeline.SnapBarPosition.Value = null;
             if (delta != MediaTime.Zero && targets.Length > 0)
             {
                 viewModel.Timeline.EditorContext
@@ -279,7 +281,7 @@ public sealed partial class ElementView
 
             RemoveGhosts(timeline);
 
-            viewModel.Timeline.SnapBarPosition.Value = null;
+            view.ClearSnapFeedback();
 
             if (_isSlipDrag)
             {

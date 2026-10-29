@@ -33,6 +33,7 @@ public sealed partial class TimelineTabView : UserControl
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
+    private readonly Action<Visual, ulong> _alignmentFeedback;
     private TopLevel? _nativeInputRoot;
     private IDisposable? _nativeInputRegistration;
     private CancellationTokenSource? _scrollCts;
@@ -42,10 +43,12 @@ public sealed partial class TimelineTabView : UserControl
     {
     }
 
-    internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes, Func<TopLevel, IDisposable?>? attachNativeInput = null)
+    internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes,
+        Func<TopLevel, IDisposable?>? attachNativeInput = null, Action<Visual, ulong>? alignmentFeedback = null)
     {
         _usesGestureAxes = usesGestureAxes;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
+        _alignmentFeedback = alignmentFeedback ?? NativeHapticFeedback.PerformAlignment;
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = MouseFlags.Free);
         InitializeComponent();
         TimelineEditingModeMenu.Populate(EditingModeMenu, "");
@@ -114,7 +117,7 @@ public sealed partial class TimelineTabView : UserControl
         {
             return new Control[]
             {
-                new ElementView { DataContext = e }, new ElementScopeView { DataContext = e.Scope }
+                new ElementView(_alignmentFeedback) { DataContext = e }, new ElementScopeView { DataContext = e.Scope }
             };
         }));
 
@@ -203,7 +206,7 @@ public sealed partial class TimelineTabView : UserControl
 
     private void AddElement(int index, ElementViewModel viewModel)
     {
-        var view = new ElementView { DataContext = viewModel };
+        var view = new ElementView(_alignmentFeedback) { DataContext = viewModel };
         var scopeView = new ElementScopeView { DataContext = viewModel.Scope };
 
         TimelinePanel.Children.Add(view);

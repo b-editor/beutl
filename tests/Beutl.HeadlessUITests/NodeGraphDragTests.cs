@@ -6,6 +6,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Editor;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
@@ -21,10 +22,113 @@ using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
-[TestFixture]
+[TestFixture, NonParallelizable]
 public class NodeGraphDragTests
 {
     public enum DragEnd { CaptureLoss, Playback, Escape, Undo }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void Drag_pulses_when_entering_a_connectable_port_without_connecting_until_release(bool valid, bool reverse)
+    {
+        var source = new ExpressionNode { Position = { Value = (20, 40) } };
+        var output = new OutputNode { Position = { Value = (380, 40) } };
+        var other = new ExpressionNode { Position = { Value = (380, 240) } };
+        using var scope = PortScope.Create(source, output, other);
+        using var feedback = new HapticFeedbackRecorder();
+        Point start = scope.Socket(source.Output).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point target = scope.Socket(valid ? output.InputPort : other.Output).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        if (reverse) (start, target) = (target, start);
+        scope.Window.MouseMove(target);
+        Assert.That(feedback.Pulses, Is.Empty, "Hover without dragging stays silent.");
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(target, RawInputModifiers.LeftMouseButton);
+        Assert.That(feedback.Pulses, Has.Count.EqualTo(valid ? 1 : 0));
+        Assert.That(scope.Graph.AllConnections, Is.Empty, "Hover must not create a connection.");
+        Assert.That(scope.History.UndoCount, Is.Zero);
+        scope.Window.MouseMove(target + new Vector(1, 0), RawInputModifiers.LeftMouseButton);
+        Assert.That(feedback.Pulses, Has.Count.EqualTo(valid ? 1 : 0), "Staying on the same port must not repeat.");
+        scope.Window.MouseMove(new Point(720, 460), RawInputModifiers.LeftMouseButton);
+        scope.Window.MouseMove(target, RawInputModifiers.LeftMouseButton);
+        Assert.That(feedback.Pulses, Has.Count.EqualTo(valid ? 2 : 0), "Re-entering the port should pulse again.");
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(scope.Window, nameof(NodeGraphDragTests), $"hover-{valid}-{reverse}");
+        scope.Window.MouseUp(target, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(scope.Graph.AllConnections, Has.Count.EqualTo(valid ? 1 : 0));
+        Assert.That(feedback.Pulses, Is.EqualTo(Enumerable.Repeat(HapticFeedbackKind.Alignment, valid ? 2 : 0)));
+        HeadlessCapture.SaveIfRequested(scope.Window, nameof(NodeGraphDragTests), $"connection-{valid}");
+        if (valid)
+        {
+            scope.History.Undo();
+            scope.History.Redo();
+            Assert.That(feedback.Pulses, Has.Count.EqualTo(2));
+        }
+    }
+
+    [AvaloniaTest]
+    public void List_port_feedback_tracks_the_model_across_its_placeholder_and_connection_points()
+    {
+        var first = new ExpressionNode { Position = { Value = (20, 20) } };
+        var source = new ExpressionNode { Position = { Value = (20, 220) } };
+        var target = new ExpressionNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(first, source, target);
+        scope.Graph.Connect(target.InputPort, first.Output);
+        scope.History.Commit();
+        HeadlessTestHelpers.Render(3);
+        NodePortPoint slot = scope.View.GetVisualDescendants().OfType<NodePortPoint>()
+            .Single(p => p.Tag is ConnectionViewModel && p.DataContext is NodePortViewModel vm && vm.Model == target.InputPort);
+        NodePortPoint placeholder = scope.Socket(target.InputPort);
+        using var feedback = new HapticFeedbackRecorder();
+        Point start = scope.Socket(source.Output).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        Hover(placeholder, 1);
+        Hover(slot, 1);
+        Hover(scope.Socket(first.InputPort), 2); // A different logical port is a new target.
+        Hover(placeholder, 3);
+        scope.Window.MouseMove(new Point(720, 460), RawInputModifiers.LeftMouseButton);
+        Hover(slot, 4); // Leaving and re-entering the same logical port should pulse.
+        Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(scope.Window, nameof(NodeGraphDragTests), "list-port-hover");
+        scope.Window.MouseUp(slot.TranslatePoint(new Point(5, 5), scope.Window)!.Value, MouseButton.Left);
+        Assert.That(scope.Graph.AllConnections, Has.Count.EqualTo(2));
+        Assert.That(feedback.Pulses, Has.Count.EqualTo(4));
+
+        void Hover(NodePortPoint point, int pulses)
+        {
+            scope.Window.MouseMove(point.TranslatePoint(new Point(5, 5), scope.Window)!.Value, RawInputModifiers.LeftMouseButton);
+            Assert.That(feedback.Pulses, Has.Count.EqualTo(pulses));
+            Assert.That(scope.Graph.AllConnections, Has.Count.EqualTo(1), "Hover must not change the graph.");
+        }
+    }
+
+    [AvaloniaTest]
+    public void Dragging_over_an_occupied_input_does_not_pulse_or_change_its_connection()
+    {
+        var first = new ExpressionNode { Position = { Value = (20, 40) } };
+        var second = new ExpressionNode { Position = { Value = (20, 240) } };
+        var output = new OutputNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(first, second, output);
+        var connection = scope.Graph.Connect(output.InputPort, first.Output);
+        scope.History.Commit();
+        HeadlessTestHelpers.Render(3);
+        using var feedback = new HapticFeedbackRecorder();
+        Point start = scope.Socket(second.Output).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point target = scope.Socket(output.InputPort).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(target, RawInputModifiers.LeftMouseButton);
+        Assert.That(feedback.Pulses, Is.Empty);
+        scope.Window.MouseUp(target, MouseButton.Left);
+        Assert.That(feedback.Pulses, Is.Empty);
+        Assert.That(scope.Graph.AllConnections.Single(), Is.SameAs(connection));
+        Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+    }
 
     [AvaloniaTest]
     [TestCase(DragEnd.CaptureLoss)]
@@ -33,6 +137,7 @@ public class NodeGraphDragTests
     [TestCase(DragEnd.Undo)]
     public void Capture_loss_and_playback_connect_at_the_last_port_and_Escape_and_Undo_drop_the_wire(DragEnd end)
     {
+        using var feedback = new HapticFeedbackRecorder();
         var source = new ExpressionNode { Position = { Value = (20, 40) } };
         var output = new OutputNode { Position = { Value = (380, 40) } };
         using var scope = PortScope.Create(source, output);
@@ -50,6 +155,7 @@ public class NodeGraphDragTests
         HeadlessTestHelpers.Render(3);
         Assert.That(scope.History.IsEditing, Is.True, "The drag must hold an edit session.");
         Assert.That(scope.Lines(), Is.EqualTo(1), "The drag draws a wire.");
+        Assert.That(feedback.Pulses, Has.Count.EqualTo(1));
 
         scope.End(end, pointer!);
         // The pointer no longer holds the wire, so releasing over the empty canvas changes nothing.
@@ -59,6 +165,7 @@ public class NodeGraphDragTests
         HeadlessTestHelpers.Render(3);
 
         bool connected = end is DragEnd.CaptureLoss or DragEnd.Playback;
+        Assert.That(feedback.Pulses, Has.Count.EqualTo(1), "Ending the drag must not emit additional feedback.");
         Assert.Multiple(() =>
         {
             Assert.That(scope.Graph.AllConnections, Has.Count.EqualTo(connected ? 1 : 0));

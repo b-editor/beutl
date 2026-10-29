@@ -183,6 +183,9 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         return true;
     }
 
+    public bool CanConnect(GraphModel graph, INodePort port1, INodePort port2)
+        => IsEditable(graph) && TryGetConnectablePorts(port1, port2, out _, out _);
+
     public NodeConnectOutcome TryConnect(GraphModel graph,
         GraphNode node1, INodePort? port1,
         GraphNode node2, INodePort? port2)
@@ -234,16 +237,18 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
         // Case 2: both ports are present — connect if direction-compatible.
         if (port1 is not null && port2 is not null
-            && SortPortDirection(port1, port2, out IInputPort? input, out IOutputPort? output))
+            && TryGetConnectablePorts(port1, port2, out IInputPort? input, out IOutputPort? output))
         {
-            if (!CanAcceptConnection(input))
-                return NodeConnectOutcome.None;
             graph.Connect(input, output);
             return NodeConnectOutcome.Connected;
         }
 
         return NodeConnectOutcome.None;
     }
+
+    private static bool TryGetConnectablePorts(INodePort a, INodePort b,
+        [NotNullWhen(true)] out IInputPort? input, [NotNullWhen(true)] out IOutputPort? output)
+        => SortPortDirection(a, b, out input, out output) && CanAcceptConnection(input);
 
     private static bool CanAcceptConnection(IInputPort input)
     {

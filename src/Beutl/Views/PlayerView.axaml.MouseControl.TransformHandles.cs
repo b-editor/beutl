@@ -86,6 +86,7 @@ public partial class PlayerView
 
         private bool _changed;
         private bool _shift;
+        private float? _lastRotationSnap;
 
         public Drawable? Drawable => _press?.Drawable;
 
@@ -388,6 +389,7 @@ public partial class PlayerView
                 KfStartScaleY = CaptureStartValues(kfScaleY, startScaleY),
                 KfStartRotation = CaptureStartValues(kfRotation, startRotation),
             };
+            _lastRotationSnap = startRotation;
 
             // Commit even on a zero-delta drag so the structural change is undoable on its own.
             if (ensured.StructureChanged)
@@ -461,7 +463,7 @@ public partial class PlayerView
                     HandleEdge(_press, _ensured, currentImg);
                     break;
                 case TransformHandlesOverlay.HandleKind.Rotate:
-                    HandleRotate(_press, _ensured, currentImg);
+                    HandleRotate(_press, _ensured, currentImg, e.Timestamp);
                     break;
                 default:
                     throw new System.ArgumentOutOfRangeException(nameof(Kind), Kind, "Unhandled HandleKind in OnMoved switch.");
@@ -575,7 +577,7 @@ public partial class PlayerView
             View.framePanel.Cursor = null;
         }
 
-        private void HandleRotate(PressState press, EnsuredState ensured, AvaPoint currentImg)
+        private void HandleRotate(PressState press, EnsuredState ensured, AvaPoint currentImg, ulong timestamp)
         {
             double sx = press.StartImagePos.X - press.PivotImage.X;
             double sy = press.StartImagePos.Y - press.PivotImage.Y;
@@ -603,6 +605,11 @@ public partial class PlayerView
             // Derive delta from the post-Shift-snap value (deltaDeg is the pre-snap value).
             float effectiveDelta = newRot - ensured.StartRotation;
             WriteScalar(ensured.Rotation.Rotation, ensured.KfRotation, ensured.KfStartRotation, effectiveDelta, newRot);
+
+            float? snap = _shift ? newRot : null;
+            if (snap.HasValue && snap != _lastRotationSnap)
+                NativeHapticFeedback.PerformAlignment(View, timestamp);
+            _lastRotationSnap = snap;
         }
 
         private void ApplyScale(EnsuredState ensured, float newScaleX, float newScaleY)
@@ -796,6 +803,7 @@ public partial class PlayerView
             _press = null;
             _ensured = null;
             _changed = false;
+            _lastRotationSnap = null;
         }
 
         public void OnKeyDown(KeyEventArgs e) => SyncShift(e.KeyModifiers);

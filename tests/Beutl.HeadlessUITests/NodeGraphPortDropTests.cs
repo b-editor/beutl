@@ -5,6 +5,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Editor;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
 using Beutl.Editor.Components.NodeGraphTab.Views;
@@ -22,7 +23,7 @@ using Moq;
 
 namespace Beutl.HeadlessUITests;
 
-[TestFixture]
+[TestFixture, NonParallelizable]
 public class NodeGraphPortDropTests
 {
     [AvaloniaTest]
@@ -32,6 +33,7 @@ public class NodeGraphPortDropTests
     [TestCase(2d)]
     public void OutputDroppedOnEmptyGraph_OffersCompatibleNodesAndConnectsSelectedNode(double scale)
     {
+        using var feedback = new HapticFeedbackRecorder();
         var graph = new GraphModel();
         var source = new FilterEffectInputNode { Position = { Value = (20, 40) } };
         graph.Nodes.Add(source);
@@ -68,6 +70,7 @@ public class NodeGraphPortDropTests
             Assert.That(menu, Is.Not.Null);
             Assert.That(menu.IsOpen, Is.True);
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
+            Assert.That(feedback.Pulses, Is.Empty);
             FAMenuFlyoutSubItem utilities = menu.Items.OfType<FAMenuFlyoutSubItem>()
                 .Single(item => Equals(item.Text, NodeGraphStrings.ToolsAndValues));
             FAMenuFlyoutSubItem selector = utilities.Items.OfType<FAMenuFlyoutSubItem>()
@@ -77,6 +80,7 @@ public class NodeGraphPortDropTests
             FAMenuFlyoutItem outputItem = menu.Items.OfType<FAMenuFlyoutItem>()
                 .Single(item => Equals(item.Text, GraphNodeRegistry.FindItem(typeof(OutputNode))!.DisplayName));
             HeadlessTestHelpers.Click(outputItem, move: true, ticks: 3);
+            Assert.That(feedback.Pulses, Is.Empty, "Adding a suggested node is not a port hover.");
 
             OutputNode added = graph.Nodes.OfType<OutputNode>().Single();
             Assert.Multiple(() =>
@@ -92,6 +96,7 @@ public class NodeGraphPortDropTests
             history.Undo();
             Assert.That(graph.Nodes, Has.Count.EqualTo(1));
             Assert.That(graph.AllConnections, Is.Empty);
+            Assert.That(feedback.Pulses, Is.Empty);
 
             GraphNodeView sourceView = view.GetVisualDescendants().OfType<GraphNodeView>().Single();
             Point body = sourceView.TranslatePoint(new Point(100, 55), window)!.Value;

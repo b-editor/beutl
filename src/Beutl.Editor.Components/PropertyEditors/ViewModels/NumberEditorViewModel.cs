@@ -11,6 +11,7 @@ public sealed class NumberEditorViewModel<T>(IPropertyAdapter<T> property) : Val
         base.Accept(visitor);
         if (visitor is NumberEditor<T> editor && !Disposables.IsDisposed)
         {
+            editor.HapticReferenceValue = GetDefaultValue() is T value ? value : T.Zero;
             VectorEditorBindingHelper.ApplyNumberAttributes<T>(
                 PropertyAdapter,
                 (large, small) =>
