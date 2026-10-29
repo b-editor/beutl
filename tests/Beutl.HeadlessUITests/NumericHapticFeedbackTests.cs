@@ -117,9 +117,9 @@ public class NumericHapticFeedbackTests
         var (model, control) = PropertyEditorTestHost.CreateControl(adapter);
         using var disposable = model;
         model.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
-        var vector = (Vector3Editor<float>)control;
+        using var host = new ScrubHost(control);
+        var vector = host.Window.GetVisualDescendants().OfType<Vector3Editor<float>>().Single();
         vector.SmallChange = 1;
-        using var host = new ScrubHost(vector);
         using var feedback = new HapticFeedbackRecorder();
         Point start = host.Header(vector);
         host.Window.MouseDown(start, MouseButton.Left);

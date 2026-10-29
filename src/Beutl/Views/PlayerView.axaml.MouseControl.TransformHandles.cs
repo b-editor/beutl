@@ -389,6 +389,7 @@ public partial class PlayerView
                 KfStartScaleY = CaptureStartValues(kfScaleY, startScaleY),
                 KfStartRotation = CaptureStartValues(kfRotation, startRotation),
             };
+            _lastRotationSnap = startRotation;
 
             // Commit even on a zero-delta drag so the structural change is undoable on its own.
             if (ensured.StructureChanged)

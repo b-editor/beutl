@@ -77,20 +77,23 @@ public class TransformHandlesOverlayTests
             window.MouseMove(ToWindow(view, window, start));
             window.MouseDown(ToWindow(view, window, start), MouseButton.Left, RawInputModifiers.Shift);
 
+            Move(1, true, -30, 0);
+            Move(3, true, -30, 0);
             Move(16, true, -15, 1);
             Move(18, true, -15, 1);
-            Move(29, true, 0, 2);
-            Move(32, false, 2, 2);
-            Move(32, true, 0, 3);
+            Move(1, true, -30, 2); // Returning to the starting step after leaving it should pulse.
+            Move(29, true, 0, 3);
+            Move(32, false, 2, 3);
+            Move(32, true, 0, 4);
             window.MouseUp(ToWindow(view, window, At(32)), MouseButton.Left);
             await RenderPreview(editor);
             HeadlessCapture.SaveIfRequested(window, nameof(TransformHandlesOverlayTests), "rotation-haptic");
-            Assert.That(feedback.Pulses, Is.EqualTo(Enumerable.Repeat(HapticFeedbackKind.Alignment, 3)));
+            Assert.That(feedback.Pulses, Is.EqualTo(Enumerable.Repeat(HapticFeedbackKind.Alignment, 4)));
             editor.HistoryManager.Undo();
             Assert.That(rotation.Rotation.Value, Is.EqualTo(-30).Within(0.01));
             editor.HistoryManager.Redo();
             Assert.That(rotation.Rotation.Value, Is.EqualTo(0).Within(0.01));
-            Assert.That(feedback.Pulses, Has.Count.EqualTo(3));
+            Assert.That(feedback.Pulses, Has.Count.EqualTo(4));
 
             AvaPoint At(double degrees)
             {

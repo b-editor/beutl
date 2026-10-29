@@ -70,6 +70,44 @@ public class NodeGraphDragTests
     }
 
     [AvaloniaTest]
+    public void List_port_feedback_tracks_the_model_across_its_placeholder_and_connection_points()
+    {
+        var first = new ExpressionNode { Position = { Value = (20, 20) } };
+        var source = new ExpressionNode { Position = { Value = (20, 220) } };
+        var target = new ExpressionNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(first, source, target);
+        scope.Graph.Connect(target.InputPort, first.Output);
+        scope.History.Commit();
+        HeadlessTestHelpers.Render(3);
+        NodePortPoint slot = scope.View.GetVisualDescendants().OfType<NodePortPoint>()
+            .Single(p => p.Tag is ConnectionViewModel && p.DataContext is NodePortViewModel vm && vm.Model == target.InputPort);
+        NodePortPoint placeholder = scope.Socket(target.InputPort);
+        using var feedback = new HapticFeedbackRecorder();
+        Point start = scope.Socket(source.Output).TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        Hover(placeholder, 1);
+        Hover(slot, 1);
+        Hover(scope.Socket(first.InputPort), 2); // A different logical port is a new target.
+        Hover(placeholder, 3);
+        scope.Window.MouseMove(new Point(720, 460), RawInputModifiers.LeftMouseButton);
+        Hover(slot, 4); // Leaving and re-entering the same logical port should pulse.
+        Assert.That(scope.History.UndoCount, Is.EqualTo(1));
+        HeadlessTestHelpers.Render(3);
+        HeadlessCapture.SaveIfRequested(scope.Window, nameof(NodeGraphDragTests), "list-port-hover");
+        scope.Window.MouseUp(slot.TranslatePoint(new Point(5, 5), scope.Window)!.Value, MouseButton.Left);
+        Assert.That(scope.Graph.AllConnections, Has.Count.EqualTo(2));
+        Assert.That(feedback.Pulses, Has.Count.EqualTo(4));
+
+        void Hover(NodePortPoint point, int pulses)
+        {
+            scope.Window.MouseMove(point.TranslatePoint(new Point(5, 5), scope.Window)!.Value, RawInputModifiers.LeftMouseButton);
+            Assert.That(feedback.Pulses, Has.Count.EqualTo(pulses));
+            Assert.That(scope.Graph.AllConnections, Has.Count.EqualTo(1), "Hover must not change the graph.");
+        }
+    }
+
+    [AvaloniaTest]
     public void Dragging_over_an_occupied_input_does_not_pulse_or_change_its_connection()
     {
         var first = new ExpressionNode { Position = { Value = (20, 40) } };

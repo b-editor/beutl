@@ -7,6 +7,7 @@ using Avalonia.VisualTree;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
+using Beutl.NodeGraph;
 using FluentAvalonia.UI.Media;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
@@ -28,7 +29,7 @@ public sealed class NodePortPoint : Control
     private Point _lastCanvasPoint;
     private bool _connected;
     private DragSession? _drag;
-    private NodePortPoint? _feedbackTarget;
+    private INodePort? _feedbackTarget;
 
     static NodePortPoint()
     {
@@ -154,10 +155,9 @@ public sealed class NodePortPoint : Control
 
     private void UpdateHoverFeedback(Point canvasPoint, ulong timestamp)
     {
-        NodePortPoint? target = FindTargetPort(canvasPoint);
-        if (DataContext is not NodePortViewModel source
-            || target?.DataContext is not NodePortViewModel destination || !source.CanConnectTo(destination))
-            target = null;
+        INodePort? target = DataContext is NodePortViewModel source
+            && FindTargetPort(canvasPoint)?.DataContext is NodePortViewModel destination
+            && source.CanConnectTo(destination) ? destination.Model : null;
 
         if (target != null && target != _feedbackTarget)
             NativeHapticFeedback.PerformAlignment(this, timestamp);
