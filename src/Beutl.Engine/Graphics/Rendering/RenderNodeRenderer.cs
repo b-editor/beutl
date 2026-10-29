@@ -107,8 +107,15 @@ public sealed class RenderNodeRenderer : IDisposable
     /// </exception>
     public void Render(
         ImmediateCanvas destination,
-        RenderNodeRenderRequest? requestOptions = null)
+        RenderNodeRenderRequest? requestOptions = null) => Render(destination, requestOptions, default);
+
+    /// <summary>Renders a request, allowing cancellation between render fragments.</summary>
+    public void Render(
+        ImmediateCanvas destination,
+        RenderNodeRenderRequest? requestOptions,
+        CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         RenderExecutionCallbackGuard.ThrowIfRendererLaunchForbidden();
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(destination);
@@ -153,7 +160,8 @@ public sealed class RenderNodeRenderer : IDisposable
             var executor = new RenderRequestExecutor(
                 targets,
                 _programCache,
-                spirvProgramCache: _spirvProgramCache, graphProgramCache: _graphProgramCache);
+                spirvProgramCache: _spirvProgramCache, graphProgramCache: _graphProgramCache,
+                cancellationToken: cancellationToken);
             if (!hasInvertibleDestination && !request.Measurement.HasTargetEffects)
             {
                 executor.CompleteNoOp(request);

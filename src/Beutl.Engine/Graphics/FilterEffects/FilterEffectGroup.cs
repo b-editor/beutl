@@ -14,6 +14,14 @@ public sealed partial class FilterEffectGroup : FilterEffect
 
     public IListProperty<FilterEffect> Children { get; } = Property.CreateList<FilterEffect>();
 
+    public partial class Resource
+    {
+        public override bool ControlsContinuation
+            => Children.Any(static child => child.IsEnabled && child.ControlsContinuation);
+
+        public override bool MayAccessTarget => Children.Any(static child => child.MayAccessTarget);
+    }
+
     public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
     {
         var r = (Resource)resource;
@@ -21,7 +29,7 @@ public sealed partial class FilterEffectGroup : FilterEffect
         {
             foreach (FilterEffect.Resource item in r.Children)
             {
-                item.RequireOriginal().ApplyTo(context, item);
+                context.Apply(item);
             }
         });
     }

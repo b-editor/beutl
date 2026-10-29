@@ -85,6 +85,8 @@ public sealed partial class NodeGraphDrawable : Drawable
                 _model?.TopologyChanged -= OnModelTopologyChanged;
                 _snapshot.MarkDirty();
             }
+
+            CompleteReconciliation(context);
         }
 
         private void OnModelTopologyChanged(object? sender, EventArgs e)

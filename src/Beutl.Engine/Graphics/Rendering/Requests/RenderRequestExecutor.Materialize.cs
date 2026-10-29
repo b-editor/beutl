@@ -15,6 +15,7 @@ internal sealed partial class RenderRequestExecutor
             ImmediateCanvas currentTarget,
             EffectiveScale? requestedScale = null)
         {
+            _cancellationToken.ThrowIfCancellationRequested();
             if (fragment.EffectiveScale.IsUnbounded)
             {
                 if (!_materializationDemands.TryGetValue(fragment, out EffectiveScale demand))

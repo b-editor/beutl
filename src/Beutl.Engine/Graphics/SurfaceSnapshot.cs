@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using SkiaSharp;
 
 namespace Beutl.Graphics;
@@ -27,7 +28,26 @@ internal static class SurfaceSnapshot
     /// Takes a snapshot of <paramref name="surface"/> for draws recorded before the returned lease is disposed.
     /// Disposing it disposes the image and then releases the surface's cached snapshot.
     /// </summary>
-    public static Lease Take(SKSurface surface) => new(surface, surface.Snapshot());
+    public static Lease Take(SKSurface surface)
+    {
+        lock (s_snapshots)
+        {
+            SKImage image = surface.Snapshot();
+            SharedSnapshot snapshot = s_snapshots.GetValue(image, _ => new SharedSnapshot(surface, image));
+            snapshot.References++;
+            return new Lease(snapshot);
+        }
+    }
+
+    // SkiaSharp reuses the managed image for snapshots of unchanged surface content.
+    private static readonly ConditionalWeakTable<SKImage, SharedSnapshot> s_snapshots = new();
+
+    internal sealed class SharedSnapshot(SKSurface surface, SKImage image)
+    {
+        internal SKSurface Surface { get; } = surface;
+        internal SKImage Image { get; } = image;
+        internal int References;
+    }
 
     /// <summary>
     /// Makes <paramref name="surface"/> drop the snapshot it caches until its next write. Call it once every
@@ -48,15 +68,26 @@ internal static class SurfaceSnapshot
         GC.KeepAlive(surface);
     }
 
-    /// <summary>A snapshot whose disposal also releases the copy its surface caches.</summary>
-    public readonly struct Lease(SKSurface surface, SKImage image) : IDisposable
+    /// <summary>A shared snapshot whose final disposal releases the copy its surface caches.</summary>
+    public sealed class Lease : IDisposable
     {
-        public SKImage Image { get; } = image;
+        private SharedSnapshot? _snapshot;
+
+        internal Lease(SharedSnapshot snapshot) => _snapshot = snapshot;
+
+        public SKImage Image => (_snapshot ?? throw new ObjectDisposedException(nameof(Lease))).Image;
 
         public void Dispose()
         {
-            Image?.Dispose();
-            Release(surface);
+            lock (s_snapshots)
+            {
+                if (_snapshot is not { } snapshot) return;
+                _snapshot = null;
+                if (--snapshot.References != 0) return;
+                s_snapshots.Remove(snapshot.Image);
+                snapshot.Image.Dispose();
+                Release(snapshot.Surface);
+            }
         }
     }
 

@@ -69,7 +69,7 @@ internal sealed partial class RenderRequestExecutor
                 root = new DrawableRenderNode(drawable);
                 using (var graphics = new GraphicsContext2D(root, domain.Size, scale))
                 {
-                    drawable.RequireOriginal().Render(graphics, drawable);
+                    drawable.Render(graphics);
                 }
 
                 var cacheContext = new RenderCacheResolutionContext(
@@ -151,7 +151,8 @@ internal sealed partial class RenderRequestExecutor
                         _programCache,
                         spirvProgramCache: _spirvProgramCache,
                         graphProgramCache: _graphProgramCache,
-                        shaderBackendPreference: _shaderBackendPreference);
+                        shaderBackendPreference: _shaderBackendPreference,
+                        cancellationToken: _cancellationToken);
                     using (canvas.PushTransform(Matrix.CreateTranslation(-executionBounds.X, -executionBounds.Y)))
                     {
                         executor.Execute(
