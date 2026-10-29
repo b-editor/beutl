@@ -1,5 +1,4 @@
 ﻿using System.Reactive.Linq;
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -7,13 +6,12 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
-
 using Beutl.Configuration;
 using Beutl.Controls;
-using Beutl.Editor.Services;
 using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Editor.Components.PreviewSettingsTab.Views;
 using Beutl.Editor.Components.TimelineTab.Views;
+using Beutl.Editor.Services;
 using Beutl.Graphics.Shapes;
 using Beutl.Language;
 using Beutl.Media;
@@ -24,9 +22,7 @@ using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using Beutl.ViewModels.SettingsPages;
 using Beutl.Views;
-
 using Microsoft.Extensions.DependencyInjection;
-
 using BtlBitmap = Beutl.Media.Bitmap;
 using BtlMatrix = Beutl.Graphics.Matrix;
 
