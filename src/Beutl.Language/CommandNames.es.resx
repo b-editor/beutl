@@ -212,4 +212,7 @@
   <data name="ChangeTransitionDuration" xml:space="preserve">
     <value>Cambiar duración de la transición</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>Dividir automáticamente por silencio</value>
+  </data>
 </root>

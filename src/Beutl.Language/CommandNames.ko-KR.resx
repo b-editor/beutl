@@ -212,4 +212,7 @@
   <data name="ChangeTransitionDuration" xml:space="preserve">
     <value>전환 길이 변경</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>무음 기준 자동 분할</value>
+  </data>
 </root>

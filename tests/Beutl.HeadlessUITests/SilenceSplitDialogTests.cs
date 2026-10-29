@@ -1,4 +1,6 @@
 ﻿using System.Globalization;
+using System.Reactive;
+using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
@@ -9,10 +11,14 @@ using Beutl.Editor;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Observers;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Language;
+using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
+using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
@@ -29,9 +35,10 @@ public class SilenceSplitDialogTests
     }
 
     [AvaloniaTest]
-    [TestCase(true)]
-    [TestCase(false)]
-    public async Task DialogButtons_ApplyOneUndoEntry_OrCancelWithoutEdits(bool apply)
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    public async Task DialogButtons_AwaitPlaybackPauseAndApplyOneUndoEntry(bool apply, bool editDuringPause)
     {
         var scene = new Scene(100, 100, "silence") { Uri = new Uri(Path.Combine(Path.GetTempPath(), "silence-ui.scene")) };
         var element = new Element { Length = { Value = MediaTime.FromSeconds(10) } };
@@ -40,7 +47,8 @@ public class SilenceSplitDialogTests
         using var history = new HistoryManager(sequence);
         using var observer = new CoreObjectOperationObserver(null, scene, sequence);
         history.Subscribe(observer);
-        using var model = new SilenceSplitViewModel(scene, element, history);
+        var player = new BlockingPreviewPlayer();
+        using var model = new SilenceSplitViewModel(scene, element, history, player);
         var dialog = new SilenceSplitDialog(model);
         var window = new Window { Width = 800, Height = 780 };
         window.Show();
@@ -55,15 +63,27 @@ public class SilenceSplitDialogTests
             var button = dialog.GetVisualDescendants().OfType<Button>()
                 .Single(b => Equals(b.Content, apply ? Strings.Apply : Strings.Cancel));
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            if (apply)
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() => player.PauseStarted);
+                Assert.That(closed.IsCompleted, Is.False, "the dialog must wait for playback to release the scene");
+                Assert.That(history.UndoCount, Is.Zero);
+                Assert.That(scene.Children, Is.EqualTo(new[] { element }));
+                if (editDuringPause) element.Length.Value = MediaTime.FromSeconds(12);
+                player.CompletePause();
+            }
             await closed;
-            Assert.That(history.UndoCount, Is.EqualTo(apply ? 1 : 0));
-            Assert.That(scene.Children.Count, Is.EqualTo(apply ? 2 : 1));
-            if (apply) history.Undo();
+            bool applied = apply && !editDuringPause;
+            Assert.That(history.UndoCount, Is.EqualTo(applied ? 1 : 0));
+            Assert.That(scene.Children.Count, Is.EqualTo(applied ? 2 : 1));
+            Assert.That(player.PauseStarted, Is.EqualTo(apply));
+            if (applied) history.Undo();
             Assert.That(scene.Children, Is.EqualTo(new[] { element }));
-            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+            Assert.That(element.Length.Value, Is.EqualTo(MediaTime.FromSeconds(editDuringPause ? 12 : 10)));
         }
         finally
         {
+            player.CompletePause();
             if (!closed.IsCompleted) { dialog.Hide(); await closed; }
             window.Close();
         }
@@ -72,6 +92,9 @@ public class SilenceSplitDialogTests
     [AvaloniaTest]
     [TestCase("en", 800, false)]
     [TestCase("ja", 440, true)]
+    [TestCase("zh-CN", 440, true)]
+    [TestCase("ko-KR", 440, true)]
+    [TestCase("es", 440, true)]
     public async Task Preview_ReactsToParameters_AndDialogFits(string language, int width, bool light)
     {
         CultureInfo previous = CultureInfo.CurrentUICulture;
@@ -130,5 +153,22 @@ public class SilenceSplitDialogTests
             window.Close();
             CultureInfo.CurrentUICulture = previous;
         }
+    }
+
+    private sealed class BlockingPreviewPlayer : IPreviewPlayer
+    {
+        private readonly TaskCompletionSource _paused = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool PauseStarted { get; private set; }
+        public IReadOnlyReactiveProperty<Ref<Bitmap>?> PreviewImage { get; } = new ReactivePropertySlim<Ref<Bitmap>?>();
+        public IObservable<Unit> AfterRendered => Observable.Empty<Unit>();
+        public IReadOnlyReactiveProperty<bool> IsPlaying { get; } = new ReactivePropertySlim<bool>(true);
+
+        public Task Pause()
+        {
+            PauseStarted = true;
+            return _paused.Task;
+        }
+
+        public void CompletePause() => _paused.TrySetResult();
     }
 }

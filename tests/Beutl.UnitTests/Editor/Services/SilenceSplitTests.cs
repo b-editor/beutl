@@ -17,6 +17,81 @@ public class SilenceSplitTests
     private static MediaTime Seconds(double value) => MediaTime.FromSeconds(value);
     private static TimeRange Range(double start, double end) => TimeRange.FromRange(Seconds(start), Seconds(end));
 
+    [TestCase(false, false, false)]
+    [TestCase(true, false, false)]
+    [TestCase(false, true, false)]
+    [TestCase(false, false, true)]
+    public async Task Analysis_DistinguishesOfflineReferencedAudioFromDisabledOrMutedAudio(bool inGroup, bool disabled, bool muted)
+    {
+        using var h = new SceneHistoryHarness("silence-offline");
+        var nested = new Scene(100, 100, "offline") { Duration = { Value = Seconds(2) } };
+        var child = new Element { Length = { Value = Seconds(2) } };
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.wav")));
+        var missing = new SourceSound { Source = { Value = source }, IsEnabled = { Value = !disabled }, TimeRange = { Value = Range(0, 2) } };
+        if (inGroup)
+        {
+            var group = new SoundGroup();
+            group.Children.Add(missing);
+            child.Objects.Add(group);
+        }
+        else child.Objects.Add(missing);
+        nested.Children.Add(child);
+        nested.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsAudioMuted = { Value = muted } });
+        var element = h.AddElement(Seconds(0), Seconds(2));
+        element.Objects.Add(new SceneSound { ReferencedScene = { Value = nested } });
+        var video = h.AddElement(Seconds(0), Seconds(2), 1);
+        h.Scene.Groups.Add([element.Id.Value, video.Id.Value]);
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        await model.AnalyzeAsync();
+        Assert.That(model.CanApply.Value, Is.EqualTo(disabled || muted));
+        Assert.That(model.Ranges.Count, Is.EqualTo(disabled || muted ? 1 : 0));
+    }
+
+    [Test]
+    public void Preview_TenHourRecordingPreservesTheLastBin()
+    {
+        using var h = new SceneHistoryHarness("silence-long");
+        var element = h.AddElement(Seconds(0), Seconds(36000));
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        var chunks = Enumerable.Range(0, 1800000).Select(i => new WaveformChunk(i, -0.5f, 0.5f)).ToArray();
+        chunks[^1] = new(chunks.Length - 1, -0.8f, 0.9f);
+        model.SetWaveform(chunks);
+        Assert.That(model.PreviewChunks, Has.Count.EqualTo(1200));
+        Assert.That(model.PreviewChunks[^1].MaxValue, Is.EqualTo(0.9f));
+        Assert.That(model.Ranges, Is.Empty);
+    }
+
+    [TestCase(4.01, true, true)]
+    [TestCase(4.04, true, false)]
+    [TestCase(4, true, false)]
+    [TestCase(4.01, false, false)]
+    public void Apply_ReportsUnsplittableLinkedBoundaryWithoutPartialEdits(double videoEnd, bool linked, bool unsupported)
+    {
+        using var h = new SceneHistoryHarness("silence-linked-boundary");
+        var audio = h.AddElement(Seconds(0), Seconds(10));
+        var video = h.AddElement(Seconds(0), Seconds(videoEnd), 1);
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+        var service = new SilenceSplitService(h.History);
+        if (unsupported)
+        {
+            Assert.Throws<InvalidOperationException>(() => service.Apply(h.Scene, audio, [Range(3, 4)], SilenceSplitMode.RippleDelete, linked));
+            Assert.That(h.History.UndoCount, Is.EqualTo(before));
+            Assert.That(h.History.HasPendingOperations, Is.False);
+            Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video }));
+            Assert.That(audio.Length.Value, Is.EqualTo(Seconds(10)));
+            Assert.That(video.Length.Value, Is.EqualTo(Seconds(videoEnd)));
+        }
+        else
+        {
+            service.Apply(h.Scene, audio, [Range(3, 4)], SilenceSplitMode.RippleDelete, linked);
+            Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(video.Length.Value, Is.EqualTo(Seconds(linked ? 3 : videoEnd)));
+        }
+    }
+
     [TestCase(1, 1000, true, false)]
     [TestCase(100, 0, true, true)]
     [TestCase(100, 0, false, false)]

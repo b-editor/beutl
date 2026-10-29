@@ -51,7 +51,7 @@ public class SilenceWaveformTests
         using var cts = new CancellationTokenSource();
         await using var reader = GetChunksAsync(sound, 100, cts.Token).GetAsyncEnumerator();
         cts.Cancel();
-        Assert.ThrowsAsync<OperationCanceledException>(async () => { await reader.MoveNextAsync(); });
+        await Assert.CatchAsync<OperationCanceledException>(async () => { await reader.MoveNextAsync(); });
     }
 
     [Test]

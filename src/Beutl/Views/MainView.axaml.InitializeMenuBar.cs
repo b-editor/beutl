@@ -79,7 +79,8 @@ public partial class MainView
                 return;
             }
             editor.HistoryManager.FlushPendingMutations();
-            using var model = new SilenceSplitViewModel(editor.Scene, selected[0], editor.HistoryManager);
+            using var model = new SilenceSplitViewModel(editor.Scene, selected[0], editor.HistoryManager,
+                editor.GetRequiredService<IPreviewPlayer>());
             await new SilenceSplitDialog(model).ShowAsync();
         }).AddTo(_disposables);
         viewModel.MenuBar.ShowTutorials.Subscribe(OpenTutorialsDialog).AddTo(_disposables);

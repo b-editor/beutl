@@ -34,15 +34,18 @@ public partial class SilenceSplitDialog : FAContentDialog
             (r.End - _model.ClipRange.Start).ToSeconds() / _model.ClipRange.Duration.ToSeconds())).ToArray());
     }
 
-    protected override void OnPrimaryButtonClick(FAContentDialogButtonClickEventArgs args)
+    protected override async void OnPrimaryButtonClick(FAContentDialogButtonClickEventArgs args)
     {
         if (_model?.CanApply.Value != true) { args.Cancel = true; return; }
-        try { _model.Apply(); }
+        base.OnPrimaryButtonClick(args);
+        if (args.Cancel) return;
+        var deferral = args.GetDeferral();
+        try { await _model.ApplyAsync(); }
         catch (Exception ex)
         {
             args.Cancel = true;
             _model.Status.Value = string.Format(Strings.SilenceSplit_Failed, ex.Message);
         }
-        base.OnPrimaryButtonClick(args);
+        finally { deferral.Complete(); }
     }
 }

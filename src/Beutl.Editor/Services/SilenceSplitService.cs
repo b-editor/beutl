@@ -44,7 +44,14 @@ public sealed class SilenceSplitService(HistoryManager history)
         {
             // All cuts precede any movement, so every boundary remains in absolute scene time.
             foreach (MediaTime cut in ranges.SelectMany(r => new[] { r.Start, r.End }).Distinct().OrderDescending())
-                parts.AddRange(ElementStructureService.SplitCore(scene, parts.ToArray(), cut));
+            {
+                Element[] targets = parts.Where(e => e.Start.Value < cut && cut < e.Range.End).ToArray();
+                var split = ElementStructureService.SplitCore(scene, targets, cut);
+                // Razor may skip a cut that leaves less than a frame. Roll back all cuts rather
+                // than silently deleting different intervals from the linked audio and video.
+                if (split.Count != targets.Length) throw new InvalidOperationException(Strings.SilenceSplit_ShortSegment);
+                parts.AddRange(split);
+            }
 
             if (mode == SilenceSplitMode.SplitOnly) return;
             Element[] removed = parts.Where(e => ranges.Any(r => e.Start.Value >= r.Start && e.Range.End <= r.End)).ToArray();

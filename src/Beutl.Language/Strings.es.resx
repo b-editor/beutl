@@ -3492,4 +3492,61 @@ cuando el registro del historial está activado.</value>
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>Añadir dispositivo</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>Dividir automáticamente por silencio</value>
+  </data>
+  <data name="SilenceSplit_Description" xml:space="preserve">
+    <value>Detecta intervalos silenciosos mediante los niveles de pico estéreo. Ajusta el umbral y revisa los cortes antes de aplicar.</value>
+  </data>
+  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
+    <value>Naranja: intervalos para dividir o eliminar, con margen de protección y ajuste a fotogramas. Resolución del análisis: 20 ms.</value>
+  </data>
+  <data name="SilenceSplit_Threshold" xml:space="preserve">
+    <value>Umbral (dB)</value>
+  </data>
+  <data name="SilenceSplit_Minimum" xml:space="preserve">
+    <value>Silencio mínimo (ms)</value>
+  </data>
+  <data name="SilenceSplit_Padding" xml:space="preserve">
+    <value>Margen de voz (ms por lado)</value>
+  </data>
+  <data name="SilenceSplit_Mode" xml:space="preserve">
+    <value>Modo de aplicación</value>
+  </data>
+  <data name="SilenceSplit_SplitOnly" xml:space="preserve">
+    <value>Solo dividir</value>
+  </data>
+  <data name="SilenceSplit_Delete" xml:space="preserve">
+    <value>Dividir y eliminar silencios</value>
+  </data>
+  <data name="SilenceSplit_Ripple" xml:space="preserve">
+    <value>Dividir, eliminar y desplazar los clips siguientes</value>
+  </data>
+  <data name="SilenceSplit_Linked" xml:space="preserve">
+    <value>Aplicar los mismos cortes y eliminaciones a los elementos agrupados</value>
+  </data>
+  <data name="SilenceSplit_Analyzing" xml:space="preserve">
+    <value>Analizando la forma de onda…</value>
+  </data>
+  <data name="SilenceSplit_Summary" xml:space="preserve">
+    <value>{0} intervalos · {1:F2} segundos</value>
+  </data>
+  <data name="SilenceSplit_Failed" xml:space="preserve">
+    <value>No se pudo completar la división por silencio: {0}</value>
+  </data>
+  <data name="SilenceSplit_Stale" xml:space="preserve">
+    <value>La escena ha cambiado. Cierra este diálogo y vuelve a analizar.</value>
+  </data>
+  <data name="SilenceSplit_LockedLinked" xml:space="preserve">
+    <value>Un elemento agrupado está bloqueado. Desbloquéalo o desactiva la edición agrupada.</value>
+  </data>
+  <data name="SilenceSplit_InvalidParameters" xml:space="preserve">
+    <value>Introduce un umbral entre −120 y 0 dB, una duración mínima positiva y un margen no negativo.</value>
+  </data>
+  <data name="SilenceSplit_SelectAudio" xml:space="preserve">
+    <value>Selecciona un elemento desbloqueado que contenga audio de una fuente o escena.</value>
+  </data>
+  <data name="SilenceSplit_ShortSegment" xml:space="preserve">
+    <value>Un corte detectado crearía un segmento de menos de un fotograma en un clip agrupado. Ajusta los parámetros de silencio o desactiva la edición agrupada.</value>
+  </data>
 </root>

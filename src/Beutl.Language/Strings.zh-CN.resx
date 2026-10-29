@@ -3492,4 +3492,61 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>添加设备</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>按静音自动分割</value>
+  </data>
+  <data name="SilenceSplit_Description" xml:space="preserve">
+    <value>根据左右声道的峰值检测静音区间。调整阈值，预览分割位置后再应用。</value>
+  </data>
+  <data name="SilenceSplit_PreviewHint" xml:space="preserve">
+    <value>橙色：包含前后保护时间和帧对齐的分割或删除区间。分析精度：20 毫秒。</value>
+  </data>
+  <data name="SilenceSplit_Threshold" xml:space="preserve">
+    <value>阈值 (dB)</value>
+  </data>
+  <data name="SilenceSplit_Minimum" xml:space="preserve">
+    <value>最短静音时长 (ms)</value>
+  </data>
+  <data name="SilenceSplit_Padding" xml:space="preserve">
+    <value>语音保护时间（每侧，ms）</value>
+  </data>
+  <data name="SilenceSplit_Mode" xml:space="preserve">
+    <value>应用模式</value>
+  </data>
+  <data name="SilenceSplit_SplitOnly" xml:space="preserve">
+    <value>仅分割</value>
+  </data>
+  <data name="SilenceSplit_Delete" xml:space="preserve">
+    <value>分割并删除静音</value>
+  </data>
+  <data name="SilenceSplit_Ripple" xml:space="preserve">
+    <value>分割、删除并前移后续片段</value>
+  </data>
+  <data name="SilenceSplit_Linked" xml:space="preserve">
+    <value>对分组元素应用相同的分割和删除</value>
+  </data>
+  <data name="SilenceSplit_Analyzing" xml:space="preserve">
+    <value>正在分析波形…</value>
+  </data>
+  <data name="SilenceSplit_Summary" xml:space="preserve">
+    <value>{0} 个区间 · 共 {1:F2} 秒</value>
+  </data>
+  <data name="SilenceSplit_Failed" xml:space="preserve">
+    <value>无法完成静音分割：{0}</value>
+  </data>
+  <data name="SilenceSplit_Stale" xml:space="preserve">
+    <value>场景已更改。请关闭此对话框并重新分析。</value>
+  </data>
+  <data name="SilenceSplit_LockedLinked" xml:space="preserve">
+    <value>分组中有元素被锁定。请解锁或关闭分组编辑。</value>
+  </data>
+  <data name="SilenceSplit_InvalidParameters" xml:space="preserve">
+    <value>请输入 −120 至 0 dB 的阈值、正数的最短时长和非负的保护时间。</value>
+  </data>
+  <data name="SilenceSplit_SelectAudio" xml:space="preserve">
+    <value>请选择一个包含源音频或场景音频的未锁定元素。</value>
+  </data>
+  <data name="SilenceSplit_ShortSegment" xml:space="preserve">
+    <value>在检测到的位置分割会使分组片段产生不足一帧的区间。请调整静音设置或关闭分组编辑。</value>
+  </data>
 </root>

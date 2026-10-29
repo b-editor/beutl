@@ -13,17 +13,19 @@ public sealed class SilenceSplitViewModel : IDisposable
     private readonly Scene _scene;
     private readonly Element _element;
     private readonly SilenceSplitService _service;
+    private readonly IPreviewPlayer? _player;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = [];
     private WaveformChunk[] _chunks = [];
     private bool _stale;
     private bool _disposed;
 
-    public SilenceSplitViewModel(Scene scene, Element element, HistoryManager history)
+    public SilenceSplitViewModel(Scene scene, Element element, HistoryManager history, IPreviewPlayer? player = null)
     {
         _scene = scene;
         _element = element;
         _service = new SilenceSplitService(history);
+        _player = player;
         ClipRange = element.Range;
         HasLinkedElements = scene.Groups.Any(g => g.Contains(element.Id.Value) && g.Count > 1);
         ThresholdDb.Subscribe(_ => Recalculate()).AddTo(_subscriptions);
@@ -83,7 +85,9 @@ public sealed class SilenceSplitViewModel : IDisposable
         for (int i = 0; i < count; i++)
         {
             float min = 0, max = 0;
-            for (int j = i * chunks.Length / count; j < (i + 1) * chunks.Length / count; j++)
+            int start = (int)((long)i * chunks.Length / count);
+            int end = (int)((long)(i + 1) * chunks.Length / count);
+            for (int j = start; j < end; j++)
             {
                 if (!float.IsFinite(chunks[j].MinValue) || !float.IsFinite(chunks[j].MaxValue)) continue;
                 min = Math.Min(min, chunks[j].MinValue);
@@ -109,9 +113,12 @@ public sealed class SilenceSplitViewModel : IDisposable
         PreviewChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public void Apply()
+    public async Task ApplyAsync()
     {
-        if (!CanApply.Value || _stale) return;
+        if (!CanApply.Value || _stale || _disposed) return;
+        if (_player != null) await _player.Pause();
+        // The dialog or scene can change while playback relinquishes its readers.
+        if (!CanApply.Value || _stale || _disposed) return;
         // Applying intentionally edits the observed scene; unsubscribe before entering the transaction.
         _scene.Edited -= OnSceneEdited;
         try { _service.Apply(_scene, _element, Ranges, (SilenceSplitMode)ModeIndex.Value, IncludeLinked.Value); }

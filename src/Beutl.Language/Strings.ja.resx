@@ -3541,4 +3541,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SilenceSplit_SelectAudio" xml:space="preserve">
     <value>音声ソースまたはシーン音声を含む、ロックされていない要素を1つ選択してください。</value>
   </data>
+  <data name="SilenceSplit_ShortSegment" xml:space="preserve">
+    <value>検出した位置で分割すると、グループ内のクリップに1フレーム未満の区間ができます。無音の設定を調整するか、グループ編集をオフにしてください。</value>
+  </data>
 </root>
