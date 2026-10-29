@@ -4,6 +4,8 @@ using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering;
 using Beutl.Graphics.Rendering.Requests;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Nodes;
 using SkiaSharp;
 
 namespace Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -86,6 +88,162 @@ public class IndividualContinuationTests
             declaresContinuation: !target, declaresTargetAccess: target).ToResource(CompositionContext.Default);
         context.Apply(declared);
         Assert.That(context.CountItems(), Is.EqualTo(1));
+    }
+
+    // A node graph effect renders only through its own node, so the group keeps it out of the continuation's node.
+    [Test]
+    public void EffectsBeforeAContinuationKeepTheirOwnNodes()
+    {
+        int calls = 0;
+        var group = new FilterEffectGroup();
+        group.Children.Add(PassThroughGraph());
+        group.Children.Add(new RepeatingContinuationEffect(2));
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, _) => calls++)));
+        RasterizeShape(group);
+        Assert.That(calls, Is.EqualTo(2));
+    }
+
+    // The split follows the continuation into nested groups, keeping every earlier effect in its own node and order.
+    [TestCase(1)]
+    [TestCase(2)]
+    public void NestedEffectsBeforeAContinuationKeepTheirOwnNodes(int depth)
+    {
+        var log = new List<string>();
+        FilterEffect Logging(string name) => new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(name, (value, _) => log.Add(value)));
+
+        var group = new FilterEffectGroup();
+        group.Children.Add(PassThroughGraph());
+        group.Children.Add(Logging("inner"));
+        group.Children.Add(new RepeatingContinuationEffect(2));
+        group.Children.Add(Logging("inner-tail"));
+        for (int level = 0; level < depth; level++)
+        {
+            var outer = new FilterEffectGroup();
+            outer.Children.Add(Logging($"outer{level}"));
+            outer.Children.Add(group);
+            outer.Children.Add(Logging($"outer{level}-tail"));
+            group = outer;
+        }
+
+        RasterizeShape(group);
+        string[] expected = depth == 1
+            ? ["outer0", "inner", "inner-tail", "outer0-tail", "inner-tail", "outer0-tail"]
+            : ["outer1", "outer0", "inner",
+               "inner-tail", "outer0-tail", "outer1-tail", "inner-tail", "outer0-tail", "outer1-tail"];
+        Assert.That(log, Is.EqualTo(expected));
+    }
+
+    // The inner group's earlier children have their own nodes, so only effects after the continuation count.
+    [TestCase(false, false, false, false)]
+    [TestCase(true, false, false, false)]
+    [TestCase(false, true, false, true)]
+    [TestCase(false, false, true, true)]
+    public void NestedContinuationSuffixDeclaresTargetAccessOfItsEffects(
+        bool innerPrefixAccessesTarget, bool innerTailAccessesTarget, bool outerTailAccessesTarget, bool expected)
+    {
+        static FilterEffect Effect(bool accessesTarget)
+            => new EffectItemSuffixCallbackFilterEffect(static (_, _) => { }, declaresTargetAccess: accessesTarget);
+
+        var inner = new FilterEffectGroup();
+        inner.Children.Add(Effect(innerPrefixAccessesTarget));
+        inner.Children.Add(new RepeatingContinuationEffect(2));
+        inner.Children.Add(Effect(innerTailAccessesTarget));
+        var group = new FilterEffectGroup();
+        group.Children.Add(inner);
+        group.Children.Add(Effect(outerTailAccessesTarget));
+        using var resource = (FilterEffectGroup.Resource)group.ToResource(CompositionContext.Default);
+        Assert.That(resource.NestedContinuationGroup, Is.Not.Null);
+        Assert.That(resource.ContinuationSuffixResource!.MayAccessTarget, Is.EqualTo(expected));
+    }
+
+    [TestCase(true, 1, 2)]
+    [TestCase(false, 0, 0)]
+    public void SplitGroupFollowsItsEnabledState(bool enabled, int expectedPrefixCalls, int expectedSuffixCalls)
+    {
+        int prefixCalls = 0;
+        int suffixCalls = 0;
+        var group = new FilterEffectGroup { IsEnabled = { Value = enabled } };
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, _) => prefixCalls++)));
+        group.Children.Add(new RepeatingContinuationEffect(2));
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, _) => suffixCalls++)));
+        RasterizeShape(group);
+        Assert.That(prefixCalls, Is.EqualTo(expectedPrefixCalls));
+        Assert.That(suffixCalls, Is.EqualTo(expectedSuffixCalls));
+    }
+
+    [Test]
+    public void EffectAfterAContinuationThatCannotBeRecordedFailsWithGuidance()
+    {
+        var group = new FilterEffectGroup();
+        group.Children.Add(new RepeatingContinuationEffect(2));
+        group.Children.Add(PassThroughGraph());
+        Assert.That(() => RasterizeShape(group),
+            Throws.InstanceOf<NotSupportedException>().With.Message.Contains("Move it before"));
+    }
+
+    [Test]
+    public void ContinuationSuffixIsReusedUntilItsChildrenChange()
+    {
+        var tail = new Blur();
+        var continuation = new RepeatingContinuationEffect(2);
+        var group = new FilterEffectGroup();
+        group.Children.Add(new Blur());
+        group.Children.Add(continuation);
+        group.Children.Add(tail);
+        using var resource = (FilterEffectGroup.Resource)group.ToResource(CompositionContext.Default);
+        FilterEffect.Resource? suffix = resource.ContinuationSuffixResource;
+        Assert.That(suffix, Is.Not.Null);
+        Assert.That(resource.ContinuationStart, Is.EqualTo(1));
+        int version = suffix!.Version;
+
+        bool changed = false;
+        resource.Reconcile(group, CompositionContext.Default, ref changed);
+        Assert.That(resource.ContinuationSuffixResource, Is.SameAs(suffix));
+        Assert.That(suffix.Version, Is.EqualTo(version));
+
+        tail.Sigma.Value = new Size(3, 3);
+        changed = false;
+        resource.Reconcile(group, CompositionContext.Default, ref changed);
+        Assert.That(resource.ContinuationSuffixResource, Is.SameAs(suffix));
+        Assert.That(suffix.Version, Is.Not.EqualTo(version));
+
+        continuation.IsEnabled.Value = false;
+        changed = false;
+        resource.Reconcile(group, CompositionContext.Default, ref changed);
+        Assert.That(resource.ContinuationSuffixResource, Is.Null);
+        Assert.That(suffix.IsDisposed, Is.True);
+    }
+
+    private static NodeGraphFilterEffect PassThroughGraph()
+    {
+        var effect = new NodeGraphFilterEffect();
+        GraphModel model = effect.Model.Value!;
+        var input = new FilterEffectInputNode();
+        var output = new OutputNode();
+        model.Nodes.Add(input);
+        model.Nodes.Add(output);
+        model.Connect(output.InputPort, input.Output);
+        return effect;
+    }
+
+    private static void RasterizeShape(FilterEffect effect)
+    {
+        var shape = new Beutl.Graphics.Shapes.RectShape { FilterEffect = { Value = effect } };
+        using var resource = shape.ToResource(CompositionContext.Default);
+        using var root = new ContainerRenderNode();
+        using (var context = new GraphicsContext2D(root, new Size(32, 24)))
+            context.DrawDrawable(resource);
+        using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
+        {
+            Intent = RenderIntent.Delivery,
+            Purpose = RenderRequestPurpose.Frame,
+            TargetDomain = new Rect(0, 0, 32, 24),
+        }, new CpuRenderTargetFactory());
+        using var output = renderer.Rasterize();
     }
 
     [Test]

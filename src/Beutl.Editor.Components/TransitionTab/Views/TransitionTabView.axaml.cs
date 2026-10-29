@@ -23,9 +23,11 @@ public partial class TransitionTabView : UserControl
         {
             try
             {
+                var selectVm = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.ClipTransition, typeof(ClipTransition));
+                await selectVm.SelectTypeAsync(viewModel.Transition.Value?.GetType());
                 Type? type = await LibraryItemPickerHelper.ShowAsync(
                     typeEditor,
-                    new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.ClipTransition, typeof(ClipTransition)),
+                    selectVm,
                     KnownLibraryItemFormats.ClipTransition) as Type;
                 if (type != null)
                 {

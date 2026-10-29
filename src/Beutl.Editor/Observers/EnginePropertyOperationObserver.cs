@@ -21,7 +21,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
     private IOperationObserver? _animationPublisher;
     private readonly HashSet<string>? _propertyPathsToTrack;
     private readonly bool _tracksAnimation;
-    private KeyFrameAnimation<T>? _animation;
+    private IPropertyAnimation? _animation;
     private IExpression<T>? _expression;
 
     public EnginePropertyOperationObserver(
@@ -58,7 +58,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         _tracksAnimation = _expressionProperty?.IsAnimatable == true && propertiesToTrack?.Contains("Animation") != false;
         if (_tracksAnimation)
         {
-            ObserveAnimation(_property.GetKeyFrameAnimation(), null);
+            ObserveAnimation(_property.GetPropertyAnimation(), null);
         }
 
         if (_expressionProperty != null
@@ -117,7 +117,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
 
         if (_tracksAnimation)
         {
-            ObserveAnimation(_property.GetKeyFrameAnimation(), _propertyPathsToTrack);
+            ObserveAnimation(_property.GetPropertyAnimation(), _propertyPathsToTrack);
         }
 
         var operation = new UpdatePropertyValueOperation<IExpression<T>?>(
@@ -129,7 +129,7 @@ public sealed class EnginePropertyOperationObserver<T> : IOperationObserver
         _expression = obj;
     }
 
-    private void ObserveAnimation(KeyFrameAnimation<T>? animation, HashSet<string>? propertyPathsToTrack)
+    private void ObserveAnimation(IPropertyAnimation? animation, HashSet<string>? propertyPathsToTrack)
     {
         if (ReferenceEquals(animation, _animation) && (_animationPublisher != null || animation == null)) return;
 

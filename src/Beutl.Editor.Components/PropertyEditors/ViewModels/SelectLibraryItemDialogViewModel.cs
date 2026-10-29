@@ -112,6 +112,17 @@ public class SelectLibraryItemDialogViewModel
 
     internal Task SearchTask { get; private set; } = Task.CompletedTask;
 
+    public async Task SelectTypeAsync(Type? type)
+    {
+        if (type == null) return;
+
+        if (!LibraryService.Current.GetTypesFromFormat(_format).Contains(type))
+            ShowAll.Value = true;
+
+        await SearchTask;
+        SelectedItem.Value = Items.FirstOrDefault(item => GetImplementationType((LibraryItem)item.UserData) == type);
+    }
+
     public Task<PinnableLibraryItem[]> LoadAllItems()
     {
         return _allItemsTask ??= Task.Run(() =>

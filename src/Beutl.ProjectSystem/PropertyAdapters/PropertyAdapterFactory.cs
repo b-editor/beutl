@@ -16,7 +16,9 @@ public static class PropertyAdapterFactory
         return adapters;
     }
 
-    public static IPropertyAdapter CreateAdapter(IProperty property, EngineObject obj)
+    public static IPropertyAdapter CreateAdapter(IProperty property, EngineObject obj) => CreateAdapter(property, (CoreObject)obj);
+
+    public static IPropertyAdapter CreateAdapter(IProperty property, CoreObject obj)
     {
         Type adapterType;
         var propertyType = property.GetType();

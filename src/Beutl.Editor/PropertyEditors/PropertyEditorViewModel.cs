@@ -72,6 +72,13 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
         _currentTime = new BehaviorSubject<MediaTime>(MediaTime.Zero);
         CurrentTime = _currentTime.AsObservable();
 
+        SeparatedComponents = property.GetEngineProperty() is { } engineProperty
+            ? Observable.FromEventPattern(h => engineProperty.Edited += h, h => engineProperty.Edited -= h)
+                .Select(_ => engineProperty.GetPropertyAnimation() as IComponentAnimation)
+                .StartWith(engineProperty.GetPropertyAnimation() as IComponentAnimation)
+                .DistinctUntilChanged().ToReadOnlyReactivePropertySlim().AddTo(Disposables)
+            : Observable.ReturnThenNever<IComponentAnimation?>(null).ToReadOnlyReactivePropertySlim().AddTo(Disposables);
+
         IObservable<bool> hasAnimation = property is IAnimatablePropertyAdapter anm
             ? anm.ObserveAnimation.Select(x => x != null)
             : Observable.ReturnThenNever(false);
@@ -148,6 +155,24 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
 
     public IPropertyAdapter PropertyAdapter { get; private set; }
 
+    public ReadOnlyReactivePropertySlim<IComponentAnimation?> SeparatedComponents { get; }
+
+    public bool CanSeparateComponents => PropertyAdapter.GetEngineProperty() is IExpressionProperty { IsAnimatable: true }
+        && ComponentAnimations.IsSupported(PropertyAdapter.PropertyType);
+
+    public void SeparateComponents()
+    {
+        if (!IsElementEditable || PropertyAdapter.IsReadOnly || !CanSeparateComponents || SeparatedComponents.Value != null) return;
+        ComponentAnimations.Separate(PropertyAdapter.GetEngineProperty()!);
+        Commit();
+    }
+
+    public virtual void UnseparateComponents()
+    {
+    }
+
+    internal void Own(IDisposable disposable) => Disposables.Add(disposable);
+
     public bool CanReset => GetDefaultValue() != null;
 
     public string Header { get; }
@@ -209,6 +234,8 @@ public abstract class PropertyEditorViewModel : IPropertyEditorContext, IService
     public ReactivePropertySlim<float> KeyFrameIndex { get; } = new();
 
     public IObservable<MediaTime> CurrentTime { get; }
+
+    protected MediaTime CurrentTimeValue => _currentTime.Value;
 
     [AllowNull] public PropertyEditorExtension Extension { get; set; }
 

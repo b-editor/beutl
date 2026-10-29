@@ -4,13 +4,13 @@ using Beutl.Validation;
 namespace Beutl.Animation;
 
 // A KeyFrameAnimation<T> seen without its value type.
-public interface IKeyFrameAnimation : IExpression, ICoreObject, INotifyEdited, IHierarchical
+public interface IKeyFrameAnimation : IPropertyAnimation
 {
     IListProperty<IKeyFrame> KeyFrames { get; }
 
     IProperty<bool> UseGlobalClock { get; }
 
-    Type ValueType { get; }
+    new Type ValueType { get; }
 
     MediaTime Duration { get; }
 

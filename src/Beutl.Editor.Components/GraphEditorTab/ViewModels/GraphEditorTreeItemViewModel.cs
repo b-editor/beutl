@@ -23,6 +23,10 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
                 : !animated ? Strings.EnableAnimation
                     : $"{(hasKeyFrame ? CommandNames.RemoveKeyFrame : CommandNames.InsertKeyFrame)}\n{MessageStrings.RightClickToShowMenu}")
             .ToReadOnlyReactivePropertySlim(Strings.EnableAnimation);
+        SeparationToolTip = HasSeparatedComponents.Select(separated => separated
+                ? $"{Strings.UnseparateComponents}\n{Strings.UnseparateComponents_Description}"
+                : Strings.SeparateComponents)
+            .ToReadOnlyReactivePropertySlim(Strings.SeparateComponents);
     }
 
     internal string Key { get; }
@@ -42,6 +46,9 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
     public ReactivePropertySlim<bool> HasKeyFrame { get; } = new();
     public ReadOnlyReactivePropertySlim<IconVariant> SymbolIconVariant { get; }
     public ReadOnlyReactivePropertySlim<string> AnimationToolTip { get; }
+    public ReactivePropertySlim<bool> CanSeparateComponents { get; } = new();
+    public ReactivePropertySlim<bool> HasSeparatedComponents { get; } = new();
+    public ReadOnlyReactivePropertySlim<string> SeparationToolTip { get; }
     public ReactivePropertySlim<IBrush?> ChannelBrush { get; } = new();
 
     internal Type? ValueType => Property?.ValueType ?? Adapter?.PropertyType;
@@ -73,6 +80,9 @@ public sealed class GraphEditorTreeItemViewModel : IDisposable
         HasKeyFrame.Dispose();
         SymbolIconVariant.Dispose();
         AnimationToolTip.Dispose();
+        CanSeparateComponents.Dispose();
+        HasSeparatedComponents.Dispose();
+        SeparationToolTip.Dispose();
         ChannelBrush.Dispose();
     }
 }

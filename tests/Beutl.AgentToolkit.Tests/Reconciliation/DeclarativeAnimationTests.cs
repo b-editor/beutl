@@ -22,6 +22,142 @@ namespace Beutl.AgentToolkit.Tests.Reconciliation;
 public sealed class DeclarativeAnimationTests
 {
     [Test]
+    public void Patch_round_trips_and_edits_separated_color_tracks()
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        var brush = new SolidColorBrush(Color.FromArgb(255, 20, 40, 60));
+        text.Fill.Value = brush;
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+
+        var desiredBrush = new SolidColorBrush(brush.Color.Value);
+        desiredBrush.Id.Value = brush.Id.Value;
+        var components = ComponentAnimations.Separate(desiredBrush.Color);
+        var red = (IProperty<byte>)components.Components[0];
+        var animation = new KeyFrameAnimation<byte>();
+        animation.KeyFrames.Add(new KeyFrame<byte> { Value = { Value = 0 } });
+        animation.KeyFrames.Add(new KeyFrame<byte> { Value = { Value = 255 }, KeyTime = { Value = MediaTime.FromSeconds(2) } });
+        red.SetKeyFrameAnimation(animation);
+        JsonObject brushJson = CoreSerializer.SerializeToJsonObject(desiredBrush);
+        var newTracks = brushJson["Animations"]!["Color"]!.AsObject();
+        newTracks.Remove("Id");
+        var redJson = newTracks["Animations"]!["R"]!.AsObject();
+        redJson.Remove("Id");
+        foreach (var key in redJson["KeyFrames"]!.AsArray()) key!.AsObject().Remove("Id");
+        var result = tools.ApplyEdit(patch: PatchTextObject(element, text, new JsonObject { ["Fill"] = brushJson }), schemaVersion: SchemaVersion.Current);
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(brush.Color.GetPropertyAnimation(), Is.InstanceOf<IComponentAnimation>());
+        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(1))).R, Is.EqualTo(188));
+
+        var liveComponents = (IComponentAnimation)brush.Color.GetPropertyAnimation()!;
+        var liveRed = liveComponents.Components.Single(p => p.Name == "R").GetKeyFrameAnimation()!;
+        var firstKey = liveRed.KeyFrames[0];
+        brushJson = CoreSerializer.SerializeToJsonObject(brush);
+        brushJson["Animations"]!["Color"]!["Animations"]!["R"]!["KeyFrames"]![0]!["KeyTime"] = TimeSpan.FromSeconds(3).ToString("c");
+        brushJson["Animations"]!["Color"]!["Animations"]!["R"]!["KeyFrames"]![1]!["Value"] = 128;
+        result = tools.ApplyEdit(patch: PatchTextObject(element, text, new JsonObject { ["Fill"] = brushJson }), schemaVersion: SchemaVersion.Current);
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(2))).R, Is.EqualTo(128));
+        Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(2))).G, Is.EqualTo(40));
+        Assert.Multiple(() =>
+        {
+            Assert.That(liveComponents.Components[0].GetKeyFrameAnimation(), Is.SameAs(liveRed));
+            Assert.That(liveRed.KeyFrames.Last(), Is.SameAs(firstKey));
+            Assert.That(brush.Color.Evaluate(new CompositionContext(MediaTime.FromSeconds(3))).R, Is.Zero);
+        });
+    }
+
+    [Test]
+    public void New_component_tracks_are_sorted_and_use_the_owner_bounds()
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        var blur = new Beutl.Graphics.Effects.Blur();
+        text.FilterEffect.Value = blur;
+        using var session = new AgentToolkitTestSession(scene);
+        var desired = new Beutl.Graphics.Effects.Blur();
+        var split = ComponentAnimations.Separate(desired.Sigma);
+        var width = (IProperty<float>)split.Components.Single(p => p.Name == "Width");
+        width.SetKeyFrameAnimation(TestWorkspace.CreateLinearFloatAnimation(10, 20));
+        JsonObject json = SamplePatchBuilder.SerializeWithoutIds(desired);
+        json["Id"] = blur.Id.Value.ToString();
+        var keys = json["Animations"]!["Sigma"]!["Animations"]!["Width"]!["KeyFrames"]!.AsArray();
+        keys[0]!["Value"] = -10;
+        keys[0]!["KeyTime"] = TimeSpan.FromSeconds(3).ToString("c");
+
+        var result = session.CreateEditTools().ApplyEdit(
+            patch: PatchTextObject(element, text, new JsonObject { ["FilterEffect"] = json }), schemaVersion: SchemaVersion.Current);
+        Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+        var components = (IComponentAnimation)blur.Sigma.GetPropertyAnimation()!;
+        var animation = components.Components.Single(p => p.Name == "Width").GetKeyFrameAnimation()!;
+        Assert.That(animation.KeyFrames.Select(k => k.KeyTime.Value), Is.Ordered);
+        Assert.That(animation.KeyFrames.Last().Value, Is.EqualTo(0f));
+        Assert.That(blur.Sigma.Evaluate(new CompositionContext(MediaTime.FromSeconds(3))), Is.EqualTo(Size.Empty));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Removing_a_component_unit_source_preserves_tracks_and_supports_undo(bool usePatch)
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        text.TransformOrigin.Value = new RelativePoint(10, 20, RelativeUnit.Absolute);
+        var animation = new KeyFrameAnimation<RelativePoint>();
+        animation.KeyFrames.Add(new KeyFrame<RelativePoint> { Value = { Value = new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative) } });
+        animation.KeyFrames.Add(new KeyFrame<RelativePoint>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = new RelativePoint(0.75f, 1, RelativeUnit.Relative) }
+        });
+        text.TransformOrigin.SetKeyFrameAnimation(animation);
+        var components = (ComponentAnimation<RelativePoint, float>)ComponentAnimations.Separate(text.TransformOrigin);
+        var unitSource = components.UnitSource.Value;
+        var xAnimation = components.Components[0].GetKeyFrameAnimation()!;
+        var firstKey = xAnimation.KeyFrames[0];
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+
+        // Omitting UnitSource from a partial patch must retain the inherited schedule.
+        var update = tools.ApplyEdit(patch: PatchAnimation(new JsonObject { ["BaseValue"] = "100, 200" }), schemaVersion: SchemaVersion.Current);
+        Assert.That(update.IsSuccess, Is.True, update.Error?.Message);
+        Assert.That(components.UnitSource.Value, Is.SameAs(unitSource));
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)),
+            Is.EqualTo(new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative)));
+
+        ToolResult<ApplyEditResponse> remove;
+        if (usePatch)
+        {
+            remove = tools.ApplyEdit(patch: PatchAnimation(new JsonObject { ["UnitSource"] = null }), schemaVersion: SchemaVersion.Current);
+        }
+        else
+        {
+            JsonObject desired = session.Documents.Read(session.Root);
+            desired["Elements"]![0]!["Objects"]![0]!["Animations"]![nameof(Drawable.TransformOrigin)]!.AsObject().Remove("UnitSource");
+            remove = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        }
+
+        Assert.That(remove.IsSuccess, Is.True, remove.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(components.UnitSource.Value, Is.Null);
+            Assert.That(text.TransformOrigin.GetPropertyAnimation(), Is.SameAs(components));
+            Assert.That(components.Components[0].GetKeyFrameAnimation(), Is.SameAs(xAnimation));
+            Assert.That(xAnimation.KeyFrames[0], Is.SameAs(firstKey));
+            Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)),
+                Is.EqualTo(new RelativePoint(0.25f, 0.5f, RelativeUnit.Absolute)));
+        });
+        session.History.Undo();
+        Assert.That(components.UnitSource.Value, Is.SameAs(unitSource));
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)).Unit, Is.EqualTo(RelativeUnit.Relative));
+        session.History.Redo();
+        Assert.That(components.UnitSource.Value, Is.Null);
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)).Unit, Is.EqualTo(RelativeUnit.Absolute));
+
+        JsonObject PatchAnimation(JsonObject patch) => PatchTextObject(element, text, new JsonObject
+        {
+            ["Animations"] = new JsonObject { [nameof(Drawable.TransformOrigin)] = patch }
+        });
+    }
+
+    [Test]
     public void Patch_creates_new_object_with_inline_keyframe_animation()
     {
         Scene scene = CreateSceneWithText(out Element element, out _);

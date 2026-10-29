@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
@@ -231,6 +232,69 @@ public class ElementTransitionTimelineTests
             if (view != null) view.DataContext = null;
             window?.Close();
             CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(WipeTransition))]
+    [TestCase(typeof(SplitTransition))]
+    [TestCase(typeof(UnregisteredPickerTransition))]
+    public async Task TheTypePicker_SelectsTheCurrentTransitionWhenReopened(Type initialType)
+    {
+        (EditViewModel editor, ElementViewModel outgoing, ElementViewModel incoming) = await OpenCut();
+        incoming.ApplyTransition(ElementEdge.Start, initialType);
+        outgoing.OpenTransition(ElementEdge.End);
+        HeadlessTestHelpers.Settle();
+        var view = new TransitionTabView { DataContext = TransitionTabOf(editor) };
+        var window = new Window { Content = view, Width = 400, Height = 600 };
+
+        async Task<LibraryItemPickerFlyoutPresenter> OpenPicker()
+        {
+            view.FindControl<DropDownPickerEditor>("typeEditor")!
+                .RaiseEvent(new RoutedEventArgs(DropDownPickerEditor.DropDownClickEvent));
+            LibraryItemPickerFlyoutPresenter? picker = null;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                HeadlessTestHelpers.Render(2);
+                picker = window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().SingleOrDefault();
+                return picker != null;
+            });
+            HeadlessTestHelpers.Render(3);
+            return picker!;
+        }
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            LibraryItemPickerFlyoutPresenter picker = await OpenPicker();
+            ListBox list = picker.GetVisualDescendants().OfType<ListBox>().Single(control => control.Name == "PART_ListBox");
+            Assert.That(list.SelectedItem, Is.SameAs(picker.SelectedItem));
+            Assert.That((picker.SelectedItem?.UserData as SingleTypeLibraryItem)?.ImplementationType, Is.EqualTo(initialType));
+            Assert.That((list.ContainerFromItem(list.SelectedItem!) as ListBoxItem)?.IsSelected, Is.True);
+            HeadlessCapture.SaveIfRequested(picker, nameof(ElementTransitionTimelineTests), $"transition-picker-{initialType.Name}");
+
+            list.SelectedItem = picker.Items!.Single(item => item.UserData is SingleTypeLibraryItem single
+                && single.ImplementationType == typeof(FadeTransition));
+            picker.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            HeadlessTestHelpers.Settle();
+            Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf<FadeTransition>());
+            Assert.That(outgoing.Model.ExitTransition.Value, Is.TypeOf<FadeTransition>());
+            int undoCount = editor.HistoryManager.UndoCount;
+
+            picker = await OpenPicker();
+            Assert.That((picker.SelectedItem?.UserData as SingleTypeLibraryItem)?.ImplementationType, Is.EqualTo(typeof(FadeTransition)));
+            picker.SelectedItem = picker.Items!.Single(item => item.UserData is SingleTypeLibraryItem single
+                && single.ImplementationType == typeof(WipeTransition));
+            picker.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
+            HeadlessTestHelpers.Settle();
+            Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf<FadeTransition>());
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
         }
     }
 
@@ -593,3 +657,5 @@ public class ElementTransitionTimelineTests
             .Single(v => ReferenceEquals(v.DataContext, element));
     }
 }
+
+public sealed partial class UnregisteredPickerTransition : ClipTransition;

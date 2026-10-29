@@ -24,6 +24,7 @@ public sealed class LibraryItemPickerFlyout(SelectLibraryItemDialogViewModel vie
         if (viewModel.ShowsOnlyReferences)
             pfp.ShowReferences = true;
         pfp.ReferenceItems = viewModel.ReferenceItems;
+        pfp.SelectedItem = viewModel.SelectedItem.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowAllProperty)

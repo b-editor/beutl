@@ -535,6 +535,15 @@ public sealed class GraphicsContext2D(
 
                 result = new PushedState(this, _nodes.Count);
                 break;
+            case FilterEffectGroup.Resource { IsEnabled: true, ContinuationSuffixResource: { } suffix } group:
+                // The continuation and the effects it controls record into one node outside the earlier children,
+                // which keep their own nodes and so need not be recordable by FilterEffectContext. A disabled group
+                // stays one node, which passes its input through.
+                int level = _nodes.Count + 1;
+                suffix.Push(this);
+                PushContinuationPrefix(group);
+                result = new PushedState(this, level);
+                break;
             default:
                 result = effect.Push(this);
                 break;
@@ -542,6 +551,17 @@ public sealed class GraphicsContext2D(
 
         CompleteRecordingOperation(wasFaulted);
         return result;
+    }
+
+    // Pushes outermost first, so a nested group's earlier children apply after the outer group's earlier children.
+    private void PushContinuationPrefix(FilterEffectGroup.Resource group)
+    {
+        if (group.NestedContinuationGroup is { } nested)
+            PushContinuationPrefix(nested);
+        for (int i = group.ContinuationStart - 1; i >= 0; i--)
+        {
+            PushFilterEffect(group.Children[i]);
+        }
     }
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
