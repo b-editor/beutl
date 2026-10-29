@@ -3530,7 +3530,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>無音区間の処理に失敗しました：{0}</value>
   </data>
   <data name="SilenceSplit_Stale" xml:space="preserve">
-    <value>シーンが変更されました。ダイアログを閉じて、もう一度解析してください。</value>
+    <value>シーンが変更されました。更新して、もう一度解析してください。</value>
   </data>
   <data name="SilenceSplit_LockedLinked" xml:space="preserve">
     <value>グループ内にロックされた要素があります。ロックを解除するか、グループへの適用をオフにしてください。</value>
@@ -3539,7 +3539,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>閾値は −120～0 dB、最小無音時間は正の値、保護時間は 0 以上で入力してください。</value>
   </data>
   <data name="SilenceSplit_SelectAudio" xml:space="preserve">
-    <value>音声ソースまたはシーン音声を含む、ロックされていない要素を1つ選択してください。</value>
+    <value>音声要素を右クリックして「無音区間で自動分割」を選択してください。</value>
   </data>
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
     <value>検出した位置で分割すると、グループ内のクリップに1フレーム未満の区間ができます。無音の設定を調整するか、グループ編集をオフにしてください。</value>

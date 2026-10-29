@@ -3535,7 +3535,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>무음 분할을 완료할 수 없습니다: {0}</value>
   </data>
   <data name="SilenceSplit_Stale" xml:space="preserve">
-    <value>장면이 변경되었습니다. 이 대화 상자를 닫고 다시 분석하세요.</value>
+    <value>장면이 변경되었습니다. 분석을 새로 고친 후 적용하세요.</value>
   </data>
   <data name="SilenceSplit_LockedLinked" xml:space="preserve">
     <value>그룹 요소가 잠겨 있습니다. 잠금을 해제하거나 그룹 편집을 끄세요.</value>
@@ -3544,7 +3544,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>−120~0dB의 임계값, 양수인 최소 길이, 0 이상인 보호 시간을 입력하세요.</value>
   </data>
   <data name="SilenceSplit_SelectAudio" xml:space="preserve">
-    <value>소스 오디오 또는 장면 오디오를 포함한 잠기지 않은 요소 하나를 선택하세요.</value>
+    <value>오디오 요소를 마우스 오른쪽 버튼으로 클릭하고 ‘무음 기준 자동 분할’을 선택하세요.</value>
   </data>
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
     <value>감지된 위치에서 분할하면 그룹 클립에 한 프레임보다 짧은 구간이 생깁니다. 무음 설정을 조정하거나 그룹 편집을 끄세요.</value>

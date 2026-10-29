@@ -6,8 +6,6 @@ using Avalonia.VisualTree;
 using Beutl.Api.Services;
 using Beutl.Editor;
 using Beutl.Editor.Components.Helpers;
-using Beutl.Editor.Components.TimelineTab.ViewModels;
-using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Components.VersionControl.Views;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
@@ -69,20 +67,6 @@ public partial class MainView
         viewModel.MenuBar.ImportProject.Subscribe(OnImportProject).AddTo(_disposables);
         viewModel.MenuBar.ShowSettings.Subscribe(OpenSettingsDialog).AddTo(_disposables);
         viewModel.MenuBar.OpenToolWindow.Subscribe(OpenToolWindow).AddTo(_disposables);
-        viewModel.MenuBar.AutoSplitBySilence.Subscribe(async () =>
-        {
-            if (viewModel.EditorService.SelectedTabItem.Value?.Context.Value is not EditViewModel editor) return;
-            var selected = editor.GetRequiredService<IEditorSelection>().SelectedElements;
-            if (selected.Count != 1 || !SilenceSplitViewModel.CanAnalyze(editor.Scene, selected[0]))
-            {
-                NotificationService.ShowInformation(Strings.AutoSplitBySilence, Strings.SilenceSplit_SelectAudio);
-                return;
-            }
-            editor.HistoryManager.FlushPendingMutations();
-            using var model = new SilenceSplitViewModel(editor.Scene, selected[0], editor.HistoryManager,
-                editor.GetRequiredService<IPreviewPlayer>());
-            await new SilenceSplitDialog(model).ShowAsync();
-        }).AddTo(_disposables);
         viewModel.MenuBar.ShowTutorials.Subscribe(OpenTutorialsDialog).AddTo(_disposables);
         viewModel.MenuBar.ShowInformation.Subscribe(GoToInformationPage).AddTo(_disposables);
         viewModel.MenuBar.CollectGarbage.Subscribe(RunGcCollect).AddTo(_disposables);

@@ -3535,7 +3535,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>无法完成静音分割：{0}</value>
   </data>
   <data name="SilenceSplit_Stale" xml:space="preserve">
-    <value>场景已更改。请关闭此对话框并重新分析。</value>
+    <value>场景已更改。请刷新分析后再应用。</value>
   </data>
   <data name="SilenceSplit_LockedLinked" xml:space="preserve">
     <value>分组中有元素被锁定。请解锁或关闭分组编辑。</value>
@@ -3544,7 +3544,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>请输入 −120 至 0 dB 的阈值、正数的最短时长和非负的保护时间。</value>
   </data>
   <data name="SilenceSplit_SelectAudio" xml:space="preserve">
-    <value>请选择一个包含源音频或场景音频的未锁定元素。</value>
+    <value>右键单击音频元素，然后选择“按静音自动分割”。</value>
   </data>
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
     <value>在检测到的位置分割会使分组片段产生不足一帧的区间。请调整静音设置或关闭分组编辑。</value>

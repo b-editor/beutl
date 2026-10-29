@@ -100,6 +100,14 @@
                                      InputGesture="{h:GetCommandGesture timeline.split,
                                                                       ExtensionType={x:Type p:TimelineTabExtension}}"
                                      Text="{x:Static lang:Strings.SplitByCurrentFrame}" />
+                <ui:FAMenuFlyoutItem x:Name="autoSplitBySilence"
+                                     usage:UsageTracking.Feature="Timeline.AutoSplitBySilence"
+                                     Click="AutoSplitBySilence_Click"
+                                     Text="{x:Static lang:Strings.AutoSplitBySilence}">
+                    <ui:FAMenuFlyoutItem.IconSource>
+                        <icons:FluentIconSource Icon="Cut" />
+                    </ui:FAMenuFlyoutItem.IconSource>
+                </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="cut"
                                      usage:UsageTracking.Feature="Timeline.Cut"
                                      Command="{Binding Cut}"

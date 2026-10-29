@@ -3535,7 +3535,7 @@ when history recording is enabled.</value>
     <value>Could not complete silence split: {0}</value>
   </data>
   <data name="SilenceSplit_Stale" xml:space="preserve">
-    <value>The scene changed. Close this dialog and analyze again.</value>
+    <value>The scene changed. Refresh the analysis before applying.</value>
   </data>
   <data name="SilenceSplit_LockedLinked" xml:space="preserve">
     <value>A grouped element is locked. Unlock it or turn off grouped editing.</value>
@@ -3544,7 +3544,7 @@ when history recording is enabled.</value>
     <value>Enter a threshold from −120 to 0 dB, a positive minimum duration and non-negative padding.</value>
   </data>
   <data name="SilenceSplit_SelectAudio" xml:space="preserve">
-    <value>Select one unlocked element containing source or scene audio.</value>
+    <value>Right-click an audio element and choose Auto Split by Silence.</value>
   </data>
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
     <value>A detected cut would create a segment shorter than one frame in a grouped clip. Adjust the silence settings or turn off grouped editing.</value>

@@ -20,6 +20,7 @@ using Beutl.Editor.Components.PathEditorTab;
 using Beutl.Editor.Components.PreviewSettingsTab;
 using Beutl.Editor.Components.ProxiesTab;
 using Beutl.Editor.Components.SceneSettingsTab;
+using Beutl.Editor.Components.SilenceSplitTab;
 using Beutl.Editor.Components.TerminalTab;
 using Beutl.Editor.Components.TransitionTab;
 using Beutl.Editor.Components.VersionControlTab;
@@ -69,6 +70,7 @@ public sealed class LoadPrimitiveExtensionTask : StartupTask
         AiWorkspaceTabExtension.Instance,
         HistoryTabExtension.Instance,
         TransitionTabExtension.Instance,
+        SilenceSplitTabExtension.Instance,
         VersionControlTabExtension.Instance,
         MissingMediaTabExtension.Instance,
         DockLayoutTabExtension.Instance,

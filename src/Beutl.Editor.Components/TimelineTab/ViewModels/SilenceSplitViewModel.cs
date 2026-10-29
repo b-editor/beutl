@@ -117,11 +117,17 @@ public sealed class SilenceSplitViewModel : IDisposable
     {
         if (!CanApply.Value || _stale || _disposed) return;
         if (_player != null) await _player.Pause();
-        // The dialog or scene can change while playback relinquishes its readers.
+        // The tab or scene can change while playback relinquishes its readers.
         if (!CanApply.Value || _stale || _disposed) return;
         // Applying intentionally edits the observed scene; unsubscribe before entering the transaction.
         _scene.Edited -= OnSceneEdited;
-        try { _service.Apply(_scene, _element, Ranges, (SilenceSplitMode)ModeIndex.Value, IncludeLinked.Value); }
+        try
+        {
+            _service.Apply(_scene, _element, Ranges, (SilenceSplitMode)ModeIndex.Value, IncludeLinked.Value);
+            _stale = true;
+            CanApply.Value = false;
+            Status.Value = Strings.Completed;
+        }
         finally { _scene.Edited += OnSceneEdited; }
     }
 

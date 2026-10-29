@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -83,6 +84,7 @@ public sealed partial class ElementView : UserControl
         groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
         split.IsEnabled = editable;
+        autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
         // Recovery protection makes a clip read-only but still lets it be removed.
         delete.IsEnabled = !viewModel.IsLockedByUser.Value;
@@ -96,6 +98,12 @@ public sealed partial class ElementView : UserControl
         lockElement.IsEnabled = viewModel.CanToggleLock.Value
                                 && viewModel.LayerHeader.Value?.IsLocked.Value != true;
         PopulateTransitionMenu(viewModel, editable);
+    }
+
+    private void AutoSplitBySilence_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ElementViewModel { IsEditable.Value: true } viewModel)
+            SilenceSplitTabViewModel.Open(viewModel.Timeline.EditorContext, viewModel.Model);
     }
 
     // One item per edge, which opens its transition in the property tab, adding the default one first
