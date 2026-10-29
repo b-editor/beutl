@@ -116,6 +116,46 @@ public partial class TransitionRenderTests
     }
 
     [Test]
+    public void SpatialTransitions_UseTheFrameAroundAnInsetClip(
+        [Values(typeof(ZoomBlurTransition), typeof(WhipPanTransition))] Type type,
+        [Values(1f, 0.5f)] float scale)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var transition = (ClipTransition)Activator.CreateInstance(type)!;
+            (Scene scene, RectShape incoming) = CreateScene(transition, withOutgoing: false);
+            incoming.Width.Value = 8;
+            incoming.Height.Value = 8;
+            incoming.AlignmentX.Value = AlignmentX.Left;
+            incoming.AlignmentY.Value = AlignmentY.Top;
+            incoming.Transform.Value = new TranslateTransform(40, 12);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery, renderScale: scale);
+            foreach (double progress in new[] { 0, 0.75, 1 })
+            {
+                renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
+                using Bitmap snapshot = renderer.Snapshot();
+                using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+                if (progress == 0.75)
+                {
+                    // Zoom expands past the inset's right edge; the incoming pan moves left of it.
+                    int visibleX = type == typeof(ZoomBlurTransition) ? 50 : 34;
+                    Assert.That(Pixel(bitmap, (int)(visibleX * scale), (int)(16 * scale)).A, Is.GreaterThan(16),
+                        "movement is measured against the frame and must extend outside the original 40..48 inset");
+                    Assert.That(Pixel(bitmap, 0, 0).A, Is.Zero, "transparent source pixels must stay transparent");
+                }
+                else
+                {
+                    int visiblePixels = bitmap.GetPixelSpan<Bgra8888>().ToArray().Count(p => p.A > 0);
+                    Assert.That(visiblePixels, Is.EqualTo(progress == 0 ? 0 : 64 * scale * scale));
+                    if (progress == 1)
+                        Assert.That(Pixel(bitmap, (int)(44 * scale), (int)(16 * scale)).A, Is.EqualTo(255));
+                }
+            }
+        });
+    }
+
+    [Test]
     public void WhipPan_UsesTheSelectedAxis([Values] ClipTransitionDirection direction)
     {
         VulkanTestEnvironment.EnsureAvailable();
