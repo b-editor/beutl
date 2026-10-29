@@ -173,7 +173,11 @@ public sealed partial class GraphEditorTabViewModel
 
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
-        var componentAnimation = (item.Property ?? item.Adapter?.GetEngineProperty())?.GetPropertyAnimation() as IComponentAnimation;
+        var engineProperty = item.Property ?? item.Adapter?.GetEngineProperty();
+        var componentAnimation = engineProperty?.GetPropertyAnimation() as IComponentAnimation;
+        item.CanSeparateComponents.Value = canAnimate && engineProperty is IExpressionProperty { IsAnimatable: true }
+            && ComponentAnimations.IsSupported(engineProperty.ValueType);
+        item.HasSeparatedComponents.Value = componentAnimation != null;
         if (componentAnimation != null)
         {
             item.CanAnimate.Value = false;
@@ -269,6 +273,25 @@ public sealed partial class GraphEditorTabViewModel
                 .RoundToFrame(rate, MidpointRounding.AwayFromZero);
             item.HasKeyFrame.Value = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) != null;
         }
+    }
+
+    public void ToggleComponentSeparation(GraphEditorTreeItemViewModel item)
+    {
+        if (!item.CanSeparateComponents.Value || Element.Value == null || !ElementEditability.IsEditable(Element.Value)
+            || !_treeCache.TryGetValue(item.Key, out var current) || current != item
+            || (item.Property ?? item.Adapter?.GetEngineProperty()) is not { } property) return;
+
+        bool separated = property.GetPropertyAnimation() is IComponentAnimation;
+        _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() =>
+        {
+            if (separated) ComponentAnimations.Unseparate(property, _clock.CurrentTime.Value);
+            else ComponentAnimations.Separate(property);
+        }, separated ? Strings.UnseparateComponents : Strings.SeparateComponents);
+        Refresh();
+        ExpandAncestors(item);
+        if (!separated) item.IsExpanded.Value = true;
+        SelectedTreeItem.Value = separated ? item
+            : item.Children.FirstOrDefault(child => child.Animation != null) ?? item.Children.FirstOrDefault() ?? item;
     }
 
     public void ToggleKeyFrame(GraphEditorTreeItemViewModel item)

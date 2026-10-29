@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Globalization;
+using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
@@ -12,6 +13,7 @@ using Beutl.Animation.Easings;
 using Beutl.Editor.Components.GraphEditorTab.ViewModels;
 using Beutl.Editor.Components.GraphEditorTab.Views;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
@@ -20,6 +22,7 @@ using Beutl.Language;
 using Beutl.Media;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Nodes;
+using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using FluentIcons.Common;
@@ -97,8 +100,150 @@ public class GraphEditorTreeTests
             var item = scope.Find(property);
             Assert.That(item.CanAnimate.Value, Is.False, property.Name);
             Assert.That(scope.AnimationButton(item).IsVisible, Is.False, property.Name);
+            Assert.That(scope.SeparationButton(item).IsVisible, Is.False, property.Name);
             scope.Model.EnableAnimation(item);
+            scope.Model.ToggleComponentSeparation(item);
             Assert.That(property.GetKeyFrameAnimation(), Is.Null, property.Name);
+        }
+        Assert.That(scope.SeparationButton(scope.Find(scope.Shape.Width)).IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
+    [TestCase("ja", 640, 180, false)]
+    [TestCase("en", 960, 260, true)]
+    public async Task Separation_button_sits_left_of_the_timer_and_unseparates_at_the_playhead(
+        string language, int width, int treeWidth, bool light)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
+        try
+        {
+            using var scope = await TreeScope.CreateAsync(width, light);
+            var animation = new KeyFrameAnimation<Color>
+            {
+                KeyFrames =
+                {
+                    new KeyFrame<Color> { Value = { Value = Color.FromArgb(0, 20, 40, 60) } },
+                    new KeyFrame<Color> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = Color.FromArgb(200, 20, 40, 60) } }
+                }
+            };
+            scope.Brush.Color.SetKeyFrameAnimation(animation);
+            var history = scope.Base.Model.HistoryManager;
+            history.Commit();
+            scope.Model.Refresh();
+            var color = scope.Find(scope.Brush.Color);
+            scope.Find(scope.Shape.Fill).IsExpanded.Value = color.IsExpanded.Value = true;
+            ((Grid)scope.View.Content!).ColumnDefinitions[0].Width = new GridLength(treeWidth);
+            HeadlessTestHelpers.Render(3);
+            var button = scope.SeparationButton(color);
+            button.BringIntoView();
+            HeadlessTestHelpers.Render(3);
+            var timer = scope.AnimationButton(color);
+            var icon = button.GetVisualDescendants().OfType<FluentIcon>().Single();
+            Assert.That(button.IsVisible, Is.True);
+            Assert.That(icon.Icon, Is.EqualTo(Icon.ArrowSplit));
+            Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.SeparateComponents));
+            Assert.That(button.TranslatePoint(default, scope.View)!.Value.X + button.Bounds.Width,
+                Is.LessThan(timer.TranslatePoint(default, scope.View)!.Value.X));
+            Capture("before");
+
+            int undoCount = history.UndoCount;
+            scope.Base.Click(button.TranslatePoint(new Point(button.Bounds.Width / 2, button.Bounds.Height / 2), scope.Base.Window)!.Value);
+            var split = (IComponentAnimation)scope.Brush.Color.GetPropertyAnimation()!;
+            Assert.That(history.UndoCount, Is.EqualTo(undoCount + 1));
+            Assert.That(color.Children.Select(x => x.Property!.Name), Is.EqualTo(new[] { "R", "G", "B", "A" }));
+            Assert.That(color.IsExpanded.Value, Is.True);
+            Assert.That(timer.IsVisible, Is.False);
+            Assert.That(icon.Icon, Is.EqualTo(Icon.ArrowJoin));
+            Assert.That(ToolTip.GetTip(button), Does.StartWith(Strings.UnseparateComponents));
+            Assert.That(scope.Model.SelectedAnimation.Value!.Animation, Is.SameAs(split.Components[0].GetKeyFrameAnimation()));
+            foreach (var component in color.Children)
+            {
+                Assert.That(scope.SeparationButton(component).IsVisible, Is.False);
+                Assert.That(scope.AnimationButton(component).IsVisible, Is.True);
+            }
+            scope.Model.SelectedTreeItem.Value = color.Children[3];
+            HeadlessTestHelpers.Render(3);
+            Capture("separated");
+
+            history.Undo();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(scope.Brush.Color.GetPropertyAnimation(), Is.SameAs(animation));
+            Assert.That(icon.Icon, Is.EqualTo(Icon.ArrowSplit));
+            Assert.That(timer.IsVisible, Is.True);
+            history.Redo();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(scope.Brush.Color.GetPropertyAnimation(), Is.SameAs(split));
+
+            scope.Brush.IsTimeAnchor.Value = true;
+            scope.Brush.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
+            var alpha = split.Components[3].GetKeyFrameAnimation()!;
+            alpha.KeyFrames[1].KeyTime.Value = MediaTime.FromSeconds(4);
+            ((IExpressionProperty<byte>)split.Components[0]).Expression = Expression.Create<byte>("(byte)64");
+            history.Commit();
+            scope.Base.Model.Seek(MediaTime.FromSeconds(6));
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            HeadlessTestHelpers.Render(3);
+            var expected = Color.FromArgb(50, 64, 40, 60);
+            Assert.That(scope.Brush.Color.GetPropertyAnimation(), Is.Null);
+            Assert.That(scope.Brush.Color.Value, Is.EqualTo(expected));
+            Assert.That(scope.Model.SelectedTreeItem.Value, Is.SameAs(color));
+            Assert.That(timer.IsVisible, Is.True);
+            Assert.That(icon.Icon, Is.EqualTo(Icon.ArrowSplit));
+            Capture("unseparated");
+
+            history.Undo();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(scope.Brush.Color.GetPropertyAnimation(), Is.SameAs(split));
+            Assert.That(alpha.KeyFrames[1].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That(((IExpressionProperty<byte>)split.Components[0]).HasExpression, Is.True);
+            history.Redo();
+            HeadlessTestHelpers.Render(3);
+            Assert.That(scope.Brush.Color.GetPropertyAnimation(), Is.Null);
+            Assert.That(scope.Brush.Color.Value, Is.EqualTo(expected));
+
+            void Capture(string state)
+            {
+                if (Environment.GetEnvironmentVariable("BEUTL_GRAPH_COMPONENT_CAPTURE") is not { } directory) return;
+                Directory.CreateDirectory(directory);
+                using var frame = scope.Base.Window.CaptureRenderedFrame();
+                frame!.Save(System.IO.Path.Combine(directory, $"graph-components-{state}-{language}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Separation_of_static_properties_respects_element_and_layer_locks(bool lockLayer)
+    {
+        using var scope = await TreeScope.CreateAsync();
+        var element = scope.Base.Model.Element!;
+        var layer = new TimelineLayer { ZIndex = { Value = element.ZIndex.Value } };
+        scope.Base.Model.Scene.Layers.Add(layer);
+        var locked = lockLayer ? layer.IsLocked : element.IsLocked;
+        var history = scope.Base.Model.HistoryManager;
+        var color = scope.Find(scope.Brush.Color);
+        Color value = scope.Brush.Color.Value;
+        foreach (bool separated in new[] { false, true })
+        {
+            var animation = scope.Brush.Color.GetPropertyAnimation();
+            locked.Value = true;
+            history.Commit();
+            int undoCount = history.UndoCount;
+            scope.Model.ToggleComponentSeparation(color);
+            Assert.That(scope.Brush.Color.GetPropertyAnimation(), Is.SameAs(animation));
+            Assert.That(history.UndoCount, Is.EqualTo(undoCount));
+            locked.Value = false;
+            history.Commit();
+            scope.Model.ToggleComponentSeparation(color);
+            HeadlessTestHelpers.Render(3);
+            Assert.That(color.HasSeparatedComponents.Value, Is.EqualTo(!separated));
+            Assert.That(scope.Brush.Color.Value, Is.EqualTo(value));
         }
     }
 
@@ -622,6 +767,9 @@ public class GraphEditorTreeTests
 
         public Button AnimationButton(GraphEditorTreeItemViewModel item) => View.GetVisualDescendants().OfType<Button>()
             .Single(x => ReferenceEquals(x.DataContext, item) && x.Classes.Contains("graph-animation"));
+
+        public Button SeparationButton(GraphEditorTreeItemViewModel item) => View.GetVisualDescendants().OfType<Button>()
+            .Single(x => ReferenceEquals(x.DataContext, item) && x.Classes.Contains("graph-separation"));
 
         public void Dispose()
         {

@@ -21,6 +21,15 @@ public partial class GraphEditorTabView : UserControl
         }
     }
 
+    private void ToggleComponentSeparationClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Control { DataContext: GraphEditorTreeItemViewModel item } && DataContext is GraphEditorTabViewModel model)
+        {
+            model.ToggleComponentSeparation(item);
+            e.Handled = true;
+        }
+    }
+
     private void ToggleKeyFrameClick(object? sender, RoutedEventArgs e)
     {
         if (sender is Control { DataContext: GraphEditorTreeItemViewModel item } control && DataContext is GraphEditorTabViewModel model)

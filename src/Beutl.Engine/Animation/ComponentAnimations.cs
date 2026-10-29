@@ -6,7 +6,7 @@ namespace Beutl.Animation;
 
 public static class ComponentAnimations
 {
-    private static readonly Dictionary<Type, Func<IProperty, IComponentAnimation>> s_factories = [];
+    private static readonly Dictionary<Type, (Func<IProperty, IComponentAnimation> Separate, Action<IProperty, MediaTime> Unseparate)> s_operations = [];
     private static readonly Dictionary<Type, object> s_definitions = [];
 
     static ComponentAnimations()
@@ -90,7 +90,15 @@ public static class ComponentAnimations
     private static void Register<T, TComponent>(params ComponentDefinition<T, TComponent>[] components)
     {
         s_definitions[typeof(T)] = components;
-        s_factories[typeof(T)] = property => ComponentAnimation<T, TComponent>.Create((IProperty<T>)property);
+        s_operations[typeof(T)] = (property => ComponentAnimation<T, TComponent>.Create((IProperty<T>)property), (property, time) =>
+        {
+            // Capture the rendered value, including component expressions and interpolation, before detaching the tracks.
+            var typed = (IExpressionProperty<T>)property;
+            T value = typed.Evaluate(new EvaluationContext(time));
+            typed.SetPropertyAnimation(null);
+            typed.Value = value;
+        }
+        );
     }
 
     internal static ComponentDefinition<T, TComponent>[] GetDefinitions<T, TComponent>()
@@ -107,14 +115,20 @@ public static class ComponentAnimations
             _ => new() { Name = name, ResourceType = typeof(Strings) }
         };
 
-    public static bool IsSupported(Type type) => s_factories.ContainsKey(type);
+    public static bool IsSupported(Type type) => s_operations.ContainsKey(type);
 
     public static IComponentAnimation Separate(IProperty property)
     {
         if (property.GetPropertyAnimation() is IComponentAnimation existing) return existing;
-        var animation = s_factories[property.ValueType](property);
+        var animation = s_operations[property.ValueType].Separate(property);
         property.SetPropertyAnimation(animation);
         return animation;
+    }
+
+    public static void Unseparate(IProperty property, MediaTime time)
+    {
+        if (property.GetPropertyAnimation() is IComponentAnimation)
+            s_operations[property.ValueType].Unseparate(property, time);
     }
 }
 

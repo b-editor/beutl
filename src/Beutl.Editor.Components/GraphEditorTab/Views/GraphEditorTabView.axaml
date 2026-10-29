@@ -70,13 +70,36 @@
                 </TreeView.Styles>
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate x:DataType="viewModels:GraphEditorTreeItemViewModel" ItemsSource="{Binding Children}">
-                        <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="4">
+                        <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
                             <Border Width="10" Height="3" Background="{Binding ChannelBrush.Value}"
                                     BorderBrush="{DynamicResource TextFillColorSecondaryBrush}" BorderThickness="0.5"
                                     IsVisible="{Binding ChannelBrush.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
                             <TextBlock x:Name="PropertyNameText" Grid.Column="1" Text="{Binding Name.Value}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name.Value}" />
                             <Button Grid.Column="2"
+                                    Width="22"
+                                    Height="{DynamicResource LayerHeight}"
+                                    MinWidth="0"
+                                    MinHeight="0"
+                                    usage:UsageTracking.Feature="GraphEditor.ToggleComponentSeparation"
+                                    AutomationProperties.Name="{Binding SeparationToolTip.Value}"
+                                    Classes="graph-separation"
+                                    Click="ToggleComponentSeparationClick"
+                                    IsVisible="{Binding CanSeparateComponents.Value}"
+                                    Theme="{StaticResource LayerHeaderButtonTheme}"
+                                    ToolTip.Tip="{Binding SeparationToolTip.Value}">
+                                <icons:FluentIcon FontSize="14" Classes.separated="{Binding HasSeparatedComponents.Value}">
+                                    <icons:FluentIcon.Styles>
+                                        <Style Selector="icons|FluentIcon">
+                                            <Setter Property="Icon" Value="ArrowSplit" />
+                                        </Style>
+                                        <Style Selector="icons|FluentIcon.separated">
+                                            <Setter Property="Icon" Value="ArrowJoin" />
+                                        </Style>
+                                    </icons:FluentIcon.Styles>
+                                </icons:FluentIcon>
+                            </Button>
+                            <Button Grid.Column="3"
                                     Width="22"
                                     Height="{DynamicResource LayerHeight}"
                                     MinWidth="0"
