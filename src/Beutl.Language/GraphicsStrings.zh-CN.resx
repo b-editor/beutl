@@ -1640,4 +1640,13 @@
   <data name="LightRays_Decay_Description" xml:space="preserve">
     <value>沿每条光线减弱光强。0%保持均匀强度，值越高衰减越快。</value>
   </data>
+  <data name="TextBlock_WritingMode" xml:space="preserve">
+    <value>书写方向</value>
+  </data>
+  <data name="WritingMode_HorizontalTb" xml:space="preserve">
+    <value>横排</value>
+  </data>
+  <data name="WritingMode_VerticalRl" xml:space="preserve">
+    <value>竖排</value>
+  </data>
 </root>

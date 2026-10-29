@@ -1640,4 +1640,13 @@
   <data name="LightRays_Decay_Description" xml:space="preserve">
     <value>광선을 따라 빛이 약해집니다. 0%는 일정한 강도이며, 값이 클수록 더 빠르게 약해집니다.</value>
   </data>
+  <data name="TextBlock_WritingMode" xml:space="preserve">
+    <value>쓰기 방향</value>
+  </data>
+  <data name="WritingMode_HorizontalTb" xml:space="preserve">
+    <value>가로쓰기</value>
+  </data>
+  <data name="WritingMode_VerticalRl" xml:space="preserve">
+    <value>세로쓰기</value>
+  </data>
 </root>
