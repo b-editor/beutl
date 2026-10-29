@@ -126,15 +126,18 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         }
     }
 
-    internal sealed class ContentIsolationRenderNode(bool isolatesContent) : ContainerRenderNode
+    internal sealed class ContentIsolationRenderNode(bool isolatesContent, bool contributesToBackdrop = true) : ContainerRenderNode
     {
         public bool IsolatesContent { get; private set; } = isolatesContent;
 
-        public bool Update(bool isolatesContent)
+        public bool ContributesToBackdrop { get; private set; } = contributesToBackdrop;
+
+        public bool Update(bool isolatesContent, bool contributesToBackdrop = true)
         {
-            if (isolatesContent != IsolatesContent)
+            if (isolatesContent != IsolatesContent || contributesToBackdrop != ContributesToBackdrop)
             {
                 IsolatesContent = isolatesContent;
+                ContributesToBackdrop = contributesToBackdrop;
                 MarkChanged();
                 return true;
             }
@@ -155,7 +158,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                     || !context.TryCalculateInputBounds(out Rect bounds)
                     ? TargetRegion.Full
                     : TargetRegion.Region(bounds);
-                context.Publish(context.TargetLayerScope(context.Inputs, region));
+                context.Publish(context.TargetLayerScope(context.Inputs, region, ContributesToBackdrop));
             }
             else
             {

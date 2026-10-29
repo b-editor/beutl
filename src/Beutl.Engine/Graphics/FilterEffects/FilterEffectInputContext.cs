@@ -69,10 +69,7 @@ public sealed class FilterEffectInputContext
             CompositionContext context = slot.Session.Context;
             context.SampledDrawable = (Drawable)_flow.Object;
             context.InputBoundaries = [.. EvaluationContext.InputBoundaries, _boundary];
-            // A retimed target is drawn at any mapped time, as its controller draws it; otherwise the
-            // sample follows the element's range on the composition clock.
-            var range = _flow.Object.TimeRange.Value;
-            bool visible = EvaluationContext.IsTimeRemapped || range.Duration <= MediaTime.Zero || range.Contains(time);
+            bool visible = _flow.IsVisibleAt(context);
             if (visible)
             {
                 bool changed = false;
@@ -136,8 +133,8 @@ public sealed class FilterEffectInputContext
         using (context.PushBlendMode(_source.BlendMode))
         using (context.PushFilterEffect(_suffix.Resource))
         using (context.PushNode(true,
-                   static value => new DrawableGroup.ContentIsolationRenderNode(value),
-                   static (node, value) => node.Update(value)))
+                   static value => new DrawableGroup.ContentIsolationRenderNode(value, contributesToBackdrop: false),
+                   static (node, value) => node.Update(value, contributesToBackdrop: false)))
         {
             Effect.RenderInput(context, this);
         }

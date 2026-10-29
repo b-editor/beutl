@@ -187,6 +187,13 @@ public sealed partial class RenderNodeContext
     public RenderFragmentHandle TargetLayerScope(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetRegion region)
+        => TargetLayerScope(inputs, region, contributesToBackdrop: true);
+
+    // An effect's combined output must not become the backdrop of its later input samples.
+    internal RenderFragmentHandle TargetLayerScope(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetRegion region,
+        bool contributesToBackdrop)
     {
         region.ThrowIfUninitialized(nameof(region));
         NodeRecordingTransaction transaction = GetTransaction();
@@ -202,7 +209,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
-            new TargetLayerScopeRenderFragmentPayload(region),
+            new TargetLayerScopeRenderFragmentPayload(region, contributesToBackdrop),
             CreateTargetLayerScopeHitTest(region),
             hasDirectSymbolicBoundsDependency: region.Kind == TargetRegionKind.Full);
     }

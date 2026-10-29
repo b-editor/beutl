@@ -5,8 +5,12 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.NodeGraph;
+using Beutl.NodeGraph.Composition;
+using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Graphics;
 
@@ -91,6 +95,36 @@ public class MotionBlurTests
         Assert.That(Times(), Is.EqualTo(new[] { 0.9375, 1.0625 }).Within(0.000001));
 
         double[] Times() => effect.TimeSamples.Select(s => s.Time.ToSeconds()).ToArray();
+    }
+
+    [Test]
+    public void SceneNodeSamplesInheritTheGraphRateAndCancellation()
+    {
+        RectShape shape = Rectangle();
+        shape.FilterEffect.Value = Blur();
+        Scene referenced = SceneWith(shape);
+        var node = new SceneNode();
+        var graph = new GraphModel();
+        graph.Nodes.Add(node);
+        Scene host = SceneWith(new NodeGraphDrawable { Model = { Value = graph } });
+        node.Object.Value.ReferencedScene.Expression = SceneReferenceTestHelper.Create(host, referenced);
+        node.Time.Property!.SetValue(Seconds(1));
+        using var cancellation = new CancellationTokenSource();
+        var context = new CompositionContext(Seconds(2))
+        {
+            FrameRate = new(60, 1),
+            CancellationToken = cancellation.Token,
+        };
+        using var snapshot = new GraphSnapshot();
+        snapshot.Build(graph, context);
+        snapshot.Evaluate(context);
+        var resource = (SceneNode.Resource)snapshot.GetResource(snapshot.FindSlotIndex(node))!;
+        var source = resource.SceneResource!.Frame!.Value.Objects.OfType<RectShape.Resource>().Single();
+        var samples = ((MotionBlur.Resource)source.FilterEffect!).TimeSamples;
+        Assert.That(samples.Select(s => s.Time.ToSeconds()),
+            Is.EqualTo(Enumerable.Range(0, 4).Select(i => 1 + ((i + 0.5) / 4 - 0.5) / 60)).Within(0.000001));
+        cancellation.Cancel();
+        Assert.Throws<OperationCanceledException>(() => samples[0].CreateRenderNode(new(96, 64)));
     }
 
     [Test]

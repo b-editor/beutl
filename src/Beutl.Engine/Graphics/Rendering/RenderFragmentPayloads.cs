@@ -76,7 +76,7 @@ internal sealed record TargetCaptureRenderFragmentPayload(
 
 internal sealed record LayerRenderFragmentPayload(Rect? Domain, bool DomainIsQueryFootprint = false);
 
-internal sealed record TargetLayerScopeRenderFragmentPayload(TargetRegion Region);
+internal sealed record TargetLayerScopeRenderFragmentPayload(TargetRegion Region, bool ContributesToBackdrop = true);
 
 internal sealed record TargetScopeRenderFragmentPayload(
     TargetScopeDescription Description);

@@ -7,6 +7,13 @@ namespace Beutl.Engine;
 // consume the caller's remaining flow or substitute the operator's stored target.
 internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inputs)
 {
+    public bool IsVisibleAt(CompositionContext context)
+    {
+        // Controllers draw their targets on a mapped clock, even outside the target's clip range.
+        var range = Object.TimeRange.Value;
+        return context.IsTimeRemapped || range.Duration <= MediaTime.Zero || range.Contains(context.Time);
+    }
+
     public static FlowNode? Capture(EngineObject.Resource resource)
     {
         if (resource.GetOriginal() is not { } obj) return null;
@@ -43,7 +50,7 @@ internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inp
 // reconciliation and still release every re-evaluated resource exactly once.
 internal sealed class FlowInputState : IDisposable
 {
-    private readonly List<EngineObject.Resource> _owned = [];
+    private readonly List<EngineObject.Resource?> _owned = [];
 
     public IReadOnlyList<FlowNode> Inputs { get; private set; } = [];
 
@@ -56,15 +63,19 @@ internal sealed class FlowInputState : IDisposable
             for (int i = 0; i < Inputs.Count; i++)
             {
                 EngineObject.Resource? resource = i < _owned.Count ? _owned[i] : null;
-                bool changed = false;
-                Inputs[i].Reconcile(context, ref resource, ref changed);
-                if (i < _owned.Count) _owned[i] = resource!;
-                else _owned.Add(resource!);
-                consumed.Add((TResource)resource!);
+                if (Inputs[i].IsVisibleAt(context))
+                {
+                    bool changed = false;
+                    Inputs[i].Reconcile(context, ref resource, ref changed);
+                    consumed.Add((TResource)resource!);
+                }
+                // Keep the slot when a sample crosses a clip edge, so seeking back reuses its resource.
+                if (i < _owned.Count) _owned[i] = resource;
+                else _owned.Add(resource);
             }
             while (_owned.Count > Inputs.Count)
             {
-                _owned[^1].Dispose();
+                _owned[^1]?.Dispose();
                 _owned.RemoveAt(_owned.Count - 1);
             }
             return;
@@ -105,7 +116,7 @@ internal sealed class FlowInputState : IDisposable
 
     private void DisposeOwned()
     {
-        foreach (var resource in _owned) resource.Dispose();
+        foreach (var resource in _owned) resource?.Dispose();
         _owned.Clear();
     }
 

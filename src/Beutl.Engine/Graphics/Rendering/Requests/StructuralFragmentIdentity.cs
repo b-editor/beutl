@@ -152,6 +152,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 return;
             case TargetLayerScopeRenderFragmentPayload targetLayer:
                 components.AddBoolean(targetLayer.Region.Kind != TargetRegionKind.Empty);
+                components.AddBoolean(targetLayer.ContributesToBackdrop);
                 return;
             case OpaqueRenderFragmentPayload opaque:
                 AddOpaqueStructuralIdentity(opaque, ref components);

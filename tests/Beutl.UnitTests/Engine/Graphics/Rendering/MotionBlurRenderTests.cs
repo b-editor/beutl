@@ -90,6 +90,77 @@ public class MotionBlurRenderTests
     }
 
     [Test]
+    public void PortalInputsFollowTheirOwnClipRangeAtEverySample()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var group = new DrawableGroup { FilterEffect = { Value = MotionBlurTests.Blur() } };
+            Scene scene = MotionBlurTests.SceneWith(new PortalObject { Count = { Value = 1 } }, group);
+            RectShape shape = MotionBlurTests.Rectangle();
+            shape.Width.SetKeyFrameAnimation(null);
+            var input = new Element
+            {
+                Start = { Value = MediaTime.FromSeconds(0.5) },
+                Length = { Value = MediaTime.FromSeconds(0.5) },
+                ZIndex = { Value = 1 },
+            };
+            input.Objects.Add(shape);
+            scene.Children.Add(input);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+            foreach (double time in new[] { 0.75, 0.95, 0.55, 0.75, 0.95 })
+            {
+                using Bitmap image = Render(renderer, time);
+                Assert.That(ImageMetrics.ReadPixel(image, 48, 32).Alpha,
+                    Is.EqualTo(time == 0.75 ? 1 : 0.5).Within(0.003), $"sampled clip coverage at {time}");
+            }
+        });
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void StaticBackdropDoesNotFeedPreviousSamplesIntoTheAverage(bool clear, bool inGroup)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var background = new RectShape
+            {
+                Width = { Value = 96 },
+                Height = { Value = 64 },
+                Fill = { Value = new SolidColorBrush(Colors.Red) },
+            };
+            var blur = MotionBlurTests.Blur();
+            blur.Samples.Value = 1;
+            var chain = new FilterEffectGroup();
+            chain.Children.Add(new Invert());
+            if (!inGroup) chain.Children.Add(blur);
+            var backdrop = new SourceBackdrop { Clear = { Value = clear }, FilterEffect = { Value = chain } };
+            Scene scene = inGroup
+                ? MotionBlurTests.SceneWith(background, backdrop, new DrawableGroup { FilterEffect = { Value = blur } })
+                : MotionBlurTests.SceneWith(background, backdrop);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+            using Bitmap expected = Render(renderer, 1);
+            foreach (int count in new[] { 2, 4, 8 })
+            {
+                blur.Samples.Value = count;
+                using Bitmap actual = Render(renderer, 1);
+                Rgba reference = ImageMetrics.ReadPixel(expected, 48, 32);
+                Rgba pixel = ImageMetrics.ReadPixel(actual, 48, 32);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(pixel.Red, Is.EqualTo(reference.Red).Within(0.003), $"red with {count} samples");
+                    Assert.That(pixel.Green, Is.EqualTo(reference.Green).Within(0.003), $"green with {count} samples");
+                    Assert.That(pixel.Blue, Is.EqualTo(reference.Blue).Within(0.003), $"blue with {count} samples");
+                    Assert.That(pixel.Alpha, Is.EqualTo(reference.Alpha).Within(0.003), $"alpha with {count} samples");
+                });
+            }
+        });
+    }
+
+    [Test]
     public void FollowingEffectsRunOnTheAverageAndPrecedingEffectsRunOnEachSample()
     {
         VulkanTestEnvironment.EnsureAvailable();

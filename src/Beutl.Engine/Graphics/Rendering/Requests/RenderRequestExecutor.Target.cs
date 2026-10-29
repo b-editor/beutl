@@ -470,11 +470,16 @@ internal sealed partial class RenderRequestExecutor
                         if (_backdropSources is not null)
                         {
                             foreach (ImmediateCanvas backdropSource in _backdropSources)
-                                DrawTargetIntoCapture(backdropSource, canvas, capturesBackingTarget);
+                            {
+                                if (_excludedBackdropSources?.Contains(backdropSource) != true)
+                                    DrawTargetIntoCapture(backdropSource, canvas, capturesBackingTarget);
+                            }
                         }
                     }
 
-                    DrawTargetIntoCapture(currentTarget, canvas, capturesBackingTarget);
+                    if (fragment.Kind != RenderFragmentKind.BuiltInBackdropCapture
+                        || _excludedBackdropSources?.Contains(currentTarget) != true)
+                        DrawTargetIntoCapture(currentTarget, canvas, capturesBackingTarget);
                 }
 
                 succeeded = true;
@@ -512,6 +517,8 @@ internal sealed partial class RenderRequestExecutor
                 {
                     int backdropSourceCount = _backdropSources?.Count ?? 0;
                     (_backdropSources ??= []).Add(destination);
+                    bool excludeBackdrop = !((TargetLayerScopeRenderFragmentPayload)fragment.Payload!).ContributesToBackdrop;
+                    if (excludeBackdrop) (_excludedBackdropSources ??= []).Add(canvas);
                     try
                     {
                         foreach (RenderFragmentReference input in fragment.Inputs)
@@ -520,6 +527,7 @@ internal sealed partial class RenderRequestExecutor
                     finally
                     {
                         RemoveBackdropSources(backdropSourceCount);
+                        if (excludeBackdrop) _excludedBackdropSources!.Remove(canvas);
                     }
                 }
 
@@ -557,6 +565,8 @@ internal sealed partial class RenderRequestExecutor
                 {
                     int backdropSourceCount = _backdropSources?.Count ?? 0;
                     (_backdropSources ??= []).Add(backdropSource);
+                    bool excludeBackdrop = !((TargetLayerScopeRenderFragmentPayload)scope.Payload!).ContributesToBackdrop;
+                    if (excludeBackdrop) (_excludedBackdropSources ??= []).Add(destination);
                     try
                     {
                         foreach (RenderFragmentReference input in scope.Inputs)
@@ -565,6 +575,7 @@ internal sealed partial class RenderRequestExecutor
                     finally
                     {
                         RemoveBackdropSources(backdropSourceCount);
+                        if (excludeBackdrop) _excludedBackdropSources!.Remove(destination);
                     }
                 });
         }
