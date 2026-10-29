@@ -56,7 +56,6 @@ public sealed partial class TimelineTabView
         if (ViewModel == null) return;
         TimelineTabViewModel viewModel = ViewModel;
         Avalonia.Vector aOffset = ContentScroll.Offset;
-        Avalonia.Vector delta = e.Delta;
         float scale = viewModel.Options.Value.Scale;
         var offset = new Vector2((float)aOffset.X, (float)aOffset.Y);
 
@@ -66,23 +65,9 @@ public sealed partial class TimelineTabView
         }
         else
         {
-            bool gestureAxes = _usesGestureAxes(e);
-            if (!gestureAxes && OperatingSystem.IsWindows() && e.KeyModifiers == KeyModifiers.Shift)
-            {
-                delta = new Avalonia.Vector(delta.Y, delta.X);
-            }
-
-            // Touchpad gestures already follow the gesture axes and OS direction.
-            if (gestureAxes || GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value)
-            {
-                offset.Y -= (float)(delta.Y * 50);
-                offset.X -= (float)(delta.X * 50);
-            }
-            else
-            {
-                offset.X -= (float)(delta.Y * 50);
-                offset.Y -= (float)(delta.X * 50);
-            }
+            Avalonia.Vector delta = TimelineHelper.GetScrollOffsetDelta(e, _usesGestureAxes(e));
+            offset.X += (float)delta.X;
+            offset.Y += (float)delta.Y;
         }
 
         viewModel.Options.Value = viewModel.Options.Value with { Scale = scale, Offset = offset };

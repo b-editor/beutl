@@ -36,16 +36,19 @@ public sealed class SilenceSplitService(HistoryManager history)
         if (!scene.Children.Contains(element) || scene.IsElementLocked(element) || scene.Uri == null || ranges.Count == 0) return;
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
         var group = includeLinked ? scene.Groups.FirstOrDefault(g => g.Contains(element.Id.Value)) : null;
-        List<Element> parts = group == null ? [element] : scene.Children.Where(e => group.Contains(e.Id.Value)).ToList();
-        if (parts.Any(scene.IsElementLocked)) throw new InvalidOperationException(Strings.SilenceSplit_LockedLinked);
-        int[] layers = parts.Select(e => e.ZIndex.Value).Distinct().ToArray();
+        Element[] originals = group == null ? [element] : scene.Children.Where(e => group.Contains(e.Id.Value)).ToArray();
+        if (originals.Any(scene.IsElementLocked)) throw new InvalidOperationException(Strings.SilenceSplit_LockedLinked);
+        int[] layers = originals.Select(e => e.ZIndex.Value).Distinct().ToArray();
+        TimeRange[] orderedRanges = ranges.OrderBy(r => r.Start).ToArray();
+        List<Element> parts = [.. originals];
 
         history.ExecuteInTransaction(() =>
         {
             // All cuts precede any movement, so every boundary remains in absolute scene time.
             foreach (MediaTime cut in ranges.SelectMany(r => new[] { r.Start, r.End }).Distinct().OrderDescending())
             {
-                Element[] targets = parts.Where(e => e.Start.Value < cut && cut < e.Range.End).ToArray();
+                // Descending cuts only touch the original left pieces, never the added right pieces.
+                Element[] targets = originals.Where(e => e.Start.Value < cut && cut < e.Range.End).ToArray();
                 var split = ElementStructureService.SplitCore(scene, targets, cut);
                 // Razor may skip a cut that leaves less than a frame. Roll back all cuts rather
                 // than silently deleting different intervals from the linked audio and video.
@@ -54,37 +57,61 @@ public sealed class SilenceSplitService(HistoryManager history)
             }
 
             if (mode == SilenceSplitMode.SplitOnly) return;
-            Element[] removed = parts.Where(e => ranges.Any(r => e.Start.Value >= r.Start && e.Range.End <= r.End)).ToArray();
+            var removed = new List<Element>();
+            int rangeIndex = 0;
+            foreach (Element part in parts.OrderBy(e => e.Start.Value))
+            {
+                while (rangeIndex < orderedRanges.Length && orderedRanges[rangeIndex].End <= part.Start.Value) rangeIndex++;
+                if (rangeIndex < orderedRanges.Length && part.Start.Value >= orderedRanges[rangeIndex].Start
+                    && part.Range.End <= orderedRanges[rangeIndex].End) removed.Add(part);
+            }
             foreach (Element part in removed) scene.RemoveChild(part);
             scene.RemoveElementsFromGroups(removed.Select(e => e.Id.Value).ToArray());
             if (mode == SilenceSplitMode.RippleDelete)
             {
                 // Collapse the same timeline intervals on every linked layer, including gaps before
                 // a staggered clip. Remaining content is retained, not overlapped by the ripple.
-                TimeRange[] gaps = CommonGaps(scene, layers, ranges).ToArray();
-                foreach (var gap in gaps.OrderByDescending(r => r.End))
-                {
-                    // A lock anchors all linked layers at the same time, keeping later A/V in sync.
-                    MediaTime barrier = scene.Children.Where(e => layers.Contains(e.ZIndex.Value)
-                            && e.Start.Value >= gap.End && scene.IsElementLocked(e))
-                        .Select(e => e.Start.Value).DefaultIfEmpty(MediaTime.MaxValue).Min();
-                    Element[] anchored = scene.Children.Where(e => e.Start.Value >= barrier).ToArray();
-                    foreach (int layer in layers)
-                        RippleHelper.ShiftAfter(scene, layer, gap.End, -gap.Duration, anchored);
-                }
+                Ripple(scene, layers, CommonGaps(scene, layers, orderedRanges).ToArray());
             }
         }, CommandNames.AutoSplitBySilence);
+    }
+
+    private static void Ripple(Scene scene, int[] layers, TimeRange[] gaps)
+    {
+        Element[] elements = scene.Children.Where(e => layers.Contains(e.ZIndex.Value)).OrderBy(e => e.Start.Value).ToArray();
+        MediaTime[] barriers = elements.Where(scene.IsElementLocked).Select(e => e.Start.Value).ToArray();
+        int gapIndex = 0, barrierIndex = 0;
+        MediaTime shift = MediaTime.Zero;
+        foreach (Element part in elements)
+        {
+            // A lock anchors every linked layer. Only gaps after that anchor move later clips.
+            while (barrierIndex < barriers.Length && barriers[barrierIndex] <= part.Start.Value)
+            {
+                MediaTime barrier = barriers[barrierIndex++];
+                shift = MediaTime.Zero;
+                while (gapIndex < gaps.Length && gaps[gapIndex].End <= barrier) gapIndex++;
+            }
+            while (gapIndex < gaps.Length && gaps[gapIndex].End <= part.Start.Value)
+                shift += gaps[gapIndex++].Duration;
+
+            // CommonGaps is empty on all affected layers, so collapsing it cannot cross retained content.
+            // Write once per clip, avoiding quadratic history entries and timeline notifications.
+            if (shift > MediaTime.Zero && !scene.IsElementLocked(part)) part.Start.Value -= shift;
+        }
     }
 
     private static IEnumerable<TimeRange> CommonGaps(Scene scene, int[] layers, IReadOnlyList<TimeRange> ranges)
     {
         TimeRange[] occupied = scene.Children.Where(e => layers.Contains(e.ZIndex.Value))
             .Select(e => e.Range).OrderBy(r => r.Start).ToArray();
+        int firstOccupied = 0;
         foreach (var range in ranges)
         {
             MediaTime cursor = range.Start;
-            foreach (var clip in occupied)
+            while (firstOccupied < occupied.Length && occupied[firstOccupied].End <= cursor) firstOccupied++;
+            for (int i = firstOccupied; i < occupied.Length; i++)
             {
+                var clip = occupied[i];
                 if (clip.End <= cursor) continue;
                 if (clip.Start >= range.End) break;
                 if (clip.Start > cursor) yield return TimeRange.FromRange(cursor, clip.Start);

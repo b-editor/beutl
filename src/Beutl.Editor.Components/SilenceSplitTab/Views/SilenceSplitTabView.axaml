@@ -38,12 +38,17 @@
         <ScrollViewer x:Name="BodyScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
                       IsVisible="{Binding HasAnalysis.Value}" IsEnabled="{Binding !IsApplying.Value}">
             <Grid x:Name="ContentLayout" RowDefinitions="Auto,Auto" ColumnDefinitions="*">
-                <Grid x:Name="PreviewPane" Margin="8" RowDefinitions="*,Auto,Auto,Auto" RowSpacing="8">
+                <Grid x:Name="PreviewPane" Margin="8" RowDefinitions="*,Auto,Auto,Auto" RowSpacing="8" Background="Transparent">
                     <Border Background="{DynamicResource ControlFillColorSecondaryBrush}"
                             CornerRadius="{DynamicResource ControlCornerRadius}" Padding="8">
-                        <timeline:WaveformControl x:Name="Waveform" Height="112" MinHeight="64"
-                                                  PointerWheelChanged="OnWaveformWheelChanged"
-                                                  WaveformBrush="{DynamicResource TextFillColorPrimaryBrush}" />
+                        <Grid Background="Transparent" ClipToBounds="True">
+                            <timeline:WaveformControl x:Name="Waveform" Height="112" MinHeight="64"
+                                                      WaveformBrush="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <Canvas IsHitTestVisible="False">
+                                <Border x:Name="Playhead" Width="2" IsVisible="False"
+                                        Background="{DynamicResource AccentFillColorDefaultBrush}" />
+                            </Canvas>
+                        </Grid>
                     </Border>
                     <Grid Grid.Row="1" ColumnDefinitions="*,*">
                         <TextBlock x:Name="PreviewStartTime" Classes="secondary" />

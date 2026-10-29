@@ -284,6 +284,27 @@ public class SilenceSplitTests
     }
 
     [Test]
+    public void Ripple_RestartsAccumulationAfterALockedLinkedLayer()
+    {
+        using var h = new SceneHistoryHarness("silence-lock-barrier");
+        var audio = h.AddElement(Seconds(0), Seconds(20));
+        var video = h.AddElement(Seconds(0), Seconds(4), 1);
+        var locked = h.AddElement(Seconds(6), Seconds(1), 1);
+        locked.IsLocked.Value = true;
+        var follower = h.AddElement(Seconds(11), Seconds(9), 1);
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        h.History.Commit("Setup");
+        new SilenceSplitService(h.History).Apply(h.Scene, audio, [Range(3, 4), Range(8, 9)], SilenceSplitMode.RippleDelete, true);
+        Assert.That(h.Scene.Children.Where(e => e.ZIndex.Value == 0).Select(e => e.Start.Value),
+            Is.EquivalentTo(new[] { Seconds(0), Seconds(3), Seconds(8) }));
+        Assert.That(locked.Start.Value, Is.EqualTo(Seconds(6)));
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(10)), "only the gap after the shared lock moves this clip");
+        h.History.Undo();
+        Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video, locked, follower }));
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(11)));
+    }
+
+    [Test]
     public void Detection_ProtectsSpeechAndClipEdges_AndTreatsMissingBinsAsUnknown()
     {
         float[] peaks = [0, 0, 0.5f, 0, 0, 0, 0, 0.5f, 0, 0];
@@ -361,6 +382,37 @@ public class SilenceSplitTests
         });
         h.History.Redo();
         Assert.That(h.Scene.Children.Count, Is.EqualTo(parts + 2));
+    }
+
+    [Test]
+    public void Apply_LongRecordingMovesEachFollowerOnceAndUndoesOnce()
+    {
+        using var h = new SceneHistoryHarness("silence-batch", duration: Seconds(1820));
+        var audio = h.AddElement(Seconds(10), Seconds(1800));
+        audio.Objects.Add(new SourceSound());
+        var video = h.AddElement(Seconds(10), Seconds(1800), 1);
+        video.Objects.Add(new Beutl.Graphics.SourceVideo());
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        var follower = h.AddElement(Seconds(1812), Seconds(2));
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+        int moves = -1;
+        using var subscription = follower.Start.GetObservable().Subscribe(_ => moves++);
+        var ranges = Enumerable.Range(0, 360).Select(i => Range(13 + i * 5, 14 + i * 5)).ToArray();
+        var watch = Stopwatch.StartNew();
+        new SilenceSplitService(h.History).Apply(h.Scene, audio, ranges, SilenceSplitMode.RippleDelete, true);
+        watch.Stop();
+        TestContext.Out.WriteLine($"Apply 30 minutes / 360 silences / linked audio + video: {watch.Elapsed.TotalMilliseconds:F1} ms; follower moves: {moves}");
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(1452)));
+        Assert.That(h.Scene.Children, Has.Count.EqualTo(723));
+        Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
+        int appliedMoves = moves;
+        h.History.Undo();
+        Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video, follower }));
+        Assert.That(audio.Length.Value, Is.EqualTo(Seconds(1800)));
+        Assert.That(video.Length.Value, Is.EqualTo(Seconds(1800)));
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(1812)));
+        Assert.That(appliedMoves, Is.EqualTo(1), "ripple should aggregate gaps instead of repeatedly moving every follower");
     }
 
     [Test]

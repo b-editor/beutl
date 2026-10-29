@@ -5,11 +5,14 @@ using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
 using Beutl.Audio;
+using Beutl.Configuration;
 using Beutl.Editor;
 using Beutl.Editor.Components.SilenceSplitTab;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
@@ -262,7 +265,8 @@ public class SilenceSplitTabTests
         scene.Children.Add(linked);
         scene.Groups.Add([element.Id.Value, linked.Id.Value]);
         using var history = new HistoryManager(new OperationSequenceGenerator());
-        using var tab = new SilenceSplitTabViewModel(new EditorContext(scene, history, new BlockingPreviewPlayer()));
+        var editor = new EditorContext(scene, history, new BlockingPreviewPlayer());
+        using var tab = new SilenceSplitTabViewModel(editor);
         tab.Show(element);
         var model = tab.Analysis.Value!;
         var view = new SilenceSplitTabView { DataContext = tab };
@@ -288,7 +292,9 @@ public class SilenceSplitTabTests
             Assert.That(model.Ranges, Is.SameAs(ranges));
             Assert.That(view.FindControl<TextBlock>("PreviewStartTime")!.Text, Is.EqualTo("00:20:00.00"));
             var range = model.PreviewRange;
+            editor.Clock.Seek(element.Start.Value + range.Start + new MediaTime(range.Duration.Flicks / 3));
             AssertWideLayout();
+            Assert.That(view.FindControl<Border>("Playhead")!.IsVisible, Is.True);
             // Allow the enabled-button color transition to settle before the design capture.
             await Task.Delay(200);
             HeadlessTestHelpers.Render();
@@ -345,6 +351,118 @@ public class SilenceSplitTabTests
     }
 
     [AvaloniaTest]
+    [TestCase(RawInputModifiers.Control, 1200)]
+    [TestCase(RawInputModifiers.Meta, 360)]
+    public async Task Preview_WheelZoomWorksInEmptySpaceAndKeepsPointerTime(RawInputModifiers modifier, int width)
+    {
+        using var session = await PreviewSession.CreateAsync(width);
+        var model = session.Model;
+        var waveform = session.View.FindControl<WaveformControl>("Waveform")!;
+        var ranges = model.Ranges;
+        // All samples are silent: neither the top nor the bottom of the waveform draws a bar.
+        foreach (double y in new[] { 2d, waveform.Bounds.Height - 2 })
+        {
+            model.ResetPreview();
+            double anchor = model.PreviewRange.Duration.ToSeconds() * 0.25;
+            session.Scroll(waveform, new Point(waveform.Bounds.Width * 0.25, y), new Vector(0, 0.5), modifier);
+            var range = model.PreviewRange;
+            Assert.That(60 / range.Duration.ToSeconds(), Is.EqualTo(Math.Pow(1.2, 0.5)).Within(0.001));
+            Assert.That(range.Start.ToSeconds() + range.Duration.ToSeconds() * 0.25, Is.EqualTo(anchor).Within(0.02));
+            Assert.That(session.View.FindControl<ScrollViewer>("BodyScroll")!.Offset, Is.EqualTo(default(Vector)));
+        }
+        // The scrollbar handles wheel events itself; preview zoom must get them first.
+        var scroll = session.View.FindControl<ScrollBar>("PreviewScroll")!;
+        double previous = model.PreviewRange.Duration.ToSeconds();
+        session.Scroll(scroll, new Point(scroll.Bounds.Width * 0.5, scroll.Bounds.Height * 0.5), new Vector(0, 1), modifier);
+        Assert.That(model.PreviewRange.Duration.ToSeconds(), Is.LessThan(previous));
+        model.ResetPreview();
+        model.ZoomPreview(3000d / 64, 0.5);
+        previous = model.PreviewRange.Duration.ToSeconds();
+        for (int i = 0; i < 20; i++)
+            session.Scroll(waveform, new Point(waveform.Bounds.Width * 0.5, 2), new Vector(0, 0.02), modifier);
+        Assert.That(model.PreviewRange.Duration.ToSeconds(), Is.LessThan(previous), "fractional wheel input must accumulate");
+        Assert.That(model.Ranges, Is.SameAs(ranges));
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public async Task Preview_ScrollUsesTimelineAxesAndDoesNotZoom(bool gesture, bool swap)
+    {
+        bool original = GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value;
+        try
+        {
+            GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value = swap;
+            using var session = await PreviewSession.CreateAsync(1200, _ => gesture);
+            var model = session.Model;
+            var waveform = session.View.FindControl<WaveformControl>("Waveform")!;
+            model.ZoomPreview(true);
+            foreach (var modifiers in new[] { RawInputModifiers.None, RawInputModifiers.Shift })
+            {
+                foreach (var delta in new[] { new Vector(0, -1), new Vector(-0.4, -0.7) })
+                {
+                    model.PanPreview(10);
+                    bool swapAxes = !gesture && (!swap ^ (OperatingSystem.IsWindows() && modifiers == RawInputModifiers.Shift));
+                    double expected = 10 - (swapAxes ? delta.Y : delta.X) * 50 * 30 / waveform.Bounds.Width;
+                    session.Scroll(waveform, new Point(100, 2), delta, modifiers);
+                    Assert.That(model.PreviewRange.Start.ToSeconds(), Is.EqualTo(expected).Within(0.02));
+                    Assert.That(model.PreviewRange.Duration, Is.EqualTo(MediaTime.FromSeconds(30)));
+                }
+            }
+            model.PanPreview(0);
+            session.Scroll(waveform, new Point(100, 2), new Vector(100, 100));
+            Assert.That(model.PreviewRange.Start, Is.EqualTo(MediaTime.Zero));
+            while (model.CanZoomIn) model.ZoomPreview(true);
+            model.PanPreview(10);
+            var fineDelta = gesture || swap ? new Vector(-0.1, 0) : new Vector(0, -0.1);
+            for (int i = 0; i < 20; i++) session.Scroll(waveform, new Point(100, 2), fineDelta);
+            Assert.That(model.PreviewRange.Start.ToSeconds(), Is.EqualTo(10 + 100 / waveform.Bounds.Width).Within(0.02),
+                "sub-bin touchpad motion must accumulate at high zoom");
+        }
+        finally { GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value = original; }
+    }
+
+    [AvaloniaTest]
+    public async Task Preview_PlayheadFollowsClockZoomPanAndReattachment()
+    {
+        using var session = await PreviewSession.CreateAsync(1200);
+        var model = session.Model;
+        var clock = session.Editor.Clock;
+        var waveform = session.View.FindControl<WaveformControl>("Waveform")!;
+        var playhead = session.View.FindControl<Border>("Playhead")!;
+        clock.Seek(MediaTime.FromSeconds(25)); // Clip starts at 10 s.
+        AssertPosition(0.25);
+        var preview = model.PreviewChunks;
+        clock.Seek(MediaTime.FromSeconds(40));
+        AssertPosition(0.5);
+        Assert.That(model.PreviewChunks, Is.SameAs(preview), "clock ticks must not rebuild the waveform");
+        model.ZoomPreview(true);
+        AssertPosition(0.5);
+        model.PanPreview(30);
+        AssertPosition(0);
+        clock.Seek(MediaTime.FromSeconds(39));
+        Assert.That(playhead.IsVisible, Is.False);
+        clock.Seek(MediaTime.FromSeconds(71));
+        Assert.That(playhead.IsVisible, Is.False);
+        session.Window.Content = null;
+        clock.Seek(MediaTime.FromSeconds(55));
+        session.Window.Content = session.View;
+        session.Window.Width = 360;
+        HeadlessTestHelpers.Render();
+        AssertPosition(0.5);
+
+        void AssertPosition(double fraction)
+        {
+            HeadlessTestHelpers.Render();
+            Assert.That(playhead.IsVisible, Is.True);
+            Assert.That(Canvas.GetLeft(playhead), Is.EqualTo(waveform.Bounds.Width * fraction).Within(1));
+            Assert.That(playhead.Height, Is.EqualTo(waveform.Bounds.Height));
+        }
+    }
+
+    [AvaloniaTest]
     public async Task TabState_RestoresTheTargetAndOptions()
     {
         var scene = new Scene(100, 100, "silence");
@@ -374,14 +492,72 @@ public class SilenceSplitTabTests
 
     private sealed class EditorContext(Scene scene, HistoryManager history, IPreviewPlayer player) : IEditorContext
     {
+        public TestClock Clock { get; } = new();
         public CoreObject Object => scene;
         public EditorExtension Extension => null!;
         public IReactiveProperty<bool> IsEnabled { get; } = new ReactivePropertySlim<bool>(true);
-        public object? GetService(Type type) => type == typeof(Scene) ? scene : type == typeof(HistoryManager) ? history : type == typeof(IPreviewPlayer) ? player : null;
+        public object? GetService(Type type) => type == typeof(Scene) ? scene : type == typeof(HistoryManager) ? history
+            : type == typeof(IPreviewPlayer) ? player : type == typeof(IEditorClock) ? Clock : null;
         public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext => default;
         public T? FindToolTab<T>() where T : IToolContext => default;
         public bool OpenToolTab(IToolContext item) => false;
         public void CloseToolTab(IToolContext item) => item.Dispose();
+    }
+
+    private sealed class TestClock : IEditorClock
+    {
+        private readonly ReactivePropertySlim<MediaTime> _time = new();
+        public IReadOnlyReactiveProperty<MediaTime> CurrentTime => _time;
+        public IReadOnlyReactiveProperty<MediaTime> MaximumTime { get; } = new ReactivePropertySlim<MediaTime>(MediaTime.FromSeconds(70));
+        public void Seek(MediaTime time) => _time.Value = time;
+    }
+
+    private sealed class PreviewSession : IDisposable
+    {
+        private readonly HistoryManager _history = new(new OperationSequenceGenerator());
+        public EditorContext Editor { get; }
+        public SilenceSplitTabViewModel Tab { get; }
+        public SilenceSplitViewModel Model => Tab.Analysis.Value!;
+        public SilenceSplitTabView View { get; }
+        public Window Window { get; }
+
+        private PreviewSession(int width, Func<PointerWheelEventArgs, bool>? detector)
+        {
+            var scene = new Scene(100, 100, "navigation");
+            var element = new Element { Start = { Value = MediaTime.FromSeconds(10) }, Length = { Value = MediaTime.FromSeconds(60) } };
+            element.Objects.Add(new SourceSound { Source = { Value = new SoundSource() } });
+            scene.Children.Add(element);
+            Editor = new EditorContext(scene, _history, new BlockingPreviewPlayer());
+            Tab = new SilenceSplitTabViewModel(Editor);
+            Tab.Show(element);
+            View = detector == null ? new SilenceSplitTabView() : new SilenceSplitTabView(detector);
+            View.DataContext = Tab;
+            Window = new Window { Content = View, Width = width, Height = width >= 800 ? 360 : 720 };
+            Window.Show();
+        }
+
+        public static async Task<PreviewSession> CreateAsync(int width, Func<PointerWheelEventArgs, bool>? detector = null)
+        {
+            var session = new PreviewSession(width, detector);
+            await HeadlessTestHelpers.WaitUntilAsync(() => !session.Model.IsBusy.Value);
+            session.Model.SetWaveform(Enumerable.Range(0, 3000).Select(i => new WaveformChunk(i, 0, 0)).ToArray());
+            session.Model.MinimumMilliseconds.Value = 120000; // Leave the waveform background unpainted by highlights.
+            HeadlessTestHelpers.Render();
+            return session;
+        }
+
+        public void Scroll(Control target, Point point, Vector delta, RawInputModifiers modifiers = RawInputModifiers.None)
+        {
+            Window.MouseWheel(target.TranslatePoint(point, Window)!.Value, delta, modifiers);
+            HeadlessTestHelpers.Render();
+        }
+
+        public void Dispose()
+        {
+            Window.Close();
+            Tab.Dispose();
+            _history.Dispose();
+        }
     }
 
     private sealed class BlockingPreviewPlayer : IPreviewPlayer

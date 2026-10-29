@@ -19,6 +19,8 @@ public sealed class SilenceSplitViewModel : IDisposable
     private WaveformChunk[] _chunks = [];
     private int _previewStart;
     private int _previewCount;
+    private double _previewZoomCount;
+    private double _previewOffset;
     private bool _stale;
     private bool _disposed;
 
@@ -95,26 +97,37 @@ public sealed class SilenceSplitViewModel : IDisposable
         _chunks = chunks;
         _previewStart = 0;
         _previewCount = chunks.Length;
+        _previewZoomCount = _previewCount;
+        _previewOffset = 0;
         BuildPreview();
         Progress.Value = 100;
         IsBusy.Value = false;
         Recalculate();
     }
 
-    public void ZoomPreview(bool zoomIn)
+    public void ZoomPreview(bool zoomIn) => ZoomPreview(zoomIn ? 2 : 0.5, 0.5);
+
+    public void ZoomPreview(double factor, double anchor)
     {
-        if (_chunks.Length == 0) return;
-        int count = (int)Math.Clamp(zoomIn ? (_previewCount + 1L) / 2 : _previewCount * 2L,
-            Math.Min(50, _chunks.Length), _chunks.Length);
-        _previewStart = Math.Clamp(_previewStart + (_previewCount - count) / 2, 0, _chunks.Length - count);
+        if (_chunks.Length == 0 || !double.IsFinite(factor) || factor <= 0 || !double.IsFinite(anchor)) return;
+        // Preserve fractional input so small touchpad deltas accumulate across 20 ms bins.
+        _previewZoomCount = Math.Clamp(_previewZoomCount / factor, Math.Min(50, _chunks.Length), _chunks.Length);
+        int count = (int)Math.Ceiling(_previewZoomCount);
+        if (count == _previewCount) return;
+        _previewStart = Math.Clamp(_previewStart + (int)Math.Round((_previewCount - count) * Math.Clamp(anchor, 0, 1)),
+            0, _chunks.Length - count);
         _previewCount = count;
+        _previewOffset = PreviewPosition(_previewStart).ToSeconds();
         RefreshPreview();
     }
+
+    public void ScrollPreview(double seconds) => PanPreview(_previewOffset + seconds);
 
     public void PanPreview(double seconds)
     {
         if (_chunks.Length == 0 || !double.IsFinite(seconds)) return;
-        int start = (int)Math.Clamp(Math.Round(seconds / ClipRange.Duration.ToSeconds() * _chunks.Length), 0, _chunks.Length - _previewCount);
+        _previewOffset = Math.Clamp(seconds, 0, PreviewPosition(_chunks.Length - _previewCount).ToSeconds());
+        int start = (int)Math.Clamp(Math.Round(_previewOffset / ClipRange.Duration.ToSeconds() * _chunks.Length), 0, _chunks.Length - _previewCount);
         if (start == _previewStart) return;
         _previewStart = start;
         RefreshPreview();
@@ -124,6 +137,8 @@ public sealed class SilenceSplitViewModel : IDisposable
     {
         _previewStart = 0;
         _previewCount = _chunks.Length;
+        _previewZoomCount = _previewCount;
+        _previewOffset = 0;
         RefreshPreview();
     }
 

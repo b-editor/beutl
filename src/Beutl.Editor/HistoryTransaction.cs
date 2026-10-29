@@ -54,8 +54,12 @@ public sealed class HistoryTransaction
 
     private void CompactOperations()
     {
-        for (int i = _operations.Count - 1; i >= 0; i--)
+        // Earlier pairs were compacted when recorded. Only the new operation (and an
+        // operation changed by merging it) can need another comparison.
+        int i = _operations.Count - 1;
+        while (i > 0)
         {
+            int mergedIndex = -1;
             for (int j = i - 1; j >= 0; j--)
             {
                 if (_applied[i] == _applied[j]
@@ -70,11 +74,13 @@ public sealed class HistoryTransaction
                     {
                         _operations.RemoveAt(j);
                         _applied.RemoveAt(j);
-                        i--;
+                        return;
                     }
+                    mergedIndex = j;
                     break;
                 }
             }
+            i = mergedIndex;
         }
     }
 

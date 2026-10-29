@@ -40,6 +40,7 @@ public sealed class SilenceSplitTabViewModel : IToolContext
     public ReactivePropertySlim<SilenceSplitViewModel?> Analysis { get; } = new();
     public ReactivePropertySlim<bool> IsApplying { get; } = new();
     public Element? Target => _target.Value;
+    public IReadOnlyReactiveProperty<MediaTime>? CurrentTime => _editor.GetService<IEditorClock>()?.CurrentTime;
 
     public static void Open(IEditorContext editor, Element element)
     {

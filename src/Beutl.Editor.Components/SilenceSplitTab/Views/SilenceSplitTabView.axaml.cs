@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 
@@ -11,12 +12,25 @@ namespace Beutl.Editor.Components.SilenceSplitTab.Views;
 public partial class SilenceSplitTabView : UserControl
 {
     private IDisposable? _subscription;
+    private IDisposable? _clockSubscription;
+    private IDisposable? _nativeInputRegistration;
+    private TopLevel? _nativeInputRoot;
+    private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
     private SilenceSplitViewModel? _analysis;
     private bool _attached;
     private bool _wide;
     private bool _updatingPreview;
 
-    public SilenceSplitTabView() => InitializeComponent();
+    public SilenceSplitTabView() : this(NativeScrollInput.UsesGestureAxes) { }
+
+    internal SilenceSplitTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes)
+    {
+        _usesGestureAxes = usesGestureAxes;
+        InitializeComponent();
+        // Cover the empty waveform area and handle input before nested scroll controls consume it.
+        PreviewPane.AddHandler(PointerWheelChangedEvent, OnPreviewWheelChanged, RoutingStrategies.Tunnel);
+        Waveform.SizeChanged += (_, _) => UpdatePlayhead();
+    }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
     {
@@ -46,6 +60,12 @@ public partial class SilenceSplitTabView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        if (TopLevel.GetTopLevel(this) is { } root)
+        {
+            _nativeInputRegistration = NativeScrollInput.Attach(root);
+            _nativeInputRoot = root;
+            root.Closed += OnRootClosed;
+        }
         _attached = true;
         ObserveAnalysis();
     }
@@ -55,8 +75,21 @@ public partial class SilenceSplitTabView : UserControl
         _attached = false;
         _subscription?.Dispose();
         _subscription = null;
+        _clockSubscription?.Dispose();
+        _clockSubscription = null;
+        DetachNativeInput();
         SetAnalysis(null);
         base.OnDetachedFromVisualTree(e);
+    }
+
+    private void OnRootClosed(object? sender, EventArgs e) => DetachNativeInput();
+
+    private void DetachNativeInput()
+    {
+        if (_nativeInputRoot != null) _nativeInputRoot.Closed -= OnRootClosed;
+        _nativeInputRoot = null;
+        _nativeInputRegistration?.Dispose();
+        _nativeInputRegistration = null;
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -68,8 +101,10 @@ public partial class SilenceSplitTabView : UserControl
     private void ObserveAnalysis()
     {
         _subscription?.Dispose();
+        _clockSubscription?.Dispose();
         SetAnalysis(null);
         _subscription = (DataContext as SilenceSplitTabViewModel)?.Analysis.Subscribe(SetAnalysis);
+        _clockSubscription = (DataContext as SilenceSplitTabViewModel)?.CurrentTime?.Subscribe(_ => UpdatePlayhead());
     }
 
     private void SetAnalysis(SilenceSplitViewModel? analysis)
@@ -106,6 +141,20 @@ public partial class SilenceSplitTabView : UserControl
             PreviewScroll.Value = window.Start.ToSeconds();
         }
         finally { _updatingPreview = false; }
+        UpdatePlayhead();
+    }
+
+    private void UpdatePlayhead()
+    {
+        var time = (DataContext as SilenceSplitTabViewModel)?.CurrentTime?.Value;
+        var window = _analysis?.PreviewRange ?? default;
+        double position = time is { } current && _analysis != null && window.Duration > MediaTime.Zero
+            ? (current - _analysis.ClipRange.Start - window.Start).ToSeconds() / window.Duration.ToSeconds()
+            : double.NaN;
+        Playhead.IsVisible = position is >= 0 and <= 1;
+        if (!Playhead.IsVisible) return;
+        Playhead.Height = Waveform.Bounds.Height;
+        Canvas.SetLeft(Playhead, Math.Clamp(position * Waveform.Bounds.Width, 0, Math.Max(0, Waveform.Bounds.Width - Playhead.Width)));
     }
 
     private static string FormatTime(double seconds)
@@ -123,10 +172,21 @@ public partial class SilenceSplitTabView : UserControl
     private void OnZoomOutClick(object? sender, RoutedEventArgs e) => _analysis?.ZoomPreview(false);
     private void OnResetZoomClick(object? sender, RoutedEventArgs e) => _analysis?.ResetPreview();
 
-    private void OnWaveformWheelChanged(object? sender, PointerWheelEventArgs e)
+    private void OnPreviewWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) == 0 || e.Delta.Y == 0) return;
-        _analysis?.ZoomPreview(e.Delta.Y > 0);
+        if (_analysis == null || Waveform.Bounds.Width <= 0) return;
+        if ((e.KeyModifiers & (KeyModifiers.Control | KeyModifiers.Meta)) != 0)
+        {
+            double anchor = e.GetPosition(Waveform).X / Waveform.Bounds.Width;
+            _analysis.ZoomPreview(Math.Pow(1.2, e.Delta.Y), anchor);
+        }
+        else
+        {
+            Vector delta = TimelineHelper.GetScrollOffsetDelta(e, _usesGestureAxes(e));
+            var range = _analysis.PreviewRange;
+            _analysis.ScrollPreview(delta.X * range.Duration.ToSeconds() / Waveform.Bounds.Width);
+            BodyScroll.Offset = BodyScroll.Offset.WithY(BodyScroll.Offset.Y + delta.Y);
+        }
         e.Handled = true;
     }
 
