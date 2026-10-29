@@ -404,6 +404,53 @@ public sealed class ExportSourceValidatorTests
         Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.Empty);
     }
 
+    [TestCase(MatteSourceKind.Layer, false)]
+    [TestCase(MatteSourceKind.Above, false)]
+    [TestCase(MatteSourceKind.Below, true)]
+    public void RemappedPortalInputs_FollowMatteMediaOutsideTheOriginalWindow(MatteSourceKind kind, bool nested)
+    {
+        string existing = Path.Combine(_root, "initial.mov");
+        string missing = Path.Combine(_root, "remapped.mov");
+        File.WriteAllBytes(existing, [1]);
+        var scene = new Scene(64, 32, string.Empty);
+        Element far = CreateVideoElement(_root, existing);
+        far.ZIndex.Value = kind == MatteSourceKind.Below ? 10 : 0;
+        far.IsVisibleInOutput.Value = false;
+        Element near = CreateVideoElement(_root, missing);
+        near.ZIndex.Value = kind == MatteSourceKind.Below ? 8 : 2;
+        near.Start.Value = MediaTime.FromSeconds(1);
+        near.Length.Value = MediaTime.FromSeconds(1);
+        near.IsVisibleInOutput.Value = false;
+        if (kind == MatteSourceKind.Layer)
+        {
+            var animation = new KeyFrameAnimation<VideoSource?>();
+            foreach ((double time, string path) in new[] { (0.0, existing), (0.5, existing), (1.0, missing) })
+                animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(time) }, Value = { Value = MakeVideoSource(path) } });
+            ((SourceVideo)far.Objects[0]).Source.SetKeyFrameAnimation(animation);
+        }
+        Element target = ElementWith(_root, new RectShape());
+        target.ZIndex.Value = 5;
+        target.MatteSourceKind.Value = kind;
+        target.MatteSourceZIndex.Value = far.ZIndex.Value;
+        target.MatteMode.Value = MatteMode.Alpha;
+        var portal = new PortalObject { Count = { Value = 6 } };
+        Element output = ElementWith(_root, portal);
+        output.ZIndex.Value = -1;
+        var controller = new DrawableTimeController { OffsetPosition = { Value = MediaTime.FromSeconds(1) } };
+        output.Objects.Add(controller);
+        scene.Children.AddRange([output, far, near, target]);
+        Scene root = nested ? EmbedScene(scene) : scene;
+        TimeRange range = TimeRange.FromSeconds(0, 0.25);
+
+        Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, MediaTime.Zero)), Is.EqualTo(new[] { missing }));
+        Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, range)), Is.EqualTo(new[] { missing }));
+        controller.IsEnabled.Value = false;
+        Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, range)), Is.Empty);
+        controller.IsEnabled.Value = true;
+        portal.Count.Value = 0;
+        Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, range)), Is.Empty);
+    }
+
     [Test]
     public void HeldMattePortal_EvaluatesItsCountAtHeldTimeAndItsInputsAtFrameTime()
     {

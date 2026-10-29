@@ -45,18 +45,20 @@ internal readonly struct SceneLayerSkipModel
 
     // Both preflight entry points follow the same output and matte dependencies. A matte ignores solo
     // and output visibility, but still obeys enable/mute and is needed only while its consumer is active.
-    public static IEnumerable<(Element Element, TimeRange Window)> EnumerateRenderableElements(
+    public static IEnumerable<(Element Element, TimeRange? Window, MediaTime? FrameOrigin)> EnumerateRenderableElements(
         Scene scene, CompositionTarget target, TimeRange? window, Rational? frameRate = null, MediaTime? frameOrigin = null)
     {
         SceneLayerSkipModel layers = Build(scene);
         var visiting = new HashSet<Element>();
         HashSet<Element> participants = target == CompositionTarget.Graphics ? ElementTransitions.GetParticipants(scene) : [];
         Rational rate = frameRate ?? scene.FindHierarchicalParent<Project>().GetFrameRate();
+        TimeRange? replayWindow = null;
         foreach (Element element in scene.Children)
-            foreach (var item in Visit(element, window, false))
+            foreach (var item in Visit(element, window, false, frameOrigin))
                 yield return item;
 
-        IEnumerable<(Element, TimeRange)> Visit(Element element, TimeRange? requested, bool matte)
+        IEnumerable<(Element, TimeRange?, MediaTime?)> Visit(
+            Element element, TimeRange? requested, bool matte, MediaTime? origin, bool remapped = false)
         {
             if (!element.IsEnabled.Value
                 || layers.ShouldSkip(element.ZIndex.Value, target, ignoreSolo: matte)
@@ -68,15 +70,21 @@ internal readonly struct SceneLayerSkipModel
             {
                 foreach ((TimeRange frameWindow, TimeRange contentWindow) in EvaluationWindows(element, requested))
                 {
-                    yield return (element, contentWindow);
+                    MediaTime? dependencyOrigin = remapped ? null : origin;
+                    yield return (element, remapped ? null : contentWindow, dependencyOrigin);
                     if (target == CompositionTarget.Graphics && element.MatteMode.Value != MatteMode.None)
                     {
-                        foreach ((int source, TimeRange sourceWindow) in MatteWindows(element, frameWindow))
+                        // A controller replays a captured clip outside its authored range. Its content
+                        // gets a full walk and its matte is selected across all possible scene times.
+                        TimeRange matteWindow = remapped
+                            ? replayWindow ??= scene.Children.Select(e => e.Range).Aggregate((a, b) => a.Union(b))
+                            : frameWindow;
+                        foreach ((int source, TimeRange sourceWindow) in MatteWindows(element, matteWindow, dependencyOrigin))
                         {
                             foreach (Element candidate in scene.Children)
                             {
                                 if (candidate.ZIndex.Value != source) continue;
-                                foreach (var item in Visit(candidate, sourceWindow, true))
+                                foreach (var item in Visit(candidate, sourceWindow, true, dependencyOrigin))
                                     yield return item;
                             }
                         }
@@ -84,19 +92,25 @@ internal readonly struct SceneLayerSkipModel
 
                     // A portal's own Count uses its side's held clock; its imported elements and
                     // matte sources play at frame time, as in CompositorContext.EvaluateElementIntoFlow.
-                    if (matte)
+                    if (target == CompositionTarget.Graphics)
                     {
                         foreach (PortalObject portal in element.Objects.OfType<PortalObject>())
                         {
                             if (!portal.IsEnabled.Value) continue;
-                            foreach ((int? count, TimeRange inputs) in PortalWindows(portal, frameWindow, contentWindow))
+                            // A later controller can consume these portal inputs through the flow,
+                            // even with no explicit Target. Keep their original import window, then
+                            // widen the replayed inputs rather than every output layer in the scene.
+                            bool remapsInputs = remapped || element.Objects.SkipWhile(obj => obj != portal).Skip(1)
+                                .OfType<DrawableTimeController>().Any(controller => controller.IsEnabled.Value);
+                            if (!matte && !remapsInputs) continue;
+                            foreach ((int? count, TimeRange inputs) in PortalWindows(portal, frameWindow, contentWindow, origin))
                             {
                                 int start = portal.ZIndex.Value + 1;
                                 int? end = portal.ZIndex.Value + count;
                                 foreach (Element candidate in scene.Children)
                                 {
                                     if (candidate.ZIndex.Value < start || (end is { } last && candidate.ZIndex.Value > last)) continue;
-                                    foreach (var item in Visit(candidate, inputs, true))
+                                    foreach (var item in Visit(candidate, inputs, matte, origin, remapsInputs))
                                         yield return item;
                                 }
                             }
@@ -110,7 +124,7 @@ internal readonly struct SceneLayerSkipModel
             }
         }
 
-        IEnumerable<(int Source, TimeRange Window)> MatteWindows(Element element, TimeRange frames)
+        IEnumerable<(int Source, TimeRange Window)> MatteWindows(Element element, TimeRange frames, MediaTime? origin)
         {
             if (frames.IsEmpty || element.MatteSourceKind.Value == MatteSourceKind.Layer)
             {
@@ -135,10 +149,10 @@ internal readonly struct SceneLayerSkipModel
                 start = end;
                 // Known exports need only intervals containing an output frame. A time-remapped full
                 // walk has no frame grid and keeps every interval that could be sampled.
-                if (frameOrigin is { } origin)
+                if (origin is { } frameStart)
                 {
-                    long frame = (sample - origin).ToFrame(rate, MidpointRounding.ToPositiveInfinity);
-                    sample = origin + MediaTime.FromFrames(frame, rate);
+                    long frame = (sample - frameStart).ToFrame(rate, MidpointRounding.ToPositiveInfinity);
+                    sample = frameStart + MediaTime.FromFrames(frame, rate);
                 }
 
                 if (sample < end && element.GetMatteSourceZIndex(scene, sample) is { } source)
@@ -193,7 +207,8 @@ internal readonly struct SceneLayerSkipModel
             if (!after.IsEmpty) yield return (after, after);
         }
 
-        IEnumerable<(int? Count, TimeRange Window)> PortalWindows(PortalObject portal, TimeRange frames, TimeRange content)
+        IEnumerable<(int? Count, TimeRange Window)> PortalWindows(
+            PortalObject portal, TimeRange frames, TimeRange content, MediaTime? frameOrigin)
         {
             var context = new CompositionContext(content.Start) { FrameRate = rate };
             if (portal.Count.Expression == null || content.IsEmpty)

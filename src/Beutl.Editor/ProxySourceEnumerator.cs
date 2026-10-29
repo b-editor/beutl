@@ -63,7 +63,7 @@ public static partial class ProxySourceEnumerator
 
     internal static IEnumerable<IFileSource> EnumerateFileSources(
         Element element, HashSet<(Scene, CompositionTarget?)> visitedScenes, bool skipDisabledElements,
-        CompositionTarget renderTarget, TimeRange localRange, TimeRange sceneWindow, Rational frameRate, MediaTime frameOrigin)
+        CompositionTarget renderTarget, TimeRange? localRange, TimeRange? sceneWindow, Rational frameRate, MediaTime? frameOrigin)
         => EnumerateElementFileSources(element, visitedScenes, skipDisabledElements, renderTarget, localRange, sceneWindow,
             frameRate, frameOrigin);
 
@@ -368,11 +368,11 @@ public static partial class ProxySourceEnumerator
         {
             if (skipDisabledElements && renderTarget is { } target)
             {
-                foreach ((Element child, TimeRange active) in SceneLayerSkipModel.EnumerateRenderableElements(
+                foreach ((Element child, TimeRange? active, MediaTime? origin) in SceneLayerSkipModel.EnumerateRenderableElements(
                              scene, target, referencedSceneWindow, frameRate, frameOrigin))
                 {
                     foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, true, target,
-                                 active.SubtractStart(child.Start.Value), active, frameRate, frameOrigin))
+                                 active?.SubtractStart(child.Start.Value), active, frameRate, origin))
                         yield return source;
                 }
                 yield break;

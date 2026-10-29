@@ -55,12 +55,12 @@ public static class ExportSourceValidator
 
         foreach (CompositionTarget target in targets)
         {
-            foreach ((Element element, TimeRange active) in SceneLayerSkipModel.EnumerateRenderableElements(
+            foreach ((Element element, TimeRange? active, MediaTime? origin) in SceneLayerSkipModel.EnumerateRenderableElements(
                          scene, target, sceneWindow, rate, sceneWindow.Start))
             {
-                TimeRange localRange = active.SubtractStart(element.Start.Value);
+                TimeRange? localRange = active?.SubtractStart(element.Start.Value);
                 foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(
-                    element, visitedScenes, skipDisabledElements: true, target, localRange, active, rate, sceneWindow.Start))
+                    element, visitedScenes, skipDisabledElements: true, target, localRange, active, rate, origin))
                 {
                     if (source.Uri is { IsFile: true } uri)
                         paths.Add(uri.LocalPath);

@@ -22,14 +22,17 @@ public sealed partial class SceneCompositor
         public bool ContainsScene3D { get; set; }
         public Dictionary<int, TrackMatteContent> Sources { get; } = [];
         public HashSet<int> ResolvingSources { get; } = [];
-        public HashSet<Element> Evaluating { get; } = [];
+        public HashSet<Element> Evaluating { get; init; } = [];
     }
 
     private void ApplyTrackMatte(
         Element element, int? sourceZIndex, CompositorContext context, PooledList<EngineObject.Resource> flow)
     {
         TrackMatteContent source = sourceZIndex is { } z ? GetMatteSource(z, context) : _emptyMatteSource;
-        TrackMattePresenter presenter = _mattePresenters.GetValue(element, static _ => new());
+        TrackMattePresenter presenter = _mattePresenters.GetValue(element, static element => new()
+        {
+            ResolveMatte = context => ((CompositorContext)context).ResolveMatte(element),
+        });
         presenter.ZIndex.Value = element.ZIndex.Value;
         presenter.TimeRange.Value = element.Range;
         var resource = (TrackMattePresenter.Resource)GetOrCreateResource(presenter, context);

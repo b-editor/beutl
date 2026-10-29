@@ -134,6 +134,14 @@ public sealed partial class SceneCompositor : ICompositor
 
         public bool IsMatteSource { get; init; }
 
+        public TrackMatteContent ResolveMatte(Element element)
+        {
+            TrackMatteContent source = element.GetMatteSourceZIndex(_compositor.Scene, GraphicsState!.Time) is { } z
+                ? _compositor.GetMatteSource(z, this) : _compositor._emptyMatteSource;
+            ContainsScene3D |= GraphicsState.ContainsScene3D;
+            return source;
+        }
+
         private static ProxyPreset ToPreset(int value)
         {
             return Enum.IsDefined(typeof(ProxyPreset), value)

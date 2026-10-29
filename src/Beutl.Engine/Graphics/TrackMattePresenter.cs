@@ -53,10 +53,11 @@ internal sealed class TrackMatteContent
 // Like a clip transition presenter, this is compositor-owned and never saved into the document.
 internal sealed partial class TrackMattePresenter : Drawable
 {
-    // Stable flow anchors keep the content and mask distinguishable when a controller replays them.
+    // Keep the captured content while resolving the matte anew when a controller replays it.
     private readonly DrawableGroup _contentInput = new();
-    private readonly DrawableGroup _matteInput = new();
     private MatteMode _mode;
+
+    internal required Func<CompositionContext, TrackMatteContent> ResolveMatte { get; init; }
 
     public TrackMattePresenter()
     {
@@ -68,8 +69,7 @@ internal sealed partial class TrackMattePresenter : Drawable
         private int _matteVersion = -1;
         private IReadOnlyList<FlowNode> _flowInputs = [];
         private DrawableGroup.Resource? _replayedContent;
-        private DrawableGroup.Resource? _replayedSource;
-        private readonly TrackMatteContent _replayedMatte = new();
+        private CompositionEvaluationSession? _matteSession;
 
         internal override IReadOnlyList<FlowNode> FlowInputs => _flowInputs;
 
@@ -117,10 +117,9 @@ internal sealed partial class TrackMattePresenter : Drawable
             }
 
             FlowNode contentNode = Capture(original._contentInput, Content.Drawables, _flowInputs.FirstOrDefault());
-            FlowNode matteNode = Capture(original._matteInput, matte.Drawables, _flowInputs.LastOrDefault());
-            if (_flowInputs.Count != 2 || !ReferenceEquals(contentNode, _flowInputs[0]) || !ReferenceEquals(matteNode, _flowInputs[1]))
+            if (_flowInputs.Count != 1 || !ReferenceEquals(contentNode, _flowInputs[0]))
             {
-                _flowInputs = [contentNode, matteNode];
+                _flowInputs = [contentNode];
                 changed = true;
             }
 
@@ -139,9 +138,12 @@ internal sealed partial class TrackMattePresenter : Drawable
             if (context.ReplayedFlow is not { } replay || !ReferenceEquals(replay.Object, obj)) return;
             bool changed = false;
             replay.Inputs[0].Reconcile(context, ref _replayedContent, ref changed);
-            replay.Inputs[1].Reconcile(context, ref _replayedSource, ref changed);
-            _replayedMatte.Update([.. _replayedSource!.Children]);
-            SetInputs([.. _replayedContent!.Children], _replayedMatte, obj._mode);
+            // Re-select the source at the replay clock, with independent resources for each consumer.
+            // Capturing the original mask's drawables would freeze relative and timed layer choices.
+            _matteSession ??= context.CreateEvaluationSession();
+            _matteSession.Update(context, context.Time);
+            SetInputs([.. _replayedContent!.Children], obj.ResolveMatte(_matteSession.Context), obj._mode);
+            context.ContainsScene3D |= _matteSession.Context.ContainsScene3D;
         }
 
         partial void PostDispose(bool disposing)
@@ -150,8 +152,7 @@ internal sealed partial class TrackMattePresenter : Drawable
             Matte = null;
             _flowInputs = [];
             _replayedContent?.Dispose();
-            _replayedSource?.Dispose();
-            _replayedMatte.Update([]);
+            _matteSession?.Dispose();
         }
     }
 }

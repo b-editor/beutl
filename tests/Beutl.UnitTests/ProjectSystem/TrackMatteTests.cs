@@ -230,6 +230,47 @@ public sealed class TrackMatteTests
         Assert.That(Pixel(restored, 24, 16).A, Is.EqualTo(255));
     }
 
+    [TestCase(MatteSourceKind.Above, 2, 0)]
+    [TestCase(MatteSourceKind.Below, 8, 10)]
+    public void ReplayedRelativeMatte_ReselectsTheSourceAtTheAdjustedTime(MatteSourceKind kind, int nearLayer, int farLayer)
+    {
+        var scene = new Scene(Width, Height, string.Empty);
+        Element far = Add(scene, farLayer, Rect(Colors.White));
+        far.IsVisibleInOutput.Value = false;
+        Element near = Add(scene, nearLayer, Rect(Colors.White, Width / 2));
+        near.Start.Value = Seconds(1);
+        near.Length.Value = Seconds(1);
+        near.IsVisibleInOutput.Value = false;
+        Element target = Add(scene, 5, Rect(Colors.Blue));
+        target.MatteSourceKind.Value = kind;
+        target.MatteMode.Value = MatteMode.Alpha;
+        var portal = new Element { ZIndex = { Value = -1 }, Length = { Value = Seconds(4) } };
+        portal.Objects.Add(new PortalObject { Count = { Value = 6 } });
+        var controller = new DrawableTimeController();
+        portal.Objects.Add(controller);
+        scene.Children.Add(portal);
+        using var preview = new SceneRender(scene);
+        using var delivery = new SceneRender(scene, RenderIntent.Delivery);
+        foreach (double offset in new[] { 0, 1, 1.5, 2, 4, 0 })
+        {
+            controller.OffsetPosition.Value = Seconds(offset);
+            using Bitmap actual = preview.Draw();
+            using Bitmap exported = delivery.Draw();
+            Assert.That(Pixel(actual, 8, 16).A, Is.EqualTo(offset == 4 ? 0 : 255), $"offset {offset}");
+            Assert.That(Pixel(actual, 48, 16).A, Is.EqualTo(offset is >= 1 and < 2 or 4 ? 0 : 255), $"offset {offset}");
+            Assert.That(actual.GetRow<Bgra8888>(16).ToArray(), Is.EqualTo(exported.GetRow<Bgra8888>(16).ToArray()));
+        }
+        near.Objects.Clear();
+        near.Objects.Add(new Beutl.Graphics3D.Scene3D());
+        controller.OffsetPosition.Value = Seconds(1);
+        using (var compositor = new SceneCompositor(scene))
+            Assert.That(compositor.EvaluateGraphics(MediaTime.Zero).ContainsScene3D, Is.True);
+        scene.Children.Remove(far);
+        scene.Children.Remove(near);
+        using Bitmap absent = preview.Draw();
+        Assert.That(Pixel(absent, 8, 16).A, Is.Zero, "an absent source or a cycle through the importing portal supplies no matte");
+    }
+
     [Test]
     public void Matte_BlendsMultipleDrawablesAsOneMaskedChange_AndRefreshesTheBackdrop()
     {
