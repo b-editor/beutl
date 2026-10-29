@@ -199,6 +199,14 @@ public class NodePortViewModel : NodeMemberViewModel
             .MoveConnectionSlot(Model, oldIndex, newIndex);
     }
 
+    // Moves a list slot's connection to the target port; the slot keeps its connection when the target cannot take it.
+    public bool RewireListSlot(ConnectionViewModel connVM, NodePortViewModel target)
+    {
+        GraphModel graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
+        return _editorContext.GetRequiredService<INodeGraphMutationService>()
+            .RewireListSlot(graph, connVM.Connection, target.GraphNode, target.Model);
+    }
+
     public void DisconnectConnection(ConnectionViewModel connVM)
     {
         GraphModel graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;

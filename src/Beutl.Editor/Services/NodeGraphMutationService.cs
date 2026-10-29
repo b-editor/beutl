@@ -172,6 +172,40 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         return true;
     }
 
+    public bool RewireListSlot(GraphModel graph, Connection connection, GraphNode node, INodePort? port)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(node);
+        if (!IsEditable(graph)
+            || connection.Input.Value.Value is not IListInputPort list
+            || list.FindHierarchicalParent<GraphNode>() is not { } owner
+            || port != null && ReferenceEquals(connection.Output.Value.Value, port))
+            return false;
+
+        int slot = list.Connections.Index().FirstOrDefault(i => i.Item.Id == connection.Id.Value, (-1, default)).Index;
+        if (slot < 0) return false;
+
+        try
+        {
+            _historyManager.ExecuteInTransaction(() =>
+            {
+                graph.Disconnect(connection);
+                if (ConnectCore(graph, owner, list, node, port) == NodeConnectOutcome.None)
+                    throw new NodeConnectionRejectedException();
+
+                // The new connection is appended; it takes the slot of the one it replaces.
+                int last = list.Connections.Count - 1;
+                if (last != slot) list.MoveConnection(last, slot);
+            }, CommandNames.MoveConnection);
+            return true;
+        }
+        catch (NodeConnectionRejectedException)
+        {
+            return false;
+        }
+    }
+
     public bool RenamePort(INodePort port, string newName)
     {
         ArgumentNullException.ThrowIfNull(port);
