@@ -1550,6 +1550,69 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>División</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>Persianas</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>Número de franjas</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>Tablero de ajedrez</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>Columnas</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>Filas</value>
+  </data>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>Forma</value>
+  </data>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>Dirección lineal</value>
+  </data>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>Sentido horario (reloj)</value>
+  </data>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>Lineal</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>Rectángulo</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>Rombo</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>Reloj</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>Entrada (abrir)</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>Salida (cerrar)</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>Acercar</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>Alejar</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>Desenfoque de zoom</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>Barrido rápido</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>Glitch</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>Fuga de luz</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>Intensidad (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>Orientación</value>
   </data>

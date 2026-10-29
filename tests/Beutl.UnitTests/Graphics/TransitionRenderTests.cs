@@ -13,7 +13,7 @@ namespace Beutl.UnitTests.Graphics;
 
 [TestFixture]
 [NonParallelizable]
-public class TransitionRenderTests
+public partial class TransitionRenderTests
 {
     private const int Width = 64;
     private const int Height = 32;
@@ -234,25 +234,77 @@ public class TransitionRenderTests
     }
 
     [Test]
-    public void Iris_OpensTheIncomingClipFromTheCentre()
+    public void Iris_OpensOrClosesAroundTheCentre([Values] IrisTransitionDirection direction, [Values] bool withOutgoing)
     {
-        using Bitmap bitmap = Render(new IrisTransition(), progress: 0.5);
+        using Bitmap bitmap = Render(new IrisTransition { Direction = { Value = direction } }, progress: 0.5, withOutgoing: withOutgoing);
+        bool opening = direction == IrisTransitionDirection.In;
+        Bgra8888 inside = Pixel(bitmap, Width / 2, Height / 2);
+        Bgra8888 outside = Pixel(bitmap, 1, 1);
 
         Assert.Multiple(() =>
         {
-            Assert.That(IsBlue(Pixel(bitmap, Width / 2, Height / 2)), Is.True, "inside the circle");
-            Assert.That(IsBlue(Pixel(bitmap, (Width / 2) + 10, Height / 2)), Is.True, "inside the circle");
-            Assert.That(IsRed(Pixel(bitmap, (Width / 2) + 25, Height / 2)), Is.True, "outside the circle");
-            Assert.That(IsRed(Pixel(bitmap, 1, 1)), Is.True, "in the corner");
+            Assert.That(IsBlue(opening ? inside : outside), Is.True, "the revealed side");
+            Assert.That(IsBlue(Pixel(bitmap, (Width / 2) + 10, Height / 2)), Is.EqualTo(opening), "inside the circle");
+            Assert.That(IsBlue(Pixel(bitmap, (Width / 2) + 25, Height / 2)), Is.EqualTo(!opening), "outside the circle");
+            Bgra8888 covered = opening ? outside : inside;
+            Assert.That(withOutgoing ? IsRed(covered) : covered.A == 0, Is.True, "the outgoing side or empty background");
         });
     }
 
     [Test]
-    public void Iris_CoversTheCornersByTheEnd()
+    public void Iris_PreservesBothEndpoints([Values] IrisTransitionDirection direction)
     {
-        using Bitmap bitmap = Render(new IrisTransition(), progress: 1);
+        var transition = new IrisTransition { Direction = { Value = direction } };
+        using Bitmap first = Render(transition, progress: 0);
+        using Bitmap last = Render(transition, progress: 1);
+        Assert.That(ReadPixels(first).All(IsRed), Is.True);
+        Assert.That(ReadPixels(last).All(IsBlue), Is.True, "including corners");
+    }
 
-        Assert.That(IsBlue(Pixel(bitmap, 0, 0)), Is.True);
+    [Test]
+    public void ZoomDirection_ExpandsOrShrinksAnInsetWithoutFillingItsTransparentSurroundings(
+        [Values(typeof(ZoomTransition), typeof(ZoomBlurTransition))] Type type,
+        [Values(1f, 0.5f)] float scale,
+        [Values] GradientSpreadMethod tileMode)
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var transition = (ClipTransition)Activator.CreateInstance(type)!;
+            ZoomTileModeOf(transition).Value = tileMode;
+            (Scene scene, RectShape incoming) = CreateScene(transition, withOutgoing: false);
+            incoming.Width.Value = incoming.Height.Value = 16;
+            incoming.Fill.Value = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255));
+            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery, renderScale: scale);
+            foreach (ZoomTransitionDirection direction in new[] { ZoomTransitionDirection.In, ZoomTransitionDirection.Out, ZoomTransitionDirection.In })
+            {
+                if (transition is ZoomTransition zoom) zoom.Direction.Value = direction;
+                else ((ZoomBlurTransition)transition).Direction.Value = direction;
+
+                foreach (double progress in new[] { 0, 0.5, 1 })
+                {
+                    renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
+                    using Bitmap snapshot = renderer.Snapshot();
+                    using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+                    Assert.That(Pixel(bitmap, (int)(12 * scale), (int)(16 * scale)).A, Is.Zero,
+                        "tile the frame's transparent margins, not the inset's tight bounds");
+                    if (tileMode == GradientSpreadMethod.Decal)
+                        Assert.That(Pixel(bitmap, 0, 0).A, Is.Zero, "decal must not introduce repeated copies");
+                    if (progress == 0)
+                        Assert.That(bitmap.GetPixelSpan<Bgra8888>().ToArray().All(p => p.A == 0), Is.True);
+                    else if (progress == 1)
+                        Assert.That(bitmap.GetPixelSpan<Bgra8888>().ToArray().Count(p => p.A > 0), Is.EqualTo(256 * scale * scale));
+                    else
+                    {
+                        Assert.That(Pixel(bitmap, (int)(32 * scale), (int)(16 * scale)).A, Is.InRange(62, 66), "the clip's alpha is preserved");
+                        if (direction == ZoomTransitionDirection.In)
+                            Assert.That(Pixel(bitmap, (int)(22 * scale), (int)(16 * scale)).A, Is.GreaterThan(16), "expands past the original left edge at 24");
+                        else
+                            Assert.That(Pixel(bitmap, (int)(25 * scale), (int)(16 * scale)).A, Is.LessThan(8), "shrinks inside that edge");
+                    }
+                }
+            }
+        });
     }
 
     [TestCase(ClipTransitionOrientation.Horizontal)]

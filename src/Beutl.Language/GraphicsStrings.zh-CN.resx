@@ -1550,6 +1550,69 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>分割</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>百叶窗</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>条数</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>棋盘格</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>直线方向</value>
+  </data>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>顺时针（时钟）</value>
+  </data>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>直线</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>矩形</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>菱形</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>时钟</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>入（打开）</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>出（闭合）</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>放大</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>缩小</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>缩放模糊</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>快速摇镜</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>故障效果</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>漏光</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>强度 (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>朝向</value>
   </data>
