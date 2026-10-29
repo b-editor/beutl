@@ -104,7 +104,7 @@ public sealed partial class QueryTools
             obj.Name.Value,
             obj.GetType().FullName ?? obj.GetType().Name,
             IdentityHelper.WriteDiscriminator(obj.GetType()),
-            properties.Where(property => property.GetKeyFrameAnimation() is not null).Select(property => property.Name).ToArray(),
+            properties.Where(property => property.GetPropertyAnimation() is not null).Select(property => property.Name).ToArray(),
             properties.Where(property => property is IExpressionProperty { HasExpression: true }).Select(property => property.Name).ToArray(),
             properties.Where(IsBrushProperty).Select(property => property.Name).ToArray(),
             properties.Where(IsEffectProperty).Select(property => property.Name).ToArray(),
@@ -135,7 +135,7 @@ public sealed partial class QueryTools
                 foreach (IProperty property in engineObject.Properties.Where(property => !engineObject.IsBaseField(property)))
                 {
                     string propertyPath = $"{path}.{property.Name}";
-                    if (property.GetKeyFrameAnimation() is not null)
+                    if (property.GetPropertyAnimation() is not null)
                     {
                         yield return propertyPath;
                     }

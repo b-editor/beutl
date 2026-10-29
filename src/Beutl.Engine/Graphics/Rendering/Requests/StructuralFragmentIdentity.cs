@@ -149,6 +149,8 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             case LayerRenderFragmentPayload layer:
                 components.AddBoolean(layer.Domain.HasValue);
                 components.AddBoolean(layer.DomainIsQueryFootprint);
+                components.AddBoolean(layer.HitTest.HasValue);
+                if (layer.HitTest is { } hitTest) components.AddReference(hitTest.StructuralIdentity);
                 return;
             case TargetLayerScopeRenderFragmentPayload targetLayer:
                 components.AddBoolean(targetLayer.Region.Kind != TargetRegionKind.Empty);

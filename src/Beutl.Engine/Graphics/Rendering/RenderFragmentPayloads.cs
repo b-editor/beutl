@@ -74,7 +74,8 @@ internal sealed record MaterializedInputRenderFragmentPayload(
 internal sealed record TargetCaptureRenderFragmentPayload(
     TargetCaptureDescription Description);
 
-internal sealed record LayerRenderFragmentPayload(Rect? Domain, bool DomainIsQueryFootprint = false);
+internal sealed record LayerRenderFragmentPayload(
+    Rect? Domain, bool DomainIsQueryFootprint = false, RenderHitTestContract? HitTest = null);
 
 internal sealed record TargetLayerScopeRenderFragmentPayload(TargetRegion Region, bool ContributesToBackdrop = true);
 

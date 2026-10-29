@@ -119,21 +119,22 @@ public readonly struct ClipTransitionContext
             WipeEdgeWidth));
     }
 
-    // The mask is a disc filling the square it is drawn into, which grows from the centre of the frame
-    // until the disc's rim is past the corners.
-    public void DrawIris(Brush.Resource mask)
+    // Opening reveals the incoming side inside a growing disc; closing reveals it outside a shrinking disc.
+    public void DrawIris(Brush.Resource mask) => DrawIris(mask, close: false);
+
+    public void DrawIris(Brush.Resource mask, bool close)
     {
-        var bounds = new Rect(graphics.Size);
-        float halfDiagonal = MathF.Sqrt((bounds.Width * bounds.Width) + (bounds.Height * bounds.Height)) / 2;
-        float radius = progress * (halfDiagonal + 1) / IrisSolidFraction;
-        if (radius <= 0)
+        if (progress <= 0 || progress >= 1)
         {
-            DrawWeighted(1, 0);
+            DrawClip(progress <= 0 ? from : to);
             return;
         }
 
+        var bounds = new Rect(graphics.Size);
+        float halfDiagonal = MathF.Sqrt((bounds.Width * bounds.Width) + (bounds.Height * bounds.Height)) / 2;
+        float radius = (close ? 1 - progress : progress) * (halfDiagonal + 1) / IrisSolidFraction;
         Point center = bounds.Center;
-        DrawMasked(mask, new Rect(center.X - radius, center.Y - radius, radius * 2, radius * 2));
+        DrawMasked(mask, new Rect(center.X - radius, center.Y - radius, radius * 2, radius * 2), close);
     }
 
     // The incoming clip shows inside a band through the centre of the frame that widens until it fills
@@ -188,26 +189,39 @@ public readonly struct ClipTransitionContext
         }
     }
 
-    // The outgoing clip zooms in about the centre of the frame while the incoming clip zooms back out
-    // from the same scale, the two dissolving into each other.
-    public void DrawZoom()
+    // Both sides dissolve around the centre, using reciprocal scales when zooming out.
+    public void DrawZoom() => DrawZoom(zoomOut: false);
+
+    public void DrawZoom(bool zoomOut) => DrawZoom(zoomOut, GradientSpreadMethod.Decal);
+
+    public void DrawZoom(bool zoomOut, GradientSpreadMethod tileMode)
     {
+        float scale = zoomOut ? 1 / ZoomScale : ZoomScale;
         using (PushIsolation())
         {
-            DrawPicture(from, ScaleAboutCenter(1 + ((ZoomScale - 1) * progress)), 1 - progress, BlendMode.SrcOver);
-            DrawPicture(to, ScaleAboutCenter(ZoomScale - ((ZoomScale - 1) * progress)), progress, BlendMode.Plus);
+            DrawZoomSide(from, 1 + ((scale - 1) * progress), 1 - progress, BlendMode.SrcOver, tileMode);
+            DrawZoomSide(to, scale - ((scale - 1) * progress), progress, BlendMode.Plus, tileMode);
         }
+    }
+
+    private void DrawZoomSide(IReadOnlyList<Drawable.Resource> drawables, float scale, float weight, BlendMode blendMode, GradientSpreadMethod tileMode)
+    {
+        // Keep the vector path when no pixels outside the frame are needed.
+        if (tileMode == GradientSpreadMethod.Decal || scale >= 1)
+            DrawPicture(drawables, ScaleAboutCenter(scale), weight, blendMode);
+        else
+            StylizedTransitionRenderer.DrawZoomSide(this, drawables, scale, weight, blendMode, tileMode);
     }
 
     // The incoming clip shows where the mask is opaque and the outgoing clip where it is clear; the two
     // are summed, so along a soft edge they still add up to the whole frame.
-    private void DrawMasked(Brush.Resource mask, Rect maskBounds)
+    private void DrawMasked(Brush.Resource mask, Rect maskBounds, bool invert = false)
     {
         using (PushIsolation())
         {
             if (from.Count > 0)
             {
-                using (graphics.PushOpacityMask(mask, maskBounds, invert: true))
+                using (graphics.PushOpacityMask(mask, maskBounds, invert: !invert))
                 {
                     DrawClip(from);
                 }
@@ -216,7 +230,34 @@ public readonly struct ClipTransitionContext
             if (to.Count > 0)
             {
                 using (graphics.PushBlendMode(BlendMode.Plus))
-                using (graphics.PushOpacityMask(mask, maskBounds))
+                using (graphics.PushOpacityMask(mask, maskBounds, invert: invert))
+                {
+                    DrawClip(to);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reveals the incoming side inside <paramref name="clip"/> and the outgoing side outside it.
+    /// Complementary clips keep both sides opaque along their shared antialiased edge.
+    /// </summary>
+    public void DrawClipped(Geometry.Resource clip)
+    {
+        using (PushIsolation())
+        {
+            if (from.Count > 0)
+            {
+                using (graphics.PushClip(clip, ClipOperation.Difference))
+                {
+                    DrawClip(from);
+                }
+            }
+
+            if (to.Count > 0)
+            {
+                using (graphics.PushBlendMode(BlendMode.Plus))
+                using (graphics.PushClip(clip))
                 {
                     DrawClip(to);
                 }

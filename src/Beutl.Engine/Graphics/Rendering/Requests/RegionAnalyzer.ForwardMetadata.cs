@@ -410,6 +410,8 @@ internal sealed partial class RegionAnalyzer
     {
         return reference.Kind switch
         {
+            RenderFragmentKind.Layer when reference.Payload is LayerRenderFragmentPayload { HitTest: { } hitTest }
+                => RenderFragmentHitTest.FromContract(hitTest, null),
             RenderFragmentKind.ContributeValues
                 or RenderFragmentKind.Opacity
                 or RenderFragmentKind.Blend

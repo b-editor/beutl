@@ -38,6 +38,11 @@ public sealed partial class SceneCompositor
             if (source.EvaluationServices is EvaluationServices services)
                 context.EvaluationServices = services.Fork(_compositor, context);
             context.FrameTime = null;
+            // Sample results are independent, but in-flight elements still form the same cycle.
+            context.GraphicsState = context.Target == CompositionTarget.Graphics ? new(time)
+            {
+                Evaluating = (source as CompositorContext)?.GraphicsState?.Evaluating ?? [],
+            } : null;
             context.CurrentElements = _elements;
             _compositor.SortLayers(time, _elements, context.Target);
         }

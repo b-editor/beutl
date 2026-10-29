@@ -202,6 +202,7 @@ public sealed partial class ElementViewModel : IDisposable
         Scope = new ElementScopeViewModel(Model, this);
 
         InitializeTransition();
+        InitializeTrackMatte();
 
         IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()

@@ -16,8 +16,11 @@ public sealed class PathPointDragState
         IExpressionProperty<BtlPoint> property,
         PathSegment target,
         KeyFrame<BtlPoint>? previous,
-        KeyFrame<BtlPoint>? next)
+        KeyFrame<BtlPoint>? next,
+        MediaTime time = default)
     {
+        _time = time;
+        _startValue = property.Evaluate(new EvaluationContext(time));
         Previous = previous;
         Next = next;
         Property = property;
@@ -27,6 +30,9 @@ public sealed class PathPointDragState
         OldValue = property.Value;
         Animation = property.GetKeyFrameAnimation() as KeyFrameAnimation<BtlPoint>;
     }
+
+    private readonly MediaTime _time;
+    private readonly BtlPoint _startValue;
 
     public KeyFrameAnimation<BtlPoint>? Animation { get; }
 
@@ -54,7 +60,12 @@ public sealed class PathPointDragState
 
     public void MoveFromStart(BtlVector delta)
     {
-        if (Previous == null && Next == null)
+        if (Property.GetPropertyAnimation() is IComponentAnimation<BtlPoint> components)
+        {
+            BtlVector change = PathEditorHelper.Round(_startValue + delta) - GetInterpolatedValue(_time);
+            components.TransformValues(value => value + change, _time);
+        }
+        else if (Previous == null && Next == null)
             Property.Value = PathEditorHelper.Round(OldValue + delta);
         else
         {
@@ -65,7 +76,11 @@ public sealed class PathPointDragState
 
     public void Move(BtlVector delta)
     {
-        if (Previous == null && Next == null)
+        if (Property.GetPropertyAnimation() is IComponentAnimation<BtlPoint> components)
+        {
+            components.TransformValues(value => PathEditorHelper.Round(value + delta), _time);
+        }
+        else if (Previous == null && Next == null)
         {
             BtlPoint p = Property.Value + delta;
             p = PathEditorHelper.Round(p);

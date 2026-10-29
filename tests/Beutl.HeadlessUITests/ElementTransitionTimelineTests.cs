@@ -1,4 +1,5 @@
-﻿using Avalonia;
+﻿using System.Globalization;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
@@ -7,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Animation.Easings;
 using Beutl.Configuration;
+using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.ObjectPropertyTab.ViewModels;
@@ -14,15 +16,18 @@ using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Components.TransitionTab.ViewModels;
+using Beutl.Editor.Components.TransitionTab.Views;
 using Beutl.Editor.PropertyEditors;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics.Transitions;
 using Beutl.Language;
 using Beutl.ProjectSystem;
+using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
+using GradientSpreadMethod = Beutl.Media.GradientSpreadMethod;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
 
 namespace Beutl.HeadlessUITests;
@@ -97,7 +102,7 @@ public class ElementTransitionTimelineTests
             string? typeName = transitionEditor.TypeName.Value;
             bool showsDirection = transitionEditor.Properties.Value?.Properties
                 .OfType<PropertyEditorViewModel>()
-                .Any(item => item.Header == GraphicsStrings.Direction) == true;
+                .Any(item => item.Header == GraphicsStrings.WipeTransition_LinearDirection) == true;
             Type? exitAfterChange = outgoing.Model.ExitTransition.Value?.GetType();
             int undoAfterChange = editor.HistoryManager.UndoCount;
             transitionEditor.ChangeType(null);
@@ -117,6 +122,179 @@ public class ElementTransitionTimelineTests
         finally
         {
             TimelineTestHost.Close(view, window);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase("ja", 320)]
+    [TestCase("en", 480)]
+    public async Task AddedTypes_AreAvailableAndEditableInTheTransitionTool(string language, int width)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
+        Window? window = null;
+        TransitionTabView? view = null;
+        try
+        {
+            (EditViewModel editor, ElementViewModel outgoing, ElementViewModel incoming) = await OpenCut();
+            incoming.OpenTransition(ElementEdge.Start);
+            TransitionTabViewModel model = TransitionTabOf(editor);
+            view = new TransitionTabView { DataContext = model };
+            window = new Window { Content = view, Width = width, Height = 420 };
+            window.Show();
+            (Type Type, string[] Properties)[] choices =
+            [
+                (typeof(BlindsTransition), [$"{GraphicsStrings.Angle} (°)", GraphicsStrings.BlindsTransition_Count]),
+                (typeof(CheckerboardTransition), [GraphicsStrings.CheckerboardTransition_Columns, GraphicsStrings.CheckerboardTransition_Rows]),
+                (typeof(WipeTransition), [GraphicsStrings.WipeTransition_Shape, GraphicsStrings.WipeTransition_LinearDirection, GraphicsStrings.WipeTransition_Clockwise]),
+                (typeof(IrisTransition), [GraphicsStrings.Direction]),
+                (typeof(ZoomTransition), [GraphicsStrings.Direction, GraphicsStrings.TileBrush_TileMode]),
+                (typeof(ZoomBlurTransition), [GraphicsStrings.ClipTransition_Strength, GraphicsStrings.Direction, GraphicsStrings.TileBrush_TileMode]),
+                (typeof(WhipPanTransition), [GraphicsStrings.ClipTransition_Strength, GraphicsStrings.Direction]),
+                (typeof(GlitchTransition), [GraphicsStrings.ClipTransition_Strength]),
+                (typeof(LightLeakTransition), [GraphicsStrings.ClipTransition_Strength]),
+            ];
+            foreach ((Type type, string[] properties) in choices)
+            {
+                Assert.That(LibraryService.Current.FindItem(type), Is.Not.Null, "available in the type picker");
+                Type? previousType = model.Transition.Value?.GetType();
+                model.ChangeType(type);
+                HeadlessTestHelpers.Render(3);
+                Assert.That(model.TypeName.Value, Is.EqualTo(TypeDisplayHelpers.GetLocalizedName(type)));
+                Assert.That(outgoing.Model.ExitTransition.Value, Is.TypeOf(type), "both sides change together");
+                string[] headers = model.Properties.Value!.Properties.OfType<PropertyEditorViewModel>()
+                    .Select(property => property.Header).ToArray();
+                Assert.That(headers, Is.SupersetOf(properties));
+                var picker = view.FindControl<Beutl.Controls.PropertyEditors.DropDownPickerEditor>("typeEditor")!;
+                Assert.That(picker.Bounds.Width, Is.GreaterThan(0));
+                Assert.That(picker.Bounds.Right, Is.LessThanOrEqualTo(view.Bounds.Width + 1));
+                HeadlessCapture.SaveIfRequested(view, nameof(ElementTransitionTimelineTests), $"{type.Name}-{language}-{width}");
+
+                // Edit through the same property contexts used by the controls, including undo and redo.
+                switch (model.Transition.Value)
+                {
+                    case WipeTransition wipe:
+                        var shapeEditor = model.Properties.Value.Properties.OfType<EnumEditorViewModel<WipeTransitionShape>>().Single();
+                        foreach (WipeTransitionShape shape in new[] { WipeTransitionShape.Box, WipeTransitionShape.Diamond, WipeTransitionShape.Clock })
+                            CheckSetting(shapeEditor, () => wipe.Shape.Value, shape);
+                        break;
+                    case BlindsTransition blinds:
+                        var angleEditor = model.Properties.Value.Properties.OfType<NumberEditorViewModel<float>>().Single();
+                        CheckSetting(angleEditor, () => blinds.Angle.Value, -37.5f);
+                        break;
+                    case IrisTransition iris:
+                        var irisEditor = model.Properties.Value.Properties.OfType<EnumEditorViewModel<IrisTransitionDirection>>().Single();
+                        CheckSetting(irisEditor, () => iris.Direction.Value, IrisTransitionDirection.Out);
+                        break;
+                    case ZoomTransition zoom:
+                        CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<ZoomTransitionDirection>>().Single(),
+                            () => zoom.Direction.Value, ZoomTransitionDirection.Out);
+                        foreach (GradientSpreadMethod tileMode in new[] { GradientSpreadMethod.Pad, GradientSpreadMethod.Reflect, GradientSpreadMethod.Repeat })
+                            CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<GradientSpreadMethod>>().Single(),
+                                () => zoom.TileMode.Value, tileMode);
+                        break;
+                    case ZoomBlurTransition zoomBlur:
+                        CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<ZoomTransitionDirection>>().Single(),
+                            () => zoomBlur.Direction.Value, ZoomTransitionDirection.Out);
+                        foreach (GradientSpreadMethod tileMode in new[] { GradientSpreadMethod.Pad, GradientSpreadMethod.Reflect, GradientSpreadMethod.Repeat })
+                            CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<GradientSpreadMethod>>().Single(),
+                                () => zoomBlur.TileMode.Value, tileMode);
+                        break;
+                }
+
+                Assert.That(editor.HistoryManager.Undo(), Is.True);
+                HeadlessTestHelpers.Settle(3);
+                Assert.That(model.Transition.Value?.GetType(), Is.EqualTo(previousType));
+                Assert.That(editor.HistoryManager.Redo(), Is.True);
+                HeadlessTestHelpers.Settle(3);
+                Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf(type));
+
+                void CheckSetting<T>(PropertyEditorViewModel<T> property, Func<T> read, T value)
+                {
+                    T original = read();
+                    property.SetValue(original, value);
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(read(), Is.EqualTo(value));
+                    HeadlessCapture.SaveIfRequested(view, nameof(ElementTransitionTimelineTests), $"{type.Name}-{value}-{language}-{width}");
+                    Assert.That(editor.HistoryManager.Undo(), Is.True);
+                    HeadlessTestHelpers.Settle(3);
+                    Assert.That(read(), Is.EqualTo(original));
+                    Assert.That(editor.HistoryManager.Redo(), Is.True);
+                    HeadlessTestHelpers.Settle(3);
+                    Assert.That(read(), Is.EqualTo(value));
+                    Assert.That(editor.HistoryManager.Undo(), Is.True);
+                    HeadlessTestHelpers.Settle(3);
+                }
+            }
+        }
+        finally
+        {
+            if (view != null) view.DataContext = null;
+            window?.Close();
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(typeof(WipeTransition))]
+    [TestCase(typeof(SplitTransition))]
+    [TestCase(typeof(UnregisteredPickerTransition))]
+    public async Task TheTypePicker_SelectsTheCurrentTransitionWhenReopened(Type initialType)
+    {
+        (EditViewModel editor, ElementViewModel outgoing, ElementViewModel incoming) = await OpenCut();
+        incoming.ApplyTransition(ElementEdge.Start, initialType);
+        outgoing.OpenTransition(ElementEdge.End);
+        HeadlessTestHelpers.Settle();
+        var view = new TransitionTabView { DataContext = TransitionTabOf(editor) };
+        var window = new Window { Content = view, Width = 400, Height = 600 };
+
+        async Task<LibraryItemPickerFlyoutPresenter> OpenPicker()
+        {
+            view.FindControl<DropDownPickerEditor>("typeEditor")!
+                .RaiseEvent(new RoutedEventArgs(DropDownPickerEditor.DropDownClickEvent));
+            LibraryItemPickerFlyoutPresenter? picker = null;
+            await HeadlessTestHelpers.WaitUntilAsync(() =>
+            {
+                HeadlessTestHelpers.Render(2);
+                picker = window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().SingleOrDefault();
+                return picker != null;
+            });
+            HeadlessTestHelpers.Render(3);
+            return picker!;
+        }
+
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(3);
+            LibraryItemPickerFlyoutPresenter picker = await OpenPicker();
+            ListBox list = picker.GetVisualDescendants().OfType<ListBox>().Single(control => control.Name == "PART_ListBox");
+            Assert.That(list.SelectedItem, Is.SameAs(picker.SelectedItem));
+            Assert.That((picker.SelectedItem?.UserData as SingleTypeLibraryItem)?.ImplementationType, Is.EqualTo(initialType));
+            Assert.That((list.ContainerFromItem(list.SelectedItem!) as ListBoxItem)?.IsSelected, Is.True);
+            HeadlessCapture.SaveIfRequested(picker, nameof(ElementTransitionTimelineTests), $"transition-picker-{initialType.Name}");
+
+            list.SelectedItem = picker.Items!.Single(item => item.UserData is SingleTypeLibraryItem single
+                && single.ImplementationType == typeof(FadeTransition));
+            picker.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            HeadlessTestHelpers.Settle();
+            Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf<FadeTransition>());
+            Assert.That(outgoing.Model.ExitTransition.Value, Is.TypeOf<FadeTransition>());
+            int undoCount = editor.HistoryManager.UndoCount;
+
+            picker = await OpenPicker();
+            Assert.That((picker.SelectedItem?.UserData as SingleTypeLibraryItem)?.ImplementationType, Is.EqualTo(typeof(FadeTransition)));
+            picker.SelectedItem = picker.Items!.Single(item => item.UserData is SingleTypeLibraryItem single
+                && single.ImplementationType == typeof(WipeTransition));
+            picker.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape });
+            HeadlessTestHelpers.Settle();
+            Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf<FadeTransition>());
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+        }
+        finally
+        {
+            view.DataContext = null;
+            window.Close();
         }
     }
 
@@ -479,3 +657,5 @@ public class ElementTransitionTimelineTests
             .Single(v => ReferenceEquals(v.DataContext, element));
     }
 }
+
+public sealed partial class UnregisteredPickerTransition : ClipTransition;

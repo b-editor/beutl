@@ -1,4 +1,5 @@
 ﻿using System.Numerics;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.PropertyEditors;
@@ -26,6 +27,9 @@ public sealed class VectorEditorViewModel<TValue, TElement, TEdit>(
     {
         base.Accept(visitor);
         if (Disposables.IsDisposed) return;
+
+        if (visitor is VectorEditorBase vector)
+            vector.HapticReferenceValues = GetDefaultValue() is TValue value && ToEdit(value) is ITuple tuple ? tuple : null;
 
         switch (visitor)
         {

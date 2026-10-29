@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Transitions;
+﻿using Beutl.Graphics;
+using Beutl.Graphics.Transitions;
 using Beutl.Language;
 using Beutl.Media;
 using Beutl.ProjectSystem;
@@ -12,6 +13,29 @@ public sealed class ElementAttributeService : IElementAttributeService
     public ElementAttributeService(HistoryManager historyManager)
     {
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
+    }
+
+    public void SetTrackMatte(Element element, MatteSourceKind sourceKind, int? sourceZIndex, MatteMode mode)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (!ElementEditability.IsEditable(element)) return;
+        if (element.MatteSourceKind.Value == sourceKind && element.MatteSourceZIndex.Value == sourceZIndex
+            && element.MatteMode.Value == mode) return;
+
+        element.MatteSourceKind.Value = sourceKind;
+        element.MatteSourceZIndex.Value = sourceZIndex;
+        element.MatteMode.Value = mode;
+        _historyManager.Commit(CommandNames.ChangeTrackMatte);
+    }
+
+    public void SetVisibleInOutput(Element element, bool isVisible)
+    {
+        ArgumentNullException.ThrowIfNull(element);
+        if (!ElementEditability.IsEditable(element)) return;
+        if (element.IsVisibleInOutput.Value == isVisible) return;
+
+        element.IsVisibleInOutput.Value = isVisible;
+        _historyManager.Commit(CommandNames.ChangeOutputVisibility);
     }
 
     public void SetEnabled(Element element, bool isEnabled)

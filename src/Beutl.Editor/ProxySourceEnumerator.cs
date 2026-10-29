@@ -61,6 +61,12 @@ public static partial class ProxySourceEnumerator
             sceneWindow);
     }
 
+    internal static IEnumerable<IFileSource> EnumerateFileSources(
+        Element element, HashSet<(Scene, CompositionTarget?)> visitedScenes, bool skipDisabledElements,
+        CompositionTarget renderTarget, TimeRange? localRange, TimeRange? sceneWindow, Rational frameRate, MediaTime? frameOrigin)
+        => EnumerateElementFileSources(element, visitedScenes, skipDisabledElements, renderTarget, localRange, sceneWindow,
+            frameRate, frameOrigin);
+
     /// <summary>
     /// Collects the file paths of every <see cref="IFileSource"/> under <paramref name="root"/>, including
     /// node-graph inputs and referenced scenes.
@@ -136,7 +142,9 @@ public static partial class ProxySourceEnumerator
         bool skipDisabledElements = false,
         CompositionTarget? renderTarget = null,
         TimeRange? localRange = null,
-        TimeRange? sceneWindow = null)
+        TimeRange? sceneWindow = null,
+        Rational? frameRate = null,
+        MediaTime? frameOrigin = null)
     {
         foreach (EngineObject obj in element.Objects)
         {
@@ -157,7 +165,11 @@ public static partial class ProxySourceEnumerator
                 new HashSet<GraphGroup>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
                 new HashSet<Drawable>(ReferenceEqualityComparer.Instance),
-                sceneWindow);
+                sceneWindow)
+            {
+                FrameRate = frameRate,
+                FrameOrigin = frameOrigin
+            };
             foreach (IFileSource source in EnumerateObjectFileSources(obj, walkContext, skipDisabledElements, localRange))
             {
                 yield return source;
@@ -210,7 +222,8 @@ public static partial class ProxySourceEnumerator
                     TimeRange? graphicsWindow = localRange?.AddStart(referencedScene.Start.Value);
                     foreach (IFileSource source in EnumerateReferencedSceneSources(
                         referencedScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Graphics,
-                        graphicsWindow, graphicsWindow))
+                        graphicsWindow, graphicsWindow, walkContext.FrameRate,
+                        walkContext.FrameOrigin - sceneDrawable.Start + referencedScene.Start.Value))
                         yield return source;
 
                     break;
@@ -248,7 +261,7 @@ public static partial class ProxySourceEnumerator
                         // nor the scene-time window still maps — drop both to the conservative full walk.
                         // PostReconcile renders context.Get(Target), so resolve an expression-supplied one.
                         foreach (IFileSource source in EnumerateObjectFileSources(
-                            target, walkContext with { SceneWindow = null }, skipDisabledElements))
+                            target, walkContext with { SceneWindow = null, FrameOrigin = null }, skipDisabledElements))
                             yield return source;
                     }
 
@@ -281,7 +294,8 @@ public static partial class ProxySourceEnumerator
             // Shifted into referenced-scene time, like the embed composes it.
             TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange?.AddStart(soundScene.Start.Value) : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
-                soundScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))
+                soundScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow,
+                walkContext.FrameRate, walkContext.FrameOrigin - sceneSound.Start + soundScene.Start.Value))
                 yield return source;
         }
 
@@ -337,7 +351,8 @@ public static partial class ProxySourceEnumerator
 
     private static IEnumerable<IFileSource> EnumerateReferencedSceneSources(
         Scene scene, HashSet<(Scene, CompositionTarget?)> visitedScenes, bool skipDisabledElements, CompositionTarget? renderTarget,
-        TimeRange? referencedSceneWindow = null, TimeRange? outerSceneWindow = null)
+        TimeRange? referencedSceneWindow = null, TimeRange? outerSceneWindow = null,
+        Rational? frameRate = null, MediaTime? frameOrigin = null)
     {
         // Scene references are user-constructible and can cycle. Guard with a recursion STACK, not a
         // global visited set: dedup only scenes currently on the descent path (remove on exit) so a
@@ -349,20 +364,25 @@ public static partial class ProxySourceEnumerator
         if (!visitedScenes.Add(key))
             yield break;
 
-        SceneLayerSkipModel layerSkip = SceneLayerSkipModel.Build(scene);
         try
         {
+            if (skipDisabledElements && renderTarget is { } target)
+            {
+                foreach ((Element child, TimeRange? active, MediaTime? origin) in SceneLayerSkipModel.EnumerateRenderableElements(
+                             scene, target, referencedSceneWindow, frameRate, frameOrigin))
+                {
+                    foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, true, target,
+                                 active?.SubtractStart(child.Start.Value), active, frameRate, origin))
+                        yield return source;
+                }
+                yield break;
+            }
+
             foreach (Element child in scene.Children)
             {
                 // A disabled child never renders through SceneCompositor.SortLayers, so export preflight
                 // must not demand its original file exist; the render-independent IsEnabled gate applies.
                 if (skipDisabledElements && !child.IsEnabled.Value)
-                    continue;
-
-                // SortLayers also drops a muted / non-solo layer for the pass it composes, so the embedded
-                // scene never reads that child's source for this target — preflight must skip it too. Only
-                // in the export-preflight walk (skipDisabledElements), and only for a concrete target.
-                if (skipDisabledElements && renderTarget is { } skipTarget && layerSkip.ShouldSkip(child.ZIndex.Value, skipTarget))
                     continue;
 
                 // SortLayers only composes a child whose range intersects the sampled time, so a child
@@ -375,7 +395,8 @@ public static partial class ProxySourceEnumerator
                 // animations at scene-time - child.Start, while its global-clock keyframes sample the
                 // referenced scene's own clock (outerSceneWindow, unshifted by child.Start).
                 TimeRange? childWindow = referencedSceneWindow?.SubtractStart(child.Start.Value);
-                foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, skipDisabledElements, renderTarget, childWindow, outerSceneWindow))
+                foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, skipDisabledElements, renderTarget,
+                             childWindow, outerSceneWindow, frameRate, frameOrigin))
                     yield return source;
             }
         }
@@ -402,6 +423,8 @@ public static partial class ProxySourceEnumerator
         TimeRange? SceneWindow)
     {
         public IReadOnlySet<IProperty>? ConnectedNodeInputs { get; init; }
+        public Rational? FrameRate { get; init; }
+        public MediaTime? FrameOrigin { get; init; }
     }
 
     // The SceneSound audio graph is a pass-through (no time remap) only when Shift and Speed are both

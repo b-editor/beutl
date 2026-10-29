@@ -7,7 +7,7 @@ namespace Beutl.Editor;
 
 /// <summary>
 /// Collects the referenced media paths that can actually be rendered, skipping disabled, out-of-range, and
-/// muted / non-solo top-level elements exactly as <c>SceneCompositor.SortLayers</c> does. The collectors walk
+/// unused hidden graphics, and muted / non-solo output, while following required matte layers. The collectors walk
 /// the mutable scene graph, so call them on the thread that owns the scene; existence is then checked
 /// off-thread via <see cref="GetMissingPaths"/>.
 /// </summary>
@@ -18,7 +18,7 @@ public static class ExportSourceValidator
     /// </summary>
     public static IReadOnlySet<string> CollectRenderableSources(Scene scene, MediaTime time)
         => CollectRenderableSources(
-            scene, new TimeRange(time, MediaTime.Zero), element => element.Range.Contains(time),
+            scene, new TimeRange(time, MediaTime.Zero),
             [CompositionTarget.Graphics]);
 
     /// <summary>
@@ -30,46 +30,37 @@ public static class ExportSourceValidator
 
     /// <summary>Collects only sources used by the selected export passes.</summary>
     public static IReadOnlySet<string> CollectRenderableSources(
-        Scene scene, TimeRange range, bool includeVideo, bool includeAudio)
-        => CollectRenderableSources(scene, range, element => element.Range.Intersects(range),
+        Scene scene, TimeRange range, bool includeVideo, bool includeAudio, Rational? frameRate = null)
+        => CollectRenderableSources(scene, range,
             (includeVideo, includeAudio) switch
             {
                 (true, true) => [CompositionTarget.Graphics, CompositionTarget.Audio],
                 (true, false) => [CompositionTarget.Graphics],
                 (false, true) => [CompositionTarget.Audio],
                 _ => [],
-            });
+            }, frameRate);
 
     private static IReadOnlySet<string> CollectRenderableSources(
-        Scene scene, TimeRange sceneWindow, Func<Element, bool> inRange, CompositionTarget[] targets)
+        Scene scene, TimeRange sceneWindow, CompositionTarget[] targets, Rational? frameRate = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
         var paths = new HashSet<string>(StringComparer.Ordinal);
         var visitedScenes = new HashSet<(Scene, CompositionTarget?)>();
-        SceneLayerSkipModel layerSkip = SceneLayerSkipModel.Build(scene);
-        foreach (Element element in scene.Children)
+        Rational rate = frameRate ?? scene.FindHierarchicalParent<Project>().GetFrameRate();
+        // Validate against the renderer's positive-rate contract before walking any sources.
+        // Audio-only output does not use the video rate.
+        if (targets.Contains(CompositionTarget.Graphics))
+            _ = MediaTime.FromFrames(0, rate);
+
+        foreach (CompositionTarget target in targets)
         {
-            if (!element.IsEnabled.Value || !inRange(element))
-                continue;
-
-            // The render window in element-local time; a range window is first clamped to the element's
-            // interval. Global-clock keyframes are filtered by sceneWindow, which stays in scene time.
-            TimeRange elementLocalWindow = sceneWindow.Duration <= MediaTime.Zero
-                ? sceneWindow
-                : ClampToElement(sceneWindow, element.Range);
-            TimeRange localRange = elementLocalWindow.SubtractStart(element.Start.Value);
-
-            foreach (CompositionTarget target in targets)
+            foreach ((Element element, TimeRange? active, MediaTime? origin) in SceneLayerSkipModel.EnumerateRenderableElements(
+                         scene, target, sceneWindow, rate, sceneWindow.Start))
             {
-                // SceneCompositor.SortLayers drops a muted / non-solo element from this pass, so the
-                // renderer never reads its sources; preflight must match or a missing file on such an
-                // element would block an export that would render fine without it.
-                if (layerSkip.ShouldSkip(element.ZIndex.Value, target))
-                    continue;
-
+                TimeRange? localRange = active?.SubtractStart(element.Start.Value);
                 foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(
-                    element, visitedScenes, skipDisabledElements: true, target, localRange, sceneWindow))
+                    element, visitedScenes, skipDisabledElements: true, target, localRange, active, rate, origin))
                 {
                     if (source.Uri is { IsFile: true } uri)
                         paths.Add(uri.LocalPath);
@@ -94,15 +85,5 @@ public static class ExportSourceValidator
             .Where(static path => !File.Exists(path))
             .OrderBy(static path => path, StringComparer.Ordinal)
             .ToArray();
-    }
-
-    // The overlap of the render window with the element's active interval: the render only samples the
-    // element there, so animated keyframes are windowed to it. The caller already filtered to
-    // intersecting elements, so the overlap is non-empty.
-    private static TimeRange ClampToElement(TimeRange sceneWindow, TimeRange elementRange)
-    {
-        MediaTime start = sceneWindow.Start > elementRange.Start ? sceneWindow.Start : elementRange.Start;
-        MediaTime end = sceneWindow.End < elementRange.End ? sceneWindow.End : elementRange.End;
-        return new TimeRange(start, end - start);
     }
 }

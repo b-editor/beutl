@@ -212,4 +212,10 @@
   <data name="ChangeTransitionDuration" xml:space="preserve">
     <value>Cambiar duración de la transición</value>
   </data>
+  <data name="ChangeTrackMatte" xml:space="preserve">
+    <value>Cambiar mate de pista</value>
+  </data>
+  <data name="ChangeOutputVisibility" xml:space="preserve">
+    <value>Cambiar visibilidad en la salida</value>
+  </data>
 </root>

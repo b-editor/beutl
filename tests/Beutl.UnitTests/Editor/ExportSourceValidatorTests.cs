@@ -1,10 +1,12 @@
 ﻿using Beutl.Animation;
 using Beutl.Audio;
 using Beutl.Editor;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.NodeGraph;
@@ -75,6 +77,445 @@ public sealed class ExportSourceValidatorTests
         });
     }
 
+    [TestCase(0, 1)]
+    [TestCase(-4, 1)]
+    [TestCase(4, -1)]
+    [TestCase(1, 0)]
+    [TestCase(0, 0)]
+    public void CollectRenderableSources_RejectsInvalidVideoRatesBeforeWalkingSources(long numerator, long denominator)
+    {
+        var scene = new Scene(64, 32, string.Empty);
+        var rate = new Rational(numerator, denominator);
+        // Even an empty scene must reject an invalid video rate before portal sampling can begin.
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene, true, false, rate));
+
+        string path = Path.Combine(_root, "audio-only.wav");
+        scene.Children.Add(CreateSoundElement(_root, path));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene, false, true, rate),
+            Is.EquivalentTo(new[] { path }), "an unused video setting must not block audio-only output");
+    }
+
+    [TestCase(4, 1)]
+    [TestCase(-4, -1)]
+    [TestCase(24000, 1001)]
+    public void CollectRenderableSources_AcceptsPositiveFiniteVideoRates(long numerator, long denominator)
+    {
+        var (scene, portal, path) = CreateMattePortalScene();
+        portal.Count.Expression = new StringExpression<int>("1");
+
+        Assert.That(ExportSourceValidator.CollectRenderableSources(
+            scene, s_wholeScene, true, false, new Rational(numerator, denominator)), Is.EquivalentTo(new[] { path }));
+    }
+
+    [TestCase(false, false, MatteSourceKind.Layer)]
+    [TestCase(false, true, MatteSourceKind.Layer)]
+    [TestCase(true, false, MatteSourceKind.Layer)]
+    [TestCase(true, true, MatteSourceKind.Layer)]
+    [TestCase(false, false, MatteSourceKind.Above)]
+    [TestCase(false, true, MatteSourceKind.Below)]
+    [TestCase(true, false, MatteSourceKind.Below)]
+    [TestCase(true, true, MatteSourceKind.Above)]
+    public void MatteSources_FollowSoloTargets_AndSkipUnusedHiddenGraphics(bool nested, bool singleFrame, MatteSourceKind kind)
+    {
+        string required = Path.Combine(_root, "matte.png");
+        string unused = Path.Combine(_root, "unused.png");
+        var scene = new Scene(64, 32, string.Empty);
+        Element matte = CreateImageElement(_root, required);
+        matte.ZIndex.Value = kind == MatteSourceKind.Below ? 2 : 0;
+        matte.IsVisibleInOutput.Value = false;
+        Element hidden = CreateImageElement(_root, unused);
+        hidden.ZIndex.Value = 3;
+        hidden.IsVisibleInOutput.Value = false;
+        Element target = ElementWith(_root, new RectShape());
+        target.ZIndex.Value = 1;
+        target.MatteSourceKind.Value = kind;
+        target.MatteSourceZIndex.Value = 0;
+        target.MatteMode.Value = MatteMode.Alpha;
+        scene.Children.AddRange([matte, target, hidden]);
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 1 }, IsSolo = { Value = true } });
+        Scene root = scene;
+        if (nested)
+        {
+            root = new Scene(64, 32, string.Empty);
+            var embedded = new SceneDrawable();
+            embedded.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, scene);
+            root.Children.Add(ElementWith(_root, embedded));
+        }
+
+        IReadOnlySet<string> Collect() => singleFrame
+            ? ExportSourceValidator.CollectRenderableSources(root, MediaTime.Zero)
+            : ExportSourceValidator.CollectRenderableSources(root, s_wholeScene);
+
+        Assert.That(Collect(), Is.EquivalentTo(new[] { required }));
+        scene.Layers[0].IsSolo.Value = false;
+        target.MatteMode.Value = MatteMode.None;
+        Assert.That(Collect(), Is.Empty, "unused hidden graphics do not block export or Save Frame");
+        target.MatteMode.Value = MatteMode.Alpha;
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = matte.ZIndex.Value }, IsVideoMuted = { Value = true } });
+        Assert.That(Collect(), Is.Empty, "matte sources still obey video mute");
+    }
+
+    [TestCase(MatteSourceKind.Above, false)]
+    [TestCase(MatteSourceKind.Below, true)]
+    public void RelativeMatteSources_FollowTimeWindowsAndTheOutputFrameGrid(MatteSourceKind kind, bool nested)
+    {
+        var scene = new Scene(64, 32, string.Empty);
+        int direction = kind == MatteSourceKind.Above ? -1 : 1;
+        string nearPath = Path.Combine(_root, "nearest.png");
+        string farPath = Path.Combine(_root, "farther.png");
+        Element near = CreateImageElement(_root, nearPath);
+        near.ZIndex.Value = 6 + direction * 2;
+        near.Start.Value = MediaTime.FromSeconds(1);
+        Element far = CreateImageElement(_root, farPath);
+        far.ZIndex.Value = 6 + direction * 5;
+        far.Length.Value = MediaTime.FromSeconds(4);
+        Element unused = CreateImageElement(_root, Path.Combine(_root, "never-selected.png"));
+        unused.ZIndex.Value = 6 + direction * 8;
+        unused.Length.Value = MediaTime.FromSeconds(4);
+        near.IsVisibleInOutput.Value = far.IsVisibleInOutput.Value = unused.IsVisibleInOutput.Value = false;
+        Element target = ElementWith(_root, new RectShape(), length: MediaTime.FromSeconds(4));
+        target.ZIndex.Value = 6;
+        target.MatteSourceKind.Value = kind;
+        target.MatteMode.Value = MatteMode.Alpha;
+        scene.Children.AddRange([target, near, far, unused]);
+        Scene root = nested ? EmbedScene(scene) : scene;
+
+        foreach (double time in new[] { 0, 1, 2 })
+            Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(time)),
+                Is.EquivalentTo(new[] { time == 1 ? nearPath : farPath }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(1, 1)),
+            Is.EquivalentTo(new[] { nearPath }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(0, 3)),
+            Is.EquivalentTo(new[] { nearPath, farPath }));
+
+        near.Start.Value = MediaTime.FromSeconds(0.125);
+        near.Length.Value = MediaTime.FromSeconds(0.075);
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(0.125)),
+            Is.EquivalentTo(new[] { nearPath }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(0, 1), true, false, new Rational(4)),
+            Is.EquivalentTo(new[] { farPath }), "the nearest clip exists only between output frames");
+
+        if (nested)
+        {
+            var embedded = (SceneDrawable)root.Children[0].Objects[0];
+            root.Children[0].Objects.Add(new DrawableTimeController
+            {
+                Target = { Value = embedded },
+                OffsetPosition = { Value = MediaTime.FromSeconds(0.125) },
+            });
+            Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(0, 1), true, false, new Rational(4)),
+                Is.EquivalentTo(new[] { nearPath, farPath }), "a remapped full walk retains every reachable source interval");
+        }
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void MattePortals_FollowHiddenInputsWithinTheConsumerWindow(bool nested, bool singleFrame)
+    {
+        string required = Path.Combine(_root, "portal-matte.mov");
+        var scene = new Scene(64, 32, string.Empty);
+        Element target = ElementWith(_root, new RectShape());
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 1;
+        target.MatteMode.Value = MatteMode.Alpha;
+        var portal = new PortalObject { Count = { Value = 1 } };
+        Element matte = ElementWith(_root, portal);
+        matte.ZIndex.Value = 1;
+        matte.IsVisibleInOutput.Value = false;
+        Element video = CreateVideoElement(_root, required);
+        video.ZIndex.Value = 2;
+        video.IsVisibleInOutput.Value = false;
+        Element late = CreateVideoElement(_root, Path.Combine(_root, "late.mov"));
+        late.ZIndex.Value = 2;
+        late.Start.Value = MediaTime.FromSeconds(3);
+        late.IsVisibleInOutput.Value = false;
+        Element unused = CreateVideoElement(_root, Path.Combine(_root, "outside-portal.mov"));
+        unused.ZIndex.Value = 4;
+        unused.IsVisibleInOutput.Value = false;
+        scene.Children.AddRange([target, matte, video, late, unused]);
+        var solo = new TimelineLayer { ZIndex = { Value = 0 }, IsSolo = { Value = true } };
+        scene.Layers.Add(solo);
+        Scene root = scene;
+        if (nested)
+        {
+            root = new Scene(64, 32, string.Empty);
+            var embedded = new SceneDrawable();
+            embedded.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, scene);
+            root.Children.Add(ElementWith(_root, embedded));
+        }
+
+        IReadOnlySet<string> Collect() => singleFrame
+            ? ExportSourceValidator.CollectRenderableSources(root, MediaTime.Zero)
+            : ExportSourceValidator.CollectRenderableSources(root, s_wholeScene);
+
+        Assert.That(ExportSourceValidator.GetMissingPaths(Collect()), Is.EqualTo(new[] { required }));
+        portal.Count.Value = 0;
+        Assert.That(Collect(), Is.Empty);
+        portal.Count.Value = 1;
+        portal.IsEnabled.Value = false;
+        Assert.That(Collect(), Is.Empty);
+        portal.IsEnabled.Value = true;
+        var muted = new TimelineLayer { ZIndex = { Value = 2 }, IsVideoMuted = { Value = true } };
+        scene.Layers.Add(muted);
+        Assert.That(Collect(), Is.Empty);
+        muted.IsVideoMuted.Value = false;
+
+        Element inner = ElementWith(_root, new PortalObject { Count = { Value = 1 } });
+        inner.ZIndex.Value = 2;
+        inner.IsVisibleInOutput.Value = false;
+        video.ZIndex.Value = 3;
+        scene.Children.Add(inner);
+        Assert.That(Collect(), Is.EquivalentTo(new[] { required }), "nested portals retain the matte context");
+
+        target.MatteMode.Value = MatteMode.None;
+        solo.IsSolo.Value = false;
+        matte.IsVisibleInOutput.Value = true;
+        Assert.That(Collect(), Is.Empty, "output portals still skip hidden inputs");
+    }
+
+    [TestCase(0, 1, false)]
+    [TestCase(1, 0, false)]
+    [TestCase(0, 1, true)]
+    [TestCase(1, 0, true)]
+    public void MattePortalCount_UsesTheExpressionInsteadOfTheStoredValue(int stored, int effective, bool nested)
+    {
+        var (scene, portal, path) = CreateMattePortalScene();
+        portal.Count.Value = stored;
+        portal.Count.Expression = new StringExpression<int>(effective.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Scene root = nested ? EmbedScene(scene) : scene;
+        string[] expected = effective == 0 ? [] : [path];
+
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(0.25)),
+            Is.EquivalentTo(expected));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(0, 1)),
+            Is.EquivalentTo(expected));
+    }
+
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void HeldTransitionSides_UseFrameTimeForMatteDependencies(bool incomingHeld, bool nested)
+    {
+        string path = Path.Combine(_root, "transition-matte.mov");
+        var scene = new Scene(64, 32, string.Empty);
+        Element outgoing = ElementWith(_root, new RectShape(), length: MediaTime.FromSeconds(2));
+        Element incoming = ElementWith(_root, new RectShape(), MediaTime.FromSeconds(2), MediaTime.FromSeconds(2));
+        Element consumer = incomingHeld ? incoming : outgoing;
+        consumer.MatteSourceKind.Value = MatteSourceKind.Layer;
+        consumer.MatteSourceZIndex.Value = 1;
+        consumer.MatteMode.Value = MatteMode.Alpha;
+        var transition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+        if (incomingHeld) outgoing.ExitTransition.Value = transition;
+        else incoming.EnterTransition.Value = transition;
+        Element matte = CreateVideoElement(_root, path);
+        matte.ZIndex.Value = 1;
+        matte.Start.Value = MediaTime.FromSeconds(incomingHeld ? 0 : 2);
+        matte.Length.Value = MediaTime.FromSeconds(2);
+        matte.IsVisibleInOutput.Value = false;
+        scene.Children.AddRange([outgoing, incoming, matte]);
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsSolo = { Value = true } });
+        Scene root = nested ? EmbedScene(scene) : scene;
+        double time = incomingHeld ? 1.75 : 2.25;
+
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(time)), Is.EquivalentTo(new[] { path }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(time, 0.25)), Is.EquivalentTo(new[] { path }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(incomingHeld ? 0.75 : 3)), Is.Empty);
+        consumer.IsVisibleInOutput.Value = false;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(time)), Is.Empty);
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void MattePortalCount_UsesTheExportFrameGridAcrossClippedAndReferencedWindows(bool nested)
+    {
+        var (scene, portal, path) = CreateMattePortalScene();
+        double start = nested ? 3 : 1;
+        scene.Start.Value = MediaTime.FromSeconds(start);
+        foreach (Element element in scene.Children) element.Start.Value = MediaTime.FromSeconds(start + 0.01);
+        portal.Count.Expression = new StringExpression<int>(nested
+            ? "Time >= 0.10 && Time < 0.20 ? 1 : 0" : "Time >= 0.20 && Time < 0.30 ? 1 : 0");
+        scene.Children[2].Start.Value = MediaTime.FromSeconds(start + (nested ? 0.15 : 0.25));
+        scene.Children[2].Length.Value = MediaTime.FromSeconds(0.01);
+        Scene root = nested ? EmbedScene(scene) : scene;
+        if (nested) root.Children[0].Start.Value = MediaTime.FromSeconds(0.1);
+        TimeRange range = TimeRange.FromSeconds(nested ? 0 : 1, 1);
+
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range, true, false, new Rational(4, 1)),
+            Is.EquivalentTo(new[] { path }), "the source is needed by the interior frame, not either range endpoint");
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range, true, false, new Rational(2, 1)),
+            Is.Empty, "the lower export rate never samples the portal's active input");
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(nested ? 0.25 : 1.25)),
+            Is.EquivalentTo(new[] { path }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(nested ? 0.5 : 1.5)), Is.Empty);
+
+        portal.Count.Expression = new StringExpression<int>("1");
+        scene.Children[2].Start.Value = MediaTime.FromSeconds(start + (nested ? 0.18 : 0.30));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range, true, false, new Rational(4, 1)), Is.Empty,
+            "a missing input active only between output frames is unused even when successive counts are equal");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RemappedMattePortals_KeepInputsBetweenUnmappedFrames(bool nested)
+    {
+        var (scene, portal, path) = CreateMattePortalScene();
+        portal.Count.Expression = new StringExpression<int>("Time >= 0.125 && Time < 0.2 ? 1 : 0");
+        Scene root = EmbedScene(scene);
+        root.FindHierarchicalParent<Project>()!.FrameRate.Value = new Rational(4);
+        var embedded = (SceneDrawable)root.Children[0].Objects[0];
+        if (nested)
+        {
+            var middle = new Scene(64, 32, string.Empty);
+            var child = new SceneDrawable();
+            child.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, scene);
+            middle.Children.Add(ElementWith(_root, child));
+            embedded.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, middle);
+        }
+
+        var controller = new DrawableTimeController
+        {
+            Target = { Value = embedded },
+            OffsetPosition = { Value = MediaTime.FromSeconds(0.125) }
+        };
+        root.Children[0].Objects.Add(controller);
+        TimeRange range = TimeRange.FromSeconds(0, 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.Zero), Is.EquivalentTo(new[] { path }));
+            Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.EquivalentTo(new[] { path }));
+        });
+
+        controller.IsEnabled.Value = false;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.Empty,
+            "without the remap, the output's known frame grid never uses the input");
+        controller.IsEnabled.Value = true;
+        portal.Count.Expression = null;
+        portal.Count.Value = 0;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.Empty,
+            "a stored count of zero imports nothing, including during a full walk");
+        portal.Count.Value = 1;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.EquivalentTo(new[] { path }));
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsVideoMuted = { Value = true } });
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.Empty);
+    }
+
+    [TestCase(MatteSourceKind.Layer, false)]
+    [TestCase(MatteSourceKind.Above, false)]
+    [TestCase(MatteSourceKind.Below, true)]
+    public void RemappedPortalInputs_FollowMatteMediaOutsideTheOriginalWindow(MatteSourceKind kind, bool nested)
+    {
+        string existing = Path.Combine(_root, "initial.mov");
+        string missing = Path.Combine(_root, "remapped.mov");
+        File.WriteAllBytes(existing, [1]);
+        var scene = new Scene(64, 32, string.Empty);
+        Element far = CreateVideoElement(_root, existing);
+        far.ZIndex.Value = kind == MatteSourceKind.Below ? 10 : 0;
+        far.IsVisibleInOutput.Value = false;
+        Element near = CreateVideoElement(_root, missing);
+        near.ZIndex.Value = kind == MatteSourceKind.Below ? 8 : 2;
+        near.Start.Value = MediaTime.FromSeconds(1);
+        near.Length.Value = MediaTime.FromSeconds(1);
+        near.IsVisibleInOutput.Value = false;
+        if (kind == MatteSourceKind.Layer)
+        {
+            var animation = new KeyFrameAnimation<VideoSource?>();
+            foreach ((double time, string path) in new[] { (0.0, existing), (0.5, existing), (1.0, missing) })
+                animation.KeyFrames.Add(new KeyFrame<VideoSource?> { KeyTime = { Value = MediaTime.FromSeconds(time) }, Value = { Value = MakeVideoSource(path) } });
+            ((SourceVideo)far.Objects[0]).Source.SetKeyFrameAnimation(animation);
+        }
+        Element target = ElementWith(_root, new RectShape());
+        target.ZIndex.Value = 5;
+        target.MatteSourceKind.Value = kind;
+        target.MatteSourceZIndex.Value = far.ZIndex.Value;
+        target.MatteMode.Value = MatteMode.Alpha;
+        var portal = new PortalObject { Count = { Value = 6 } };
+        Element output = ElementWith(_root, portal);
+        output.ZIndex.Value = -1;
+        var controller = new DrawableTimeController { OffsetPosition = { Value = MediaTime.FromSeconds(1) } };
+        output.Objects.Add(controller);
+        scene.Children.AddRange([output, far, near, target]);
+        Scene root = nested ? EmbedScene(scene) : scene;
+        TimeRange range = TimeRange.FromSeconds(0, 0.25);
+
+        Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, MediaTime.Zero)), Is.EqualTo(new[] { missing }));
+        Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, range)), Is.EqualTo(new[] { missing }));
+        controller.IsEnabled.Value = false;
+        Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, range)), Is.Empty);
+        controller.IsEnabled.Value = true;
+        portal.Count.Value = 0;
+        Assert.That(ExportSourceValidator.GetMissingPaths(ExportSourceValidator.CollectRenderableSources(root, range)), Is.Empty);
+    }
+
+    [Test]
+    public void HeldMattePortal_EvaluatesItsCountAtHeldTimeAndItsInputsAtFrameTime()
+    {
+        var (scene, portal, path) = CreateMattePortalScene();
+        scene.Children[0].Length.Value = MediaTime.FromSeconds(4);
+        scene.Children[1].Length.Value = MediaTime.FromSeconds(2);
+        scene.Children[2].Start.Value = MediaTime.FromSeconds(2);
+        scene.Children[2].Length.Value = MediaTime.FromSeconds(2);
+        portal.Count.Expression = new StringExpression<int>("Time < 2 ? 1 : 0");
+        Element incoming = ElementWith(_root, new RectShape(), MediaTime.FromSeconds(2), MediaTime.FromSeconds(2));
+        incoming.ZIndex.Value = 1;
+        incoming.IsVisibleInOutput.Value = false;
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
+        scene.Children.Add(incoming);
+
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(2.25)), Is.EquivalentTo(new[] { path }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, TimeRange.FromSeconds(2.25, 0.25)), Is.EquivalentTo(new[] { path }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(3)), Is.Empty);
+    }
+
+    [Test]
+    public void MattePortalCount_FollowsAnAnimatedPropertyReference()
+    {
+        var (scene, portal, path) = CreateMattePortalScene();
+        var shape = (RectShape)scene.Children[0].Objects[0];
+        var animation = new KeyFrameAnimation<float>();
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.Zero }, Value = { Value = 0 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(0.5) }, Value = { Value = 1 } });
+        animation.KeyFrames.Add(new KeyFrame<float> { KeyTime = { Value = MediaTime.FromSeconds(1) }, Value = { Value = 0 } });
+        shape.Width.SetKeyFrameAnimation(animation);
+        portal.Count.Expression = new StringExpression<int>($"(int)GetProperty<float>(\"{shape.Id.Value}.Width\")");
+
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(0.25)), Is.Empty);
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, MediaTime.FromSeconds(0.5)), Is.EquivalentTo(new[] { path }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, TimeRange.FromSeconds(0, 1)), Is.EquivalentTo(new[] { path }));
+    }
+
+    private (Scene Scene, PortalObject Portal, string Path) CreateMattePortalScene()
+    {
+        string path = Path.Combine(_root, "expression-matte.mov");
+        var scene = new Scene(64, 32, string.Empty);
+        Element target = ElementWith(_root, new RectShape());
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 1;
+        target.MatteMode.Value = MatteMode.Alpha;
+        var portal = new PortalObject();
+        Element matte = ElementWith(_root, portal);
+        matte.ZIndex.Value = 1;
+        matte.IsVisibleInOutput.Value = false;
+        Element video = CreateVideoElement(_root, path);
+        video.ZIndex.Value = 2;
+        video.IsVisibleInOutput.Value = false;
+        scene.Children.AddRange([target, matte, video]);
+        return (scene, portal, path);
+    }
+
+    private Scene EmbedScene(Scene child)
+    {
+        var root = new Scene(64, 32, string.Empty);
+        var drawable = new SceneDrawable();
+        drawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, child);
+        root.Children.Add(ElementWith(_root, drawable, length: MediaTime.FromSeconds(10)));
+        return root;
+    }
+
     // A SceneDrawable renders only the referenced scene's graphics (SceneDrawable.EvaluateGraphics), so
     // a missing image inside it blocks export, but an audio-only Sound the video render never opens must
     // not — even for a full export. A SceneSound (below) is what pulls that scene's audio.
@@ -103,6 +544,38 @@ public sealed class ExportSourceValidatorTests
         IReadOnlyList<string> missing = ExportSourceValidator.GetMissingPaths(referenced);
 
         Assert.That(missing, Is.EqualTo(new[] { missingImage }));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void MatteSources_UseTheConsumerWindow_WithoutHidingAudioOrRecursingCycles(bool cyclic)
+    {
+        string required = Path.Combine(_root, "early.png");
+        string audio = Path.Combine(_root, "hidden.wav");
+        var scene = new Scene(64, 32, string.Empty);
+        Element early = CreateImageElement(_root, required);
+        early.Length.Value = MediaTime.FromSeconds(1);
+        early.IsVisibleInOutput.Value = false;
+        Element late = CreateImageElement(_root, Path.Combine(_root, "late.png"));
+        late.Start.Value = MediaTime.FromSeconds(3);
+        late.IsVisibleInOutput.Value = false;
+        Element target = ElementWith(_root, new RectShape(), length: MediaTime.FromSeconds(1));
+        target.ZIndex.Value = 1;
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
+        target.MatteSourceZIndex.Value = 0;
+        target.MatteMode.Value = MatteMode.Alpha;
+        if (cyclic)
+        {
+            early.MatteSourceKind.Value = MatteSourceKind.Layer;
+            early.MatteSourceZIndex.Value = 1;
+            early.MatteMode.Value = MatteMode.Alpha;
+        }
+        Element sound = CreateSoundElement(_root, audio);
+        sound.ZIndex.Value = 2;
+        sound.IsVisibleInOutput.Value = false;
+        scene.Children.AddRange([early, late, target, sound]);
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene),
+            Is.EquivalentTo(new[] { required, audio }));
     }
 
     // An embed renders the referenced scene from its own window start, so a clip before that window is

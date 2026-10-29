@@ -4,8 +4,10 @@ using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
 using Avalonia.VisualTree;
+using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.NodeGraphTab.ViewModels;
+using Beutl.NodeGraph;
 using FluentAvalonia.UI.Media;
 
 namespace Beutl.Editor.Components.NodeGraphTab.Views;
@@ -27,6 +29,7 @@ public sealed class NodePortPoint : Control
     private Point _lastCanvasPoint;
     private bool _connected;
     private DragSession? _drag;
+    private INodePort? _feedbackTarget;
 
     static NodePortPoint()
     {
@@ -142,21 +145,32 @@ public sealed class NodePortPoint : Control
             {
                 _line.StartPoint = e.GetPosition(_canvas);
             }
+            UpdateHoverFeedback(_lastCanvasPoint, e.Timestamp);
             e.Handled = true;
         }
     }
 
+    private NodePortPoint? FindTargetPort(Point canvasPoint)
+        => _canvas?.InputHitTest(canvasPoint) is NodePortPoint target && target != this ? target : null;
+
+    private void UpdateHoverFeedback(Point canvasPoint, ulong timestamp)
+    {
+        INodePort? target = DataContext is NodePortViewModel source
+            && FindTargetPort(canvasPoint)?.DataContext is NodePortViewModel destination
+            && source.CanConnectTo(destination) ? destination.Model : null;
+
+        if (target != null && target != _feedbackTarget)
+            NativeHapticFeedback.PerformAlignment(this, timestamp);
+        _feedbackTarget = target;
+    }
+
     private bool TryConnect(Point canvasPoint)
     {
-        if (_canvas != null)
+        if (FindTargetPort(canvasPoint)?.DataContext is NodePortViewModel target)
         {
-            IInputElement? elm = _canvas.InputHitTest(canvasPoint);
-            if (elm != this && elm is NodePortPoint { DataContext: NodePortViewModel endViewModel })
-            {
-                var args = new NodePortConnectRequestedEventArgs(endViewModel, false);
-                ConnectRequested?.Invoke(this, args);
-                return args.IsConnected;
-            }
+            var args = new NodePortConnectRequestedEventArgs(target, false);
+            ConnectRequested?.Invoke(this, args);
+            return args.IsConnected;
         }
 
         return false;
@@ -223,6 +237,7 @@ public sealed class NodePortPoint : Control
         _line = null;
         _captured = false;
         _dragCoordinateSpace = null;
+        _feedbackTarget = null;
     }
 
     private static bool IsBlankDropTarget(IInputElement? target)

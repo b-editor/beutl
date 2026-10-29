@@ -111,6 +111,8 @@ Beutl.Utilities
 [Beutl.Engine]:FallbackEngineObject
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Animation:ComponentAnimation<T, TComponent>
+  sealed
 [Beutl.Engine]Beutl.Animation:KeyFrame
   unsealed
   keys: (no public parameterless constructor)
@@ -565,6 +567,12 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Transformation:TranslateTransform
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name, X, Y
+[Beutl.Engine]Beutl.Graphics.Transitions:BlindsTransition
+  sealed
+  keys: Angle, Animations, Count, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:CheckerboardTransition
+  sealed
+  keys: Animations, Columns, Duration, Easing, Expressions, Id, IsEnabled, Name, Rows
 [Beutl.Engine]Beutl.Graphics.Transitions:ClipTransition
   abstract
 [Beutl.Engine]Beutl.Graphics.Transitions:ClipTransitionPresenter
@@ -585,9 +593,15 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Transitions:FallbackClipTransition
   sealed
   keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:GlitchTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
 [Beutl.Engine]Beutl.Graphics.Transitions:IrisTransition
   sealed
-  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Graphics.Transitions:LightLeakTransition
+  sealed
+  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
 [Beutl.Engine]Beutl.Graphics.Transitions:PushTransition
   sealed
   keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
@@ -597,12 +611,18 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Transitions:SplitTransition
   sealed
   keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name, Orientation
+[Beutl.Engine]Beutl.Graphics.Transitions:WhipPanTransition
+  sealed
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
 [Beutl.Engine]Beutl.Graphics.Transitions:WipeTransition
   sealed
-  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
+  keys: Animations, Clockwise, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Shape
+[Beutl.Engine]Beutl.Graphics.Transitions:ZoomBlurTransition
+  sealed
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength, TileMode
 [Beutl.Engine]Beutl.Graphics.Transitions:ZoomTransition
   sealed
-  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, TileMode
 [Beutl.Engine]Beutl.Graphics3D.Camera:Camera3D
   abstract
 [Beutl.Engine]Beutl.Graphics3D.Camera:OrthographicCamera
@@ -713,6 +733,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics:SourceVideo
   unsealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, IsLoop, Name, OffsetPosition, Opacity, Source, Speed, Transform, TransformOrigin
+[Beutl.Engine]Beutl.Graphics:TrackMattePresenter
+  sealed
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
 [Beutl.Engine]Beutl.Media.Encoding:AudioEncoderSettings
   unsealed
   keys: Bitrate, Channels, CodecOptions, Id, Name, SampleRate
@@ -1264,7 +1287,7 @@ Beutl.Utilities
   keys: Animations, Connections, Expressions, Id, IsEnabled, Name
 [Beutl.ProjectSystem]:Element
   unsealed
-  keys: AccentColor, Id, IsEnabled, IsLocked, Length, Name, Objects, Start, ZIndex
+  keys: AccentColor, Id, IsEnabled, IsLocked, IsVisibleInOutput, Length, MatteMode, MatteSourceKind, MatteSourceZIndex, Name, Objects, Start, ZIndex
 [Beutl.ProjectSystem]:MediaFingerprintFile
   sealed
   keys: Fingerprints, Version

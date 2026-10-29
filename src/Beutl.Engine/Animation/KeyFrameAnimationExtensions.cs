@@ -16,6 +16,19 @@ public static class KeyFrameAnimationExtensions
             ? ExpressionChain.FindKeyFrames(expressionProperty.Expression) as IKeyFrameAnimation
             : null;
 
+    public static IPropertyAnimation? GetPropertyAnimation(this IProperty property)
+        => property is IExpressionProperty expressionProperty
+            ? ExpressionChain.FindKeyFrames(expressionProperty.Expression) as IPropertyAnimation
+            : null;
+
+    public static void SetPropertyAnimation(this IProperty property, IPropertyAnimation? animation)
+    {
+        if (property is IExpressionChainHost host)
+            host.SetKeyFrames(animation);
+        else if (animation != null)
+            throw new NotSupportedException($"Property '{property.Name}' does not hold animations.");
+    }
+
     // Puts the keyframes at the bottom of the expression chain, below any user or node-port expression.
     public static void SetKeyFrameAnimation<T>(this IProperty<T> property, KeyFrameAnimation<T>? animation)
         => SetKeyFrameAnimation((IProperty)property, animation);

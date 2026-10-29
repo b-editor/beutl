@@ -57,6 +57,15 @@ public class NumberEditor<TValue> : ValueStringEditor<TValue>
         set => SetValue(NumberFormatProperty, value);
     }
 
+    internal TValue HapticReferenceValue { get; set; } = TValue.Zero;
+
+    private protected override void OnScrubbed(TValue oldValue, ulong timestamp)
+    {
+        // ValueChanged has already applied the property's coercion to Value.
+        if (NumberEditorHelper.CrossedHapticReference(oldValue, Value, HapticReferenceValue))
+            NativeHapticFeedback.PerformAlignment(this, timestamp);
+    }
+
     private protected override DirectPropertyBase<TValue> ValuePropertyCore => ValueProperty;
 
     private protected override string Format(TValue value)

@@ -1551,6 +1551,69 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>Split</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>Blinds</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>Slats</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>Checkerboard</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>Shape</value>
+  </data>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>Linear direction</value>
+  </data>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>Clockwise (clock wipe)</value>
+  </data>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>Linear</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>Box</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>Diamond</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>Clock</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>Iris In (open)</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>Iris Out (close)</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>Zoom Blur</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>Whip Pan</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>Glitch</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>Light Leak</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>Strength (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>Orientation</value>
   </data>
