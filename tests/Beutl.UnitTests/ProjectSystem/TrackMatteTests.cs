@@ -94,34 +94,66 @@ public sealed class TrackMatteTests
         });
     }
 
-    [TestCase(MatteSourceKind.Above, 0)]
-    [TestCase(MatteSourceKind.Below, 2)]
-    public void RelativeSources_FollowTheTargetPosition_AndMatchDelivery(MatteSourceKind kind, int sourceLayer)
+    [TestCase(MatteSourceKind.Above, 4, 1, 3)]
+    [TestCase(MatteSourceKind.Below, 8, 11, 9)]
+    public void RelativeSources_SkipEmptyLayers_AndSwitchAtClipBoundaries(
+        MatteSourceKind kind, int nearLayer, int farLayer, int movedLayer)
     {
         var scene = new Scene(Width, Height, string.Empty);
-        Element source = Add(scene, sourceLayer, Rect(Colors.White, Width / 2));
-        source.IsVisibleInOutput.Value = false;
-        Element next = Add(scene, sourceLayer + 3, Rect(Colors.White));
-        next.IsVisibleInOutput.Value = false;
-        Element target = Add(scene, 1, Rect(Colors.Blue));
+        Element near = Add(scene, nearLayer, Rect(Colors.White, Width / 2));
+        near.IsVisibleInOutput.Value = false;
+        near.Start.Value = Seconds(1);
+        near.Length.Value = Seconds(1);
+        Element far = Add(scene, farLayer, Rect(Colors.White));
+        far.IsVisibleInOutput.Value = false;
+        Element target = Add(scene, 6, Rect(Colors.Blue));
         target.MatteSourceKind.Value = kind;
         target.MatteMode.Value = MatteMode.Alpha;
         using var preview = new SceneRender(scene);
         using var delivery = new SceneRender(scene, RenderIntent.Delivery);
-        using Bitmap initial = preview.Draw();
-        Assert.That(Pixel(initial, 8, 16).A, Is.EqualTo(255));
-        Assert.That(Pixel(initial, 48, 16).A, Is.Zero);
+        foreach (double time in new[] { 0, 1, 1.5, 2, 0.5 })
+        {
+            using Bitmap bitmap = preview.Draw(Seconds(time));
+            using Bitmap exported = delivery.Draw(Seconds(time));
+            Assert.That(Pixel(bitmap, 8, 16).A, Is.EqualTo(255));
+            Assert.That(Pixel(bitmap, 48, 16).A, Is.EqualTo(time is >= 1 and < 2 ? 0 : 255));
+            for (int y = 0; y < Height; y++)
+                Assert.That(bitmap.GetRow<Bgra8888>(y).ToArray(), Is.EqualTo(exported.GetRow<Bgra8888>(y).ToArray()));
+        }
 
-        target.ZIndex.Value = 4;
-        using Bitmap moved = preview.Draw();
-        using Bitmap exported = delivery.Draw();
+        target.ZIndex.Value = movedLayer;
+        using Bitmap moved = preview.Draw(Seconds(1));
         Assert.That(Pixel(moved, 48, 16).A, Is.EqualTo(255));
-        for (int y = 0; y < Height; y++)
-            Assert.That(moved.GetRow<Bgra8888>(y).ToArray(), Is.EqualTo(exported.GetRow<Bgra8888>(y).ToArray()));
+        far.IsEnabled.Value = false;
+        using Bitmap disabled = preview.Draw(Seconds(1));
+        Assert.That(Pixel(disabled, 8, 16).A, Is.Zero);
+        scene.Children.Remove(far);
+        using Bitmap missing = preview.Draw(Seconds(1));
+        Assert.That(Pixel(missing, 8, 16).A, Is.Zero, "no clip in the selected direction supplies no alpha");
+        target.MatteMode.Value = MatteMode.InvertedAlpha;
+        using Bitmap inverted = preview.Draw(Seconds(1));
+        Assert.That(Pixel(inverted, 8, 16).A, Is.EqualTo(255));
+    }
 
-        scene.Children.Remove(next);
-        using Bitmap missing = preview.Draw();
-        Assert.That(Pixel(missing, 8, 16).A, Is.Zero, "an empty adjacent layer supplies no alpha");
+    [Test]
+    public void RelativeSource_UsesFrameTimeWhileTheTargetIsHeldByATransition()
+    {
+        var scene = new Scene(Width, Height, string.Empty);
+        Element far = Add(scene, 1, Rect(Colors.White));
+        far.IsVisibleInOutput.Value = false;
+        Element near = Add(scene, 4, Rect(Colors.White, Width / 2));
+        near.Start.Value = Seconds(2);
+        near.IsVisibleInOutput.Value = false;
+        Element target = Add(scene, 6, Rect(Colors.Blue));
+        target.Length.Value = Seconds(2);
+        target.MatteMode.Value = MatteMode.Alpha;
+        var incoming = new Element { ZIndex = { Value = 6 }, Start = { Value = Seconds(2) }, Length = { Value = Seconds(2) } };
+        incoming.EnterTransition.Value = new CrossDissolveTransition { Duration = { Value = Seconds(1) } };
+        scene.Children.Add(incoming);
+        using var render = new SceneRender(scene);
+        using Bitmap bitmap = render.Draw(Seconds(2.25));
+        Assert.That(Pixel(bitmap, 8, 16).A, Is.GreaterThan(0));
+        Assert.That(Pixel(bitmap, 48, 16).A, Is.Zero);
     }
 
     [Test]
@@ -462,7 +494,8 @@ public sealed class TrackMatteTests
     public void RelativeSettings_RoundTripAndUndo_AndStayRelativeAfterReordering(MatteSourceKind kind)
     {
         using var harness = new SceneHistoryHarness("relative-track-matte");
-        Element target = harness.AddElement(2);
+        Element target = harness.AddElement(MediaTime.Zero, Seconds(4), 2);
+        foreach (int layer in new[] { 0, 3, 5 }) harness.AddElement(MediaTime.Zero, Seconds(4), layer);
         var service = new ElementAttributeService(harness.History);
         harness.History.Commit("Setup");
         Assert.That(target.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Above));
@@ -476,13 +509,14 @@ public sealed class TrackMatteTests
         Assert.That(harness.History.Redo(), Is.True);
         var restored = (Element)CoreSerializer.DeserializeFromJsonObject(CoreSerializer.SerializeToJsonObject(target), typeof(Element));
         Assert.That(restored.MatteSourceKind.Value, Is.EqualTo(kind));
-        Assert.That(restored.GetMatteSourceZIndex(), Is.EqualTo(kind == MatteSourceKind.Above ? 1 : 3));
+        Assert.That(restored.GetMatteSourceZIndex(harness.Scene, MediaTime.Zero), Is.EqualTo(kind == MatteSourceKind.Above ? 0 : 3));
 
         new LayerMoveService(harness.History).ApplyMove(harness.Scene, 2, 4, [target]);
         Assert.That(target.MatteSourceKind.Value, Is.EqualTo(kind));
-        Assert.That(target.GetMatteSourceZIndex(), Is.EqualTo(kind == MatteSourceKind.Above ? 3 : 5));
+        Assert.That(target.GetMatteSourceZIndex(harness.Scene, MediaTime.Zero), Is.EqualTo(kind == MatteSourceKind.Above ? 2 : 5));
         Assert.That(harness.History.Undo(), Is.True);
-        Assert.That(target.GetMatteSourceZIndex(), Is.EqualTo(restored.GetMatteSourceZIndex()));
+        Assert.That(target.GetMatteSourceZIndex(harness.Scene, MediaTime.Zero),
+            Is.EqualTo(restored.GetMatteSourceZIndex(harness.Scene, MediaTime.Zero)));
     }
 
     [TestCase(null)]
@@ -496,7 +530,7 @@ public sealed class TrackMatteTests
         json.Remove(nameof(Element.MatteSourceKind));
         var restored = (Element)CoreSerializer.DeserializeFromJsonObject(json, typeof(Element));
         Assert.That(restored.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Layer));
-        Assert.That(restored.GetMatteSourceZIndex(), Is.EqualTo(source));
+        Assert.That(restored.GetMatteSourceZIndex(new Scene(), MediaTime.Zero), Is.EqualTo(source));
     }
 
     private static (Scene Scene, Element Source, Element Target) CreateScene(MatteMode mode, Color color)

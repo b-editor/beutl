@@ -14,6 +14,7 @@ public sealed partial class SceneCompositor
     // so reconciling it must not overwrite a transition or portal already collected for output.
     private readonly ConditionalWeakTable<EngineObject, ResourceEntry> _matteResourceCache = new();
     private readonly Dictionary<int, TrackMatteContent> _matteSources = [];
+    private readonly TrackMatteContent _emptyMatteSource = new();
 
     private sealed class GraphicsFrameState(MediaTime time)
     {
@@ -25,9 +26,9 @@ public sealed partial class SceneCompositor
     }
 
     private void ApplyTrackMatte(
-        Element element, int sourceZIndex, CompositorContext context, PooledList<EngineObject.Resource> flow)
+        Element element, int? sourceZIndex, CompositorContext context, PooledList<EngineObject.Resource> flow)
     {
-        TrackMatteContent source = GetMatteSource(sourceZIndex, context);
+        TrackMatteContent source = sourceZIndex is { } z ? GetMatteSource(z, context) : _emptyMatteSource;
         TrackMattePresenter presenter = _mattePresenters.GetValue(element, static _ => new());
         presenter.ZIndex.Value = element.ZIndex.Value;
         presenter.TimeRange.Value = element.Range;

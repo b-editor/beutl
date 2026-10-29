@@ -114,6 +114,19 @@ public sealed class TrackMatteEditorTests
     public async Task RelativeSource_DefaultsAbove_AndUpdatesAfterEditsAndUndo()
     {
         (EditViewModel editor, TimelineTabViewModel timeline, _, Element target) = await Open();
+        var near = new Element
+        {
+            ZIndex = { Value = 1 },
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(1) },
+        };
+        near.Objects.Add(new RectShape());
+        var below = new Element { ZIndex = { Value = 4 }, Length = { Value = MediaTime.FromSeconds(4) } };
+        below.Objects.Add(new RectShape());
+        editor.Scene.Children.AddRange([near, below]);
+        editor.HistoryManager.Commit();
+        var clock = editor.GetRequiredService<IEditorClock>();
+        clock.Seek(MediaTime.Zero);
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 640, Height = 550 };
         try
@@ -125,15 +138,15 @@ public sealed class TrackMatteEditorTests
             Assert.That(model.MatteIndicator.Value, Is.Null);
             FAMenuFlyoutSubItem menu = OpenMatteMenu(element);
             HeadlessTestHelpers.Click(Item(menu, Strings.MatteAlpha), move: true);
-            Assert.That(target.GetMatteSourceZIndex(), Is.EqualTo(1));
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
+            Assert.That(target.GetMatteSourceZIndex(editor.Scene, MediaTime.Zero), Is.EqualTo(0));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
 
             menu = OpenMatteMenu(element);
             FAMenuFlyoutSubItem sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
             OpenSubMenu(sources);
             Assert.That(Item(sources, Strings.MatteSourceAbove).IsChecked, Is.True);
             HeadlessTestHelpers.Click(Item(sources, Strings.MatteSourceBelow), move: true);
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↓ 3"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↓ 4"));
             menu = OpenMatteMenu(element);
             sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
             OpenSubMenu(sources);
@@ -143,13 +156,34 @@ public sealed class TrackMatteEditorTests
             Assert.That(target.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Layer));
             Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
             Assert.That(editor.HistoryManager.Undo(), Is.True);
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↓ 3"));
+            HeadlessTestHelpers.Render();
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↓ 4"));
             Assert.That(editor.HistoryManager.Undo(), Is.True);
+            HeadlessTestHelpers.Render();
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
+
+            clock.Seek(MediaTime.FromSeconds(1));
+            HeadlessTestHelpers.Render();
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
+            HeadlessCapture.SaveIfRequested(view, "track-matte", "nearest-at-one-second");
+            clock.Seek(MediaTime.FromSeconds(2));
+            HeadlessTestHelpers.Render();
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
+            HeadlessCapture.SaveIfRequested(view, "track-matte", "nearest-at-two-seconds");
+            clock.Seek(MediaTime.FromSeconds(1));
+            editor.Scene.Children.Remove(near);
+            editor.HistoryManager.Commit();
+            HeadlessTestHelpers.Render();
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            HeadlessTestHelpers.Render();
             Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
 
-            editor.GetRequiredService<ILayerMoveService>().ApplyMove(editor.Scene, 2, 3, [target]);
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 2"));
+            editor.GetRequiredService<ILayerMoveService>().ApplyMove(editor.Scene, 2, 5, [target]);
+            HeadlessTestHelpers.Render();
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 3"));
             Assert.That(editor.HistoryManager.Undo(), Is.True);
+            HeadlessTestHelpers.Render();
             Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
             target.IsLocked.Value = true;
             model.SetMatteSource(MatteSourceKind.Below);

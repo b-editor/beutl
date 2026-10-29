@@ -377,10 +377,10 @@ public sealed partial class SceneCompositor : ICompositor
                 flow.Add(GetOrCreateResource(obj, context));
             }
 
-            if (context.GraphicsState != null && element.MatteMode.Value != MatteMode.None
-                && element.GetMatteSourceZIndex() is { } sourceZIndex)
+            if (context.GraphicsState is { } frame && element.MatteMode.Value != MatteMode.None
+                && (element.MatteSourceKind.Value != MatteSourceKind.Layer || element.MatteSourceZIndex.Value != null))
             {
-                ApplyTrackMatte(element, sourceZIndex, context, flow);
+                ApplyTrackMatte(element, element.GetMatteSourceZIndex(Scene, frame.Time), context, flow);
             }
 
             foreach (EngineObject.Resource resource in flow)
@@ -469,7 +469,7 @@ public sealed partial class SceneCompositor : ICompositor
         bool graphics = target == CompositionTarget.Graphics;
         foreach (Element item in Scene.Children)
         {
-            if (!item.IsEnabled.Value || !CoversTime(item, time, graphics)) continue;
+            if (!item.IsEnabled.Value || !(graphics ? item.CoversGraphicsTime(time) : item.Range.Contains(time))) continue;
             if (ShouldSkipLayer(item.ZIndex.Value, target, !ignoreSolo && snapshot.HasSolo, snapshot.ByZIndex)) continue;
             currentElements.OrderedAdd(item, x => x.ZIndex.Value);
         }
@@ -478,19 +478,6 @@ public sealed partial class SceneCompositor : ICompositor
         {
             KeepOneElementPerTransition(time, currentElements);
         }
-    }
-
-    // Two elements that touch within the tolerance can leave a gap of up to that tolerance between them,
-    // which their transition spans; a frame inside it still has to reach the transition through them.
-    private static bool CoversTime(Element item, MediaTime time, bool graphics)
-    {
-        if (item.Range.Contains(time)) return true;
-        if (!graphics) return false;
-
-        MediaTime tolerance = ElementTransitions.AdjacencyTolerance;
-        return time >= item.Start.Value - tolerance
-               && time < item.Range.End + tolerance
-               && ElementTransitions.TryGetActive(item, time, out _);
     }
 
     // Both elements of a boundary are drawn by its transition, so when both fall on this frame (they

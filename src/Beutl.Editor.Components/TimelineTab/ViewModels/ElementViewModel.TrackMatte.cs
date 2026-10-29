@@ -32,10 +32,22 @@ public sealed partial class ElementViewModel
 
     private void InitializeTrackMatte()
     {
-        MatteIndicator = Model.MatteSourceZIndex.GetObservable()
-            .CombineLatest(Model.MatteSourceKind.GetObservable(), Model.MatteMode.GetObservable(), Model.ZIndex.GetObservable(),
-                (_, _, mode, own) => Model.GetMatteSourceZIndex() is { } z && mode != MatteMode.None
-                    ? $"{(z < own ? "↑" : z > own ? "↓" : "↻")} {z}" : null)
+        MatteIndicator = Observable.FromEventPattern(h => Scene.Edited += h, h => Scene.Edited -= h)
+            .Select(_ => Timeline.CurrentTime.Value)
+            .Merge(Timeline.CurrentTime)
+            .ObserveOnUIDispatcher()
+            .Select(time =>
+            {
+                if (Model.MatteMode.Value == MatteMode.None) return null;
+                if (Model.GetMatteSourceZIndex(Scene, time) is { } z)
+                    return $"{(z < Model.ZIndex.Value ? "↑" : z > Model.ZIndex.Value ? "↓" : "↻")} {z}";
+                return Model.MatteSourceKind.Value switch
+                {
+                    MatteSourceKind.Above => "↑",
+                    MatteSourceKind.Below => "↓",
+                    _ => null,
+                };
+            })
             .ToReadOnlyReactivePropertySlim().DisposeWith(_disposables);
     }
 }

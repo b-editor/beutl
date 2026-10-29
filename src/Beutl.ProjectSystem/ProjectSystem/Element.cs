@@ -94,14 +94,36 @@ public partial class Element : Hierarchical, INotifyEdited
 
     public TimeRange Range => new(Start.Value, Length.Value);
 
-    /// <summary>Resolves the matte source against the element's current timeline position.</summary>
-    public int? GetMatteSourceZIndex() => MatteSourceKind.Value switch
+    /// <summary>Resolves relative sources to the nearest clip layer at the frame's time.</summary>
+    public int? GetMatteSourceZIndex(Scene scene, MediaTime time)
     {
-        ProjectSystem.MatteSourceKind.Layer => MatteSourceZIndex.Value,
-        ProjectSystem.MatteSourceKind.Above when ZIndex.Value > int.MinValue => ZIndex.Value - 1,
-        ProjectSystem.MatteSourceKind.Below when ZIndex.Value < int.MaxValue => ZIndex.Value + 1,
-        _ => null,
-    };
+        if (MatteSourceKind.Value == ProjectSystem.MatteSourceKind.Layer) return MatteSourceZIndex.Value;
+
+        int? nearest = null;
+        foreach (Element candidate in scene.Children)
+        {
+            int z = candidate.ZIndex.Value;
+            bool closer = MatteSourceKind.Value switch
+            {
+                ProjectSystem.MatteSourceKind.Above => z < ZIndex.Value && (nearest == null || z > nearest),
+                ProjectSystem.MatteSourceKind.Below => z > ZIndex.Value && (nearest == null || z < nearest),
+                _ => false,
+            };
+            if (!closer || !candidate.CoversGraphicsTime(time)) continue;
+            nearest = z;
+        }
+
+        return nearest;
+    }
+
+    // A transition can bridge the small gap tolerated between adjacent clips.
+    internal bool CoversGraphicsTime(MediaTime time)
+    {
+        if (Range.Contains(time)) return true;
+        MediaTime tolerance = ElementTransitions.AdjacencyTolerance;
+        return time >= Start.Value - tolerance && time < Range.End + tolerance
+               && ElementTransitions.TryGetActive(this, time, out _);
+    }
 
     // True while recovery keeps this element's original file because saving would lose part of
     // what it was read with, for example a keyframe easing from a plugin that is not installed (an

@@ -156,6 +156,59 @@ public sealed class ExportSourceValidatorTests
         Assert.That(Collect(), Is.Empty, "matte sources still obey video mute");
     }
 
+    [TestCase(MatteSourceKind.Above, false)]
+    [TestCase(MatteSourceKind.Below, true)]
+    public void RelativeMatteSources_FollowTimeWindowsAndTheOutputFrameGrid(MatteSourceKind kind, bool nested)
+    {
+        var scene = new Scene(64, 32, string.Empty);
+        int direction = kind == MatteSourceKind.Above ? -1 : 1;
+        string nearPath = Path.Combine(_root, "nearest.png");
+        string farPath = Path.Combine(_root, "farther.png");
+        Element near = CreateImageElement(_root, nearPath);
+        near.ZIndex.Value = 6 + direction * 2;
+        near.Start.Value = MediaTime.FromSeconds(1);
+        Element far = CreateImageElement(_root, farPath);
+        far.ZIndex.Value = 6 + direction * 5;
+        far.Length.Value = MediaTime.FromSeconds(4);
+        Element unused = CreateImageElement(_root, Path.Combine(_root, "never-selected.png"));
+        unused.ZIndex.Value = 6 + direction * 8;
+        unused.Length.Value = MediaTime.FromSeconds(4);
+        near.IsVisibleInOutput.Value = far.IsVisibleInOutput.Value = unused.IsVisibleInOutput.Value = false;
+        Element target = ElementWith(_root, new RectShape(), length: MediaTime.FromSeconds(4));
+        target.ZIndex.Value = 6;
+        target.MatteSourceKind.Value = kind;
+        target.MatteMode.Value = MatteMode.Alpha;
+        scene.Children.AddRange([target, near, far, unused]);
+        Scene root = nested ? EmbedScene(scene) : scene;
+
+        foreach (double time in new[] { 0, 1, 2 })
+            Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(time)),
+                Is.EquivalentTo(new[] { time == 1 ? nearPath : farPath }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(1, 1)),
+            Is.EquivalentTo(new[] { nearPath }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(0, 3)),
+            Is.EquivalentTo(new[] { nearPath, farPath }));
+
+        near.Start.Value = MediaTime.FromSeconds(0.125);
+        near.Length.Value = MediaTime.FromSeconds(0.075);
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(0.125)),
+            Is.EquivalentTo(new[] { nearPath }));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(0, 1), true, false, new Rational(4)),
+            Is.EquivalentTo(new[] { farPath }), "the nearest clip exists only between output frames");
+
+        if (nested)
+        {
+            var embedded = (SceneDrawable)root.Children[0].Objects[0];
+            root.Children[0].Objects.Add(new DrawableTimeController
+            {
+                Target = { Value = embedded },
+                OffsetPosition = { Value = MediaTime.FromSeconds(0.125) },
+            });
+            Assert.That(ExportSourceValidator.CollectRenderableSources(root, TimeRange.FromSeconds(0, 1), true, false, new Rational(4)),
+                Is.EquivalentTo(new[] { nearPath, farPath }), "a remapped full walk retains every reachable source interval");
+        }
+    }
+
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]

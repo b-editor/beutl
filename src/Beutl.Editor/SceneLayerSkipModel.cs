@@ -69,14 +69,16 @@ internal readonly struct SceneLayerSkipModel
                 foreach ((TimeRange frameWindow, TimeRange contentWindow) in EvaluationWindows(element, requested))
                 {
                     yield return (element, contentWindow);
-                    if (target == CompositionTarget.Graphics && element.MatteMode.Value != MatteMode.None
-                        && element.GetMatteSourceZIndex() is { } source)
+                    if (target == CompositionTarget.Graphics && element.MatteMode.Value != MatteMode.None)
                     {
-                        foreach (Element candidate in scene.Children)
+                        foreach ((int source, TimeRange sourceWindow) in MatteWindows(element, frameWindow))
                         {
-                            if (candidate.ZIndex.Value != source) continue;
-                            foreach (var item in Visit(candidate, frameWindow, true))
-                                yield return item;
+                            foreach (Element candidate in scene.Children)
+                            {
+                                if (candidate.ZIndex.Value != source) continue;
+                                foreach (var item in Visit(candidate, sourceWindow, true))
+                                    yield return item;
+                            }
                         }
                     }
 
@@ -105,6 +107,42 @@ internal readonly struct SceneLayerSkipModel
             finally
             {
                 visiting.Remove(element);
+            }
+        }
+
+        IEnumerable<(int Source, TimeRange Window)> MatteWindows(Element element, TimeRange frames)
+        {
+            if (frames.IsEmpty || element.MatteSourceKind.Value == MatteSourceKind.Layer)
+            {
+                if (element.GetMatteSourceZIndex(scene, frames.Start) is { } source) yield return (source, frames);
+                yield break;
+            }
+
+            // A relative source can change only where a clip begins or ends. Resolve each interval
+            // with the compositor's same point query instead of sampling every export frame.
+            var edges = new SortedSet<MediaTime> { frames.Start, frames.End };
+            foreach (Element candidate in scene.Children)
+            {
+                if (candidate.Start.Value > frames.Start && candidate.Start.Value < frames.End) edges.Add(candidate.Start.Value);
+                if (candidate.Range.End > frames.Start && candidate.Range.End < frames.End) edges.Add(candidate.Range.End);
+            }
+
+            MediaTime start = frames.Start;
+            foreach (MediaTime end in edges.Skip(1))
+            {
+                TimeRange interval = TimeRange.FromRange(start, end);
+                MediaTime sample = start;
+                start = end;
+                // Known exports need only intervals containing an output frame. A time-remapped full
+                // walk has no frame grid and keeps every interval that could be sampled.
+                if (frameOrigin is { } origin)
+                {
+                    long frame = (sample - origin).ToFrame(rate, MidpointRounding.ToPositiveInfinity);
+                    sample = origin + MediaTime.FromFrames(frame, rate);
+                }
+
+                if (sample < end && element.GetMatteSourceZIndex(scene, sample) is { } source)
+                    yield return (source, interval);
             }
         }
 
