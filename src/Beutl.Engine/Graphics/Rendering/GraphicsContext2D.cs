@@ -535,6 +535,19 @@ public sealed class GraphicsContext2D(
 
                 result = new PushedState(this, _nodes.Count);
                 break;
+            case FilterEffectGroup.Resource { IsEnabled: true, ContinuationSuffixResource: { } suffix } group:
+                // The continuation and the effects it controls record into one node outside the earlier children,
+                // which keep their own nodes and so need not be recordable by FilterEffectContext. A disabled group
+                // stays one node, which passes its input through.
+                int level = _nodes.Count + 1;
+                suffix.Push(this);
+                for (int i = group.ContinuationStart - 1; i >= 0; i--)
+                {
+                    PushFilterEffect(group.Children[i]);
+                }
+
+                result = new PushedState(this, level);
+                break;
             default:
                 result = effect.Push(this);
                 break;
