@@ -52,9 +52,16 @@ internal sealed partial class ClipTransitionPresenter : Drawable
         // outgoing element's when the incoming side draws nothing.
         public Drawable? GetHitTestTarget()
         {
-            if (_to.Count > 0) return _to[^1].GetOriginal();
-            if (_from.Count > 0) return _from[^1].GetOriginal();
-            return null;
+            return GetTarget(_to.LastOrDefault()) ?? GetTarget(_from.LastOrDefault());
+
+            // A transition can draw its own fill where neither side's geometry is hit. Its fallback
+            // must still name document content, even when that content is wrapped in another presenter.
+            static Drawable? GetTarget(Drawable.Resource? resource) => resource switch
+            {
+                TrackMattePresenter.Resource matte => GetTarget(matte.Content.Drawables.LastOrDefault()),
+                Resource transition => transition.GetHitTestTarget(),
+                _ => resource?.GetOriginal(),
+            };
         }
 
         // The inputs are borrowed from the compositor, which owns and disposes them. The version moves when

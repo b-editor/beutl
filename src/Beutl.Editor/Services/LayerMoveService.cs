@@ -73,6 +73,18 @@ public sealed class LayerMoveService : ILayerMoveService
             layer.ZIndex.Value += shiftDelta;
         }
 
+        // A layer reference follows the same permutation as the layer it names, including references
+        // on clips outside the moved range. Keep these writes in the layer move's undo transaction.
+        foreach (Element element in scene.Children)
+        {
+            if (element.MatteSourceKind.Value != MatteSourceKind.Layer
+                || element.MatteSourceZIndex.Value is not { } source) continue;
+            if (source == oldLayer)
+                element.MatteSourceZIndex.Value = newLayer;
+            else if (InShiftRange(source, oldLayer, newLayer))
+                element.MatteSourceZIndex.Value = source + shiftDelta;
+        }
+
         _historyManager.Commit(CommandNames.MoveLayer);
         return new LayerMovePlan(oldLayer, newLayer, directElements, shifted);
     }

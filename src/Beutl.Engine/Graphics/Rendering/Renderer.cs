@@ -524,26 +524,36 @@ public class Renderer : IRenderer
             if (entry.Renderer.HitTest(point))
             {
                 Drawable.Resource? hit = entry.Node.Drawable?.Resource;
-                // A transition's presenter is not part of the document; select the clip it draws instead.
-                return hit is Transitions.ClipTransitionPresenter.Resource presenter
-                    ? HitTestTransition(entry.Node, presenter, point)
-                    : hit?.GetOriginal();
+                // A presenter's source may cover more than its content. Select an actual drawable,
+                // continuing to the layers beneath when only the matte was under the pointer.
+                if (HitTestPresented(entry.Node, hit, point) is { } drawable)
+                    return drawable;
             }
         }
 
         return null;
     }
 
-    // The drawable a point inside a transition lands on: the incoming side's drawables, then the outgoing
-    // side's, each topmost first, are hit-tested on their own after the point is mapped through the
-    // transforms and clips the transition draws them with.
-    private Drawable? HitTestTransition(
-        DrawableRenderNode node, Transitions.ClipTransitionPresenter.Resource presenter, Point point)
+    // Select a presenter's content, including a matte inside a transition. A transition tries the
+    // incoming side first, mapping the point through each side's transforms and clips.
+    private Drawable? HitTestPresented(DrawableRenderNode node, Drawable.Resource? resource, Point point)
     {
+        IReadOnlyList<Drawable.Resource>[] sides;
+        switch (resource)
+        {
+            case Transitions.ClipTransitionPresenter.Resource transition:
+                sides = [transition.To, transition.From];
+                break;
+            case TrackMattePresenter.Resource matte:
+                sides = [matte.Content.Drawables];
+                break;
+            default:
+                return resource?.GetOriginal();
+        }
         var children = new Dictionary<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)>(
             ReferenceEqualityComparer.Instance);
         CollectDrawableNodes(node, [], children);
-        foreach (IReadOnlyList<Drawable.Resource> side in (ReadOnlySpan<IReadOnlyList<Drawable.Resource>>)[presenter.To, presenter.From])
+        foreach (IReadOnlyList<Drawable.Resource> side in sides)
         {
             for (int i = side.Count - 1; i >= 0; i--)
             {
@@ -554,14 +564,15 @@ public class Renderer : IRenderer
                 }
 
                 using RenderNodeRenderer renderer = CreateEntryRenderer(child.Node);
-                if (renderer.HitTest(local))
+                if (renderer.HitTest(local) && HitTestPresented(child.Node, side[i], local) is { } hit)
                 {
-                    return side[i].GetOriginal();
+                    return hit;
                 }
             }
         }
 
-        return presenter.GetHitTestTarget();
+        return resource is Transitions.ClipTransitionPresenter.Resource presenter
+            ? presenter.GetHitTestTarget() : null;
     }
 
     // Each drawable node with the container nodes above it, outermost first.
@@ -575,6 +586,12 @@ public class Renderer : IRenderer
             if (child is DrawableRenderNode { Drawable.Resource: { } resource } drawable)
             {
                 nodes.TryAdd(resource, (drawable, [.. path]));
+                if (resource is Transitions.ClipTransitionPresenter.Resource or TrackMattePresenter.Resource)
+                {
+                    path.Add(drawable);
+                    CollectDrawableNodes(drawable, path, nodes);
+                    path.RemoveAt(path.Count - 1);
+                }
             }
             else if (child is ContainerRenderNode inner)
             {
@@ -591,7 +608,7 @@ public class Renderer : IRenderer
     {
         foreach (Entry entry in _allCurrentEntries)
         {
-            if (entry.Node.Drawable?.Resource is not Transitions.ClipTransitionPresenter.Resource) continue;
+            if (entry.Node.Drawable?.Resource is not (Transitions.ClipTransitionPresenter.Resource or TrackMattePresenter.Resource)) continue;
 
             var children = new Dictionary<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)>(
                 ReferenceEqualityComparer.Instance);

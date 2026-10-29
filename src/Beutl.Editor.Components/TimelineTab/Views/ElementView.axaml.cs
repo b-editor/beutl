@@ -103,6 +103,7 @@ public sealed partial class ElementView : UserControl
         // protects cannot be locked either (ElementAttributeService.SetLocked refuses it).
         lockElement.IsEnabled = viewModel.CanToggleLock.Value
                                 && viewModel.LayerHeader.Value?.IsLocked.Value != true;
+        PopulateTrackMatteMenu(viewModel);
         PopulateTransitionMenu(viewModel, editable);
     }
 

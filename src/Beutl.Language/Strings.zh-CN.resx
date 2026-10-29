@@ -3492,6 +3492,33 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>添加设备</value>
   </data>
+  <data name="TrackMatte" xml:space="preserve">
+    <value>轨道遮罩</value>
+  </data>
+  <data name="MatteSource" xml:space="preserve">
+    <value>源图层</value>
+  </data>
+  <data name="MatteSourceAbove" xml:space="preserve">
+    <value>上方图层</value>
+  </data>
+  <data name="MatteSourceBelow" xml:space="preserve">
+    <value>下方图层</value>
+  </data>
+  <data name="MatteAlpha" xml:space="preserve">
+    <value>Alpha</value>
+  </data>
+  <data name="MatteLuma" xml:space="preserve">
+    <value>亮度</value>
+  </data>
+  <data name="MatteInvertedAlpha" xml:space="preserve">
+    <value>反向 Alpha</value>
+  </data>
+  <data name="MatteInvertedLuma" xml:space="preserve">
+    <value>反向亮度</value>
+  </data>
+  <data name="IsVisibleInOutput" xml:space="preserve">
+    <value>在输出中显示</value>
+  </data>
   <data name="SeparateComponents" xml:space="preserve">
     <value>分离分量</value>
   </data>

@@ -296,6 +296,10 @@ public sealed partial class RenderNodeContext
     public IReadOnlyList<RenderFragmentHandle> RecordSubtree(RenderNode root)
         => GetTransaction().RecordNode(root, [], subtree: true);
 
+    // Only isolated, context-independent source layers may share an output across consumers.
+    internal IReadOnlyList<RenderFragmentHandle> RecordSharedSubtree(object identity, RenderNode root)
+        => GetTransaction().RecordSharedSubtree(identity, root);
+
     /// <summary>Records another node with explicit inputs into the current request.</summary>
     /// <param name="node">The non-null caller-owned node to record.</param>
     /// <param name="inputs">A non-null ordered list of non-null inputs remapped into the child transaction.</param>

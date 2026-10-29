@@ -331,6 +331,12 @@ internal sealed partial class NodeRecordingTransaction : IRenderResourceRecordin
         return MapReferences(outputs);
     }
 
+    internal IReadOnlyList<RenderFragmentHandle> RecordSharedSubtree(object identity, RenderNode root)
+    {
+        VerifyActive();
+        return MapReferences(_host.RecordSharedSubtree(this, identity, root));
+    }
+
     public RecordedNestedRenderRequest RecordNestedRequest(
         RenderNode root,
         RenderRequestOptions options)
