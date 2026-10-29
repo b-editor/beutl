@@ -20,6 +20,33 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
     // Well above the fringe a resampled round trip leaves around the mark, well below a real copy.
     private const byte StrayAlpha = 64;
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void BuiltInBackdropCapture_ThroughAnExecutionViewHonorsLayerExclusion(bool contributesToBackdrop)
+    {
+        using var root = new ContainerRenderNode();
+        root.AddChild(new ClearRenderNode(Colors.Red));
+        var layer = new DrawableGroup.ContentIsolationRenderNode(true, contributesToBackdrop);
+        layer.AddChild(new ClearRenderNode(Colors.Blue));
+        var scope = new RawReplayNode();
+        var capture = new SnapshotBackdropRenderNode();
+        scope.AddChild(capture);
+        layer.AddChild(scope);
+        layer.AddChild(new ClearRenderNode(Colors.Transparent));
+        layer.AddChild(new DrawBackdropRenderNode(capture, s_domain));
+        root.AddChild(layer);
+        using var renderer = CreateProbeRenderer(root, s_domain);
+        using RenderNodeRasterization rasterization = renderer.Rasterize();
+
+        var pixel = rasterization.Bitmap!.SKBitmap.GetPixel(32, 32);
+        Assert.Multiple(() =>
+        {
+            Assert.That(pixel.Red, Is.EqualTo(contributesToBackdrop ? 0 : 255));
+            Assert.That(pixel.Blue, Is.EqualTo(contributesToBackdrop ? 255 : 0));
+            Assert.That(pixel.Alpha, Is.EqualTo(255));
+        });
+    }
+
     [Test]
     public void RawTargetScope_ExecutesNestedTargetWorkInsideItsReplay()
     {
@@ -424,6 +451,19 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
                 RenderHitTestContract.OutputBounds,
                 RenderValueCardinality.Single,
                 RenderScaleContract.MaterializeAtWorkingScale)));
+    }
+
+    private sealed class RawReplayNode : ContainerRenderNode
+    {
+        public override void Process(RenderNodeContext context)
+            => context.Publish(context.RawTargetScope(
+                context.Inputs.Single(),
+                RawTargetScopeDescription.Create(
+                    0,
+                    static (session, _) => session.ReplayInput(),
+                    RenderBoundsContract.FullInput,
+                    RenderHitTestContract.AnyInput,
+                    RenderScaleContract.PreserveInputSupply)));
     }
 
     private sealed class NestedRawCommandNode : RenderNode

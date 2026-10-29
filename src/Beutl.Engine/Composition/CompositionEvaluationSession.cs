@@ -20,7 +20,7 @@ public class CompositionEvaluationSession(CompositionContext context) : IDisposa
         Context.ReplayedFlow = null;
         Context.SampledDrawable = null;
         Context.InputBoundaries = source.InputBoundaries;
-        Context.IsTimeRemapped = source.IsTimeRemapped;
+        Context.TimeRemappedTarget = source.TimeRemappedTarget;
         Context.ContainsScene3D = false;
         Context.DisableResourceShare = true;
         Context.Conditions = source.Conditions;

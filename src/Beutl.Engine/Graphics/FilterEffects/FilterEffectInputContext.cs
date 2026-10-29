@@ -130,6 +130,13 @@ public sealed class FilterEffectInputContext
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         EvaluationContext.CancellationToken.ThrowIfCancellationRequested();
+        // Keep the incoming backdrop available while sampling, then replace the destination as a clear
+        // followed by drawing would. The owner's blend mode still runs against a transparent surface.
+        bool clearsTarget = _source is SourceBackdrop.Resource { Clear: true };
+        using (clearsTarget ? context.PushBlendMode(BlendMode.Src) : new())
+        using (clearsTarget ? context.PushNode(true,
+                   static value => new DrawableGroup.ContentIsolationRenderNode(value, contributesToBackdrop: false),
+                   static (node, value) => node.Update(value, contributesToBackdrop: false)) : new())
         using (context.PushBlendMode(_source.BlendMode))
         using (context.PushFilterEffect(_suffix.Resource))
         using (context.PushNode(true,

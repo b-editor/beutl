@@ -334,7 +334,8 @@ internal sealed partial class RenderRequestExecutor
         private List<(IBuiltInBackdropCaptureSink Sink, MaterializedRenderValue Value)>? _backdropCaptures;
         private List<PendingBackdropPublication>? _pendingBackdropPublications;
         private List<ImmediateCanvas>? _backdropSources;
-        private HashSet<ImmediateCanvas>? _excludedBackdropSources;
+        // Execution views share their source's canvas, so exclusions follow the drawing surface.
+        private HashSet<SKCanvas>? _excludedBackdropSources;
         private int _shaderRunExecutions;
         private int _shaderStageExecutions;
         private int _fusedShaderRunExecutions;

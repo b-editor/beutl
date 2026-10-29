@@ -89,14 +89,16 @@ public class MotionBlurRenderTests
         });
     }
 
-    [Test]
-    public void PortalInputsFollowTheirOwnClipRangeAtEverySample()
+    [TestCase(false)]
+    [TestCase(true)]
+    public void PortalInputsFollowTheirOwnClipRangeAtEverySample(bool retimed)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var group = new DrawableGroup { FilterEffect = { Value = MotionBlurTests.Blur() } };
             Scene scene = MotionBlurTests.SceneWith(new PortalObject { Count = { Value = 1 } }, group);
+            if (retimed) scene.Children[0].Objects.Add(new DrawableTimeController());
             RectShape shape = MotionBlurTests.Rectangle();
             shape.Width.SetKeyFrameAnimation(null);
             var input = new Element
@@ -117,11 +119,18 @@ public class MotionBlurRenderTests
         });
     }
 
-    [TestCase(false, false)]
-    [TestCase(true, false)]
-    [TestCase(false, true)]
-    [TestCase(true, true)]
-    public void StaticBackdropDoesNotFeedPreviousSamplesIntoTheAverage(bool clear, bool inGroup)
+    [TestCase(false, false, 100, BlendMode.SrcOver)]
+    [TestCase(true, false, 100, BlendMode.SrcOver)]
+    [TestCase(false, true, 100, BlendMode.SrcOver)]
+    [TestCase(true, true, 100, BlendMode.SrcOver)]
+    [TestCase(false, false, 50, BlendMode.SrcOver)]
+    [TestCase(true, false, 50, BlendMode.SrcOver)]
+    [TestCase(false, true, 50, BlendMode.SrcOver)]
+    [TestCase(true, true, 50, BlendMode.SrcOver)]
+    [TestCase(true, false, 0, BlendMode.SrcOver)]
+    [TestCase(true, false, 50, BlendMode.DstIn)]
+    [TestCase(true, false, 50, BlendMode.Multiply)]
+    public void StaticBackdropDoesNotFeedPreviousSamplesIntoTheAverage(bool clear, bool inGroup, float opacity, BlendMode blendMode)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -137,7 +146,14 @@ public class MotionBlurRenderTests
             var chain = new FilterEffectGroup();
             chain.Children.Add(new Invert());
             if (!inGroup) chain.Children.Add(blur);
-            var backdrop = new SourceBackdrop { Clear = { Value = clear }, FilterEffect = { Value = chain } };
+            var backdrop = new SourceBackdrop
+            {
+                Clear = { Value = clear },
+                Opacity = { Value = opacity },
+                BlendMode = { Value = blendMode },
+                Transform = { Value = new TranslateTransform { X = { Value = 16 } } },
+                FilterEffect = { Value = chain },
+            };
             Scene scene = inGroup
                 ? MotionBlurTests.SceneWith(background, backdrop, new DrawableGroup { FilterEffect = { Value = blur } })
                 : MotionBlurTests.SceneWith(background, backdrop);
@@ -147,15 +163,9 @@ public class MotionBlurRenderTests
             {
                 blur.Samples.Value = count;
                 using Bitmap actual = Render(renderer, 1);
-                Rgba reference = ImageMetrics.ReadPixel(expected, 48, 32);
-                Rgba pixel = ImageMetrics.ReadPixel(actual, 48, 32);
-                Assert.Multiple(() =>
-                {
-                    Assert.That(pixel.Red, Is.EqualTo(reference.Red).Within(0.003), $"red with {count} samples");
-                    Assert.That(pixel.Green, Is.EqualTo(reference.Green).Within(0.003), $"green with {count} samples");
-                    Assert.That(pixel.Blue, Is.EqualTo(reference.Blue).Within(0.003), $"blue with {count} samples");
-                    Assert.That(pixel.Alpha, Is.EqualTo(reference.Alpha).Within(0.003), $"alpha with {count} samples");
-                });
+                // Include the empty strip left by the transform: Clear must still replace those pixels.
+                RgbaMaximumError error = ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual);
+                Assert.That(error.Maximum, Is.LessThan(0.003), $"backdrop with {count} samples: {error}");
             }
         });
     }

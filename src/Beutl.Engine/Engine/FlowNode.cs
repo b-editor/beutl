@@ -11,7 +11,8 @@ internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inp
     {
         // Controllers draw their targets on a mapped clock, even outside the target's clip range.
         var range = Object.TimeRange.Value;
-        return context.IsTimeRemapped || range.Duration <= MediaTime.Zero || range.Contains(context.Time);
+        return ReferenceEquals(context.TimeRemappedTarget, Object)
+            || range.Duration <= MediaTime.Zero || range.Contains(context.Time);
     }
 
     public static FlowNode? Capture(EngineObject.Resource resource)

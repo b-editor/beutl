@@ -33,7 +33,7 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
 
     // Set while a time controller evaluates its target at a remapped clock, which the target's authored
     // TimeRange no longer bounds.
-    internal bool IsTimeRemapped { get; set; }
+    internal Drawable? TimeRemappedTarget { get; set; }
 
     /// <summary>Creates an isolated resource-evaluation session retaining the current host and snapshot.</summary>
     public virtual CompositionEvaluationSession CreateEvaluationSession() => new(WithTime(Time));
