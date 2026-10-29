@@ -17,6 +17,7 @@ internal sealed class TextShaper : IDisposable
 {
     // SKShaper's scale: HarfBuzz reports positions in 1/512 em.
     private const int FontSizeScale = 512;
+    private static readonly Feature[] s_letterSpacingFeatures = [Feature.Parse("liga=0"), Feature.Parse("clig=0")];
 
     private readonly HarfBuzzSharp.Font _font;
 
@@ -47,9 +48,17 @@ internal sealed class TextShaper : IDisposable
         }
     }
 
+    internal readonly record struct Result(uint[] Codepoints, uint[] Clusters, SKPoint[] Points, SKPoint Advance);
+
     public SKShaper.Result Shape(HarfBuzzSharp.Buffer buffer, SKFont font)
     {
-        _font.Shape(buffer);
+        Result result = ShapeWithAdvance(buffer, font);
+        return new SKShaper.Result(result.Codepoints, result.Clusters, result.Points, result.Advance.X);
+    }
+
+    public Result ShapeWithAdvance(HarfBuzzSharp.Buffer buffer, SKFont font, bool letterSpacing = false)
+    {
+        _font.Shape(buffer, letterSpacing ? s_letterSpacingFeatures : []);
 
         int length = buffer.Length;
         ReadOnlySpan<GlyphInfo> infos = buffer.GetGlyphInfoSpan();
@@ -70,10 +79,10 @@ internal sealed class TextShaper : IDisposable
             points[i] = new SKPoint(x + positions[i].XOffset * textSizeX, y - positions[i].YOffset * textSizeY);
 
             x += positions[i].XAdvance * textSizeX;
-            y += positions[i].YAdvance * textSizeY;
+            y -= positions[i].YAdvance * textSizeY;
         }
 
-        return new SKShaper.Result(codepoints, clusters, points, x);
+        return new Result(codepoints, clusters, points, new SKPoint(x, y));
     }
 
     public bool HasVariationGlyph(int unicode, uint selector) =>

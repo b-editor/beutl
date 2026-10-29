@@ -203,13 +203,52 @@ public class TextBlockTests
         Assert.That(textResource.TextAlignment, Is.EqualTo(TextAlignment.Center));
     }
 
+    [Test]
+    public void VerticalColumns_AlignToTheLongestColumn([Values] TextAlignment alignment, [Values] bool split)
+    {
+        TextBlock block = CreateTextBlock("日日\n日日日日\n\n日<b>日</b>日", 40);
+        block.WritingMode.Value = WritingMode.VerticalRl;
+        block.TextAlignment.Value = alignment;
+        block.SplitByCharacters.Value = split;
+        using var resource = block.ToResource(CompositionContext.Default);
+        using var node = new DrawableRenderNode(resource);
+        Record(resource, node);
+        Rect[] columns = RenderLineBounds(node, vertical: true);
+        Assert.That(columns, Has.Length.EqualTo(3));
+        // Pixel scanning visits the leftmost (last) column first.
+        Assert.That(columns[1].Height, Is.GreaterThan(columns[2].Height));
+        foreach (Rect column in columns)
+        {
+            float anchor = alignment switch
+            {
+                TextAlignment.Center => column.Center.Y,
+                TextAlignment.End => column.Bottom,
+                _ => column.Top,
+            };
+            float expected = alignment switch
+            {
+                TextAlignment.Center => columns[1].Center.Y,
+                TextAlignment.End => columns[1].Bottom,
+                _ => columns[1].Top,
+            };
+            Assert.That(anchor, Is.EqualTo(expected).Within(1));
+        }
+
+        block.WritingMode.Value = WritingMode.HorizontalTb;
+        bool changed = false;
+        resource.Reconcile(block, CompositionContext.Default, ref changed);
+        node.Update(resource);
+        Record(resource, node);
+        Assert.That(RenderLineBounds(node), Has.Length.EqualTo(3));
+    }
+
     private static void Record(TextBlock.Resource resource, DrawableRenderNode node)
     {
         using var context = new GraphicsContext2D(node, new Size(600, 400));
         resource.Render(context);
     }
 
-    private static Rect[] RenderLineBounds(DrawableRenderNode node)
+    private static Rect[] RenderLineBounds(DrawableRenderNode node, bool vertical = false)
     {
         using RenderTarget target = RenderTarget.Create(600, 400)!;
         using (var canvas = new ImmediateCanvas(target, RenderIntent.Preview))
@@ -227,13 +266,14 @@ public class TextBlockTests
         using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
         var lines = new List<Rect>();
         Rect bounds = default;
-        for (int y = 0; y < bitmap.Height; y++)
+        for (int outer = 0; outer < (vertical ? bitmap.Width : bitmap.Height); outer++)
         {
-            Span<byte> row = bitmap.GetRow(y);
             bool hasInk = false;
-            for (int x = 0; x < bitmap.Width; x++)
+            for (int inner = 0; inner < (vertical ? bitmap.Height : bitmap.Width); inner++)
             {
-                if (row[x * 4 + 3] < 128) continue;
+                int x = vertical ? outer : inner;
+                int y = vertical ? inner : outer;
+                if (bitmap.GetRow(y)[x * 4 + 3] < 128) continue;
                 hasInk = true;
                 bounds = bounds.Union(new Rect(x, y, 1, 1));
             }
