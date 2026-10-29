@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Graphics;
+using Beutl.ProjectSystem;
 using FluentAvalonia.UI.Controls;
 
 namespace Beutl.Editor.Components.TimelineTab.Views;
@@ -10,8 +11,15 @@ public sealed partial class ElementView
     {
         trackMatteMenu.Items.Clear();
         var sourceMenu = new FAMenuFlyoutSubItem { Text = Strings.MatteSource };
-        sourceMenu.Items.Add(CreateMatteItem(StatusStrings.None, viewModel.Model.MatteSourceZIndex.Value == null,
-            model => model.SetMatteSource(null)));
+        MatteSourceKind kind = viewModel.Model.MatteSourceKind.Value;
+        sourceMenu.Items.Add(CreateMatteItem(Strings.MatteSourceAbove, kind == MatteSourceKind.Above,
+            model => model.SetMatteSource(MatteSourceKind.Above)));
+        sourceMenu.Items.Add(CreateMatteItem(Strings.MatteSourceBelow, kind == MatteSourceKind.Below,
+            model => model.SetMatteSource(MatteSourceKind.Below)));
+        sourceMenu.Items.Add(new FAMenuFlyoutSeparator());
+        sourceMenu.Items.Add(CreateMatteItem(StatusStrings.None,
+            kind == MatteSourceKind.Layer && viewModel.Model.MatteSourceZIndex.Value == null,
+            model => model.SetMatteSource(MatteSourceKind.Layer)));
 
         IEnumerable<int> layers = viewModel.Scene.Layers.Select(layer => layer.ZIndex.Value)
             .Concat(viewModel.Scene.Children.Select(element => element.ZIndex.Value))
@@ -22,8 +30,9 @@ public sealed partial class ElementView
         {
             string? name = viewModel.Scene.Layers.FirstOrDefault(layer => layer.ZIndex.Value == zIndex)?.Name.Value;
             string label = string.IsNullOrWhiteSpace(name) ? zIndex.ToString(CultureInfo.CurrentCulture) : $"{zIndex}: {name}";
-            sourceMenu.Items.Add(CreateMatteItem(label, viewModel.Model.MatteSourceZIndex.Value == zIndex,
-                model => model.SetMatteSource(zIndex)));
+            sourceMenu.Items.Add(CreateMatteItem(label,
+                kind == MatteSourceKind.Layer && viewModel.Model.MatteSourceZIndex.Value == zIndex,
+                model => model.SetMatteSource(MatteSourceKind.Layer, zIndex)));
         }
 
         trackMatteMenu.Items.Add(sourceMenu);

@@ -94,6 +94,36 @@ public sealed class TrackMatteTests
         });
     }
 
+    [TestCase(MatteSourceKind.Above, 0)]
+    [TestCase(MatteSourceKind.Below, 2)]
+    public void RelativeSources_FollowTheTargetPosition_AndMatchDelivery(MatteSourceKind kind, int sourceLayer)
+    {
+        var scene = new Scene(Width, Height, string.Empty);
+        Element source = Add(scene, sourceLayer, Rect(Colors.White, Width / 2));
+        source.IsVisibleInOutput.Value = false;
+        Element next = Add(scene, sourceLayer + 3, Rect(Colors.White));
+        next.IsVisibleInOutput.Value = false;
+        Element target = Add(scene, 1, Rect(Colors.Blue));
+        target.MatteSourceKind.Value = kind;
+        target.MatteMode.Value = MatteMode.Alpha;
+        using var preview = new SceneRender(scene);
+        using var delivery = new SceneRender(scene, RenderIntent.Delivery);
+        using Bitmap initial = preview.Draw();
+        Assert.That(Pixel(initial, 8, 16).A, Is.EqualTo(255));
+        Assert.That(Pixel(initial, 48, 16).A, Is.Zero);
+
+        target.ZIndex.Value = 4;
+        using Bitmap moved = preview.Draw();
+        using Bitmap exported = delivery.Draw();
+        Assert.That(Pixel(moved, 48, 16).A, Is.EqualTo(255));
+        for (int y = 0; y < Height; y++)
+            Assert.That(moved.GetRow<Bgra8888>(y).ToArray(), Is.EqualTo(exported.GetRow<Bgra8888>(y).ToArray()));
+
+        scene.Children.Remove(next);
+        using Bitmap missing = preview.Draw();
+        Assert.That(Pixel(missing, 8, 16).A, Is.Zero, "an empty adjacent layer supplies no alpha");
+    }
+
     [Test]
     public void AnimatedMatte_UpdatesCachedFramesAndMatchesDelivery()
     {
@@ -195,6 +225,7 @@ public sealed class TrackMatteTests
     {
         (Scene scene, Element source, _) = CreateScene(MatteMode.Alpha, Colors.White);
         Element second = Add(scene, 2, Rect(Colors.Red, Width / 4));
+        second.MatteSourceKind.Value = MatteSourceKind.Layer;
         second.MatteSourceZIndex.Value = 0;
         second.MatteMode.Value = MatteMode.Alpha;
         using var render = new SceneRender(scene);
@@ -301,12 +332,14 @@ public sealed class TrackMatteTests
         (Scene scene, Element source, _) = CreateScene(MatteMode.Alpha, Colors.White);
         Element mask = Add(scene, -1, Rect(Colors.White, Width / 4));
         mask.IsVisibleInOutput.Value = false;
+        source.MatteSourceKind.Value = MatteSourceKind.Layer;
         source.MatteSourceZIndex.Value = -1;
         source.MatteMode.Value = MatteMode.Alpha;
         using var render = new SceneRender(scene);
         using Bitmap chain = render.Draw();
         Assert.That(Pixel(chain, 8, 16).A, Is.EqualTo(255));
         Assert.That(Pixel(chain, 24, 16).A, Is.Zero);
+        mask.MatteSourceKind.Value = MatteSourceKind.Layer;
         mask.MatteSourceZIndex.Value = 0;
         mask.MatteMode.Value = MatteMode.Alpha;
         using Bitmap cycle = render.Draw();
@@ -405,7 +438,7 @@ public sealed class TrackMatteTests
         var service = new ElementAttributeService(harness.History);
         harness.History.Commit("Setup");
         int before = harness.History.UndoCount;
-        service.SetTrackMatte(target, 0, MatteMode.InvertedLuma);
+        service.SetTrackMatte(target, MatteSourceKind.Layer, 0, MatteMode.InvertedLuma);
         Assert.That(harness.History.UndoCount, Is.EqualTo(before + 1));
         Assert.That(harness.History.Undo(), Is.True);
         Assert.That(target.MatteSourceZIndex.Value, Is.Null);
@@ -424,12 +457,55 @@ public sealed class TrackMatteTests
         Assert.That(target.IsVisibleInOutput.Value, Is.True);
     }
 
+    [TestCase(MatteSourceKind.Above)]
+    [TestCase(MatteSourceKind.Below)]
+    public void RelativeSettings_RoundTripAndUndo_AndStayRelativeAfterReordering(MatteSourceKind kind)
+    {
+        using var harness = new SceneHistoryHarness("relative-track-matte");
+        Element target = harness.AddElement(2);
+        var service = new ElementAttributeService(harness.History);
+        harness.History.Commit("Setup");
+        Assert.That(target.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Above));
+        Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.None));
+        int before = harness.History.UndoCount;
+        service.SetTrackMatte(target, kind, null, MatteMode.InvertedAlpha);
+        Assert.That(harness.History.UndoCount, Is.EqualTo(before + 1));
+        Assert.That(harness.History.Undo(), Is.True);
+        Assert.That(target.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Above));
+        Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.None));
+        Assert.That(harness.History.Redo(), Is.True);
+        var restored = (Element)CoreSerializer.DeserializeFromJsonObject(CoreSerializer.SerializeToJsonObject(target), typeof(Element));
+        Assert.That(restored.MatteSourceKind.Value, Is.EqualTo(kind));
+        Assert.That(restored.GetMatteSourceZIndex(), Is.EqualTo(kind == MatteSourceKind.Above ? 1 : 3));
+
+        new LayerMoveService(harness.History).ApplyMove(harness.Scene, 2, 4, [target]);
+        Assert.That(target.MatteSourceKind.Value, Is.EqualTo(kind));
+        Assert.That(target.GetMatteSourceZIndex(), Is.EqualTo(kind == MatteSourceKind.Above ? 3 : 5));
+        Assert.That(harness.History.Undo(), Is.True);
+        Assert.That(target.GetMatteSourceZIndex(), Is.EqualTo(restored.GetMatteSourceZIndex()));
+    }
+
+    [TestCase(null)]
+    [TestCase(0)]
+    [TestCase(3)]
+    public void OlderSavedMattes_KeepTheirExplicitSource(int? source)
+    {
+        var element = new Element { ZIndex = { Value = 2 }, MatteMode = { Value = MatteMode.Alpha } };
+        element.MatteSourceZIndex.Value = source;
+        var json = CoreSerializer.SerializeToJsonObject(element);
+        json.Remove(nameof(Element.MatteSourceKind));
+        var restored = (Element)CoreSerializer.DeserializeFromJsonObject(json, typeof(Element));
+        Assert.That(restored.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Layer));
+        Assert.That(restored.GetMatteSourceZIndex(), Is.EqualTo(source));
+    }
+
     private static (Scene Scene, Element Source, Element Target) CreateScene(MatteMode mode, Color color)
     {
         var scene = new Scene(Width, Height, string.Empty);
         Element source = Add(scene, 0, Rect(color, Width / 2));
         source.IsVisibleInOutput.Value = false;
         Element target = Add(scene, 1, Rect(Colors.Blue));
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
         target.MatteSourceZIndex.Value = 0;
         target.MatteMode.Value = mode;
         return (scene, source, target);

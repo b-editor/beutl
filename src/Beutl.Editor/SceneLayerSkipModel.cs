@@ -70,7 +70,7 @@ internal readonly struct SceneLayerSkipModel
                 {
                     yield return (element, contentWindow);
                     if (target == CompositionTarget.Graphics && element.MatteMode.Value != MatteMode.None
-                        && element.MatteSourceZIndex.Value is { } source)
+                        && element.GetMatteSourceZIndex() is { } source)
                     {
                         foreach (Element candidate in scene.Children)
                         {

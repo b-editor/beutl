@@ -108,22 +108,28 @@ public sealed class ExportSourceValidatorTests
             scene, s_wholeScene, true, false, new Rational(numerator, denominator)), Is.EquivalentTo(new[] { path }));
     }
 
-    [TestCase(false, false)]
-    [TestCase(false, true)]
-    [TestCase(true, false)]
-    [TestCase(true, true)]
-    public void MatteSources_FollowSoloTargets_AndSkipUnusedHiddenGraphics(bool nested, bool singleFrame)
+    [TestCase(false, false, MatteSourceKind.Layer)]
+    [TestCase(false, true, MatteSourceKind.Layer)]
+    [TestCase(true, false, MatteSourceKind.Layer)]
+    [TestCase(true, true, MatteSourceKind.Layer)]
+    [TestCase(false, false, MatteSourceKind.Above)]
+    [TestCase(false, true, MatteSourceKind.Below)]
+    [TestCase(true, false, MatteSourceKind.Below)]
+    [TestCase(true, true, MatteSourceKind.Above)]
+    public void MatteSources_FollowSoloTargets_AndSkipUnusedHiddenGraphics(bool nested, bool singleFrame, MatteSourceKind kind)
     {
         string required = Path.Combine(_root, "matte.png");
         string unused = Path.Combine(_root, "unused.png");
         var scene = new Scene(64, 32, string.Empty);
         Element matte = CreateImageElement(_root, required);
+        matte.ZIndex.Value = kind == MatteSourceKind.Below ? 2 : 0;
         matte.IsVisibleInOutput.Value = false;
         Element hidden = CreateImageElement(_root, unused);
-        hidden.ZIndex.Value = 2;
+        hidden.ZIndex.Value = 3;
         hidden.IsVisibleInOutput.Value = false;
         Element target = ElementWith(_root, new RectShape());
         target.ZIndex.Value = 1;
+        target.MatteSourceKind.Value = kind;
         target.MatteSourceZIndex.Value = 0;
         target.MatteMode.Value = MatteMode.Alpha;
         scene.Children.AddRange([matte, target, hidden]);
@@ -146,7 +152,7 @@ public sealed class ExportSourceValidatorTests
         target.MatteMode.Value = MatteMode.None;
         Assert.That(Collect(), Is.Empty, "unused hidden graphics do not block export or Save Frame");
         target.MatteMode.Value = MatteMode.Alpha;
-        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsVideoMuted = { Value = true } });
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = matte.ZIndex.Value }, IsVideoMuted = { Value = true } });
         Assert.That(Collect(), Is.Empty, "matte sources still obey video mute");
     }
 
@@ -159,6 +165,7 @@ public sealed class ExportSourceValidatorTests
         string required = Path.Combine(_root, "portal-matte.mov");
         var scene = new Scene(64, 32, string.Empty);
         Element target = ElementWith(_root, new RectShape());
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
         target.MatteSourceZIndex.Value = 1;
         target.MatteMode.Value = MatteMode.Alpha;
         var portal = new PortalObject { Count = { Value = 1 } };
@@ -245,6 +252,7 @@ public sealed class ExportSourceValidatorTests
         Element outgoing = ElementWith(_root, new RectShape(), length: MediaTime.FromSeconds(2));
         Element incoming = ElementWith(_root, new RectShape(), MediaTime.FromSeconds(2), MediaTime.FromSeconds(2));
         Element consumer = incomingHeld ? incoming : outgoing;
+        consumer.MatteSourceKind.Value = MatteSourceKind.Layer;
         consumer.MatteSourceZIndex.Value = 1;
         consumer.MatteMode.Value = MatteMode.Alpha;
         var transition = new CrossDissolveTransition { Duration = { Value = MediaTime.FromSeconds(1) } };
@@ -385,6 +393,7 @@ public sealed class ExportSourceValidatorTests
         string path = Path.Combine(_root, "expression-matte.mov");
         var scene = new Scene(64, 32, string.Empty);
         Element target = ElementWith(_root, new RectShape());
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
         target.MatteSourceZIndex.Value = 1;
         target.MatteMode.Value = MatteMode.Alpha;
         var portal = new PortalObject();
@@ -452,10 +461,12 @@ public sealed class ExportSourceValidatorTests
         late.IsVisibleInOutput.Value = false;
         Element target = ElementWith(_root, new RectShape(), length: MediaTime.FromSeconds(1));
         target.ZIndex.Value = 1;
+        target.MatteSourceKind.Value = MatteSourceKind.Layer;
         target.MatteSourceZIndex.Value = 0;
         target.MatteMode.Value = MatteMode.Alpha;
         if (cyclic)
         {
+            early.MatteSourceKind.Value = MatteSourceKind.Layer;
             early.MatteSourceZIndex.Value = 1;
             early.MatteMode.Value = MatteMode.Alpha;
         }

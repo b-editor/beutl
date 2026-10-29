@@ -33,6 +33,7 @@ public partial class Element : Hierarchical, INotifyEdited
             Edited?.Invoke(this, EventArgs.Empty);
         };
         IsEnabled.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        MatteSourceKind.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
         MatteSourceZIndex.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
         MatteMode.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
         IsVisibleInOutput.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
@@ -57,7 +58,9 @@ public partial class Element : Hierarchical, INotifyEdited
 
     public IProperty<bool> IsEnabled { get; } = Property.CreateValue(true);
 
-    /// <summary>The timeline layer whose graphics supply this element's track matte.</summary>
+    public IProperty<MatteSourceKind> MatteSourceKind { get; } = Property.CreateValue(ProjectSystem.MatteSourceKind.Above);
+
+    /// <summary>The explicit source layer, used when MatteSourceKind is Layer.</summary>
     public IProperty<int?> MatteSourceZIndex { get; } = Property.CreateValue<int?>(null);
 
     public IProperty<MatteMode> MatteMode { get; } = Property.CreateValue(Graphics.MatteMode.None);
@@ -90,6 +93,15 @@ public partial class Element : Hierarchical, INotifyEdited
     public IProperty<ClipTransition?> ExitTransition { get; } = Property.CreateValue<ClipTransition?>(null);
 
     public TimeRange Range => new(Start.Value, Length.Value);
+
+    /// <summary>Resolves the matte source against the element's current timeline position.</summary>
+    public int? GetMatteSourceZIndex() => MatteSourceKind.Value switch
+    {
+        ProjectSystem.MatteSourceKind.Layer => MatteSourceZIndex.Value,
+        ProjectSystem.MatteSourceKind.Above when ZIndex.Value > int.MinValue => ZIndex.Value - 1,
+        ProjectSystem.MatteSourceKind.Below when ZIndex.Value < int.MaxValue => ZIndex.Value + 1,
+        _ => null,
+    };
 
     // True while recovery keeps this element's original file because saving would lose part of
     // what it was read with, for example a keyframe easing from a plugin that is not installed (an
@@ -186,6 +198,9 @@ public partial class Element : Hierarchical, INotifyEdited
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+        // Earlier track mattes only had an explicit layer, including null for no source.
+        if (!context.Contains(nameof(MatteSourceKind)) && context.Contains(nameof(MatteSourceZIndex)))
+            MatteSourceKind.Value = ProjectSystem.MatteSourceKind.Layer;
         Length.Value = MediaTimeJsonConverter.LengthRead(context, nameof(Start), nameof(Length), Start.Value, Length.Value);
         if (context.GetValue<EngineObject[]>(nameof(Objects)) is { } objects)
         {

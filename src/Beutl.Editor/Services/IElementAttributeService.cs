@@ -13,7 +13,7 @@ namespace Beutl.Editor.Services;
 public interface IElementAttributeService
 {
     /// <summary>Sets the source and mode together as one undoable edit.</summary>
-    void SetTrackMatte(Element element, int? sourceZIndex, MatteMode mode);
+    void SetTrackMatte(Element element, MatteSourceKind sourceKind, int? sourceZIndex, MatteMode mode);
 
     void SetVisibleInOutput(Element element, bool isVisible);
 

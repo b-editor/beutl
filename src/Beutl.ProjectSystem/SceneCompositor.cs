@@ -378,7 +378,7 @@ public sealed partial class SceneCompositor : ICompositor
             }
 
             if (context.GraphicsState != null && element.MatteMode.Value != MatteMode.None
-                && element.MatteSourceZIndex.Value is { } sourceZIndex)
+                && element.GetMatteSourceZIndex() is { } sourceZIndex)
             {
                 ApplyTrackMatte(element, sourceZIndex, context, flow);
             }

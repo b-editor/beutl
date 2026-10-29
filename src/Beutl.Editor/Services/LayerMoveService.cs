@@ -77,7 +77,8 @@ public sealed class LayerMoveService : ILayerMoveService
         // on clips outside the moved range. Keep these writes in the layer move's undo transaction.
         foreach (Element element in scene.Children)
         {
-            if (element.MatteSourceZIndex.Value is not { } source) continue;
+            if (element.MatteSourceKind.Value != MatteSourceKind.Layer
+                || element.MatteSourceZIndex.Value is not { } source) continue;
             if (source == oldLayer)
                 element.MatteSourceZIndex.Value = newLayer;
             else if (InShiftRange(source, oldLayer, newLayer))

@@ -4,6 +4,7 @@
   "ZIndex": 2,
   "AccentColor": "Red",
   "IsEnabled": false,
+  "MatteSourceKind": 1,
   "MatteSourceZIndex": null,
   "MatteMode": 0,
   "IsVisibleInOutput": true,

@@ -58,12 +58,13 @@ public sealed class TrackMatteEditorTests
                 FAMenuFlyoutSubItem sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
                 OpenSubMenu(sources);
                 FAToggleMenuFlyoutItem[] choices = sources.Items.OfType<FAToggleMenuFlyoutItem>().ToArray();
-                Assert.That(choices, Has.Length.EqualTo(2));
-                Assert.That(choices[0].IsChecked, Is.True);
+                Assert.That(choices.Select(item => item.Text),
+                    Is.EqualTo(new[] { Strings.MatteSourceAbove, Strings.MatteSourceBelow, StatusStrings.None, "0" }));
+                Assert.That(Item(sources, Strings.MatteSourceAbove).IsChecked, Is.True);
                 string capture = $"{language}-{width}-{(light ? "light" : "dark")}";
                 HeadlessCapture.SaveIfRequested(choices[0], "track-matte", $"sources-{capture}");
                 int before = editor.HistoryManager.UndoCount;
-                HeadlessTestHelpers.Click(choices[1], move: true);
+                HeadlessTestHelpers.Click(Item(sources, "0"), move: true);
                 Assert.That(Flyout(targetView).IsOpen, Is.False);
                 Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.Alpha));
                 Assert.That(target.MatteSourceZIndex.Value, Is.EqualTo(0));
@@ -110,10 +111,58 @@ public sealed class TrackMatteEditorTests
     }
 
     [AvaloniaTest]
+    public async Task RelativeSource_DefaultsAbove_AndUpdatesAfterEditsAndUndo()
+    {
+        (EditViewModel editor, TimelineTabViewModel timeline, _, Element target) = await Open();
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 640, Height = 550 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ElementView element = FindElement(view, target);
+            ElementViewModel model = timeline.GetViewModelFor(target)!;
+            Assert.That(model.MatteIndicator.Value, Is.Null);
+            FAMenuFlyoutSubItem menu = OpenMatteMenu(element);
+            HeadlessTestHelpers.Click(Item(menu, Strings.MatteAlpha), move: true);
+            Assert.That(target.GetMatteSourceZIndex(), Is.EqualTo(1));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
+
+            menu = OpenMatteMenu(element);
+            FAMenuFlyoutSubItem sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
+            OpenSubMenu(sources);
+            Assert.That(Item(sources, Strings.MatteSourceAbove).IsChecked, Is.True);
+            HeadlessTestHelpers.Click(Item(sources, Strings.MatteSourceBelow), move: true);
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↓ 3"));
+            menu = OpenMatteMenu(element);
+            sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
+            OpenSubMenu(sources);
+            Assert.That(Item(sources, Strings.MatteSourceBelow).IsChecked, Is.True);
+            HeadlessCapture.SaveIfRequested(Item(sources, Strings.MatteSourceBelow), "track-matte", "relative-below");
+            HeadlessTestHelpers.Click(Item(sources, "0"), move: true);
+            Assert.That(target.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Layer));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↓ 3"));
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
+
+            editor.GetRequiredService<ILayerMoveService>().ApplyMove(editor.Scene, 2, 3, [target]);
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 2"));
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
+            target.IsLocked.Value = true;
+            model.SetMatteSource(MatteSourceKind.Below);
+            Assert.That(target.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Above));
+        }
+        finally { TimelineTestHost.Close(view, window); }
+    }
+
+    [AvaloniaTest]
     public async Task ContextMenu_RefreshesSourceLayers_AndCanDisableAndClearTheMatte()
     {
         (EditViewModel editor, TimelineTabViewModel timeline, Element source, Element target) = await Open();
-        editor.GetRequiredService<IElementAttributeService>().SetTrackMatte(target, 0, MatteMode.Luma);
+        editor.GetRequiredService<IElementAttributeService>().SetTrackMatte(target, MatteSourceKind.Layer, 0, MatteMode.Luma);
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 900, Height = 550 };
         try
@@ -160,7 +209,7 @@ public sealed class TrackMatteEditorTests
     public async Task Timeline_ShowsTheReferencedLayerAndFollowsUndo()
     {
         (EditViewModel editor, TimelineTabViewModel timeline, Element source, Element target) = await Open();
-        editor.GetRequiredService<IElementAttributeService>().SetTrackMatte(target, 0, MatteMode.Alpha);
+        editor.GetRequiredService<IElementAttributeService>().SetTrackMatte(target, MatteSourceKind.Layer, 0, MatteMode.Alpha);
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 900, Height = 350 };
         try
@@ -201,7 +250,7 @@ public sealed class TrackMatteEditorTests
             FAMenuFlyoutSubItem sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
             OpenSubMenu(sources);
             Assert.That(sources.Items.OfType<FAToggleMenuFlyoutItem>().Select(item => item.Text),
-                Is.EqualTo(new[] { StatusStrings.None, "0", "3" }));
+                Is.EqualTo(new[] { Strings.MatteSourceAbove, Strings.MatteSourceBelow, StatusStrings.None, "0", "3" }));
             HeadlessCapture.SaveIfRequested(Item(sources, "3"), "track-matte", "sources-both-sides");
             HeadlessTestHelpers.Click(Item(sources, "3"), move: true);
             Assert.That(target.MatteSourceZIndex.Value, Is.EqualTo(3));
@@ -217,7 +266,7 @@ public sealed class TrackMatteEditorTests
     {
         (EditViewModel editor, _, Element source, Element target) = await Open();
         var attributes = editor.GetRequiredService<IElementAttributeService>();
-        attributes.SetTrackMatte(target, 0, MatteMode.Alpha);
+        attributes.SetTrackMatte(target, MatteSourceKind.Layer, 0, MatteMode.Alpha);
         attributes.SetVisibleInOutput(source, false);
         FrameCacheManager cache = editor.FrameCacheManager.Value;
         bool enabled = cache.IsEnabled;

@@ -15,12 +15,14 @@ public sealed class ElementAttributeService : IElementAttributeService
         _historyManager = historyManager ?? throw new ArgumentNullException(nameof(historyManager));
     }
 
-    public void SetTrackMatte(Element element, int? sourceZIndex, MatteMode mode)
+    public void SetTrackMatte(Element element, MatteSourceKind sourceKind, int? sourceZIndex, MatteMode mode)
     {
         ArgumentNullException.ThrowIfNull(element);
         if (!ElementEditability.IsEditable(element)) return;
-        if (element.MatteSourceZIndex.Value == sourceZIndex && element.MatteMode.Value == mode) return;
+        if (element.MatteSourceKind.Value == sourceKind && element.MatteSourceZIndex.Value == sourceZIndex
+            && element.MatteMode.Value == mode) return;
 
+        element.MatteSourceKind.Value = sourceKind;
         element.MatteSourceZIndex.Value = sourceZIndex;
         element.MatteMode.Value = mode;
         _historyManager.Commit(CommandNames.ChangeTrackMatte);
