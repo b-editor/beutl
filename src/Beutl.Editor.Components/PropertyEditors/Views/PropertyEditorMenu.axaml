@@ -34,7 +34,7 @@
                     </ui:FAMenuFlyoutItem.IsEnabled>
                 </ui:FAMenuFlyoutItem>
                 <ui:FAMenuFlyoutItem x:Name="separateComponentsItem"
-                                   IsVisible="{Binding CanSeparateComponents}"
+                                   IsVisible="False"
                                    IsEnabled="{Binding CanEditProperty.Value}"
                                    Click="SeparateComponents_Click"
                                    Text="{x:Static lang:Strings.SeparateComponents}" />

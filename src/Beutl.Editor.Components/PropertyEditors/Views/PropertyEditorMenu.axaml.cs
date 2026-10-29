@@ -44,32 +44,35 @@ public sealed partial class PropertyEditorMenu : UserControl
 
         _componentSubscription?.Dispose();
         _componentSubscription = null;
-        bool supportsAnimation = DataContext is PropertyEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
         if (DataContext is PropertyEditorViewModel model)
         {
-            _componentSubscription = model.SeparatedComponents.Subscribe(components =>
-            {
-                editAnimationItem.IsVisible = supportsAnimation && components == null;
-                editInlineAnimationItem.IsVisible = supportsAnimation && components == null;
-                removeAnimationItem.IsVisible = supportsAnimation && components == null;
-                separateComponentsItem.IsVisible = model.CanSeparateComponents && components == null;
-                unseparateComponentsItem.IsVisible = components != null;
-            });
+            _componentSubscription = model.SeparatedComponents.Subscribe(components => UpdateActionVisibility(model, components));
             model.Own(_componentSubscription);
         }
-        editAnimationItem.IsVisible = supportsAnimation && (DataContext as PropertyEditorViewModel)?.SeparatedComponents.Value == null;
-        editInlineAnimationItem.IsVisible = editAnimationItem.IsVisible;
-        removeAnimationItem.IsVisible = editAnimationItem.IsVisible;
-
-        bool supportsExpression = DataContext is PropertyEditorViewModel viewModel && SupportsTextExpression(viewModel);
-        expressionSeparator.IsVisible = supportsExpression;
-        editExpressionItem.IsVisible = supportsExpression;
-        removeExpressionItem.IsVisible = supportsExpression;
+        else
+        {
+            UpdateActionVisibility(null, null);
+        }
 
         bool isEngineProperty = (DataContext as PropertyEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
         copyPropertyPathSeparator.IsVisible = isEngineProperty;
         copyPropertyPathItem.IsVisible = isEngineProperty;
         copyGetPropertyCodeItem.IsVisible = isEngineProperty;
+    }
+
+    private void UpdateActionVisibility(PropertyEditorViewModel? model, IComponentAnimation? components)
+    {
+        bool supportsAnimation = model?.PropertyAdapter is IAnimatablePropertyAdapter && components == null;
+        editAnimationItem.IsVisible = supportsAnimation;
+        editInlineAnimationItem.IsVisible = supportsAnimation;
+        removeAnimationItem.IsVisible = supportsAnimation;
+        separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && components == null;
+        unseparateComponentsItem.IsVisible = components != null;
+
+        bool supportsExpression = model != null && SupportsTextExpression(model);
+        expressionSeparator.IsVisible = supportsExpression;
+        editExpressionItem.IsVisible = supportsExpression;
+        removeExpressionItem.IsVisible = supportsExpression;
     }
 
     private void SeparateComponents_Click(object? sender, RoutedEventArgs e)
@@ -201,7 +204,8 @@ public sealed partial class PropertyEditorMenu : UserControl
     }
 
     private static bool SupportsTextExpression(PropertyEditorViewModel viewModel)
-        => viewModel.PropertyAdapter is IExpressionPropertyAdapter
+        => viewModel.SeparatedComponents.Value == null
+           && viewModel.PropertyAdapter is IExpressionPropertyAdapter
            && viewModel.PropertyAdapter.GetEngineProperty() is not IExpressionProperty { IsReference: true };
 
     private void RemoveExpression_Click(object? sender, RoutedEventArgs e)

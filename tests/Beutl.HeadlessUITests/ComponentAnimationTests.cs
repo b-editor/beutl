@@ -495,6 +495,14 @@ public class ComponentAnimationTests
                     Assert.That(control.GetVisualDescendants().OfType<NumberEditor<byte>>()
                         .Where(editor => editor.IsEffectivelyVisible).Select(editor => editor.Header),
                         Is.EqualTo(language == "ja" ? new[] { "赤", "緑", "青", "不透明度" } : ["Red", "Green", "Blue", "Opacity"]));
+                    var parentMenu = control.GetVisualDescendants().OfType<PropertyEditorMenu>()
+                        .Single(item => ReferenceEquals(item.DataContext, vm) && item.IsEffectivelyVisible);
+                    var parentButton = parentMenu.GetVisualDescendants().OfType<Button>().First();
+                    parentButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    HeadlessTestHelpers.Render(3);
+                    var parentFlyout = (FAMenuFlyout)parentButton.ContextFlyout!;
+                    AssertComponentMenu(parentFlyout, separated: true);
+                    parentFlyout.Hide();
                     if (Environment.GetEnvironmentVariable("BEUTL_COMPONENT_CAPTURE") is { } directory)
                     {
                         using var frame = window.CaptureRenderedFrame();
@@ -540,6 +548,8 @@ public class ComponentAnimationTests
                     var button = ((Control)combined.MenuContent!).GetVisualDescendants().OfType<Button>().First();
                     button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     var menu = (FAMenuFlyout)button.ContextFlyout!;
+                    HeadlessTestHelpers.Render(3);
+                    AssertComponentMenu(menu, separated: false);
                     menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "separateComponentsItem")
                         .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
                     menu.Hide();
@@ -553,6 +563,12 @@ public class ComponentAnimationTests
                     var editors = control.GetVisualDescendants().OfType<NumberEditor<float>>().ToArray();
                     Assert.That(editors.Select(e => e.Header), Is.EqualTo(new[] { "X", "Y", "Z" }));
                     Assert.That(editors.All(e => e.MenuContent != null && e.Bounds.Width > 0), Is.True);
+                    var componentButton = ((Control)editors[0].MenuContent!).GetVisualDescendants().OfType<Button>().First();
+                    componentButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    HeadlessTestHelpers.Render(3);
+                    var componentMenu = (FAMenuFlyout)componentButton.ContextFlyout!;
+                    AssertComponentMenu(componentMenu, separated: false, canSeparate: false);
+                    componentMenu.Hide();
                     var input = editors[0].GetVisualDescendants().OfType<TextBox>().Single();
                     input.Focus();
                     input.SelectAll();
@@ -583,29 +599,68 @@ public class ComponentAnimationTests
                     var parentButton = parentMenu.GetVisualDescendants().OfType<Button>().First();
                     parentButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     var parentFlyout = (FAMenuFlyout)parentButton.ContextFlyout!;
+                    HeadlessTestHelpers.Render(3);
+                    AssertComponentMenu(parentFlyout, separated: true);
                     var unseparate = parentFlyout.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "unseparateComponentsItem");
                     Assert.That(unseparate.IsVisible, Is.True);
                     Assert.That(unseparate.Text, Is.EqualTo(language == "ja" ? "成分の分離を解除" : "Unseparate components"));
+                    if (Environment.GetEnvironmentVariable("BEUTL_COMPONENT_CAPTURE") is { } menuDirectory)
+                    {
+                        using var frame = TopLevel.GetTopLevel(unseparate)!.CaptureRenderedFrame();
+                        frame!.Save(System.IO.Path.Combine(menuDirectory, $"components-menu-{language}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                    }
                     unseparate.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
                     parentFlyout.Hide();
                     HeadlessTestHelpers.Render(3);
                     Assert.That(combined.IsEffectivelyVisible, Is.True);
                     Assert.That(tree.IsEffectivelyVisible, Is.False);
                     Assert.That(control.GetVisualDescendants().OfType<NumberEditor<float>>(), Is.Empty);
+                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    HeadlessTestHelpers.Render(3);
+                    AssertComponentMenu(menu, separated: false);
+                    menu.Hide();
                     history.History.Undo();
                     HeadlessTestHelpers.Render(3);
                     Assert.That(combined.IsEffectivelyVisible, Is.False);
                     Assert.That(tree.IsEffectivelyVisible, Is.True);
                     Assert.That(control.GetVisualDescendants().OfType<NumberEditor<float>>().Count(e => e.IsEffectivelyVisible), Is.EqualTo(3));
+                    parentButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    HeadlessTestHelpers.Render(3);
+                    AssertComponentMenu(parentFlyout, separated: true);
+                    parentFlyout.Hide();
                     history.History.Redo();
                     HeadlessTestHelpers.Render(3);
                     Assert.That(combined.IsEffectivelyVisible, Is.True);
                     Assert.That(tree.IsEffectivelyVisible, Is.False);
+
+                    // A pre-existing aggregate expression must not divert the parent button to the expression editor.
+                    owner.Value.Expression = Expression.Create<Vector3>("new System.Numerics.Vector3(7, 8, 9)");
+                    vm.SeparateComponents();
+                    HeadlessTestHelpers.Render(3);
+                    parentButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    HeadlessTestHelpers.Render(3);
+                    AssertComponentMenu(parentFlyout, separated: true);
+                    Assert.That(owner.Value.HasExpression, Is.True);
+                    Assert.That(window.OpenedPopups.Any(popup => popup.Child is ExpressionEditorFlyoutPresenter), Is.False);
+                    parentFlyout.Hide();
                 }
                 finally { window.Close(); }
             }
         }
         finally { CultureInfo.CurrentUICulture = previousCulture; }
+    }
+
+    private static void AssertComponentMenu(FAMenuFlyout menu, bool separated, bool canSeparate = true)
+    {
+        Assert.That(menu.IsOpen, Is.True);
+        var items = menu.Items.OfType<Control>().ToDictionary(item => item.Name!);
+        Assert.Multiple(() =>
+        {
+            Assert.That(items["separateComponentsItem"].IsVisible, Is.EqualTo(canSeparate && !separated), "separate components");
+            Assert.That(items["unseparateComponentsItem"].IsVisible, Is.EqualTo(separated), "unseparate components");
+            foreach (string name in new[] { "editAnimationItem", "editInlineAnimationItem", "removeAnimationItem", "expressionSeparator", "editExpressionItem", "removeExpressionItem" })
+                Assert.That(items[name].IsVisible, Is.EqualTo(!separated), name);
+        });
     }
 }
 
