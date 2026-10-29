@@ -52,7 +52,6 @@ internal readonly struct SceneLayerSkipModel
         var visiting = new HashSet<Element>();
         HashSet<Element> participants = target == CompositionTarget.Graphics ? ElementTransitions.GetParticipants(scene) : [];
         Rational rate = frameRate ?? scene.FindHierarchicalParent<Project>().GetFrameRate();
-        MediaTime origin = frameOrigin ?? window?.Start ?? scene.Start.Value;
         foreach (Element element in scene.Children)
             foreach (var item in Visit(element, window, false))
                 yield return item;
@@ -88,13 +87,13 @@ internal readonly struct SceneLayerSkipModel
                         foreach (PortalObject portal in element.Objects.OfType<PortalObject>())
                         {
                             if (!portal.IsEnabled.Value) continue;
-                            foreach ((int count, TimeRange inputs) in PortalWindows(portal, frameWindow, contentWindow))
+                            foreach ((int? count, TimeRange inputs) in PortalWindows(portal, frameWindow, contentWindow))
                             {
                                 int start = portal.ZIndex.Value + 1;
-                                int end = portal.ZIndex.Value + count;
+                                int? end = portal.ZIndex.Value + count;
                                 foreach (Element candidate in scene.Children)
                                 {
-                                    if (candidate.ZIndex.Value < start || candidate.ZIndex.Value > end) continue;
+                                    if (candidate.ZIndex.Value < start || (end is { } last && candidate.ZIndex.Value > last)) continue;
                                     foreach (var item in Visit(candidate, inputs, true))
                                         yield return item;
                                 }
@@ -156,12 +155,20 @@ internal readonly struct SceneLayerSkipModel
             if (!after.IsEmpty) yield return (after, after);
         }
 
-        IEnumerable<(int Count, TimeRange Window)> PortalWindows(PortalObject portal, TimeRange frames, TimeRange content)
+        IEnumerable<(int? Count, TimeRange Window)> PortalWindows(PortalObject portal, TimeRange frames, TimeRange content)
         {
             var context = new CompositionContext(content.Start) { FrameRate = rate };
             if (portal.Count.Expression == null || content.IsEmpty)
             {
                 yield return (context.Get(portal.Count), frames);
+                yield break;
+            }
+
+            // A full walk after a time remap has no known frame grid. A Count expression can
+            // import any following layer between the original frames; null keeps all candidates.
+            if (frameOrigin is not { } origin)
+            {
+                yield return (null, frames);
                 yield break;
             }
 

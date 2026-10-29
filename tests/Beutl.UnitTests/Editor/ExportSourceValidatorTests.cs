@@ -77,6 +77,37 @@ public sealed class ExportSourceValidatorTests
         });
     }
 
+    [TestCase(0, 1)]
+    [TestCase(-4, 1)]
+    [TestCase(4, -1)]
+    [TestCase(1, 0)]
+    [TestCase(0, 0)]
+    public void CollectRenderableSources_RejectsInvalidVideoRatesBeforeWalkingSources(long numerator, long denominator)
+    {
+        var scene = new Scene(64, 32, string.Empty);
+        var rate = new Rational(numerator, denominator);
+        // Even an empty scene must reject an invalid video rate before portal sampling can begin.
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene, true, false, rate));
+
+        string path = Path.Combine(_root, "audio-only.wav");
+        scene.Children.Add(CreateSoundElement(_root, path));
+        Assert.That(ExportSourceValidator.CollectRenderableSources(scene, s_wholeScene, false, true, rate),
+            Is.EquivalentTo(new[] { path }), "an unused video setting must not block audio-only output");
+    }
+
+    [TestCase(4, 1)]
+    [TestCase(-4, -1)]
+    [TestCase(24000, 1001)]
+    public void CollectRenderableSources_AcceptsPositiveFiniteVideoRates(long numerator, long denominator)
+    {
+        var (scene, portal, path) = CreateMattePortalScene();
+        portal.Count.Expression = new StringExpression<int>("1");
+
+        Assert.That(ExportSourceValidator.CollectRenderableSources(
+            scene, s_wholeScene, true, false, new Rational(numerator, denominator)), Is.EquivalentTo(new[] { path }));
+    }
+
     [TestCase(false, false)]
     [TestCase(false, true)]
     [TestCase(true, false)]
@@ -264,6 +295,52 @@ public sealed class ExportSourceValidatorTests
         scene.Children[2].Start.Value = MediaTime.FromSeconds(start + (nested ? 0.18 : 0.30));
         Assert.That(ExportSourceValidator.CollectRenderableSources(root, range, true, false, new Rational(4, 1)), Is.Empty,
             "a missing input active only between output frames is unused even when successive counts are equal");
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void RemappedMattePortals_KeepInputsBetweenUnmappedFrames(bool nested)
+    {
+        var (scene, portal, path) = CreateMattePortalScene();
+        portal.Count.Expression = new StringExpression<int>("Time >= 0.125 && Time < 0.2 ? 1 : 0");
+        Scene root = EmbedScene(scene);
+        root.FindHierarchicalParent<Project>()!.FrameRate.Value = new Rational(4);
+        var embedded = (SceneDrawable)root.Children[0].Objects[0];
+        if (nested)
+        {
+            var middle = new Scene(64, 32, string.Empty);
+            var child = new SceneDrawable();
+            child.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, scene);
+            middle.Children.Add(ElementWith(_root, child));
+            embedded.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, middle);
+        }
+
+        var controller = new DrawableTimeController
+        {
+            Target = { Value = embedded },
+            OffsetPosition = { Value = MediaTime.FromSeconds(0.125) }
+        };
+        root.Children[0].Objects.Add(controller);
+        TimeRange range = TimeRange.FromSeconds(0, 1);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.Zero), Is.EquivalentTo(new[] { path }));
+            Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.EquivalentTo(new[] { path }));
+        });
+
+        controller.IsEnabled.Value = false;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.Empty,
+            "without the remap, the output's known frame grid never uses the input");
+        controller.IsEnabled.Value = true;
+        portal.Count.Expression = null;
+        portal.Count.Value = 0;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.Empty,
+            "a stored count of zero imports nothing, including during a full walk");
+        portal.Count.Value = 1;
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.EquivalentTo(new[] { path }));
+        scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsVideoMuted = { Value = true } });
+        Assert.That(ExportSourceValidator.CollectRenderableSources(root, range), Is.Empty);
     }
 
     [Test]

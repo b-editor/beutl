@@ -48,6 +48,11 @@ public static class ExportSourceValidator
         var paths = new HashSet<string>(StringComparer.Ordinal);
         var visitedScenes = new HashSet<(Scene, CompositionTarget?)>();
         Rational rate = frameRate ?? scene.FindHierarchicalParent<Project>().GetFrameRate();
+        // Validate against the renderer's positive-rate contract before walking any sources.
+        // Audio-only output does not use the video rate.
+        if (targets.Contains(CompositionTarget.Graphics))
+            _ = MediaTime.FromFrames(0, rate);
+
         foreach (CompositionTarget target in targets)
         {
             foreach ((Element element, TimeRange active) in SceneLayerSkipModel.EnumerateRenderableElements(
