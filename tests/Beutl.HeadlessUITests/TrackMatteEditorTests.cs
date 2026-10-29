@@ -63,6 +63,21 @@ public sealed class TrackMatteEditorTests
                 Assert.That(Item(sources, Strings.MatteSourceAbove).IsChecked, Is.True);
                 string capture = $"{language}-{width}-{(light ? "light" : "dark")}";
                 HeadlessCapture.SaveIfRequested(choices[0], "track-matte", $"sources-{capture}");
+                HeadlessTestHelpers.Click(Item(sources, Strings.MatteSourceAbove), move: true);
+                TextBlock indicator = targetView.FindControl<TextBlock>("matteIndicator")!;
+                Assert.That(indicator.Text, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
+                HeadlessCapture.SaveIfRequested(view, "track-matte", $"above-indicator-{capture}");
+
+                menu = OpenMatteMenu(targetView);
+                sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
+                OpenSubMenu(sources);
+                HeadlessTestHelpers.Click(Item(sources, Strings.MatteSourceBelow), move: true);
+                Assert.That(indicator.Text, Is.EqualTo($"↓ {Strings.MatteSourceBelow}"));
+                HeadlessCapture.SaveIfRequested(view, "track-matte", $"below-indicator-{capture}");
+
+                menu = OpenMatteMenu(targetView);
+                sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
+                OpenSubMenu(sources);
                 int before = editor.HistoryManager.UndoCount;
                 HeadlessTestHelpers.Click(Item(sources, "0"), move: true);
                 Assert.That(Flyout(targetView).IsOpen, Is.False);
@@ -111,7 +126,7 @@ public sealed class TrackMatteEditorTests
     }
 
     [AvaloniaTest]
-    public async Task RelativeSource_DefaultsAbove_AndUpdatesAfterEditsAndUndo()
+    public async Task RelativeSource_UsesDirectionLabelsAcrossSourceChangesAndUndo()
     {
         (EditViewModel editor, TimelineTabViewModel timeline, _, Element target) = await Open();
         var near = new Element
@@ -139,14 +154,14 @@ public sealed class TrackMatteEditorTests
             FAMenuFlyoutSubItem menu = OpenMatteMenu(element);
             HeadlessTestHelpers.Click(Item(menu, Strings.MatteAlpha), move: true);
             Assert.That(target.GetMatteSourceZIndex(editor.Scene, MediaTime.Zero), Is.EqualTo(0));
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
 
             menu = OpenMatteMenu(element);
             FAMenuFlyoutSubItem sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
             OpenSubMenu(sources);
             Assert.That(Item(sources, Strings.MatteSourceAbove).IsChecked, Is.True);
             HeadlessTestHelpers.Click(Item(sources, Strings.MatteSourceBelow), move: true);
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↓ 4"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↓ {Strings.MatteSourceBelow}"));
             menu = OpenMatteMenu(element);
             sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
             OpenSubMenu(sources);
@@ -157,34 +172,36 @@ public sealed class TrackMatteEditorTests
             Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
             Assert.That(editor.HistoryManager.Undo(), Is.True);
             HeadlessTestHelpers.Render();
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↓ 4"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↓ {Strings.MatteSourceBelow}"));
             Assert.That(editor.HistoryManager.Undo(), Is.True);
             HeadlessTestHelpers.Render();
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
 
             clock.Seek(MediaTime.FromSeconds(1));
             HeadlessTestHelpers.Render();
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
+            Assert.That(target.GetMatteSourceZIndex(editor.Scene, timeline.CurrentTime.Value), Is.EqualTo(1));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
             HeadlessCapture.SaveIfRequested(view, "track-matte", "nearest-at-one-second");
             clock.Seek(MediaTime.FromSeconds(2));
             HeadlessTestHelpers.Render();
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
+            Assert.That(target.GetMatteSourceZIndex(editor.Scene, timeline.CurrentTime.Value), Is.EqualTo(0));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
             HeadlessCapture.SaveIfRequested(view, "track-matte", "nearest-at-two-seconds");
             clock.Seek(MediaTime.FromSeconds(1));
             editor.Scene.Children.Remove(near);
             editor.HistoryManager.Commit();
             HeadlessTestHelpers.Render();
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 0"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
             Assert.That(editor.HistoryManager.Undo(), Is.True);
             HeadlessTestHelpers.Render();
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
 
             editor.GetRequiredService<ILayerMoveService>().ApplyMove(editor.Scene, 2, 5, [target]);
             HeadlessTestHelpers.Render();
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 3"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
             Assert.That(editor.HistoryManager.Undo(), Is.True);
             HeadlessTestHelpers.Render();
-            Assert.That(model.MatteIndicator.Value, Is.EqualTo("↑ 1"));
+            Assert.That(model.MatteIndicator.Value, Is.EqualTo($"↑ {Strings.MatteSourceAbove}"));
             target.IsLocked.Value = true;
             model.SetMatteSource(MatteSourceKind.Below);
             Assert.That(target.MatteSourceKind.Value, Is.EqualTo(MatteSourceKind.Above));
