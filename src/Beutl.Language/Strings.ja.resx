@@ -3616,4 +3616,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
     <value>プロジェクトを開き直すと再接続が必要です。</value>
   </data>
+  <data name="VideoUpload_InvalidDescription" xml:space="preserve">
+    <value>説明はUTF-8で5,000バイト以内にしてください。&lt; と &gt; は使用できません。</value>
+  </data>
 </root>

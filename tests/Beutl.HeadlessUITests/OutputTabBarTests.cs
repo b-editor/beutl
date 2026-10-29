@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.LogicalTree;
@@ -61,7 +62,13 @@ public class OutputTabBarTests
 
             OutputView output = content.GetVisualDescendants().OfType<OutputView>().Single();
             Assert.That(output.GetLogicalDescendants().OfType<ProgressBar>(), Is.Not.Empty);
-            Assert.That(output.GetLogicalDescendants().OfType<ToolTabBar>(), Is.Empty);
+            ToolTabBar sectionBar = output.GetLogicalDescendants().OfType<ToolTabBar>().Single();
+            Assert.That(sectionBar.GetLogicalDescendants().OfType<TabStrip>().Single(),
+                Is.SameAs(output.FindControl<TabStrip>("SectionStrip")));
+            Assert.That(sectionBar.GetLogicalDescendants().OfType<ProgressBar>(), Is.Empty);
+            Assert.That(sectionBar.GetLogicalDescendants().OfType<Button>(), Is.Empty);
+            Assert.That(sectionBar.TranslatePoint(default, view)!.Value.Y,
+                Is.GreaterThanOrEqualTo(bar.TranslatePoint(default, view)!.Value.Y + bar.Bounds.Height));
             Assert.That(output.GetLogicalDescendants().OfType<Button>().Select(b => b.Content),
                 Does.Contain(Strings.Encode).And.Contain(Strings.Cancel));
 

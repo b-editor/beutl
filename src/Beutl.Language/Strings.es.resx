@@ -3492,4 +3492,136 @@ cuando el registro del historial está activado.</value>
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>Añadir dispositivo</value>
   </data>
+  <data name="VideoUpload_Title" xml:space="preserve">
+    <value>Subir</value>
+  </data>
+  <data name="VideoUpload_Target" xml:space="preserve">
+    <value>Subir a</value>
+  </data>
+  <data name="VideoUpload_SelectTarget" xml:space="preserve">
+    <value>Seleccionar servicio de subida</value>
+  </data>
+  <data name="VideoUpload_Automatic" xml:space="preserve">
+    <value>Subir después de codificar</value>
+  </data>
+  <data name="VideoUpload_CompletedFile" xml:space="preserve">
+    <value>Vídeo codificado</value>
+  </data>
+  <data name="VideoUpload_Review" xml:space="preserve">
+    <value>Reproducir</value>
+  </data>
+  <data name="VideoUpload_Upload" xml:space="preserve">
+    <value>Subir</value>
+  </data>
+  <data name="VideoUpload_OpenUploaded" xml:space="preserve">
+    <value>Abrir vídeo subido</value>
+  </data>
+  <data name="VideoUpload_Private" xml:space="preserve">
+    <value>Privado</value>
+  </data>
+  <data name="VideoUpload_Unlisted" xml:space="preserve">
+    <value>No listado</value>
+  </data>
+  <data name="VideoUpload_Public" xml:space="preserve">
+    <value>Público</value>
+  </data>
+  <data name="VideoUpload_NotForKids" xml:space="preserve">
+    <value>No, no está creado para niños</value>
+  </data>
+  <data name="VideoUpload_ForKids" xml:space="preserve">
+    <value>Sí, está creado para niños</value>
+  </data>
+  <data name="VideoUpload_YouTubeSetup" xml:space="preserve">
+    <value>Para conectarse se necesita un archivo JSON de cliente de Google para aplicaciones de escritorio.</value>
+  </data>
+  <data name="VideoUpload_SigningIn" xml:space="preserve">
+    <value>Esperando inicio de sesión…</value>
+  </data>
+  <data name="VideoUpload_DesktopClientRequired" xml:space="preserve">
+    <value>Selecciona un archivo JSON de cliente creado para una aplicación de escritorio de Google.</value>
+  </data>
+  <data name="VideoUpload_SignedIn" xml:space="preserve">
+    <value>Conectado</value>
+  </data>
+  <data name="VideoUpload_SignInCancelled" xml:space="preserve">
+    <value>Se canceló el inicio de sesión o se agotó el tiempo de espera.</value>
+  </data>
+  <data name="VideoUpload_SignInFailed" xml:space="preserve">
+    <value>No se pudo conectar. Comprueba el JSON del cliente de escritorio, activa YouTube Data API v3 y permite el acceso en el navegador.</value>
+  </data>
+  <data name="VideoUpload_NotReady" xml:space="preserve">
+    <value>La conexión de subida o los ajustes obligatorios están incompletos.</value>
+  </data>
+  <data name="VideoUpload_InvalidMetadata" xml:space="preserve">
+    <value>Comprueba el título (1–100 caracteres), la descripción (hasta 5.000 bytes UTF-8, sin &lt; ni &gt;) y la audiencia.</value>
+  </data>
+  <data name="VideoUpload_EmptyFile" xml:space="preserve">
+    <value>El archivo de vídeo está vacío.</value>
+  </data>
+  <data name="VideoUpload_Failed" xml:space="preserve">
+    <value>Error al subir. Comprueba tu canal antes de volver a intentarlo.</value>
+  </data>
+  <data name="VideoUpload_MissingReceipt" xml:space="preserve">
+    <value>El servicio no confirmó la subida del vídeo. Comprueba tu canal antes de volver a intentarlo.</value>
+  </data>
+  <data name="VideoUpload_FileMissing" xml:space="preserve">
+    <value>No se encontró el vídeo exportado. Restaura el archivo o vuelve a codificarlo.</value>
+  </data>
+  <data name="VideoUpload_Uploading" xml:space="preserve">
+    <value>Subiendo vídeo…</value>
+  </data>
+  <data name="VideoUpload_Completed" xml:space="preserve">
+    <value>Subida completada. Es posible que el servicio siga procesando el vídeo.</value>
+  </data>
+  <data name="VideoUpload_Cancelled" xml:space="preserve">
+    <value>Subida cancelada. Es posible que el servicio haya guardado un borrador.</value>
+  </data>
+  <data name="VideoUpload_VideoRequired" xml:space="preserve">
+    <value>La subida automática de vídeo requiere activar la codificación de vídeo.</value>
+  </data>
+  <data name="VideoUpload_Connect" xml:space="preserve">
+    <value>Conectar…</value>
+  </data>
+  <data name="VideoUpload_Disconnect" xml:space="preserve">
+    <value>Desconectar</value>
+  </data>
+  <data name="VideoUpload_SetupHelp" xml:space="preserve">
+    <value>Ayuda de conexión</value>
+  </data>
+  <data name="VideoUpload_VideoTitle" xml:space="preserve">
+    <value>Título del vídeo</value>
+  </data>
+  <data name="VideoUpload_TitleHint" xml:space="preserve">
+    <value>Si está vacío, se usa el nombre del archivo</value>
+  </data>
+  <data name="VideoUpload_Description" xml:space="preserve">
+    <value>Descripción</value>
+  </data>
+  <data name="VideoUpload_Visibility" xml:space="preserve">
+    <value>Visibilidad</value>
+  </data>
+  <data name="VideoUpload_Audience" xml:space="preserve">
+    <value>Audiencia</value>
+  </data>
+  <data name="VideoUpload_ChooseAudience" xml:space="preserve">
+    <value>Selecciona si este vídeo está creado para niños</value>
+  </data>
+  <data name="VideoUpload_SelectClient" xml:space="preserve">
+    <value>Seleccionar JSON de cliente de escritorio de Google</value>
+  </data>
+  <data name="VideoUpload_PreviewUnavailable" xml:space="preserve">
+    <value>Este archivo no se puede abrir como vídeo. Abre su carpeta para revisarlo.</value>
+  </data>
+  <data name="VideoUpload_NoFile" xml:space="preserve">
+    <value>Aún no hay ningún vídeo codificado</value>
+  </data>
+  <data name="VideoUpload_NotConnected" xml:space="preserve">
+    <value>Sin conectar</value>
+  </data>
+  <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
+    <value>Tendrás que volver a conectarte al abrir de nuevo el proyecto.</value>
+  </data>
+  <data name="VideoUpload_InvalidDescription" xml:space="preserve">
+    <value>La descripción admite hasta 5.000 bytes UTF-8 y no puede contener &lt; ni &gt;.</value>
+  </data>
 </root>

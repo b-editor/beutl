@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
 using Avalonia.Styling;
+using Beutl.Api.Services;
 using Beutl.Services.VideoUpload;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels.Tools;
@@ -116,6 +117,64 @@ public sealed class YouTubeVideoUploadTests
         var json = new JsonObject();
         context.WriteToJson(json);
         Assert.That(json.Select(x => x.Key), Is.EquivalentTo(new[] { "Title", "Description", "Visibility", "Audience" }));
+    }
+
+    [AvaloniaTest]
+    [TestCase("en")]
+    [TestCase("ja")]
+    public void Description_validation_explains_byte_limits_and_recovers_with_manual_upload(string language)
+    {
+        var previous = System.Globalization.CultureInfo.CurrentUICulture;
+        System.Globalization.CultureInfo.CurrentUICulture = new System.Globalization.CultureInfo(language);
+        try
+        {
+            var registry = new ExtensionProvider();
+            registry.AddExtensions(7710, [new YouTubeUploadExtension()]);
+            using var vm = new VideoUploadViewModel(registry);
+            vm.RecordCompletedFile(Path.Combine(Path.GetTempPath(), "reviewed.mp4"));
+            var settings = (YouTubeUploadSettingsView)vm.SettingsControl.Value!;
+            var context = (YouTubeUploadContext)settings.DataContext!;
+            context.IsSignedIn.Value = true;
+            context.Audience.Value = context.Audiences[0];
+            var view = new VideoUploadView { DataContext = vm };
+            using var host = new ControlHost(new Window
+            {
+                Width = 340,
+                Height = 800,
+                RequestedThemeVariant = language == "ja" ? ThemeVariant.Dark : ThemeVariant.Light,
+                Content = new ScrollViewer { Content = view, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled }
+            });
+            var input = settings.FindControl<TextBox>("VideoDescriptionInput")!;
+            var error = settings.FindControl<TextBlock>("DescriptionValidationError")!;
+            var upload = view.FindControl<Button>("UploadButton")!;
+            Assert.That(vm.Automatic.Value, Is.False);
+            foreach (string boundary in new[] { new string('a', 5000), new string('あ', 1666) + "ab" })
+            {
+                input.Text = boundary + "c";
+                HeadlessTestHelpers.Render();
+                Assert.That(context.Description.Value, Is.EqualTo(boundary + "c"), "The input must not be silently truncated.");
+                Assert.That(error.IsEffectivelyVisible, Is.True);
+                Assert.That(error.Text, Does.Contain("5,000"));
+                Assert.That(upload.IsEffectivelyEnabled, Is.False);
+                Assert.Throws<InvalidOperationException>(() => context.CreateVideo("reviewed.mp4"));
+                HeadlessCapture.SaveIfRequested(view, nameof(YouTubeVideoUploadTests), $"description-error-{language}");
+
+                input.Text = boundary;
+                HeadlessTestHelpers.Render();
+                Assert.That(error.IsVisible, Is.False);
+                Assert.That(upload.IsEffectivelyEnabled, Is.True);
+                Assert.That(context.CreateVideo("reviewed.mp4").Snippet.Description, Is.EqualTo(boundary));
+            }
+            input.Text = "<invalid>";
+            HeadlessTestHelpers.Render();
+            Assert.That(error.IsEffectivelyVisible, Is.True);
+            Assert.That(upload.IsEffectivelyEnabled, Is.False);
+            input.Text = "";
+            HeadlessTestHelpers.Render();
+            Assert.That(error.IsVisible, Is.False);
+            Assert.That(upload.IsEffectivelyEnabled, Is.True);
+        }
+        finally { System.Globalization.CultureInfo.CurrentUICulture = previous; }
     }
 
     [AvaloniaTest]

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Audio;
 using Beutl.Editor;
@@ -220,20 +221,42 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         if (execution.IsRunning.Value || _pendingUpload != null) return false;
         string file = Upload.CompletedFile.Value
             ?? throw new InvalidOperationException(Strings.VideoUpload_FileMissing);
-        _pendingUpload = Upload.CreateUpload(file);
+        var pending = Upload.CreateUpload(file);
+        _pendingUpload = pending;
         try
         {
-            if (execution.TryStart(out task)) return true;
+            if (execution.TryStart(out task))
+            {
+                task = CompleteUploadStartAsync(task, pending);
+                return true;
+            }
         }
         catch
         {
-            _pendingUpload?.Dispose();
-            _pendingUpload = null;
+            ReleasePendingUpload(pending);
             throw;
         }
-        _pendingUpload.Dispose();
-        _pendingUpload = null;
+        ReleasePendingUpload(pending);
         return false;
+    }
+
+    private async Task CompleteUploadStartAsync(Task execution, VideoUploadViewModel.UploadJob pending)
+    {
+        try { await execution; }
+        finally
+        {
+            // Admission may end before RunAsync consumes the job. Keep cleanup on the UI thread,
+            // and leave a job already consumed by RunAsync (or a newer queued job) alone.
+            if (Dispatcher.UIThread.CheckAccess()) ReleasePendingUpload(pending);
+            else await Dispatcher.UIThread.InvokeAsync(() => ReleasePendingUpload(pending));
+        }
+    }
+
+    private void ReleasePendingUpload(VideoUploadViewModel.UploadJob pending)
+    {
+        if (!ReferenceEquals(_pendingUpload, pending)) return;
+        _pendingUpload = null;
+        pending.Dispose();
     }
 
     public FilePickerFileType[] GetFilePickerFileTypes()

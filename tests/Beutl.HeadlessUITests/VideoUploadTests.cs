@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Editor.Components.OutputTab;
 using Beutl.Extensibility;
@@ -19,6 +20,35 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public sealed class VideoUploadTests
 {
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Upload_interrupted_before_context_entry_releases_its_job_and_allows_encode_and_retry(bool cancel)
+    {
+        using var fixture = await OutputFixture.CreateAsync();
+        await fixture.Output.RunAsync(CancellationToken.None);
+        using var item = new OutputProfileItem(fixture.Output, fixture.Editor, new InterruptedStartHost(cancel));
+
+        Assert.That(fixture.Output.TryStartUpload(item, out Task? upload), Is.True);
+        Exception? failure = await Failure(upload!);
+        if (cancel) Assert.That(failure, Is.InstanceOf<OperationCanceledException>());
+        else Assert.That(failure, Is.TypeOf<IOException>());
+        Assert.That(item.IsRunning.Value, Is.False);
+        Assert.That(fixture.Extension.Uploads, Is.Empty);
+        Assert.That(fixture.Extension.DisposalsOnUiThread, Is.EqualTo(new[] { true }));
+
+        Assert.That(item.TryStart(out Task? encode), Is.True);
+        await encode!;
+        Assert.That(fixture.Encodes, Is.EqualTo(2), "Encode must not consume the abandoned upload.");
+        Assert.That(fixture.Extension.Uploads, Is.Empty);
+
+        Assert.That(fixture.Output.TryStartUpload(item, out upload), Is.True);
+        await upload!;
+        Assert.That(fixture.Encodes, Is.EqualTo(2));
+        Assert.That(fixture.Extension.Uploads, Has.Count.EqualTo(1));
+        Assert.That(fixture.Extension.DisposalsOnUiThread, Is.EqualTo(new[] { true, true }));
+    }
+
     [AvaloniaTest]
     public async Task Manual_upload_uses_committed_file_without_reencoding_even_after_destination_changes()
     {
@@ -282,6 +312,7 @@ public sealed class VideoUploadTests
     private sealed class FakeExtension : VideoUploadExtension
     {
         public List<(string Path, string Title, string Contents)> Uploads { get; } = [];
+        public List<bool> DisposalsOnUiThread { get; } = [];
         public Exception? Failure { get; set; }
         public Func<CancellationToken, Task>? Run { get; set; }
         public override IVideoUploadContext CreateContext() => new FakeContext(this);
@@ -310,7 +341,25 @@ public sealed class VideoUploadTests
     {
         public Task<Uri?> UploadAsync(IProgress<double> progress, CancellationToken cancellationToken)
             => extension.Upload(path, title, cancellationToken);
-        public void Dispose() { }
+        public void Dispose() => extension.DisposalsOnUiThread.Add(Dispatcher.UIThread.CheckAccess());
+    }
+
+    private sealed class InterruptedStartHost(bool cancel) : IOutputRunHost
+    {
+        private bool _interrupt = true;
+
+        public IDisposable? TryBeginOutputOperation() => TestShell.Editor.TryBeginOutputOperation();
+
+        public IDisposable TrackRunningOutput(OutputProfileItem item)
+        {
+            if (_interrupt)
+            {
+                _interrupt = false;
+                if (cancel) Task.Run(item.Cancel).GetAwaiter().GetResult();
+                else throw new IOException("tracking failed before context entry");
+            }
+            return TestShell.Editor.TrackRunningOutput(item);
+        }
     }
 
     private sealed class AudioOnlyEncoder : ControllableEncodingExtension

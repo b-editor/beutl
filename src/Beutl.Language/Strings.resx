@@ -3621,4 +3621,7 @@ when history recording is enabled.</value>
   <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
     <value>The connection lasts until this project is closed.</value>
   </data>
+  <data name="VideoUpload_InvalidDescription" xml:space="preserve">
+    <value>Use up to 5,000 UTF-8 bytes; &lt; and &gt; are not allowed.</value>
+  </data>
 </root>

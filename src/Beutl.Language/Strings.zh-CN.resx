@@ -3492,4 +3492,136 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>添加设备</value>
   </data>
+  <data name="VideoUpload_Title" xml:space="preserve">
+    <value>上传</value>
+  </data>
+  <data name="VideoUpload_Target" xml:space="preserve">
+    <value>上传到</value>
+  </data>
+  <data name="VideoUpload_SelectTarget" xml:space="preserve">
+    <value>选择上传服务</value>
+  </data>
+  <data name="VideoUpload_Automatic" xml:space="preserve">
+    <value>编码后上传</value>
+  </data>
+  <data name="VideoUpload_CompletedFile" xml:space="preserve">
+    <value>已编码的视频</value>
+  </data>
+  <data name="VideoUpload_Review" xml:space="preserve">
+    <value>播放</value>
+  </data>
+  <data name="VideoUpload_Upload" xml:space="preserve">
+    <value>上传</value>
+  </data>
+  <data name="VideoUpload_OpenUploaded" xml:space="preserve">
+    <value>打开已上传的视频</value>
+  </data>
+  <data name="VideoUpload_Private" xml:space="preserve">
+    <value>私密</value>
+  </data>
+  <data name="VideoUpload_Unlisted" xml:space="preserve">
+    <value>不公开</value>
+  </data>
+  <data name="VideoUpload_Public" xml:space="preserve">
+    <value>公开</value>
+  </data>
+  <data name="VideoUpload_NotForKids" xml:space="preserve">
+    <value>否，此视频不是面向儿童的内容</value>
+  </data>
+  <data name="VideoUpload_ForKids" xml:space="preserve">
+    <value>是，此视频是面向儿童的内容</value>
+  </data>
+  <data name="VideoUpload_YouTubeSetup" xml:space="preserve">
+    <value>连接需要Google桌面应用的客户端JSON文件。</value>
+  </data>
+  <data name="VideoUpload_SigningIn" xml:space="preserve">
+    <value>等待登录…</value>
+  </data>
+  <data name="VideoUpload_DesktopClientRequired" xml:space="preserve">
+    <value>请选择为Google桌面应用创建的客户端JSON文件。</value>
+  </data>
+  <data name="VideoUpload_SignedIn" xml:space="preserve">
+    <value>已连接</value>
+  </data>
+  <data name="VideoUpload_SignInCancelled" xml:space="preserve">
+    <value>登录已取消或超时。</value>
+  </data>
+  <data name="VideoUpload_SignInFailed" xml:space="preserve">
+    <value>无法连接。请检查桌面应用的客户端JSON，启用YouTube Data API v3，并在浏览器中允许访问。</value>
+  </data>
+  <data name="VideoUpload_NotReady" xml:space="preserve">
+    <value>上传连接或必填设置尚未完成。</value>
+  </data>
+  <data name="VideoUpload_InvalidMetadata" xml:space="preserve">
+    <value>请检查标题（1–100个字符）、说明（最多5,000个UTF-8字节，不能包含 &lt; 或 &gt;）和观众设置。</value>
+  </data>
+  <data name="VideoUpload_EmptyFile" xml:space="preserve">
+    <value>视频文件为空。</value>
+  </data>
+  <data name="VideoUpload_Failed" xml:space="preserve">
+    <value>上传失败。重试前请检查您的频道。</value>
+  </data>
+  <data name="VideoUpload_MissingReceipt" xml:space="preserve">
+    <value>服务未确认视频上传。重试前请检查您的频道。</value>
+  </data>
+  <data name="VideoUpload_FileMissing" xml:space="preserve">
+    <value>找不到已输出的视频。请恢复文件或重新编码。</value>
+  </data>
+  <data name="VideoUpload_Uploading" xml:space="preserve">
+    <value>正在上传视频…</value>
+  </data>
+  <data name="VideoUpload_Completed" xml:space="preserve">
+    <value>上传完成。服务可能仍在处理视频。</value>
+  </data>
+  <data name="VideoUpload_Cancelled" xml:space="preserve">
+    <value>上传已取消。服务可能保留了草稿。</value>
+  </data>
+  <data name="VideoUpload_VideoRequired" xml:space="preserve">
+    <value>自动上传视频需要启用视频编码。</value>
+  </data>
+  <data name="VideoUpload_Connect" xml:space="preserve">
+    <value>连接…</value>
+  </data>
+  <data name="VideoUpload_Disconnect" xml:space="preserve">
+    <value>断开连接</value>
+  </data>
+  <data name="VideoUpload_SetupHelp" xml:space="preserve">
+    <value>连接设置帮助</value>
+  </data>
+  <data name="VideoUpload_VideoTitle" xml:space="preserve">
+    <value>视频标题</value>
+  </data>
+  <data name="VideoUpload_TitleHint" xml:space="preserve">
+    <value>留空时使用文件名</value>
+  </data>
+  <data name="VideoUpload_Description" xml:space="preserve">
+    <value>说明</value>
+  </data>
+  <data name="VideoUpload_Visibility" xml:space="preserve">
+    <value>可见性</value>
+  </data>
+  <data name="VideoUpload_Audience" xml:space="preserve">
+    <value>观众</value>
+  </data>
+  <data name="VideoUpload_ChooseAudience" xml:space="preserve">
+    <value>请选择此视频是否面向儿童</value>
+  </data>
+  <data name="VideoUpload_SelectClient" xml:space="preserve">
+    <value>选择Google桌面应用客户端JSON</value>
+  </data>
+  <data name="VideoUpload_PreviewUnavailable" xml:space="preserve">
+    <value>无法将此文件作为视频打开。请打开所在文件夹进行检查。</value>
+  </data>
+  <data name="VideoUpload_NoFile" xml:space="preserve">
+    <value>尚无已编码的视频</value>
+  </data>
+  <data name="VideoUpload_NotConnected" xml:space="preserve">
+    <value>未连接</value>
+  </data>
+  <data name="VideoUpload_ConnectionLifetime" xml:space="preserve">
+    <value>重新打开项目后需要重新连接。</value>
+  </data>
+  <data name="VideoUpload_InvalidDescription" xml:space="preserve">
+    <value>说明不能超过5,000个UTF-8字节，且不能包含 &lt; 或 &gt;。</value>
+  </data>
 </root>

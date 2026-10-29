@@ -23,11 +23,13 @@ public sealed class YouTubeUploadContext : IVideoUploadContext
                 (signedIn, signingIn) => signingIn ? Strings.VideoUpload_SigningIn
                     : signedIn ? Strings.VideoUpload_SignedIn : Strings.VideoUpload_NotConnected)
             .ToReadOnlyReactivePropertySlim().DisposeWith(_subscriptions);
-        IsReady = IsSignedIn.CombineLatest(Audience, Title, Description,
-                (signedIn, audience, title, description) => signedIn && audience != null
+        DescriptionError = Description.Select(description => IsDescriptionValid(description)
+                ? null : Strings.VideoUpload_InvalidDescription)
+            .ToReadOnlyReactivePropertySlim().DisposeWith(_subscriptions);
+        IsReady = IsSignedIn.CombineLatest(Audience, Title, DescriptionError,
+                (signedIn, audience, title, descriptionError) => signedIn && audience != null
                     && title.Length <= 100 && !title.Contains('<') && !title.Contains('>')
-                    && System.Text.Encoding.UTF8.GetByteCount(description) <= 5000
-                    && !description.Contains('<') && !description.Contains('>'))
+                    && descriptionError == null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_subscriptions);
     }
@@ -51,6 +53,7 @@ public sealed class YouTubeUploadContext : IVideoUploadContext
     public ReactivePropertySlim<bool> IsSigningIn { get; } = new();
     public ReactivePropertySlim<string> ConnectionMessage { get; } = new("");
     public ReadOnlyReactivePropertySlim<string?> ConnectionStatus { get; }
+    public ReadOnlyReactivePropertySlim<string?> DescriptionError { get; }
     public ReadOnlyReactivePropertySlim<bool> IsReady { get; }
     IReadOnlyReactiveProperty<bool> IVideoUploadContext.IsReady => IsReady;
 
@@ -136,8 +139,7 @@ public sealed class YouTubeUploadContext : IVideoUploadContext
         string title = string.IsNullOrWhiteSpace(Title.Value)
             ? Path.GetFileNameWithoutExtension(filePath) : Title.Value.Trim();
         if (title.Length is 0 or > 100 || title.Contains('<') || title.Contains('>')
-            || System.Text.Encoding.UTF8.GetByteCount(Description.Value) > 5000
-            || Description.Value.Contains('<') || Description.Value.Contains('>')
+            || !IsDescriptionValid(Description.Value)
             || Audience.Value is null)
             throw new InvalidOperationException(Strings.VideoUpload_InvalidMetadata);
 
@@ -151,6 +153,10 @@ public sealed class YouTubeUploadContext : IVideoUploadContext
             }
         };
     }
+
+    private static bool IsDescriptionValid(string description)
+        => System.Text.Encoding.UTF8.GetByteCount(description) <= 5000
+           && !description.Contains('<') && !description.Contains('>');
 
     public void WriteToJson(JsonObject json)
     {
