@@ -300,8 +300,7 @@ public sealed class ListPortDragBehavior : Behavior<NodePortPoint>
                 && AssociatedObject.Tag is ConnectionViewModel connVM
                 && AssociatedObject.DataContext is NodePortViewModel portVM)
             {
-                portVM.DisconnectConnection(connVM);
-                portVM.TryConnect(targetVM);
+                portVM.RewireListSlot(connVM, targetVM);
             }
         }
     }

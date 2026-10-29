@@ -270,6 +270,64 @@ public class NodeGraphDragTests
         });
     }
 
+    public enum SlotDrop { OwnPlaceholder, AnotherInput, AnotherOutput }
+
+    [AvaloniaTest]
+    [TestCase(SlotDrop.OwnPlaceholder)]
+    [TestCase(SlotDrop.AnotherInput)]
+    [TestCase(SlotDrop.AnotherOutput)]
+    public void Dragging_a_list_slot_sideways_rewires_it_in_place_or_keeps_it(SlotDrop drop)
+    {
+        var first = new ExpressionNode { Position = { Value = (20, 20) } };
+        var second = new ExpressionNode { Position = { Value = (20, 220) } };
+        var third = new ExpressionNode { Position = { Value = (20, 400) } };
+        var target = new ExpressionNode { Position = { Value = (380, 40) } };
+        using var scope = PortScope.Create(first, second, third, target);
+        scope.Graph.Connect(target.InputPort, first.Output);
+        scope.Graph.Connect(target.InputPort, second.Output);
+        scope.History.Commit();
+        HeadlessTestHelpers.Render(3);
+        int undoCount = scope.History.UndoCount;
+        NodePortPoint slot = scope.View.GetVisualDescendants().OfType<NodePortPoint>()
+            .Where(p => p.Tag is ConnectionViewModel && p.DataContext is InputPortViewModel input && input.Model == target.InputPort)
+            .MinBy(p => p.TranslatePoint(default, scope.Window)!.Value.Y)!;
+        NodePortPoint dropPoint = drop switch
+        {
+            SlotDrop.OwnPlaceholder => scope.Socket(target.InputPort),
+            SlotDrop.AnotherInput => scope.Socket(first.InputPort),
+            _ => scope.Socket(third.Output),
+        };
+        Point start = slot.TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+        Point end = dropPoint.TranslatePoint(new Point(5, 5), scope.Window)!.Value;
+
+        scope.Window.MouseMove(start);
+        scope.Window.MouseDown(start, MouseButton.Left);
+        scope.Window.MouseMove(start + new Vector(-20, 0), RawInputModifiers.LeftMouseButton);
+        scope.Window.MouseMove(end, RawInputModifiers.LeftMouseButton);
+        Assert.That(scope.History.IsEditing, Is.True, "The drag must hold an edit session.");
+        scope.Window.MouseUp(end, MouseButton.Left);
+        HeadlessTestHelpers.Render(3);
+
+        bool rewired = drop == SlotDrop.AnotherOutput;
+        Assert.Multiple(() =>
+        {
+            Assert.That(SlotSources(), Is.EqualTo(rewired
+                ? new object[] { third.Output, second.Output }
+                : new object[] { first.Output, second.Output }));
+            Assert.That(scope.History.UndoCount, Is.EqualTo(undoCount + (rewired ? 1 : 0)));
+            Assert.That(scope.History.IsEditing, Is.False);
+            Assert.That(scope.Lines(), Is.EqualTo(2), "The drag wire is gone and each slot keeps its wire.");
+        });
+
+        if (rewired)
+        {
+            scope.History.Undo();
+            Assert.That(SlotSources(), Is.EqualTo(new object[] { first.Output, second.Output }), "One Undo restores the slot.");
+        }
+
+        object?[] SlotSources() => [.. target.InputPort.Connections.Select(c => c.Value!.Output.Value.Value)];
+    }
+
     private sealed class PortScope : IDisposable
     {
         private readonly CoreObjectOperationObserver _observer;

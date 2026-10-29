@@ -36,6 +36,12 @@ public interface INodeGraphMutationService
     /// when the port is not list-typed; commits <c>MoveConnection</c> on success.</summary>
     bool MoveConnectionSlot(INodePort port, int oldIndex, int newIndex);
 
+    /// <summary>Moves the output end of <paramref name="connection"/>, a slot of an <see cref="IListInputPort"/>,
+    /// to <paramref name="port"/> on <paramref name="node"/> (null for a dynamic-port node) and keeps the slot's
+    /// place. Commits one <c>MoveConnection</c>; returns false and keeps the connection when the port cannot
+    /// take it or already feeds the slot.</summary>
+    bool RewireListSlot(GraphModel graph, Connection connection, GraphNode node, INodePort? port);
+
     /// <summary>Idempotent port rename.</summary>
     bool RenamePort(INodePort port, string newName);
 
