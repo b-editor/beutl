@@ -35,7 +35,7 @@ public sealed class SampleMcpToolExtension : McpToolExtension
             return new(McpToolResult.Error("Open a scene in the Beutl editor first."));
 
         int layer = call.Arguments.GetProperty("layer").GetInt32();
-        int count = scene.Children.Count(element => element.ZIndex == layer);
+        int count = scene.Children.Count(element => element.ZIndex.Value == layer);
         var value = new JsonObject { ["layer"] = layer, ["count"] = count };
         return new(McpToolResult.Json(JsonSerializer.SerializeToElement(value)));
     }
