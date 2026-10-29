@@ -26,6 +26,7 @@ using Beutl.Services;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
 using FluentAvalonia.UI.Controls;
+using GradientSpreadMethod = Beutl.Media.GradientSpreadMethod;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
 
 namespace Beutl.HeadlessUITests;
@@ -146,8 +147,8 @@ public class ElementTransitionTimelineTests
                 (typeof(CheckerboardTransition), [GraphicsStrings.CheckerboardTransition_Columns, GraphicsStrings.CheckerboardTransition_Rows]),
                 (typeof(WipeTransition), [GraphicsStrings.WipeTransition_Shape, GraphicsStrings.WipeTransition_LinearDirection, GraphicsStrings.WipeTransition_Clockwise]),
                 (typeof(IrisTransition), [GraphicsStrings.Direction]),
-                (typeof(ZoomTransition), [GraphicsStrings.Direction]),
-                (typeof(ZoomBlurTransition), [GraphicsStrings.ClipTransition_Strength, GraphicsStrings.Direction]),
+                (typeof(ZoomTransition), [GraphicsStrings.Direction, GraphicsStrings.TileBrush_TileMode]),
+                (typeof(ZoomBlurTransition), [GraphicsStrings.ClipTransition_Strength, GraphicsStrings.Direction, GraphicsStrings.TileBrush_TileMode]),
                 (typeof(WhipPanTransition), [GraphicsStrings.ClipTransition_Strength, GraphicsStrings.Direction]),
                 (typeof(GlitchTransition), [GraphicsStrings.ClipTransition_Strength]),
                 (typeof(LightLeakTransition), [GraphicsStrings.ClipTransition_Strength]),
@@ -187,10 +188,16 @@ public class ElementTransitionTimelineTests
                     case ZoomTransition zoom:
                         CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<ZoomTransitionDirection>>().Single(),
                             () => zoom.Direction.Value, ZoomTransitionDirection.Out);
+                        foreach (GradientSpreadMethod tileMode in new[] { GradientSpreadMethod.Pad, GradientSpreadMethod.Reflect, GradientSpreadMethod.Repeat })
+                            CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<GradientSpreadMethod>>().Single(),
+                                () => zoom.TileMode.Value, tileMode);
                         break;
                     case ZoomBlurTransition zoomBlur:
                         CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<ZoomTransitionDirection>>().Single(),
                             () => zoomBlur.Direction.Value, ZoomTransitionDirection.Out);
+                        foreach (GradientSpreadMethod tileMode in new[] { GradientSpreadMethod.Pad, GradientSpreadMethod.Reflect, GradientSpreadMethod.Repeat })
+                            CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<GradientSpreadMethod>>().Single(),
+                                () => zoomBlur.TileMode.Value, tileMode);
                         break;
                 }
 

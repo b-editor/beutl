@@ -174,11 +174,26 @@ public partial class TransitionRenderTests
 
     [TestCaseSource(nameof(s_stylizedTransitions))]
     public void StylizedTransitions_RenderDetailedPreview(Type type)
+        => RenderDetailedPreview(type);
+
+    [Test]
+    public void ZoomTileModes_RenderDetailedPreview(
+        [Values(typeof(ZoomTransition), typeof(ZoomBlurTransition))] Type type,
+        [Values] GradientSpreadMethod tileMode)
+        => RenderDetailedPreview(type, tileMode);
+
+    private static void RenderDetailedPreview(Type type, GradientSpreadMethod? zoomTileMode = null)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var transition = (ClipTransition)Activator.CreateInstance(type)!;
+            if (zoomTileMode is { } tileMode)
+            {
+                ZoomTileModeOf(transition).Value = tileMode;
+                if (transition is ZoomTransition zoom) zoom.Direction.Value = ZoomTransitionDirection.Out;
+                else ((ZoomBlurTransition)transition).Direction.Value = ZoomTransitionDirection.Out;
+            }
             var scene = new Scene(480, 270, string.Empty);
             for (int side = 0; side < 2; side++)
             {
@@ -217,8 +232,9 @@ public partial class TransitionRenderTests
 
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
             string? root = Environment.GetEnvironmentVariable("BEUTL_HEADLESS_CAPTURE_DIR");
-            int frameCount = root is { Length: > 0 } ? 61 : 3;
-            string? directory = root is { Length: > 0 } ? Path.Combine(root, type.Name) : null;
+            int frameCount = root is { Length: > 0 } && zoomTileMode == null ? 61 : 3;
+            string name = zoomTileMode is { } mode ? $"{type.Name}-{mode}" : type.Name;
+            string? directory = root is { Length: > 0 } ? Path.Combine(root, name) : null;
             if (directory != null) Directory.CreateDirectory(directory);
             for (int frame = 0; frame < frameCount; frame++)
             {
@@ -226,7 +242,10 @@ public partial class TransitionRenderTests
                 renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
                 using Bitmap snapshot = renderer.Snapshot();
                 using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
-                Assert.That(bitmap.GetPixelSpan<Bgra8888>().ToArray().Min(p => p.A), Is.GreaterThanOrEqualTo(254));
+                if (zoomTileMode != GradientSpreadMethod.Decal || progress is 0 or 1)
+                    Assert.That(bitmap.GetPixelSpan<Bgra8888>().ToArray().Min(p => p.A), Is.GreaterThanOrEqualTo(254));
+                else
+                    Assert.That(bitmap.GetPixelSpan<Bgra8888>().ToArray().Any(p => p.A == 0), Is.True);
                 if (directory != null) Assert.That(bitmap.Save(Path.Combine(directory, $"{frame:000}.png")), Is.True);
             }
         });

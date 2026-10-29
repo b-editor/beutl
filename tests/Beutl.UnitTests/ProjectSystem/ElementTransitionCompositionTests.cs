@@ -700,8 +700,8 @@ public class ElementTransitionCompositionTests
             new WipeTransition { Shape = { Value = WipeTransitionShape.Box } },
             new WipeTransition { Shape = { Value = WipeTransitionShape.Diamond } },
             new IrisTransition { Direction = { Value = IrisTransitionDirection.Out } },
-            new ZoomTransition { Direction = { Value = ZoomTransitionDirection.Out } },
-            new ZoomBlurTransition { Strength = { Value = 40 }, Direction = { Value = ZoomTransitionDirection.Out } },
+            new ZoomTransition { Direction = { Value = ZoomTransitionDirection.Out }, TileMode = { Value = GradientSpreadMethod.Reflect } },
+            new ZoomBlurTransition { Strength = { Value = 40 }, Direction = { Value = ZoomTransitionDirection.Out }, TileMode = { Value = GradientSpreadMethod.Repeat } },
             new WhipPanTransition { Strength = { Value = 80 }, Direction = { Value = ClipTransitionDirection.BottomToTop } },
             new GlitchTransition { Strength = { Value = 35 } },
             new LightLeakTransition { Strength = { Value = 90 } },
@@ -726,7 +726,7 @@ public class ElementTransitionCompositionTests
     [Test]
     public void ExistingTransitions_KeepTheirDefaultsWhenTheNewOptionsAreAbsent()
     {
-        foreach (ClipTransition transition in new ClipTransition[] { new WipeTransition(), new IrisTransition(), new ZoomTransition() })
+        foreach (ClipTransition transition in new ClipTransition[] { new WipeTransition(), new IrisTransition(), new ZoomTransition(), new ZoomBlurTransition() })
         {
             JsonObject json = CoreSerializer.SerializeToJsonObject(transition);
             if (transition is WipeTransition)
@@ -737,6 +737,7 @@ public class ElementTransitionCompositionTests
             else
             {
                 json.Remove(nameof(IrisTransition.Direction));
+                json.Remove(nameof(ZoomTransition.TileMode));
             }
 
             var restored = (ClipTransition)CoreSerializer.DeserializeFromJsonObject(json, transition.GetType());

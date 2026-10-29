@@ -192,14 +192,25 @@ public readonly struct ClipTransitionContext
     // Both sides dissolve around the centre, using reciprocal scales when zooming out.
     public void DrawZoom() => DrawZoom(zoomOut: false);
 
-    public void DrawZoom(bool zoomOut)
+    public void DrawZoom(bool zoomOut) => DrawZoom(zoomOut, GradientSpreadMethod.Decal);
+
+    public void DrawZoom(bool zoomOut, GradientSpreadMethod tileMode)
     {
         float scale = zoomOut ? 1 / ZoomScale : ZoomScale;
         using (PushIsolation())
         {
-            DrawPicture(from, ScaleAboutCenter(1 + ((scale - 1) * progress)), 1 - progress, BlendMode.SrcOver);
-            DrawPicture(to, ScaleAboutCenter(scale - ((scale - 1) * progress)), progress, BlendMode.Plus);
+            DrawZoomSide(from, 1 + ((scale - 1) * progress), 1 - progress, BlendMode.SrcOver, tileMode);
+            DrawZoomSide(to, scale - ((scale - 1) * progress), progress, BlendMode.Plus, tileMode);
         }
+    }
+
+    private void DrawZoomSide(IReadOnlyList<Drawable.Resource> drawables, float scale, float weight, BlendMode blendMode, GradientSpreadMethod tileMode)
+    {
+        // Keep the vector path when no pixels outside the frame are needed.
+        if (tileMode == GradientSpreadMethod.Decal || scale >= 1)
+            DrawPicture(drawables, ScaleAboutCenter(scale), weight, blendMode);
+        else
+            StylizedTransitionRenderer.DrawZoomSide(this, drawables, scale, weight, blendMode, tileMode);
     }
 
     // The incoming clip shows where the mask is opaque and the outgoing clip where it is clear; the two

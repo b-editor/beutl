@@ -13,6 +13,7 @@ internal enum TransitionStyle
     WhipPan,
     Glitch,
     LightLeak,
+    CrossZoom,
 }
 
 // Two whole-frame shader passes use the renderer's program cache. No native shader or image outlives a
@@ -21,7 +22,8 @@ internal static class StylizedTransitionRenderer
 {
     public static void Draw(
         ClipTransitionContext context, TransitionStyle style, float strength,
-        ClipTransitionDirection direction = ClipTransitionDirection.LeftToRight, bool zoomOut = false)
+        ClipTransitionDirection direction = ClipTransitionDirection.LeftToRight, bool zoomOut = false,
+        GradientSpreadMethod tileMode = GradientSpreadMethod.Decal)
     {
         float progress = context.Progress;
         if (progress <= 0 || progress >= 1)
@@ -41,13 +43,22 @@ internal static class StylizedTransitionRenderer
             ? SmoothStep(0.45f, 0.55f, progress)
             : SmoothStep(0.35f, 0.65f, progress);
         Vector travel = ClipTransitionContext.GetDirection(direction);
-        var state = new ShaderState(style, context.Graphics.Size, progress, strength, false, new Vector2(travel.X, travel.Y), zoomOut);
+        var state = new ShaderState(style, context.Graphics.Size, progress, strength, false, new Vector2(travel.X, travel.Y), zoomOut, tileMode);
         using (context.PushIsolation())
         {
             // Glitch's cut varies by scan band. Its shaders apply complementary weights themselves.
             DrawSide(context, context.From, state, style == TransitionStyle.Glitch ? 1 : 1 - blend, BlendMode.SrcOver);
             DrawSide(context, context.To, state with { Incoming = true }, style == TransitionStyle.Glitch ? 1 : blend, BlendMode.Plus);
         }
+    }
+
+    public static void DrawZoomSide(
+        ClipTransitionContext context, IReadOnlyList<Drawable.Resource> drawables,
+        float scale, float weight, BlendMode blendMode, GradientSpreadMethod tileMode)
+    {
+        var state = new ShaderState(TransitionStyle.CrossZoom, context.Graphics.Size, context.Progress,
+            0, false, Vector2.Zero, false, tileMode, scale);
+        DrawSide(context, drawables, state, weight, blendMode);
     }
 
     private static float SmoothStep(float start, float end, float value)
@@ -75,7 +86,8 @@ internal static class StylizedTransitionRenderer
     }
 
     private readonly record struct ShaderState(
-        TransitionStyle Style, Size Size, float Progress, float Strength, bool Incoming, Vector2 Direction, bool ZoomOut);
+        TransitionStyle Style, Size Size, float Progress, float Strength, bool Incoming, Vector2 Direction, bool ZoomOut,
+        GradientSpreadMethod TileMode, float Scale = 1);
 
     private sealed class TransitionShaderNode(ShaderState state) : ContainerRenderNode
     {
@@ -106,6 +118,10 @@ internal static class StylizedTransitionRenderer
                     bindings.Uniform("parameters", new Vector4(value.Progress, value.Strength, value.Incoming ? 1 : 0, value.ZoomOut ? -1 : 1));
                     if (value.Style == TransitionStyle.WhipPan)
                         bindings.Uniform("direction", value.Direction);
+                    if (value.Style is TransitionStyle.ZoomBlur or TransitionStyle.CrossZoom)
+                        bindings.Uniform("tileMode", (int)value.TileMode.ToSKShaderTileMode());
+                    if (value.Style == TransitionStyle.CrossZoom)
+                        bindings.Uniform("scale", value.Scale);
                 },
                 SKShaderTileMode.Decal,
                 hitTest: RenderHitTestContract.OutputBounds);
@@ -127,9 +143,24 @@ internal static class StylizedTransitionRenderer
         }
         """;
 
+    private const string ZoomSamplingSource = """
+
+        uniform int tileMode;
+
+        half4 sampleZoomFrame(float2 uv) {
+            // SKShaderTileMode: Clamp = 0, Repeat = 1, Mirror = 2, Decal = 3.
+            if (tileMode == 3) return src.eval(uv * resolution);
+            if (tileMode == 1) uv = fract(uv);
+            else if (tileMode == 2) uv = 1.0 - abs(mod(uv, 2.0) - 1.0);
+            // Tile the whole frame, including transparent margins, rather than the input's tight bounds.
+            // Sampling texel centres avoids a transparent seam along a padded or repeated frame edge.
+            return src.eval(clamp(uv * resolution, float2(0.5), resolution - 0.5));
+        }
+        """;
+
     private static readonly SkslSource[] s_sources =
     [
-        new(CommonSource + """
+        new(CommonSource + ZoomSamplingSource + """
 
             half4 main(float2 coord) {
                 float p = parameters.x;
@@ -146,8 +177,7 @@ internal static class StylizedTransitionRenderer
                     float weight = 1.0 - abs(t * 2.0 - 1.0) * 0.7;
                     float scale = zoom / (1.0 - blur * t);
                     if (parameters.w < 0.0) scale = 1.0 / scale;
-                    // Decal sampling leaves the space around a shrinking frame transparent.
-                    color += src.eval((0.5 + offset / scale) * resolution) * half(weight);
+                    color += sampleZoomFrame(0.5 + offset / scale) * half(weight);
                     total += weight;
                 }
                 return color / half(total);
@@ -219,6 +249,13 @@ internal static class StylizedTransitionRenderer
                 glow = clamp(glow * parameters.y * pulse * pulse, 0.0, 1.0);
                 // Light changes the existing pixels' color, never the transparency of an empty clip.
                 return half4(mix(color.rgb, half3(color.a), half3(glow)), color.a);
+            }
+            """, ShaderDescriptionKind.WholeSource),
+        new(CommonSource + ZoomSamplingSource + """
+
+            uniform float scale;
+            half4 main(float2 coord) {
+                return sampleZoomFrame(0.5 + (coord / resolution - 0.5) / scale);
             }
             """, ShaderDescriptionKind.WholeSource),
     ];

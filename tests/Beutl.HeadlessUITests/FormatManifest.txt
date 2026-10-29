@@ -614,10 +614,10 @@ Beutl.Utilities
   keys: Animations, Clockwise, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Shape
 [Beutl.Engine]Beutl.Graphics.Transitions:ZoomBlurTransition
   sealed
-  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength, TileMode
 [Beutl.Engine]Beutl.Graphics.Transitions:ZoomTransition
   sealed
-  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, TileMode
 [Beutl.Engine]Beutl.Graphics3D.Camera:Camera3D
   abstract
 [Beutl.Engine]Beutl.Graphics3D.Camera:OrthographicCamera

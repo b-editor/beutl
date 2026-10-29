@@ -264,12 +264,14 @@ public partial class TransitionRenderTests
     [Test]
     public void ZoomDirection_ExpandsOrShrinksAnInsetWithoutFillingItsTransparentSurroundings(
         [Values(typeof(ZoomTransition), typeof(ZoomBlurTransition))] Type type,
-        [Values(1f, 0.5f)] float scale)
+        [Values(1f, 0.5f)] float scale,
+        [Values] GradientSpreadMethod tileMode)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var transition = (ClipTransition)Activator.CreateInstance(type)!;
+            ZoomTileModeOf(transition).Value = tileMode;
             (Scene scene, RectShape incoming) = CreateScene(transition, withOutgoing: false);
             incoming.Width.Value = incoming.Height.Value = 16;
             incoming.Fill.Value = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255));
@@ -284,7 +286,10 @@ public partial class TransitionRenderTests
                     renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(progress)));
                     using Bitmap snapshot = renderer.Snapshot();
                     using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
-                    Assert.That(Pixel(bitmap, 0, 0).A, Is.Zero, "empty surroundings must not gain reflected copies");
+                    Assert.That(Pixel(bitmap, (int)(12 * scale), (int)(16 * scale)).A, Is.Zero,
+                        "tile the frame's transparent margins, not the inset's tight bounds");
+                    if (tileMode == GradientSpreadMethod.Decal)
+                        Assert.That(Pixel(bitmap, 0, 0).A, Is.Zero, "decal must not introduce repeated copies");
                     if (progress == 0)
                         Assert.That(bitmap.GetPixelSpan<Bgra8888>().ToArray().All(p => p.A == 0), Is.True);
                     else if (progress == 1)
