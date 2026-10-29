@@ -1,5 +1,4 @@
 ﻿using System.Runtime.CompilerServices;
-using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Engine;
@@ -24,11 +23,6 @@ internal static class SilenceWaveform
 
         using var composer = new Composer { SampleRate = sampleRate };
         using var compositor = new SceneCompositor(scene) { ForceOriginalSource = true };
-        // Follow the composed resources, including flow groups and referenced scenes. Playback
-        // substitutes zeroes for offline sources; those must stay unknown during silence analysis.
-        bool unreadable = await ComposeThread.Dispatcher.InvokeAsync(() => HasUnreadableSources(
-            compositor.EvaluateElementAudio(element, range).Objects, new HashSet<Scene>()), DispatchPriority.Low, cancellationToken);
-        if (unreadable) yield break;
         // Compose about one second per dispatch, then reduce it into small envelope bins. This
         // avoids tens of thousands of dispatcher hops and preserves state across contiguous blocks.
         int batchSize = Math.Max(1, (int)Math.Min(chunkCount, sampleRate * (long)chunkCount / totalSamples));
@@ -45,7 +39,9 @@ internal static class SilenceWaveform
                 int count = checked((int)(end - start));
                 var window = new TimeRange(range.Start + MediaTime.FromSamples(start, sampleRate),
                     AudioProcessContext.GetDurationForSampleCount(count, sampleRate));
+                using var reads = new AudioReadScope();
                 using var buffer = composer.Compose(window, compositor.EvaluateElementAudio(element, window));
+                if (reads.HasFailures) throw new InvalidDataException("Audio could not be read.");
                 var result = new WaveformChunk[to - from];
                 for (int i = from; i < to; i++)
                 {
@@ -74,23 +70,5 @@ internal static class SilenceWaveform
         }
 
         long Position(int index) => (long)((Int128)index * totalSamples / chunkCount);
-    }
-
-    private static bool HasUnreadableSources(IEnumerable<EngineObject.Resource> resources, HashSet<Scene> visited)
-    {
-        foreach (var resource in resources.OfType<Sound.Resource>())
-        {
-            if (!resource.RequireOriginal().IsEnabled.Value) continue;
-            if (resource is SourceSound.Resource source &&
-                (source.Source == null || source.Source.SampleRate <= 0 || source.Source.Duration <= MediaTime.Zero)) return true;
-            if (resource is SoundGroup.Resource group && HasUnreadableSources(group.Children, visited)) return true;
-            if (resource is SceneSound.Resource referenced)
-            {
-                if (referenced.ReferencedScene is not { } scene || referenced._compositor is not { } compositor) return true;
-                if (visited.Add(scene) && HasUnreadableSources(compositor.EvaluateAudio(
-                        new TimeRange(scene.Start.Value, scene.Duration.Value)).Objects, visited)) return true;
-            }
-        }
-        return false;
     }
 }

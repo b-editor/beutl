@@ -58,6 +58,7 @@ public abstract partial class Sound : EngineObject
         // ResampleNode at zero rate would throw, so emit silence instead.
         if (soundSource == null || soundSource.SampleRate <= 0)
         {
+            AudioReadScope.AddUnavailableSource(context, TimeRange.Value);
             return;
         }
 

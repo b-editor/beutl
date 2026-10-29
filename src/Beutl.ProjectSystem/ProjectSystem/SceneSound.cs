@@ -38,6 +38,7 @@ public sealed partial class SceneSound : Sound, ISplittable
         if (r.ReferencedScene == null)
         {
             context.Clear();
+            AudioReadScope.AddUnavailableSource(context, TimeRange.Value);
             return;
         }
 
@@ -99,6 +100,7 @@ public sealed partial class SceneSound : Sound, ISplittable
             var compositor = _resource?._compositor;
             if (scene == null || compositor == null)
             {
+                AudioReadScope.ReportFailure();
                 return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
             }
 

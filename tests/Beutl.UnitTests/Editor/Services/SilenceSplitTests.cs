@@ -1,9 +1,12 @@
 ﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Beutl.Audio;
+using Beutl.Audio.Composing;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
 using Beutl.UnitTests.Engine.Graphics.Rendering;
@@ -16,6 +19,100 @@ public class SilenceSplitTests
 {
     private static MediaTime Seconds(double value) => MediaTime.FromSeconds(value);
     private static TimeRange Range(double start, double end) => TimeRange.FromRange(Seconds(start), Seconds(end));
+
+    [TestCase(0, 100, false, true)]
+    [TestCase(0, 100, true, true)]
+    [TestCase(28, 100, false, true)]
+    [TestCase(28, 200, false, false)]
+    [TestCase(30, 100, true, false)]
+    [TestCase(40, 100, false, true)]
+    public async Task Analysis_ChecksOnlyTheReferencedWindow(double offset, float speed, bool inGroup, bool readable)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 40)));
+        using var h = new SceneHistoryHarness("silence-reference-window");
+        var nested = new Scene(100, 100, "trimmed") { Start = { Value = Seconds(5) }, Duration = { Value = Seconds(40) } };
+        var good = new SourceSound { Source = { Value = source }, Gain = { Value = 0 }, TimeRange = { Value = Range(5, 35) } };
+        var missing = new SourceSound { Source = { Value = new SoundSource() }, TimeRange = { Value = Range(35, 45) } };
+        if (inGroup)
+        {
+            var group = new SoundGroup();
+            group.Children.Add(good);
+            group.Children.Add(missing);
+            var child = new Element { Start = { Value = Seconds(5) }, Length = { Value = Seconds(40) } };
+            child.Objects.Add(group);
+            nested.Children.Add(child);
+        }
+        else
+        {
+            foreach (var sound in new[] { good, missing })
+            {
+                var child = new Element { Start = { Value = sound.TimeRange.Value.Start }, Length = { Value = sound.TimeRange.Value.Duration } };
+                child.Objects.Add(sound);
+                nested.Children.Add(child);
+            }
+        }
+        var element = h.AddElement(Seconds(7), Seconds(2));
+        element.Objects.Add(new SceneSound { ReferencedScene = { Value = nested }, OffsetPosition = { Value = Seconds(offset) }, Speed = { Value = speed } });
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        await model.AnalyzeAsync();
+        Assert.That(model.CanApply.Value, Is.EqualTo(readable), model.Status.Value);
+        Assert.That(model.Ranges.Count, Is.EqualTo(readable ? 1 : 0));
+    }
+
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    public async Task Analysis_DistinguishesFailedReadsFromEndOfStream(bool nested, bool fail)
+    {
+        using var h = new SceneHistoryHarness("silence-decode");
+        string path = Path.Combine(h.BasePath, "audio.silence-test");
+        File.WriteAllBytes(path, []);
+        var decoder = new ReadFailureDecoder(path, fail);
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(path));
+            var element = h.AddElement(Seconds(0), Seconds(3));
+            var sound = new SourceSound { Source = { Value = source }, TimeRange = { Value = Range(0, 3) } };
+            if (nested)
+            {
+                var scene = new Scene(100, 100, "nested") { Duration = { Value = Seconds(3) } };
+                var child = new Element { Length = { Value = Seconds(3) } };
+                var group = new SoundGroup();
+                group.Children.Add(sound);
+                child.Objects.Add(group);
+                scene.Children.Add(child);
+                element.Objects.Add(new SceneSound { ReferencedScene = { Value = scene } });
+            }
+            else element.Objects.Add(sound);
+            var video = h.AddElement(Seconds(0), Seconds(3), 1);
+            h.Scene.Groups.Add([element.Id.Value, video.Id.Value]);
+            using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+            await model.AnalyzeAsync();
+            Assert.That(decoder.SuccessfulReads, Is.GreaterThan(0));
+            Assert.That(decoder.FailedReads > 0, Is.EqualTo(fail));
+            Assert.That(model.CanApply.Value, Is.EqualTo(!fail), model.Status.Value);
+            Assert.That(model.Ranges.Count, Is.EqualTo(fail ? 0 : 1));
+            if (fail)
+            {
+                model.ModeIndex.Value = (int)SilenceSplitMode.DeleteSilence;
+                await model.ApplyAsync();
+                Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { element, video }));
+            }
+
+            // Normal playback still uses its silent fallback, even after analysis failed.
+            using var compositor = new SceneCompositor(h.Scene);
+            using var composer = new Composer();
+            using var output = composer.Compose(Range(1, 2), compositor.EvaluateAudio(Range(1, 2)));
+            Assert.That(output, Is.Not.Null);
+            Assert.That(output!.GetChannelData(0).ToArray(), Is.All.Zero);
+        }
+        finally { DecoderRegistry.Unregister(decoder); }
+    }
 
     [TestCase(false, false, false)]
     [TestCase(true, false, false)]
@@ -284,5 +381,37 @@ public class SilenceSplitTests
         Assert.That(e.Length.Value, Is.EqualTo(Seconds(5)));
         Assert.That(h.History.UndoCount, Is.EqualTo(before));
         Assert.That(h.History.HasPendingOperations, Is.False);
+    }
+
+    private sealed class ReadFailureDecoder(string path, bool fail) : IDecoderInfo
+    {
+        public int SuccessfulReads { get; private set; }
+        public int FailedReads { get; private set; }
+        public string Name => "Silence read failure test";
+        public IEnumerable<string> VideoExtensions() => [];
+        public IEnumerable<string> AudioExtensions() => [".silence-test"];
+        public MediaReader? Open(string file, MediaOptions options) => file == path ? new Reader(this, fail) : null;
+
+        private sealed class Reader(ReadFailureDecoder owner, bool fail) : MediaReader
+        {
+            public override VideoStreamInfo VideoInfo => throw new NotSupportedException();
+            public override AudioStreamInfo AudioInfo { get; } = new("test", fail ? new Rational(3) : new Rational(3, 2), 44100, 2);
+            public override bool HasVideo => false;
+            public override bool HasAudio => true;
+            public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image) { image = null; return false; }
+            public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
+            {
+                if (fail && start >= AudioInfo.SampleRate)
+                {
+                    owner.FailedReads++;
+                    sound = null;
+                    return false;
+                }
+                owner.SuccessfulReads++;
+                int remaining = (int)(AudioInfo.Duration.ToDouble() * AudioInfo.SampleRate) - start;
+                sound = new AudioBuffer(AudioInfo.SampleRate, 2, Math.Clamp(remaining, 0, length));
+                return true;
+            }
+        }
     }
 }
