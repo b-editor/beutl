@@ -13,9 +13,9 @@ using Beutl.ProjectSystem;
 
 namespace Beutl;
 
-public sealed class SceneCompositor : ICompositor
+public sealed partial class SceneCompositor : ICompositor
 {
-    private readonly ConditionalWeakTable<EngineObject, EngineObject.Resource> _resourceCache = new();
+    private readonly ConditionalWeakTable<EngineObject, ResourceEntry> _resourceCache = new();
     private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
     private readonly object _resourceCacheLock = new();
     // One presenter per transition draws it for this compositor; it lives as long as the transition does.
@@ -81,20 +81,46 @@ public sealed class SceneCompositor : ICompositor
             SceneCompositor compositor,
             IList<EngineObject.Resource> flow,
             IList<Element> currentElements,
-            CompositionTarget target) : base(time)
+            CompositionTarget target, EvaluationServices? services = null) : base(time)
         {
             _compositor = compositor;
             CurrentElements = currentElements;
             Target = target;
             Flow = flow;
             DisableResourceShare = compositor.DisableResourceShare;
-            PreferProxy = !compositor.ForceOriginalSource
-                && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy;
-            PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value);
-            TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1));
+            Conditions = new CompositionConditions
+            {
+                PreferProxy = !compositor.ForceOriginalSource
+                    && GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value == PreviewSourceMode.PreferProxy,
+                PreferredProxyPreset = ToPreset(GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.Value),
+                TargetDomain = new Rect(default, compositor.Scene.FrameSize.Value.ToSize(1)),
+                FrameRate = compositor.Scene.FindHierarchicalParent<Project>().GetFrameRate(),
+                EvaluationServices = services?.Fork(compositor, this) ?? new EvaluationServices(compositor, this),
+            };
+        }
+
+        public override CompositionEvaluationSession CreateEvaluationSession()
+            => new SceneEvaluationSession(_compositor.Scene, Target, _compositor.ForceOriginalSource,
+                (EvaluationServices)EvaluationServices!);
+
+        public void InheritConditions(CompositionContext? conditions)
+        {
+            if (conditions is null) return;
+            // A nested scene keeps its own frame domain and query services.
+            Conditions = conditions.Conditions with { TargetDomain = TargetDomain, EvaluationServices = EvaluationServices };
+            DisableResourceShare |= conditions.DisableResourceShare;
+            InputBoundaries = conditions.InputBoundaries;
         }
 
         public IList<Element> CurrentElements { get; set; }
+
+        // A captured context outlives this frame's pooled element list, which is released after evaluation.
+        public override CompositionContext WithTime(MediaTime time)
+        {
+            var result = (CompositorContext)base.WithTime(time);
+            result.CurrentElements = [];
+            return result;
+        }
 
         public CompositionTarget Target { get; set; }
 
@@ -126,8 +152,22 @@ public sealed class SceneCompositor : ICompositor
         }
     }
 
-    public CompositionFrame EvaluateGraphics(MediaTime time)
+    public CompositionFrame EvaluateGraphics(MediaTime time) => EvaluateGraphics(time, null, null);
+
+    /// <summary>Evaluates a frame with the output's actual rate and cancellation policy.</summary>
+    public CompositionFrame EvaluateGraphics(MediaTime time, Rational? frameRate, CancellationToken cancellationToken = default)
+        => EvaluateGraphics(time, null, null, null, cancellationToken, frameRate);
+
+    /// <summary>Evaluates a nested scene while inheriting its caller's evaluation conditions.</summary>
+    internal CompositionFrame EvaluateGraphicsWithContext(MediaTime time, CompositionContext conditions)
+        => EvaluateGraphics(time, null, null, conditions, conditions.CancellationToken, conditions.FrameRate);
+
+    private CompositionFrame EvaluateGraphics(MediaTime time, int? layer, EvaluationServices? services,
+        CompositionContext? conditions = null, CancellationToken cancellationToken = default, Rational? frameRate = null)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        // A layer query evaluates the requester's frame, not one of this compositor's own.
+        if (services is null) BeginQueryGeneration();
         DisposeDetachedResources();
         using var currentElements = new PooledList<Element>();
         SortLayers(time, currentElements, CompositionTarget.Graphics);
@@ -136,28 +176,43 @@ public sealed class SceneCompositor : ICompositor
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
         var ctx = new CompositorContext(time, this, flow, currentElements, CompositionTarget.Graphics);
+        ctx.InheritConditions(conditions);
+        ctx.CancellationToken = cancellationToken;
+        if (frameRate.HasValue) ctx.FrameRate = frameRate.Value;
+        if (services is not null)
+            ctx.EvaluationServices = services;
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (layer.HasValue && currentElements[index].ZIndex.Value != layer.Value) continue;
             flow.Clear();
             CollectResourcesFromElement(currentElements[index], ctx, tmpObjects);
 
             allResources.AddRange(flow.Span);
         }
 
-        return new CompositionFrame(
+        var frame = new CompositionFrame(
             [.. allResources],
             new(time, new MediaTime(1)),
             Scene.FrameSize.Value,
             null)
         {
             ContainsScene3D = ctx.ContainsScene3D,
+            CancellationToken = cancellationToken,
         };
+        if (services is null)
+            ((EvaluationServices)ctx.EvaluationServices!).Frame = frame;
+        return frame;
     }
 
-    public CompositionFrame EvaluateAudio(TimeRange timeRange)
+    public CompositionFrame EvaluateAudio(TimeRange timeRange) => EvaluateAudio(timeRange, null);
+
+    internal CompositionFrame EvaluateAudio(TimeRange timeRange, CompositionContext? conditions)
     {
+        conditions?.CancellationToken.ThrowIfCancellationRequested();
+        BeginQueryGeneration();
         DisposeDetachedResources();
         using var eligibleElements = new PooledList<Element>();
         LayerSnapshot snapshot = GetLayerSnapshot();
@@ -189,7 +244,9 @@ public sealed class SceneCompositor : ICompositor
         using var tmpObjects = new PooledList<EngineObject>();
         using var flow = new PooledList<EngineObject.Resource>();
         using var allResources = new PooledList<EngineObject.Resource>();
-        var ctx = new CompositorContext(timeRange.Start, this, flow, currentElements, CompositionTarget.Audio);
+        var ctx = new CompositorContext(timeRange.Start, this, flow, currentElements, CompositionTarget.Audio,
+            conditions?.EvaluationServices as EvaluationServices);
+        ctx.InheritConditions(conditions);
 
         // 途中でcurrentElementsが変わる可能性があるのでforループで回す
         for (int index = 0; index < currentElements.Count; index++)
@@ -315,24 +372,34 @@ public sealed class SceneCompositor : ICompositor
         }
     }
 
+    private sealed class ResourceEntry(EngineObject.Resource resource, EventHandler<HierarchyAttachmentEventArgs> detached)
+    {
+        public EngineObject.Resource Resource { get; set; } = resource;
+        public EventHandler<HierarchyAttachmentEventArgs> Detached { get; } = detached;
+    }
+
     private EngineObject.Resource GetOrCreateResource(EngineObject obj, CompositionContext context)
     {
-        if (!_resourceCache.TryGetValue(obj, out var resource) || resource.IsDisposed)
+        if (!_resourceCache.TryGetValue(obj, out var entry))
         {
-            AddDetachedHandler(obj);
-            resource = obj.ToResource(context);
-            _resourceCache.AddOrUpdate(obj, resource);
+            var resource = obj.ToResource(context);
+            entry = new ResourceEntry(resource, AddDetachedHandler(obj));
+            _resourceCache.Add(obj, entry);
+        }
+        else if (entry.Resource.IsDisposed)
+        {
+            entry.Resource = obj.ToResource(context);
         }
         else
         {
             bool _ = false;
-            resource.Reconcile(obj, context, ref _);
+            entry.Resource.Reconcile(obj, context, ref _);
         }
 
-        return resource;
+        return entry.Resource;
     }
 
-    private void AddDetachedHandler(EngineObject obj)
+    private EventHandler<HierarchyAttachmentEventArgs> AddDetachedHandler(EngineObject obj)
     {
         var weakRef = new WeakReference<SceneCompositor>(this);
 
@@ -344,12 +411,12 @@ public sealed class SceneCompositor : ICompositor
             {
                 lock (compositor._resourceCacheLock)
                 {
-                    if (compositor._resourceCache.TryGetValue(senderObj, out var resource))
+                    if (compositor._resourceCache.TryGetValue(senderObj, out var entry))
                     {
                         compositor._resourceCache.Remove(senderObj);
                         // Detachment runs on the editing thread while the current frame may still use this
                         // resource's native handles. Transfer ownership before teardown can drain the queue.
-                        compositor._detachedResources.Enqueue(resource);
+                        compositor._detachedResources.Enqueue(entry.Resource);
                     }
                 }
             }
@@ -358,6 +425,7 @@ public sealed class SceneCompositor : ICompositor
         }
 
         obj.DetachedFromHierarchy += Handler;
+        return Handler;
     }
 
     private void DisposeDetachedResources()
@@ -545,6 +613,7 @@ public sealed class SceneCompositor : ICompositor
 
     public void Dispose()
     {
+        DisposeQueryPools();
         Scene.Layers.CollectionChanged -= OnLayersCollectionChanged;
         Scene.Edited -= OnSceneEdited;
         Scene.Children.CollectionChanged -= OnChildrenCollectionChanged;
@@ -559,7 +628,8 @@ public sealed class SceneCompositor : ICompositor
         {
             foreach (var kvp in _resourceCache)
             {
-                _detachedResources.Enqueue(kvp.Value);
+                kvp.Key.DetachedFromHierarchy -= kvp.Value.Detached;
+                _detachedResources.Enqueue(kvp.Value.Resource);
             }
 
             _resourceCache.Clear();

@@ -229,7 +229,7 @@ internal sealed partial class RenderRequestExecutor
             if (requiredRegion.Width == 0 || requiredRegion.Height == 0)
                 return [];
 
-            var inputImages = new List<SKImage>();
+            var inputImages = new List<SurfaceSnapshot.Lease>();
             var executionInputs = new List<RenderExecutionInput>(inputs.Count);
             var outputLeases = new Dictionary<OpaqueRenderOutput, MaterializedRenderValue>(
                 ReferenceEqualityComparer.Instance);
@@ -245,9 +245,9 @@ internal sealed partial class RenderRequestExecutor
                         {
                             MaterializedRenderValue input = inputs[inputIndex];
                             bool requiresReadback = inputReadbacks[inputIndex];
-                            SKImage image = input.Target.Value.Snapshot();
-                            inputImages.Add(image);
-                            executionInputs.Add(CreateExecutionInput(token, input, image, requiresReadback));
+                            var snapshot = SurfaceSnapshot.Take(input.Target.Value);
+                            inputImages.Add(snapshot);
+                            executionInputs.Add(CreateExecutionInput(token, input, snapshot.Image, requiresReadback));
                         }
 
                         // A source whose rasterization reaches outside the bounds it publishes declares the
@@ -368,8 +368,8 @@ internal sealed partial class RenderRequestExecutor
             }
             finally
             {
-                foreach (SKImage image in inputImages)
-                    image.Dispose();
+                foreach (SurfaceSnapshot.Lease snapshot in inputImages)
+                    snapshot.Dispose();
 
                 foreach (MaterializedRenderValue value in outputLeases.Values)
                 {

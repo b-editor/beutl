@@ -121,12 +121,13 @@ public partial class PlayerView
 
     private void FinishEditingInteraction()
     {
-        if (_mouseState is not (MouseControl3DCamera or MouseControlTransformHandles)) return;
+        if (_mouseState is not (MouseControl3DCamera or MouseControlTransformHandles or MouseControlEditingHandle)) return;
         IMouseControlHandler handler = _mouseState;
         // Release capture only after detaching the handler, so CaptureLost cannot roll it back.
         _mouseState = null;
         if (handler is MouseControl3DCamera camera) camera.EndInteraction();
         else if (handler is MouseControlTransformHandles transform) transform.EndInteraction();
+        else if (handler is MouseControlEditingHandle editing) editing.EndInteraction();
     }
 
     private int GetMouseModeIndex(PlayerViewModel viewModel)
@@ -334,6 +335,13 @@ public partial class PlayerView
                     }
 
                     AvaPoint imagePoint = e.GetCurrentPoint(image).Position;
+                    if (transformHandlesOverlay.HitTestEditingHandle(imagePoint) is { } editingHandle)
+                    {
+                        _mouseState = new MouseControlEditingHandle(this, viewModel, editingHandle.Provider, editingHandle.Handle);
+                        _mouseState.OnPressed(e);
+                        framePanel.Focus();
+                        return;
+                    }
                     TransformHandlesOverlay.HandleKind kind = transformHandlesOverlay.HitTest(imagePoint);
                     var handler = CreateTransformHandlesHandler(viewModel, kind);
                     _mouseState = handler;

@@ -154,9 +154,12 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                 // A full-target write in the group - a clear, an opaque raw command - has no recorded value
                 // bounds, so scoping by them would make the isolation scope empty and drop the group's whole
                 // contribution instead of compositing it.
+                // An opaque effect can also move its output beyond the provisional recording hint.
+                // Only concrete input metadata can safely bound an isolation scope.
                 TargetRegion region = context.HasSymbolicInputTargetWrite()
+                    || !context.TryCalculateInputBounds(out Rect bounds)
                     ? TargetRegion.Full
-                    : TargetRegion.Region(context.CalculateRecordedInputBoundsHint());
+                    : TargetRegion.Region(bounds);
                 context.Publish(context.TargetLayerScope(context.Inputs, region));
             }
             else

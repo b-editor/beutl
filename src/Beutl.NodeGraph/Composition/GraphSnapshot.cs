@@ -224,9 +224,7 @@ public sealed class GraphSnapshot : IDisposable
                 Resource = resource,
                 Snapshot = this,
                 DisableResourceShare = context.DisableResourceShare,
-                PreferProxy = context.PreferProxy,
-                PreferredProxyPreset = context.PreferredProxyPreset,
-                TargetDomain = context.TargetDomain,
+                Conditions = context.Conditions,
             };
         }
 
@@ -354,9 +352,7 @@ public sealed class GraphSnapshot : IDisposable
         {
             ctx.Time = context.Time;
             ctx.DisableResourceShare = context.DisableResourceShare;
-            ctx.PreferProxy = context.PreferProxy;
-            ctx.PreferredProxyPreset = context.PreferredProxyPreset;
-            ctx.TargetDomain = context.TargetDomain;
+            ctx.Conditions = context.Conditions;
 
             LoadAnimatedValues(ctx.Resource, ctx.Time);
 

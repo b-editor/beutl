@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace Beutl.Graphics.Effects;
 
-public class CustomFilterEffectContext
+public partial class CustomFilterEffectContext
 {
     private static readonly ILogger s_logger = Log.CreateLogger("CustomFilterEffectContext");
     private readonly Vector _deviceGridOffset;
@@ -49,6 +49,26 @@ public class CustomFilterEffectContext
         _renderTargetLeaseSession = renderTargetLeaseSession;
         _shaderGraphProgramAcquirer = acquireShaderGraphProgram;
     }
+
+    internal SkRuntimeEffectProgramAcquirer? ProgramAcquirer { get; set; }
+    private bool _callbackEnded;
+    internal void EndCallback()
+    {
+        _callbackEnded = true;
+        ProgramAcquirer = null;
+    }
+    internal void ThrowIfCallbackEnded() => ObjectDisposedException.ThrowIf(_callbackEnded, this);
+
+    // Handed to ContinuationEffect and TargetEffect callbacks as arguments.
+    internal FilterEffectContinuation? Continuation { get; set; }
+
+    internal CompositionTargetAccess? TargetAccess { get; set; }
+
+    /// <summary>The individual input an enclosing continuation is executing, or null outside one.</summary>
+    public FilterEffectInstance? Instance { get; internal set; }
+
+    /// <summary>Renders dependencies through the active request, or null when the effect runs outside the renderer.</summary>
+    public RenderExecutionContext? ExecutionContext { get; internal set; }
 
     public EffectTargets Targets { get; }
 
@@ -608,6 +628,7 @@ public class CustomFilterEffectContext
     /// <param name="builder">The Skia filter builder the nested pipeline accumulates into.</param>
     public FilterEffectExecutor CreateExecutor(EffectTargets targets, SKImageFilterBuilder builder)
     {
+        ThrowIfCallbackEnded();
         ArgumentNullException.ThrowIfNull(targets);
         ArgumentNullException.ThrowIfNull(builder);
 
@@ -619,12 +640,14 @@ public class CustomFilterEffectContext
             OutputScale,
             WorkingScale,
             MaxWorkingScale,
-            _deviceGridOffset,
+            ProgramAcquirer,
+            (Vector?)_deviceGridOffset,
             _drawableBrushMaterializer,
             _useExecutorManagedCanvas,
             _renderTargetLeaseSession,
             _budget,
             TargetDomain,
-            _shaderGraphProgramAcquirer);
+            _shaderGraphProgramAcquirer)
+        { ExecutionContext = ExecutionContext, Instance = Instance };
     }
 }
