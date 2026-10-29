@@ -541,11 +541,7 @@ public sealed class GraphicsContext2D(
                 // stays one node, which passes its input through.
                 int level = _nodes.Count + 1;
                 suffix.Push(this);
-                for (int i = group.ContinuationStart - 1; i >= 0; i--)
-                {
-                    PushFilterEffect(group.Children[i]);
-                }
-
+                PushContinuationPrefix(group);
                 result = new PushedState(this, level);
                 break;
             default:
@@ -555,6 +551,17 @@ public sealed class GraphicsContext2D(
 
         CompleteRecordingOperation(wasFaulted);
         return result;
+    }
+
+    // Pushes outermost first, so a nested group's earlier children apply after the outer group's earlier children.
+    private void PushContinuationPrefix(FilterEffectGroup.Resource group)
+    {
+        if (group.NestedContinuationGroup is { } nested)
+            PushContinuationPrefix(nested);
+        for (int i = group.ContinuationStart - 1; i >= 0; i--)
+        {
+            PushFilterEffect(group.Children[i]);
+        }
     }
 
     public PushedState PushOpacityMask(Brush.Resource mask, Rect bounds, bool invert = false)
