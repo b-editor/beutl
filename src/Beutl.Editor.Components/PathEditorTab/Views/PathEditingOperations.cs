@@ -13,7 +13,7 @@ namespace Beutl.Editor.Components.PathEditorTab.Views;
 internal static class PathEditingOperations
 {
     internal static bool IsStatic(IProperty property)
-        => property.GetKeyFrameAnimation() == null && property is not IExpressionProperty { HasExpression: true };
+        => property.GetPropertyAnimation() == null && property is not IExpressionProperty { HasExpression: true };
 
     internal static Point Lerp(Point a, Point b, float t) => new(float.Lerp(a.X, b.X, t), float.Lerp(a.Y, b.Y, t));
 

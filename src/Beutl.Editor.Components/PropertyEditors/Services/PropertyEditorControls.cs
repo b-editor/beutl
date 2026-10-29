@@ -117,6 +117,13 @@ internal sealed class PropertyEditorControls : IPropertyEditorHost
                 break;
         }
 
+        if (context is PropertyEditorViewModel { CanSeparateComponents: true } model
+            && surface is PropertyEditorSurface.Panel or PropertyEditorSurface.Node)
+        {
+            var components = new ComponentEditors(model, control);
+            model.Own(components);
+            control = components;
+        }
         return control;
     }
 

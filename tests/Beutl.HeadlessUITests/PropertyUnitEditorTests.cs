@@ -66,13 +66,13 @@ public class PropertyUnitEditorTests
         var (model, control) = PropertyEditorTestHost.CreateControl(adapter);
         using var disposable = model;
         model.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
-        var vector = (Vector3Editor<float>)control;
         var next = new Button { Content = "Next" };
         var window = new Window { Content = new StackPanel { Children = { control, next } }, Width = 360, Height = 180 };
         try
         {
             window.Show();
             HeadlessTestHelpers.Render(3);
+            var vector = control.GetVisualDescendants().OfType<Vector3Editor<float>>().Single();
             Assert.That(vector.Header, Is.EqualTo($"{adapter.DisplayName} (×)"));
             TypeValue(window, vector.GetVisualDescendants().OfType<TextBox>().First(), next, "1.25");
             Assert.That(cube.Scale.Value, Is.EqualTo(new Vector3(1.25f, 1f, 1f)));

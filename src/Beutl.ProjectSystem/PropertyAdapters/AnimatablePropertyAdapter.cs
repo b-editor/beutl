@@ -7,9 +7,11 @@ using Beutl.Extensibility;
 
 namespace Beutl.PropertyAdapters;
 
-public sealed class AnimatablePropertyAdapter<T>(AnimatableProperty<T> property, EngineObject obj)
+public sealed class AnimatablePropertyAdapter<T>(AnimatableProperty<T> property, CoreObject obj)
     : ExpressionPropertyAdapterBase<T>(property, obj), IAnimatablePropertyAdapter<T>
 {
+    public AnimatablePropertyAdapter(AnimatableProperty<T> property, EngineObject obj) : this(property, (CoreObject)obj) { }
+
     public KeyFrameAnimation<T>? Animation
     {
         get => Property.GetKeyFrameAnimation();

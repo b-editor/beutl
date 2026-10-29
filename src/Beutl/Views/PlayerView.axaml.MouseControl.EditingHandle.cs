@@ -22,6 +22,7 @@ public partial class PlayerView
         private KeyFrameState<BtlPoint>? _keyFrames;
         private (BtlPoint Previous, BtlPoint Next) _keyFrameStart;
         private BtlPoint _valueStart;
+        private BtlPoint _appliedDelta;
 
         private BtlPoint Local(PointerEventArgs e)
         {
@@ -38,6 +39,7 @@ public partial class PlayerView
             IEditorClock clock = model.EditViewModel.GetRequiredService<IEditorClock>();
             _time = clock.CurrentTime.Value;
             _start = Local(e);
+            _appliedDelta = default;
             if (handle.Property is { } property)
             {
                 _keyFrames = FindKeyFramePair(property, clock, model.EditViewModel.Scene);
@@ -83,7 +85,13 @@ public partial class PlayerView
             }
 
             BtlPoint delta = position - handle.Position;
-            if (!KeyFrameDeltaHelper.ApplyDelta(_keyFrames?.Previous, _keyFrames?.Next,
+            if (_keyFrames?.Components is { } components)
+            {
+                BtlPoint offset = delta - _appliedDelta;
+                components.TransformValues(value => value + offset, _time);
+                _appliedDelta = delta;
+            }
+            else if (!KeyFrameDeltaHelper.ApplyDelta(_keyFrames?.Previous, _keyFrames?.Next,
                     _keyFrameStart.Previous, _keyFrameStart.Next, delta))
                 property.Value = _valueStart + delta;
         }

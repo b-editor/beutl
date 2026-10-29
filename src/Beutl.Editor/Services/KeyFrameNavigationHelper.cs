@@ -25,7 +25,8 @@ public static class KeyFrameNavigationHelper
         var enginePass = new ObjectSearcher(root, v => v is EngineObject);
         foreach (EngineObject obj in enginePass.SearchAll().OfType<EngineObject>())
         {
-            foreach (IProperty property in obj.Properties)
+            foreach (IProperty property in obj.Properties.SelectMany(p => p.GetPropertyAnimation() is IComponentAnimation components
+                ? components.Components : new[] { p }))
             {
                 if (property.GetKeyFrameAnimation() is { } kfa && visited.Add(kfa))
                 {

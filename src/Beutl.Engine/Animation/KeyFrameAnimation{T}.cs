@@ -8,7 +8,7 @@ using Beutl.Validation;
 namespace Beutl.Animation;
 
 // Keyframe animation is the expression at the bottom of a property's expression chain (see IExpression<T>.Replaced).
-public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IExpression<T>, IKeyFrameExpression
+public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IPropertyAnimation<T>, IKeyFrameExpression
 {
     private IValidator<T>? _validator;
     private EngineObject? _parent;
@@ -66,6 +66,13 @@ public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IE
         return true;
     }
 
+    public T EvaluateAt(MediaTime time) => GetAnimatedValue(time)!;
+
+    private T InterpolateValues(float progress, T previous, T next, MediaTime previousTime, MediaTime nextTime)
+        => HierarchicalParent is IComponentInterpolator<T> interpolate
+            ? interpolate.Interpolate(this, progress, previous, next, previousTime, nextTime)
+            : KeyFrame<T>.s_animator.Interpolate(progress, previous, next);
+
     public T Evaluate(ExpressionContext context) => GetAnimatedValue(context.Time)!;
 
     public (IKeyFrame? Previous, IKeyFrame? Next) GetPreviousAndNextKeyFrame(IKeyFrame keyframe)
@@ -109,7 +116,7 @@ public partial class KeyFrameAnimation<T> : Hierarchical, IKeyFrameAnimation, IE
             else if (nextValue == null)
                 return prevValue;
 
-            T? value = KeyFrame<T>.s_animator.Interpolate(ease, prevValue, nextValue);
+            T? value = InterpolateValues(ease, prevValue, nextValue, prevTime, nextTime);
 
             return value;
         }

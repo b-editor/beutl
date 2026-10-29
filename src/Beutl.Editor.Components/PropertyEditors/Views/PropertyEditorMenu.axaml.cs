@@ -16,6 +16,8 @@ namespace Beutl.Editor.Components.PropertyEditors.Views;
 
 public sealed partial class PropertyEditorMenu : UserControl
 {
+    private IDisposable? _componentSubscription;
+
     public PropertyEditorMenu()
     {
         InitializeComponent();
@@ -38,22 +40,51 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         base.OnDataContextChanged(e);
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
-        uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
 
-        bool supportsAnimation = DataContext is PropertyEditorViewModel { PropertyAdapter: IAnimatablePropertyAdapter };
-        editAnimationItem.IsVisible = supportsAnimation;
-        editInlineAnimationItem.IsVisible = supportsAnimation;
-        removeAnimationItem.IsVisible = supportsAnimation;
-
-        bool supportsExpression = DataContext is PropertyEditorViewModel viewModel && SupportsTextExpression(viewModel);
-        expressionSeparator.IsVisible = supportsExpression;
-        editExpressionItem.IsVisible = supportsExpression;
-        removeExpressionItem.IsVisible = supportsExpression;
+        _componentSubscription?.Dispose();
+        _componentSubscription = null;
+        if (DataContext is PropertyEditorViewModel model)
+        {
+            _componentSubscription = model.SeparatedComponents.CombineLatest(model.HasExpression)
+                .Subscribe(state => UpdateActionVisibility(model, state.First));
+            model.Own(_componentSubscription);
+        }
+        else
+        {
+            UpdateActionVisibility(null, null);
+        }
 
         bool isEngineProperty = (DataContext as PropertyEditorViewModel)?.PropertyAdapter.GetEngineProperty() != null;
         copyPropertyPathSeparator.IsVisible = isEngineProperty;
         copyPropertyPathItem.IsVisible = isEngineProperty;
         copyGetPropertyCodeItem.IsVisible = isEngineProperty;
+    }
+
+    private void UpdateActionVisibility(PropertyEditorViewModel? model, IComponentAnimation? components)
+    {
+        bool supportsAnimation = model?.PropertyAdapter is IAnimatablePropertyAdapter && components == null;
+        editAnimationItem.IsVisible = supportsAnimation;
+        editInlineAnimationItem.IsVisible = supportsAnimation;
+        removeAnimationItem.IsVisible = supportsAnimation;
+        separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && components == null;
+        unseparateComponentsItem.IsVisible = components != null;
+        uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && components == null;
+
+        bool supportsExpression = model != null && SupportsTextExpression(model);
+        editExpressionItem.IsVisible = supportsExpression;
+        // Separation keeps an existing aggregate expression; let users remove it without discarding the tracks.
+        removeExpressionItem.IsVisible = supportsExpression || components != null && model?.HasExpression.Value == true;
+        expressionSeparator.IsVisible = editExpressionItem.IsVisible || removeExpressionItem.IsVisible;
+    }
+
+    private void SeparateComponents_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PropertyEditorViewModel model) model.SeparateComponents();
+    }
+
+    private void UnseparateComponents_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PropertyEditorViewModel model) model.UnseparateComponents();
     }
 
     private void Button_Click(object? sender, RoutedEventArgs e)
@@ -175,7 +206,8 @@ public sealed partial class PropertyEditorMenu : UserControl
     }
 
     private static bool SupportsTextExpression(PropertyEditorViewModel viewModel)
-        => viewModel.PropertyAdapter is IExpressionPropertyAdapter
+        => viewModel.SeparatedComponents.Value == null
+           && viewModel.PropertyAdapter is IExpressionPropertyAdapter
            && viewModel.PropertyAdapter.GetEngineProperty() is not IExpressionProperty { IsReference: true };
 
     private void RemoveExpression_Click(object? sender, RoutedEventArgs e)
