@@ -433,6 +433,9 @@ public sealed class MobilePreviewTests
             Capture("desktop-offline-device");
             await Roster(socket, ["one"]);
             await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
+            // The mobile player acquires the clean preview in a UI-thread post raised after the server's client
+            // list changes, so wait for its consumer next to the presentation window's, not for the client count.
+            await HeadlessTestHelpers.WaitUntilAsync(() => editor.Player.CleanPreviewConsumerCount == 2);
             HeadlessTestHelpers.Settle();
 
             if (closePresentationFirst)
