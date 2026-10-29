@@ -61,6 +61,8 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
         return value;
     }
 
+    private protected virtual void OnScrubbed(TValue oldValue, ulong timestamp) { }
+
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
     {
         _disposables.Clear();
@@ -97,6 +99,7 @@ public abstract class ValueStringEditor<TValue> : StringEditorBase, IValueEditor
             {
                 Value = newValue;
                 RaiseEvent(new PropertyEditorValueChangedEventArgs<TValue>(newValue, oldValue, ValueChangedEvent));
+                OnScrubbed(oldValue, e.Timestamp);
             }
 
             e.Handled = true;

@@ -169,6 +169,17 @@ internal sealed class NumberVectorValues<TElement> : VectorValues
             Set(i, newValues[i]);
 
         _editor.RaiseEvent(_createEventArgs(newValues, oldValues, PropertyEditor.ValueChangedEvent));
+
+        // The handlers have written the accepted values back, including shared-axis constraints.
+        for (int i = 0; i < _values.Length; i++)
+        {
+            TElement reference = _editor.HapticReferenceValues?[i] is TElement value ? value : TElement.Zero;
+            if (NumberEditorHelper.CrossedHapticReference(oldValues[i], _values[i], reference))
+            {
+                NativeHapticFeedback.PerformAlignment(_editor, e.Timestamp);
+                break; // A uniform or whole-vector scrub produces one pulse per pointer event.
+            }
+        }
     }
 
     // From the last component to the first, the order of FirstValue = SecondValue = value.

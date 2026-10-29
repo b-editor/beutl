@@ -118,4 +118,16 @@ public static class NumberEditorHelper
     {
         return value.ToString(numberFormat ?? "G", CultureInfo.CurrentCulture);
     }
+
+    // Zero and the property's default are reference points, including fast scrubs past either.
+    // Staying at a reference (e.g. a clamped lower bound) does not repeat the feedback.
+    internal static bool CrossedHapticReference<TValue>(TValue oldValue, TValue newValue, TValue reference)
+        where TValue : INumber<TValue>
+        => CrossedReference(oldValue, newValue, TValue.Zero)
+            || (reference != TValue.Zero && CrossedReference(oldValue, newValue, reference));
+
+    private static bool CrossedReference<TValue>(TValue oldValue, TValue newValue, TValue reference)
+        where TValue : INumber<TValue>
+        => (oldValue < reference && newValue >= reference)
+            || (oldValue > reference && newValue <= reference);
 }

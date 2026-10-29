@@ -2,7 +2,7 @@
 
 namespace Beutl.HeadlessUITests;
 
-// The Objective-C runtime and CoreGraphics calls that the native scroll tests make on macOS.
+// The Objective-C runtime and CoreGraphics calls that the native input tests make on macOS.
 internal static partial class MacNative
 {
     public const string ObjC = "/usr/lib/libobjc.A.dylib";
@@ -19,6 +19,12 @@ internal static partial class MacNative
 
     [LibraryImport(ObjC, EntryPoint = "objc_msgSend")]
     public static partial nint Send(nint receiver, nint selector, nint argument);
+
+    [LibraryImport(CoreGraphics)]
+    public static partial nint CGEventCreate(nint source);
+
+    [LibraryImport(CoreGraphics)]
+    public static partial void CGEventSetType(nint cgEvent, uint type);
 
     [LibraryImport(CoreGraphics)]
     public static partial nint CGEventCreateScrollWheelEvent2(nint source, uint units, uint wheelCount, int wheel1, int wheel2, int wheel3);

@@ -39,6 +39,9 @@ public interface INodeGraphMutationService
     /// <summary>Idempotent port rename.</summary>
     bool RenamePort(INodePort port, string newName);
 
+    /// <summary>Checks whether two existing ports can be connected, without changing the graph or history.</summary>
+    bool CanConnect(GraphModel graph, INodePort port1, INodePort port2);
+
     /// <summary>Three-way connect:
     /// <list type="bullet">
     /// <item>One port unset + opposite side is <see cref="IDynamicPortNode"/>

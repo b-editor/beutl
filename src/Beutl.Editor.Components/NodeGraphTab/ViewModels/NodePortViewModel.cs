@@ -151,6 +151,11 @@ public class NodePortViewModel : NodeMemberViewModel
         return Connections.Count;
     }
 
+    internal bool CanConnectTo(NodePortViewModel target)
+        => Model is { } source && target.Model is { } destination
+            && _editorContext.GetRequiredService<INodeGraphMutationService>()
+                .CanConnect(GraphNodeViewModel.NodeGraphViewModel.NodeGraph, source, destination);
+
     public bool TryConnect(NodePortViewModel target)
     {
         GraphModel graph = GraphNodeViewModel.NodeGraphViewModel.NodeGraph;
