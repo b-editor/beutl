@@ -104,6 +104,23 @@ public class IndividualContinuationTests
         Assert.That(calls, Is.EqualTo(2));
     }
 
+    [TestCase(true, 1, 2)]
+    [TestCase(false, 0, 0)]
+    public void SplitGroupFollowsItsEnabledState(bool enabled, int expectedPrefixCalls, int expectedSuffixCalls)
+    {
+        int prefixCalls = 0;
+        int suffixCalls = 0;
+        var group = new FilterEffectGroup { IsEnabled = { Value = enabled } };
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, _) => prefixCalls++)));
+        group.Children.Add(new RepeatingContinuationEffect(2));
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(0, (_, _) => suffixCalls++)));
+        RasterizeShape(group);
+        Assert.That(prefixCalls, Is.EqualTo(expectedPrefixCalls));
+        Assert.That(suffixCalls, Is.EqualTo(expectedSuffixCalls));
+    }
+
     [Test]
     public void EffectAfterAContinuationThatCannotBeRecordedFailsWithGuidance()
     {
