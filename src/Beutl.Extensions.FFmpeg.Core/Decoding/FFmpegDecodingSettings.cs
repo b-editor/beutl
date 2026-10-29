@@ -13,14 +13,11 @@ public sealed class FFmpegDecodingSettings : ExtensionSettings
         ScanProperties<FFmpegDecodingSettings>();
         ThreadCount.ValueChanged += (_, _) => OnChanged();
         Acceleration.ValueChanged += (_, _) => OnChanged();
-        ForceSrgbGamma.ValueChanged += (_, _) => OnChanged();
     }
 
     public IProperty<int> ThreadCount { get; } = Property.CreateValue(-1);
 
     public IProperty<AccelerationOptions> Acceleration { get; } = Property.CreateValue(AccelerationOptions.Software);
-
-    public IProperty<bool> ForceSrgbGamma { get; } = Property.CreateValue(true);
 
     public enum AccelerationOptions
     {

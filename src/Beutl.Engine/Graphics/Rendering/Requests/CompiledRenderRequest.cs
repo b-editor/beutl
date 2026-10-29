@@ -57,7 +57,15 @@ internal sealed class CompiledRenderRequest : IDisposable
 
     public ExecutionIslandPlan ExecutionPlan { get; }
 
-    public ImmutableArray<CompiledRenderRequest> NestedRequests { get; }
+    public ImmutableArray<CompiledRenderRequest> NestedRequests { get; private set; }
+
+    internal void AddDynamicDependency(CompiledRenderRequest child)
+    {
+        ObjectDisposedException.ThrowIf(IsDisposed, this);
+        if (Request.State != RenderRequestState.Executing || child.Request.ParentId != Request.Id)
+            throw new InvalidOperationException("A dynamic dependency must belong to this executing request.");
+        NestedRequests = NestedRequests.Add(child);
+    }
 
     public bool IsDisposed { get; private set; }
 

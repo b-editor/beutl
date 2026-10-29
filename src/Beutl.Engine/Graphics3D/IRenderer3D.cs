@@ -14,6 +14,14 @@ namespace Beutl.Graphics3D;
 /// </summary>
 public interface IRenderer3D : IDisposable
 {
+    /// <summary>Creates a renderer whose lifetime is owned by the caller.</summary>
+    /// <remarks>Call this method on the graphics context's owning thread.</remarks>
+    static IRenderer3D Create(Beutl.Graphics.Backend.IGraphicsContext context, float surfaceDensity = 1)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (!float.IsFinite(surfaceDensity) || surfaceDensity <= 0) throw new ArgumentOutOfRangeException(nameof(surfaceDensity));
+        return new Renderer3D(context) { SurfaceDensity = surfaceDensity };
+    }
     /// <summary>
     /// Gets the current render width.
     /// </summary>

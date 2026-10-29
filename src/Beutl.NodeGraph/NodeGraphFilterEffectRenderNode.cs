@@ -36,10 +36,13 @@ internal class NodeGraphFilterEffectRenderNode(NodeGraphFilterEffect.Resource re
             if (inputHasMultipleConsumers)
                 binding.PrepareInputForFanOut();
             _compositionContext.Time = graphResource.LastTime;
-            _compositionContext.PreferProxy = graphResource.PreferProxy;
-            _compositionContext.PreferredProxyPreset = graphResource.PreferredProxyPreset;
             _compositionContext.DisableResourceShare = graphResource.DisableResourceShare;
-            _compositionContext.TargetDomain = context.TargetDomain;
+            _compositionContext.Conditions = (graphResource.EvaluationContext?.Conditions ?? CompositionConditions.Default) with
+            {
+                PreferProxy = graphResource.PreferProxy,
+                PreferredProxyPreset = graphResource.PreferredProxyPreset,
+                TargetDomain = context.TargetDomain,
+            };
             graphResource.Snapshot.Evaluate(_compositionContext);
 
             var outputRenderNodes = new List<RenderNode>();

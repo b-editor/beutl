@@ -25,6 +25,92 @@ public class MFEncodingTests
     [TearDown]
     public void TearDown() => Directory.Delete(_directory, recursive: true);
 
+    [TestCase(false, 192)]
+    [TestCase(true, 192)]
+    [TestCase(false, 194)]
+    public async Task Encode_H264PixelsMatchBt709TransferMatrixAndLimitedRange(bool hardware, int width)
+    {
+        var controller = CreateController();
+        controller.VideoSettings.UseHardwareAcceleration.Value = hardware;
+        controller.VideoSettings.SourceSize.Value = new PixelSize(ColorBarsFrameProvider.Width, ColorBarsFrameProvider.Height);
+        controller.VideoSettings.DestinationSize.Value = new PixelSize(width, ColorBarsFrameProvider.Height);
+        using var frames = new ColorBarsFrameProvider();
+        using var samples = new TrackedSamples(0, 0);
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        MFThread.Dispatcher.Invoke(() =>
+        {
+            using var source = MediaFactory.MFCreateSourceReaderFromURL(controller.OutputFile, null);
+            int stream = (int)SourceReaderIndex.FirstVideoStream;
+            source.SetStreamSelection((int)SourceReaderIndex.AllStreams, false);
+            source.SetStreamSelection(stream, true);
+            using var type = MediaFactory.MFCreateMediaType();
+            type.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Video).CheckError();
+            // Decode directly to YUV so an RGB converter cannot hide a wrong encoded matrix or range.
+            type.Set(MediaTypeAttributeKeys.Subtype, VideoFormatGuids.NV12).CheckError();
+            source.SetCurrentMediaType(stream, type);
+            using var sample = source.ReadSample(stream, SourceReaderControlFlag.None, out _, out _, out _);
+            Assert.That(sample, Is.Not.Null);
+            // The first decode can change the output type to the macroblock-aligned coded size.
+            using var current = source.GetCurrentMediaType(stream);
+            ulong frameSize = current.GetUInt64(MediaTypeAttributeKeys.FrameSize);
+            int decodedHeight = (int)(uint)frameSize;
+            int stride = (int)MediaFactory.MFGetAttributeUInt32(current, MediaTypeAttributeKeys.DefaultStride, (uint)(frameSize >> 32));
+            using var buffer = sample.ConvertToContiguousBuffer();
+            byte[] bytes = CopyBuffer(buffer);
+
+            // Red/green/blue, sRGB gray 128 converted to BT.709, black and white.
+            int[][] expected = [[63, 102, 240], [173, 42, 26], [32, 240, 118], [115, 128, 128], [16, 128, 128], [235, 128, 128]];
+            Assert.Multiple(() =>
+            {
+                for (int patch = 0; patch < expected.Length; patch++)
+                {
+                    int x = (patch * 32 + 16) * width / ColorBarsFrameProvider.Width;
+                    int chroma = stride * decodedHeight + 16 * stride + (x & ~1);
+                    Assert.That(bytes[32 * stride + x], Is.EqualTo(expected[patch][0]).Within(3), $"Patch {patch}, Y");
+                    Assert.That(bytes[chroma], Is.EqualTo(expected[patch][1]).Within(3), $"Patch {patch}, U");
+                    Assert.That(bytes[chroma + 1], Is.EqualTo(expected[patch][2]).Within(3), $"Patch {patch}, V");
+                }
+            });
+        });
+    }
+
+    // MFReader follows the BT.709 matrix and transfer tags, so an export reads back as it was rendered.
+    [Test]
+    public async Task Encode_H264ReadsBackThroughMFReaderAsRendered()
+    {
+        var controller = CreateController();
+        controller.VideoSettings.SourceSize.Value = controller.VideoSettings.DestinationSize.Value =
+            new PixelSize(ColorBarsFrameProvider.Width, ColorBarsFrameProvider.Height);
+        using var frames = new ColorBarsFrameProvider();
+        using var samples = new TrackedSamples(0, 0);
+        await controller.Encode(frames, samples, CancellationToken.None);
+
+        using var reader = new MFDecoderInfo(new MFDecodingExtension())
+            .Open(controller.OutputFile, new MediaOptions(MediaMode.Video));
+        Assert.That(reader!.ReadVideo(0, out var decoded), Is.True);
+        using (decoded)
+        {
+            Bitmap actual = decoded!.Value;
+            var colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(BitmapColorTransfer.Bt709, BitmapColorPrimaries.Bt709);
+            Assert.That(actual.ColorSpace, Is.EqualTo(colorSpace));
+            using Bitmap source = ColorBarsFrameProvider.CreateFrame();
+            using Bitmap expected = source.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, colorSpace);
+            Assert.Multiple(() =>
+            {
+                for (int patch = 0; patch < 6; patch++)
+                {
+                    for (int channel = 0; channel < 3; channel++)
+                    {
+                        int offset = (patch * 32 + 16) * 4 + channel;
+                        Assert.That(actual.GetRow(32)[offset], Is.EqualTo(expected.GetRow(32)[offset]).Within(5),
+                            $"Patch {patch}, channel {channel}");
+                    }
+                }
+            });
+        }
+    }
+
     [TestCase(false, 44100, 2)]
     [TestCase(false, 48000, 1)]
     [TestCase(true, 48000, 2)]
@@ -50,6 +136,10 @@ public class MFEncodingTests
             using var video = source.GetNativeMediaType((int)SourceReaderIndex.FirstVideoStream, 0);
             using var audio = source.GetNativeMediaType((int)SourceReaderIndex.FirstAudioStream, 0);
             Assert.That(video.GetGUID(MediaTypeAttributeKeys.Subtype), Is.EqualTo(VideoFormatGuids.H264));
+            Assert.That(video.GetUInt32(MediaTypeAttributeKeys.VideoPrimaries), Is.EqualTo((uint)VideoPrimaries.Bt709));
+            Assert.That(video.GetUInt32(MediaTypeAttributeKeys.TransferFunction), Is.EqualTo((uint)VideoTransferFunction.Func709));
+            Assert.That(video.GetUInt32(MediaTypeAttributeKeys.YuvMatrix), Is.EqualTo((uint)VideoTransferMatrix.Bt709));
+            Assert.That(video.GetUInt32(MediaTypeAttributeKeys.VideoNominalRange), Is.EqualTo((uint)NominalRange.Range16_235));
             Assert.That(audio.GetGUID(MediaTypeAttributeKeys.Subtype), Is.EqualTo(AudioFormatGuids.Aac));
             Assert.That(audio.GetUInt32(MediaTypeAttributeKeys.AudioNumChannels), Is.EqualTo(channels));
             Assert.That(audio.GetUInt32(MediaTypeAttributeKeys.AudioSamplesPerSecond), Is.EqualTo(sampleRate));

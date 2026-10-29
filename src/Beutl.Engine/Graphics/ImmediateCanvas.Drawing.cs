@@ -14,7 +14,7 @@ public partial class ImmediateCanvas
         VerifyNestedExecutionOperation();
         using var node = new DrawableRenderNode(drawable);
         using var context = new GraphicsContext2D(node, LogicalSize, _currentDensity);
-        drawable.RequireOriginal().Render(context, drawable);
+        drawable.Render(context);
         using var renderer = new RenderNodeRenderer(
             node,
             CreateNestedRenderRequest());

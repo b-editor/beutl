@@ -81,40 +81,46 @@ public sealed class VideoExporterQualityTests
         });
     }
 
-    [Test]
-    public void Export_settings_tag_ffmpeg_sdr_as_bt709_limited()
+    [TestCase(FFColorPrimaries.UNSPECIFIED, FFColorTransfer.UNSPECIFIED, FFColorSpace.UNSPECIFIED, FFColorRange.UNSPECIFIED)]
+    [TestCase(FFColorPrimaries.BT2020, FFColorTransfer.SMPTE2084, FFColorSpace.BT2020_NCL, FFColorRange.MPEG)]
+    public void Quality_settings_preserve_ffmpeg_color_selection(
+        FFColorPrimaries primaries, FFColorTransfer transfer, FFColorSpace matrix, FFColorRange range)
     {
         var settings = new FFmpegVideoEncoderSettings();
+        settings.ColorPrimaries.Value = primaries;
+        settings.ColorTrc.Value = transfer;
+        settings.ColorSpace.Value = matrix;
+        settings.ColorRange.Value = range;
 
-        VideoExporter.ApplyQualitySettings(settings, crf: null, bitrate: null);
+        VideoExporter.ApplyQualitySettings(settings, crf: 28, bitrate: null);
 
         Assert.Multiple(() =>
         {
-            Assert.That(settings.ColorPrimaries.Value, Is.EqualTo(FFColorPrimaries.BT709));
-            Assert.That(settings.ColorTrc.Value, Is.EqualTo(FFColorTransfer.BT709));
-            Assert.That(settings.ColorSpace.Value, Is.EqualTo(FFColorSpace.BT709));
-            Assert.That(settings.ColorRange.Value, Is.EqualTo(FFColorRange.MPEG));
+            Assert.That(settings.ColorPrimaries.Value, Is.EqualTo(primaries));
+            Assert.That(settings.ColorTrc.Value, Is.EqualTo(transfer));
+            Assert.That(settings.ColorSpace.Value, Is.EqualTo(matrix));
+            Assert.That(settings.ColorRange.Value, Is.EqualTo(range));
         });
     }
 
     [Test]
-    public void Export_settings_tag_avfoundation_sdr_as_bt709()
+    public void Quality_settings_leave_avfoundation_defaults_to_the_encoder()
     {
         var settings = new AVFVideoEncoderSettings();
 
-        VideoExporter.ApplyQualitySettings(settings, crf: null, bitrate: null);
+        VideoExporter.ApplyQualitySettings(settings, crf: null, bitrate: 4_000_000);
 
         Assert.Multiple(() =>
         {
             Assert.That(
                 settings.ColorPrimaries.Value,
-                Is.EqualTo(AVFVideoEncoderSettings.ColorPrimariesType.Bt709));
+                Is.EqualTo(AVFVideoEncoderSettings.ColorPrimariesType.Default));
             Assert.That(
                 settings.ColorTransfer.Value,
-                Is.EqualTo(AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709));
+                Is.EqualTo(AVFVideoEncoderSettings.ColorTransferCharacteristic.Default));
             Assert.That(
                 settings.YCbCrMatrix.Value,
-                Is.EqualTo(AVFVideoEncoderSettings.YCbCrMatrixType.Bt709));
+                Is.EqualTo(AVFVideoEncoderSettings.YCbCrMatrixType.Default));
         });
     }
 

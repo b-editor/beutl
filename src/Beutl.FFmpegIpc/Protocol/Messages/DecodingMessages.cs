@@ -6,7 +6,6 @@ public sealed class OpenFileRequest
     public int StreamsToLoad { get; set; } // MediaMode flags
     public int ThreadCount { get; set; } = -1;
     public int Acceleration { get; set; }
-    public bool ForceSrgbGamma { get; set; } = true;
 }
 
 public sealed class OpenFileResponse
@@ -83,9 +82,4 @@ public sealed class ReadAudioResponse
 public sealed class CloseReaderRequest
 {
     public int ReaderId { get; set; }
-}
-
-public sealed class UpdateDecoderSettingsRequest
-{
-    public bool ForceSrgbGamma { get; set; } = true;
 }

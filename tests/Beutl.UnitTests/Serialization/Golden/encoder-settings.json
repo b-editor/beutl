@@ -62,7 +62,6 @@
   "Decoding": {
     "ThreadCount": 2,
     "Acceleration": 1,
-    "ForceSrgbGamma": false,
     "$type": "[Beutl.Extensions.FFmpeg.Core]Beutl.Extensions.FFmpeg.Decoding:FFmpegDecodingSettings"
   }
 }

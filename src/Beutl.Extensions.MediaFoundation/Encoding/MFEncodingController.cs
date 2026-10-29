@@ -74,7 +74,10 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
             VideoSettings.UseHardwareAcceleration.Value).CheckError();
         using var writer = MediaFactory.MFCreateSinkWriterFromURL(outputFile, null, attributes);
 
-        int videoStream = frameCount > 0 ? AddVideoStream(writer, videoCodec) : -1;
+        // H.264/HEVC carry explicit colorimetry. The legacy Windows Media/RGB path stays untagged.
+        VideoColorTags color = VideoColorDefaults.Get(VideoColorTarget.YCbCr, hdr: false,
+            recordsColor: videoCodec is MFVideoCodec.H264 or MFVideoCodec.HEVC);
+        int videoStream = frameCount > 0 ? AddVideoStream(writer, videoCodec, color) : -1;
         int audioStream = audioType != null ? AddAudioStream(writer, audioType, checked((int)samples.SampleRate)) : -1;
         writer.BeginWriting();
 
@@ -82,6 +85,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         long sample = 0;
         long rateNumerator = VideoSettings.FrameRate.Value.Numerator;
         long rateDenominator = VideoSettings.FrameRate.Value.Denominator;
+        BitmapColorSpace colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(color.Transfer, color.Primaries);
         while (frame < frameCount || sample < sampleCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -92,7 +96,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 using var bitmap = await frames.ReadNextFrame()
                     ?? throw new InvalidOperationException("The frame provider ended before its frame count.");
                 cancellationToken.ThrowIfCancellationRequested();
-                WriteVideoFrame(writer, videoStream, bitmap, videoTime,
+                WriteVideoFrame(writer, videoStream, bitmap, color, colorSpace, videoTime,
                     GetTimestamp(frame + 1, rateNumerator, rateDenominator) - videoTime);
                 frame++;
             }
@@ -141,14 +145,17 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         }
     }
 
-    private int AddVideoStream(IMFSinkWriter writer, MFVideoCodec codec)
+    private int AddVideoStream(IMFSinkWriter writer, MFVideoCodec codec, VideoColorTags color)
     {
-        using var outputType = CreateVideoType(MFEncodingFormat.VideoSubtype(codec));
+        using var outputType = CreateVideoType(MFEncodingFormat.VideoSubtype(codec), color);
         if (codec != MFVideoCodec.RGB32)
             outputType.Set(MediaTypeAttributeKeys.AvgBitrate, (uint)VideoSettings.Bitrate.Value).CheckError();
         int stream = writer.AddStream(outputType);
 
-        using var inputType = CreateVideoType(VideoFormatGuids.Rgb32);
+        // Sink Writer's implicit RGB converter uses BT.601 even when the H.264 output is tagged BT.709.
+        // Supply already-converted YUV so the encoder only compresses it.
+        using var inputType = CreateVideoType(
+            color.Matrix != VideoColorMatrix.Unknown ? VideoFormatGuids.Iyuv : VideoFormatGuids.Rgb32, color);
         using var parameters = MediaFactory.MFCreateAttributes(1);
         if (codec is MFVideoCodec.H264 or MFVideoCodec.HEVC)
         {
@@ -175,7 +182,7 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
     [DllImport("propsys.dll", ExactSpelling = true)]
     private static extern int PSCreateMemoryPropertyStore(in Guid riid, out nint propertyStore);
 
-    private IMFMediaType CreateVideoType(Guid subtype)
+    private IMFMediaType CreateVideoType(Guid subtype, VideoColorTags color)
     {
         var type = MediaFactory.MFCreateMediaType();
         try
@@ -188,8 +195,22 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
                 Pack(VideoSettings.FrameRate.Value.Numerator, VideoSettings.FrameRate.Value.Denominator)).CheckError();
             type.Set(MediaTypeAttributeKeys.PixelAspectRatio, Pack(1, 1)).CheckError();
             type.Set(MediaTypeAttributeKeys.InterlaceMode, (uint)VideoInterlaceMode.Progressive).CheckError();
+            if (color.Matrix != VideoColorMatrix.Unknown)
+            {
+                // Input YUV pixels already match these output tags. BgraToI420 writes the limited range that the
+                // YCbCr defaults declare.
+                type.Set(MediaTypeAttributeKeys.VideoPrimaries, (uint)(color.Primaries == BitmapColorPrimaries.Rec2020
+                    ? VideoPrimaries.Bt2020 : VideoPrimaries.Bt709)).CheckError();
+                type.Set(MediaTypeAttributeKeys.TransferFunction, (uint)(color.Transfer == BitmapColorTransfer.Srgb
+                    ? VideoTransferFunction.FuncSRGB : VideoTransferFunction.Func709)).CheckError();
+                type.Set(MediaTypeAttributeKeys.VideoNominalRange, (uint)NominalRange.Range16_235).CheckError();
+                type.Set(MediaTypeAttributeKeys.YuvMatrix, (uint)(color.Matrix == VideoColorMatrix.Bt601
+                    ? VideoTransferMatrix.Bt601 : VideoTransferMatrix.Bt709)).CheckError();
+            }
             if (subtype == VideoFormatGuids.Rgb32)
                 type.Set(MediaTypeAttributeKeys.DefaultStride, checked((uint)VideoSettings.DestinationSize.Value.Width * 4)).CheckError();
+            else if (subtype == VideoFormatGuids.Iyuv)
+                type.Set(MediaTypeAttributeKeys.DefaultStride, (uint)VideoSettings.DestinationSize.Value.Width).CheckError();
             return type;
         }
         catch
@@ -293,9 +314,11 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         return stream;
     }
 
-    private void WriteVideoFrame(IMFSinkWriter writer, int stream, Bitmap bitmap, long time, long duration)
+    private void WriteVideoFrame(IMFSinkWriter writer, int stream, Bitmap bitmap, VideoColorTags color,
+        BitmapColorSpace colorSpace, long time, long duration)
     {
-        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, BitmapColorSpace.Srgb);
+        bool yuv = color.Matrix != VideoColorMatrix.Unknown;
+        using var converted = bitmap.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Premul, colorSpace);
         using var source = new SKBitmap();
         var sourceInfo = new SKImageInfo(converted.Width, converted.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
         if (!source.InstallPixels(sourceInfo, converted.Data, converted.RowBytes))
@@ -311,22 +334,27 @@ public sealed class MFEncodingController(string outputFile) : EncodingController
         }
 
         int rowBytes = checked(size.Width * 4);
-        using var buffer = MediaFactory.MFCreateMemoryBuffer(checked(rowBytes * size.Height));
+        int bufferSize = yuv ? YuvConversion.GetI420BufferSize(size.Width, size.Height) : checked(rowBytes * size.Height);
+        using var buffer = MediaFactory.MFCreateMemoryBuffer(bufferSize);
         buffer.Lock(out nint destination, out _, out _);
         try
         {
             unsafe
             {
-                for (int y = 0; y < size.Height; y++)
-                    Buffer.MemoryCopy((byte*)scaled.GetPixels() + y * scaled.RowBytes,
-                        (byte*)destination + y * rowBytes, rowBytes, rowBytes);
+                if (yuv)
+                    YuvConversion.BgraToI420((byte*)scaled.GetPixels(), scaled.RowBytes, (byte*)destination,
+                        size.Width, size.Height, bt709: color.Matrix == VideoColorMatrix.Bt709);
+                else
+                    for (int y = 0; y < size.Height; y++)
+                        Buffer.MemoryCopy((byte*)scaled.GetPixels() + y * scaled.RowBytes,
+                            (byte*)destination + y * rowBytes, rowBytes, rowBytes);
             }
         }
         finally
         {
             buffer.Unlock();
         }
-        buffer.CurrentLength = checked(rowBytes * size.Height);
+        buffer.CurrentLength = bufferSize;
         WriteSample(writer, stream, buffer, time, duration);
     }
 

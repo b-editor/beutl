@@ -285,9 +285,16 @@ internal sealed partial class RenderRequestExecutor
                             renderTargetLeaseSession: _targets,
                             targetDomain: _options.TargetDomain,
                             acquireShaderGraphProgram: AcquireShaderGraphProgram);
-                        executor.Apply(effectContext);
-                        executor.CompletePolicyBoundary(
-                            payload.WorkingScalePolicy.HasValue);
+                        var execution = new RenderExecutionContext(_renderDependency,
+                            executor.WorkingScale, executor.MaxWorkingScale, cancellationToken: _cancellationToken);
+                        executor.ExecutionContext = execution;
+                        try
+                        {
+                            executor.Apply(effectContext);
+                            executor.CompletePolicyBoundary(
+                                payload.WorkingScalePolicy.HasValue);
+                        }
+                        finally { execution.End(); }
 
                         var result = new List<MaterializedRenderValue>(executor.CurrentTargets.Count);
                         foreach (EffectTarget target in executor.CurrentTargets)
