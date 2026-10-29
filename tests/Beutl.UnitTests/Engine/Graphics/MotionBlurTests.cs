@@ -22,6 +22,10 @@ public class MotionBlurTests
     [TestCase(ShutterPosition.End, 360, 2, 0.5625, 0.125)]
     [TestCase(ShutterPosition.Center, 180, 2, 0.90625, 0.0625)]
     [TestCase(ShutterPosition.Center, 360, 4, 0.90625, 0.0625)]
+    [TestCase(ShutterPosition.Start, 720, 2, 1.125, 0.25)]
+    [TestCase(ShutterPosition.Center, 720, 2, 0.625, 0.25)]
+    [TestCase(ShutterPosition.End, 720, 2, 0.125, 0.25)]
+    [TestCase(ShutterPosition.Center, 3600, 20, 0.8125, 0.125)]
     public void SamplesFollowShutterSettingsAndOutputFrameRate(
         ShutterPosition position, float angle, int frameRate, double first, double interval)
     {
@@ -46,13 +50,15 @@ public class MotionBlurTests
         });
     }
 
-    [TestCase(0, 8, true)]
-    [TestCase(360, 1, true)]
-    [TestCase(360, 4, false)]
-    public void DisablingSamplingReleasesSamplesAndCanBeReenabled(float angle, int samples, bool enabled)
+    [TestCase(0, 8, true, 35)]
+    [TestCase(360, 1, true, 35)]
+    [TestCase(360, 4, false, 35)]
+    [TestCase(360, 4, true, 100)]
+    public void DisablingSamplingReleasesSamplesAndCanBeReenabled(float angle, int samples, bool enabled, float sourceMix)
     {
         var shape = Rectangle();
         var blur = Blur();
+        blur.SourceMix.Value = 35;
         shape.FilterEffect.Value = blur;
         var context = new CompositionContext(Seconds(1));
         using var resource = shape.ToResource(context);
@@ -61,6 +67,7 @@ public class MotionBlurTests
         blur.ShutterAngle.Value = angle;
         blur.Samples.Value = samples;
         blur.IsEnabled.Value = enabled;
+        blur.SourceMix.Value = sourceMix;
         Reconcile(resource, shape, context);
         Assert.That(effect.TimeSamples, Is.Empty);
         Assert.That(previous.All(s => s.IsDisposed), Is.True);
@@ -68,8 +75,37 @@ public class MotionBlurTests
         blur.ShutterAngle.Value = 360;
         blur.Samples.Value = 4;
         blur.IsEnabled.Value = true;
+        blur.SourceMix.Value = 0;
         Reconcile(resource, shape, context);
         Assert.That(effect.TimeSamples, Has.Count.EqualTo(4));
+    }
+
+    [Test]
+    public void AnimatedSourceMixCanSwitchBetweenSamplingAndTheCurrentInput()
+    {
+        var shape = Rectangle();
+        var blur = Blur();
+        blur.Samples.Value = 3; // The center sample also supplies the current-time input.
+        Animate(blur.SourceMix, 0, 100);
+        shape.FilterEffect.Value = blur;
+        var context = new CompositionContext(Seconds(1));
+        using var resource = shape.ToResource(context);
+        var effect = (MotionBlur.Resource)resource.FilterEffect!;
+        var previous = effect.TimeSamples.ToArray();
+
+        context.Time = Seconds(2);
+        Reconcile(resource, shape, context);
+        Assert.That(effect.TimeSamples, Is.Empty);
+        Assert.That(previous.All(s => s.IsDisposed), Is.True);
+
+        foreach (double time in new[] { 0, 0.5, 1.0 })
+        {
+            context.Time = Seconds(time);
+            Reconcile(resource, shape, context);
+            Assert.That(effect.SourceMix, Is.EqualTo(time * 50).Within(0.0001));
+            Assert.That(effect.TimeSamples, Has.Count.EqualTo(3));
+            Assert.That(effect.TimeSamples[1].Time, Is.EqualTo(context.Time));
+        }
     }
 
     [Test]
@@ -133,6 +169,8 @@ public class MotionBlurTests
         var shape = Rectangle();
         var blur = Blur();
         blur.ShutterPosition.Value = ShutterPosition.End;
+        blur.ShutterAngle.Value = 720;
+        blur.SourceMix.Value = 35;
         var effects = new FilterEffectGroup();
         effects.Children.Add(new Blur());
         effects.Children.Add(blur);
@@ -142,9 +180,10 @@ public class MotionBlurTests
         var chain = (FilterEffectGroup)restored.FilterEffect.Value!;
         var actual = (MotionBlur)chain.Children[1];
         Assert.That(chain.Children.Select(x => x.GetType()), Is.EqualTo(new[] { typeof(Blur), typeof(MotionBlur), typeof(Brightness) }));
-        Assert.That(actual.ShutterAngle.Value, Is.EqualTo(360));
+        Assert.That(actual.ShutterAngle.Value, Is.EqualTo(720));
         Assert.That(actual.ShutterPosition.Value, Is.EqualTo(ShutterPosition.End));
         Assert.That(actual.Samples.Value, Is.EqualTo(4));
+        Assert.That(actual.SourceMix.Value, Is.EqualTo(35));
     }
 
     internal static MotionBlur Blur() => new() { ShutterAngle = { Value = 360 }, Samples = { Value = 4 } };

@@ -1723,7 +1723,7 @@
     <value>Shutter angle (°)</value>
   </data>
   <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
-    <value>Exposure as a fraction of one frame: 180° is half a frame, 360° is a full frame. 0° disables temporal sampling.</value>
+    <value>Exposure relative to one frame: 180° is half a frame, 360° is one, and 720° is two. Supports up to 3600° (10 frames). 0° disables temporal sampling.</value>
   </data>
   <data name="MotionBlur_ShutterPosition" xml:space="preserve">
     <value>Exposure reference</value>
@@ -1735,7 +1735,13 @@
     <value>Samples</value>
   </data>
   <data name="MotionBlur_Samples_Description" xml:space="preserve">
-    <value>1–64 samples per frame. More samples reduce gaps and increase rendering and memory costs. 1 draws the current time only.</value>
+    <value>1–64 samples across the exposure. More samples reduce gaps but increase render time and memory use. 1 draws only the current time.</value>
+  </data>
+  <data name="MotionBlur_SourceMix" xml:space="preserve">
+    <value>Source mix (%)</value>
+  </data>
+  <data name="MotionBlur_SourceMix_Description" xml:space="preserve">
+    <value>Mix in the current-time image: 0% is only motion blur, 100% is only the original. Static content keeps its opacity.</value>
   </data>
   <data name="MotionBlur_Center" xml:space="preserve">
     <value>Center</value>

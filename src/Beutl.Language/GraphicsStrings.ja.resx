@@ -1718,7 +1718,7 @@
     <value>シャッター角 (°)</value>
   </data>
   <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
-    <value>1フレームに対する露光時間です。180°で半フレーム、360°で1フレーム、0°で時間サンプリングを無効にします。</value>
+    <value>1フレームに対する露光時間。180°は半フレーム、360°は1フレーム、720°は2フレームです。最大3600°（10フレーム）まで指定できます。0°で時間サンプリングを無効にします。</value>
   </data>
   <data name="MotionBlur_ShutterPosition" xml:space="preserve">
     <value>露光の基準位置</value>
@@ -1730,7 +1730,13 @@
     <value>サンプル数</value>
   </data>
   <data name="MotionBlur_Samples_Description" xml:space="preserve">
-    <value>1フレームあたり1～64回評価します。増やすと残像の隙間が減り、描画時間とメモリ使用量が増えます。1の場合は現在の時刻だけを描画します。</value>
+    <value>露光区間内のサンプル数（1〜64）。増やすと残像の隙間が減りますが、描画時間とメモリ使用量が増えます。1は現在時刻だけを描画します。</value>
+  </data>
+  <data name="MotionBlur_SourceMix" xml:space="preserve">
+    <value>元画像ミックス (%)</value>
+  </data>
+  <data name="MotionBlur_SourceMix_Description" xml:space="preserve">
+    <value>現在時刻の元画像を混ぜる割合。0%はモーションブラーのみ、100%は元画像のみです。静止した素材の不透明度は変わりません。</value>
   </data>
   <data name="MotionBlur_Center" xml:space="preserve">
     <value>中央</value>

@@ -20,7 +20,7 @@ public sealed partial class MotionBlur : FilterEffect
 
     [Display(Name = nameof(GraphicsStrings.MotionBlur_ShutterAngle), Description = nameof(GraphicsStrings.MotionBlur_ShutterAngle_Description),
         ResourceType = typeof(GraphicsStrings))]
-    [Range(0, 360)]
+    [Range(0, 3600)]
     public IExpressionProperty<float> ShutterAngle { get; } = Property.CreateAnimatable(180f);
 
     [Display(Name = nameof(GraphicsStrings.MotionBlur_ShutterPosition), Description = nameof(GraphicsStrings.MotionBlur_ShutterPosition_Description),
@@ -32,8 +32,16 @@ public sealed partial class MotionBlur : FilterEffect
     [Range(1, 64)]
     public IExpressionProperty<int> Samples { get; } = Property.CreateExpression(8);
 
+    [Display(Name = nameof(GraphicsStrings.MotionBlur_SourceMix), Description = nameof(GraphicsStrings.MotionBlur_SourceMix_Description),
+        ResourceType = typeof(GraphicsStrings))]
+    [Range(0, 100)]
+    public IExpressionProperty<float> SourceMix { get; } = Property.CreateAnimatable(0f);
+
     public new partial class Resource
     {
+        private FilterEffectInputSample? _sourceSample;
+        private float _sourceWeight;
+
         internal IReadOnlyList<FilterEffectInputSample> TimeSamples { get; private set; } = [];
 
         public override bool UsesInputEvaluation => true;
@@ -44,12 +52,17 @@ public sealed partial class MotionBlur : FilterEffect
         {
         }
 
-        partial void PostReconcile(MotionBlur obj, CompositionContext context) => TimeSamples = [];
+        partial void PostReconcile(MotionBlur obj, CompositionContext context)
+        {
+            TimeSamples = [];
+            _sourceSample = null;
+        }
 
         public override bool PrepareInput(FilterEffectInputContext input)
         {
-            double angle = float.IsFinite(ShutterAngle) ? Math.Clamp(ShutterAngle, 0, 360) : 0;
-            int count = angle == 0 ? 1 : Math.Clamp(Samples, 1, 64);
+            double angle = float.IsFinite(ShutterAngle) ? Math.Clamp(ShutterAngle, 0, 3600) : 0;
+            _sourceWeight = float.IsFinite(SourceMix) ? Math.Clamp(SourceMix, 0, 100) / 100 : 0;
+            int count = angle == 0 || _sourceWeight == 1 ? 1 : Math.Clamp(Samples, 1, 64);
             if (count == 1) return false;
 
             CompositionContext context = input.EvaluationContext;
@@ -69,6 +82,7 @@ public sealed partial class MotionBlur : FilterEffect
                 samples[i] = input.Evaluate(time);
             }
             TimeSamples = samples;
+            if (_sourceWeight > 0) _sourceSample = input.Evaluate(context.Time);
             return true;
         }
 
@@ -77,11 +91,21 @@ public sealed partial class MotionBlur : FilterEffect
             foreach (FilterEffectInputSample sample in TimeSamples)
             {
                 using (context.PushBlendMode(BlendMode.Plus))
-                using (context.PushOpacity(1f / TimeSamples.Count))
+                using (context.PushOpacity((1 - _sourceWeight) / TimeSamples.Count))
                     sample.Draw(context);
+            }
+            if (_sourceSample != null)
+            {
+                using (context.PushBlendMode(BlendMode.Plus))
+                using (context.PushOpacity(_sourceWeight))
+                    _sourceSample.Draw(context);
             }
         }
 
-        partial void PostDispose(bool disposing) => TimeSamples = [];
+        partial void PostDispose(bool disposing)
+        {
+            TimeSamples = [];
+            _sourceSample = null;
+        }
     }
 }

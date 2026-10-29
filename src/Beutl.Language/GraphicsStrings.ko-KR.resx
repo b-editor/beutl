@@ -1722,7 +1722,7 @@
     <value>셔터 각도 (°)</value>
   </data>
   <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
-    <value>한 프레임 기준 노출 시간입니다. 180°는 반 프레임, 360°는 한 프레임이며 0°는 시간 샘플링을 끕니다.</value>
+    <value>한 프레임 기준 노출 시간입니다. 180°는 반 프레임, 360°는 한 프레임, 720°는 두 프레임입니다. 최대 3600°(10프레임)까지 지원합니다. 0°는 시간 샘플링을 끕니다.</value>
   </data>
   <data name="MotionBlur_ShutterPosition" xml:space="preserve">
     <value>노출 기준 위치</value>
@@ -1734,7 +1734,13 @@
     <value>샘플 수</value>
   </data>
   <data name="MotionBlur_Samples_Description" xml:space="preserve">
-    <value>프레임당 1~64회 평가합니다. 샘플이 많으면 잔상 사이의 간격이 줄지만 렌더링 시간과 메모리 사용량이 증가합니다. 1은 현재 시점만 그립니다.</value>
+    <value>노출 구간 내 샘플 수입니다(1~64). 샘플이 많으면 잔상 사이의 간격이 줄지만 렌더링 시간과 메모리 사용량이 증가합니다. 1은 현재 시점만 그립니다.</value>
+  </data>
+  <data name="MotionBlur_SourceMix" xml:space="preserve">
+    <value>원본 혼합률 (%)</value>
+  </data>
+  <data name="MotionBlur_SourceMix_Description" xml:space="preserve">
+    <value>현재 시점의 원본 이미지를 혼합하는 비율입니다. 0%는 모션 블러만, 100%는 원본만 표시합니다. 정지된 콘텐츠의 불투명도는 유지됩니다.</value>
   </data>
   <data name="MotionBlur_Center" xml:space="preserve">
     <value>중앙</value>

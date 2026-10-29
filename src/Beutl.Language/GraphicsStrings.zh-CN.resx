@@ -1722,7 +1722,7 @@
     <value>快门角度 (°)</value>
   </data>
   <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
-    <value>相对于一帧的曝光时间：180°为半帧，360°为一帧。0°关闭时间采样。</value>
+    <value>相对于一帧的曝光时间：180°为半帧，360°为一帧，720°为两帧。最高支持3600°（10帧）。0°关闭时间采样。</value>
   </data>
   <data name="MotionBlur_ShutterPosition" xml:space="preserve">
     <value>曝光参考位置</value>
@@ -1734,7 +1734,13 @@
     <value>采样数</value>
   </data>
   <data name="MotionBlur_Samples_Description" xml:space="preserve">
-    <value>每帧采样1至64次。增加采样可减少残影间隙，但会增加渲染时间和内存使用量。1仅绘制当前时刻。</value>
+    <value>曝光区间内的采样数（1至64）。增加采样可减少残影间隙，但会增加渲染时间和内存使用量。1仅绘制当前时刻。</value>
+  </data>
+  <data name="MotionBlur_SourceMix" xml:space="preserve">
+    <value>原图混合比例 (%)</value>
+  </data>
+  <data name="MotionBlur_SourceMix_Description" xml:space="preserve">
+    <value>混入当前时刻的原始图像：0%仅显示运动模糊，100%仅显示原图。静止内容的不透明度保持不变。</value>
   </data>
   <data name="MotionBlur_Center" xml:space="preserve">
     <value>中央</value>

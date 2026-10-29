@@ -18,14 +18,18 @@ namespace Beutl.UnitTests.Engine.Graphics.Rendering;
 [NonParallelizable]
 public class MotionBlurRenderTests
 {
-    [TestCase("translate")]
-    [TestCase("rotate")]
-    [TestCase("deform")]
-    [TestCase("video")]
-    [TestCase("scene")]
-    [TestCase("singular")]
-    [TestCase("effect")]
-    public void MatchesTheAverageOfIndependentlyRenderedSubframesAndArbitrarySeeks(string kind)
+    [TestCase("translate", 360, 0, ShutterPosition.Center)]
+    [TestCase("rotate", 360, 0, ShutterPosition.Center)]
+    [TestCase("deform", 360, 0, ShutterPosition.Center)]
+    [TestCase("video", 360, 0, ShutterPosition.Center)]
+    [TestCase("scene", 360, 0, ShutterPosition.Center)]
+    [TestCase("singular", 360, 0, ShutterPosition.Center)]
+    [TestCase("effect", 360, 0, ShutterPosition.Center)]
+    [TestCase("translate", 720, 0, ShutterPosition.End)]
+    [TestCase("effect", 720, 35, ShutterPosition.End)]
+    [TestCase("effect", 720, 100, ShutterPosition.End)]
+    public void MatchesTheAverageOfIndependentlyRenderedSubframesAndArbitrarySeeks(
+        string kind, float angle, float sourceMix, ShutterPosition position)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -33,7 +37,11 @@ public class MotionBlurRenderTests
             Drawable input = CreateInput(kind);
             var chain = new FilterEffectGroup();
             if (input.FilterEffect.Value is { } preceding) chain.Children.Add(preceding);
-            chain.Children.Add(MotionBlurTests.Blur());
+            var blur = MotionBlurTests.Blur();
+            blur.ShutterAngle.Value = angle;
+            blur.ShutterPosition.Value = position;
+            blur.SourceMix.Value = sourceMix;
+            chain.Children.Add(blur);
             input.FilterEffect.Value = chain;
             Scene scene = MotionBlurTests.SceneWith(input);
             Scene referenceScene = MotionBlurTests.SceneWith(CreateInput(kind));
@@ -46,11 +54,19 @@ public class MotionBlurRenderTests
                 actual.Save(Path.Combine(directory, $"motion-blur-{kind}.png"));
             }
             var expected = new float[96 * 64 * 4];
-            foreach (double time in new[] { 0.8125, 0.9375, 1.0625, 1.1875 })
+            double[] sampleTimes = position == ShutterPosition.End
+                ? [0.125, 0.375, 0.625, 0.875] // Two frames of exposure ending at the current time.
+                : [0.8125, 0.9375, 1.0625, 1.1875];
+            foreach (double time in sampleTimes)
             {
                 using Bitmap frame = Render(reference, time);
                 ReadOnlySpan<Half> pixels = frame.GetPixelSpan<Half>();
-                for (int i = 0; i < pixels.Length; i++) expected[i] += (float)pixels[i] / 4;
+                for (int i = 0; i < pixels.Length; i++) expected[i] += (float)pixels[i] * (1 - sourceMix / 100) / 4;
+            }
+            using (Bitmap frame = Render(reference, 1))
+            {
+                ReadOnlySpan<Half> pixels = frame.GetPixelSpan<Half>();
+                for (int i = 0; i < pixels.Length; i++) expected[i] += (float)pixels[i] * sourceMix / 100;
             }
             ReadOnlySpan<Half> output = actual.GetPixelSpan<Half>();
             double error = 0;
@@ -65,9 +81,13 @@ public class MotionBlurRenderTests
         });
     }
 
-    [TestCase(1, 0.5f)]
-    [TestCase(0, 0.25f)]
-    public void AveragingPreservesOwnerOpacityAndTransparentClipEdgeSamples(double time, float expected)
+    [TestCase(1, 0, 0.5f)]
+    [TestCase(0, 0, 0.25f)]
+    [TestCase(1, 35, 0.5f)]
+    [TestCase(0, 50, 0.375f)]
+    [TestCase(1, 100, 0.5f)]
+    [TestCase(0, 100, 0.5f)]
+    public void AveragingPreservesOwnerOpacityAndTransparentClipEdgeSamples(double time, float sourceMix, float expected)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -77,6 +97,7 @@ public class MotionBlurRenderTests
             first.Width.SetKeyFrameAnimation(null);
             second.Width.SetKeyFrameAnimation(null);
             var blur = MotionBlurTests.Blur();
+            blur.SourceMix.Value = sourceMix;
             var group = new DrawableGroup { FilterEffect = { Value = blur }, Opacity = { Value = 50 } };
             using var renderer = new SceneRenderer(MotionBlurTests.SceneWith(first, second, group), RenderIntent.Delivery);
             using Bitmap image = Render(renderer, time);
@@ -159,13 +180,14 @@ public class MotionBlurRenderTests
                 : MotionBlurTests.SceneWith(background, backdrop);
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
             using Bitmap expected = Render(renderer, 1);
-            foreach (int count in new[] { 2, 4, 8 })
+            foreach ((int count, float mix) in new[] { (2, 0f), (4, 0f), (8, 0f), (4, 35f), (4, 100f) })
             {
                 blur.Samples.Value = count;
+                blur.SourceMix.Value = mix;
                 using Bitmap actual = Render(renderer, 1);
                 // Include the empty strip left by the transform: Clear must still replace those pixels.
                 RgbaMaximumError error = ImageMetrics.MaximumAbsoluteErrorPerChannel(expected, actual);
-                Assert.That(error.Maximum, Is.LessThan(0.003), $"backdrop with {count} samples: {error}");
+                Assert.That(error.Maximum, Is.LessThan(0.003), $"backdrop with {count} samples and {mix}% source: {error}");
             }
         });
     }

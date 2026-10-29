@@ -1722,7 +1722,7 @@
     <value>Ángulo de obturación (°)</value>
   </data>
   <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
-    <value>Exposición relativa a un fotograma: 180° es medio fotograma, 360° es uno completo. 0° desactiva el muestreo temporal.</value>
+    <value>Exposición relativa a un fotograma: 180° es medio fotograma, 360° es uno y 720° son dos. Admite hasta 3600° (10 fotogramas). 0° desactiva el muestreo temporal.</value>
   </data>
   <data name="MotionBlur_ShutterPosition" xml:space="preserve">
     <value>Referencia de exposición</value>
@@ -1734,7 +1734,13 @@
     <value>Muestras</value>
   </data>
   <data name="MotionBlur_Samples_Description" xml:space="preserve">
-    <value>De 1 a 64 muestras por fotograma. Más muestras reducen los huecos y aumentan el tiempo de renderizado y la memoria. 1 dibuja solo el instante actual.</value>
+    <value>De 1 a 64 muestras durante la exposición. Más muestras reducen los huecos y aumentan el tiempo de renderizado y la memoria. 1 dibuja solo el instante actual.</value>
+  </data>
+  <data name="MotionBlur_SourceMix" xml:space="preserve">
+    <value>Mezcla original (%)</value>
+  </data>
+  <data name="MotionBlur_SourceMix_Description" xml:space="preserve">
+    <value>Mezcla la imagen del instante actual: 0% muestra solo el desenfoque y 100% solo el original. El contenido estático conserva su opacidad.</value>
   </data>
   <data name="MotionBlur_Center" xml:space="preserve">
     <value>Centro</value>
