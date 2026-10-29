@@ -9,19 +9,24 @@ namespace Beutl.UnitTests.Graphics;
 
 public partial class TransitionRenderTests
 {
-    private static readonly Type[] s_geometricTransitions =
+    private static readonly TestCaseData[] s_geometricTransitions =
     [
-        typeof(BlindsTransition), typeof(CheckerboardTransition), typeof(ClockWipeTransition),
-        typeof(BoxWipeTransition), typeof(DiamondWipeTransition),
+        new(typeof(BlindsTransition), WipeTransitionShape.Linear),
+        new(typeof(CheckerboardTransition), WipeTransitionShape.Linear),
+        new(typeof(WipeTransition), WipeTransitionShape.Linear),
+        new(typeof(WipeTransition), WipeTransitionShape.Box),
+        new(typeof(WipeTransition), WipeTransitionShape.Diamond),
+        new(typeof(WipeTransition), WipeTransitionShape.Clock),
     ];
 
     [TestCaseSource(nameof(s_geometricTransitions))]
-    public void GeometricReveals_PreserveEndpointsAndOpaqueEdges_WhenSeeking(Type type)
+    public void GeometricReveals_PreserveEndpointsAndOpaqueEdges_WhenSeeking(Type type, WipeTransitionShape shape)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var transition = (ClipTransition)Activator.CreateInstance(type)!;
+            if (transition is WipeTransition wipe) wipe.Shape.Value = shape;
             (var scene, _) = CreateScene(transition, withOutgoing: true);
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
 
@@ -44,14 +49,14 @@ public partial class TransitionRenderTests
                 {
                     string directory = Path.Combine(root, nameof(TransitionRenderTests));
                     Directory.CreateDirectory(directory);
-                    Assert.That(bitmap.Save(Path.Combine(directory, $"{type.Name}-{progress * 100:00}.png")), Is.True);
+                    Assert.That(bitmap.Save(Path.Combine(directory, $"{type.Name}-{shape}-{progress * 100:00}.png")), Is.True);
                 }
             }
         });
     }
 
     [TestCaseSource(nameof(s_geometricTransitions))]
-    public void GeometricReveals_PreserveIncomingTransparency_WithOrWithoutAnOutgoingClip(Type type)
+    public void GeometricReveals_PreserveIncomingTransparency_WithOrWithoutAnOutgoingClip(Type type, WipeTransitionShape shape)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -59,6 +64,7 @@ public partial class TransitionRenderTests
             foreach (bool withOutgoing in new[] { false, true })
             {
                 var transition = (ClipTransition)Activator.CreateInstance(type)!;
+                if (transition is WipeTransition wipe) wipe.Shape.Value = shape;
                 (var scene, var incoming) = CreateScene(transition, withOutgoing);
                 incoming.Fill.Value = new SolidColorBrush(Color.FromArgb(128, 0, 0, 255));
                 using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
@@ -78,11 +84,11 @@ public partial class TransitionRenderTests
     }
 
     [Test]
-    public void Blinds_OpenEveryStripInTheChosenDirection([Values] ClipTransitionDirection direction)
+    public void Blinds_OpenEveryStripAtCardinalAngles([Values(0f, 90f, 180f, 270f)] float angle)
     {
-        using Bitmap bitmap = Render(new BlindsTransition { Count = { Value = 4 }, Direction = { Value = direction } }, 0.5);
-        bool horizontal = direction is ClipTransitionDirection.LeftToRight or ClipTransitionDirection.RightToLeft;
-        bool reverse = direction is ClipTransitionDirection.RightToLeft or ClipTransitionDirection.BottomToTop;
+        using Bitmap bitmap = Render(new BlindsTransition { Count = { Value = 4 }, Angle = { Value = angle } }, 0.5);
+        bool horizontal = angle is 0 or 180;
+        bool reverse = angle >= 180;
         int extent = (horizontal ? Width : Height) / 4;
         for (int i = 0; i < 4; i++)
         {
@@ -93,6 +99,21 @@ public partial class TransitionRenderTests
             Assert.That(IsBlue(reverse ? after : before), Is.True, $"revealed strip {i}");
             Assert.That(IsRed(reverse ? before : after), Is.True, $"unrevealed strip {i}");
         }
+    }
+
+    [TestCase(45f, 4, 4, 16, 4)]
+    [TestCase(405f, 4, 4, 16, 4)]
+    [TestCase(135f, 20, 8, 20, 20)]
+    [TestCase(-45f, 20, 20, 20, 8)]
+    public void Blinds_OpenDiagonalStrips(float angle, int revealedX, int revealedY, int coveredX, int coveredY)
+    {
+        using Bitmap bitmap = Render(new BlindsTransition { Count = { Value = 4 }, Angle = { Value = angle } }, 0.5);
+        Assert.Multiple(() =>
+        {
+            Assert.That(IsBlue(Pixel(bitmap, revealedX, revealedY)), Is.True, "inside the open half of a diagonal strip");
+            Assert.That(IsRed(Pixel(bitmap, coveredX, coveredY)), Is.True, "inside its covered half");
+            Assert.That(ReadPixels(bitmap).Min(p => p.A), Is.GreaterThanOrEqualTo(254), "no gaps along diagonal edges");
+        });
     }
 
     [TestCase(0.25)]
@@ -113,7 +134,7 @@ public partial class TransitionRenderTests
     [Test]
     public void ClockWipe_StartsAtTwelveAndSweepsInTheChosenDirection([Values] bool clockwise)
     {
-        var transition = new ClockWipeTransition { Clockwise = { Value = clockwise } };
+        var transition = new WipeTransition { Shape = { Value = WipeTransitionShape.Clock }, Clockwise = { Value = clockwise } };
         using Bitmap firstQuarter = Render(transition, 0.25);
         using Bitmap thirdQuarter = Render(transition, 0.75);
         int leading = clockwise ? 40 : 23;
@@ -131,14 +152,35 @@ public partial class TransitionRenderTests
     [Test]
     public void BoxAndDiamond_HaveDistinctCentredOutlines()
     {
-        using Bitmap box = Render(new BoxWipeTransition(), 0.5);
-        using Bitmap diamond = Render(new DiamondWipeTransition(), 0.5);
+        using Bitmap box = Render(new WipeTransition { Shape = { Value = WipeTransitionShape.Box } }, 0.5);
+        using Bitmap diamond = Render(new WipeTransition { Shape = { Value = WipeTransitionShape.Diamond } }, 0.5);
         Assert.Multiple(() =>
         {
             Assert.That(IsBlue(Pixel(box, 32, 16)) && IsBlue(Pixel(diamond, 32, 16)), Is.True);
             Assert.That(IsRed(Pixel(box, 1, 1)) && IsRed(Pixel(diamond, 1, 1)), Is.True);
             Assert.That(IsRed(Pixel(box, 32, 3)), Is.True, "above the rectangle");
             Assert.That(IsBlue(Pixel(diamond, 32, 3)), Is.True, "inside the diamond's upper point");
+        });
+    }
+
+    [Test]
+    public void Wipe_UpdatesItsMaskWhenTheShapeChanges()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            var transition = new WipeTransition();
+            (var scene, _) = CreateScene(transition, withOutgoing: true);
+            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+            foreach (WipeTransitionShape shape in new[] { WipeTransitionShape.Box, WipeTransitionShape.Diamond, WipeTransitionShape.Linear, WipeTransitionShape.Box })
+            {
+                transition.Shape.Value = shape;
+                renderer.Render(renderer.Compositor.EvaluateGraphics(TimeAt(0.5)));
+                using Bitmap snapshot = renderer.Snapshot();
+                using Bitmap bitmap = snapshot.Convert(BitmapColorType.Bgra8888, BitmapAlphaType.Unpremul, BitmapColorSpace.Srgb);
+                Assert.That(IsBlue(Pixel(bitmap, 30, 3)), Is.EqualTo(shape != WipeTransitionShape.Box), $"top edge with {shape}");
+                Assert.That(IsBlue(Pixel(bitmap, 1, 16)), Is.EqualTo(shape == WipeTransitionShape.Linear), $"left edge with {shape}");
+            }
         });
     }
 

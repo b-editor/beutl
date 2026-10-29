@@ -564,10 +564,7 @@ Beutl.Utilities
   keys: Animations, Expressions, Id, IsEnabled, Name, X, Y
 [Beutl.Engine]Beutl.Graphics.Transitions:BlindsTransition
   sealed
-  keys: Animations, Count, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
-[Beutl.Engine]Beutl.Graphics.Transitions:BoxWipeTransition
-  sealed
-  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+  keys: Angle, Animations, Count, Duration, Easing, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Transitions:CheckerboardTransition
   sealed
   keys: Animations, Columns, Duration, Easing, Expressions, Id, IsEnabled, Name, Rows
@@ -576,13 +573,7 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Transitions:ClipTransitionPresenter
   sealed
   keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, Transform, TransformOrigin
-[Beutl.Engine]Beutl.Graphics.Transitions:ClockWipeTransition
-  sealed
-  keys: Animations, Clockwise, Duration, Easing, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Transitions:CrossDissolveTransition
-  sealed
-  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
-[Beutl.Engine]Beutl.Graphics.Transitions:DiamondWipeTransition
   sealed
   keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Transitions:DipToColorTransition
@@ -602,7 +593,7 @@ Beutl.Utilities
   keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
 [Beutl.Engine]Beutl.Graphics.Transitions:IrisTransition
   sealed
-  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics.Transitions:LightLeakTransition
   sealed
   keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
@@ -620,13 +611,13 @@ Beutl.Utilities
   keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
 [Beutl.Engine]Beutl.Graphics.Transitions:WipeTransition
   sealed
-  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
+  keys: Animations, Clockwise, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Shape
 [Beutl.Engine]Beutl.Graphics.Transitions:ZoomBlurTransition
   sealed
-  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name, Strength
 [Beutl.Engine]Beutl.Graphics.Transitions:ZoomTransition
   sealed
-  keys: Animations, Duration, Easing, Expressions, Id, IsEnabled, Name
+  keys: Animations, Direction, Duration, Easing, Expressions, Id, IsEnabled, Name
 [Beutl.Engine]Beutl.Graphics3D.Camera:Camera3D
   abstract
 [Beutl.Engine]Beutl.Graphics3D.Camera:OrthographicCamera

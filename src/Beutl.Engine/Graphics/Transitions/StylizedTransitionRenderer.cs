@@ -21,7 +21,7 @@ internal static class StylizedTransitionRenderer
 {
     public static void Draw(
         ClipTransitionContext context, TransitionStyle style, float strength,
-        ClipTransitionDirection direction = ClipTransitionDirection.LeftToRight)
+        ClipTransitionDirection direction = ClipTransitionDirection.LeftToRight, bool zoomOut = false)
     {
         float progress = context.Progress;
         if (progress <= 0 || progress >= 1)
@@ -41,7 +41,7 @@ internal static class StylizedTransitionRenderer
             ? SmoothStep(0.45f, 0.55f, progress)
             : SmoothStep(0.35f, 0.65f, progress);
         Vector travel = ClipTransitionContext.GetDirection(direction);
-        var state = new ShaderState(style, context.Graphics.Size, progress, strength, false, new Vector2(travel.X, travel.Y));
+        var state = new ShaderState(style, context.Graphics.Size, progress, strength, false, new Vector2(travel.X, travel.Y), zoomOut);
         using (context.PushIsolation())
         {
             // Glitch's cut varies by scan band. Its shaders apply complementary weights themselves.
@@ -75,7 +75,7 @@ internal static class StylizedTransitionRenderer
     }
 
     private readonly record struct ShaderState(
-        TransitionStyle Style, Size Size, float Progress, float Strength, bool Incoming, Vector2 Direction);
+        TransitionStyle Style, Size Size, float Progress, float Strength, bool Incoming, Vector2 Direction, bool ZoomOut);
 
     private sealed class TransitionShaderNode(ShaderState state) : ContainerRenderNode
     {
@@ -103,7 +103,7 @@ internal static class StylizedTransitionRenderer
                 {
                     bindings.Uniform("resolution", Vector2.Zero, static (writer, _, execution) =>
                         writer.Set(new Vector2(execution.SemanticOutputSize.Width, execution.SemanticOutputSize.Height)));
-                    bindings.Uniform("parameters", new Vector4(value.Progress, value.Strength, value.Incoming ? 1 : 0, 0));
+                    bindings.Uniform("parameters", new Vector4(value.Progress, value.Strength, value.Incoming ? 1 : 0, value.ZoomOut ? -1 : 1));
                     if (value.Style == TransitionStyle.WhipPan)
                         bindings.Uniform("direction", value.Direction);
                 },
@@ -116,7 +116,7 @@ internal static class StylizedTransitionRenderer
     private const string CommonSource = """
         uniform shader src;
         uniform float2 resolution;
-        // Progress, strength, incoming side, reserved.
+        // Progress, strength, incoming side, zoom direction (positive is in).
         uniform float4 parameters;
 
         half4 sampleFrame(float2 uv) {
@@ -138,13 +138,16 @@ internal static class StylizedTransitionRenderer
                 float zoom = 1.0 + drive * drive * strength * 2.2;
                 float pulse = 4.0 * p * (1.0 - p);
                 float blur = pulse * pulse * strength * 0.45;
-                float2 offset = (coord / resolution - 0.5) / zoom;
+                float2 offset = coord / resolution - 0.5;
                 half4 color = half4(0.0);
                 float total = 0.0;
                 for (int i = 0; i < 24; i++) {
                     float t = (float(i) + 0.5) / 24.0;
                     float weight = 1.0 - abs(t * 2.0 - 1.0) * 0.7;
-                    color += sampleFrame(0.5 + offset * (1.0 - blur * t)) * half(weight);
+                    float scale = zoom / (1.0 - blur * t);
+                    if (parameters.w < 0.0) scale = 1.0 / scale;
+                    // Decal sampling leaves the space around a shrinking frame transparent.
+                    color += src.eval((0.5 + offset / scale) * resolution) * half(weight);
                     total += weight;
                 }
                 return color / half(total);

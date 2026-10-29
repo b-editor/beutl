@@ -1561,17 +1561,38 @@
   <data name="CheckerboardTransition_Rows" xml:space="preserve">
     <value>行数</value>
   </data>
-  <data name="ClockWipeTransition" xml:space="preserve">
-    <value>クロックワイプ</value>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>形状</value>
   </data>
-  <data name="ClockWipeTransition_Clockwise" xml:space="preserve">
-    <value>時計回り</value>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>直線の方向</value>
   </data>
-  <data name="BoxWipeTransition" xml:space="preserve">
-    <value>ボックスワイプ</value>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>時計回り（クロック）</value>
   </data>
-  <data name="DiamondWipeTransition" xml:space="preserve">
-    <value>ダイヤモンドワイプ</value>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>直線</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>ボックス</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>ダイヤモンド</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>クロック</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>イン（開く）</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>アウト（閉じる）</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>拡大</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>縮小</value>
   </data>
   <data name="ZoomBlurTransition" xml:space="preserve">
     <value>ズームブラー</value>

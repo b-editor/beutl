@@ -1565,17 +1565,38 @@
   <data name="CheckerboardTransition_Rows" xml:space="preserve">
     <value>행</value>
   </data>
-  <data name="ClockWipeTransition" xml:space="preserve">
-    <value>시계 와이프</value>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>모양</value>
   </data>
-  <data name="ClockWipeTransition_Clockwise" xml:space="preserve">
-    <value>시계 방향</value>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>직선 방향</value>
   </data>
-  <data name="BoxWipeTransition" xml:space="preserve">
-    <value>사각 와이프</value>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>시계 방향 (시계 와이프)</value>
   </data>
-  <data name="DiamondWipeTransition" xml:space="preserve">
-    <value>마름모 와이프</value>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>직선</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>상자</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>마름모</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>시계</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>인 (열기)</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>아웃 (닫기)</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>확대</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>축소</value>
   </data>
   <data name="ZoomBlurTransition" xml:space="preserve">
     <value>줌 블러</value>

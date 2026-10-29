@@ -5,7 +5,7 @@ using Beutl.Media;
 
 namespace Beutl.Graphics.Transitions;
 
-/// <summary>Reveals the incoming clip in parallel strips that open in the chosen direction.</summary>
+/// <summary>Reveals the incoming clip in parallel strips that open along the chosen angle.</summary>
 [Display(Name = nameof(GraphicsStrings.BlindsTransition), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class BlindsTransition : ClipTransition
 {
@@ -14,8 +14,9 @@ public sealed partial class BlindsTransition : ClipTransition
         ScanProperties<BlindsTransition>();
     }
 
-    [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
-    public IExpressionProperty<ClipTransitionDirection> Direction { get; } = Property.CreateExpression(ClipTransitionDirection.LeftToRight);
+    [Display(Name = nameof(GraphicsStrings.Angle), ResourceType = typeof(GraphicsStrings))]
+    [Unit(PropertyUnit.Degrees)]
+    public IExpressionProperty<float> Angle { get; } = Property.CreateExpression(0f);
 
     [Range(1, 64)]
     [Display(Name = nameof(GraphicsStrings.BlindsTransition_Count), ResourceType = typeof(GraphicsStrings))]
@@ -29,19 +30,26 @@ public sealed partial class BlindsTransition : ClipTransition
         {
             using var path = new GeometryContext();
             Size size = context.Graphics.Size;
-            Vector direction = ClipTransitionContext.GetDirection(Direction);
-            bool horizontal = direction.X != 0;
-            bool reverse = direction.X < 0 || direction.Y < 0;
+            float angle = (float.IsFinite(Angle) ? Angle % 360 : 0) * MathF.PI / 180;
+            var normal = new Vector(MathF.Cos(angle), MathF.Sin(angle));
+            var tangent = new Vector(-normal.Y, normal.X);
+            Point center = new Rect(size).Center;
+            float halfSpan = (MathF.Abs(normal.X) * size.Width + MathF.Abs(normal.Y) * size.Height) / 2;
+            float halfLength = (MathF.Abs(tangent.X) * size.Width + MathF.Abs(tangent.Y) * size.Height) / 2;
             int count = Math.Clamp(Count, 1, 64);
-            float extent = (horizontal ? size.Width : size.Height) / count;
+            float extent = 2 * halfSpan / count;
             float revealed = extent * context.Progress;
 
             for (int i = 0; i < count; i++)
             {
-                float start = extent * i + (reverse ? extent - revealed : 0);
-                GeometryMask.AddRectangle(path, horizontal
-                    ? new Rect(start, 0, revealed, size.Height)
-                    : new Rect(0, start, size.Width, revealed));
+                float start = -halfSpan + extent * i;
+                Point first = center + normal * start;
+                Point last = center + normal * (start + revealed);
+                path.MoveTo(first - tangent * halfLength);
+                path.LineTo(last - tangent * halfLength);
+                path.LineTo(last + tangent * halfLength);
+                path.LineTo(first + tangent * halfLength);
+                path.Close();
             }
 
             _mask.Draw(context, path);

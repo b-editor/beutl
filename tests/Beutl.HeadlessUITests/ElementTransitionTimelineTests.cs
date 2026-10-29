@@ -100,7 +100,7 @@ public class ElementTransitionTimelineTests
             string? typeName = transitionEditor.TypeName.Value;
             bool showsDirection = transitionEditor.Properties.Value?.Properties
                 .OfType<PropertyEditorViewModel>()
-                .Any(item => item.Header == GraphicsStrings.Direction) == true;
+                .Any(item => item.Header == GraphicsStrings.WipeTransition_LinearDirection) == true;
             Type? exitAfterChange = outgoing.Model.ExitTransition.Value?.GetType();
             int undoAfterChange = editor.HistoryManager.UndoCount;
             transitionEditor.ChangeType(null);
@@ -142,12 +142,12 @@ public class ElementTransitionTimelineTests
             window.Show();
             (Type Type, string[] Properties)[] choices =
             [
-                (typeof(BlindsTransition), [GraphicsStrings.Direction, GraphicsStrings.BlindsTransition_Count]),
+                (typeof(BlindsTransition), [$"{GraphicsStrings.Angle} (°)", GraphicsStrings.BlindsTransition_Count]),
                 (typeof(CheckerboardTransition), [GraphicsStrings.CheckerboardTransition_Columns, GraphicsStrings.CheckerboardTransition_Rows]),
-                (typeof(ClockWipeTransition), [GraphicsStrings.ClockWipeTransition_Clockwise]),
-                (typeof(BoxWipeTransition), []),
-                (typeof(DiamondWipeTransition), []),
-                (typeof(ZoomBlurTransition), [GraphicsStrings.ClipTransition_Strength]),
+                (typeof(WipeTransition), [GraphicsStrings.WipeTransition_Shape, GraphicsStrings.WipeTransition_LinearDirection, GraphicsStrings.WipeTransition_Clockwise]),
+                (typeof(IrisTransition), [GraphicsStrings.Direction]),
+                (typeof(ZoomTransition), [GraphicsStrings.Direction]),
+                (typeof(ZoomBlurTransition), [GraphicsStrings.ClipTransition_Strength, GraphicsStrings.Direction]),
                 (typeof(WhipPanTransition), [GraphicsStrings.ClipTransition_Strength, GraphicsStrings.Direction]),
                 (typeof(GlitchTransition), [GraphicsStrings.ClipTransition_Strength]),
                 (typeof(LightLeakTransition), [GraphicsStrings.ClipTransition_Strength]),
@@ -168,12 +168,55 @@ public class ElementTransitionTimelineTests
                 Assert.That(picker.Bounds.Right, Is.LessThanOrEqualTo(view.Bounds.Width + 1));
                 HeadlessCapture.SaveIfRequested(view, nameof(ElementTransitionTimelineTests), $"{type.Name}-{language}-{width}");
 
+                // Edit through the same property contexts used by the controls, including undo and redo.
+                switch (model.Transition.Value)
+                {
+                    case WipeTransition wipe:
+                        var shapeEditor = model.Properties.Value.Properties.OfType<EnumEditorViewModel<WipeTransitionShape>>().Single();
+                        foreach (WipeTransitionShape shape in new[] { WipeTransitionShape.Box, WipeTransitionShape.Diamond, WipeTransitionShape.Clock })
+                            CheckSetting(shapeEditor, () => wipe.Shape.Value, shape);
+                        break;
+                    case BlindsTransition blinds:
+                        var angleEditor = model.Properties.Value.Properties.OfType<NumberEditorViewModel<float>>().Single();
+                        CheckSetting(angleEditor, () => blinds.Angle.Value, -37.5f);
+                        break;
+                    case IrisTransition iris:
+                        var irisEditor = model.Properties.Value.Properties.OfType<EnumEditorViewModel<IrisTransitionDirection>>().Single();
+                        CheckSetting(irisEditor, () => iris.Direction.Value, IrisTransitionDirection.Out);
+                        break;
+                    case ZoomTransition zoom:
+                        CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<ZoomTransitionDirection>>().Single(),
+                            () => zoom.Direction.Value, ZoomTransitionDirection.Out);
+                        break;
+                    case ZoomBlurTransition zoomBlur:
+                        CheckSetting(model.Properties.Value.Properties.OfType<EnumEditorViewModel<ZoomTransitionDirection>>().Single(),
+                            () => zoomBlur.Direction.Value, ZoomTransitionDirection.Out);
+                        break;
+                }
+
                 Assert.That(editor.HistoryManager.Undo(), Is.True);
                 HeadlessTestHelpers.Settle(3);
                 Assert.That(model.Transition.Value?.GetType(), Is.EqualTo(previousType));
                 Assert.That(editor.HistoryManager.Redo(), Is.True);
                 HeadlessTestHelpers.Settle(3);
                 Assert.That(incoming.Model.EnterTransition.Value, Is.TypeOf(type));
+
+                void CheckSetting<T>(PropertyEditorViewModel<T> property, Func<T> read, T value)
+                {
+                    T original = read();
+                    property.SetValue(original, value);
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(read(), Is.EqualTo(value));
+                    HeadlessCapture.SaveIfRequested(view, nameof(ElementTransitionTimelineTests), $"{type.Name}-{value}-{language}-{width}");
+                    Assert.That(editor.HistoryManager.Undo(), Is.True);
+                    HeadlessTestHelpers.Settle(3);
+                    Assert.That(read(), Is.EqualTo(original));
+                    Assert.That(editor.HistoryManager.Redo(), Is.True);
+                    HeadlessTestHelpers.Settle(3);
+                    Assert.That(read(), Is.EqualTo(value));
+                    Assert.That(editor.HistoryManager.Undo(), Is.True);
+                    HeadlessTestHelpers.Settle(3);
+                }
             }
         }
         finally

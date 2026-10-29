@@ -1,13 +1,13 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
+using Beutl.Engine;
 using Beutl.Language;
 using Beutl.Media;
 
 namespace Beutl.Graphics.Transitions;
 
 /// <summary>
-/// The incoming clip opens from the centre of the frame inside a circle that grows until it covers the
-/// frame.
+/// Opens the incoming clip from the centre or closes the outgoing clip towards the centre.
 /// </summary>
 [Display(Name = nameof(GraphicsStrings.IrisTransition), ResourceType = typeof(GraphicsStrings))]
 public sealed partial class IrisTransition : ClipTransition
@@ -17,6 +17,9 @@ public sealed partial class IrisTransition : ClipTransition
         ScanProperties<IrisTransition>();
     }
 
+    [Display(Name = nameof(GraphicsStrings.Direction), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<IrisTransitionDirection> Direction { get; } = Property.CreateExpression(IrisTransitionDirection.In);
+
     public new partial class Resource
     {
         private RadialGradientBrush? _brush;
@@ -24,7 +27,7 @@ public sealed partial class IrisTransition : ClipTransition
 
         public override void Draw(ClipTransitionContext context)
         {
-            context.DrawIris(_mask!);
+            context.DrawIris(_mask!, Direction == IrisTransitionDirection.Out);
         }
 
         // A disc filling whatever square it is drawn into, opaque inside and clear outside.

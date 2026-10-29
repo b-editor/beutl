@@ -1565,17 +1565,38 @@
   <data name="CheckerboardTransition_Rows" xml:space="preserve">
     <value>Filas</value>
   </data>
-  <data name="ClockWipeTransition" xml:space="preserve">
-    <value>Barrido de reloj</value>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>Forma</value>
   </data>
-  <data name="ClockWipeTransition_Clockwise" xml:space="preserve">
-    <value>Sentido horario</value>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>Dirección lineal</value>
   </data>
-  <data name="BoxWipeTransition" xml:space="preserve">
-    <value>Barrido rectangular</value>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>Sentido horario (reloj)</value>
   </data>
-  <data name="DiamondWipeTransition" xml:space="preserve">
-    <value>Barrido de rombo</value>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>Lineal</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>Rectángulo</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>Rombo</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>Reloj</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>Entrada (abrir)</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>Salida (cerrar)</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>Acercar</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>Alejar</value>
   </data>
   <data name="ZoomBlurTransition" xml:space="preserve">
     <value>Desenfoque de zoom</value>

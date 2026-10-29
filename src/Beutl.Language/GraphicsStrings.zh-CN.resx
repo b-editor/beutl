@@ -1565,17 +1565,38 @@
   <data name="CheckerboardTransition_Rows" xml:space="preserve">
     <value>行数</value>
   </data>
-  <data name="ClockWipeTransition" xml:space="preserve">
-    <value>时钟擦除</value>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>形状</value>
   </data>
-  <data name="ClockWipeTransition_Clockwise" xml:space="preserve">
-    <value>顺时针</value>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>直线方向</value>
   </data>
-  <data name="BoxWipeTransition" xml:space="preserve">
-    <value>矩形擦除</value>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>顺时针（时钟）</value>
   </data>
-  <data name="DiamondWipeTransition" xml:space="preserve">
-    <value>菱形擦除</value>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>直线</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>矩形</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>菱形</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>时钟</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>入（打开）</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>出（闭合）</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>放大</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>缩小</value>
   </data>
   <data name="ZoomBlurTransition" xml:space="preserve">
     <value>缩放模糊</value>
