@@ -6,17 +6,17 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.VisualTree;
-using Beutl.Editor.Components.ElementPropertyTab.ViewModels;
-using Beutl.Editor.Components.ElementPropertyTab.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.Media.Source;
 using Beutl.Models;
 using Beutl.ProjectSystem;
 using Beutl.Testing.Headless;
 using Beutl.ViewModels;
+using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using MatteMode = Beutl.Graphics.MatteMode;
 using RectShape = Beutl.Graphics.Shapes.RectShape;
@@ -31,16 +31,14 @@ public sealed class TrackMatteEditorTests
     [TestCase(640, "en", false)]
     [TestCase(320, "en", true)]
     [TestCase(640, "ja", true)]
-    public async Task Settings_WorkAtNarrowWidths_AndUndoAndRetarget(int width, string language, bool light)
+    public async Task ContextMenu_ChangesTheClickedClip_AndReflectsUndo(int width, string language, bool light)
     {
         CultureInfo oldCulture = CultureInfo.CurrentUICulture;
         CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
         try
         {
             (EditViewModel editor, TimelineTabViewModel timeline, Element source, Element target) = await Open();
-            using var model = new ElementPropertyTabViewModel(editor);
-            model.Element.Value = target;
-            var view = new ElementPropertyTabView { DataContext = model };
+            var view = new TimelineTabView { DataContext = timeline };
             var window = new Window
             {
                 Content = view,
@@ -51,54 +49,108 @@ public sealed class TrackMatteEditorTests
             try
             {
                 window.Show();
-                HeadlessTestHelpers.Render();
-                var sourceBox = view.FindControl<ComboBox>("matteSource")!;
-                var modeBox = view.FindControl<ComboBox>("matteMode")!;
-                var visible = view.FindControl<CheckBox>("matteOutputVisibility")!;
-                TrackMatteSettingsViewModel settings = model.TrackMatte.Value!;
-                Assert.That(settings.Sources.Select(item => item.ZIndex), Is.EqualTo(new int?[] { null, 0 }));
+                HeadlessTestHelpers.Render(5);
+                ElementView targetView = FindElement(view, target);
+                FAMenuFlyoutSubItem menu = OpenMatteMenu(targetView);
+                FAMenuFlyoutSubItem sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
+                OpenSubMenu(sources);
+                FAToggleMenuFlyoutItem[] choices = sources.Items.OfType<FAToggleMenuFlyoutItem>().ToArray();
+                Assert.That(choices, Has.Length.EqualTo(2));
+                Assert.That(choices[0].IsChecked, Is.True);
+                string capture = $"{language}-{width}-{(light ? "light" : "dark")}";
+                HeadlessCapture.SaveIfRequested(choices[0], "track-matte", $"sources-{capture}");
                 int before = editor.HistoryManager.UndoCount;
-                sourceBox.SelectedItem = settings.Sources.Single(item => item.ZIndex == 0);
-                HeadlessTestHelpers.Settle();
+                HeadlessTestHelpers.Click(choices[1], move: true);
+                Assert.That(Flyout(targetView).IsOpen, Is.False);
                 Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.Alpha));
                 Assert.That(target.MatteSourceZIndex.Value, Is.EqualTo(0));
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
-                modeBox.SelectedItem = settings.Modes.Single(item => item.Mode == MatteMode.InvertedLuma);
-                HeadlessTestHelpers.Settle();
+
+                menu = OpenMatteMenu(targetView);
+                Assert.That(Item(menu, Strings.MatteAlpha).IsChecked, Is.True);
+                HeadlessTestHelpers.Click(Item(menu, Strings.MatteInvertedLuma), move: true);
                 Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.InvertedLuma));
                 Assert.That(editor.HistoryManager.Undo(), Is.True);
-                Assert.That(settings.SelectedMode.Value!.Mode, Is.EqualTo(MatteMode.Alpha));
+                menu = OpenMatteMenu(targetView);
+                Assert.That(Item(menu, Strings.MatteAlpha).IsChecked, Is.True);
+                Assert.That(Item(menu, Strings.MatteInvertedLuma).IsChecked, Is.False);
+                Flyout(targetView).Hide();
                 Assert.That(editor.HistoryManager.Redo(), Is.True);
-                HeadlessTestHelpers.Render();
-                foreach (Control control in new Control[] { sourceBox, modeBox, visible })
-                {
-                    Point position = control.TranslatePoint(default, view)!.Value;
-                    Assert.That(position.X, Is.GreaterThanOrEqualTo(0));
-                    Assert.That(position.X + control.Bounds.Width, Is.LessThanOrEqualTo(view.Bounds.Width));
-                }
-                HeadlessCapture.SaveIfRequested(view, "track-matte", $"settings-{language}-{width}-{(light ? "light" : "dark")}");
+                menu = OpenMatteMenu(targetView);
+                Assert.That(Item(menu, Strings.MatteInvertedLuma).IsChecked, Is.True);
+                HeadlessCapture.SaveIfRequested(Item(menu, Strings.MatteAlpha), "track-matte", $"menu-{capture}");
+                Flyout(targetView).Hide();
                 Assert.That(timeline.GetViewModelFor(target)!.MatteIndicator.Value, Is.EqualTo("↑ 0"));
 
-                model.Element.Value = source;
-                HeadlessTestHelpers.Render();
-                Point point = HeadlessTestHelpers.Center(visible, window);
-                window.MouseDown(point, MouseButton.Left);
-                window.MouseUp(point, MouseButton.Left);
-                HeadlessTestHelpers.Settle();
+                ElementView sourceView = FindElement(view, source);
+                menu = OpenMatteMenu(sourceView);
+                Assert.That(Item(menu, Strings.IsVisibleInOutput).IsChecked, Is.True);
+                HeadlessTestHelpers.Click(Item(menu, Strings.IsVisibleInOutput), move: true);
                 Assert.That(source.IsVisibleInOutput.Value, Is.False);
                 Assert.That(target.IsVisibleInOutput.Value, Is.True);
                 Assert.That(editor.HistoryManager.Undo(), Is.True);
-                Assert.That(source.IsVisibleInOutput.Value, Is.True);
+                menu = OpenMatteMenu(sourceView);
+                Assert.That(Item(menu, Strings.IsVisibleInOutput).IsChecked, Is.True);
+                Flyout(sourceView).Hide();
                 source.IsLocked.Value = true;
                 HeadlessTestHelpers.Render();
-                Assert.That(sourceBox.IsEffectivelyEnabled, Is.False);
-                settings = model.TrackMatte.Value!;
-                settings.ShowInOutput.Value = false;
+                Flyout(sourceView).ShowAt(sourceView);
+                HeadlessTestHelpers.Render();
+                Assert.That(menu.IsEffectivelyEnabled, Is.False);
+                timeline.GetViewModelFor(source)!.ToggleOutputVisibility();
                 Assert.That(source.IsVisibleInOutput.Value, Is.True, "the service enforces the lock too");
+                Flyout(sourceView).Hide();
             }
-            finally { window.Close(); }
+            finally { TimelineTestHost.Close(view, window); }
         }
         finally { CultureInfo.CurrentUICulture = oldCulture; }
+    }
+
+    [AvaloniaTest]
+    public async Task ContextMenu_RefreshesSourceLayers_AndCanDisableAndClearTheMatte()
+    {
+        (EditViewModel editor, TimelineTabViewModel timeline, Element source, Element target) = await Open();
+        editor.GetRequiredService<IElementAttributeService>().SetTrackMatte(target, 0, MatteMode.Luma);
+        var view = new TimelineTabView { DataContext = timeline };
+        var window = new Window { Content = view, Width = 900, Height = 550 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render(5);
+            ElementView element = FindElement(view, target);
+            FAMenuFlyoutSubItem menu = OpenMatteMenu(element);
+            Assert.That(Item(menu, Strings.MatteLuma).IsChecked, Is.True);
+            HeadlessTestHelpers.Click(Item(menu, StatusStrings.None), move: true);
+            Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.None));
+            Assert.That(target.MatteSourceZIndex.Value, Is.EqualTo(0), "disabling preserves the source");
+
+            editor.GetRequiredService<ILayerAttributeService>()
+                .SetColor(editor.Scene, 0, Beutl.Media.Colors.White, "Text mask");
+            editor.GetRequiredService<ILayerMoveService>().ApplyMove(editor.Scene, 0, 3, [source]);
+            menu = OpenMatteMenu(element);
+            FAMenuFlyoutSubItem sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
+            OpenSubMenu(sources);
+            FAToggleMenuFlyoutItem selected = Item(sources, "3: Text mask");
+            Assert.That(selected.IsChecked, Is.True, "the saved source remains available below the target");
+            HeadlessTestHelpers.Click(selected, move: true);
+            Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.Alpha));
+            menu = OpenMatteMenu(element);
+            HeadlessTestHelpers.Click(Item(menu, Strings.MatteInvertedAlpha), move: true);
+            Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.InvertedAlpha));
+
+            menu = OpenMatteMenu(element);
+            sources = menu.Items.OfType<FAMenuFlyoutSubItem>().Single();
+            OpenSubMenu(sources);
+            int before = editor.HistoryManager.UndoCount;
+            HeadlessTestHelpers.Click(Item(sources, StatusStrings.None), move: true);
+            Assert.That(target.MatteSourceZIndex.Value, Is.Null);
+            Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.None));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(editor.HistoryManager.Undo(), Is.True);
+            Assert.That(target.MatteSourceZIndex.Value, Is.EqualTo(3));
+            Assert.That(target.MatteMode.Value, Is.EqualTo(MatteMode.InvertedAlpha));
+        }
+        finally { TimelineTestHost.Close(view, window); }
     }
 
     [AvaloniaTest]
@@ -166,6 +218,37 @@ public sealed class TrackMatteEditorTests
             bitmap.Dispose();
             return true;
         }
+    }
+
+    private static ElementView FindElement(TimelineTabView view, Element element)
+        => view.GetVisualDescendants().OfType<ElementView>()
+            .Single(item => ((ElementViewModel)item.DataContext!).Model == element);
+
+    private static FAMenuFlyout Flyout(ElementView element)
+        => (FAMenuFlyout)element.FindControl<Border>("border")!.ContextFlyout!;
+
+    private static FAToggleMenuFlyoutItem Item(FAMenuFlyoutSubItem menu, string text)
+        => menu.Items.OfType<FAToggleMenuFlyoutItem>().Single(item => item.Text == text);
+
+    private static FAMenuFlyoutSubItem OpenMatteMenu(ElementView element)
+    {
+        HeadlessTestHelpers.Render();
+        // Click near the start so the element is reachable even in a narrow timeline viewport.
+        HeadlessTestHelpers.Click(element, new Point(24, element.Bounds.Height / 2), MouseButton.Right, move: true);
+        Assert.That(Flyout(element).IsOpen, Is.True);
+        FAMenuFlyoutSubItem menu = element.FindControl<FAMenuFlyoutSubItem>("trackMatteMenu")!;
+        OpenSubMenu(menu);
+        return menu;
+    }
+
+    private static void OpenSubMenu(FAMenuFlyoutSubItem menu)
+    {
+        Assert.That(menu.Focus(), Is.True);
+        TopLevel popup = TopLevel.GetTopLevel(menu)!;
+        popup.KeyPress(Key.Right, RawInputModifiers.None, PhysicalKey.None, null);
+        popup.KeyRelease(Key.Right, RawInputModifiers.None, PhysicalKey.None, null);
+        HeadlessTestHelpers.Render(3);
+        Assert.That(menu.Items.OfType<Control>().First().Bounds.Height, Is.GreaterThan(0));
     }
 
     private static async Task<(EditViewModel, TimelineTabViewModel, Element, Element)> Open()

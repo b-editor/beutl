@@ -4,7 +4,6 @@
              xmlns:pe="using:Beutl.Controls.PropertyEditors"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:local="using:Beutl.Editor.Components.ElementPropertyTab.Views"
-             xmlns:lang="using:Beutl.Language"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModel="using:Beutl.Editor.Components.ElementPropertyTab.ViewModels"
              d:DesignHeight="450"
@@ -14,40 +13,12 @@
              pe:PropertyEditorGrid.IsAlignmentScope="True"
              mc:Ignorable="d">
     <ScrollViewer x:Name="scrollViewer">
-        <StackPanel>
-            <Border Padding="12" IsVisible="{Binding HasTarget.Value}" IsEnabled="{Binding CanEdit.Value}"
-                    BorderThickness="0,0,0,1" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}">
-                <StackPanel DataContext="{Binding TrackMatte.Value}" x:DataType="viewModel:TrackMatteSettingsViewModel" Spacing="8">
-                    <TextBlock Text="{x:Static lang:Strings.TrackMatte}" FontWeight="SemiBold" />
-                    <TextBlock Text="{x:Static lang:Strings.MatteSource}" />
-                    <ComboBox x:Name="matteSource" HorizontalAlignment="Stretch"
-                              ItemsSource="{Binding Sources}" SelectedItem="{Binding SelectedSource.Value, Mode=TwoWay}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="viewModel:TrackMatteSettingsViewModel+SourceChoice">
-                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <ComboBox x:Name="matteMode" HorizontalAlignment="Stretch"
-                              ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode.Value, Mode=TwoWay}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="viewModel:TrackMatteSettingsViewModel+ModeChoice">
-                                <TextBlock Text="{Binding Label}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
-                    <CheckBox x:Name="matteOutputVisibility" IsChecked="{Binding ShowInOutput.Value, Mode=TwoWay}">
-                        <TextBlock Text="{x:Static lang:Strings.IsVisibleInOutput}" TextWrapping="Wrap" />
-                    </CheckBox>
-                </StackPanel>
-            </Border>
-            <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Items}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <local:EngineObjectPropertyView />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </StackPanel>
+        <ItemsControl x:Name="itemsControl" ItemsSource="{Binding Items}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <local:EngineObjectPropertyView />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
     </ScrollViewer>
 </UserControl>

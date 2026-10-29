@@ -164,6 +164,8 @@
                 </ui:FAToggleMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
                 <!--  Items are filled from the library each time the menu opens; see OnContextFlyoutOpening.  -->
+                <ui:FAMenuFlyoutSubItem x:Name="trackMatteMenu" Text="{x:Static lang:Strings.TrackMatte}"
+                                      IsEnabled="{Binding IsEditable.Value}" />
                 <ui:FAMenuFlyoutSubItem x:Name="transitionMenu" Text="{x:Static lang:GraphicsStrings.ClipTransition}">
                     <ui:FAMenuFlyoutSubItem.IconSource>
                         <icons:FluentIconSource Icon="SlideTransition" />
