@@ -30,7 +30,7 @@ public static class ExportSourceValidator
 
     /// <summary>Collects only sources used by the selected export passes.</summary>
     public static IReadOnlySet<string> CollectRenderableSources(
-        Scene scene, TimeRange range, bool includeVideo, bool includeAudio)
+        Scene scene, TimeRange range, bool includeVideo, bool includeAudio, Rational? frameRate = null)
         => CollectRenderableSources(scene, range,
             (includeVideo, includeAudio) switch
             {
@@ -38,22 +38,24 @@ public static class ExportSourceValidator
                 (true, false) => [CompositionTarget.Graphics],
                 (false, true) => [CompositionTarget.Audio],
                 _ => [],
-            });
+            }, frameRate);
 
     private static IReadOnlySet<string> CollectRenderableSources(
-        Scene scene, TimeRange sceneWindow, CompositionTarget[] targets)
+        Scene scene, TimeRange sceneWindow, CompositionTarget[] targets, Rational? frameRate = null)
     {
         ArgumentNullException.ThrowIfNull(scene);
 
         var paths = new HashSet<string>(StringComparer.Ordinal);
         var visitedScenes = new HashSet<(Scene, CompositionTarget?)>();
+        Rational rate = frameRate ?? scene.FindHierarchicalParent<Project>().GetFrameRate();
         foreach (CompositionTarget target in targets)
         {
-            foreach ((Element element, TimeRange active) in SceneLayerSkipModel.EnumerateRenderableElements(scene, target, sceneWindow))
+            foreach ((Element element, TimeRange active) in SceneLayerSkipModel.EnumerateRenderableElements(
+                         scene, target, sceneWindow, rate, sceneWindow.Start))
             {
                 TimeRange localRange = active.SubtractStart(element.Start.Value);
                 foreach (IFileSource source in ProxySourceEnumerator.EnumerateFileSources(
-                    element, visitedScenes, skipDisabledElements: true, target, localRange, active))
+                    element, visitedScenes, skipDisabledElements: true, target, localRange, active, rate, sceneWindow.Start))
                 {
                     if (source.Uri is { IsFile: true } uri)
                         paths.Add(uri.LocalPath);
