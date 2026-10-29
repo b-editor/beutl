@@ -67,6 +67,12 @@ public class FilterEffectInputTests
         independent.EvaluateGraphics(Seconds(2));
         Assert.That(Video(samples[0].Resource!).RequestedPosition, Is.EqualTo(Seconds(1.8125)));
 
+        var sampledInputs = samples.Select(sample => Video(sample.Resource!)).ToArray();
+        owner.FilterEffect.Value = null;
+        compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
+        Assert.That(sampledInputs.All(input => input.IsDisposed), Is.True,
+            "removing the effect releases its sessions and their flow resources");
+
         static SourceVideo.Resource Video(Drawable.Resource source)
         {
             var controller = (DrawableTimeController.Resource)(source switch

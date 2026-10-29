@@ -1,4 +1,7 @@
-﻿namespace Beutl.Composition;
+﻿using Beutl.Engine;
+using Beutl.Graphics;
+
+namespace Beutl.Composition;
 
 /// <summary>Owns independent resource evaluation for a time sample.</summary>
 /// <remarks>
@@ -25,6 +28,10 @@ public class CompositionEvaluationSession(CompositionContext context) : IDisposa
         Context.DisableResourceShare = true;
         Context.Conditions = source.Conditions;
     }
+
+    // Scene hosts can rebuild authored flow when the sample's inputs differ from the captured frame.
+    internal virtual void Reconcile(FlowNode flow, ref Drawable.Resource? resource, ref bool changed)
+        => flow.Reconcile(Context, ref resource, ref changed);
 
     public virtual void Dispose()
     {

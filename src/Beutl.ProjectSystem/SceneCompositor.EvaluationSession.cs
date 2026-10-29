@@ -1,6 +1,7 @@
 ﻿using Beutl.Collections.Pooled;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.ProjectSystem;
 
 namespace Beutl;
@@ -45,6 +46,41 @@ public sealed partial class SceneCompositor
             } : null;
             context.CurrentElements = _elements;
             _compositor.SortLayers(time, _elements, context.Target);
+        }
+
+        internal override void Reconcile(FlowNode flow, ref Drawable.Resource? resource, ref bool changed)
+        {
+            var context = (CompositorContext)Context;
+            if (flow.Object is IFlowOperator && flow.Object.HierarchicalParent is Element element)
+            {
+                using var objects = new PooledList<EngineObject>();
+                element.CollectObjects(context.Target, objects);
+                int index = objects.IndexOf(flow.Object);
+                if (index >= 0)
+                {
+                    // Replay the authored prefix so portals select from this sample's eligible clips,
+                    // including clips that were absent when the caller captured its flow.
+                    using var inputs = new PooledList<EngineObject.Resource>();
+                    var previousFlow = context.Flow;
+                    context.Flow = inputs;
+                    try
+                    {
+                        for (int i = 0; i < index; i++)
+                        {
+                            context.CancellationToken.ThrowIfCancellationRequested();
+                            inputs.Add(_compositor.GetOrCreateResource(objects[i], context));
+                        }
+                        ResourceReconciler.ReconcileResource(context, flow.Object, ref resource, ref changed);
+                    }
+                    finally
+                    {
+                        context.Flow = previousFlow;
+                    }
+                    return;
+                }
+            }
+
+            base.Reconcile(flow, ref resource, ref changed);
         }
 
         public override void Dispose()

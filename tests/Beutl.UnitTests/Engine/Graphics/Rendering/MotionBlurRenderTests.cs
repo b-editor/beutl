@@ -110,16 +110,19 @@ public class MotionBlurRenderTests
         });
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void PortalInputsFollowTheirOwnClipRangeAtEverySample(bool retimed)
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    public void PortalInputsFollowTheirOwnClipRangeAtEverySample(bool retimed, bool nested)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
             var group = new DrawableGroup { FilterEffect = { Value = MotionBlurTests.Blur() } };
             Scene scene = MotionBlurTests.SceneWith(new PortalObject { Count = { Value = 1 } }, group);
-            if (retimed) scene.Children[0].Objects.Add(new DrawableTimeController());
+            if (nested) scene.Children[0].Objects.Insert(scene.Children[0].Objects.IndexOf(group), new DrawableGroup());
+            double offset = retimed ? 0.1 : 0;
+            if (retimed) scene.Children[0].Objects.Add(new DrawableTimeController { OffsetPosition = { Value = MediaTime.FromSeconds(offset) } });
             RectShape shape = MotionBlurTests.Rectangle();
             shape.Width.SetKeyFrameAnimation(null);
             var input = new Element
@@ -131,11 +134,53 @@ public class MotionBlurRenderTests
             input.Objects.Add(shape);
             scene.Children.Add(input);
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
-            foreach (double time in new[] { 0.75, 0.95, 0.55, 0.75, 0.95 })
+            foreach ((double time, double alpha) in new[]
+                     {
+                         (1.05, 0.5), (0.45, 0.5), (0.5, 0.5), (1.0, 0.5), (1.0625, 0.25),
+                         (0.75, 1.0), (0.95, 0.5), (0.55, 0.5),
+                         (0.2, 0.0), (1.3, 0.0), (1.05, 0.5), (0.75, 1.0),
+                     })
+            {
+                using Bitmap image = Render(renderer, time - offset);
+                Assert.That(ImageMetrics.ReadPixel(image, 48, 32).Alpha,
+                    Is.EqualTo(alpha).Within(0.003), $"sampled clip coverage at {time}");
+            }
+        });
+    }
+
+    [Test]
+    public void PortalSamplesIncludeBothSidesOfAnAdjacentClipBoundary()
+    {
+        VulkanTestEnvironment.EnsureAvailable();
+        VulkanTestEnvironment.InvokeOnRenderThread(() =>
+        {
+            Scene scene = MotionBlurTests.SceneWith(new PortalObject { Count = { Value = 1 } },
+                new DrawableGroup { FilterEffect = { Value = MotionBlurTests.Blur() } });
+            foreach ((double start, Color color) in new[] { (0.0, Colors.Red), (0.5, Colors.Blue) })
+            {
+                RectShape shape = MotionBlurTests.Rectangle();
+                shape.Width.SetKeyFrameAnimation(null);
+                shape.Fill.Value = new SolidColorBrush(color);
+                var element = new Element
+                {
+                    Start = { Value = MediaTime.FromSeconds(start) },
+                    Length = { Value = MediaTime.FromSeconds(0.5) },
+                    ZIndex = { Value = 1 },
+                };
+                element.Objects.Add(shape);
+                scene.Children.Add(element);
+            }
+            using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
+            foreach (double time in new[] { 0.5, 0.45, 0.55, 0.5 })
             {
                 using Bitmap image = Render(renderer, time);
-                Assert.That(ImageMetrics.ReadPixel(image, 48, 32).Alpha,
-                    Is.EqualTo(time == 0.75 ? 1 : 0.5).Within(0.003), $"sampled clip coverage at {time}");
+                Rgba pixel = ImageMetrics.ReadPixel(image, 48, 32);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(pixel.Red, Is.EqualTo(0.5).Within(0.003), $"outgoing clip at {time}");
+                    Assert.That(pixel.Blue, Is.EqualTo(0.5).Within(0.003), $"incoming clip at {time}");
+                    Assert.That(pixel.Alpha, Is.EqualTo(1).Within(0.003));
+                });
             }
         });
     }

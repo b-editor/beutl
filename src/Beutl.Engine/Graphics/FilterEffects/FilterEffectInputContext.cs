@@ -73,7 +73,7 @@ public sealed class FilterEffectInputContext
             if (visible)
             {
                 bool changed = false;
-                _flow.Reconcile(context, ref slot.Source, ref changed);
+                slot.Session.Reconcile(_flow, ref slot.Source, ref changed);
             }
             // A hidden sample keeps its slot's source unevaluated for when the drawable is visible again.
             Drawable.Resource? source = visible ? slot.Source : null;
