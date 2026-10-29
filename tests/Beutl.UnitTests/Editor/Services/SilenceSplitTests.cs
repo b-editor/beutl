@@ -146,7 +146,7 @@ public class SilenceSplitTests
     }
 
     [Test]
-    public void Preview_TenHourRecordingPreservesTheLastBin()
+    public void Preview_TenHourRecordingCanZoomAndPanWithoutChangingDetection()
     {
         using var h = new SceneHistoryHarness("silence-long");
         var element = h.AddElement(Seconds(0), Seconds(36000));
@@ -157,6 +157,40 @@ public class SilenceSplitTests
         Assert.That(model.PreviewChunks, Has.Count.EqualTo(1200));
         Assert.That(model.PreviewChunks[^1].MaxValue, Is.EqualTo(0.9f));
         Assert.That(model.Ranges, Is.Empty);
+        var ranges = model.Ranges;
+        while (model.CanZoomIn) model.ZoomPreview(true);
+        model.PanPreview(36000);
+        Assert.That(model.PreviewRange, Is.EqualTo(Range(35999, 36000)));
+        Assert.That(model.PreviewChunks, Has.Count.EqualTo(50));
+        Assert.That(model.PreviewChunks[^1].MaxValue, Is.EqualTo(0.9f));
+        model.ZoomPreview(false);
+        Assert.That(model.PreviewRange, Is.EqualTo(Range(35998, 36000)));
+        model.PanPreview(-1);
+        Assert.That(model.PreviewRange, Is.EqualTo(Range(0, 2)));
+        model.ResetPreview();
+        Assert.That(model.PreviewRange, Is.EqualTo(Range(0, 36000)));
+        Assert.That(model.PreviewChunks[^1].MaxValue, Is.EqualTo(0.9f));
+        Assert.That(model.Ranges, Is.SameAs(ranges), "navigation does not change the full-clip cut plan");
+    }
+
+    [Test]
+    public async Task Analysis_ReportsProgressWithoutAllowingPartialApplication()
+    {
+        using var h = new SceneHistoryHarness("silence-progress");
+        var element = h.AddElement(Seconds(0), Seconds(3));
+        element.Objects.Add(new SceneSound { ReferencedScene = { Value = new Scene(100, 100, "empty") } });
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        var progress = new List<int>();
+        using var subscription = model.Progress.Subscribe(value =>
+        {
+            progress.Add(value);
+            Assert.That(model.CanApply.Value, Is.False);
+        });
+        await model.AnalyzeAsync();
+        Assert.That(progress, Is.Ordered);
+        Assert.That(progress, Has.Some.InRange(1, 99));
+        Assert.That(progress[^1], Is.EqualTo(100));
+        Assert.That(model.CanApply.Value, Is.True);
     }
 
     [TestCase(4.01, true, true)]

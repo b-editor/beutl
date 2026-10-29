@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless.NUnit;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
@@ -235,6 +236,106 @@ public class SilenceSplitTabTests
             HeadlessCapture.SaveIfRequested(view, nameof(SilenceSplitTabTests), $"{language}-{width}");
             element.Length.Value = MediaTime.FromSeconds(12);
             Assert.That(model.CanApply.Value, Is.False, "a stale preview cannot edit the changed clip");
+        }
+        finally
+        {
+            window.Close();
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase("en", 1200, 360)]
+    [TestCase("ja", 1200, 360)]
+    [TestCase("es", 900, 320)]
+    public async Task LongRecording_CanNavigateAndResizeBetweenWideAndNarrowTabs(string language, int width, int height)
+    {
+        CultureInfo previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
+        var scene = new Scene(100, 100, "long-recording");
+        var element = new Element { Start = { Value = MediaTime.FromSeconds(10) }, Length = { Value = MediaTime.FromSeconds(1800) } };
+        element.Name.Value = "Narration-30min.wav";
+        // Fail the initial read immediately, then supply deterministic bins without decoding a large file in a layout test.
+        element.Objects.Add(new SourceSound { Source = { Value = new SoundSource() } });
+        scene.Children.Add(element);
+        var linked = new Element { Start = { Value = element.Start.Value }, Length = { Value = element.Length.Value } };
+        scene.Children.Add(linked);
+        scene.Groups.Add([element.Id.Value, linked.Id.Value]);
+        using var history = new HistoryManager(new OperationSequenceGenerator());
+        using var tab = new SilenceSplitTabViewModel(new EditorContext(scene, history, new BlockingPreviewPlayer()));
+        tab.Show(element);
+        var model = tab.Analysis.Value!;
+        var view = new SilenceSplitTabView { DataContext = tab };
+        var window = new Window { Content = view, Width = width, Height = height, RequestedThemeVariant = language == "en" ? ThemeVariant.Dark : ThemeVariant.Light };
+        window.Show();
+        try
+        {
+            await HeadlessTestHelpers.WaitUntilAsync(() => !model.IsBusy.Value);
+            model.SetWaveform(Enumerable.Range(0, 90000).Select(i =>
+            {
+                float peak = i / 50 % 5 == 4 ? 0.002f : 0.2f + 0.5f * MathF.Abs(MathF.Sin(i * 0.031f));
+                return new WaveformChunk(i, -peak, peak);
+            }).ToArray());
+            var ranges = model.Ranges;
+            Assert.That(ranges, Has.Count.EqualTo(360));
+            var zoomIn = view.FindControl<Button>("ZoomInButton")!;
+            for (int i = 0; i < 6; i++) zoomIn.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            view.FindControl<ScrollBar>("PreviewScroll")!.Value = 1200;
+            HeadlessTestHelpers.Render();
+            Assert.That(model.PreviewRange.Start, Is.EqualTo(MediaTime.FromSeconds(1200)));
+            Assert.That(model.PreviewRange.Duration.ToSeconds(), Is.LessThan(30));
+            Assert.That(model.PreviewChunks.Count, Is.LessThanOrEqualTo(1200));
+            Assert.That(model.Ranges, Is.SameAs(ranges));
+            Assert.That(view.FindControl<TextBlock>("PreviewStartTime")!.Text, Is.EqualTo("00:20:00.00"));
+            var range = model.PreviewRange;
+            AssertWideLayout();
+            // Allow the enabled-button color transition to settle before the design capture.
+            await Task.Delay(200);
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(view, nameof(SilenceSplitTabTests), $"{language}-wide-{width}x{height}");
+            var waveformPosition = view.FindControl<WaveformControl>("Waveform")!.TranslatePoint(default, window);
+            view.FindControl<CheckBox>("Linked")!.BringIntoView();
+            HeadlessTestHelpers.Render();
+            Assert.That(view.FindControl<WaveformControl>("Waveform")!.TranslatePoint(default, window), Is.EqualTo(waveformPosition),
+                "scrolling settings keeps the waveform visible");
+
+            window.Width = 360;
+            window.Height = 760;
+            HeadlessTestHelpers.Render();
+            var options = view.FindControl<ScrollViewer>("OptionsScroll")!;
+            Assert.That(Grid.GetRow(options), Is.EqualTo(1));
+            options.BringIntoView();
+            HeadlessTestHelpers.Render();
+            Assert.That(model.PreviewRange, Is.EqualTo(range));
+            window.Width = width;
+            window.Height = height;
+            HeadlessTestHelpers.Render();
+            AssertWideLayout();
+            Assert.That(model.PreviewRange, Is.EqualTo(range));
+            view.FindControl<ScrollBar>("PreviewScroll")!.Value = double.MaxValue;
+            Assert.That(model.PreviewRange.End, Is.EqualTo(element.Length.Value));
+            view.FindControl<Button>("ResetZoomButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.That(model.PreviewRange, Is.EqualTo(new TimeRange(MediaTime.Zero, element.Length.Value)));
+            Assert.That(model.Ranges, Is.SameAs(ranges));
+
+            void AssertWideLayout()
+            {
+                var waveform = view.FindControl<WaveformControl>("Waveform")!;
+                var controls = view.FindControl<ScrollViewer>("OptionsScroll")!;
+                var apply = view.FindControl<Button>("ApplyButton")!;
+                Assert.That(Grid.GetColumn(controls), Is.EqualTo(1));
+                Assert.That(waveform.Bounds.Width, Is.GreaterThan(controls.Bounds.Width));
+                var mode = view.FindControl<ComboBox>("Mode")!;
+                Assert.That(mode.TranslatePoint(default, controls)!.Value.Y + mode.Bounds.Height,
+                    Is.LessThanOrEqualTo(controls.Bounds.Height), "the apply mode fits inside the settings viewport");
+                foreach (Control control in new Control[] { waveform, apply, view.FindControl<NumericUpDown>("Threshold")!, view.FindControl<ComboBox>("Mode")! })
+                {
+                    var point = control.TranslatePoint(default, window)!.Value;
+                    Assert.That(point.Y, Is.GreaterThanOrEqualTo(0));
+                    Assert.That(point.Y + control.Bounds.Height, Is.LessThanOrEqualTo(height));
+                }
+                Assert.That(apply.IsEffectivelyEnabled, Is.True);
+            }
         }
         finally
         {

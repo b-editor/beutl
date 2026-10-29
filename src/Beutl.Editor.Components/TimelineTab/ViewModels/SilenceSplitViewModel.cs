@@ -17,6 +17,8 @@ public sealed class SilenceSplitViewModel : IDisposable
     private readonly CancellationTokenSource _lifetime = new();
     private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = [];
     private WaveformChunk[] _chunks = [];
+    private int _previewStart;
+    private int _previewCount;
     private bool _stale;
     private bool _disposed;
 
@@ -40,12 +42,18 @@ public sealed class SilenceSplitViewModel : IDisposable
     public ReactivePropertySlim<int> ModeIndex { get; } = new(0);
     public ReactivePropertySlim<bool> IncludeLinked { get; } = new(true);
     public ReactivePropertySlim<bool> IsBusy { get; } = new(true);
+    public ReactivePropertySlim<int> Progress { get; } = new(0);
     public ReactivePropertySlim<bool> CanApply { get; } = new(false);
     public ReactivePropertySlim<string> Status { get; } = new(Strings.SilenceSplit_Analyzing);
     public bool HasLinkedElements { get; }
     public TimeRange ClipRange { get; }
     public IReadOnlyList<TimeRange> Ranges { get; private set; } = [];
     public IReadOnlyList<WaveformChunk> PreviewChunks { get; private set; } = [];
+    public bool CanZoomIn => _previewCount > Math.Min(50, _chunks.Length);
+    public bool CanZoomOut => _previewCount < _chunks.Length;
+    // Preview coordinates are clip-local. Zooming never changes the full-clip detection or cuts.
+    public TimeRange PreviewRange => _chunks.Length == 0 ? new(MediaTime.Zero, ClipRange.Duration)
+        : TimeRange.FromRange(PreviewPosition(_previewStart), PreviewPosition(_previewStart + _previewCount));
     public event EventHandler? PreviewChanged;
 
     public static bool CanAnalyze(Scene scene, Element element)
@@ -63,6 +71,12 @@ public sealed class SilenceSplitViewModel : IDisposable
             await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_scene, _element, count, ct))
             {
                 chunks[chunk.Index] = chunk;
+                int progress = (int)((long)(chunk.Index + 1) * 100 / count);
+                if (progress > Progress.Value)
+                {
+                    Progress.Value = progress;
+                    if (!_stale) Status.Value = $"{Strings.SilenceSplit_Analyzing} {progress}%";
+                }
             }
             ct.ThrowIfCancellationRequested();
             SetWaveform(chunks);
@@ -79,25 +93,67 @@ public sealed class SilenceSplitViewModel : IDisposable
     internal void SetWaveform(WaveformChunk[] chunks)
     {
         _chunks = chunks;
-        // The full-resolution bins drive detection; at most 1200 envelope bars drive drawing.
-        int count = Math.Min(chunks.Length, 1200);
+        _previewStart = 0;
+        _previewCount = chunks.Length;
+        BuildPreview();
+        Progress.Value = 100;
+        IsBusy.Value = false;
+        Recalculate();
+    }
+
+    public void ZoomPreview(bool zoomIn)
+    {
+        if (_chunks.Length == 0) return;
+        int count = (int)Math.Clamp(zoomIn ? (_previewCount + 1L) / 2 : _previewCount * 2L,
+            Math.Min(50, _chunks.Length), _chunks.Length);
+        _previewStart = Math.Clamp(_previewStart + (_previewCount - count) / 2, 0, _chunks.Length - count);
+        _previewCount = count;
+        RefreshPreview();
+    }
+
+    public void PanPreview(double seconds)
+    {
+        if (_chunks.Length == 0 || !double.IsFinite(seconds)) return;
+        int start = (int)Math.Clamp(Math.Round(seconds / ClipRange.Duration.ToSeconds() * _chunks.Length), 0, _chunks.Length - _previewCount);
+        if (start == _previewStart) return;
+        _previewStart = start;
+        RefreshPreview();
+    }
+
+    public void ResetPreview()
+    {
+        _previewStart = 0;
+        _previewCount = _chunks.Length;
+        RefreshPreview();
+    }
+
+    private MediaTime PreviewPosition(int index) => new((long)((Int128)ClipRange.Duration.Flicks * index / _chunks.Length));
+
+    private void RefreshPreview()
+    {
+        BuildPreview();
+        PreviewChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void BuildPreview()
+    {
+        // Only the visible window is reduced, with bounded drawing cost at every zoom level.
+        int count = Math.Min(_previewCount, 1200);
         var preview = new WaveformChunk[count];
         for (int i = 0; i < count; i++)
         {
             float min = 0, max = 0;
-            int start = (int)((long)i * chunks.Length / count);
-            int end = (int)((long)(i + 1) * chunks.Length / count);
+            int start = _previewStart + (int)((long)i * _previewCount / count);
+            int end = _previewStart + (int)((long)(i + 1) * _previewCount / count);
             for (int j = start; j < end; j++)
             {
-                if (!float.IsFinite(chunks[j].MinValue) || !float.IsFinite(chunks[j].MaxValue)) continue;
-                min = Math.Min(min, chunks[j].MinValue);
-                max = Math.Max(max, chunks[j].MaxValue);
+                if (!float.IsFinite(_chunks[j].MinValue) || !float.IsFinite(_chunks[j].MaxValue)) continue;
+                min = Math.Min(min, _chunks[j].MinValue);
+                max = Math.Max(max, _chunks[j].MaxValue);
             }
             preview[i] = new(i, min, max);
         }
         PreviewChunks = preview;
-        IsBusy.Value = false;
-        Recalculate();
     }
 
     private void Recalculate()

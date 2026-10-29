@@ -3494,7 +3494,7 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
     <value>左右チャンネルのピーク値から無音区間を検出します。閾値を調整し、分割位置を確認してから適用できます。</value>
   </data>
   <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>オレンジ：保護時間とフレーム位置を反映した分割・削除区間。解析の間隔：20 ms。</value>
+    <value>オレンジが分割・削除区間です。拡大・スクロールで細部を確認できます。適用はクリップ全体が対象です。</value>
   </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>閾値（dB）</value>

@@ -3499,7 +3499,7 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>좌우 채널의 피크 레벨로 무음 구간을 감지합니다. 임계값을 조정하고 분할 위치를 미리 확인한 후 적용하세요.</value>
   </data>
   <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>주황색: 앞뒤 보호 시간과 프레임 정렬이 반영된 분할 또는 삭제 구간입니다. 분석 간격: 20ms.</value>
+    <value>주황색은 분할 또는 삭제할 구간입니다. 확대하고 스크롤하여 세부 내용을 확인하세요. 적용 시 전체 클립을 처리합니다.</value>
   </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>임계값 (dB)</value>

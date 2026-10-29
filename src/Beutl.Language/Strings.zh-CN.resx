@@ -3499,7 +3499,7 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
     <value>根据左右声道的峰值检测静音区间。调整阈值，预览分割位置后再应用。</value>
   </data>
   <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>橙色：包含前后保护时间和帧对齐的分割或删除区间。分析精度：20 毫秒。</value>
+    <value>橙色表示要分割或删除的区间。缩放和滚动可查看细节；应用时会处理整个片段。</value>
   </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>阈值 (dB)</value>

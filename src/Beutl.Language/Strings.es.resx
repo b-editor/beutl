@@ -3499,7 +3499,7 @@ cuando el registro del historial está activado.</value>
     <value>Detecta intervalos silenciosos mediante los niveles de pico estéreo. Ajusta el umbral y revisa los cortes antes de aplicar.</value>
   </data>
   <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>Naranja: intervalos para dividir o eliminar, con margen de protección y ajuste a fotogramas. Resolución del análisis: 20 ms.</value>
+    <value>Naranja: intervalos para dividir o eliminar. Amplía y desplázate para ver los detalles; los cambios se aplican al clip completo.</value>
   </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>Umbral (dB)</value>

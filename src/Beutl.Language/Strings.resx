@@ -3499,7 +3499,7 @@ when history recording is enabled.</value>
     <value>Detect quiet intervals using stereo peak levels. Adjust the threshold and preview the cuts before applying.</value>
   </data>
   <data name="SilenceSplit_PreviewHint" xml:space="preserve">
-    <value>Orange: intervals to split or remove, including padding and frame alignment. Analysis resolution: 20 ms.</value>
+    <value>Orange: intervals to split or remove. Zoom and scroll to inspect details; applying affects the entire clip.</value>
   </data>
   <data name="SilenceSplit_Threshold" xml:space="preserve">
     <value>Threshold (dB)</value>
