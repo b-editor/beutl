@@ -3519,4 +3519,31 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="IsVisibleInOutput" xml:space="preserve">
     <value>출력에 표시</value>
   </data>
+  <data name="SeparateComponents" xml:space="preserve">
+    <value>구성 요소 분리</value>
+  </data>
+  <data name="TopLeft" xml:space="preserve">
+    <value>왼쪽 위</value>
+  </data>
+  <data name="TopRight" xml:space="preserve">
+    <value>오른쪽 위</value>
+  </data>
+  <data name="BottomRight" xml:space="preserve">
+    <value>오른쪽 아래</value>
+  </data>
+  <data name="BottomLeft" xml:space="preserve">
+    <value>왼쪽 아래</value>
+  </data>
+  <data name="UnseparateComponents" xml:space="preserve">
+    <value>구성 요소 분리 해제</value>
+  </data>
+  <data name="UnseparateComponents_Description" xml:space="preserve">
+    <value>현재 시점의 값을 유지하고 구성 요소의 키프레임과 표현식을 제거합니다.</value>
+  </data>
+  <data name="RelativeUnit_Relative" xml:space="preserve">
+    <value>상대 (1 = 100%)</value>
+  </data>
+  <data name="RelativeUnit_Absolute" xml:space="preserve">
+    <value>절대 (px)</value>
+  </data>
 </root>

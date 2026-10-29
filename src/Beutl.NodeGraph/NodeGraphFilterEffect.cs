@@ -110,9 +110,12 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
         protected override void ApplyTo(FilterEffectContext context)
         {
+            // FilterEffectContext records an effect only where it shares a node with others: after a
+            // continuation-controlling effect in the same group, or inside another effect's recording.
             throw new NotSupportedException(
-                $"{nameof(NodeGraphFilterEffect)} does not support {nameof(ApplyTo)}. " +
-                "Use the resource/render-node pipeline (via ToResource and CreateRenderNode) instead.");
+                $"{nameof(NodeGraphFilterEffect)} renders only through its own render node, so it cannot follow "
+                + "an effect that controls its continuation in the same group, or be applied by another effect. "
+                + "Move it before that effect.");
         }
     }
 }

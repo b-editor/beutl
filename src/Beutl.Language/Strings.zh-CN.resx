@@ -3519,4 +3519,31 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="IsVisibleInOutput" xml:space="preserve">
     <value>在输出中显示</value>
   </data>
+  <data name="SeparateComponents" xml:space="preserve">
+    <value>分离分量</value>
+  </data>
+  <data name="TopLeft" xml:space="preserve">
+    <value>左上</value>
+  </data>
+  <data name="TopRight" xml:space="preserve">
+    <value>右上</value>
+  </data>
+  <data name="BottomRight" xml:space="preserve">
+    <value>右下</value>
+  </data>
+  <data name="BottomLeft" xml:space="preserve">
+    <value>左下</value>
+  </data>
+  <data name="UnseparateComponents" xml:space="preserve">
+    <value>取消分离分量</value>
+  </data>
+  <data name="UnseparateComponents_Description" xml:space="preserve">
+    <value>保留当前时间的值，并移除分量的关键帧和表达式。</value>
+  </data>
+  <data name="RelativeUnit_Relative" xml:space="preserve">
+    <value>相对 (1 = 100%)</value>
+  </data>
+  <data name="RelativeUnit_Absolute" xml:space="preserve">
+    <value>绝对 (px)</value>
+  </data>
 </root>

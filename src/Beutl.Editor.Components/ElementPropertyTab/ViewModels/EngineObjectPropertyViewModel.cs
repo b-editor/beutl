@@ -152,7 +152,7 @@ public sealed class EngineObjectPropertyViewModel : IDisposable, IPropertyEditor
                 if (property.Name == propertyName)
                     return context;
             }
-            else if (Holds(property.Value, target) || Holds(property.GetKeyFrameAnimation(), target)
+            else if (Holds(property.Value, target) || Holds(property.GetPropertyAnimation(), target)
                      || (property is IListProperty list && list.OfType<object>().Any(item => Holds(item, target))))
             {
                 return context;

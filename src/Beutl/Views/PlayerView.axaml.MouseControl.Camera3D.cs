@@ -72,6 +72,11 @@ public partial class PlayerView
         // キーフレームがない場合はfalseを返す
         private static bool SetKeyFrameValue(KeyFrameState<Vector3>? keyframes, Vector3 delta)
         {
+            if (keyframes?.Components is { } components)
+            {
+                components.TransformValues(value => value + delta, keyframes.Time);
+                return true;
+            }
             switch ((keyframes?.Previous, keyframes?.Next))
             {
                 case (null, null):

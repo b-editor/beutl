@@ -111,6 +111,8 @@ Beutl.Utilities
 [Beutl.Engine]:FallbackEngineObject
   sealed
   keys: Animations, Expressions, Id, IsEnabled, Name
+[Beutl.Engine]Beutl.Animation:ComponentAnimation<T, TComponent>
+  sealed
 [Beutl.Engine]Beutl.Animation:KeyFrame
   unsealed
   keys: (no public parameterless constructor)

@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using System.Runtime.CompilerServices;
+using Beutl.Animation;
 
 namespace Beutl.Editor.Components.GraphEditorTab.ViewModels;
 
@@ -75,7 +76,13 @@ public abstract class GraphEditorViewViewModelFactory
 
     public virtual IReadOnlyList<string> ChannelNames => ["Self"];
 
-    public static GraphEditorViewViewModelFactory? GetFactory(GraphEditorViewModel parent) => GetFactory(parent.Animation.ValueType);
+    public static GraphEditorViewViewModelFactory? GetFactory(GraphEditorViewModel parent)
+    {
+        if (parent.Animation.HierarchicalParent is ComponentAnimation<Media.Color, byte> components
+            && components.Components.FirstOrDefault(p => p.GetKeyFrameAnimation() == parent.Animation) is { Name: not "A" })
+            return new ColorComponentFactory();
+        return GetFactory(parent.Animation.ValueType);
+    }
 
     internal static GraphEditorViewViewModelFactory? GetFactory(Type type)
     {
@@ -215,6 +222,21 @@ public abstract class GraphEditorViewViewModelFactory
                     })
             ];
         }
+    }
+
+    private sealed class ColorComponentFactory : GraphEditorViewViewModelFactory
+    {
+        public override double MaxValue => 255;
+        public override double MinValue => 0;
+        protected override GraphEditorViewViewModel[] CreateViewsCore(GraphEditorViewModel parent) =>
+        [
+            new(parent, "Self", value => Media.Color.SrgbToLinear((byte)value! / 255f) * 255d,
+                (object? old, double value, Type type, out object? result) =>
+                {
+                    result = (byte)Math.Clamp(MathF.Round(Media.Color.LinearToSrgb((float)value / 255f) * 255), 0, 255);
+                    return true;
+                })
+        ];
     }
 
     private sealed class ColorFactory : GraphEditorViewViewModelFactory

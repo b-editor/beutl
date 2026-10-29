@@ -195,8 +195,12 @@ internal class TypeNameParser
 
                 if (++i == generics.Length || (innerGenericCount == 0 && item.Type is TokenType.Comma))
                 {
-                    Span<Token> genericType = generics[start..i];
-                    var parser = new TypeNameParser([.. genericType]);
+                    int end = item.Type == TokenType.Comma ? i - 1 : i;
+                    Span<Token> genericType = generics[start..end];
+                    start = i;
+                    var parser = new TypeNameParser(
+                        [.. genericType.ToArray().Where(t => t.Type != TokenType.Part || !string.IsNullOrWhiteSpace(t.Text))],
+                        _aliasResolver);
                     list.Add(parser.Parse());
                     UsedFormerName |= parser.UsedFormerName;
                 }

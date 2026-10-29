@@ -3514,4 +3514,31 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="IsVisibleInOutput" xml:space="preserve">
     <value>出力に表示</value>
   </data>
+  <data name="SeparateComponents" xml:space="preserve">
+    <value>成分を分離</value>
+  </data>
+  <data name="TopLeft" xml:space="preserve">
+    <value>左上</value>
+  </data>
+  <data name="TopRight" xml:space="preserve">
+    <value>右上</value>
+  </data>
+  <data name="BottomRight" xml:space="preserve">
+    <value>右下</value>
+  </data>
+  <data name="BottomLeft" xml:space="preserve">
+    <value>左下</value>
+  </data>
+  <data name="UnseparateComponents" xml:space="preserve">
+    <value>成分の分離を解除</value>
+  </data>
+  <data name="UnseparateComponents_Description" xml:space="preserve">
+    <value>現在時刻の値を保持し、成分のキーフレームと式を削除します。</value>
+  </data>
+  <data name="RelativeUnit_Relative" xml:space="preserve">
+    <value>相対 (1 = 100%)</value>
+  </data>
+  <data name="RelativeUnit_Absolute" xml:space="preserve">
+    <value>絶対 (px)</value>
+  </data>
 </root>

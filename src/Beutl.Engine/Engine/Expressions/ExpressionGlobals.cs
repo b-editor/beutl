@@ -9,7 +9,8 @@ public class ExpressionGlobals
     public ExpressionGlobals(ExpressionContext context)
     {
         _context = context ?? throw new ArgumentNullException(nameof(context));
-        EngineObject? obj = _context.CurrentProperty.GetOwnerObject() as EngineObject;
+        EngineObject? obj = (_context.CurrentProperty.GetOwnerObject() as IHierarchical)
+            ?.FindHierarchicalParent<EngineObject>(includeSelf: true);
         Start = obj?.TimeRange.Value.Start.ToSeconds() ?? 0;
         Duration = obj?.TimeRange.Value.Duration.ToSeconds() ?? 0;
         Time = _context.Time.ToSeconds() - Start;
