@@ -69,6 +69,104 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
+            <!--  The editor settings page edits the same settings.  -->
+            <Grid Margin="8,16,8,0" ColumnDefinitions="*,Auto">
+                <TextBlock VerticalAlignment="Center"
+                           Text="{x:Static lang:Strings.PreviewGuides}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+                <ToggleSwitch x:Name="GuidesToggle"
+                              Grid.Column="1"
+                              Classes="left"
+                              IsChecked="{CompiledBinding Guides.IsEnabled.Value}"
+                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+            </Grid>
+
+            <StackPanel x:Name="GuideSettings"
+                        Margin="8,4,8,0"
+                        IsEnabled="{CompiledBinding Guides.IsEnabled.Value}"
+                        Spacing="4">
+                <ItemsControl ItemsSource="{CompiledBinding Guides.Kinds}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="viewModel:PreviewGuideKindItem">
+                            <CheckBox MinWidth="140"
+                                      Content="{CompiledBinding DisplayName}"
+                                      IsChecked="{CompiledBinding IsChecked.Value}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.PreviewGuide_Color}" />
+                    <ui:ColorPickerButton Grid.Column="1"
+                                          IsAlphaEnabled="False"
+                                          IsCompact="True"
+                                          IsMoreButtonVisible="True"
+                                          ShowAcceptDismissButtons="True"
+                                          UseColorPalette="False"
+                                          UseColorTriangle="False"
+                                          UseColorWheel="False"
+                                          UseSpectrum="True"
+                                          Color="{CompiledBinding Guides.Color.Value, Mode=TwoWay}" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.PreviewGuide_Opacity}" />
+                    <Slider Grid.Column="1"
+                            Width="120"
+                            IsSnapToTickEnabled="True"
+                            Maximum="1"
+                            Minimum="0"
+                            TickFrequency="0.05"
+                            Value="{CompiledBinding Guides.Opacity.Value}" />
+                    <TextBlock Grid.Column="2"
+                               MinWidth="36"
+                               VerticalAlignment="Center"
+                               Text="{CompiledBinding Guides.Opacity.Value, StringFormat={}{0:P0}}" />
+                </Grid>
+
+                <Grid ColumnDefinitions="*,Auto"
+                      IsEnabled="{CompiledBinding Guides.IsGridEnabled.Value}"
+                      RowDefinitions="Auto,Auto"
+                      RowSpacing="4">
+                    <TextBlock VerticalAlignment="Center" Text="{x:Static lang:Strings.PreviewGuide_GridColumns}" />
+                    <NumericUpDown Grid.Column="1"
+                                   MinWidth="120"
+                                   FormatString="F0"
+                                   Maximum="64"
+                                   Minimum="1"
+                                   Value="{Binding Guides.GridColumns.Value}" />
+                    <TextBlock Grid.Row="1"
+                               VerticalAlignment="Center"
+                               Text="{x:Static lang:Strings.PreviewGuide_GridRows}" />
+                    <NumericUpDown Grid.Row="1"
+                                   Grid.Column="1"
+                                   MinWidth="120"
+                                   FormatString="F0"
+                                   Maximum="64"
+                                   Minimum="1"
+                                   Value="{Binding Guides.GridRows.Value}" />
+                </Grid>
+
+                <StackPanel IsEnabled="{CompiledBinding Guides.IsAspectRatioEnabled.Value}" Spacing="4">
+                    <TextBlock Text="{x:Static lang:Strings.PreviewGuide_AspectRatios}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="4">
+                        <TextBox x:Name="AspectRatiosBox"
+                                 Text="{CompiledBinding Guides.AspectRatios.Value}"
+                                 ToolTip.Tip="{x:Static lang:Strings.PreviewGuide_AspectRatios_Tip}" />
+                        <ComboBox Grid.Column="1"
+                                  MinWidth="120"
+                                  ItemsSource="{CompiledBinding Guides.Presets}"
+                                  PlaceholderText="{x:Static lang:Strings.PreviewGuide_Preset}"
+                                  SelectedItem="{CompiledBinding Guides.SelectedPreset.Value}" />
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+
             <Grid Margin="8,16,8,0" ColumnDefinitions="*,Auto">
                 <TextBlock VerticalAlignment="Center"
                            Text="{x:Static lang:Strings.FrameCache}"

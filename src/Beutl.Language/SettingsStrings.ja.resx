@@ -724,4 +724,13 @@
   <data name="AiAgents_CodexHomeMustBeAbsolute" xml:space="preserve">
     <value>Codex の MCP をインストールするには、CODEX_HOME に絶対パスを指定してください。</value>
   </data>
+  <data name="ShowPreviewGuides" xml:space="preserve">
+    <value>ガイドを表示</value>
+  </data>
+  <data name="ShowPreviewGuides_Description" xml:space="preserve">
+    <value>エディターのプレビューにセーフエリアや構図のガイドを重ねて表示します。書き出しには含まれず、HDRプレビューでは表示されません。</value>
+  </data>
+  <data name="PreviewGuideKinds" xml:space="preserve">
+    <value>表示するガイド</value>
+  </data>
 </root>

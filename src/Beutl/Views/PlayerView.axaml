@@ -158,6 +158,8 @@
 
                     <!-- BitmapView or HdrBitmapView is created dynamically in code-behind -->
 
+                    <local:PreviewGuideOverlay Name="guideOverlay" />
+
                     <pathEditor:PathEditorView Name="pathEditorView"
                                                DataContext="{Binding PathEditor}" />
 

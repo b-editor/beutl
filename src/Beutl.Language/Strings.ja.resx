@@ -3541,4 +3541,58 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="RelativeUnit_Absolute" xml:space="preserve">
     <value>絶対 (px)</value>
   </data>
+  <data name="PreviewGuides" xml:space="preserve">
+    <value>ガイド</value>
+  </data>
+  <data name="TogglePreviewGuides" xml:space="preserve">
+    <value>ガイドを切り替え</value>
+  </data>
+  <data name="TogglePreviewGuides_Description" xml:space="preserve">
+    <value>プレビューのセーフエリアと構図ガイドの表示を切り替えます。</value>
+  </data>
+  <data name="PreviewGuide_TitleSafe" xml:space="preserve">
+    <value>タイトルセーフ</value>
+  </data>
+  <data name="PreviewGuide_ActionSafe" xml:space="preserve">
+    <value>アクションセーフ</value>
+  </data>
+  <data name="PreviewGuide_RuleOfThirds" xml:space="preserve">
+    <value>三分割線</value>
+  </data>
+  <data name="PreviewGuide_CenterCross" xml:space="preserve">
+    <value>中心十字</value>
+  </data>
+  <data name="PreviewGuide_Diagonals" xml:space="preserve">
+    <value>対角線</value>
+  </data>
+  <data name="PreviewGuide_CustomGrid" xml:space="preserve">
+    <value>カスタムグリッド</value>
+  </data>
+  <data name="PreviewGuide_AspectRatio" xml:space="preserve">
+    <value>アスペクト比</value>
+  </data>
+  <data name="PreviewGuide_Color" xml:space="preserve">
+    <value>ガイドの色</value>
+  </data>
+  <data name="PreviewGuide_Opacity" xml:space="preserve">
+    <value>ガイドの不透明度</value>
+  </data>
+  <data name="PreviewGuide_GridColumns" xml:space="preserve">
+    <value>グリッドの列数</value>
+  </data>
+  <data name="PreviewGuide_GridRows" xml:space="preserve">
+    <value>グリッドの行数</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios" xml:space="preserve">
+    <value>アスペクト比の枠</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios_Tip" xml:space="preserve">
+    <value>9:16, 1:1, 2.39:1 のようにカンマ区切りで入力します。それぞれの比率で収まる最大の枠を中央に表示します。</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios_Invalid" xml:space="preserve">
+    <value>9:16 のような比率をカンマ区切りで入力してください。</value>
+  </data>
+  <data name="PreviewGuide_Preset" xml:space="preserve">
+    <value>プリセット</value>
+  </data>
 </root>

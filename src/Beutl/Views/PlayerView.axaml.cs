@@ -149,7 +149,7 @@ public partial class PlayerView : UserControl
 
         image = newImage;
 
-        // Insert after imageBackground, before pathEditorView
+        // Insert after imageBackground, before guideOverlay
         framePanel.Children.Insert(1, newImage);
 
         SubscribeImageBounds();
@@ -164,6 +164,8 @@ public partial class PlayerView : UserControl
             {
                 imageBackground.Width = bounds.Width;
                 imageBackground.Height = bounds.Height;
+                guideOverlay.Width = bounds.Width;
+                guideOverlay.Height = bounds.Height;
                 pathEditorView.Width = bounds.Width;
                 pathEditorView.Height = bounds.Height;
                 transformHandlesOverlay.Width = bounds.Width;
@@ -295,6 +297,7 @@ public partial class PlayerView : UserControl
             {
                 framePanel.RenderTransformOrigin = Avalonia.RelativePoint.TopLeft;
                 framePanel.RenderTransform = new ImmutableTransform(matrix.ToAvaMatrix());
+                guideOverlay.Zoom = matrix.M11;
                 if (DataContext is PlayerViewModel { Scene: { } } vm)
                 {
                     if (ViewportTransform is not { } viewport) return;
