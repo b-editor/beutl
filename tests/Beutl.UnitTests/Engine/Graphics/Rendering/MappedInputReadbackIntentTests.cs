@@ -94,7 +94,7 @@ public sealed class MappedInputReadbackIntentTests
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var recording = new FilterEffectContext(bounds, outputScale: 1f, workingScale: 1f);
-        recording.ApplyTransactional(effect, resource);
+        recording.ApplyTransactional(resource);
         IFEItem_Custom item = recording.GetOrderedItems().OfType<IFEItem_Custom>().Single();
         item.Accepts(CreateContext(targets, intent));
     }

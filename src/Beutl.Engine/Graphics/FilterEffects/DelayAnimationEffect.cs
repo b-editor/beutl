@@ -22,20 +22,6 @@ public partial class DelayAnimationEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.DelayAnimationEffect_Effect), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<FilterEffect?> Effect { get; } = Property.CreateExpression<FilterEffect?>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.Effect == null) return;
-
-        FilterEffect childEffect = r.Effect.RequireOriginal();
-
-        context.CustomEffect(
-            (delay: r.Delay, globalTime: r.GlobalTime, childEffect, cache: r.DelayedResources,
-             disableResourceShare: r.DisableResourceShare,
-             preferProxy: r.PreferProxy, preferredProxyPreset: r.PreferredProxyPreset),
-            ApplyDelayed);
-    }
-
     /// <summary>
     /// Applies the child effect to each target at a time held back by <c>delay</c> milliseconds per target index,
     /// keeping one child resource per target in <c>cache</c>.
@@ -82,7 +68,7 @@ public partial class DelayAnimationEffect : FilterEffect
             // Forward output scale and working density into the nested re-application.
             using var childFEContext = new FilterEffectContext(
                 target.Bounds, effectContext.OutputScale, effectContext.WorkingScale);
-            childFEContext.ApplyTransactional(data.childEffect, data.cache[j]);
+            childFEContext.ApplyTransactional(data.cache[j]);
 
             target.OriginalBounds = target.Bounds.WithX(0).WithY(0);
             using var singleTargets = new EffectTargets();
@@ -201,6 +187,19 @@ public partial class DelayAnimationEffect : FilterEffect
             }
 
             base.Dispose(disposing);
+        }
+
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (Effect == null) return;
+
+            FilterEffect childEffect = Effect.RequireOriginal();
+
+            context.CustomEffect(
+                (delay: Delay, globalTime: GlobalTime, childEffect, cache: DelayedResources,
+                 disableResourceShare: DisableResourceShare,
+                 preferProxy: PreferProxy, preferredProxyPreset: PreferredProxyPreset),
+                ApplyDelayed);
         }
     }
 }

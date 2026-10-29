@@ -161,20 +161,6 @@ public partial class ParticleEmitter : Drawable
         GroupName = nameof(GraphicsStrings.ParticleEmitter_OverLifeGroup))]
     public IExpressionProperty<bool> UseEndColor { get; } = Property.CreateExpression(false);
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        return default;
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.DrawNode(
-            r,
-            p => new ParticleRenderNode(p),
-            (node, p) => node.Update(p));
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -196,6 +182,19 @@ public partial class ParticleEmitter : Drawable
         internal ReadOnlyMemory<Particle> GetAliveParticles()
         {
             return _simulator.GetAliveParticles();
+        }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return default;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            context.DrawNode(
+                this,
+                p => new ParticleRenderNode(p),
+                (node, p) => node.Update(p));
         }
 
         internal static ParticleSettings CreateSettings(ParticleEmitter emitter, CompositionContext context)

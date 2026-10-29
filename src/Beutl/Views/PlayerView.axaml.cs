@@ -492,7 +492,7 @@ public partial class PlayerView : UserControl
 
         // A drawable that does not draw under a transform of its own gets its layout box instead. userMatrix
         // omits FilterEffect-induced offsets; align against rendered bounds.
-        BtlMatrix userMatrix = target.GetTransformMatrix(availableSize, localSize, resource);
+        BtlMatrix userMatrix = resource.GetTransformMatrix(availableSize, localSize);
         BtlMatrix adjusted = TransformHandleMath.AlignUserMatrixToRenderedBounds(userMatrix, localSize, bounds.Value, new BtlRect(availableSize));
 
         return (new BtlRect(localSize), adjusted, pivot);

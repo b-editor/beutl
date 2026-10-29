@@ -27,33 +27,6 @@ public sealed partial class TransformEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.TransformEffect_ApplyToTarget), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> ApplyToTarget { get; } = Property.CreateAnimatable(true);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.Transform != null)
-        {
-            var mat = r.Transform.Matrix;
-            RelativePoint originPoint = r.TransformOrigin;
-
-            if (!r.ApplyToTarget)
-            {
-                context.Transform(
-                    (mat, originPoint),
-                    static (data, bounds) =>
-                    {
-                        Vector origin = data.originPoint.ToPixels(bounds.Size) + bounds.Position;
-                        Matrix offset = Matrix.CreateTranslation(origin);
-                        return (-offset) * data.mat * offset;
-                    },
-                    r.BitmapInterpolationMode);
-            }
-            else
-            {
-                context.CustomEffect((mat, originPoint), TransformTargets);
-            }
-        }
-    }
-
     /// <summary>
     /// Redraws each target through the transform applied about its own origin point; a target the transform
     /// maps to nothing is dropped.
@@ -115,5 +88,34 @@ public sealed partial class TransformEffect : FilterEffect
         }
 
         return newTarget;
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (Transform != null)
+            {
+                var mat = Transform.Matrix;
+                RelativePoint originPoint = TransformOrigin;
+
+                if (!ApplyToTarget)
+                {
+                    context.Transform(
+                        (mat, originPoint),
+                        static (data, bounds) =>
+                        {
+                            Vector origin = data.originPoint.ToPixels(bounds.Size) + bounds.Position;
+                            Matrix offset = Matrix.CreateTranslation(origin);
+                            return (-offset) * data.mat * offset;
+                        },
+                        BitmapInterpolationMode);
+                }
+                else
+                {
+                    context.CustomEffect((mat, originPoint), TransformTargets);
+                }
+            }
+        }
     }
 }

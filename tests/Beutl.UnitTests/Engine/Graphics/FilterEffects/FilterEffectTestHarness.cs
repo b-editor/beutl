@@ -18,7 +18,7 @@ internal static class FilterEffectTestHarness
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
 
         IReadOnlyList<IFEItem> items = context.GetOrderedItems();
         Assert.Multiple(() =>
@@ -51,7 +51,7 @@ internal static class FilterEffectTestHarness
         };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(
             targets,

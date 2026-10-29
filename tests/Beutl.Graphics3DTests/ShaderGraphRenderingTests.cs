@@ -354,7 +354,7 @@ public sealed class ShaderGraphRenderingTests
 
     private sealed class GraphEffect(ShaderGraphDescription graph, Action<FilterEffectContext>? beforeGraph, bool nested) : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context)
         {
             beforeGraph?.Invoke(context);
             if (nested)
@@ -380,6 +380,10 @@ public sealed class ShaderGraphRenderingTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource;
+        public new sealed class Resource : FilterEffect.Resource
+        {
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((GraphEffect)RequireOriginal()).ApplyEffect(context);
+        }
     }
 }

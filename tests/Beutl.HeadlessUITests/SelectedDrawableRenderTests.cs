@@ -362,7 +362,7 @@ public class SelectedDrawableRenderTests
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize.ToSize(1)))
             {
-                drawable.Render(context, resource);
+                resource.Render(context);
             }
 
             var request = new RenderNodeRenderRequest
@@ -385,27 +385,33 @@ public class SelectedDrawableRenderTests
 
 internal sealed partial class SelectedDrawableFullTargetDrawable : Drawable
 {
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-        => Size.Empty;
+    public new partial class Resource
+    {
+        protected override Size MeasureCore(Size availableSize)
+            => Size.Empty;
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-        => context.Clear(Colors.CornflowerBlue);
+        protected override void OnDraw(GraphicsContext2D context)
+            => context.Clear(Colors.CornflowerBlue);
+    }
 }
 
 internal sealed partial class SelectedDrawableScaleCaptureDrawable : Drawable
 {
     public List<float> ObservedOutputScales { get; } = [];
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
-        ObservedOutputScales.Add(context.OutputScale);
-    }
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            RequireOriginal().ObservedOutputScales.Add(context.OutputScale);
+        }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-        => Size.Empty;
+        protected override Size MeasureCore(Size availableSize)
+            => Size.Empty;
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 
@@ -413,15 +419,18 @@ internal sealed partial class SelectedDrawableScaleCaptureFullTargetDrawable : D
 {
     public List<float> ObservedOutputScales { get; } = [];
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
-        ObservedOutputScales.Add(context.OutputScale);
-        base.Render(context, resource);
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            RequireOriginal().ObservedOutputScales.Add(context.OutputScale);
+            base.RenderCore(context);
+        }
+
+        protected override Size MeasureCore(Size availableSize)
+            => Size.Empty;
+
+        protected override void OnDraw(GraphicsContext2D context)
+            => context.Clear(Colors.CornflowerBlue);
     }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-        => Size.Empty;
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-        => context.Clear(Colors.CornflowerBlue);
 }

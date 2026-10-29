@@ -383,13 +383,16 @@ public class PreviewRenderErrorTests
             editor.Player.GetFrameRate());
 }
 
-// Measures 16x16 and draws nothing; each fault drawable overrides Render.
+// Measures 16x16 and draws nothing; each fault drawable overrides RenderCore.
 internal abstract partial class PreviewFaultDrawableBase : Drawable
 {
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new abstract partial class Resource
     {
+        protected override Size MeasureCore(Size availableSize) => new(16, 16);
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 
@@ -397,8 +400,11 @@ internal sealed partial class PreviewFaultDrawable : PreviewFaultDrawableBase
 {
     public const string ErrorMessage = "preview render failed";
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-        => throw new InvalidOperationException(ErrorMessage);
+    public new partial class Resource
+    {
+        protected override void RenderCore(GraphicsContext2D context)
+            => throw new InvalidOperationException(ErrorMessage);
+    }
 }
 
 // The first render after Arm() blocks until ReleaseRender() and then throws. Other renders draw nothing.
@@ -421,7 +427,7 @@ internal sealed partial class BlockingPreviewFaultDrawable : PreviewFaultDrawabl
 
     public void ReleaseRender() => _releaseRender.TrySetResult(true);
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderFault()
     {
         if (!_armed || Interlocked.Increment(ref _armedRenderCount) != 1)
             return;
@@ -430,10 +436,18 @@ internal sealed partial class BlockingPreviewFaultDrawable : PreviewFaultDrawabl
         _releaseRender.Task.GetAwaiter().GetResult();
         throw new InvalidOperationException(PreviewFaultDrawable.ErrorMessage);
     }
+
+    public new partial class Resource
+    {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderFault();
+    }
 }
 
 internal sealed partial class PreviewObjectDisposedFaultDrawable : PreviewFaultDrawableBase
 {
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-        => throw new ObjectDisposedException(nameof(PreviewObjectDisposedFaultDrawable));
+    public new partial class Resource
+    {
+        protected override void RenderCore(GraphicsContext2D context)
+            => throw new ObjectDisposedException(nameof(PreviewObjectDisposedFaultDrawable));
+    }
 }

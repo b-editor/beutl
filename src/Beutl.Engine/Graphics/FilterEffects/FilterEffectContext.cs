@@ -376,39 +376,41 @@ public sealed partial class FilterEffectContext : IDisposable
             : [.. _items, .. _renderTimeItems];
     }
 
-    internal void ApplyTransactional(FilterEffect effect, FilterEffect.Resource resource)
+    internal void ApplyTransactional(FilterEffect.Resource resource)
     {
-        ArgumentNullException.ThrowIfNull(effect);
         ArgumentNullException.ThrowIfNull(resource);
         int itemCount = _items.Count;
         int renderTimeItemCount = _renderTimeItems.Count;
         ApplyTransactional(() =>
         {
-            effect.ApplyTo(this, resource);
-            ValidateDeclaredOptions(effect, resource,
+            resource.Record(this);
+            ValidateDeclaredOptions(resource,
                 RecordedOptions(_items.Span[itemCount..]) | RecordedOptions(_renderTimeItems.Span[renderTimeItemCount..]));
         });
     }
 
     // Chains are split and target work is routed from the resource's declarations before anything is recorded,
     // so a recording that needs more than its resource declared would run silently wrong.
-    private static void ValidateDeclaredOptions(FilterEffect effect, FilterEffect.Resource resource,
+    private static void ValidateDeclaredOptions(FilterEffect.Resource resource,
         CustomFilterEffectOptions recorded)
     {
         if (recorded.HasFlag(CustomFilterEffectOptions.ControlsContinuation) && !resource.ControlsContinuation)
         {
             throw new InvalidOperationException(
-                $"{effect.GetType().Name} recorded a continuation effect, so its resource must return true from "
+                $"{EffectName(resource)} recorded a continuation effect, so its resource must return true from "
                 + $"{nameof(FilterEffect.Resource.ControlsContinuation)}.");
         }
 
         if (recorded.HasFlag(CustomFilterEffectOptions.AccessesTarget) && !resource.MayAccessTarget)
         {
             throw new InvalidOperationException(
-                $"{effect.GetType().Name} recorded a composition-target effect, so its resource must return true from "
+                $"{EffectName(resource)} recorded a composition-target effect, so its resource must return true from "
                 + $"{nameof(FilterEffect.Resource.MayAccessTarget)}.");
         }
     }
+
+    private static string EffectName(FilterEffect.Resource resource)
+        => (resource.GetOriginal()?.GetType() ?? resource.GetType()).Name;
 
     private static CustomFilterEffectOptions RecordedOptions(ReadOnlySpan<IFEItem> items)
     {
@@ -439,7 +441,7 @@ public sealed partial class FilterEffectContext : IDisposable
             CustomEffect(resource, ApplyContinuationResource, options);
         }
         else if (resource.IsEnabled)
-            ApplyTransactional(resource.RequireOriginal(), resource);
+            ApplyTransactional(resource);
     }
 
     private static bool HasContinuation(ReadOnlySpan<IFEItem> items)
@@ -462,7 +464,7 @@ public sealed partial class FilterEffectContext : IDisposable
             using var context = new FilterEffectContext(
                 execution.Targets.CalculateBounds(), execution.OutputScale, execution.WorkingScale);
             if (current.IsEnabled)
-                context.ApplyTransactional(current.RequireOriginal(), current);
+                context.ApplyTransactional(current);
             execution.Continuation?.AppendTo(context);
             using var builder = new SKImageFilterBuilder();
             using var executor = execution.CreateExecutor(execution.Targets, builder);

@@ -45,15 +45,17 @@ public sealed partial class Invert : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Invert_ExcludeAlphaChannel), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> ExcludeAlphaChannel { get; } = Property.CreateAnimatable(true);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.Shader(ShaderDescription.CurrentPixel(
-            s_shaderSource,
-            bindings =>
-            {
-                bindings.Uniform("amount", r.Amount / 100f);
-                bindings.Uniform("excludeAlpha", r.ExcludeAlphaChannel ? 1 : 0);
-            }));
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Shader(ShaderDescription.CurrentPixel(
+                s_shaderSource,
+                bindings =>
+                {
+                    bindings.Uniform("amount", Amount / 100f);
+                    bindings.Uniform("excludeAlpha", ExcludeAlphaChannel ? 1 : 0);
+                }));
+        }
     }
 }

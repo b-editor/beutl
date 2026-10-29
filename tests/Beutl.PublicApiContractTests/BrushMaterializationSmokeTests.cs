@@ -192,7 +192,7 @@ public sealed class BrushMaterializationSmokeTests
         using var targets = new EffectTargets { new EffectTarget(backing, bounds, EffectiveScale.At(1)) };
         using var builder = new SKImageFilterBuilder();
         using var context = new FilterEffectContext(bounds);
-        effect.ApplyTo(context, resource);
+        context.Apply(resource);
 
         DrawableBrushMaterializer materializer =
             (_, _, _) => new MaterializedDrawableBrush(CreateOpaqueImage(32, 32), bounds);

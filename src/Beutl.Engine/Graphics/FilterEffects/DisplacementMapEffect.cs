@@ -45,64 +45,6 @@ public partial class DisplacementMapEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.DisplacementMapEffect_ShowDisplacementMap), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> ShowDisplacementMap { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        Brush.Resource? displacementMap = r.DisplacementMap;
-        if (displacementMap is null) return;
-
-        if (r.ShowDisplacementMap)
-        {
-            context.CustomEffect(displacementMap,
-                static (brush, effectContext) =>
-                {
-                    for (int i = 0; i < effectContext.Targets.Count; i++)
-                    {
-                        EffectTarget effectTarget = effectContext.Targets[i];
-                        // Create target first so the map brush uses the buffer's post-clamp density.
-                        var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
-                        if (newTarget.IsEmpty)
-                        {
-                            newTarget.Dispose();
-                            continue;
-                        }
-
-                        RenderAndCommitReplacement(
-                            effectContext,
-                            i,
-                            effectTarget,
-                            newTarget,
-                            (Context: effectContext, Brush: brush, Original: effectTarget, Replacement: newTarget),
-                            static state =>
-                            {
-                                float w = state.Replacement.Scale.Value;
-                                using SKShader displacementMapShader = DisplacementMapShaderFactory.CreateOrTransparent(
-                                    state.Context,
-                                    state.Brush,
-                                    new Rect(state.Original.Bounds.Size),
-                                    w);
-
-                                using (var paint = new SKPaint())
-                                using (var canvas = state.Context.Open(state.Replacement))
-                                {
-                                    paint.Shader = displacementMapShader;
-                                    canvas.Clear();
-                                    // The base CTM CreateScale(w) maps the logical DrawRect onto the full
-                                    // ceil(bounds × w) device buffer; no manual prescale. w == 1 = bare logical rect.
-                                    canvas.Canvas.DrawRect(
-                                        new SKRect(0, 0, state.Original.Bounds.Width, state.Original.Bounds.Height),
-                                        paint);
-                                }
-                            });
-                    }
-                });
-        }
-        else if (r.Transform is { } transform)
-        {
-            transform.ApplyTo(displacementMap, r.SpreadMethod, r.Channel, r.Signed, context);
-        }
-    }
-
     internal static void RenderAndCommitReplacement<TState>(
         CustomFilterEffectContext context,
         int index,
@@ -131,5 +73,65 @@ public partial class DisplacementMapEffect : FilterEffect
         }
 
         context.Targets[index] = replacement;
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            Brush.Resource? displacementMap = DisplacementMap;
+            if (displacementMap is null) return;
+
+            if (ShowDisplacementMap)
+            {
+                context.CustomEffect(displacementMap,
+                    static (brush, effectContext) =>
+                    {
+                        for (int i = 0; i < effectContext.Targets.Count; i++)
+                        {
+                            EffectTarget effectTarget = effectContext.Targets[i];
+                            // Create target first so the map brush uses the buffer's post-clamp density.
+                            var newTarget = effectContext.CreateTarget(effectTarget.Bounds);
+                            if (newTarget.IsEmpty)
+                            {
+                                newTarget.Dispose();
+                                continue;
+                            }
+
+                            RenderAndCommitReplacement(
+                                effectContext,
+                                i,
+                                effectTarget,
+                                newTarget,
+                                (Context: effectContext, Brush: brush, Original: effectTarget, Replacement: newTarget),
+                                static state =>
+                                {
+                                    float w = state.Replacement.Scale.Value;
+                                    using SKShader displacementMapShader = DisplacementMapShaderFactory.CreateOrTransparent(
+                                        state.Context,
+                                        state.Brush,
+                                        new Rect(state.Original.Bounds.Size),
+                                        w);
+
+                                    using (var paint = new SKPaint())
+                                    using (var canvas = state.Context.Open(state.Replacement))
+                                    {
+                                        paint.Shader = displacementMapShader;
+                                        canvas.Clear();
+                                        // The base CTM CreateScale(w) maps the logical DrawRect onto the full
+                                        // ceil(bounds × w) device buffer; no manual prescale. w == 1 = bare logical rect.
+                                        canvas.Canvas.DrawRect(
+                                            new SKRect(0, 0, state.Original.Bounds.Width, state.Original.Bounds.Height),
+                                            paint);
+                                    }
+                                });
+                        }
+                    });
+            }
+            else if (Transform is { } transform)
+            {
+                transform.ApplyTo(displacementMap, SpreadMethod, Channel, Signed, context);
+            }
+        }
     }
 }

@@ -46,15 +46,17 @@ public sealed partial class Gamma : FilterEffect
     [Range(0, 100)]
     public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.Shader(ShaderDescription.CurrentPixel(
-            s_shaderSource,
-            bindings =>
-            {
-                bindings.Uniform("gamma", Math.Clamp(r.Amount / 100f, 0.01f, 3f));
-                bindings.Uniform("strength", r.Strength / 100f);
-            }));
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Shader(ShaderDescription.CurrentPixel(
+                s_shaderSource,
+                bindings =>
+                {
+                    bindings.Uniform("gamma", Math.Clamp(Amount / 100f, 0.01f, 3f));
+                    bindings.Uniform("strength", Strength / 100f);
+                }));
+        }
     }
 }

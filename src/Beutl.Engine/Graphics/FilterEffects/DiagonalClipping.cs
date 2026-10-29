@@ -75,38 +75,6 @@ public sealed partial class DiagonalClipping : FilterEffect
         Description = nameof(GraphicsStrings.DiagonalClipping_Width_Description), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Width { get; } = Property.CreateAnimatable(0f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        float angle = float.IsFinite(r.Angle) ? r.Angle % 360f : 0f;
-        (float sin, float cos) = MathF.SinCos(MathUtilities.Deg2Rad(angle));
-        var parameters = new ClipParameters(
-            new Vector2(-sin, cos),
-            float.IsFinite(r.Position) ? r.Position : 0f,
-            float.IsFinite(r.Width) ? r.Width : 0f);
-
-        context.Shader(ShaderDescription.WholeSource(
-            s_shaderSource,
-            RenderBoundsContract.Identity,
-            bindings =>
-            {
-                bindings.Uniform("normal", parameters.Normal);
-                bindings.Uniform("position", parameters.Position);
-                bindings.Uniform("width", parameters.Width);
-                bindings.Uniform("workingScale", 0, static (writer, _, execution) => writer.Set(execution.WorkingScale));
-                bindings.Uniform("center", 0, static (writer, _, execution) =>
-                {
-                    // Anchor to the complete logical source, including when only part of it is requested.
-                    Vector center = execution.OutputBounds.Center - execution.LogicalOrigin;
-                    writer.Set(new Vector2(center.X, center.Y) * execution.WorkingScale);
-                });
-            },
-            SKShaderTileMode.Decal,
-            hitTest: RenderHitTestContract.Custom(
-                parameters,
-                static (state, hitTest, point) => state.HitTest(hitTest, point))));
-    }
-
     private readonly record struct ClipParameters(Vector2 Normal, float Position, float Width)
     {
         public bool HitTest(RenderHitTestContext context, Point point)
@@ -123,6 +91,40 @@ public sealed partial class DiagonalClipping : FilterEffect
                 _ => distance >= 0f,
             };
             return kept && RenderHitTestContract.AnyInputAccepts(context.Inputs, point);
+        }
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            float angle = float.IsFinite(Angle) ? Angle % 360f : 0f;
+            (float sin, float cos) = MathF.SinCos(MathUtilities.Deg2Rad(angle));
+            var parameters = new ClipParameters(
+                new Vector2(-sin, cos),
+                float.IsFinite(Position) ? Position : 0f,
+                float.IsFinite(Width) ? Width : 0f);
+
+            context.Shader(ShaderDescription.WholeSource(
+                s_shaderSource,
+                RenderBoundsContract.Identity,
+                bindings =>
+                {
+                    bindings.Uniform("normal", parameters.Normal);
+                    bindings.Uniform("position", parameters.Position);
+                    bindings.Uniform("width", parameters.Width);
+                    bindings.Uniform("workingScale", 0, static (writer, _, execution) => writer.Set(execution.WorkingScale));
+                    bindings.Uniform("center", 0, static (writer, _, execution) =>
+                    {
+                        // Anchor to the complete logical source, including when only part of it is requested.
+                        Vector center = execution.OutputBounds.Center - execution.LogicalOrigin;
+                        writer.Set(new Vector2(center.X, center.Y) * execution.WorkingScale);
+                    });
+                },
+                SKShaderTileMode.Decal,
+                hitTest: RenderHitTestContract.Custom(
+                    parameters,
+                    static (state, hitTest, point) => state.HitTest(hitTest, point))));
         }
     }
 }

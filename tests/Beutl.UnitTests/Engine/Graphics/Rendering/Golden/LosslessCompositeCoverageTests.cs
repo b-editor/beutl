@@ -734,11 +734,10 @@ public sealed class LosslessCompositeCoverageTests
 
     private static Bitmap RenderDirect(Drawable.Resource resource, float density)
     {
-        Shape shape = (Shape)resource.RequireOriginal();
         var shapeResource = (Shape.Resource)resource;
         Size frameSize = s_frame.ToSize(1);
         Size shapeSize = resource.Measure(frameSize);
-        Matrix transform = shape.GetTransformMatrix(frameSize, shapeSize, resource);
+        Matrix transform = resource.GetTransformMatrix(frameSize, shapeSize);
         Geometry.Resource geometry = shapeResource.GetGeometry()
                                      ?? throw new InvalidOperationException("The shape produced no geometry.");
 
@@ -777,7 +776,10 @@ public sealed class LosslessCompositeCoverageTests
 
 internal sealed partial class IdentityTypedShaderEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-        => context.Shader(ShaderDescription.CurrentPixel(
-            "half4 apply(half4 color) { return color; }"));
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+            => context.Shader(ShaderDescription.CurrentPixel(
+                "half4 apply(half4 color) { return color; }"));
+    }
 }

@@ -16,19 +16,20 @@ public sealed partial class DrawablePresenter : Drawable, IPresenter<Drawable>
     [Display(Name = nameof(GraphicsStrings.Target), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Drawable?> Target { get; } = Property.CreateReference<Drawable?>();
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        r.Target?.Render(context);
-    }
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            Target?.Render(context);
+        }
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        return r.Target?.Measure(availableSize) ?? Size.Empty;
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return Target?.Measure(availableSize) ?? Size.Empty;
+        }
     }
 }

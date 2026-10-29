@@ -305,10 +305,14 @@ public sealed partial class FixedDomainDrawable : Drawable
     public FixedDomainDrawable() => ScanProperties<FixedDomainDrawable>();
 
     public IExpressionProperty<Drawable?> Content { get; } = Property.CreateExpression<Drawable?>();
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(96, 64);
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+
+    public new partial class Resource
     {
-        context.DrawRectangle(new Rect(0, 0, 96, 64), Brushes.Resource.Transparent, null);
-        if (((Resource)resource).Content is { } child) context.DrawDrawable(child);
+        protected override Size MeasureCore(Size availableSize) => new(96, 64);
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            context.DrawRectangle(new Rect(0, 0, 96, 64), Brushes.Resource.Transparent, null);
+            if (Content is { } child) context.DrawDrawable(child);
+        }
     }
 }

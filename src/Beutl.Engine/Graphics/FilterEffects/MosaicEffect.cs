@@ -46,44 +46,6 @@ public partial class MosaicEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.MosaicEffect_Origin), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<RelativePoint> Origin { get; } = Property.CreateAnimatable(RelativePoint.Center);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        // Animated values can overshoot the property range between valid keyframes.
-        var logicalTileSize = new Size(
-            float.IsFinite(r.TileSize.Width) ? MathF.Max(0.0001f, r.TileSize.Width) : 0.0001f,
-            float.IsFinite(r.TileSize.Height) ? MathF.Max(0.0001f, r.TileSize.Height) : 0.0001f);
-        var tileSize = new Vector2(logicalTileSize.Width, logicalTileSize.Height);
-        var origin = new Vector2(r.Origin.Point.X, r.Origin.Point.Y);
-        context.Shader(ShaderDescription.WholeSource(
-            s_shaderSource,
-            RenderBoundsContract.FullInput,
-            bindings =>
-            {
-                bindings.Uniform(
-                    "tileSize",
-                    tileSize,
-                    static (writer, tile, execution) => writer.Set(tile * execution.WorkingScale));
-                bindings.Uniform("sourceRatio", Vector2.One, BindSourceRatio);
-                bindings.Uniform("sourceOffset", Vector2.Zero, BindSourceOffset);
-                if (r.Origin.Unit == RelativeUnit.Relative)
-                {
-                    bindings.Uniform(
-                        "origin",
-                        origin,
-                        BindRelativeOrigin);
-                }
-                else
-                {
-                    bindings.Uniform(
-                        "origin",
-                        origin,
-                        BindAbsoluteOrigin);
-                }
-            },
-            SKShaderTileMode.Clamp));
-    }
-
     private static void BindRelativeOrigin(
         ShaderUniformWriter writer,
         Vector2 value,
@@ -136,5 +98,45 @@ public partial class MosaicEffect : FilterEffect
         float scale = context.InputEffectiveScale.Value;
         Point logicalOrigin = context.LogicalOrigin;
         writer.Set(new Vector2((logicalOrigin.X - inputOrigin.X) * scale, (logicalOrigin.Y - inputOrigin.Y) * scale));
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            // Animated values can overshoot the property range between valid keyframes.
+            var logicalTileSize = new Size(
+                float.IsFinite(TileSize.Width) ? MathF.Max(0.0001f, TileSize.Width) : 0.0001f,
+                float.IsFinite(TileSize.Height) ? MathF.Max(0.0001f, TileSize.Height) : 0.0001f);
+            var tileSize = new Vector2(logicalTileSize.Width, logicalTileSize.Height);
+            var origin = new Vector2(Origin.Point.X, Origin.Point.Y);
+            context.Shader(ShaderDescription.WholeSource(
+                s_shaderSource,
+                RenderBoundsContract.FullInput,
+                bindings =>
+                {
+                    bindings.Uniform(
+                        "tileSize",
+                        tileSize,
+                        static (writer, tile, execution) => writer.Set(tile * execution.WorkingScale));
+                    bindings.Uniform("sourceRatio", Vector2.One, BindSourceRatio);
+                    bindings.Uniform("sourceOffset", Vector2.Zero, BindSourceOffset);
+                    if (Origin.Unit == RelativeUnit.Relative)
+                    {
+                        bindings.Uniform(
+                            "origin",
+                            origin,
+                            BindRelativeOrigin);
+                    }
+                    else
+                    {
+                        bindings.Uniform(
+                            "origin",
+                            origin,
+                            BindAbsoluteOrigin);
+                    }
+                },
+                SKShaderTileMode.Clamp));
+        }
     }
 }

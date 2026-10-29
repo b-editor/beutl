@@ -187,41 +187,6 @@ public sealed partial class LutEffect : FilterEffect
     [Range(0, 100)]
     public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        CubeSource.Resource? source = r.Source;
-        CubeFile? cube = source?.Cube;
-        if (cube is null)
-            return;
-
-        LutShaderResource lutSnapshot = s_lutSnapshots.GetValue(cube, static c => LutShaderResource.Create(c.Data));
-        RenderResource<LutShaderResource> lut = context.Borrow(lutSnapshot);
-        // Non-finite or non-growing domains use the default 0 to 1.
-        Vector3 domainSize = cube.Max - cube.Min;
-        bool validDomain = domainSize.X > 0 && domainSize.Y > 0 && domainSize.Z > 0
-            && float.IsFinite(domainSize.X) && float.IsFinite(domainSize.Y) && float.IsFinite(domainSize.Z);
-        SkslSource shaderSource = cube.Dimention == CubeFileDimension.OneDimension
-            ? s_shaderSource1D
-            : s_shaderSource3D;
-
-        context.Shader(ShaderDescription.CurrentPixel(
-            shaderSource,
-            bindings =>
-            {
-                bindings.Uniform("lutSize", cube.Size);
-                bindings.Uniform("lutWidth", lutSnapshot.Width);
-                bindings.Uniform("domainMin", validDomain ? cube.Min : Vector3.Zero);
-                bindings.Uniform("domainMax", validDomain ? cube.Max : Vector3.One);
-                bindings.Uniform("strength", r.Strength / 100f);
-                bindings.Resource(
-                    "lut",
-                    lut,
-                    ShaderResourceCoordinateSpace.Value,
-                    static (writer, value, _) => writer.Set(value.CreateShader()));
-            }));
-    }
-
     private sealed class LutShaderResource
     {
         private readonly Vector3[] _data;
@@ -256,6 +221,43 @@ public sealed partial class LutEffect : FilterEffect
             }
 
             return image.ToShader();
+        }
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            CubeSource.Resource? source = Source;
+            CubeFile? cube = source?.Cube;
+            if (cube is null)
+                return;
+
+            LutShaderResource lutSnapshot = s_lutSnapshots.GetValue(cube, static c => LutShaderResource.Create(c.Data));
+            RenderResource<LutShaderResource> lut = context.Borrow(lutSnapshot);
+            // Non-finite or non-growing domains use the default 0 to 1.
+            Vector3 domainSize = cube.Max - cube.Min;
+            bool validDomain = domainSize.X > 0 && domainSize.Y > 0 && domainSize.Z > 0
+                && float.IsFinite(domainSize.X) && float.IsFinite(domainSize.Y) && float.IsFinite(domainSize.Z);
+            SkslSource shaderSource = cube.Dimention == CubeFileDimension.OneDimension
+                ? s_shaderSource1D
+                : s_shaderSource3D;
+
+            context.Shader(ShaderDescription.CurrentPixel(
+                shaderSource,
+                bindings =>
+                {
+                    bindings.Uniform("lutSize", cube.Size);
+                    bindings.Uniform("lutWidth", lutSnapshot.Width);
+                    bindings.Uniform("domainMin", validDomain ? cube.Min : Vector3.Zero);
+                    bindings.Uniform("domainMax", validDomain ? cube.Max : Vector3.One);
+                    bindings.Uniform("strength", Strength / 100f);
+                    bindings.Resource(
+                        "lut",
+                        lut,
+                        ShaderResourceCoordinateSpace.Value,
+                        static (writer, value, _) => writer.Set(value.CreateShader()));
+                }));
         }
     }
 }

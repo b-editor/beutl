@@ -69,7 +69,7 @@ public sealed class CustomEffectAllocatorSeamContractTests
     [SuppressResourceClassGeneration]
     private sealed partial class ProbeEffect(AllocationProbe probe) : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context)
             => context.CustomEffect(probe, static (p, ctx) => p.Run(ctx), static (_, bounds) => bounds);
 
         public override Resource ToResource(CompositionContext context)
@@ -83,6 +83,9 @@ public sealed class CustomEffectAllocatorSeamContractTests
         public new sealed class Resource : FilterEffect.Resource
         {
             public override FilterEffectRenderNode CreateRenderNode() => new(this);
+
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((ProbeEffect)RequireOriginal()).ApplyEffect(context);
         }
     }
 

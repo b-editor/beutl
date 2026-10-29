@@ -49,20 +49,22 @@ public partial class Negaposi : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Strength), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Strength { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.Shader(ShaderDescription.CurrentPixel(
-            s_shaderSource,
-            bindings =>
-            {
-                bindings.Uniform(
-                    "negaColor",
-                    new Vector3(
-                        Color.SrgbToLinear(r.Red / 255f),
-                        Color.SrgbToLinear(r.Green / 255f),
-                        Color.SrgbToLinear(r.Blue / 255f)));
-                bindings.Uniform("strength", r.Strength / 100f);
-            }));
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Shader(ShaderDescription.CurrentPixel(
+                s_shaderSource,
+                bindings =>
+                {
+                    bindings.Uniform(
+                        "negaColor",
+                        new Vector3(
+                            Color.SrgbToLinear(Red / 255f),
+                            Color.SrgbToLinear(Green / 255f),
+                            Color.SrgbToLinear(Blue / 255f)));
+                    bindings.Uniform("strength", Strength / 100f);
+                }));
+        }
     }
 }

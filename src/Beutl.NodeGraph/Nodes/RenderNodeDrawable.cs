@@ -18,30 +18,29 @@ public sealed class RenderNodeDrawable : Drawable
         return resource;
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        return Size.Empty;
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = resource as Resource;
-        if (r?.GraphNode != null)
-        {
-            context.DrawNode(
-                r.GraphNode,
-                n => new ReferencesChildRenderNode(n),
-                (refNode, n) => refNode.Update(n));
-        }
-    }
-
     public new sealed class Resource : Drawable.Resource
     {
         public RenderNode? GraphNode { get; set; }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return Size.Empty;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
+
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            if (GraphNode != null)
+            {
+                context.DrawNode(
+                    GraphNode,
+                    n => new ReferencesChildRenderNode(n),
+                    (refNode, n) => refNode.Update(n));
+            }
+        }
 
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
         {

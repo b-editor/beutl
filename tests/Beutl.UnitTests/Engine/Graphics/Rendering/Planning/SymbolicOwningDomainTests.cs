@@ -616,7 +616,7 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
 
     public bool AppendTypedSuffix { get; init; }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    private void ApplyEffect(FilterEffectContext context)
     {
         context.CustomEffect(Unit.Default, (_, _) => CallbackCount++);
         if (!AppendTypedSuffix)
@@ -639,6 +639,8 @@ internal sealed partial class SymbolicDomainFilterEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
+        protected override void ApplyTo(FilterEffectContext context)
+            => ((SymbolicDomainFilterEffect)RequireOriginal()).ApplyEffect(context);
     }
 }
 
@@ -647,7 +649,7 @@ internal sealed partial class FiniteEffectItemEffect : FilterEffect
 {
     public Rect ObservedInputBounds { get; private set; }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    private void ApplyEffect(FilterEffectContext context)
     {
         ObservedInputBounds = context.Bounds;
         context.CustomEffect(
@@ -666,5 +668,7 @@ internal sealed partial class FiniteEffectItemEffect : FilterEffect
 
     public new sealed class Resource : FilterEffect.Resource
     {
+        protected override void ApplyTo(FilterEffectContext context)
+            => ((FiniteEffectItemEffect)RequireOriginal()).ApplyEffect(context);
     }
 }

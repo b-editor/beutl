@@ -119,37 +119,6 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         return new MediaTime(low.Flicks + (high.Flicks - low.Flicks) / 2);
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.Source?.IsDisposed == false)
-        {
-            return r.Source.LogicalFrameSize.ToSize(1);
-        }
-        else
-        {
-            return Size.Empty;
-        }
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.Source?.IsDisposed == false)
-        {
-            MediaTime pos = r.RequestedPosition + r.OffsetPosition;
-            int frame = r.Source.GetFrameIndex(pos);
-
-            context.DrawVideoSource(r.Source, frame, Brushes.Resource.White, null);
-            r.RenderedPosition = r.RequestedPosition;
-        }
-    }
-
-    internal void DrawInternal(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        OnDraw(context, resource);
-    }
-
     public partial class Resource
     {
         internal readonly SpeedIntegrator _speedIntegrator = new(60);
@@ -157,6 +126,35 @@ public partial class SourceVideo : Drawable, IOriginalDurationProvider, ISplitta
         public MediaTime RenderedPosition { get; internal set; }
 
         public MediaTime RequestedPosition { get; internal set; }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            if (Source?.IsDisposed == false)
+            {
+                return Source.LogicalFrameSize.ToSize(1);
+            }
+            else
+            {
+                return Size.Empty;
+            }
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            if (Source?.IsDisposed == false)
+            {
+                MediaTime pos = RequestedPosition + OffsetPosition;
+                int frame = Source.GetFrameIndex(pos);
+
+                context.DrawVideoSource(Source, frame, Brushes.Resource.White, null);
+                RenderedPosition = RequestedPosition;
+            }
+        }
+
+        internal void DrawInternal(GraphicsContext2D context)
+        {
+            OnDraw(context);
+        }
 
         partial void PostDispose(bool disposing)
         {

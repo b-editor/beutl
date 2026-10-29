@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using Beutl.Composition;
 using Beutl.Engine;
 using Beutl.Graphics.Effects;
@@ -13,11 +12,14 @@ namespace Beutl.Graphics;
 
 public sealed partial class FallbackDrawable : Drawable, IFallback
 {
-    // A drawable whose type did not load takes no space and draws nothing.
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => Size.Empty;
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        // A drawable whose type did not load takes no space and draws nothing.
+        protected override Size MeasureCore(Size availableSize) => Size.Empty;
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 
@@ -58,51 +60,6 @@ public abstract partial class Drawable : EngineObject
     [Range(0, 100)]
     [Unit(PropertyUnit.Percent)]
     public IExpressionProperty<float> Opacity { get; } = Property.CreateAnimatable(100f);
-
-    protected abstract Size MeasureCore(Size availableSize, Resource resource);
-
-    internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds, Resource resource)
-    {
-        Vector pt = CalculateAlignmentTranslate(resource.AlignmentX, resource.AlignmentY, coreBounds, availableSize);
-        var origin = resource.TransformOrigin.ToPixels(coreBounds);
-        Matrix offset = Matrix.CreateTranslation(origin);
-
-        if (resource.Transform != null)
-        {
-            Matrix transform = resource.Transform.Matrix;
-            return (-offset) * transform * offset * Matrix.CreateTranslation(pt);
-        }
-        else
-        {
-            return Matrix.CreateTranslation(pt);
-        }
-    }
-
-    /// <summary>The override point for drawing an evaluated resource.</summary>
-    /// <remarks>
-    /// Call <see cref="Resource.Render(GraphicsContext2D)"/> instead: calling this method directly skips effects
-    /// that replace the drawable's time-sampled input. Drawing will move onto <see cref="Resource"/>.
-    /// </remarks>
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    public virtual void Render(GraphicsContext2D context, Resource resource)
-    {
-        if (resource.IsEnabled)
-        {
-            Size availableSize = context.Size;
-            Size size = MeasureCore(availableSize, resource);
-
-            Matrix transform = GetTransformMatrix(availableSize, size, resource);
-            using (context.PushBlendMode(resource.BlendMode))
-            using (context.PushTransform(transform))
-            using (context.PushOpacity(resource.Opacity / 100f))
-            using (resource.FilterEffect == null ? new() : context.PushFilterEffect(resource.FilterEffect))
-            {
-                OnDraw(context, resource);
-            }
-        }
-    }
-
-    protected abstract void OnDraw(GraphicsContext2D context, Resource resource);
 
     public abstract partial class Resource
     {
@@ -169,14 +126,57 @@ public abstract partial class Drawable : EngineObject
         }
 
         /// <summary>Measures this evaluated drawable's content without drawing it.</summary>
-        public Size Measure(Size availableSize) => RequireOriginal().MeasureCore(availableSize, this);
+        public Size Measure(Size availableSize) => MeasureCore(availableSize);
 
         /// <summary>Records this evaluated drawable, including effects that replace its time-sampled input.</summary>
         public void Render(GraphicsContext2D context)
         {
             if (!IsEnabled) return;
             if (_input != null) _input.Render(context);
-            else RequireOriginal().Render(context, this);
+            else RenderCore(context);
+        }
+
+        /// <summary>Measures this drawable's content from its evaluated values.</summary>
+        protected abstract Size MeasureCore(Size availableSize);
+
+        /// <summary>Draws this drawable's content in its own coordinates.</summary>
+        protected abstract void OnDraw(GraphicsContext2D context);
+
+        /// <summary>Records this drawable with its blend mode, transform, opacity and filter effect.</summary>
+        /// <remarks>
+        /// <see cref="Render(GraphicsContext2D)"/> calls this unless an effect replaces the time-sampled input.
+        /// Override to change how the content is placed or composited.
+        /// </remarks>
+        protected virtual void RenderCore(GraphicsContext2D context)
+        {
+            Size availableSize = context.Size;
+            Size size = MeasureCore(availableSize);
+
+            Matrix transform = GetTransformMatrix(availableSize, size);
+            using (context.PushBlendMode(BlendMode))
+            using (context.PushTransform(transform))
+            using (context.PushOpacity(Opacity / 100f))
+            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
+            {
+                OnDraw(context);
+            }
+        }
+
+        internal Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
+        {
+            Vector pt = CalculateAlignmentTranslate(AlignmentX, AlignmentY, coreBounds, availableSize);
+            var origin = TransformOrigin.ToPixels(coreBounds);
+            Matrix offset = Matrix.CreateTranslation(origin);
+
+            if (Transform != null)
+            {
+                Matrix transform = Transform.Matrix;
+                return (-offset) * transform * offset * Matrix.CreateTranslation(pt);
+            }
+            else
+            {
+                return Matrix.CreateTranslation(pt);
+            }
         }
 
         partial void PreDispose(bool disposing)

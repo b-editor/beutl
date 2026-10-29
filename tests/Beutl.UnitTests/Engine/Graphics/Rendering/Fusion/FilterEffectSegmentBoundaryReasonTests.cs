@@ -95,21 +95,27 @@ public sealed class FilterEffectSegmentBoundaryReasonTests
 
 internal sealed partial class EmptySkiaFilterEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        context.AppendSkiaFilter(
-            data: 0,
-            factory: static (_, input, _) => input,
-            transformBounds: static (_, _) => Rect.Empty);
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.AppendSkiaFilter(
+                data: 0,
+                factory: static (_, input, _) => input,
+                transformBounds: static (_, _) => Rect.Empty);
+        }
     }
 }
 
 internal sealed partial class PureSkiaColorFilterEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        context.AppendSKColorFilter(
-            Unit.Default,
-            static (_, _) => SKColorFilter.CreateLumaColor());
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.AppendSKColorFilter(
+                Unit.Default,
+                static (_, _) => SKColorFilter.CreateLumaColor());
+        }
     }
 }

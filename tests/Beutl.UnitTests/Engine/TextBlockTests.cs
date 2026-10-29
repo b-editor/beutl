@@ -47,7 +47,7 @@ public class TextBlockTests
         using (var context = new GraphicsContext2D(node, new(1920, 1080)))
         {
             context.Clear(Colors.White);
-            tb.Render(context, resource);
+            resource.Render(context);
         }
 
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest
@@ -115,7 +115,7 @@ public class TextBlockTests
         block.Spacing.Value = spacing;
         using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
         using var node = new DrawableRenderNode(resource);
-        Record(block, resource, node);
+        Record(resource, node);
 
         Rect[] lines = RenderLineBounds(node);
 
@@ -147,7 +147,7 @@ public class TextBlockTests
         block.SplitByCharacters.Value = split;
         using TextBlock.Resource resource = block.ToResource(CompositionContext.Default);
         using var node = new DrawableRenderNode(resource);
-        Record(block, resource, node);
+        Record(resource, node);
         Rect[] before = RenderLineBounds(node);
         Size size = resource.Measure(Size.Infinity);
         int version = resource.Version;
@@ -156,7 +156,7 @@ public class TextBlockTests
         bool changed = false;
         resource.Reconcile(block, CompositionContext.Default, ref changed);
         node.Update(resource);
-        Record(block, resource, node);
+        Record(resource, node);
         Rect[] after = RenderLineBounds(node);
 
         Assert.Multiple(() =>
@@ -212,7 +212,7 @@ public class TextBlockTests
         block.SplitByCharacters.Value = split;
         using var resource = block.ToResource(CompositionContext.Default);
         using var node = new DrawableRenderNode(resource);
-        Record(block, resource, node);
+        Record(resource, node);
         Rect[] columns = RenderLineBounds(node, vertical: true);
         Assert.That(columns, Has.Length.EqualTo(3));
         // Pixel scanning visits the leftmost (last) column first.
@@ -238,14 +238,14 @@ public class TextBlockTests
         bool changed = false;
         resource.Reconcile(block, CompositionContext.Default, ref changed);
         node.Update(resource);
-        Record(block, resource, node);
+        Record(resource, node);
         Assert.That(RenderLineBounds(node), Has.Length.EqualTo(3));
     }
 
-    private static void Record(TextBlock block, TextBlock.Resource resource, DrawableRenderNode node)
+    private static void Record(TextBlock.Resource resource, DrawableRenderNode node)
     {
         using var context = new GraphicsContext2D(node, new Size(600, 400));
-        block.Render(context, resource);
+        resource.Render(context);
     }
 
     private static Rect[] RenderLineBounds(DrawableRenderNode node, bool vertical = false)

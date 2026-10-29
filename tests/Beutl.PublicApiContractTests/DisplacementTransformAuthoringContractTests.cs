@@ -33,7 +33,7 @@ public sealed class DisplacementTransformAuthoringContractTests
         using var context = new FilterEffectContext(new Rect(0, 0, 8, 8));
         int itemsBefore = context.CountItems();
 
-        effect.ApplyTo(context, resource);
+        context.Apply(resource);
 
         Assert.Multiple(() =>
         {
