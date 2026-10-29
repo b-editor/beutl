@@ -24,8 +24,8 @@ public sealed class AVFVideoEncoderSettings : VideoEncoderSettings
         Description = "Pq / Hlg selects the HDR encoder path (HEVC Main10).")]
     /// <summary>
     /// Transfer characteristic embedded in the encoded stream. Setting Pq or Hlg selects the
-    /// HDR encoder path (HEVC Main10 profile, 16bpc pixel pipeline, matching AVVideoColor
-    /// properties).
+    /// HDR encoder path (HEVC Main10 profile, 16bpc pixel pipeline, matching color
+    /// attachments on the input pixel buffers).
     /// </summary>
     public IProperty<ColorTransferCharacteristic> ColorTransfer { get; } = Property.CreateValue(ColorTransferCharacteristic.Default);
 

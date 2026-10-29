@@ -17,8 +17,6 @@ public enum MessageType
     ReadAudioResult = 15,
     CloseReader = 16,
     CloseReaderResult = 17,
-    UpdateDecoderSettings = 18,
-    UpdateDecoderSettingsResult = 19,
 
     // エンコード
     StartEncode = 30,

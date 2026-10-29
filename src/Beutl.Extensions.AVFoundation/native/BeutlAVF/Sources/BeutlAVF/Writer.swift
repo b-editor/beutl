@@ -14,6 +14,7 @@ final class Writer {
     private var videoAdaptor: AVAssetWriterInputPixelBufferAdaptor?
     private var audioInput: AVAssetWriterInput?
     private var videoIsHdr: Bool = false
+    private var videoColorAttachments: [String: Any] = [:]
     private var started = false
     private var finished = false
 
@@ -89,6 +90,8 @@ final class Writer {
                 source: bgra, width: width, height: height, srcRowBytes: rowBytes)
         }
 
+        // The writer inherits stream color tags and RGB-to-YUV conversion from the source attachments.
+        CVBufferSetAttachments(pixelBuffer, videoColorAttachments as CFDictionary, .shouldPropagate)
         let pts = CMTime(value: CMTimeValue(ptsNum), timescale: CMTimeScale(ptsDen))
         if !adaptor.append(pixelBuffer, withPresentationTime: pts) {
             throw BeutlAVFError.writerFailed(
@@ -256,12 +259,9 @@ final class Writer {
             settings[AVVideoCompressionPropertiesKey] = compressionProps
         }
 
-        // Stamp the encoded stream with explicit color tags so HDR-aware players can pick the
-        // right tone mapping. Uses whatever the caller requested; sensible defaults (Rec.2020
-        // + PQ + Rec.2020 matrix) are applied when tags are left at Unknown in the HDR case.
-        if let colorProps = Self.buildColorProperties(config: config, isHdr: isHdr) {
-            settings[AVVideoColorPropertiesKey] = colorProps
-        }
+        // With no output color override, AVAssetWriter preserves the source buffer tags.
+        // This also supports sRGB/linear attachments on the macOS 12 deployment target.
+        videoColorAttachments = Self.buildColorAttachments(config: config, isHdr: isHdr) ?? [:]
 
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: settings)
         input.expectsMediaDataInRealTime = true
@@ -288,7 +288,7 @@ final class Writer {
         videoAdaptor = adaptor
     }
 
-    private static func buildColorProperties(
+    private static func buildColorAttachments(
         config: BeutlVideoEncoderConfig,
         isHdr: Bool
     ) -> [String: Any]? {
@@ -299,9 +299,9 @@ final class Writer {
         if primariesKey == nil && transferKey == nil && matrixKey == nil { return nil }
 
         var dict: [String: Any] = [:]
-        if let v = primariesKey { dict[AVVideoColorPrimariesKey] = v }
-        if let v = transferKey { dict[AVVideoTransferFunctionKey] = v }
-        if let v = matrixKey { dict[AVVideoYCbCrMatrixKey] = v }
+        if let v = primariesKey { dict[kCVImageBufferColorPrimariesKey as String] = v }
+        if let v = transferKey { dict[kCVImageBufferTransferFunctionKey as String] = v }
+        if let v = matrixKey { dict[kCVImageBufferYCbCrMatrixKey as String] = v }
         return dict
     }
 
@@ -314,20 +314,20 @@ final class Writer {
         case Int32(BEUTL_PRIMARIES_EBU3213): return AVVideoColorPrimaries_EBU_3213
         case Int32(BEUTL_PRIMARIES_SMPTE170M): return AVVideoColorPrimaries_SMPTE_C
         default:
-            // HDR without explicit tag → Rec.2020 gamut; SDR falls through to the encoder's
-            // default (BT.709 for H.264/HEVC, unset for JPEG).
+            // HDR without explicit tag → Rec.2020 gamut. The C# side resolves every default
+            // through VideoColorDefaults first, so this fallback only guards the ABI.
             return isHdr ? AVVideoColorPrimaries_ITU_R_2020 : nil
         }
     }
 
     private static func mapTransfer(_ raw: Int32, isHdr: Bool) -> String? {
         switch raw {
+        case Int32(BEUTL_TRANSFER_SRGB): return kCVImageBufferTransferFunction_sRGB as String
+        case Int32(BEUTL_TRANSFER_LINEAR): return kCVImageBufferTransferFunction_Linear as String
         case Int32(BEUTL_TRANSFER_PQ): return AVVideoTransferFunction_SMPTE_ST_2084_PQ
         case Int32(BEUTL_TRANSFER_HLG): return AVVideoTransferFunction_ITU_R_2100_HLG
         case Int32(BEUTL_TRANSFER_BT709): return AVVideoTransferFunction_ITU_R_709_2
         case Int32(BEUTL_TRANSFER_SMPTE240M): return AVVideoTransferFunction_SMPTE_240M_1995
-        // AVVideoTransferFunction_Linear is macOS 13+. For BEUTL_TRANSFER_LINEAR we fall
-        // through to the encoder default rather than gating the whole extension on 13+.
         default:
             return isHdr ? AVVideoTransferFunction_SMPTE_ST_2084_PQ : nil
         }

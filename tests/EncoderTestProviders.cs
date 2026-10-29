@@ -105,6 +105,36 @@ internal sealed class SolidFrameProvider(PixelSize size, long frameCount = 1) : 
     }
 }
 
+// Primaries expose a wrong YUV matrix, gray exposes a wrong transfer, and black/white expose a wrong range.
+internal sealed class ColorBarsFrameProvider : IFrameProvider
+{
+    public const int Width = 192;
+    public const int Height = 64;
+    private long _next;
+    public long FrameCount => 3;
+    public Rational FrameRate => new(30, 1);
+
+    public static Bitmap CreateFrame()
+    {
+        var bitmap = new Bitmap(Width, Height);
+        byte[][] colors = [[0, 0, 255], [0, 255, 0], [255, 0, 0], [128, 128, 128], [0, 0, 0], [255, 255, 255]];
+        for (int y = 0; y < Height; y++)
+        {
+            Span<byte> row = bitmap.GetRow(y);
+            for (int x = 0; x < Width; x++)
+            {
+                colors[x / 32].AsSpan().CopyTo(row.Slice(x * 4, 3));
+                row[x * 4 + 3] = 255;
+            }
+        }
+        return bitmap;
+    }
+
+    public ValueTask<Bitmap?> ReadNextFrame() => ValueTask.FromResult<Bitmap?>(_next++ < FrameCount ? CreateFrame() : null);
+
+    public void Dispose() { }
+}
+
 // 440 Hz sine wave in stereo; the right channel is scaled by rightGain.
 internal sealed class SineSampleProvider(long sampleCount, long sampleRate, float rightGain = 1) : ISampleProvider
 {

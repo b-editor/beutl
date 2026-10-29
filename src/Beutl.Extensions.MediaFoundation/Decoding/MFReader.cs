@@ -31,6 +31,7 @@ public class MFReader : MediaReader
 
     private readonly IMediaFoundationVideoDecoder? _decoder;
     private readonly VideoStreamInfo? _videoInfo;
+    private readonly BitmapColorSpace _colorSpace = BitmapColorSpace.Srgb;
 
     private readonly AudioStreamInfo? _audioInfo;
     private readonly MediaFoundationReader? _audioReader;
@@ -68,6 +69,7 @@ public class MFReader : MediaReader
                         info.TotalFrameCount,
                         new PixelSize(info.ImageFormat.Width, info.ImageFormat.Height),
                         new Rational(info.Fps.Numerator, info.Fps.Denominator));
+                    _colorSpace = BitmapColorSpaceMapping.BuildTargetColorSpace(info.Transfer, info.Primaries);
                     HasVideo = true;
                 }
                 catch (NoVideoStreamException) when (options.StreamsToLoad.HasFlag(MediaMode.Audio))
@@ -180,10 +182,11 @@ public class MFReader : MediaReader
 
             if (r != 0)
             {
-                var result = new Bitmap(w, h);
+                var result = new Bitmap(w, h, colorSpace: _colorSpace);
                 fixed (byte* srcPtr = yuy2Buffer)
                 {
-                    YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h);
+                    YuvConversion.Yuy2ToBgra(srcPtr, (byte*)result.Data, result.RowBytes, w, h,
+                        info.Bt709Matrix, info.FullRange);
                 }
 
                 image = Ref<Bitmap>.Create(result);
