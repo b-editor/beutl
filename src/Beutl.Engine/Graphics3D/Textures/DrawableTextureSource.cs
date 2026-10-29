@@ -58,7 +58,7 @@ public sealed partial class DrawableTextureSource : TextureSource
                 _drawableNode,
                 new Size(TextureWidth, TextureHeight),
                 sanitizedDensity);
-            Drawable.RequireOriginal().Render(context, Drawable);
+            Drawable.Render(context);
             return _drawableNode;
         }
 

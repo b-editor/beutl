@@ -62,7 +62,7 @@ public partial class PlayerViewModel
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, frameSize.ToSize(1), outputScale))
             {
-                drawable.Render(context, resource);
+                resource.Render(context);
             }
 
             var request = new RenderNodeRenderRequest

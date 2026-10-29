@@ -49,7 +49,9 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
         if (obj is CoreObject coreObject)
         {
-            InitializePropertyPublishers(coreObject);
+            foreach (IProperty property in coreObject.Properties)
+                ObserveProperty(coreObject, property);
+            coreObject.PropertyRegistered += OnPropertyRegistered;
         }
     }
 
@@ -57,6 +59,9 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
 
     public void Dispose()
     {
+        if (_object is CoreObject coreObject)
+            coreObject.PropertyRegistered -= OnPropertyRegistered;
+
         if (_object is KeyFrame keyFrame)
         {
             keyFrame.Easing.ValueChanged -= OnEasingChanged;
@@ -117,35 +122,37 @@ public sealed class CoreObjectOperationObserver : IOperationObserver
         }
     }
 
-    private void InitializePropertyPublishers(CoreObject coreObject)
+    private void OnPropertyRegistered(object? sender, IProperty property)
     {
-        foreach (IProperty property in coreObject.Properties)
+        ObserveProperty((CoreObject)sender!, property);
+    }
+
+    private void ObserveProperty(CoreObject coreObject, IProperty property)
+    {
+        if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
         {
-            if (_propertiesToTrack != null && !_propertiesToTrack.Contains(property.Name))
-            {
-                continue;
-            }
-
-            // [NotTracked] marks state that is not an edit, such as camera mode's gizmo selection, so changing it
-            // records nothing.
-            if (property.GetAttributes()?.Any(static attribute => attribute is NotTrackedAttribute) == true)
-            {
-                continue;
-            }
-
-            string childPath = BuildPropertyPath(property.Name);
-            var publisherType = typeof(EnginePropertyOperationObserver<>).MakeGenericType(property.ValueType);
-            var publisher = (IOperationObserver)Activator.CreateInstance(
-                publisherType,
-                _operations,
-                coreObject,
-                property,
-                _sequenceNumberGenerator,
-                childPath,
-                _propertyPathsToTrack)!;
-
-            _enginePropertyPublishers.Add(property.Name, publisher);
+            return;
         }
+
+        // [NotTracked] marks state that is not an edit, such as camera mode's gizmo selection, so changing it
+        // records nothing.
+        if (property.GetAttributes()?.Any(static attribute => attribute is NotTrackedAttribute) == true)
+        {
+            return;
+        }
+
+        string childPath = BuildPropertyPath(property.Name);
+        var publisherType = typeof(EnginePropertyOperationObserver<>).MakeGenericType(property.ValueType);
+        var publisher = (IOperationObserver)Activator.CreateInstance(
+            publisherType,
+            _operations,
+            coreObject,
+            property,
+            _sequenceNumberGenerator,
+            childPath,
+            _propertyPathsToTrack)!;
+
+        _enginePropertyPublishers.Add(property.Name, publisher);
     }
 
     private void OnEasingChanged(object? sender, PropertyValueChangedEventArgs<Easing> e)

@@ -20,4 +20,6 @@ public readonly record struct CompositionFrame(
     CompositionEligibility? Eligibility)
 {
     internal bool ContainsScene3D { get; init; }
+
+    public CancellationToken CancellationToken { get; init; }
 }

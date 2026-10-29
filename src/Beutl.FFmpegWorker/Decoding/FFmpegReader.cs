@@ -313,7 +313,7 @@ public sealed class FFmpegReader : MediaReader
         if (filterFrame == null) return false;
 
         // フレームの色空間を取得
-        var colorSpace = ResolveFrameColorSpace();
+        var colorSpace = _colorspace!;
         int width = filterFrame.Width;
         int height = filterFrame.Height;
         var colorType = _isHdr ? BitmapColorType.Rgba16161616 : BitmapColorType.Bgra8888;
@@ -349,7 +349,7 @@ public sealed class FFmpegReader : MediaReader
         try
         {
             // フレームの色空間を取得
-            var colorSpace = ResolveFrameColorSpace();
+            var colorSpace = _colorspace!;
             int width = filterFrame.Width;
             int height = filterFrame.Height;
             int bytesPerPixel = BytesPerPixel;
@@ -383,9 +383,6 @@ public sealed class FFmpegReader : MediaReader
 
     // RGBA64LE (HDR) or BGRA (SDR), matching the format filter InitFilterGraph builds.
     private int BytesPerPixel => FFmpegVideoSlotSizing.GetBytesPerPixel(_isHdr);
-
-    private BitmapColorSpace ResolveFrameColorSpace()
-        => (!Settings.ForceSrgbGamma.Value || _isHdr) ? _colorspace! : BitmapColorSpace.Srgb;
 
     private MediaFrame? ReadVideoCore(int frame)
     {
@@ -912,20 +909,6 @@ public sealed class FFmpegReader : MediaReader
         }
 
         _logger.LogInformation("Video color space: {ColorSpace} ({Hdr})", _colorspace, _isHdr ? "HDR" : "SDR");
-
-        if (Settings.ForceSrgbGamma.Value && _colorspace != BitmapColorSpace.Srgb)
-        {
-            if (_isHdr)
-            {
-                _logger.LogInformation(
-                    "ForceSrgbGamma is enabled, but HDR content detected. HDR color space will be used instead of sRGB.");
-            }
-            else
-            {
-                _logger.LogWarning(
-                    "ForceSrgbGamma is enabled, but the detected color space is not sRGB. Forcing sRGB gamma may lead to incorrect colors.");
-            }
-        }
     }
 }
 

@@ -99,7 +99,7 @@ public sealed partial class SceneDrawable : Drawable
                 // The embed plays the referenced scene's own window from the element's local time, matching
                 // the standalone renderer's FromWindowTime evaluation (#3603).
                 Frame = ReferencedScene is { } referencedScene
-                    ? _compositor?.EvaluateGraphics(referencedScene.FromWindowTime(context.Time - obj.Start))
+                    ? _compositor?.EvaluateGraphicsWithContext(referencedScene.FromWindowTime(context.Time - obj.Start), context)
                     : null;
                 context.ContainsScene3D |= Frame?.ContainsScene3D == true;
 
@@ -297,7 +297,7 @@ public sealed partial class SceneDrawable : Drawable
             float outputScale)
         {
             using var graphics = new GraphicsContext2D(node, canvasSize, outputScale);
-            drawable.Render(graphics, resource);
+            resource.Render(graphics);
         }
 
         public override void Process(RenderNodeContext context)

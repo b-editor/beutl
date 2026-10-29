@@ -185,8 +185,6 @@ public sealed class VideoExporter(EncoderRegistration encoders)
     {
         if (settings is FFmpegVideoEncoderSettings ffmpeg)
         {
-            ApplySdrColorMetadata(ffmpeg);
-
             if (crf is int crfValue)
             {
                 SetOption(ffmpeg.Options.Value, "crf", crfValue.ToString(CultureInfo.InvariantCulture));
@@ -202,9 +200,8 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             return [];
         }
 
-        if (settings is AVFVideoEncoderSettings avFoundation)
+        if (settings is AVFVideoEncoderSettings)
         {
-            ApplySdrColorMetadata(avFoundation);
             if (bitrate is int bitrateValue)
             {
                 settings.Bitrate.Value = bitrateValue;
@@ -255,28 +252,6 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
         return FormattableString.Invariant(
             $"AVFoundation produced an average container bitrate of {Math.Round(containerBitrate):F0} bit/s, below 50% of the requested {requestedBitrate} bit/s. This container-wide approximation includes audio and muxing overhead because the audio stream bitrate is not known; VideoToolbox treats the bitrate as a target rather than a guaranteed floor.");
-    }
-
-    private static void ApplySdrColorMetadata(FFmpegVideoEncoderSettings settings)
-    {
-        if (settings.ColorPrimaries.Value == FFColorPrimaries.UNSPECIFIED)
-            settings.ColorPrimaries.Value = FFColorPrimaries.BT709;
-        if (settings.ColorTrc.Value == FFColorTransfer.UNSPECIFIED)
-            settings.ColorTrc.Value = FFColorTransfer.BT709;
-        if (settings.ColorSpace.Value == FFColorSpace.UNSPECIFIED)
-            settings.ColorSpace.Value = FFColorSpace.BT709;
-        if (settings.ColorRange.Value == FFColorRange.UNSPECIFIED)
-            settings.ColorRange.Value = FFColorRange.MPEG;
-    }
-
-    private static void ApplySdrColorMetadata(AVFVideoEncoderSettings settings)
-    {
-        if (settings.ColorPrimaries.Value == AVFVideoEncoderSettings.ColorPrimariesType.Default)
-            settings.ColorPrimaries.Value = AVFVideoEncoderSettings.ColorPrimariesType.Bt709;
-        if (settings.ColorTransfer.Value == AVFVideoEncoderSettings.ColorTransferCharacteristic.Default)
-            settings.ColorTransfer.Value = AVFVideoEncoderSettings.ColorTransferCharacteristic.Bt709;
-        if (settings.YCbCrMatrix.Value == AVFVideoEncoderSettings.YCbCrMatrixType.Default)
-            settings.YCbCrMatrix.Value = AVFVideoEncoderSettings.YCbCrMatrixType.Bt709;
     }
 
     private static string GetEncoderName(ControllableEncodingExtension encoder)

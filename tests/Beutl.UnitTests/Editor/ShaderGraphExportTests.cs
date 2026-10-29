@@ -77,7 +77,7 @@ public sealed class ShaderGraphExportTests
         Task pending = FrameProviderImpl.WriteFrameAsync(channel.Writer, waiting, cancellation.Token).AsTask();
         Assert.That(pending.IsCompleted, Is.False);
         cancellation.Cancel();
-        Assert.CatchAsync<OperationCanceledException>(async () => await pending);
+        await Assert.CatchAsync<OperationCanceledException>(async () => await pending);
         Assert.That(waiting.IsDisposed, Is.True);
         Assert.That(queued.IsDisposed, Is.False, "A successful write transfers ownership to the consumer.");
         Assert.That(await channel.Reader.ReadAsync(), Is.SameAs(queued));
@@ -97,7 +97,7 @@ public sealed class ShaderGraphExportTests
                 Assert.That(first, Is.Not.Null);
             provider.Dispose();
             provider.Dispose();
-            Assert.ThrowsAsync<ObjectDisposedException>(async () => await provider.ReadNextFrame());
+            await Assert.ThrowsAsync<ObjectDisposedException>(async () => await provider.ReadNextFrame());
         }
 
         scene.Duration.Value = MediaTime.FromFrames(1, new Rational(30));

@@ -1,5 +1,7 @@
 ﻿using Beutl.Collections.Pooled;
 using Beutl.Composition;
+using Beutl.Graphics;
+using Beutl.Graphics.Effects;
 
 namespace Beutl.Engine;
 
@@ -37,6 +39,18 @@ public static class ResourceReconciler
         ref TResource? field, ref bool versionBumped)
         where TObject : EngineObject? where TResource : EngineObject.Resource
     {
+        if (context.SampledDrawable is { } sampledDrawable
+            && owner is Drawable.Resource drawable
+            && ReferenceEquals(sampledDrawable, drawable.GetOriginal())
+            && ReferenceEquals(property, sampledDrawable.FilterEffect))
+        {
+            var prefix = FilterEffectInputChain.EvaluatePrefix(drawable,
+                context.Get(property) as FilterEffect, context, field);
+            if (!ReferenceEquals(field, prefix)) field?.Dispose();
+            field = (TResource)(EngineObject.Resource)prefix;
+            owner.BumpVersion(ref versionBumped);
+            return;
+        }
         bool changed = false;
         ReconcileResource(context, context.Get(property), ref field, ref changed);
         if (changed)

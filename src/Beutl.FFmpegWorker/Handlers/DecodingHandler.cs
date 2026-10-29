@@ -20,7 +20,7 @@ internal sealed partial class DecodingHandler : IDisposable
     {
         var request = msg.RequirePayload<OpenFileRequest>(MessageType.OpenFile);
         var settings = new FFmpegDecodingSettings();
-        ApplySettings(settings, request.ThreadCount, request.Acceleration, request.ForceSrgbGamma);
+        ApplySettings(settings, request.ThreadCount, request.Acceleration);
 
         var options = new MediaOptions((MediaMode)request.StreamsToLoad);
         var reader = new FFmpegReader(request.FilePath, options, settings);
@@ -241,39 +241,6 @@ internal sealed partial class DecodingHandler : IDisposable
         return IpcMessage.CreateSimple(msg.Id, MessageType.CloseReaderResult);
     }
 
-    public IpcMessage HandleUpdateDecoderSettings(IpcMessage msg)
-    {
-        var request = msg.RequirePayload<UpdateDecoderSettingsRequest>(MessageType.UpdateDecoderSettings);
-
-        foreach (KeyValuePair<int, ReaderState> kvp in _readers)
-        {
-            // A reader that is being closed needs no settings.
-            using ReaderUse use = BeginReaderUse(kvp.Key);
-            if (use.State is not { } state)
-                continue;
-
-            // プリフェッチ停止（ReaderLock の外で行う — StopPrefetch 内部でロック取得する場合のデッドロック防止）
-            state.RingBuffer?.StopPrefetch();
-
-            state.ReaderLock.Wait();
-            try
-            {
-                if (state.RingBuffer != null)
-                {
-                    state.RingBuffer.InvalidateAllSlots();
-                }
-
-                state.Reader.Settings.ForceSrgbGamma.Value = request.ForceSrgbGamma;
-            }
-            finally
-            {
-                state.ReaderLock.Release();
-            }
-        }
-
-        return IpcMessage.CreateSimple(msg.Id, MessageType.UpdateDecoderSettingsResult);
-    }
-
     public void Dispose()
     {
         foreach (var readerId in _readers.Keys)
@@ -295,11 +262,9 @@ internal sealed partial class DecodingHandler : IDisposable
         state.Dispose();
     }
 
-    private static void ApplySettings(
-        FFmpegDecodingSettings settings, int threadCount, int acceleration, bool forceSrgbGamma)
+    private static void ApplySettings(FFmpegDecodingSettings settings, int threadCount, int acceleration)
     {
         settings.ThreadCount.Value = threadCount;
         settings.Acceleration.Value = (FFmpegDecodingSettings.AccelerationOptions)acceleration;
-        settings.ForceSrgbGamma.Value = forceSrgbGamma;
     }
 }

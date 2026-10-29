@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Beutl.Media;
 using Vortice.Win32;
 using Windows.Win32.Media.MediaFoundation;
 
@@ -18,6 +19,12 @@ internal struct MFMediaInfo
     public BitmapInfoHeader ImageFormat;
     public int OutImageBufferSize;
     public string VideoFormatName;
+
+    // The stream's color tags; untagged streams keep the BT.601 limited-range sRGB reading.
+    public bool Bt709Matrix;
+    public bool FullRange;
+    public BitmapColorTransfer Transfer;
+    public BitmapColorPrimaries Primaries;
 
 
     public readonly string GetMediaInfoText()

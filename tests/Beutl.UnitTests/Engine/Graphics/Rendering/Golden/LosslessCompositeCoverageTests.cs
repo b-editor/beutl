@@ -737,7 +737,7 @@ public sealed class LosslessCompositeCoverageTests
         Shape shape = (Shape)resource.RequireOriginal();
         var shapeResource = (Shape.Resource)resource;
         Size frameSize = s_frame.ToSize(1);
-        Size shapeSize = shape.MeasureInternal(frameSize, resource);
+        Size shapeSize = resource.Measure(frameSize);
         Matrix transform = shape.GetTransformMatrix(frameSize, shapeSize, resource);
         Geometry.Resource geometry = shapeResource.GetGeometry()
                                      ?? throw new InvalidOperationException("The shape produced no geometry.");

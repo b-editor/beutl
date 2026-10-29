@@ -139,7 +139,6 @@ public partial class PropertyConversionGoldenTests
             {
                 ThreadCount = { Value = 2 },
                 Acceleration = { Value = FFmpegDecodingSettings.AccelerationOptions.Auto },
-                ForceSrgbGamma = { Value = false },
             }),
         };
 
