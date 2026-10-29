@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Beutl.Controls"
                     xmlns:lang="using:Beutl.Language"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     xmlns:icons="using:FluentIcons.Avalonia.Fluent"
@@ -151,8 +152,10 @@
                         <Grid Grid.Row="1"
                               Height="254"
                               RowDefinitions="Auto,*">
+                            <!--  Enter confirms the picker, so it must not move the focus out of the search box first.  -->
                             <TextBox x:Name="SearchTextBox"
                                      Margin="4,0,4,4"
+                                     controls:TextBoxAttachment.EnterDownBehavior="None"
                                      Classes="clearButton"
                                      IsVisible="False"
                                      Text="{TemplateBinding SearchText, Mode=TwoWay}"
