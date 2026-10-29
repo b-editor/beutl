@@ -40,7 +40,6 @@ public sealed partial class PropertyEditorMenu : UserControl
     {
         base.OnDataContextChanged(e);
         toggleLivePreview.IsVisible = DataContext is IConfigureLivePreview;
-        uniformEditorToggle.IsVisible = DataContext is IConfigureUniformEditor;
 
         _componentSubscription?.Dispose();
         _componentSubscription = null;
@@ -68,6 +67,7 @@ public sealed partial class PropertyEditorMenu : UserControl
         removeAnimationItem.IsVisible = supportsAnimation;
         separateComponentsItem.IsVisible = model?.CanSeparateComponents == true && components == null;
         unseparateComponentsItem.IsVisible = components != null;
+        uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && components == null;
 
         bool supportsExpression = model != null && SupportsTextExpression(model);
         expressionSeparator.IsVisible = supportsExpression;
