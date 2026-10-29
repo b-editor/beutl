@@ -117,6 +117,72 @@ public sealed class ExportSourceValidatorTests
         Assert.That(Collect(), Is.Empty, "matte sources still obey video mute");
     }
 
+    [TestCase(false, false)]
+    [TestCase(false, true)]
+    [TestCase(true, false)]
+    [TestCase(true, true)]
+    public void MattePortals_FollowHiddenInputsWithinTheConsumerWindow(bool nested, bool singleFrame)
+    {
+        string required = Path.Combine(_root, "portal-matte.mov");
+        var scene = new Scene(64, 32, string.Empty);
+        Element target = ElementWith(_root, new RectShape());
+        target.MatteSourceZIndex.Value = 1;
+        target.MatteMode.Value = MatteMode.Alpha;
+        var portal = new PortalObject { Count = { Value = 1 } };
+        Element matte = ElementWith(_root, portal);
+        matte.ZIndex.Value = 1;
+        matte.IsVisibleInOutput.Value = false;
+        Element video = CreateVideoElement(_root, required);
+        video.ZIndex.Value = 2;
+        video.IsVisibleInOutput.Value = false;
+        Element late = CreateVideoElement(_root, Path.Combine(_root, "late.mov"));
+        late.ZIndex.Value = 2;
+        late.Start.Value = MediaTime.FromSeconds(3);
+        late.IsVisibleInOutput.Value = false;
+        Element unused = CreateVideoElement(_root, Path.Combine(_root, "outside-portal.mov"));
+        unused.ZIndex.Value = 4;
+        unused.IsVisibleInOutput.Value = false;
+        scene.Children.AddRange([target, matte, video, late, unused]);
+        var solo = new TimelineLayer { ZIndex = { Value = 0 }, IsSolo = { Value = true } };
+        scene.Layers.Add(solo);
+        Scene root = scene;
+        if (nested)
+        {
+            root = new Scene(64, 32, string.Empty);
+            var embedded = new SceneDrawable();
+            embedded.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, scene);
+            root.Children.Add(ElementWith(_root, embedded));
+        }
+
+        IReadOnlySet<string> Collect() => singleFrame
+            ? ExportSourceValidator.CollectRenderableSources(root, MediaTime.Zero)
+            : ExportSourceValidator.CollectRenderableSources(root, s_wholeScene);
+
+        Assert.That(ExportSourceValidator.GetMissingPaths(Collect()), Is.EqualTo(new[] { required }));
+        portal.Count.Value = 0;
+        Assert.That(Collect(), Is.Empty);
+        portal.Count.Value = 1;
+        portal.IsEnabled.Value = false;
+        Assert.That(Collect(), Is.Empty);
+        portal.IsEnabled.Value = true;
+        var muted = new TimelineLayer { ZIndex = { Value = 2 }, IsVideoMuted = { Value = true } };
+        scene.Layers.Add(muted);
+        Assert.That(Collect(), Is.Empty);
+        muted.IsVideoMuted.Value = false;
+
+        Element inner = ElementWith(_root, new PortalObject { Count = { Value = 1 } });
+        inner.ZIndex.Value = 2;
+        inner.IsVisibleInOutput.Value = false;
+        video.ZIndex.Value = 3;
+        scene.Children.Add(inner);
+        Assert.That(Collect(), Is.EquivalentTo(new[] { required }), "nested portals retain the matte context");
+
+        target.MatteMode.Value = MatteMode.None;
+        solo.IsSolo.Value = false;
+        matte.IsVisibleInOutput.Value = true;
+        Assert.That(Collect(), Is.Empty, "output portals still skip hidden inputs");
+    }
+
     // A SceneDrawable renders only the referenced scene's graphics (SceneDrawable.EvaluateGraphics), so
     // a missing image inside it blocks export, but an audio-only Sound the video render never opens must
     // not — even for a full export. A SceneSound (below) is what pulls that scene's audio.

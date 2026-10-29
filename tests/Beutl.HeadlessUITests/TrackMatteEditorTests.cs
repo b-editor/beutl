@@ -31,6 +31,9 @@ public sealed class TrackMatteEditorTests
     [TestCase(640, "en", false)]
     [TestCase(320, "en", true)]
     [TestCase(640, "ja", true)]
+    [TestCase(320, "zh-CN", false)]
+    [TestCase(320, "ko-KR", true)]
+    [TestCase(320, "es", false)]
     public async Task ContextMenu_ChangesTheClickedClip_AndReflectsUndo(int width, string language, bool light)
     {
         CultureInfo oldCulture = CultureInfo.CurrentUICulture;

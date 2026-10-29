@@ -212,4 +212,10 @@
   <data name="ChangeTransitionDuration" xml:space="preserve">
     <value>更改转场时长</value>
   </data>
+  <data name="ChangeTrackMatte" xml:space="preserve">
+    <value>更改轨道遮罩</value>
+  </data>
+  <data name="ChangeOutputVisibility" xml:space="preserve">
+    <value>更改输出可见性</value>
+  </data>
 </root>

@@ -85,6 +85,24 @@ internal readonly struct SceneLayerSkipModel
                             yield return item;
                     }
                 }
+
+                // Portals evaluated as matte sources import hidden/non-solo inputs too. Keep that
+                // context and the consumer's window when following their layer ranges recursively.
+                if (matte)
+                {
+                    foreach (PortalObject portal in element.Objects.OfType<PortalObject>())
+                    {
+                        if (!portal.IsEnabled.Value) continue;
+                        int start = portal.ZIndex.Value + 1;
+                        int end = portal.ZIndex.Value + portal.Count.Value;
+                        foreach (Element candidate in scene.Children)
+                        {
+                            if (candidate.ZIndex.Value < start || candidate.ZIndex.Value > end) continue;
+                            foreach (var item in Visit(candidate, active, true))
+                                yield return item;
+                        }
+                    }
+                }
             }
             finally
             {

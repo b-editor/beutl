@@ -3492,4 +3492,25 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>기기 추가</value>
   </data>
+  <data name="TrackMatte" xml:space="preserve">
+    <value>트랙 매트</value>
+  </data>
+  <data name="MatteSource" xml:space="preserve">
+    <value>소스 레이어</value>
+  </data>
+  <data name="MatteAlpha" xml:space="preserve">
+    <value>알파</value>
+  </data>
+  <data name="MatteLuma" xml:space="preserve">
+    <value>루마</value>
+  </data>
+  <data name="MatteInvertedAlpha" xml:space="preserve">
+    <value>반전 알파</value>
+  </data>
+  <data name="MatteInvertedLuma" xml:space="preserve">
+    <value>반전 루마</value>
+  </data>
+  <data name="IsVisibleInOutput" xml:space="preserve">
+    <value>출력에 표시</value>
+  </data>
 </root>
