@@ -9,10 +9,22 @@ internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inp
 {
     public bool IsVisibleAt(CompositionContext context)
     {
-        // Controllers draw their targets on a mapped clock, even outside the target's clip range.
         var range = Object.TimeRange.Value;
-        return ReferenceEquals(context.TimeRemappedTarget, Object)
-            || range.Duration <= MediaTime.Zero || range.Contains(context.Time);
+        if (range.Duration <= MediaTime.Zero || range.Contains(context.Time)) return true;
+
+        // A controller retimes its target's own clip content together. Portal inputs belong to another
+        // clip even when their authored ranges happen to match, so they still follow the mapped clock.
+        return context.TimeRemappedTarget is { } target
+            && (ReferenceEquals(target, Object)
+                || range == target.TimeRange.Value && ReferenceEquals(GetClipOwner(Object), GetClipOwner(target)));
+    }
+
+    private static IHierarchical GetClipOwner(EngineObject obj)
+    {
+        // Nested drawables inherit their range through their engine-object parents; the outer parent
+        // owns the timeline clip. Keep unattached objects distinct rather than sharing a null owner.
+        while (obj.FindHierarchicalParent<EngineObject>() is { } parent) obj = parent;
+        return obj.HierarchicalParent ?? obj;
     }
 
     public static FlowNode? Capture(EngineObject.Resource resource)

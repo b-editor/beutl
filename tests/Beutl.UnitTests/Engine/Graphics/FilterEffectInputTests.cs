@@ -79,15 +79,26 @@ public class FilterEffectInputTests
         }
     }
 
-    [Test]
-    public void SamplesOfARetimedTargetFollowTheControllersVisibility()
+    [TestCase("direct")]
+    [TestCase("flow")]
+    [TestCase("child")]
+    public void SamplesOfARetimedTargetFollowTheControllersVisibility(string kind)
     {
         var shape = Rectangle();
         shape.FilterEffect.Value = new SampleInputEffect();
         var controller = new DrawableTimeController { OffsetPosition = { Value = Seconds(10) } };
-        using var compositor = new SceneCompositor(SceneWith(shape, controller));
+        var group = new DrawableGroup();
+        if (kind == "child") group.Children.Add(shape);
+        Scene scene = kind switch
+        {
+            "flow" => SceneWith(shape, group, controller),
+            "child" => SceneWith(group, controller),
+            _ => SceneWith(shape, controller),
+        };
+        using var compositor = new SceneCompositor(scene);
         var frame = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
         var target = ((DrawableTimeController.Resource)frame.Objects.OfType<Drawable.Resource>().Single()).Target!;
+        if (target is DrawableGroup.Resource children) target = children.Children.Single();
         var effect = (SampleInputEffect.Resource)target.FilterEffect!;
         Assert.That(effect.Input!.EvaluationContext.Time, Is.EqualTo(Seconds(11)), "the target runs on the mapped clock");
         Assert.That(effect.Samples.Select(s => s.IsVisible), Is.All.True,
