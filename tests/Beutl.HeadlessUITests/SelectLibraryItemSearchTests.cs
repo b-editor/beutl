@@ -1,6 +1,9 @@
 ﻿using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Input;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.Components.PropertyEditors.Views;
@@ -160,6 +163,52 @@ public sealed class SelectLibraryItemSearchTests
         finally
         {
             flyout.Hide();
+            window.Close();
+        }
+    }
+
+    // Ctrl+F, a search word, Down and Enter pick the search result Down highlighted. The app styles every TextBox to
+    // move the focus away on Enter (TestApp.axaml does too), which must not swallow the Enter that confirms the picker.
+    [AvaloniaTest]
+    public async Task Enter_in_the_search_box_picks_the_result_selected_with_Down()
+    {
+        var host = new Button { Content = "Pick" };
+        var window = new Window { Content = host, Width = 320, Height = 480 };
+        var viewModel = new SelectLibraryItemDialogViewModel(KnownLibraryItemFormats.FilterEffect, typeof(FilterEffect));
+        using var showAll = viewModel.ShowAll;
+        using var searchText = viewModel.SearchText;
+        try
+        {
+            window.Show();
+            Task<object?> picked = LibraryItemPickerHelper.ShowAsync(host, viewModel, KnownLibraryItemFormats.FilterEffect);
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render(3);
+            var presenter = window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
+            string word = viewModel.Items[^1].DisplayName;
+
+            window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            window.KeyRelease(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
+            HeadlessTestHelpers.Render();
+            window.KeyTextInput(word);
+            await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SearchText.Value == word
+                && viewModel.Items.Count > 0 && viewModel.Items[0].DisplayName == word);
+            await viewModel.SearchTask;
+            HeadlessTestHelpers.Render(2);
+
+            window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
+            HeadlessTestHelpers.Render();
+            Assert.That(presenter.SelectedItem?.DisplayName, Is.EqualTo(word));
+
+            window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
+            HeadlessTestHelpers.Render();
+
+            object? result = await picked.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.That(result, Is.EqualTo(((SingleTypeLibraryItem)viewModel.Items[0].UserData).ImplementationType));
+        }
+        finally
+        {
             window.Close();
         }
     }
