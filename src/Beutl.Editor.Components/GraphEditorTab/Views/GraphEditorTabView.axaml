@@ -70,11 +70,11 @@
                 </TreeView.Styles>
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate x:DataType="viewModels:GraphEditorTreeItemViewModel" ItemsSource="{Binding Children}">
-                        <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="4">
+                        <Grid Height="{DynamicResource LayerHeight}" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="0">
                             <Border Width="10" Height="3" Background="{Binding ChannelBrush.Value}"
                                     BorderBrush="{DynamicResource TextFillColorSecondaryBrush}" BorderThickness="0.5"
                                     IsVisible="{Binding ChannelBrush.Value, Converter={x:Static ObjectConverters.IsNotNull}}" />
-                            <TextBlock x:Name="PropertyNameText" Grid.Column="1" Text="{Binding Name.Value}" VerticalAlignment="Center"
+                            <TextBlock x:Name="PropertyNameText" Grid.Column="1" Margin="4,0,4,0" Text="{Binding Name.Value}" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name.Value}" />
                             <Button Grid.Column="2"
                                     Width="22"

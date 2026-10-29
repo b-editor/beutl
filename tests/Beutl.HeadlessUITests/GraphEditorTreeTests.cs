@@ -144,7 +144,7 @@ public class GraphEditorTreeTests
             Assert.That(icon.Icon, Is.EqualTo(Icon.ArrowSplit));
             Assert.That(ToolTip.GetTip(button), Is.EqualTo(Strings.SeparateComponents));
             Assert.That(button.TranslatePoint(default, scope.View)!.Value.X + button.Bounds.Width,
-                Is.LessThan(timer.TranslatePoint(default, scope.View)!.Value.X));
+                Is.EqualTo(timer.TranslatePoint(default, scope.View)!.Value.X).Within(0.01));
             Capture("before");
 
             int undoCount = history.UndoCount;
