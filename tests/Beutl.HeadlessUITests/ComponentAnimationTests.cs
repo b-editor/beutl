@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
+using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Animation;
 using Beutl.Animation.Easings;
@@ -24,6 +25,7 @@ using Beutl.ProjectSystem;
 using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
+using FluentAvalonia.UI.Controls;
 using BColor = Beutl.Media.Color;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
 
@@ -372,6 +374,32 @@ public class ComponentAnimationTests
     }
 
     [AvaloniaTest]
+    public void Separated_color_opens_without_the_combined_picker()
+    {
+        var brush = new SolidColorBrush();
+        ComponentAnimations.Separate(brush.Color);
+        var (vm, control) = PropertyEditorTestHost.CreateControl(PropertyAdapterFactory.CreateAdapter(brush.Color, brush));
+        using (vm)
+        {
+            var window = new Window { Width = 280, Height = 360, Content = control };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Render(3);
+                Assert.That(control.GetVisualDescendants().OfType<ColorEditor>().Single().IsEffectivelyVisible, Is.False);
+                Assert.That(control.GetVisualDescendants().OfType<NumberEditor<byte>>()
+                    .Where(editor => editor.IsEffectivelyVisible).Select(editor => editor.Header), Is.EqualTo(new[] { "R", "G", "B", "A" }));
+                if (Environment.GetEnvironmentVariable("BEUTL_COMPONENT_CAPTURE") is { } directory)
+                {
+                    using var frame = window.CaptureRenderedFrame();
+                    frame!.Save(System.IO.Path.Combine(directory, "components-color.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                }
+            }
+            finally { window.Close(); }
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(280, "ja")]
     [TestCase(480, "en")]
     public void Component_editors_render_with_individual_keyframe_menus(int width, string language)
@@ -388,12 +416,23 @@ public class ComponentAnimationTests
             using (vm)
             {
                 vm.Accept(PropertyEditorTestHost.ServiceVisitor.For(history.History));
-                vm.SeparateComponents();
                 var window = new Window { Width = width, Height = 360, Content = control };
                 try
                 {
                     window.Show();
                     HeadlessTestHelpers.Render(3);
+                    var combined = control.GetVisualDescendants().OfType<Vector3Editor<float>>().Single();
+                    Assert.That(combined.IsEffectivelyVisible, Is.True);
+                    var button = ((Control)combined.MenuContent!).GetVisualDescendants().OfType<Button>().First();
+                    button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                    var menu = (FAMenuFlyout)button.ContextFlyout!;
+                    menu.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "separateComponentsItem")
+                        .RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+                    menu.Hide();
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(combined.IsEffectivelyVisible, Is.False);
+                    Assert.That(control.GetVisualDescendants().OfType<TextBlock>()
+                        .Any(text => text.Text == vm.Header && text.IsEffectivelyVisible), Is.True);
                     var editors = control.GetVisualDescendants().OfType<NumberEditor<float>>().ToArray();
                     Assert.That(editors.Select(e => e.Header), Is.EqualTo(new[] { "X", "Y", "Z" }));
                     Assert.That(editors.All(e => e.MenuContent != null && e.Bounds.Width > 0), Is.True);
@@ -407,6 +446,14 @@ public class ComponentAnimationTests
                     history.History.Undo();
                     Assert.That(owner.Value.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(new Vector3(10, 20, 30)));
                     HeadlessTestHelpers.Render(3);
+                    history.History.Undo();
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(combined.IsEffectivelyVisible, Is.True);
+                    Assert.That(control.GetVisualDescendants().OfType<NumberEditor<float>>(), Is.Empty);
+                    history.History.Redo();
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(combined.IsEffectivelyVisible, Is.False);
+                    Assert.That(control.GetVisualDescendants().OfType<NumberEditor<float>>().Count(e => e.IsEffectivelyVisible), Is.EqualTo(3));
                     Assert.That(Beutl.Language.Strings.SeparateComponents, Is.EqualTo(language == "ja" ? "成分を分離" : "Separate components"));
                     if (Environment.GetEnvironmentVariable("BEUTL_COMPONENT_CAPTURE") is { } directory)
                     {
