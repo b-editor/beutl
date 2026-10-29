@@ -135,20 +135,27 @@ public class IndividualContinuationTests
         Assert.That(log, Is.EqualTo(expected));
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void NestedContinuationSuffixDeclaresTargetAccessOfItsEffects(bool tailAccessesTarget)
+    // The inner group's earlier children have their own nodes, so only effects after the continuation count.
+    [TestCase(false, false, false, false)]
+    [TestCase(true, false, false, false)]
+    [TestCase(false, true, false, true)]
+    [TestCase(false, false, true, true)]
+    public void NestedContinuationSuffixDeclaresTargetAccessOfItsEffects(
+        bool innerPrefixAccessesTarget, bool innerTailAccessesTarget, bool outerTailAccessesTarget, bool expected)
     {
+        static FilterEffect Effect(bool accessesTarget)
+            => new EffectItemSuffixCallbackFilterEffect(static (_, _) => { }, declaresTargetAccess: accessesTarget);
+
         var inner = new FilterEffectGroup();
-        inner.Children.Add(new Blur());
+        inner.Children.Add(Effect(innerPrefixAccessesTarget));
         inner.Children.Add(new RepeatingContinuationEffect(2));
+        inner.Children.Add(Effect(innerTailAccessesTarget));
         var group = new FilterEffectGroup();
         group.Children.Add(inner);
-        group.Children.Add(new EffectItemSuffixCallbackFilterEffect(static (_, _) => { },
-            declaresTargetAccess: tailAccessesTarget));
+        group.Children.Add(Effect(outerTailAccessesTarget));
         using var resource = (FilterEffectGroup.Resource)group.ToResource(CompositionContext.Default);
         Assert.That(resource.NestedContinuationGroup, Is.Not.Null);
-        Assert.That(resource.ContinuationSuffixResource!.MayAccessTarget, Is.EqualTo(tailAccessesTarget));
+        Assert.That(resource.ContinuationSuffixResource!.MayAccessTarget, Is.EqualTo(expected));
     }
 
     [TestCase(true, 1, 2)]
