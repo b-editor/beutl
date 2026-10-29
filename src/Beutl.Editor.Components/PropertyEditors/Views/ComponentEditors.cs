@@ -8,8 +8,12 @@ using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.PropertyEditors.Services;
+using Beutl.Editor.Components.PropertyEditors.ViewModels;
 using Beutl.Editor.PropertyEditors;
 using Beutl.PropertyAdapters;
+using RelativePoint = Beutl.Graphics.RelativePoint;
+using RelativeRect = Beutl.Graphics.RelativeRect;
+using RelativeUnit = Beutl.Graphics.RelativeUnit;
 
 namespace Beutl.Editor.Components.PropertyEditors.Views;
 
@@ -27,6 +31,8 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
     private readonly List<IPropertyEditorContext> _contexts = [];
     private readonly IDisposable _subscription;
     private readonly IDisposable _editability;
+    private readonly EnumEditor? _unitEditor;
+    private readonly CompositeDisposable _unitSubscriptions = [];
 
     public ComponentEditors(PropertyEditorViewModel owner, Control combined)
     {
@@ -48,6 +54,14 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
         Children.Add(_header);
         _tree.Child = _components;
         Children.Add(_tree);
+        _unitEditor = owner switch
+        {
+            ValueEditorViewModel<RelativePoint> point => CreateUnitEditor(point, value => value.Unit,
+                (value, unit) => new RelativePoint(value.Point, unit)),
+            ValueEditorViewModel<RelativeRect> rect => CreateUnitEditor(rect, value => value.Unit,
+                (value, unit) => new RelativeRect(value.Rect, unit)),
+            _ => null
+        };
         _subscription = owner.SeparatedComponents.Subscribe(Rebuild);
         _editability = owner.CanEditProperty.Subscribe(enabled => _components.IsEnabled = enabled);
     }
@@ -61,6 +75,7 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
         foreach (var context in _contexts) context.Dispose();
         _contexts.Clear();
         if (animation is not CoreObject obj) return;
+        if (_unitEditor != null) _components.Children.Add(_unitEditor);
         foreach (IProperty property in animation.Components)
         {
             var adapter = PropertyAdapterFactory.CreateAdapter(property, obj);
@@ -76,6 +91,37 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
         }
     }
 
+    private EnumEditor CreateUnitEditor<T>(ValueEditorViewModel<T> owner, Func<T, RelativeUnit> getUnit,
+        Func<T, RelativeUnit, T> withUnit)
+    {
+        var editor = new EnumEditor
+        {
+            Header = NodeGraphStrings.Port_Unit,
+            EditorStyle = PropertyEditorStyle.Compact,
+            Items =
+            [
+                new EnumItem(Strings.RelativeUnit_Relative, null, RelativeUnit.Relative),
+                new EnumItem(Strings.RelativeUnit_Absolute, null, RelativeUnit.Absolute)
+            ]
+        };
+        bool updating = false;
+        _unitSubscriptions.Add(owner.Value.Select(getUnit).DistinctUntilChanged().Subscribe(unit =>
+        {
+            updating = true;
+            try { editor.SelectedIndex = (int)unit; }
+            finally { updating = false; }
+        }));
+        _unitSubscriptions.Add(editor.Bind(PropertyEditor.IsReadOnlyProperty, owner.CanEdit.Select(editable => !editable)));
+        editor.ValueConfirmed += (_, e) =>
+        {
+            if (updating || !owner.CanEdit.Value || owner.SeparatedComponents.Value == null
+                || e is not PropertyEditorValueChangedEventArgs<int> args) return;
+            T value = owner.GetEditingValue()!;
+            owner.SetValue(value, withUnit(value, (RelativeUnit)args.NewValue));
+        };
+        return editor;
+    }
+
     // The parent may receive its clock/history after its control is created.
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -87,6 +133,7 @@ internal sealed class ComponentEditors : StackPanel, IDisposable
     {
         _subscription.Dispose();
         _editability.Dispose();
+        _unitSubscriptions.Dispose();
         foreach (var context in _contexts) context.Dispose();
         _contexts.Clear();
     }

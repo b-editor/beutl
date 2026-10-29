@@ -45,7 +45,8 @@ public sealed partial class PropertyEditorMenu : UserControl
         _componentSubscription = null;
         if (DataContext is PropertyEditorViewModel model)
         {
-            _componentSubscription = model.SeparatedComponents.Subscribe(components => UpdateActionVisibility(model, components));
+            _componentSubscription = model.SeparatedComponents.CombineLatest(model.HasExpression)
+                .Subscribe(state => UpdateActionVisibility(model, state.First));
             model.Own(_componentSubscription);
         }
         else
@@ -70,9 +71,10 @@ public sealed partial class PropertyEditorMenu : UserControl
         uniformEditorToggle.IsVisible = model is IConfigureUniformEditor && components == null;
 
         bool supportsExpression = model != null && SupportsTextExpression(model);
-        expressionSeparator.IsVisible = supportsExpression;
         editExpressionItem.IsVisible = supportsExpression;
-        removeExpressionItem.IsVisible = supportsExpression;
+        // Separation keeps an existing aggregate expression; let users remove it without discarding the tracks.
+        removeExpressionItem.IsVisible = supportsExpression || components != null && model?.HasExpression.Value == true;
+        expressionSeparator.IsVisible = editExpressionItem.IsVisible || removeExpressionItem.IsVisible;
     }
 
     private void SeparateComponents_Click(object? sender, RoutedEventArgs e)

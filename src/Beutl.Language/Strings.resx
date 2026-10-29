@@ -3513,4 +3513,10 @@ when history recording is enabled.</value>
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>Keep the value at the current time and remove component keyframes and expressions.</value>
   </data>
+  <data name="RelativeUnit_Relative" xml:space="preserve">
+    <value>Relative (1 = 100%)</value>
+  </data>
+  <data name="RelativeUnit_Absolute" xml:space="preserve">
+    <value>Absolute (px)</value>
+  </data>
 </root>

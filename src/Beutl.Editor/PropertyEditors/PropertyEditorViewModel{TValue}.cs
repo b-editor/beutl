@@ -79,9 +79,10 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         .ToReadOnlyReactiveProperty()
         .AddTo(Disposables)!;
 
-    // Moving the owner changes which component keys are edited even if the playhead stays still.
+    // Moving the owner changes expression times and edited component keys even if the playhead stays still.
     private IObservable<MediaTime> ObserveEditingTime()
-        => SeparatedComponents.Value != null && PropertyAdapter.GetEngineProperty()?.GetOwnerObject() is EngineObject owner
+        => (PropertyAdapter.GetEngineProperty()?.GetOwnerObject() as IHierarchical)
+            ?.FindHierarchicalParent<EngineObject>(includeSelf: true) is { } owner
             ? CurrentTime.CombineLatest(owner.TimeRange.GetObservable(), (time, _) => time)
             : CurrentTime;
 

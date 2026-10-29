@@ -30,6 +30,8 @@ using Beutl.PropertyAdapters;
 using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
+using Moq;
+using Reactive.Bindings;
 using BColor = Beutl.Media.Color;
 using GraphScope = Beutl.HeadlessUITests.GraphEditorContextMenuTests.GraphScope;
 
@@ -465,6 +467,168 @@ public class ComponentAnimationTests
     }
 
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Component_expression_timing_matches_rendering_in_both_editors(bool roundTrip)
+    {
+        var owner = new ComponentTestObject<Vector4>();
+        owner.IsTimeAnchor.Value = true;
+        owner.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
+        var split = (IComponentAnimation<Vector4>)ComponentAnimations.Separate(owner.Value);
+        string[] expressions = ["(float)Time", "(float)Start", "(float)Duration", "(float)Progress"];
+        for (int i = 0; i < expressions.Length; i++)
+            ((IExpressionProperty<float>)split.Components[i]).Expression = Expression.Create<float>(expressions[i]);
+        if (roundTrip)
+            owner = (ComponentTestObject<Vector4>)CoreSerializer.DeserializeFromJsonObject(CoreSerializer.SerializeToJsonObject(owner), typeof(ComponentTestObject<Vector4>));
+        ((IModifiableHierarchical)new ComponentTestRoot()).AddChild(owner);
+        split = (IComponentAnimation<Vector4>)owner.Value.GetPropertyAnimation()!;
+        using var time = new ReactivePropertySlim<MediaTime>(MediaTime.FromSeconds(5));
+        var clock = new Mock<IEditorClock>();
+        clock.SetupGet(value => value.CurrentTime).Returns(time);
+        var services = new PropertyEditorTestHost.ServiceVisitor((typeof(IEditorClock), clock.Object));
+        using var combined = new ValueEditorViewModel<Vector4>(new AnimatablePropertyAdapter<Vector4>(owner.Value, owner));
+        combined.Accept(services);
+        var components = split.Components.Select(property => new ValueEditorViewModel<float>(
+            (IPropertyAdapter<float>)PropertyAdapterFactory.CreateAdapter(property, (CoreObject)split))).ToArray();
+        try
+        {
+            foreach (var component in components) component.Accept(services);
+            Check(new Vector4(0, 5, 10, 0));
+            time.Value = MediaTime.FromSeconds(7);
+            Check(new Vector4(2, 5, 10, 0.2f));
+            owner.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(6), MediaTime.FromSeconds(20));
+            Check(new Vector4(1, 6, 20, 0.05f));
+            time.Value = MediaTime.FromSeconds(8);
+            Check(new Vector4(2, 6, 20, 0.1f));
+        }
+        finally
+        {
+            foreach (var component in components) component.Dispose();
+        }
+
+        void Check(Vector4 expected)
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(owner.Value.Evaluate(new EvaluationContext(time.Value)), Is.EqualTo(expected), "rendering");
+                Assert.That(split.EvaluateAt(time.Value), Is.EqualTo(expected), "canvas editing");
+                Assert.That(split.GetEditingValue(time.Value), Is.EqualTo(expected), "component editing");
+                Assert.That(combined.Value.Value, Is.EqualTo(expected), "combined editor");
+                Assert.That(components.Select(component => component.Value.Value),
+                    Is.EqualTo(new[] { expected.X, expected.Y, expected.Z, expected.W }), "scalar editors");
+            });
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false, "ja")]
+    [TestCase(true, "en")]
+    public void Separated_relative_units_can_change_without_losing_tracks(bool roundTrip, string language)
+    {
+        CultureInfo previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
+        try
+        {
+            Check(new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative), new RelativePoint(20, 30, RelativeUnit.Absolute),
+                value => value.Unit, (value, unit) => new RelativePoint(value.Point, unit));
+            Check(new RelativeRect(new Rect(0.25f, 0.5f, 0.75f, 1), RelativeUnit.Relative),
+                new RelativeRect(new Rect(20, 30, 40, 50), RelativeUnit.Absolute),
+                value => value.Unit, (value, unit) => new RelativeRect(value.Rect, unit));
+        }
+        finally { CultureInfo.CurrentUICulture = previousCulture; }
+
+        void Check<T>(T first, T last, Func<T, RelativeUnit> getUnit, Func<T, RelativeUnit, T> withUnit)
+        {
+            var owner = new ComponentTestObject<T>();
+            owner.Value.Value = first;
+            owner.IsTimeAnchor.Value = true;
+            owner.TimeRange.Value = new TimeRange(MediaTime.FromSeconds(5), MediaTime.FromSeconds(10));
+            var animation = new KeyFrameAnimation<T>();
+            animation.KeyFrames.Add(new KeyFrame<T> { Value = { Value = first } });
+            animation.KeyFrames.Add(new KeyFrame<T> { KeyTime = { Value = MediaTime.FromSeconds(2) }, Value = { Value = last } });
+            owner.Value.SetKeyFrameAnimation(animation);
+            var split = (ComponentAnimation<T, float>)ComponentAnimations.Separate(owner.Value);
+            ((IExpressionProperty<float>)split.Components[0]).Expression = Expression.Create<float>("0.25f");
+            if (roundTrip)
+                owner = (ComponentTestObject<T>)CoreSerializer.DeserializeFromJsonObject(CoreSerializer.SerializeToJsonObject(owner), typeof(ComponentTestObject<T>));
+            ((IModifiableHierarchical)new ComponentTestRoot()).AddChild(owner);
+            split = (ComponentAnimation<T, float>)owner.Value.GetPropertyAnimation()!;
+            var unitSource = split.UnitSource.Value;
+            string tracks = TrackSnapshot();
+            using var time = new ReactivePropertySlim<MediaTime>(MediaTime.FromSeconds(5));
+            var clock = new Mock<IEditorClock>();
+            clock.SetupGet(value => value.CurrentTime).Returns(time);
+            using var history = new PropertyEditorTestHost.HistoryScope(owner);
+            var (vm, control) = PropertyEditorTestHost.CreateControl(new AnimatablePropertyAdapter<T>(owner.Value, owner));
+            using (vm)
+            {
+                vm.Accept(new PropertyEditorTestHost.ServiceVisitor((typeof(IEditorClock), clock.Object), (typeof(HistoryManager), history.History)));
+                var window = new Window
+                {
+                    Width = language == "ja" ? 280 : 480,
+                    Height = 480,
+                    Content = control,
+                    RequestedThemeVariant = language == "ja" ? ThemeVariant.Dark : ThemeVariant.Light
+                };
+                try
+                {
+                    window.Show();
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(control.GetVisualDescendants().OfType<PropertyEditor>()
+                        .Where(editor => editor is RelativePointEditor or RelativeRectEditor).All(editor => !editor.IsEffectivelyVisible), Is.True);
+                    var unitEditor = control.GetVisualDescendants().OfType<EnumEditor>().Single(editor => editor.IsEffectivelyVisible);
+                    var combo = unitEditor.GetVisualDescendants().OfType<ComboBox>().Single();
+                    Assert.That(combo.SelectedIndex, Is.EqualTo((int)RelativeUnit.Relative));
+                    time.Value = MediaTime.FromSeconds(7);
+                    Assert.That(combo.SelectedIndex, Is.EqualTo((int)RelativeUnit.Absolute));
+                    time.Value = MediaTime.FromSeconds(5);
+                    Assert.That(combo.SelectedIndex, Is.EqualTo((int)RelativeUnit.Relative));
+                    Assert.That(split.UnitSource.Value, Is.SameAs(unitSource), "displaying or seeking must not replace the inherited unit schedule");
+
+                    T evaluated = owner.Value.Evaluate(new EvaluationContext(time.Value));
+                    combo.SelectedIndex = (int)RelativeUnit.Absolute;
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(owner.Value.Evaluate(new EvaluationContext(time.Value)), Is.EqualTo(withUnit(evaluated, RelativeUnit.Absolute)));
+                    Assert.That(split.UnitSource.Value, Is.Null);
+                    Assert.That(TrackSnapshot(), Is.EqualTo(tracks));
+                    history.History.Undo();
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(split.UnitSource.Value, Is.SameAs(unitSource));
+                    Assert.That(combo.SelectedIndex, Is.EqualTo((int)RelativeUnit.Relative));
+                    history.History.Redo();
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(split.UnitSource.Value, Is.Null);
+                    Assert.That(combo.SelectedIndex, Is.EqualTo((int)RelativeUnit.Absolute));
+                    var copy = (ComponentTestObject<T>)CoreSerializer.DeserializeFromJsonObject(CoreSerializer.SerializeToJsonObject(owner), typeof(ComponentTestObject<T>));
+                    Assert.That(getUnit(copy.Value.Evaluate(new EvaluationContext(time.Value))), Is.EqualTo(RelativeUnit.Absolute));
+                    combo.SelectedIndex = (int)RelativeUnit.Relative;
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(owner.Value.Evaluate(new EvaluationContext(time.Value)), Is.EqualTo(evaluated));
+                    Assert.That(TrackSnapshot(), Is.EqualTo(tracks));
+                    if (Environment.GetEnvironmentVariable("BEUTL_COMPONENT_CAPTURE") is { } directory)
+                    {
+                        using var frame = window.CaptureRenderedFrame();
+                        frame!.Save(System.IO.Path.Combine(directory, $"components-{typeof(T).Name}-{language}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                        combo.IsDropDownOpen = true;
+                        HeadlessTestHelpers.Render(3);
+                        using var popup = TopLevel.GetTopLevel(window.OpenedPopups.Last().Child!)!.CaptureRenderedFrame();
+                        popup!.Save(System.IO.Path.Combine(directory, $"components-{typeof(T).Name}-units-{language}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                    }
+                }
+                finally { window.Close(); }
+            }
+
+            string TrackSnapshot()
+            {
+                JsonObject json = CoreSerializer.SerializeToJsonObject(split);
+                json.Remove(nameof(split.BaseValue));
+                json.Remove(nameof(split.UnitSource));
+                return json.ToJsonString();
+            }
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase("ja")]
     [TestCase("en")]
     public void Separated_color_opens_with_localized_channels_without_the_combined_picker(string language)
@@ -640,12 +804,43 @@ public class ComponentAnimationTests
                     // A pre-existing aggregate expression must not divert the parent button to the expression editor.
                     owner.Value.Expression = Expression.Create<Vector3>("new System.Numerics.Vector3(7, 8, 9)");
                     vm.SeparateComponents();
+                    var split = (IComponentAnimation<Vector3>)owner.Value.GetPropertyAnimation()!;
+                    var x = (AnimatableProperty<float>)split.Components[0];
+                    var xAnimation = new KeyFrameAnimation<float>();
+                    xAnimation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 10 } });
+                    xAnimation.KeyFrames.Add(new KeyFrame<float> { Value = { Value = 20 }, KeyTime = { Value = MediaTime.FromSeconds(2) } });
+                    x.SetKeyFrameAnimation(xAnimation);
+                    ((IExpressionProperty<float>)split.Components[1]).Expression = Expression.Create<float>("40f");
+                    history.History.Commit();
                     HeadlessTestHelpers.Render(3);
                     parentButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                     HeadlessTestHelpers.Render(3);
-                    AssertComponentMenu(parentFlyout, separated: true);
+                    AssertComponentMenu(parentFlyout, separated: true, hasAggregateExpression: true);
                     Assert.That(owner.Value.HasExpression, Is.True);
                     Assert.That(window.OpenedPopups.Any(popup => popup.Child is ExpressionEditorFlyoutPresenter), Is.False);
+                    var removeExpression = parentFlyout.Items.OfType<FAMenuFlyoutItem>().Single(item => item.Name == "removeExpressionItem");
+                    Assert.That(removeExpression.IsEnabled, Is.True);
+                    if (Environment.GetEnvironmentVariable("BEUTL_COMPONENT_CAPTURE") is { } expressionDirectory)
+                    {
+                        using var frame = TopLevel.GetTopLevel(removeExpression)!.CaptureRenderedFrame();
+                        frame!.Save(System.IO.Path.Combine(expressionDirectory, $"components-existing-expression-{language}.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                    }
+                    removeExpression.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(owner.Value.HasExpression, Is.False);
+                    Assert.That(owner.Value.GetPropertyAnimation(), Is.SameAs(split));
+                    Assert.That(x.GetKeyFrameAnimation(), Is.SameAs(xAnimation));
+                    Assert.That(owner.Value.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(new Vector3(10, 40, 30)));
+                    Assert.That(removeExpression.IsVisible, Is.False);
+                    history.History.Undo();
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(owner.Value.Evaluate(new EvaluationContext(MediaTime.Zero)), Is.EqualTo(new Vector3(7, 8, 9)));
+                    Assert.That(removeExpression.IsVisible, Is.True);
+                    history.History.Redo();
+                    HeadlessTestHelpers.Render(3);
+                    Assert.That(owner.Value.GetPropertyAnimation(), Is.SameAs(split));
+                    Assert.That(xAnimation.KeyFrames.Count, Is.EqualTo(2));
+                    Assert.That(removeExpression.IsVisible, Is.False);
                     parentFlyout.Hide();
                 }
                 finally { window.Close(); }
@@ -654,7 +849,8 @@ public class ComponentAnimationTests
         finally { CultureInfo.CurrentUICulture = previousCulture; }
     }
 
-    private static void AssertComponentMenu(FAMenuFlyout menu, bool separated, bool canSeparate = true, bool uniformVisible = false)
+    private static void AssertComponentMenu(FAMenuFlyout menu, bool separated, bool canSeparate = true, bool uniformVisible = false,
+        bool hasAggregateExpression = false)
     {
         Assert.That(menu.IsOpen, Is.True);
         var items = menu.Items.OfType<Control>().ToDictionary(item => item.Name!);
@@ -663,8 +859,10 @@ public class ComponentAnimationTests
             Assert.That(items["separateComponentsItem"].IsVisible, Is.EqualTo(canSeparate && !separated), "separate components");
             Assert.That(items["unseparateComponentsItem"].IsVisible, Is.EqualTo(separated), "unseparate components");
             Assert.That(items["uniformEditorToggle"].IsVisible, Is.EqualTo(uniformVisible), "uniform value");
-            foreach (string name in new[] { "editAnimationItem", "editInlineAnimationItem", "removeAnimationItem", "expressionSeparator", "editExpressionItem", "removeExpressionItem" })
+            foreach (string name in new[] { "editAnimationItem", "editInlineAnimationItem", "removeAnimationItem", "editExpressionItem" })
                 Assert.That(items[name].IsVisible, Is.EqualTo(!separated), name);
+            Assert.That(items["removeExpressionItem"].IsVisible, Is.EqualTo(!separated || hasAggregateExpression), "remove expression");
+            Assert.That(items["expressionSeparator"].IsVisible, Is.EqualTo(!separated || hasAggregateExpression), "expression separator");
         });
     }
 }

@@ -3513,4 +3513,10 @@ cuando el registro del historial está activado.</value>
   <data name="UnseparateComponents_Description" xml:space="preserve">
     <value>Conservar el valor del momento actual y eliminar los fotogramas clave y las expresiones de los componentes.</value>
   </data>
+  <data name="RelativeUnit_Relative" xml:space="preserve">
+    <value>Relativa (1 = 100%)</value>
+  </data>
+  <data name="RelativeUnit_Absolute" xml:space="preserve">
+    <value>Absoluta (px)</value>
+  </data>
 </root>

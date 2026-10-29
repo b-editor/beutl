@@ -20,6 +20,11 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         ScanProperties<ComponentAnimation<T, TComponent>>();
         BaseValue.Edited += OnEdited;
         UnitSource.Edited += OnEdited;
+        UnitSource.ValueChanged += (_, e) =>
+        {
+            if (e.OldValue != null) e.OldValue.AttachedToHierarchy -= OnUnitSourceAttached;
+            if (e.NewValue != null) e.NewValue.AttachedToHierarchy += OnUnitSourceAttached;
+        };
         _components = _definitions.Select(definition =>
         {
             var property = new AnimatableProperty<TComponent>(default!);
@@ -41,6 +46,8 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
     public string ExpressionString => "[Components]";
     public event EventHandler? Edited;
     private void OnEdited(object? sender, EventArgs e) => Edited?.Invoke(this, EventArgs.Empty);
+    // Undo restores the unit schedule before its attachment establishes the owner's time origin.
+    private void OnUnitSourceAttached(object? sender, HierarchyAttachmentEventArgs e) => OnEdited(sender, EventArgs.Empty);
     public bool Validate(out string? error) { error = null; return true; }
     public T Evaluate(ExpressionContext context) => EvaluateComponents(context);
 
