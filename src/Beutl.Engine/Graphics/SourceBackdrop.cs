@@ -16,36 +16,35 @@ public partial class SourceBackdrop : Drawable
     [Display(Name = nameof(GraphicsStrings.SourceBackdrop_Clear), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> Clear { get; } = Property.CreateAnimatable(false);
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+    public new partial class Resource
     {
-        return availableSize;
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        if (resource.IsEnabled)
+        protected override Size MeasureCore(Size availableSize)
         {
-            var r = (Resource)resource;
+            return availableSize;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
+
+        protected override void RenderCore(GraphicsContext2D context)
+        {
             var backdrop = context.Snapshot();
-            if (r.Clear)
+            if (Clear)
             {
                 context.Clear();
             }
 
             Size availableSize = context.Size;
-            Size size = MeasureCore(availableSize, r);
+            Size size = MeasureCore(availableSize);
 
-            Matrix transform = GetTransformMatrix(availableSize, size, r);
-            // Same order as Drawable.Render: the opacity fades the captured image after the clear has run,
+            Matrix transform = GetTransformMatrix(availableSize, size);
+            // Same order as Drawable.Resource.RenderCore: the opacity fades the captured image after the clear has run,
             // so Clear keeps its meaning while the drawable's own Opacity applies like any other drawable's.
-            using (context.PushBlendMode(r.BlendMode))
+            using (context.PushBlendMode(BlendMode))
             using (context.PushTransform(transform))
-            using (context.PushOpacity(r.Opacity / 100f))
-            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
+            using (context.PushOpacity(Opacity / 100f))
+            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
             {
                 context.DrawBackdrop(backdrop);
             }

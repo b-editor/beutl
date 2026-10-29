@@ -93,14 +93,14 @@ public sealed class ScriptCompilableEffectTests
                 using var context = new FilterEffectContext(new Rect(0, 0, 10, 10));
 
                 Assert.That(resource._scriptRunner, Is.Null);
-                effect.ApplyTo(context, resource);
+                context.ApplyTransactional(resource);
                 Assert.That(context._items, Is.Empty, "Rejected scripts must not apply a partial effect.");
 
                 effect.Script.Value = "Context.Blur(new Size(2, 2));";
                 bool versionBumped = false;
                 resource.Reconcile(effect, CompositionContext.Default, ref versionBumped);
                 Assert.That(resource._scriptRunner, Is.Not.Null);
-                effect.ApplyTo(context, resource);
+                context.ApplyTransactional(resource);
                 Assert.That(context._items, Has.Count.EqualTo(1));
             }).WaitAsync(TimeSpan.FromSeconds(10));
 

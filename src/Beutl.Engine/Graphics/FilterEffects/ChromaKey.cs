@@ -117,23 +117,25 @@ public partial class ChromaKey : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ChromaKey_Boundary), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.Shader(ShaderDescription.CurrentPixel(
-            s_shaderSource,
-            bindings =>
-            {
-                bindings.Uniform(
-                    "keyColor",
-                    new Vector3(
-                        r.Color.R / 255f,
-                        r.Color.G / 255f,
-                        r.Color.B / 255f));
-                bindings.Uniform("keyColorLinear", r.Color.ToLinear().AsVector3());
-                bindings.Uniform("hueRange", r.HueRange / 360f);
-                bindings.Uniform("saturationRange", r.SaturationRange / 100f);
-                bindings.Uniform("boundary", r.Boundary / 100f);
-            }));
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Shader(ShaderDescription.CurrentPixel(
+                s_shaderSource,
+                bindings =>
+                {
+                    bindings.Uniform(
+                        "keyColor",
+                        new Vector3(
+                            Color.R / 255f,
+                            Color.G / 255f,
+                            Color.B / 255f));
+                    bindings.Uniform("keyColorLinear", Color.ToLinear().AsVector3());
+                    bindings.Uniform("hueRange", HueRange / 360f);
+                    bindings.Uniform("saturationRange", SaturationRange / 100f);
+                    bindings.Uniform("boundary", Boundary / 100f);
+                }));
+        }
     }
 }

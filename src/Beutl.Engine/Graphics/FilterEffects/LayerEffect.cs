@@ -7,36 +7,39 @@ namespace Beutl.Graphics.Effects;
 [Display(Name = nameof(GraphicsStrings.LayerEffect), ResourceType = typeof(GraphicsStrings))]
 public partial class LayerEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        context.CustomEffect(Unit.Default,
-            (_, ctx) =>
-            {
-                var bounds = ctx.Targets.CalculateBounds();
-                var newTarget = ctx.CreateTarget(bounds);
-                if (newTarget.IsEmpty)
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.CustomEffect(Unit.Default,
+                (_, ctx) =>
                 {
-                    newTarget.Dispose();
-                    return;
-                }
-
-                // ctx.Open bakes the base CTM scale from the target's density.
-                using (var canvas = ctx.Open(newTarget))
-                {
-                    canvas.Clear();
-                    foreach (var t in ctx.Targets)
+                    var bounds = ctx.Targets.CalculateBounds();
+                    var newTarget = ctx.CreateTarget(bounds);
+                    if (newTarget.IsEmpty)
                     {
-                        using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.Position - bounds.Position)))
+                        newTarget.Dispose();
+                        return;
+                    }
+
+                    // ctx.Open bakes the base CTM scale from the target's density.
+                    using (var canvas = ctx.Open(newTarget))
+                    {
+                        canvas.Clear();
+                        foreach (var t in ctx.Targets)
                         {
-                            t.Draw(canvas);
+                            using (canvas.PushTransform(Matrix.CreateTranslation(t.Bounds.Position - bounds.Position)))
+                            {
+                                t.Draw(canvas);
+                            }
                         }
                     }
-                }
 
-                ctx.Targets.Clear();
-                ctx.Targets.Add(newTarget);
-            },
-            // Flattening the targets into their own union never leaves the incoming extent.
-            static (_, bounds) => bounds);
+                    ctx.Targets.Clear();
+                    ctx.Targets.Add(newTarget);
+                },
+                // Flattening the targets into their own union never leaves the incoming extent.
+                static (_, bounds) => bounds);
+        }
     }
 }

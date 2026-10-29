@@ -57,39 +57,7 @@ public partial class TextBlock : Drawable
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
     public IExpressionProperty<Brush?> Fill { get; } = Property.CreateExpression<Brush?>();
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        float width = 0;
-        float height = 0;
-        var elements = r.GetTextElements();
-
-        foreach (Span<FormattedText> line in elements.Lines)
-        {
-            Size bounds = MeasureLine(line);
-            width = MathF.Max(bounds.Width, width);
-            height += bounds.Height;
-        }
-
-        return new Size(width, height);
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        float width = r.TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size, resource).Width;
-
-        if (r.SplitByCharacters)
-        {
-            DrawSplitted(context, r, width);
-        }
-        else
-        {
-            DrawGrouped(context, r, width);
-        }
-    }
-
-    private void DrawGrouped(GraphicsContext2D context, Resource resource, float width)
+    private static void DrawGrouped(GraphicsContext2D context, Resource resource, float width)
     {
         var elements = resource.GetTextElements();
         using (context.Push())
@@ -125,7 +93,7 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private void DrawSplitted(GraphicsContext2D context, Resource resource, float width)
+    private static void DrawSplitted(GraphicsContext2D context, Resource resource, float width)
     {
         var elements = resource.GetTextElements();
         float prevBottom = 0;
@@ -228,6 +196,36 @@ public partial class TextBlock : Drawable
         public float Spacing { get; private set; }
 
         public Pen.Resource? Pen => _pen;
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            float width = 0;
+            float height = 0;
+            var elements = GetTextElements();
+
+            foreach (Span<FormattedText> line in elements.Lines)
+            {
+                Size bounds = MeasureLine(line);
+                width = MathF.Max(bounds.Width, width);
+                height += bounds.Height;
+            }
+
+            return new Size(width, height);
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            float width = TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size).Width;
+
+            if (SplitByCharacters)
+            {
+                DrawSplitted(context, this, width);
+            }
+            else
+            {
+                DrawGrouped(context, this, width);
+            }
+        }
 
         public TextElements GetTextElements()
         {

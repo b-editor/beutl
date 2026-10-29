@@ -111,7 +111,7 @@ public sealed class NamedBufferBudgetReachTests
             context.Shader(CreateObservingShader(size => observed = size)));
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         using EffectTargets targets = CreateSolidTargets(s_bounds);
         using var builder = new SKImageFilterBuilder();
         using var executor = CreateExecutor(targets, builder, BufferDimensionBudget.Named(TestBufferDimension));
@@ -154,7 +154,7 @@ public sealed class NamedBufferBudgetReachTests
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         using var builder = new SKImageFilterBuilder();
         using var executor = CreateExecutor(targets, builder, budget);
         executor.Apply(context);

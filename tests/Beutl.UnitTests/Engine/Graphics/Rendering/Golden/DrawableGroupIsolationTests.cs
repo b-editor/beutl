@@ -928,12 +928,17 @@ public sealed class DrawableGroupIsolationTests
 
 internal sealed partial class ClearOnlyDrawable(Color color) : Drawable
 {
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderContent(GraphicsContext2D context)
         => context.Clear(color);
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => availableSize;
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderContent(context);
+
+        protected override Size MeasureCore(Size availableSize) => availableSize;
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }

@@ -43,59 +43,6 @@ public sealed partial class LightRays : FilterEffect
     [Range(0, 100)]
     public IExpressionProperty<float> SoftKnee { get; } = Property.CreateAnimatable(50f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (!float.IsFinite(r.Length) || r.Length <= 0 || !float.IsFinite(r.Intensity) || r.Intensity <= 0
-            || !float.IsFinite(r.Center.Point.X) || !float.IsFinite(r.Center.Point.Y)
-            || !float.IsFinite(r.Threshold) || r.Threshold < 0 || !float.IsFinite(r.SoftKnee) || !float.IsFinite(r.Decay))
-            return;
-
-        context.ShaderGraph((r.Center, InverseStretch: 1 / (1 + r.Length / 100),
-                Decay: Math.Clamp(r.Decay, 0, 100) / 25, r.Intensity, r.Threshold,
-                SoftKnee: Math.Clamp(r.SoftKnee, 0, 100) / 100),
-            static (graph, values) =>
-            {
-                ShaderImage bright = graph.Image2D("bright", graph.Source);
-                ShaderImage mask = graph.Image2D("mask", bright, TextureFormat.R16Float);
-                LightEffectPasses.ExtractHighlights(graph, graph.Source, bright, mask, values.Threshold, values.SoftKnee);
-
-                // Prefilter before halving the raster density so isolated highlights survive every grid phase.
-                ShaderImage reduced = graph.Image2D("downsample", bright, resolutionScale: 0.5f);
-                LightEffectPasses.Downsample(graph, bright, reduced);
-                ShaderImage previous = reduced;
-                float stretch = 1 / values.InverseStretch;
-                // Five radix-eight passes integrate 32768 positions with only 40 reads per light pixel.
-                // Zooms compose multiplicatively, so use equally spaced positions in log distance.
-                float step = 1f / 32768;
-                for (int level = 0; level < 5; level++, step *= 8)
-                {
-                    ShaderImage source = previous;
-                    ShaderImage rays = graph.Image2D($"rays-{level}", graph.Source, resolutionScale: 0.5f);
-                    rays.BoundsTransforms = [Matrix.CreateScale(stretch, stretch)];
-                    rays.BoundsOrigin = values.Center;
-                    float logStep = MathF.Log(stretch) * step;
-                    var constants = new Vector4(MathF.Exp(-logStep), MathF.Exp(-values.Decay * step),
-                        level == 0 ? MathF.Exp(-logStep / 2) : 1, 0);
-                    graph.Fullscreen(rays.Name, s_rays, pass =>
-                    {
-                        pass.SampledImage(0, source);
-                        pass.ImageParameters(1, source);
-                        pass.ImageParameters(2, rays);
-                        pass.PushConstants((Vector4.Zero, constants));
-                        pass.BoundsOriginConstants(values.Center, 0);
-                        // Keep the whole input: intermediate zooms can reach outside a requested output tile.
-                        pass.ColorAttachment(0, rays);
-                    });
-                    previous = rays;
-                }
-                ShaderImage output = graph.Image2D("output", previous);
-                LightEffectPasses.Composite(graph, graph.Source, previous, mask, output,
-                    values.Intensity / (values.Decay + 1), preserveAlpha: false);
-                return graph.Output(output);
-            });
-    }
-
     private static readonly ShaderProgram s_rays = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(binding = 0) uniform sampler2D image;
@@ -119,4 +66,59 @@ public sealed partial class LightRays : FilterEffect
             color /= total;
         }
         """));
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (!float.IsFinite(Length) || Length <= 0 || !float.IsFinite(Intensity) || Intensity <= 0
+                || !float.IsFinite(Center.Point.X) || !float.IsFinite(Center.Point.Y)
+                || !float.IsFinite(Threshold) || Threshold < 0 || !float.IsFinite(SoftKnee) || !float.IsFinite(Decay))
+                return;
+
+            context.ShaderGraph((Center, InverseStretch: 1 / (1 + Length / 100),
+                    Decay: Math.Clamp(Decay, 0, 100) / 25, Intensity, Threshold,
+                    SoftKnee: Math.Clamp(SoftKnee, 0, 100) / 100),
+                static (graph, values) =>
+                {
+                    ShaderImage bright = graph.Image2D("bright", graph.Source);
+                    ShaderImage mask = graph.Image2D("mask", bright, TextureFormat.R16Float);
+                    LightEffectPasses.ExtractHighlights(graph, graph.Source, bright, mask, values.Threshold, values.SoftKnee);
+
+                    // Prefilter before halving the raster density so isolated highlights survive every grid phase.
+                    ShaderImage reduced = graph.Image2D("downsample", bright, resolutionScale: 0.5f);
+                    LightEffectPasses.Downsample(graph, bright, reduced);
+                    ShaderImage previous = reduced;
+                    float stretch = 1 / values.InverseStretch;
+                    // Five radix-eight passes integrate 32768 positions with only 40 reads per light pixel.
+                    // Zooms compose multiplicatively, so use equally spaced positions in log distance.
+                    float step = 1f / 32768;
+                    for (int level = 0; level < 5; level++, step *= 8)
+                    {
+                        ShaderImage source = previous;
+                        ShaderImage rays = graph.Image2D($"rays-{level}", graph.Source, resolutionScale: 0.5f);
+                        rays.BoundsTransforms = [Matrix.CreateScale(stretch, stretch)];
+                        rays.BoundsOrigin = values.Center;
+                        float logStep = MathF.Log(stretch) * step;
+                        var constants = new Vector4(MathF.Exp(-logStep), MathF.Exp(-values.Decay * step),
+                            level == 0 ? MathF.Exp(-logStep / 2) : 1, 0);
+                        graph.Fullscreen(rays.Name, s_rays, pass =>
+                        {
+                            pass.SampledImage(0, source);
+                            pass.ImageParameters(1, source);
+                            pass.ImageParameters(2, rays);
+                            pass.PushConstants((Vector4.Zero, constants));
+                            pass.BoundsOriginConstants(values.Center, 0);
+                            // Keep the whole input: intermediate zooms can reach outside a requested output tile.
+                            pass.ColorAttachment(0, rays);
+                        });
+                        previous = rays;
+                    }
+                    ShaderImage output = graph.Image2D("output", previous);
+                    LightEffectPasses.Composite(graph, graph.Source, previous, mask, output,
+                        values.Intensity / (values.Decay + 1), preserveAlpha: false);
+                    return graph.Output(output);
+                });
+        }
+    }
 }

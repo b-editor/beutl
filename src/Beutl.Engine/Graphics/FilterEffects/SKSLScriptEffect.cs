@@ -87,27 +87,6 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         }
     }
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-
-        if (r._source is { } source)
-        {
-            context.Shader(Resource.CreateDescription(
-                source,
-                new Resource.ScriptUniformState(r.Progress, r.Duration, r.Time)));
-            return;
-        }
-
-        if (r._shader is not null)
-        {
-            context.CustomEffect(
-                (Resource: r.Progress, duration: r.Duration, time: r.Time, shader: r._shader),
-                OnApplyTo,
-                static (_, r) => r);
-        }
-    }
-
     private static void OnApplyTo(
         (float progress, float duration, float time, SKSLShader shader) data,
         CustomFilterEffectContext c)
@@ -386,6 +365,25 @@ public sealed partial class SKSLScriptEffect : FilterEffect, IScriptCompilableEf
         }
 
         internal readonly record struct ScriptUniformState(float Progress, float Duration, float Time);
+
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (_source is { } source)
+            {
+                context.Shader(Resource.CreateDescription(
+                    source,
+                    new Resource.ScriptUniformState(Progress, Duration, Time)));
+                return;
+            }
+
+            if (_shader is not null)
+            {
+                context.CustomEffect(
+                    (Resource: Progress, duration: Duration, time: Time, shader: _shader),
+                    OnApplyTo,
+                    static (_, r) => r);
+            }
+        }
     }
 
     private static void ValidateDeclarativeUniforms(SkslSource source, ShaderDescriptionKind kind)

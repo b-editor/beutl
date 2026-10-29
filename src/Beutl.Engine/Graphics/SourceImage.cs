@@ -18,25 +18,26 @@ public partial class SourceImage : Drawable
     [Display(Name = nameof(GraphicsStrings.Source), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<ImageSource?> Source { get; } = Property.CreateExpression<ImageSource?>();
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        if (r.Source != null)
+        protected override Size MeasureCore(Size availableSize)
         {
-            return r.Source.FrameSize.ToSize(1);
+            if (Source != null)
+            {
+                return Source.FrameSize.ToSize(1);
+            }
+            else
+            {
+                return default;
+            }
         }
-        else
-        {
-            return default;
-        }
-    }
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.Source != null)
+        protected override void OnDraw(GraphicsContext2D context)
         {
-            context.DrawImageSource(r.Source, Brushes.Resource.White, null);
+            if (Source != null)
+            {
+                context.DrawImageSource(Source, Brushes.Resource.White, null);
+            }
         }
     }
 }

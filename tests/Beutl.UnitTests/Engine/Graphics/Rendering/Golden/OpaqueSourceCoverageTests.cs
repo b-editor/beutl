@@ -71,7 +71,7 @@ public sealed class OpaqueSourceCoverageTests
         using var node = new DrawableRenderNode(drawable);
         using (var context = new GraphicsContext2D(node, brushSize, density))
         {
-            drawable.RequireOriginal().Render(context, drawable);
+            drawable.Render(context);
         }
 
         using var renderer = new RenderNodeRenderer(node, new RenderNodeRenderRequest

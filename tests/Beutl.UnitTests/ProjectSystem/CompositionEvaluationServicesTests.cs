@@ -380,11 +380,11 @@ internal sealed partial class EvaluationCaptureDrawable : Drawable
     public bool PreferProxy { get; private set; }
     public Action<CompositionContext>? OnEvaluate { get; set; }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => Size.Empty;
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) { }
-
     public partial class Resource
     {
+        protected override Size MeasureCore(Size availableSize) => Size.Empty;
+        protected override void OnDraw(GraphicsContext2D context) { }
+
         partial void PostReconcile(EvaluationCaptureDrawable obj, CompositionContext context)
         {
             obj.Services = context.EvaluationServices;

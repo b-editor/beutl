@@ -55,32 +55,6 @@ public partial class ColorShift : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ColorShift_AlphaOffset), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<PixelPoint> AlphaOffset { get; } = Property.CreateAnimatable<PixelPoint>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        var offsets = new ColorShiftOffsets(
-            r.RedOffset,
-            r.GreenOffset,
-            r.BlueOffset,
-            r.AlphaOffset);
-        RenderBoundsContract bounds = RenderBoundsContract.Create(
-            offsets,
-            static (state, bounds) => state.TransformBounds(bounds),
-            static (state, bounds) => state.GetRequiredInputBounds(bounds));
-
-        context.Shader(ShaderDescription.WholeSource(
-            s_shaderSource,
-            bounds,
-            bindings =>
-            {
-                BindOffset(bindings, "redOffset", r.RedOffset);
-                BindOffset(bindings, "greenOffset", r.GreenOffset);
-                BindOffset(bindings, "blueOffset", r.BlueOffset);
-                BindOffset(bindings, "alphaOffset", r.AlphaOffset);
-            },
-            SKShaderTileMode.Decal));
-    }
-
     private static void BindOffset(ShaderBindingBuilder bindings, string name, PixelPoint value)
     {
         bindings.Uniform(
@@ -106,5 +80,33 @@ public partial class ColorShift : FilterEffect
                 .Union(bounds.Translate(-GreenOffset.ToPoint(1)))
                 .Union(bounds.Translate(-BlueOffset.ToPoint(1)))
                 .Union(bounds.Translate(-AlphaOffset.ToPoint(1)));
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            var offsets = new ColorShiftOffsets(
+                RedOffset,
+                GreenOffset,
+                BlueOffset,
+                AlphaOffset);
+            RenderBoundsContract bounds = RenderBoundsContract.Create(
+                offsets,
+                static (state, bounds) => state.TransformBounds(bounds),
+                static (state, bounds) => state.GetRequiredInputBounds(bounds));
+
+            context.Shader(ShaderDescription.WholeSource(
+                s_shaderSource,
+                bounds,
+                bindings =>
+                {
+                    BindOffset(bindings, "redOffset", RedOffset);
+                    BindOffset(bindings, "greenOffset", GreenOffset);
+                    BindOffset(bindings, "blueOffset", BlueOffset);
+                    BindOffset(bindings, "alphaOffset", AlphaOffset);
+                },
+                SKShaderTileMode.Decal));
+        }
     }
 }

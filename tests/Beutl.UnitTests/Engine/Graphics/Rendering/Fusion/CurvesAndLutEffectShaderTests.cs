@@ -80,7 +80,7 @@ public sealed class CurvesAndLutEffectShaderTests
 
         try
         {
-            effect.ApplyTo(context, resource);
+            context.ApplyTransactional(resource);
 
             FEItem_Shader item = AssertTypedShader(context);
             ShaderDescription description = item.Description;
@@ -140,7 +140,7 @@ public sealed class CurvesAndLutEffectShaderTests
 
         try
         {
-            effect.ApplyTo(context, resource);
+            context.ApplyTransactional(resource);
 
             FEItem_Shader item = AssertTypedShader(context);
             ShaderDescription description = item.Description;
@@ -226,7 +226,7 @@ public sealed class CurvesAndLutEffectShaderTests
         using var effectResource = (LutEffect.Resource)effect.ToResource(CompositionContext.Default);
         CubeFile cube = effectResource.Source!.Cube!;
         using var firstContext = new FilterEffectContext(s_bounds);
-        effect.ApplyTo(firstContext, effectResource);
+        firstContext.ApplyTransactional(effectResource);
 
         for (int i = 0; i < cube.Data.Length; i++)
         {
@@ -234,7 +234,7 @@ public sealed class CurvesAndLutEffectShaderTests
         }
 
         using var secondContext = new FilterEffectContext(s_bounds);
-        effect.ApplyTo(secondContext, effectResource);
+        secondContext.ApplyTransactional(effectResource);
 
         SKColor first = ExecuteRecordedLut(firstContext);
         SKColor second = ExecuteRecordedLut(secondContext);
@@ -265,7 +265,7 @@ public sealed class CurvesAndLutEffectShaderTests
         RenderResource[] tokens = [];
         try
         {
-            context.ApplyTransactional(effect, resource);
+            context.ApplyTransactional(resource);
             tokens = ((FEItem_Shader)context.GetOrderedItems().Single())
                 .Description.Resources.Select(static binding => binding.Resource).ToArray();
             Assert.That(
@@ -351,7 +351,7 @@ public sealed class CurvesAndLutEffectShaderTests
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
 
-        effect.ApplyTo(context, resource);
+        context.ApplyTransactional(resource);
 
         return AssertTypedShader(context).Description.Source;
     }

@@ -45,7 +45,7 @@ public sealed class ParticleRenderNodeAllocationTests
             new CompositionContext(MediaTime.FromSeconds(1)));
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_frame, outputScale: 1))
-            emitter.Render(context, resource);
+            resource.Render(context);
 
         var factory = new BoundedTargetFactory(maximumDimension: 512);
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
@@ -212,7 +212,7 @@ public sealed class ParticleRenderNodeAllocationTests
             new CompositionContext(MediaTime.FromSeconds(time)));
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_frame, outputScale: 1))
-            emitter.Render(context, resource);
+            resource.Render(context);
 
         var factory = new BoundedTargetFactory(maximumDimension: 4096);
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest
@@ -265,7 +265,7 @@ public sealed class ParticleRenderNodeAllocationTests
 
         using var root = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(root, s_frame, outputScale: 1))
-            emitter.Render(context, resource);
+            resource.Render(context);
 
         var factory = new BoundedTargetFactory(maximumDimension: 4096);
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest

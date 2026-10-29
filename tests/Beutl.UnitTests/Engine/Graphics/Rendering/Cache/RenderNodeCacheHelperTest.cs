@@ -346,14 +346,19 @@ internal sealed partial class OwnedCacheProbeDrawable : Drawable
     // Two levels below the entry's node, so only a release that follows ownership reaches its cache.
     public EllipseRenderNode Leaf { get; } = new(new Rect(0, 0, 100, 100), Brushes.Resource.White, null);
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderContent(GraphicsContext2D context)
     {
         context.DrawNode(_group);
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(100, 100);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderContent(context);
+
+        protected override Size MeasureCore(Size availableSize) => new(100, 100);
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }

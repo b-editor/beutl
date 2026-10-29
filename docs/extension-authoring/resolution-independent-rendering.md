@@ -69,7 +69,8 @@ Reading the scale while authoring:
   to capture or replace the composition target beneath it. The resource recording them must return true from
   `ControlsContinuation` or `MayAccessTarget` respectively, for every evaluation time; the engine splits chains
   and routes target work from these declarations before recording, so an undeclared recording throws.
-  A composite effect applies its children with `FilterEffectContext.Apply(resource)`, not `ApplyTo`.
+  A composite effect applies its children with `FilterEffectContext.Apply(resource)`; `Resource.ApplyTo` is
+  protected.
 
 The built-in effects follow these rules; for example, Mosaic multiplies its tile size by `w`, and the SKSL
 and GLSL script effects pass `w` to shaders.
@@ -107,8 +108,8 @@ An effect resource can override `UsesInputEvaluation`, `PrepareInput` and `Rende
 input before drawing. Call `input.Evaluate(time)` in `PrepareInput` and retain the returned
 `FilterEffectInputSample` objects for `RenderInput`. Return `true` from preparation to supply the
 replacement drawing. An ordinary `ApplyTo` effect needs none of these hooks. Draw and measure an evaluated
-drawable through `Drawable.Resource.Render` and `Drawable.Resource.Measure`: `Drawable.Render(context, resource)`
-is only the override point and skips the replacement.
+drawable through `Drawable.Resource.Render` and `Drawable.Resource.Measure`: `RenderCore` is only the override
+point and skips the replacement.
 
 `input.EvaluationContext` captures the input's clock and its `Conditions`: effective output `FrameRate`,
 proxy policy, target domain, scene queries and cancellation token. Sample times use that clock, including any enclosing time

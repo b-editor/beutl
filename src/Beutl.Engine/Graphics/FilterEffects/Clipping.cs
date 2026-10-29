@@ -32,13 +32,6 @@ public sealed partial class Clipping : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Clipping_AutoClip), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> AutoClip { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        var thickness = new Thickness(r.Left, r.Top, r.Right, r.Bottom);
-        context.CustomEffect((thickness, r.AutoCenter, r.AutoClip), Apply, TransformBounds);
-    }
-
     private static Rect TransformBounds((Thickness thickness, bool autoCenter, bool autoClip) data, Rect rect)
     {
         if (data.autoClip) return Rect.Invalid;
@@ -146,6 +139,15 @@ public sealed partial class Clipping : FilterEffect
 
                 context.Targets[i] = newTarget;
             }
+        }
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            var thickness = new Thickness(Left, Top, Right, Bottom);
+            context.CustomEffect((thickness, AutoCenter, AutoClip), Apply, TransformBounds);
         }
     }
 }

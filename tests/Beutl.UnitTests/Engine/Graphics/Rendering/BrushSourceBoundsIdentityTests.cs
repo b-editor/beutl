@@ -80,7 +80,7 @@ public sealed class BrushSourceBoundsIdentityTests
         resource.Reconcile(shape, CompositionContext.Default, ref versionBumped);
         using (var context = new GraphicsContext2D(root, s_domain.Size))
         {
-            shape.Render(context, resource);
+            resource.Render(context);
         }
 
         renderer.Rasterize().Dispose();

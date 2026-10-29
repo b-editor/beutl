@@ -23,13 +23,6 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
 
     public IExpressionProperty<GraphModel?> Model { get; } = Property.CreateExpression<GraphModel?>();
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        throw new NotSupportedException(
-            $"{nameof(NodeGraphFilterEffect)} does not support {nameof(ApplyTo)}. " +
-            "Use the resource/render-node pipeline (via ToResource and CreateRenderNode) instead.");
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         bool versionBumped = false;
@@ -113,6 +106,13 @@ public sealed partial class NodeGraphFilterEffect : FilterEffect
             Model = null;
             if (disposing) Snapshot.Dispose();
             base.Dispose(disposing);
+        }
+
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            throw new NotSupportedException(
+                $"{nameof(NodeGraphFilterEffect)} does not support {nameof(ApplyTo)}. " +
+                "Use the resource/render-node pipeline (via ToResource and CreateRenderNode) instead.");
         }
     }
 }

@@ -224,5 +224,9 @@ internal sealed partial class EditingHandleTestEffect : FilterEffect, IEditingHa
         }];
 
     public void MoveEditingHandle(string id, Point position, MediaTime time) => Position.Value = position;
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource) { }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context) { }
+    }
 }

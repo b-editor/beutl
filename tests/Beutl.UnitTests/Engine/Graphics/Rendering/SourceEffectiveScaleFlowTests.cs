@@ -1991,11 +1991,6 @@ public class SourceEffectiveScaleFlowTests
 [SuppressResourceClassGeneration]
 internal sealed partial class ClampToOutputEffect : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        context.Brightness(0.75f);
-    }
-
     public override Resource ToResource(CompositionContext context)
     {
         var resource = new Resource();
@@ -2011,6 +2006,11 @@ internal sealed partial class ClampToOutputEffect : FilterEffect
         }
 
         public override FilterEffectRenderNode CreateRenderNode() => new ClampToOutputEscapeHatchNode(this);
+
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Brightness(0.75f);
+        }
     }
 }
 
@@ -2030,7 +2030,7 @@ internal sealed class ClampToOutputEscapeHatchNode(FilterEffect.Resource effect)
 [SuppressResourceClassGeneration]
 internal sealed partial class WorkingScaleProbeEffect(Action<FilterEffectContext> apply) : FilterEffect
 {
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    private void ApplyEffect(FilterEffectContext context)
         => apply(context);
 
     public override Resource ToResource(CompositionContext context)
@@ -2046,6 +2046,9 @@ internal sealed partial class WorkingScaleProbeEffect(Action<FilterEffectContext
         public Resource()
         {
         }
+
+        protected override void ApplyTo(FilterEffectContext context)
+            => ((WorkingScaleProbeEffect)RequireOriginal()).ApplyEffect(context);
     }
 }
 

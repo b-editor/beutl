@@ -1021,7 +1021,7 @@ public sealed class DeviceBufferBudgetTests
 
         using var root = new DrawableRenderNode(resource);
         using (var recording = new GraphicsContext2D(root, s_particleFrame, outputScale: 1))
-            emitter.Render(recording, resource);
+            resource.Render(recording);
 
         var factory = new RecordingCpuTargetFactory();
         using var renderer = new RenderNodeRenderer(root, new RenderNodeRenderRequest

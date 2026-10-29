@@ -37,21 +37,6 @@ public abstract partial class AudioVisualizerDrawable : Drawable
     [Range(0.01f, 1000f)]
     public IExpressionProperty<float> Gain { get; } = Property.CreateAnimatable(1f);
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        return new Size(MathF.Max(1f, r.Width), MathF.Max(1f, r.Height));
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.DrawNode(
-            r,
-            p => new AudioVisualizerRenderNode(p),
-            (node, p) => node.Update(p));
-    }
-
     public abstract partial class Resource
     {
         private const int DefaultComposerSampleRate = 44100;
@@ -106,6 +91,19 @@ public abstract partial class AudioVisualizerDrawable : Drawable
         /// that reads it; copy out whatever has to outlive that call.
         /// </remarks>
         protected ReadOnlySpan<float> CachedSampleSpan => _cachedSamples.AsSpan(0, _cachedSampleLength);
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return new Size(MathF.Max(1f, Width), MathF.Max(1f, Height));
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            context.DrawNode(
+                this,
+                p => new AudioVisualizerRenderNode(p),
+                (node, p) => node.Update(p));
+        }
 
         partial void PostReconcile(AudioVisualizerDrawable obj, CompositionContext context)
         {

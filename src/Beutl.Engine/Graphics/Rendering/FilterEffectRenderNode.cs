@@ -54,10 +54,13 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
             return;
 
         FilterEffect.Resource effectResource = effectSnapshot.Resource;
-        FilterEffect originalEffect = effectResource.GetOriginal()
-            ?? throw new InvalidOperationException(
+        if (effectResource.GetOriginal() is null)
+        {
+            throw new InvalidOperationException(
                 "FilterEffectRenderNode cannot process a detached filter-effect resource. "
                 + "Use an attached resource or override Process() in a custom render node that supports detached resources.");
+        }
+
         bool hasConcreteInputMetadata = context.TryCalculateInputBounds(out Rect inputBounds);
         Rect recordedInputBounds = hasConcreteInputMetadata
             ? inputBounds
@@ -132,7 +135,7 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         }
         try
         {
-            recordingContext.ApplyTransactional(originalEffect, effectResource);
+            recordingContext.ApplyTransactional(effectResource);
             IReadOnlyList<IFEItem> items = recordingContext.GetOrderedItems();
             if (items.Count == 0)
             {

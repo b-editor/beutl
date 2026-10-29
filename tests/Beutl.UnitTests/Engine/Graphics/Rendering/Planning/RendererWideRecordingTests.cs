@@ -1255,7 +1255,7 @@ internal sealed partial class RendererWideProbeDrawable : Drawable
         _state = state;
     }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderContent(GraphicsContext2D context)
     {
         _state.BuildCalls[_index]++;
         var node = new ProductionTreeProbeNode(_index, _state);
@@ -1263,10 +1263,15 @@ internal sealed partial class RendererWideProbeDrawable : Drawable
         context.DrawNode(node);
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(8, 8);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderContent(context);
+
+        protected override Size MeasureCore(Size availableSize) => new(8, 8);
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 
@@ -1337,15 +1342,20 @@ internal sealed partial class CacheMutationThreadProbeDrawable : Drawable
         _state = state;
     }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderContent(GraphicsContext2D context)
     {
         context.DrawNode(new CacheMutationThreadProbeNode(_state));
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(8, 8);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderContent(context);
+
+        protected override Size MeasureCore(Size availableSize) => new(8, 8);
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 
