@@ -185,27 +185,30 @@ public sealed class SelectLibraryItemSearchTests
             HeadlessTestHelpers.Render(3);
             var presenter = window.GetVisualDescendants().OfType<LibraryItemPickerFlyoutPresenter>().Single();
             string word = viewModel.Items[^1].DisplayName;
+            int unfiltered = viewModel.Items.Count;
 
             window.KeyPress(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
             window.KeyRelease(Key.F, RawInputModifiers.Control, PhysicalKey.F, "f");
             HeadlessTestHelpers.Render();
             window.KeyTextInput(word);
+            // The ranking decides which result comes first, so wait only until the list is filtered by the word.
             await HeadlessTestHelpers.WaitUntilAsync(() => viewModel.SearchText.Value == word
-                && viewModel.Items.Count > 0 && viewModel.Items[0].DisplayName == word);
+                && viewModel.Items.Count < unfiltered && viewModel.Items.Any(i => i.DisplayName == word));
             await viewModel.SearchTask;
             HeadlessTestHelpers.Render(2);
+            PinnableLibraryItem first = viewModel.Items[0];
 
             window.KeyPress(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             window.KeyRelease(Key.Down, RawInputModifiers.None, PhysicalKey.ArrowDown, null);
             HeadlessTestHelpers.Render();
-            Assert.That(presenter.SelectedItem?.DisplayName, Is.EqualTo(word));
+            Assert.That(presenter.SelectedItem, Is.SameAs(first));
 
             window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
             window.KeyRelease(Key.Enter, RawInputModifiers.None, PhysicalKey.Enter, "\r");
             HeadlessTestHelpers.Render();
 
             object? result = await picked.WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.That(result, Is.EqualTo(((SingleTypeLibraryItem)viewModel.Items[0].UserData).ImplementationType));
+            Assert.That(result, Is.EqualTo(((SingleTypeLibraryItem)first.UserData).ImplementationType));
         }
         finally
         {
