@@ -18,6 +18,7 @@ internal sealed partial class DeclarativeDocumentApplier
         payload.Remove("Expressions");
         NormalizeRegisteredPropertyValues(target, payload);
         CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
+        ClearAbsentRegisteredObjectProperties(target, desired, payload);
         // Reuse normal track reconciliation so keyframe identities, ordering and validation survive edits.
         ApplyAnimations(target, desired);
         ApplyExpressions(target, desired);

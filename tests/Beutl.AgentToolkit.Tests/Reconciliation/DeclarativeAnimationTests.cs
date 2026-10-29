@@ -94,6 +94,69 @@ public sealed class DeclarativeAnimationTests
         Assert.That(blur.Sigma.Evaluate(new CompositionContext(MediaTime.FromSeconds(3))), Is.EqualTo(Size.Empty));
     }
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public void Removing_a_component_unit_source_preserves_tracks_and_supports_undo(bool usePatch)
+    {
+        Scene scene = CreateSceneWithText(out Element element, out TextBlock text);
+        text.TransformOrigin.Value = new RelativePoint(10, 20, RelativeUnit.Absolute);
+        var animation = new KeyFrameAnimation<RelativePoint>();
+        animation.KeyFrames.Add(new KeyFrame<RelativePoint> { Value = { Value = new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative) } });
+        animation.KeyFrames.Add(new KeyFrame<RelativePoint>
+        {
+            KeyTime = { Value = MediaTime.FromSeconds(2) },
+            Value = { Value = new RelativePoint(0.75f, 1, RelativeUnit.Relative) }
+        });
+        text.TransformOrigin.SetKeyFrameAnimation(animation);
+        var components = (ComponentAnimation<RelativePoint, float>)ComponentAnimations.Separate(text.TransformOrigin);
+        var unitSource = components.UnitSource.Value;
+        var xAnimation = components.Components[0].GetKeyFrameAnimation()!;
+        var firstKey = xAnimation.KeyFrames[0];
+        using var session = new AgentToolkitTestSession(scene);
+        EditTools tools = session.CreateEditTools();
+
+        // Omitting UnitSource from a partial patch must retain the inherited schedule.
+        var update = tools.ApplyEdit(patch: PatchAnimation(new JsonObject { ["BaseValue"] = "100, 200" }), schemaVersion: SchemaVersion.Current);
+        Assert.That(update.IsSuccess, Is.True, update.Error?.Message);
+        Assert.That(components.UnitSource.Value, Is.SameAs(unitSource));
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)),
+            Is.EqualTo(new RelativePoint(0.25f, 0.5f, RelativeUnit.Relative)));
+
+        ToolResult<ApplyEditResponse> remove;
+        if (usePatch)
+        {
+            remove = tools.ApplyEdit(patch: PatchAnimation(new JsonObject { ["UnitSource"] = null }), schemaVersion: SchemaVersion.Current);
+        }
+        else
+        {
+            JsonObject desired = session.Documents.Read(session.Root);
+            desired["Elements"]![0]!["Objects"]![0]!["Animations"]![nameof(Drawable.TransformOrigin)]!.AsObject().Remove("UnitSource");
+            remove = tools.ApplyEdit(desired: desired, schemaVersion: SchemaVersion.Current);
+        }
+
+        Assert.That(remove.IsSuccess, Is.True, remove.Error?.Message);
+        Assert.Multiple(() =>
+        {
+            Assert.That(components.UnitSource.Value, Is.Null);
+            Assert.That(text.TransformOrigin.GetPropertyAnimation(), Is.SameAs(components));
+            Assert.That(components.Components[0].GetKeyFrameAnimation(), Is.SameAs(xAnimation));
+            Assert.That(xAnimation.KeyFrames[0], Is.SameAs(firstKey));
+            Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)),
+                Is.EqualTo(new RelativePoint(0.25f, 0.5f, RelativeUnit.Absolute)));
+        });
+        session.History.Undo();
+        Assert.That(components.UnitSource.Value, Is.SameAs(unitSource));
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)).Unit, Is.EqualTo(RelativeUnit.Relative));
+        session.History.Redo();
+        Assert.That(components.UnitSource.Value, Is.Null);
+        Assert.That(text.TransformOrigin.Evaluate(new CompositionContext(MediaTime.Zero)).Unit, Is.EqualTo(RelativeUnit.Absolute));
+
+        JsonObject PatchAnimation(JsonObject patch) => PatchTextObject(element, text, new JsonObject
+        {
+            ["Animations"] = new JsonObject { [nameof(Drawable.TransformOrigin)] = patch }
+        });
+    }
+
     [Test]
     public void Patch_creates_new_object_with_inline_keyframe_animation()
     {
