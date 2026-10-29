@@ -104,6 +104,53 @@ public class IndividualContinuationTests
         Assert.That(calls, Is.EqualTo(2));
     }
 
+    // The split follows the continuation into nested groups, keeping every earlier effect in its own node and order.
+    [TestCase(1)]
+    [TestCase(2)]
+    public void NestedEffectsBeforeAContinuationKeepTheirOwnNodes(int depth)
+    {
+        var log = new List<string>();
+        FilterEffect Logging(string name) => new EffectItemSuffixCallbackFilterEffect((context, _) =>
+            context.CustomEffect(name, (value, _) => log.Add(value)));
+
+        var group = new FilterEffectGroup();
+        group.Children.Add(PassThroughGraph());
+        group.Children.Add(Logging("inner"));
+        group.Children.Add(new RepeatingContinuationEffect(2));
+        group.Children.Add(Logging("inner-tail"));
+        for (int level = 0; level < depth; level++)
+        {
+            var outer = new FilterEffectGroup();
+            outer.Children.Add(Logging($"outer{level}"));
+            outer.Children.Add(group);
+            outer.Children.Add(Logging($"outer{level}-tail"));
+            group = outer;
+        }
+
+        RasterizeShape(group);
+        string[] expected = depth == 1
+            ? ["outer0", "inner", "inner-tail", "outer0-tail", "inner-tail", "outer0-tail"]
+            : ["outer1", "outer0", "inner",
+               "inner-tail", "outer0-tail", "outer1-tail", "inner-tail", "outer0-tail", "outer1-tail"];
+        Assert.That(log, Is.EqualTo(expected));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void NestedContinuationSuffixDeclaresTargetAccessOfItsEffects(bool tailAccessesTarget)
+    {
+        var inner = new FilterEffectGroup();
+        inner.Children.Add(new Blur());
+        inner.Children.Add(new RepeatingContinuationEffect(2));
+        var group = new FilterEffectGroup();
+        group.Children.Add(inner);
+        group.Children.Add(new EffectItemSuffixCallbackFilterEffect(static (_, _) => { },
+            declaresTargetAccess: tailAccessesTarget));
+        using var resource = (FilterEffectGroup.Resource)group.ToResource(CompositionContext.Default);
+        Assert.That(resource.NestedContinuationGroup, Is.Not.Null);
+        Assert.That(resource.ContinuationSuffixResource!.MayAccessTarget, Is.EqualTo(tailAccessesTarget));
+    }
+
     [TestCase(true, 1, 2)]
     [TestCase(false, 0, 0)]
     public void SplitGroupFollowsItsEnabledState(bool enabled, int expectedPrefixCalls, int expectedSuffixCalls)

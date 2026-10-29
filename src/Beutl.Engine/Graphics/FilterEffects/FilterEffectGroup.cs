@@ -25,7 +25,8 @@ public sealed partial class FilterEffectGroup : FilterEffect
         public override bool MayAccessTarget => Children.Any(static child => child.MayAccessTarget);
 
         /// <summary>
-        /// The children from the first continuation-controlling one onwards, when earlier children precede it.
+        /// The children from the first continuation-controlling one onwards, when earlier effects precede it, either
+        /// as earlier children or inside that child when it is a group.
         /// </summary>
         /// <remarks>
         /// The earlier children keep their own render nodes, such as a node graph effect that cannot be recorded
@@ -35,18 +36,34 @@ public sealed partial class FilterEffectGroup : FilterEffect
 
         internal int ContinuationStart => _continuationSuffix?.Start ?? 0;
 
+        /// <summary>The continuation-controlling child when it is a group that splits too.</summary>
+        /// <remarks>Its earlier children also precede the continuation, so they keep their own nodes as well.</remarks>
+        internal Resource? NestedContinuationGroup => _continuationSuffix?.Nested;
+
         protected override void ApplyTo(FilterEffectContext context)
         {
-            ApplyChildren(context, 0);
+            context.ApplyTransactional(() =>
+            {
+                foreach (FilterEffect.Resource item in Children)
+                {
+                    context.Apply(item);
+                }
+            });
         }
 
-        private void ApplyChildren(FilterEffectContext context, int start)
+        // A nested group that splits contributes only its suffix, since its earlier children have their own nodes.
+        private void ApplyFromContinuation(FilterEffectContext context)
         {
+            int start = ContinuationStart;
+            Resource? nested = NestedContinuationGroup;
             context.ApplyTransactional(() =>
             {
                 for (int i = start; i < Children.Count; i++)
                 {
-                    context.Apply(Children[i]);
+                    if (i == start && nested != null)
+                        nested.ApplyFromContinuation(context);
+                    else
+                        context.Apply(Children[i]);
                 }
             });
         }
@@ -54,7 +71,11 @@ public sealed partial class FilterEffectGroup : FilterEffect
         partial void PostReconcile(FilterEffectGroup obj, CompositionContext context)
         {
             int start = Children.FindIndex(static child => child.IsEnabled && child.ControlsContinuation);
-            if (start <= 0)
+            // Children reconcile first, so a nested group has already decided whether it splits.
+            Resource? nested = start >= 0 && Children[start] is Resource { _continuationSuffix: not null } group
+                ? group
+                : null;
+            if (start < 0 || (start == 0 && nested == null))
             {
                 _continuationSuffix?.Dispose();
                 _continuationSuffix = null;
@@ -62,7 +83,7 @@ public sealed partial class FilterEffectGroup : FilterEffect
             }
 
             _continuationSuffix ??= new ContinuationSuffix(this);
-            _continuationSuffix.Reconcile(obj, context, start);
+            _continuationSuffix.Reconcile(obj, context, start, nested);
         }
 
         partial void PostDispose(bool disposing)
@@ -78,6 +99,8 @@ public sealed partial class FilterEffectGroup : FilterEffect
 
             public int Start { get; private set; }
 
+            public Resource? Nested { get; private set; }
+
             public override bool ControlsContinuation => true;
 
             public override bool MayAccessTarget
@@ -86,27 +109,31 @@ public sealed partial class FilterEffectGroup : FilterEffect
                 {
                     for (int i = Start; i < owner.Children.Count; i++)
                     {
-                        if (owner.Children[i].MayAccessTarget) return true;
+                        FilterEffect.Resource applied = i == Start && Nested?._continuationSuffix is { } nested
+                            ? nested
+                            : owner.Children[i];
+                        if (applied.MayAccessTarget) return true;
                     }
 
                     return false;
                 }
             }
 
-            public void Reconcile(FilterEffectGroup obj, CompositionContext context, int start)
+            public void Reconcile(FilterEffectGroup obj, CompositionContext context, int start, Resource? nested)
             {
                 bool versionBumped = false;
                 Reconcile(obj, context, ref versionBumped);
-                if (!versionBumped && (Start != start || _ownerVersion != owner.Version))
+                if (!versionBumped && (Start != start || Nested != nested || _ownerVersion != owner.Version))
                     Version++;
 
                 Start = start;
+                Nested = nested;
                 _ownerVersion = owner.Version;
             }
 
             protected override void ApplyTo(FilterEffectContext context)
             {
-                owner.ApplyChildren(context, Start);
+                owner.ApplyFromContinuation(context);
             }
         }
     }
