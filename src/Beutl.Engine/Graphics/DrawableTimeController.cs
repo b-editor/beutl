@@ -129,13 +129,13 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
     public override void Render(GraphicsContext2D context, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        r.Target?.RequireOriginal().Render(context, r.Target);
+        r.Target?.Render(context);
     }
 
     protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
     {
         var r = (Resource)resource;
-        return r.Target?.RequireOriginal().MeasureInternal(availableSize, r.Target) ?? Size.Empty;
+        return r.Target?.Measure(availableSize) ?? Size.Empty;
     }
 
     protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
@@ -186,9 +186,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             }
 
             var originalContextTime = context.Time;
+            bool wasRemapped = context.IsTimeRemapped;
             try
             {
                 context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
+                context.IsTimeRemapped = true;
                 bool changed = false;
                 if (_flowTarget != null)
                     _flowTarget.Reconcile(context, ref _target, ref changed);
@@ -204,6 +206,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             finally
             {
                 context.Time = originalContextTime;
+                context.IsTimeRemapped = wasRemapped;
             }
         }
 

@@ -268,8 +268,22 @@ public static class ResourceClassEmitter
         }
 
         sb.Append(innerIndent).AppendLine($"    this.PostReconcile(({currentTypeDisplay})obj, context);");
+        if (!info.Symbol.IsAbstract && IsDrawable(info.Symbol))
+        {
+            // A concrete base's generated method also runs for derived resources. Only the final
+            // resource may sample its source, after derived PostReconcile has captured flow inputs.
+            sb.Append(innerIndent).AppendLine($"    if (GetType() == typeof({currentTypeDisplay}.Resource))");
+            sb.Append(innerIndent).AppendLine("        CompleteReconciliation(context);");
+        }
         sb.Append(innerIndent).AppendLine("}");
         sb.AppendLine();
+    }
+
+    private static bool IsDrawable(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current != null; current = current.BaseType)
+            if (current.ToDisplayString() == "Beutl.Graphics.Drawable") return true;
+        return false;
     }
 
     private static void AppendSeparatedReconciles(

@@ -286,7 +286,7 @@ public sealed partial class QueryTools
         using var node = new DrawableRenderNode(resource);
         using (var graphicsContext = new GraphicsContext2D(node, canvasSize, outputScale: 1f))
         {
-            drawable.Render(graphicsContext, resource);
+            resource.Render(graphicsContext);
         }
 
         using var renderer = new RenderNodeRenderer(

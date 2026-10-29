@@ -328,6 +328,41 @@ public sealed partial class FilterEffectContext : IDisposable
         _bounds = Rect.Invalid;
     }
 
+    /// <summary>Records a custom effect that owns the operations recorded after it in this chain.</summary>
+    /// <remarks>
+    /// The callback chooses whether and how often to execute the continuation, optionally per individual input.
+    /// The resource recording it must return true from <see cref="FilterEffect.Resource.ControlsContinuation"/>.
+    /// </remarks>
+    public void ContinuationEffect<T>(T data, Action<T, CustomFilterEffectContext, FilterEffectContinuation> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        CustomEffect((Data: data, Action: action),
+            static (state, context) => state.Action(state.Data, context, context.Continuation!),
+            CustomFilterEffectOptions.ControlsContinuation);
+    }
+
+    /// <summary>Records a custom effect that reads or replaces the composition target beneath it.</summary>
+    /// <remarks>
+    /// It runs as ordered target work, and only through the renderer. The resource recording it must return true
+    /// from <see cref="FilterEffect.Resource.MayAccessTarget"/>.
+    /// </remarks>
+    public void TargetEffect<T>(T data, Action<T, CustomFilterEffectContext, CompositionTargetAccess> action)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        CustomEffect((Data: data, Action: action),
+            static (state, context) => state.Action(state.Data, context, context.TargetAccess
+                ?? throw new InvalidOperationException("A composition-target effect runs only through the renderer.")),
+            CustomFilterEffectOptions.AccessesTarget);
+    }
+
+    internal void CustomEffect<T>(T data, Action<T, CustomFilterEffectContext> action,
+        CustomFilterEffectOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        AddItem(new FEItem_CustomEffect<T>(data, action, null) { Options = options });
+        _bounds = Rect.Invalid;
+    }
+
     public int CountItems()
     {
         return _items.Count + _renderTimeItems.Count;
@@ -345,7 +380,96 @@ public sealed partial class FilterEffectContext : IDisposable
     {
         ArgumentNullException.ThrowIfNull(effect);
         ArgumentNullException.ThrowIfNull(resource);
-        ApplyTransactional(() => effect.ApplyTo(this, resource));
+        int itemCount = _items.Count;
+        int renderTimeItemCount = _renderTimeItems.Count;
+        ApplyTransactional(() =>
+        {
+            effect.ApplyTo(this, resource);
+            ValidateDeclaredOptions(effect, resource,
+                RecordedOptions(_items.Span[itemCount..]) | RecordedOptions(_renderTimeItems.Span[renderTimeItemCount..]));
+        });
+    }
+
+    // Chains are split and target work is routed from the resource's declarations before anything is recorded,
+    // so a recording that needs more than its resource declared would run silently wrong.
+    private static void ValidateDeclaredOptions(FilterEffect effect, FilterEffect.Resource resource,
+        CustomFilterEffectOptions recorded)
+    {
+        if (recorded.HasFlag(CustomFilterEffectOptions.ControlsContinuation) && !resource.ControlsContinuation)
+        {
+            throw new InvalidOperationException(
+                $"{effect.GetType().Name} recorded a continuation effect, so its resource must return true from "
+                + $"{nameof(FilterEffect.Resource.ControlsContinuation)}.");
+        }
+
+        if (recorded.HasFlag(CustomFilterEffectOptions.AccessesTarget) && !resource.MayAccessTarget)
+        {
+            throw new InvalidOperationException(
+                $"{effect.GetType().Name} recorded a composition-target effect, so its resource must return true from "
+                + $"{nameof(FilterEffect.Resource.MayAccessTarget)}.");
+        }
+    }
+
+    private static CustomFilterEffectOptions RecordedOptions(ReadOnlySpan<IFEItem> items)
+    {
+        var options = CustomFilterEffectOptions.None;
+        foreach (IFEItem item in items)
+        {
+            if (item is IFEItem_Custom custom) options |= custom.Options;
+        }
+
+        return options;
+    }
+
+    /// <summary>Appends an effect, retaining its evaluation boundary for a preceding continuation.</summary>
+    /// <remarks>
+    /// Composite effects should use this method for their children. A continuation may select a different
+    /// clock per input; subsequent effects are then reconciled independently against the same scene snapshot.
+    /// </remarks>
+    public void Apply(FilterEffect.Resource resource)
+    {
+        ArgumentNullException.ThrowIfNull(resource);
+        ThrowIfDisposed();
+        if (HasContinuation(_items.Span) || HasContinuation(_renderTimeItems.Span))
+        {
+            // A recording never needs more than its resource declares, so the declaration covers every clock.
+            var options = CustomFilterEffectOptions.ControlsContinuation;
+            if (resource.MayAccessTarget)
+                options |= CustomFilterEffectOptions.AccessesTarget;
+            CustomEffect(resource, ApplyContinuationResource, options);
+        }
+        else if (resource.IsEnabled)
+            ApplyTransactional(resource.RequireOriginal(), resource);
+    }
+
+    private static bool HasContinuation(ReadOnlySpan<IFEItem> items)
+    {
+        foreach (IFEItem item in items)
+            if (item is IFEItem_Custom custom && custom.Options.HasFlag(CustomFilterEffectOptions.ControlsContinuation))
+                return true;
+        return false;
+    }
+
+    private static void ApplyContinuationResource(FilterEffect.Resource source, CustomFilterEffectContext execution)
+    {
+        FilterEffect.Resource? evaluated = null;
+        try
+        {
+            if (execution.Instance?.Time is { } time
+                && source.EvaluationContext is { } evaluation && time != evaluation.Time)
+                evaluated = source.RequireOriginal().ToResource(evaluation.WithTime(time));
+            FilterEffect.Resource current = evaluated ?? source;
+            using var context = new FilterEffectContext(
+                execution.Targets.CalculateBounds(), execution.OutputScale, execution.WorkingScale);
+            if (current.IsEnabled)
+                context.ApplyTransactional(current.RequireOriginal(), current);
+            execution.Continuation?.AppendTo(context);
+            using var builder = new SKImageFilterBuilder();
+            using var executor = execution.CreateExecutor(execution.Targets, builder);
+            executor.Apply(context);
+            executor.Flush();
+        }
+        finally { evaluated?.Dispose(); }
     }
 
     internal void ApplyTransactional(Action apply)
@@ -386,10 +510,16 @@ public sealed partial class FilterEffectContext : IDisposable
     {
         ArgumentNullException.ThrowIfNull(items);
         var context = new FilterEffectContext(bounds, outputScale, workingScale);
+        context.AppendItems(items);
+        return context;
+    }
+
+    internal void AppendItems(IEnumerable<IFEItem> items)
+    {
         bool hasDeferredBounds = false;
         foreach (IFEItem item in items)
         {
-            context.AddItem(item);
+            AddItem(item);
             if (item is IFEItem_DeferredBounds)
             {
                 // A deferred-bound item resolves its bounds at execution time; authoring it
@@ -398,15 +528,13 @@ public sealed partial class FilterEffectContext : IDisposable
                 continue;
             }
 
-            if (!context._bounds.IsInvalid)
-                context._bounds = item.TransformBounds(context._bounds);
+            if (!_bounds.IsInvalid)
+                _bounds = item.TransformBounds(_bounds);
         }
 
         // The segment output is only known after the deferred item resolves at execution time.
         if (hasDeferredBounds)
-            context._bounds = Rect.Invalid;
-
-        return context;
+            _bounds = Rect.Invalid;
     }
 
     public void Dispose()

@@ -178,6 +178,8 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         return false;
     }
 
+    private static readonly RenderResourceSlot<FilterEffectContext> s_targetEffectSlot = new();
+
     private static IReadOnlyList<RenderFragmentHandle> RecordEffectItems(
         RenderNodeContext context,
         IReadOnlyList<IFEItem> items,
@@ -186,6 +188,25 @@ public class FilterEffectRenderNode(FilterEffect.Resource filterEffect) : Contai
         float outputScale,
         float maxWorkingScale)
     {
+        // An effect accessing the composition target is ordered target work. Keep its suffix together,
+        // including continuation-owned branches, so none of it runs outside the declared access boundary.
+        if (items.OfType<IFEItem_Custom>().Any(static item =>
+                item.Options.HasFlag(CustomFilterEffectOptions.AccessesTarget)))
+        {
+            context.DisableRenderCache();
+            Rect bounds = CalculateRecordedBoundsHint(context, effectInputs);
+            var program = FilterEffectContext.CreateEffectItemSegment(bounds, outputScale, outputScale, items);
+            RenderResource<FilterEffectContext> resource = context.Own(program);
+            return [context.TargetCommand(effectInputs, TargetCommandDescription.Create(
+                (Slot: s_targetEffectSlot, Policy: resolvedWorkingScalePolicy),
+                static (session, state) => session.UseResource(state.Slot,
+                    program => session.ExecuteFilterEffects(program, state.Policy)),
+                TargetRegion.Full,
+                bounds.IsInvalid ? Rect.Empty : bounds,
+                bounds.IsInvalid || bounds.IsEmpty ? RenderHitTestContract.None : RenderHitTestContract.OutputBounds,
+                resources: [s_targetEffectSlot.Bind(resource)]))];
+        }
+
         IReadOnlyList<RenderFragmentHandle> current = effectInputs;
         FilterEffectWorkingScalePolicy? pendingWorkingScalePolicy = resolvedWorkingScalePolicy;
         var effectItems = new List<IFEItem>();
