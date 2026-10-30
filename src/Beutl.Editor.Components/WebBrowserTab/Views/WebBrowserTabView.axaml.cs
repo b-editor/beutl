@@ -173,6 +173,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _adBlockSession = new BrowserAdBlockSession(webView, _viewModel.Profile,
             downloadInitialMedia ? WebBrowserTabViewModel.BlankPage : initialUri, ShowToolStatus);
         webView.EnvironmentRequested += BrowserWebViewEnvironment.Configure;
+        webView.AdapterCreated += BrowserWebViewEnvironment.PersistCookies;
         webView.AdapterCreated += OnAdapterCreated;
         webView.AdapterDestroyed += OnAdapterDestroyed;
         webView.NavigationStarted += OnNavigationStarted;
@@ -403,6 +404,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         }
 
         _webView.EnvironmentRequested -= BrowserWebViewEnvironment.Configure;
+        _webView.AdapterCreated -= BrowserWebViewEnvironment.PersistCookies;
         _webView.AdapterCreated -= OnAdapterCreated;
         _webView.AdapterDestroyed -= OnAdapterDestroyed;
         _nativeDownloadHandler?.Dispose();

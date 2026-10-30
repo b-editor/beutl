@@ -27,6 +27,7 @@ public sealed partial class BrowserSettingsPage : UserControl
         // NativeWebView initializes on visual attachment, independently of IsVisible.
         _cookieWebView = new NativeWebView { Source = WebBrowserTabViewModel.BlankPage, IsVisible = false };
         _cookieWebView.EnvironmentRequested += BrowserWebViewEnvironment.Configure;
+        _cookieWebView.AdapterCreated += BrowserWebViewEnvironment.PersistCookies;
         ((Grid)Content!).Children.Add(_cookieWebView);
     }
 

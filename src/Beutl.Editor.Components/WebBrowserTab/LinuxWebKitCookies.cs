@@ -20,6 +20,21 @@ internal static partial class LinuxWebKitCookies
         _ => Task.FromResult<IReadOnlyList<Cookie>>([])
     };
 
+    // WebKit keeps cookies in memory unless the application names a store, so a restart would sign the user out.
+    internal static Task UsePersistentStorageAsync(IPlatformHandle? handle, string path) => handle switch
+    {
+        IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => UsePersistentStorageAsync(Api.Gtk.Value, gtk.WebKitWebView, path),
+        ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => UsePersistentStorageAsync(Api.Wpe.Value, wpe.WebKitWebView, path),
+        _ => Task.CompletedTask
+    };
+
+    private static async Task UsePersistentStorageAsync(Api api, nint webView, string path)
+    {
+        ObjectRef(webView);
+        try { await OnGlibAsync(() => api.UsePersistentStorage(webView, path)); }
+        finally { await OnGlibAsync(() => ObjectUnref(webView)); }
+    }
+
     private static async Task<IReadOnlyList<Cookie>> GetAllAsync(Api api, nint webView)
     {
         // webkit_cookie_manager_get_all_cookies exists since WebKit 2.42.
@@ -38,7 +53,10 @@ internal static partial class LinuxWebKitCookies
         internal static readonly Lazy<Api> Gtk = new(() => NativeLibrary.TryLoad("libwebkit2gtk-4.1.so.0", out nint webkit)
             ? new(webkit, "libsoup-3.0.so.0", false) : new(LoadLibrary(GtkLibraries), "libsoup-2.4.so.1", false));
         internal static readonly Lazy<Api> Wpe = new(() => new(LoadLibrary(WpeLibraries), "libsoup-3.0.so.0", true));
+        // Only touched on the GLib thread. Naming the store again would drop the session cookies kept in memory.
+        private static readonly HashSet<nint> s_persistentManagers = [];
         private readonly delegate* unmanaged[Cdecl]<nint, nint> _getStore, _getCookieManager;
+        private readonly delegate* unmanaged[Cdecl]<nint, nint, int, void> _setPersistentStorage;
         private readonly delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void> _getAllCookies;
         private readonly delegate* unmanaged[Cdecl]<nint, nint, nint*, nint> _getAllCookiesFinish;
         private readonly delegate* unmanaged[Cdecl]<nint, nint> _getName, _getValue, _getDomain, _getPath;
@@ -53,6 +71,7 @@ internal static partial class LinuxWebKitCookies
                 wpe ? "webkit_web_view_get_network_session" : "webkit_web_view_get_website_data_manager");
             _getCookieManager = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit,
                 wpe ? "webkit_network_session_get_cookie_manager" : "webkit_website_data_manager_get_cookie_manager");
+            _setPersistentStorage = (delegate* unmanaged[Cdecl]<nint, nint, int, void>)NativeLibrary.GetExport(webkit, "webkit_cookie_manager_set_persistent_storage");
             if (NativeLibrary.TryGetExport(webkit, "webkit_cookie_manager_get_all_cookies", out nint getAll))
             {
                 _getAllCookies = (delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)getAll;
@@ -68,6 +87,15 @@ internal static partial class LinuxWebKitCookies
         }
 
         internal bool CanListCookies => _getAllCookies != null;
+
+        internal void UsePersistentStorage(nint webView, string path)
+        {
+            nint manager = _getCookieManager(_getStore(webView));
+            if (!s_persistentManagers.Add(manager)) return;
+            nint text = Marshal.StringToCoTaskMemUTF8(path);
+            try { _setPersistentStorage(manager, text, 1 /* WEBKIT_COOKIE_PERSISTENT_STORAGE_SQLITE */); }
+            finally { Marshal.FreeCoTaskMem(text); }
+        }
 
         internal void BeginGetAllCookies(nint webView, TaskCompletionSource<IReadOnlyList<Cookie>> completion)
         {

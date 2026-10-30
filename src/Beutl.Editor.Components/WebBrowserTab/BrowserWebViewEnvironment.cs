@@ -39,6 +39,28 @@ internal static class BrowserWebViewEnvironment
         }
     }
 
+    // WebView2 keeps cookies in its profile folder, but WebKitGTK and WPE keep them in memory unless the
+    // application names a store, so restarting Beutl would sign the user out of every site.
+    internal static void PersistCookies(object? sender, WebViewAdapterEventArgs e)
+    {
+        if (OperatingSystem.IsLinux() && e.TryGetPlatformHandle() is { } handle) _ = PersistCookiesAsync(handle);
+    }
+
+    private static async Task PersistCookiesAsync(IPlatformHandle handle)
+    {
+        string path = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "WebKit", "cookies.sqlite");
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            await LinuxWebKitCookies.UsePersistentStorageAsync(handle, path);
+        }
+        catch (Exception ex)
+        {
+            // Cookies then last until Beutl exits, as they did before.
+            Log.CreateLogger(typeof(BrowserWebViewEnvironment)).LogWarning(ex, "Could not keep WebKit cookies in {Path}.", path);
+        }
+    }
+
     // Earlier versions left the profile in WebView2's default folder; moving it keeps the user's sign-ins.
     internal static string PrepareWebView2UserDataFolder(string folder, string fallbackFolder, string? processPath,
         Action<string, string>? moveDirectory = null)
