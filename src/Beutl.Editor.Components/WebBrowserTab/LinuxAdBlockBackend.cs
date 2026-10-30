@@ -2,8 +2,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-using static Beutl.Editor.Components.WebBrowserTab.LinuxWebKit;
-
 namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal sealed partial class LinuxAdBlockBackend : IBrowserAdBlockBackend
@@ -100,10 +98,31 @@ internal sealed partial class LinuxAdBlockBackend : IBrowserAdBlockBackend
 
     private sealed record Compilation(Api Api, nint Manager, nint Store, string Identifier, TaskCompletionSource<IBrowserAdBlockBackend> Completion);
 
+    private static unsafe Task OnGlibAsync(Action action)
+    {
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var state = GCHandle.Alloc((action, completion));
+        // g_main_context_invoke may run immediately on the calling thread. An idle source
+        // always dispatches on the context used by Avalonia's GTK/WPE event integration.
+        IdleAdd(0, (nint)(delegate* unmanaged[Cdecl]<nint, int>)&RunIdle, GCHandle.ToIntPtr(state), 0);
+        return completion.Task;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static int RunIdle(nint data)
+    {
+        var handle = GCHandle.FromIntPtr(data);
+        var (action, completion) = ((Action, TaskCompletionSource))handle.Target!;
+        try { action(); completion.TrySetResult(); }
+        catch (Exception ex) { completion.TrySetException(ex); }
+        finally { handle.Free(); }
+        return 0;
+    }
+
     private sealed unsafe class Api
     {
-        internal static readonly Lazy<Api> Gtk = new(() => new(GtkLibraries));
-        internal static readonly Lazy<Api> Wpe = new(() => new(WpeLibraries));
+        internal static readonly Lazy<Api> Gtk = new(() => new(["libwebkit2gtk-4.1.so.0", "libwebkit2gtk-4.0.so.37"]));
+        internal static readonly Lazy<Api> Wpe = new(() => new(["libWPEWebKit-2.0.so.1"]));
         private readonly nint _library;
         private readonly delegate* unmanaged[Cdecl]<nint, nint> _getManager;
         private readonly delegate* unmanaged[Cdecl]<nint, nint, void> _addFilter, _removeFilter;
@@ -115,7 +134,9 @@ internal sealed partial class LinuxAdBlockBackend : IBrowserAdBlockBackend
 
         private Api(string[] libraries)
         {
-            _library = LoadLibrary(libraries);
+            foreach (string library in libraries)
+                if (NativeLibrary.TryLoad(library, out _library)) break;
+            if (_library == 0) throw new DllNotFoundException("WebKit is not available.");
             _getManager = (delegate* unmanaged[Cdecl]<nint, nint>)Export("webkit_web_view_get_user_content_manager");
             _addFilter = (delegate* unmanaged[Cdecl]<nint, nint, void>)Export("webkit_user_content_manager_add_filter");
             _removeFilter = (delegate* unmanaged[Cdecl]<nint, nint, void>)Export("webkit_user_content_manager_remove_filter");
@@ -158,6 +179,10 @@ internal sealed partial class LinuxAdBlockBackend : IBrowserAdBlockBackend
         }
     }
 
+    [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_object_ref")] private static partial nint ObjectRef(nint value);
+    [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_object_unref")] private static partial void ObjectUnref(nint value);
     [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_bytes_new")] private static partial nint BytesNew(nint data, nuint size);
     [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_bytes_unref")] private static partial void BytesUnref(nint value);
+    [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_error_free")] private static partial void ErrorFree(nint value);
+    [LibraryImport("libglib-2.0.so.0", EntryPoint = "g_idle_add_full")] private static partial uint IdleAdd(int priority, nint callback, nint data, nint destroy);
 }

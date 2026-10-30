@@ -420,25 +420,14 @@ internal partial class WebBrowserTabView
             if (options == null || cancellation.IsCancellationRequested) return;
             ShowDownloadRunning(uri);
             Progress<(long Received, long? Total)> progress = CreateDownloadProgress(cancellation);
-            string? file = null;
-            // An uncertain page origin must not lend the destination its cookies, and WebKit always sends them.
-            bool originUncertain = referrer != null && !BrowserMediaDownload.IsHttpUri(referrer);
-            if (!originUncertain)
-                source ??= LinuxBrowserDownloadSource.TryCreate(initiatingWebView?.TryGetPlatformHandle(), uri, suggestedName);
+            string file;
             if (source != null)
             {
-                try
-                {
-                    file = await source.SaveAsync(options.Directory, progress, cancellation.Token);
-                }
-                catch (LinuxBrowserDownloadSource.ResponseRejectedException)
-                {
-                    // Retry with the page's referrer, which hotlink protection requires and WebKit cannot send.
-                }
+                file = await source.SaveAsync(options.Directory, progress, cancellation.Token);
             }
-            if (file == null)
+            else
             {
-                IReadOnlyList<Cookie> cookies = originUncertain
+                IReadOnlyList<Cookie> cookies = referrer != null && !BrowserMediaDownload.IsHttpUri(referrer)
                     ? [] : await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
                 cancellation.Token.ThrowIfCancellationRequested();
                 file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy);
