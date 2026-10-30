@@ -217,13 +217,17 @@ public static partial class ProxySourceEnumerator
 
                 case SceneDrawable sceneDrawable
                     when ResolveExpressionValue<Scene>(sceneDrawable, sceneDrawable.ReferencedScene, walkContext: walkContext) is { } referencedScene:
-                    // A SceneDrawable renders the referenced scene's graphics over the element-local window, evaluated
-                    // from its own window start, so narrow to Graphics and pass the window in referenced-scene time.
-                    TimeRange? graphicsWindow = localRange?.AddStart(referencedScene.Start.Value);
+                    // Match SceneDrawable's offset into the referenced scene for both the window and
+                    // the output frame grid. A runtime offset needs the full walk, not its stored value.
+                    MediaTime? graphicsShift = !sceneDrawable.OffsetPosition.HasExpression
+                        && sceneDrawable.OffsetPosition.GetKeyFrameAnimation() is null
+                        && walkContext.ConnectedNodeInputs?.Contains(sceneDrawable.OffsetPosition) != true
+                            ? referencedScene.Start.Value + sceneDrawable.OffsetPosition.Value : null;
+                    TimeRange? graphicsWindow = graphicsShift is { } shift ? localRange?.AddStart(shift) : null;
                     foreach (IFileSource source in EnumerateReferencedSceneSources(
                         referencedScene, walkContext.VisitedScenes, skipDisabledElements, CompositionTarget.Graphics,
                         graphicsWindow, graphicsWindow, walkContext.FrameRate,
-                        walkContext.FrameOrigin - sceneDrawable.Start + referencedScene.Start.Value))
+                        walkContext.FrameOrigin - sceneDrawable.Start + graphicsShift))
                         yield return source;
 
                     break;

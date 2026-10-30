@@ -1,5 +1,6 @@
 ﻿using Beutl.Animation;
 using Beutl.Audio;
+using Beutl.Composition;
 using Beutl.Editor;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
@@ -328,20 +329,25 @@ public sealed class ExportSourceValidatorTests
         Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(time)), Is.Empty);
     }
 
-    [TestCase(false)]
-    [TestCase(true)]
-    public void MattePortalCount_UsesTheExportFrameGridAcrossClippedAndReferencedWindows(bool nested)
+    [TestCase(false, 0)]
+    [TestCase(true, 0)]
+    [TestCase(true, 0.125)]
+    public void MattePortalCount_UsesTheExportFrameGridAcrossClippedAndReferencedWindows(bool nested, double offset)
     {
         var (scene, portal, path) = CreateMattePortalScene();
         double start = nested ? 3 : 1;
         scene.Start.Value = MediaTime.FromSeconds(start);
-        foreach (Element element in scene.Children) element.Start.Value = MediaTime.FromSeconds(start + 0.01);
+        foreach (Element element in scene.Children) element.Start.Value = MediaTime.FromSeconds(start + offset + 0.01);
         portal.Count.Expression = new StringExpression<int>(nested
             ? "Time >= 0.10 && Time < 0.20 ? 1 : 0" : "Time >= 0.20 && Time < 0.30 ? 1 : 0");
-        scene.Children[2].Start.Value = MediaTime.FromSeconds(start + (nested ? 0.15 : 0.25));
+        scene.Children[2].Start.Value = MediaTime.FromSeconds(start + offset + (nested ? 0.15 : 0.25));
         scene.Children[2].Length.Value = MediaTime.FromSeconds(0.01);
         Scene root = nested ? EmbedScene(scene) : scene;
-        if (nested) root.Children[0].Start.Value = MediaTime.FromSeconds(0.1);
+        if (nested)
+        {
+            root.Children[0].Start.Value = MediaTime.FromSeconds(0.1);
+            ((SceneDrawable)root.Children[0].Objects[0]).OffsetPosition.Value = MediaTime.FromSeconds(offset);
+        }
         TimeRange range = TimeRange.FromSeconds(nested ? 0 : 1, 1);
 
         Assert.That(ExportSourceValidator.CollectRenderableSources(root, range, true, false, new Rational(4, 1)),
@@ -353,7 +359,7 @@ public sealed class ExportSourceValidatorTests
         Assert.That(ExportSourceValidator.CollectRenderableSources(root, MediaTime.FromSeconds(nested ? 0.5 : 1.5)), Is.Empty);
 
         portal.Count.Expression = new StringExpression<int>("1");
-        scene.Children[2].Start.Value = MediaTime.FromSeconds(start + (nested ? 0.18 : 0.30));
+        scene.Children[2].Start.Value = MediaTime.FromSeconds(start + offset + (nested ? 0.18 : 0.30));
         Assert.That(ExportSourceValidator.CollectRenderableSources(root, range, true, false, new Rational(4, 1)), Is.Empty,
             "a missing input active only between output frames is unused even when successive counts are equal");
     }
@@ -1313,6 +1319,50 @@ public sealed class ExportSourceValidatorTests
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(MediaTime.Zero, MediaTime.FromSeconds(5))));
 
         Assert.That(missing, Is.Empty);
+    }
+
+    [TestCase(-2, false, false)]
+    [TestCase(-2, true, false)]
+    [TestCase(0, false, false)]
+    [TestCase(0, true, false)]
+    [TestCase(2, false, false)]
+    [TestCase(2, true, false)]
+    [TestCase(2, true, true)]
+    public void SceneDrawableOffset_SelectsTheRenderedMediaWindow(int offset, bool missingActive, bool expression)
+    {
+        var referenced = new Scene { Start = { Value = MediaTime.FromSeconds(5) }, Duration = { Value = MediaTime.FromSeconds(10) } };
+        var paths = new Dictionary<int, string>();
+        foreach (int position in new[] { -2, 0, 2 })
+        {
+            string path = Path.Combine(_root, $"at-{position}.mov");
+            paths.Add(position, path);
+            Element child = CreateVideoElement(_root, path);
+            child.Start.Value = referenced.Start.Value + MediaTime.FromSeconds(position);
+            referenced.Children.Add(child);
+        }
+        if (!missingActive) File.WriteAllBytes(paths[offset], [1]);
+        var drawable = new SceneDrawable { OffsetPosition = { Value = MediaTime.FromSeconds(offset) } };
+        if (expression) drawable.OffsetPosition.Expression = Expression.Create<MediaTime>("TimeSpan.FromSeconds(2)");
+        var root = new Scene();
+        Element element = ElementWith(_root, drawable, MediaTime.FromSeconds(10));
+        root.Children.Add(element);
+        drawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(root, referenced);
+        string[] expected = expression ? paths.Values.ToArray() : [paths[offset]];
+
+        foreach (MediaTime duration in new[] { MediaTime.Zero, MediaTime.FromSeconds(1) })
+        {
+            var window = new TimeRange(element.Start.Value, duration);
+            var sources = ExportSourceValidator.CollectRenderableSources(root, window, true, false);
+            Assert.That(sources, Is.EquivalentTo(expected));
+            Assert.That(ExportSourceValidator.GetMissingPaths(sources),
+                Is.EquivalentTo(missingActive ? expected : Array.Empty<string>()));
+            Assert.That(ProxySourceEnumerator.EnumerateFileSources(element, skipDisabledElements: true,
+                renderTarget: CompositionTarget.Graphics, localRange: window.SubtractStart(element.Start.Value), sceneWindow: window)
+                .Select(source => source.Uri.LocalPath), Is.EquivalentTo(expected));
+        }
+        // The broad proxy scan still includes all authored sources when there is no render window.
+        Assert.That(ProxySourceEnumerator.EnumerateVideoSources(element).Select(source => source.Uri.LocalPath),
+            Is.EquivalentTo(paths.Values));
     }
 
     // A SceneSound with the identity audio map (OffsetPosition 0, Speed 100, unanimated) samples the
