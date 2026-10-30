@@ -88,7 +88,7 @@ public partial class EditViewModel
                 _clipboardGateway,
                 (IElementDuplicateService)GetService(typeof(IElementDuplicateService))!,
                 static () => ElementAccentColorGenerator.GenerateColor(typeof(Beutl.Graphics.SourceImage).FullName!),
-                _elementAdder)))
+                _elementAdder), _autoSaveCancellation.Token))
         .AddOwned<IElementStructureService>(() => new ElementStructureService(HistoryManager))
         .AddOwned<IElementAttributeService>(() => new ElementAttributeService(HistoryManager))
         .AddOwned<ITransitionEditorService>(() => new Beutl.Editor.Components.TransitionTab.TransitionEditorService(this))

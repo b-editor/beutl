@@ -34,18 +34,37 @@ internal static class SilenceWaveform
         // references and sound groups without maintaining a second audio-dependency walker.
         bool canCopy = true;
         var timing = new Dictionary<Guid, (TimeRange Range, int Layer)>();
-        CoreSerializer.Visit(scene, visit =>
+        var inspected = new HashSet<Scene>();
+        var pending = new Queue<Scene>();
+        pending.Enqueue(scene);
+        while (pending.TryDequeue(out Scene? current))
         {
-            if (visit.Value is EngineObject obj) timing[obj.Id.Value] = (obj.TimeRange.Value, obj.ZIndex.Value);
-            if (visit.Value is Scene referenced)
+            if (inspected.Contains(current)) continue;
+            CoreSerializer.Visit(current, visit =>
             {
-                observeScene?.Invoke(referenced);
-                for (var parent = visit.Parent; parent != null; parent = parent.Parent)
-                    if (ReferenceEquals(parent.Value, referenced)) canCopy = false;
-            }
-            if (visit.Value is MediaSource { HasUri: false } or IFallback) canCopy = false;
-            return false;
-        });
+                if (visit.Value is EngineObject obj)
+                {
+                    timing[obj.Id.Value] = (obj.TimeRange.Value, obj.ZIndex.Value);
+                    // Expressions can read outside the saved scene graph. Keep their live lookup
+                    // context and compose one window at a time on its owner, as for custom objects.
+                    if (obj.Properties.OfType<IExpressionProperty>().Any(p => p.HasExpression))
+                    {
+                        canCopy = false;
+                    }
+                }
+                if (visit.Value is Scene referenced)
+                {
+                    observeScene?.Invoke(referenced);
+                    if (inspected.Add(referenced))
+                        foreach (Scene target in SceneSnapshot.EnumerateReferenceTargets(referenced).OfType<Scene>())
+                            if (!inspected.Contains(target)) pending.Enqueue(target);
+                    for (var parent = visit.Parent; parent != null; parent = parent.Parent)
+                        if (ReferenceEquals(parent.Value, referenced)) canCopy = false;
+                }
+                if (visit.Value is MediaSource { HasUri: false } or IFallback) canCopy = false;
+                return false;
+            });
+        }
         JsonObject? json = null;
         if (canCopy)
         {

@@ -201,6 +201,39 @@ public sealed class EditorServiceTests
         Assert.That(mutation, Is.Not.Null);
     }
 
+    [AvaloniaTest]
+    [TestCase(false, false, false)]
+    [TestCase(true, false, false)]
+    [TestCase(false, true, false)]
+    [TestCase(true, true, false)]
+    [TestCase(false, true, true)]
+    [TestCase(true, true, true)]
+    public async Task Clipboard_edits_wait_for_file_writes_and_stop_when_the_editor_closes(bool cut, bool close, bool releaseBeforeClose)
+    {
+        var editorService = new EditorService(new ExtensionProvider());
+        var inner = new BlockingClipboardService(new TaskCompletionSource(), Task.CompletedTask);
+        using var lifetime = new CancellationTokenSource();
+        var clipboard = new ProjectFileWriteClipboardService(editorService, inner, lifetime.Token);
+        var scene = new Scene { Uri = new Uri("file:///project/main.scene") };
+        Task edit;
+        using (await editorService.BeginProjectFileWriteAsync(CancellationToken.None))
+        {
+            edit = cut ? clipboard.CutAsync(scene, []) : clipboard.PasteAsync(scene, MediaTime.Zero, 0);
+            Assert.That(edit.IsCompleted, Is.False);
+            Assert.That(inner.CutCalls + inner.PasteCalls, Is.Zero);
+            if (close && !releaseBeforeClose)
+            {
+                lifetime.Cancel();
+                await edit.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+        }
+        if (close && releaseBeforeClose) lifetime.Cancel();
+        await edit.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.That(inner.CutCalls + inner.PasteCalls, Is.EqualTo(close ? 0 : 1));
+        using IDisposable? mutation = editorService.TryBeginWorktreeMutation();
+        Assert.That(mutation, Is.Not.Null);
+    }
+
     [Test]
     public async Task Clipboard_paste_is_rejected_while_the_worktree_is_mutating()
     {

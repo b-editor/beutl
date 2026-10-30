@@ -25,6 +25,7 @@ using Beutl.Editor.Observers;
 using Beutl.Editor.Operations;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media;
@@ -41,6 +42,27 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SilenceSplitTabTests
 {
+    [AvaloniaTest]
+    public async Task GroupedSceneExpression_CanBeAnalyzedAndObservesTheReferencedScene()
+    {
+        var (project, scene, editor) = await TestShell.OpenNewSceneAsync("silence-expression");
+        var referenced = new Scene { Duration = { Value = MediaTime.FromSeconds(2) } };
+        project.Items.Add(referenced);
+        var sound = new SceneSound();
+        sound.ReferencedScene.Expression = new ReferenceExpression<Scene?>(referenced.Id.Value);
+        var element = new Element { Length = { Value = referenced.Duration.Value } };
+        element.Objects.Add(new SoundGroup { Children = { new SoundGroup { Children = { sound } } } });
+        scene.Children.Add(element);
+        using var model = new SilenceSplitViewModel(scene, element, editor.HistoryManager);
+
+        Assert.That(SilenceSplitViewModel.CanAnalyze(scene, element), Is.True);
+        await model.AnalyzeAsync();
+        Assert.That(model.CanApply.Value, Is.True, model.Status.Value);
+        referenced.Children.Add(new Element { Length = { Value = MediaTime.FromSeconds(1) } });
+        Assert.That(model.CanApply.Value, Is.False);
+        Assert.That(model.Status.Value, Is.EqualTo(Strings.SilenceSplit_Stale));
+    }
+
     [AvaloniaTest]
     [TestCase(false)]
     [TestCase(true)]
@@ -416,13 +438,17 @@ public class SilenceSplitTabTests
     }
 
     [AvaloniaTest]
-    public async Task ElementMenu_OpensTheClickedAudioAndReusesTheHiddenToolTab()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task ElementMenu_OpensTheClickedAudioAndReusesTheHiddenToolTab(bool grouped)
     {
+        Sound Audio() => grouped ? new SoundGroup { Children = { new SoundGroup { Children = { CreateSound() } } } } : CreateSound();
         var (editor, timeline) = await TimelineTestHost.OpenTimelineAsync("silence-menu",
         [
-            new(MediaTime.Zero, MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(CreateSound)),
-            new(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(CreateSound)),
-            new(MediaTime.FromSeconds(6), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() => new Beutl.Graphics.Shapes.RectShape()))
+            new(MediaTime.Zero, MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(Audio)),
+            new(MediaTime.FromSeconds(3), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(Audio)),
+            new(MediaTime.FromSeconds(6), MediaTime.FromSeconds(2), 0, new ElementSource.EngineObject(() =>
+                new SceneDrawable { ReferencedScene = { Value = new Scene { Children = { new Element { Objects = { CreateSound() } } } } } }))
         ]);
         var view = new TimelineTabView { DataContext = timeline };
         var window = new Window { Content = view, Width = 1000, Height = 420 };
@@ -455,6 +481,7 @@ public class SilenceSplitTabTests
                 HeadlessTestHelpers.Render(3);
                 var item = element.FindControl<FAMenuFlyoutItem>("autoSplitBySilence")!;
                 Assert.That(item.IsEnabled, Is.EqualTo(enabled));
+                HeadlessCapture.SaveIfRequested(element, nameof(SilenceSplitTabTests), $"audio-menu-{grouped}-{enabled}");
                 if (click) item.RaiseEvent(new RoutedEventArgs(FAMenuFlyoutItem.ClickEvent));
                 flyout.Hide();
             }

@@ -118,6 +118,23 @@ public partial class EditorService
         return null;
     }
 
+    // Clipboard edits can wait behind auto-save, but must not enter a replacement worktree.
+    internal async ValueTask<IProjectFileWriteLease?> TryBeginProjectFileWriteAsync(CancellationToken cancellationToken)
+    {
+        if (IsWorktreeMutationActive) return null;
+        await _projectFileWriteGate.WaitAsync(cancellationToken);
+        lock (_workspaceOperationSync)
+        {
+            if (!_worktreeMutationActive && !cancellationToken.IsCancellationRequested)
+            {
+                _activeProjectFileWrites++;
+                return new WorkspaceOperationLease(this, WorkspaceOperationKind.ProjectFileWrite);
+            }
+        }
+        _projectFileWriteGate.Release();
+        return null;
+    }
+
     /// <summary>
     /// Reserves the workspace for a worktree mutation, optionally taking over a finished
     /// project-file write so the workspace is never left unreserved between the two.

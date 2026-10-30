@@ -64,7 +64,15 @@ public sealed class SilenceSplitViewModel : IDisposable
 
     public static bool CanAnalyze(Scene scene, Element element)
         => scene.Children.Contains(element) && !scene.IsElementLocked(element) && element.Length.Value > MediaTime.Zero
-           && element.Objects.Any(o => o is SourceSound { Source.Value: not null } or SceneSound { ReferencedScene.Value: not null });
+           && element.Objects.Any(HasAudioSource);
+
+    private static bool HasAudioSource(EngineObject obj) => obj switch
+    {
+        SourceSound sound => sound.Source.Value != null || sound.Source.HasExpression,
+        SceneSound sound => sound.ReferencedScene.Value != null || sound.ReferencedScene.HasExpression,
+        SoundGroup group => group.Children.Any(HasAudioSource),
+        _ => false
+    };
 
     public async Task AnalyzeAsync()
     {

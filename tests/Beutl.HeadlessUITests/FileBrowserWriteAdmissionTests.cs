@@ -429,6 +429,7 @@ public sealed class FileBrowserWriteAdmissionTests
     private static async Task<EditViewModel> OpenSceneWithoutPendingWritesAsync(string name)
     {
         EditViewModel editor = (await TestShell.OpenNewSceneAsync(name, 320, 180)).Editor;
+        await TestShell.WaitForProjectWritesAsync();
         await editor.WaitForMediaFingerprintsAsync();
         return editor;
     }

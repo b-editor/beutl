@@ -1354,6 +1354,8 @@ Beutl.Utilities
   id: Beutl.Editor.Components.ProxiesTab.ProxiesTabExtension
 [Beutl.Editor.Components].SceneSettingsTab:SceneSettingsTabExtension
   id: Beutl.Editor.Components.SceneSettingsTab.SceneSettingsTabExtension
+[Beutl.Editor.Components].SilenceSplitTab:SilenceSplitTabExtension
+  id: Beutl.Editor.Components.SilenceSplitTab.SilenceSplitTabExtension
 [Beutl.Editor.Components].TerminalTab:TerminalTabExtension
   id: Beutl.Editor.Components.TerminalTab.TerminalTabExtension#<guid>
 [Beutl.Editor.Components].TransitionTab:TransitionTabExtension

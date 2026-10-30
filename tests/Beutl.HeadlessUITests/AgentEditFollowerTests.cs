@@ -40,6 +40,9 @@ public sealed class AgentEditFollowerTests
             Success(await client.CallToolAsync("apply_edit", Patch(fixture, new JsonObject { ["Width"] = 200 })));
             HeadlessTestHelpers.Render(2);
 
+            await HeadlessTestHelpers.WaitUntilAsync(() => fixture.Window.GetVisualDescendants().OfType<ElementView>()
+                .Any(view => ((ElementViewModel)view.DataContext!).Model == fixture.Far && HasFlash(view.border)));
+
             ElementView farView = fixture.Window.GetVisualDescendants().OfType<ElementView>()
                 .Single(view => ((ElementViewModel)view.DataContext!).Model == fixture.Far);
             ElementPropertyTabViewModel properties = fixture.Editor.FindToolTab<ElementPropertyTabViewModel>()!;

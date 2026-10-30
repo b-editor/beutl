@@ -3,6 +3,7 @@ using Beutl.Audio;
 using Beutl.Audio.Graph;
 using Beutl.Editor.Services;
 using Beutl.Engine;
+using Beutl.Engine.Expressions;
 using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
@@ -16,6 +17,47 @@ namespace Beutl.UnitTests.Engine.Audio;
 [TestFixture]
 public class SilenceWaveformTests
 {
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Analysis_UsesExpressionTargetsInsteadOfStoredSceneValues(bool indirect)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        var scene = new Scene();
+        var referenced = new Scene { Duration = { Value = MediaTime.FromSeconds(2) } };
+        var unused = new Scene { Duration = { Value = referenced.Duration.Value } };
+        var project = new Project { Items = { scene, referenced, unused } };
+        _ = new BeutlApplication { Project = { Value = project } };
+        var child = new Element { Length = { Value = referenced.Duration.Value } };
+        child.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(durationSeconds: 2)) } });
+        referenced.Children.Add(child);
+        if (indirect)
+        {
+            var middle = new Scene { Duration = { Value = referenced.Duration.Value } };
+            project.Items.Add(middle);
+            AddReference(middle, referenced);
+            referenced = middle;
+        }
+        Element element = AddReference(scene, referenced);
+        var observed = new HashSet<Scene>();
+        var chunks = new List<WaveformChunk>();
+        await foreach (var chunk in SilenceWaveform.GetChunksAsync(scene, element, 100, observeScene: value => observed.Add(value)))
+            chunks.Add(chunk);
+        Assert.That(chunks, Has.Count.EqualTo(100));
+        Assert.That(chunks.All(c => c.MaxValue > 0.4f), Is.True, "The stored empty scene must not replace the expression's audio.");
+        Assert.That(observed, Does.Contain(referenced));
+        Assert.That(observed, Does.Contain(child.FindHierarchicalParent<Scene>()));
+
+        Element AddReference(Scene parent, Scene target)
+        {
+            var sound = new SceneSound { ReferencedScene = { Value = unused } };
+            sound.ReferencedScene.Expression = new ReferenceExpression<Scene?>(target.Id.Value);
+            var clip = new Element { Length = { Value = target.Duration.Value } };
+            clip.Objects.Add(sound);
+            parent.Children.Add(clip);
+            return clip;
+        }
+    }
+
     [Test]
     public async Task Analysis_UsesCapturedReferencedAudioWhileTheLiveSceneIsEdited()
     {

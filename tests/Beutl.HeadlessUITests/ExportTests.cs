@@ -149,6 +149,8 @@ public class ExportTests
             () => new RectShape { Width = { Value = 200 }, Height = { Value = 150 } },
             MediaTime.Zero,
             MediaTime.FromSeconds(0.2));
+        await TestShell.WaitForProjectWritesAsync();
+        await editor.WaitForMediaFingerprintsAsync();
         return editor;
     }
 

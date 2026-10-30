@@ -21,7 +21,8 @@ internal sealed class ProjectFileWriteAdmission(EditorService editorService)
 
 internal sealed class ProjectFileWriteClipboardService(
     EditorService editorService,
-    IElementClipboardService inner) : IElementClipboardService
+    IElementClipboardService inner,
+    CancellationToken lifetime = default) : IElementClipboardService
 {
     public Task<bool> CopyAsync(IReadOnlyList<Element> elements)
     {
@@ -33,7 +34,7 @@ internal sealed class ProjectFileWriteClipboardService(
         IReadOnlyList<Element> elements,
         bool ripple = false)
     {
-        using IProjectFileWriteLease? fileWrite = editorService.TryBeginProjectFileWrite();
+        using IProjectFileWriteLease? fileWrite = await BeginWriteAsync();
         if (fileWrite is null)
         {
             return false;
@@ -47,12 +48,18 @@ internal sealed class ProjectFileWriteClipboardService(
         MediaTime clickedFrame,
         int clickedLayer)
     {
-        using IProjectFileWriteLease? fileWrite = editorService.TryBeginProjectFileWrite();
+        using IProjectFileWriteLease? fileWrite = await BeginWriteAsync();
         if (fileWrite is null)
         {
             return ElementPasteOutcome.Empty;
         }
 
         return await inner.PasteAsync(scene, clickedFrame, clickedLayer);
+    }
+
+    private async ValueTask<IProjectFileWriteLease?> BeginWriteAsync()
+    {
+        try { return await editorService.TryBeginProjectFileWriteAsync(lifetime); }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return null; }
     }
 }
