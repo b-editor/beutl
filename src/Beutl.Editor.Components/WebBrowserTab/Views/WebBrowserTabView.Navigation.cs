@@ -42,7 +42,7 @@ internal partial class WebBrowserTabView
         {
             // Without a native response handler, a media request must become a download offer here,
             // even though a subframe may have made it; WebKit would otherwise play it in the page.
-            if (!_handlesMediaResponsesNatively && TryInterceptMediaNavigation(e)) return;
+            if (!_handlesMediaResponsesNatively && TryInterceptMediaNavigation(e, _pageDownloadNavigationPending)) return;
             // Expire script offers at the policy decision, but keep a captured native response
             // until the WK delegate confirms that a new main-frame navigation has started.
             if (_pendingPageDownloadRequest?.Source == null) InvalidatePageDownloadRequests();
@@ -51,7 +51,7 @@ internal partial class WebBrowserTabView
 
         _pageRevision++;
         _findRequest?.Cancel();
-        if (_nativeDownloadHandler is not WindowsBrowserDownloadHandler && TryInterceptMediaNavigation(e)) return;
+        if (_nativeDownloadHandler is not WindowsBrowserDownloadHandler && TryInterceptMediaNavigation(e, true)) return;
 
         if (e.Request is { } request)
         {
@@ -61,17 +61,26 @@ internal partial class WebBrowserTabView
         }
     }
 
-    private bool TryInterceptMediaNavigation(WebViewNavigationStartingEventArgs e)
+    // A media request that may come from a subframe only settles a navigation the app started;
+    // otherwise it must leave the top-level page's loading and failure state alone.
+    private bool TryInterceptMediaNavigation(WebViewNavigationStartingEventArgs e, bool settlesNavigation)
     {
         if (e.Request is not { } mediaUri || !BrowserMediaDownload.IsMediaLink(mediaUri)) return false;
         e.Cancel = true;
         _latestNavigationRequest = null;
-        // A redirect can turn an in-flight page navigation into a download. Its document
-        // origin is no longer confirmed, and cancellation must release the request gate.
-        if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
-        else InvalidatePageDownloadRequests();
-        _mediaNavigationIntercepted = true;
-        _viewModel?.StopNavigation();
+        if (settlesNavigation)
+        {
+            // A redirect can turn an in-flight page navigation into a download. Its document
+            // origin is no longer confirmed, and cancellation must release the request gate.
+            if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
+            else InvalidatePageDownloadRequests();
+            _mediaNavigationIntercepted = true;
+            _viewModel?.StopNavigation();
+        }
+        else
+        {
+            ClearPageDownloadRequest();
+        }
         QueuePageDownloadRequest(mediaUri, null);
         return true;
     }

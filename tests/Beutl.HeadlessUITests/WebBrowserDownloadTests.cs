@@ -1220,6 +1220,36 @@ public class WebBrowserDownloadTests
             Assert.That(vm.CurrentUri, Is.EqualTo(page));
             Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
         });
+
+        // The request may have come from a subframe, so it must not hide a later top-level failure.
+        var next = new Uri("https://pixabay.com/videos/next/");
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = false });
+        Assert.That(vm.ErrorMessage.Value, Is.EqualTo(Beutl.Language.Strings.WebPageLoadFailed));
+    }
+
+    [AvaloniaTest]
+    public void WithoutNativeMediaResponses_AnAddressRedirectedToMediaSettlesIntoADownloadOffer()
+    {
+        var page = new Uri("https://pixabay.com/videos/ocean-12345/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false)
+        { DataContext = vm };
+        vm.CompleteNavigation(page, true, false, false);
+        vm.Address.Value = "https://pixabay.com/videos/download/12345/";
+        view.NavigateFromAddress();
+        Assert.That(vm.IsLoading.Value, Is.True);
+
+        var redirect = new WebViewNavigationStartingEventArgs { Request = new Uri("https://cdn.pixabay.com/video/2024/01/01/12345_large.mp4") };
+        view.OnNavigationStarted(null, redirect);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(redirect.Cancel, Is.True);
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        });
     }
 
     [AvaloniaTest]
