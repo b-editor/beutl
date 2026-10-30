@@ -67,12 +67,18 @@ internal sealed class ProjectFileWriteClipboardService(
             ValueTask<IProjectFileWriteLease?> pending = editorService.TryBeginProjectFileWriteAsync(cancellation.Token);
             if (!pending.IsCompleted)
             {
-                NotificationService.Show(new Notification(title, Strings.Clipboard_WaitingForSave,
-                    Expiration: Timeout.InfiniteTimeSpan,
-                    Actions: [new NotificationAction(Strings.Cancel, cancellation.Cancel)], IsClosable: false)
+                Task<IProjectFileWriteLease?> wait = pending.AsTask();
+                await Task.WhenAny(wait, Task.Delay(TimeSpan.FromMilliseconds(500), dismissal.Token));
+                if (!wait.IsCompleted)
                 {
-                    CancellationToken = dismissal.Token
-                });
+                    NotificationService.Show(new Notification(title, Strings.Clipboard_WaitingForSave,
+                        Expiration: Timeout.InfiniteTimeSpan,
+                        Actions: [new NotificationAction(Strings.Cancel, cancellation.Cancel)], IsClosable: false)
+                    {
+                        CancellationToken = dismissal.Token
+                    });
+                }
+                return await wait;
             }
             return await pending;
         }

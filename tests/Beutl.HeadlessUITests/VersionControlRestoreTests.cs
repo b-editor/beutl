@@ -3825,7 +3825,9 @@ public class VersionControlRestoreTests
     }
 
     [AvaloniaTest]
-    public async Task Branch_creation_keeps_the_open_project_and_its_unsaved_edits()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Branch_creation_keeps_the_open_project_and_its_unsaved_edits(bool cancelWhileWaiting)
     {
         bool oldAutoSave = EditViewModel.IsAutoSaveSuppressedForTesting;
 
@@ -3839,7 +3841,7 @@ public class VersionControlRestoreTests
             EditViewModel.IsAutoSaveSuppressedForTesting = true;
 
             (Project project, EditViewModel editor) = await CreateTrackedProjectAsync(
-                "version-control-branch-in-memory-edit");
+                $"version-control-branch-in-memory-edit-{cancelWhileWaiting}");
             var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
             await AddRectangleAsync(adder, layer: 0);
             HeadlessTestHelpers.Settle();
@@ -3850,9 +3852,28 @@ public class VersionControlRestoreTests
                 return Task.FromResult(true);
             };
 
-            Assert.That(
-                await TestShell.VersionControl.CreateBranchAsync("kept-open"),
-                Is.True);
+            using var notifications = new NotificationCapture();
+            using var cancellation = new CancellationTokenSource();
+            Task<bool> creation;
+            using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None))
+            {
+                creation = TestShell.VersionControl.CreateBranchAsync("kept-open", cancellation.Token);
+                HeadlessTestHelpers.Settle();
+                Assert.That(creation.IsCompleted, Is.False, "Branch creation must wait for the save.");
+                Assert.That(TestShell.Editor.IsWorktreeMutationActive, Is.False);
+                if (cancelWhileWaiting)
+                {
+                    cancellation.Cancel();
+                    await Assert.CatchAsync<OperationCanceledException>(
+                        async () => await creation.WaitAsync(TimeSpan.FromSeconds(5)));
+                }
+            }
+            if (cancelWhileWaiting)
+            {
+                // Cancelling before the write finishes must free both the operation and transition gates.
+                creation = TestShell.VersionControl.CreateBranchAsync("kept-open");
+            }
+            Assert.That(await creation.WaitAsync(TimeSpan.FromSeconds(10)), Is.True);
             HeadlessTestHelpers.Settle();
 
             WorkspaceStatus status = await TestShell.VersionControl.CurrentService!
@@ -3873,6 +3894,7 @@ public class VersionControlRestoreTests
                     Has.Count.EqualTo(1));
                 Assert.That(editor.HistoryManager.CanUndo, Is.True);
                 Assert.That(confirmations, Is.Zero);
+                Assert.That(notifications.All, Is.Empty);
                 Assert.That(
                     history.Any(commit => commit.Kind == SnapshotKind.Safety),
                     Is.False);
@@ -4354,7 +4376,15 @@ public class VersionControlRestoreTests
         };
 
         using var notifications = new NotificationCapture();
-        bool invalid = await TestShell.VersionControl.CreateBranchAsync("invalid..branch");
+        Task<bool> invalidCreation;
+        using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None))
+        {
+            invalidCreation = TestShell.VersionControl.CreateBranchAsync("invalid..branch");
+            HeadlessTestHelpers.Settle();
+            Assert.That(invalidCreation.IsCompleted, Is.False);
+            Assert.That(notifications.All, Is.Empty);
+        }
+        bool invalid = await invalidCreation.WaitAsync(TimeSpan.FromSeconds(10));
         bool existing = await TestShell.VersionControl.CreateBranchAsync("existing");
         bool shorthand = await TestShell.VersionControl.CreateBranchAsync("@{-1}");
         HeadlessTestHelpers.Settle();

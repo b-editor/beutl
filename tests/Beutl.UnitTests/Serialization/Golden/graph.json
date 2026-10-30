@@ -525,6 +525,7 @@
         "Animations": {},
         "Expressions": {},
         "ReferencedScene": null,
+        "OffsetPosition": 0,
         "Transform": {
           "IsEnabled": true,
           "Id": "00000000-0000-0000-0000-000000000052",

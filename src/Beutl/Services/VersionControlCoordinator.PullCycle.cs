@@ -137,7 +137,7 @@ internal partial class VersionControlCoordinator
         using OperationLease operation = await BeginOperationAsync(
             cancellationToken,
             lifecycle: true);
-        using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
+        using IDisposable? worktreeMutation = await TryBeginWorktreeMutationAsync(operation.CancellationToken);
         if (worktreeMutation is null)
         {
             return new RemoteOpResult.Failed(Strings.VersionControl_WorkspaceBusy);

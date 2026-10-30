@@ -18,7 +18,7 @@ internal partial class VersionControlCoordinator
         CancellationToken cancellationToken)
     {
         using OperationLease operation = await BeginOperationAsync(cancellationToken);
-        using IDisposable? worktreeMutation = TryBeginWorktreeMutation();
+        using IDisposable? worktreeMutation = await TryBeginWorktreeMutationAsync(operation.CancellationToken);
         if (worktreeMutation is null)
         {
             throw new InvalidOperationException(Strings.VersionControl_WorkspaceBusy);
@@ -78,7 +78,7 @@ internal partial class VersionControlCoordinator
         IProjectFileWriteLease? completedWrite,
         CancellationToken cancellationToken)
     {
-        using IDisposable? snapshotMutation = TryBeginWorktreeMutation(completedWrite);
+        using IDisposable? snapshotMutation = await TryBeginWorktreeMutationAsync(cancellationToken, completedWrite);
         if (snapshotMutation is null)
         {
             _logger.LogInformation(

@@ -224,7 +224,7 @@ public sealed class EditorServiceTests
             edit = cut ? clipboard.CutAsync(scene, []) : clipboard.PasteAsync(scene, MediaTime.FromSeconds(3), 2);
             Assert.That(edit.IsCompleted, Is.False);
             Assert.That(inner.CutCalls + inner.PasteCalls, Is.Zero);
-            Assert.That(notifications.Single().CancellationToken.IsCancellationRequested, Is.False);
+            Assert.That(notifications.All, Is.Empty, "Brief waits must not flash a notification.");
             if (close && !releaseBeforeClose)
             {
                 lifetime.Cancel();
@@ -235,7 +235,7 @@ public sealed class EditorServiceTests
         await edit.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(inner.CutCalls + inner.PasteCalls, Is.EqualTo(close ? 0 : 1));
         if (!cut && !close) Assert.That(inner.PastedAt, Is.EqualTo((MediaTime.FromSeconds(3), 2)));
-        Assert.That(notifications.Single().CancellationToken.IsCancellationRequested, Is.True);
+        Assert.That(notifications.All, Is.Empty);
         using IDisposable? mutation = editorService.TryBeginWorktreeMutation();
         Assert.That(mutation, Is.Not.Null);
     }
@@ -253,7 +253,10 @@ public sealed class EditorServiceTests
         using (await editorService.BeginProjectFileWriteAsync(CancellationToken.None))
         {
             Task edit = cut ? clipboard.CutAsync(scene, []) : clipboard.PasteAsync(scene, MediaTime.FromSeconds(3), 2);
+            await HeadlessTestHelpers.WaitUntilAsync(() => notifications.All.Count > 0);
             Notification notice = notifications.Single();
+            Assert.That(edit.IsCompleted, Is.False);
+            Assert.That(notice.CancellationToken.IsCancellationRequested, Is.False);
             var bar = new NotificationServiceHandler().BuildInfoBar(notice, new TaskCompletionSource(), () => { });
             var window = new Window { Content = bar, Width = 380, Height = 220 };
             try

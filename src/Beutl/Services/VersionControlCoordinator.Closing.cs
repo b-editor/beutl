@@ -227,7 +227,7 @@ internal partial class VersionControlCoordinator
                 finalSnapshotRequested && service.Repository is not null;
             closeSnapshotRequested = snapshotRequiresReservation;
             using IDisposable? snapshotMutation = snapshotRequiresReservation
-                ? TryBeginWorktreeMutation()
+                ? await TryBeginWorktreeMutationAsync(closeCancellation)
                 : null;
             bool snapshotReserved = !snapshotRequiresReservation || snapshotMutation is not null;
             if (!snapshotReserved)

@@ -1299,7 +1299,7 @@ Beutl.Utilities
   keys: Duration, Elements, FrameSize, Groups, Height, Id, Layers, Markers, Name, Start, Width
 [Beutl.ProjectSystem]:SceneDrawable
   sealed
-  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, Opacity, ReferencedScene, Transform, TransformOrigin
+  keys: AlignmentX, AlignmentY, Animations, BlendMode, Expressions, FilterEffect, Id, IsEnabled, Name, OffsetPosition, Opacity, ReferencedScene, Transform, TransformOrigin
 [Beutl.ProjectSystem]:SceneMarker
   unsealed
   keys: Color, Id, Name, Note, Time
