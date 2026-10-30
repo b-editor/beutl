@@ -421,6 +421,7 @@ internal partial class WebBrowserTabView
             ShowDownloadRunning(uri);
             Progress<(long Received, long? Total)> progress = CreateDownloadProgress(cancellation);
             string file;
+            source ??= LinuxBrowserDownloadSource.TryCreate(initiatingWebView?.TryGetPlatformHandle(), uri, suggestedName);
             if (source != null)
             {
                 file = await source.SaveAsync(options.Directory, progress, cancellation.Token);
