@@ -234,7 +234,7 @@ public sealed class PixelSortEffectSynchronizationTests
 
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         using var targets = new EffectTargets
         {
             new EffectTarget(source, bounds, EffectiveScale.At(1)),
@@ -271,7 +271,7 @@ public sealed class PixelSortEffectSynchronizationTests
 
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(s_bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         using RenderTargetLeaseSession session = registry.BeginSession(
             RenderIntent.Delivery,
             source);

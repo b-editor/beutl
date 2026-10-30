@@ -67,6 +67,12 @@ public class FilterEffectInputTests
         independent.EvaluateGraphics(Seconds(2));
         Assert.That(Video(samples[0].Resource!).RequestedPosition, Is.EqualTo(Seconds(1.8125)));
 
+        var sampledInputs = samples.Select(sample => Video(sample.Resource!)).ToArray();
+        owner.FilterEffect.Value = null;
+        compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
+        Assert.That(sampledInputs.All(input => input.IsDisposed), Is.True,
+            "removing the effect releases its sessions and their flow resources");
+
         static SourceVideo.Resource Video(Drawable.Resource source)
         {
             var controller = (DrawableTimeController.Resource)(source switch
@@ -79,15 +85,26 @@ public class FilterEffectInputTests
         }
     }
 
-    [Test]
-    public void SamplesOfARetimedTargetFollowTheControllersVisibility()
+    [TestCase("direct")]
+    [TestCase("flow")]
+    [TestCase("child")]
+    public void SamplesOfARetimedTargetFollowTheControllersVisibility(string kind)
     {
         var shape = Rectangle();
         shape.FilterEffect.Value = new SampleInputEffect();
         var controller = new DrawableTimeController { OffsetPosition = { Value = Seconds(10) } };
-        using var compositor = new SceneCompositor(SceneWith(shape, controller));
+        var group = new DrawableGroup();
+        if (kind == "child") group.Children.Add(shape);
+        Scene scene = kind switch
+        {
+            "flow" => SceneWith(shape, group, controller),
+            "child" => SceneWith(group, controller),
+            _ => SceneWith(shape, controller),
+        };
+        using var compositor = new SceneCompositor(scene);
         var frame = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
         var target = ((DrawableTimeController.Resource)frame.Objects.OfType<Drawable.Resource>().Single()).Target!;
+        if (target is DrawableGroup.Resource children) target = children.Children.Single();
         var effect = (SampleInputEffect.Resource)target.FilterEffect!;
         Assert.That(effect.Input!.EvaluationContext.Time, Is.EqualTo(Seconds(11)), "the target runs on the mapped clock");
         Assert.That(effect.Samples.Select(s => s.IsVisible), Is.All.True,
@@ -429,13 +446,13 @@ public sealed partial class SampleInputEffect : FilterEffect
     public Action? AfterDispose { get; set; }
     public Action<CompositionContext>? AfterReconcile { get; set; }
     public Action<FilterEffectInputSample>? AfterSample { get; set; }
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource) { }
 
     public partial class Resource
     {
         public FilterEffectInputContext? Input { get; private set; }
         public List<FilterEffectInputSample> Samples { get; } = [];
         public override bool UsesInputEvaluation => RequireOriginal().UseSamples;
+        protected override void ApplyTo(FilterEffectContext context) { }
 
         partial void PostReconcile(SampleInputEffect obj, CompositionContext context) => obj.AfterReconcile?.Invoke(context);
 

@@ -234,9 +234,6 @@ public sealed class RenderNodeRendererAllocationFailureTests
             RenderBoundsContract.Identity,
             RenderHitTestContract.AnyInput);
 
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-            => context.Geometry(s_geometry);
-
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new Resource();
@@ -250,6 +247,9 @@ public sealed class RenderNodeRendererAllocationFailureTests
             public Resource()
             {
             }
+
+            protected override void ApplyTo(FilterEffectContext context)
+                => context.Geometry(s_geometry);
         }
     }
 

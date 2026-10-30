@@ -8,15 +8,17 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor;
 
+public readonly record struct AutoSaveProgress(IReadOnlyCollection<ChangeOperation> Operations, int Percentage, Exception? Error);
+
 public sealed class AutoSaveService : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<AutoSaveService>();
     private readonly Subject<Exception> _saveError = new();
-    private readonly Subject<int> _saveProgress = new();
+    private readonly Subject<AutoSaveProgress> _saveProgress = new();
     private bool _isDisposed;
 
     public IObservable<Exception> SaveError => _saveError.AsObservable();
-    public IObservable<int> SaveProgress => _saveProgress.AsObservable();
+    public IObservable<AutoSaveProgress> SaveProgress => _saveProgress.AsObservable();
 
     public void AutoSave(IEnumerable<ChangeOperation> operations)
     {
@@ -28,10 +30,12 @@ public sealed class AutoSaveService : IDisposable
     public async Task AutoSaveAsync(IEnumerable<ChangeOperation> operations, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        var (objects, detached) = Collect(operations);
+        ChangeOperation[] batch = operations.ToArray();
+        var (objects, detached) = Collect(batch);
         // Await each file before capturing the scene's include patterns. All live-object reads,
         // serializers and error notifications stay on the caller's document context.
         int completed = 0, reported = -1;
+        Exception? error = null;
         Report(0);
         foreach (CoreObject obj in objects.OrderBy(obj => obj is Scene))
         {
@@ -50,6 +54,7 @@ public sealed class AutoSaveService : IDisposable
             }
             catch (Exception ex)
             {
+                error = ex;
                 _logger.LogError(ex, "An exception occurred while auto-saving the file.");
                 if (!_isDisposed) _saveError.OnNext(ex);
             }
@@ -61,7 +66,7 @@ public sealed class AutoSaveService : IDisposable
         {
             if (_isDisposed || reported == value) return;
             reported = value;
-            _saveProgress.OnNext(value);
+            _saveProgress.OnNext(new(batch, value, error));
         }
     }
 

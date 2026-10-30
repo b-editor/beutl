@@ -45,6 +45,7 @@ public sealed class SourceNode : AudioNode
         // return silence rather than wrapping the cast to a negative offset.
         if (start < 0 || length < 0 || start > int.MaxValue || length > int.MaxValue)
         {
+            AudioReadScope.ReportFailure();
             return buffer;
         }
 

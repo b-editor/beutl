@@ -17,6 +17,33 @@ namespace Beutl.UnitTests.Engine.Audio;
 public class SilenceWaveformTests
 {
     [Test]
+    public async Task Analysis_UsesCapturedReferencedAudioWhileTheLiveSceneIsEdited()
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        var referenced = new Scene { Duration = { Value = MediaTime.FromSeconds(3) } };
+        var sound = new SourceSound { Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(durationSeconds: 3)) } };
+        var child = new Element { Length = { Value = MediaTime.FromSeconds(3) } };
+        child.Objects.Add(sound);
+        referenced.Children.Add(child);
+        var scene = new Scene();
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(3) } };
+        element.Objects.Add(new SceneSound { ReferencedScene = { Value = referenced } });
+        scene.Children.Add(element);
+        await using var reader = SilenceWaveform.GetChunksAsync(scene, element, 150).GetAsyncEnumerator();
+        Assert.That(await reader.MoveNextAsync(), Is.True);
+        referenced.Children.Clear();
+        sound.Gain.Value = 0;
+        scene.Children.Clear();
+        int count = 1;
+        while (await reader.MoveNextAsync())
+        {
+            Assert.That(reader.Current.MaxValue, Is.GreaterThan(0.4f), "later batches must use the captured source");
+            count++;
+        }
+        Assert.That(count, Is.EqualTo(150));
+    }
+
+    [Test]
     public async Task FullCoverage_DetectsShortBurstInOppositePhaseStereo_AtNonZeroStart()
     {
         var sound = new SilenceProbeSound { TimeRange = { Value = new TimeRange(MediaTime.FromSeconds(10), MediaTime.FromSeconds(2)) } };

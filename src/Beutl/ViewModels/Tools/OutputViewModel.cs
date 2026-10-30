@@ -288,7 +288,7 @@ public sealed class OutputViewModel : IOutputContext, ISupportOutputPreset
         // the range export renders.
         IReadOnlySet<string> referencedSources =
             ExportSourceValidator.CollectRenderableSources(scene, new TimeRange(scene.Start.Value, scene.Duration.Value),
-                videoEnabled, audioEnabled);
+                videoEnabled, audioEnabled, settingsController.VideoSettings.FrameRate.Value);
         IReadOnlyList<string> missingSources;
         try
         {

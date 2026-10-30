@@ -24,43 +24,6 @@ public sealed partial class PathFollowEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.PathFollowEffect_FollowRotation), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<bool> FollowRotation { get; } = Property.CreateAnimatable(false);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.Geometry == null)
-            return;
-
-        SKPath skPath = r.Geometry.GetCachedPath();
-        if (skPath.IsEmpty)
-            return;
-
-        float progress = Math.Clamp(r.Progress, 0f, 100f) / 100f;
-
-        using var pathMeasure = new SKPathMeasure(skPath);
-        float totalLength = pathMeasure.Length;
-        if (totalLength <= 0)
-            return;
-
-        float distance = totalLength * progress;
-
-        if (!pathMeasure.GetPositionAndTangent(distance, out SKPoint position, out SKPoint tangent))
-            return;
-
-        if (!pathMeasure.GetPosition(0, out SKPoint startPosition))
-            return;
-
-        float offsetX = position.X - startPosition.X;
-        float offsetY = position.Y - startPosition.Y;
-
-        float rotationAngle = 0f;
-        if (r.FollowRotation)
-        {
-            rotationAngle = MathF.Atan2(tangent.Y, tangent.X);
-        }
-
-        context.CustomEffect((offsetX, offsetY, rotationAngle), FollowPath);
-    }
-
     /// <summary>
     /// Moves each target by the offset along the path, turning it about its own centre to the path's tangent
     /// when the effect follows rotation.
@@ -92,5 +55,44 @@ public sealed partial class PathFollowEffect : FilterEffect
             return TransformEffect.RedrawTransformed(effectContext, target, target.Bounds.TransformToAABB(m1), m2)
                 ?? target;
         });
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (Geometry == null)
+                return;
+
+            SKPath skPath = Geometry.GetCachedPath();
+            if (skPath.IsEmpty)
+                return;
+
+            float progress = Math.Clamp(Progress, 0f, 100f) / 100f;
+
+            using var pathMeasure = new SKPathMeasure(skPath);
+            float totalLength = pathMeasure.Length;
+            if (totalLength <= 0)
+                return;
+
+            float distance = totalLength * progress;
+
+            if (!pathMeasure.GetPositionAndTangent(distance, out SKPoint position, out SKPoint tangent))
+                return;
+
+            if (!pathMeasure.GetPosition(0, out SKPoint startPosition))
+                return;
+
+            float offsetX = position.X - startPosition.X;
+            float offsetY = position.Y - startPosition.Y;
+
+            float rotationAngle = 0f;
+            if (FollowRotation)
+            {
+                rotationAngle = MathF.Atan2(tangent.Y, tangent.X);
+            }
+
+            context.CustomEffect((offsetX, offsetY, rotationAngle), FollowPath);
+        }
     }
 }

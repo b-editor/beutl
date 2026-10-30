@@ -202,6 +202,7 @@ public sealed partial class ElementViewModel : IDisposable
 
         _enterPart.AddTo(_disposables);
         _exitPart.AddTo(_disposables);
+        InitializeTrackMatte();
 
         IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
             .ToReadOnlyReactivePropertySlim()

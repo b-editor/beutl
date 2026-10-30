@@ -16,6 +16,7 @@ public sealed class SilenceSplitViewModel : IDisposable
     private readonly IPreviewPlayer? _player;
     private readonly CancellationTokenSource _lifetime = new();
     private readonly System.Reactive.Disposables.CompositeDisposable _subscriptions = [];
+    private readonly HashSet<Scene> _observedScenes = [];
     private WaveformChunk[] _chunks = [];
     private int _previewStart;
     private int _previewCount;
@@ -36,7 +37,7 @@ public sealed class SilenceSplitViewModel : IDisposable
         ThresholdDb.Subscribe(_ => Recalculate()).AddTo(_subscriptions);
         MinimumMilliseconds.Subscribe(_ => Recalculate()).AddTo(_subscriptions);
         PaddingMilliseconds.Subscribe(_ => Recalculate()).AddTo(_subscriptions);
-        scene.Edited += OnSceneEdited;
+        ObserveScene(scene);
     }
 
     public ReactivePropertySlim<decimal?> ThresholdDb { get; } = new(-40);
@@ -84,7 +85,7 @@ public sealed class SilenceSplitViewModel : IDisposable
                 int reported = 0;
                 // Keep the million-bin enumeration off the UI context. Only percentage changes
                 // return to its scheduler, and are awaited so none can arrive after completion.
-                await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_scene, _element, count, ct).ConfigureAwait(false))
+                await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_scene, _element, count, ct, ObserveScene).ConfigureAwait(false))
                 {
                     chunks[chunk.Index] = chunk;
                     int progress = (int)((long)(chunk.Index + 1) * 100 / count);
@@ -99,7 +100,7 @@ public sealed class SilenceSplitViewModel : IDisposable
                 }
             }
         }
-        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { if (!_disposed) IsBusy.Value = false; }
         catch (Exception ex)
         {
             IsBusy.Value = false;
@@ -208,15 +209,13 @@ public sealed class SilenceSplitViewModel : IDisposable
         Progress.Value = 0;
         IsProgressIndeterminate.Value = true;
         Status.Value = Strings.SilenceSplit_Applying;
-        bool observing = true;
         try
         {
             if (_player != null) await _player.Pause();
             // The tab or scene can change while playback relinquishes its readers.
             if (!CanApply.Value || _stale || _disposed) return false;
-            // Applying intentionally edits the observed scene; unsubscribe before entering the transaction.
-            _scene.Edited -= OnSceneEdited;
-            observing = false;
+            // Keep observing during preparation, including failures. Publication invalidates these
+            // ranges too, but a failed preparation with no document edits can still be retried.
             var progress = new Progress<int>(value =>
             {
                 // Progress callbacks are posted to the owning context and may arrive after the
@@ -243,23 +242,30 @@ public sealed class SilenceSplitViewModel : IDisposable
             {
                 IsBusy.Value = false;
                 IsProgressIndeterminate.Value = false;
-                if (!observing) _scene.Edited += OnSceneEdited;
             }
         }
     }
 
     private void OnSceneEdited(object? sender, EventArgs e)
     {
+        if (_stale) return;
         _stale = true;
         CanApply.Value = false;
         Status.Value = Strings.SilenceSplit_Stale;
+        if (!_applying) _lifetime.Cancel();
+    }
+
+    private void ObserveScene(Scene scene)
+    {
+        if (_observedScenes.Add(scene)) scene.Edited += OnSceneEdited;
     }
 
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
-        _scene.Edited -= OnSceneEdited;
+        foreach (Scene scene in _observedScenes) scene.Edited -= OnSceneEdited;
+        _observedScenes.Clear();
         _lifetime.Cancel();
         _subscriptions.Dispose();
         // AnalyzeAsync may still be unwinding; its captured token remains usable after disposal.

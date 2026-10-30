@@ -816,6 +816,10 @@ public sealed class NodeRecordingTransactionTests
             return child.Commit();
         }
 
+        public IReadOnlyList<RenderFragmentReference> RecordSharedSubtree(
+            NodeRecordingTransaction parent, object identity, RenderNode root)
+            => RecordNode(parent, root, [], subtree: true);
+
         public RecordedNestedRenderRequest RecordNestedRequest(
             RenderNode root,
             RenderRequestOptions options)

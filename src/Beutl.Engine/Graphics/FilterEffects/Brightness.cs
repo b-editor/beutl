@@ -17,11 +17,13 @@ public sealed partial class Brightness : FilterEffect
     [Range(0, float.MaxValue)]
     public IExpressionProperty<float> Amount { get; } = Property.CreateAnimatable(100f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        float amount = r.Amount / 100f;
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            float amount = Amount / 100f;
 
-        context.Brightness(amount);
+            context.Brightness(amount);
+        }
     }
 }

@@ -74,9 +74,11 @@ internal sealed record MaterializedInputRenderFragmentPayload(
 internal sealed record TargetCaptureRenderFragmentPayload(
     TargetCaptureDescription Description);
 
-internal sealed record LayerRenderFragmentPayload(Rect? Domain, bool DomainIsQueryFootprint = false);
+internal sealed record LayerRenderFragmentPayload(
+    Rect? Domain, bool DomainIsQueryFootprint = false, RenderHitTestContract? HitTest = null);
 
-internal sealed record TargetLayerScopeRenderFragmentPayload(TargetRegion Region);
+internal sealed record TargetLayerScopeRenderFragmentPayload(
+    TargetRegion Region, bool ContributesToBackdrop = true, bool PreservesTargetClear = false);
 
 internal sealed record TargetScopeRenderFragmentPayload(
     TargetScopeDescription Description);
@@ -89,7 +91,8 @@ internal sealed record RawTargetCommandRenderFragmentPayload(
 
 internal sealed record TargetCommandRenderFragmentPayload(
     TargetCommandDescription Description,
-    IReadOnlyList<RenderInputReadback> InputReadbacks);
+    IReadOnlyList<RenderInputReadback> InputReadbacks,
+    bool ClearsTarget = false);
 
 internal sealed record BuiltInBackdropCaptureRenderFragmentPayload(
     TargetCaptureDescription Description,

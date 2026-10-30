@@ -44,7 +44,7 @@ public sealed class ShaderGraphMigrationTests
             {
                 using FilterEffect.Resource resource = effect.ToResource(new CompositionContext(MediaTime.FromSeconds(time)));
                 using var context = new FilterEffectContext(bounds);
-                effect.ApplyTo(context, resource);
+                context.ApplyTransactional(resource);
                 var graph = ((FEItem_ShaderGraph)context.GetOrderedItems().Single()).Description;
                 byte[] recorded = graph.Passes[0].Constants.ToArray();
                 float[] pixels = ShaderGraphContractTests.Execute(graph, bounds, scale, cache: cache).Pixels;
@@ -82,7 +82,7 @@ public sealed class ShaderGraphMigrationTests
         var effect = new GLSLScriptEffect { FragmentShader = { Value = "unfinished user shader" } };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(new(0, 0, 8, 8));
-        effect.ApplyTo(context, resource);
+        context.ApplyTransactional(resource);
         Assert.That(context.GetOrderedItems(), Is.Empty);
     }
 

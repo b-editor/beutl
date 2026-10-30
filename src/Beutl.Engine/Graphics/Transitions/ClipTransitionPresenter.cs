@@ -13,23 +13,6 @@ internal sealed partial class ClipTransitionPresenter : Drawable
         ScanProperties<ClipTransitionPresenter>();
     }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.TransitionResource is not { IsDisposed: false } transition) return;
-
-        transition.Draw(new ClipTransitionContext(context, r.From, r.To, r.Progress));
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        return Size.Empty;
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
     public new partial class Resource
     {
         private readonly List<Drawable.Resource> _from = [];
@@ -49,13 +32,36 @@ internal sealed partial class ClipTransitionPresenter : Drawable
         // How far the transition has played, after its easing.
         public float Progress => _progress;
 
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            if (TransitionResource is not { IsDisposed: false } transition) return;
+
+            transition.Draw(new ClipTransitionContext(context, From, To, Progress));
+        }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return Size.Empty;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
+
         // The drawable a click on the transition selects: the incoming element's topmost drawable, or the
         // outgoing element's when the incoming side draws nothing.
         public Drawable? GetHitTestTarget()
         {
-            if (_to.Count > 0) return _to[^1].GetOriginal();
-            if (_from.Count > 0) return _from[^1].GetOriginal();
-            return null;
+            return GetTarget(_to.LastOrDefault()) ?? GetTarget(_from.LastOrDefault());
+
+            // A transition can draw its own fill where neither side's geometry is hit. Its fallback
+            // must still name document content, even when that content is wrapped in another presenter.
+            static Drawable? GetTarget(Drawable.Resource? resource) => resource switch
+            {
+                TrackMattePresenter.Resource matte => GetTarget(matte.Content.Drawables.LastOrDefault()),
+                Resource transition => transition.GetHitTestTarget(),
+                _ => resource?.GetOriginal(),
+            };
         }
 
         // The inputs are borrowed from the compositor, which owns and disposes them. The version moves when

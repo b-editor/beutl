@@ -88,7 +88,7 @@ public class SceneDrawableScaleTests
         var root = new DrawableRenderNode(resource);
         using (var ctx = new GraphicsContext2D(root, inner.FrameSize.Value.ToSize(1), outputScale))
         {
-            drawable.Render(ctx, resource);
+            resource.Render(ctx);
         }
 
         using var pipeline = ScaleRecordingTestHelper.SubtreePipeline(
@@ -133,7 +133,7 @@ public class SceneDrawableScaleTests
             using var root = new DrawableRenderNode(resource);
             using (var context = new GraphicsContext2D(root, inner.FrameSize.Value.ToSize(1)))
             {
-                drawable.Render(context, resource);
+                resource.Render(context);
             }
 
             using RenderNodeRenderer renderer = SceneDrawableTestHelpers.CreateRenderer(root, inner);
@@ -157,7 +157,7 @@ public class SceneDrawableScaleTests
         using var resource = (SceneDrawable.Resource)drawable.ToResource(
             new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);
-        RenderDrawableTree(drawable, resource, root, inner.FrameSize.Value.ToSize(1));
+        RenderDrawableTree(resource, root, inner.FrameSize.Value.ToSize(1));
 
         ContainerRenderNode sceneNode = FindNestedSceneNode(root);
         DrawableRenderNode[] nested = [.. sceneNode.Children.Cast<DrawableRenderNode>()];
@@ -174,7 +174,7 @@ public class SceneDrawableScaleTests
             changingResource.Version++;
             resource.Version++;
             Assert.That(root.Update(resource), Is.True);
-            RenderDrawableTree(drawable, resource, root, inner.FrameSize.Value.ToSize(1));
+            RenderDrawableTree(resource, root, inner.FrameSize.Value.ToSize(1));
 
             ContainerRenderNode currentSceneNode = FindNestedSceneNode(root);
             Assert.Multiple(() =>
@@ -217,7 +217,6 @@ public class SceneDrawableScaleTests
             new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);
         RenderDrawableTree(
-            drawable,
             resource,
             root,
             inner.FrameSize.Value.ToSize(1),
@@ -270,7 +269,6 @@ public class SceneDrawableScaleTests
             new CompositionContext(MediaTime.Zero));
         using var root = new DrawableRenderNode(resource);
         RenderDrawableTree(
-            drawable,
             resource,
             root,
             inner.FrameSize.Value.ToSize(1),
@@ -283,7 +281,6 @@ public class SceneDrawableScaleTests
         RenderNode[] firstOutputs = [.. child.Children];
 
         RenderDrawableTree(
-            drawable,
             resource,
             root,
             inner.FrameSize.Value.ToSize(1),
@@ -303,14 +300,13 @@ public class SceneDrawableScaleTests
     }
 
     private static void RenderDrawableTree(
-        SceneDrawable drawable,
         Drawable.Resource resource,
         DrawableRenderNode root,
         Size canvasSize,
         float outputScale = 1)
     {
         using var context = new GraphicsContext2D(root, canvasSize, outputScale);
-        drawable.Render(context, resource);
+        resource.Render(context);
     }
 
     private static ContainerRenderNode FindNestedSceneNode(RenderNode root)
@@ -346,7 +342,7 @@ internal sealed partial class RetryingSceneDrawable : Drawable
 
     public List<float> ObservedOutputScales { get; } = [];
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderContent(GraphicsContext2D context)
     {
         RenderCalls++;
         ObservedOutputScales.Add(context.OutputScale);
@@ -356,11 +352,16 @@ internal sealed partial class RetryingSceneDrawable : Drawable
         }
     }
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-        => new(16, 16);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderContent(context);
+
+        protected override Size MeasureCore(Size availableSize)
+            => new(16, 16);
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 

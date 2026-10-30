@@ -60,6 +60,7 @@ internal sealed class RenderFragmentReference
         Payload = payload;
         PotentiallyWritesTarget = ComputePotentiallyWritesTarget();
         HasSymbolicTargetWrite = ComputeHasSymbolicTargetWrite();
+        ClearsTarget = ComputeClearsTarget();
         _hitTest = hitTest;
     }
 
@@ -98,6 +99,9 @@ internal sealed class RenderFragmentReference
     /// A finite region restores a described extent: it bounds what the scope can reach whatever is inside it.
     /// </remarks>
     public bool HasSymbolicTargetWrite { get; }
+
+    // Ordinary off-screen layers contain clears; sampling layers defer them until the combined output.
+    internal bool ClearsTarget { get; }
 
     public bool HasOpaqueExternalWork { get; }
 
@@ -213,6 +217,17 @@ internal sealed class RenderFragmentReference
                 $"Fragment kind '{Kind}' has no symbolic target-write rule."),
         };
     }
+
+    private bool ComputeClearsTarget() => Kind switch
+    {
+        RenderFragmentKind.TargetCommand => Payload is TargetCommandRenderFragmentPayload { ClearsTarget: true },
+        RenderFragmentKind.Blend when Payload is BlendRenderFragmentPayload { BlendMode: BlendMode.Src } => true,
+        RenderFragmentKind.TargetLayerScope => Payload is TargetLayerScopeRenderFragmentPayload
+        { PreservesTargetClear: true, Region.Kind: not TargetRegionKind.Empty }
+            && Inputs.Any(static input => input.ClearsTarget),
+        RenderFragmentKind.Layer or RenderFragmentKind.TargetCapture or RenderFragmentKind.BuiltInBackdropCapture => false,
+        _ => Inputs.Any(static input => input.ClearsTarget),
+    };
 
     private bool ComputePotentiallyWritesTarget()
     {

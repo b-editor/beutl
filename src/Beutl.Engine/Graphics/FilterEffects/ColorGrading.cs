@@ -203,43 +203,45 @@ public sealed partial class ColorGrading : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ColorGrading_Offset), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<GradingColor> Offset { get; } = Property.CreateAnimatable(GradingColor.Zero);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        float lowRange = Math.Clamp(r.LowRange, 0f, 100f);
-        float highRange = Math.Clamp(r.HighRange, 0f, 100f);
-        if (lowRange > highRange)
-        {
-            (lowRange, highRange) = (highRange, lowRange);
-        }
-
-        context.Shader(ShaderDescription.CurrentPixel(
-            s_shaderSource,
-            bindings =>
-            {
-                bindings.Uniform("exposure", r.Exposure);
-                bindings.Uniform("contrast", r.Contrast / 100f);
-                bindings.Uniform("contrastPivot", r.ContrastPivot);
-                bindings.Uniform("saturation", r.Saturation / 100f);
-                bindings.Uniform("vibrance", r.Vibrance / 100f);
-                bindings.Uniform("hue", r.Hue);
-                bindings.Uniform("temperature", r.Temperature / 100f);
-                bindings.Uniform("tint", r.Tint / 100f);
-                bindings.Uniform("lowRange", lowRange / 100f);
-                bindings.Uniform("highRange", highRange / 100f);
-                bindings.Uniform("shadows", ToColorVector(r.Shadows));
-                bindings.Uniform("midtones", ToColorVector(r.Midtones));
-                bindings.Uniform("highlights", ToColorVector(r.Highlights));
-                bindings.Uniform("lift", ToColorVector(r.Lift));
-                bindings.Uniform("gamma", ToColorVector(r.Gamma, 0.001f));
-                bindings.Uniform("gain", ToColorVector(r.Gain, 0.0f));
-                bindings.Uniform("offset", ToColorVector(r.Offset));
-            }));
-    }
-
     private static Vector3 ToColorVector(GradingColor value, float minValue = float.NegativeInfinity)
         => new(
             Math.Max(value.R, minValue),
             Math.Max(value.G, minValue),
             Math.Max(value.B, minValue));
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            float lowRange = Math.Clamp(LowRange, 0f, 100f);
+            float highRange = Math.Clamp(HighRange, 0f, 100f);
+            if (lowRange > highRange)
+            {
+                (lowRange, highRange) = (highRange, lowRange);
+            }
+
+            context.Shader(ShaderDescription.CurrentPixel(
+                s_shaderSource,
+                bindings =>
+                {
+                    bindings.Uniform("exposure", Exposure);
+                    bindings.Uniform("contrast", Contrast / 100f);
+                    bindings.Uniform("contrastPivot", ContrastPivot);
+                    bindings.Uniform("saturation", Saturation / 100f);
+                    bindings.Uniform("vibrance", Vibrance / 100f);
+                    bindings.Uniform("hue", Hue);
+                    bindings.Uniform("temperature", Temperature / 100f);
+                    bindings.Uniform("tint", Tint / 100f);
+                    bindings.Uniform("lowRange", lowRange / 100f);
+                    bindings.Uniform("highRange", highRange / 100f);
+                    bindings.Uniform("shadows", ToColorVector(Shadows));
+                    bindings.Uniform("midtones", ToColorVector(Midtones));
+                    bindings.Uniform("highlights", ToColorVector(Highlights));
+                    bindings.Uniform("lift", ToColorVector(Lift));
+                    bindings.Uniform("gamma", ToColorVector(Gamma, 0.001f));
+                    bindings.Uniform("gain", ToColorVector(Gain, 0.0f));
+                    bindings.Uniform("offset", ToColorVector(Offset));
+                }));
+        }
+    }
 }

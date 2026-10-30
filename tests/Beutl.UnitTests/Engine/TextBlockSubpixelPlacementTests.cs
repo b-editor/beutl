@@ -65,7 +65,7 @@ public class TextBlockSubpixelPlacementTests
         using var node = new DrawableRenderNode(resource);
         using (var context = new GraphicsContext2D(node, new Size(CanvasWidth, CanvasHeight)))
         {
-            textBlock.Render(context, resource);
+            resource.Render(context);
         }
 
         RenderTarget? created = RenderTarget.Create(CanvasWidth, CanvasHeight);

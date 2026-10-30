@@ -1551,6 +1551,69 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>Split</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>Blinds</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>Slats</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>Checkerboard</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>Columns</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>Rows</value>
+  </data>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>Shape</value>
+  </data>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>Linear direction</value>
+  </data>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>Clockwise (clock wipe)</value>
+  </data>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>Linear</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>Box</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>Diamond</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>Clock</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>Iris In (open)</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>Iris Out (close)</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>Zoom out</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>Zoom Blur</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>Whip Pan</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>Glitch</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>Light Leak</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>Strength (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>Orientation</value>
   </data>
@@ -1640,5 +1703,53 @@
   </data>
   <data name="LightRays_Decay_Description" xml:space="preserve">
     <value>Fades the light along each ray. 0% keeps an even strength; higher values fade more quickly.</value>
+  </data>
+  <data name="TextBlock_WritingMode" xml:space="preserve">
+    <value>Writing mode</value>
+  </data>
+  <data name="WritingMode_HorizontalTb" xml:space="preserve">
+    <value>Horizontal</value>
+  </data>
+  <data name="WritingMode_VerticalRl" xml:space="preserve">
+    <value>Vertical</value>
+  </data>
+  <data name="MotionBlur" xml:space="preserve">
+    <value>Motion blur</value>
+  </data>
+  <data name="MotionBlur_Description" xml:space="preserve">
+    <value>Samples this drawable, its transforms, opacity and preceding effects at explicit times. Following effects apply once to the average in parent coordinates.</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle" xml:space="preserve">
+    <value>Shutter angle (°)</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
+    <value>Exposure relative to one frame: 180° is half a frame, 360° is one, and 720° is two. Supports up to 3600° (10 frames). 0° disables temporal sampling.</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition" xml:space="preserve">
+    <value>Exposure reference</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition_Description" xml:space="preserve">
+    <value>Places the current frame at the start, center or end of the exposure interval.</value>
+  </data>
+  <data name="MotionBlur_Samples" xml:space="preserve">
+    <value>Samples</value>
+  </data>
+  <data name="MotionBlur_Samples_Description" xml:space="preserve">
+    <value>1–64 samples across the exposure. More samples reduce gaps but increase render time and memory use. 1 draws only the current time.</value>
+  </data>
+  <data name="MotionBlur_SourceMix" xml:space="preserve">
+    <value>Source mix (%)</value>
+  </data>
+  <data name="MotionBlur_SourceMix_Description" xml:space="preserve">
+    <value>Mix in the current-time image: 0% is only motion blur, 100% is only the original. Static content keeps its opacity.</value>
+  </data>
+  <data name="MotionBlur_Center" xml:space="preserve">
+    <value>Center</value>
+  </data>
+  <data name="MotionBlur_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="MotionBlur_End" xml:space="preserve">
+    <value>End</value>
   </data>
 </root>

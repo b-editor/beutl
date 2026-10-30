@@ -11,6 +11,7 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
     private readonly List<PendingRenderCacheCandidate> _pendingCacheCandidates = [];
     private readonly HashSet<RenderNode> _cacheCandidateNodes = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<RenderNode> _preparedNodes = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<object, ImmutableArray<RenderFragmentReference>> _sharedSubtrees = new(ReferenceEqualityComparer.Instance);
     private bool _recorded;
 
     public RenderRequestRecorder(RenderRequest request)
@@ -73,6 +74,18 @@ internal sealed class RenderRequestRecorder : IRenderRequestRecordingHost
         return subtree
             ? RecordSubtreeCore(node, parent)
             : InvokeNode(node, inputs, parent, guardAlreadyHeld: false);
+    }
+
+    public IReadOnlyList<RenderFragmentReference> RecordSharedSubtree(
+        NodeRecordingTransaction parent, object identity, RenderNode root)
+    {
+        if (!_sharedSubtrees.TryGetValue(identity, out ImmutableArray<RenderFragmentReference> outputs))
+        {
+            outputs = RecordSubtreeCore(root, parent);
+            _sharedSubtrees.Add(identity, outputs);
+        }
+
+        return outputs;
     }
 
     public void Commit(in NodeRecordingCommit commit)

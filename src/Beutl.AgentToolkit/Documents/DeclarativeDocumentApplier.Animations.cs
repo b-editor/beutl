@@ -11,6 +11,19 @@ namespace Beutl.AgentToolkit.Documents;
 
 internal sealed partial class DeclarativeDocumentApplier
 {
+    private void ApplyComponentAnimation(CoreObject target, JsonObject desired)
+    {
+        JsonObject payload = (JsonObject)desired.DeepClone();
+        payload.Remove("Animations");
+        payload.Remove("Expressions");
+        NormalizeRegisteredPropertyValues(target, payload);
+        CoreSerializer.PopulateFromJsonObject(target, target.GetType(), payload, CreateOptions(target));
+        ClearAbsentRegisteredObjectProperties(target, desired, payload);
+        // Reuse normal track reconciliation so keyframe identities, ordering and validation survive edits.
+        ApplyAnimations(target, desired);
+        ApplyExpressions(target, desired);
+    }
+
     private void ApplyKeyFrameAnimation(IKeyFrameAnimation animation, JsonObject desired)
     {
         var target = (CoreObject)animation;
@@ -70,7 +83,7 @@ internal sealed partial class DeclarativeDocumentApplier
         }
     }
 
-    private void ApplyAnimations(EngineObject target, JsonObject desired)
+    private void ApplyAnimations(CoreObject target, JsonObject desired)
     {
         JsonObject? animations = desired.TryGetPropertyValue("Animations", out JsonNode? animationsNode)
             ? RequireObjectMember(animationsNode, "Animations")
@@ -102,7 +115,7 @@ internal sealed partial class DeclarativeDocumentApplier
         }
 
         HashSet<Guid>? changedValueIds = null;
-        IKeyFrameAnimation? current = property.GetKeyFrameAnimation();
+        IPropertyAnimation? current = property.GetPropertyAnimation();
         if (current is CoreObject currentObject
             && IdentityMatches(currentObject, animationJson)
             && TypeMatches(currentObject, animationJson))
@@ -138,13 +151,14 @@ internal sealed partial class DeclarativeDocumentApplier
             else
             {
                 ApplyCoreObject(currentObject, animationJson);
+                return; // Component tracks were each validated by ApplyAnimation.
             }
         }
         else
         {
-            var animation = (IKeyFrameAnimation)CoreSerializer.DeserializeFromJsonObject(
-                NormalizeCoreSerializableJson(animationJson, typeof(IKeyFrameAnimation)),
-                typeof(IKeyFrameAnimation),
+            var animation = (IPropertyAnimation)CoreSerializer.DeserializeFromJsonObject(
+                NormalizeCoreSerializableJson(animationJson, typeof(IPropertyAnimation)),
+                typeof(IPropertyAnimation),
                 CreateOptions(property.GetOwnerObject()));
             if (animation.ValueType != property.ValueType)
             {
@@ -160,7 +174,7 @@ internal sealed partial class DeclarativeDocumentApplier
                 SortKeyFramesByKeyTime(keyFrameAnimation.KeyFrames);
             }
 
-            property.SetKeyFrameAnimation(animation);
+            property.SetPropertyAnimation(animation);
         }
 
         RevalidateKeyFrameValues(property, changedValueIds);
@@ -170,6 +184,17 @@ internal sealed partial class DeclarativeDocumentApplier
         IProperty property,
         IReadOnlySet<Guid>? changedValueIds)
     {
+        // A newly deserialized component animation acquires its projected validators on attachment.
+        if (property.GetPropertyAnimation() is IComponentAnimation components)
+        {
+            foreach (IProperty component in components.Components)
+            {
+                if (component.GetKeyFrameAnimation() is { } track)
+                    SortKeyFramesByKeyTime(track.KeyFrames);
+                RevalidateKeyFrameValues(component, null);
+            }
+            return;
+        }
         if (property.GetKeyFrameAnimation() is not IKeyFrameAnimation animation)
         {
             return;
@@ -225,7 +250,7 @@ internal sealed partial class DeclarativeDocumentApplier
         }
     }
 
-    private static void ApplyExpressions(EngineObject target, JsonObject desired)
+    private static void ApplyExpressions(CoreObject target, JsonObject desired)
     {
         JsonObject? expressions = desired.TryGetPropertyValue("Expressions", out JsonNode? expressionsNode)
             ? RequireObjectMember(expressionsNode, "Expressions")
@@ -252,7 +277,7 @@ internal sealed partial class DeclarativeDocumentApplier
     // Animations and Expressions are both keyed by property name; every key must name an existing
     // property that supports the member kind before any property is reset.
     private static void RequireTargetProperties(
-        EngineObject target,
+        CoreObject target,
         JsonObject members,
         string memberKind,
         Func<IProperty, bool> isSupported,

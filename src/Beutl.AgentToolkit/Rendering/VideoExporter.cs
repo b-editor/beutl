@@ -65,7 +65,7 @@ public sealed class VideoExporter(EncoderRegistration encoders)
             using var output = new StagedOutputFile(outputPath);
             EncodingController controller = encoder.CreateController(output.TemporaryPath);
             List<string> warnings = ConfigureController(controller, scene, frameRate, normalizedSampleRate, crf, bitrate);
-            await ThrowIfExportSourcesMissingAsync(scene, cancellationToken).ConfigureAwait(false);
+            await ThrowIfExportSourcesMissingAsync(scene, frameRate, cancellationToken).ConfigureAwait(false);
 
             using var renderer = ExportRendererFactory.Create(scene, normalizedScale);
             using var frameProgress = new Subject<MediaTime>();
@@ -164,11 +164,11 @@ public sealed class VideoExporter(EncoderRegistration encoders)
 
     // Final export forces original media, so fail fast on missing sources (as StillRenderer does).
     // CollectRenderableSources walks the mutable scene graph, so run it on the render thread.
-    private static async ValueTask ThrowIfExportSourcesMissingAsync(Scene scene, CancellationToken cancellationToken)
+    private static async ValueTask ThrowIfExportSourcesMissingAsync(Scene scene, Rational frameRate, CancellationToken cancellationToken)
     {
         IReadOnlySet<string> renderableSources = await RenderThread.Dispatcher.InvokeAsync(
             () => Beutl.Editor.ExportSourceValidator.CollectRenderableSources(
-                scene, new TimeRange(scene.Start.Value, scene.Duration.Value)),
+                scene, new TimeRange(scene.Start.Value, scene.Duration.Value), includeVideo: true, includeAudio: true, frameRate),
             ct: cancellationToken).ConfigureAwait(false);
         IReadOnlyList<string> missingSources = Beutl.Editor.ExportSourceValidator.GetMissingPaths(renderableSources);
         if (missingSources.Count > 0)

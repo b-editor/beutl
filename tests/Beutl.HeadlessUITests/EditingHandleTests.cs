@@ -104,6 +104,51 @@ public class EditingHandleTests
     [AvaloniaTest]
     [TestCase(0)]
     [TestCase(1)]
+    public async Task Bound_component_handle_moves_independent_tracks_and_supports_undo(double seconds)
+    {
+        (EditViewModel editor, PlayerView view, Window window, EditingHandleTestEffect effect) =
+            await Open(900, false, bound: true);
+        try
+        {
+            var components = (IComponentAnimation<Point>)ComponentAnimations.Separate(effect.Position);
+            var x = components.Components[0].GetKeyFrameAnimation()!;
+            var y = components.Components[1].GetKeyFrameAnimation()!;
+            x.KeyFrames[1].KeyTime.Value = MediaTime.FromSeconds(2);
+            var time = MediaTime.FromSeconds(seconds);
+            editor.GetRequiredService<IEditorClock>().Seek(time);
+            await RenderPreview(editor);
+            editor.HistoryManager.Commit();
+            Point before = components.EvaluateAt(time);
+            Point valueBefore = effect.Position.Value;
+            AvaPoint from = Position(view, before);
+            AvaPoint to = from + new Avalonia.Vector(32, 19);
+            var overlay = view.transformHandlesOverlay;
+            Assert.That(overlay.HitTestEditingHandle(from)?.Provider, Is.SameAs(effect));
+            AvaPoint targetFrame = overlay.Viewport!.ToFrame(to);
+            Point expected = overlay.UserMatrix.Invert().Transform(new Point((float)targetFrame.X, (float)targetFrame.Y));
+            window.MouseDown(ToWindow(view, window, from), MouseButton.Left);
+            window.MouseMove(ToWindow(view, window, from + new Avalonia.Vector(16, 10)), RawInputModifiers.LeftMouseButton);
+            window.MouseMove(ToWindow(view, window, to), RawInputModifiers.LeftMouseButton);
+            window.MouseUp(ToWindow(view, window, to), MouseButton.Left);
+            Point after = components.EvaluateAt(time);
+            Assert.That(after.X, Is.EqualTo(expected.X).Within(0.01));
+            Assert.That(after.Y, Is.EqualTo(expected.Y).Within(0.01));
+            Assert.That(effect.Position.Value, Is.EqualTo(valueBefore));
+            Assert.That(x.KeyFrames[1].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(2)));
+            Assert.That(y.KeyFrames[1].KeyTime.Value, Is.EqualTo(MediaTime.FromSeconds(4)));
+            Assert.That((float)x.KeyFrames[1].Value!, Is.EqualTo(seconds == 0 ? 70 : 70 + after.X - before.X).Within(0.01));
+            Assert.That((float)y.KeyFrames[1].Value!, Is.EqualTo(seconds == 0 ? 50 : 50 + after.Y - before.Y).Within(0.01));
+            editor.HistoryManager.Undo();
+            Assert.That(components.EvaluateAt(time), Is.EqualTo(before));
+            editor.HistoryManager.Redo();
+            Assert.That(components.EvaluateAt(time), Is.EqualTo(after));
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaTest]
+    [TestCase(0)]
+    [TestCase(1)]
     [TestCase(2)]
     public async Task DragEndUsesTheHostsHistorySessionAndTheNextDragStillWorks(int end)
     {
@@ -218,11 +263,15 @@ internal sealed partial class EditingHandleTestEffect : FilterEffect, IEditingHa
     public bool Bound { get; set; }
 
     public IReadOnlyList<EditingHandle> GetEditingHandles(MediaTime time)
-        => [new("point", Position.GetKeyFrameAnimation()?.GetAnimatedValue(time) ?? Position.Value, "Point")
+        => [new("point", Position.Evaluate(new EvaluationContext(time)), "Point")
         {
             Property = Bound ? Position : null,
         }];
 
     public void MoveEditingHandle(string id, Point position, MediaTime time) => Position.Value = position;
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource) { }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context) { }
+    }
 }

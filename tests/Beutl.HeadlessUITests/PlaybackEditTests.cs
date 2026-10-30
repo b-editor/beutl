@@ -297,7 +297,10 @@ public class PlaybackEditTests
 // Draws nothing, slowly, each time it changes.
 internal sealed partial class SlowPlaybackDrawable : Drawable
 {
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(16, 16);
+    public new partial class Resource
+    {
+        protected override Size MeasureCore(Size availableSize) => new(16, 16);
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource) => Thread.Sleep(30);
+        protected override void OnDraw(GraphicsContext2D context) => Thread.Sleep(30);
+    }
 }

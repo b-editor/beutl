@@ -33,9 +33,11 @@ public sealed partial class TimelineTabView : UserControl
     private readonly CompositeDisposable _disposables = [];
     private readonly Func<PointerWheelEventArgs, bool> _usesGestureAxes;
     private readonly Func<TopLevel, IDisposable?> _attachNativeInput;
+    private readonly Action<Visual, ulong> _alignmentFeedback;
     private TopLevel? _nativeInputRoot;
     private IDisposable? _nativeInputRegistration;
     private CancellationTokenSource? _scrollCts;
+    private Task _scrollTask = Task.CompletedTask;
     private readonly Dictionary<Element, (ElementView Clip, ElementScopeView Scope)> _elementViews = [];
     private bool _elementViewsUpdatePending;
 
@@ -44,10 +46,12 @@ public sealed partial class TimelineTabView : UserControl
     {
     }
 
-    internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes, Func<TopLevel, IDisposable?>? attachNativeInput = null)
+    internal TimelineTabView(Func<PointerWheelEventArgs, bool> usesGestureAxes,
+        Func<TopLevel, IDisposable?>? attachNativeInput = null, Action<Visual, ulong>? alignmentFeedback = null)
     {
         _usesGestureAxes = usesGestureAxes;
         _attachNativeInput = attachNativeInput ?? NativeScrollInput.Attach;
+        _alignmentFeedback = alignmentFeedback ?? NativeHapticFeedback.PerformAlignment;
         _rulerDrag = new TimelineRulerDrag(() => _mouseFlag = MouseFlags.Free);
         InitializeComponent();
         TimelineEditingModeMenu.Populate(EditingModeMenu, "");
@@ -106,6 +110,7 @@ public sealed partial class TimelineTabView : UserControl
 
     private void OnDataContextDetached(TimelineTabViewModel obj)
     {
+        _scrollCts?.Cancel();
         ViewModel = null;
         ClearElementViews();
         TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
@@ -142,16 +147,22 @@ public sealed partial class TimelineTabView : UserControl
                 () => { })
             .DisposeWith(_disposables);
 
-        ViewModel.ScrollTo.Subscribe(v => ScrollTimelinePosition(v.Range, v.ZIndex))
+        ViewModel.ScrollTo.Subscribe(v => _scrollTask = ScrollTimelinePosition(v.Range, v.ZIndex))
             .DisposeWith(_disposables);
 
-        // A just-inserted element gets its view during the next layout pass.
+        // Scrolling realizes distant clips. Wait for it before looking up the target's control.
         ViewModel.HighlightElement
-            .Subscribe(element => Dispatcher.UIThread.Post(() =>
+            .Subscribe(async element =>
             {
-                if (FindElementView(element) is { } view)
-                    EditFlash.Run(view.border);
-            }, DispatcherPriority.Background))
+                Task scrolling = _scrollTask;
+                await scrolling;
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (ViewModel != vm || _scrollTask != scrolling) return;
+                    UpdateElementViews();
+                    if (FindElementView(element) is { } view) EditFlash.Run(view.border);
+                }, DispatcherPriority.Background);
+            })
             .DisposeWith(_disposables);
 
         vm.CurrentTime
@@ -233,7 +244,7 @@ public sealed partial class TimelineTabView : UserControl
         foreach (Element element in _elementViews.Keys.ToArray()) RemoveElementViews(element);
     }
 
-    private void QueueElementViewsUpdate()
+    internal void QueueElementViewsUpdate()
     {
         if (_elementViewsUpdatePending) return;
         _elementViewsUpdatePending = true;
@@ -264,7 +275,7 @@ public sealed partial class TimelineTabView : UserControl
                 && (element.IsSelected.Value || existing.Clip.HasActiveInteraction)) continue;
             if (visible && existing.Clip == null)
             {
-                var clip = new ElementView { DataContext = element };
+                var clip = new ElementView(_alignmentFeedback) { DataContext = element };
                 var scope = new ElementScopeView { DataContext = element.Scope };
                 _elementViews.Add(element.Model, (clip, scope));
                 TimelinePanel.Children.Add(clip);

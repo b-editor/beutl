@@ -26,41 +26,6 @@ public sealed partial class WaveRefraction : FilterEffect
     [Display(Name = nameof(GraphicsStrings.WaveRefraction_Phase), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Phase { get; } = Property.CreateAnimatable(0f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (!float.IsFinite(r.Amount) || r.Amount <= 0 || !float.IsFinite(r.Wavelength) || r.Wavelength <= 0
-            || !float.IsFinite(r.Phase))
-            return;
-
-        context.ShaderGraph(new Vector4(r.Amount, r.Wavelength, (r.Phase % 360) * (MathF.PI / 180), 0),
-            static (graph, values) =>
-            {
-                ShaderImage field = graph.Image2D("wave-field", graph.Source, TextureFormat.RG32Float, padding: values.X);
-                ShaderImage output = graph.Image2D("output", field);
-                graph.Fullscreen("wave-field", s_field, pass =>
-                {
-                    pass.ImageParameters(0, graph.Source);
-                    pass.ImageParameters(1, field);
-                    pass.PushConstants(values);
-                    pass.PartialRendering();
-                    pass.ColorAttachment(0, field);
-                });
-                graph.Fullscreen("refract", s_refract, pass =>
-                {
-                    pass.SampledImage(0, graph.Source);
-                    pass.SampledImage(1, field, SamplerState.NearestClamp);
-                    pass.ImageParameters(2, graph.Source);
-                    pass.ImageParameters(3, output);
-                    pass.PushConstants(values);
-                    pass.InputRegion(0, new(Matrix.Identity, values.X));
-                    pass.InputRegion(1, new(Matrix.Identity));
-                    pass.ColorAttachment(0, output);
-                });
-                return graph.Output(output);
-            });
-    }
-
     private static readonly ShaderProgram s_field = ShaderProgram.Fullscreen(new ShaderSource("""
         #version 450
         layout(binding = 0, std140) uniform Source { vec4 logical; vec4 raster; vec4 size; } src;
@@ -88,4 +53,41 @@ public sealed partial class WaveRefraction : FilterEffect
             color = texture(image, (position + offset - src.raster.xy) / src.raster.zw);
         }
         """));
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            if (!float.IsFinite(Amount) || Amount <= 0 || !float.IsFinite(Wavelength) || Wavelength <= 0
+                || !float.IsFinite(Phase))
+                return;
+
+            context.ShaderGraph(new Vector4(Amount, Wavelength, (Phase % 360) * (MathF.PI / 180), 0),
+                static (graph, values) =>
+                {
+                    ShaderImage field = graph.Image2D("wave-field", graph.Source, TextureFormat.RG32Float, padding: values.X);
+                    ShaderImage output = graph.Image2D("output", field);
+                    graph.Fullscreen("wave-field", s_field, pass =>
+                    {
+                        pass.ImageParameters(0, graph.Source);
+                        pass.ImageParameters(1, field);
+                        pass.PushConstants(values);
+                        pass.PartialRendering();
+                        pass.ColorAttachment(0, field);
+                    });
+                    graph.Fullscreen("refract", s_refract, pass =>
+                    {
+                        pass.SampledImage(0, graph.Source);
+                        pass.SampledImage(1, field, SamplerState.NearestClamp);
+                        pass.ImageParameters(2, graph.Source);
+                        pass.ImageParameters(3, output);
+                        pass.PushConstants(values);
+                        pass.InputRegion(0, new(Matrix.Identity, values.X));
+                        pass.InputRegion(1, new(Matrix.Identity));
+                        pass.ColorAttachment(0, output);
+                    });
+                    return graph.Output(output);
+                });
+        }
+    }
 }

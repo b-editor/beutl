@@ -186,7 +186,7 @@ public partial class SourceVideo : IThumbnailsProvider
                     using (gctx.PushTransform(Matrix.CreateScale(thumbWidth / frameSize.Width,
                                (float)maxHeight / frameSize.Height)))
                     {
-                        DrawInternal(gctx, resource);
+                        resource.DrawInternal(gctx);
                     }
 
                     using RenderNodeRasterization rasterization = renderer.Rasterize();

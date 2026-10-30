@@ -1546,6 +1546,69 @@
   <data name="SplitTransition" xml:space="preserve">
     <value>スプリット</value>
   </data>
+  <data name="BlindsTransition" xml:space="preserve">
+    <value>ブラインド</value>
+  </data>
+  <data name="BlindsTransition_Count" xml:space="preserve">
+    <value>分割数</value>
+  </data>
+  <data name="CheckerboardTransition" xml:space="preserve">
+    <value>チェッカーボード</value>
+  </data>
+  <data name="CheckerboardTransition_Columns" xml:space="preserve">
+    <value>列数</value>
+  </data>
+  <data name="CheckerboardTransition_Rows" xml:space="preserve">
+    <value>行数</value>
+  </data>
+  <data name="WipeTransition_Shape" xml:space="preserve">
+    <value>形状</value>
+  </data>
+  <data name="WipeTransition_LinearDirection" xml:space="preserve">
+    <value>直線の方向</value>
+  </data>
+  <data name="WipeTransition_Clockwise" xml:space="preserve">
+    <value>時計回り（クロック）</value>
+  </data>
+  <data name="WipeTransitionShape_Linear" xml:space="preserve">
+    <value>直線</value>
+  </data>
+  <data name="WipeTransitionShape_Box" xml:space="preserve">
+    <value>ボックス</value>
+  </data>
+  <data name="WipeTransitionShape_Diamond" xml:space="preserve">
+    <value>ダイヤモンド</value>
+  </data>
+  <data name="WipeTransitionShape_Clock" xml:space="preserve">
+    <value>クロック</value>
+  </data>
+  <data name="IrisTransitionDirection_In" xml:space="preserve">
+    <value>イン（開く）</value>
+  </data>
+  <data name="IrisTransitionDirection_Out" xml:space="preserve">
+    <value>アウト（閉じる）</value>
+  </data>
+  <data name="ZoomTransitionDirection_In" xml:space="preserve">
+    <value>拡大</value>
+  </data>
+  <data name="ZoomTransitionDirection_Out" xml:space="preserve">
+    <value>縮小</value>
+  </data>
+  <data name="ZoomBlurTransition" xml:space="preserve">
+    <value>ズームブラー</value>
+  </data>
+  <data name="WhipPanTransition" xml:space="preserve">
+    <value>ウィップパン</value>
+  </data>
+  <data name="GlitchTransition" xml:space="preserve">
+    <value>グリッチ</value>
+  </data>
+  <data name="LightLeakTransition" xml:space="preserve">
+    <value>ライトリーク</value>
+  </data>
+  <data name="ClipTransition_Strength" xml:space="preserve">
+    <value>強さ (%)</value>
+  </data>
   <data name="ClipTransition_Orientation" xml:space="preserve">
     <value>向き</value>
   </data>
@@ -1635,5 +1698,53 @@
   </data>
   <data name="LightRays_Decay_Description" xml:space="preserve">
     <value>光線に沿って光を弱めます。0%は均一な強さで、値が大きいほど早く弱まります。</value>
+  </data>
+  <data name="TextBlock_WritingMode" xml:space="preserve">
+    <value>書字方向</value>
+  </data>
+  <data name="WritingMode_HorizontalTb" xml:space="preserve">
+    <value>横書き</value>
+  </data>
+  <data name="WritingMode_VerticalRl" xml:space="preserve">
+    <value>縦書き</value>
+  </data>
+  <data name="MotionBlur" xml:space="preserve">
+    <value>モーションブラー</value>
+  </data>
+  <data name="MotionBlur_Description" xml:space="preserve">
+    <value>対象の描画・変換・透明度と前段のエフェクトを複数時刻で評価します。後段のエフェクトは時間合成後、親の座標系で適用します。</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle" xml:space="preserve">
+    <value>シャッター角 (°)</value>
+  </data>
+  <data name="MotionBlur_ShutterAngle_Description" xml:space="preserve">
+    <value>1フレームに対する露光時間。180°は半フレーム、360°は1フレーム、720°は2フレームです。最大3600°（10フレーム）まで指定できます。0°で時間サンプリングを無効にします。</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition" xml:space="preserve">
+    <value>露光の基準位置</value>
+  </data>
+  <data name="MotionBlur_ShutterPosition_Description" xml:space="preserve">
+    <value>現在のフレームを露光区間の開始・中央・終了のどこに置くかを指定します。</value>
+  </data>
+  <data name="MotionBlur_Samples" xml:space="preserve">
+    <value>サンプル数</value>
+  </data>
+  <data name="MotionBlur_Samples_Description" xml:space="preserve">
+    <value>露光区間内のサンプル数（1〜64）。増やすと残像の隙間が減りますが、描画時間とメモリ使用量が増えます。1は現在時刻だけを描画します。</value>
+  </data>
+  <data name="MotionBlur_SourceMix" xml:space="preserve">
+    <value>元画像ミックス (%)</value>
+  </data>
+  <data name="MotionBlur_SourceMix_Description" xml:space="preserve">
+    <value>現在時刻の元画像を混ぜる割合。0%はモーションブラーのみ、100%は元画像のみです。静止した素材の不透明度は変わりません。</value>
+  </data>
+  <data name="MotionBlur_Center" xml:space="preserve">
+    <value>中央</value>
+  </data>
+  <data name="MotionBlur_Start" xml:space="preserve">
+    <value>開始</value>
+  </data>
+  <data name="MotionBlur_End" xml:space="preserve">
+    <value>終了</value>
   </data>
 </root>

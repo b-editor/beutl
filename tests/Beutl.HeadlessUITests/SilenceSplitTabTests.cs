@@ -22,6 +22,7 @@ using Beutl.Editor.Components.SilenceSplitTab.Views;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.Views;
 using Beutl.Editor.Observers;
+using Beutl.Editor.Operations;
 using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Extensibility;
@@ -41,9 +42,125 @@ namespace Beutl.HeadlessUITests;
 public class SilenceSplitTabTests
 {
     [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Analysis_CapturesBeforeDecodingAndStopsWhenTheDocumentChanges(bool nested)
+    {
+        var (_, scene, editor) = await TestShell.OpenNewSceneAsync("silence-analysis-edit");
+        string path = Path.Combine(TestShell.ProjectRoot(editor), "audio.silence-analysis");
+        File.WriteAllBytes(path, []);
+        var child = new Element { Length = { Value = MediaTime.FromSeconds(10) } };
+        child.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(path) } });
+        var referenced = new Scene { Uri = new Uri(Path.Combine(TestShell.ProjectRoot(editor), "nested.scene")) };
+        var element = child;
+        if (nested)
+        {
+            referenced.Children.Add(child);
+            element = new Element { Length = { Value = child.Length.Value } };
+            element.Objects.Add(new SceneSound { ReferencedScene = { Value = referenced } });
+        }
+        scene.AddChild(element);
+        editor.HistoryManager.Commit("Setup");
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        bool openedOnUi = false;
+        var decoder = new Moq.Mock<IDecoderInfo>();
+        decoder.Setup(d => d.IsSupported(path)).Returns(true);
+        decoder.Setup(d => d.AudioExtensions()).Returns([".silence-analysis"]);
+        decoder.Setup(d => d.VideoExtensions()).Returns([]);
+        decoder.Setup(d => d.Open(path, Moq.It.IsAny<MediaOptions>())).Returns(() =>
+        {
+            openedOnUi |= Dispatcher.UIThread.CheckAccess();
+            started.TrySetResult();
+            if (!openedOnUi && !release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
+            return null;
+        });
+        DecoderRegistry.Register(decoder.Object);
+        using var model = new SilenceSplitViewModel(scene, element, editor.HistoryManager);
+        Task analysis = model.AnalyzeAsync();
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(openedOnUi, Is.False);
+            if (nested) referenced.Children.Clear(); else scene.Children.Remove(element);
+            release.Set();
+            await analysis;
+            Assert.That(model.CanApply.Value || model.IsBusy.Value, Is.False);
+            Assert.That(model.Status.Value, Is.EqualTo(Strings.SilenceSplit_Stale));
+        }
+        finally
+        {
+            release.Set();
+            await analysis;
+            DecoderRegistry.Unregister(decoder.Object);
+        }
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task FailedPreparation_OnlyInvalidatesRangesWhenTheDocumentChanged(bool edit)
+    {
+        var (_, scene, editor) = await TestShell.OpenNewSceneAsync("silence-failed-prepare");
+        string path = Path.Combine(TestShell.ProjectRoot(editor), "audio.silence-retry");
+        File.WriteAllBytes(path, []);
+        var audio = new Element { Length = { Value = MediaTime.FromSeconds(10) } };
+        audio.Uri = new Uri(Path.Combine(TestShell.ProjectRoot(editor), "audio.belm"));
+        audio.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(path) } });
+        var video = new Element { Length = { Value = MediaTime.FromSeconds(4.01) }, ZIndex = { Value = 1 } };
+        video.Uri = new Uri(Path.Combine(TestShell.ProjectRoot(editor), "video.belm"));
+        video.Objects.Add(new Beutl.Graphics.SourceVideo());
+        scene.AddChild(audio);
+        scene.AddChild(video);
+        scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        editor.HistoryManager.Commit("Setup");
+        using var tab = new SilenceSplitTabViewModel(editor);
+        tab.Show(audio);
+        var model = tab.Analysis.Value!;
+        await HeadlessTestHelpers.WaitUntilAsync(() => !model.IsBusy.Value);
+        model.PaddingMilliseconds.Value = 0;
+        model.SetWaveform(Enumerable.Range(0, 500).Select(i => new WaveformChunk(i, 0, i is >= 150 and < 200 ? 0 : 0.5f)).ToArray());
+        model.ModeIndex.Value = (int)SilenceSplitMode.RippleDelete;
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        var decoder = new Moq.Mock<IDecoderInfo>();
+        decoder.Setup(d => d.IsSupported(path)).Returns(true);
+        decoder.Setup(d => d.AudioExtensions()).Returns([".silence-retry"]);
+        decoder.Setup(d => d.VideoExtensions()).Returns([]);
+        decoder.Setup(d => d.Open(path, Moq.It.IsAny<MediaOptions>())).Returns(() =>
+        {
+            started.TrySetResult();
+            if (!release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
+            return null;
+        });
+        DecoderRegistry.Register(decoder.Object);
+        Task applying = tab.ApplyAsync();
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            if (edit) audio.Start.Value = MediaTime.FromSeconds(1);
+            release.Set();
+            await applying;
+            Assert.That(model.CanApply.Value, Is.EqualTo(!edit));
+            Assert.That(model.Status.Value, Does.Contain(Strings.SilenceSplit_ShortSegment));
+            Assert.That(scene.Children, Is.EqualTo(new[] { audio, video }));
+            model.IncludeLinked.Value = false;
+            await tab.ApplyAsync();
+            Assert.That(scene.Children.Count, Is.EqualTo(edit ? 2 : 3));
+        }
+        finally
+        {
+            release.Set();
+            await applying;
+            DecoderRegistry.Unregister(decoder.Object);
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase(1200, "complete")]
     [TestCase(360, "complete")]
     [TestCase(1200, "fail")]
+    [TestCase(1200, "earlier-fail")]
     [TestCase(360, "retarget")]
     [TestCase(360, "close")]
     public async Task ApplyProgress_RemainsVisibleUntilSaveFinishes(int width, string action)
@@ -74,8 +191,15 @@ public class SilenceSplitTabTests
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var release = new ManualResetEventSlim();
         int writes = 0;
+        var earlier = new Scene { Uri = new Uri(Path.Combine(TestShell.ProjectRoot(editor), "earlier.scene")) };
+        bool earlierFailed = false;
         using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
         {
+            if (step == StorageWriteStep.Replace && path == earlier.Uri.LocalPath)
+            {
+                earlierFailed = true;
+                throw new IOException("Unrelated earlier save failure");
+            }
             if (step != StorageWriteStep.Replace || !path.EndsWith(".belm", StringComparison.Ordinal)
                 || Interlocked.Increment(ref writes) != 2) return;
             started.TrySetResult();
@@ -87,6 +211,13 @@ public class SilenceSplitTabTests
         Task applying = tab.ApplyAsync();
         try
         {
+            if (action == "earlier-fail")
+            {
+                using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None))
+                    await ((AutoSaveService)editor.GetService(typeof(AutoSaveService))!).AutoSaveAsync(
+                        [new UpdatePropertyValueOperation<string>(earlier, nameof(Scene.Name), "Earlier", "") { SequenceNumber = 1 }]);
+                Assert.That(earlierFailed, Is.True);
+            }
             Task first = await Task.WhenAny(started.Task, applying).WaitAsync(TimeSpan.FromSeconds(10));
             Assert.That(first, Is.SameAs(started.Task), $"{model.Status.Value}; writes: {writes}");
             await HeadlessTestHelpers.WaitUntilAsync(() => model.IsBusy.Value && bar.Value is > 0 and < 100);

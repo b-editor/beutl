@@ -89,6 +89,17 @@ public sealed partial class RenderNodeContext
         IReadOnlyList<RenderFragmentHandle> inputs,
         Rect domain,
         bool domainIsQueryFootprint = false)
+        => LayerCore(inputs, domain, domainIsQueryFootprint, null);
+
+    // Compositors can exclude auxiliary inputs, such as a matte, from selection while retaining
+    // those inputs in the rendered layer. The contract also survives symbolic metadata resolution.
+    internal RenderFragmentHandle Layer(
+        IReadOnlyList<RenderFragmentHandle> inputs, Rect domain, RenderHitTestContract hitTest)
+        => LayerCore(inputs, domain, false, hitTest);
+
+    private RenderFragmentHandle LayerCore(
+        IReadOnlyList<RenderFragmentHandle> inputs, Rect domain, bool domainIsQueryFootprint,
+        RenderHitTestContract? hitTestOverride)
     {
         if (!RenderRectValidation.IsFiniteNonNegative(domain)
             || domain.Width == 0
@@ -123,7 +134,9 @@ public sealed partial class RenderNodeContext
             : domain;
         // The layer's own bounds are clipped to the domain above, so a point the domain excludes names
         // content the layer cannot render however far an input's geometry reaches.
-        RenderFragmentHitTest hitTest = hasConcreteInputMetadata
+        RenderFragmentHitTest hitTest = hitTestOverride is { } contract
+            ? RenderFragmentHitTest.FromContract(contract, null)
+            : hasConcreteInputMetadata
             ? RenderFragmentHitTest.RegionAndInputs(domain)
             : RenderFragmentHitTest.Region(domain);
         return transaction.CreateFragment(
@@ -136,7 +149,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
-            new LayerRenderFragmentPayload(domain, domainIsQueryFootprint),
+            new LayerRenderFragmentPayload(domain, domainIsQueryFootprint, hitTestOverride),
             hitTest);
     }
 
@@ -187,6 +200,14 @@ public sealed partial class RenderNodeContext
     public RenderFragmentHandle TargetLayerScope(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetRegion region)
+        => TargetLayerScope(inputs, region, contributesToBackdrop: true);
+
+    // An effect's combined output must not become the backdrop of its later input samples.
+    internal RenderFragmentHandle TargetLayerScope(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetRegion region,
+        bool contributesToBackdrop,
+        bool preservesTargetClear = false)
     {
         region.ThrowIfUninitialized(nameof(region));
         NodeRecordingTransaction transaction = GetTransaction();
@@ -202,7 +223,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
-            new TargetLayerScopeRenderFragmentPayload(region),
+            new TargetLayerScopeRenderFragmentPayload(region, contributesToBackdrop, preservesTargetClear),
             CreateTargetLayerScopeHitTest(region),
             hasDirectSymbolicBoundsDependency: region.Kind == TargetRegionKind.Full);
     }
@@ -283,6 +304,12 @@ public sealed partial class RenderNodeContext
     public RenderFragmentHandle TargetCommand(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetCommandDescription description)
+        => TargetCommand(inputs, description, clearsTarget: false);
+
+    internal RenderFragmentHandle TargetCommand(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetCommandDescription description,
+        bool clearsTarget)
     {
         ArgumentNullException.ThrowIfNull(description);
         NodeRecordingTransaction transaction = GetTransaction();
@@ -305,7 +332,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
             references,
-            new TargetCommandRenderFragmentPayload(description, inputReadbacks),
+            new TargetCommandRenderFragmentPayload(description, inputReadbacks, clearsTarget),
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 

@@ -238,7 +238,7 @@ public sealed class LightRaysTests
             var effect = new LightRays { Length = { Value = 100 }, Decay = { Value = 0 }, Threshold = { Value = 0 } };
             using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
             using var context = new FilterEffectContext(new(0, 0, 100, 10));
-            effect.ApplyTo(context, resource);
+            context.ApplyTransactional(resource);
             using var brush = (Brush.Resource)new SolidColorBrush(Colors.White).ToResource(CompositionContext.Default);
             using var root = new FilterEffectRenderNode(resource);
             root.AddChild(new RectangleRenderNode(new(0, 0, 10, 10), brush, null));
@@ -263,7 +263,7 @@ public sealed class LightRaysTests
         var effect = new LightRays { Length = { Value = length }, Intensity = { Value = intensity } };
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(new(0, 0, 8, 8));
-        effect.ApplyTo(context, resource);
+        context.ApplyTransactional(resource);
         Assert.That(context.GetOrderedItems(), Is.Empty);
         Assert.That(context.Bounds, Is.EqualTo(new Rect(0, 0, 8, 8)));
     }

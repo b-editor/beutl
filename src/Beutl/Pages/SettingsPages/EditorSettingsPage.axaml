@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="using:Beutl.Converters"
              xmlns:ctrls="using:Beutl.Controls"
+             xmlns:guides="using:Beutl.Editor.Components.PreviewSettingsTab.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:icons="using:FluentIcons.Avalonia.Fluent"
              xmlns:lang="using:Beutl.Language"
@@ -360,6 +361,127 @@
                                     <TextBlock Width="40"
                                                VerticalAlignment="Center"
                                                Text="{Binding ToneMappingExposure.Value, StringFormat={}{0:F1}}" />
+                                </StackPanel>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+                    </ctrls:OptionsGroupPanel>
+                </Border>
+
+                <TextBlock Margin="0,16,0,0"
+                           Text="{x:Static lang:Strings.PreviewGuides}"
+                           Theme="{StaticResource BodyStrongTextBlockStyle}" />
+
+                <!--  The preview settings tab edits the same settings.  -->
+                <Border Classes="options-group">
+                    <ctrls:OptionsGroupPanel>
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:SettingsStrings.ShowPreviewGuides_Description}" Header="{x:Static lang:SettingsStrings.ShowPreviewGuides}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ToggleSwitch Classes="left"
+                                              IsChecked="{CompiledBinding PreviewGuides.IsEnabled.Value}"
+                                              Theme="{StaticResource CompactToggleSwitchStyle}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Expands="True"
+                                                  Header="{x:Static lang:SettingsStrings.PreviewGuideKinds}"
+                                                  IsEnabled="{CompiledBinding PreviewGuides.IsEnabled.Value}">
+                            <ctrls:OptionsDisplayItem.Content>
+                                <ItemsControl Margin="40,4" ItemsSource="{CompiledBinding PreviewGuides.Kinds}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="guides:PreviewGuideKindItem">
+                                            <CheckBox MinWidth="180"
+                                                      Margin="4"
+                                                      Content="{CompiledBinding DisplayName}"
+                                                      IsChecked="{CompiledBinding IsChecked.Value}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ctrls:OptionsDisplayItem.Content>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.PreviewGuide_Color}" IsEnabled="{CompiledBinding PreviewGuides.IsEnabled.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <ui:ColorPickerButton IsAlphaEnabled="False"
+                                                      IsCompact="True"
+                                                      IsMoreButtonVisible="True"
+                                                      ShowAcceptDismissButtons="True"
+                                                      UseColorPalette="False"
+                                                      UseColorTriangle="False"
+                                                      UseColorWheel="False"
+                                                      UseSpectrum="True"
+                                                      Color="{CompiledBinding PreviewGuides.Color.Value, Mode=TwoWay}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.PreviewGuide_Opacity}" IsEnabled="{CompiledBinding PreviewGuides.IsEnabled.Value}">
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <Slider MinWidth="200"
+                                            IsSnapToTickEnabled="True"
+                                            Maximum="1"
+                                            Minimum="0"
+                                            TickFrequency="0.05"
+                                            Value="{CompiledBinding PreviewGuides.Opacity.Value}" />
+                                    <TextBlock Width="40"
+                                               VerticalAlignment="Center"
+                                               Text="{CompiledBinding PreviewGuides.Opacity.Value, StringFormat={}{0:P0}}" />
+                                </StackPanel>
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.PreviewGuide_GridColumns}">
+                            <ctrls:OptionsDisplayItem.IsEnabled>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="PreviewGuides.IsEnabled.Value" />
+                                    <Binding Path="PreviewGuides.IsGridEnabled.Value" />
+                                </MultiBinding>
+                            </ctrls:OptionsDisplayItem.IsEnabled>
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <NumericUpDown MinWidth="250"
+                                               FormatString="F0"
+                                               Maximum="64"
+                                               Minimum="1"
+                                               Value="{Binding PreviewGuides.GridColumns.Value}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Header="{x:Static lang:Strings.PreviewGuide_GridRows}">
+                            <ctrls:OptionsDisplayItem.IsEnabled>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="PreviewGuides.IsEnabled.Value" />
+                                    <Binding Path="PreviewGuides.IsGridEnabled.Value" />
+                                </MultiBinding>
+                            </ctrls:OptionsDisplayItem.IsEnabled>
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <NumericUpDown MinWidth="250"
+                                               FormatString="F0"
+                                               Maximum="64"
+                                               Minimum="1"
+                                               Value="{Binding PreviewGuides.GridRows.Value}" />
+                            </ctrls:OptionsDisplayItem.ActionButton>
+                        </ctrls:OptionsDisplayItem>
+
+                        <ctrls:OptionsDisplayItem Description="{x:Static lang:Strings.PreviewGuide_AspectRatios_Tip}" Header="{x:Static lang:Strings.PreviewGuide_AspectRatios}">
+                            <ctrls:OptionsDisplayItem.IsEnabled>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="PreviewGuides.IsEnabled.Value" />
+                                    <Binding Path="PreviewGuides.IsAspectRatioEnabled.Value" />
+                                </MultiBinding>
+                            </ctrls:OptionsDisplayItem.IsEnabled>
+                            <ctrls:OptionsDisplayItem.ActionButton>
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <ComboBox MinWidth="160"
+                                              ItemsSource="{CompiledBinding PreviewGuides.Presets}"
+                                              PlaceholderText="{x:Static lang:Strings.PreviewGuide_Preset}"
+                                              SelectedItem="{CompiledBinding PreviewGuides.SelectedPreset.Value}" />
+                                    <TextBox MinWidth="250"
+                                             VerticalAlignment="Center"
+                                             Text="{CompiledBinding PreviewGuides.AspectRatios.Value}" />
                                 </StackPanel>
                             </ctrls:OptionsDisplayItem.ActionButton>
                         </ctrls:OptionsDisplayItem>

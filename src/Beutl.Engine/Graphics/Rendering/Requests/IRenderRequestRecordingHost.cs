@@ -12,6 +12,9 @@ internal interface IRenderRequestRecordingHost
         IReadOnlyList<RenderFragmentReference> inputs,
         bool subtree);
 
+    IReadOnlyList<RenderFragmentReference> RecordSharedSubtree(
+        NodeRecordingTransaction parent, object identity, RenderNode root);
+
     RecordedNestedRenderRequest RecordNestedRequest(
         RenderNode root,
         RenderRequestOptions options);

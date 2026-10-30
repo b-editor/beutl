@@ -7,9 +7,11 @@ using Beutl.Extensibility;
 namespace Beutl.PropertyAdapters;
 
 // The expression members of SimplePropertyAdapter and AnimatablePropertyAdapter, which IExpressionProperty<T> provides.
-public abstract class ExpressionPropertyAdapterBase<T>(IExpressionProperty<T> property, EngineObject obj)
+public abstract class ExpressionPropertyAdapterBase<T>(IExpressionProperty<T> property, CoreObject obj)
     : EnginePropertyAdapter<T>(property, obj), IExpressionPropertyAdapter<T>
 {
+    public ExpressionPropertyAdapterBase(IExpressionProperty<T> property, EngineObject obj) : this(property, (CoreObject)obj) { }
+
     public new IExpressionProperty<T> Property { get; } = property;
 
     public IExpression<T>? Expression

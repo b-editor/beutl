@@ -187,6 +187,7 @@ internal static class LibraryRegistrar
             .RegisterGroup(GraphicsStrings.FilterEffect, g => g
                 .AddFilterEffect<Blur>(GraphicsStrings.Blur)
                 .AddFilterEffect<RadialBlur>(GraphicsStrings.RadialBlur)
+                .AddFilterEffect<MotionBlur>(GraphicsStrings.MotionBlur)
                 .AddFilterEffect<Bloom>(GraphicsStrings.Bloom)
                 .AddFilterEffect<LightRays>(GraphicsStrings.LightRays)
                 .AddFilterEffect<WaveRefraction>(GraphicsStrings.WaveRefraction)
@@ -245,6 +246,12 @@ internal static class LibraryRegistrar
                 .AddClipTransition<ZoomTransition>(GraphicsStrings.ZoomTransition)
                 .AddClipTransition<IrisTransition>(GraphicsStrings.IrisTransition)
                 .AddClipTransition<SplitTransition>(GraphicsStrings.SplitTransition)
+                .AddClipTransition<BlindsTransition>(GraphicsStrings.BlindsTransition)
+                .AddClipTransition<CheckerboardTransition>(GraphicsStrings.CheckerboardTransition)
+                .AddClipTransition<ZoomBlurTransition>(GraphicsStrings.ZoomBlurTransition)
+                .AddClipTransition<WhipPanTransition>(GraphicsStrings.WhipPanTransition)
+                .AddClipTransition<GlitchTransition>(GraphicsStrings.GlitchTransition)
+                .AddClipTransition<LightLeakTransition>(GraphicsStrings.LightLeakTransition)
             );
 
         LibraryService.Current

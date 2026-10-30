@@ -126,6 +126,27 @@ public sealed partial class EditorConfig : ConfigurationBase
     [Display(Name = nameof(Strings.PreviewSource), ResourceType = typeof(Strings))]
     public IProperty<PreviewSourceMode> PreviewSourceMode { get; } = Property.CreateValue(Configuration.PreviewSourceMode.PreferProxy);
 
+    // Shows or hides every guide in PreviewGuideKinds at once, which is what the editor's guide toggle flips.
+    public IProperty<bool> IsPreviewGuideEnabled { get; } = Property.CreateValue(false);
+
+    public IProperty<PreviewGuideKinds> PreviewGuideKinds { get; } = Property.CreateValue(
+        Configuration.PreviewGuideKinds.TitleSafe | Configuration.PreviewGuideKinds.ActionSafe | Configuration.PreviewGuideKinds.CenterCross);
+
+    // #AARRGGBB, read with Avalonia's Color.TryParse; one that does not parse draws the guides white.
+    public IProperty<string> PreviewGuideColor { get; } = Property.CreateValue("#FFFFFFFF");
+
+    [Range(0.0, 1.0)]
+    public IProperty<float> PreviewGuideOpacity { get; } = Property.CreateValue(0.8f);
+
+    [Range(1, 64)]
+    public IProperty<int> PreviewGuideGridColumns { get; } = Property.CreateValue(4);
+
+    [Range(1, 64)]
+    public IProperty<int> PreviewGuideGridRows { get; } = Property.CreateValue(4);
+
+    // A list PreviewGuideAspectRatio.TryParseList reads, such as "9:16, 1:1".
+    public IProperty<string> PreviewGuideAspectRatios { get; } = Property.CreateValue("9:16, 1:1, 4:5, 2.39:1");
+
     /// <summary>Sets <see cref="PreviewSourceMode"/> from a <c>ComboBox.SelectedIndex</c>.</summary>
     /// <remarks>Out-of-range indices, such as the <c>-1</c> of a transient no-selection, are ignored.</remarks>
     public void SetPreviewSourceModeFromIndex(int index)

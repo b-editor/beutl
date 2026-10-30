@@ -709,6 +709,63 @@ public class ElementTransitionCompositionTests
         });
     }
 
+    [Test]
+    public void AddedTransitions_RoundTripWithTheirSettings()
+    {
+        ClipTransition[] transitions =
+        [
+            new BlindsTransition { Count = { Value = 12 }, Angle = { Value = -37.5f } },
+            new CheckerboardTransition { Columns = { Value = 5 }, Rows = { Value = 3 } },
+            new WipeTransition { Shape = { Value = WipeTransitionShape.Clock }, Clockwise = { Value = false } },
+            new WipeTransition { Shape = { Value = WipeTransitionShape.Box } },
+            new WipeTransition { Shape = { Value = WipeTransitionShape.Diamond } },
+            new IrisTransition { Direction = { Value = IrisTransitionDirection.Out } },
+            new ZoomTransition { Direction = { Value = ZoomTransitionDirection.Out }, TileMode = { Value = GradientSpreadMethod.Reflect } },
+            new ZoomBlurTransition { Strength = { Value = 40 }, Direction = { Value = ZoomTransitionDirection.Out }, TileMode = { Value = GradientSpreadMethod.Repeat } },
+            new WhipPanTransition { Strength = { Value = 80 }, Direction = { Value = ClipTransitionDirection.BottomToTop } },
+            new GlitchTransition { Strength = { Value = 35 } },
+            new LightLeakTransition { Strength = { Value = 90 } },
+        ];
+        foreach (ClipTransition transition in transitions)
+        {
+            transition.Duration.Value = Seconds(0.8);
+            transition.Easing.Value = new SplineEasing(0.25f, 0.1f, 0.4f, 1f);
+            var element = new Element { Length = { Value = Seconds(3) }, EnterTransition = { Value = transition } };
+            JsonObject json = CoreSerializer.SerializeToJsonObject(element);
+            var restored = (Element)CoreSerializer.DeserializeFromJsonObject(json, typeof(Element));
+            Assert.Multiple(() =>
+            {
+                Assert.That(restored.EnterTransition.Value, Is.TypeOf(transition.GetType()));
+                Assert.That(restored.EnterTransition.Value?.HierarchicalParent, Is.SameAs(restored));
+                Assert.That(CoreSerializer.SerializeToJsonObject(restored).ToJsonString(), Is.EqualTo(json.ToJsonString()),
+                    "the type, settings, duration and easing survive saving the element");
+            });
+        }
+    }
+
+    [Test]
+    public void ExistingTransitions_KeepTheirDefaultsWhenTheNewOptionsAreAbsent()
+    {
+        foreach (ClipTransition transition in new ClipTransition[] { new WipeTransition(), new IrisTransition(), new ZoomTransition(), new ZoomBlurTransition() })
+        {
+            JsonObject json = CoreSerializer.SerializeToJsonObject(transition);
+            if (transition is WipeTransition)
+            {
+                json.Remove(nameof(WipeTransition.Shape));
+                json.Remove(nameof(WipeTransition.Clockwise));
+            }
+            else
+            {
+                json.Remove(nameof(IrisTransition.Direction));
+                json.Remove(nameof(ZoomTransition.TileMode));
+            }
+
+            var restored = (ClipTransition)CoreSerializer.DeserializeFromJsonObject(json, transition.GetType());
+            Assert.That(CoreSerializer.SerializeToJsonObject(restored).ToJsonString(),
+                Is.EqualTo(CoreSerializer.SerializeToJsonObject(transition).ToJsonString()), "omitted options keep the original effect");
+        }
+    }
+
     // A transition whose type is not available, such as one from an extension that is not installed, still
     // loads, blends its boundary, and is saved back as what it was.
     [Test]

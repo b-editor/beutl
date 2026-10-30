@@ -666,6 +666,34 @@ public class NestedInputPortTests
     }
 
     [Test]
+    public void Connection_over_component_tracks_round_trips_and_restores_them_on_disconnect()
+    {
+        var graph = new GraphModel();
+        var node = new FactoryNode<Pen>();
+        var brush = new SolidColorBrush();
+        node.Object.Value.Brush.Value = brush;
+        graph.Nodes.Add(node);
+        var split = ComponentAnimations.Separate(brush.Color);
+        var red = (IProperty<byte>)split.Components.Single(p => p.Name == "R");
+        red.SetKeyFrameAnimation(TestAnimations.Linear((byte)0, (byte)255, MediaTime.FromSeconds(2)));
+        var port = Find(node, brush.Color);
+        graph.Connect(port, Source(graph, Colors.Blue));
+        Evaluate(graph);
+
+        var json = CoreSerializer.SerializeToJsonObject(graph);
+        var restored = (GraphModel)CoreSerializer.DeserializeFromJsonObject(json, typeof(GraphModel));
+        Evaluate(restored);
+        var color = (IExpressionProperty<Color>)((INestedInputPort)restored.FindNodePort(port.Id.Value)!).Property!.GetEngineProperty()!;
+        Assert.That(CoreSerializer.SerializeToJsonObject(restored).ToJsonString(), Is.EqualTo(json.ToJsonString()));
+        Assert.That(color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Blue));
+        Assert.That(color.Expression!.Replaced, Is.SameAs(color.GetPropertyAnimation()).And.InstanceOf<IComponentAnimation>());
+        restored.Disconnect(restored.AllConnections.Single());
+        Assert.That(color.HasExpression, Is.False);
+        Assert.That(color.Evaluate(CompositionContext.Default), Is.EqualTo(Colors.Cyan));
+        Assert.That(color.Evaluate(new EvaluationContext(MediaTime.FromSeconds(2))), Is.EqualTo(Colors.White));
+    }
+
+    [Test]
     public void MissingBrushPreservesConnectionsThroughSaveRepairAndUndo()
     {
         var graph = new GraphModel();

@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations;
 using Beutl.Collections;
 using Beutl.Composition;
 using Beutl.Engine;
+using Beutl.Graphics;
 using Beutl.Graphics.Transitions;
 using Beutl.JsonConverters;
 using Beutl.Language;
@@ -32,6 +33,10 @@ public partial class Element : Hierarchical, INotifyEdited
             Edited?.Invoke(this, EventArgs.Empty);
         };
         IsEnabled.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        MatteSourceKind.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        MatteSourceZIndex.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        MatteMode.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
+        IsVisibleInOutput.ValueChanged += (_, _) => Edited?.Invoke(this, EventArgs.Empty);
         EnterTransition.ValueChanged += (_, e) => OnTransitionChanged(e);
         ExitTransition.ValueChanged += (_, e) => OnTransitionChanged(e);
         Objects.Attached += OnObjectAttached;
@@ -52,6 +57,16 @@ public partial class Element : Hierarchical, INotifyEdited
     public IProperty<Color> AccentColor { get; } = Property.CreateValue(Colors.Teal);
 
     public IProperty<bool> IsEnabled { get; } = Property.CreateValue(true);
+
+    public IProperty<MatteSourceKind> MatteSourceKind { get; } = Property.CreateValue(ProjectSystem.MatteSourceKind.Above);
+
+    /// <summary>The explicit source layer, used when MatteSourceKind is Layer.</summary>
+    public IProperty<int?> MatteSourceZIndex { get; } = Property.CreateValue<int?>(null);
+
+    public IProperty<MatteMode> MatteMode { get; } = Property.CreateValue(Graphics.MatteMode.None);
+
+    /// <summary>Whether to draw this element in the scene. Hidden elements can still supply a matte.</summary>
+    public IProperty<bool> IsVisibleInOutput { get; } = Property.CreateValue(true);
 
     // Editor-only; does not affect composition. Timeline and property editors refuse
     // edits when this is true or its TimelineLayer.IsLocked is.
@@ -78,6 +93,37 @@ public partial class Element : Hierarchical, INotifyEdited
     public IProperty<ClipTransition?> ExitTransition { get; } = Property.CreateValue<ClipTransition?>(null);
 
     public TimeRange Range => new(Start.Value, Length.Value);
+
+    /// <summary>Resolves relative sources to the nearest clip layer at the frame's time.</summary>
+    public int? GetMatteSourceZIndex(Scene scene, MediaTime time)
+    {
+        if (MatteSourceKind.Value == ProjectSystem.MatteSourceKind.Layer) return MatteSourceZIndex.Value;
+
+        int? nearest = null;
+        foreach (Element candidate in scene.Children)
+        {
+            int z = candidate.ZIndex.Value;
+            bool closer = MatteSourceKind.Value switch
+            {
+                ProjectSystem.MatteSourceKind.Above => z < ZIndex.Value && (nearest == null || z > nearest),
+                ProjectSystem.MatteSourceKind.Below => z > ZIndex.Value && (nearest == null || z < nearest),
+                _ => false,
+            };
+            if (!closer || !candidate.CoversGraphicsTime(time)) continue;
+            nearest = z;
+        }
+
+        return nearest;
+    }
+
+    // A transition can bridge the small gap tolerated between adjacent clips.
+    internal bool CoversGraphicsTime(MediaTime time)
+    {
+        if (Range.Contains(time)) return true;
+        MediaTime tolerance = ElementTransitions.AdjacencyTolerance;
+        return time >= Start.Value - tolerance && time < Range.End + tolerance
+               && ElementTransitions.TryGetActive(this, time, out _);
+    }
 
     // True while recovery keeps this element's original file because saving would lose part of
     // what it was read with, for example a keyframe easing from a plugin that is not installed (an
@@ -174,6 +220,9 @@ public partial class Element : Hierarchical, INotifyEdited
     public override void Deserialize(ICoreSerializationContext context)
     {
         base.Deserialize(context);
+        // Earlier track mattes only had an explicit layer, including null for no source.
+        if (!context.Contains(nameof(MatteSourceKind)) && context.Contains(nameof(MatteSourceZIndex)))
+            MatteSourceKind.Value = ProjectSystem.MatteSourceKind.Layer;
         Length.Value = MediaTimeJsonConverter.LengthRead(context, nameof(Start), nameof(Length), Start.Value, Length.Value);
         if (context.GetValue<EngineObject[]>(nameof(Objects)) is { } objects)
         {

@@ -149,9 +149,13 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
             case LayerRenderFragmentPayload layer:
                 components.AddBoolean(layer.Domain.HasValue);
                 components.AddBoolean(layer.DomainIsQueryFootprint);
+                components.AddBoolean(layer.HitTest.HasValue);
+                if (layer.HitTest is { } hitTest) components.AddReference(hitTest.StructuralIdentity);
                 return;
             case TargetLayerScopeRenderFragmentPayload targetLayer:
                 components.AddBoolean(targetLayer.Region.Kind != TargetRegionKind.Empty);
+                components.AddBoolean(targetLayer.ContributesToBackdrop);
+                components.AddBoolean(targetLayer.PreservesTargetClear);
                 return;
             case OpaqueRenderFragmentPayload opaque:
                 AddOpaqueStructuralIdentity(opaque, ref components);
@@ -191,6 +195,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 AddResourceTypes(command.Description.Resources, ref components);
                 return;
             case TargetCommandRenderFragmentPayload command:
+                components.AddBoolean(command.ClearsTarget);
                 components.AddReference(command.Description.DefinitionFingerprint);
                 components.AddEnum(command.Description.Access);
                 AddInputReadbacks(command.InputReadbacks, ref components);

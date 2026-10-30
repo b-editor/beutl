@@ -233,6 +233,100 @@ public class NodeGraphMutationServiceTests
     }
 
     [Test]
+    public void RewireListSlot_ToAnotherOutput_ReplacesTheSlotInOneUndoStep()
+    {
+        var (first, second, list, moved) = SeedListSlots();
+        var third = new ExpressionNode();
+        _graph.Nodes.Add(third);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        bool rewired = _service.RewireListSlot(_graph, moved, third, third.Output);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rewired, Is.True);
+            Assert.That(SlotSources(list), Is.EqualTo(new object[] { third.Output, second.Output }));
+            Assert.That(first.Output.Connections, Is.Empty);
+            Assert.That(_graph.AllConnections, Has.Count.EqualTo(2));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+
+        _history.Undo();
+        Assert.That(SlotSources(list), Is.EqualTo(new object[] { first.Output, second.Output }));
+        Assert.That(third.Output.Connections, Is.Empty);
+    }
+
+    // A dynamic-port node reports PortAdded rather than Connected, which is still a successful rewire.
+    [Test]
+    public void RewireListSlot_ToADynamicPortNode_AddsItsPortInTheSlotInOneUndoStep()
+    {
+        var (first, second, list, moved) = SeedListSlots();
+        var input = new GroupInput();
+        _graph.Nodes.Add(input);
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        bool rewired = _service.RewireListSlot(_graph, moved, input, null);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rewired, Is.True);
+            Assert.That(input.Items, Has.Count.EqualTo(1));
+            Assert.That(SlotSources(list), Is.EqualTo(new object[] { input.Items.Single(), second.Output }));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo + 1));
+        });
+
+        _history.Undo();
+        Assert.That(input.Items, Is.Empty);
+        Assert.That(SlotSources(list), Is.EqualTo(new object[] { first.Output, second.Output }));
+    }
+
+    public enum RejectedRewire { AnotherInput, SameList, SameOutput }
+
+    [Test]
+    public void RewireListSlot_ToAPortThatCannotTakeIt_KeepsTheConnectionAndCommitsNothing([Values] RejectedRewire target)
+    {
+        var (first, second, list, moved) = SeedListSlots();
+        _history.Commit("Seed");
+        int beforeUndo = _history.UndoCount;
+
+        bool rewired = target switch
+        {
+            RejectedRewire.AnotherInput => _service.RewireListSlot(_graph, moved, first, first.InputPort),
+            RejectedRewire.SameList => _service.RewireListSlot(_graph, moved, list, list.InputPort),
+            _ => _service.RewireListSlot(_graph, moved, first, first.Output),
+        };
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rewired, Is.False);
+            Assert.That(SlotSources(list), Is.EqualTo(new object[] { first.Output, second.Output }));
+            Assert.That(list.InputPort.Connections[0].Value, Is.SameAs(moved));
+            Assert.That(_graph.AllConnections, Does.Contain(moved));
+            Assert.That(first.Output.Connections.Select(c => c.Value), Is.EqualTo(new[] { moved }));
+            // History leaves Status out, so the rollback cannot bring it back from the Disconnected the removal set.
+            Assert.That(moved.Status.Value, Is.EqualTo(ConnectionStatus.Connected));
+            Assert.That(_history.UndoCount, Is.EqualTo(beforeUndo));
+        });
+    }
+
+    // Two ExpressionNodes feed a third's list input; the first slot's connection is returned.
+    private (ExpressionNode First, ExpressionNode Second, ExpressionNode List, Connection FirstSlot) SeedListSlots()
+    {
+        var first = new ExpressionNode();
+        var second = new ExpressionNode();
+        var list = new ExpressionNode();
+        _graph.Nodes.AddRange([first, second, list]);
+        Connection firstSlot = _graph.Connect(list.InputPort, first.Output);
+        _graph.Connect(list.InputPort, second.Output);
+        return (first, second, list, firstSlot);
+    }
+
+    private static object?[] SlotSources(ExpressionNode list)
+        => [.. list.InputPort.Connections.Select(c => c.Value!.Output.Value.Value)];
+
+    [Test]
     public void RenameNode_SameName_NoCommit()
     {
         var node = new GroupInput { Name = { Value = "Source" } };
@@ -352,7 +446,7 @@ public class NodeGraphMutationServiceTests
     public enum Mutation
     {
         AddNode, AddNodeAndConnect, RemoveNode, MoveNodes, RenameNode, RemovePort,
-        MoveConnectionSlot, RenamePort, TryConnect, TryDisconnect, DisconnectAll, DisconnectConnection,
+        MoveConnectionSlot, RewireListSlot, RenamePort, TryConnect, TryDisconnect, DisconnectAll, DisconnectConnection,
     }
 
     public enum ClipState { Editable, LockedClip, LockedLayer, Protected }
@@ -408,6 +502,7 @@ public class NodeGraphMutationServiceTests
             case Mutation.RenameNode: service.RenameNode(first, "Renamed"); break;
             case Mutation.RemovePort: service.RemovePort(group, groupPort); break;
             case Mutation.MoveConnectionSlot: service.MoveConnectionSlot(list.InputPort, 0, 1); break;
+            case Mutation.RewireListSlot: service.RewireListSlot(graph, list.InputPort.Connections[0].Value!, free, free.Output); break;
             case Mutation.RenamePort: service.RenamePort(groupPort, "Renamed"); break;
             case Mutation.TryConnect: service.TryConnect(graph, free, free.Output, list, list.InputPort); break;
             case Mutation.TryDisconnect: service.TryDisconnect(graph, first.Output, list.InputPort); break;

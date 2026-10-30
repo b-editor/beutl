@@ -21,6 +21,45 @@ public class SilenceSplitTests
     private static MediaTime Seconds(double value) => MediaTime.FromSeconds(value);
     private static TimeRange Range(double start, double end) => TimeRange.FromRange(Seconds(start), Seconds(end));
 
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Analysis_ObservesReferencedSceneEditsThroughSoundGroups(bool grouped)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        using var h = new SceneHistoryHarness("silence-referenced-edit");
+        var referenced = new Scene { Duration = { Value = Seconds(2) } };
+        var child = new Element { Length = { Value = Seconds(2) } };
+        var sound = new SourceSound
+        {
+            Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile()) },
+            Gain = { Value = 0 }
+        };
+        child.Objects.Add(sound);
+        referenced.Children.Add(child);
+        var element = h.AddElement(Seconds(0), Seconds(2));
+        var embed = new SceneSound { ReferencedScene = { Value = referenced }, TimeRange = { Value = Range(0, 2) } };
+        if (grouped)
+        {
+            var group = new SoundGroup();
+            group.Children.Add(embed);
+            element.Objects.Add(group);
+        }
+        else element.Objects.Add(embed);
+        using (var model = new SilenceSplitViewModel(h.Scene, element, h.History))
+        {
+            await model.AnalyzeAsync();
+            Assert.That(model.CanApply.Value, Is.True, model.Status.Value);
+            sound.Gain.Value = 100;
+            Assert.That(model.CanApply.Value, Is.False);
+            Assert.That(await model.ApplyAsync(), Is.False);
+            Assert.That(h.Scene.Children, Is.EqualTo(new[] { element }));
+        }
+        // Refreshing re-evaluates the now-audible source; normal editing remains available.
+        using var refreshed = new SilenceSplitViewModel(h.Scene, element, h.History);
+        await refreshed.AnalyzeAsync();
+        Assert.That(refreshed.Ranges, Is.Empty);
+    }
+
     [TestCase(0, 100, false, true)]
     [TestCase(0, 100, true, true)]
     [TestCase(28, 100, false, true)]

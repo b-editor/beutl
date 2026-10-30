@@ -6,6 +6,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 
+using Beutl.Controls;
 using Beutl.Editor.Services;
 using Beutl.Extensibility;
 using Beutl.Graphics;
@@ -55,6 +56,62 @@ public class TransformHandlesOverlayTests
         ScaledAndTurned,
         // A transform effect applied to its target has no bounds of its own, so its boundary is the whole frame.
         FillsTheFrame,
+    }
+
+    [AvaloniaTest]
+    public async Task Rotation_feedback_tracks_snap_targets_and_is_silent_for_free_rotation_and_undo()
+    {
+        TestGpu.RequireAnyDevice();
+        await TestReset.ResetShellAsync();
+        (EditViewModel editor, PlayerView view, Window window, Drawable drawable) = await OpenPreview(Content.TurnedBlurredRect);
+        try
+        {
+            using var feedback = new HapticFeedbackRecorder();
+            TransformHandlesOverlay overlay = view.transformHandlesOverlay;
+            AvaPoint pivot = overlay.PivotImage;
+            AvaPoint corner = Corners(overlay)[0];
+            Avalonia.Vector radial = corner - pivot;
+            AvaPoint start = corner + radial / radial.Length * 12;
+            Assert.That(overlay.HitTest(start), Is.EqualTo(TransformHandlesOverlay.HandleKind.Rotate));
+            RotationTransform rotation = ((TransformGroup)drawable.Transform.Value!).Children.OfType<RotationTransform>().Single();
+            window.MouseMove(ToWindow(view, window, start));
+            window.MouseDown(ToWindow(view, window, start), MouseButton.Left, RawInputModifiers.Shift);
+
+            Move(1, true, -30, 0);
+            Move(3, true, -30, 0);
+            Move(16, true, -15, 1);
+            Move(18, true, -15, 1);
+            Move(1, true, -30, 2); // Returning to the starting step after leaving it should pulse.
+            Move(29, true, 0, 3);
+            Move(32, false, 2, 3);
+            Move(32, true, 0, 4);
+            window.MouseUp(ToWindow(view, window, At(32)), MouseButton.Left);
+            await RenderPreview(editor);
+            HeadlessCapture.SaveIfRequested(window, nameof(TransformHandlesOverlayTests), "rotation-haptic");
+            Assert.That(feedback.Pulses, Is.EqualTo(Enumerable.Repeat(HapticFeedbackKind.Alignment, 4)));
+            editor.HistoryManager.Undo();
+            Assert.That(rotation.Rotation.Value, Is.EqualTo(-30).Within(0.01));
+            editor.HistoryManager.Redo();
+            Assert.That(rotation.Rotation.Value, Is.EqualTo(0).Within(0.01));
+            Assert.That(feedback.Pulses, Has.Count.EqualTo(4));
+
+            AvaPoint At(double degrees)
+            {
+                double radians = degrees * Math.PI / 180;
+                Avalonia.Vector v = start - pivot;
+                return pivot + new Avalonia.Vector(v.X * Math.Cos(radians) - v.Y * Math.Sin(radians),
+                    v.X * Math.Sin(radians) + v.Y * Math.Cos(radians));
+            }
+
+            void Move(double degrees, bool shift, float expected, int pulses)
+            {
+                window.MouseMove(ToWindow(view, window, At(degrees)), RawInputModifiers.LeftMouseButton
+                    | (shift ? RawInputModifiers.Shift : RawInputModifiers.None));
+                Assert.That(rotation.Rotation.Value, Is.EqualTo(expected).Within(0.01));
+                Assert.That(feedback.Pulses, Has.Count.EqualTo(pulses));
+            }
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]

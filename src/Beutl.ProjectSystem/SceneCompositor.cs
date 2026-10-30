@@ -18,6 +18,9 @@ public sealed partial class SceneCompositor : ICompositor
     private readonly ConditionalWeakTable<EngineObject, ResourceEntry> _resourceCache = new();
     private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
     private readonly object _resourceCacheLock = new();
+    // Sample sessions retain only resources used by their current evaluation. Ordinary frame caches
+    // keep their existing lifetime; the session owns this set and releases unused entries afterward.
+    private HashSet<EngineObject.Resource>? _usedSampleResources;
     // One presenter per transition draws it for this compositor; it lives as long as the transition does.
     private readonly ConditionalWeakTable<ClipTransition, ClipTransitionPresenter> _transitionPresenters = new();
 
@@ -86,6 +89,7 @@ public sealed partial class SceneCompositor : ICompositor
             _compositor = compositor;
             CurrentElements = currentElements;
             Target = target;
+            GraphicsState = target == CompositionTarget.Graphics ? new(time) : null;
             Flow = flow;
             DisableResourceShare = compositor.DisableResourceShare;
             Conditions = new CompositionConditions
@@ -128,6 +132,18 @@ public sealed partial class SceneCompositor : ICompositor
         // portal draws into that side are not the side's own content and have not ended, so they play on
         // at the frame's time, and both sides share one evaluation of them.
         public MediaTime? FrameTime { get; set; }
+
+        public GraphicsFrameState? GraphicsState { get; set; }
+
+        public bool IsMatteSource { get; init; }
+
+        public TrackMatteContent ResolveMatte(Element element)
+        {
+            TrackMatteContent source = element.GetMatteSourceZIndex(_compositor.Scene, GraphicsState!.Time) is { } z
+                ? _compositor.GetMatteSource(z, this) : _compositor._emptyMatteSource;
+            ContainsScene3D |= GraphicsState.ContainsScene3D;
+            return source;
+        }
 
         private static ProxyPreset ToPreset(int value)
         {
@@ -199,7 +215,7 @@ public sealed partial class SceneCompositor : ICompositor
             Scene.FrameSize.Value,
             null)
         {
-            ContainsScene3D = ctx.ContainsScene3D,
+            ContainsScene3D = ctx.ContainsScene3D || ctx.GraphicsState?.ContainsScene3D == true,
             CancellationToken = cancellationToken,
         };
         if (services is null)
@@ -289,7 +305,12 @@ public sealed partial class SceneCompositor : ICompositor
         if (context.Target == CompositionTarget.Graphics
             && ElementTransitions.TryGetActive(element, context.Time, out TransitionBoundary boundary))
         {
-            CollectTransition(boundary, context);
+            if (context.IsMatteSource
+                || boundary.Outgoing?.IsVisibleInOutput.Value == true
+                || boundary.Incoming?.IsVisibleInOutput.Value == true)
+            {
+                CollectTransition(boundary, context);
+            }
             return;
         }
 
@@ -364,6 +385,12 @@ public sealed partial class SceneCompositor : ICompositor
     private void CollectElementObjects(
         Element element, CompositorContext context, PooledList<EngineObject> tmpObjects)
     {
+        // Check at the element, including transition sides and portal inputs. A matte evaluates the
+        // same layer independently of its output visibility.
+        if (context.Target == CompositionTarget.Graphics && !context.IsMatteSource
+            && !element.IsVisibleInOutput.Value) return;
+        // Cyclic matte references have no source contribution at the repeated element.
+        if (context.GraphicsState is { } state && !state.Evaluating.Add(element)) return;
         using var flow = new PooledList<EngineObject.Resource>();
         var oldFlow = context.Flow;
         context.Flow = flow;
@@ -376,6 +403,12 @@ public sealed partial class SceneCompositor : ICompositor
                 flow.Add(GetOrCreateResource(obj, context));
             }
 
+            if (context.GraphicsState is { } frame && element.MatteMode.Value != MatteMode.None
+                && (element.MatteSourceKind.Value != MatteSourceKind.Layer || element.MatteSourceZIndex.Value != null))
+            {
+                ApplyTrackMatte(element, element.GetMatteSourceZIndex(Scene, frame.Time), context, flow);
+            }
+
             foreach (EngineObject.Resource resource in flow)
             {
                 oldFlow?.Add(resource);
@@ -384,6 +417,7 @@ public sealed partial class SceneCompositor : ICompositor
         finally
         {
             context.Flow = oldFlow;
+            context.GraphicsState?.Evaluating.Remove(element);
         }
     }
 
@@ -395,11 +429,29 @@ public sealed partial class SceneCompositor : ICompositor
 
     private EngineObject.Resource GetOrCreateResource(EngineObject obj, CompositionContext context)
     {
-        if (!_resourceCache.TryGetValue(obj, out var entry))
+        EngineObject? previousOwner = context.FlowOwner;
+        context.FlowOwner = obj;
+        try
+        {
+            EngineObject.Resource resource = GetOrCreateResourceCore(obj, context);
+            _usedSampleResources?.Add(resource);
+            return resource;
+        }
+        finally
+        {
+            context.FlowOwner = previousOwner;
+        }
+    }
+
+    private EngineObject.Resource GetOrCreateResourceCore(EngineObject obj, CompositionContext context)
+    {
+        bool matte = context is CompositorContext { IsMatteSource: true };
+        var cache = matte ? _matteResourceCache : _resourceCache;
+        if (!cache.TryGetValue(obj, out var entry))
         {
             var resource = obj.ToResource(context);
-            entry = new ResourceEntry(resource, AddDetachedHandler(obj));
-            _resourceCache.Add(obj, entry);
+            entry = new ResourceEntry(resource, AddDetachedHandler(obj, matte));
+            cache.Add(obj, entry);
         }
         else if (entry.Resource.IsDisposed)
         {
@@ -414,7 +466,7 @@ public sealed partial class SceneCompositor : ICompositor
         return entry.Resource;
     }
 
-    private EventHandler<HierarchyAttachmentEventArgs> AddDetachedHandler(EngineObject obj)
+    private EventHandler<HierarchyAttachmentEventArgs> AddDetachedHandler(EngineObject obj, bool matte)
     {
         var weakRef = new WeakReference<SceneCompositor>(this);
 
@@ -426,9 +478,10 @@ public sealed partial class SceneCompositor : ICompositor
             {
                 lock (compositor._resourceCacheLock)
                 {
-                    if (compositor._resourceCache.TryGetValue(senderObj, out var entry))
+                    var cache = matte ? compositor._matteResourceCache : compositor._resourceCache;
+                    if (cache.TryGetValue(senderObj, out var entry))
                     {
-                        compositor._resourceCache.Remove(senderObj);
+                        cache.Remove(senderObj);
                         // Detachment runs on the editing thread while the current frame may still use this
                         // resource's native handles. Transfer ownership before teardown can drain the queue.
                         compositor._detachedResources.Enqueue(entry.Resource);
@@ -451,15 +504,35 @@ public sealed partial class SceneCompositor : ICompositor
         }
     }
 
+    private void ReleaseCachedResources(HashSet<EngineObject.Resource>? retained = null)
+    {
+        lock (_resourceCacheLock)
+        {
+            foreach (var cache in new[] { _resourceCache, _matteResourceCache })
+            {
+                foreach (var pair in cache)
+                {
+                    if (retained?.Contains(pair.Value.Resource) == true) continue;
+                    pair.Key.DetachedFromHierarchy -= pair.Value.Detached;
+                    cache.Remove(pair.Key);
+                    _detachedResources.Enqueue(pair.Value.Resource);
+                }
+            }
+        }
+
+        // Release outside the lock because disposal can itself trigger hierarchy callbacks.
+        DisposeDetachedResources();
+    }
+
     // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
-    private void SortLayers(MediaTime time, PooledList<Element> currentElements, CompositionTarget target)
+    private void SortLayers(MediaTime time, PooledList<Element> currentElements, CompositionTarget target, bool ignoreSolo = false)
     {
         LayerSnapshot snapshot = GetLayerSnapshot();
         bool graphics = target == CompositionTarget.Graphics;
         foreach (Element item in Scene.Children)
         {
-            if (!item.IsEnabled.Value || !CoversTime(item, time, graphics)) continue;
-            if (ShouldSkipLayer(item.ZIndex.Value, target, snapshot.HasSolo, snapshot.ByZIndex)) continue;
+            if (!item.IsEnabled.Value || !(graphics ? item.CoversGraphicsTime(time) : item.Range.Contains(time))) continue;
+            if (ShouldSkipLayer(item.ZIndex.Value, target, !ignoreSolo && snapshot.HasSolo, snapshot.ByZIndex)) continue;
             currentElements.OrderedAdd(item, x => x.ZIndex.Value);
         }
 
@@ -467,19 +540,6 @@ public sealed partial class SceneCompositor : ICompositor
         {
             KeepOneElementPerTransition(time, currentElements);
         }
-    }
-
-    // Two elements that touch within the tolerance can leave a gap of up to that tolerance between them,
-    // which their transition spans; a frame inside it still has to reach the transition through them.
-    private static bool CoversTime(Element item, MediaTime time, bool graphics)
-    {
-        if (item.Range.Contains(time)) return true;
-        if (!graphics) return false;
-
-        MediaTime tolerance = ElementTransitions.AdjacencyTolerance;
-        return time >= item.Start.Value - tolerance
-               && time < item.Range.End + tolerance
-               && ElementTransitions.TryGetActive(item, time, out _);
     }
 
     // Both elements of a boundary are drawn by its transition, so when both fall on this frame (they
@@ -639,19 +699,7 @@ public sealed partial class SceneCompositor : ICompositor
             ForgetLayer(layer);
         }
 
-        lock (_resourceCacheLock)
-        {
-            foreach (var kvp in _resourceCache)
-            {
-                kvp.Key.DetachedFromHierarchy -= kvp.Value.Detached;
-                _detachedResources.Enqueue(kvp.Value.Resource);
-            }
-
-            _resourceCache.Clear();
-        }
-
-        // The cache is empty and all earlier detachments have enqueued their resources. Release them
-        // outside the lock because resource disposal can itself trigger hierarchy callbacks.
-        DisposeDetachedResources();
+        ReleaseCachedResources();
+        _matteSources.Clear();
     }
 }

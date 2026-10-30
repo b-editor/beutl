@@ -20,27 +20,6 @@ public sealed partial class SceneDrawable : Drawable
     [Display(Name = nameof(GraphicsStrings.SceneDrawable_ReferencedScene), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        if (r.ReferencedScene != null)
-        {
-            return new Size(r.ReferencedScene.FrameSize.Value.Width, r.ReferencedScene.FrameSize.Value.Height);
-        }
-
-        return Size.Empty;
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        var parameters = new SceneBitmapParameters(r, context.OutputScale);
-        context.DrawNode(
-            parameters,
-            static parameters => SceneBitmapRenderNode.Create(parameters),
-            static (node, parameters) => node.Update(parameters));
-    }
-
     private readonly record struct SceneBitmapParameters(Resource Resource, float OutputScale);
 
     private readonly struct CapturedCompositionFrame(CompositionFrame frame)
@@ -76,6 +55,25 @@ public sealed partial class SceneDrawable : Drawable
         private MediaTime _start;
 
         public CompositionFrame? Frame { get; set; }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            if (ReferencedScene != null)
+            {
+                return new Size(ReferencedScene.FrameSize.Value.Width, ReferencedScene.FrameSize.Value.Height);
+            }
+
+            return Size.Empty;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            var parameters = new SceneBitmapParameters(this, context.OutputScale);
+            context.DrawNode(
+                parameters,
+                static parameters => SceneBitmapRenderNode.Create(parameters),
+                static (node, parameters) => node.Update(parameters));
+        }
 
         partial void PostReconcile(SceneDrawable obj, CompositionContext context)
         {

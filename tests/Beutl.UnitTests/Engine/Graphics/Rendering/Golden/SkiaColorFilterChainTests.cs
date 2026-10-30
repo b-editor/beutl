@@ -87,7 +87,7 @@ public sealed class SkiaColorFilterChainTests
     [SuppressResourceClassGeneration]
     private sealed partial class ColorMatrixChainEffect(bool followWithBlur) : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+        private void ApplyEffect(FilterEffectContext context)
         {
             context.ColorMatrix(ColorMatrix.CreateBrightness(Brightness));
             if (followWithBlur)
@@ -102,6 +102,10 @@ public sealed class SkiaColorFilterChainTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource;
+        public new sealed class Resource : FilterEffect.Resource
+        {
+            protected override void ApplyTo(FilterEffectContext context)
+                => ((ColorMatrixChainEffect)RequireOriginal()).ApplyEffect(context);
+        }
     }
 }

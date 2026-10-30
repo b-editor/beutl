@@ -173,6 +173,28 @@ public sealed partial class GraphEditorTabViewModel
 
     private void UpdatePropertyItem(GraphEditorTreeItemViewModel item, bool canAnimate, HashSet<string> used, HashSet<object> ancestors)
     {
+        var engineProperty = item.Property ?? item.Adapter?.GetEngineProperty();
+        var componentAnimation = engineProperty?.GetPropertyAnimation() as IComponentAnimation;
+        item.CanSeparateComponents.Value = canAnimate && engineProperty is IExpressionProperty { IsAnimatable: true }
+            && ComponentAnimations.IsSupported(engineProperty.ValueType);
+        item.HasSeparatedComponents.Value = componentAnimation != null;
+        if (componentAnimation != null)
+        {
+            item.CanAnimate.Value = false;
+            item.CanRemoveAnimation.Value = false;
+            item.HasAnimation.Value = true;
+            var components = new List<GraphEditorTreeItemViewModel>();
+            foreach (var property in componentAnimation.Components)
+            {
+                var child = GetTreeItem($"{item.Key}/component:{property.Name}", Property.GetLocalizedName(property), item, used);
+                child.Property = property;
+                child.AnimationOwner = item.AnimationOwner;
+                UpdatePropertyItem(child, canAnimate, used, ancestors);
+                components.Add(child);
+            }
+            Synchronize(item.Children, components);
+            return;
+        }
         var factory = item.ValueType is { } valueType ? GraphEditorViewViewModelFactory.GetFactory(valueType) : null;
         item.CanAnimate.Value = canAnimate && factory != null;
         // Removing an animation that holds what could not be loaded repairs a recovery-protected clip.
@@ -251,6 +273,25 @@ public sealed partial class GraphEditorTabViewModel
                 .RoundToFrame(rate, MidpointRounding.AwayFromZero);
             item.HasKeyFrame.Value = AnimationOperations.FindKeyFrameOnFrame(animation.KeyFrames, keyTime, rate) != null;
         }
+    }
+
+    public void ToggleComponentSeparation(GraphEditorTreeItemViewModel item)
+    {
+        if (!item.CanSeparateComponents.Value || Element.Value == null || !ElementEditability.IsEditable(Element.Value)
+            || !_treeCache.TryGetValue(item.Key, out var current) || current != item
+            || (item.Property ?? item.Adapter?.GetEngineProperty()) is not { } property) return;
+
+        bool separated = property.GetPropertyAnimation() is IComponentAnimation;
+        _editorContext.GetRequiredService<HistoryManager>().ExecuteInTransaction(() =>
+        {
+            if (separated) ComponentAnimations.Unseparate(property, _clock.CurrentTime.Value);
+            else ComponentAnimations.Separate(property);
+        }, separated ? Strings.UnseparateComponents : Strings.SeparateComponents);
+        Refresh();
+        ExpandAncestors(item);
+        if (!separated) item.IsExpanded.Value = true;
+        SelectedTreeItem.Value = separated ? item
+            : item.Children.FirstOrDefault(child => child.Animation != null) ?? item.Children.FirstOrDefault() ?? item;
     }
 
     public void ToggleKeyFrame(GraphEditorTreeItemViewModel item)

@@ -3492,6 +3492,114 @@ cuando el registro del historial está activado.</value>
   <data name="MobilePreviewAddDevice" xml:space="preserve">
     <value>Añadir dispositivo</value>
   </data>
+  <data name="TrackMatte" xml:space="preserve">
+    <value>Mate de pista</value>
+  </data>
+  <data name="MatteSource" xml:space="preserve">
+    <value>Capa de origen</value>
+  </data>
+  <data name="MatteSourceAbove" xml:space="preserve">
+    <value>Capa superior</value>
+  </data>
+  <data name="MatteSourceBelow" xml:space="preserve">
+    <value>Capa inferior</value>
+  </data>
+  <data name="MatteAlpha" xml:space="preserve">
+    <value>Alfa</value>
+  </data>
+  <data name="MatteLuma" xml:space="preserve">
+    <value>Luminancia</value>
+  </data>
+  <data name="MatteInvertedAlpha" xml:space="preserve">
+    <value>Alfa invertido</value>
+  </data>
+  <data name="MatteInvertedLuma" xml:space="preserve">
+    <value>Luminancia invertida</value>
+  </data>
+  <data name="IsVisibleInOutput" xml:space="preserve">
+    <value>Mostrar en la salida</value>
+  </data>
+  <data name="SeparateComponents" xml:space="preserve">
+    <value>Separar componentes</value>
+  </data>
+  <data name="TopLeft" xml:space="preserve">
+    <value>Superior izquierda</value>
+  </data>
+  <data name="TopRight" xml:space="preserve">
+    <value>Superior derecha</value>
+  </data>
+  <data name="BottomRight" xml:space="preserve">
+    <value>Inferior derecha</value>
+  </data>
+  <data name="BottomLeft" xml:space="preserve">
+    <value>Inferior izquierda</value>
+  </data>
+  <data name="UnseparateComponents" xml:space="preserve">
+    <value>Deshacer separación de componentes</value>
+  </data>
+  <data name="UnseparateComponents_Description" xml:space="preserve">
+    <value>Conservar el valor del momento actual y eliminar los fotogramas clave y las expresiones de los componentes.</value>
+  </data>
+  <data name="RelativeUnit_Relative" xml:space="preserve">
+    <value>Relativa (1 = 100%)</value>
+  </data>
+  <data name="RelativeUnit_Absolute" xml:space="preserve">
+    <value>Absoluta (px)</value>
+  </data>
+  <data name="PreviewGuides" xml:space="preserve">
+    <value>Guías</value>
+  </data>
+  <data name="TogglePreviewGuides" xml:space="preserve">
+    <value>Alternar guías</value>
+  </data>
+  <data name="TogglePreviewGuides_Description" xml:space="preserve">
+    <value>Muestra u oculta las áreas seguras y las guías de composición en la vista previa.</value>
+  </data>
+  <data name="PreviewGuide_TitleSafe" xml:space="preserve">
+    <value>Área segura de títulos</value>
+  </data>
+  <data name="PreviewGuide_ActionSafe" xml:space="preserve">
+    <value>Área segura de acción</value>
+  </data>
+  <data name="PreviewGuide_RuleOfThirds" xml:space="preserve">
+    <value>Regla de los tercios</value>
+  </data>
+  <data name="PreviewGuide_CenterCross" xml:space="preserve">
+    <value>Cruz central</value>
+  </data>
+  <data name="PreviewGuide_Diagonals" xml:space="preserve">
+    <value>Diagonales</value>
+  </data>
+  <data name="PreviewGuide_CustomGrid" xml:space="preserve">
+    <value>Cuadrícula personalizada</value>
+  </data>
+  <data name="PreviewGuide_AspectRatio" xml:space="preserve">
+    <value>Relaciones de aspecto</value>
+  </data>
+  <data name="PreviewGuide_Color" xml:space="preserve">
+    <value>Color de las guías</value>
+  </data>
+  <data name="PreviewGuide_Opacity" xml:space="preserve">
+    <value>Opacidad de las guías</value>
+  </data>
+  <data name="PreviewGuide_GridColumns" xml:space="preserve">
+    <value>Columnas de la cuadrícula</value>
+  </data>
+  <data name="PreviewGuide_GridRows" xml:space="preserve">
+    <value>Filas de la cuadrícula</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios" xml:space="preserve">
+    <value>Marcos de relación de aspecto</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios_Tip" xml:space="preserve">
+    <value>Proporciones separadas por comas, como 9:16, 1:1, 2.39:1. Cada una se marca como el mayor marco de esa forma, centrado.</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios_Invalid" xml:space="preserve">
+    <value>Introduce proporciones como 9:16, separadas por comas.</value>
+  </data>
+  <data name="PreviewGuide_Preset" xml:space="preserve">
+    <value>Preajuste</value>
+  </data>
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>Dividir automáticamente por silencio</value>
   </data>

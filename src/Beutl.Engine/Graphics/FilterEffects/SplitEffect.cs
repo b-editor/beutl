@@ -27,15 +27,6 @@ public partial class SplitEffect : FilterEffect
     [Display(Name = nameof(GraphicsStrings.SplitEffect_VerticalSpacing), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> VerticalSpacing { get; } = Property.CreateAnimatable(0f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        context.CustomEffect(
-            (r.HorizontalDivisions, r.VerticalDivisions, r.HorizontalSpacing, r.VerticalSpacing),
-            SplitTargets,
-            TransformBounds);
-    }
-
     /// <summary>
     /// Replaces each target with a grid of tiles cut from it and spread apart by the spacing; a target too small
     /// to divide is dropped.
@@ -135,5 +126,16 @@ public partial class SplitEffect : FilterEffect
                 0,
                 bounds.Width + (d.HorizontalSpacing * (d.HorizontalDivisions - 1)),
                 bounds.Height + (d.VerticalSpacing * (d.VerticalDivisions - 1))));
+    }
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.CustomEffect(
+                (HorizontalDivisions, VerticalDivisions, HorizontalSpacing, VerticalSpacing),
+                SplitTargets,
+                TransformBounds);
+        }
     }
 }

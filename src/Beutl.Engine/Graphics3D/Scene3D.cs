@@ -98,25 +98,6 @@ public partial class Scene3D : Drawable, IFlowOperator
     [NotTracked]
     public IExpressionProperty<GizmoMode> GizmoMode { get; } = Property.CreateExpression(Gizmo.GizmoMode.None);
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var scene3DResource = (Resource)resource;
-        return new Size(scene3DResource.RenderWidth, scene3DResource.RenderHeight);
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var scene3DResource = (Resource)resource;
-
-        if (scene3DResource.Camera == null)
-            return;
-
-        context.DrawNode<Scene3DRenderNode, Resource>(
-            scene3DResource,
-            static res => new Scene3DRenderNode(res),
-            static (node, res) => node.Update(res));
-    }
-
     public partial class Resource
     {
         private readonly PooledList<int> _lightsVersion = [];
@@ -131,6 +112,22 @@ public partial class Scene3D : Drawable, IFlowOperator
         public List<Light3D.Resource> Lights { get; set; } = [];
 
         public List<Object3D.Resource> Objects { get; set; } = [];
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return new Size(RenderWidth, RenderHeight);
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            if (Camera == null)
+                return;
+
+            context.DrawNode<Scene3DRenderNode, Resource>(
+                this,
+                static res => new Scene3DRenderNode(res),
+                static (node, res) => node.Update(res));
+        }
 
         partial void PostDispose(bool disposing)
         {

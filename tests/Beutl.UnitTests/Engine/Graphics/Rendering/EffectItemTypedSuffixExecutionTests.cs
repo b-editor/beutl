@@ -409,7 +409,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
         Rect bounds = new(0, 0, 8, 6);
         using FilterEffect.Resource resource = delay.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
-        context.ApplyTransactional(delay, resource);
+        context.ApplyTransactional(resource);
         using EffectTargets targets = CreateSolidTargets(bounds, Colors.Red);
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(
@@ -875,7 +875,7 @@ public sealed class EffectItemTypedSuffixExecutionTests
     {
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(bounds);
-        context.ApplyTransactional(effect, resource);
+        context.ApplyTransactional(resource);
         using var builder = new SKImageFilterBuilder();
         using var executor = new FilterEffectExecutor(
             targets,

@@ -2,6 +2,7 @@
 using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Operations;
 using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
@@ -91,16 +92,23 @@ public sealed class SilenceSplitTabViewModel : IToolContext
         bool saving = false;
         int? savedPercent = null;
         Exception? saveError = null;
+        var history = _editor.GetRequiredService<HistoryManager>();
+        long? previousTransaction = history.Entries[history.CurrentIndex].TransactionId;
+        ChangeOperation? appliedOperation = null;
+        AutoSaveProgress? pendingProgress = null;
         var autoSave = _editor.GetService<AutoSaveService>();
         using var progress = autoSave?.SaveProgress.Subscribe(value =>
         {
-            savedPercent = value;
-            if (saving && IsCurrent()) ShowSaveProgress();
+            if (appliedOperation == null) pendingProgress = value;
+            else ObserveSave(value);
         });
-        using var errors = autoSave?.SaveError.Subscribe(error => saveError = error);
         try
         {
             if (!await model.ApplyAsync() || !IsCurrent()) return;
+            long? transaction = history.Entries[history.CurrentIndex].TransactionId;
+            if (transaction != previousTransaction)
+                appliedOperation = history.GetLatestCommittedOperations(transaction).FirstOrDefault();
+            if (pendingProgress is { } pending) ObserveSave(pending);
             if (_editor.GetService<IProjectFileWriteAdmission>() is { } files)
             {
                 saving = true;
@@ -132,6 +140,16 @@ public sealed class SilenceSplitTabViewModel : IToolContext
         }
 
         bool IsCurrent() => !_disposed && ReferenceEquals(Analysis.Value, model);
+
+        void ObserveSave(AutoSaveProgress value)
+        {
+            // The observer's save batch contains the committed operation instances. Ignore
+            // earlier or later saves, including failures while split preparation was running.
+            if (appliedOperation == null || !value.Operations.Contains(appliedOperation)) return;
+            savedPercent = value.Percentage;
+            saveError = value.Error;
+            if (saving && IsCurrent()) ShowSaveProgress();
+        }
 
         void ShowSaveProgress()
         {

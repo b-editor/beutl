@@ -21,33 +21,6 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
     [Display(Name = nameof(GraphicsStrings.Children), ResourceType = typeof(GraphicsStrings))]
     public IListProperty<Drawable> Children { get; } = Property.CreateList<Drawable>();
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        if (resource.IsEnabled)
-        {
-            var r = (Resource)resource;
-            Size availableSize = context.Size;
-            var boundsMemory = context.UseMemory<Rect>();
-            var transformParams = (r.Transform, r.TransformOrigin, availableSize, boundsMemory);
-            bool isolatesContent = resource.Opacity != 100f
-                                   || r.BlendMode != Graphics.BlendMode.SrcOver
-                                   || r.Children.Any(static child => child.BlendMode != Graphics.BlendMode.SrcOver);
-
-            using (context.PushBlendMode(r.BlendMode))
-            using (PushCustomTransform(context, transformParams))
-            using (context.PushOpacity(resource.Opacity / 100f))
-            using (context.PushNode(
-                       isolatesContent,
-                       b => new ContentIsolationRenderNode(b),
-                       (n, b) => n.Update(b)))
-            using (r.FilterEffect == null ? new() : context.PushFilterEffect(r.FilterEffect))
-            using (PushContentBounds(context, boundsMemory))
-            {
-                OnDraw(context, r);
-            }
-        }
-    }
-
     /// <summary>
     /// Pushes the node that applies a container's transform to its content, laid out from the top-left corner.
     /// </summary>
@@ -70,30 +43,51 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             b => new ContentBoundsRenderNode(b),
             (n, b) => n.Update(b));
 
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        foreach (Drawable.Resource item in r.Children)
-        {
-            context.DrawDrawable(item);
-        }
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        return Size.Empty;
-    }
-
     public new partial class Resource
     {
         private readonly FlowChildren _children = new(keepsFlowInputs: true);
 
         internal override IReadOnlyList<FlowNode> FlowInputs => _children.FlowInputs;
 
+        internal override EngineObject? FlowOwner => _children.FlowOwner;
+
         public List<Drawable.Resource> Children
         {
             get => _children.Items;
             set => _children.Items = value;
+        }
+
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            Size availableSize = context.Size;
+            var boundsMemory = context.UseMemory<Rect>();
+            var transformParams = (Transform, TransformOrigin, availableSize, boundsMemory);
+            bool isolatesContent = Opacity != 100f
+                                   || EvaluatedBlendMode != Graphics.BlendMode.SrcOver
+                                   || Children.Any(static child => child.BlendMode != Graphics.BlendMode.SrcOver);
+
+            using (context.PushBlendMode(BlendMode))
+            using (PushCustomTransform(context, transformParams))
+            using (context.PushOpacity(Opacity / 100f))
+            using (ContentIsolationRenderNode.Push(context, isolatesContent))
+            using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
+            using (PushContentBounds(context, boundsMemory))
+            {
+                OnDraw(context);
+            }
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+            foreach (Drawable.Resource item in Children)
+            {
+                context.DrawDrawable(item);
+            }
+        }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return Size.Empty;
         }
 
         partial void PreReconcile(DrawableGroup obj, CompositionContext context)
@@ -128,44 +122,6 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         {
             MemoryNode.Value = context.CalculateRecordedInputBoundsHint();
             context.PassThrough();
-        }
-    }
-
-    internal sealed class ContentIsolationRenderNode(bool isolatesContent) : ContainerRenderNode
-    {
-        public bool IsolatesContent { get; private set; } = isolatesContent;
-
-        public bool Update(bool isolatesContent)
-        {
-            if (isolatesContent != IsolatesContent)
-            {
-                IsolatesContent = isolatesContent;
-                MarkChanged();
-                return true;
-            }
-
-            return false;
-        }
-
-        public override void Process(RenderNodeContext context)
-        {
-            if (IsolatesContent)
-            {
-                // A full-target write in the group - a clear, an opaque raw command - has no recorded value
-                // bounds, so scoping by them would make the isolation scope empty and drop the group's whole
-                // contribution instead of compositing it.
-                // An opaque effect can also move its output beyond the provisional recording hint.
-                // Only concrete input metadata can safely bound an isolation scope.
-                TargetRegion region = context.HasSymbolicInputTargetWrite()
-                    || !context.TryCalculateInputBounds(out Rect bounds)
-                    ? TargetRegion.Full
-                    : TargetRegion.Region(bounds);
-                context.Publish(context.TargetLayerScope(context.Inputs, region));
-            }
-            else
-            {
-                context.PassThrough();
-            }
         }
     }
 

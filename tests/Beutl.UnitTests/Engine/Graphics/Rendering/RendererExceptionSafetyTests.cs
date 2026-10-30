@@ -136,13 +136,18 @@ internal sealed partial class FaultingDrawable : Drawable
 
     public ICollection<string> Discharged { get; set; } = new List<string>();
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
+    private void RenderContent(GraphicsContext2D context)
         => context.DrawNode(new FixedOpsNode(_operations, Discharged));
 
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource) => new(4, 4);
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
+    public new partial class Resource
     {
+        protected override void RenderCore(GraphicsContext2D context) => RequireOriginal().RenderContent(context);
+
+        protected override Size MeasureCore(Size availableSize) => new(4, 4);
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
     }
 }
 

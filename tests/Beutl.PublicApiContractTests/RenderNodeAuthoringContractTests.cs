@@ -756,9 +756,6 @@ public sealed class RenderNodeAuthoringContractTests
     [SuppressResourceClassGeneration]
     private sealed partial class UnknownBoundsPluginEffect : FilterEffect
     {
-        public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-            => context.CustomEffect(Unit.Default, static (_, _) => { });
-
         public override Resource ToResource(CompositionContext context)
         {
             var resource = new Resource();
@@ -767,7 +764,11 @@ public sealed class RenderNodeAuthoringContractTests
             return resource;
         }
 
-        public new sealed class Resource : FilterEffect.Resource;
+        public new sealed class Resource : FilterEffect.Resource
+        {
+            protected override void ApplyTo(FilterEffectContext context)
+                => context.CustomEffect(Unit.Default, static (_, _) => { });
+        }
     }
 
     private readonly record struct FragmentSnapshot(

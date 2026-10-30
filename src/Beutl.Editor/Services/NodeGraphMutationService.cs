@@ -172,6 +172,43 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         return true;
     }
 
+    public bool RewireListSlot(GraphModel graph, Connection connection, GraphNode node, INodePort? port)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(connection);
+        ArgumentNullException.ThrowIfNull(node);
+        if (!IsEditable(graph)
+            || connection.Input.Value.Value is not IListInputPort list
+            || list.FindHierarchicalParent<GraphNode>() is not { } owner
+            || port != null && ReferenceEquals(connection.Output.Value.Value, port))
+            return false;
+
+        int slot = list.Connections.Index().FirstOrDefault(i => i.Item.Id == connection.Id.Value, (-1, default)).Index;
+        if (slot < 0) return false;
+
+        ConnectionStatus status = connection.Status.Value;
+        try
+        {
+            _historyManager.ExecuteInTransaction(() =>
+            {
+                graph.Disconnect(connection);
+                if (ConnectCore(graph, owner, list, node, port) == NodeConnectOutcome.None)
+                    throw new NodeConnectionRejectedException();
+
+                // The new connection is appended; it takes the slot of the one it replaces.
+                int last = list.Connections.Count - 1;
+                if (last != slot) list.MoveConnection(last, slot);
+            }, CommandNames.MoveConnection);
+            return true;
+        }
+        catch (NodeConnectionRejectedException)
+        {
+            // History leaves Status out, so the rollback keeps the Disconnected that the removal set.
+            connection.Status.Value = status;
+            return false;
+        }
+    }
+
     public bool RenamePort(INodePort port, string newName)
     {
         ArgumentNullException.ThrowIfNull(port);
@@ -182,6 +219,9 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
         _historyManager.Commit(CommandNames.RenamePort);
         return true;
     }
+
+    public bool CanConnect(GraphModel graph, INodePort port1, INodePort port2)
+        => IsEditable(graph) && TryGetConnectablePorts(port1, port2, out _, out _);
 
     public NodeConnectOutcome TryConnect(GraphModel graph,
         GraphNode node1, INodePort? port1,
@@ -234,16 +274,18 @@ public sealed class NodeGraphMutationService : INodeGraphMutationService
 
         // Case 2: both ports are present — connect if direction-compatible.
         if (port1 is not null && port2 is not null
-            && SortPortDirection(port1, port2, out IInputPort? input, out IOutputPort? output))
+            && TryGetConnectablePorts(port1, port2, out IInputPort? input, out IOutputPort? output))
         {
-            if (!CanAcceptConnection(input))
-                return NodeConnectOutcome.None;
             graph.Connect(input, output);
             return NodeConnectOutcome.Connected;
         }
 
         return NodeConnectOutcome.None;
     }
+
+    private static bool TryGetConnectablePorts(INodePort a, INodePort b,
+        [NotNullWhen(true)] out IInputPort? input, [NotNullWhen(true)] out IOutputPort? output)
+        => SortPortDirection(a, b, out input, out output) && CanAcceptConnection(input);
 
     private static bool CanAcceptConnection(IInputPort input)
     {

@@ -58,6 +58,13 @@
     "OnionSkinPrevOpacity": 0.25,
     "OnionSkinNextOpacity": 0.35,
     "PreviewSourceMode": 1,
+    "IsPreviewGuideEnabled": false,
+    "PreviewGuideKinds": 11,
+    "PreviewGuideColor": "#FFFFFFFF",
+    "PreviewGuideOpacity": 0.8,
+    "PreviewGuideGridColumns": 4,
+    "PreviewGuideGridRows": 4,
+    "PreviewGuideAspectRatios": "9:16, 1:1, 4:5, 2.39:1",
     "LibraryTabDisplayModes": {
       "Search": 0,
       "Easings": 0,

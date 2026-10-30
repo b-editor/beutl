@@ -95,7 +95,7 @@ public sealed partial class TimelineTabView
         TimelineHelper.AutoScrollToPlayhead(ContentScroll, ViewModel.EditorContext, ViewModel.Options, currentTime);
     }
 
-    private async void ScrollTimelinePosition(TimeRange range, int zindex)
+    private async Task ScrollTimelinePosition(TimeRange range, int zindex)
     {
         if (DataContext is TimelineTabViewModel viewModel)
         {
@@ -124,22 +124,26 @@ public sealed partial class TimelineTabView
             }
 
             _scrollCts?.Cancel();
-            _scrollCts = new CancellationTokenSource();
+            using var cancellation = new CancellationTokenSource();
+            _scrollCts = cancellation;
             var anm = TimelineSettleAnimation.Create(
                 TimeSpan.FromSeconds(0.5),
                 FillMode.None,
                 [new Setter(ScrollViewer.OffsetProperty, ContentScroll.Offset)],
                 [new Setter(ScrollViewer.OffsetProperty, new Avalonia.Vector(newOffsetX, newOffsetY))]);
-            await anm.RunAsync(ContentScroll, _scrollCts.Token);
-            ContentScroll.ClearValue(ScrollViewer.OffsetProperty);
-            ContentScroll.Offset = new Avalonia.Vector(newOffsetX, newOffsetY);
-            if (!_scrollCts.IsCancellationRequested)
+            try
             {
+                await anm.RunAsync(ContentScroll, cancellation.Token);
+                if (cancellation.IsCancellationRequested || ViewModel != viewModel) return;
+                ContentScroll.ClearValue(ScrollViewer.OffsetProperty);
+                ContentScroll.Offset = new Avalonia.Vector(newOffsetX, newOffsetY);
                 viewModel.Options.Value = viewModel.Options.Value with
                 {
                     Offset = new Vector2((float)newOffsetX, (float)newOffsetY)
                 };
             }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+            finally { if (ReferenceEquals(_scrollCts, cancellation)) _scrollCts = null; }
         }
     }
 }

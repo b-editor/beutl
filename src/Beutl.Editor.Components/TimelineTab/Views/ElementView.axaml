@@ -172,6 +172,8 @@
                 </ui:FAToggleMenuFlyoutItem>
                 <ui:FAMenuFlyoutSeparator />
                 <!--  Items are filled from the library each time the menu opens; see OnContextFlyoutOpening.  -->
+                <ui:FAMenuFlyoutSubItem x:Name="trackMatteMenu" Text="{x:Static lang:Strings.TrackMatte}"
+                                      IsEnabled="{Binding IsEditable.Value}" />
                 <ui:FAMenuFlyoutSubItem x:Name="transitionMenu" Text="{x:Static lang:GraphicsStrings.ClipTransition}">
                     <ui:FAMenuFlyoutSubItem.IconSource>
                         <icons:FluentIconSource Icon="SlideTransition" />
@@ -257,7 +259,7 @@
             </Panel>
             <!-- The lock and recovery (part of the clip could not be loaded) glyphs own columns; the label clears them.
                  None of them takes pointer input, so a long name does not cover the transition handles. -->
-            <Grid ColumnDefinitions="Auto,Auto,*" IsHitTestVisible="False">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*" IsHitTestVisible="False">
                 <icons:FluentIcon x:Name="lockIcon"
                                   Grid.Column="0"
                                   Margin="6,0,0,0"
@@ -274,8 +276,15 @@
                                   Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
                                   IsVisible="{Binding IsRecoveryProtected.Value}"
                                   Icon="Warning" />
-                <TextBlock x:Name="textBlock"
+                <TextBlock x:Name="matteIndicator"
                            Grid.Column="2"
+                           Margin="6,0,0,1"
+                           VerticalAlignment="Center"
+                           Foreground="{Binding TextColor.Value, Converter={StaticResource ColorToBrushConverter}}"
+                           Text="{Binding MatteIndicator.Value}"
+                           IsVisible="{Binding MatteIndicator.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <TextBlock x:Name="textBlock"
+                           Grid.Column="3"
                            Margin="6,0,0,1"
                            VerticalAlignment="Center"
                            ClipToBounds="True"

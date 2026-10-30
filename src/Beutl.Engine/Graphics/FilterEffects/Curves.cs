@@ -117,35 +117,6 @@ public sealed partial class Curves : FilterEffect
     [Display(Name = nameof(GraphicsStrings.Curves_SaturationVsSaturation), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<CurveMap> SaturationVsSaturation { get; } = Property.CreateExpression(new CurveMap([new CurveControlPoint(0, 0.5f), new CurveControlPoint(1, 0.5f)]));
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
-    {
-        var r = (Resource)resource;
-        RenderResource<CurveMap> master = context.Borrow(r.MasterCurve);
-        RenderResource<CurveMap> red = context.Borrow(r.RedCurve);
-        RenderResource<CurveMap> green = context.Borrow(r.GreenCurve);
-        RenderResource<CurveMap> blue = context.Borrow(r.BlueCurve);
-        RenderResource<CurveMap> hueHue = context.Borrow(r.HueVsHue);
-        RenderResource<CurveMap> hueSaturation = context.Borrow(r.HueVsSaturation);
-        RenderResource<CurveMap> hueLuminance = context.Borrow(r.HueVsLuminance);
-        RenderResource<CurveMap> luminanceSaturation = context.Borrow(r.LuminanceVsSaturation);
-        RenderResource<CurveMap> saturationSaturation = context.Borrow(r.SaturationVsSaturation);
-
-        context.Shader(ShaderDescription.CurrentPixel(
-            s_shaderSource,
-            bindings =>
-            {
-                BindCurve(bindings, "masterCurve", master);
-                BindCurve(bindings, "redCurve", red);
-                BindCurve(bindings, "greenCurve", green);
-                BindCurve(bindings, "blueCurve", blue);
-                BindCurve(bindings, "hueVsHue", hueHue);
-                BindCurve(bindings, "hueVsSat", hueSaturation);
-                BindCurve(bindings, "hueVsLuma", hueLuminance);
-                BindCurve(bindings, "lumaVsSat", luminanceSaturation);
-                BindCurve(bindings, "satVsSat", saturationSaturation);
-            }));
-    }
-
     private static void BindCurve(
         ShaderBindingBuilder bindings,
         string name,
@@ -155,4 +126,35 @@ public sealed partial class Curves : FilterEffect
             curve,
             ShaderResourceCoordinateSpace.Value,
             static (writer, value, _) => writer.Set(value.ToShader()));
+
+    public new partial class Resource
+    {
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            RenderResource<CurveMap> master = context.Borrow(MasterCurve);
+            RenderResource<CurveMap> red = context.Borrow(RedCurve);
+            RenderResource<CurveMap> green = context.Borrow(GreenCurve);
+            RenderResource<CurveMap> blue = context.Borrow(BlueCurve);
+            RenderResource<CurveMap> hueHue = context.Borrow(HueVsHue);
+            RenderResource<CurveMap> hueSaturation = context.Borrow(HueVsSaturation);
+            RenderResource<CurveMap> hueLuminance = context.Borrow(HueVsLuminance);
+            RenderResource<CurveMap> luminanceSaturation = context.Borrow(LuminanceVsSaturation);
+            RenderResource<CurveMap> saturationSaturation = context.Borrow(SaturationVsSaturation);
+
+            context.Shader(ShaderDescription.CurrentPixel(
+                s_shaderSource,
+                bindings =>
+                {
+                    BindCurve(bindings, "masterCurve", master);
+                    BindCurve(bindings, "redCurve", red);
+                    BindCurve(bindings, "greenCurve", green);
+                    BindCurve(bindings, "blueCurve", blue);
+                    BindCurve(bindings, "hueVsHue", hueHue);
+                    BindCurve(bindings, "hueVsSat", hueSaturation);
+                    BindCurve(bindings, "hueVsLuma", hueLuminance);
+                    BindCurve(bindings, "lumaVsSat", luminanceSaturation);
+                    BindCurve(bindings, "satVsSat", saturationSaturation);
+                }));
+        }
+    }
 }

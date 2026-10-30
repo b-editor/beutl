@@ -121,7 +121,8 @@ public static partial class ProxySourceEnumerator
             // Shifted into referenced-scene time, like the embed composes it.
             TimeRange? soundWindow = IsIdentityAudioMap(sceneSound) ? localRange?.AddStart(referencedScene.Start.Value) : null;
             foreach (IFileSource source in EnumerateReferencedSceneSources(
-                referencedScene, soundContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow))
+                referencedScene, soundContext.VisitedScenes, skipDisabledElements, CompositionTarget.Audio, soundWindow, soundWindow,
+                soundContext.FrameRate, soundContext.FrameOrigin - sceneSound.Start + referencedScene.Start.Value))
                 yield return source;
 
             yield break;

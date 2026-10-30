@@ -709,4 +709,13 @@
   <data name="AiPlan_Loading" xml:space="preserve">
     <value>AI 요금제를 불러오는 중…</value>
   </data>
+  <data name="ShowPreviewGuides" xml:space="preserve">
+    <value>가이드 표시</value>
+  </data>
+  <data name="ShowPreviewGuides_Description" xml:space="preserve">
+    <value>편집기 미리보기 위에 세이프 영역과 구도 가이드를 표시합니다. 내보낸 영상에는 포함되지 않으며, HDR 미리보기에서는 표시되지 않습니다.</value>
+  </data>
+  <data name="PreviewGuideKinds" xml:space="preserve">
+    <value>표시할 가이드</value>
+  </data>
 </root>

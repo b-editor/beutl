@@ -27,6 +27,14 @@ public partial class PlayerViewModel
 
     internal bool IsCleanPreviewEnabled => _cleanPreviewEnabled;
 
+    internal int CleanPreviewConsumerCount
+    {
+        get
+        {
+            lock (_cleanPreviewLock) return _cleanPreviewConsumers;
+        }
+    }
+
     internal event EventHandler? CleanPreviewChanged;
 
     internal IDisposable AcquireCleanPreview()

@@ -60,16 +60,18 @@ public partial class ColorKey : FilterEffect
     [Display(Name = nameof(GraphicsStrings.ColorKey_Boundary), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<float> Boundary { get; } = Property.CreateAnimatable(2f);
 
-    public override void ApplyTo(FilterEffectContext context, FilterEffect.Resource resource)
+    public new partial class Resource
     {
-        var r = (Resource)resource;
-        context.Shader(ShaderDescription.CurrentPixel(
-            s_shaderSource,
-            bindings =>
-            {
-                bindings.Uniform("keyColor", r.Color.ToLinear().AsVector3());
-                bindings.Uniform("range", r.Range / 100f);
-                bindings.Uniform("boundary", r.Boundary / 100f);
-            }));
+        protected override void ApplyTo(FilterEffectContext context)
+        {
+            context.Shader(ShaderDescription.CurrentPixel(
+                s_shaderSource,
+                bindings =>
+                {
+                    bindings.Uniform("keyColor", Color.ToLinear().AsVector3());
+                    bindings.Uniform("range", Range / 100f);
+                    bindings.Uniform("boundary", Boundary / 100f);
+                }));
+        }
     }
 }

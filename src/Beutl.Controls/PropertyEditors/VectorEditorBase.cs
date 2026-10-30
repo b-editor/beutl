@@ -1,5 +1,6 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Runtime.CompilerServices;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -54,6 +55,8 @@ public abstract class VectorEditorBase : PropertyEditor
     private protected VectorValues? Values { get; init; }
 
     internal bool IsUniformValue => GetValue(_isUniformProperty);
+
+    internal ITuple? HapticReferenceValues { get; set; }
 
     internal string GetText(int index) => _texts[index];
 

@@ -709,4 +709,13 @@
   <data name="AiPlan_Loading" xml:space="preserve">
     <value>Cargando el plan de IA…</value>
   </data>
+  <data name="ShowPreviewGuides" xml:space="preserve">
+    <value>Mostrar guías</value>
+  </data>
+  <data name="ShowPreviewGuides_Description" xml:space="preserve">
+    <value>Dibuja áreas seguras y guías de composición sobre la vista previa del editor. Nunca aparecen en el video exportado, y la vista previa HDR no las muestra.</value>
+  </data>
+  <data name="PreviewGuideKinds" xml:space="preserve">
+    <value>Guías que se muestran</value>
+  </data>
 </root>

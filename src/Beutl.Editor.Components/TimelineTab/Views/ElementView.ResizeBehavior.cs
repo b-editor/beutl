@@ -179,9 +179,9 @@ public sealed partial class ElementView
             {
                 ForceRestoreVisualToModel(resizeContexts.Select(context => context.ViewModel));
             }
-            if (AssociatedObject is { ViewModel: { } viewModel })
+            if (AssociatedObject is { ViewModel: { } } view)
             {
-                viewModel.Timeline.SnapBarPosition.Value = null;
+                view.ClearSnapFeedback();
             }
         }
 
@@ -211,12 +211,13 @@ public sealed partial class ElementView
 
             if (_trimDrag.Kind is not TrimDragKind.None)
             {
-                PreviewTrimDrag(view, pointerFrame, scale, alt, rate);
+                PreviewTrimDrag(view, pointerFrame, scale, alt, rate, e.Timestamp);
                 e.Handled = true;
                 return;
             }
 
-            pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
+            SnapResult snap = view.SnapTime(pointerFrame, scale, alt);
+            pointerFrame = snap.Time;
             point = point.WithX(pointerFrame.TimeToPixel(scale));
             double minWidth = SceneTimeRangeService.GetFrameDuration(viewModel.Scene).TimeToPixel(scale);
 
@@ -235,21 +236,27 @@ public sealed partial class ElementView
                 }
                 AlignSharedResizeEdges(scale);
 
+                double edge = viewModel.BorderMargin.Value.Left
+                    + (_resizeType == AlignmentX.Right ? viewModel.Width.Value : 0);
+                bool reachedSnap = snap.DidSnap && Math.Abs(edge - point.X) < 0.01;
+                view.UpdateSnapFeedback(reachedSnap ? snap.Time : null, scale, e.Timestamp);
+
                 e.Handled = true;
             }
         }
 
         // Mirror the release commit exactly: snap both endpoints with the same
         // function, round to the frame rate, clamp to the bounds captured at drag
-        // start. Snap the press point first so the snap guide (a RoundStartTime
-        // side effect) ends up reflecting the pointer, not the press point.
-        private void PreviewTrimDrag(ElementView view, MediaTime pointerFrame, float scale, bool alt, Rational rate)
+        // start. Only the pointer's final, reachable target produces alignment feedback.
+        private void PreviewTrimDrag(ElementView view, MediaTime pointerFrame, float scale, bool alt, Rational rate, ulong timestamp)
         {
-            MediaTime pressTime = view.RoundStartTime(
-                _trimDrag.InitialPointerX.PixelToTime(scale), scale, alt);
-            pointerFrame = view.RoundStartTime(pointerFrame, scale, alt);
-            MediaTime previewDelta = _trimDrag.ClampDelta((pointerFrame - pressTime).RoundToFrame(rate, MidpointRounding.AwayFromZero));
+            MediaTime pressTime = view.SnapTime(
+                _trimDrag.InitialPointerX.PixelToTime(scale), scale, alt).Time;
+            SnapResult snap = view.SnapTime(pointerFrame, scale, alt);
+            MediaTime requestedDelta = (snap.Time - pressTime).RoundToFrame(rate, MidpointRounding.AwayFromZero);
+            MediaTime previewDelta = _trimDrag.ClampDelta(requestedDelta);
             ApplyTrimDragPreview(previewDelta.TimeToPixel(scale));
+            view.UpdateSnapFeedback(snap.DidSnap && previewDelta == requestedDelta ? snap.Time : null, scale, timestamp);
         }
 
         private static void PreviewRightEdge(ElementResizeContext ctx, double pointerX, float scale, double minWidth, bool ripple)
@@ -551,7 +558,7 @@ public sealed partial class ElementView
 
             if (AssociatedObject is { ViewModel: { } viewModel } view)
             {
-                viewModel.Timeline.SnapBarPosition.Value = null;
+                view.ClearSnapFeedback();
 
                 if (_trimDrag.Kind is not TrimDragKind.None)
                 {
@@ -587,10 +594,8 @@ public sealed partial class ElementView
             MediaTime delta = TrimDeltaCalculator.SnappedDelta(
                     ctx.InitialPointerX.PixelToTime(scale),
                     _lastPosition.X.PixelToTime(scale),
-                    t => view.RoundStartTime(t, scale, alt))
+                    t => view.SnapTime(t, scale, alt).Time)
                 .RoundToFrame(rate, MidpointRounding.AwayFromZero);
-            // RoundStartTime re-sets the snap guide line as a side effect; clear it.
-            viewModel.Timeline.SnapBarPosition.Value = null;
 
             RestoreTrimDragVisuals(ctx);
 

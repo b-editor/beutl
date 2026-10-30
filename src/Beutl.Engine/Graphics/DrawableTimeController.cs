@@ -126,39 +126,42 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         return targetStart + baseTime;
     }
 
-    public override void Render(GraphicsContext2D context, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        r.Target?.Render(context);
-    }
-
-    protected override Size MeasureCore(Size availableSize, Drawable.Resource resource)
-    {
-        var r = (Resource)resource;
-        return r.Target?.Measure(availableSize) ?? Size.Empty;
-    }
-
-    protected override void OnDraw(GraphicsContext2D context, Drawable.Resource resource)
-    {
-    }
-
     public partial class Resource
     {
         internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
         private Drawable.Resource? _target;
         private FlowNode? _flowTarget;
+        private EngineObject? _flowOwner;
         private IReadOnlyList<FlowNode> _flowInputs = [];
 
         internal override IReadOnlyList<FlowNode> FlowInputs => _flowInputs;
 
+        internal override EngineObject? FlowOwner => _flowOwner;
+
         public Drawable.Resource? Target => _target;
+
+        protected override void RenderCore(GraphicsContext2D context)
+        {
+            Target?.Render(context);
+        }
+
+        protected override Size MeasureCore(Size availableSize)
+        {
+            return Target?.Measure(availableSize) ?? Size.Empty;
+        }
+
+        protected override void OnDraw(GraphicsContext2D context)
+        {
+        }
 
         partial void PostReconcile(DrawableTimeController obj, CompositionContext context)
         {
+            _flowOwner = FlowNode.ConsumeOwner(context);
             Drawable? targetDrawable = null;
             FlowNode? flowTarget = null;
             if (context.ReplayedFlow is { } replay && ReferenceEquals(replay.Object, obj))
             {
+                _flowOwner = replay.FlowOwner;
                 flowTarget = replay.Inputs.FirstOrDefault(input => input.Object is Drawable);
                 targetDrawable = flowTarget?.Object as Drawable;
             }
@@ -186,11 +189,11 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             }
 
             var originalContextTime = context.Time;
-            bool wasRemapped = context.IsTimeRemapped;
+            Drawable? previousRemappedTarget = context.TimeRemappedTarget;
             try
             {
                 context.Time = obj.CalculateTargetTime(context.Time, this, targetDrawable);
-                context.IsTimeRemapped = true;
+                context.TimeRemappedTarget = targetDrawable;
                 bool changed = false;
                 if (_flowTarget != null)
                     _flowTarget.Reconcile(context, ref _target, ref changed);
@@ -206,7 +209,7 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
             finally
             {
                 context.Time = originalContextTime;
-                context.IsTimeRemapped = wasRemapped;
+                context.TimeRemappedTarget = previousRemappedTarget;
             }
         }
 

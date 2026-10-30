@@ -51,6 +51,8 @@ public class ToolTabBarViewTests
             Height = 500,
             RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark
         };
+        // Keep timer-driven tooltip overlays from intercepting the toolbar clicks.
+        ToolTip.SetServiceEnabled(window, false);
         double? barHeight = null;
         try
         {

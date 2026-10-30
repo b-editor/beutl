@@ -41,7 +41,7 @@ public class PixelSortEffectTests
             effect.Ascending.Value = false;
 
             var resource = (FilterEffect.Resource)(object)effect.ToResource(new CompositionContext(MediaTime.Zero));
-            effect.ApplyTo(feCtx, resource);
+            feCtx.ApplyTransactional(resource);
 
             using var builder = new SKImageFilterBuilder();
             using var executor = new FilterEffectExecutor(
@@ -69,7 +69,7 @@ public class PixelSortEffectTests
         var effect = new PixelSortEffect();
         using FilterEffect.Resource resource = effect.ToResource(CompositionContext.Default);
         using var context = new FilterEffectContext(new Rect(0, 0, 16, 16));
-        effect.ApplyTo(context, resource);
+        context.ApplyTransactional(resource);
         var item = (FEItem_ShaderGraph)context.GetOrderedItems().Single();
         Assert.That(item.Description.PassNames, Is.EqualTo(new[] { "prepare", "rank", "gather" }));
     }

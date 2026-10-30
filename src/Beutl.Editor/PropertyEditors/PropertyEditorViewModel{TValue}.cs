@@ -4,6 +4,7 @@ using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Composition;
 using Beutl.Editor.Services;
+using Beutl.Engine;
 using Beutl.Engine.Expressions;
 using Beutl.Extensibility;
 using Beutl.Language;
@@ -64,9 +65,12 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     // The value to show: the expression's result at the current time, else the edited keyframe's or the property's.
     protected ReadOnlyReactiveProperty<TValue> ShownValue => _shownValue ??= HasExpression
-        .Select(hasExpression =>
-            hasExpression && PropertyAdapter is EnginePropertyAdapter<TValue> { Property: var engineProperty }
-                ? CurrentTime.Select(t => new CompositionContext(t).Get(engineProperty))
+        .CombineLatest(SeparatedComponents, (hasExpression, components) => hasExpression || components != null)
+        .Select(evaluate =>
+            evaluate && PropertyAdapter.GetEngineProperty() is IExpressionProperty<TValue> engineProperty
+                ? ObserveEditingTime().CombineLatest(Observable.FromEventPattern(h => engineProperty.Edited += h, h => engineProperty.Edited -= h)
+                    .Select(_ => 0).StartWith(0), (time, _) => !engineProperty.HasExpression && SeparatedComponents.Value is IComponentAnimation<TValue> split
+                        ? split.GetEditingValue(time) : engineProperty.Evaluate(new EvaluationContext(time)))
                 : EditingKeyFrame
                     .Select(x => (x as KeyFrame<TValue>)?.Value.GetObservable())
                     .Select(x => x ?? PropertyAdapter.GetObservable())
@@ -75,12 +79,28 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         .ToReadOnlyReactiveProperty()
         .AddTo(Disposables)!;
 
+    // Moving the owner changes expression times and edited component keys even if the playhead stays still.
+    private IObservable<MediaTime> ObserveEditingTime()
+        => (PropertyAdapter.GetEngineProperty()?.GetOwnerObject() as IHierarchical)
+            ?.FindHierarchicalParent<EngineObject>(includeSelf: true) is { } owner
+            ? CurrentTime.CombineLatest(owner.TimeRange.GetObservable(), (time, _) => time)
+            : CurrentTime;
+
+    public override void UnseparateComponents()
+    {
+        if (!IsElementEditable || PropertyAdapter.IsReadOnly || SeparatedComponents.Value == null
+            || PropertyAdapter.GetEngineProperty() is not IExpressionProperty<TValue> property) return;
+
+        ComponentAnimations.Unseparate(property, CurrentTimeValue);
+        Commit();
+    }
+
     public sealed override void Reset()
     {
         if (!IsElementEditable) return;
         if (GetDefaultValue() is { } defaultValue)
         {
-            SetValue(PropertyAdapter.GetValue(), (TValue?)defaultValue);
+            SetValue(GetEditingValue(), (TValue?)defaultValue);
         }
     }
 
@@ -114,12 +134,17 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     // The value of the keyframe being edited, or of the property itself when no keyframe is.
     protected internal TValue? GetEditingValue()
-        => EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value.Value : PropertyAdapter.GetValue();
+        => SeparatedComponents.Value is IComponentAnimation<TValue> components ? components.GetEditingValue(CurrentTimeValue)
+            : EditingKeyFrame.Value is { } keyFrame ? keyFrame.Value.Value : PropertyAdapter.GetValue();
 
     // Writes to the keyframe being edited, or to the property itself when no keyframe is.
     private void WriteValue(TValue? newValue)
     {
-        if (EditingKeyFrame.Value is { } kf)
+        if (SeparatedComponents.Value is IComponentAnimation<TValue> components)
+        {
+            components.SetValue(newValue!, CurrentTimeValue);
+        }
+        else if (EditingKeyFrame.Value is { } kf)
         {
             kf.Value.Value = newValue!;
         }
@@ -135,6 +160,12 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
         if (IsDisposed) return default;
         if (!IsElementEditable)
             return GetEditingValue();
+        if (SeparatedComponents.Value is IComponentAnimation<TValue> components)
+        {
+            components.SetValue(value!, CurrentTimeValue);
+            InvalidateFrameCache();
+            return components.GetEditingValue(CurrentTimeValue);
+        }
         if (EditingKeyFrame.Value != null)
         {
             EditingKeyFrame.Value.Value.Value = value!;
@@ -188,6 +219,7 @@ public abstract class PropertyEditorViewModel<TValue> : PropertyEditorViewModel
 
     public override void PrepareToEditAnimation()
     {
+        if (SeparatedComponents.Value != null) return;
         if (!IsElementEditable) return;
         if (PropertyAdapter is IAnimatablePropertyAdapter<TValue> animatableProperty
             && animatableProperty.Animation is not KeyFrameAnimation<TValue>)

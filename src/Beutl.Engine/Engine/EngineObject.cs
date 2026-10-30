@@ -116,8 +116,8 @@ public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJson
             ZIndex.Value = zIndex.Value;
         IsTimeAnchor.Value = start.HasValue && duration.HasValue && zIndex.HasValue;
 
-        Dictionary<string, IKeyFrameAnimation>? animations
-            = context.GetValue<Dictionary<string, IKeyFrameAnimation>>("Animations");
+        Dictionary<string, IPropertyAnimation>? animations
+            = context.GetValue<Dictionary<string, IPropertyAnimation>>("Animations");
 
         Dictionary<string, JsonNode>? expressions
             = context.GetValue<Dictionary<string, JsonNode>>("Expressions");
@@ -131,9 +131,9 @@ public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJson
 
             Attribute[]? attributes = property.GetAttributes();
             if (expressionProperty.IsAnimatable
-                && FormerPersistedNames.TryGetMember(animations, property.Name, attributes, out IKeyFrameAnimation? animation))
+                && FormerPersistedNames.TryGetMember(animations, property.Name, attributes, out IPropertyAnimation? animation))
             {
-                property.SetKeyFrameAnimation(animation);
+                property.SetPropertyAnimation(animation);
             }
 
             if (FormerPersistedNames.TryGetMember(expressions, property.Name, attributes, out JsonNode? expressionNode))
@@ -204,9 +204,9 @@ public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJson
             context.SetValue(nameof(ZIndex), ZIndex.Value);
         }
 
-        Dictionary<string, IKeyFrameAnimation> animations = saved
+        Dictionary<string, IPropertyAnimation> animations = saved
             .Where(p => p is IExpressionProperty { IsAnimatable: true })
-            .Select(p => (p.Name, Animation: p.GetKeyFrameAnimation()))
+            .Select(p => (p.Name, Animation: p.GetPropertyAnimation()))
             .Where(p => p.Animation is not null)
             .ToDictionary(p => p.Name, p => p.Animation!);
 
@@ -327,6 +327,8 @@ public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJson
         internal virtual IReadOnlyList<FlowNode> FlowInputs => [];
 
         internal FlowNode? CapturedFlow { get; set; }
+
+        internal virtual EngineObject? FlowOwner => null;
 
         /// <summary>
         /// The number every cache over this resource keys on.

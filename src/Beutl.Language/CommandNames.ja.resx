@@ -208,6 +208,12 @@
   <data name="ChangeTransitionDuration" xml:space="preserve">
     <value>トランジションの長さを変更</value>
   </data>
+  <data name="ChangeTrackMatte" xml:space="preserve">
+    <value>トラックマットを変更</value>
+  </data>
+  <data name="ChangeOutputVisibility" xml:space="preserve">
+    <value>出力への表示を変更</value>
+  </data>
   <data name="AutoSplitBySilence" xml:space="preserve">
     <value>無音区間で自動分割</value>
   </data>
