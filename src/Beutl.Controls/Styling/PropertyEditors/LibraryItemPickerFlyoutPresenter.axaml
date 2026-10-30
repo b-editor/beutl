@@ -87,6 +87,7 @@
                   TargetType="local:LibraryItemPickerFlyoutPresenter">
         <Setter Property="Width" Value="240" />
         <Setter Property="ShowHideButtons" Value="True" />
+        <Setter Property="ItemTemplate" Value="{StaticResource LibraryItemPicker_ItemTemplate}" />
         <Setter Property="Template">
             <ControlTemplate>
                 <Border Padding="{DynamicResource FlyoutBorderThemePadding}"
@@ -173,7 +174,7 @@
                                 <ListBox x:Name="PART_ListBox"
                                          Margin="4,4,4,0"
                                          ItemContainerTheme="{StaticResource LibraryItemPicker_ListBoxItem}"
-                                         ItemTemplate="{StaticResource LibraryItemPicker_ItemTemplate}"
+                                         ItemTemplate="{TemplateBinding ItemTemplate}"
                                          ItemsSource="{TemplateBinding Items}"
                                          SelectedItem="{Binding $parent[local:LibraryItemPickerFlyoutPresenter].SelectedItem, Mode=TwoWay}" />
 

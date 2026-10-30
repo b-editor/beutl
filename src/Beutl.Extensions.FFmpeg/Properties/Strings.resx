@@ -243,4 +243,7 @@
   <data name="EncoderOptionsValue" xml:space="preserve">
     <value>Value</value>
   </data>
+  <data name="CodecPicker_NoResults" xml:space="preserve">
+    <value>No matching codecs</value>
+  </data>
 </root>

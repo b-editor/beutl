@@ -1,0 +1,29 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:local="using:Beutl.Controls.PropertyEditors"
+                    x:CompileBindings="True">
+
+    <!--  Shows each item's description under its name, so that a long name trimmed to the width still has a short identifier beside it.  -->
+    <ControlTheme x:Key="SearchablePickerFlyoutPresenter"
+                  BasedOn="{StaticResource {x:Type local:LibraryItemPickerFlyoutPresenter}}"
+                  TargetType="local:LibraryItemPickerFlyoutPresenter">
+        <Setter Property="ItemTemplate">
+            <DataTemplate x:DataType="local:PinnableLibraryItem">
+                <StackPanel Margin="0,4" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding DisplayName}"
+                               TextTrimming="CharacterEllipsis"
+                               ToolTip.Tip="{Binding DisplayName}" />
+                    <TextBlock FontSize="12"
+                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                               IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               Text="{Binding Description}"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </DataTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ ToggleButton#ShowAllButton">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

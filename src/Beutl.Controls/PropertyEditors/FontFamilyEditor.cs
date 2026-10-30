@@ -6,6 +6,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Interactivity;
 using Beutl.Extensibility;
+using Beutl.Language;
 using Beutl.Media;
 using Beutl.Reactive;
 
@@ -72,18 +73,26 @@ public class FontFamilyEditor : PropertyEditor, IValueEditorControl<Media.FontFa
             }
         });
 
-        var dialog = new FontFamilyPickerFlyout(viewModel);
+        SearchablePickerFlyout dialog = CreatePicker(viewModel);
         // A search still waiting for typing to pause can highlight a font after the picker has closed.
         dialog.Closed += (_, _) => preview.Dispose();
         dialog.ShowAt(this);
         var tcs = new TaskCompletionSource<Media.FontFamily?>();
-        dialog.Pinned += (_, item) => viewModel.Pin(item);
-        dialog.Unpinned += (_, item) => viewModel.Unpin(item);
         dialog.Dismissed += (_, _) => tcs.SetResult(null);
         // A search that matches nothing leaves no selection; keep the font being previewed.
         dialog.Confirmed += (_, _) => tcs.SetResult(viewModel.SelectedItem.Value?.UserData as Media.FontFamily ?? prevValue);
 
         return tcs.Task;
+    }
+
+    // The picker with the font theme and the font wording, which the editor and its tests open alike.
+    internal static SearchablePickerFlyout CreatePicker(FontFamilyPickerFlyoutViewModel viewModel)
+    {
+        return new SearchablePickerFlyout(viewModel)
+        {
+            PresenterThemeKey = "FontFamilyPickerFlyoutPresenter",
+            NoResultsText = Strings.FontFamilyPicker_NoResults
+        };
     }
 
     private async void OnButtonClick(object? sender, RoutedEventArgs e)
