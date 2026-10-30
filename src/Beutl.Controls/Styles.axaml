@@ -59,6 +59,7 @@
                 <ResourceInclude Source="/Styling/PropertyEditors/LibraryItemPickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/OutputPickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/FontFamilyPickerFlyoutPresenter.axaml" />
+                <ResourceInclude Source="/Styling/PropertyEditors/SearchablePickerFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ExpressionEditorFlyoutPresenter.axaml" />
                 <ResourceInclude Source="/Styling/PropertyEditors/ReferenceEditor.axaml" />
                 <ResourceInclude Source="/ColorPicker/ColorPickerStyles.axaml" />
