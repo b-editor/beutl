@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using System.Runtime.Versioning;
+
+using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -46,12 +48,18 @@ internal static class BrowserWebViewEnvironment
         if (OperatingSystem.IsLinux() && e.TryGetPlatformHandle() is { } handle) _ = PersistCookiesAsync(handle);
     }
 
+    [SupportedOSPlatform("linux")]
     private static async Task PersistCookiesAsync(IPlatformHandle handle)
     {
         string path = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "WebKit", "cookies.sqlite");
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            // The store holds the user's sign-ins. Like a browser profile, only the user may enter its folder,
+            // which also covers the SQLite journal files WebKit creates beside it.
+            const UnixFileMode ownerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            string directory = Path.GetDirectoryName(path)!;
+            Directory.CreateDirectory(directory, ownerOnly);
+            File.SetUnixFileMode(directory, ownerOnly);
             await LinuxWebKitCookies.UsePersistentStorageAsync(handle, path);
         }
         catch (Exception ex)

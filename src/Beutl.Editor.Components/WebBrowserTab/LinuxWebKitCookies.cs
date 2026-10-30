@@ -3,6 +3,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 using Avalonia.Platform;
+using Beutl.Logging;
+using Microsoft.Extensions.Logging;
 
 using static Beutl.Editor.Components.WebBrowserTab.LinuxWebKit;
 
@@ -13,12 +15,24 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 // stranger to the site the user is signed in to.
 internal static partial class LinuxWebKitCookies
 {
-    internal static Task<IReadOnlyList<Cookie>> GetAllAsync(IPlatformHandle? handle) => handle switch
+    internal static async Task<IReadOnlyList<Cookie>> GetAllAsync(IPlatformHandle? handle)
     {
-        IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => GetAllAsync(Api.Gtk.Value, gtk.WebKitWebView),
-        ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => GetAllAsync(Api.Wpe.Value, wpe.WebKitWebView),
-        _ => Task.FromResult<IReadOnlyList<Cookie>>([])
-    };
+        try
+        {
+            return handle switch
+            {
+                IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => await GetAllAsync(Api.Gtk.Value, gtk.WebKitWebView),
+                ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => await GetAllAsync(Api.Wpe.Value, wpe.WebKitWebView),
+                _ => []
+            };
+        }
+        catch (Exception ex)
+        {
+            // The download then goes without cookies, as Linux downloads did before WebKit was asked for them.
+            Log.CreateLogger(typeof(LinuxWebKitCookies)).LogWarning(ex, "Could not read the WebKit cookies for a download.");
+            return [];
+        }
+    }
 
     // WebKit keeps cookies in memory unless the application names a store, so a restart would sign the user out.
     internal static Task UsePersistentStorageAsync(IPlatformHandle? handle, string path) => handle switch
