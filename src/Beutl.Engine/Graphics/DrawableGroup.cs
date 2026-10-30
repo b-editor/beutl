@@ -69,10 +69,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             using (context.PushBlendMode(BlendMode))
             using (PushCustomTransform(context, transformParams))
             using (context.PushOpacity(Opacity / 100f))
-            using (context.PushNode(
-                       isolatesContent,
-                       b => new ContentIsolationRenderNode(b),
-                       (n, b) => n.Update(b)))
+            using (ContentIsolationRenderNode.Push(context, isolatesContent))
             using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
             using (PushContentBounds(context, boundsMemory))
             {
@@ -125,52 +122,6 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         {
             MemoryNode.Value = context.CalculateRecordedInputBoundsHint();
             context.PassThrough();
-        }
-    }
-
-    internal sealed class ContentIsolationRenderNode(
-        bool isolatesContent, bool contributesToBackdrop = true, bool preservesTargetClear = false) : ContainerRenderNode
-    {
-        public bool IsolatesContent { get; private set; } = isolatesContent;
-
-        public bool ContributesToBackdrop { get; private set; } = contributesToBackdrop;
-
-        public bool PreservesTargetClear { get; private set; } = preservesTargetClear;
-
-        public bool Update(bool isolatesContent, bool contributesToBackdrop = true, bool preservesTargetClear = false)
-        {
-            if (isolatesContent != IsolatesContent || contributesToBackdrop != ContributesToBackdrop
-                || preservesTargetClear != PreservesTargetClear)
-            {
-                IsolatesContent = isolatesContent;
-                ContributesToBackdrop = contributesToBackdrop;
-                PreservesTargetClear = preservesTargetClear;
-                MarkChanged();
-                return true;
-            }
-
-            return false;
-        }
-
-        public override void Process(RenderNodeContext context)
-        {
-            if (IsolatesContent)
-            {
-                // A full-target write in the group - a clear, an opaque raw command - has no recorded value
-                // bounds, so scoping by them would make the isolation scope empty and drop the group's whole
-                // contribution instead of compositing it.
-                // An opaque effect can also move its output beyond the provisional recording hint.
-                // Only concrete input metadata can safely bound an isolation scope.
-                TargetRegion region = context.HasSymbolicInputTargetWrite()
-                    || !context.TryCalculateInputBounds(out Rect bounds)
-                    ? TargetRegion.Full
-                    : TargetRegion.Region(bounds);
-                context.Publish(context.TargetLayerScope(context.Inputs, region, ContributesToBackdrop, PreservesTargetClear));
-            }
-            else
-            {
-                context.PassThrough();
-            }
         }
     }
 

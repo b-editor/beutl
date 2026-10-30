@@ -40,6 +40,14 @@ internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inp
         return captured;
     }
 
+    internal static EngineObject? ConsumeOwner(CompositionContext context)
+    {
+        EngineObject? owner = context.Flow != null ? context.FlowOwner : null;
+        // Subsequent children/properties see the remaining flow and must not replay this prefix again.
+        context.FlowOwner = null;
+        return owner;
+    }
+
     public void Reconcile<TResource>(CompositionContext context, ref TResource? resource, ref bool changed)
         where TResource : EngineObject.Resource
     {
@@ -102,10 +110,7 @@ internal sealed class FlowInputState : IDisposable
         }
 
         DisposeOwned();
-        FlowOwner = context.Flow != null ? context.FlowOwner : null;
-        // This operator consumes the host's prefix. Subsequent children/properties see the remaining
-        // flow and must not replay that prefix again as if they had consumed it themselves.
-        context.FlowOwner = null;
+        FlowOwner = FlowNode.ConsumeOwner(context);
         if (context.Flow != null)
         {
             for (int i = context.Flow.Count - 1; i >= 0; i--)

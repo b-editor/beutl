@@ -173,16 +173,12 @@ public class MotionBlurTests
         var child = Rectangle();
         var group = new DrawableGroup { FilterEffect = { Value = Blur() } };
         group.Children.Add(child);
-        var holder = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = Seconds(4) }, ZIndex = { Value = 2 } };
-        holder.Objects.Add(preceding);
-        holder.Objects.Add(group);
+        var holder = Clip(0, 4, 2, preceding, group);
         var presenter = new DrawablePresenter { Target = { Value = group } };
         Scene scene = portal ? SceneWith(new PortalObject { Count = { Value = 1 } }, presenter) : SceneWith(presenter);
         scene.Children.Add(holder);
         var portalInput = Rectangle();
-        var inputClip = new Element { Start = { Value = Seconds(0.5) }, Length = { Value = Seconds(0.5) }, ZIndex = { Value = 1 } };
-        inputClip.Objects.Add(portalInput);
-        scene.Children.Add(inputClip);
+        scene.Children.Add(Clip(0.5, 0.5, 1, portalInput));
         using var compositor = new SceneCompositor(scene);
 
         foreach (bool enabled in new[] { false, true, false })
@@ -237,9 +233,7 @@ public class MotionBlurTests
         {
             var media = new VideoSource();
             media.ReadFrom(new Uri(path));
-            var clip = new Element { Start = { Value = Seconds(i) }, Length = { Value = Seconds(1) }, ZIndex = { Value = 1 } };
-            clip.Objects.Add(new SourceVideo { Source = { Value = media } });
-            scene.Children.Add(clip);
+            scene.Children.Add(Clip(i, 1, 1, new SourceVideo { Source = { Value = media } }));
         }
         using var compositor = new SceneCompositor(scene) { ForceOriginalSource = true };
         var visited = new HashSet<SourceVideo.Resource>();
@@ -321,15 +315,22 @@ public class MotionBlurTests
     internal static Scene SceneWith(params EngineObject[] objects)
     {
         var scene = new Scene(96, 64, "Motion blur") { Uri = new Uri("file:///motion-blur/scene") };
-        var element = new Element
-        {
-            Start = { Value = MediaTime.Zero },
-            Length = { Value = Seconds(4) },
-            Uri = new Uri("file:///motion-blur/element"),
-        };
-        foreach (EngineObject obj in objects) element.Objects.Add(obj);
+        var element = Clip(0, 4, 0, objects);
+        element.Uri = new Uri("file:///motion-blur/element");
         scene.Children.Add(element);
         return scene;
+    }
+
+    internal static Element Clip(double start, double duration, int zIndex, params EngineObject[] objects)
+    {
+        var element = new Element
+        {
+            Start = { Value = Seconds(start) },
+            Length = { Value = Seconds(duration) },
+            ZIndex = { Value = zIndex },
+        };
+        foreach (EngineObject obj in objects) element.Objects.Add(obj);
+        return element;
     }
 
     private static void Reconcile(Drawable.Resource resource, Drawable shape, CompositionContext context)

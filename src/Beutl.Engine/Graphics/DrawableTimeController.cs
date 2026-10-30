@@ -156,13 +156,12 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
         partial void PostReconcile(DrawableTimeController obj, CompositionContext context)
         {
-            _flowOwner = context.ReplayedFlow is { } origin && ReferenceEquals(origin.Object, obj)
-                ? origin.FlowOwner : context.Flow != null ? context.FlowOwner : null;
-            context.FlowOwner = null;
+            _flowOwner = FlowNode.ConsumeOwner(context);
             Drawable? targetDrawable = null;
             FlowNode? flowTarget = null;
             if (context.ReplayedFlow is { } replay && ReferenceEquals(replay.Object, obj))
             {
+                _flowOwner = replay.FlowOwner;
                 flowTarget = replay.Inputs.FirstOrDefault(input => input.Object is Drawable);
                 targetDrawable = flowTarget?.Object as Drawable;
             }

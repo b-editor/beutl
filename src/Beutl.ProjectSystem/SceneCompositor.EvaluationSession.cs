@@ -12,6 +12,7 @@ public sealed partial class SceneCompositor
     {
         private readonly SceneCompositor _compositor;
         private readonly PooledList<Element> _elements;
+        private readonly HashSet<EngineObject.Resource> _usedResources = [];
 
         public SceneEvaluationSession(Scene scene, CompositionTarget target, bool forceOriginalSource,
             EvaluationServices services)
@@ -25,7 +26,7 @@ public sealed partial class SceneCompositor
             : base(new CompositorContext(MediaTime.Zero, compositor, [], elements, target, services))
         {
             _compositor = compositor;
-            _compositor._usedSampleResources = [];
+            _compositor._usedSampleResources = _usedResources;
             _elements = elements;
         }
 
@@ -34,7 +35,7 @@ public sealed partial class SceneCompositor
             base.Update(source, time);
             _compositor.BeginQueryGeneration();
             _compositor.DisposeDetachedResources();
-            _compositor._usedSampleResources!.Clear();
+            _usedResources.Clear();
             _elements.Clear();
             var context = (CompositorContext)Context;
             // A session reused by a later frame follows that frame's query path, not the one it was created in.
@@ -92,20 +93,7 @@ public sealed partial class SceneCompositor
         {
             // All current borrowed inputs have now been reconciled. Release previous clips while
             // retaining the active ones, so each sample keeps its readers across adjacent frames.
-            lock (_compositor._resourceCacheLock)
-            {
-                foreach (var cache in new[] { _compositor._resourceCache, _compositor._matteResourceCache })
-                {
-                    foreach (var pair in cache)
-                    {
-                        if (_compositor._usedSampleResources!.Contains(pair.Value.Resource)) continue;
-                        pair.Key.DetachedFromHierarchy -= pair.Value.Detached;
-                        cache.Remove(pair.Key);
-                        _compositor._detachedResources.Enqueue(pair.Value.Resource);
-                    }
-                }
-            }
-            _compositor.DisposeDetachedResources();
+            _compositor.ReleaseCachedResources(_usedResources);
         }
 
         public override void Dispose()

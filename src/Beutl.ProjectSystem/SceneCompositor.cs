@@ -489,6 +489,26 @@ public sealed partial class SceneCompositor : ICompositor
         }
     }
 
+    private void ReleaseCachedResources(HashSet<EngineObject.Resource>? retained = null)
+    {
+        lock (_resourceCacheLock)
+        {
+            foreach (var cache in new[] { _resourceCache, _matteResourceCache })
+            {
+                foreach (var pair in cache)
+                {
+                    if (retained?.Contains(pair.Value.Resource) == true) continue;
+                    pair.Key.DetachedFromHierarchy -= pair.Value.Detached;
+                    cache.Remove(pair.Key);
+                    _detachedResources.Enqueue(pair.Value.Resource);
+                }
+            }
+        }
+
+        // Release outside the lock because disposal can itself trigger hierarchy callbacks.
+        DisposeDetachedResources();
+    }
+
     // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
     private void SortLayers(MediaTime time, PooledList<Element> currentElements, CompositionTarget target, bool ignoreSolo = false)
     {
@@ -664,23 +684,7 @@ public sealed partial class SceneCompositor : ICompositor
             ForgetLayer(layer);
         }
 
-        lock (_resourceCacheLock)
-        {
-            foreach (var cache in new[] { _resourceCache, _matteResourceCache })
-            {
-                foreach (var kvp in cache)
-                {
-                    kvp.Key.DetachedFromHierarchy -= kvp.Value.Detached;
-                    _detachedResources.Enqueue(kvp.Value.Resource);
-                }
-
-                cache.Clear();
-            }
-        }
-
-        // The cache is empty and all earlier detachments have enqueued their resources. Release them
-        // outside the lock because resource disposal can itself trigger hierarchy callbacks.
-        DisposeDetachedResources();
+        ReleaseCachedResources();
         _matteSources.Clear();
     }
 }

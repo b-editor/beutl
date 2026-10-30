@@ -132,43 +132,12 @@ public sealed class FilterEffectInputContext
         ObjectDisposedException.ThrowIf(_disposed, this);
         EvaluationContext.CancellationToken.ThrowIfCancellationRequested();
         using (context.PushNode(_source.ClearsTargetBeforeEffects,
-                   static value => new InputCompositeRenderNode(value), static (node, value) => node.Update(value)))
+                   static value => new FilterEffectInputCompositeRenderNode(value), static (node, value) => node.Update(value)))
         using (context.PushBlendMode(_source.BlendMode))
         using (context.PushFilterEffect(_suffix.Resource))
-        using (context.PushNode(true,
-                   static value => new DrawableGroup.ContentIsolationRenderNode(value,
-                       contributesToBackdrop: false, preservesTargetClear: true),
-                   static (node, value) => node.Update(value, contributesToBackdrop: false, preservesTargetClear: true)))
+        using (ContentIsolationRenderNode.Push(context, contributesToBackdrop: false, preservesTargetClear: true))
         {
             Effect.RenderInput(context, this);
-        }
-    }
-
-    private sealed class InputCompositeRenderNode(bool clearsBeforeEffects) : ContainerRenderNode
-    {
-        private bool _clearsBeforeEffects = clearsBeforeEffects;
-
-        public bool Update(bool value)
-        {
-            if (value == _clearsBeforeEffects) return false;
-            _clearsBeforeEffects = value;
-            MarkChanged();
-            return true;
-        }
-
-        public override void Process(RenderNodeContext context)
-        {
-            if (_clearsBeforeEffects || context.HasInputTargetClear())
-            {
-                // Clear belongs to the recorded input, including pass-through containers and references.
-                // Keep the incoming backdrop available during sampling, then replace the destination once.
-                var layer = context.TargetLayerScope(context.Inputs, TargetRegion.Full, contributesToBackdrop: false);
-                context.Publish(context.Blend(layer, BlendMode.Src));
-            }
-            else
-            {
-                context.PassThrough();
-            }
         }
     }
 
@@ -226,9 +195,7 @@ public sealed class FilterEffectInputSample
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         _slot.Session.Context.CancellationToken.ThrowIfCancellationRequested();
         if (_source == null) return;
-        using (context.PushNode(true,
-                   static value => new DrawableGroup.ContentIsolationRenderNode(value, preservesTargetClear: true),
-                   static (node, value) => node.Update(value, preservesTargetClear: true)))
+        using (ContentIsolationRenderNode.Push(context, preservesTargetClear: true))
             context.DrawDrawable(_source);
     }
 

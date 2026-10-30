@@ -125,14 +125,7 @@ public class MotionBlurRenderTests
             if (retimed) scene.Children[0].Objects.Add(new DrawableTimeController { OffsetPosition = { Value = MediaTime.FromSeconds(offset) } });
             RectShape shape = MotionBlurTests.Rectangle();
             shape.Width.SetKeyFrameAnimation(null);
-            var input = new Element
-            {
-                Start = { Value = MediaTime.FromSeconds(0.5) },
-                Length = { Value = MediaTime.FromSeconds(0.5) },
-                ZIndex = { Value = 1 },
-            };
-            input.Objects.Add(shape);
-            scene.Children.Add(input);
+            scene.Children.Add(MotionBlurTests.Clip(0.5, 0.5, 1, shape));
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
             foreach ((double time, double alpha) in new[]
                      {
@@ -161,14 +154,7 @@ public class MotionBlurRenderTests
                 RectShape shape = MotionBlurTests.Rectangle();
                 shape.Width.SetKeyFrameAnimation(null);
                 shape.Fill.Value = new SolidColorBrush(color);
-                var element = new Element
-                {
-                    Start = { Value = MediaTime.FromSeconds(start) },
-                    Length = { Value = MediaTime.FromSeconds(0.5) },
-                    ZIndex = { Value = 1 },
-                };
-                element.Objects.Add(shape);
-                scene.Children.Add(element);
+                scene.Children.Add(MotionBlurTests.Clip(start, 0.5, 1, shape));
             }
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
             foreach (double time in new[] { 0.5, 0.45, 0.55, 0.5 })
@@ -185,27 +171,37 @@ public class MotionBlurRenderTests
         });
     }
 
-    [TestCase(false, false, 100, BlendMode.SrcOver)]
-    [TestCase(true, false, 100, BlendMode.SrcOver)]
-    [TestCase(false, true, 100, BlendMode.SrcOver)]
-    [TestCase(true, true, 100, BlendMode.SrcOver)]
-    [TestCase(false, false, 50, BlendMode.SrcOver)]
-    [TestCase(true, false, 50, BlendMode.SrcOver)]
-    [TestCase(false, true, 50, BlendMode.SrcOver)]
-    [TestCase(true, true, 50, BlendMode.SrcOver)]
-    [TestCase(true, false, 0, BlendMode.SrcOver)]
-    [TestCase(true, false, 50, BlendMode.DstIn)]
-    [TestCase(true, false, 50, BlendMode.Multiply)]
-    [TestCase(true, true, 50, BlendMode.SrcOver, true)]
-    [TestCase(false, true, 50, BlendMode.SrcOver, true)]
-    [TestCase(true, true, 0, BlendMode.SrcOver, true)]
-    [TestCase(true, true, 50, BlendMode.SrcOver, true, 50)]
-    [TestCase(true, true, 50, BlendMode.SrcOver, true, 100, BlendMode.Multiply)]
-    [TestCase(true, true, 50, BlendMode.SrcOver, true, 100, BlendMode.SrcOver, true)]
-    [TestCase(true, false, 50, BlendMode.SrcOver, false, 100, BlendMode.SrcOver, true)]
-    public void StaticBackdropDoesNotFeedPreviousSamplesIntoTheAverage(
-        bool clear, bool inGroup, float opacity, BlendMode blendMode, bool separateBackground = false,
-        float groupOpacity = 100, BlendMode groupBlend = BlendMode.SrcOver, bool followingEffect = false)
+    public enum BackdropPlacement { Direct, Group, SeparateLayer }
+
+    public sealed record BackdropCase(
+        BackdropPlacement Placement, bool Clear = true, float Opacity = 50,
+        BlendMode Blend = BlendMode.SrcOver, float GroupOpacity = 100,
+        BlendMode GroupBlend = BlendMode.SrcOver, bool FollowingEffect = false);
+
+    private static readonly BackdropCase[] BackdropCases =
+    [
+        new(BackdropPlacement.Direct, Clear: false, Opacity: 100),
+        new(BackdropPlacement.Direct, Opacity: 100),
+        new(BackdropPlacement.Group, Clear: false, Opacity: 100),
+        new(BackdropPlacement.Group, Opacity: 100),
+        new(BackdropPlacement.Direct, Clear: false),
+        new(BackdropPlacement.Direct),
+        new(BackdropPlacement.Group, Clear: false),
+        new(BackdropPlacement.Group),
+        new(BackdropPlacement.Direct, Opacity: 0),
+        new(BackdropPlacement.Direct, Blend: BlendMode.DstIn),
+        new(BackdropPlacement.Direct, Blend: BlendMode.Multiply),
+        new(BackdropPlacement.SeparateLayer),
+        new(BackdropPlacement.SeparateLayer, Clear: false),
+        new(BackdropPlacement.SeparateLayer, Opacity: 0),
+        new(BackdropPlacement.SeparateLayer, GroupOpacity: 50),
+        new(BackdropPlacement.SeparateLayer, GroupBlend: BlendMode.Multiply),
+        new(BackdropPlacement.SeparateLayer, FollowingEffect: true),
+        new(BackdropPlacement.Direct, FollowingEffect: true),
+    ];
+
+    [TestCaseSource(nameof(BackdropCases))]
+    public void StaticBackdropDoesNotFeedPreviousSamplesIntoTheAverage(BackdropCase settings)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -218,44 +214,35 @@ public class MotionBlurRenderTests
             };
             var blur = MotionBlurTests.Blur();
             blur.Samples.Value = 1;
-            var chain = new FilterEffectGroup();
-            chain.Children.Add(new Invert());
-            if (!inGroup) chain.Children.Add(blur);
             var backdrop = new SourceBackdrop
             {
-                Clear = { Value = clear },
-                Opacity = { Value = opacity },
-                BlendMode = { Value = blendMode },
+                Clear = { Value = settings.Clear },
+                Opacity = { Value = settings.Opacity },
+                BlendMode = { Value = settings.Blend },
                 Transform = { Value = new TranslateTransform { X = { Value = 16 } } },
-                FilterEffect = { Value = chain },
+                FilterEffect = { Value = new FilterEffectGroup { Children = { new Invert() } } },
             };
-            var group = new DrawableGroup
+            Drawable owner = backdrop;
+            EngineObject[] inputs = [backdrop];
+            if (settings.Placement != BackdropPlacement.Direct)
             {
-                FilterEffect = { Value = blur },
-                Opacity = { Value = groupOpacity },
-                BlendMode = { Value = groupBlend },
-            };
-            if (followingEffect)
-            {
-                if (inGroup)
+                owner = new DrawableGroup
                 {
-                    group.FilterEffect.Value = new FilterEffectGroup { Children = { blur, new Invert() } };
-                }
-                else
-                {
-                    chain.Children.Add(new Invert());
-                }
+                    Opacity = { Value = settings.GroupOpacity },
+                    BlendMode = { Value = settings.GroupBlend },
+                };
+                inputs = [backdrop, owner];
             }
-            Scene scene = inGroup ? MotionBlurTests.SceneWith(background, backdrop, group) : MotionBlurTests.SceneWith(background, backdrop);
-            if (separateBackground)
+            var chain = (FilterEffectGroup)owner.FilterEffect.Value!;
+            chain.Children.Add(blur);
+            if (settings.FollowingEffect) chain.Children.Add(new Invert());
+            Scene scene;
+            if (settings.Placement == BackdropPlacement.SeparateLayer)
             {
-                scene.Children[0].Objects.Remove(backdrop);
-                scene.Children[0].Objects.Remove(group);
-                var adjustment = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(4) }, ZIndex = { Value = 1 } };
-                adjustment.Objects.Add(backdrop);
-                adjustment.Objects.Add(group);
-                scene.Children.Add(adjustment);
+                scene = MotionBlurTests.SceneWith(background);
+                scene.Children.Add(MotionBlurTests.Clip(0, 4, 1, inputs));
             }
+            else scene = MotionBlurTests.SceneWith([background, .. inputs]);
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
             using Bitmap expected = Render(renderer, 1);
             foreach ((int count, float mix) in new[] { (2, 0f), (4, 0f), (8, 0f), (4, 35f), (4, 100f) })

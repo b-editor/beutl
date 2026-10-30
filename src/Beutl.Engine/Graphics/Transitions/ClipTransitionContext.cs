@@ -324,11 +324,5 @@ public readonly struct ClipTransitionContext
     /// Composites everything drawn inside it into its own layer first, so a <see cref="BlendMode.Plus"/>
     /// blend combines the two sides with each other and not with the layers beneath.
     /// </summary>
-    public PushedState PushIsolation()
-    {
-        return graphics.PushNode(
-            true,
-            static isolates => new DrawableGroup.ContentIsolationRenderNode(isolates),
-            static (node, isolates) => node.Update(isolates));
-    }
+    public PushedState PushIsolation() => ContentIsolationRenderNode.Push(graphics);
 }

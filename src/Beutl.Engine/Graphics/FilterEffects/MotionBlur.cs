@@ -52,11 +52,7 @@ public sealed partial class MotionBlur : FilterEffect
         {
         }
 
-        partial void PostReconcile(MotionBlur obj, CompositionContext context)
-        {
-            TimeSamples = [];
-            _sourceSample = null;
-        }
+        partial void PostReconcile(MotionBlur obj, CompositionContext context) => ClearSamples();
 
         public override bool PrepareInput(FilterEffectInputContext input)
         {
@@ -88,21 +84,23 @@ public sealed partial class MotionBlur : FilterEffect
 
         public override void RenderInput(GraphicsContext2D context, FilterEffectInputContext input)
         {
+            float sampleWeight = (1 - _sourceWeight) / TimeSamples.Count;
             foreach (FilterEffectInputSample sample in TimeSamples)
-            {
-                using (context.PushBlendMode(BlendMode.Plus))
-                using (context.PushOpacity((1 - _sourceWeight) / TimeSamples.Count))
-                    sample.Draw(context);
-            }
+                DrawSample(sample, sampleWeight);
             if (_sourceSample != null)
+                DrawSample(_sourceSample, _sourceWeight);
+
+            void DrawSample(FilterEffectInputSample sample, float weight)
             {
                 using (context.PushBlendMode(BlendMode.Plus))
-                using (context.PushOpacity(_sourceWeight))
-                    _sourceSample.Draw(context);
+                using (context.PushOpacity(weight))
+                    sample.Draw(context);
             }
         }
 
-        partial void PostDispose(bool disposing)
+        partial void PostDispose(bool disposing) => ClearSamples();
+
+        private void ClearSamples()
         {
             TimeSamples = [];
             _sourceSample = null;

@@ -26,7 +26,7 @@ public sealed class RawScopeNestingAndCaptureOffsetTests
     {
         using var root = new ContainerRenderNode();
         root.AddChild(new ClearRenderNode(Colors.Red));
-        var layer = new DrawableGroup.ContentIsolationRenderNode(true, contributesToBackdrop);
+        var layer = new ContentIsolationRenderNode(true, contributesToBackdrop);
         layer.AddChild(new ClearRenderNode(Colors.Blue));
         var scope = new RawReplayNode();
         var capture = new SnapshotBackdropRenderNode();
