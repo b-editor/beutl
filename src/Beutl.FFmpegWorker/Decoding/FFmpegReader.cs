@@ -47,7 +47,7 @@ public sealed class FFmpegReader : MediaReader
     // A video packet avcodec_send_packet rejected with EAGAIN; it must be resent before any later packet.
     private MediaPacket? _pendingVideoPacket;
     private bool _hasPendingVideoPacket;
-    private SampleConverter? _sampleConverter;
+    private AudioFrameConverter? _sampleConverter;
     private long _audioNowTimestamp;
     private long _audioNextTimestamp;
     private long _videoNowFrame;
@@ -224,19 +224,12 @@ public sealed class FFmpegReader : MediaReader
         int sampleSize = BytesPerSample;
 
         // SampleConverterを遅延初期化
-        _sampleConverter ??= new SampleConverter();
+        _sampleConverter ??= new AudioFrameConverter(AudioInfo.SampleRate);
 
         while ((!needGrab || GrabAudio()) && _currentAudioFrame.NbSamples > 0)
         {
-            // SampleConverterの設定
-            _sampleConverter.SetOpts(
-                AV_CHANNEL_LAYOUT_STEREO,
-                AudioInfo.SampleRate,
-                AVSampleFormat.AV_SAMPLE_FMT_FLT,
-                _currentAudioFrame.NbSamples);
-
             // 変換
-            using var convertedFrame = _sampleConverter.ConvertFrame(_currentAudioFrame, out _, out _);
+            using var convertedFrame = _sampleConverter.ConvertFrame(_currentAudioFrame);
             _samplesReturn = convertedFrame.NbSamples;
 
             if (_samplesReturn < 0)
@@ -290,6 +283,24 @@ public sealed class FFmpegReader : MediaReader
     {
         long offset = position - frameStart;
         return offset >= 0 && offset < frameSamples ? (int)offset : -1;
+    }
+
+    internal sealed class AudioFrameConverter : SampleConverter
+    {
+        public AudioFrameConverter(int sampleRate)
+        {
+            SetOpts(AV_CHANNEL_LAYOUT_STEREO, sampleRate, AVSampleFormat.AV_SAMPLE_FMT_FLT, 0);
+        }
+
+        public MediaFrame ConvertFrame(MediaFrame frame)
+        {
+            // SetOpts replaces a sample-rate-sized native FIFO without disposing the old one.
+            // Keep that allocation for the reader's lifetime, while preserving the empty FIFO and
+            // per-frame output size that the previous per-frame SetOpts calls supplied.
+            AudioFifo.Reset();
+            dstSamples = frame.NbSamples;
+            return base.ConvertFrame(frame, out _, out _);
+        }
     }
 
     private unsafe AudioFrameInfo CreateAudioFrameInfo(int samples)

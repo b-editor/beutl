@@ -54,12 +54,14 @@ public sealed partial class EditViewModel
         }
     }
 
-    private void CaptureSavedMediaUris()
+    private void CaptureSavedMediaUris(HashSet<string>? savedUris = null,
+        IReadOnlyDictionary<string, MediaFileFingerprint>? savedFingerprints = null)
     {
-        _savedMediaUris = MissingMediaService.GetFileUris(Scene).Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+        _savedMediaUris = savedUris ?? MissingMediaService.GetFileUris(Scene).Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
         foreach (string key in _savedMediaFingerprints.Keys.Where(key => !_savedMediaUris.Contains(key)).ToArray())
             _savedMediaFingerprints.Remove(key);
-        MergeSavedMediaFingerprints(Scene);
+        foreach (var pair in (savedFingerprints ?? Scene.MediaFingerprints).Where(pair => _savedMediaUris.Contains(pair.Key)))
+            _savedMediaFingerprints[pair.Key] = pair.Value;
     }
 
     private void MergeSavedMediaFingerprints(Scene scene)

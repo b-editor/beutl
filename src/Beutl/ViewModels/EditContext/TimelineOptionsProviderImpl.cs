@@ -10,8 +10,8 @@ internal sealed class TimelineOptionsProviderImpl : ITimelineOptionsProvider, ID
     {
         Scene = scene;
         Options = new ReactiveProperty<TimelineOptions>(new TimelineOptions());
-        Scale = Options.Select(o => o.Scale);
-        Offset = Options.Select(o => o.Offset);
+        Scale = Options.Select(o => o.Scale).DistinctUntilChanged();
+        Offset = Options.Select(o => o.Offset).DistinctUntilChanged();
     }
 
     public Scene Scene { get; }

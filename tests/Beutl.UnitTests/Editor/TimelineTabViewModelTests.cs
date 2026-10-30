@@ -96,8 +96,7 @@ public class TimelineTabViewModelTests
         });
     }
 
-    // A live tracked-layer-top subscription is what closes the loop — without a subscriber the
-    // synchronous Height emits reach nothing and no re-entry happens at all.
+    // Growing to a distant row must also work with a live layer-top subscriber.
     [Test]
     public void CalculateLayerTop_DeepLayer_WithTrackedSubscriber_GrowsWithoutRecursing()
     {
@@ -115,8 +114,7 @@ public class TimelineTabViewModelTests
         });
     }
 
-    // The subscriber's own layer is above the growth, so every new header's height feeds it and
-    // it must still end holding the completed sum, not a partial one.
+    // Subscribing to a row that does not exist yet must publish the completed sum.
     [Test]
     public void TrackedLayerTop_DeepSubscriber_EndsWithCompletedSum()
     {
@@ -209,6 +207,38 @@ public class TimelineTabViewModelTests
                     $"the header of the clip on row {row}");
             }
         });
+    }
+
+    [Test]
+    public void LayerTops_follow_height_changes_and_shrink_then_grow()
+    {
+        using TimelineTabViewModel model = CreateViewModel();
+        double rowHeight = model.CalculateLayerTop(1);
+        Assert.That(model.CalculateLayerTop(2000), Is.EqualTo(2000 * rowHeight));
+        double observed = 0;
+        using IDisposable subscription = model.GetTrackedLayerTopObservable(1500).Subscribe(top => observed = top);
+
+        model.LayerHeaders[2].Height.Value += rowHeight;
+        Assert.That(observed, Is.EqualTo(1501 * rowHeight));
+        Assert.That(model.ToLayerNumber(observed), Is.EqualTo(1499), "The exact edge belongs to the preceding row.");
+        Assert.That(model.ToLayerNumber(observed + 1), Is.EqualTo(1500));
+
+        model.Options.Value = model.Options.Value with { MaxLayerCount = 10 };
+        Assert.That(model.CalculateLayerTop(2000), Is.EqualTo(2001 * rowHeight));
+        model.LayerHeaders[2].Height.Value = rowHeight;
+        Assert.That(model.CalculateLayerTop(2000), Is.EqualTo(2000 * rowHeight));
+    }
+
+    [Test]
+    public void Scrolling_does_not_publish_scale_but_zoom_does()
+    {
+        using TimelineTabViewModel model = CreateViewModel();
+        var values = new List<float>();
+        using IDisposable subscription = model.Scale.Subscribe(values.Add);
+        model.Options.Value = model.Options.Value with { Offset = new Vector2(500, 800) };
+        model.Options.Value = model.Options.Value with { Scale = 0.5f };
+        model.Options.Value = model.Options.Value with { Offset = Vector2.Zero };
+        Assert.That(values, Is.EqualTo(new[] { 1f, 0.5f }));
     }
 
     internal static TimelineTabViewModel CreateViewModel(

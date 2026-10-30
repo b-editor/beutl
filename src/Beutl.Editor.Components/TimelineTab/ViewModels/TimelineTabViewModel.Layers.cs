@@ -7,6 +7,9 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
 public sealed partial class TimelineTabViewModel
 {
+    // Prefix sums are extended on demand and only invalidated below a resized row.
+    private readonly List<double> _layerTops = [0];
+
     public int CalculateClickedLayer()
     {
         _logger.LogDebug("Calculating clicked layer from position {Position}.", ClickedPosition);
@@ -15,10 +18,12 @@ public sealed partial class TimelineTabViewModel
 
     private void AddLayerHeaders(int count)
     {
+        if (count <= LayerHeaders.Count) return;
+
         _logger.LogDebug("Adding layer headers up to count {Count}.", count);
 
-        // A new header's Height emits synchronously, reaching CalculateLayerTop and re-entering
-        // here; fold that request into the running loop's bound rather than recursing.
+        // Header collection observers can request another row while the list grows. Fold that
+        // request into the running loop's bound rather than recursing.
         if (_addingLayerHeaders)
         {
             _pendingLayerHeaderCount = Math.Max(_pendingLayerHeaderCount, count);
@@ -117,7 +122,10 @@ public sealed partial class TimelineTabViewModel
                     break;
 
                 LayerHeaders.RemoveAt(i);
+                item.Dispose();
             }
+
+            InvalidateLayerTops(LayerHeaders.Count);
 
             if (Options.Value.MaxLayerCount != LayerHeaders.Count)
             {
@@ -156,16 +164,9 @@ public sealed partial class TimelineTabViewModel
     {
         AddLayerHeaders(layer + 1);
 
-        // Reentrant calls from AddLayerHeaders see a partially grown list, so clamp rather than
-        // index past the end.
-        double sum = 0;
         int count = Math.Min(layer, LayerHeaders.Count);
-        for (int i = 0; i < count; i++)
-        {
-            sum += LayerHeaders[i].Height.Value;
-        }
-
-        return sum;
+        EnsureLayerTops(count);
+        return _layerTops[Math.Max(0, count)];
     }
 
     public int ToLayerNumber(double pixel)
@@ -182,18 +183,19 @@ public sealed partial class TimelineTabViewModel
 
     private int FindLayerNumber(double hitY, double overflowY)
     {
-        double sum = 0;
-
-        for (int i = 0; i < LayerHeaders.Count; i++)
+        EnsureLayerTops(LayerHeaders.Count);
+        int low = 0;
+        int high = LayerHeaders.Count;
+        while (low < high)
         {
-            LayerHeaderViewModel cur = LayerHeaders[i];
-            if (sum <= hitY && hitY <= (sum += cur.Height.Value))
-            {
-                return i;
-            }
+            int mid = low + (high - low) / 2;
+            if (_layerTops[mid + 1] < hitY) low = mid + 1;
+            else high = mid;
         }
 
-        double delta = overflowY - sum;
+        if (low < LayerHeaders.Count && hitY >= 0) return low;
+
+        double delta = overflowY - _layerTops[^1];
         int addCount = (int)Math.Ceiling(delta / FrameNumberHelper.LayerHeight);
         int zIndex = addCount + LayerHeaders.Count;
         AddLayerHeaders(zIndex + 1);
@@ -203,7 +205,23 @@ public sealed partial class TimelineTabViewModel
 
     internal void RaiseLayerHeightChanged(LayerHeaderViewModel value)
     {
+        InvalidateLayerTops(value.Number);
         _layerHeightChanged.OnNext(value);
+    }
+
+    private void EnsureLayerTops(int count)
+    {
+        while (_layerTops.Count <= count)
+        {
+            int row = _layerTops.Count - 1;
+            _layerTops.Add(_layerTops[row] + LayerHeaders[row].Height.Value);
+        }
+    }
+
+    private void InvalidateLayerTops(int row)
+    {
+        if (_layerTops.Count > row + 1)
+            _layerTops.RemoveRange(row + 1, _layerTops.Count - row - 1);
     }
 
     private sealed class TrackedLayerTopObservable(int layerNum, TimelineTabViewModel timeline)

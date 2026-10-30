@@ -22,6 +22,7 @@ public sealed partial class TimelineTabView
 
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
+        InvalidateElementViewport();
         if (ViewModel == null) return;
         TimelineTabViewModel viewModel = ViewModel;
         Avalonia.Vector aOffset = ContentScroll.Offset;

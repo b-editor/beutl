@@ -98,9 +98,12 @@ public class ElementViewDragCancellationTests
             AssertDraggedState();
             Assert.Multiple(() =>
             {
-                // Each element brings a clip view and a scope view; the ghosts are gone.
-                Assert.That(view.TimelinePanel.Children.Count,
-                    Is.EqualTo(childCount + (kind == "duplicate" ? 2 * elements.Length : 0)));
+                // Scope controls can be virtualized. Check the visible clips and ghost cleanup directly.
+                Assert.That(view.TimelinePanel.Children.OfType<ElementView>()
+                    .Select(v => ((ElementViewModel)v.DataContext!).Model),
+                    Is.EquivalentTo(elements[0].Scene.Children));
+                Assert.That(view.TimelinePanel.Children.OfType<Border>(), Is.Empty,
+                    "No duplicate preview ghost may remain after the drag ends.");
                 Assert.That(timeline.SnapBarPosition.Value, Is.Null);
                 Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
                 Assert.That(editor.HistoryManager.HasPendingOperations, Is.False);

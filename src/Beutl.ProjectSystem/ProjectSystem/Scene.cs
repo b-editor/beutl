@@ -36,6 +36,9 @@ public partial class Scene : ProjectItem, INotifyEdited
     private readonly List<string> _includeElements = ["**/*.belm"];
     private readonly List<string> _excludeElements = [];
     private readonly SceneRecovery _recovery;
+    private SceneElementIndex? _elementIndex;
+    private readonly object _elementIndexLock = new();
+    private readonly HashSet<Element> _transitionElements = new(ReferenceEqualityComparer.Instance);
 
     public Scene()
         : this(1920, 1080, string.Empty)
@@ -48,9 +51,19 @@ public partial class Scene : ProjectItem, INotifyEdited
         Duration.Value = MediaTime.FromSeconds(300);
         ScanProperties<Scene>();
         FrameSize.Value = new PixelSize(width, height);
+        Children.CollectionChanged += (_, _) => { lock (_elementIndexLock) _elementIndex = null; };
         Children.CollectionChanged += Children_CollectionChanged;
-        Children.Attached += item => item.Edited += OnElementEdited;
-        Children.Detached += item => item.Edited -= OnElementEdited;
+        Children.Attached += item =>
+        {
+            item.Edited += OnElementEdited;
+            UpdateTransitionElement(item);
+        };
+        Children.Detached += item =>
+        {
+            item.Edited -= OnElementEdited;
+            lock (_elementIndexLock) _transitionElements.Remove(item);
+        };
+        Edited += (_, _) => { lock (_elementIndexLock) _elementIndex?.InvalidateTransitions(); };
         Layers.CollectionChanged += Layers_CollectionChanged;
         Layers.Attached += OnLayerAttached;
         Layers.Detached += OnLayerDetached;
@@ -58,6 +71,39 @@ public partial class Scene : ProjectItem, INotifyEdited
     }
 
     internal SceneRecovery Recovery => _recovery;
+
+    internal SceneElementIndex ElementIndex
+    {
+        get
+        {
+            lock (_elementIndexLock)
+            {
+                return _elementIndex ??= new SceneElementIndex(Children);
+            }
+        }
+    }
+
+    internal bool HasTransitions
+    {
+        get { lock (_elementIndexLock) return _transitionElements.Count > 0; }
+    }
+
+    internal void UpdateElementIndex(Element element)
+    {
+        lock (_elementIndexLock) _elementIndex?.Update(element);
+    }
+
+    internal void UpdateTransitionElement(Element element)
+    {
+        lock (_elementIndexLock)
+        {
+            if (element.EnterTransition.Value is not null || element.ExitTransition.Value is not null)
+                _transitionElements.Add(element);
+            else
+                _transitionElements.Remove(element);
+            _elementIndex?.InvalidateTransitions();
+        }
+    }
 
     public event EventHandler? Edited;
 
@@ -199,9 +245,11 @@ public partial class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in e.OldItems.OfType<Element>())
             {
-                if (TryGetStoredElementPattern(dirPath, item, out string? itemPath, out string? rel)
-                    && !_excludeElements.Contains(rel) && File.Exists(itemPath))
+                if (TryGetStoredElementPattern(dirPath, item, out string? rel)
+                    && !_excludeElements.Contains(rel))
                 {
+                    // A previous save may still be creating the file. Record the removal now;
+                    // saving prunes the exclusion once the file has actually been deleted.
                     _excludeElements.Add(rel);
                 }
 
@@ -213,7 +261,7 @@ public partial class Scene : ProjectItem, INotifyEdited
         {
             foreach (Element item in e.NewItems.OfType<Element>())
             {
-                if (TryGetStoredElementPattern(dirPath, item, out _, out string? rel))
+                if (TryGetStoredElementPattern(dirPath, item, out string? rel))
                 {
                     // Undo/Redo can reattach an element before auto-save recreates its file.
                     _excludeElements.RemoveAll(pattern => AreSameElementPaths(dirPath!, pattern, rel));
@@ -226,22 +274,19 @@ public partial class Scene : ProjectItem, INotifyEdited
         Edited?.Invoke(this, new ElementEditedEventArgs { AffectedRange = affectedRange.DrainToImmutable() });
     }
 
-    // The element's file as a pattern relative to the scene directory, when both are on disk.
+    // The file-backed element's path relative to the scene directory, even before it is written.
     private static bool TryGetStoredElementPattern(
         string? dirPath,
         Element item,
-        [NotNullWhen(true)] out string? itemPath,
         [NotNullWhen(true)] out string? pattern)
     {
         if (dirPath is not null && item.Uri is { IsFile: true } itemUri)
         {
-            itemPath = itemUri.LocalPath;
             pattern = NormalizeElementPattern(
-                Path.GetRelativePath(dirPath, itemPath));
+                Path.GetRelativePath(dirPath, itemUri.LocalPath));
             return true;
         }
 
-        itemPath = null;
         pattern = null;
         return false;
     }

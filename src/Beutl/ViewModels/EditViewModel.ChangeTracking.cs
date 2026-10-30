@@ -243,6 +243,8 @@ public partial class EditViewModel
         }
     }
 
+    private Task _autoSaveTask = Task.CompletedTask;
+
     private void AutoSave(IList<ChangeOperation> list)
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
@@ -258,11 +260,15 @@ public partial class EditViewModel
                 }
 
                 _autoSaveFailed = false;
-                await _autoSaveService.AutoSaveAsync(list, _autoSaveCancellation.Token);
+                var savedMediaUris = MissingMediaService.GetFileUris(Scene).Select(uri => uri.AbsoluteUri)
+                    .ToHashSet(StringComparer.Ordinal);
+                var savedFingerprints = Scene.MediaFingerprints.ToDictionary(pair => pair.Key, pair => pair.Value);
+                _autoSaveTask = _autoSaveService.AutoSaveAsync(list, _autoSaveCancellation.Token);
+                await _autoSaveTask;
                 if (_disposed) return;
                 if (!_autoSaveFailed)
                 {
-                    CaptureSavedMediaUris();
+                    CaptureSavedMediaUris(savedMediaUris, savedFingerprints);
                     ScheduleMediaFingerprints();
                 }
                 SaveState();
@@ -280,7 +286,7 @@ public partial class EditViewModel
 
     private List<TimeRange> GetAffectedTimeRanges(IList<ChangeOperation> list)
     {
-        List<TimeRange> ranges = [.. list.SelectMany(GetAffectedTimeRangesFromOperation).Where(range => !range.IsEmpty)];
+        List<TimeRange> ranges = [.. list.SelectMany(GetAffectedTimeRangesFromOperation).Where(range => !range.IsEmpty).Distinct()];
         // A clip boundary transition draws its elements past their own ranges, so the frames it plays over
         // change along with either element.
         ranges.AddRange(ElementTransitions.GetRegionsNear(Scene, ranges));

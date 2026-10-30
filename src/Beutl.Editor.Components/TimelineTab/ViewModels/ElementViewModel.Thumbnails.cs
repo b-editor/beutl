@@ -10,12 +10,29 @@ namespace Beutl.Editor.Components.TimelineTab.ViewModels;
 
 public sealed partial class ElementViewModel
 {
+    // Below the thumbnail height, the clip is too narrow to show useful media detail.
+    internal const double MinimumThumbnailWidth = 25;
+    private bool _timelineViewAttached;
+
+    private bool CanGenerateThumbnails => !_isDisposed && _timelineViewAttached
+        && !IsThumbnailsDisabled.Value && Width.Value >= MinimumThumbnailWidth;
+
+    internal void SetTimelineViewAttached(bool attached)
+    {
+        _timelineViewAttached = attached;
+        if (attached)
+        {
+            UpdateThumbnailsAsync();
+        }
+        else
+        {
+            ClearVisibleThumbnails();
+        }
+    }
+
     private void InitializeThumbnails()
     {
         IsThumbnailsDisabled.Value = Timeline.ThumbnailsDisabledElements.Contains(Model.Id.Value);
-
-        Timeline.ThumbnailsDisabledElements.Attached += OnThumbnailsDisabledElementsAttached;
-        Timeline.ThumbnailsDisabledElements.Detached += OnThumbnailsDisabledElementsDetached;
 
         IsThumbnailsDisabled.Skip(1)
             .Subscribe(isDisabled =>
@@ -36,9 +53,21 @@ public sealed partial class ElementViewModel
             })
             .AddTo(_disposables);
 
+        // Stop pending work as soon as the clip becomes narrow; only regeneration is debounced.
+        Width.Select(width => width < MinimumThumbnailWidth)
+            .DistinctUntilChanged()
+            .Where(narrow => narrow && _timelineViewAttached)
+            .ObserveOnUIDispatcher()
+            .Subscribe(_ =>
+            {
+                if (Width.Value < MinimumThumbnailWidth) UpdateThumbnailsAsync();
+            })
+            .AddTo(_disposables);
+
         Observable.Merge(
                 Width.Select(_ => Unit.Default),
                 _thumbnailsInvalidatedSubject.AsObservable())
+            .Where(_ => _timelineViewAttached)
             .Throttle(TimeSpan.FromMilliseconds(500))
             .ObserveOnUIDispatcher()
             .Subscribe(_ => UpdateThumbnailsAsync())
@@ -49,23 +78,6 @@ public sealed partial class ElementViewModel
             .Throttle(TimeSpan.FromMilliseconds(50))
             .ObserveOnUIDispatcher()
             .Subscribe(range => _ = UpdateVisibleThumbnailsAsync(range.Start, range.End))
-            .AddTo(_disposables);
-
-        // Switching PreviewSourceMode changes the decode path (proxy vs original), so an already
-        // rendered filmstrip is stale until an unrelated invalidation; drop its cache and re-render.
-        GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.GetObservable()
-            .Skip(1)
-            .DistinctUntilChanged()
-            .ObserveOnUIDispatcher()
-            .Subscribe(_ => InvalidateAndUpdateThumbnails())
-            .AddTo(_disposables);
-
-        GlobalConfiguration.Instance.ProxyStoreConfig.DefaultPreset.GetObservable()
-            .Skip(1)
-            .DistinctUntilChanged()
-            .Where(_ => ShouldRefreshThumbnailsForDefaultPresetChange(GlobalConfiguration.Instance.EditorConfig.PreviewSourceMode.Value))
-            .ObserveOnUIDispatcher()
-            .Subscribe(_ => InvalidateAndUpdateThumbnails())
             .AddTo(_disposables);
     }
 
@@ -79,7 +91,7 @@ public sealed partial class ElementViewModel
             cacheService.Invalidate(baseKey);
     }
 
-    private void InvalidateAndUpdateThumbnails()
+    internal void InvalidateAndUpdateThumbnails()
     {
         InvalidateAllThumbnailCacheKeys(_thumbnailCacheService, _lastThumbnailsCacheKey);
         UpdateThumbnailsAsync();
@@ -88,7 +100,7 @@ public sealed partial class ElementViewModel
     internal static bool ShouldRefreshThumbnailsForDefaultPresetChange(PreviewSourceMode previewSourceMode)
         => previewSourceMode == PreviewSourceMode.PreferProxy;
 
-    private void OnThumbnailsDisabledElementsAttached(Guid id)
+    internal void OnThumbnailsDisabledElementsAttached(Guid id)
     {
         if (id == Model.Id.Value && !IsThumbnailsDisabled.Value)
         {
@@ -96,7 +108,7 @@ public sealed partial class ElementViewModel
         }
     }
 
-    private void OnThumbnailsDisabledElementsDetached(Guid id)
+    internal void OnThumbnailsDisabledElementsDetached(Guid id)
     {
         if (id == Model.Id.Value && IsThumbnailsDisabled.Value)
         {
@@ -113,18 +125,11 @@ public sealed partial class ElementViewModel
 
     internal async void UpdateThumbnailsAsync()
     {
-        if (_isDisposed || (ThumbnailReady == null && WaveformChunkReady == null))
+        if (_isDisposed || !_timelineViewAttached) return;
+
+        if (!CanGenerateThumbnails)
         {
-            CancelThumbnailsLoading();
-            _scrollThumbnailsCts?.Cancel();
-            return;
-        }
-        if (IsThumbnailsDisabled.Value)
-        {
-            CancelThumbnailsLoading();
-            ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
-            ThumbnailsClear?.Invoke();
-            WaveformClear?.Invoke();
+            ClearVisibleThumbnails();
             return;
         }
 
@@ -174,6 +179,20 @@ public sealed partial class ElementViewModel
                 cts.Dispose();
             }
         }
+    }
+
+    private void ClearVisibleThumbnails()
+    {
+        CancelThumbnailsLoading();
+        _scrollThumbnailsCts?.Cancel();
+        _scrollThumbnailsCts?.Dispose();
+        _scrollThumbnailsCts = null;
+        _lastVisibleStart = _lastVisibleEnd = -1;
+        ThumbnailsKind.Value = Engine.ThumbnailsKind.None;
+        VideoThumbnailCount.Value = 0;
+        WaveformChunkCount.Value = 0;
+        ThumbnailsClear?.Invoke();
+        WaveformClear?.Invoke();
     }
 
     private void SwitchThumbnailsProvider(IThumbnailsProvider? provider)
@@ -267,7 +286,7 @@ public sealed partial class ElementViewModel
 
     private async Task UpdateVisibleThumbnailsAsync(int start, int end)
     {
-        if (end < start) return;
+        if (!CanGenerateThumbnails || end < start) return;
 
         var provider = _currentThumbnailsProvider;
         if (provider == null || provider.ThumbnailsKind != Engine.ThumbnailsKind.Video)
@@ -332,6 +351,7 @@ public sealed partial class ElementViewModel
     // Each thumbnail is disposed on the UI thread after the hand-off, or here once the request is cancelled.
     private async Task StreamVideoThumbnailsAsync(IThumbnailsProvider provider, int width, int start, int end, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         const int MaxThumbnailHeight = 25;
         await foreach (var (index, count, thumbnail) in GetVideoThumbnailStrip(provider, width, MaxThumbnailHeight, ct, start, end))
         {
@@ -373,6 +393,7 @@ public sealed partial class ElementViewModel
             }
         });
 
+        ct.ThrowIfCancellationRequested();
         await foreach (var chunk in provider.GetWaveformChunksAsync(chunkCount, MaxSamplesPerChunk, _thumbnailCacheService, ct))
         {
             if (ct.IsCancellationRequested)

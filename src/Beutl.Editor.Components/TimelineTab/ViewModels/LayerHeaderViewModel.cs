@@ -48,7 +48,7 @@ public sealed class LayerHeaderViewModel : IDisposable
         ToggleSoloCommand = new ReactiveCommand()
             .WithSubscribe(() => ToggleLayerFlag(IsSolo, (s, scene, n, v) => s.SetSolo(scene, n, v)));
 
-        Height.Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
+        Height.Skip(1).Subscribe(_ => Timeline.RaiseLayerHeightChanged(this)).DisposeWith(_disposables);
 
         Inlines.ForEachItem(
                 (idx, x) =>

@@ -12,43 +12,58 @@ public static partial class CoreSerializer
     private const CoreSerializationMode DefaultStoreMode =
         CoreSerializationMode.Write | CoreSerializationMode.SaveReferencedObjects;
 
+    // Capture on the model's owning thread; invoke the returned writer on a worker. Auto-save
+    // writes named objects only, so references keep their URIs rather than saving live objects.
+    internal static Action PrepareStoreToUri(CoreObject obj, IReadOnlyDictionary<string, bool> pendingFiles,
+        Action<JsonObject, Uri>? beforeWrite = null)
+    {
+        Uri uri = obj.Uri ?? throw new JsonException("The object has no storage URI.");
+        if (!uri.IsFile) throw new JsonException();
+        if (obj.SuppressedStorageSource is not null)
+        {
+            // Recovery can restore sidecars and change reinstatement state. Keep its existing
+            // synchronous transaction on the owning thread; never serialize protected content.
+            StoreToUri(obj, uri, CoreSerializationMode.Write);
+            return static () => { };
+        }
+
+        Project? project = obj is Project ? null : FindProject(obj);
+        Uri? projectUri = project?.Uri;
+        string required = GetMinAppVersionToWrite(obj);
+        if (project is not null) required = RootFileVersions.RaiseMinAppVersion(project, required);
+        JsonObject json = CreateStoredJson(obj, new CoreSerializerOptions
+        {
+            BaseUri = uri,
+            Mode = CoreSerializationMode.Write,
+            PendingFileChanges = pendingFiles,
+        }, out string? minAppVersion);
+        // A custom serializer can supply model-owned JsonNodes. Detach those as well before
+        // handing the snapshot to a worker while the live model remains editable.
+        json = (JsonObject)json.DeepClone();
+        bool isProject = obj is Project;
+
+        return () =>
+        {
+            if (project is not null) RaiseProjectFile(project, projectUri, required);
+            string? storedVersion = minAppVersion;
+            if (isProject)
+            {
+                // A recovery write may have raised the gate while the batch was being captured.
+                // Its immutable project snapshot must not lower that already-persisted requirement.
+                storedVersion = GetMinAppVersionToWrite(obj);
+                WriteVersionFields(json, BeutlApplication.Version, storedVersion);
+            }
+            // Finalize the captured JSON from completed I/O without reading the live model.
+            beforeWrite?.Invoke(json, uri);
+            WriteJsonAtomically(uri.LocalPath, isProject, writer => json.WriteTo(writer, JsonHelper.SerializerOptions));
+            RecordStoredVersion(obj, uri, storedVersion);
+        };
+    }
+
     public static void StoreToUri<T>(T obj, Uri uri, CoreSerializationMode? mode = null)
         where T : ICoreSerializable
     {
         StoreToUriCore(obj, uri, mode, authorizedRootPath: null);
-    }
-
-    // Auto-save captures this one file on the document thread. The worker owns only its JSON;
-    // serializers, URI changes and version bookkeeping never run against a live background model.
-    internal static async Task StoreToUriAsync(CoreObject obj, Uri uri)
-    {
-        if (obj.SuppressedStorageSource != null)
-        {
-            StoreToUri(obj, uri, CoreSerializationMode.Write);
-            return;
-        }
-        if (!uri.IsFile) throw new JsonException();
-        Uri? previousUri = obj.Uri;
-        try
-        {
-            if (obj is not Project && FindProject(obj) is { } project)
-                RaiseProjectFile(project, GetMinAppVersionToWrite(obj));
-            obj.Uri = uri;
-            JsonObject json = CreateStoredJson(obj, new CoreSerializerOptions
-            {
-                BaseUri = uri,
-                Mode = CoreSerializationMode.Write
-            }, out string? minAppVersion);
-            bool isProject = obj is Project;
-            await Task.Run(() => WriteJsonAtomically(uri.LocalPath, isProject,
-                writer => json.WriteTo(writer, JsonHelper.SerializerOptions)));
-            RecordStoredVersion(obj, uri, minAppVersion);
-        }
-        catch
-        {
-            obj.Uri = previousUri;
-            throw;
-        }
     }
 
     internal static void StoreToUri<T>(
@@ -246,7 +261,42 @@ public static partial class CoreSerializer
             Directory.CreateDirectory(directory);
         }
 
-        JsonHelper.WriteAtomically(path, write, journal: true, isCompatibilityGate: isCompatibilityGate);
+        if (isCompatibilityGate)
+        {
+            // File sessions use the project's timestamp to detect changes to its referenced files.
+            // Preserve that signal even when only scene/element contents changed during the save.
+            JsonHelper.WriteAtomically(path, write, journal: true, isCompatibilityGate: true);
+            return;
+        }
+
+        // A project close saves every element, including those already saved by auto-save. Serialize
+        // once and compare the actual bytes before creating/flushing a temporary file or journaling
+        // a replacement. Referenced objects are still saved by the serialization callback.
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer, JsonHelper.WriterOptions))
+        {
+            write(writer);
+            writer.Flush();
+        }
+
+        ReadOnlyMemory<byte> content = buffer.GetBuffer().AsMemory(0, checked((int)buffer.Length));
+        try
+        {
+            if (new FileInfo(path) is { Exists: true } file
+                && file.Length == content.Length
+                && File.ReadAllBytes(path).AsSpan().SequenceEqual(content.Span))
+            {
+                return;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Comparing is only an optimization; a missing or unreadable destination still follows
+            // the normal atomic write path and its existing permission/error handling.
+        }
+
+        JsonHelper.WriteAtomically(path, writer => writer.WriteRawValue(content.Span, skipInputValidation: true),
+            journal: true, isCompatibilityGate: isCompatibilityGate);
     }
 
     private static void CopyReferencedStorageSources(

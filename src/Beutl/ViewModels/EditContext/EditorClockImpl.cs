@@ -9,6 +9,8 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 {
     private readonly Scene _scene;
     private readonly ReactivePropertySlim<MediaTime> _currentTime = new();
+    private readonly Dictionary<MediaTime, int> _endCounts = [];
+    private readonly SortedSet<MediaTime> _ends = [];
 
     public EditorClockImpl(Scene scene)
     {
@@ -18,6 +20,7 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
         foreach (Element element in _scene.Children)
         {
             Subscribe(element);
+            AddEnd(element.Range.End);
         }
 
         _scene.Children.Attached += OnElementAttached;
@@ -55,23 +58,15 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
     private void OnElementAttached(Element obj)
     {
         Subscribe(obj);
-
-        if (MaximumTime.Value < obj.Range.End)
-        {
-            MaximumTime.Value = obj.Range.End;
-        }
+        AddEnd(obj.Range.End);
+        CalculateMaximumTime();
     }
 
     private void OnElementDetached(Element obj)
     {
         Unsubscribe(obj);
-
-        // A bulk removal raises Detached after removing every element, so a removed element never raises the
-        // maximum; it is recalculated over the elements left when the removed one ended at it.
-        if (MaximumTime.Value == obj.Range.End)
-        {
-            CalculateMaximumTime();
-        }
+        RemoveEnd(obj.Range.End);
+        CalculateMaximumTime();
     }
 
     private void OnElementStartChanged(object? sender, PropertyValueChangedEventArgs<MediaTime> e)
@@ -88,21 +83,34 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
     private void OnElementRangeChanged(Element element, TimeRange oldRange)
     {
-        if (MaximumTime.Value < element.Range.End)
-        {
-            MaximumTime.Value = element.Range.End;
-        }
-        else if (MaximumTime.Value == oldRange.End)
-        {
-            CalculateMaximumTime();
-        }
+        RemoveEnd(oldRange.End);
+        AddEnd(element.Range.End);
+        CalculateMaximumTime();
     }
 
     private void CalculateMaximumTime()
     {
-        MaximumTime.Value = _scene.Children.Count > 0
-            ? _scene.Children.Max(i => i.Range.End)
-            : MediaTime.Zero;
+        MaximumTime.Value = _ends.Count > 0 ? _ends.Max : MediaTime.Zero;
+    }
+
+    private void AddEnd(MediaTime end)
+    {
+        if (_endCounts.TryGetValue(end, out int count)) _endCounts[end] = count + 1;
+        else
+        {
+            _endCounts.Add(end, 1);
+            _ends.Add(end);
+        }
+    }
+
+    private void RemoveEnd(MediaTime end)
+    {
+        if (_endCounts[end] > 1) _endCounts[end]--;
+        else
+        {
+            _endCounts.Remove(end);
+            _ends.Remove(end);
+        }
     }
 
     public void Dispose()
@@ -117,5 +125,7 @@ internal sealed class EditorClockImpl : IEditorClock, IDisposable
 
         _currentTime.Dispose();
         MaximumTime.Dispose();
+        _endCounts.Clear();
+        _ends.Clear();
     }
 }

@@ -38,8 +38,6 @@ public sealed partial class TimelineTabView : UserControl
     private IDisposable? _nativeInputRegistration;
     private CancellationTokenSource? _scrollCts;
     private Task _scrollTask = Task.CompletedTask;
-    private readonly Dictionary<Element, (ElementView Clip, ElementScopeView Scope)> _elementViews = [];
-    private bool _elementViewsUpdatePending;
 
     public TimelineTabView()
         : this(NativeScrollInput.UsesGestureAxes)
@@ -60,11 +58,11 @@ public sealed partial class TimelineTabView : UserControl
 
         RulerBar.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
-        TimelinePanel.AddHandler(PointerMovedEvent, (_, e) =>
-        {
-            // Drag previews move view-model geometry before the scene is committed.
-            if (e.GetCurrentPoint(TimelinePanel).Properties.IsLeftButtonPressed) QueueElementViewsUpdate();
-        }, RoutingStrategies.Tunnel);
+        ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
+        TimelinePanel.AddHandler(PointerReleasedEvent, (_, _) => InvalidateElementViewport(), RoutingStrategies.Tunnel, true);
+        TimelinePanel.AddHandler(PointerCaptureLostEvent, (_, _) => InvalidateElementViewport(), RoutingStrategies.Bubble, true);
+        TimelinePanel.AddHandler(PointerMovedEvent, OnElementPointerMoved, RoutingStrategies.Tunnel, true);
+        TimelinePanel.PointerExited += OnElementPointerExited;
 
         TimelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
         TimelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
@@ -110,10 +108,11 @@ public sealed partial class TimelineTabView : UserControl
 
     private void OnDataContextDetached(TimelineTabViewModel obj)
     {
-        _scrollCts?.Cancel();
         ViewModel = null;
-        ClearElementViews();
-        TimelinePanel.Children.RemoveRange(2, TimelinePanel.Children.Count - 2);
+        ClearElementViewport();
+        _recycledElementViews.Clear();
+        int contentStart = TimelinePanel.Children.IndexOf(overlay) + 1;
+        TimelinePanel.Children.RemoveRange(contentStart, TimelinePanel.Children.Count - contentStart);
 
         _disposables.Clear();
     }
@@ -124,22 +123,11 @@ public sealed partial class TimelineTabView : UserControl
 
         TimelinePanel.Children.AddRange(vm.Inlines.Select(e => new InlineAnimationLayer { DataContext = e }));
 
-        vm.Elements.TrackCollectionChanged(
+        vm.Elements.ForEachItem(
                 AddElement,
                 RemoveElement,
-                ClearElementViews)
+                ClearElementViewport)
             .DisposeWith(_disposables);
-
-        // Batch additions and range changes share one viewport pass. Off-screen clips retain their
-        // view models, but do not allocate a control tree, menus, or thumbnail reads until needed.
-        Observable.FromEventPattern(h => vm.Scene.Edited += h, h => vm.Scene.Edited -= h)
-            .Subscribe(_ => QueueElementViewsUpdate()).DisposeWith(_disposables);
-        vm.Scale.Subscribe(_ => QueueElementViewsUpdate()).DisposeWith(_disposables);
-        vm.LayerHeightChanged.Subscribe(_ => QueueElementViewsUpdate()).DisposeWith(_disposables);
-        ContentScroll.GetObservable(ScrollViewer.OffsetProperty)
-            .Subscribe(_ => QueueElementViewsUpdate()).DisposeWith(_disposables);
-        ContentScroll.GetObservable(ScrollViewer.ViewportProperty)
-            .Subscribe(_ => QueueElementViewsUpdate()).DisposeWith(_disposables);
 
         vm.Inlines.TrackCollectionChanged(
                 OnAddedInline,
@@ -159,7 +147,7 @@ public sealed partial class TimelineTabView : UserControl
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     if (ViewModel != vm || _scrollTask != scrolling) return;
-                    UpdateElementViews();
+                    UpdateElementViewport();
                     if (FindElementView(element) is { } view) EditFlash.Run(view.border);
                 }, DispatcherPriority.Background);
             })
@@ -200,7 +188,7 @@ public sealed partial class TimelineTabView : UserControl
             })
             .DisposeWith(_disposables);
 
-        ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
+        InvalidateElementViewport();
     }
 
     internal TimelineTabViewModel? ViewModel { get; private set; }
@@ -219,69 +207,6 @@ public sealed partial class TimelineTabView : UserControl
         {
             def.MaxWidth = double.PositiveInfinity;
             def.MinWidth = 200;
-        }
-    }
-
-    private void AddElement(int index, ElementViewModel viewModel)
-    {
-        QueueElementViewsUpdate();
-    }
-
-    private void RemoveElement(int index, ElementViewModel viewModel)
-        => RemoveElementViews(viewModel.Model);
-
-    private void RemoveElementViews(Element element)
-    {
-        if (!_elementViews.Remove(element, out var views)) return;
-        TimelinePanel.Children.Remove(views.Clip);
-        TimelinePanel.Children.Remove(views.Scope);
-        views.Clip.DataContext = null;
-        views.Scope.DataContext = null;
-    }
-
-    private void ClearElementViews()
-    {
-        foreach (Element element in _elementViews.Keys.ToArray()) RemoveElementViews(element);
-    }
-
-    internal void QueueElementViewsUpdate()
-    {
-        if (_elementViewsUpdatePending) return;
-        _elementViewsUpdatePending = true;
-        Dispatcher.UIThread.Post(() =>
-        {
-            _elementViewsUpdatePending = false;
-            UpdateElementViews();
-        }, DispatcherPriority.Render);
-    }
-
-    private void UpdateElementViews()
-    {
-        if (ViewModel is not { } timeline || ContentScroll.Viewport.Width <= 0) return;
-        Size viewport = ContentScroll.Viewport;
-        Avalonia.Vector offset = ContentScroll.Offset;
-        // Keep a screen of overscan on each side for scrolling and edge drags.
-        double left = offset.X - viewport.Width, right = offset.X + viewport.Width * 2;
-        double top = offset.Y - viewport.Height, bottom = offset.Y + viewport.Height * 2;
-        foreach (ElementViewModel element in timeline.Elements)
-        {
-            _elementViews.TryGetValue(element.Model, out var existing);
-            bool visible = element.BorderMargin.Value.Left <= right
-                && element.BorderMargin.Value.Left + element.Width.Value >= left
-                && element.Margin.Value.Top <= bottom
-                && element.Margin.Value.Top + Math.Max(element.Scope.Height.Value, FrameNumberHelper.LayerHeight) >= top;
-            // A selected or focused view can own a drag, rename, or menu even outside the viewport.
-            if (!visible && existing.Clip != null
-                && (element.IsSelected.Value || existing.Clip.HasActiveInteraction)) continue;
-            if (visible && existing.Clip == null)
-            {
-                var clip = new ElementView(_alignmentFeedback) { DataContext = element };
-                var scope = new ElementScopeView { DataContext = element.Scope };
-                _elementViews.Add(element.Model, (clip, scope));
-                TimelinePanel.Children.Add(clip);
-                TimelinePanel.Children.Add(scope);
-            }
-            else if (!visible) RemoveElementViews(element.Model);
         }
     }
 
@@ -308,6 +233,7 @@ public sealed partial class TimelineTabView : UserControl
 
     private ElementView? FindElementView(Element element)
     {
-        return _elementViews.TryGetValue(element, out var views) ? views.Clip : null;
+        ViewportElement? entry = _viewportElements.Find(item => ReferenceEquals(item.Model.Model, element));
+        return entry is null ? null : entry.View ?? RealizeCompactElement(entry);
     }
 }

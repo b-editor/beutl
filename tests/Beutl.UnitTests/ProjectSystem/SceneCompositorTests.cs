@@ -18,6 +18,105 @@ namespace Beutl.UnitTests.ProjectSystem;
 [TestFixture]
 public class SceneCompositorTests
 {
+    [TestCase(2)]
+    [TestCase(200)]
+    [TestCase(20000)]
+    public void TwentyThousandElements_QueryOnlyTheCurrentFrameAndReuseAudioEligibility(int layers)
+    {
+        var scene = new Scene();
+        var sounds = new EligibilityCountingObject[20000];
+        for (int i = 0; i < sounds.Length; i++)
+        {
+            var element = new Element
+            {
+                Start = { Value = MediaTime.FromSeconds(i / layers * 2) },
+                Length = { Value = MediaTime.FromSeconds(1) },
+                ZIndex = { Value = i % layers },
+            };
+            element.Objects.Add(new TestGraphicsObject());
+            element.Objects.Add(sounds[i] = new EligibilityCountingObject());
+            scene.Children.Add(element);
+        }
+        using var compositor = new SceneCompositor(scene);
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        compositor.EvaluateGraphics(MediaTime.Zero);
+        CompositionFrame initial = compositor.EvaluateAudio(TimeRange.FromSeconds(0, 0.01));
+        double cold = watch.Elapsed.TotalMilliseconds;
+        int initialCalls = sounds[^1].TargetQueries;
+        var graphicsTimes = new List<double>();
+        var audioTimes = new List<double>();
+        for (int i = 0; i < 12; i++)
+        {
+            MediaTime time = MediaTime.FromSeconds((i * 137 % (20000 / layers)) * 2 + 0.5);
+            watch.Restart();
+            CompositionFrame graphics = compositor.EvaluateGraphics(time);
+            graphicsTimes.Add(watch.Elapsed.TotalMilliseconds);
+            watch.Restart();
+            CompositionFrame audio = compositor.EvaluateAudio(new TimeRange(time, MediaTime.FromSeconds(0.01)));
+            audioTimes.Add(watch.Elapsed.TotalMilliseconds);
+            Assert.That(graphics.Objects, Has.Length.EqualTo(layers));
+            Assert.That(audio.Objects, Has.Length.EqualTo(layers));
+            Assert.That(audio.Eligibility!.Value.Count, Is.EqualTo(20000));
+        }
+        if (layers < 20000)
+            Assert.That(sounds[^1].TargetQueries, Is.EqualTo(initialCalls), "Inactive objects must not be visited every audio block.");
+        Assert.That(initial.Eligibility!.Value.Count, Is.EqualTo(20000));
+        TestContext.Out.WriteLine($"{layers} layers: first graphics+audio {cold:F1} ms; "
+            + $"graphics median {graphicsTimes.Order().ElementAt(6):F2} ms, audio median {audioTimes.Order().ElementAt(6):F2} ms");
+    }
+
+    [Test]
+    public void CachedAudioEligibilityTracksEditsLayerFlagsAndDetachmentWithoutMutatingPriorFrames()
+    {
+        var scene = new Scene();
+        var layer = CreateLayer(0);
+        scene.Layers.Add(layer);
+        var sound = new TestAudioObject();
+        var element = new Element { Length = { Value = MediaTime.FromSeconds(1) } };
+        element.Objects.Add(sound);
+        scene.Children.Add(element);
+        using var compositor = new SceneCompositor(scene);
+        var range = TimeRange.FromSeconds(5, 1);
+        CompositionEligibility first = compositor.EvaluateAudio(range).Eligibility!.Value;
+        bool Eligible() => compositor.EvaluateAudio(range).Eligibility!.Value.Contains(sound);
+        Assert.That(first.Contains(sound), Is.True);
+        sound.IsEnabled.Value = false;
+        Assert.That(Eligible(), Is.False);
+        sound.IsEnabled.Value = true;
+        Assert.That(Eligible(), Is.True);
+        layer.IsAudioMuted.Value = true;
+        Assert.That(Eligible(), Is.False);
+        layer.IsAudioMuted.Value = false;
+        Assert.That(Eligible(), Is.True);
+        var solo = CreateLayer(2, solo: true);
+        scene.Layers.Add(solo);
+        Assert.That(Eligible(), Is.False);
+        element.ZIndex.Value = 2;
+        Assert.That(Eligible(), Is.True);
+        element.IsEnabled.Value = false;
+        Assert.That(Eligible(), Is.False);
+        element.IsEnabled.Value = true;
+        Assert.That(Eligible(), Is.True);
+        element.Objects.Remove(sound);
+        Assert.That(Eligible(), Is.False);
+        element.Objects.Add(sound);
+        Assert.That(Eligible(), Is.True);
+        scene.Children.Clear();
+        Assert.That(Eligible(), Is.False);
+        Assert.That(first.Contains(sound), Is.True, "Previously returned frames are immutable snapshots.");
+    }
+
+    [Beutl.Engine.SuppressResourceClassGeneration]
+    private sealed class EligibilityCountingObject : EngineObject
+    {
+        public int TargetQueries { get; private set; }
+        public override CompositionTarget GetCompositionTarget()
+        {
+            TargetQueries++;
+            return CompositionTarget.Audio;
+        }
+    }
+
     private string _basePath = null!;
 
     [SetUp]

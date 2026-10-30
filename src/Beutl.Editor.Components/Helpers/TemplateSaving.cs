@@ -9,12 +9,13 @@ namespace Beutl.Editor.Components.Helpers;
 // The "Save as template" of the timeline's elements, the element property tab and the property editors.
 internal static class TemplateSaving
 {
-    internal static void ShowSaveFlyout(
+    internal static SaveAsTemplateFlyout ShowSaveFlyout(
         Control target, ICoreSerializable instance, string name, bool showAtPointer, Action? onSaved = null)
     {
         var flyout = new SaveAsTemplateFlyout { Text = name };
         flyout.Confirmed += async (_, confirmed) => await SaveAsync(instance, confirmed, onSaved);
         flyout.ShowAt(target, showAtPointer);
+        return flyout;
     }
 
     // A refused or failed save shows the same error; a cancelled one is not reported as a failure.

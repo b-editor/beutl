@@ -1,4 +1,5 @@
-﻿using Beutl.Graphics.Transitions;
+﻿using Beutl.Collections.Pooled;
+using Beutl.Graphics.Transitions;
 using Beutl.Media;
 
 namespace Beutl.ProjectSystem;
@@ -7,6 +8,7 @@ namespace Beutl.ProjectSystem;
 // they have played at a given time.
 internal static class ElementTransitions
 {
+    private static readonly HashSet<Element> s_noParticipants = [];
     // Clip boundaries snap to frames, but a time typed by hand or read outside a project can leave one element's
     // end just off the next element's start. Anything closer than this is one boundary.
     internal static readonly MediaTime AdjacencyTolerance = MediaTime.FromSeconds(0.001);
@@ -46,9 +48,14 @@ internal static class ElementTransitions
         if (element.HierarchicalParent is not Scene scene) return null;
 
         Element? previous = null;
-        foreach (Element item in scene.Children.AsSpan())
+        SceneElementIndex index = scene.ElementIndex;
+        using var candidates = new PooledList<Element>();
+        index.Query(element.Start.Value - AdjacencyTolerance, element.Range.End + AdjacencyTolerance,
+            candidates, element.ZIndex.Value);
+        foreach (Element item in candidates)
         {
-            if (AreAdjacent(item, element) && (previous == null || item.Range.End > previous.Range.End))
+            if (AreAdjacent(item, element) && (previous == null || item.Range.End > previous.Range.End
+                || item.Range.End == previous.Range.End && index.CompareSceneOrder(item, previous) < 0))
             {
                 previous = item;
             }
@@ -62,9 +69,14 @@ internal static class ElementTransitions
         if (element.HierarchicalParent is not Scene scene) return null;
 
         Element? next = null;
-        foreach (Element item in scene.Children.AsSpan())
+        SceneElementIndex index = scene.ElementIndex;
+        using var candidates = new PooledList<Element>();
+        index.Query(element.Start.Value - AdjacencyTolerance, element.Range.End + AdjacencyTolerance,
+            candidates, element.ZIndex.Value);
+        foreach (Element item in candidates)
         {
-            if (AreAdjacent(element, item) && (next == null || item.Start.Value < next.Start.Value))
+            if (AreAdjacent(element, item) && (next == null || item.Start.Value < next.Start.Value
+                || item.Start.Value == next.Start.Value && index.CompareSceneOrder(item, next) < 0))
             {
                 next = item;
             }
@@ -114,9 +126,12 @@ internal static class ElementTransitions
     // at every element skip the neighbour searches for the rest; a scene without transitions costs one
     // pass.
     public static HashSet<Element> GetParticipants(Scene scene)
+        => scene.HasTransitions ? scene.ElementIndex.GetTransitionParticipants() : s_noParticipants;
+
+    internal static HashSet<Element> CollectParticipants(IEnumerable<Element> children, SceneElementIndex index)
     {
         HashSet<Element>? participants = null;
-        ReadOnlySpan<Element> children = scene.Children.AsSpan();
+        using var candidates = new PooledList<Element>();
         foreach (Element element in children)
         {
             bool enter = IsActive(element.EnterTransition.Value);
@@ -125,7 +140,10 @@ internal static class ElementTransitions
 
             participants ??= [];
             participants.Add(element);
-            foreach (Element other in children)
+            candidates.Clear();
+            index.Query(element.Start.Value - AdjacencyTolerance, element.Range.End + AdjacencyTolerance,
+                candidates, element.ZIndex.Value);
+            foreach (Element other in candidates)
             {
                 if ((enter && AreAdjacent(other, element)) || (exit && AreAdjacent(element, other)))
                 {
@@ -139,24 +157,35 @@ internal static class ElementTransitions
 
     // The spans of every boundary transition that overlap range or touch either end of it. A transition
     // draws its elements past their own ranges, so its frames change whenever theirs do.
-    public static List<TimeRange> GetRegionsNear(Scene scene, TimeRange range)
-        => GetRegionsNear(scene, [range]);
-
-    // A bulk edit can affect thousands of ranges. Resolve participants and their boundaries once,
-    // rather than repeating the whole-scene searches for every changed clip.
+    // Reuse indexed single-range queries and the cached participant set for a bulk edit.
     public static List<TimeRange> GetRegionsNear(Scene scene, IReadOnlyList<TimeRange> ranges)
     {
-        var regions = new List<TimeRange>();
-        if (ranges.Count == 0) return regions;
-        foreach (Element element in GetParticipants(scene))
+        if (!scene.HasTransitions || ranges.Count == 0) return [];
+        var regions = new HashSet<TimeRange>();
+        foreach (TimeRange range in ranges) regions.UnionWith(GetRegionsNear(scene, range));
+        return [.. regions];
+    }
+
+    public static List<TimeRange> GetRegionsNear(Scene scene, TimeRange range, int? layer = null)
+    {
+        if (!scene.HasTransitions) return [];
+        var regions = new HashSet<TimeRange>();
+        // Per-element range changes already know the affected layer. Avoid rebuilding the global
+        // participant set for every step of a bulk edit or history replay.
+        HashSet<Element>? participants = layer is null ? GetParticipants(scene) : null;
+        if (participants?.Count == 0) return [];
+        using var candidates = new PooledList<Element>();
+        scene.ElementIndex.Query(range.Start - AdjacencyTolerance, range.End + AdjacencyTolerance, candidates, layer);
+        foreach (Element element in candidates)
         {
-            if (GetBoundaryAtStart(element) is { } start && ranges.Any(range => Touches(start.Region, range)))
+            if (participants is not null && !participants.Contains(element)) continue;
+            if (GetBoundaryAtStart(element) is { } start && Touches(start.Region, range))
             {
                 regions.Add(start.Region);
             }
 
-            // A boundary with an element after it is found again from that element's start.
-            if (GetBoundaryAtEnd(element) is { Incoming: null } end && ranges.Any(range => Touches(end.Region, range)))
+            // The incoming side may start after this range, so inspect both boundaries of candidates.
+            if (GetBoundaryAtEnd(element) is { } end && Touches(end.Region, range))
             {
                 regions.Add(end.Region);
             }
@@ -165,14 +194,14 @@ internal static class ElementTransitions
             // other end, so when a neighbour arrives at or leaves that other end, the span can grow or
             // shrink anywhere in the element. The scene has already changed by now, so the span it had
             // cannot be recovered; the whole element counts instead.
-            if ((ranges.Any(range => Reaches(range, element.Range.End)) && HasStartTransition(element, null))
-                || (ranges.Any(range => Reaches(range, element.Start.Value)) && HasEndTransition(element, null)))
+            if ((Reaches(range, element.Range.End) && HasStartTransition(element, null))
+                || (Reaches(range, element.Start.Value) && HasEndTransition(element, null)))
             {
                 regions.Add(element.Range);
             }
         }
 
-        return regions;
+        return [.. regions];
     }
 
     // The time of the last frame the timeline shows inside element, so a held frame matches the one the
