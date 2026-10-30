@@ -17,6 +17,8 @@ internal sealed class FlowChildren(bool keepsFlowInputs)
 
     public IReadOnlyList<FlowNode> FlowInputs => _flowInputs?.Inputs ?? [];
 
+    public EngineObject? FlowOwner => _flowInputs?.FlowOwner;
+
     /// <returns>Whether the children changed.</returns>
     public bool Reconcile(CompositionContext context, IListProperty<Drawable> property, EngineObject owner)
         => ResourceReconciler.ReconcileChildrenFromFlow(context, property, Items, _versions, owner, _flowInputs);

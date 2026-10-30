@@ -26,6 +26,8 @@ public sealed partial class DrawableDecorator : Drawable, IFlowOperator
 
         internal override IReadOnlyList<FlowNode> FlowInputs => _children.FlowInputs;
 
+        internal override EngineObject? FlowOwner => _children.FlowOwner;
+
         public List<Drawable.Resource> Children
         {
             get => _children.Items;

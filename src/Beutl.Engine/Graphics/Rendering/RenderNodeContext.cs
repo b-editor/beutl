@@ -500,6 +500,12 @@ public sealed partial class RenderNodeContext
         return false;
     }
 
+    internal bool HasInputTargetClear()
+    {
+        NodeRecordingTransaction transaction = GetTransaction();
+        return _inputs.Any(input => transaction.GetReference(input).ClearsTarget);
+    }
+
     private NodeRecordingTransaction GetTransaction()
     {
         VerifyActive();

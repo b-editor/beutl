@@ -131,9 +131,12 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
         internal readonly Media.SpeedIntegrator SpeedIntegrator = new(60);
         private Drawable.Resource? _target;
         private FlowNode? _flowTarget;
+        private EngineObject? _flowOwner;
         private IReadOnlyList<FlowNode> _flowInputs = [];
 
         internal override IReadOnlyList<FlowNode> FlowInputs => _flowInputs;
+
+        internal override EngineObject? FlowOwner => _flowOwner;
 
         public Drawable.Resource? Target => _target;
 
@@ -153,6 +156,9 @@ public sealed partial class DrawableTimeController : Drawable, IPresenter<Drawab
 
         partial void PostReconcile(DrawableTimeController obj, CompositionContext context)
         {
+            _flowOwner = context.ReplayedFlow is { } origin && ReferenceEquals(origin.Object, obj)
+                ? origin.FlowOwner : context.Flow != null ? context.FlowOwner : null;
+            context.FlowOwner = null;
             Drawable? targetDrawable = null;
             FlowNode? flowTarget = null;
             if (context.ReplayedFlow is { } replay && ReferenceEquals(replay.Object, obj))

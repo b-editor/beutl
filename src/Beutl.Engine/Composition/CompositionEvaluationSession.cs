@@ -20,6 +20,7 @@ public class CompositionEvaluationSession(CompositionContext context) : IDisposa
         source.CancellationToken.ThrowIfCancellationRequested();
         Context.Time = time;
         Context.Flow = null;
+        Context.FlowOwner = null;
         Context.ReplayedFlow = null;
         Context.SampledDrawable = null;
         Context.InputBoundaries = source.InputBoundaries;
@@ -32,6 +33,11 @@ public class CompositionEvaluationSession(CompositionContext context) : IDisposa
     // Scene hosts can rebuild authored flow when the sample's inputs differ from the captured frame.
     internal virtual void Reconcile(FlowNode flow, ref Drawable.Resource? resource, ref bool changed)
         => flow.Reconcile(Context, ref resource, ref changed);
+
+    // Called after the source and its effects have finished using the session's evaluation services.
+    internal virtual void CompleteEvaluation()
+    {
+    }
 
     public virtual void Dispose()
     {

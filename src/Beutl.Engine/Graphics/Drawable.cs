@@ -64,6 +64,20 @@ public abstract partial class Drawable : EngineObject
     public abstract partial class Resource
     {
         private FilterEffectInputContext? _input;
+        private BlendMode? _sampleBlendMode;
+
+        // Input sampling applies the owner's blend once after combining samples, but containers still
+        // use its evaluated mode to decide whether their children need an isolated surface.
+        internal BlendMode EvaluatedBlendMode => _sampleBlendMode ?? BlendMode;
+
+        // Operations outside the drawable's own effect chain survive that chain's input isolation.
+        internal virtual bool ClearsTargetBeforeEffects => false;
+
+        internal void SuppressInputBlendMode()
+        {
+            _sampleBlendMode = BlendMode;
+            BlendMode = BlendMode.SrcOver;
+        }
 
         internal IReadOnlyList<FilterEffectInputChain.Entry>? EvaluatedInputChain { get; set; }
 

@@ -206,7 +206,8 @@ public sealed partial class RenderNodeContext
     internal RenderFragmentHandle TargetLayerScope(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetRegion region,
-        bool contributesToBackdrop)
+        bool contributesToBackdrop,
+        bool preservesTargetClear = false)
     {
         region.ThrowIfUninitialized(nameof(region));
         NodeRecordingTransaction transaction = GetTransaction();
@@ -222,7 +223,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
-            new TargetLayerScopeRenderFragmentPayload(region, contributesToBackdrop),
+            new TargetLayerScopeRenderFragmentPayload(region, contributesToBackdrop, preservesTargetClear),
             CreateTargetLayerScopeHitTest(region),
             hasDirectSymbolicBoundsDependency: region.Kind == TargetRegionKind.Full);
     }
@@ -303,6 +304,12 @@ public sealed partial class RenderNodeContext
     public RenderFragmentHandle TargetCommand(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetCommandDescription description)
+        => TargetCommand(inputs, description, clearsTarget: false);
+
+    internal RenderFragmentHandle TargetCommand(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetCommandDescription description,
+        bool clearsTarget)
     {
         ArgumentNullException.ThrowIfNull(description);
         NodeRecordingTransaction transaction = GetTransaction();
@@ -325,7 +332,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
             references,
-            new TargetCommandRenderFragmentPayload(description, inputReadbacks),
+            new TargetCommandRenderFragmentPayload(description, inputReadbacks, clearsTarget),
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 

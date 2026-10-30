@@ -49,6 +49,8 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         internal override IReadOnlyList<FlowNode> FlowInputs => _children.FlowInputs;
 
+        internal override EngineObject? FlowOwner => _children.FlowOwner;
+
         public List<Drawable.Resource> Children
         {
             get => _children.Items;
@@ -61,7 +63,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             var boundsMemory = context.UseMemory<Rect>();
             var transformParams = (Transform, TransformOrigin, availableSize, boundsMemory);
             bool isolatesContent = Opacity != 100f
-                                   || BlendMode != Graphics.BlendMode.SrcOver
+                                   || EvaluatedBlendMode != Graphics.BlendMode.SrcOver
                                    || Children.Any(static child => child.BlendMode != Graphics.BlendMode.SrcOver);
 
             using (context.PushBlendMode(BlendMode))
@@ -126,18 +128,23 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         }
     }
 
-    internal sealed class ContentIsolationRenderNode(bool isolatesContent, bool contributesToBackdrop = true) : ContainerRenderNode
+    internal sealed class ContentIsolationRenderNode(
+        bool isolatesContent, bool contributesToBackdrop = true, bool preservesTargetClear = false) : ContainerRenderNode
     {
         public bool IsolatesContent { get; private set; } = isolatesContent;
 
         public bool ContributesToBackdrop { get; private set; } = contributesToBackdrop;
 
-        public bool Update(bool isolatesContent, bool contributesToBackdrop = true)
+        public bool PreservesTargetClear { get; private set; } = preservesTargetClear;
+
+        public bool Update(bool isolatesContent, bool contributesToBackdrop = true, bool preservesTargetClear = false)
         {
-            if (isolatesContent != IsolatesContent || contributesToBackdrop != ContributesToBackdrop)
+            if (isolatesContent != IsolatesContent || contributesToBackdrop != ContributesToBackdrop
+                || preservesTargetClear != PreservesTargetClear)
             {
                 IsolatesContent = isolatesContent;
                 ContributesToBackdrop = contributesToBackdrop;
+                PreservesTargetClear = preservesTargetClear;
                 MarkChanged();
                 return true;
             }
@@ -158,7 +165,7 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
                     || !context.TryCalculateInputBounds(out Rect bounds)
                     ? TargetRegion.Full
                     : TargetRegion.Region(bounds);
-                context.Publish(context.TargetLayerScope(context.Inputs, region, ContributesToBackdrop));
+                context.Publish(context.TargetLayerScope(context.Inputs, region, ContributesToBackdrop, PreservesTargetClear));
             }
             else
             {

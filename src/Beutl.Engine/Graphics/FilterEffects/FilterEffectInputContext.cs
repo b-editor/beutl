@@ -80,9 +80,10 @@ public sealed class FilterEffectInputContext
             sample = new FilterEffectInputSample(time, source, slot);
             if (source != null)
             {
-                source.BlendMode = BlendMode.SrcOver;
+                source.SuppressInputBlendMode();
                 source.PrepareFilterEffectInput(context, source.EvaluatedInputChain);
             }
+            slot.Session.CompleteEvaluation();
             context.CancellationToken.ThrowIfCancellationRequested();
             _samples[time] = sample;
             EvaluationContext.ContainsScene3D |= context.ContainsScene3D;
@@ -130,20 +131,44 @@ public sealed class FilterEffectInputContext
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         EvaluationContext.CancellationToken.ThrowIfCancellationRequested();
-        // Keep the incoming backdrop available while sampling, then replace the destination as a clear
-        // followed by drawing would. The owner's blend mode still runs against a transparent surface.
-        bool clearsTarget = _source is SourceBackdrop.Resource { Clear: true };
-        using (clearsTarget ? context.PushBlendMode(BlendMode.Src) : new())
-        using (clearsTarget ? context.PushNode(true,
-                   static value => new DrawableGroup.ContentIsolationRenderNode(value, contributesToBackdrop: false),
-                   static (node, value) => node.Update(value, contributesToBackdrop: false)) : new())
+        using (context.PushNode(_source.ClearsTargetBeforeEffects,
+                   static value => new InputCompositeRenderNode(value), static (node, value) => node.Update(value)))
         using (context.PushBlendMode(_source.BlendMode))
         using (context.PushFilterEffect(_suffix.Resource))
         using (context.PushNode(true,
-                   static value => new DrawableGroup.ContentIsolationRenderNode(value, contributesToBackdrop: false),
-                   static (node, value) => node.Update(value, contributesToBackdrop: false)))
+                   static value => new DrawableGroup.ContentIsolationRenderNode(value,
+                       contributesToBackdrop: false, preservesTargetClear: true),
+                   static (node, value) => node.Update(value, contributesToBackdrop: false, preservesTargetClear: true)))
         {
             Effect.RenderInput(context, this);
+        }
+    }
+
+    private sealed class InputCompositeRenderNode(bool clearsBeforeEffects) : ContainerRenderNode
+    {
+        private bool _clearsBeforeEffects = clearsBeforeEffects;
+
+        public bool Update(bool value)
+        {
+            if (value == _clearsBeforeEffects) return false;
+            _clearsBeforeEffects = value;
+            MarkChanged();
+            return true;
+        }
+
+        public override void Process(RenderNodeContext context)
+        {
+            if (_clearsBeforeEffects || context.HasInputTargetClear())
+            {
+                // Clear belongs to the recorded input, including pass-through containers and references.
+                // Keep the incoming backdrop available during sampling, then replace the destination once.
+                var layer = context.TargetLayerScope(context.Inputs, TargetRegion.Full, contributesToBackdrop: false);
+                context.Publish(context.Blend(layer, BlendMode.Src));
+            }
+            else
+            {
+                context.PassThrough();
+            }
         }
     }
 
@@ -202,8 +227,8 @@ public sealed class FilterEffectInputSample
         _slot.Session.Context.CancellationToken.ThrowIfCancellationRequested();
         if (_source == null) return;
         using (context.PushNode(true,
-                   static value => new DrawableGroup.ContentIsolationRenderNode(value),
-                   static (node, value) => node.Update(value)))
+                   static value => new DrawableGroup.ContentIsolationRenderNode(value, preservesTargetClear: true),
+                   static (node, value) => node.Update(value, preservesTargetClear: true)))
             context.DrawDrawable(_source);
     }
 

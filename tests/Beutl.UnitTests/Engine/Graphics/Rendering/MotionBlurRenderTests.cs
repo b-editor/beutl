@@ -196,7 +196,16 @@ public class MotionBlurRenderTests
     [TestCase(true, false, 0, BlendMode.SrcOver)]
     [TestCase(true, false, 50, BlendMode.DstIn)]
     [TestCase(true, false, 50, BlendMode.Multiply)]
-    public void StaticBackdropDoesNotFeedPreviousSamplesIntoTheAverage(bool clear, bool inGroup, float opacity, BlendMode blendMode)
+    [TestCase(true, true, 50, BlendMode.SrcOver, true)]
+    [TestCase(false, true, 50, BlendMode.SrcOver, true)]
+    [TestCase(true, true, 0, BlendMode.SrcOver, true)]
+    [TestCase(true, true, 50, BlendMode.SrcOver, true, 50)]
+    [TestCase(true, true, 50, BlendMode.SrcOver, true, 100, BlendMode.Multiply)]
+    [TestCase(true, true, 50, BlendMode.SrcOver, true, 100, BlendMode.SrcOver, true)]
+    [TestCase(true, false, 50, BlendMode.SrcOver, false, 100, BlendMode.SrcOver, true)]
+    public void StaticBackdropDoesNotFeedPreviousSamplesIntoTheAverage(
+        bool clear, bool inGroup, float opacity, BlendMode blendMode, bool separateBackground = false,
+        float groupOpacity = 100, BlendMode groupBlend = BlendMode.SrcOver, bool followingEffect = false)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
@@ -220,9 +229,33 @@ public class MotionBlurRenderTests
                 Transform = { Value = new TranslateTransform { X = { Value = 16 } } },
                 FilterEffect = { Value = chain },
             };
-            Scene scene = inGroup
-                ? MotionBlurTests.SceneWith(background, backdrop, new DrawableGroup { FilterEffect = { Value = blur } })
-                : MotionBlurTests.SceneWith(background, backdrop);
+            var group = new DrawableGroup
+            {
+                FilterEffect = { Value = blur },
+                Opacity = { Value = groupOpacity },
+                BlendMode = { Value = groupBlend },
+            };
+            if (followingEffect)
+            {
+                if (inGroup)
+                {
+                    group.FilterEffect.Value = new FilterEffectGroup { Children = { blur, new Invert() } };
+                }
+                else
+                {
+                    chain.Children.Add(new Invert());
+                }
+            }
+            Scene scene = inGroup ? MotionBlurTests.SceneWith(background, backdrop, group) : MotionBlurTests.SceneWith(background, backdrop);
+            if (separateBackground)
+            {
+                scene.Children[0].Objects.Remove(backdrop);
+                scene.Children[0].Objects.Remove(group);
+                var adjustment = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = MediaTime.FromSeconds(4) }, ZIndex = { Value = 1 } };
+                adjustment.Objects.Add(backdrop);
+                adjustment.Objects.Add(group);
+                scene.Children.Add(adjustment);
+            }
             using var renderer = new SceneRenderer(scene, RenderIntent.Delivery);
             using Bitmap expected = Render(renderer, 1);
             foreach ((int count, float mix) in new[] { (2, 0f), (4, 0f), (8, 0f), (4, 35f), (4, 100f) })

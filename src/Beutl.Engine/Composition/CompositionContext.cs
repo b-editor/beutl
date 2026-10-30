@@ -22,6 +22,10 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
 
     public IList<EngineObject.Resource>? Flow { get; set; }
 
+    // The object the host is evaluating from this flow. Referenced properties share the context but
+    // must not inherit the host's authored input prefix merely because they belong to an element.
+    internal EngineObject? FlowOwner { get; set; }
+
     // Set while reconciling resources, including drawables held by brushes and effects.
     internal bool ContainsScene3D { get; set; }
 
@@ -93,6 +97,7 @@ public class CompositionContext(MediaTime time) : EvaluationContext(time)
         result.Time = time;
         result.DisableResourceShare = true;
         result.Flow = null;
+        result.FlowOwner = null;
         result.ReplayedFlow = null;
         return result;
     }

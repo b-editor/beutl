@@ -5,11 +5,13 @@ using Beutl.Graphics;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
+using Beutl.Media.Source;
 using Beutl.NodeGraph;
 using Beutl.NodeGraph.Composition;
 using Beutl.NodeGraph.Nodes;
 using Beutl.ProjectSystem;
 using Beutl.Serialization;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
 using Beutl.UnitTests.TestInfrastructure;
 
 namespace Beutl.UnitTests.Engine.Graphics;
@@ -161,6 +163,113 @@ public class MotionBlurTests
             Is.EqualTo(Enumerable.Range(0, 4).Select(i => 1 + ((i + 0.5) / 4 - 0.5) / 60)).Within(0.000001));
         cancellation.Cancel();
         Assert.Throws<OperationCanceledException>(() => samples[0].CreateRenderNode(new(96, 64)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public void ReferencedGroupKeepsItsInputsWhenItsAuthoredElementChangesVisibility(bool portal)
+    {
+        var preceding = Rectangle();
+        var child = Rectangle();
+        var group = new DrawableGroup { FilterEffect = { Value = Blur() } };
+        group.Children.Add(child);
+        var holder = new Element { Start = { Value = MediaTime.Zero }, Length = { Value = Seconds(4) }, ZIndex = { Value = 2 } };
+        holder.Objects.Add(preceding);
+        holder.Objects.Add(group);
+        var presenter = new DrawablePresenter { Target = { Value = group } };
+        Scene scene = portal ? SceneWith(new PortalObject { Count = { Value = 1 } }, presenter) : SceneWith(presenter);
+        scene.Children.Add(holder);
+        var portalInput = Rectangle();
+        var inputClip = new Element { Start = { Value = Seconds(0.5) }, Length = { Value = Seconds(0.5) }, ZIndex = { Value = 1 } };
+        inputClip.Objects.Add(portalInput);
+        scene.Children.Add(inputClip);
+        using var compositor = new SceneCompositor(scene);
+
+        foreach (bool enabled in new[] { false, true, false })
+        {
+            holder.IsEnabled.Value = enabled;
+            var frame = compositor.EvaluateGraphics(Seconds(1.05), new Rational(2, 1));
+            var reference = frame.Objects.OfType<DrawablePresenter.Resource>().Single();
+            AssertInputs((DrawableGroup.Resource)reference.Target!, portal, child);
+            if (enabled) AssertInputs(frame.Objects.OfType<DrawableGroup.Resource>().Single(), false, preceding, child);
+        }
+
+        void AssertInputs(DrawableGroup.Resource source, bool includesPortal, params Drawable[] expected)
+        {
+            Assert.That(source.Children.Select(c => c.RequireOriginal()), Is.EqualTo(expected));
+            foreach (var sample in ((MotionBlur.Resource)source.FilterEffect!).TimeSamples)
+            {
+                IEnumerable<Drawable> sampleInputs = includesPortal && sample.Time < Seconds(1)
+                    ? new[] { portalInput }.Concat(expected) : expected;
+                Assert.That(((DrawableGroup.Resource)sample.Resource!).Children.Select(c => c.RequireOriginal()),
+                    Is.EqualTo(sampleInputs), "sampling preserves the caller's input path, including sample-time portal clips");
+            }
+        }
+    }
+
+    [Test]
+    public void StoredChildDoesNotReplayTheFlowAlreadyConsumedByItsParent()
+    {
+        var sibling = Rectangle();
+        var content = Rectangle();
+        var child = new DrawableGroup { FilterEffect = { Value = Blur() }, Children = { content } };
+        var parent = new DrawableGroup { Children = { child } };
+        using var compositor = new SceneCompositor(SceneWith(sibling, parent));
+        var frame = compositor.EvaluateGraphics(Seconds(1), new Rational(2, 1));
+        var container = frame.Objects.OfType<DrawableGroup.Resource>().Single();
+        var source = container.Children.OfType<DrawableGroup.Resource>().Single();
+        Assert.That(container.Children.Select(c => c.RequireOriginal()), Is.EqualTo(new Drawable[] { sibling, child }));
+        Assert.That(source.Children.Select(c => c.RequireOriginal()), Is.EqualTo(new[] { content }));
+        foreach (var sample in ((MotionBlur.Resource)source.FilterEffect!).TimeSamples)
+            Assert.That(((DrawableGroup.Resource)sample.Resource!).Children.Select(c => c.RequireOriginal()), Is.EqualTo(new[] { content }));
+    }
+
+    [Test]
+    public void PortalSamplesReleasePreviousClipsAndReuseActiveReaders()
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        string path = TestMediaHelper.CreateTestVideoFile(16, 16, new Rational(30, 1), 60);
+        var blur = Blur();
+        var group = new DrawableGroup { FilterEffect = { Value = blur } };
+        Scene scene = SceneWith(new PortalObject { Count = { Value = 1 } }, group);
+        scene.Children[0].Length.Value = Seconds(12);
+        for (int i = 0; i < 10; i++)
+        {
+            var media = new VideoSource();
+            media.ReadFrom(new Uri(path));
+            var clip = new Element { Start = { Value = Seconds(i) }, Length = { Value = Seconds(1) }, ZIndex = { Value = 1 } };
+            clip.Objects.Add(new SourceVideo { Source = { Value = media } });
+            scene.Children.Add(clip);
+        }
+        using var compositor = new SceneCompositor(scene) { ForceOriginalSource = true };
+        var visited = new HashSet<SourceVideo.Resource>();
+        foreach (int i in Enumerable.Range(0, 10).Concat([0, 5, 9]))
+        {
+            SourceVideo.Resource[] current = Samples(i + 0.5);
+            visited.UnionWith(current);
+            Assert.That(visited.Count(r => !r.IsDisposed), Is.EqualTo(blur.Samples.Value), "ended clips release their sample resources");
+            var readers = current.Select(r => r.Source!.MediaReader).ToArray();
+            Assert.That(readers, Is.All.Not.Null);
+            Assert.That(readers.Distinct().Count(), Is.EqualTo(blur.Samples.Value));
+
+            SourceVideo.Resource[] next = Samples(i + 0.51);
+            for (int j = 0; j < current.Length; j++)
+            {
+                Assert.That(next[j], Is.SameAs(current[j]));
+                Assert.That(next[j].Source!.MediaReader, Is.SameAs(readers[j]), "active readers survive the next frame");
+            }
+        }
+        group.FilterEffect.Value = null;
+        compositor.EvaluateGraphics(Seconds(9.5), new Rational(2, 1));
+        Assert.That(visited.All(r => r.IsDisposed), Is.True);
+
+        SourceVideo.Resource[] Samples(double time)
+        {
+            var frame = compositor.EvaluateGraphics(Seconds(time), new Rational(2, 1));
+            var source = frame.Objects.OfType<DrawableGroup.Resource>().Single();
+            return ((MotionBlur.Resource)source.FilterEffect!).TimeSamples
+                .Select(sample => ((DrawableGroup.Resource)sample.Resource!).Children.OfType<SourceVideo.Resource>().Single()).ToArray();
+        }
     }
 
     [Test]
