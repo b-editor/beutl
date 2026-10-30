@@ -3546,4 +3546,58 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="RelativeUnit_Absolute" xml:space="preserve">
     <value>절대 (px)</value>
   </data>
+  <data name="PreviewGuides" xml:space="preserve">
+    <value>가이드</value>
+  </data>
+  <data name="TogglePreviewGuides" xml:space="preserve">
+    <value>가이드 전환</value>
+  </data>
+  <data name="TogglePreviewGuides_Description" xml:space="preserve">
+    <value>미리보기에서 세이프 영역과 구도 가이드를 표시하거나 숨깁니다.</value>
+  </data>
+  <data name="PreviewGuide_TitleSafe" xml:space="preserve">
+    <value>타이틀 세이프</value>
+  </data>
+  <data name="PreviewGuide_ActionSafe" xml:space="preserve">
+    <value>액션 세이프</value>
+  </data>
+  <data name="PreviewGuide_RuleOfThirds" xml:space="preserve">
+    <value>3분할선</value>
+  </data>
+  <data name="PreviewGuide_CenterCross" xml:space="preserve">
+    <value>중앙 십자</value>
+  </data>
+  <data name="PreviewGuide_Diagonals" xml:space="preserve">
+    <value>대각선</value>
+  </data>
+  <data name="PreviewGuide_CustomGrid" xml:space="preserve">
+    <value>사용자 지정 격자</value>
+  </data>
+  <data name="PreviewGuide_AspectRatio" xml:space="preserve">
+    <value>화면비</value>
+  </data>
+  <data name="PreviewGuide_Color" xml:space="preserve">
+    <value>가이드 색상</value>
+  </data>
+  <data name="PreviewGuide_Opacity" xml:space="preserve">
+    <value>가이드 불투명도</value>
+  </data>
+  <data name="PreviewGuide_GridColumns" xml:space="preserve">
+    <value>격자 열 수</value>
+  </data>
+  <data name="PreviewGuide_GridRows" xml:space="preserve">
+    <value>격자 행 수</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios" xml:space="preserve">
+    <value>화면비 프레임</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios_Tip" xml:space="preserve">
+    <value>9:16, 1:1, 2.39:1처럼 쉼표로 구분해 입력합니다. 각 비율에 맞는 가장 큰 프레임을 가운데에 표시합니다.</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios_Invalid" xml:space="preserve">
+    <value>9:16 같은 비율을 쉼표로 구분해 입력하세요.</value>
+  </data>
+  <data name="PreviewGuide_Preset" xml:space="preserve">
+    <value>프리셋</value>
+  </data>
 </root>

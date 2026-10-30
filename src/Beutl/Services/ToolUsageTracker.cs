@@ -54,6 +54,7 @@ internal sealed class ToolUsageTracker : IDisposable
                 break;
             case PreviewSettingsTabViewModel preview:
                 TrackSetting(preview.IsOnionSkinEnabled, nameof(preview.IsOnionSkinEnabled));
+                TrackSetting(preview.Guides.IsEnabled, "IsPreviewGuideEnabled");
                 TrackSetting(preview.IsFrameCacheEnabled, nameof(preview.IsFrameCacheEnabled));
                 break;
             case AiWorkspaceViewModel ai:

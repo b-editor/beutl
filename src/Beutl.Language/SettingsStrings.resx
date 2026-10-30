@@ -728,4 +728,13 @@
   <data name="AiAgents_CodexHomeMustBeAbsolute" xml:space="preserve">
     <value>Set CODEX_HOME to an absolute path before installing Codex MCP.</value>
   </data>
+  <data name="ShowPreviewGuides" xml:space="preserve">
+    <value>Show guides</value>
+  </data>
+  <data name="ShowPreviewGuides_Description" xml:space="preserve">
+    <value>Draw safe areas and composition guides over the editor's preview. They never appear in exported video, and the HDR preview does not show them.</value>
+  </data>
+  <data name="PreviewGuideKinds" xml:space="preserve">
+    <value>Guides to show</value>
+  </data>
 </root>

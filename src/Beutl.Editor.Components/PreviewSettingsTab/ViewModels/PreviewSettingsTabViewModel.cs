@@ -45,6 +45,8 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
             new EnginePropertyAdapter<float>(config.OnionSkinPrevOpacity, config),
             new EnginePropertyAdapter<float>(config.OnionSkinNextOpacity, config));
 
+        Guides = new PreviewGuideSettingsViewModel(config).DisposeWith(_disposables);
+
         IsFrameCacheEnabled = BindToggle(config.IsFrameCacheEnabled);
         AddEditors(factory, FrameCacheProperties,
             new EnginePropertyAdapter<double>(config.FrameCacheMaxSize, config),
@@ -79,6 +81,8 @@ public sealed class PreviewSettingsTabViewModel : IToolContext, IPropertyEditorC
     public ReactiveProperty<bool> IsOnionSkinEnabled { get; }
 
     public CoreList<IPropertyEditorContext?> OnionSkinProperties { get; } = [];
+
+    public PreviewGuideSettingsViewModel Guides { get; }
 
     public ReactiveProperty<bool> IsFrameCacheEnabled { get; }
 

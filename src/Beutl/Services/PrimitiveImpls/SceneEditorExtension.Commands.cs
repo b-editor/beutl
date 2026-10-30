@@ -64,6 +64,9 @@ public sealed partial class SceneEditorExtension
         },
         KeyCommand("editor.toggleOnionSkin", Strings.ToggleOnionSkin, Strings.ToggleOnionSkin_Description,
             [new("Alt+O")], _ => ToggleOnionSkin()),
+        // The timeline's Close gap shares the key and runs first while the timeline is focused with a clip selected.
+        KeyCommand("editor.togglePreviewGuides", Strings.TogglePreviewGuides, Strings.TogglePreviewGuides_Description,
+            [new("OemSemicolon")], _ => TogglePreviewGuides()),
         // Palette-only: they ask for their arguments, so they have no default gesture.
         PaletteCommand("editor.goToMarker", Strings.GoToMarker,
             (editor, interaction) => editor.GoToMarkerAsync(interaction), editor => editor.Scene.Markers.Count > 0),
@@ -116,5 +119,11 @@ public sealed partial class SceneEditorExtension
     {
         EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
         editorConfig.IsOnionSkinEnabled.Value = !editorConfig.IsOnionSkinEnabled.Value;
+    }
+
+    private static void TogglePreviewGuides()
+    {
+        EditorConfig editorConfig = GlobalConfiguration.Instance.EditorConfig;
+        editorConfig.IsPreviewGuideEnabled.Value = !editorConfig.IsPreviewGuideEnabled.Value;
     }
 }

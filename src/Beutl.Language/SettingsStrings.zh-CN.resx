@@ -709,4 +709,13 @@
   <data name="AiPlan_Loading" xml:space="preserve">
     <value>正在加载 AI 套餐…</value>
   </data>
+  <data name="ShowPreviewGuides" xml:space="preserve">
+    <value>显示参考线</value>
+  </data>
+  <data name="ShowPreviewGuides_Description" xml:space="preserve">
+    <value>在编辑器预览上叠加显示安全区域和构图参考线。参考线不会出现在导出的视频中，HDR 预览中也不显示。</value>
+  </data>
+  <data name="PreviewGuideKinds" xml:space="preserve">
+    <value>要显示的参考线</value>
+  </data>
 </root>

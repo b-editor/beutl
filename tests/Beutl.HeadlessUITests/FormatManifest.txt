@@ -54,7 +54,7 @@ Beutl.Utilities
   abstract
 [Beutl.Configuration]:EditorConfig
   sealed
-  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewSourceMode, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
+  keys: AutoAdjustSceneDuration, ClampResizeToOriginalLength, EnablePointerLockInProperty, FrameCacheColorType, FrameCacheMaxSize, FrameCacheScale, IsFrameCacheEnabled, IsNodeCacheEnabled, IsOnionSkinEnabled, IsPreviewGuideEnabled, IsRippleEnabled, IsTimelineSnapEnabled, LastMediaDirectory, LibraryTabDisplayModes, NodeCacheMaxPixels, NodeCacheMinPixels, OnionSkinNextCount, OnionSkinNextOpacity, OnionSkinPrevCount, OnionSkinPrevOpacity, PreviewGuideAspectRatios, PreviewGuideColor, PreviewGuideGridColumns, PreviewGuideGridRows, PreviewGuideKinds, PreviewGuideOpacity, PreviewSourceMode, SwapTimelineScrollDirection, TimelineAutoScrollMode, ToneMappingExposure, ToneMappingMode, UseHdrPreview
 [Beutl.Configuration]:ExtensionConfig
   sealed
   keys: DecoderPriority, EditorExtensions
@@ -1392,6 +1392,7 @@ editor.shuttleStop
 editor.toggleLoop
 editor.toggleMarker
 editor.toggleOnionSkin
+editor.togglePreviewGuides
 history.jumpToHistory
 library.addElement
 library.addElementFromTemplate

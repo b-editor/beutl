@@ -1,4 +1,5 @@
 ﻿using Beutl.Configuration;
+using Beutl.Editor.Components.PreviewSettingsTab.ViewModels;
 using Beutl.Graphics.Backend;
 using Beutl.Media.Proxy;
 using Reactive.Bindings;
@@ -95,6 +96,8 @@ public sealed class EditorSettingsPageViewModel : IDisposable
             _editorConfig.PreviewSourceMode.GetObservable()
                 .Select(v => (int)v),
             _editorConfig.SetPreviewSourceModeFromIndex);
+
+        PreviewGuides = new PreviewGuideSettingsViewModel(_editorConfig).DisposeWith(_disposables);
 
         ProxyStoreRootPath = new ReactiveProperty<string>(_proxyStoreConfig.StoreRootPath.Value)
             .DisposeWith(_disposables);
@@ -276,6 +279,8 @@ public sealed class EditorSettingsPageViewModel : IDisposable
     public ReactiveProperty<bool> UseHdrPreview { get; }
 
     public ReactiveProperty<int> PreviewSourceMode { get; }
+
+    public PreviewGuideSettingsViewModel PreviewGuides { get; }
 
     public ReactiveProperty<string> ProxyStoreRootPath { get; }
 

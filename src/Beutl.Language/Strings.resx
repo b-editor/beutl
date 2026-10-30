@@ -3546,4 +3546,58 @@ when history recording is enabled.</value>
   <data name="RelativeUnit_Absolute" xml:space="preserve">
     <value>Absolute (px)</value>
   </data>
+  <data name="PreviewGuides" xml:space="preserve">
+    <value>Guides</value>
+  </data>
+  <data name="TogglePreviewGuides" xml:space="preserve">
+    <value>Toggle guides</value>
+  </data>
+  <data name="TogglePreviewGuides_Description" xml:space="preserve">
+    <value>Show or hide the safe areas and composition guides in the preview.</value>
+  </data>
+  <data name="PreviewGuide_TitleSafe" xml:space="preserve">
+    <value>Title safe</value>
+  </data>
+  <data name="PreviewGuide_ActionSafe" xml:space="preserve">
+    <value>Action safe</value>
+  </data>
+  <data name="PreviewGuide_RuleOfThirds" xml:space="preserve">
+    <value>Rule of thirds</value>
+  </data>
+  <data name="PreviewGuide_CenterCross" xml:space="preserve">
+    <value>Center cross</value>
+  </data>
+  <data name="PreviewGuide_Diagonals" xml:space="preserve">
+    <value>Diagonals</value>
+  </data>
+  <data name="PreviewGuide_CustomGrid" xml:space="preserve">
+    <value>Custom grid</value>
+  </data>
+  <data name="PreviewGuide_AspectRatio" xml:space="preserve">
+    <value>Aspect ratios</value>
+  </data>
+  <data name="PreviewGuide_Color" xml:space="preserve">
+    <value>Guide color</value>
+  </data>
+  <data name="PreviewGuide_Opacity" xml:space="preserve">
+    <value>Guide opacity</value>
+  </data>
+  <data name="PreviewGuide_GridColumns" xml:space="preserve">
+    <value>Grid columns</value>
+  </data>
+  <data name="PreviewGuide_GridRows" xml:space="preserve">
+    <value>Grid rows</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios" xml:space="preserve">
+    <value>Aspect ratio frames</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios_Tip" xml:space="preserve">
+    <value>Ratios separated by commas, such as 9:16, 1:1, 2.39:1. Each is outlined as the largest frame of that shape, centered.</value>
+  </data>
+  <data name="PreviewGuide_AspectRatios_Invalid" xml:space="preserve">
+    <value>Enter ratios such as 9:16, separated by commas.</value>
+  </data>
+  <data name="PreviewGuide_Preset" xml:space="preserve">
+    <value>Preset</value>
+  </data>
 </root>
