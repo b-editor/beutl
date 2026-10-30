@@ -1,7 +1,9 @@
 ﻿using System.Text.Json.Nodes;
+using Avalonia.Threading;
 using Beutl.Editor.Components.Helpers;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
+using Beutl.Editor.VersionControl;
 using Beutl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
@@ -84,13 +86,59 @@ public sealed class SilenceSplitTabViewModel : IToolContext
     {
         if (_disposed || IsApplying.Value || Analysis.Value is not { } model) return;
         IsApplying.Value = true;
-        try { await model.ApplyAsync(); }
+        CancellationToken cancellationToken = model.LifetimeToken;
+        string savingStatus = Strings.SilenceSplit_Saving;
+        bool saving = false;
+        int? savedPercent = null;
+        Exception? saveError = null;
+        var autoSave = _editor.GetService<AutoSaveService>();
+        using var progress = autoSave?.SaveProgress.Subscribe(value =>
+        {
+            savedPercent = value;
+            if (saving && IsCurrent()) ShowSaveProgress();
+        });
+        using var errors = autoSave?.SaveError.Subscribe(error => saveError = error);
+        try
+        {
+            if (!await model.ApplyAsync() || !IsCurrent()) return;
+            if (_editor.GetService<IProjectFileWriteAdmission>() is { } files)
+            {
+                saving = true;
+                model.IsBusy.Value = true;
+                ShowSaveProgress();
+                // Let the history-triggered save enter the existing write queue before waiting
+                // behind it. This observes the save; it does not write the document a second time.
+                await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+                using (await files.BeginProjectFileWriteAsync(cancellationToken)) { }
+                if (!IsCurrent()) return;
+                model.Progress.Value = 100;
+                model.Status.Value = saveError == null ? Strings.Completed : string.Format(Strings.SilenceSplit_Failed, saveError.Message);
+            }
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception ex)
         {
             if (!_disposed && ReferenceEquals(Analysis.Value, model))
                 model.Status.Value = string.Format(Strings.SilenceSplit_Failed, ex.Message);
         }
-        finally { if (!_disposed) IsApplying.Value = false; }
+        finally
+        {
+            if (IsCurrent())
+            {
+                model.IsBusy.Value = false;
+                model.IsProgressIndeterminate.Value = false;
+            }
+            if (!_disposed) IsApplying.Value = false;
+        }
+
+        bool IsCurrent() => !_disposed && ReferenceEquals(Analysis.Value, model);
+
+        void ShowSaveProgress()
+        {
+            model.Progress.Value = savedPercent ?? 0;
+            model.IsProgressIndeterminate.Value = !savedPercent.HasValue;
+            model.Status.Value = savedPercent.HasValue ? $"{savingStatus} {savedPercent}%" : savingStatus;
+        }
     }
 
     public object? GetService(Type serviceType) => serviceType == typeof(Element) ? Target : _editor.GetService(serviceType);

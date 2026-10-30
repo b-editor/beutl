@@ -12,9 +12,11 @@ public sealed class AutoSaveService : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<AutoSaveService>();
     private readonly Subject<Exception> _saveError = new();
+    private readonly Subject<int> _saveProgress = new();
     private bool _isDisposed;
 
     public IObservable<Exception> SaveError => _saveError.AsObservable();
+    public IObservable<int> SaveProgress => _saveProgress.AsObservable();
 
     public void AutoSave(IEnumerable<ChangeOperation> operations)
     {
@@ -29,6 +31,8 @@ public sealed class AutoSaveService : IDisposable
         var (objects, detached) = Collect(operations);
         // Await each file before capturing the scene's include patterns. All live-object reads,
         // serializers and error notifications stay on the caller's document context.
+        int completed = 0, reported = -1;
+        Report(0);
         foreach (CoreObject obj in objects.OrderBy(obj => obj is Scene))
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -49,6 +53,15 @@ public sealed class AutoSaveService : IDisposable
                 _logger.LogError(ex, "An exception occurred while auto-saving the file.");
                 if (!_isDisposed) _saveError.OnNext(ex);
             }
+            Report((int)((long)++completed * 100 / objects.Count));
+        }
+        Report(100);
+
+        void Report(int value)
+        {
+            if (_isDisposed || reported == value) return;
+            reported = value;
+            _saveProgress.OnNext(value);
         }
     }
 
@@ -170,6 +183,7 @@ public sealed class AutoSaveService : IDisposable
         if (_isDisposed) return;
 
         _saveError.Dispose();
+        _saveProgress.Dispose();
         _isDisposed = true;
     }
 

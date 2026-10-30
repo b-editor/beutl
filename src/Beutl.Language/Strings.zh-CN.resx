@@ -3546,4 +3546,13 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
     <value>在检测到的位置分割会使分组片段产生不足一帧的区间。请调整静音设置或关闭分组编辑。</value>
   </data>
+  <data name="SilenceSplit_Preparing" xml:space="preserve">
+    <value>正在准备片段…</value>
+  </data>
+  <data name="SilenceSplit_Applying" xml:space="preserve">
+    <value>正在应用剪切…</value>
+  </data>
+  <data name="SilenceSplit_Saving" xml:space="preserve">
+    <value>正在保存…</value>
+  </data>
 </root>

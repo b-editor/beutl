@@ -3546,4 +3546,13 @@ cuando el registro del historial está activado.</value>
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
     <value>Un corte detectado crearía un segmento de menos de un fotograma en un clip agrupado. Ajusta los parámetros de silencio o desactiva la edición agrupada.</value>
   </data>
+  <data name="SilenceSplit_Preparing" xml:space="preserve">
+    <value>Preparando clips…</value>
+  </data>
+  <data name="SilenceSplit_Applying" xml:space="preserve">
+    <value>Aplicando cortes…</value>
+  </data>
+  <data name="SilenceSplit_Saving" xml:space="preserve">
+    <value>Guardando…</value>
+  </data>
 </root>

@@ -110,17 +110,27 @@
 
         <Border Grid.Row="2" Padding="12" IsVisible="{Binding HasAnalysis.Value}"
                 BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
-            <Grid x:Name="FooterLayout" RowDefinitions="Auto,Auto" ColumnDefinitions="*" RowSpacing="8" ColumnSpacing="16" IsEnabled="{Binding !IsApplying.Value}">
+            <Grid x:Name="FooterLayout" RowDefinitions="Auto,Auto" ColumnDefinitions="*" RowSpacing="8" ColumnSpacing="16">
                 <StackPanel Spacing="4" VerticalAlignment="Center">
                     <Grid ColumnDefinitions="Auto,*">
                         <Border Width="10" Height="10" CornerRadius="2" Margin="0,0,8,0" Background="#F5962D"
                                 IsVisible="{Binding Analysis.Value.CanApply.Value}" />
-                        <TextBlock Grid.Column="1" Text="{Binding Analysis.Value.Status.Value}" Classes="secondary" />
+                        <TextBlock x:Name="StatusText" Grid.Column="1" Text="{Binding Analysis.Value.Status.Value}" Classes="secondary" />
                     </Grid>
-                    <ProgressBar Maximum="100" Value="{Binding Analysis.Value.Progress.Value}" IsVisible="{Binding Analysis.Value.IsBusy.Value}" />
+                    <ProgressBar x:Name="OperationProgress" Height="4" Maximum="100"
+                                 Value="{Binding Analysis.Value.Progress.Value}" IsVisible="{Binding Analysis.Value.IsBusy.Value}"
+                                 IsIndeterminate="{Binding Analysis.Value.IsProgressIndeterminate.Value}"
+                                 AutomationProperties.Name="{Binding Analysis.Value.Status.Value}" />
                 </StackPanel>
                 <Button x:Name="ApplyButton" Grid.Row="1" Content="{x:Static lang:Strings.SilenceSplit_Apply}" Classes="accent"
-                        HorizontalAlignment="Stretch" Click="OnApplyClick" IsEnabled="{Binding Analysis.Value.CanApply.Value}" />
+                        HorizontalAlignment="Stretch" Click="OnApplyClick">
+                    <Button.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="Analysis.Value.CanApply.Value" />
+                            <Binding Path="!IsApplying.Value" />
+                        </MultiBinding>
+                    </Button.IsEnabled>
+                </Button>
             </Grid>
         </Border>
     </Grid>

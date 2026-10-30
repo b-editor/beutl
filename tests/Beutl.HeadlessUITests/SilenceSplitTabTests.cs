@@ -41,6 +41,101 @@ namespace Beutl.HeadlessUITests;
 public class SilenceSplitTabTests
 {
     [AvaloniaTest]
+    [TestCase(1200, "complete")]
+    [TestCase(360, "complete")]
+    [TestCase(1200, "fail")]
+    [TestCase(360, "retarget")]
+    [TestCase(360, "close")]
+    public async Task ApplyProgress_RemainsVisibleUntilSaveFinishes(int width, string action)
+    {
+        CultureInfo previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(width == 360 ? "ja" : "en");
+        var (_, scene, editor) = await TestShell.OpenNewSceneAsync("silence-progress");
+        var audio = new Element { Length = { Value = MediaTime.FromSeconds(10) } };
+        audio.Uri = new Uri(Path.Combine(TestShell.ProjectRoot(editor), "audio.belm"));
+        audio.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(Path.Combine(TestShell.ProjectRoot(editor), "audio.wav")) } });
+        scene.AddChild(audio);
+        editor.HistoryManager.Commit("Setup");
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+        using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None)) { }
+        int undoCount = editor.HistoryManager.UndoCount;
+        using var tab = new SilenceSplitTabViewModel(editor);
+        tab.Show(audio);
+        var model = tab.Analysis.Value!;
+        await HeadlessTestHelpers.WaitUntilAsync(() => !model.IsBusy.Value);
+        model.SetWaveform(Enumerable.Range(0, 500).Select(i =>
+            new WaveformChunk(i, 0, i is >= 100 and < 150 or >= 300 and < 350 ? 0 : 0.5f)).ToArray());
+        model.ModeIndex.Value = (int)SilenceSplitMode.RippleDelete;
+        var view = new SilenceSplitTabView { DataContext = tab };
+        var window = new Window { Content = view, Width = width, Height = width == 360 ? 680 : 360 };
+        window.Show();
+        HeadlessTestHelpers.Render();
+        var bar = view.FindControl<ProgressBar>("OperationProgress")!;
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        int writes = 0;
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+        {
+            if (step != StorageWriteStep.Replace || !path.EndsWith(".belm", StringComparison.Ordinal)
+                || Interlocked.Increment(ref writes) != 2) return;
+            started.TrySetResult();
+            if (!release.Wait(TimeSpan.FromSeconds(15))) throw new TimeoutException();
+            if (action == "fail") throw new IOException("Injected progress save failure");
+        });
+        using var status = model.Status.Subscribe(_ => Assert.That(Dispatcher.UIThread.CheckAccess(), Is.True));
+        Assert.That(model.CanApply.Value, Is.True, model.Status.Value);
+        Task applying = tab.ApplyAsync();
+        try
+        {
+            Task first = await Task.WhenAny(started.Task, applying).WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(first, Is.SameAs(started.Task), $"{model.Status.Value}; writes: {writes}");
+            await HeadlessTestHelpers.WaitUntilAsync(() => model.IsBusy.Value && bar.Value is > 0 and < 100);
+            HeadlessTestHelpers.Render();
+            Assert.That(bar.IsVisible && bar.IsEffectivelyEnabled, Is.True);
+            Assert.That(bar.IsIndeterminate, Is.False);
+            Assert.That(tab.IsApplying.Value, Is.True);
+            Assert.That(applying.IsCompleted, Is.False);
+            Assert.That(model.Status.Value, Does.Contain(Strings.SilenceSplit_Saving));
+            Assert.That(view.FindControl<Button>("ApplyButton")!.IsEffectivelyEnabled, Is.False);
+            Assert.That(view.FindControl<Button>("RefreshButton")!.IsEffectivelyEnabled, Is.False);
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + 1));
+            Point position = bar.TranslatePoint(default, window)!.Value;
+            Assert.That(position.X + bar.Bounds.Width, Is.LessThanOrEqualTo(width));
+            Assert.That(position.Y + bar.Bounds.Height, Is.LessThanOrEqualTo(window.Height));
+            await Task.Delay(500); // Let progress-mode and button-color transitions settle before capture.
+            HeadlessTestHelpers.Render();
+            HeadlessCapture.SaveIfRequested(view, nameof(SilenceSplitTabTests), $"progress-saving-{width}-{action}");
+            if (action is "retarget" or "close")
+            {
+                if (action == "retarget") tab.Show(audio); else tab.Dispose();
+                await applying.WaitAsync(TimeSpan.FromSeconds(10));
+            }
+            release.Set();
+            await applying;
+            if (action == "retarget")
+            {
+                await HeadlessTestHelpers.WaitUntilAsync(() => !tab.Analysis.Value!.IsBusy.Value);
+                Assert.That(tab.Analysis.Value, Is.Not.SameAs(model));
+                Assert.That(tab.Analysis.Value!.Status.Value, Does.Not.Contain(Strings.SilenceSplit_Saving));
+            }
+            else if (action != "close")
+            {
+                HeadlessTestHelpers.Render();
+                Assert.That(model.IsBusy.Value || tab.IsApplying.Value || bar.IsVisible, Is.False);
+                Assert.That(model.Status.Value, action == "fail"
+                    ? Does.Contain("Injected progress save failure") : Is.EqualTo(Strings.Completed));
+            }
+        }
+        finally
+        {
+            release.Set();
+            await applying;
+            window.Close();
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [AvaloniaTest]
     [TestCase("apply")]
     [TestCase("edit")]
     [TestCase("lock")]
@@ -271,11 +366,15 @@ public class SilenceSplitTabTests
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             await HeadlessTestHelpers.WaitUntilAsync(() => player.PauseStarted);
             Assert.That(button.IsEffectivelyEnabled, Is.False);
+            var progress = view.FindControl<ProgressBar>("OperationProgress")!;
+            Assert.That(progress.IsVisible && progress.IsIndeterminate && progress.IsEffectivelyEnabled, Is.True);
             Assert.That(history.UndoCount, Is.Zero);
             Assert.That(scene.Children, Is.EqualTo(new[] { element }));
             if (editDuringPause) element.Length.Value = MediaTime.FromSeconds(12);
             player.CompletePause();
             await HeadlessTestHelpers.WaitUntilAsync(() => !tab.IsApplying.Value);
+            HeadlessTestHelpers.Render();
+            Assert.That(progress.IsVisible, Is.False);
             bool applied = !editDuringPause;
             Assert.That(history.UndoCount, Is.EqualTo(applied ? 1 : 0));
             Assert.That(scene.Children.Count, Is.EqualTo(applied ? 2 : 1));

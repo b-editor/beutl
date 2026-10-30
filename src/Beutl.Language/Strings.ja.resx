@@ -3541,4 +3541,13 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
     <value>検出した位置で分割すると、グループ内のクリップに1フレーム未満の区間ができます。無音の設定を調整するか、グループ編集をオフにしてください。</value>
   </data>
+  <data name="SilenceSplit_Preparing" xml:space="preserve">
+    <value>クリップを準備中…</value>
+  </data>
+  <data name="SilenceSplit_Applying" xml:space="preserve">
+    <value>分割を反映中…</value>
+  </data>
+  <data name="SilenceSplit_Saving" xml:space="preserve">
+    <value>保存中…</value>
+  </data>
 </root>

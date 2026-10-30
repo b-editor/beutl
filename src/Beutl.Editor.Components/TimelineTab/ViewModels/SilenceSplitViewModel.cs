@@ -23,6 +23,7 @@ public sealed class SilenceSplitViewModel : IDisposable
     private double _previewOffset;
     private bool _stale;
     private bool _disposed;
+    private bool _applying;
 
     public SilenceSplitViewModel(Scene scene, Element element, HistoryManager history, IPreviewPlayer? player = null)
     {
@@ -45,6 +46,7 @@ public sealed class SilenceSplitViewModel : IDisposable
     public ReactivePropertySlim<bool> IncludeLinked { get; } = new(true);
     public ReactivePropertySlim<bool> IsBusy { get; } = new(true);
     public ReactivePropertySlim<int> Progress { get; } = new(0);
+    public ReactivePropertySlim<bool> IsProgressIndeterminate { get; } = new();
     public ReactivePropertySlim<bool> CanApply { get; } = new(false);
     public ReactivePropertySlim<string> Status { get; } = new(Strings.SilenceSplit_Analyzing);
     public bool HasLinkedElements { get; }
@@ -57,6 +59,7 @@ public sealed class SilenceSplitViewModel : IDisposable
     public TimeRange PreviewRange => _chunks.Length == 0 ? new(MediaTime.Zero, ClipRange.Duration)
         : TimeRange.FromRange(PreviewPosition(_previewStart), PreviewPosition(_previewStart + _previewCount));
     public event EventHandler? PreviewChanged;
+    internal CancellationToken LifetimeToken => _lifetime.Token;
 
     public static bool CanAnalyze(Scene scene, Element element)
         => scene.Children.Contains(element) && !scene.IsElementLocked(element) && element.Length.Value > MediaTime.Zero
@@ -197,25 +200,52 @@ public sealed class SilenceSplitViewModel : IDisposable
         PreviewChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    public async Task ApplyAsync()
+    public async Task<bool> ApplyAsync()
     {
-        if (!CanApply.Value || _stale || _disposed) return;
-        if (_player != null) await _player.Pause();
-        // The tab or scene can change while playback relinquishes its readers.
-        if (!CanApply.Value || _stale || _disposed) return;
-        // Applying intentionally edits the observed scene; unsubscribe before entering the transaction.
-        _scene.Edited -= OnSceneEdited;
+        if (!CanApply.Value || _stale || _disposed || _applying) return false;
+        _applying = true;
+        IsBusy.Value = true;
+        Progress.Value = 0;
+        IsProgressIndeterminate.Value = true;
+        Status.Value = Strings.SilenceSplit_Applying;
+        bool observing = true;
         try
         {
+            if (_player != null) await _player.Pause();
+            // The tab or scene can change while playback relinquishes its readers.
+            if (!CanApply.Value || _stale || _disposed) return false;
+            // Applying intentionally edits the observed scene; unsubscribe before entering the transaction.
+            _scene.Edited -= OnSceneEdited;
+            observing = false;
+            var progress = new Progress<int>(value =>
+            {
+                // Progress callbacks are posted to the owning context and may arrive after the
+                // operation or tab has ended. Never overwrite its final status with a late update.
+                if (!_applying || _stale || _disposed) return;
+                Progress.Value = value;
+                IsProgressIndeterminate.Value = value == 100;
+                Status.Value = value == 100 ? Strings.SilenceSplit_Applying : $"{Strings.SilenceSplit_Preparing} {value}%";
+            });
             bool applied = await _service.ApplyAsync(_scene, _element, Ranges, (SilenceSplitMode)ModeIndex.Value,
-                IncludeLinked.Value, _lifetime.Token);
-            if (_disposed) return;
+                IncludeLinked.Value, _lifetime.Token, progress);
+            if (_disposed) return false;
             _stale = true;
             CanApply.Value = false;
+            if (applied) Progress.Value = 100;
             Status.Value = applied ? Strings.Completed : Strings.SilenceSplit_Stale;
+            return applied;
         }
-        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
-        finally { if (!_disposed) _scene.Edited += OnSceneEdited; }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { return false; }
+        finally
+        {
+            _applying = false;
+            if (!_disposed)
+            {
+                IsBusy.Value = false;
+                IsProgressIndeterminate.Value = false;
+                if (!observing) _scene.Edited += OnSceneEdited;
+            }
+        }
     }
 
     private void OnSceneEdited(object? sender, EventArgs e)

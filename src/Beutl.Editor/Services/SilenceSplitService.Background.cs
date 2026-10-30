@@ -13,7 +13,7 @@ public sealed partial class SilenceSplitService
     // Called on the document's owning thread. Preparation owns a detached scene; only publication
     // touches the open document and its history. A pending edit never holds a transaction across await.
     public async Task<bool> ApplyAsync(Scene scene, Element element, IReadOnlyList<TimeRange> ranges,
-        SilenceSplitMode mode, bool includeLinked, CancellationToken cancellationToken = default)
+        SilenceSplitMode mode, bool includeLinked, CancellationToken cancellationToken = default, IProgress<int>? progress = null)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!scene.Children.Contains(element) || scene.IsElementLocked(element) || scene.Uri == null || ranges.Count == 0) return false;
@@ -25,6 +25,7 @@ public sealed partial class SilenceSplitService
         if (!originals.All(e => e.GetType() == typeof(Element)
             && e.Objects.All(o => o.GetType() == typeof(SourceSound) || o.GetType() == typeof(SourceVideo))))
         {
+            progress?.Report(100);
             Apply(scene, element, ranges, mode, includeLinked);
             return true;
         }
@@ -76,9 +77,10 @@ public sealed partial class SilenceSplitService
         scene.Edited += OnEdited;
         try
         {
+            progress?.Report(0);
             Element[] pending = await Task.Run(() =>
             {
-                ApplyCore(snapshot, copies[element], cuts, mode, includeLinked, cancellationToken: cancellationToken);
+                ApplyCore(snapshot, copies[element], cuts, mode, includeLinked, cancellationToken: cancellationToken, progress: progress);
                 HashSet<Element> initial = copies.Values.ToHashSet();
                 Element[] added = snapshot.Children.Where(e => !initial.Contains(e)).ToArray();
                 // Detach in one notification, avoiding a removal scan for each generated clip.
@@ -86,6 +88,7 @@ public sealed partial class SilenceSplitService
                 return added;
             }, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
+            progress?.Report(100);
             // Playback may have resumed while preparation yielded the UI. Relinquish its readers
             // again immediately before publishing, then recheck edits made during that pause.
             if (player != null) await player.Pause();

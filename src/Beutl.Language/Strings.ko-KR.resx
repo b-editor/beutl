@@ -3546,4 +3546,13 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="SilenceSplit_ShortSegment" xml:space="preserve">
     <value>감지된 위치에서 분할하면 그룹 클립에 한 프레임보다 짧은 구간이 생깁니다. 무음 설정을 조정하거나 그룹 편집을 끄세요.</value>
   </data>
+  <data name="SilenceSplit_Preparing" xml:space="preserve">
+    <value>클립 준비 중…</value>
+  </data>
+  <data name="SilenceSplit_Applying" xml:space="preserve">
+    <value>분할 적용 중…</value>
+  </data>
+  <data name="SilenceSplit_Saving" xml:space="preserve">
+    <value>저장 중…</value>
+  </data>
 </root>

@@ -410,9 +410,15 @@ public class SilenceSplitTests
         using var subscription = follower.Start.GetObservable().Subscribe(_ => moves++);
         double step = silenceCount == 360 ? 5 : 2.5;
         var ranges = Enumerable.Range(0, silenceCount).Select(i => Range(13 + i * step, 14 + i * step)).ToArray();
+        var progress = new RecordingProgress();
         var watch = Stopwatch.StartNew();
-        Assert.That(await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio, ranges, SilenceSplitMode.RippleDelete, linked), Is.True);
+        Assert.That(await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio, ranges, SilenceSplitMode.RippleDelete, linked,
+            progress: progress), Is.True);
         watch.Stop();
+        Assert.That(progress.Values, Is.Ordered.And.Unique);
+        Assert.That(progress.Values, Has.Count.InRange(3, 101), "progress must not grow with the number of cuts");
+        Assert.That(progress.Values[0], Is.Zero);
+        Assert.That(progress.Values[^1], Is.EqualTo(100));
         TestContext.Out.WriteLine($"Apply {duration / 60} minutes / {silenceCount} silences / linked={linked}: {watch.Elapsed.TotalMilliseconds:F1} ms; follower moves: {moves}");
         Assert.That(follower.Start.Value, Is.EqualTo(Seconds(duration + 12 - silenceCount)));
         Assert.That(h.Scene.Children, Has.Count.EqualTo((silenceCount + 1) * (linked ? 2 : 1) + 1));
@@ -583,6 +589,12 @@ public class SilenceSplitTests
         Assert.That(e.Length.Value, Is.EqualTo(Seconds(5)));
         Assert.That(h.History.UndoCount, Is.EqualTo(before));
         Assert.That(h.History.HasPendingOperations, Is.False);
+    }
+
+    private sealed class RecordingProgress : IProgress<int>
+    {
+        public List<int> Values { get; } = [];
+        public void Report(int value) => Values.Add(value);
     }
 
     private sealed class ReadFailureDecoder(string path, bool fail) : IDecoderInfo

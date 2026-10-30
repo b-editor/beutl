@@ -40,7 +40,8 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
         => ApplyCore(scene, element, ranges, mode, includeLinked, history);
 
     private static void ApplyCore(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
-        bool includeLinked, HistoryManager? recorder = null, CancellationToken cancellationToken = default)
+        bool includeLinked, HistoryManager? recorder = null, CancellationToken cancellationToken = default,
+        IProgress<int>? progress = null)
     {
         if (!scene.Children.Contains(element) || scene.IsElementLocked(element) || scene.Uri == null || ranges.Count == 0) return;
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
@@ -65,9 +66,12 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
         void Edit()
         {
             // All cuts precede any movement, so every boundary remains in absolute scene time.
-            foreach (MediaTime cut in ranges.SelectMany(r => new[] { r.Start, r.End }).Distinct().OrderDescending())
+            MediaTime[] cuts = ranges.SelectMany(r => new[] { r.Start, r.End }).Distinct().OrderDescending().ToArray();
+            int reported = 0;
+            for (int i = 0; i < cuts.Length; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                MediaTime cut = cuts[i];
                 // Descending cuts only touch the original left pieces, never the added right pieces.
                 Element[] targets = originals.Where(e => e.Start.Value < cut && cut < e.Range.End).ToArray();
                 var split = ElementStructureService.SplitCore(scene, targets, cut, pendingGroups, sourceDurations);
@@ -75,6 +79,10 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
                 // than silently deleting different intervals from the linked audio and video.
                 if (split.Count != targets.Length) throw new InvalidOperationException(Strings.SilenceSplit_ShortSegment);
                 parts.AddRange(split);
+                // Leave 100 for the completed preparation, including deletion and ripple. Report
+                // only percentage changes so a long recording cannot flood the UI dispatcher.
+                int percent = (int)((long)(i + 1) * 99 / cuts.Length);
+                if (percent > reported) { reported = percent; progress?.Report(percent); }
             }
 
             var removed = new List<Element>();
