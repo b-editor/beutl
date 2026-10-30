@@ -45,11 +45,11 @@ public sealed class SilenceSplitViewModel : IDisposable
     public ReactivePropertySlim<decimal?> PaddingMilliseconds { get; } = new(100);
     public ReactivePropertySlim<int> ModeIndex { get; } = new(0);
     public ReactivePropertySlim<bool> IncludeLinked { get; } = new(true);
-    public ReactivePropertySlim<bool> IsBusy { get; } = new(true);
+    public ReactivePropertySlim<bool> IsBusy { get; } = new(false);
     public ReactivePropertySlim<int> Progress { get; } = new(0);
     public ReactivePropertySlim<bool> IsProgressIndeterminate { get; } = new();
     public ReactivePropertySlim<bool> CanApply { get; } = new(false);
-    public ReactivePropertySlim<string> Status { get; } = new(Strings.SilenceSplit_Analyzing);
+    public ReactivePropertySlim<string> Status { get; } = new(Strings.SilenceSplit_RefreshToAnalyze);
     public bool HasLinkedElements { get; }
     public TimeRange ClipRange { get; }
     public IReadOnlyList<TimeRange> Ranges { get; private set; } = [];
@@ -76,6 +76,8 @@ public sealed class SilenceSplitViewModel : IDisposable
 
     public async Task AnalyzeAsync()
     {
+        IsBusy.Value = true;
+        Status.Value = Strings.SilenceSplit_Analyzing;
         var ct = _lifetime.Token;
         try
         {
@@ -198,7 +200,7 @@ public sealed class SilenceSplitViewModel : IDisposable
 
     private void Recalculate()
     {
-        if (_stale || IsBusy.Value) return;
+        if (_stale || IsBusy.Value || _chunks.Length == 0) return;
         bool valid = ThresholdDb.Value is >= -120 and <= 0 && MinimumMilliseconds.Value is > 0 && PaddingMilliseconds.Value is >= 0;
         Ranges = valid ? SilenceSplitService.Plan(_scene, _element, SilenceDetector.Detect(_chunks, ClipRange.Duration,
             (double)ThresholdDb.Value.GetValueOrDefault(), MediaTime.FromSeconds((double)MinimumMilliseconds.Value.GetValueOrDefault() / 1000),

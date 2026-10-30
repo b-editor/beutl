@@ -175,6 +175,32 @@ public sealed class ElementSplitSpeedTests
         });
     }
 
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public void Split_SceneDrawable_PreservesExistingOffsetUnderATimeController(bool batch, bool referenceExpression)
+    {
+        var drawable = new SceneDrawable { OffsetPosition = { Value = MediaTime.FromSeconds(1) } };
+        Element element = AddElement(MediaTime.Zero, MediaTime.FromSeconds(4), drawable);
+        if (referenceExpression)
+            drawable.ReferencedScene.Expression = SceneReferenceTestHelper.Create(_harness.Scene, new Scene());
+        element.Objects.Add(new DrawableTimeController { Speed = { Value = 200f } });
+
+        if (batch)
+            new SilenceSplitService(_harness.History).Apply(_harness.Scene, element,
+                [new TimeRange(MediaTime.FromSeconds(1), MediaTime.FromSeconds(1))], SilenceSplitMode.DeleteSilence, false);
+        else
+            _service.Split(_harness.Scene, [element], MediaTime.FromSeconds(2));
+
+        Element back = _harness.Scene.Children.Single(child => child != element);
+        var copied = BackObject<SceneDrawable>(back);
+        Assert.That(copied.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(5)));
+        ObjectRegenerator.Regenerate(back, out Element roundTrip);
+        Assert.That(BackObject<SceneDrawable>(roundTrip).OffsetPosition.Value, Is.EqualTo(copied.OffsetPosition.Value));
+        Assert.That(drawable.OffsetPosition.Value, Is.EqualTo(MediaTime.FromSeconds(1)));
+    }
+
     [Test]
     public void Split_LoopingVideo_KeepsTheWrappedSourcePosition()
     {

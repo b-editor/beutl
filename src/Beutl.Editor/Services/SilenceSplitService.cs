@@ -55,7 +55,7 @@ public sealed partial class SilenceSplitService(HistoryManager history, IPreview
         // Portals and extension split callbacks may inspect other live scene elements while splitting.
         // Keep their normal Razor path; built-in media can be prepared without publishing intermediate clips.
         bool batch = originals.All(e => e.Objects.All(o => o is not PortalObject)
-            && ElementStructureService.OwnedSplittables(e).All(o => o is SourceSound or SceneSound || o.GetType() == typeof(SourceVideo)));
+            && ElementStructureService.OwnedSplittables(e).All(o => o is SourceSound or SceneSound or SceneDrawable || o.GetType() == typeof(SourceVideo)));
         List<ImmutableHashSet<Guid>>? pendingGroups = batch ? [] : null;
         Dictionary<(Type, Uri), MediaTime?>? sourceDurations = batch ? [] : null;
         MediaTime maximumEnd = originals.Max(e => e.Range.End);

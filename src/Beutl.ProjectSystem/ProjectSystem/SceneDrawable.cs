@@ -10,7 +10,7 @@ using Beutl.Media;
 namespace Beutl.ProjectSystem;
 
 [Display(Name = nameof(GraphicsStrings.SceneDrawable), ResourceType = typeof(GraphicsStrings))]
-public sealed partial class SceneDrawable : Drawable
+public sealed partial class SceneDrawable : Drawable, ISplittable
 {
     public SceneDrawable()
     {
@@ -19,6 +19,14 @@ public sealed partial class SceneDrawable : Drawable
 
     [Display(Name = nameof(GraphicsStrings.SceneDrawable_ReferencedScene), ResourceType = typeof(GraphicsStrings))]
     public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
+
+    [Display(Name = nameof(GraphicsStrings.SourceVideo_OffsetPosition), ResourceType = typeof(GraphicsStrings))]
+    public IExpressionProperty<MediaTime> OffsetPosition { get; } = Property.CreateExpression<MediaTime>();
+
+    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
+    {
+        if (backward) OffsetPosition.Value += startDelta;
+    }
 
     private readonly record struct SceneBitmapParameters(Resource Resource, float OutputScale);
 
@@ -94,10 +102,10 @@ public sealed partial class SceneDrawable : Drawable
             try
             {
                 CapturedCompositionFrame? oldFrame = Frame != null ? new CapturedCompositionFrame(Frame.Value) : null;
-                // The embed plays the referenced scene's own window from the element's local time, matching
+                // The embed plays the referenced scene's own window from the offset and element-local time, matching
                 // the standalone renderer's FromWindowTime evaluation (#3603).
                 Frame = ReferencedScene is { } referencedScene
-                    ? _compositor?.EvaluateGraphicsWithContext(referencedScene.FromWindowTime(context.Time - obj.Start), context)
+                    ? _compositor?.EvaluateGraphicsWithContext(referencedScene.FromWindowTime(context.Time - obj.Start + OffsetPosition), context)
                     : null;
                 context.ContainsScene3D |= Frame?.ContainsScene3D == true;
 

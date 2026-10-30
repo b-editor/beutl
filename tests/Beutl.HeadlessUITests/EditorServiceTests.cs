@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
 using Beutl.Api.Services;
 using Beutl.Editor;
@@ -10,11 +11,12 @@ using Beutl.Media;
 using Beutl.ProjectSystem;
 using Beutl.Services;
 using Beutl.Services.PrimitiveImpls;
+using Beutl.Testing.Headless;
 using Reactive.Bindings;
 
 namespace Beutl.HeadlessUITests;
 
-[TestFixture]
+[TestFixture, NonParallelizable]
 public sealed class EditorServiceTests
 {
     [AvaloniaTest]
@@ -210,6 +212,7 @@ public sealed class EditorServiceTests
     [TestCase(true, true, true)]
     public async Task Clipboard_edits_wait_for_file_writes_and_stop_when_the_editor_closes(bool cut, bool close, bool releaseBeforeClose)
     {
+        using var notifications = new NotificationCapture();
         var editorService = new EditorService(new ExtensionProvider());
         var inner = new BlockingClipboardService(new TaskCompletionSource(), Task.CompletedTask);
         using var lifetime = new CancellationTokenSource();
@@ -218,9 +221,10 @@ public sealed class EditorServiceTests
         Task edit;
         using (await editorService.BeginProjectFileWriteAsync(CancellationToken.None))
         {
-            edit = cut ? clipboard.CutAsync(scene, []) : clipboard.PasteAsync(scene, MediaTime.Zero, 0);
+            edit = cut ? clipboard.CutAsync(scene, []) : clipboard.PasteAsync(scene, MediaTime.FromSeconds(3), 2);
             Assert.That(edit.IsCompleted, Is.False);
             Assert.That(inner.CutCalls + inner.PasteCalls, Is.Zero);
+            Assert.That(notifications.Single().CancellationToken.IsCancellationRequested, Is.False);
             if (close && !releaseBeforeClose)
             {
                 lifetime.Cancel();
@@ -230,8 +234,44 @@ public sealed class EditorServiceTests
         if (close && releaseBeforeClose) lifetime.Cancel();
         await edit.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.That(inner.CutCalls + inner.PasteCalls, Is.EqualTo(close ? 0 : 1));
+        if (!cut && !close) Assert.That(inner.PastedAt, Is.EqualTo((MediaTime.FromSeconds(3), 2)));
+        Assert.That(notifications.Single().CancellationToken.IsCancellationRequested, Is.True);
         using IDisposable? mutation = editorService.TryBeginWorktreeMutation();
         Assert.That(mutation, Is.Not.Null);
+    }
+
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Clipboard_waiting_for_save_can_be_cancelled(bool cut)
+    {
+        using var notifications = new NotificationCapture();
+        var editorService = new EditorService(new ExtensionProvider());
+        var inner = new BlockingClipboardService(new TaskCompletionSource(), Task.CompletedTask);
+        var clipboard = new ProjectFileWriteClipboardService(editorService, inner);
+        var scene = new Scene();
+        using (await editorService.BeginProjectFileWriteAsync(CancellationToken.None))
+        {
+            Task edit = cut ? clipboard.CutAsync(scene, []) : clipboard.PasteAsync(scene, MediaTime.FromSeconds(3), 2);
+            Notification notice = notifications.Single();
+            var bar = new NotificationServiceHandler().BuildInfoBar(notice, new TaskCompletionSource(), () => { });
+            var window = new Window { Content = bar, Width = 380, Height = 220 };
+            try
+            {
+                window.Show();
+                HeadlessTestHelpers.Render();
+                HeadlessCapture.SaveIfRequested(bar, nameof(EditorServiceTests), $"clipboard-wait-{cut}");
+                HeadlessTestHelpers.Click(((Panel)bar.ActionButton!).Children.OfType<Button>().Single());
+                await edit.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.That(notice.CancellationToken.IsCancellationRequested, Is.True);
+                Assert.That(inner.CutCalls + inner.PasteCalls, Is.Zero);
+            }
+            finally { window.Close(); }
+        }
+        // Cancelling a queued operation releases its wait without disabling subsequent editing.
+        await clipboard.PasteAsync(scene, MediaTime.FromSeconds(3), 2);
+        Assert.That(inner.PasteCalls, Is.EqualTo(1));
+        Assert.That(inner.PastedAt, Is.EqualTo((MediaTime.FromSeconds(3), 2)));
     }
 
     [Test]
@@ -544,6 +584,8 @@ public sealed class EditorServiceTests
 
         public int PasteCalls { get; private set; }
 
+        public (MediaTime Frame, int Layer) PastedAt { get; private set; }
+
         public Task<bool> CopyAsync(IReadOnlyList<Element> elements)
         {
             return Task.FromResult(true);
@@ -566,6 +608,7 @@ public sealed class EditorServiceTests
             int clickedLayer)
         {
             PasteCalls++;
+            PastedAt = (clickedFrame, clickedLayer);
             pasteStarted.TrySetResult();
             await releasePaste;
             return new ElementPasteOutcome(true, default, 0, null);

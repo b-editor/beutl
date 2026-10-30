@@ -289,6 +289,11 @@ internal static partial class SlippableMedia
                     _targets.Add(new Target(sound.OffsetPosition, sound.ReferencedScene.Value?.Duration.Value,
                         new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length.Value));
                     break;
+                case SceneDrawable drawable:
+                    _targets.Add(new Target(drawable.OffsetPosition, drawable.ReferencedScene.Value?.Duration.Value,
+                        new MediaTimeMapping(_element, drawable, Property.CreateValue(100f), _controllers, 60,
+                            timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length.Value));
+                    break;
                 case SoundGroup group:
                     foreach (Sound child in group.Children) CollectFrom(child);
                     break;

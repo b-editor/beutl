@@ -3663,4 +3663,10 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="SilenceSplit_Saving" xml:space="preserve">
     <value>저장 중…</value>
   </data>
+  <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
+    <value>새로 고쳐 분석</value>
+  </data>
+  <data name="Clipboard_WaitingForSave" xml:space="preserve">
+    <value>저장이 끝날 때까지 기다리는 중…</value>
+  </data>
 </root>

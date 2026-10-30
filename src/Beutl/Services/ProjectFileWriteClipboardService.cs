@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Services;
@@ -34,7 +35,7 @@ internal sealed class ProjectFileWriteClipboardService(
         IReadOnlyList<Element> elements,
         bool ripple = false)
     {
-        using IProjectFileWriteLease? fileWrite = await BeginWriteAsync();
+        using IProjectFileWriteLease? fileWrite = await BeginWriteAsync(Strings.Cut);
         if (fileWrite is null)
         {
             return false;
@@ -48,7 +49,7 @@ internal sealed class ProjectFileWriteClipboardService(
         MediaTime clickedFrame,
         int clickedLayer)
     {
-        using IProjectFileWriteLease? fileWrite = await BeginWriteAsync();
+        using IProjectFileWriteLease? fileWrite = await BeginWriteAsync(Strings.Paste);
         if (fileWrite is null)
         {
             return ElementPasteOutcome.Empty;
@@ -57,9 +58,25 @@ internal sealed class ProjectFileWriteClipboardService(
         return await inner.PasteAsync(scene, clickedFrame, clickedLayer);
     }
 
-    private async ValueTask<IProjectFileWriteLease?> BeginWriteAsync()
+    private async ValueTask<IProjectFileWriteLease?> BeginWriteAsync(string title)
     {
-        try { return await editorService.TryBeginProjectFileWriteAsync(lifetime); }
-        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { return null; }
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
+        using var dismissal = new CancellationTokenSource();
+        try
+        {
+            ValueTask<IProjectFileWriteLease?> pending = editorService.TryBeginProjectFileWriteAsync(cancellation.Token);
+            if (!pending.IsCompleted)
+            {
+                NotificationService.Show(new Notification(title, Strings.Clipboard_WaitingForSave,
+                    Expiration: Timeout.InfiniteTimeSpan,
+                    Actions: [new NotificationAction(Strings.Cancel, cancellation.Cancel)], IsClosable: false)
+                {
+                    CancellationToken = dismissal.Token
+                });
+            }
+            return await pending;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return null; }
+        finally { dismissal.Cancel(); }
     }
 }

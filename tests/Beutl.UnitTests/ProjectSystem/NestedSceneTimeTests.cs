@@ -3,11 +3,14 @@ using Beutl.Audio;
 using Beutl.Audio.Composing;
 using Beutl.Audio.Graph;
 using Beutl.Composition;
+using Beutl.Editor.Services;
 using Beutl.Engine;
 using Beutl.Graphics.Shapes;
 using Beutl.Media;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
+using Beutl.UnitTests.TestInfrastructure;
 using NUnit.Framework;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -125,6 +128,79 @@ public class NestedSceneTimeTests
     }
 
     private static void Attach(Project project, Scene scene) => project.Items.Add(scene);
+
+    [TestCase(null, false)]
+    [TestCase(null, true)]
+    [TestCase(SilenceSplitMode.SplitOnly, false)]
+    [TestCase(SilenceSplitMode.SplitOnly, true)]
+    [TestCase(SilenceSplitMode.DeleteSilence, false)]
+    [TestCase(SilenceSplitMode.DeleteSilence, true)]
+    [TestCase(SilenceSplitMode.RippleDelete, false)]
+    [TestCase(SilenceSplitMode.RippleDelete, true)]
+    public void Split_PreservesReferencedVideoAndAudioTogether(SilenceSplitMode? mode, bool linked)
+    {
+        using var h = new SceneHistoryHarness("scene-split", duration: Seconds(30));
+        var project = new Project { Items = { h.Scene } };
+        _ = new BeutlApplication { Project = { Value = project } };
+        Scene referenced = CreateScene("referenced", Seconds(5), Seconds(10));
+        Attach(project, referenced);
+        RectShape shape = CreateAnimatedShape();
+        var animation = shape.Width.GetKeyFrameAnimation()!;
+        // Use referenced-scene time as the probe, including after a file-backed reference is loaded.
+        animation.UseGlobalClock.Value = true;
+        foreach (IKeyFrame key in animation.KeyFrames) key.KeyTime.Value += referenced.Start.Value;
+        referenced.Children.Add(CreateElement(Seconds(5), Seconds(10), shape));
+        referenced.Children.Add(CreateElement(Seconds(5), Seconds(10), new RecordingSound()));
+        CoreSerializer.StoreToUri(referenced, referenced.Uri!);
+        Element audio = h.AddElement(Seconds(10), Seconds(10));
+        audio.Objects.Add(new SceneSound { ReferencedScene = { Value = referenced } });
+        Element video = linked ? h.AddElement(Seconds(10), Seconds(10), 1) : audio;
+        video.Objects.Add(new SceneDrawable { ReferencedScene = { Value = referenced } });
+        if (linked) h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+
+        double[] sampleTimes = [17.25, 18.25, 19.75];
+        var expected = sampleTimes.Select(Sample).ToArray();
+
+        if (mode is { } selected)
+            new SilenceSplitService(h.History).Apply(h.Scene, audio,
+                [new TimeRange(Seconds(13), Seconds(1)), new TimeRange(Seconds(16), Seconds(1))], selected, true);
+        else
+            new ElementStructureService(h.History).Split(h.Scene, linked ? [audio, video] : [audio], Seconds(17));
+
+        Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
+        AssertSamples(mode == SilenceSplitMode.RippleDelete ? 2 : 0);
+        h.History.Undo();
+        Assert.That(h.Scene.Children.Count, Is.EqualTo(linked ? 2 : 1));
+        AssertSamples(0);
+        h.History.Redo();
+        AssertSamples(mode == SilenceSplitMode.RippleDelete ? 2 : 0);
+
+        (float Width, TimeRange[] Audio) Sample(double seconds)
+        {
+            using var compositor = new SceneCompositor(h.Scene) { DisableResourceShare = true, ForceOriginalSource = true };
+            using var composer = new SceneComposer(h.Scene, disableResourceShare: true, forceOriginalSource: true);
+            float width = EmbeddedInnerWidth(compositor, Seconds(seconds));
+            RecordingSound.Reset();
+            using var buffer = composer.Compose(new TimeRange(Seconds(seconds), Seconds(0.05)));
+            Assert.That(RecordingSound.ProcessedRanges, Is.Not.Empty);
+            return (width, RecordingSound.ProcessedRanges.ToArray());
+        }
+
+        void AssertSamples(double shift)
+        {
+            for (int i = 0; i < sampleTimes.Length; i++)
+            {
+                var actual = Sample(sampleTimes[i] - shift);
+                Assert.Multiple(() =>
+                {
+                    Assert.That(actual.Width, Is.EqualTo(expected[i].Width), "Video must continue from the cut.");
+                    Assert.That(actual.Audio, Is.EqualTo(expected[i].Audio), "Audio must sample the same referenced window.");
+                });
+            }
+        }
+    }
 
     [TestCase(0)]
     [TestCase(5)]

@@ -62,6 +62,7 @@ internal sealed partial class MediaTimeMapping
                 && !videoSource.IsLoop.HasExpression && !videoSource.OffsetPosition.HasExpression,
             SourceSound sound => !sound.Source.HasExpression,
             SceneSound sound => !sound.ReferencedScene.HasExpression,
+            SceneDrawable drawable => !drawable.OffsetPosition.HasExpression,
             DrawableTimeController controller => !controller.Target.HasExpression,
             IPresenter<Drawable> presenter => !presenter.Target.HasExpression,
             PortalObject => false,

@@ -873,8 +873,12 @@ public class SilenceSplitTabTests
     }
 
     [AvaloniaTest]
-    public async Task TabState_RestoresTheTargetAndOptions()
+    [TestCase("ja", 360)]
+    [TestCase("en", 1000)]
+    public async Task TabState_RestoresOptionsWithoutDecodingUntilRefresh(string language, int width)
     {
+        var previousCulture = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(language);
         var scene = new Scene(100, 100, "silence");
         var element = new Element { Length = { Value = MediaTime.FromSeconds(10) } };
         element.Objects.Add(CreateSound());
@@ -889,10 +893,33 @@ public class SilenceSplitTabTests
         tab.WriteToJson(json);
         using var restored = new SilenceSplitTabViewModel(editor);
         restored.ReadFromJson(json);
-        await HeadlessTestHelpers.WaitUntilAsync(() => !restored.Analysis.Value!.IsBusy.Value);
-        Assert.That(restored.Target, Is.SameAs(element));
-        Assert.That(restored.Analysis.Value!.ThresholdDb.Value, Is.EqualTo(-35));
-        Assert.That(restored.Analysis.Value.ModeIndex.Value, Is.EqualTo(2));
+        var view = new SilenceSplitTabView { DataContext = restored };
+        var window = new Window { Content = view, Width = width, Height = 500 };
+        try
+        {
+            window.Show();
+            HeadlessTestHelpers.Render();
+            var model = restored.Analysis.Value!;
+            Assert.That(restored.Target, Is.SameAs(element));
+            Assert.That(model.ThresholdDb.Value, Is.EqualTo(-35));
+            Assert.That(model.ModeIndex.Value, Is.EqualTo(2));
+            Assert.That(model.IsBusy.Value, Is.False);
+            Assert.That(model.PreviewChunks, Is.Empty);
+            Assert.That(model.Status.Value, Is.EqualTo(Strings.SilenceSplit_RefreshToAnalyze));
+            Assert.That(view.FindControl<Button>("ApplyButton")!.IsEnabled, Is.False);
+            HeadlessCapture.SaveIfRequested(view, nameof(SilenceSplitTabTests), $"restore-{language}-{width}");
+
+            view.FindControl<Button>("RefreshButton")!.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            await HeadlessTestHelpers.WaitUntilAsync(() => !restored.Analysis.Value!.IsBusy.Value);
+            Assert.That(restored.Analysis.Value!.PreviewChunks, Is.Not.Empty);
+            Assert.That(restored.Analysis.Value.ThresholdDb.Value, Is.EqualTo(-35));
+            Assert.That(restored.Analysis.Value.ModeIndex.Value, Is.EqualTo(2));
+        }
+        finally
+        {
+            window.Close();
+            CultureInfo.CurrentUICulture = previousCulture;
+        }
     }
 
     private static SceneSound CreateSound() => new()

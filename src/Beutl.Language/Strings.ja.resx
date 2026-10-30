@@ -3658,4 +3658,10 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="SilenceSplit_Saving" xml:space="preserve">
     <value>保存中…</value>
   </data>
+  <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
+    <value>更新して解析</value>
+  </data>
+  <data name="Clipboard_WaitingForSave" xml:space="preserve">
+    <value>保存完了を待っています…</value>
+  </data>
 </root>

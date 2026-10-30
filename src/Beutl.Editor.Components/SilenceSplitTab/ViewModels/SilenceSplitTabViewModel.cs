@@ -60,7 +60,9 @@ public sealed class SilenceSplitTabViewModel : IToolContext
         Refresh();
     }
 
-    public void Refresh()
+    public void Refresh() => Refresh(startAnalysis: true);
+
+    private void Refresh(bool startAnalysis)
     {
         if (_disposed) return;
         var previous = Analysis.Value;
@@ -69,7 +71,7 @@ public sealed class SilenceSplitTabViewModel : IToolContext
         if (Target is not { } element || !SilenceSplitViewModel.CanAnalyze(_scene, element)) return;
 
         var history = _editor.GetRequiredService<HistoryManager>();
-        history.FlushPendingMutations();
+        if (startAnalysis) history.FlushPendingMutations();
         var model = new SilenceSplitViewModel(_scene, element, history, _editor.GetRequiredService<IPreviewPlayer>());
         if (previous != null)
         {
@@ -80,7 +82,7 @@ public sealed class SilenceSplitTabViewModel : IToolContext
             model.IncludeLinked.Value = previous.IncludeLinked.Value;
         }
         Analysis.Value = model;
-        _ = model.AnalyzeAsync();
+        if (startAnalysis) _ = model.AnalyzeAsync();
     }
 
     public async Task ApplyAsync()
@@ -165,7 +167,9 @@ public sealed class SilenceSplitTabViewModel : IToolContext
     {
         if (!json.TryGetPropertyValueAsJsonValue("elementId", out Guid id)
             || _scene.Children.FirstOrDefault(e => e.Id.Value == id) is not { } element) return;
-        Show(element);
+        if (_disposed) return;
+        _target.Value = element;
+        Refresh(startAnalysis: false);
         if (Analysis.Value is not { } model) return;
         if (json.TryGetPropertyValueAsJsonValue("threshold", out decimal threshold)) model.ThresholdDb.Value = threshold;
         if (json.TryGetPropertyValueAsJsonValue("minimum", out decimal minimum)) model.MinimumMilliseconds.Value = minimum;

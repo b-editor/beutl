@@ -3663,4 +3663,10 @@ when history recording is enabled.</value>
   <data name="SilenceSplit_Saving" xml:space="preserve">
     <value>Saving…</value>
   </data>
+  <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
+    <value>Refresh to analyze</value>
+  </data>
+  <data name="Clipboard_WaitingForSave" xml:space="preserve">
+    <value>Waiting for save to finish…</value>
+  </data>
 </root>
