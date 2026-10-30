@@ -1,5 +1,6 @@
 ﻿using Beutl.Editor.Services;
 using Beutl.Editor.VersionControl;
+using Beutl.Language;
 using Beutl.ProjectSystem;
 
 namespace Beutl.Services;
@@ -21,7 +22,8 @@ internal sealed class ProjectFileWriteAdmission(EditorService editorService)
 
 internal sealed class ProjectFileWriteClipboardService(
     EditorService editorService,
-    IElementClipboardService inner) : IElementClipboardService
+    IElementClipboardService inner,
+    CancellationToken lifetime = default) : IElementClipboardService
 {
     public Task<bool> CopyAsync(IReadOnlyList<Element> elements)
     {
@@ -33,7 +35,7 @@ internal sealed class ProjectFileWriteClipboardService(
         IReadOnlyList<Element> elements,
         bool ripple = false)
     {
-        using IProjectFileWriteLease? fileWrite = editorService.TryBeginProjectFileWrite();
+        using IProjectFileWriteLease? fileWrite = await BeginWriteAsync(Strings.Cut);
         if (fileWrite is null)
         {
             return false;
@@ -47,12 +49,40 @@ internal sealed class ProjectFileWriteClipboardService(
         MediaTime clickedFrame,
         int clickedLayer)
     {
-        using IProjectFileWriteLease? fileWrite = editorService.TryBeginProjectFileWrite();
+        using IProjectFileWriteLease? fileWrite = await BeginWriteAsync(Strings.Paste);
         if (fileWrite is null)
         {
             return ElementPasteOutcome.Empty;
         }
 
         return await inner.PasteAsync(scene, clickedFrame, clickedLayer);
+    }
+
+    private async ValueTask<IProjectFileWriteLease?> BeginWriteAsync(string title)
+    {
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime);
+        using var dismissal = new CancellationTokenSource();
+        try
+        {
+            ValueTask<IProjectFileWriteLease?> pending = editorService.TryBeginProjectFileWriteAsync(cancellation.Token);
+            if (!pending.IsCompleted)
+            {
+                Task<IProjectFileWriteLease?> wait = pending.AsTask();
+                await Task.WhenAny(wait, Task.Delay(TimeSpan.FromMilliseconds(500), dismissal.Token));
+                if (!wait.IsCompleted)
+                {
+                    NotificationService.Show(new Notification(title, Strings.Clipboard_WaitingForSave,
+                        Expiration: Timeout.InfiniteTimeSpan,
+                        Actions: [new NotificationAction(Strings.Cancel, cancellation.Cancel)], IsClosable: false)
+                    {
+                        CancellationToken = dismissal.Token
+                    });
+                }
+                return await wait;
+            }
+            return await pending;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return null; }
+        finally { dismissal.Cancel(); }
     }
 }

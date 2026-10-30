@@ -218,4 +218,7 @@
   <data name="ChangeOutputVisibility" xml:space="preserve">
     <value>Change Output Visibility</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>Auto Split by Silence</value>
+  </data>
 </root>

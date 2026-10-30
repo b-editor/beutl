@@ -917,6 +917,7 @@ public partial class MissingMediaTests
             editor.HistoryManager.Commit("Add media");
             HeadlessTestHelpers.Settle();
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await TestShell.WaitForProjectWritesAsync();
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!).Children, Has.Count.EqualTo(1));
             release.SetResult();
             await editor.WaitForMediaFingerprintsAsync();
@@ -926,6 +927,7 @@ public partial class MissingMediaTests
             editor.Scene.Duration.Value += MediaTime.FromSeconds(1);
             editor.HistoryManager.Commit("Edit the scene");
             HeadlessTestHelpers.Settle();
+            await TestShell.WaitForProjectWritesAsync();
             await editor.WaitForMediaFingerprintsAsync();
             string renamed = Path.Combine(directory, "renamed.png"); File.Move(path, renamed);
             var saved = CoreSerializer.RestoreFromUri<Scene>(editor.Scene.Uri!);

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Beutl.Configuration;
 using Beutl.Editor.Components.Views;
 using Beutl.Editor.Services;
@@ -11,6 +12,18 @@ namespace Beutl.Editor.Components.Helpers;
 
 public static class TimelineHelper
 {
+    internal static Vector GetScrollOffsetDelta(PointerWheelEventArgs e, bool gestureAxes)
+    {
+        Vector delta = e.Delta;
+        if (!gestureAxes && OperatingSystem.IsWindows() && e.KeyModifiers == KeyModifiers.Shift)
+            delta = new Vector(delta.Y, delta.X);
+
+        // Touchpad gestures keep their native axes; wheels follow the editor preference.
+        if (!gestureAxes && !GlobalConfiguration.Instance.EditorConfig.SwapTimelineScrollDirection.Value)
+            delta = new Vector(delta.Y, delta.X);
+        return -delta * 50;
+    }
+
     // The timeline and the graph editor place the scene's start and end bars and size the panel the same way.
     internal static (ReadOnlyReactivePropertySlim<Thickness> StartingBarMargin,
         ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin,

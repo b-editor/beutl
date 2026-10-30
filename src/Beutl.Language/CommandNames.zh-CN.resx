@@ -218,4 +218,7 @@
   <data name="ChangeOutputVisibility" xml:space="preserve">
     <value>更改输出可见性</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>按静音自动分割</value>
+  </data>
 </root>

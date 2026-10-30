@@ -34,6 +34,7 @@ public sealed class SourceNode : AudioNode
         // (this also avoids ToSamples throwing on the non-positive rate below).
         if (resource.SampleRate <= 0)
         {
+            AudioReadScope.ReportFailure();
             return buffer;
         }
 
@@ -44,6 +45,7 @@ public sealed class SourceNode : AudioNode
         // return silence rather than wrapping the cast to a negative offset.
         if (start < 0 || length < 0 || start > int.MaxValue || length > int.MaxValue)
         {
+            AudioReadScope.ReportFailure();
             return buffer;
         }
 
@@ -60,6 +62,10 @@ public sealed class SourceNode : AudioNode
                     left.CopyTo(buffer.GetChannelData(0));
                     right.CopyTo(buffer.GetChannelData(1));
                 }
+            }
+            else
+            {
+                AudioReadScope.ReportFailure();
             }
 
             return buffer;

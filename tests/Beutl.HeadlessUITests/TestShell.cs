@@ -1,4 +1,5 @@
 ﻿using Avalonia;
+using Avalonia.Threading;
 using Beutl.Api.Services;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -23,6 +24,12 @@ internal static class TestShell
     public static VersionControlCoordinator VersionControl => MainViewModel.VersionControlCoordinator;
 
     public static ExtensionProvider Extensions => MainViewModel.ExtensionProvider;
+
+    public static async Task WaitForProjectWritesAsync()
+    {
+        await Dispatcher.UIThread.InvokeAsync(() => { }, DispatcherPriority.Background);
+        using (await Editor.BeginProjectFileWriteAsync(CancellationToken.None)) { }
+    }
 
     // A new folder under BEUTL_HOME.
     public static string NewWorkspace(string name)

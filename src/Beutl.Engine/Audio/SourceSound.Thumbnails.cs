@@ -57,7 +57,10 @@ public sealed partial class SourceSound : IThumbnailsProvider
         IThumbnailCacheService? cacheService,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        using var resource = ToResource(CompositionContext.Default);
+        // Opening a decoder can block on media I/O. Resource creation belongs to the same
+        // composition thread that reads it, not to the timeline's calling UI thread.
+        using var resource = await ComposeThread.Dispatcher.InvokeAsync(
+            () => ToResource(CompositionContext.Default), DispatchPriority.Low, cancellationToken);
         if (resource.Source == null)
             yield break;
 

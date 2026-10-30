@@ -1,0 +1,137 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Beutl.Controls"
+             xmlns:icons="using:FluentIcons.Avalonia.Fluent"
+             xmlns:lang="using:Beutl.Language"
+             xmlns:timeline="using:Beutl.Editor.Components.TimelineTab.Views"
+             xmlns:vm="using:Beutl.Editor.Components.SilenceSplitTab.ViewModels"
+             x:Class="Beutl.Editor.Components.SilenceSplitTab.Views.SilenceSplitTabView"
+             x:DataType="vm:SilenceSplitTabViewModel"
+             x:CompileBindings="True">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.secondary">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+    </UserControl.Styles>
+    <Grid RowDefinitions="Auto,*,Auto">
+        <controls:ToolTabBar x:Name="ToolBar">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock Text="{Binding TargetName.Value}"
+                           Theme="{StaticResource ToolTabBarTitleTextBlockTheme}"
+                           TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                           ToolTip.Tip="{Binding TargetName.Value}" />
+                <Button x:Name="RefreshButton" Grid.Column="1"
+                        Click="OnRefreshClick" IsEnabled="{Binding !IsApplying.Value}"
+                        Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                        AutomationProperties.Name="{x:Static lang:Strings.Refresh}"
+                        ToolTip.Tip="{x:Static lang:Strings.Refresh}">
+                    <icons:FluentIcon FontSize="16" Icon="ArrowClockwise" />
+                </Button>
+            </Grid>
+        </controls:ToolTabBar>
+
+        <TextBlock Grid.Row="1" Margin="16" Classes="secondary"
+                   IsVisible="{Binding !HasAnalysis.Value}"
+                   Text="{x:Static lang:Strings.SilenceSplit_SelectAudio}" />
+        <ScrollViewer x:Name="BodyScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                      IsVisible="{Binding HasAnalysis.Value}" IsEnabled="{Binding !IsApplying.Value}">
+            <Grid x:Name="ContentLayout" RowDefinitions="Auto,Auto" ColumnDefinitions="*">
+                <Grid x:Name="PreviewPane" Margin="8" RowDefinitions="*,Auto,Auto,Auto" RowSpacing="8" Background="Transparent">
+                    <Border Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                            CornerRadius="{DynamicResource ControlCornerRadius}" Padding="8">
+                        <Grid Background="Transparent" ClipToBounds="True">
+                            <timeline:WaveformControl x:Name="Waveform" Height="112" MinHeight="64"
+                                                      WaveformBrush="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <Canvas IsHitTestVisible="False">
+                                <Border x:Name="Playhead" Width="2" IsVisible="False"
+                                        Background="{DynamicResource AccentFillColorDefaultBrush}" />
+                            </Canvas>
+                        </Grid>
+                    </Border>
+                    <Grid Grid.Row="1" ColumnDefinitions="*,*">
+                        <TextBlock x:Name="PreviewStartTime" Classes="secondary" />
+                        <TextBlock x:Name="PreviewEndTime" Grid.Column="1" Classes="secondary" HorizontalAlignment="Right" />
+                    </Grid>
+                    <ScrollBar x:Name="PreviewScroll" Grid.Row="2" Orientation="Horizontal"
+                               AllowAutoHide="False" ValueChanged="OnPreviewScrollChanged"
+                               AutomationProperties.Name="{x:Static lang:Strings.StartTime}" />
+                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto">
+                        <TextBlock x:Name="ZoomLevel" Classes="secondary" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4">
+                            <Button x:Name="ZoomOutButton" Click="OnZoomOutClick" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                    ToolTip.Tip="{x:Static lang:Strings.BrowserZoomOut}" AutomationProperties.Name="{x:Static lang:Strings.BrowserZoomOut}">
+                                <icons:FluentIcon Icon="ZoomOut" FontSize="16" />
+                            </Button>
+                            <Button x:Name="ZoomInButton" Click="OnZoomInClick" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                    ToolTip.Tip="{x:Static lang:Strings.BrowserZoomIn}" AutomationProperties.Name="{x:Static lang:Strings.BrowserZoomIn}">
+                                <icons:FluentIcon Icon="ZoomIn" FontSize="16" />
+                            </Button>
+                            <Button x:Name="ResetZoomButton" Click="OnResetZoomClick" Theme="{StaticResource ToolTabBarIconButtonTheme}"
+                                    ToolTip.Tip="{x:Static lang:Strings.ResetZoom}" AutomationProperties.Name="{x:Static lang:Strings.ResetZoom}">
+                                <icons:FluentIcon Icon="ArrowAutofitWidth" FontSize="16" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <ScrollViewer x:Name="OptionsScroll" Grid.Row="1" Margin="8" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Disabled">
+                    <StackPanel x:Name="OptionsStack" Spacing="12">
+                        <Border x:Name="ParameterGroup" Classes="options-group" Padding="12">
+                            <Grid ColumnDefinitions="*,120" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="8">
+                                <TextBlock Text="{x:Static lang:Strings.SilenceSplit_Threshold}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <NumericUpDown x:Name="Threshold" Grid.Column="1" Minimum="-120" Maximum="0" Increment="1" VerticalAlignment="Center"
+                                               Value="{Binding Analysis.Value.ThresholdDb.Value}" AutomationProperties.Name="{x:Static lang:Strings.SilenceSplit_Threshold}" />
+                                <TextBlock Grid.Row="1" Text="{x:Static lang:Strings.SilenceSplit_Minimum}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <NumericUpDown x:Name="Minimum" Grid.Row="1" Grid.Column="1" Minimum="20" Maximum="3600000" Increment="20" VerticalAlignment="Center"
+                                               Value="{Binding Analysis.Value.MinimumMilliseconds.Value}" AutomationProperties.Name="{x:Static lang:Strings.SilenceSplit_Minimum}" />
+                                <TextBlock Grid.Row="2" Text="{x:Static lang:Strings.SilenceSplit_Padding}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                <NumericUpDown x:Name="PaddingEditor" Grid.Row="2" Grid.Column="1" Minimum="0" Maximum="3600000" Increment="20" VerticalAlignment="Center"
+                                               Value="{Binding Analysis.Value.PaddingMilliseconds.Value}" AutomationProperties.Name="{x:Static lang:Strings.SilenceSplit_Padding}" />
+                            </Grid>
+                        </Border>
+
+                        <StackPanel x:Name="ModeStack" Spacing="8">
+                            <ComboBox x:Name="Mode" HorizontalAlignment="Stretch" SelectedIndex="{Binding Analysis.Value.ModeIndex.Value}"
+                                      AutomationProperties.Name="{x:Static lang:Strings.SilenceSplit_Mode}">
+                                <ComboBoxItem><TextBlock Text="{x:Static lang:Strings.SilenceSplit_SplitOnly}" TextWrapping="Wrap" /></ComboBoxItem>
+                                <ComboBoxItem><TextBlock Text="{x:Static lang:Strings.SilenceSplit_Delete}" TextWrapping="Wrap" /></ComboBoxItem>
+                                <ComboBoxItem><TextBlock Text="{x:Static lang:Strings.SilenceSplit_Ripple}" TextWrapping="Wrap" /></ComboBoxItem>
+                            </ComboBox>
+                            <CheckBox x:Name="Linked" IsVisible="{Binding Analysis.Value.HasLinkedElements}" IsChecked="{Binding Analysis.Value.IncludeLinked.Value}">
+                                <TextBlock Text="{x:Static lang:Strings.SilenceSplit_Linked}" TextWrapping="Wrap" />
+                            </CheckBox>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </ScrollViewer>
+
+        <Border Grid.Row="2" Padding="12" IsVisible="{Binding HasAnalysis.Value}"
+                BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+            <Grid x:Name="FooterLayout" RowDefinitions="Auto,Auto" ColumnDefinitions="*" RowSpacing="8" ColumnSpacing="16">
+                <StackPanel Spacing="4" VerticalAlignment="Center">
+                    <Grid ColumnDefinitions="Auto,*">
+                        <Border Width="10" Height="10" CornerRadius="2" Margin="0,0,8,0" Background="#F5962D"
+                                IsVisible="{Binding Analysis.Value.CanApply.Value}" />
+                        <TextBlock x:Name="StatusText" Grid.Column="1" Text="{Binding Analysis.Value.Status.Value}" Classes="secondary" />
+                    </Grid>
+                    <ProgressBar x:Name="OperationProgress" Height="4" Maximum="100"
+                                 Value="{Binding Analysis.Value.Progress.Value}" IsVisible="{Binding Analysis.Value.IsBusy.Value}"
+                                 IsIndeterminate="{Binding Analysis.Value.IsProgressIndeterminate.Value}"
+                                 AutomationProperties.Name="{Binding Analysis.Value.Status.Value}" />
+                </StackPanel>
+                <Button x:Name="ApplyButton" Grid.Row="1" Content="{x:Static lang:Strings.SilenceSplit_Apply}" Classes="accent"
+                        HorizontalAlignment="Stretch" Click="OnApplyClick">
+                    <Button.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="Analysis.Value.CanApply.Value" />
+                            <Binding Path="!IsApplying.Value" />
+                        </MultiBinding>
+                    </Button.IsEnabled>
+                </Button>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

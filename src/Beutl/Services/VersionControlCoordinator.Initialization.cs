@@ -67,7 +67,7 @@ internal partial class VersionControlCoordinator
         // InitializeAsync writes the hygiene files and stages the first revision, so it needs the
         // same workspace reservation as every later snapshot: without it an export or an auto-save
         // can still be writing and the initial commit captures a half-written tree.
-        using IDisposable? initializationMutation = TryBeginWorktreeMutation();
+        using IDisposable? initializationMutation = await TryBeginWorktreeMutationAsync(operationCancellation);
         if (initializationMutation is null)
         {
             return false;
@@ -184,7 +184,7 @@ internal partial class VersionControlCoordinator
             var options = new InitOptions(targetRepository, _config.UseLfsWhenAvailable.Value);
             // Nothing can edit a project that is not open, but an export or a write that outlived the
             // previous project still has to finish before the first revision is staged.
-            using IDisposable? initializationMutation = TryBeginWorktreeMutation();
+            using IDisposable? initializationMutation = await TryBeginWorktreeMutationAsync(operationCancellation);
             if (initializationMutation is null)
             {
                 return false;

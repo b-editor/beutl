@@ -111,8 +111,14 @@ public sealed partial class ElementViewModel
         _thumbnailsCts = null;
     }
 
-    private async void UpdateThumbnailsAsync()
+    internal async void UpdateThumbnailsAsync()
     {
+        if (_isDisposed || (ThumbnailReady == null && WaveformChunkReady == null))
+        {
+            CancelThumbnailsLoading();
+            _scrollThumbnailsCts?.Cancel();
+            return;
+        }
         if (IsThumbnailsDisabled.Value)
         {
             CancelThumbnailsLoading();

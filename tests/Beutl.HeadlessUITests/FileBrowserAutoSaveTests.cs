@@ -1,11 +1,13 @@
 ﻿using System.Collections.Specialized;
 using Avalonia.Controls;
 using Avalonia.Headless.NUnit;
+using Avalonia.Threading;
 using Beutl.Editor;
 using Beutl.Editor.Components.FileBrowserTab.ViewModels;
 using Beutl.Editor.Components.FileBrowserTab.Views;
 using Beutl.Extensibility;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using Moq;
 
@@ -14,6 +16,59 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class FileBrowserAutoSaveTests
 {
+    [AvaloniaTest]
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task BackgroundSave_WritesACapturedDocumentAndKeepsFailedWritesAtomic(bool fail)
+    {
+        var (_, scene, _) = await TestShell.OpenNewSceneAsync("background-save");
+        var element = new Element { Name = { Value = "Captured" }, Length = { Value = MediaTime.FromSeconds(1) } };
+        element.Uri = new Uri(Path.Combine(Path.GetDirectoryName(scene.Uri!.LocalPath)!, "snapshot.belm"));
+        scene.AddChild(element);
+        Uri uri = element.Uri!;
+        CoreSerializer.StoreToUri(element, uri);
+        string before = File.ReadAllText(uri.LocalPath);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        bool wroteOnUi = false;
+        using var faults = StorageWriteTransaction.InjectFaultsForTesting((step, path) =>
+        {
+            if (step != StorageWriteStep.Replace || path != uri.LocalPath) return;
+            wroteOnUi |= Dispatcher.UIThread.CheckAccess();
+            started.TrySetResult();
+            if (!wroteOnUi && !release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
+            if (fail) throw new IOException("Injected background write failure");
+        });
+        element.Name.Value = "Snapshot";
+        Task saving = CoreSerializer.StoreToUriAsync(element, uri);
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(wroteOnUi, Is.False);
+            Assert.That(saving.IsCompleted, Is.False);
+            element.Name.Value = "Edited while saving";
+            release.Set();
+            if (fail)
+            {
+                try { await saving; Assert.Fail("The injected failure must be reported."); }
+                catch (IOException) { }
+                Assert.That(File.ReadAllText(uri.LocalPath), Is.EqualTo(before));
+            }
+            else
+            {
+                await saving;
+                Assert.That(CoreSerializer.RestoreFromUri<Element>(uri).Name.Value, Is.EqualTo("Snapshot"));
+            }
+            Assert.That(element.Name.Value, Is.EqualTo("Edited while saving"));
+            Assert.That(element.Uri, Is.EqualTo(uri));
+        }
+        finally
+        {
+            release.Set();
+            try { await saving; } catch (IOException) when (fail) { }
+        }
+    }
+
     [AvaloniaTest]
     public async Task Moving_a_sidecar_named_directory_out_of_the_project_removes_home_media_results()
     {

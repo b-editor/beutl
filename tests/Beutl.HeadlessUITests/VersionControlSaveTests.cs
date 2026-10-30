@@ -163,6 +163,7 @@ public class VersionControlSaveTests
             scene.Duration.Value += MediaTime.FromSeconds(1);
             editor.HistoryManager.Commit("Edit while hashing");
             HeadlessTestHelpers.Settle();
+            await TestShell.WaitForProjectWritesAsync();
             release.SetResult();
             await editor.WaitForMediaFingerprintsAsync();
             // The save wrote the scene file before the media were hashed, so it references no fingerprint file,
@@ -820,7 +821,8 @@ public class VersionControlSaveTests
         HeadlessTestHelpers.Settle();
         var editor = (EditViewModel)TestShell.Editor.SelectedTabItem.Value!.Context.Value;
         var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
-        await AddRectangleAsync(adder);
+        await TestShell.WaitForProjectWritesAsync();
+        using (editor.HistoryManager.SuppressRecording()) await AddRectangleAsync(adder);
         HeadlessTestHelpers.Settle();
 
         bool initialized = await GitTestSupport.InitializeCurrentProjectAsync(

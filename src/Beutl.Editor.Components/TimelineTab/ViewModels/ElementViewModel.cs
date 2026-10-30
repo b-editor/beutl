@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Reactive;
+﻿using System.Reactive;
 using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -33,7 +32,6 @@ public sealed partial class ElementViewModel : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<ElementViewModel>();
     private readonly CompositeDisposable _disposables = [];
-    private ImmutableHashSet<Guid>? _elementGroup;
     private readonly Subject<Unit> _thumbnailsInvalidatedSubject = new();
     private readonly Subject<Unit> _elementEditedSubject = new();
     private CancellationTokenSource? _thumbnailsCts;
@@ -48,6 +46,7 @@ public sealed partial class ElementViewModel : IDisposable
     // The proxy store/queue handlers marshal via Dispatcher.UIThread.Post, so a posted callback can
     // run after Dispose; they bail on this flag instead of touching disposed reactive state.
     private bool _isDisposed;
+    private bool _viewStateInitialized;
     private readonly Subject<(int Start, int End)> _visibleRangeSubject = new();
     private readonly IProxyStore? _proxyStore;
     private readonly IProxyJobQueue? _proxyJobQueue;
@@ -201,7 +200,8 @@ public sealed partial class ElementViewModel : IDisposable
 
         Scope = new ElementScopeViewModel(Model, this);
 
-        InitializeTransition();
+        _enterPart.AddTo(_disposables);
+        _exitPart.AddTo(_disposables);
         InitializeTrackMatte();
 
         IsThumbnailsKindAudio = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Audio)
@@ -210,8 +210,6 @@ public sealed partial class ElementViewModel : IDisposable
         IsThumbnailsKindVideo = ThumbnailsKind.Select(k => k == Engine.ThumbnailsKind.Video)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
-
-        InitializeThumbnails();
 
         _proxyStore = Timeline.EditorContext.GetService<IProxyStore>();
         _proxyJobQueue = Timeline.EditorContext.GetService<IProxyJobQueue>();
@@ -223,21 +221,19 @@ public sealed partial class ElementViewModel : IDisposable
             .Select(GetProxyStateText)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables)!;
+    }
+
+    internal void InitializeViewState()
+    {
+        if (_isDisposed || _viewStateInitialized) return;
+        _viewStateInitialized = true;
+        InitializeTransition();
+        InitializeThumbnails();
         InitializeProxyIndicator();
     }
 
     private void InitializeElementGroup()
     {
-        _elementGroup = Scene.Groups.FirstOrDefault(x => x.Contains(Model.Id.Value));
-
-        Scene.Groups.Attached += OnSetAttached;
-        Scene.Groups.Detached += OnSetDetached;
-        _disposables.Add(Disposable.Create(() =>
-        {
-            Scene.Groups.Attached -= OnSetAttached;
-            Scene.Groups.Detached -= OnSetDetached;
-        }));
-
         GroupSelectedElements.Subscribe(_ => OnGroupSelectedElements())
             .AddTo(_disposables);
 
@@ -349,7 +345,9 @@ public sealed partial class ElementViewModel : IDisposable
         HashSet<Guid> ids = DuplicateHelper.ExpandWithGroupSiblings(
             Timeline.SelectedElements.Select(item => item.Model.Id.Value), Scene.Groups);
 
-        if (_elementGroup is { } group)
+        // Group membership is only needed for an interaction. Per-element subscriptions make
+        // bulk split groups notify every timeline element for every newly created group.
+        if (Scene.Groups.FirstOrDefault(g => g.Contains(Model.Id.Value)) is { } group)
         {
             ids.UnionWith(group);
         }
@@ -574,22 +572,6 @@ public sealed partial class ElementViewModel : IDisposable
         IReadOnlyCollection<Guid> ids = GetEditableSelectedIdsOrSelf();
         if (ids.Count == 0) return;
         Timeline.EditorContext.GetRequiredService<IElementStructureService>().Ungroup(Scene, ids);
-    }
-
-    private void OnSetAttached(ImmutableHashSet<Guid> group)
-    {
-        if (group.Contains(Model.Id.Value))
-        {
-            _elementGroup = group;
-        }
-    }
-
-    private void OnSetDetached(ImmutableHashSet<Guid> group)
-    {
-        if (ReferenceEquals(_elementGroup, group))
-        {
-            _elementGroup = null;
-        }
     }
 
     private async Task OnCopy()

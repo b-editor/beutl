@@ -12,12 +12,14 @@ internal static partial class SlippableMedia
     private sealed class TargetCollector
     {
         private readonly Element _element;
+        private readonly Scene? _scene;
         private readonly IReadOnlySet<Element>? _timingPeers;
         private readonly bool _ignoreLoops;
         private readonly bool _forResize;
         private readonly IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? _timingRoles;
         private readonly IReadOnlySet<DrawableTimeController>? _reenabledControllers;
         private readonly Dictionary<MediaSource, MediaTime?> _sourceDurations;
+        private readonly Dictionary<(Type, Uri), MediaTime?>? _batchSourceDurations;
         private readonly List<Target> _targets = new();
         private readonly List<DrawableTimeController> _disabledFlowControllers = new();
         private readonly HashSet<object> _path = new();
@@ -31,19 +33,21 @@ internal static partial class SlippableMedia
         public TargetCollector(Element element, IReadOnlySet<Element>? timingPeers, bool ignoreLoops,
             IReadOnlyDictionary<Element, MediaTimeMapping.TrimRole>? timingRoles,
             IReadOnlySet<DrawableTimeController>? reenabledControllers = null, Dictionary<MediaSource, MediaTime?>? sourceDurations = null,
-            bool forResize = false)
+            bool forResize = false, Scene? contextScene = null, Dictionary<(Type, Uri), MediaTime?>? batchSourceDurations = null)
         {
             _element = element;
+            _scene = element.HierarchicalParent as Scene ?? contextScene;
             _timingPeers = timingPeers;
             _ignoreLoops = ignoreLoops;
             _forResize = forResize;
             _timingRoles = timingRoles;
             _reenabledControllers = reenabledControllers;
             _sourceDurations = sourceDurations ?? new(ReferenceEqualityComparer.Instance);
-            if (element.HierarchicalParent is Scene layerScene)
+            _batchSourceDurations = batchSourceDurations;
+            if (_scene is { } layerScene)
                 foreach (TimelineLayer layer in layerScene.Layers) _layers.TryAdd(layer.ZIndex.Value, layer);
             _hasSolo = _layers.Values.Any(layer => layer.IsSolo.Value);
-            Project? project = element.FindHierarchicalParent<Project>();
+            Project? project = element.FindHierarchicalParent<Project>() ?? _scene?.FindHierarchicalParent<Project>();
             _sampleRate = project.GetSampleRate();
         }
 
@@ -72,7 +76,8 @@ internal static partial class SlippableMedia
                 var enabled = new HashSet<DrawableTimeController>();
                 for (int i = 0; i < _disabledFlowControllers.Count; i++)
                     if ((state & (1 << i)) != 0) enabled.Add(_disabledFlowControllers[i]);
-                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, enabled, _sourceDurations);
+                var collector = new TargetCollector(_element, _timingPeers, _ignoreLoops, _timingRoles, enabled, _sourceDurations,
+                    contextScene: _scene, batchSourceDurations: _batchSourceDurations);
                 foreach (Target reenabled in collector.Collect())
                 {
                     Target[] owners = targetsByOffset[reenabled.Offset].ToArray();
@@ -96,6 +101,10 @@ internal static partial class SlippableMedia
         {
             if (source == null) return null;
             if (_sourceDurations.TryGetValue(source, out MediaTime? duration)) return duration;
+            // Split copies have distinct MediaSource objects for the same file. Reuse metadata only
+            // within this batch, rather than reopening a decoder for every generated fragment.
+            if (_batchSourceDurations != null && source.Uri is { } cachedUri
+                && _batchSourceDurations.TryGetValue((source.GetType(), cachedUri), out duration)) return duration;
             // All re-enabling states use the same pre-edit media. Keep only its
             // duration in this operation's cache so each reader is opened once
             // and its temporary resource is still disposed immediately.
@@ -111,6 +120,8 @@ internal static partial class SlippableMedia
                 _ => null
             };
             _sourceDurations.Add(source, duration);
+            if (_batchSourceDurations != null && source.Uri is { } uri)
+                _batchSourceDurations[(source.GetType(), uri)] = duration;
             return duration;
         }
 
@@ -277,6 +288,11 @@ internal static partial class SlippableMedia
                 case SceneSound sound:
                     _targets.Add(new Target(sound.OffsetPosition, sound.ReferencedScene.Value?.Duration.Value,
                         new MediaTimeMapping(_element, sound, sound.Speed, _controllers, _sampleRate, timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length.Value));
+                    break;
+                case SceneDrawable drawable:
+                    _targets.Add(new Target(drawable.OffsetPosition, drawable.ReferencedScene.Value?.Duration.Value,
+                        new MediaTimeMapping(_element, drawable, Property.CreateValue(100f), _controllers, 60,
+                            timingPeers: _timingPeers, timingRoles: _timingRoles, portalInput: portalInput), _element.Length.Value));
                     break;
                 case SoundGroup group:
                     foreach (Sound child in group.Children) CollectFrom(child);

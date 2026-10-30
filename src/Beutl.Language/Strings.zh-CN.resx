@@ -3600,4 +3600,73 @@ GetProperty&lt;T&gt;("path") 或 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="PreviewGuide_Preset" xml:space="preserve">
     <value>预设</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>按静音自动分割</value>
+  </data>
+  <data name="SilenceSplit_Threshold" xml:space="preserve">
+    <value>阈值 (dB)</value>
+  </data>
+  <data name="SilenceSplit_Minimum" xml:space="preserve">
+    <value>最短静音时长 (ms)</value>
+  </data>
+  <data name="SilenceSplit_Padding" xml:space="preserve">
+    <value>每侧留白 (ms)</value>
+  </data>
+  <data name="SilenceSplit_Mode" xml:space="preserve">
+    <value>应用模式</value>
+  </data>
+  <data name="SilenceSplit_SplitOnly" xml:space="preserve">
+    <value>仅分割</value>
+  </data>
+  <data name="SilenceSplit_Delete" xml:space="preserve">
+    <value>删除静音</value>
+  </data>
+  <data name="SilenceSplit_Ripple" xml:space="preserve">
+    <value>删除静音并前移</value>
+  </data>
+  <data name="SilenceSplit_Linked" xml:space="preserve">
+    <value>同时处理分组元素</value>
+  </data>
+  <data name="SilenceSplit_Apply" xml:space="preserve">
+    <value>应用到整个片段</value>
+  </data>
+  <data name="SilenceSplit_Analyzing" xml:space="preserve">
+    <value>正在分析波形…</value>
+  </data>
+  <data name="SilenceSplit_Summary" xml:space="preserve">
+    <value>{0} 个区间 · 共 {1:F2} 秒</value>
+  </data>
+  <data name="SilenceSplit_Failed" xml:space="preserve">
+    <value>无法完成静音分割：{0}</value>
+  </data>
+  <data name="SilenceSplit_Stale" xml:space="preserve">
+    <value>场景已更改。请刷新分析后再应用。</value>
+  </data>
+  <data name="SilenceSplit_LockedLinked" xml:space="preserve">
+    <value>分组中有元素被锁定。请解锁或关闭分组编辑。</value>
+  </data>
+  <data name="SilenceSplit_InvalidParameters" xml:space="preserve">
+    <value>请输入 −120 至 0 dB 的阈值、正数的最短时长和非负的保护时间。</value>
+  </data>
+  <data name="SilenceSplit_SelectAudio" xml:space="preserve">
+    <value>右键单击音频元素，然后选择“按静音自动分割”。</value>
+  </data>
+  <data name="SilenceSplit_ShortSegment" xml:space="preserve">
+    <value>在检测到的位置分割会使分组片段产生不足一帧的区间。请调整静音设置或关闭分组编辑。</value>
+  </data>
+  <data name="SilenceSplit_Preparing" xml:space="preserve">
+    <value>正在准备片段…</value>
+  </data>
+  <data name="SilenceSplit_Applying" xml:space="preserve">
+    <value>正在应用剪切…</value>
+  </data>
+  <data name="SilenceSplit_Saving" xml:space="preserve">
+    <value>正在保存…</value>
+  </data>
+  <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
+    <value>刷新以分析</value>
+  </data>
+  <data name="Clipboard_WaitingForSave" xml:space="preserve">
+    <value>正在等待保存完成…</value>
+  </data>
 </root>

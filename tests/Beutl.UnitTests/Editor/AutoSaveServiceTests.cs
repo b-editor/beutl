@@ -100,8 +100,9 @@ public class AutoSaveServiceTests
         });
     }
 
-    [Test]
-    public void AutoSave_WritesTheNewHalfOfASplitBeforeTheScene_SoTheSceneNeedsNoIncludeEntry()
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task AutoSave_WritesTheNewHalfOfASplitBeforeTheScene_SoTheSceneNeedsNoIncludeEntry(bool background)
     {
         var scene = new Scene { Uri = CreateUri("main.scene") };
         var element = new Element { Uri = CreateUri("clip.belm"), Length = { Value = MediaTime.FromSeconds(10) } };
@@ -111,11 +112,17 @@ public class AutoSaveServiceTests
         using var service = new AutoSaveService();
         var errors = new List<Exception>();
         using var errorSubscription = service.SaveError.Subscribe(errors.Add);
+        Task saving = Task.CompletedTask;
         using var saveSubscription = harness.Observer.Operations
             .Buffer(harness.History.StateChanged)
-            .Subscribe(operations => service.AutoSave(operations));
+            .Subscribe(operations =>
+            {
+                if (background) saving = service.AutoSaveAsync(operations);
+                else service.AutoSave(operations);
+            });
 
         new ElementStructureService(harness.History).Split(scene, [element], MediaTime.FromSeconds(4));
+        await saving;
 
         Element back = scene.Children.Single(child => child != element);
         JsonNode patterns = JsonNode.Parse(File.ReadAllText(scene.Uri.LocalPath))!["Elements"]!;
@@ -127,6 +134,14 @@ public class AutoSaveServiceTests
             Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Select(child => child.Id.Value),
                 Is.EquivalentTo(new[] { element.Id.Value, back.Id.Value }));
         });
+        harness.History.Undo();
+        await saving;
+        Assert.That(File.Exists(back.Uri!.LocalPath), Is.False);
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children.Single().Length.Value, Is.EqualTo(MediaTime.FromSeconds(10)));
+        harness.History.Redo();
+        await saving;
+        Assert.That(CoreSerializer.RestoreFromUri<Scene>(scene.Uri).Children, Has.Count.EqualTo(2));
+        Assert.That(errors, Is.Empty);
     }
 
     [Test]

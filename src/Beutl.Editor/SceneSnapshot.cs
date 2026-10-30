@@ -71,7 +71,7 @@ internal static partial class SceneSnapshot
     private static partial Regex GuidPattern();
 
     // Yields the project item, such as a scene, that holds each object an expression reads.
-    private static IEnumerable<CoreObject> EnumerateReferenceTargets(IHierarchical root)
+    internal static IEnumerable<CoreObject> EnumerateReferenceTargets(IHierarchical root)
     {
         var lookupRoot = root.FindHierarchicalRoot() as ICoreObject ?? root as ICoreObject;
         var visited = new HashSet<IHierarchical>(ReferenceEqualityComparer.Instance) { root };

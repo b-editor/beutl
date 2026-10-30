@@ -102,13 +102,14 @@ public partial class SourceVideo : IThumbnailsProvider
         RenderNodeRenderer? renderer = null;
         try
         {
-            resource = ToResource(preferProxy
+            // Creating the resource opens the media reader, which can block on metadata I/O.
+            resource = await RenderThread.Dispatcher.InvokeAsync(() => ToResource(preferProxy
                 ? new CompositionContext(MediaTime.Zero)
                 {
                     PreferProxy = true,
                     PreferredProxyPreset = preferredProxyPreset,
                 }
-                : CompositionContext.Default);
+                : CompositionContext.Default), DispatchPriority.Medium, cancellationToken);
 
             if (resource.Source is not { } source)
                 yield break;

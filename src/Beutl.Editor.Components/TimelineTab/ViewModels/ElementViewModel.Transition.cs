@@ -44,9 +44,6 @@ public sealed partial class ElementViewModel
 
     private void InitializeTransition()
     {
-        _enterPart.AddTo(_disposables);
-        _exitPart.AddTo(_disposables);
-
         // A boundary also moves when the element across it changes, and every edit reaches Scene.Edited.
         Observable.FromEventPattern(h => Scene.Edited += h, h => Scene.Edited -= h)
             .Select(_ => Unit.Default)

@@ -8,18 +8,70 @@ using Microsoft.Extensions.Logging;
 
 namespace Beutl.Editor;
 
+public readonly record struct AutoSaveProgress(IReadOnlyCollection<ChangeOperation> Operations, int Percentage, Exception? Error);
+
 public sealed class AutoSaveService : IDisposable
 {
     private readonly ILogger _logger = Log.CreateLogger<AutoSaveService>();
     private readonly Subject<Exception> _saveError = new();
+    private readonly Subject<AutoSaveProgress> _saveProgress = new();
     private bool _isDisposed;
 
     public IObservable<Exception> SaveError => _saveError.AsObservable();
+    public IObservable<AutoSaveProgress> SaveProgress => _saveProgress.AsObservable();
 
     public void AutoSave(IEnumerable<ChangeOperation> operations)
     {
         ThrowIfDisposed();
+        var (objects, detached) = Collect(operations);
+        SaveObjects(objects, detached);
+    }
 
+    public async Task AutoSaveAsync(IEnumerable<ChangeOperation> operations, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        ChangeOperation[] batch = operations.ToArray();
+        var (objects, detached) = Collect(batch);
+        // Await each file before capturing the scene's include patterns. All live-object reads,
+        // serializers and error notifications stay on the caller's document context.
+        int completed = 0, reported = -1;
+        Exception? error = null;
+        Report(0);
+        foreach (CoreObject obj in objects.OrderBy(obj => obj is Scene))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                if (IsDetachedFromProject(obj, detached))
+                {
+                    string? path = GetDeletedFilePath(obj);
+                    if (path != null) await Task.Run(() => { if (File.Exists(path)) File.Delete(path); });
+                }
+                else
+                {
+                    await CoreSerializer.StoreToUriAsync(obj, obj.Uri!);
+                }
+            }
+            catch (Exception ex)
+            {
+                error = ex;
+                _logger.LogError(ex, "An exception occurred while auto-saving the file.");
+                if (!_isDisposed) _saveError.OnNext(ex);
+            }
+            Report((int)((long)++completed * 100 / objects.Count));
+        }
+        Report(100);
+
+        void Report(int value)
+        {
+            if (_isDisposed || reported == value) return;
+            reported = value;
+            _saveProgress.OnNext(new(batch, value, error));
+        }
+    }
+
+    private static (HashSet<CoreObject> Objects, HashSet<CoreObject> Detached) Collect(IEnumerable<ChangeOperation> operations)
+    {
         HashSet<CoreObject> objectsToSave = [];
         HashSet<CoreObject> detachedCollectionItems = [];
 
@@ -36,7 +88,7 @@ public sealed class AutoSaveService : IDisposable
             }
         }
 
-        SaveObjects(objectsToSave, detachedCollectionItems);
+        return (objectsToSave, detachedCollectionItems);
     }
 
     // Internal as a test seam: tests save chosen objects without going through AutoSave.
@@ -77,15 +129,11 @@ public sealed class AutoSaveService : IDisposable
 
     private static void DeleteStoredFile(CoreObject obj)
     {
-        if (obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri)
-        {
-            var path = uri.LocalPath;
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
+        if (GetDeletedFilePath(obj) is { } path && File.Exists(path)) File.Delete(path);
     }
+
+    private static string? GetDeletedFilePath(CoreObject obj)
+        => obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri ? uri.LocalPath : null;
 
     internal static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
     {
@@ -140,6 +188,7 @@ public sealed class AutoSaveService : IDisposable
         if (_isDisposed) return;
 
         _saveError.Dispose();
+        _saveProgress.Dispose();
         _isDisposed = true;
     }
 

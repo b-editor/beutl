@@ -18,6 +18,39 @@ public static partial class CoreSerializer
         StoreToUriCore(obj, uri, mode, authorizedRootPath: null);
     }
 
+    // Auto-save captures this one file on the document thread. The worker owns only its JSON;
+    // serializers, URI changes and version bookkeeping never run against a live background model.
+    internal static async Task StoreToUriAsync(CoreObject obj, Uri uri)
+    {
+        if (obj.SuppressedStorageSource != null)
+        {
+            StoreToUri(obj, uri, CoreSerializationMode.Write);
+            return;
+        }
+        if (!uri.IsFile) throw new JsonException();
+        Uri? previousUri = obj.Uri;
+        try
+        {
+            if (obj is not Project && FindProject(obj) is { } project)
+                RaiseProjectFile(project, GetMinAppVersionToWrite(obj));
+            obj.Uri = uri;
+            JsonObject json = CreateStoredJson(obj, new CoreSerializerOptions
+            {
+                BaseUri = uri,
+                Mode = CoreSerializationMode.Write
+            }, out string? minAppVersion);
+            bool isProject = obj is Project;
+            await Task.Run(() => WriteJsonAtomically(uri.LocalPath, isProject,
+                writer => json.WriteTo(writer, JsonHelper.SerializerOptions)));
+            RecordStoredVersion(obj, uri, minAppVersion);
+        }
+        catch
+        {
+            obj.Uri = previousUri;
+            throw;
+        }
+    }
+
     internal static void StoreToUri<T>(
         T obj,
         Uri uri,
@@ -120,27 +153,10 @@ public static partial class CoreSerializer
                 isCompatibilityGate: obj is Project,
                 writer =>
                 {
-                    JsonObject json = SerializeToJsonObject(obj, options);
-                    if (IsRootFile(obj))
-                    {
-                        // Read after serializing: a project records what the files it wrote meanwhile require.
-                        minAppVersion = GetMinAppVersionToWrite(obj);
-                        // Only a project file records the version that saved it: a scene or element file that
-                        // a newer version saves unchanged stays byte for byte as it was.
-                        WriteVersionFields(json, obj is Project ? BeutlApplication.Version : null, minAppVersion);
-                    }
-
+                    JsonObject json = CreateStoredJson(obj, options, out minAppVersion);
                     json.WriteTo(writer, JsonHelper.SerializerOptions);
                 });
-            if (minAppVersion is not null)
-            {
-                RootFileVersions.RaiseMinAppVersion(obj, minAppVersion);
-                if (obj is Project savedProject)
-                {
-                    RootFileVersions.RecordAppVersion(savedProject, BeutlApplication.Version);
-                    RememberProjectFile(savedProject, uri.LocalPath, minAppVersion);
-                }
-            }
+            RecordStoredVersion(obj, uri, minAppVersion);
 
             // Saved with its files, as an explicit save does; an auto-save writes the file alone after every edit.
             if (obj is Project projectWithFiles && storeMode.HasFlag(CoreSerializationMode.SaveReferencedObjects))
@@ -151,6 +167,27 @@ public static partial class CoreSerializer
         else
         {
             throw new JsonException();
+        }
+    }
+
+    private static JsonObject CreateStoredJson(ICoreSerializable obj, CoreSerializerOptions options, out string? minAppVersion)
+    {
+        JsonObject json = SerializeToJsonObject(obj, options);
+        // Read after serializing: a project records what the files it wrote meanwhile require.
+        minAppVersion = IsRootFile(obj) ? GetMinAppVersionToWrite(obj) : null;
+        if (minAppVersion != null)
+            WriteVersionFields(json, obj is Project ? BeutlApplication.Version : null, minAppVersion);
+        return json;
+    }
+
+    private static void RecordStoredVersion(ICoreSerializable obj, Uri uri, string? minAppVersion)
+    {
+        if (minAppVersion is null) return;
+        RootFileVersions.RaiseMinAppVersion(obj, minAppVersion);
+        if (obj is Project savedProject)
+        {
+            RootFileVersions.RecordAppVersion(savedProject, BeutlApplication.Version);
+            RememberProjectFile(savedProject, uri.LocalPath, minAppVersion);
         }
     }
 

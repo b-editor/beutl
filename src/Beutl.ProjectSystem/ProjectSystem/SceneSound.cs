@@ -11,7 +11,7 @@ using Beutl.Media.Source;
 namespace Beutl.ProjectSystem;
 
 [Display(Name = nameof(AudioStrings.SceneSound), ResourceType = typeof(AudioStrings))]
-public sealed partial class SceneSound : Sound
+public sealed partial class SceneSound : Sound, ISplittable
 {
     public SceneSound()
     {
@@ -20,6 +20,11 @@ public sealed partial class SceneSound : Sound
 
     [Display(Name = nameof(AudioStrings.SceneSound_ReferencedScene), ResourceType = typeof(AudioStrings))]
     public IExpressionProperty<Scene?> ReferencedScene { get; } = Property.CreateReference<Scene?>();
+
+    public void NotifySplitted(bool backward, MediaTime startDelta, MediaTime durationDelta)
+    {
+        if (backward) OffsetPosition.Value += startDelta;
+    }
 
     public override void Compose(AudioContext context, Sound.Resource resource)
     {
@@ -33,6 +38,7 @@ public sealed partial class SceneSound : Sound
         if (r.ReferencedScene == null)
         {
             context.Clear();
+            AudioReadScope.AddUnavailableSource(context, TimeRange.Value);
             return;
         }
 
@@ -94,6 +100,7 @@ public sealed partial class SceneSound : Sound
             var compositor = _resource?._compositor;
             if (scene == null || compositor == null)
             {
+                AudioReadScope.ReportFailure();
                 return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
             }
 

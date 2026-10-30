@@ -1,0 +1,747 @@
+﻿using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
+using Beutl.Animation;
+using Beutl.Audio;
+using Beutl.Audio.Composing;
+using Beutl.Editor.Components.TimelineTab.ViewModels;
+using Beutl.Editor.Services;
+using Beutl.Engine;
+using Beutl.Media;
+using Beutl.Media.Decoding;
+using Beutl.Media.Source;
+using Beutl.ProjectSystem;
+using Beutl.UnitTests.Engine.Graphics.Rendering;
+using Beutl.UnitTests.TestInfrastructure;
+
+namespace Beutl.UnitTests.Editor.Services;
+
+[TestFixture]
+public class SilenceSplitTests
+{
+    private static MediaTime Seconds(double value) => MediaTime.FromSeconds(value);
+    private static TimeRange Range(double start, double end) => TimeRange.FromRange(Seconds(start), Seconds(end));
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Analysis_ObservesReferencedSceneEditsThroughSoundGroups(bool grouped)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        using var h = new SceneHistoryHarness("silence-referenced-edit");
+        var referenced = new Scene { Duration = { Value = Seconds(2) } };
+        var child = new Element { Length = { Value = Seconds(2) } };
+        var sound = new SourceSound
+        {
+            Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile()) },
+            Gain = { Value = 0 }
+        };
+        child.Objects.Add(sound);
+        referenced.Children.Add(child);
+        var element = h.AddElement(Seconds(0), Seconds(2));
+        var embed = new SceneSound { ReferencedScene = { Value = referenced }, TimeRange = { Value = Range(0, 2) } };
+        if (grouped)
+        {
+            var group = new SoundGroup();
+            group.Children.Add(embed);
+            element.Objects.Add(group);
+        }
+        else element.Objects.Add(embed);
+        using (var model = new SilenceSplitViewModel(h.Scene, element, h.History))
+        {
+            await model.AnalyzeAsync();
+            Assert.That(model.CanApply.Value, Is.True, model.Status.Value);
+            sound.Gain.Value = 100;
+            Assert.That(model.CanApply.Value, Is.False);
+            Assert.That(await model.ApplyAsync(), Is.False);
+            Assert.That(h.Scene.Children, Is.EqualTo(new[] { element }));
+        }
+        // Refreshing re-evaluates the now-audible source; normal editing remains available.
+        using var refreshed = new SilenceSplitViewModel(h.Scene, element, h.History);
+        await refreshed.AnalyzeAsync();
+        Assert.That(refreshed.Ranges, Is.Empty);
+    }
+
+    [TestCase(0, 100, false, true)]
+    [TestCase(0, 100, true, true)]
+    [TestCase(28, 100, false, true)]
+    [TestCase(28, 200, false, false)]
+    [TestCase(30, 100, true, false)]
+    [TestCase(40, 100, false, true)]
+    public async Task Analysis_ChecksOnlyTheReferencedWindow(double offset, float speed, bool inGroup, bool readable)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(TestMediaHelper.CreateTestAudioFile(durationSeconds: 40)));
+        using var h = new SceneHistoryHarness("silence-reference-window");
+        var nested = new Scene(100, 100, "trimmed") { Start = { Value = Seconds(5) }, Duration = { Value = Seconds(40) } };
+        var good = new SourceSound { Source = { Value = source }, Gain = { Value = 0 }, TimeRange = { Value = Range(5, 35) } };
+        var missing = new SourceSound { Source = { Value = new SoundSource() }, TimeRange = { Value = Range(35, 45) } };
+        if (inGroup)
+        {
+            var group = new SoundGroup();
+            group.Children.Add(good);
+            group.Children.Add(missing);
+            var child = new Element { Start = { Value = Seconds(5) }, Length = { Value = Seconds(40) } };
+            child.Objects.Add(group);
+            nested.Children.Add(child);
+        }
+        else
+        {
+            foreach (var sound in new[] { good, missing })
+            {
+                var child = new Element { Start = { Value = sound.TimeRange.Value.Start }, Length = { Value = sound.TimeRange.Value.Duration } };
+                child.Objects.Add(sound);
+                nested.Children.Add(child);
+            }
+        }
+        var element = h.AddElement(Seconds(7), Seconds(2));
+        element.Objects.Add(new SceneSound { ReferencedScene = { Value = nested }, OffsetPosition = { Value = Seconds(offset) }, Speed = { Value = speed } });
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        await model.AnalyzeAsync();
+        Assert.That(model.CanApply.Value, Is.EqualTo(readable), model.Status.Value);
+        Assert.That(model.Ranges.Count, Is.EqualTo(readable ? 1 : 0));
+    }
+
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    public async Task Analysis_DistinguishesFailedReadsFromEndOfStream(bool nested, bool fail)
+    {
+        using var h = new SceneHistoryHarness("silence-decode");
+        string path = Path.Combine(h.BasePath, "audio.silence-test");
+        File.WriteAllBytes(path, []);
+        var decoder = new ReadFailureDecoder(path, fail);
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(path));
+            var element = h.AddElement(Seconds(0), Seconds(3));
+            var sound = new SourceSound { Source = { Value = source }, TimeRange = { Value = Range(0, 3) } };
+            if (nested)
+            {
+                var scene = new Scene(100, 100, "nested") { Duration = { Value = Seconds(3) } };
+                var child = new Element { Length = { Value = Seconds(3) } };
+                var group = new SoundGroup();
+                group.Children.Add(sound);
+                child.Objects.Add(group);
+                scene.Children.Add(child);
+                element.Objects.Add(new SceneSound { ReferencedScene = { Value = scene } });
+            }
+            else element.Objects.Add(sound);
+            var video = h.AddElement(Seconds(0), Seconds(3), 1);
+            h.Scene.Groups.Add([element.Id.Value, video.Id.Value]);
+            using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+            await model.AnalyzeAsync();
+            Assert.That(decoder.SuccessfulReads, Is.GreaterThan(0));
+            Assert.That(decoder.FailedReads > 0, Is.EqualTo(fail));
+            Assert.That(model.CanApply.Value, Is.EqualTo(!fail), model.Status.Value);
+            Assert.That(model.Ranges.Count, Is.EqualTo(fail ? 0 : 1));
+            if (fail)
+            {
+                model.ModeIndex.Value = (int)SilenceSplitMode.DeleteSilence;
+                await model.ApplyAsync();
+                Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { element, video }));
+            }
+
+            // Normal playback still uses its silent fallback, even after analysis failed.
+            using var compositor = new SceneCompositor(h.Scene);
+            using var composer = new Composer();
+            using var output = composer.Compose(Range(1, 2), compositor.EvaluateAudio(Range(1, 2)));
+            Assert.That(output, Is.Not.Null);
+            Assert.That(output!.GetChannelData(0).ToArray(), Is.All.Zero);
+        }
+        finally { DecoderRegistry.Unregister(decoder); }
+    }
+
+    [TestCase(false, false, false)]
+    [TestCase(true, false, false)]
+    [TestCase(false, true, false)]
+    [TestCase(false, false, true)]
+    public async Task Analysis_DistinguishesOfflineReferencedAudioFromDisabledOrMutedAudio(bool inGroup, bool disabled, bool muted)
+    {
+        using var h = new SceneHistoryHarness("silence-offline");
+        var nested = new Scene(100, 100, "offline") { Duration = { Value = Seconds(2) } };
+        var child = new Element { Length = { Value = Seconds(2) } };
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(Path.Combine(Path.GetTempPath(), $"missing-{Guid.NewGuid():N}.wav")));
+        var missing = new SourceSound { Source = { Value = source }, IsEnabled = { Value = !disabled }, TimeRange = { Value = Range(0, 2) } };
+        if (inGroup)
+        {
+            var group = new SoundGroup();
+            group.Children.Add(missing);
+            child.Objects.Add(group);
+        }
+        else child.Objects.Add(missing);
+        nested.Children.Add(child);
+        nested.Layers.Add(new TimelineLayer { ZIndex = { Value = 0 }, IsAudioMuted = { Value = muted } });
+        var element = h.AddElement(Seconds(0), Seconds(2));
+        element.Objects.Add(new SceneSound { ReferencedScene = { Value = nested } });
+        var video = h.AddElement(Seconds(0), Seconds(2), 1);
+        h.Scene.Groups.Add([element.Id.Value, video.Id.Value]);
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        await model.AnalyzeAsync();
+        Assert.That(model.CanApply.Value, Is.EqualTo(disabled || muted));
+        Assert.That(model.Ranges.Count, Is.EqualTo(disabled || muted ? 1 : 0));
+    }
+
+    [Test]
+    public void Preview_TenHourRecordingCanZoomAndPanWithoutChangingDetection()
+    {
+        using var h = new SceneHistoryHarness("silence-long");
+        var element = h.AddElement(Seconds(0), Seconds(36000));
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        var chunks = Enumerable.Range(0, 1800000).Select(i => new WaveformChunk(i, -0.5f, 0.5f)).ToArray();
+        chunks[^1] = new(chunks.Length - 1, -0.8f, 0.9f);
+        model.SetWaveform(chunks);
+        Assert.That(model.PreviewChunks, Has.Count.EqualTo(1200));
+        Assert.That(model.PreviewChunks[^1].MaxValue, Is.EqualTo(0.9f));
+        Assert.That(model.Ranges, Is.Empty);
+        var ranges = model.Ranges;
+        while (model.CanZoomIn) model.ZoomPreview(true);
+        model.PanPreview(36000);
+        Assert.That(model.PreviewRange, Is.EqualTo(Range(35999, 36000)));
+        Assert.That(model.PreviewChunks, Has.Count.EqualTo(50));
+        Assert.That(model.PreviewChunks[^1].MaxValue, Is.EqualTo(0.9f));
+        model.ZoomPreview(false);
+        Assert.That(model.PreviewRange, Is.EqualTo(Range(35998, 36000)));
+        model.PanPreview(-1);
+        Assert.That(model.PreviewRange, Is.EqualTo(Range(0, 2)));
+        model.ResetPreview();
+        Assert.That(model.PreviewRange, Is.EqualTo(Range(0, 36000)));
+        Assert.That(model.PreviewChunks[^1].MaxValue, Is.EqualTo(0.9f));
+        Assert.That(model.Ranges, Is.SameAs(ranges), "navigation does not change the full-clip cut plan");
+    }
+
+    [Test]
+    public async Task Analysis_ReportsProgressWithoutAllowingPartialApplication()
+    {
+        using var h = new SceneHistoryHarness("silence-progress");
+        var element = h.AddElement(Seconds(0), Seconds(3));
+        element.Objects.Add(new SceneSound { ReferencedScene = { Value = new Scene(100, 100, "empty") } });
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        var progress = new List<int>();
+        using var subscription = model.Progress.Subscribe(value =>
+        {
+            progress.Add(value);
+            Assert.That(model.CanApply.Value, Is.False);
+        });
+        await model.AnalyzeAsync();
+        Assert.That(progress, Is.Ordered);
+        Assert.That(progress, Has.Some.InRange(1, 99));
+        Assert.That(progress[^1], Is.EqualTo(100));
+        Assert.That(model.CanApply.Value, Is.True);
+    }
+
+    [TestCase(4.01, true, true)]
+    [TestCase(4.04, true, false)]
+    [TestCase(4, true, false)]
+    [TestCase(4.01, false, false)]
+    public async Task Apply_ReportsUnsplittableLinkedBoundaryWithoutPartialEdits(double videoEnd, bool linked, bool unsupported)
+    {
+        using var h = new SceneHistoryHarness("silence-linked-boundary");
+        var audio = h.AddElement(Seconds(0), Seconds(10));
+        var video = h.AddElement(Seconds(0), Seconds(videoEnd), 1);
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+        var service = new SilenceSplitService(h.History);
+        if (unsupported)
+        {
+            Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ApplyAsync(h.Scene, audio, [Range(3, 4)], SilenceSplitMode.RippleDelete, linked));
+            Assert.That(h.History.UndoCount, Is.EqualTo(before));
+            Assert.That(h.History.HasPendingOperations, Is.False);
+            Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video }));
+            Assert.That(audio.Length.Value, Is.EqualTo(Seconds(10)));
+            Assert.That(video.Length.Value, Is.EqualTo(Seconds(videoEnd)));
+        }
+        else
+        {
+            await service.ApplyAsync(h.Scene, audio, [Range(3, 4)], SilenceSplitMode.RippleDelete, linked);
+            Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(video.Length.Value, Is.EqualTo(Seconds(linked ? 3 : videoEnd)));
+        }
+    }
+
+    [TestCase(1, 1000, true, false)]
+    [TestCase(100, 0, true, true)]
+    [TestCase(100, 0, false, false)]
+    public async Task Analysis_UsesTheElementsComposedAudio(float gain, float groupGain, bool groupEnabled, bool silent)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        string path = TestMediaHelper.CreateTestAudioFile();
+        var source = new SoundSource();
+        source.ReadFrom(new Uri(path));
+        using var h = new SceneHistoryHarness("silence-flow");
+        var element = h.AddElement(Seconds(0), Seconds(2));
+        element.Objects.Add(new SourceSound { Source = { Value = source }, Gain = { Value = gain } });
+        element.Objects.Add(new SoundGroup { Gain = { Value = groupGain }, IsEnabled = { Value = groupEnabled } });
+        h.AddElement(Seconds(0), Seconds(2), 1).Objects.Add(new SourceSound { Source = { Value = source } });
+        using var model = new SilenceSplitViewModel(h.Scene, element, h.History);
+        await model.AnalyzeAsync();
+        Assert.That(model.Ranges.Count, Is.EqualTo(silent ? 1 : 0));
+    }
+
+    [TestCase(3.5)]
+    [TestCase(6)]
+    public async Task Ripple_KeepsStaggeredLinkedElementsInSync(double videoStart)
+    {
+        using var h = new SceneHistoryHarness("silence-ripple-sync");
+        var audio = h.AddElement(Seconds(0), Seconds(10));
+        var video = h.AddElement(Seconds(videoStart), Seconds(10 - videoStart), 1);
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        h.History.Commit("Setup");
+        await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio,
+            SilenceSplitService.Plan(h.Scene, audio, [Range(3, 4)]), SilenceSplitMode.RippleDelete, true);
+        var lastAudio = h.Scene.Children.Where(e => e.ZIndex.Value == 0).OrderBy(e => e.Start.Value).Last();
+        var lastVideo = h.Scene.Children.Where(e => e.ZIndex.Value == 1).OrderBy(e => e.Start.Value).Last();
+        Assert.That(lastVideo.Range.End, Is.EqualTo(lastAudio.Range.End));
+        h.History.Undo();
+        Assert.That(video.Start.Value, Is.EqualTo(Seconds(videoStart)));
+        Assert.That(video.Range.End, Is.EqualTo(Seconds(10)));
+    }
+
+    [TestCase(false)]
+    [TestCase(true)]
+    public async Task Ripple_PreservesOtherContentAndUsesTheSameLockBoundaryAcrossLayers(bool locked)
+    {
+        using var h = new SceneHistoryHarness("silence-ripple-content");
+        var audio = h.AddElement(Seconds(0), Seconds(10));
+        var video = h.AddElement(Seconds(3.5), Seconds(6.5), 1);
+        var other = h.AddElement(Seconds(3.2), Seconds(0.3), 1);
+        other.IsLocked.Value = locked;
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        h.History.Commit("Setup");
+        await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio, [Range(3, 4)], SilenceSplitMode.RippleDelete, true);
+        var lastAudio = h.Scene.Children.Where(e => e.ZIndex.Value == 0).OrderBy(e => e.Start.Value).Last();
+        var lastVideo = h.Scene.Children.Where(e => e.ZIndex.Value == 1).OrderBy(e => e.Start.Value).Last();
+        Assert.That(lastVideo.Range.End, Is.EqualTo(lastAudio.Range.End));
+        Assert.That(lastVideo.Start.Value, Is.EqualTo(other.Range.End));
+        Assert.That(other.Start.Value, Is.EqualTo(Seconds(locked ? 3.2 : 3)));
+        h.History.Undo();
+        Assert.That(other.Start.Value, Is.EqualTo(Seconds(3.2)));
+        Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video, other }));
+    }
+
+    [Test]
+    public async Task Ripple_RestartsAccumulationAfterALockedLinkedLayer()
+    {
+        using var h = new SceneHistoryHarness("silence-lock-barrier");
+        var audio = h.AddElement(Seconds(0), Seconds(20));
+        var video = h.AddElement(Seconds(0), Seconds(4), 1);
+        var locked = h.AddElement(Seconds(6), Seconds(1), 1);
+        locked.IsLocked.Value = true;
+        var follower = h.AddElement(Seconds(11), Seconds(9), 1);
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        h.History.Commit("Setup");
+        await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio, [Range(3, 4), Range(8, 9)], SilenceSplitMode.RippleDelete, true);
+        Assert.That(h.Scene.Children.Where(e => e.ZIndex.Value == 0).Select(e => e.Start.Value),
+            Is.EquivalentTo(new[] { Seconds(0), Seconds(3), Seconds(8) }));
+        Assert.That(locked.Start.Value, Is.EqualTo(Seconds(6)));
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(10)), "only the gap after the shared lock moves this clip");
+        h.History.Undo();
+        Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video, locked, follower }));
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(11)));
+    }
+
+    [Test]
+    public void Detection_ProtectsSpeechAndClipEdges_AndTreatsMissingBinsAsUnknown()
+    {
+        float[] peaks = [0, 0, 0.5f, 0, 0, 0, 0, 0.5f, 0, 0];
+        var chunks = peaks.Select((peak, i) => new WaveformChunk(i, -peak, peak)).ToArray();
+        Assert.That(SilenceDetector.Detect(chunks, Seconds(1), -40, Seconds(0.2), Seconds(0.1)),
+            Is.EqualTo(new[] { Range(0, 0.1), Range(0.4, 0.6), Range(0.9, 1) }));
+        chunks[4] = new WaveformChunk(4, float.NaN, float.NaN);
+        Assert.That(SilenceDetector.Detect(chunks, Seconds(1), -40, Seconds(0.3), Seconds(0)), Is.Empty);
+    }
+
+    [Test]
+    public void Detection_UsesDecibelsAndMinimumBeforePadding_AndRetainsBriefPeaks()
+    {
+        var chunks = Enumerable.Range(0, 50).Select(i => new WaveformChunk(i, -0.005f, 0.005f)).ToArray();
+        Assert.That(SilenceDetector.Detect(chunks, Seconds(1), -50, Seconds(0.3), Seconds(0.1)), Is.Empty);
+        Assert.That(SilenceDetector.Detect(chunks, Seconds(1), -40, Seconds(0.3), Seconds(0.1)), Is.EqualTo(new[] { Range(0, 1) }));
+        chunks[25] = new WaveformChunk(25, 0, 0.1f);
+        Assert.That(SilenceDetector.Detect(chunks, Seconds(1), -40, Seconds(0.3), Seconds(0.1)),
+            Is.EqualTo(new[] { Range(0, 0.4), Range(0.62, 1) }));
+    }
+
+    [Test]
+    public void ThirtyMinuteEnvelope_RecalculatesWithoutReadingAudio()
+    {
+        var chunks = Enumerable.Range(0, 90000).Select(i => new WaveformChunk(i, 0, i % 500 < 100 ? 0 : 0.5f)).ToArray();
+        var watch = Stopwatch.StartNew();
+        var result = SilenceDetector.Detect(chunks, Seconds(1800), -40, Seconds(0.3), Seconds(0.1));
+        watch.Stop();
+        TestContext.Out.WriteLine($"30 minute envelope: {watch.Elapsed.TotalMilliseconds:F1} ms");
+        Assert.That(result, Has.Count.EqualTo(180));
+        Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(3)));
+    }
+
+    [TestCase(SilenceSplitMode.SplitOnly, true, 10)]
+    [TestCase(SilenceSplitMode.DeleteSilence, true, 6)]
+    [TestCase(SilenceSplitMode.RippleDelete, true, 6)]
+    [TestCase(SilenceSplitMode.RippleDelete, false, 4)]
+    public async Task Apply_CutsLinkedClipsAtAbsoluteTimes_PreservesOffsets_AndUndoesOnce(SilenceSplitMode mode, bool linked, int parts)
+    {
+        using var h = new SceneHistoryHarness("silence", duration: Seconds(60));
+        Element audio = h.AddElement(Seconds(10), Seconds(10));
+        audio.Objects.Add(new SourceSound());
+        Element video = h.AddElement(Seconds(10), Seconds(10), 1);
+        video.Objects.Add(new SceneSound { ReferencedScene = { Value = new Scene(100, 100, "nested") { Duration = { Value = Seconds(60) } } } });
+        var group = System.Collections.Immutable.ImmutableHashSet.Create(audio.Id.Value, video.Id.Value);
+        h.Scene.Groups.Add(group);
+        Element follower = h.AddElement(Seconds(22), Seconds(2));
+        Element otherLayer = h.AddElement(Seconds(22), Seconds(2), 2);
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+        var service = new SilenceSplitService(h.History);
+        var ranges = SilenceSplitService.Plan(h.Scene, audio, [Range(2, 3), Range(6, 8)]);
+        await service.ApplyAsync(h.Scene, audio, ranges, mode, linked);
+        Assert.Multiple(() =>
+        {
+            Assert.That(h.Scene.Children.Count, Is.EqualTo(parts + 2));
+            Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
+            Assert.That(follower.Start.Value, Is.EqualTo(Seconds(mode == SilenceSplitMode.RippleDelete ? 19 : 22)));
+            Assert.That(otherLayer.Start.Value, Is.EqualTo(Seconds(22)));
+            Assert.That(h.Scene.Children.Where(e => e.ZIndex.Value == 0 && e != follower)
+                .OrderBy(e => e.Start.Value).Last().Objects.OfType<SourceSound>().Single().OffsetPosition.Value, Is.EqualTo(Seconds(8)));
+            if (linked)
+                Assert.That(h.Scene.Children.Where(e => e.ZIndex.Value == 1).OrderBy(e => e.Start.Value).Last()
+                    .Objects.OfType<SceneSound>().Single().OffsetPosition.Value, Is.EqualTo(Seconds(8)));
+            else Assert.That(video.Length.Value, Is.EqualTo(Seconds(10)));
+        });
+        h.History.Undo();
+        Assert.Multiple(() =>
+        {
+            Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { audio, video, follower, otherLayer }));
+            Assert.That(audio.Length.Value, Is.EqualTo(Seconds(10)));
+            Assert.That(video.Length.Value, Is.EqualTo(Seconds(10)));
+            Assert.That(follower.Start.Value, Is.EqualTo(Seconds(22)));
+            Assert.That(h.Scene.Groups.Single(), Is.EquivalentTo(group));
+        });
+        h.History.Redo();
+        Assert.That(h.Scene.Children.Count, Is.EqualTo(parts + 2));
+    }
+
+    [TestCase(null, false, false)]
+    [TestCase(null, true, false)]
+    [TestCase(SilenceSplitMode.SplitOnly, false, false)]
+    [TestCase(SilenceSplitMode.SplitOnly, true, false)]
+    [TestCase(SilenceSplitMode.DeleteSilence, false, false)]
+    [TestCase(SilenceSplitMode.DeleteSilence, true, false)]
+    [TestCase(SilenceSplitMode.RippleDelete, false, false)]
+    [TestCase(SilenceSplitMode.RippleDelete, true, false)]
+    [TestCase(SilenceSplitMode.SplitOnly, false, true)]
+    [TestCase(SilenceSplitMode.SplitOnly, true, true)]
+    public async Task NestedSounds_KeepTheirSourcePositionsAfterCutsAndUndo(SilenceSplitMode? mode, bool animated, bool anchoredGroup)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        using var h = new SceneHistoryHarness("silence-nested-cuts");
+        var project = new Project { SampleRate = { Value = 44100 }, Items = { h.Scene } };
+        _ = new BeutlApplication { Project = { Value = project } };
+        Element audio = h.AddElement(Seconds(10), Seconds(10));
+        var source = new SourceSound
+        {
+            Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(durationSeconds: 30)) },
+            OffsetPosition = { Value = Seconds(1) },
+            Speed = { Value = 200 }
+        };
+        var referenced = new Scene { Duration = { Value = Seconds(30) } };
+        referenced.Children.Add(new Element { Length = { Value = Seconds(20) }, Objects = { new SourceSound { OffsetPosition = { Value = Seconds(3) } } } });
+        project.Items.Add(referenced);
+        var sceneSound = new SceneSound
+        {
+            ReferencedScene = { Value = referenced },
+            OffsetPosition = { Value = Seconds(2) },
+            Speed = { Value = 50 }
+        };
+        if (animated)
+        {
+            source.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(useGlobalClock: false));
+            sceneSound.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(useGlobalClock: true));
+        }
+        var innerGroup = new SoundGroup { Children = { sceneSound } };
+        audio.Objects.Add(new SoundGroup { Children = { source, innerGroup } });
+        innerGroup.IsTimeAnchor.Value = anchoredGroup;
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+
+        if (mode is { } selected)
+            await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio, [Range(13, 14), Range(16, 17)], selected, false);
+        else
+            new ElementStructureService(h.History).Split(h.Scene, [audio], Seconds(17));
+
+        Element tail = h.Scene.Children.MaxBy(e => e.Start.Value)!;
+        var group = (SoundGroup)tail.Objects.Single();
+        var backSource = (SourceSound)group.Children[0];
+        var backScene = (SceneSound)((SoundGroup)group.Children[1]).Children.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(tail.Start.Value, Is.EqualTo(Seconds(mode == SilenceSplitMode.RippleDelete ? 15 : 17)));
+            Assert.That(backSource.OffsetPosition.Value.ToSeconds(), Is.EqualTo(animated ? 10.45 : 15).Within(0.005));
+            Assert.That(backScene.OffsetPosition.Value.ToSeconds(), Is.EqualTo(anchoredGroup ? 2 : animated ? 16 : 5.5).Within(0.005));
+            Assert.That(((SourceSound)backScene.ReferencedScene.Value!.Children.Single().Objects.Single()).OffsetPosition.Value,
+                Is.EqualTo(Seconds(3)), "Splitting a reference must not shift sources inside its scene.");
+            Assert.That(source.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
+            Assert.That(sceneSound.OffsetPosition.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
+        });
+        h.History.Undo();
+        Assert.That(h.Scene.Children, Is.EqualTo(new[] { audio }));
+        Assert.That(audio.Length.Value, Is.EqualTo(Seconds(10)));
+        h.History.Redo();
+        Assert.That(h.Scene.Children, Does.Contain(tail));
+        Assert.That(backSource.OffsetPosition.Value.ToSeconds(), Is.EqualTo(animated ? 10.45 : 15).Within(0.005));
+    }
+
+    [TestCase(360, true)]
+    [TestCase(8445, false)]
+    [TestCase(8445, true)]
+    public async Task Apply_LongRecordingMovesEachFollowerOnceAndUndoesOnce(int silenceCount, bool linked)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        double duration = silenceCount == 360 ? 1800 : 21600;
+        using var h = new SceneHistoryHarness("silence-batch", duration: Seconds(duration + 20));
+        var audio = h.AddElement(Seconds(10), Seconds(duration));
+        TrimTestMedia.AddMedia(audio, nameof(SourceSound), 100, durationSeconds: (int)duration);
+        Element? video = null;
+        if (linked)
+        {
+            video = h.AddElement(Seconds(10), Seconds(duration), 1);
+            TrimTestMedia.AddMedia(video, nameof(Beutl.Graphics.SourceVideo), 100, durationSeconds: (int)duration);
+            h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        }
+        var follower = h.AddElement(Seconds(duration + 12), Seconds(2));
+        Element[] original = h.Scene.Children.ToArray();
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+        int moves = -1;
+        using var subscription = follower.Start.GetObservable().Subscribe(_ => moves++);
+        double step = silenceCount == 360 ? 5 : 2.5;
+        var ranges = Enumerable.Range(0, silenceCount).Select(i => Range(13 + i * step, 14 + i * step)).ToArray();
+        var progress = new RecordingProgress();
+        var watch = Stopwatch.StartNew();
+        Assert.That(await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio, ranges, SilenceSplitMode.RippleDelete, linked,
+            progress: progress), Is.True);
+        watch.Stop();
+        Assert.That(progress.Values, Is.Ordered.And.Unique);
+        Assert.That(progress.Values, Has.Count.InRange(3, 101), "progress must not grow with the number of cuts");
+        Assert.That(progress.Values[0], Is.Zero);
+        Assert.That(progress.Values[^1], Is.EqualTo(100));
+        TestContext.Out.WriteLine($"Apply {duration / 60} minutes / {silenceCount} silences / linked={linked}: {watch.Elapsed.TotalMilliseconds:F1} ms; follower moves: {moves}");
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(duration + 12 - silenceCount)));
+        Assert.That(h.Scene.Children, Has.Count.EqualTo((silenceCount + 1) * (linked ? 2 : 1) + 1));
+        Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
+        int appliedMoves = moves;
+        Assert.That(h.History.GetLatestCommittedOperations(h.History.Entries.Last().TransactionId).Count, Is.LessThan(16),
+            "batch history should not grow with the number of generated fragments");
+        h.History.Undo();
+        Assert.That(h.Scene.Children, Is.EquivalentTo(original));
+        Assert.That(audio.Length.Value, Is.EqualTo(Seconds(duration)));
+        if (video != null) Assert.That(video.Length.Value, Is.EqualTo(Seconds(duration)));
+        Assert.That(follower.Start.Value, Is.EqualTo(Seconds(duration + 12)));
+        Assert.That(appliedMoves, Is.EqualTo(1), "ripple should aggregate gaps instead of repeatedly moving every follower");
+    }
+
+    [TestCase(false, false)]
+    [TestCase(true, false)]
+    [TestCase(false, true)]
+    [TestCase(true, true)]
+    public async Task BatchedSplitsMatchRazorForAnimatedMediaAndTimeControllers(bool globalClock, bool withController)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        using var batch = new SceneHistoryHarness("silence-batch-clocks");
+        using var razor = new SceneHistoryHarness("silence-razor-clocks");
+        Element[] batchOriginals = Populate(batch);
+        Element[] razorOriginals = Populate(razor);
+        var ranges = new[] { Range(12, 13), Range(16, 18) };
+        await new SilenceSplitService(batch.History).ApplyAsync(batch.Scene, batchOriginals[0], ranges, SilenceSplitMode.SplitOnly, true);
+        foreach (var at in ranges.SelectMany(r => new[] { r.Start, r.End }).OrderDescending())
+            new ElementStructureService(razor.History).Split(razor.Scene, razorOriginals, at);
+
+        var actual = batch.Scene.Children.OrderBy(e => e.ZIndex.Value).ThenBy(e => e.Start.Value).ToArray();
+        var expected = razor.Scene.Children.OrderBy(e => e.ZIndex.Value).ThenBy(e => e.Start.Value).ToArray();
+        Assert.That(actual, Has.Length.EqualTo(expected.Length));
+        for (int i = 0; i < actual.Length; i++)
+        {
+            Assert.That(actual[i].Range, Is.EqualTo(expected[i].Range));
+            var left = actual[i].Objects[0];
+            var right = expected[i].Objects[0];
+            if (left is SourceSound sound)
+                Assert.That(sound.OffsetPosition.Value, Is.EqualTo(((SourceSound)right).OffsetPosition.Value));
+            else
+                Assert.That(((Beutl.Graphics.SourceVideo)left).OffsetPosition.Value,
+                    Is.EqualTo(((Beutl.Graphics.SourceVideo)right).OffsetPosition.Value));
+        }
+        batch.History.Undo();
+        Assert.That(batch.Scene.Children, Is.EquivalentTo(batchOriginals));
+        Assert.That(batchOriginals[0].Length.Value, Is.EqualTo(Seconds(10)));
+        batch.History.Redo();
+        Assert.That(batch.Scene.Children, Is.EquivalentTo(actual));
+
+        Element[] Populate(SceneHistoryHarness h)
+        {
+            var project = new Project { SampleRate = { Value = 48000 } };
+            project.Items.Add(h.Scene);
+            var audio = h.AddElement(Seconds(10), Seconds(10));
+            var sound = new SourceSound { OffsetPosition = { Value = Seconds(1) } };
+            sound.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(globalClock));
+            audio.Objects.Add(sound);
+            var video = h.AddElement(Seconds(10), Seconds(10), 1);
+            var source = new Beutl.Graphics.SourceVideo { Source = { Value = TrimTestMedia.CreateVideoSource(10) }, IsLoop = { Value = true } };
+            source.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(globalClock));
+            video.Objects.Add(source);
+            if (withController) video.Objects.Add(new Beutl.Graphics.DrawableTimeController { Speed = { Value = 200 }, Reverse = { Value = true } });
+            h.Scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+            h.History.Commit("Setup");
+            return [audio, video];
+        }
+    }
+
+    [Test]
+    public async Task Apply_KeepsNewGroupsAfterTheSurvivingOriginalGroup()
+    {
+        using var h = new SceneHistoryHarness("silence-group-order");
+        Element audio = h.AddElement(Seconds(0), Seconds(10));
+        Element video = h.AddElement(Seconds(2), Seconds(8), 1);
+        Element caption = h.AddElement(Seconds(2), Seconds(8), 2);
+        h.Scene.Groups.Add([audio.Id.Value, video.Id.Value, caption.Id.Value]);
+        h.History.Commit("Setup");
+        await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio, [Range(0, 1), Range(3, 4)], SilenceSplitMode.DeleteSilence, true);
+        Assert.That(h.Scene.Groups, Has.Count.EqualTo(2));
+        Assert.That(h.Scene.Groups[0], Is.EquivalentTo(new[] { video.Id.Value, caption.Id.Value }));
+        Assert.That(h.Scene.Groups[1], Is.EquivalentTo(h.Scene.Children.Where(e => e.Start.Value == Seconds(4)).Select(e => e.Id.Value)));
+        h.History.Undo();
+        Assert.That(h.Scene.Groups.Single(), Is.EquivalentTo(new[] { audio.Id.Value, video.Id.Value, caption.Id.Value }));
+    }
+
+    [Test]
+    public async Task Apply_ReusesSourceMetadataAcrossFragmentsButNotAcrossEdits()
+    {
+        using var h = new SceneHistoryHarness("silence-source-metadata");
+        string path = Path.Combine(h.BasePath, "source.silence-test");
+        File.WriteAllBytes(path, []);
+        var decoder = new ReadFailureDecoder(path, false);
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            var source = new SoundSource();
+            source.ReadFrom(new Uri(path));
+            var audio = h.AddElement(Seconds(0), Seconds(10));
+            audio.Objects.Add(new SourceSound { Source = { Value = source } });
+            h.History.Commit("Setup");
+            var service = new SilenceSplitService(h.History);
+            for (int edit = 1; edit <= 2; edit++)
+            {
+                await service.ApplyAsync(h.Scene, audio, [Range(1, 2), Range(3, 4), Range(5, 6)], SilenceSplitMode.SplitOnly, false);
+                Assert.That(decoder.OpenedReaders, Is.EqualTo(edit), "cloned sources must not open a decoder for every cut");
+                foreach (Element part in h.Scene.Children)
+                    Assert.That(part.Objects.OfType<SourceSound>().Single().OffsetPosition.Value, Is.EqualTo(part.Start.Value));
+                h.History.Undo();
+            }
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+        }
+    }
+
+    [Test]
+    public void Plan_RoundsInwardAtFractionalFrameRate_AndPreservesOffGridClipEdges()
+    {
+        using var h = new SceneHistoryHarness("silence-frames");
+        var project = new Project { FrameRate = { Value = new Rational(30000, 1001) } };
+        project.Items.Add(h.Scene);
+        var e = h.AddElement(Seconds(1.001), Seconds(4.002));
+        var plan = SilenceSplitService.Plan(h.Scene, e, [Range(0, 0.5), Range(1.01, 1.02), Range(2, 4.002)]);
+        Assert.That(plan, Has.Count.EqualTo(2));
+        Assert.That(plan[0].Start, Is.EqualTo(e.Start.Value));
+        Assert.That(plan[0].End, Is.LessThanOrEqualTo(Seconds(1.501)));
+        Assert.That(plan[1].Start, Is.GreaterThanOrEqualTo(Seconds(3.001)));
+        Assert.That(plan[1].End, Is.EqualTo(e.Range.End));
+    }
+
+    [Test]
+    public async Task Apply_WholeSilenceRemovesClip_EmptyPlanAddsNoHistory_AndLockedLinkDoesNotPartiallyEdit()
+    {
+        using var h = new SceneHistoryHarness("silence-lock");
+        var e = h.AddElement(Seconds(0), Seconds(5));
+        var linked = h.AddElement(Seconds(0), Seconds(5), 1);
+        h.Scene.Groups.Add([e.Id.Value, linked.Id.Value]);
+        linked.IsLocked.Value = true;
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+        var service = new SilenceSplitService(h.History);
+        await service.ApplyAsync(h.Scene, e, [], SilenceSplitMode.SplitOnly, true);
+        Assert.That(h.History.UndoCount, Is.EqualTo(before));
+        Assert.ThrowsAsync<InvalidOperationException>(async () => await service.ApplyAsync(h.Scene, e, [Range(1, 2)], SilenceSplitMode.DeleteSilence, true));
+        Assert.That(h.Scene.Children, Has.Count.EqualTo(2));
+        await service.ApplyAsync(h.Scene, e, [Range(0, 5)], SilenceSplitMode.DeleteSilence, false);
+        Assert.That(h.Scene.Children, Is.EqualTo(new[] { linked }));
+        h.History.Undo();
+        Assert.That(h.Scene.Children, Is.EquivalentTo(new[] { e, linked }));
+    }
+
+    [Test]
+    public void Apply_FailedLinkedSplitRollsBackAllEarlierCuts()
+    {
+        using var h = new SceneHistoryHarness("silence-failure");
+        var e = h.AddElement(Seconds(0), Seconds(5));
+        var failing = new ElementStructureServiceTests.FailingSplitElement { Length = { Value = Seconds(5) }, ZIndex = { Value = 1 } };
+        h.Scene.Children.Add(failing);
+        h.Scene.Groups.Add([e.Id.Value, failing.Id.Value]);
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+        failing.FailSerialization = true;
+        Assert.Throws<IOException>(() => new SilenceSplitService(h.History).Apply(h.Scene, e, [Range(1, 2)], SilenceSplitMode.RippleDelete, true));
+        Assert.That(h.Scene.Children, Has.Count.EqualTo(2));
+        Assert.That(e.Length.Value, Is.EqualTo(Seconds(5)));
+        Assert.That(h.History.UndoCount, Is.EqualTo(before));
+        Assert.That(h.History.HasPendingOperations, Is.False);
+    }
+
+    private sealed class RecordingProgress : IProgress<int>
+    {
+        public List<int> Values { get; } = [];
+        public void Report(int value) => Values.Add(value);
+    }
+
+    private sealed class ReadFailureDecoder(string path, bool fail) : IDecoderInfo
+    {
+        public int OpenedReaders { get; private set; }
+        public int SuccessfulReads { get; private set; }
+        public int FailedReads { get; private set; }
+        public string Name => "Silence read failure test";
+        public IEnumerable<string> VideoExtensions() => [];
+        public IEnumerable<string> AudioExtensions() => [".silence-test"];
+        public MediaReader? Open(string file, MediaOptions options)
+        {
+            if (file != path) return null;
+            OpenedReaders++;
+            return new Reader(this, fail);
+        }
+
+        private sealed class Reader(ReadFailureDecoder owner, bool fail) : MediaReader
+        {
+            public override VideoStreamInfo VideoInfo => throw new NotSupportedException();
+            public override AudioStreamInfo AudioInfo { get; } = new("test", fail ? new Rational(3) : new Rational(3, 2), 44100, 2);
+            public override bool HasVideo => false;
+            public override bool HasAudio => true;
+            public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image) { image = null; return false; }
+            public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
+            {
+                if (fail && start >= AudioInfo.SampleRate)
+                {
+                    owner.FailedReads++;
+                    sound = null;
+                    return false;
+                }
+                owner.SuccessfulReads++;
+                int remaining = (int)(AudioInfo.Duration.ToDouble() * AudioInfo.SampleRate) - start;
+                sound = new AudioBuffer(AudioInfo.SampleRate, 2, Math.Clamp(remaining, 0, length));
+                return true;
+            }
+        }
+    }
+}

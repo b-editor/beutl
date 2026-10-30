@@ -3595,4 +3595,73 @@ GetProperty&lt;T&gt;("path") または GetProperty&lt;T&gt;(guid, "propertyName"
   <data name="PreviewGuide_Preset" xml:space="preserve">
     <value>プリセット</value>
   </data>
+  <data name="AutoSplitBySilence" xml:space="preserve">
+    <value>無音区間で自動分割</value>
+  </data>
+  <data name="SilenceSplit_Threshold" xml:space="preserve">
+    <value>閾値（dB）</value>
+  </data>
+  <data name="SilenceSplit_Minimum" xml:space="preserve">
+    <value>最小無音時間（ms）</value>
+  </data>
+  <data name="SilenceSplit_Padding" xml:space="preserve">
+    <value>前後の余白（ms）</value>
+  </data>
+  <data name="SilenceSplit_Mode" xml:space="preserve">
+    <value>適用モード</value>
+  </data>
+  <data name="SilenceSplit_SplitOnly" xml:space="preserve">
+    <value>分割のみ</value>
+  </data>
+  <data name="SilenceSplit_Delete" xml:space="preserve">
+    <value>無音を削除</value>
+  </data>
+  <data name="SilenceSplit_Ripple" xml:space="preserve">
+    <value>無音を削除して前詰め</value>
+  </data>
+  <data name="SilenceSplit_Linked" xml:space="preserve">
+    <value>グループにも適用</value>
+  </data>
+  <data name="SilenceSplit_Apply" xml:space="preserve">
+    <value>全体に適用</value>
+  </data>
+  <data name="SilenceSplit_Analyzing" xml:space="preserve">
+    <value>波形を解析しています…</value>
+  </data>
+  <data name="SilenceSplit_Summary" xml:space="preserve">
+    <value>{0} 区間・合計 {1:F2} 秒</value>
+  </data>
+  <data name="SilenceSplit_Failed" xml:space="preserve">
+    <value>無音区間の処理に失敗しました：{0}</value>
+  </data>
+  <data name="SilenceSplit_Stale" xml:space="preserve">
+    <value>シーンが変更されました。更新して、もう一度解析してください。</value>
+  </data>
+  <data name="SilenceSplit_LockedLinked" xml:space="preserve">
+    <value>グループ内にロックされた要素があります。ロックを解除するか、グループへの適用をオフにしてください。</value>
+  </data>
+  <data name="SilenceSplit_InvalidParameters" xml:space="preserve">
+    <value>閾値は −120～0 dB、最小無音時間は正の値、保護時間は 0 以上で入力してください。</value>
+  </data>
+  <data name="SilenceSplit_SelectAudio" xml:space="preserve">
+    <value>音声要素を右クリックして「無音区間で自動分割」を選択してください。</value>
+  </data>
+  <data name="SilenceSplit_ShortSegment" xml:space="preserve">
+    <value>検出した位置で分割すると、グループ内のクリップに1フレーム未満の区間ができます。無音の設定を調整するか、グループ編集をオフにしてください。</value>
+  </data>
+  <data name="SilenceSplit_Preparing" xml:space="preserve">
+    <value>クリップを準備中…</value>
+  </data>
+  <data name="SilenceSplit_Applying" xml:space="preserve">
+    <value>分割を反映中…</value>
+  </data>
+  <data name="SilenceSplit_Saving" xml:space="preserve">
+    <value>保存中…</value>
+  </data>
+  <data name="SilenceSplit_RefreshToAnalyze" xml:space="preserve">
+    <value>更新して解析</value>
+  </data>
+  <data name="Clipboard_WaitingForSave" xml:space="preserve">
+    <value>保存完了を待っています…</value>
+  </data>
 </root>

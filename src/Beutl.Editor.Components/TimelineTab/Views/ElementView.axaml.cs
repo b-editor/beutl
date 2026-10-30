@@ -10,6 +10,7 @@ using Avalonia.VisualTree;
 using Avalonia.Xaml.Interactivity;
 using Beutl.Controls;
 using Beutl.Editor.Components.Helpers;
+using Beutl.Editor.Components.SilenceSplitTab.ViewModels;
 using Beutl.Editor.Components.TimelineTab.ViewModels;
 using Beutl.Editor.Services;
 using Beutl.Engine;
@@ -69,6 +70,9 @@ public sealed partial class ElementView : UserControl
 
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
 
+    internal bool HasActiveInteraction => _draggingTransitionEdge != null || border.ContextFlyout?.IsOpen == true
+        || IsKeyboardFocusWithin || IsPointerOver;
+
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
@@ -91,6 +95,7 @@ public sealed partial class ElementView : UserControl
         groupSelectedElements.IsEnabled = viewModel.CanGroupSelectedElements();
         ungroupSelectedElements.IsEnabled = viewModel.CanUngroupSelectedElements();
         split.IsEnabled = editable;
+        autoSplitBySilence.IsEnabled = editable && SilenceSplitViewModel.CanAnalyze(viewModel.Scene, viewModel.Model);
         cut.IsEnabled = editable;
         // Recovery protection makes a clip read-only but still lets it be removed.
         delete.IsEnabled = !viewModel.IsLockedByUser.Value;
@@ -105,6 +110,12 @@ public sealed partial class ElementView : UserControl
                                 && viewModel.LayerHeader.Value?.IsLocked.Value != true;
         PopulateTrackMatteMenu(viewModel);
         PopulateTransitionMenu(viewModel, editable);
+    }
+
+    private void AutoSplitBySilence_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ElementViewModel { IsEditable.Value: true } viewModel)
+            SilenceSplitTabViewModel.Open(viewModel.Timeline.EditorContext, viewModel.Model);
     }
 
     // One item per edge, which opens its transition in the property tab, adding the default one first
@@ -250,12 +261,14 @@ public sealed partial class ElementView : UserControl
         obj.ThumbnailsClear -= OnThumbnailsClear;
         obj.WaveformChunkReady -= OnWaveformChunkReady;
         obj.WaveformClear -= OnWaveformClear;
+        obj.UpdateThumbnailsAsync();
 
         _disposables.Clear();
     }
 
     private void OnDataContextAttached(ElementViewModel obj)
     {
+        obj.InitializeViewState();
         obj.AnimationRequested = async (args, token) =>
         {
             await Dispatcher.UIThread.InvokeAsync(async () =>
@@ -280,13 +293,18 @@ public sealed partial class ElementView : UserControl
 
         obj.IsSelected
             .ObserveOnUIDispatcher()
-            .Subscribe(v => ZIndex = v ? 5 : 0)
+            .Subscribe(v =>
+            {
+                ZIndex = v ? 5 : 0;
+                if (!v) _timeline?.QueueElementViewsUpdate();
+            })
             .DisposeWith(_disposables);
 
         obj.ThumbnailReady += OnThumbnailReady;
         obj.ThumbnailsClear += OnThumbnailsClear;
         obj.WaveformChunkReady += OnWaveformChunkReady;
         obj.WaveformClear += OnWaveformClear;
+        obj.UpdateThumbnailsAsync();
     }
 
     private void OnThumbnailReady(int index, WriteableBitmap? thumbnail)

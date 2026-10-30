@@ -284,7 +284,7 @@ public partial class Scene
             && pattern.EndsWith(".belm", StringComparison.OrdinalIgnoreCase)
             && !File.Exists(Path.GetFullPath(pattern.TrimStart('/'), dirPath)));
 
-        string[] files = MatchElementFiles(dirPath, _includeElements, _excludeElements);
+        var files = MatchElementFiles(dirPath, _includeElements, _excludeElements).ToHashSet(StringComparer.Ordinal);
         foreach (string rel in elementPaths)
         {
             if (!files.Contains(rel) && !_includeElements.Contains(rel))
