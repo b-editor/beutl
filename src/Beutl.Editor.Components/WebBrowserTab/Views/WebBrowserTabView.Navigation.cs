@@ -2,6 +2,7 @@
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Platform;
 using Avalonia.Threading;
 
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -67,6 +68,7 @@ internal partial class WebBrowserTabView
     {
         if (e.Request is not { } mediaUri || !BrowserMediaDownload.IsMediaLink(mediaUri)) return false;
         e.Cancel = true;
+        StopCanceledGtkNavigation();
         _latestNavigationRequest = null;
         if (settlesNavigation)
         {
@@ -83,6 +85,19 @@ internal partial class WebBrowserTabView
         }
         QueuePageDownloadRequest(mediaUri, null);
         return true;
+    }
+
+    // Avalonia's WebKitGTK adapter reports a canceled policy decision as handled without ignoring it,
+    // and WebKit uses a decision released undecided, so the media would still replace the page.
+    private void StopCanceledGtkNavigation()
+    {
+        if (!OperatingSystem.IsLinux() || _webView is not { } webView
+            || webView.TryGetPlatformHandle() is not IGtkWebViewPlatformHandle) return;
+        // The GLib thread waits for this handler; stopping synchronously here would deadlock.
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_disposed && ReferenceEquals(_webView, webView)) webView.Stop();
+        });
     }
 
     internal void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
