@@ -222,7 +222,7 @@ public class PreviewGuideOverlayTests
     }
 
     [AvaloniaTest]
-    public async Task Semicolon_toggles_the_guides_unless_a_selected_clip_takes_it_to_close_a_gap()
+    public async Task AltG_toggles_the_guides_even_when_a_clip_is_selected()
     {
         (_, _, EditViewModel editor) = await TestShell.OpenNewSceneAsync("preview-guides-key");
         await TestShell.AddElementAsync(editor, () => new RectShape(), MediaTime.FromSeconds(1), MediaTime.FromSeconds(2));
@@ -240,11 +240,11 @@ public class PreviewGuideOverlayTests
             PlayerView player = window.GetVisualDescendants().OfType<PlayerView>().Single();
             player.framePanel.Focus();
 
-            PressSemicolon(window);
+            PressAltG(window);
             Assert.That(Config.IsPreviewGuideEnabled.Value, Is.True);
             Assert.That(player.guideOverlay.IsVisible, Is.True);
 
-            PressSemicolon(window);
+            PressAltG(window);
             Assert.That(Config.IsPreviewGuideEnabled.Value, Is.False);
 
             ElementView clip = window.GetVisualDescendants().OfType<ElementView>().Single();
@@ -256,8 +256,9 @@ public class PreviewGuideOverlayTests
             HeadlessTestHelpers.Settle();
             Assert.That(editor.GetRequiredService<IEditorSelection>().SelectedObject.Value, Is.Not.Null);
 
-            PressSemicolon(window);
-            Assert.That(Config.IsPreviewGuideEnabled.Value, Is.False, "the timeline's Close gap runs first");
+            // Alt+G is not one of the timeline's gap keys, so the timeline leaves it to the editor.
+            PressAltG(window);
+            Assert.That(Config.IsPreviewGuideEnabled.Value, Is.True);
         }
         finally
         {
@@ -332,9 +333,9 @@ public class PreviewGuideOverlayTests
         }
     }
 
-    private static void PressSemicolon(Window window)
+    private static void PressAltG(Window window)
     {
-        window.KeyPress(Key.OemSemicolon, RawInputModifiers.None, PhysicalKey.Semicolon, ";");
+        window.KeyPress(Key.G, RawInputModifiers.Alt, PhysicalKey.G, null);
         HeadlessTestHelpers.Settle();
     }
 
