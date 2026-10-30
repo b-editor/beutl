@@ -151,7 +151,7 @@ public class WebBrowserTabLifecycleTests
         vm.CompleteNavigation(google, true, false, false);
         vm.SetPageTitle(google, "Google");
 
-        foreach (string address in new[] { "https://ogs.google.com/widget/app/so?origin=https%3A%2F%2Fwww.google.com", "https://media.example/frame.mp4" })
+        foreach (string address in new[] { "https://ogs.google.com/widget/app/so?origin=https%3A%2F%2Fwww.google.com", "https://media.example/frame.mp4", "about:blank" })
         {
             var starting = new WebViewNavigationStartingEventArgs { Request = new Uri(address) };
             view.OnNavigationStarted(null, starting);
@@ -170,6 +170,28 @@ public class WebBrowserTabLifecycleTests
         view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = next, IsSuccess = true });
         Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.Address.Value, Is.EqualTo(next.AbsoluteUri));
+    }
+
+    [AvaloniaTest]
+    public void DefaultNavigationMode_KeepsTheTopLevelPageWhenAWebKitSubframeStarts()
+    {
+        if (OperatingSystem.IsWindows()) Assert.Ignore("WebView2 reports only main-frame navigation starts.");
+        var results = new Uri("https://www.google.com/search?q=beutl");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), results);
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false));
+        view.DataContext = vm;
+        vm.CompleteNavigation(results, true, false, false);
+
+        // WebKitGTK reports the about:blank iframes of a Google results page as navigation starts,
+        // and never completes them as top-level navigations.
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = WebBrowserTabViewModel.BlankPage });
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(vm.CurrentUri, Is.EqualTo(results));
+            Assert.That(vm.Address.Value, Is.EqualTo(results.AbsoluteUri));
+            Assert.That(vm.IsLoading.Value, Is.False);
+        });
     }
 
     [AvaloniaTest]

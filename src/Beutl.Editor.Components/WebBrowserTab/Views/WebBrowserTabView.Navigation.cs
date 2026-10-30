@@ -34,8 +34,9 @@ internal partial class WebBrowserTabView
 
         _latestNavigationRequest = e.Request;
 
-        // The macOS delegate filters subframes before Avalonia reports policy decisions here.
-        // Actual main-frame starts and commits arrive through separate native callbacks.
+        // WebKit reports subframe policy decisions here without frame identity; only the macOS delegate
+        // can filter them. Main-frame commits arrive through NavigationCompleted, and on macOS main-frame
+        // starts also arrive through separate native callbacks.
         // App-initiated navigation and explicit download links are handled separately.
         if (_navigationStartedIncludesSubframes)
         {

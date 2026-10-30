@@ -45,7 +45,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _launchInDefaultBrowser = launchInDefaultBrowser;
         _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
-        _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? OperatingSystem.IsMacOS();
+        // WKWebView, WebKitGTK and WPE all report subframe navigations through NavigationStarted.
+        _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux());
         FaviconLoader = faviconLoader;
         InitializeComponent();
         AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;
