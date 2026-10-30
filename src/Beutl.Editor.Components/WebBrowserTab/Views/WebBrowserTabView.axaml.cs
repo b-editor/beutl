@@ -17,6 +17,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly Func<(bool IsAvailable, string? Detail, bool ShowLinuxRuntimeHelp)> _getWebViewAvailability;
     private readonly Func<Uri, Task<bool>>? _launchInDefaultBrowser;
     private readonly Func<NativeWebView, Task<string?>> _getPageTitle;
+    private readonly Func<NativeWebView, Task<string?>> _getPageContentType;
     private readonly Func<NativeWebView, bool> _canReparentWebView;
     private readonly bool _navigationStartedIncludesSubframes;
     private readonly bool _handlesMediaResponsesNatively;
@@ -40,12 +41,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         Func<NativeWebView, bool>? canReparentWebView = null,
         bool? navigationStartedIncludesSubframes = null,
         BrowserFaviconLoader? faviconLoader = null,
-        bool? handlesMediaResponsesNatively = null)
+        bool? handlesMediaResponsesNatively = null,
+        Func<NativeWebView, Task<string?>>? getPageContentType = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
         _launchInDefaultBrowser = launchInDefaultBrowser;
         _getPageTitle = getPageTitle ?? (static webView => webView.InvokeScript("document.title"));
+        _getPageContentType = getPageContentType ?? (static webView => webView.InvokeScript("document.contentType"));
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
         // WKWebView, WebKitGTK and WPE all report subframe navigations through NavigationStarted.
         _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux());

@@ -140,6 +140,8 @@ internal partial class WebBrowserTabView
             // WebView2 handles attachment responses itself; an inline media page still offers a download.
             if (_nativeDownloadHandler is WindowsBrowserDownloadHandler && BrowserMediaDownload.IsMediaLink(uri))
                 QueuePageDownloadRequest(uri, null);
+            // Linux sees no response before showing it, so media served without a media extension is found here.
+            else if (!_handlesMediaResponsesNatively) _ = OfferInlineMediaPageAsync(uri);
         }
     }
 
@@ -172,6 +174,40 @@ internal partial class WebBrowserTabView
                     && ReferenceEquals(_webView, webView) && ReferenceEquals(_viewModel, viewModel))
                 {
                     viewModel.SetPageTitle(uri, title);
+                }
+            });
+        }
+        catch
+        {
+            // The dispatcher can be shutting down while a tab is being closed.
+        }
+    }
+
+    internal async Task OfferInlineMediaPageAsync(Uri uri)
+    {
+        NativeWebView? webView = _webView;
+        int revision = _pageRevision;
+        if (webView == null) return;
+
+        string? contentType;
+        try
+        {
+            // WebKit reports the response type of a document it shows as media.
+            contentType = NormalizePageTitle(await _getPageContentType(webView));
+        }
+        catch
+        {
+            return;
+        }
+
+        try
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!_disposed && revision == _pageRevision && ReferenceEquals(_webView, webView)
+                    && BrowserMediaDownload.IsMediaType(contentType))
+                {
+                    QueuePageDownloadRequest(uri, null);
                 }
             });
         }

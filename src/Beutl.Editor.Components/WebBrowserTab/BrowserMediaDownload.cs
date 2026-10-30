@@ -50,6 +50,8 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     internal static bool IsMediaLink(Uri uri) => IsHttpUri(uri)
         && IsMediaExtension(Path.GetExtension(uri.AbsolutePath));
 
+    internal static bool IsMediaType(string? mediaType) => mediaType != null && s_mediaTypes.ContainsKey(mediaType);
+
     // HttpStatusCode.Redirect and HttpStatusCode.Found are both 302.
     internal static bool IsRedirectStatus(HttpStatusCode status) => status is HttpStatusCode.MovedPermanently
         or HttpStatusCode.Found or HttpStatusCode.SeeOther or HttpStatusCode.TemporaryRedirect or HttpStatusCode.PermanentRedirect;

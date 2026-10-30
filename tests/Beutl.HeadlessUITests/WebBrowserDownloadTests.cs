@@ -1253,6 +1253,48 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    [TestCase("\"video/webm\"", true)]
+    [TestCase("\"image/png\"", true)]
+    [TestCase("\"text/html\"", false)]
+    // The WebKitGTK adapter returns a script's string result without JSON quotes.
+    [TestCase("video/mp4", true)]
+    public void WithoutNativeMediaResponses_AMediaPageWithoutAMediaExtensionOffersADownload(string contentType, bool offered)
+    {
+        var media = new Uri("https://media.example/watch?id=1");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
+            getPageContentType: _ => Task.FromResult<string?>(contentType))
+        { DataContext = vm };
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = media, IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.EqualTo(offered));
+        if (offered) Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(media.AbsoluteUri));
+    }
+
+    [AvaloniaTest]
+    public void WithNativeMediaResponses_ACompletedPageIsNotProbedForMedia()
+    {
+        bool probed = false;
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: true,
+            getPageContentType: _ =>
+            {
+                probed = true;
+                return Task.FromResult<string?>("\"video/webm\"");
+            })
+        { DataContext = vm };
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = new Uri("https://media.example/watch?id=1"), IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(probed, Is.False);
+    }
+
+    [AvaloniaTest]
     public void RedirectedMediaDoesNotReenableDismissedPageRequests()
     {
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://original.example/"));
