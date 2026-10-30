@@ -11,7 +11,7 @@ namespace Beutl.Editor.Services;
 
 public enum SilenceSplitMode { SplitOnly, DeleteSilence, RippleDelete }
 
-public sealed class SilenceSplitService(HistoryManager history)
+public sealed partial class SilenceSplitService(HistoryManager history, IPreviewPlayer? player = null)
 {
     // Round inward so frame alignment cannot eat the protected audio. Preview and apply use this
     // same plan; off-grid clip edges stay exact and no sub-frame fragments are created.
@@ -37,6 +37,10 @@ public sealed class SilenceSplitService(HistoryManager history)
     }
 
     public void Apply(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode, bool includeLinked)
+        => ApplyCore(scene, element, ranges, mode, includeLinked, history);
+
+    private static void ApplyCore(Scene scene, Element element, IReadOnlyList<TimeRange> ranges, SilenceSplitMode mode,
+        bool includeLinked, HistoryManager? recorder = null, CancellationToken cancellationToken = default)
     {
         if (!scene.Children.Contains(element) || scene.IsElementLocked(element) || scene.Uri == null || ranges.Count == 0) return;
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
@@ -55,11 +59,15 @@ public sealed class SilenceSplitService(HistoryManager history)
         Dictionary<(Type, Uri), MediaTime?>? sourceDurations = batch ? [] : null;
         MediaTime maximumEnd = originals.Max(e => e.Range.End);
 
-        history.ExecuteInTransaction(() =>
+        if (recorder is null) Edit();
+        else recorder.ExecuteInTransaction(Edit, CommandNames.AutoSplitBySilence);
+
+        void Edit()
         {
             // All cuts precede any movement, so every boundary remains in absolute scene time.
             foreach (MediaTime cut in ranges.SelectMany(r => new[] { r.Start, r.End }).Distinct().OrderDescending())
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 // Descending cuts only touch the original left pieces, never the added right pieces.
                 Element[] targets = originals.Where(e => e.Start.Value < cut && cut < e.Range.End).ToArray();
                 var split = ElementStructureService.SplitCore(scene, targets, cut, pendingGroups, sourceDurations);
@@ -105,7 +113,7 @@ public sealed class SilenceSplitService(HistoryManager history)
                     && maximumEnd > scene.Start.Value + scene.Duration.Value)
                     scene.Duration.Value = maximumEnd - scene.Start.Value;
             }
-        }, CommandNames.AutoSplitBySilence);
+        }
     }
 
     private static void Ripple(Scene scene, Element[] elements, TimeRange[] gaps)

@@ -140,17 +140,23 @@ internal static class ElementTransitions
     // The spans of every boundary transition that overlap range or touch either end of it. A transition
     // draws its elements past their own ranges, so its frames change whenever theirs do.
     public static List<TimeRange> GetRegionsNear(Scene scene, TimeRange range)
+        => GetRegionsNear(scene, [range]);
+
+    // A bulk edit can affect thousands of ranges. Resolve participants and their boundaries once,
+    // rather than repeating the whole-scene searches for every changed clip.
+    public static List<TimeRange> GetRegionsNear(Scene scene, IReadOnlyList<TimeRange> ranges)
     {
         var regions = new List<TimeRange>();
+        if (ranges.Count == 0) return regions;
         foreach (Element element in GetParticipants(scene))
         {
-            if (GetBoundaryAtStart(element) is { } start && Touches(start.Region, range))
+            if (GetBoundaryAtStart(element) is { } start && ranges.Any(range => Touches(start.Region, range)))
             {
                 regions.Add(start.Region);
             }
 
             // A boundary with an element after it is found again from that element's start.
-            if (GetBoundaryAtEnd(element) is { Incoming: null } end && Touches(end.Region, range))
+            if (GetBoundaryAtEnd(element) is { Incoming: null } end && ranges.Any(range => Touches(end.Region, range)))
             {
                 regions.Add(end.Region);
             }
@@ -159,8 +165,8 @@ internal static class ElementTransitions
             // other end, so when a neighbour arrives at or leaves that other end, the span can grow or
             // shrink anywhere in the element. The scene has already changed by now, so the span it had
             // cannot be recovered; the whole element counts instead.
-            if ((Reaches(range, element.Range.End) && HasStartTransition(element, null))
-                || (Reaches(range, element.Start.Value) && HasEndTransition(element, null)))
+            if ((ranges.Any(range => Reaches(range, element.Range.End)) && HasStartTransition(element, null))
+                || (ranges.Any(range => Reaches(range, element.Start.Value)) && HasEndTransition(element, null)))
             {
                 regions.Add(element.Range);
             }

@@ -65,7 +65,7 @@ internal static class SilenceWaveform
                     result[i - from] = new WaveformChunk(i, min, max);
                 }
                 return result;
-            }, DispatchPriority.Low, cancellationToken);
+            }, DispatchPriority.Low, cancellationToken).ConfigureAwait(false);
             foreach (var chunk in chunks) yield return chunk;
         }
 

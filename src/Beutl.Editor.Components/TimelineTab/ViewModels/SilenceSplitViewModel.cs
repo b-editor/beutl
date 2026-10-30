@@ -28,7 +28,7 @@ public sealed class SilenceSplitViewModel : IDisposable
     {
         _scene = scene;
         _element = element;
-        _service = new SilenceSplitService(history);
+        _service = new SilenceSplitService(history, player);
         _player = player;
         ClipRange = element.Range;
         HasLinkedElements = scene.Groups.Any(g => g.Contains(element.Id.Value) && g.Count > 1);
@@ -67,21 +67,34 @@ public sealed class SilenceSplitViewModel : IDisposable
         var ct = _lifetime.Token;
         try
         {
+            TaskScheduler owner = SynchronizationContext.Current is null
+                ? TaskScheduler.Current : TaskScheduler.FromCurrentSynchronizationContext();
             int count = Math.Max(1, checked((int)Math.Ceiling(ClipRange.Duration.ToSeconds() / 0.02)));
             // Unknown chunks retain NaN; an absent source/read failure must never delete a clip.
             var chunks = Enumerable.Range(0, count).Select(i => new WaveformChunk(i, float.NaN, float.NaN)).ToArray();
-            await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_scene, _element, count, ct))
-            {
-                chunks[chunk.Index] = chunk;
-                int progress = (int)((long)(chunk.Index + 1) * 100 / count);
-                if (progress > Progress.Value)
-                {
-                    Progress.Value = progress;
-                    if (!_stale) Status.Value = $"{Strings.SilenceSplit_Analyzing} {progress}%";
-                }
-            }
+            await ReadChunksAsync();
             ct.ThrowIfCancellationRequested();
             SetWaveform(chunks);
+
+            async Task ReadChunksAsync()
+            {
+                int reported = 0;
+                // Keep the million-bin enumeration off the UI context. Only percentage changes
+                // return to its scheduler, and are awaited so none can arrive after completion.
+                await foreach (WaveformChunk chunk in SilenceWaveform.GetChunksAsync(_scene, _element, count, ct).ConfigureAwait(false))
+                {
+                    chunks[chunk.Index] = chunk;
+                    int progress = (int)((long)(chunk.Index + 1) * 100 / count);
+                    if (progress <= reported) continue;
+                    reported = progress;
+                    await Task.Factory.StartNew(() =>
+                    {
+                        if (_disposed) return;
+                        Progress.Value = progress;
+                        if (!_stale) Status.Value = $"{Strings.SilenceSplit_Analyzing} {progress}%";
+                    }, ct, TaskCreationOptions.DenyChildAttach, owner).ConfigureAwait(false);
+                }
+            }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception ex)
@@ -194,12 +207,15 @@ public sealed class SilenceSplitViewModel : IDisposable
         _scene.Edited -= OnSceneEdited;
         try
         {
-            _service.Apply(_scene, _element, Ranges, (SilenceSplitMode)ModeIndex.Value, IncludeLinked.Value);
+            bool applied = await _service.ApplyAsync(_scene, _element, Ranges, (SilenceSplitMode)ModeIndex.Value,
+                IncludeLinked.Value, _lifetime.Token);
+            if (_disposed) return;
             _stale = true;
             CanApply.Value = false;
-            Status.Value = Strings.Completed;
+            Status.Value = applied ? Strings.Completed : Strings.SilenceSplit_Stale;
         }
-        finally { _scene.Edited += OnSceneEdited; }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        finally { if (!_disposed) _scene.Edited += OnSceneEdited; }
     }
 
     private void OnSceneEdited(object? sender, EventArgs e)

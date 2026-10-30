@@ -32,6 +32,10 @@ public sealed partial class HistoryManager : IDisposable
     private readonly AsyncLocal<BeforeMutationDispatch?> _beforeMutationDispatch = new();
     private bool _isolatedTransactionActive;
     private bool _isDisposed;
+    private long _changeVersion;
+
+    // Includes pending edits and history replay, including editor-only changes that raise no Scene.Edited.
+    internal long ChangeVersion => Interlocked.Read(ref _changeVersion);
 
     public HistoryManager(OperationSequenceGenerator sequenceGenerator)
     {
@@ -434,6 +438,7 @@ public sealed partial class HistoryManager : IDisposable
                 _activeSession!.Transaction.AddOperation(operation);
             else
                 _currentTransaction.AddOperation(operation);
+            Interlocked.Increment(ref _changeVersion);
         }
     }
 
@@ -700,6 +705,7 @@ public sealed partial class HistoryManager : IDisposable
 
     private void NotifyStateChanged()
     {
+        Interlocked.Increment(ref _changeVersion);
         _stateChanged.OnNext(new HistoryState(CanUndo, CanRedo, UndoCount, RedoCount));
     }
 

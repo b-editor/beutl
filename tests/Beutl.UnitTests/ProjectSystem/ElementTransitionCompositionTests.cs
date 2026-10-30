@@ -654,6 +654,26 @@ public class ElementTransitionCompositionTests
     }
 
     [Test]
+    public void BulkChanges_ReachTheSameTransitionFramesAsIndividualChanges()
+    {
+        using var harness = new SceneHistoryHarness("beutl_transition_bulk", duration: Seconds(10));
+        Cut cut = AddCut(harness);
+        cut.Outgoing.EnterTransition.Value = Transition(1.5);
+        cut.Outgoing.ExitTransition.Value = Transition(0.5);
+        cut.Incoming.EnterTransition.Value = Transition(0.5);
+        cut.Incoming.ExitTransition.Value = Transition(0.75);
+        TimeRange[] ranges = [cut.Outgoing.Range, cut.Incoming.Range, TimeRange.FromRange(Seconds(5), Seconds(6))];
+
+        foreach (bool movedAway in new[] { false, true })
+        {
+            if (movedAway) cut.Incoming.Start.Value = Seconds(6);
+            Assert.That(ElementTransitions.GetRegionsNear(harness.Scene, ranges).Distinct(),
+                Is.EquivalentTo(ranges.SelectMany(range => ElementTransitions.GetRegionsNear(harness.Scene, range)).Distinct()));
+        }
+        Assert.That(ElementTransitions.GetRegionsNear(harness.Scene, Array.Empty<TimeRange>()), Is.Empty);
+    }
+
+    [Test]
     public void BothSides_RoundTripThroughTheElementFile()
     {
         var element = new Element { Start = { Value = Seconds(1) }, Length = { Value = Seconds(3) } };

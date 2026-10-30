@@ -19,7 +19,41 @@ public sealed class AutoSaveService : IDisposable
     public void AutoSave(IEnumerable<ChangeOperation> operations)
     {
         ThrowIfDisposed();
+        var (objects, detached) = Collect(operations);
+        SaveObjects(objects, detached);
+    }
 
+    public async Task AutoSaveAsync(IEnumerable<ChangeOperation> operations, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        var (objects, detached) = Collect(operations);
+        // Await each file before capturing the scene's include patterns. All live-object reads,
+        // serializers and error notifications stay on the caller's document context.
+        foreach (CoreObject obj in objects.OrderBy(obj => obj is Scene))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                if (IsDetachedFromProject(obj, detached))
+                {
+                    string? path = GetDeletedFilePath(obj);
+                    if (path != null) await Task.Run(() => { if (File.Exists(path)) File.Delete(path); });
+                }
+                else
+                {
+                    await CoreSerializer.StoreToUriAsync(obj, obj.Uri!);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An exception occurred while auto-saving the file.");
+                if (!_isDisposed) _saveError.OnNext(ex);
+            }
+        }
+    }
+
+    private static (HashSet<CoreObject> Objects, HashSet<CoreObject> Detached) Collect(IEnumerable<ChangeOperation> operations)
+    {
         HashSet<CoreObject> objectsToSave = [];
         HashSet<CoreObject> detachedCollectionItems = [];
 
@@ -36,7 +70,7 @@ public sealed class AutoSaveService : IDisposable
             }
         }
 
-        SaveObjects(objectsToSave, detachedCollectionItems);
+        return (objectsToSave, detachedCollectionItems);
     }
 
     // Internal as a test seam: tests save chosen objects without going through AutoSave.
@@ -77,15 +111,11 @@ public sealed class AutoSaveService : IDisposable
 
     private static void DeleteStoredFile(CoreObject obj)
     {
-        if (obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri)
-        {
-            var path = uri.LocalPath;
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
+        if (GetDeletedFilePath(obj) is { } path && File.Exists(path)) File.Delete(path);
     }
+
+    private static string? GetDeletedFilePath(CoreObject obj)
+        => obj.SuppressedStorageSource is null && obj.Uri is { IsFile: true } uri ? uri.LocalPath : null;
 
     internal static void CollectObjectsToSave(ChangeOperation operation, HashSet<CoreObject> objectsToSave)
     {

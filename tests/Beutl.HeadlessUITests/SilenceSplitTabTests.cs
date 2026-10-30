@@ -11,6 +11,7 @@ using Avalonia.Headless.NUnit;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Beutl.Audio;
 using Beutl.Configuration;
@@ -26,8 +27,10 @@ using Beutl.Engine;
 using Beutl.Extensibility;
 using Beutl.Language;
 using Beutl.Media;
+using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.ProjectSystem;
+using Beutl.Serialization;
 using Beutl.Testing.Headless;
 using FluentAvalonia.UI.Controls;
 using Reactive.Bindings;
@@ -37,6 +40,91 @@ namespace Beutl.HeadlessUITests;
 [TestFixture]
 public class SilenceSplitTabTests
 {
+    [AvaloniaTest]
+    [TestCase("apply")]
+    [TestCase("edit")]
+    [TestCase("lock")]
+    [TestCase("ungroup")]
+    [TestCase("pending")]
+    [TestCase("cancel")]
+    public async Task BackgroundPreparation_LeavesUiResponsiveAndPublishesOnlyCurrentResults(string action)
+    {
+        var (_, scene, editor) = await TestShell.OpenNewSceneAsync("silence-background");
+        string path = Path.Combine(TestShell.ProjectRoot(editor), "audio.silence-thread");
+        File.WriteAllBytes(path, []);
+        var audio = new Element { Length = { Value = MediaTime.FromSeconds(10) } };
+        audio.Uri = new Uri(Path.Combine(TestShell.ProjectRoot(editor), "audio.belm"));
+        audio.Objects.Add(new SourceSound { Source = { Value = SoundSource.Open(path) } });
+        var video = new Element { Length = { Value = audio.Length.Value }, ZIndex = { Value = 1 } };
+        video.Uri = new Uri(Path.Combine(TestShell.ProjectRoot(editor), "video.belm"));
+        video.Objects.Add(new Beutl.Graphics.SourceVideo());
+        scene.AddChild(audio);
+        scene.AddChild(video);
+        scene.Groups.Add([audio.Id.Value, video.Id.Value]);
+        editor.HistoryManager.Commit("Setup");
+        int undoCount = editor.HistoryManager.UndoCount;
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var release = new ManualResetEventSlim();
+        bool openedOnUi = false;
+        var decoder = new Moq.Mock<IDecoderInfo>();
+        decoder.Setup(d => d.IsSupported(path)).Returns(true);
+        decoder.Setup(d => d.AudioExtensions()).Returns([".silence-thread"]);
+        decoder.Setup(d => d.VideoExtensions()).Returns([]);
+        decoder.Setup(d => d.Open(path, Moq.It.IsAny<MediaOptions>())).Returns(() =>
+        {
+            openedOnUi |= Dispatcher.UIThread.CheckAccess();
+            started.TrySetResult();
+            if (!openedOnUi && !release.Wait(TimeSpan.FromSeconds(10))) throw new TimeoutException();
+            return null;
+        });
+        DecoderRegistry.Register(decoder.Object);
+        using var cancellation = new CancellationTokenSource();
+        IDisposable? pendingMutation = null;
+        Task<bool>? applying = null;
+        try
+        {
+            applying = new SilenceSplitService(editor.HistoryManager).ApplyAsync(scene, audio,
+                [new(MediaTime.FromSeconds(3), MediaTime.FromSeconds(1))], SilenceSplitMode.RippleDelete, true, cancellation.Token);
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.That(openedOnUi, Is.False, "source metadata and fragment preparation belong to the worker");
+            Assert.That(applying.IsCompleted, Is.False);
+            Assert.That(scene.Children, Has.Count.EqualTo(2));
+            Assert.That(audio.Length.Value.ToSeconds(), Is.EqualTo(10));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount));
+            await Dispatcher.UIThread.InvokeAsync(() => HeadlessTestHelpers.Render(), DispatcherPriority.Background);
+            if (action == "edit") audio.Length.Value = MediaTime.FromSeconds(12);
+            if (action == "lock") video.IsLocked.Value = true;
+            if (action == "ungroup") scene.Groups.Clear();
+            if (action == "pending") pendingMutation = editor.HistoryManager.BeforeMutation
+                .Subscribe(_ => audio.Length.Value = MediaTime.FromSeconds(12));
+            if (action == "cancel") cancellation.Cancel();
+            release.Set();
+            if (action == "cancel")
+            {
+                try { await applying; Assert.Fail("Canceled preparation must not publish its result."); }
+                catch (OperationCanceledException) { }
+            }
+            else
+                Assert.That(await applying, Is.EqualTo(action == "apply"));
+            Assert.That(scene.Children.Count, Is.EqualTo(action == "apply" ? 4 : 2));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(undoCount + (action == "apply" ? 1 : 0)));
+            if (action == "apply")
+            {
+                editor.HistoryManager.Undo();
+                Assert.That(scene.Children, Is.EquivalentTo(new[] { audio, video }));
+                Assert.That(audio.Length.Value.ToSeconds(), Is.EqualTo(10));
+                Assert.That(scene.Groups.Single(), Is.EquivalentTo(new[] { audio.Id.Value, video.Id.Value }));
+            }
+        }
+        finally
+        {
+            release.Set();
+            if (applying != null) { try { await applying; } catch (OperationCanceledException) { } }
+            DecoderRegistry.Unregister(decoder.Object);
+            pendingMutation?.Dispose();
+        }
+    }
+
     [AvaloniaTest]
     [TestCase(12)]
     [TestCase(8445, Explicit = true)]
@@ -64,9 +152,10 @@ public class SilenceSplitTabTests
                 MediaTime.FromSeconds(3 + i * 2.5), MediaTime.FromSeconds(4 + i * 2.5))).ToArray();
             int undoCount = editor.HistoryManager.UndoCount;
             var watch = Stopwatch.StartNew();
-            new SilenceSplitService(editor.HistoryManager).Apply(scene, original[0], ranges, SilenceSplitMode.RippleDelete, true);
+            await new SilenceSplitService(editor.HistoryManager).ApplyAsync(scene, original[0], ranges, SilenceSplitMode.RippleDelete, true);
             TestContext.Out.WriteLine($"Apply with open timeline / {silenceCount} silences / linked audio + video: {watch.Elapsed.TotalSeconds:F2} s");
             HeadlessTestHelpers.Render();
+            using (await TestShell.Editor.BeginProjectFileWriteAsync(CancellationToken.None)) { }
             TestContext.Out.WriteLine($"Including timeline render and auto-save: {watch.Elapsed.TotalSeconds:F2} s");
             Assert.That(timeline.Elements, Has.Count.EqualTo((silenceCount + 1) * 2));
             Assert.That(view.GetVisualDescendants().OfType<ElementView>().Count(), Is.LessThan(40),

@@ -325,7 +325,7 @@ internal sealed class BufferedPlayer : IDisposable
 
     // A transition draws its elements past their own ranges, so the frames of one near an edit change too.
     private IEnumerable<TimeRange> WithTransitionRegions(ImmutableArray<TimeRange> ranges)
-        => ranges.Concat(ranges.SelectMany(range => ElementTransitions.GetRegionsNear(_scene, range)));
+        => ranges.Concat(ElementTransitions.GetRegionsNear(_scene, ranges));
 
     private int MaxQueuedFrames(SceneRenderer renderer)
         => ReadAheadBudget.FrameCount(
