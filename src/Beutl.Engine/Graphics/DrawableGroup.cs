@@ -49,6 +49,8 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
 
         internal override IReadOnlyList<FlowNode> FlowInputs => _children.FlowInputs;
 
+        internal override EngineObject? FlowOwner => _children.FlowOwner;
+
         public List<Drawable.Resource> Children
         {
             get => _children.Items;
@@ -61,16 +63,13 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
             var boundsMemory = context.UseMemory<Rect>();
             var transformParams = (Transform, TransformOrigin, availableSize, boundsMemory);
             bool isolatesContent = Opacity != 100f
-                                   || BlendMode != Graphics.BlendMode.SrcOver
+                                   || EvaluatedBlendMode != Graphics.BlendMode.SrcOver
                                    || Children.Any(static child => child.BlendMode != Graphics.BlendMode.SrcOver);
 
             using (context.PushBlendMode(BlendMode))
             using (PushCustomTransform(context, transformParams))
             using (context.PushOpacity(Opacity / 100f))
-            using (context.PushNode(
-                       isolatesContent,
-                       b => new ContentIsolationRenderNode(b),
-                       (n, b) => n.Update(b)))
+            using (ContentIsolationRenderNode.Push(context, isolatesContent))
             using (FilterEffect == null ? new() : context.PushFilterEffect(FilterEffect))
             using (PushContentBounds(context, boundsMemory))
             {
@@ -123,44 +122,6 @@ public sealed partial class DrawableGroup : Drawable, IFlowOperator
         {
             MemoryNode.Value = context.CalculateRecordedInputBoundsHint();
             context.PassThrough();
-        }
-    }
-
-    internal sealed class ContentIsolationRenderNode(bool isolatesContent) : ContainerRenderNode
-    {
-        public bool IsolatesContent { get; private set; } = isolatesContent;
-
-        public bool Update(bool isolatesContent)
-        {
-            if (isolatesContent != IsolatesContent)
-            {
-                IsolatesContent = isolatesContent;
-                MarkChanged();
-                return true;
-            }
-
-            return false;
-        }
-
-        public override void Process(RenderNodeContext context)
-        {
-            if (IsolatesContent)
-            {
-                // A full-target write in the group - a clear, an opaque raw command - has no recorded value
-                // bounds, so scoping by them would make the isolation scope empty and drop the group's whole
-                // contribution instead of compositing it.
-                // An opaque effect can also move its output beyond the provisional recording hint.
-                // Only concrete input metadata can safely bound an isolation scope.
-                TargetRegion region = context.HasSymbolicInputTargetWrite()
-                    || !context.TryCalculateInputBounds(out Rect bounds)
-                    ? TargetRegion.Full
-                    : TargetRegion.Region(bounds);
-                context.Publish(context.TargetLayerScope(context.Inputs, region));
-            }
-            else
-            {
-                context.PassThrough();
-            }
         }
     }
 

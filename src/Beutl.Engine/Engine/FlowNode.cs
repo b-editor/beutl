@@ -5,8 +5,28 @@ namespace Beutl.Engine;
 
 // Capture the inputs actually consumed by an operator. Re-evaluation must not
 // consume the caller's remaining flow or substitute the operator's stored target.
-internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inputs)
+internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inputs, EngineObject? FlowOwner = null)
 {
+    public bool IsVisibleAt(CompositionContext context)
+    {
+        var range = Object.TimeRange.Value;
+        if (range.Duration <= MediaTime.Zero || range.Contains(context.Time)) return true;
+
+        // A controller retimes its target's own clip content together. Portal inputs belong to another
+        // clip even when their authored ranges happen to match, so they still follow the mapped clock.
+        return context.TimeRemappedTarget is { } target
+            && (ReferenceEquals(target, Object)
+                || range == target.TimeRange.Value && ReferenceEquals(GetClipOwner(Object), GetClipOwner(target)));
+    }
+
+    private static IHierarchical GetClipOwner(EngineObject obj)
+    {
+        // Nested drawables inherit their range through their engine-object parents; the outer parent
+        // owns the timeline clip. Keep unattached objects distinct rather than sharing a null owner.
+        while (obj.FindHierarchicalParent<EngineObject>() is { } parent) obj = parent;
+        return obj.HierarchicalParent ?? obj;
+    }
+
     public static FlowNode? Capture(EngineObject.Resource resource)
     {
         if (resource.GetOriginal() is not { } obj) return null;
@@ -14,9 +34,18 @@ internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inp
         FlowNode? captured = resource.CapturedFlow;
         // Playback parameters and Version can change every frame without changing
         // provenance. Only replace this immutable node when its graph changes.
-        if (captured == null || !ReferenceEquals(captured.Object, obj) || !ReferenceEquals(captured.Inputs, inputs))
-            resource.CapturedFlow = captured = new FlowNode(obj, inputs);
+        if (captured == null || !ReferenceEquals(captured.Object, obj) || !ReferenceEquals(captured.Inputs, inputs)
+            || !ReferenceEquals(captured.FlowOwner, resource.FlowOwner))
+            resource.CapturedFlow = captured = new FlowNode(obj, inputs, resource.FlowOwner);
         return captured;
+    }
+
+    internal static EngineObject? ConsumeOwner(CompositionContext context)
+    {
+        EngineObject? owner = context.Flow != null ? context.FlowOwner : null;
+        // Subsequent children/properties see the remaining flow and must not replay this prefix again.
+        context.FlowOwner = null;
+        return owner;
     }
 
     public void Reconcile<TResource>(CompositionContext context, ref TResource? resource, ref bool changed)
@@ -24,15 +53,18 @@ internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inp
     {
         var originalFlow = context.Flow;
         var originalReplay = context.ReplayedFlow;
+        var originalOwner = context.FlowOwner;
         try
         {
             context.Flow = null;
+            context.FlowOwner = null;
             context.ReplayedFlow = this;
             ResourceReconciler.ReconcileResource(context, Object, ref resource, ref changed);
         }
         finally
         {
             context.Flow = originalFlow;
+            context.FlowOwner = originalOwner;
             context.ReplayedFlow = originalReplay;
         }
     }
@@ -43,34 +75,42 @@ internal sealed record FlowNode(EngineObject Object, IReadOnlyList<FlowNode> Inp
 // reconciliation and still release every re-evaluated resource exactly once.
 internal sealed class FlowInputState : IDisposable
 {
-    private readonly List<EngineObject.Resource> _owned = [];
+    private readonly List<EngineObject.Resource?> _owned = [];
 
     public IReadOnlyList<FlowNode> Inputs { get; private set; } = [];
+
+    public EngineObject? FlowOwner { get; private set; }
 
     public void Collect<TResource>(CompositionContext context, EngineObject owner, PooledList<TResource> consumed)
         where TResource : EngineObject.Resource
     {
         if (context.ReplayedFlow is { } replay && ReferenceEquals(replay.Object, owner))
         {
+            FlowOwner = replay.FlowOwner;
             Inputs = replay.Inputs;
             for (int i = 0; i < Inputs.Count; i++)
             {
                 EngineObject.Resource? resource = i < _owned.Count ? _owned[i] : null;
-                bool changed = false;
-                Inputs[i].Reconcile(context, ref resource, ref changed);
-                if (i < _owned.Count) _owned[i] = resource!;
-                else _owned.Add(resource!);
-                consumed.Add((TResource)resource!);
+                if (Inputs[i].IsVisibleAt(context))
+                {
+                    bool changed = false;
+                    Inputs[i].Reconcile(context, ref resource, ref changed);
+                    consumed.Add((TResource)resource!);
+                }
+                // Keep the slot when a sample crosses a clip edge, so seeking back reuses its resource.
+                if (i < _owned.Count) _owned[i] = resource;
+                else _owned.Add(resource);
             }
             while (_owned.Count > Inputs.Count)
             {
-                _owned[^1].Dispose();
+                _owned[^1]?.Dispose();
                 _owned.RemoveAt(_owned.Count - 1);
             }
             return;
         }
 
         DisposeOwned();
+        FlowOwner = FlowNode.ConsumeOwner(context);
         if (context.Flow != null)
         {
             for (int i = context.Flow.Count - 1; i >= 0; i--)
@@ -105,7 +145,7 @@ internal sealed class FlowInputState : IDisposable
 
     private void DisposeOwned()
     {
-        foreach (var resource in _owned) resource.Dispose();
+        foreach (var resource in _owned) resource?.Dispose();
         _owned.Clear();
     }
 

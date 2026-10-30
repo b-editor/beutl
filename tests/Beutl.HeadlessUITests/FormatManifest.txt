@@ -476,6 +476,9 @@ Beutl.Utilities
 [Beutl.Engine]Beutl.Graphics.Effects:MosaicEffect
   unsealed
   keys: Animations, Expressions, Id, IsEnabled, Name, Origin, TileSize
+[Beutl.Engine]Beutl.Graphics.Effects:MotionBlur
+  sealed
+  keys: Animations, Expressions, Id, IsEnabled, Name, Samples, ShutterAngle, ShutterPosition, SourceMix
 [Beutl.Engine]Beutl.Graphics.Effects:Negaposi
   unsealed
   keys: Animations, Blue, Expressions, Green, Id, IsEnabled, Name, Red, Strength

@@ -200,6 +200,14 @@ public sealed partial class RenderNodeContext
     public RenderFragmentHandle TargetLayerScope(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetRegion region)
+        => TargetLayerScope(inputs, region, contributesToBackdrop: true);
+
+    // An effect's combined output must not become the backdrop of its later input samples.
+    internal RenderFragmentHandle TargetLayerScope(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetRegion region,
+        bool contributesToBackdrop,
+        bool preservesTargetClear = false)
     {
         region.ThrowIfUninitialized(nameof(region));
         NodeRecordingTransaction transaction = GetTransaction();
@@ -215,7 +223,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: references.Any(static item => item.HasOpaqueExternalWork),
             references,
-            new TargetLayerScopeRenderFragmentPayload(region),
+            new TargetLayerScopeRenderFragmentPayload(region, contributesToBackdrop, preservesTargetClear),
             CreateTargetLayerScopeHitTest(region),
             hasDirectSymbolicBoundsDependency: region.Kind == TargetRegionKind.Full);
     }
@@ -296,6 +304,12 @@ public sealed partial class RenderNodeContext
     public RenderFragmentHandle TargetCommand(
         IReadOnlyList<RenderFragmentHandle> inputs,
         TargetCommandDescription description)
+        => TargetCommand(inputs, description, clearsTarget: false);
+
+    internal RenderFragmentHandle TargetCommand(
+        IReadOnlyList<RenderFragmentHandle> inputs,
+        TargetCommandDescription description,
+        bool clearsTarget)
     {
         ArgumentNullException.ThrowIfNull(description);
         NodeRecordingTransaction transaction = GetTransaction();
@@ -318,7 +332,7 @@ public sealed partial class RenderNodeContext
             hasTargetEffects: true,
             hasOpaqueExternalWork: false,
             references,
-            new TargetCommandRenderFragmentPayload(description, inputReadbacks),
+            new TargetCommandRenderFragmentPayload(description, inputReadbacks, clearsTarget),
             RenderFragmentHitTest.FromContract(description.HitTest, description.Resources));
     }
 

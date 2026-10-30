@@ -328,6 +328,8 @@ public partial class EngineObject : Hierarchical, INotifyEdited, IExpressionJson
 
         internal FlowNode? CapturedFlow { get; set; }
 
+        internal virtual EngineObject? FlowOwner => null;
+
         /// <summary>
         /// The number every cache over this resource keys on.
         /// </summary>

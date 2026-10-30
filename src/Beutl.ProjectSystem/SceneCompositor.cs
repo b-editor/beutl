@@ -18,6 +18,9 @@ public sealed partial class SceneCompositor : ICompositor
     private readonly ConditionalWeakTable<EngineObject, ResourceEntry> _resourceCache = new();
     private readonly ConcurrentQueue<EngineObject.Resource> _detachedResources = new();
     private readonly object _resourceCacheLock = new();
+    // Sample sessions retain only resources used by their current evaluation. Ordinary frame caches
+    // keep their existing lifetime; the session owns this set and releases unused entries afterward.
+    private HashSet<EngineObject.Resource>? _usedSampleResources;
     // One presenter per transition draws it for this compositor; it lives as long as the transition does.
     private readonly ConditionalWeakTable<ClipTransition, ClipTransitionPresenter> _transitionPresenters = new();
 
@@ -411,6 +414,22 @@ public sealed partial class SceneCompositor : ICompositor
 
     private EngineObject.Resource GetOrCreateResource(EngineObject obj, CompositionContext context)
     {
+        EngineObject? previousOwner = context.FlowOwner;
+        context.FlowOwner = obj;
+        try
+        {
+            EngineObject.Resource resource = GetOrCreateResourceCore(obj, context);
+            _usedSampleResources?.Add(resource);
+            return resource;
+        }
+        finally
+        {
+            context.FlowOwner = previousOwner;
+        }
+    }
+
+    private EngineObject.Resource GetOrCreateResourceCore(EngineObject obj, CompositionContext context)
+    {
         bool matte = context is CompositorContext { IsMatteSource: true };
         var cache = matte ? _matteResourceCache : _resourceCache;
         if (!cache.TryGetValue(obj, out var entry))
@@ -468,6 +487,26 @@ public sealed partial class SceneCompositor : ICompositor
         {
             resource.Dispose();
         }
+    }
+
+    private void ReleaseCachedResources(HashSet<EngineObject.Resource>? retained = null)
+    {
+        lock (_resourceCacheLock)
+        {
+            foreach (var cache in new[] { _resourceCache, _matteResourceCache })
+            {
+                foreach (var pair in cache)
+                {
+                    if (retained?.Contains(pair.Value.Resource) == true) continue;
+                    pair.Key.DetachedFromHierarchy -= pair.Value.Detached;
+                    cache.Remove(pair.Key);
+                    _detachedResources.Enqueue(pair.Value.Resource);
+                }
+            }
+        }
+
+        // Release outside the lock because disposal can itself trigger hierarchy callbacks.
+        DisposeDetachedResources();
     }
 
     // timeに掛かるElementを、solo/muteでフィルタしつつZIndex順に振り分ける
@@ -645,23 +684,7 @@ public sealed partial class SceneCompositor : ICompositor
             ForgetLayer(layer);
         }
 
-        lock (_resourceCacheLock)
-        {
-            foreach (var cache in new[] { _resourceCache, _matteResourceCache })
-            {
-                foreach (var kvp in cache)
-                {
-                    kvp.Key.DetachedFromHierarchy -= kvp.Value.Detached;
-                    _detachedResources.Enqueue(kvp.Value.Resource);
-                }
-
-                cache.Clear();
-            }
-        }
-
-        // The cache is empty and all earlier detachments have enqueued their resources. Release them
-        // outside the lock because resource disposal can itself trigger hierarchy callbacks.
-        DisposeDetachedResources();
+        ReleaseCachedResources();
         _matteSources.Clear();
     }
 }

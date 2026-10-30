@@ -18,6 +18,8 @@ public partial class SourceBackdrop : Drawable
 
     public new partial class Resource
     {
+        internal override bool ClearsTargetBeforeEffects => Clear;
+
         protected override Size MeasureCore(Size availableSize)
         {
             return availableSize;

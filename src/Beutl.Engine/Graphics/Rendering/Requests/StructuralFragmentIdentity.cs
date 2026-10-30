@@ -154,6 +154,8 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 return;
             case TargetLayerScopeRenderFragmentPayload targetLayer:
                 components.AddBoolean(targetLayer.Region.Kind != TargetRegionKind.Empty);
+                components.AddBoolean(targetLayer.ContributesToBackdrop);
+                components.AddBoolean(targetLayer.PreservesTargetClear);
                 return;
             case OpaqueRenderFragmentPayload opaque:
                 AddOpaqueStructuralIdentity(opaque, ref components);
@@ -193,6 +195,7 @@ internal sealed class StructuralFragmentIdentity : IEquatable<StructuralFragment
                 AddResourceTypes(command.Description.Resources, ref components);
                 return;
             case TargetCommandRenderFragmentPayload command:
+                components.AddBoolean(command.ClearsTarget);
                 components.AddReference(command.Description.DefinitionFingerprint);
                 components.AddEnum(command.Description.Access);
                 AddInputReadbacks(command.InputReadbacks, ref components);

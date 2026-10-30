@@ -55,6 +55,40 @@ public class DrawableTimeControllerFlowTests
     }
 
     [Test]
+    public void FlowTarget_RetimingKeepsSameClipInputsButNotPortalClips()
+    {
+        using var harness = new SceneHistoryHarness("beutl_controller_clip_coverage", duration: Seconds(10));
+        Element element = harness.AddElement(Seconds(1), Seconds(2));
+        Element portalElement = harness.AddElement(Seconds(1), Seconds(2), zIndex: 1);
+        var local = CreateVideo();
+        var portal = CreateVideo();
+        portalElement.Objects.Add(portal);
+        element.Objects.Add(new PortalObject { Count = { Value = 1 } });
+        element.Objects.Add(local);
+        element.Objects.Add(new DrawableGroup());
+        var controller = new DrawableTimeController();
+        element.Objects.Add(controller);
+        using var compositor = new SceneCompositor(harness.Scene) { ForceOriginalSource = true };
+
+        foreach (bool useOffset in new[] { false, true })
+        {
+            controller.Speed.Value = useOffset ? 100 : 200;
+            controller.OffsetPosition.Value = useOffset ? Seconds(1) : MediaTime.Zero;
+            foreach (double time in new[] { 1.25, 1.99, 2, 2.5, 1.25 })
+            {
+                var sources = Videos(compositor.EvaluateGraphics(Seconds(time)).Objects.OfType<DrawableTimeController.Resource>().Single())
+                    .Select(resource => resource.RequireOriginal()).ToArray();
+                Assert.Multiple(() =>
+                {
+                    Assert.That(sources, Does.Contain(local), $"same-clip content at {time}, offset: {useOffset}");
+                    Assert.That(sources.Contains(portal), Is.EqualTo(time < 2),
+                        "A separate clip with the same authored range still ends at the mapped clock's exclusive end.");
+                });
+            }
+        }
+    }
+
+    [Test]
     public void FlowTarget_ReplacingInputsDisposesReplayCopiesWithoutDisposingTheirProducers()
     {
         using var harness = new SceneHistoryHarness("beutl_controller_flow_ownership", duration: Seconds(10));

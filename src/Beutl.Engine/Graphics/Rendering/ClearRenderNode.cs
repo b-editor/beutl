@@ -26,6 +26,6 @@ public sealed class ClearRenderNode(Color color) : RenderNode
                 static (session, state) => session.Canvas.Use(canvas => canvas.Clear(state)),
                 TargetRegion.Full,
                 Rect.Empty,
-                RenderHitTestContract.None)));
+                RenderHitTestContract.None), clearsTarget: true));
     }
 }

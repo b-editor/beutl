@@ -69,23 +69,21 @@ public sealed class FilterEffectInputContext
             CompositionContext context = slot.Session.Context;
             context.SampledDrawable = (Drawable)_flow.Object;
             context.InputBoundaries = [.. EvaluationContext.InputBoundaries, _boundary];
-            // A retimed target is drawn at any mapped time, as its controller draws it; otherwise the
-            // sample follows the element's range on the composition clock.
-            var range = _flow.Object.TimeRange.Value;
-            bool visible = EvaluationContext.IsTimeRemapped || range.Duration <= MediaTime.Zero || range.Contains(time);
+            bool visible = _flow.IsVisibleAt(context);
             if (visible)
             {
                 bool changed = false;
-                _flow.Reconcile(context, ref slot.Source, ref changed);
+                slot.Session.Reconcile(_flow, ref slot.Source, ref changed);
             }
             // A hidden sample keeps its slot's source unevaluated for when the drawable is visible again.
             Drawable.Resource? source = visible ? slot.Source : null;
             sample = new FilterEffectInputSample(time, source, slot);
             if (source != null)
             {
-                source.BlendMode = BlendMode.SrcOver;
+                source.SuppressInputBlendMode();
                 source.PrepareFilterEffectInput(context, source.EvaluatedInputChain);
             }
+            slot.Session.CompleteEvaluation();
             context.CancellationToken.ThrowIfCancellationRequested();
             _samples[time] = sample;
             EvaluationContext.ContainsScene3D |= context.ContainsScene3D;
@@ -133,11 +131,11 @@ public sealed class FilterEffectInputContext
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         EvaluationContext.CancellationToken.ThrowIfCancellationRequested();
+        using (context.PushNode(_source.ClearsTargetBeforeEffects,
+                   static value => new FilterEffectInputCompositeRenderNode(value), static (node, value) => node.Update(value)))
         using (context.PushBlendMode(_source.BlendMode))
         using (context.PushFilterEffect(_suffix.Resource))
-        using (context.PushNode(true,
-                   static value => new DrawableGroup.ContentIsolationRenderNode(value),
-                   static (node, value) => node.Update(value)))
+        using (ContentIsolationRenderNode.Push(context, contributesToBackdrop: false, preservesTargetClear: true))
         {
             Effect.RenderInput(context, this);
         }
@@ -197,9 +195,7 @@ public sealed class FilterEffectInputSample
         ObjectDisposedException.ThrowIf(IsDisposed, this);
         _slot.Session.Context.CancellationToken.ThrowIfCancellationRequested();
         if (_source == null) return;
-        using (context.PushNode(true,
-                   static value => new DrawableGroup.ContentIsolationRenderNode(value),
-                   static (node, value) => node.Update(value)))
+        using (ContentIsolationRenderNode.Push(context, preservesTargetClear: true))
             context.DrawDrawable(_source);
     }
 

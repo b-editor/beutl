@@ -400,7 +400,8 @@ public sealed class MobilePreviewTests
             Assert.That(View().FindControl<Button>("DetailsButton")!.IsEffectivelyVisible, Is.False);
             Capture("desktop-waiting");
             await Roster(socket, ["one"]);
-            await HeadlessTestHelpers.WaitUntilAsync(() => server.GetClients().Length == 1);
+            // The server roster changes before the UI-thread callback switches the page.
+            await HeadlessTestHelpers.WaitUntilAsync(() => mobile.ShowDetails.Value);
             HeadlessTestHelpers.Settle();
             AssertPage("DetailsPage");
             Assert.That(View().FindControl<Button>("DetailsButton")!.IsEffectivelyVisible, Is.False);
