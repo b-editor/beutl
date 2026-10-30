@@ -393,7 +393,7 @@ public class FontFamilyPickerTests
     {
         private readonly ControlHost _host;
 
-        private PickerHost(ControlHost host, FontFamilyPickerFlyout flyout)
+        private PickerHost(ControlHost host, SearchablePickerFlyout flyout)
         {
             _host = host;
             Flyout = flyout;
@@ -404,7 +404,7 @@ public class FontFamilyPickerTests
 
         public Window Window => _host.Window;
 
-        public FontFamilyPickerFlyout Flyout { get; }
+        public SearchablePickerFlyout Flyout { get; }
 
         public LibraryItemPickerFlyoutPresenter Presenter { get; }
 
@@ -421,7 +421,7 @@ public class FontFamilyPickerTests
             var anchor = new Button { Content = "Font" };
             var host = new ControlHost(anchor, 600, 500);
             HeadlessTestHelpers.Render();
-            var flyout = new FontFamilyPickerFlyout(viewModel);
+            SearchablePickerFlyout flyout = FontFamilyEditor.CreatePicker(viewModel);
             flyout.ShowAt(anchor);
             HeadlessTestHelpers.Render(3);
             return new PickerHost(host, flyout);

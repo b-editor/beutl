@@ -33,6 +33,18 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
                && ReferenceEquals(adapter.Property, settings.Format);
     }
 
+    private static bool IsVideoCodecProperty(IPropertyAdapter prop)
+    {
+        return prop is EnginePropertyAdapter<CodecRecord> { Object: FFmpegVideoEncoderSettings settings } adapter
+               && ReferenceEquals(adapter.Property, settings.Codec);
+    }
+
+    private static bool IsAudioCodecProperty(IPropertyAdapter prop)
+    {
+        return prop is EnginePropertyAdapter<CodecRecord> { Object: FFmpegAudioEncoderSettings settings } adapter
+               && ReferenceEquals(adapter.Property, settings.Codec);
+    }
+
     protected override void RegisterEditors(PropertyEditorRegistry registry)
     {
         registry.Register<CoreList<AdditionalOption>, EncoderOptionsEditorViewModel>(
@@ -51,6 +63,14 @@ public sealed class FFmpegEncoderSpecializedPropertyExtension : PropertyEditorEx
             p => new PixelFormatEditorViewModel(p, this),
             context => Accept(context, new EnumEditor()),
             new PropertyEditorOptions { Match = IsPixelFormatProperty });
+        registry.Register<CodecRecord, CodecEditorViewModel>(
+            p => new CodecEditorViewModel(p, this, VideoCodecChoicesProvider.GetChoices(), CodecPickerViewModel.VideoCodecPinnedItemsKey),
+            context => Accept(context, new DropDownPickerEditor()),
+            new PropertyEditorOptions { Match = IsVideoCodecProperty });
+        registry.Register<CodecRecord, CodecEditorViewModel>(
+            p => new CodecEditorViewModel(p, this, AudioCodecChoicesProvider.GetChoices(), CodecPickerViewModel.AudioCodecPinnedItemsKey),
+            context => Accept(context, new DropDownPickerEditor()),
+            new PropertyEditorOptions { Match = IsAudioCodecProperty });
     }
 
     // These view models bind the editor themselves when it visits them.

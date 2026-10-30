@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -70,6 +71,9 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
 
     public static readonly StyledProperty<string?> NoResultsTextProperty =
         AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, string?>(nameof(NoResultsText));
+
+    public static readonly StyledProperty<IDataTemplate?> ItemTemplateProperty =
+        AvaloniaProperty.Register<LibraryItemPickerFlyoutPresenter, IDataTemplate?>(nameof(ItemTemplate));
 
     private const string SearchBoxPseudoClass = ":search-box";
     private const string IsBusyPseudoClass = ":busy";
@@ -151,6 +155,14 @@ public class LibraryItemPickerFlyoutPresenter : DraggablePickerFlyoutPresenter
     {
         get => GetValue(NoResultsTextProperty);
         set => SetValue(NoResultsTextProperty, value);
+    }
+
+    // The template of the listed items. A theme sets it here: the list sets its own from the control template,
+    // which a style on the list cannot override.
+    public IDataTemplate? ItemTemplate
+    {
+        get => GetValue(ItemTemplateProperty);
+        set => SetValue(ItemTemplateProperty, value);
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

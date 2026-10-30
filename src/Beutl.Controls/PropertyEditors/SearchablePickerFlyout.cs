@@ -4,44 +4,45 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
-using Beutl.Language;
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls.Primitives;
 
 namespace Beutl.Controls.PropertyEditors;
 
-public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewModel) : FAPickerFlyoutBase
+// Picks an item of an ISearchablePickerViewModel. Enter or the checkmark confirms the highlighted item, and Escape
+// cancels even from the search box.
+public sealed class SearchablePickerFlyout(ISearchablePickerViewModel viewModel) : FAPickerFlyoutBase
 {
-    public event TypedEventHandler<FontFamilyPickerFlyout, EventArgs>? Confirmed;
+    public event TypedEventHandler<SearchablePickerFlyout, EventArgs>? Confirmed;
 
-    public event TypedEventHandler<FontFamilyPickerFlyout, EventArgs>? Dismissed;
+    public event TypedEventHandler<SearchablePickerFlyout, EventArgs>? Dismissed;
 
-    public event TypedEventHandler<FontFamilyPickerFlyout, PinnableLibraryItem>? Pinned;
+    // The key of the presenter's ControlTheme, which lays out the items.
+    public string PresenterThemeKey { get; init; } = "SearchablePickerFlyoutPresenter";
 
-    public event TypedEventHandler<FontFamilyPickerFlyout, PinnableLibraryItem>? Unpinned;
+    // Shown in place of the list when a search matches nothing.
+    public string? NoResultsText { get; init; }
 
     protected override Control CreatePresenter()
     {
-        // Fonts are found by name far more often than by scrolling, so the search box starts open.
+        // These items are found by name far more often than by scrolling, so the search box starts open.
         var pfp = new LibraryItemPickerFlyoutPresenter
         {
             ShowSearchBox = true,
-            NoResultsText = Strings.FontFamilyPicker_NoResults
+            NoResultsText = NoResultsText
         };
 
         pfp.CloseClicked += OnFlyoutDismissed;
         pfp.Confirmed += OnFlyoutConfirmed;
         pfp.Dismissed += OnFlyoutDismissed;
-        pfp.Pinned += item => Pinned?.Invoke(this, item);
-        pfp.Unpinned += item => Unpinned?.Invoke(this, item);
+        pfp.Pinned += viewModel.Pin;
+        pfp.Unpinned += viewModel.Unpin;
         pfp.Items = viewModel.Items;
         pfp.SelectedItem = viewModel.SelectedItem.Value;
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SelectedItemProperty)
             .Subscribe(v => viewModel.SelectedItem.Value = v);
         // A search highlights its best match, so the selection also flows from the view model.
         viewModel.SelectedItem.Subscribe(v => pfp.SelectedItem = v);
-        pfp.GetObservable(LibraryItemPickerFlyoutPresenter.ShowAllProperty)
-            .Subscribe(v => viewModel.ShowAll.Value = v);
         pfp.GetObservable(LibraryItemPickerFlyoutPresenter.SearchTextProperty)
             .Subscribe(v => viewModel.SearchText.Value = v);
         // Hiding the search box drops its query, so the list never stays filtered by text nobody can see.
@@ -113,7 +114,7 @@ public sealed class FontFamilyPickerFlyout(FontFamilyPickerFlyoutViewModel viewM
         base.OnOpening(args);
         if (Popup.Child is LibraryItemPickerFlyoutPresenter pfp)
         {
-            pfp.Theme = Popup.FindResource("FontFamilyPickerFlyoutPresenter") as ControlTheme;
+            pfp.Theme = Popup.FindResource(PresenterThemeKey) as ControlTheme;
         }
 
         Popup.IsLightDismissEnabled = false;
