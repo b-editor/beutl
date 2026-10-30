@@ -32,7 +32,10 @@ internal partial class WebBrowserTabView
     internal Func<Uri, CancellationToken, Task<BrowserDownloadOptions?>>? DownloadOptionsSelector { get; set; }
     internal Func<NativeWebView?, CancellationToken, Task<IReadOnlyList<Cookie>>> DownloadCookiesProvider { get; set; } =
         static async (webView, cancellation) => webView?.TryGetCookieManager() is { } manager
-            ? await manager.GetCookiesAsync().WaitAsync(cancellation) : [];
+            ? await manager.GetCookiesAsync().WaitAsync(cancellation)
+            : await LinuxWebKitCookies.GetAllAsync(webView?.TryGetPlatformHandle()).WaitAsync(cancellation);
+    // Sites tie session cookies to the browser that received them, so a download presents the same user agent.
+    internal Func<NativeWebView?, string?> DownloadUserAgentProvider { get; set; } = static webView => webView?.UserAgent;
     internal sealed record BrowserDownloadOptions(string Directory, bool AddToTimeline);
 
     internal void OnWindowsNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source) =>
@@ -430,7 +433,8 @@ internal partial class WebBrowserTabView
                 IReadOnlyList<Cookie> cookies = referrer != null && !BrowserMediaDownload.IsHttpUri(referrer)
                     ? [] : await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
                 cancellation.Token.ThrowIfCancellationRequested();
-                file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy);
+                file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy,
+                    DownloadUserAgentProvider(initiatingWebView));
             }
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));

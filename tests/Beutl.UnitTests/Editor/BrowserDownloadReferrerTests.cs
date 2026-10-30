@@ -33,6 +33,18 @@ public class BrowserDownloadReferrerTests
         Assert.That(reloaded.Referrer, Is.EqualTo("https://site.example/"));
     }
 
+    [Test]
+    public async Task DownloadsPresentTheWebViewUserAgentOnEveryRedirect()
+    {
+        const string userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+        using var temporary = new TemporaryDirectory();
+        using var handler = new PolicyHandler();
+        using var client = new HttpClient(handler);
+        await new BrowserMediaDownload(client).DownloadAsync(new Uri("https://site.example/start"), temporary.Path,
+            null, null, default, new Uri("https://site.example/page"), userAgent: userAgent);
+        Assert.That(handler.UserAgents, Is.EqualTo(new string?[] { userAgent, userAgent }));
+    }
+
     [TestCase("https://site.example/page?secret=value#part", "https://site.example/audio.mp3", "https://site.example/")]
     [TestCase("https://site.example/page?secret=value", "https://cdn.example/audio.mp3", "https://site.example/")]
     [TestCase("https://site.example:8443/page", "https://cdn.example/audio.mp3", "https://site.example:8443/")]
@@ -74,11 +86,13 @@ public class BrowserDownloadReferrerTests
     {
         internal List<Uri?> Referrers { get; } = [];
         internal List<string?> CookieHeaders { get; } = [];
+        internal List<string?> UserAgents { get; } = [];
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Referrers.Add(request.Headers.Referrer);
             CookieHeaders.Add(request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join("; ", cookies) : null);
+            UserAgents.Add(request.Headers.TryGetValues("User-Agent", out var userAgents) ? string.Join(" ", userAgents) : null);
             if (request.RequestUri!.AbsolutePath == "/start")
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Found)
                 { RequestMessage = request, Headers = { Location = new Uri("https://cdn.example/media.mp3") } });

@@ -1258,7 +1258,8 @@ public class WebBrowserDownloadTests
     [TestCase("\"text/html\"", false)]
     // The WebKitGTK adapter returns a script's string result without JSON quotes.
     [TestCase("video/mp4", true)]
-    public void WithoutNativeMediaResponses_AMediaPageWithoutAMediaExtensionOffersADownload(string contentType, bool offered)
+    [TestCase(null, false)]
+    public void WithoutNativeMediaResponses_AMediaPageWithoutAMediaExtensionOffersADownload(string? contentType, bool offered)
     {
         var media = new Uri("https://media.example/watch?id=1");
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
@@ -1272,6 +1273,21 @@ public class WebBrowserDownloadTests
 
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.EqualTo(offered));
         if (offered) Assert.That(view.FindControl<TextBlock>("DownloadProgressText")!.Text, Is.EqualTo(media.AbsoluteUri));
+    }
+
+    [AvaloniaTest]
+    public void WithoutNativeMediaResponses_APageWhoseTypeCannotBeReadOffersNothing()
+    {
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
+            getPageContentType: _ => Task.FromException<string?>(new InvalidOperationException("The document was replaced.")))
+        { DataContext = vm };
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = new Uri("https://media.example/watch?id=1"), IsSuccess = true });
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
     }
 
     [AvaloniaTest]
@@ -1290,6 +1306,26 @@ public class WebBrowserDownloadTests
         Dispatcher.UIThread.RunJobs();
 
         Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task ADownloadPresentsTheWebViewUserAgent()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://site.example/page");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page,
+            new BrowserProfile(Path.Combine(root, "profile.json")));
+        using var view = CreateView(vm);
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        view.DownloadUserAgentProvider = _ => "Beutl WebView";
+
+        await view.DownloadMediaAsync(new Uri("https://site.example/audio.mp3"), null, page);
+
+        Assert.That(handler.UserAgent, Is.EqualTo("Beutl WebView"));
     }
 
     [AvaloniaTest]
@@ -1627,11 +1663,13 @@ public class WebBrowserDownloadTests
     {
         internal Uri? Referrer { get; private set; }
         internal string? CookieHeader { get; private set; }
+        internal string? UserAgent { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Referrer = request.Headers.Referrer;
             CookieHeader = request.Headers.TryGetValues("Cookie", out var cookies) ? string.Join("; ", cookies) : null;
+            UserAgent = request.Headers.TryGetValues("User-Agent", out var userAgents) ? string.Join(" ", userAgents) : null;
             var content = new ByteArrayContent([1, 2, 3]);
             content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });

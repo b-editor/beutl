@@ -78,14 +78,15 @@ internal sealed class BrowserMediaDownload(HttpClient client)
 
     internal async Task<string> DownloadAsync(Uri uri, string directory, string? suggestedName,
         IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken, Uri? referrer = null,
-        IReadOnlyList<Cookie>? cookies = null, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin)
+        IReadOnlyList<Cookie>? cookies = null, BrowserReferrerPolicy referrerPolicy = BrowserReferrerPolicy.Origin,
+        string? userAgent = null)
     {
         if (!IsHttpUri(uri))
         {
             throw new InvalidOperationException(Strings.WebDownloadUnsupported);
         }
 
-        using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken, referrerPolicy);
+        using HttpResponseMessage response = await SendAsync(uri, referrer, cookies ?? [], cancellationToken, referrerPolicy, userAgent);
         response.EnsureSuccessStatusCode();
         if (response.StatusCode == HttpStatusCode.PartialContent)
             throw new IOException(Strings.WebDownloadIncomplete);
@@ -231,7 +232,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
     }
 
     private async Task<HttpResponseMessage> SendAsync(Uri uri, Uri? referrer, IReadOnlyList<Cookie> cookies,
-        CancellationToken cancellationToken, BrowserReferrerPolicy referrerPolicy)
+        CancellationToken cancellationToken, BrowserReferrerPolicy referrerPolicy, string? userAgent)
     {
         // The native API omits SameSite/partition metadata. Do not import another site's
         // existing login session merely because the download redirects to that site.
@@ -240,6 +241,7 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, uri);
             request.Headers.Referrer = NormalizeReferrer(referrer, uri, referrerPolicy);
+            if (!string.IsNullOrEmpty(userAgent)) request.Headers.TryAddWithoutValidation("User-Agent", userAgent);
             if (uri.Scheme == Uri.UriSchemeHttps)
             {
                 string header = cookieContainer.GetCookieHeader(uri);
