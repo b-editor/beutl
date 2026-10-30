@@ -19,6 +19,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly Func<NativeWebView, Task<string?>> _getPageTitle;
     private readonly Func<NativeWebView, bool> _canReparentWebView;
     private readonly bool _navigationStartedIncludesSubframes;
+    private readonly bool _handlesMediaResponsesNatively;
     private NativeWebView? _webView;
     private BrowserAdBlockSession? _adBlockSession;
     private IDisposable? _nativeDownloadHandler;
@@ -38,7 +39,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         Func<NativeWebView, Task<string?>>? getPageTitle = null,
         Func<NativeWebView, bool>? canReparentWebView = null,
         bool? navigationStartedIncludesSubframes = null,
-        BrowserFaviconLoader? faviconLoader = null)
+        BrowserFaviconLoader? faviconLoader = null,
+        bool? handlesMediaResponsesNatively = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
@@ -47,6 +49,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
         // WKWebView, WebKitGTK and WPE all report subframe navigations through NavigationStarted.
         _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux());
+        // The macOS and Windows handlers turn a main-frame media response into a download; Linux has no such handler.
+        _handlesMediaResponsesNatively = handlesMediaResponsesNatively ?? !OperatingSystem.IsLinux();
         FaviconLoader = faviconLoader;
         InitializeComponent();
         AddressTextBox.SearchSuggestionsChanged += OnSearchSuggestionsChanged;

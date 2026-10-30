@@ -146,7 +146,7 @@ public class WebBrowserTabLifecycleTests
         var google = new Uri("https://www.google.com/");
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(), google);
         using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri },
-            () => (true, null, false), navigationStartedIncludesSubframes: true);
+            () => (true, null, false), navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: true);
         view.DataContext = vm;
         vm.CompleteNavigation(google, true, false, false);
         vm.SetPageTitle(google, "Google");

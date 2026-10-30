@@ -31,13 +31,15 @@ public class WebBrowserDownloadTests
     public void UnregisterDownloadTestDecoder() => DecoderRegistry.Unregister(_decoder);
 
     // A view whose web views show the requested address, with the web view runtime available.
+    // A view that reports subframe starts models macOS, whose delegate turns media responses into downloads.
     private static WebBrowserTabView CreateView(
         WebBrowserTabViewModel vm,
         bool? includesSubframes = null,
         Func<NativeWebView, Task<string?>>? getPageTitle = null)
         => new(uri => new NativeWebView { Source = uri }, () => (true, null, false),
             getPageTitle: getPageTitle,
-            navigationStartedIncludesSubframes: includesSubframes)
+            navigationStartedIncludesSubframes: includesSubframes,
+            handlesMediaResponsesNatively: includesSubframes == true ? true : null)
         {
             DataContext = vm,
         };
@@ -1192,6 +1194,32 @@ public class WebBrowserDownloadTests
         Assert.That(vm.CurrentUri, Is.EqualTo(next));
         Assert.That(vm.IsLoading.Value, Is.False);
         Assert.That(vm.ErrorMessage.Value, Is.Not.Empty);
+    }
+
+    [AvaloniaTest]
+    public void WithoutNativeMediaResponses_SubframeModeStillOffersMediaNavigationAsADownload()
+    {
+        var page = new Uri("https://pixabay.com/videos/ocean-12345/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page);
+        // Linux reports subframe starts, but no native handler sees the media response.
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false)
+        { DataContext = vm };
+        vm.CompleteNavigation(page, true, false, false);
+
+        var subframe = new WebViewNavigationStartingEventArgs { Request = WebBrowserTabViewModel.BlankPage };
+        view.OnNavigationStarted(null, subframe);
+        var media = new WebViewNavigationStartingEventArgs { Request = new Uri("https://cdn.pixabay.com/video/2024/01/01/12345_large.mp4") };
+        view.OnNavigationStarted(null, media);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(subframe.Cancel, Is.False);
+            Assert.That(media.Cancel, Is.True);
+            Assert.That(vm.CurrentUri, Is.EqualTo(page));
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        });
     }
 
     [AvaloniaTest]
