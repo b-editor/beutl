@@ -187,6 +187,8 @@ internal partial class WebBrowserTabView
     {
         NativeWebView? webView = _webView;
         int revision = _pageRevision;
+        // On Linux a page-initiated navigation start changes the download document, not the page revision.
+        int documentId = _pageDownloadDocumentId;
         if (webView == null) return;
 
         string? contentType;
@@ -204,8 +206,8 @@ internal partial class WebBrowserTabView
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (!_disposed && revision == _pageRevision && ReferenceEquals(_webView, webView)
-                    && BrowserMediaDownload.IsMediaType(contentType))
+                if (!_disposed && revision == _pageRevision && documentId == _pageDownloadDocumentId
+                    && ReferenceEquals(_webView, webView) && BrowserMediaDownload.IsMediaType(contentType))
                 {
                     QueuePageDownloadRequest(uri, null);
                 }

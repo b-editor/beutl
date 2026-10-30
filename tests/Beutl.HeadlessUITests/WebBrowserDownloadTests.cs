@@ -1275,6 +1275,51 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void WithoutNativeMediaResponses_AMediaPageCheckedAfterTheNextNavigationStartsOffersNothing()
+    {
+        var contentType = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false,
+            getPageContentType: _ => contentType.Task)
+        { DataContext = vm };
+
+        view.OnNavigationCompleted(null, new WebViewNavigationCompletedEventArgs { Request = new Uri("https://media.example/watch?id=1"), IsSuccess = true });
+        view.OnNavigationStarted(null, new WebViewNavigationStartingEventArgs { Request = new Uri("https://media.example/next") });
+        contentType.SetResult("video/webm");
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.False);
+    }
+
+    [AvaloniaTest]
+    public async Task ARejectedWebKitDownloadIsRetriedWithThePageReferrer()
+    {
+        using var temporary = new TemporaryDirectory();
+        string root = temporary.Path;
+        var page = new Uri("https://sounds.example/sound/button/");
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), page,
+            new BrowserProfile(Path.Combine(root, "profile.json")));
+        using var view = CreateView(vm);
+        using var handler = new ReferrerHandler();
+        using var client = new HttpClient(handler);
+        view.MediaDownloader = new BrowserMediaDownload(client);
+        view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
+        var rejected = new RejectedDownloadSource();
+
+        // Hotlink protection answers WebKit's referrer-less download with 403.
+        await view.DownloadMediaAsync(new Uri("https://sounds.example/sound/button/mp3/decision1.mp3"), "決定ボタンを押す1.mp3",
+            page, BrowserReferrerPolicy.Origin, rejected);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(rejected.Saved, Is.True);
+            Assert.That(handler.Referrer, Is.EqualTo(new Uri("https://sounds.example/")));
+            Assert.That(File.Exists(Path.Combine(root, "決定ボタンを押す1.mp3")), Is.True);
+        });
+    }
+
+    [AvaloniaTest]
     public void WithNativeMediaResponses_ACompletedPageIsNotProbedForMedia()
     {
         bool probed = false;
@@ -1617,6 +1662,21 @@ public class WebBrowserDownloadTests
             var content = new ByteArrayContent([1, 2, 3]);
             content.Headers.ContentType = new MediaTypeHeaderValue("audio/mpeg");
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content, RequestMessage = request });
+        }
+    }
+
+    private sealed class RejectedDownloadSource : IBrowserDownloadSource
+    {
+        internal bool Saved { get; private set; }
+
+        public Task<string> SaveAsync(string directory, IProgress<(long Received, long? Total)>? progress, CancellationToken cancellationToken)
+        {
+            Saved = true;
+            return Task.FromException<string>(new LinuxBrowserDownloadSource.ResponseRejectedException("WebKit received HTTP status 403."));
+        }
+
+        public void Dispose()
+        {
         }
     }
 

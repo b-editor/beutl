@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 using Avalonia.Platform;
@@ -126,20 +125,21 @@ internal sealed class LinuxBrowserDownloadSource : IBrowserDownloadSource
         nint response = _api.GetResponse(download);
         if (response == 0) throw new IOException(Strings.WebDownloadIncomplete);
         uint status = _api.GetStatusCode(response);
-        if (status >= 400)
-        {
-            // Report a rejected request the way the HttpClient download does.
-            using var rejected = new HttpResponseMessage((HttpStatusCode)status);
-            rejected.EnsureSuccessStatusCode();
-        }
+        // A partial response would be published as a complete file.
+        if (status is >= 400 or 206) throw new ResponseRejectedException($"WebKit received HTTP status {status}.");
         Uri responseUri = Uri.TryCreate(_api.GetUri(response), UriKind.Absolute, out Uri? finalUri)
             ? finalUri : _uri;
         string? nameHint = _api.GetSuggestedFilename(response) ?? _suggestedName ?? suggestedFilename;
-        _fileName = BrowserMediaDownload.GetResponseFileName(responseUri, nameHint, _api.GetMimeType(response));
+        _fileName = BrowserMediaDownload.GetResponseFileName(responseUri, nameHint, _api.GetMimeType(response))
+            ?? throw new ResponseRejectedException(Strings.WebDownloadUnsupported);
         _api.SetDestination(download, _destination!);
     }
 
     private static LinuxBrowserDownloadSource GetSource(nint data) => (LinuxBrowserDownloadSource)GCHandle.FromIntPtr(data).Target!;
+
+    // WebKit cannot send a referrer with a download it starts, so sites that require one reject it. The caller
+    // retries such a response without WebKit; it is canceled before WebKit writes anything.
+    internal sealed class ResponseRejectedException(string message) : IOException(message);
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
     private static int OnDecideDestination(nint download, nint suggestedFilename, nint data)
