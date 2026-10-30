@@ -1,5 +1,6 @@
 ﻿using System.Collections.Immutable;
 using Beutl.Animation;
+using Beutl.Audio;
 using Beutl.Engine;
 using Beutl.Graphics;
 using Beutl.Language;
@@ -88,6 +89,9 @@ public sealed class ElementStructureService : IElementStructureService
         backward.Start.Value = at;
         backward.Length.Value = backwardDuration;
         backward.EnterTransition.Value = null;
+        // Detached group children subscribe to inherited timing only when published.
+        // Establish that timing before calculating the new fragment's source positions.
+        foreach (SoundGroup group in backward.Objects.OfType<SoundGroup>()) RestoreGroupTiming(group);
 
         ShiftLocalKeyFrames(backward, -forwardDuration);
 
@@ -104,7 +108,8 @@ public sealed class ElementStructureService : IElementStructureService
             scene.AddChild(backward);
         }
         ApplySplitSourceDeltas(backward, sources, forwardDuration, deferAdd ? scene : null, sourceDurations);
-        target.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
+        foreach (SplitSource source in sources)
+            source.Source.NotifySplitted(false, MediaTime.Zero, -backwardDuration);
         return backward;
     }
 
@@ -266,8 +271,34 @@ public sealed class ElementStructureService : IElementStructureService
         return shifted;
     }
 
-    private static List<ISplittable> TopLevelSplittables(Element element)
-        => [.. element.Objects.OfType<ISplittable>()];
+    private static void RestoreGroupTiming(SoundGroup group)
+    {
+        foreach (Sound child in group.Children)
+        {
+            if (!child.IsTimeAnchor.Value)
+            {
+                child.TimeRange.Value = group.TimeRange.Value;
+                child.ZIndex.Value = group.ZIndex.Value;
+            }
+            if (child is SoundGroup nested) RestoreGroupTiming(nested);
+        }
+    }
+
+    // Group children share their clip's clock, but each source needs its own speed-aware
+    // offset. Stop at scene references: their contents belong to the referenced scene.
+    internal static List<ISplittable> OwnedSplittables(Element element)
+    {
+        var result = new List<ISplittable>();
+        foreach (EngineObject obj in element.Objects) Add(obj);
+        return result;
+
+        void Add(EngineObject obj)
+        {
+            if (obj is ISplittable splittable) result.Add(splittable);
+            if (obj is SoundGroup group)
+                foreach (Sound child in group.Children) Add(child);
+        }
+    }
 
     private readonly record struct SplitSource(
         ISplittable Source, MediaTime PositionAtCut, MediaTime ContextAtCut, bool WrapVideo, bool Supported);
@@ -275,7 +306,7 @@ public sealed class ElementStructureService : IElementStructureService
     private static List<SplitSource> CaptureSplitSources(Element element, MediaTime forwardDuration,
         Dictionary<(Type, Uri), MediaTime?>? sourceDurations)
     {
-        List<ISplittable> splittables = TopLevelSplittables(element);
+        List<ISplittable> splittables = OwnedSplittables(element);
         var sources = new List<SplitSource>(splittables.Count);
         if (splittables.Count == 0) return sources;
 
@@ -325,11 +356,12 @@ public sealed class ElementStructureService : IElementStructureService
         Element backward, IReadOnlyList<SplitSource> sources, MediaTime forwardDuration, Scene? contextScene = null,
         Dictionary<(Type, Uri), MediaTime?>? sourceDurations = null)
     {
-        List<ISplittable> copies = TopLevelSplittables(backward);
+        List<ISplittable> copies = OwnedSplittables(backward);
         if (copies.Count != sources.Count
             || !copies.Zip(sources).All(pair => pair.First.GetType() == pair.Second.Source.GetType()))
         {
-            backward.NotifySplitted(true, forwardDuration, -forwardDuration);
+            foreach (ISplittable copy in copies)
+                copy.NotifySplitted(true, forwardDuration, -forwardDuration);
             return;
         }
 

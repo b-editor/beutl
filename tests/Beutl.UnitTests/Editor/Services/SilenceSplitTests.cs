@@ -424,6 +424,77 @@ public class SilenceSplitTests
         Assert.That(h.Scene.Children.Count, Is.EqualTo(parts + 2));
     }
 
+    [TestCase(null, false, false)]
+    [TestCase(null, true, false)]
+    [TestCase(SilenceSplitMode.SplitOnly, false, false)]
+    [TestCase(SilenceSplitMode.SplitOnly, true, false)]
+    [TestCase(SilenceSplitMode.DeleteSilence, false, false)]
+    [TestCase(SilenceSplitMode.DeleteSilence, true, false)]
+    [TestCase(SilenceSplitMode.RippleDelete, false, false)]
+    [TestCase(SilenceSplitMode.RippleDelete, true, false)]
+    [TestCase(SilenceSplitMode.SplitOnly, false, true)]
+    [TestCase(SilenceSplitMode.SplitOnly, true, true)]
+    public async Task NestedSounds_KeepTheirSourcePositionsAfterCutsAndUndo(SilenceSplitMode? mode, bool animated, bool anchoredGroup)
+    {
+        TestMediaHelper.RegisterTestDecoder();
+        using var h = new SceneHistoryHarness("silence-nested-cuts");
+        var project = new Project { SampleRate = { Value = 44100 }, Items = { h.Scene } };
+        _ = new BeutlApplication { Project = { Value = project } };
+        Element audio = h.AddElement(Seconds(10), Seconds(10));
+        var source = new SourceSound
+        {
+            Source = { Value = SoundSource.Open(TestMediaHelper.CreateTestAudioFile(durationSeconds: 30)) },
+            OffsetPosition = { Value = Seconds(1) },
+            Speed = { Value = 200 }
+        };
+        var referenced = new Scene { Duration = { Value = Seconds(30) } };
+        referenced.Children.Add(new Element { Length = { Value = Seconds(20) }, Objects = { new SourceSound { OffsetPosition = { Value = Seconds(3) } } } });
+        project.Items.Add(referenced);
+        var sceneSound = new SceneSound
+        {
+            ReferencedScene = { Value = referenced },
+            OffsetPosition = { Value = Seconds(2) },
+            Speed = { Value = 50 }
+        };
+        if (animated)
+        {
+            source.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(useGlobalClock: false));
+            sceneSound.Speed.SetKeyFrameAnimation(TrimTestMedia.CreateSpeedRamp(useGlobalClock: true));
+        }
+        var innerGroup = new SoundGroup { Children = { sceneSound } };
+        audio.Objects.Add(new SoundGroup { Children = { source, innerGroup } });
+        innerGroup.IsTimeAnchor.Value = anchoredGroup;
+        h.History.Commit("Setup");
+        int before = h.History.UndoCount;
+
+        if (mode is { } selected)
+            await new SilenceSplitService(h.History).ApplyAsync(h.Scene, audio, [Range(13, 14), Range(16, 17)], selected, false);
+        else
+            new ElementStructureService(h.History).Split(h.Scene, [audio], Seconds(17));
+
+        Element tail = h.Scene.Children.MaxBy(e => e.Start.Value)!;
+        var group = (SoundGroup)tail.Objects.Single();
+        var backSource = (SourceSound)group.Children[0];
+        var backScene = (SceneSound)((SoundGroup)group.Children[1]).Children.Single();
+        Assert.Multiple(() =>
+        {
+            Assert.That(tail.Start.Value, Is.EqualTo(Seconds(mode == SilenceSplitMode.RippleDelete ? 15 : 17)));
+            Assert.That(backSource.OffsetPosition.Value.ToSeconds(), Is.EqualTo(animated ? 10.45 : 15).Within(0.005));
+            Assert.That(backScene.OffsetPosition.Value.ToSeconds(), Is.EqualTo(anchoredGroup ? 2 : animated ? 16 : 5.5).Within(0.005));
+            Assert.That(((SourceSound)backScene.ReferencedScene.Value!.Children.Single().Objects.Single()).OffsetPosition.Value,
+                Is.EqualTo(Seconds(3)), "Splitting a reference must not shift sources inside its scene.");
+            Assert.That(source.OffsetPosition.Value, Is.EqualTo(Seconds(1)));
+            Assert.That(sceneSound.OffsetPosition.Value, Is.EqualTo(Seconds(2)));
+            Assert.That(h.History.UndoCount, Is.EqualTo(before + 1));
+        });
+        h.History.Undo();
+        Assert.That(h.Scene.Children, Is.EqualTo(new[] { audio }));
+        Assert.That(audio.Length.Value, Is.EqualTo(Seconds(10)));
+        h.History.Redo();
+        Assert.That(h.Scene.Children, Does.Contain(tail));
+        Assert.That(backSource.OffsetPosition.Value.ToSeconds(), Is.EqualTo(animated ? 10.45 : 15).Within(0.005));
+    }
+
     [TestCase(360, true)]
     [TestCase(8445, false)]
     [TestCase(8445, true)]
