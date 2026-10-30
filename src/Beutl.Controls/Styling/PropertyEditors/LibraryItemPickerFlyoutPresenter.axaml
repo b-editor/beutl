@@ -7,7 +7,15 @@
                     xmlns:ui="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
                     x:CompileBindings="True">
     <DataTemplate x:Key="LibraryItemPicker_ItemTemplate" x:DataType="local:PinnableLibraryItem">
-        <TextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}" />
+        <controls:MarqueeTextBlock VerticalAlignment="Center" Text="{Binding DisplayName}" ToolTip.Tip="{Binding Description}">
+            <!--  A name too long for its row scrolls while the pointer is over it or it is selected.  -->
+            <controls:MarqueeTextBlock.IsMarqueeActive>
+                <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                    <Binding Path="$parent[ListBoxItem].IsPointerOver" />
+                    <Binding Path="$parent[ListBoxItem].IsSelected" />
+                </MultiBinding>
+            </controls:MarqueeTextBlock.IsMarqueeActive>
+        </controls:MarqueeTextBlock>
     </DataTemplate>
 
     <ControlTheme x:Key="LibraryItemPicker_ListBoxItem"

@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Beutl.Configuration;
+using Beutl.Controls;
 using Beutl.Controls.PropertyEditors;
 using Beutl.Extensions.FFmpeg.Encoding;
 using Beutl.Extensions.FFmpeg.PropertyEditors;
@@ -45,6 +46,18 @@ public sealed class CodecEditorTests
         host.OpenPicker();
 
         Assert.That(host.Highlighted, Is.EqualTo(s_libx264));
+    }
+
+    // Only the highlighted codec scrolls its long name; the rest stay trimmed until the pointer is over them.
+    [AvaloniaTest]
+    public void The_highlighted_codec_scrolls_its_long_name()
+    {
+        using var host = EditorHost.Create(s_libx264);
+
+        host.OpenPicker();
+        MarqueeTextBlock[] names = host.Window.GetVisualDescendants().OfType<MarqueeTextBlock>().ToArray();
+
+        Assert.That(names.Where(n => n.IsMarqueeActive).Select(n => n.Text), Is.EqualTo(new[] { s_libx264.LongName }));
     }
 
     [AvaloniaTest]
