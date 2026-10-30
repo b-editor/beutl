@@ -9,7 +9,7 @@ namespace Beutl.Controls;
 /// A single-line <see cref="TextBlock"/> that trims text it cannot fit, and scrolls it sideways in a loop
 /// instead while <see cref="IsMarqueeActive"/> is set.
 /// </summary>
-/// <remarks>Only <see cref="TextBlock.Text"/> scrolls; inlines stay trimmed.</remarks>
+/// <remarks>Only <see cref="TextBlock.Text"/> scrolls, laid out and moving left to right; inlines stay trimmed.</remarks>
 public class MarqueeTextBlock : TextBlock
 {
     public static readonly StyledProperty<bool> IsMarqueeActiveProperty =
@@ -77,6 +77,12 @@ public class MarqueeTextBlock : TextBlock
         if (change.Property == IsMarqueeActiveProperty)
         {
             UpdateScrolling();
+        }
+        else if (change.Property == TextProperty)
+        {
+            // A recycled item shows another name, which starts its pass from the beginning.
+            _startTime = null;
+            _offset = 0;
         }
     }
 

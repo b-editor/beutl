@@ -51,6 +51,39 @@ public sealed class MarqueeTextBlockTests
         }
     }
 
+    // A recycled picker row gets another name while it scrolls; the new name starts with the pause, which keeps
+    // its trimmed look. The pause draws nothing new, so the frames only keep coming while the dispatcher loop runs
+    // its timers, as it does in the app; Thread.Sleep would stop them.
+    [AvaloniaTest]
+    public async Task A_new_text_starts_its_pass_from_the_beginning()
+    {
+        var text = new MarqueeTextBlock
+        {
+            Text = LongName,
+            Width = 120,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        var window = new Window { Content = text, Width = 200, Height = 40 };
+        try
+        {
+            window.Show();
+            text.IsMarqueeActive = true;
+            Capture(window);
+            await Task.Delay(text.MarqueeDelay + TimeSpan.FromMilliseconds(500));
+            Capture(window);
+
+            text.Text = "Another library item whose name is also too long for the row";
+            byte[] changed = Capture(window);
+
+            text.IsMarqueeActive = false;
+            Assert.That(changed, Is.EqualTo(Capture(window)));
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
     [AvaloniaTest]
     public void Text_that_fits_stays_still_while_active()
     {
