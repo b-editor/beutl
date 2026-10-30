@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:Beutl.Controls"
                     xmlns:local="using:Beutl.Controls.PropertyEditors"
                     x:CompileBindings="True">
 
@@ -10,9 +11,15 @@
         <Setter Property="ItemTemplate">
             <DataTemplate x:DataType="local:PinnableLibraryItem">
                 <StackPanel Margin="0,4" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding DisplayName}"
-                               TextTrimming="CharacterEllipsis"
-                               ToolTip.Tip="{Binding DisplayName}" />
+                    <controls:MarqueeTextBlock Text="{Binding DisplayName}" ToolTip.Tip="{Binding DisplayName}">
+                        <!--  The name scrolls while the pointer is over it or it is selected; the identifier stays trimmed.  -->
+                        <controls:MarqueeTextBlock.IsMarqueeActive>
+                            <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                                <Binding Path="$parent[ListBoxItem].IsPointerOver" />
+                                <Binding Path="$parent[ListBoxItem].IsSelected" />
+                            </MultiBinding>
+                        </controls:MarqueeTextBlock.IsMarqueeActive>
+                    </controls:MarqueeTextBlock>
                     <TextBlock FontSize="12"
                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
