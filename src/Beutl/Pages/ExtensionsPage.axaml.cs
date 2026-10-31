@@ -22,6 +22,8 @@ public sealed partial class ExtensionsPage : Window
     private const double EntranceOffset = 28;
 
     private readonly ILogger _logger = Log.CreateLogger<ExtensionsPage>();
+    // The navigation view's items. It gets them through MenuItemsSource, which leaves its MenuItems empty.
+    private readonly List<FANavigationViewItem> _navigationItems;
     private PackageDetailsNavigation? _pendingPackage;
 
     internal void OpenPackage(Package package, string? version)
@@ -37,9 +39,9 @@ public sealed partial class ExtensionsPage : Window
     {
         InitializeComponent();
 
-        List<FANavigationViewItem> items = GetItems();
-        nav.MenuItemsSource = items;
-        FANavigationViewItem selected = items[0];
+        _navigationItems = GetItems();
+        nav.MenuItemsSource = _navigationItems;
+        FANavigationViewItem selected = _navigationItems[0];
 
         frame.Navigated += Frame_Navigated;
         frame.Navigating += Frame_Navigating;
@@ -179,7 +181,7 @@ public sealed partial class ExtensionsPage : Window
 
     private void Frame_Navigated(object sender, FANavigationEventArgs e)
     {
-        foreach (FANavigationViewItem nvi in nav.MenuItems.OfType<FANavigationViewItem>())
+        foreach (FANavigationViewItem nvi in _navigationItems)
         {
             if (nvi.Tag is Type tag && tag == e.SourcePageType)
             {
@@ -188,7 +190,7 @@ public sealed partial class ExtensionsPage : Window
             }
         }
 
-        foreach (FANavigationViewItem nvi in nav.MenuItems.OfType<FANavigationViewItem>())
+        foreach (FANavigationViewItem nvi in _navigationItems)
         {
             if (nvi.Tag is Type tag && e.SourcePageType.Namespace?.EndsWith($"{tag.Name}s") == true)
             {
