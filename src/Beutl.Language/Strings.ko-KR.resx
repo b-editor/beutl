@@ -326,9 +326,6 @@
   <data name="Others" xml:space="preserve">
     <value>기타</value>
   </data>
-  <data name="Link" xml:space="preserve">
-    <value>링크</value>
-  </data>
   <data name="ShowMore" xml:space="preserve">
     <value>더 보기</value>
   </data>
