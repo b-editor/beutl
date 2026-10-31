@@ -1,5 +1,4 @@
-﻿using System.Collections.Immutable;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Beutl.Graphics.Backend;
 using Beutl.Graphics.Backend.Composite;
 using Beutl.Graphics.Backend.Vulkan;
@@ -103,13 +102,11 @@ internal sealed class GLSLFilterPipeline : IDisposable
     /// <param name="outputCoverage">
     /// The proven fragment-output coverage contract; see <see cref="ShaderOutputCoverage"/>.
     /// </param>
-    /// <param name="specializationConstants">Immutable values applied when the pipeline is created.</param>
     /// <param name="inputCount">The number of consecutive sampler bindings in set 0.</param>
     public static GLSLFilterPipeline? Create(
         IGraphicsContext context,
         string fragmentShaderSource,
         ShaderOutputCoverage outputCoverage,
-        ImmutableArray<SpecializationConstant> specializationConstants = default,
         int inputCount = 1)
     {
         ValidateInputCount(context, inputCount);
@@ -146,15 +143,13 @@ internal sealed class GLSLFilterPipeline : IDisposable
                     (uint)i, DescriptorType.CombinedImageSampler, 1, ShaderStage.Fragment);
             }
 
-            PipelineOptions pipelineOptions = PipelineOptions.Fullscreen;
-            pipelineOptions.SpecializationConstants = specializationConstants;
             pipeline = context.CreatePipeline3D(
                 renderPass,
                 vertexShaderSpirv,
                 fragmentShaderSpirv,
                 descriptorBindings,
                 VertexInputDescription.Empty,
-                pipelineOptions);
+                PipelineOptions.Fullscreen);
 
             return new GLSLFilterPipeline(
                 context,
@@ -206,14 +201,6 @@ internal sealed class GLSLFilterPipeline : IDisposable
         ITexture2D destinationTexture,
         T pushConstants) where T : unmanaged
         => Execute([sourceTexture], destinationTexture, pushConstants);
-
-    // Overload for dual-texture pipelines (source + mask)
-    public void Execute<T>(
-        ITexture2D sourceTexture,
-        ITexture2D maskTexture,
-        ITexture2D destinationTexture,
-        T pushConstants) where T : unmanaged
-        => Execute([sourceTexture, maskTexture], destinationTexture, pushConstants);
 
     public void Execute<T>(
         ReadOnlySpan<ITexture2D> inputTextures,

@@ -22,7 +22,17 @@ internal sealed record ShaderRenderFragmentPayload(
 
 internal sealed record ShaderGraphRenderFragmentPayload(
     ShaderGraphDescription Description,
-    FilterEffectWorkingScalePolicy? WorkingScalePolicy = null);
+    FilterEffectWorkingScalePolicy? WorkingScalePolicy = null)
+{
+    /// <summary>The density <paramref name="input"/> is materialized at for a graph running at <paramref name="density"/>.</summary>
+    public static float InputDensity(RenderFragmentReference input, float density)
+        => input.EffectiveScale.IsUnbounded ? density : input.EffectiveScale.Value;
+
+    /// <summary>Lowers <paramref name="density"/> until the graph's allocations for <paramref name="input"/> fit.</summary>
+    public float ClampDensity(RenderFragmentReference input, float density)
+        => Description.ClampWorkingScale(input.Bounds, density, default,
+            sourceSize: PixelRect.FromRect(input.Bounds, InputDensity(input, density)).Size);
+}
 
 internal sealed record GeometryRenderFragmentPayload(
     GeometryDescription Description,

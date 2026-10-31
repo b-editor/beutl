@@ -21,10 +21,7 @@ internal struct MFMediaInfo
     public string VideoFormatName;
 
     // The stream's color tags; untagged streams keep the BT.601 limited-range sRGB reading.
-    public bool Bt709Matrix;
-    public bool FullRange;
-    public BitmapColorTransfer Transfer;
-    public BitmapColorPrimaries Primaries;
+    public VideoColorTags Color;
 
 
     public readonly string GetMediaInfoText()

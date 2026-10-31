@@ -61,12 +61,6 @@ public static partial class ProxySourceEnumerator
             sceneWindow);
     }
 
-    internal static IEnumerable<IFileSource> EnumerateFileSources(
-        Element element, HashSet<(Scene, CompositionTarget?)> visitedScenes, bool skipDisabledElements,
-        CompositionTarget renderTarget, TimeRange? localRange, TimeRange? sceneWindow, Rational frameRate, MediaTime? frameOrigin)
-        => EnumerateElementFileSources(element, visitedScenes, skipDisabledElements, renderTarget, localRange, sceneWindow,
-            frameRate, frameOrigin);
-
     /// <summary>
     /// Collects the file paths of every <see cref="IFileSource"/> under <paramref name="root"/>, including
     /// node-graph inputs and referenced scenes.
@@ -372,13 +366,9 @@ public static partial class ProxySourceEnumerator
         {
             if (skipDisabledElements && renderTarget is { } target)
             {
-                foreach ((Element child, TimeRange? active, MediaTime? origin) in SceneLayerSkipModel.EnumerateRenderableElements(
-                             scene, target, referencedSceneWindow, frameRate, frameOrigin))
-                {
-                    foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, true, target,
-                                 active?.SubtractStart(child.Start.Value), active, frameRate, origin))
-                        yield return source;
-                }
+                foreach (IFileSource source in EnumerateRenderableSceneSources(
+                             scene, visitedScenes, target, referencedSceneWindow, frameRate, frameOrigin))
+                    yield return source;
                 yield break;
             }
 
@@ -407,6 +397,21 @@ public static partial class ProxySourceEnumerator
         finally
         {
             visitedScenes.Remove(key);
+        }
+    }
+
+    // The sources of scene's elements that render to target in window, skipping what the render path skips; each
+    // element is walked in its own active window.
+    internal static IEnumerable<IFileSource> EnumerateRenderableSceneSources(
+        Scene scene, HashSet<(Scene, CompositionTarget?)> visitedScenes, CompositionTarget target,
+        TimeRange? window, Rational? frameRate, MediaTime? frameOrigin)
+    {
+        foreach ((Element child, TimeRange? active, MediaTime? origin) in SceneLayerSkipModel.EnumerateRenderableElements(
+                     scene, target, window, frameRate, frameOrigin))
+        {
+            foreach (IFileSource source in EnumerateElementFileSources(child, visitedScenes, true, target,
+                         active?.SubtractStart(child.Start.Value), active, frameRate, origin))
+                yield return source;
         }
     }
 

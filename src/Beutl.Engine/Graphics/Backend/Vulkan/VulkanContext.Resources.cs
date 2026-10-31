@@ -9,6 +9,11 @@ internal sealed unsafe partial class VulkanContext
 {
     public ITexture2D CreateTexture2D(int width, int height, TextureFormat format)
     {
+        // The driver does not refuse an extent it cannot make: SwiftShader answers success past its
+        // framebuffer limit, MoltenVK aborts the process. The usage below carries an attachment bit, which
+        // makes the framebuffer limits apply at creation whether the texture is ever attached or not.
+        ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
+
         ImageUsageFlags usage;
         if (format.IsDepthFormat())
         {
@@ -18,22 +23,6 @@ internal sealed unsafe partial class VulkanContext
         else
         {
             usage = VulkanTexture2D.ColorTextureUsage;
-        }
-        return CreateTexture2D(width, height, format, usage);
-    }
-
-    internal VulkanTexture2D CreateTexture2D(int width, int height, TextureFormat format, ImageUsageFlags usage)
-    {
-        // Attachment usage imposes framebuffer limits even when the image is never attached. Some
-        // drivers do not reject oversized attachments safely, so retain this check before allocation.
-        if ((usage & (ImageUsageFlags.ColorAttachmentBit | ImageUsageFlags.DepthStencilAttachmentBit)) != 0)
-            ThrowIfCannotMakeAttachableImage(MaxImageDimension2D, width, height);
-        else
-        {
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(width);
-            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(height);
-            if (width > MaxImageDimension2D || height > MaxImageDimension2D)
-                throw new InvalidOperationException($"Image dimensions exceed {MaxImageDimension2D} pixels.");
         }
         var texture = new VulkanTexture2D(this, width, height, format, usage);
         RecordTextureAllocation(format);
@@ -268,8 +257,8 @@ internal sealed unsafe partial class VulkanContext
         => VulkanPhysicalDeviceQueries.FindMemoryType(Vk, PhysicalDevice, typeFilter, properties);
 
     /// <summary>
-    /// Creates the image behind a texture: 2D, one mip level, optimal tiling and exclusive sharing, starting
-    /// in <see cref="ImageLayout.Undefined"/>.
+    /// Creates the image behind a texture: 2D and one mip level unless stated otherwise, optimal tiling and
+    /// exclusive sharing, starting in <see cref="ImageLayout.Undefined"/>.
     /// </summary>
     /// <param name="resourceName">
     /// Names the image in the thrown message, e.g. <c>"cube map image"</c>.
@@ -282,17 +271,20 @@ internal sealed unsafe partial class VulkanContext
         ImageUsageFlags usage,
         ImageCreateFlags flags,
         void* pNext,
-        string resourceName)
+        string resourceName,
+        ImageType imageType = ImageType.Type2D,
+        uint depth = 1,
+        uint mipLevels = 1)
     {
         var imageInfo = new ImageCreateInfo
         {
             SType = StructureType.ImageCreateInfo,
             PNext = pNext,
             Flags = flags,
-            ImageType = ImageType.Type2D,
+            ImageType = imageType,
             Format = format.ToVulkanFormat(),
-            Extent = new Extent3D((uint)width, (uint)height, 1),
-            MipLevels = 1,
+            Extent = new Extent3D((uint)width, (uint)height, depth),
+            MipLevels = mipLevels,
             ArrayLayers = arrayLayers,
             Samples = SampleCountFlags.Count1Bit,
             Tiling = ImageTiling.Optimal,
@@ -369,7 +361,7 @@ internal sealed unsafe partial class VulkanContext
 
     /// <summary>
     /// Creates a view of <paramref name="layerCount"/> array layers of <paramref name="image"/>, starting at
-    /// <paramref name="baseArrayLayer"/>.
+    /// <paramref name="baseArrayLayer"/>; by default its first mip level and every aspect of its format.
     /// </summary>
     /// <remarks>
     /// Returns the result instead of throwing because every caller has its own partially built views to
@@ -381,7 +373,10 @@ internal sealed unsafe partial class VulkanContext
         ImageViewType viewType,
         uint baseArrayLayer,
         uint layerCount,
-        out ImageView view)
+        out ImageView view,
+        uint baseMipLevel = 0,
+        uint levelCount = 1,
+        ImageAspectFlags? aspectMask = null)
     {
         var viewInfo = new ImageViewCreateInfo
         {
@@ -391,9 +386,9 @@ internal sealed unsafe partial class VulkanContext
             Format = format.ToVulkanFormat(),
             SubresourceRange = new ImageSubresourceRange
             {
-                AspectMask = format.GetAspectMask(),
-                BaseMipLevel = 0,
-                LevelCount = 1,
+                AspectMask = aspectMask ?? format.GetAspectMask(),
+                BaseMipLevel = baseMipLevel,
+                LevelCount = levelCount,
                 BaseArrayLayer = baseArrayLayer,
                 LayerCount = layerCount
             }

@@ -34,6 +34,11 @@ internal static unsafe class VulkanPhysicalDeviceQueries
 
     /// <summary>Finds the first queue family of <paramref name="physicalDevice"/> that supports graphics.</summary>
     public static uint FindGraphicsQueueFamily(Vk vk, PhysicalDevice physicalDevice)
+        => FindGraphicsQueueFamily(vk, physicalDevice, out _);
+
+    /// <inheritdoc cref="FindGraphicsQueueFamily(Vk, PhysicalDevice)"/>
+    /// <param name="flags">Every operation the family found supports.</param>
+    public static uint FindGraphicsQueueFamily(Vk vk, PhysicalDevice physicalDevice, out QueueFlags flags)
     {
         uint queueFamilyCount = 0;
         vk.GetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, null);
@@ -48,6 +53,7 @@ internal static unsafe class VulkanPhysicalDeviceQueries
         {
             if ((queueFamilies[i].QueueFlags & QueueFlags.GraphicsBit) != 0)
             {
+                flags = queueFamilies[i].QueueFlags;
                 return i;
             }
         }

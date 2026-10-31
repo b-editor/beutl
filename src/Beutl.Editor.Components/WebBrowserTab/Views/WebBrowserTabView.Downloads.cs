@@ -46,30 +46,36 @@ internal partial class WebBrowserTabView
     internal sealed record BrowserDownloadOptions(string Directory, bool AddToTimeline);
 
     internal void OnWindowsNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source) =>
-        OnNativeDownloadRequested(uri, suggestedName, source, trackNavigationFailure: true);
+        OnNativeDownloadRequested(uri, suggestedName, source, trackNavigationFailure: true, BrowserReferrerPolicy.NoReferrer);
 
     internal void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source) =>
-        OnNativeDownloadRequested(uri, suggestedName, source, trackNavigationFailure: false);
+        OnNativeDownloadRequested(uri, suggestedName, source, trackNavigationFailure: false, BrowserReferrerPolicy.NoReferrer);
 
-    private void OnNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source,
-        bool trackNavigationFailure)
+    // The Linux handler kept the previous page in place of a main-frame file WebKitGTK cannot show, and dropped
+    // the response. The file is offered to the downloader as if the page had linked to it.
+    internal void OnNavigationResponseNotShown(Uri uri, string? suggestedName) =>
+        OnNativeDownloadRequested(uri, suggestedName, null, trackNavigationFailure: false, BrowserReferrerPolicy.Origin);
+
+    // Only WebView2 downloads track navigation failures, and each of them comes with its source.
+    private void OnNativeDownloadRequested(Uri uri, string? suggestedName, IBrowserDownloadSource? source,
+        bool trackNavigationFailure, BrowserReferrerPolicy referrerPolicy)
     {
         if (_disposed || _viewModel == null)
         {
-            source.Dispose();
+            source?.Dispose();
             return;
         }
         bool mainFrameDownload = trackNavigationFailure && _pageDownloadNavigationPending && _latestNavigationRequest == uri;
         if (trackNavigationFailure && !_pageDownloadNavigationPending
             && (_pendingPageDownloadRequest?.Source != null || _downloadCancellation != null))
         {
-            DeferNativeDownload(uri, suggestedName, source);
+            DeferNativeDownload(uri, suggestedName, source!);
             return;
         }
         if (trackNavigationFailure && _pageDownloadNavigationPending && !mainFrameDownload)
         {
             // An iframe's response belongs to the page that is still loading. Offer it after that page commits.
-            DeferNativeDownload(uri, suggestedName, source);
+            DeferNativeDownload(uri, suggestedName, source!);
             return;
         }
         if (mainFrameDownload)
@@ -86,8 +92,8 @@ internal partial class WebBrowserTabView
         _viewModel.RestoreCommittedPage();
         UpdateBlankPageState();
         // Keep history retries conservative; the current transfer retains the browser's original response.
-        if (trackNavigationFailure && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source);
-        else QueuePageDownloadRequest(uri, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
+        if (trackNavigationFailure && _downloadCancellation != null) DeferNativeDownload(uri, suggestedName, source!);
+        else QueuePageDownloadRequest(uri, suggestedName, referrerPolicy, source);
         // The queued request keeps its conservative metadata; later links belong to the restored document.
         _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
@@ -105,25 +111,9 @@ internal partial class WebBrowserTabView
             return;
         }
         Uri page = document ?? vm.CommittedUri;
-        Uri credited = creator == null || (creator.Scheme == page.Scheme && creator.IdnHost == page.IdnHost
-            && creator.Port == page.Port) ? page : creator;
+        Uri credited = creator == null || BrowserMediaDownload.IsSameOrigin(creator, page) ? page : creator;
         if (IsPageDownloadOfferBlocked) DeferNativeDownload(credited, suggestedName, source);
         else QueuePageDownloadRequest(credited, suggestedName, BrowserReferrerPolicy.NoReferrer, source);
-    }
-
-    // The Linux handler kept the previous page in place of a main-frame file WebKitGTK cannot show, and dropped
-    // the response. The file is offered to the downloader as if the page had linked to it.
-    internal void OnNavigationResponseNotShown(Uri uri, string? suggestedName)
-    {
-        if (_disposed || _viewModel == null) return;
-        _latestNavigationRequest = null;
-        if (_pageDownloadNavigationPending) SettleAbortedPageNavigation();
-        else InvalidatePageDownloadRequests();
-        _viewModel.RestoreCommittedPage();
-        UpdateBlankPageState();
-        QueuePageDownloadRequest(uri, suggestedName);
-        // The queued request keeps its conservative metadata; later links belong to the restored document.
-        _pageDownloadReferrerUncertain = !BrowserMediaDownload.IsHttpUri(_viewModel.CurrentUri);
     }
 
     // One offer at a time, and none while a page loads, a download runs or the user dismissed this page's offers.

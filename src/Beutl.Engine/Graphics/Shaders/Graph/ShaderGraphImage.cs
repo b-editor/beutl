@@ -30,25 +30,9 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
             return;
         }
         Validate(context, description, usage);
-        var info = new ImageCreateInfo
-        {
-            SType = StructureType.ImageCreateInfo,
-            ImageType = description.Kind == ImageKind.Image3D ? ImageType.Type3D : ImageType.Type2D,
-            Format = description.Format.ToVulkanFormat(),
-            Extent = new((uint)description.Width, (uint)description.Height, (uint)description.Depth),
-            MipLevels = (uint)description.MipLevels,
-            ArrayLayers = (uint)description.ArrayLayers,
-            Samples = SampleCountFlags.Count1Bit,
-            Tiling = ImageTiling.Optimal,
-            Usage = usage,
-            SharingMode = SharingMode.Exclusive,
-            Flags = CubeFlags(description),
-            InitialLayout = ImageLayout.Undefined,
-        };
-        NativeImage image;
-        Result result = context.Vk.CreateImage(context.Device, &info, null, &image);
-        if (result != Result.Success)
-            throw new InvalidOperationException($"Failed to create graph image: {result}.");
+        NativeImage image = context.CreateTextureImage(description.Format, description.Width, description.Height,
+            (uint)description.ArrayLayers, usage, CubeFlags(description), pNext: null, "graph image",
+            ImageTypeOf(description), (uint)description.Depth, (uint)description.MipLevels);
         Handle = image;
         _memory = context.AllocateAndBindImageMemory(image, "graph image", out ulong bytes);
         AllocationSize = bytes;
@@ -62,10 +46,13 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
     private static ImageCreateFlags CubeFlags(ImageDescription description)
         => description.Kind is ImageKind.Cube or ImageKind.CubeArray ? ImageCreateFlags.CreateCubeCompatibleBit : 0;
 
+    private static ImageType ImageTypeOf(ImageDescription description)
+        => description.Kind == ImageKind.Image3D ? ImageType.Type3D : ImageType.Type2D;
+
     internal static void Validate(VulkanContext context, ImageDescription description, ImageUsageFlags usage)
     {
         Result result = context.Vk.GetPhysicalDeviceImageFormatProperties(context.PhysicalDevice,
-            description.Format.ToVulkanFormat(), description.Kind == ImageKind.Image3D ? ImageType.Type3D : ImageType.Type2D,
+            description.Format.ToVulkanFormat(), ImageTypeOf(description),
             ImageTiling.Optimal, usage, CubeFlags(description), out ImageFormatProperties properties);
         if (result != Result.Success || description.Width > properties.MaxExtent.Width
             || description.Height > properties.MaxExtent.Height || description.Depth > properties.MaxExtent.Depth
@@ -78,27 +65,19 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
         var key = (image.BaseMipLevel, image.MipLevels, image.BaseArrayLayer, image.ArrayLayers, image.Kind, attachment);
         if (_views.TryGetValue(key, out View? existing))
             return existing;
-        var range = Range(image);
-        if (!attachment && image.Format.IsDepthFormat())
-            range.AspectMask = ImageAspectFlags.DepthBit;
-        var info = new ImageViewCreateInfo
+        ImageViewType viewType = image.Kind switch
         {
-            SType = StructureType.ImageViewCreateInfo,
-            Image = Handle,
-            Format = image.Format.ToVulkanFormat(),
-            ViewType = image.Kind switch
-            {
-                ImageKind.Image2D => ImageViewType.Type2D,
-                ImageKind.Image2DArray => ImageViewType.Type2DArray,
-                ImageKind.Image3D => ImageViewType.Type3D,
-                ImageKind.Cube => ImageViewType.TypeCube,
-                ImageKind.CubeArray => ImageViewType.TypeCubeArray,
-                _ => throw new ArgumentOutOfRangeException(nameof(image)),
-            },
-            SubresourceRange = range,
+            ImageKind.Image2D => ImageViewType.Type2D,
+            ImageKind.Image2DArray => ImageViewType.Type2DArray,
+            ImageKind.Image3D => ImageViewType.Type3D,
+            ImageKind.Cube => ImageViewType.TypeCube,
+            ImageKind.CubeArray => ImageViewType.TypeCubeArray,
+            _ => throw new ArgumentOutOfRangeException(nameof(image)),
         };
-        ImageView handle;
-        Result result = _context.Vk.CreateImageView(_context.Device, &info, null, &handle);
+        Result result = _context.TryCreateImageView(Handle, image.Format, viewType,
+            (uint)image.BaseArrayLayer, (uint)image.ArrayLayers, out ImageView handle,
+            (uint)image.BaseMipLevel, (uint)image.MipLevels,
+            !attachment && image.Format.IsDepthFormat() ? ImageAspectFlags.DepthBit : null);
         if (result != Result.Success)
             throw new InvalidOperationException($"Failed to create image view '{image.Name}': {result}.");
         var view = new View(this, image, handle);
@@ -109,8 +88,11 @@ internal sealed unsafe class ShaderGraphImage : IDisposable
     internal static ImageSubresourceRange Range(ShaderImage image) => new(image.Format.GetAspectMask(),
         (uint)image.BaseMipLevel, (uint)image.MipLevels, (uint)image.BaseArrayLayer, (uint)image.ArrayLayers);
 
-    internal Extent3D Extent(int mip) => new((uint)Math.Max(1, Description.Width >> mip),
-        (uint)Math.Max(1, Description.Height >> mip), (uint)Math.Max(1, Description.Depth >> mip));
+    internal Extent3D Extent(int mip)
+    {
+        (int width, int height, int depth) = Description.MipExtent(mip);
+        return new((uint)width, (uint)height, (uint)depth);
+    }
 
     internal void Transition(ShaderImage image, ImageLayout layout)
         => Transition(Range(image), layout);

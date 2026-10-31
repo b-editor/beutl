@@ -14,7 +14,7 @@ public sealed class PreviewGuideSettingsViewModel : IDisposable
 
     public PreviewGuideSettingsViewModel(EditorConfig config)
     {
-        IsEnabled = Bind(config.IsPreviewGuideEnabled, v => v, v => v);
+        IsEnabled = SettingBinding.Bind(config.IsPreviewGuideEnabled, v => v, v => v, _disposables);
 
         Kinds =
         [
@@ -31,20 +31,15 @@ public sealed class PreviewGuideSettingsViewModel : IDisposable
             item.DisposeWith(_disposables);
         }
 
-        IsGridEnabled = config.PreviewGuideKinds.GetObservable()
-            .Select(kinds => kinds.HasFlag(PreviewGuideKinds.CustomGrid))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        IsAspectRatioEnabled = config.PreviewGuideKinds.GetObservable()
-            .Select(kinds => kinds.HasFlag(PreviewGuideKinds.AspectRatio))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
+        // The grid's and the aspect ratios' settings apply while their check boxes are checked.
+        IsGridEnabled = Kinds.Single(item => item.Kind == PreviewGuideKinds.CustomGrid).IsChecked;
+        IsAspectRatioEnabled = Kinds.Single(item => item.Kind == PreviewGuideKinds.AspectRatio).IsChecked;
 
         // Written as #AARRGGBB: Color.ToString would write a known color's name instead.
-        Color = Bind(config.PreviewGuideColor, ParseColor, color => $"#{color.ToUInt32():X8}");
-        Opacity = Bind(config.PreviewGuideOpacity, v => (double)v, v => (float)v);
-        GridColumns = Bind(config.PreviewGuideGridColumns, v => v, v => v);
-        GridRows = Bind(config.PreviewGuideGridRows, v => v, v => v);
+        Color = SettingBinding.Bind(config.PreviewGuideColor, ParseColor, color => $"#{color.ToUInt32():X8}", _disposables);
+        Opacity = SettingBinding.Bind(config.PreviewGuideOpacity, v => (double)v, v => (float)v, _disposables);
+        GridColumns = SettingBinding.Bind(config.PreviewGuideGridColumns, v => v, v => v, _disposables);
+        GridRows = SettingBinding.Bind(config.PreviewGuideGridRows, v => v, v => v, _disposables);
 
         // Only a list that reads is saved; the text box keeps one that does not, with its error, while it is edited.
         AspectRatios = new ReactiveProperty<string>(config.PreviewGuideAspectRatios.Value)
@@ -97,21 +92,12 @@ public sealed class PreviewGuideSettingsViewModel : IDisposable
 
     public ReactiveProperty<PreviewGuideAspectRatioPreset?> SelectedPreset { get; }
 
-    private static Color ParseColor(string? text)
-        => Avalonia.Media.Color.TryParse(text, out Color color) ? color : Colors.White;
+    // EditorConfig.PreviewGuideGridMaxCells as the grid editors' bound, which is a decimal.
+    public static decimal GridMaxCells => EditorConfig.PreviewGuideGridMaxCells;
 
-    // Only an edit writes the setting, so opening a view leaves one that does not read, such as a bad color, alone.
-    // A value the property's validator coerces, such as an opacity above 1, comes back to the editor coerced.
-    private ReactiveProperty<TValue> Bind<TSetting, TValue>(
-        IProperty<TSetting> property, Func<TSetting, TValue> read, Func<TValue, TSetting> write)
-    {
-        ReactiveProperty<TValue> reactive = property.GetObservable()
-            .Select(read)
-            .ToReactiveProperty()
-            .DisposeWith(_disposables);
-        reactive.Skip(1).Subscribe(value => property.Value = write(value)).DisposeWith(_disposables);
-        return reactive;
-    }
+    // The overlay reads the setting the same way, so the editor shows the color the guides are drawn in.
+    internal static Color ParseColor(string? text)
+        => Avalonia.Media.Color.TryParse(text, out Color color) ? color : Colors.White;
 
     public void Dispose()
     {

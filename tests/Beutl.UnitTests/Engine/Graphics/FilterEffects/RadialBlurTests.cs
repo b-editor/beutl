@@ -398,8 +398,8 @@ public sealed class RadialBlurTests
                 ((FEItem_ShaderGraph)context.GetOrderedItems().Single()).Description,
                 outputScale ?? scale, outputScale ?? scale, outputScale ?? scale,
                 RenderIntent.Preview, RenderRequestPurpose.Auxiliary, null, BufferDimensionBudget.EngineCeiling,
-                (device, pass) => ShaderGraphPipeline.Acquire(cache,
-                    new ProgramCacheContextKey(cache, device, "test", "test"), device, pass));
+                (device, pass, identity) => ShaderGraphPipeline.Acquire(cache,
+                    new ProgramCacheContextKey(cache, device, "test", "test"), device, pass, identity));
         }
         else
         {

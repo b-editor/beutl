@@ -71,6 +71,11 @@ public partial class PlayerView
         }
     }
 
+    private interface IEditingInteraction : IMouseControlHandler
+    {
+        void EndInteraction();
+    }
+
     private class MouseControlHand : IMouseControlHandler
     {
         private bool _pressed;
@@ -126,13 +131,10 @@ public partial class PlayerView
 
     private void FinishEditingInteraction()
     {
-        if (_mouseState is not (MouseControl3DCamera or MouseControlTransformHandles or MouseControlEditingHandle)) return;
-        IMouseControlHandler handler = _mouseState;
+        if (_mouseState is not IEditingInteraction handler) return;
         // Release capture only after detaching the handler, so CaptureLost cannot roll it back.
         _mouseState = null;
-        if (handler is MouseControl3DCamera camera) camera.EndInteraction();
-        else if (handler is MouseControlTransformHandles transform) transform.EndInteraction();
-        else if (handler is MouseControlEditingHandle editing) editing.EndInteraction();
+        handler.EndInteraction();
     }
 
     private int GetMouseModeIndex(PlayerViewModel viewModel)

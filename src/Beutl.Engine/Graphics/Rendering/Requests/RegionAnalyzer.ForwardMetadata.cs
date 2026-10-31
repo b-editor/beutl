@@ -2,7 +2,6 @@
 using System.Runtime.CompilerServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Shaders;
-using Beutl.Media;
 
 namespace Beutl.Graphics.Rendering.Requests;
 
@@ -310,10 +309,7 @@ internal sealed partial class RegionAnalyzer
                     EffectiveScale scale = payload.WorkingScalePolicy is { } policy
                         ? policy.Resolve(reference.Inputs, resolvedBounds, options.OutputScale, options.MaxWorkingScale)
                         : ResolveMaterializedScale(InputScales(reference), resolvedBounds, options);
-                    RenderFragmentReference input = reference.Inputs[0];
-                    PixelSize sourceSize = PixelRect.FromRect(input.Bounds,
-                        input.EffectiveScale.IsUnbounded ? scale.Value : input.EffectiveScale.Value).Size;
-                    return EffectiveScale.At(payload.Description.ClampWorkingScale(input.Bounds, scale.Value, default, sourceSize: sourceSize));
+                    return EffectiveScale.At(payload.ClampDensity(reference.Inputs[0], scale.Value));
                 }
             case RenderFragmentKind.Geometry:
                 {

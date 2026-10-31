@@ -281,7 +281,6 @@ public partial class PlayerView : UserControl
                 .Subscribe(playing =>
                 {
                     if (playing) FinishEditingInteraction();
-                    else UpdateMaxFrameSize();
                 })
                 .DisposeWith(_disposables);
 

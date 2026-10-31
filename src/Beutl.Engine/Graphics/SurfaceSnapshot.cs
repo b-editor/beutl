@@ -33,7 +33,12 @@ internal static class SurfaceSnapshot
         lock (s_snapshots)
         {
             SKImage image = surface.Snapshot();
-            SharedSnapshot snapshot = s_snapshots.GetValue(image, _ => new SharedSnapshot(surface, image));
+            if (!s_snapshots.TryGetValue(image, out SharedSnapshot? snapshot))
+            {
+                snapshot = new SharedSnapshot(surface, image);
+                s_snapshots.Add(image, snapshot);
+            }
+
             snapshot.References++;
             return new Lease(snapshot);
         }

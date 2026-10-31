@@ -8,11 +8,11 @@ namespace Beutl.Graphics.Backend;
 /// </summary>
 public static class TextureFormatExtensions
 {
-    internal static int NumericCategory(this TextureFormat format) => format switch
+    internal static NumericType GetNumericType(this TextureFormat format) => format switch
     {
-        TextureFormat.R32SInt or TextureFormat.RGBA32SInt => 1,
-        TextureFormat.R32UInt or TextureFormat.RGBA32UInt => 2,
-        _ => 0,
+        TextureFormat.R32SInt or TextureFormat.RGBA32SInt => NumericType.SInt,
+        TextureFormat.R32UInt or TextureFormat.RGBA32UInt => NumericType.UInt,
+        _ => NumericType.Float,
     };
 
     internal static int BytesPerTexel(this TextureFormat format) => format switch
