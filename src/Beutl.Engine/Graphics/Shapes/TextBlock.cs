@@ -61,7 +61,7 @@ public partial class TextBlock : Drawable
     [Display(Name = nameof(GraphicsStrings.Fill), ResourceType = typeof(GraphicsStrings), GroupName = nameof(GraphicsStrings.Fill))]
     public IExpressionProperty<Brush?> Fill { get; } = Property.CreateExpression<Brush?>();
 
-    private static void DrawVertical(GraphicsContext2D context, Resource resource)
+    private static void DrawVertical(GraphicsContext2D context, Resource resource, bool strokesBelowFill)
     {
         VerticalTextLayout layout = resource.GetVerticalLayout();
         float right = layout.Size.Width;
@@ -72,10 +72,16 @@ public partial class TextBlock : Drawable
             foreach (var run in column.Runs)
             {
                 FormattedText text = run.Text;
+                if (!TrySelectPaint(strokesBelowFill, text.Brush ?? resource.Fill, text.Pen ?? resource.Pen,
+                        out Brush.Resource? fill, out Pen.Resource? pen))
+                {
+                    continue;
+                }
+
                 using var transform = context.PushTransform(VerticalTextLayout.GetTransform(run, center, top));
                 if (!resource.SplitByCharacters)
                 {
-                    context.DrawText(text, text.Brush ?? resource.Fill, text.Pen ?? resource.Pen);
+                    context.DrawText(text, fill, pen);
                 }
                 else
                 {
@@ -83,9 +89,9 @@ public partial class TextBlock : Drawable
                     for (int i = 0; i < geometries.Length; i++)
                     {
                         if (text.GetNonOutlineGlyph(i) is { } glyph)
-                            context.DrawText(glyph, text.Brush ?? resource.Fill, text.Pen ?? resource.Pen);
+                            context.DrawText(glyph, fill, pen);
                         else
-                            context.DrawGeometry(geometries[i], text.Brush ?? resource.Fill, text.Pen ?? resource.Pen);
+                            context.DrawGeometry(geometries[i], fill, pen);
                     }
                 }
             }
@@ -93,7 +99,7 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private static void DrawGrouped(GraphicsContext2D context, Resource resource, float width)
+    private static void DrawGrouped(GraphicsContext2D context, Resource resource, float width, bool strokesBelowFill)
     {
         var elements = resource.GetTextElements();
         using (context.Push())
@@ -114,12 +120,16 @@ public partial class TextBlock : Drawable
                         {
                             Rect elementBounds = item.Bounds;
 
-                            using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
+                            if (TrySelectPaint(strokesBelowFill, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen,
+                                    out Brush.Resource? fill, out Pen.Resource? pen))
                             {
-                                context.DrawText(item, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
-
-                                prevRight += elementBounds.Width + item.Spacing;
+                                using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, 0)))
+                                {
+                                    context.DrawText(item, fill, pen);
+                                }
                             }
+
+                            prevRight += elementBounds.Width + item.Spacing;
                         }
                     }
                 }
@@ -129,7 +139,7 @@ public partial class TextBlock : Drawable
         }
     }
 
-    private static void DrawSplitted(GraphicsContext2D context, Resource resource, float width)
+    private static void DrawSplitted(GraphicsContext2D context, Resource resource, float width, bool strokesBelowFill)
     {
         var elements = resource.GetTextElements();
         float prevBottom = 0;
@@ -146,18 +156,23 @@ public partial class TextBlock : Drawable
                 {
                     Rect elementBounds = item.Bounds;
 
-                    ReadOnlySpan<Geometry.Resource> geometries = item.ToGeometries();
-                    for (int i = 0; i < geometries.Length; i++)
+                    if (TrySelectPaint(strokesBelowFill, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen,
+                            out Brush.Resource? fill, out Pen.Resource? pen))
                     {
-                        using (context.PushTransform(Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition)))
+                        ReadOnlySpan<Geometry.Resource> geometries = item.ToGeometries();
+                        var offset = Matrix.CreateTranslation(prevRight + item.Spacing / 2, yPosition);
+                        for (int i = 0; i < geometries.Length; i++)
                         {
-                            if (item.GetNonOutlineGlyph(i) is { } glyph)
+                            using (context.PushTransform(offset))
                             {
-                                context.DrawText(glyph, item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
-                            }
-                            else
-                            {
-                                context.DrawGeometry(geometries[i], item.Brush ?? resource.Fill, item.Pen ?? resource.Pen);
+                                if (item.GetNonOutlineGlyph(i) is { } glyph)
+                                {
+                                    context.DrawText(glyph, fill, pen);
+                                }
+                                else
+                                {
+                                    context.DrawGeometry(geometries[i], fill, pen);
+                                }
                             }
                         }
                     }
@@ -168,6 +183,26 @@ public partial class TextBlock : Drawable
 
             prevBottom += lineBounds.Height;
         }
+    }
+
+    private static bool IsStrokeBelowFill(Pen.Resource? pen)
+    {
+        return pen != null && PenHelper.DrawsBeneathFill(pen);
+    }
+
+    // The pass that draws the strokes placed below the fill paints only those strokes; the other pass paints every
+    // fill and the strokes placed above it. Returns false when the run has nothing to paint in this pass.
+    private static bool TrySelectPaint(
+        bool strokesBelowFill,
+        Brush.Resource? fill,
+        Pen.Resource? pen,
+        out Brush.Resource? passFill,
+        out Pen.Resource? passPen)
+    {
+        bool below = IsStrokeBelowFill(pen);
+        passFill = strokesBelowFill ? null : fill;
+        passPen = strokesBelowFill == below ? pen : null;
+        return !strokesBelowFill || below;
     }
 
     private static float GetLineOffset(TextAlignment alignment, float width, float lineWidth)
@@ -261,21 +296,42 @@ public partial class TextBlock : Drawable
 
         protected override void OnDraw(GraphicsContext2D context)
         {
+            // A stroke placed below the fill goes below every fill in the block, not only its own, so all those
+            // strokes are drawn in a pass of their own before any fill.
+            if (HasStrokeBelowFill())
+                DrawText(context, strokesBelowFill: true);
+
+            DrawText(context, strokesBelowFill: false);
+        }
+
+        private void DrawText(GraphicsContext2D context, bool strokesBelowFill)
+        {
             if (WritingMode == Media.WritingMode.VerticalRl)
             {
-                DrawVertical(context, this);
+                DrawVertical(context, this, strokesBelowFill);
                 return;
             }
             float width = TextAlignment == Media.TextAlignment.Start ? 0 : MeasureCore(context.Size).Width;
 
             if (SplitByCharacters)
             {
-                DrawSplitted(context, this, width);
+                DrawSplitted(context, this, width, strokesBelowFill);
             }
             else
             {
-                DrawGrouped(context, this, width);
+                DrawGrouped(context, this, width, strokesBelowFill);
             }
+        }
+
+        private bool HasStrokeBelowFill()
+        {
+            foreach (TextElement element in GetTextElements())
+            {
+                if (IsStrokeBelowFill(element.Pen ?? Pen))
+                    return true;
+            }
+
+            return false;
         }
 
         public TextElements GetTextElements()

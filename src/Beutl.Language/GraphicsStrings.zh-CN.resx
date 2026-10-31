@@ -752,9 +752,6 @@
   <data name="SplitEffect_VerticalSpacing" xml:space="preserve">
     <value>垂直间距</value>
   </data>
-  <data name="StrokeEffect_Style" xml:space="preserve">
-    <value>边框样式</value>
-  </data>
   <data name="TextAlignment_Center" xml:space="preserve">
     <value>居中对齐</value>
   </data>
@@ -1034,6 +1031,9 @@
   <data name="Pen_StrokeAlignment" xml:space="preserve">
     <value>位置</value>
   </data>
+  <data name="Pen_StrokeOrder" xml:space="preserve">
+    <value>描边顺序</value>
+  </data>
   <data name="Pen_StrokeCap" xml:space="preserve">
     <value>端点样式</value>
   </data>
@@ -1213,6 +1213,12 @@
   </data>
   <data name="StrokeAlignment_Outside" xml:space="preserve">
     <value>外侧</value>
+  </data>
+  <data name="StrokeOrder_AboveFill" xml:space="preserve">
+    <value>填充上方</value>
+  </data>
+  <data name="StrokeOrder_BelowFill" xml:space="preserve">
+    <value>填充下方</value>
   </data>
   <data name="StrokeCap_Flat" xml:space="preserve">
     <value>平头</value>

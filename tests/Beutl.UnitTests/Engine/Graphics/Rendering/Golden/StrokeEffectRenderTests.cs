@@ -18,7 +18,7 @@ public class StrokeEffectRenderTests
     private static readonly PixelSize Frame = new(220, 220);
     private const float Center = 110f; // 220 / 2
 
-    private static Drawable.Resource Make(Point offset, float penOffset, StrokeEffect.StrokeStyles style)
+    private static Drawable.Resource Make(Point offset, float penOffset, StrokeOrder order)
     {
         var shape = new RectShape();
         shape.AlignmentX.Value = AlignmentX.Center;
@@ -30,10 +30,10 @@ public class StrokeEffectRenderTests
         pen.Thickness.Value = 12;
         pen.Brush.Value = Brushes.Red;
         pen.Offset.Value = penOffset;
+        pen.StrokeOrder.Value = order;
         var e = new StrokeEffect();
         e.Pen.Value = pen;
         e.Offset.Value = offset;
-        e.Style.Value = style;
         shape.FilterEffect.Value = e;
         return shape.ToResource(CompositionContext.Default);
     }
@@ -58,21 +58,21 @@ public class StrokeEffectRenderTests
     }
 
     // Only Stroke_PenOffset fails on the old origin rule, which ignored pen.Offset; the other cases pin the contract.
-    [TestCase(0f, 0f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_NoOffset")]
-    [TestCase(50f, 50f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_PositiveOffset")]
-    [TestCase(-50f, -50f, 0f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_NegativeOffset")]
-    [TestCase(0f, 0f, 10f, StrokeEffect.StrokeStyles.Background, TestName = "Stroke_PenOffset_NoStrokeOffset")]
-    [TestCase(40f, 40f, 0f, StrokeEffect.StrokeStyles.Foreground, TestName = "Stroke_Foreground")]
-    public void Source_StaysCentered_StrokeMovesByOffset(float ox, float oy, float penOffset, StrokeEffect.StrokeStyles style)
+    [TestCase(0f, 0f, 0f, StrokeOrder.AboveFill, TestName = "Stroke_NoOffset")]
+    [TestCase(50f, 50f, 0f, StrokeOrder.AboveFill, TestName = "Stroke_PositiveOffset")]
+    [TestCase(-50f, -50f, 0f, StrokeOrder.AboveFill, TestName = "Stroke_NegativeOffset")]
+    [TestCase(0f, 0f, 10f, StrokeOrder.AboveFill, TestName = "Stroke_PenOffset_NoStrokeOffset")]
+    [TestCase(40f, 40f, 0f, StrokeOrder.BelowFill, TestName = "Stroke_BelowContent")]
+    public void Source_StaysCentered_StrokeMovesByOffset(float ox, float oy, float penOffset, StrokeOrder order)
     {
         VulkanTestEnvironment.EnsureAvailable();
         VulkanTestEnvironment.InvokeOnRenderThread(() =>
         {
-            using Bitmap bmp = GoldenImageHarness.RenderAtScale(Make(new Point(ox, oy), penOffset, style), Frame, 1f);
+            using Bitmap bmp = GoldenImageHarness.RenderAtScale(Make(new Point(ox, oy), penOffset, order), Frame, 1f);
             (double wx, double wy, int wn, double rx, double ry, int rn) = Centroids(bmp);
 
             Assert.That(wn, Is.GreaterThan(1000), "no white source drawn");
-            // (1) the source is anchored on the frame centre regardless of Offset / pen.Offset / style.
+            // (1) the source is anchored on the frame centre regardless of Offset / pen.Offset / stroke order.
             Assert.That(wx, Is.EqualTo(Center).Within(3.0), $"source drifted horizontally (wx={wx})");
             Assert.That(wy, Is.EqualTo(Center).Within(3.0), $"source drifted vertically (wy={wy})");
 
