@@ -655,6 +655,63 @@ public class WebBrowserTabLifecycleTests
         view.Dispose();
     }
 
+    // A tool tab that is not shown is out of the visual tree, where NativeWebView would destroy its native web view
+    // and load the page again, without its state or referrer, once the tab is shown (#3741).
+    [AvaloniaTest]
+    public void HidingTheTab_KeepsTheNativeWebViewUntilTheTabIsShownOrClosed()
+    {
+        var nativeWebView = new NativeWebView();
+        var scopes = new List<HiddenScope>();
+        var view = new WebBrowserTabView(
+            uri =>
+            {
+                nativeWebView.Source = uri;
+                return nativeWebView;
+            },
+            () => (true, null, false),
+            canReparentWebView: _ => true,
+            beginReparenting: _ =>
+            {
+                var scope = new HiddenScope();
+                scopes.Add(scope);
+                return scope;
+            });
+        var context = new BrowserEditorContext();
+        using var viewModel = new WebBrowserTabViewModel(context);
+        view.DataContext = viewModel;
+        var window = new Window { Content = view };
+        try
+        {
+            window.Show();
+            Assert.That(scopes, Is.Empty);
+
+            // Another tab takes the pane.
+            window.Content = null;
+            Assert.That(scopes, Has.Count.EqualTo(1));
+            Assert.That(scopes[0].Ended, Is.False);
+            // The dock moving the hidden tab finds its web view kept already.
+            Assert.That(((IWebViewReparentingContent)view).BeginReparenting(), Is.Null);
+
+            // Hidden again before the scope could end, the tab keeps the same scope.
+            window.Content = view;
+            window.Content = null;
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(scopes, Has.Count.EqualTo(1));
+            Assert.That(scopes[0].Ended, Is.False);
+
+            window.Content = view;
+            Dispatcher.UIThread.RunJobs();
+            Assert.That(scopes[0].Ended, Is.True);
+
+            // Closed while hidden, the tab lets its native web view go.
+            window.Content = null;
+            view.Dispose();
+            Assert.That(scopes, Has.Count.EqualTo(2));
+            Assert.That(scopes[1].Ended, Is.True);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTest]
     public void FloatingBrowserDockable_DetachesNativeWebViewDuringDockMove()
     {
@@ -836,6 +893,17 @@ public class WebBrowserTabLifecycleTests
         Assert.That(launchedUri, Is.EqualTo(WebBrowserTabView.LinuxWebViewSetupGuide));
 
         view.Dispose();
+    }
+
+    private sealed class HiddenScope : IAsyncDisposable
+    {
+        internal bool Ended { get; private set; }
+
+        public ValueTask DisposeAsync()
+        {
+            Ended = true;
+            return ValueTask.CompletedTask;
+        }
     }
 
     private sealed class SettingsHostProbe : IBrowserSettingsHost

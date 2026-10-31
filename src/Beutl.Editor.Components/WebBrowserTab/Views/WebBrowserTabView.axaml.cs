@@ -1,7 +1,9 @@
-﻿using Avalonia.Controls;
+﻿using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using Beutl.Editor.Components.WebBrowserTab;
 using Beutl.Editor.Components.WebBrowserTab.ViewModels;
@@ -20,6 +22,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private readonly Func<NativeWebView, Task<string?>> _getPageContentType;
     private readonly Func<NativeWebView, bool> _canReparentWebView;
     private readonly Func<NativeWebView, Uri, Uri, bool> _navigateWithReferrer;
+    private readonly Func<NativeWebView, IAsyncDisposable> _beginReparenting;
     private readonly bool _navigationStartedIncludesSubframes;
     private readonly bool _handlesMediaResponsesNatively;
     private NativeWebView? _webView;
@@ -27,6 +30,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     private IDisposable? _nativeDownloadHandler;
     private int _nativeDownloadHandlerVersion;
     private WebBrowserTabViewModel? _viewModel;
+    // A tool tab that is not shown is out of the visual tree, where NativeWebView destroys its native web view. The
+    // page would then load again, without its state or its referrer, once the tab is shown, so a scope keeps it meanwhile.
+    private IAsyncDisposable? _hiddenScope;
     private bool _disposed;
 
     public WebBrowserTabView()
@@ -44,7 +50,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         BrowserFaviconLoader? faviconLoader = null,
         bool? handlesMediaResponsesNatively = null,
         Func<NativeWebView, Task<string?>>? getPageContentType = null,
-        Func<NativeWebView, Uri, Uri, bool>? navigateWithReferrer = null)
+        Func<NativeWebView, Uri, Uri, bool>? navigateWithReferrer = null,
+        Func<NativeWebView, IAsyncDisposable>? beginReparenting = null)
     {
         _createWebView = createWebView;
         _getWebViewAvailability = getWebViewAvailability;
@@ -53,6 +60,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _getPageContentType = getPageContentType ?? (static webView => webView.InvokeScript("document.contentType"));
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
         _navigateWithReferrer = navigateWithReferrer ?? NavigateWithReferrer;
+        _beginReparenting = beginReparenting ?? (static webView => webView.BeginReparentingAsync());
         // WKWebView, WebKitGTK and WPE all report subframe navigations through NavigationStarted.
         _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux());
         // The macOS and Windows handlers turn a main-frame media response into a download. WebKitGTK shows media
@@ -66,6 +74,39 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     }
 
     public BrowserFaviconLoader? FaviconLoader { get; }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        if (!_disposed
+            && _hiddenScope == null
+            && _webView is { } webView
+            && ReferenceEquals(WebViewHost.Content, webView)
+            && _canReparentWebView(webView))
+        {
+            _hiddenScope = _beginReparenting(webView);
+        }
+    }
+
+    // The web view attaches after this view and takes its native web view back, and the scope ends after that. Avalonia
+    // begins no other scope until it has let one go, so a tab hidden again before then keeps this one.
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (_hiddenScope == null) return;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (this.IsAttachedToVisualTree()) EndHiddenScope();
+        }, DispatcherPriority.Loaded);
+    }
+
+    // Ended while the tab is still out of the tree, the scope destroys the native web view.
+    private void EndHiddenScope()
+    {
+        if (_hiddenScope is not { } scope) return;
+        _hiddenScope = null;
+        _ = scope.DisposeAsync().AsTask();
+    }
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -382,7 +423,9 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
     IDisposable? IWebViewReparentingContent.BeginReparenting()
     {
         NativeWebView? webView = _webView;
+        // A hidden tab's scope already keeps its web view, and reparenting scopes do not nest.
         if (_disposed
+            || _hiddenScope != null
             || webView == null
             || !ReferenceEquals(WebViewHost.Content, webView)
             || !_canReparentWebView(webView))
@@ -463,6 +506,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _webView.NewWindowRequested -= OnNewWindowRequested;
         _webView.WebMessageReceived -= OnWebMessageReceived;
         BrowserWebViewRegistry.Unregister(_webView);
+        EndHiddenScope();
         WebViewHost.Content = null;
         _webView = null;
     }
