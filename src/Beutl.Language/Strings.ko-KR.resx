@@ -3669,4 +3669,22 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="Clipboard_WaitingForSave" xml:space="preserve">
     <value>저장이 끝날 때까지 기다리는 중…</value>
   </data>
+  <data name="SpeakerLayout_Mono" xml:space="preserve">
+    <value>모노</value>
+  </data>
+  <data name="SpeakerLayout_Stereo" xml:space="preserve">
+    <value>스테레오</value>
+  </data>
+  <data name="SpeakerLayout_Surround51" xml:space="preserve">
+    <value>5.1채널 서라운드</value>
+  </data>
+  <data name="SpeakerLayout_Surround71" xml:space="preserve">
+    <value>7.1채널 서라운드</value>
+  </data>
+  <data name="AudioChannels" xml:space="preserve">
+    <value>오디오 채널</value>
+  </data>
+  <data name="ProjectAudioChannels" xml:space="preserve">
+    <value>프로젝트 오디오 채널</value>
+  </data>
 </root>

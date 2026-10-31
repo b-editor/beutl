@@ -6,6 +6,8 @@ namespace Beutl.Editor.Components.Converters;
 
 public static class EnumIndexConverters
 {
+    public static readonly IValueConverter SpeakerLayouts = new EnumIndexConverter<SpeakerLayout>(SpeakerLayout.Stereo);
+
     public static readonly IValueConverter ScopeTypes = new EnumIndexConverter<ColorScopeType>(ColorScopeType.Waveform);
 
     public static readonly IValueConverter WaveformModes = new EnumIndexConverter<WaveformMode>(WaveformMode.Luma);

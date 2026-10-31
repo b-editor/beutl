@@ -13,7 +13,10 @@ namespace Beutl.Audio.Graph.Nodes;
 /// </summary>
 public sealed class NoiseReductionNode : AudioNode
 {
-    private const int Channels = 2;
+    // The input format is supplied when the graph is built, without pulling upstream audio.
+    public int ChannelCount { get; set; } = 2;
+
+    private int _reducerChannels;
     private const int MaxReadFrames = 16384;
 
     // Audio around a restart that seeds the noise floor. At most half of it precedes the restart, so a
@@ -76,7 +79,7 @@ public sealed class NoiseReductionNode : AudioNode
             throw new InvalidOperationException("NoiseReductionNode requires exactly one input.");
 
         int count = context.GetSampleCount();
-        var output = new AudioBuffer(context.SampleRate, Channels, count);
+        var output = new AudioBuffer(context.SampleRate, ChannelCount, count);
 
         // An empty chunk carries no audio, and advancing the end here would mask a discontinuity.
         if (count == 0)
@@ -88,7 +91,7 @@ public sealed class NoiseReductionNode : AudioNode
             {
                 SpectralNoiseReducer reducer = _reducer!;
                 FillInput(reducer.GetRequiredInputEnd(reducer.OutputPosition + count), context);
-                reducer.Read(output.GetChannelData(0), output.GetChannelData(1), _settingsAt);
+                reducer.Read(output, _settingsAt);
                 _lastTimeRangeEnd = context.TimeRange.Start + context.TimeRange.Duration;
             }
 
@@ -112,11 +115,12 @@ public sealed class NoiseReductionNode : AudioNode
     {
         int sampleRate = context.SampleRate;
         bool upstreamChanged = AudioSourceStream.UpstreamChangedAndCapture(this, ref _upstreamSnapshot);
-        if (_reducer is null || _sampleRate != sampleRate || upstreamChanged)
+        if (_reducer is null || _sampleRate != sampleRate || _reducerChannels != ChannelCount || upstreamChanged)
         {
-            _reducer = new SpectralNoiseReducer(sampleRate);
-            _stream = new AudioSourceStream(sampleRate, Channels, static time => time);
+            _reducer = new SpectralNoiseReducer(sampleRate, ChannelCount);
+            _stream = new AudioSourceStream(sampleRate, ChannelCount, static time => time);
             _sampleRate = sampleRate;
+            _reducerChannels = ChannelCount;
             _lastTimeRangeEnd = null;
         }
 
@@ -243,13 +247,13 @@ public sealed class NoiseReductionNode : AudioNode
 
     private int ReadUpstream(int frames, AudioProcessContext context, bool draining, long? end)
     {
-        int length = frames * Channels;
+        int length = frames * ChannelCount;
         float[] buffer = ArrayPool<float>.Shared.Rent(length);
         try
         {
             int samples = _stream!.Read(buffer.AsSpan(0, length), Inputs[0], context, draining, end);
             _reducer!.Write(buffer.AsSpan(0, samples));
-            return samples / Channels;
+            return samples / ChannelCount;
         }
         finally
         {

@@ -18,17 +18,23 @@ public sealed class AudioContext : IDisposable
 
     public int SampleRate { get; }
 
-    public int ChannelCount { get; }
+    public AudioChannelLayout ChannelLayout { get; }
+
+    public int ChannelCount => ChannelLayout.ChannelCount;
 
     public AudioContext(int sampleRate, int channelCount)
+        : this(sampleRate, AudioChannelLayout.GetDefault(channelCount))
+    {
+    }
+
+    public AudioContext(int sampleRate, AudioChannelLayout layout)
     {
         if (sampleRate <= 0)
             throw new ArgumentOutOfRangeException(nameof(sampleRate), "Sample rate must be positive.");
-        if (channelCount <= 0)
-            throw new ArgumentOutOfRangeException(nameof(channelCount), "Channel count must be positive.");
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(layout.ChannelCount, nameof(layout));
 
         SampleRate = sampleRate;
-        ChannelCount = channelCount;
+        ChannelLayout = layout;
     }
 
     /// <summary>
@@ -55,6 +61,7 @@ public sealed class AudioContext : IDisposable
             _nodes.Add(node);
         }
 
+        node.SeedChannelCount(ChannelCount);
         _currentNode = node;
         return node;
     }
@@ -103,11 +110,28 @@ public sealed class AudioContext : IDisposable
 
         if (_previousNodes?.OfType<SourceNode>().FirstOrDefault(n => source.Compare(n.Source)) is { } existing)
         {
+            existing.ClipLayout = source.ChannelLayout;
             return AddNode(Reclaim(existing));
         }
 
-        var node = new SourceNode { Source = source.Capture() };
+        var node = new SourceNode { Source = source.Capture(), ClipLayout = source.ChannelLayout };
         return AddNode(node);
+    }
+
+    public PannerNode CreatePannerNode(IProperty<float> pan, IProperty<float> surroundPan,
+        IProperty<float> centerLevel, IProperty<float> lfeLevel, AudioChannelLayout inputLayout)
+    {
+        ArgumentNullException.ThrowIfNull(pan);
+        ArgumentNullException.ThrowIfNull(surroundPan);
+        ArgumentNullException.ThrowIfNull(centerLevel);
+        ArgumentNullException.ThrowIfNull(lfeLevel);
+        var node = CreateNode(pan,
+            p => new PannerNode { Pan = p, SurroundPan = surroundPan, CenterLevel = centerLevel, LfeLevel = lfeLevel },
+            static (_, _) => { },
+            static (p, existing) => ReferenceEquals(p, existing.Pan));
+        node.InputLayout = inputLayout;
+        node.OutputLayout = ChannelLayout;
+        return node;
     }
 
     /// <summary>
@@ -220,19 +244,24 @@ public sealed class AudioContext : IDisposable
     /// </summary>
     /// <param name="speed">The playback speed multiplier (100.0 = normal speed).</param>
     /// <returns>The created speed node.</returns>
-    public SpeedNode CreateSpeedNode(IProperty<float> speed)
+    public SpeedNode CreateSpeedNode(IProperty<float> speed) => CreateSpeedNode(speed, ChannelCount);
+
+    public SpeedNode CreateSpeedNode(IProperty<float> speed, int channelCount)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(speed);
 
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(channelCount);
         if (_previousNodes?.OfType<SpeedNode>().FirstOrDefault(n => ReferenceEquals(n.Speed, speed)) is { } existing)
         {
+            existing.ChannelCount = channelCount;
             return AddNode(Reclaim(existing));
         }
 
         var node = new SpeedNode
         {
-            Speed = speed
+            Speed = speed,
+            ChannelCount = channelCount
         };
         return AddNode(node);
     }
@@ -461,7 +490,7 @@ public sealed class AudioContext : IDisposable
     // A context for a child sound that takes its reused nodes from this context's pool.
     internal AudioContext CreateChildContext()
     {
-        var child = new AudioContext(SampleRate, ChannelCount);
+        var child = new AudioContext(SampleRate, ChannelLayout);
         child._previousNodes = _previousNodes;
         return child;
     }

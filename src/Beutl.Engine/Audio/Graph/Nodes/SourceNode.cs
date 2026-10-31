@@ -8,6 +8,11 @@ public sealed class SourceNode : AudioNode
 {
     public (SoundSource.Resource Resource, int Version)? Source { get; set; }
 
+    public AudioChannelLayout ClipLayout { get; set; } = AudioChannelLayout.Stereo;
+
+    protected override AudioBuffer CreateSilentFlush(AudioProcessContext context)
+        => new(context.SampleRate, ClipLayout.ChannelCount, context.GetSampleCount());
+
     internal override double? GetFiniteSourceEndSample(int sampleRate)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(sampleRate);
@@ -26,9 +31,8 @@ public sealed class SourceNode : AudioNode
 
         var resource = Source.Value.Resource;
         var sampleCount = context.GetSampleCount();
-        // Match the stereo output when Flush creates silence.
-        RecordProcessedChannelCount(2);
-        var buffer = new AudioBuffer(context.SampleRate, 2, sampleCount);
+        RecordProcessedChannelCount(ClipLayout.ChannelCount);
+        var buffer = new AudioBuffer(context.SampleRate, ClipLayout.ChannelCount, sampleCount);
 
         // An unloaded or failed-to-open source has SampleRate == 0 and is unreadable — return silence
         // (this also avoids ToSamples throwing on the non-positive rate below).
@@ -57,17 +61,17 @@ public sealed class SourceNode : AudioNode
                 {
                     AudioChannelLayout layout = AudioChannelLayout.ForChannelCount(
                         resource.ChannelLayout, audio.ChannelCount);
-                    var matrix = AudioChannelMatrix.Create(layout, AudioChannelLayout.Stereo);
+                    var matrix = AudioChannelMatrix.Create(layout, ClipLayout);
                     if (audio.SampleCount == buffer.SampleCount && audio.SampleRate == buffer.SampleRate)
                     {
                         matrix.Apply(audio, buffer);
                     }
                     else
                     {
-                        using var stereo = matrix.Apply(audio);
-                        int copyLength = Math.Min(stereo.SampleCount, buffer.SampleCount);
-                        stereo.GetChannelData(0)[..copyLength].CopyTo(buffer.GetChannelData(0));
-                        stereo.GetChannelData(1)[..copyLength].CopyTo(buffer.GetChannelData(1));
+                        using var converted = matrix.Apply(audio);
+                        int copyLength = Math.Min(converted.SampleCount, buffer.SampleCount);
+                        for (int channel = 0; channel < buffer.ChannelCount; channel++)
+                            converted.GetChannelData(channel)[..copyLength].CopyTo(buffer.GetChannelData(channel));
                     }
                 }
             }

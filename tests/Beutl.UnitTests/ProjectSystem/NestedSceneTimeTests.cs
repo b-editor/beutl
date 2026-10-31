@@ -48,13 +48,13 @@ public sealed partial class RecordingSound : Sound
         public override AudioBuffer Process(AudioProcessContext context)
         {
             ProcessedRanges.Add(context.TimeRange);
-            return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+            return new AudioBuffer(context.SampleRate, LastProcessedChannelCount, context.GetSampleCount());
         }
 
         public override AudioBuffer Flush(AudioProcessContext context)
         {
             FlushedRanges.Add(context.TimeRange);
-            return new AudioBuffer(context.SampleRate, 2, context.GetSampleCount());
+            return new AudioBuffer(context.SampleRate, LastProcessedChannelCount, context.GetSampleCount());
         }
     }
 }
@@ -262,6 +262,37 @@ public class NestedSceneTimeTests
             Assert.That(embeddedWidth, Is.EqualTo(standaloneWidth),
                 $"Embedded at local {windowSeconds}s must match standalone at B-window {windowSeconds}s.");
         }
+    }
+
+    [Test]
+    public void SceneSoundEmbed_ReusesTheNodeButRebuildsItsComposerForANewLayout()
+    {
+        var project = new Project();
+        _ = new BeutlApplication { Project = { Value = project } };
+        Scene nested = CreateScene("nested", MediaTime.Zero, Seconds(2));
+        Attach(project, nested);
+        nested.Children.Add(CreateElement(MediaTime.Zero, Seconds(2), new RecordingSound()));
+        var sound = new SceneSound
+        {
+            ReferencedScene = { Value = nested },
+            TimeRange = { Value = new TimeRange(MediaTime.Zero, Seconds(2)) }
+        };
+        using var resource = sound.ToResource(CompositionContext.Default);
+        using var stereo = new AudioContext(44100, AudioChannelLayout.Stereo);
+        sound.Compose(stereo, resource);
+        var sceneNode = stereo.Nodes.Single(n => n.GetType().Name == "SceneNode");
+        var process = new AudioProcessContext(new TimeRange(MediaTime.Zero, Seconds(0.1)), 44100, new AnimationSampler(), null);
+        using var first = stereo.GetOutputNodes().Single().Process(process);
+        Assert.That(first.ChannelCount, Is.EqualTo(2));
+        using var surround = new AudioContext(44100, AudioChannelLayout.Surround51);
+        surround.BeginUpdate(stereo.Nodes.ToArray());
+        sound.Compose(surround, resource);
+        surround.EndUpdate();
+        Assert.That(surround.Nodes.Single(n => n.GetType().Name == "SceneNode"), Is.SameAs(sceneNode));
+        using var second = surround.GetOutputNodes().Single().Process(process);
+        Assert.That(second.ChannelCount, Is.EqualTo(6));
+        using var tail = sceneNode.Flush(new AudioProcessContext(new TimeRange(Seconds(0.1), Seconds(0.01)), 44100, new AnimationSampler(), null));
+        Assert.That(tail.ChannelCount, Is.EqualTo(6));
     }
 
     [TestCase(0)]

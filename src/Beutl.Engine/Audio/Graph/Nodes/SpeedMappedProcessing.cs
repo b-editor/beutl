@@ -25,15 +25,16 @@ internal interface ISpeedMappedProcessor
 internal sealed class SpeedMappedProcessing<TProcessor>(
     AudioNode owner,
     AudioSpeedMapping mapping,
-    Func<int, TProcessor> createProcessor,
+    Func<int, int, TProcessor> createProcessor,
     bool roundSampleClock)
     where TProcessor : class, ISpeedMappedProcessor
 {
     private TProcessor? _processor;
     private int _lastSampleRate;
+    private int _lastChannelCount;
     private List<AudioNode>? _upstreamSnapshot;
 
-    public AudioBuffer Process(AudioProcessContext context, bool draining)
+    public AudioBuffer Process(AudioProcessContext context, int channelCount, bool draining)
     {
         ArgumentNullException.ThrowIfNull(context);
         if (owner.Inputs.Count != 1)
@@ -42,9 +43,10 @@ internal sealed class SpeedMappedProcessing<TProcessor>(
         int expectedOut = context.GetSampleCount();
         mapping.Configure(context.SampleRate);
         bool upstreamChanged = AudioSourceStream.UpstreamChangedAndCapture(owner, ref _upstreamSnapshot);
-        if (_processor is null || _lastSampleRate != context.SampleRate || upstreamChanged)
+        if (_processor is null || _lastSampleRate != context.SampleRate || _lastChannelCount != channelCount || upstreamChanged)
         {
-            _processor = createProcessor(context.SampleRate);
+            _processor = createProcessor(context.SampleRate, channelCount);
+            _lastChannelCount = channelCount;
             _lastSampleRate = context.SampleRate;
         }
         bool forceReanchor = mapping.IsInvalidated && !draining;

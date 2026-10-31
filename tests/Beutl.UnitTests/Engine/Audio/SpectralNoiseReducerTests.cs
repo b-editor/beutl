@@ -1,10 +1,84 @@
-﻿using Beutl.Audio.Graph;
+﻿using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using Beutl.Audio;
+using Beutl.Audio.Graph;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
 [TestFixture]
 public class SpectralNoiseReducerTests
 {
+    [Test]
+    public void StereoOutput_MatchesThePreMultichannelImplementationBitForBit()
+    {
+        const int count = 48000;
+        var input = new float[count * 2];
+        for (int i = 0; i < count; i++)
+        {
+            input[i * 2] = ((i * 17 % 101) - 50) / 512f;
+            input[i * 2 + 1] = ((i * 29 % 113) - 56) / 512f;
+        }
+        var reducer = new SpectralNoiseReducer(48000);
+        reducer.Write(input);
+        reducer.Seed(count);
+        reducer.WritePadding((int)(reducer.GetRequiredInputEnd(count) - reducer.InputEnd));
+        var left = new float[count];
+        var right = new float[count];
+        reducer.Read(left, right, _ => new(12, 3, 50, 2));
+        // Captured from SpectralNoiseReducer at b11267b2d with this exact input and read sequence.
+        Assert.That(Convert.ToHexString(SHA256.HashData(MemoryMarshal.AsBytes(left.AsSpan()))),
+            Is.EqualTo("2AD5FDC9059A5F09C030EB771144E39021EA7E38BC2EB370678749C92E6FD92B"));
+        Assert.That(Convert.ToHexString(SHA256.HashData(MemoryMarshal.AsBytes(right.AsSpan()))),
+            Is.EqualTo("142DF74A69DD1471FB260C0758D8BE40C085BD1B7A67A909243D559F89B2A9BE"));
+    }
+
+    [TestCase(1)]
+    [TestCase(3)]
+    [TestCase(6)]
+    [TestCase(8)]
+    public void AllChannelsShareOneGainIncludingAnOddLastChannel(int channels)
+    {
+        const int count = SampleRate * 2;
+        float[] signal = Add(Noise(count, 0.05, 8), ToneBursts(count, 0.2f));
+        var input = new float[count * channels];
+        for (int i = 0; i < count; i++)
+            for (int ch = 0; ch < channels; ch++) input[i * channels + ch] = signal[i] * (ch + 1) / 8f;
+        var reducer = new SpectralNoiseReducer(SampleRate, channels);
+        reducer.Write(input);
+        reducer.Seed(SampleRate);
+        reducer.WritePadding((int)(reducer.GetRequiredInputEnd(count) - reducer.InputEnd));
+        using var output = new AudioBuffer(SampleRate, channels, count);
+        reducer.Read(output, _ => s_default);
+        float[] first = output.GetChannelData(0).ToArray();
+        for (int ch = 1; ch < channels; ch++)
+            Assert.That(output.GetChannelData(ch).ToArray(), Is.EqualTo(first.Select(v => v * (ch + 1))).Within(1e-5));
+        Assert.That(Power(first, SampleRate, count), Is.LessThan(Power(signal, SampleRate, count) / 64));
+    }
+
+    [TestCase(1)]
+    [TestCase(3)]
+    [TestCase(6)]
+    [TestCase(8)]
+    public void MultichannelBias_MatchesIndependentNoisePower(int channels)
+    {
+        const double sigma = 0.05;
+        const int count = SampleRate * 6;
+        var input = new float[count * channels];
+        for (int ch = 0; ch < channels; ch++)
+        {
+            float[] signal = Noise(count, sigma, ch + 30);
+            for (int i = 0; i < count; i++) input[i * channels + ch] = signal[i];
+        }
+        var reducer = new SpectralNoiseReducer(SampleRate, channels);
+        reducer.Write(input);
+        reducer.WritePadding((int)(reducer.GetRequiredInputEnd(count) - reducer.InputEnd));
+        using var output = new AudioBuffer(SampleRate, channels, count);
+        reducer.Read(output, _ => s_default);
+        double expected = sigma * sigma * reducer.FrameSize * 3 / 8;
+        Assert.That(10 * Math.Log10(MeanNoise(reducer) / expected), Is.EqualTo(0).Within(1));
+        if (channels > 2) Assert.That(SpectralNoiseReducer.GetMinimumBias(400, channels), Is.LessThan(SpectralNoiseReducer.GetMinimumBias(400)));
+    }
+
     private const int SampleRate = 48000;
 
     private static readonly NoiseReductionSettings s_default = new(12, 3, 50, 2);

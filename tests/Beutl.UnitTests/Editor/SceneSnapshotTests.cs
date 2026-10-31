@@ -9,6 +9,16 @@ namespace Beutl.UnitTests.Editor;
 [TestFixture]
 public sealed class SceneSnapshotTests
 {
+    [Test]
+    public void Create_CopiesProjectAudioLayout()
+    {
+        var scene = new Scene(320, 240, "Surround");
+        var project = new Project { Items = { scene }, ChannelLayout = { Value = SpeakerLayout.Surround51 } };
+        Scene snapshot = SceneSnapshot.Create(scene);
+        project.ChannelLayout.Value = SpeakerLayout.Stereo;
+        Assert.That(snapshot.FindHierarchicalParent<Project>()!.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+    }
+
     [TestCase(false, false)]
     [TestCase(true, false)]
     [TestCase(false, true)]

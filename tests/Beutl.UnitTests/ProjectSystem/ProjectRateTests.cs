@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Text.Json.Nodes;
+using Beutl.Audio;
 using Beutl.Serialization;
 
 namespace Beutl.UnitTests.ProjectSystem;
@@ -38,6 +39,21 @@ public sealed class ProjectRateTests
             Assert.That(project.GetFrameRate(), Is.EqualTo(new Rational(30)));
             Assert.That(project.GetSampleRate(), Is.EqualTo(44100));
         });
+    }
+
+    [Test]
+    public void ProjectLayout_DefaultsToStereoAndSurvivesSerialization()
+    {
+        Project? detached = null;
+        Assert.That(detached.GetChannelLayout(), Is.EqualTo(AudioChannelLayout.Stereo));
+        Assert.That(Read(new JsonObject()).ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Stereo));
+        foreach (SpeakerLayout layout in Enum.GetValues<SpeakerLayout>())
+        {
+            var project = new Project { ChannelLayout = { Value = layout } };
+            var restored = Read(CoreSerializer.SerializeToJsonObject(project));
+            Assert.That(restored.ChannelLayout.Value, Is.EqualTo(layout));
+            Assert.That(restored.GetChannelLayout(), Is.EqualTo(layout.ToAudioChannelLayout()));
+        }
     }
 
     // Earlier versions kept the rates as variables, which a read moves to the rate members once.

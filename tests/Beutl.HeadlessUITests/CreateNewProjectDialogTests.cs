@@ -96,6 +96,7 @@ public class CreateNewProjectDialogTests
             viewModel.Location.Value = location;
             viewModel.Name.Value = "ntsc-project";
             viewModel.FrameRate.Value = "29.97";
+            viewModel.ChannelLayout.Value = SpeakerLayout.Surround71;
             Beutl.Testing.Headless.HeadlessTestHelpers.Settle();
             Assert.That(viewModel.CanCreate.Value, Is.True);
 
@@ -105,6 +106,8 @@ public class CreateNewProjectDialogTests
             System.Text.Json.Nodes.JsonNode file = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(project.Uri!.LocalPath))!;
             Assert.Multiple(() =>
             {
+                Assert.That(project.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround71));
+                Assert.That((int?)file["ChannelLayout"], Is.EqualTo((int)SpeakerLayout.Surround71));
                 Assert.That(project.FrameRate.Value, Is.EqualTo(new Rational(30000, 1001)));
                 Assert.That((string?)file["FrameRate"], Is.EqualTo("30000/1001"));
             });
@@ -113,6 +116,34 @@ public class CreateNewProjectDialogTests
         {
             await TestReset.ResetShellAsync();
         }
+    }
+
+    [AvaloniaTest]
+    public void Audio_layout_choice_is_bound_and_visible()
+    {
+        var vm = CreateViewModel(new ProjectService());
+        var dialog = new CreateNewProject { DataContext = vm };
+        var carousel = (Carousel)dialog.Content!;
+        var page = (Panel)carousel.Items[1]!;
+        carousel.Items.Remove(page);
+        var window = new Window { Content = page, DataContext = vm, Width = 420, Height = 540 };
+        try
+        {
+            window.Show();
+            Beutl.Testing.Headless.HeadlessTestHelpers.Render();
+            ComboBox choice = page.Children.OfType<ComboBox>().Single();
+            Assert.That(choice.SelectedIndex, Is.EqualTo(1));
+            choice.SelectedIndex = 2;
+            Assert.That(vm.ChannelLayout.Value, Is.EqualTo(SpeakerLayout.Surround51));
+            Assert.That(choice.Bounds.Width, Is.GreaterThan(100));
+            if (Environment.GetEnvironmentVariable("BEUTL_SCENE_SETTINGS_CAPTURE") is { Length: > 0 } directory)
+            {
+                Directory.CreateDirectory(directory);
+                using var bitmap = Avalonia.Headless.HeadlessWindowExtensions.CaptureRenderedFrame(window);
+                bitmap!.Save(Path.Combine(directory, "new-project.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaTest]

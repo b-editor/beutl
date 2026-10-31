@@ -161,6 +161,10 @@ public sealed partial class ProjectService
         return CreateProject(width, height, framerate, samplerate, name, location, beforeOpening: null);
     }
 
+    public Task<Project?> CreateProject(int width, int height, Rational framerate, int samplerate,
+        string name, string location, SpeakerLayout channelLayout)
+        => CreateProject(width, height, framerate, samplerate, name, location, null, channelLayout);
+
     // beforeOpening runs once the project files are written and before the project opens, inside the same
     // transition, so the editor opens only after it completes. Its token is canceled when another project
     // transition is requested meanwhile; the project then opens without waiting for the rest of the step.
@@ -171,7 +175,8 @@ public sealed partial class ProjectService
         int samplerate,
         string name,
         string location,
-        Func<Project, CancellationToken, Task>? beforeOpening)
+        Func<Project, CancellationToken, Task>? beforeOpening,
+        SpeakerLayout channelLayout = SpeakerLayout.Stereo)
     {
         var creation = new ProjectCreation();
         await using ProjectTransitionScope transition = await BeginTransitionAsync(
@@ -186,6 +191,7 @@ public sealed partial class ProjectService
             name,
             location,
             beforeOpening,
+            channelLayout,
             creation.PreparationCancellation,
             transition.Context);
     }
@@ -363,6 +369,7 @@ public sealed partial class ProjectService
         string name,
         string location,
         Func<Project, CancellationToken, Task>? beforeOpening,
+        SpeakerLayout channelLayout,
         CancellationToken preparationCancellation,
         ProjectTransitionContext transition)
     {
@@ -390,6 +397,7 @@ public sealed partial class ProjectService
                 Uri = UriHelper.CreateFromPath(Path.Combine(location, $"{name}.{EditorConstants.ProjectFileExtension}")),
                 FrameRate = { Value = framerate },
                 SampleRate = { Value = samplerate },
+                ChannelLayout = { Value = channelLayout },
             };
 
             CoreSerializer.StoreToUri(scene, scene.Uri);

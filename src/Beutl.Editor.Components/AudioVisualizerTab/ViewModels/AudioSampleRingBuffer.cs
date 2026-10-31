@@ -1,4 +1,5 @@
-﻿using Beutl.Audio.Graph;
+﻿using Beutl.Audio;
+using Beutl.Audio.Graph;
 
 namespace Beutl.Editor.Components.AudioVisualizerTab.ViewModels;
 
@@ -40,6 +41,9 @@ public sealed class AudioSampleRingBuffer
         if (channelCount < 1) return;
         int frames = interleaved.Length / channelCount;
         if (frames == 0) return;
+        AudioChannelMatrix? matrix = channelCount > 2
+            ? AudioChannelMatrix.Create(AudioChannelLayout.GetDefault(channelCount), AudioChannelLayout.Stereo)
+            : null;
 
         lock (_gate)
         {
@@ -72,6 +76,16 @@ public sealed class AudioSampleRingBuffer
                 int baseIdx = f * channelCount;
                 float l = interleaved[baseIdx];
                 float r = channelCount > 1 ? interleaved[baseIdx + 1] : l;
+                if (matrix != null)
+                {
+                    l = r = 0;
+                    for (int channel = 0; channel < channelCount; channel++)
+                    {
+                        float leftGain = matrix.GetCoefficient(0, channel), rightGain = matrix.GetCoefficient(1, channel);
+                        if (leftGain != 0) l += interleaved[baseIdx + channel] * leftGain;
+                        if (rightGain != 0) r += interleaved[baseIdx + channel] * rightGain;
+                    }
+                }
                 _left[idx] = l;
                 _right[idx] = r;
                 idx++;
