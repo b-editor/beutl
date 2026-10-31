@@ -108,6 +108,13 @@ public sealed partial class EditorService
 
     public IReactiveProperty<EditorTabItem?> SelectedTabItem { get; } = new ReactivePropertySlim<EditorTabItem?>();
 
+    // Follows the selected tab and that tab's context, starting with the current answer on subscribe.
+    internal IObservable<bool> IsSelectedEditor(IEditorContext editor)
+        => SelectedTabItem
+            .Select(tab => tab?.Context.Select(context => ReferenceEquals(context, editor)) ?? Observable.Return(false))
+            .Switch()
+            .DistinctUntilChanged();
+
     internal IReadOnlyReactiveProperty<IProjectVersionControlService?>
         ProjectVersionControlService
     { get; }

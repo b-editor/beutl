@@ -54,21 +54,23 @@ public sealed partial class EditViewModel
         }
     }
 
+    private static HashSet<string> CollectMediaUris(Scene scene)
+        => MissingMediaService.GetFileUris(scene).Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+
     private void CaptureSavedMediaUris(HashSet<string>? savedUris = null,
         IReadOnlyDictionary<string, MediaFileFingerprint>? savedFingerprints = null)
     {
-        _savedMediaUris = savedUris ?? MissingMediaService.GetFileUris(Scene).Select(uri => uri.AbsoluteUri).ToHashSet(StringComparer.Ordinal);
+        _savedMediaUris = savedUris ?? CollectMediaUris(Scene);
         foreach (string key in _savedMediaFingerprints.Keys.Where(key => !_savedMediaUris.Contains(key)).ToArray())
             _savedMediaFingerprints.Remove(key);
-        foreach (var pair in (savedFingerprints ?? Scene.MediaFingerprints).Where(pair => _savedMediaUris.Contains(pair.Key)))
-            _savedMediaFingerprints[pair.Key] = pair.Value;
+        MergeSavedMediaFingerprints(savedFingerprints ?? Scene.MediaFingerprints);
     }
 
-    private void MergeSavedMediaFingerprints(Scene scene)
+    private void MergeSavedMediaFingerprints(IReadOnlyDictionary<string, MediaFileFingerprint> fingerprints)
     {
         // Live scans may prune references removed by an unsaved edit. Keep the
         // saved graph's fingerprints until that graph change reaches disk.
-        foreach (var pair in scene.MediaFingerprints.Where(pair => _savedMediaUris.Contains(pair.Key)))
+        foreach (var pair in fingerprints.Where(pair => _savedMediaUris.Contains(pair.Key)))
             _savedMediaFingerprints[pair.Key] = pair.Value;
     }
 
@@ -96,7 +98,7 @@ public sealed partial class EditViewModel
                 // A save or edit can request another scan while hashing or waiting
                 // for admission. Keep its save intent until the final stable scan.
                 if (_fingerprintScanRequested) continue;
-                MergeSavedMediaFingerprints(scene);
+                MergeSavedMediaFingerprints(scene.MediaFingerprints);
                 // Write the fingerprint file only; never serialize unsaved scene or element edits.
                 bool changed = MediaFingerprintFile.Update(uri, scene.Id.Value, _savedMediaFingerprints);
                 bool finishSaveSnapshot = _finishFingerprintSaveSnapshot;
