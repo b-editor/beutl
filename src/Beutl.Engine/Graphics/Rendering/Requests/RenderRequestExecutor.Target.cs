@@ -515,20 +515,7 @@ internal sealed partial class RenderRequestExecutor
                 using (var canvas = CreateValueCanvas(value))
                 using (canvas.PushTransform(value.RasterAlignmentTransform))
                 {
-                    int backdropSourceCount = _backdropSources?.Count ?? 0;
-                    (_backdropSources ??= []).Add(destination);
-                    bool excludeBackdrop = !((TargetLayerScopeRenderFragmentPayload)fragment.Payload!).ContributesToBackdrop
-                        && (_excludedBackdropSources ??= []).Add(canvas.Canvas);
-                    try
-                    {
-                        foreach (RenderFragmentReference input in fragment.Inputs)
-                            Replay(input, canvas, callerScale);
-                    }
-                    finally
-                    {
-                        RemoveBackdropSources(backdropSourceCount);
-                        if (excludeBackdrop) _excludedBackdropSources!.Remove(canvas.Canvas);
-                    }
+                    ReplayScopeInputs(fragment, canvas, destination, callerScale);
                 }
 
                 DrawValue(value, destination);
@@ -561,23 +548,37 @@ internal sealed partial class RenderRequestExecutor
         {
             ExecuteReplayIsland(
                 scope,
-                () =>
+                () => ReplayScopeInputs(scope, destination, backdropSource, callerScale: null));
+        }
+
+        // Replays a target layer scope's inputs into target, with backdropSource beneath them for the backdrop
+        // captures they take. A scope that does not contribute to the backdrop keeps target out of those captures.
+        // Without a caller scale, each input is replayed at the scale target's density asks of it.
+        private void ReplayScopeInputs(
+            RenderFragmentReference scope,
+            ImmediateCanvas target,
+            ImmediateCanvas backdropSource,
+            EffectiveScale? callerScale)
+        {
+            int backdropSourceCount = _backdropSources?.Count ?? 0;
+            (_backdropSources ??= []).Add(backdropSource);
+            bool excludeBackdrop = !((TargetLayerScopeRenderFragmentPayload)scope.Payload!).ContributesToBackdrop
+                && (_excludedBackdropSources ??= []).Add(target.Canvas);
+            try
+            {
+                foreach (RenderFragmentReference input in scope.Inputs)
                 {
-                    int backdropSourceCount = _backdropSources?.Count ?? 0;
-                    (_backdropSources ??= []).Add(backdropSource);
-                    bool excludeBackdrop = !((TargetLayerScopeRenderFragmentPayload)scope.Payload!).ContributesToBackdrop
-                        && (_excludedBackdropSources ??= []).Add(destination.Canvas);
-                    try
-                    {
-                        foreach (RenderFragmentReference input in scope.Inputs)
-                            Replay(input, destination);
-                    }
-                    finally
-                    {
-                        RemoveBackdropSources(backdropSourceCount);
-                        if (excludeBackdrop) _excludedBackdropSources!.Remove(destination.Canvas);
-                    }
-                });
+                    if (callerScale is { } scale)
+                        Replay(input, target, scale);
+                    else
+                        Replay(input, target);
+                }
+            }
+            finally
+            {
+                RemoveBackdropSources(backdropSourceCount);
+                if (excludeBackdrop) _excludedBackdropSources!.Remove(target.Canvas);
+            }
         }
 
         private static void DrawTargetIntoCapture(

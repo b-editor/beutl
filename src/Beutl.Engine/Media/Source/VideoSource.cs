@@ -16,7 +16,7 @@ public sealed class VideoSource : MediaSource
         if (!uri.IsFile) throw new NotSupportedException("Only file URIs are supported.");
         // A relink can switch back to a file that was replaced since other sources opened it, so read the
         // file switched to afresh instead of joining their readers.
-        if (HasUri && Uri != uri) SharedMediaReaders.Shared.Invalidate(Path.GetFullPath(uri.LocalPath));
+        if (HasUri && Uri != uri) SharedMediaReaders.Shared.Invalidate(uri);
         Uri = uri;
     }
 
@@ -31,13 +31,13 @@ public sealed class VideoSource : MediaSource
     internal override void InvalidateResourceCache()
     {
         // The file may have changed on disk, so reloading resources must not join readers opened before.
-        if (HasUri) SharedMediaReaders.Shared.Invalidate(Path.GetFullPath(Uri.LocalPath));
+        if (HasUri) SharedMediaReaders.Shared.Invalidate(Uri);
         base.InvalidateResourceCache();
     }
 
     public new sealed class Resource : MediaSource.Resource
     {
-        private Counter<MediaReader>? _counter;
+        private MediaReader? _reader;
         private Ref<Bitmap>? _offlineBitmap;
         private Uri? _loadedUri;
         private bool _loadedPreferProxy;
@@ -60,7 +60,7 @@ public sealed class VideoSource : MediaSource
 
         public float SupplyDensity => ProxyResolution?.SupplyDensity ?? 1f;
 
-        public MediaReader? MediaReader => _counter?.Value;
+        public MediaReader? MediaReader => _reader;
 
         public bool IsOffline => _offlineBitmap != null;
 
@@ -91,13 +91,13 @@ public sealed class VideoSource : MediaSource
                 bitmap = offline.Clone();
                 return true;
             }
-            if (IsDisposed || _counter == null)
+            if (IsDisposed || _reader == null)
             {
                 bitmap = null;
                 return false;
             }
 
-            return _counter.Value.ReadVideo(frame, out bitmap);
+            return _reader.ReadVideo(frame, out bitmap);
         }
 
         public override void Reconcile(EngineObject obj, CompositionContext context, ref bool versionBumped)
@@ -112,8 +112,8 @@ public sealed class VideoSource : MediaSource
             // Load media reader if URI or proxy preference changed.
             if (NeedsReload(videoSource, context, proxyResolverVersion))
             {
-                _counter?.Release();
-                _counter = null;
+                _reader?.Dispose();
+                _reader = null;
                 ProxyResolution = null;
                 _offlineBitmap?.Dispose();
                 _offlineBitmap = null;
@@ -130,9 +130,9 @@ public sealed class VideoSource : MediaSource
                     return;
                 }
 
-                var reader = _counter.Value;
+                var reader = _reader;
                 // Audio-only containers can open successfully without exposing VideoInfo. Reject
-                // both new and shared readers before reading metadata.
+                // the reader before reading metadata.
                 if (!reader.HasVideo)
                 {
                     SetOffline(videoSource, context, proxyResolverVersion);
@@ -183,7 +183,7 @@ public sealed class VideoSource : MediaSource
 
         // A failed open still records the inputs it was attempted with, so an unchanged source is not
         // reopened on every update.
-        [MemberNotNullWhen(true, nameof(_counter))]
+        [MemberNotNullWhen(true, nameof(_reader))]
         private bool TryOpenReader(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
         {
             try
@@ -197,14 +197,13 @@ public sealed class VideoSource : MediaSource
                 // Encoding keeps its own reader; other resources share the file's readers. The key includes this
                 // source's proxy version, so an original opened because no proxy resolved is shared only until a
                 // proxy is registered. A reader without video never serves others.
-                MediaReader reader = context.DisableResourceShare
+                _reader = context.DisableResourceShare
                     ? MediaReader.Open(path, options)
                     : SharedMediaReaders.Shared.Open(
-                        new(Path.GetFullPath(path), MediaMode.Video, context.PreferProxy,
+                        SharedMediaReaders.Key.ForFile(path, MediaMode.Video, context.PreferProxy,
                             context.PreferProxy ? context.PreferredProxyPreset : default, proxyResolverVersion),
                         () => MediaReader.Open(path, options),
                         opened => opened.HasVideo);
-                _counter = new Counter<MediaReader>(reader, null);
             }
             catch
             {
@@ -217,8 +216,8 @@ public sealed class VideoSource : MediaSource
 
         private void SetOffline(VideoSource videoSource, CompositionContext context, long proxyResolverVersion)
         {
-            _counter?.Release();
-            _counter = null;
+            _reader?.Dispose();
+            _reader = null;
             _offlineBitmap = Ref<Bitmap>.Create(OfflineMediaPlaceholder.CreateBitmap());
             FrameSize = LogicalFrameSize = OfflineMediaPlaceholder.Size;
             Duration = MediaTime.Zero;
@@ -238,8 +237,8 @@ public sealed class VideoSource : MediaSource
         protected override void Dispose(bool disposing)
         {
             base.Dispose(disposing);
-            _counter?.Release();
-            _counter = null;
+            _reader?.Dispose();
+            _reader = null;
             _offlineBitmap?.Dispose();
             _offlineBitmap = null;
         }

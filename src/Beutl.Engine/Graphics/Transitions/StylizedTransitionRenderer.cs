@@ -25,12 +25,7 @@ internal static class StylizedTransitionRenderer
         ClipTransitionDirection direction = ClipTransitionDirection.LeftToRight, bool zoomOut = false,
         GradientSpreadMethod tileMode = GradientSpreadMethod.Decal)
     {
-        float progress = context.Progress;
-        if (progress <= 0 || progress >= 1)
-        {
-            context.DrawClip(progress <= 0 ? context.From : context.To);
-            return;
-        }
+        if (context.DrawSettledSide()) return;
 
         strength = float.IsFinite(strength) ? Math.Clamp(strength / 100, 0, 1) : 0;
         if (strength == 0)
@@ -39,16 +34,15 @@ internal static class StylizedTransitionRenderer
             return;
         }
 
-        float blend = style == TransitionStyle.LightLeak
-            ? SmoothStep(0.45f, 0.55f, progress)
-            : SmoothStep(0.35f, 0.65f, progress);
+        float progress = context.Progress;
+        StyleInfo info = GetStyleInfo(style);
+        float blend = SmoothStep(info.BlendStart, info.BlendEnd, progress);
         Vector travel = ClipTransitionContext.GetDirection(direction);
         var state = new ShaderState(style, context.Graphics.Size, progress, strength, false, new Vector2(travel.X, travel.Y), zoomOut, tileMode);
         using (context.PushIsolation())
         {
-            // Glitch's cut varies by scan band. Its shaders apply complementary weights themselves.
-            DrawSide(context, context.From, state, style == TransitionStyle.Glitch ? 1 : 1 - blend, BlendMode.SrcOver);
-            DrawSide(context, context.To, state with { Incoming = true }, style == TransitionStyle.Glitch ? 1 : blend, BlendMode.Plus);
+            DrawSide(context, context.From, state, info.SelfWeighted ? 1 : 1 - blend, BlendMode.SrcOver);
+            DrawSide(context, context.To, state with { Incoming = true }, info.SelfWeighted ? 1 : blend, BlendMode.Plus);
         }
     }
 
@@ -89,6 +83,28 @@ internal static class StylizedTransitionRenderer
         TransitionStyle Style, Size Size, float Progress, float Strength, bool Incoming, Vector2 Direction, bool ZoomOut,
         GradientSpreadMethod TileMode, float Scale = 1);
 
+    // A style's shader, the progress window over which the incoming side takes over, whether the shader weights
+    // the two sides itself, and the uniforms it declares beyond the common ones.
+    private readonly record struct StyleInfo(
+        SkslSource Source, float BlendStart, float BlendEnd, bool SelfWeighted, bool UsesDirection, bool UsesTileMode,
+        bool UsesScale);
+
+    private static StyleInfo GetStyleInfo(TransitionStyle style) => style switch
+    {
+        TransitionStyle.ZoomBlur => new(s_zoomBlurSource, 0.35f, 0.65f, SelfWeighted: false,
+            UsesDirection: false, UsesTileMode: true, UsesScale: false),
+        TransitionStyle.WhipPan => new(s_whipPanSource, 0.35f, 0.65f, SelfWeighted: false,
+            UsesDirection: true, UsesTileMode: false, UsesScale: false),
+        // The cut varies by scan band, so the shader applies complementary weights itself.
+        TransitionStyle.Glitch => new(s_glitchSource, 0.35f, 0.65f, SelfWeighted: true,
+            UsesDirection: false, UsesTileMode: false, UsesScale: false),
+        TransitionStyle.LightLeak => new(s_lightLeakSource, 0.45f, 0.55f, SelfWeighted: false,
+            UsesDirection: false, UsesTileMode: false, UsesScale: false),
+        TransitionStyle.CrossZoom => new(s_crossZoomSource, 0.35f, 0.65f, SelfWeighted: false,
+            UsesDirection: false, UsesTileMode: true, UsesScale: true),
+        _ => throw new ArgumentOutOfRangeException(nameof(style), style, null),
+    };
+
     private sealed class TransitionShaderNode(ShaderState state) : ContainerRenderNode
     {
         private ShaderState _state = state;
@@ -106,21 +122,22 @@ internal static class StylizedTransitionRenderer
             if (context.Inputs.Count == 0) return;
 
             ShaderState value = _state;
+            StyleInfo info = GetStyleInfo(value.Style);
             var frame = new Rect(value.Size);
             RenderFragmentHandle input = context.Layer(context.Inputs, frame);
             ShaderDescription shader = ShaderDescription.WholeSource(
-                s_sources[(int)value.Style],
+                info.Source,
                 RenderBoundsContract.CreateFullInput(frame, static (bounds, _) => bounds),
                 bindings =>
                 {
                     bindings.Uniform("resolution", Vector2.Zero, static (writer, _, execution) =>
                         writer.Set(new Vector2(execution.SemanticOutputSize.Width, execution.SemanticOutputSize.Height)));
                     bindings.Uniform("parameters", new Vector4(value.Progress, value.Strength, value.Incoming ? 1 : 0, value.ZoomOut ? -1 : 1));
-                    if (value.Style == TransitionStyle.WhipPan)
+                    if (info.UsesDirection)
                         bindings.Uniform("direction", value.Direction);
-                    if (value.Style is TransitionStyle.ZoomBlur or TransitionStyle.CrossZoom)
+                    if (info.UsesTileMode)
                         bindings.Uniform("tileMode", (int)value.TileMode.ToSKShaderTileMode());
-                    if (value.Style == TransitionStyle.CrossZoom)
+                    if (info.UsesScale)
                         bindings.Uniform("scale", value.Scale);
                 },
                 SKShaderTileMode.Decal,
@@ -158,9 +175,7 @@ internal static class StylizedTransitionRenderer
         }
         """;
 
-    private static readonly SkslSource[] s_sources =
-    [
-        new(CommonSource + ZoomSamplingSource + """
+    private static readonly SkslSource s_zoomBlurSource = new(CommonSource + ZoomSamplingSource + """
 
             half4 main(float2 coord) {
                 float p = parameters.x;
@@ -182,8 +197,9 @@ internal static class StylizedTransitionRenderer
                 }
                 return color / half(total);
             }
-            """, ShaderDescriptionKind.WholeSource),
-        new(CommonSource + """
+            """, ShaderDescriptionKind.WholeSource);
+
+    private static readonly SkslSource s_whipPanSource = new(CommonSource + """
 
             uniform float2 direction;
             half4 main(float2 coord) {
@@ -199,8 +215,9 @@ internal static class StylizedTransitionRenderer
                 }
                 return color / 24.0;
             }
-            """, ShaderDescriptionKind.WholeSource),
-        new(CommonSource + """
+            """, ShaderDescriptionKind.WholeSource);
+
+    private static readonly SkslSource s_glitchSource = new(CommonSource + """
 
             float noise(float2 value) {
                 return fract(sin(dot(value, float2(127.1, 311.7))) * 43758.5453);
@@ -229,8 +246,9 @@ internal static class StylizedTransitionRenderer
                 float weight = parameters.z > 0.5 ? cut : 1.0 - cut;
                 return half4(half3(straight * float(green.a) * scan), green.a) * half(weight);
             }
-            """, ShaderDescriptionKind.WholeSource),
-        new(CommonSource + """
+            """, ShaderDescriptionKind.WholeSource);
+
+    private static readonly SkslSource s_lightLeakSource = new(CommonSource + """
 
             half4 main(float2 coord) {
                 half4 color = src.eval(coord);
@@ -250,13 +268,13 @@ internal static class StylizedTransitionRenderer
                 // Light changes the existing pixels' color, never the transparency of an empty clip.
                 return half4(mix(color.rgb, half3(color.a), half3(glow)), color.a);
             }
-            """, ShaderDescriptionKind.WholeSource),
-        new(CommonSource + ZoomSamplingSource + """
+            """, ShaderDescriptionKind.WholeSource);
+
+    private static readonly SkslSource s_crossZoomSource = new(CommonSource + ZoomSamplingSource + """
 
             uniform float scale;
             half4 main(float2 coord) {
                 return sampleZoomFrame(0.5 + (coord / resolution - 0.5) / scale);
             }
-            """, ShaderDescriptionKind.WholeSource),
-    ];
+            """, ShaderDescriptionKind.WholeSource);
 }

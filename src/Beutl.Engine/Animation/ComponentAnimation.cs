@@ -11,7 +11,7 @@ namespace Beutl.Animation;
 public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IComponentAnimation,
     IComponentAnimation<T>, IKeyFrameExpression, IComponentInterpolator<TComponent>
 {
-    private readonly ComponentDefinition<T, TComponent>[] _definitions = ComponentAnimations.GetDefinitions<T, TComponent>();
+    private static readonly ComponentSet<T, TComponent> s_set = ComponentAnimations.GetComponentSet<T, TComponent>();
     private readonly AnimatableProperty<TComponent>[] _components;
     private static readonly Animator<T> s_animator = AnimatorRegistry.CreateAnimator<T>();
 
@@ -25,7 +25,7 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
             if (e.OldValue != null) e.OldValue.AttachedToHierarchy -= OnUnitSourceAttached;
             if (e.NewValue != null) e.NewValue.AttachedToHierarchy += OnUnitSourceAttached;
         };
-        _components = _definitions.Select(definition =>
+        _components = s_set.Components.Select(definition =>
         {
             var property = new AnimatableProperty<TComponent>(default!);
             property.SetAttributes(definition.Name, []);
@@ -57,7 +57,7 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
     {
         T value = UnitSource.Value is { } source ? source.GetAnimatedValue(context.Time)! : BaseValue.Value;
         for (int i = 0; i < _components.Length; i++)
-            value = _definitions[i].Set(value, _components[i].Evaluate(context));
+            value = s_set.Components[i].Set(value, _components[i].Evaluate(context));
         return value;
     }
 
@@ -75,7 +75,7 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
                 var (before, after) = animation.GetPreviousAndNextKeyFrame(animation.ToLocal(time));
                 current = ((KeyFrame<TComponent>)(after ?? before)!).Value.Value!;
             }
-            value = _definitions[i].Set(value, current);
+            value = s_set.Components[i].Set(value, current);
         }
         return value;
     }
@@ -85,8 +85,8 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         T previous = GetEditingValue(time);
         for (int i = 0; i < _components.Length; i++)
         {
-            TComponent next = _definitions[i].Get(value);
-            if (EqualityComparer<TComponent>.Default.Equals(_definitions[i].Get(previous), next)) continue;
+            TComponent next = s_set.Components[i].Get(value);
+            if (EqualityComparer<TComponent>.Default.Equals(s_set.Components[i].Get(previous), next)) continue;
             var component = _components[i];
             if (component.GetKeyFrameAnimation() is { } animation && animation.KeyFrames.Count > 0)
             {
@@ -96,8 +96,7 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
             else component.Value = next;
         }
         // A unit change applies to the whole value; replace an inherited unit schedule only for that explicit edit.
-        if (previous is Graphics.RelativePoint oldPoint && value is Graphics.RelativePoint newPoint && oldPoint.Unit != newPoint.Unit
-            || previous is Graphics.RelativeRect oldRect && value is Graphics.RelativeRect newRect && oldRect.Unit != newRect.Unit)
+        if (s_set.UnitChanged?.Invoke(previous, value) == true)
             UnitSource.Value = null;
         BaseValue.Value = value;
     }
@@ -109,7 +108,7 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         for (int i = 0; i < _components.Length; i++)
         {
             var component = _components[i];
-            var definition = _definitions[i];
+            var definition = s_set.Components[i];
             TComponent Apply(TComponent value) => definition.Get(transform(definition.Set(basis, value)));
             if (component.GetKeyFrameAnimation() is { KeyFrames.Count: > 0 } animation)
             {
@@ -126,7 +125,7 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         float progress, TComponent oldValue, TComponent newValue, MediaTime previousTime, MediaTime nextTime)
     {
         int index = Array.FindIndex(_components, property => ReferenceEquals(property.GetKeyFrameAnimation(), animation));
-        var definition = _definitions[index];
+        var definition = s_set.Components[index];
         T previous = BaseValue.Value, next = previous;
         if (UnitSource.Value is { } source)
         {
@@ -142,12 +141,12 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         var result = new ComponentAnimation<T, TComponent>();
         result.BaseValue.Value = property.Value;
         var source = property.GetKeyFrameAnimation();
-        if (source != null && (typeof(T) == typeof(Graphics.RelativePoint) || typeof(T) == typeof(Graphics.RelativeRect)))
+        if (source != null && s_set.UnitChanged != null)
             result.UnitSource.Value = (KeyFrameAnimation<T>)CoreSerializer.DeserializeFromJsonObject(CoreSerializer.SerializeToJsonObject(source), typeof(KeyFrameAnimation<T>));
         for (int i = 0; i < result._components.Length; i++)
         {
             var component = result._components[i];
-            var definition = result._definitions[i];
+            var definition = s_set.Components[i];
             component.Value = definition.Get(property.Value);
             if (source != null)
             {
@@ -172,13 +171,13 @@ public sealed partial class ComponentAnimation<T, TComponent> : Hierarchical, IC
         return result;
     }
 
-    void IComponentAnimation.Configure(IProperty owner) => Configure((IProperty<T>)owner);
+    void IPropertyAnimation.Configure(IProperty owner) => Configure((IProperty<T>)owner);
 
     internal void Configure(IProperty<T> owner)
     {
         for (int i = 0; i < _components.Length; i++)
         {
-            var definition = _definitions[i];
+            var definition = s_set.Components[i];
             _components[i].DefaultValue = definition.Get(owner.DefaultValue);
             _components[i].SetAttributes(definition.Name,
                 [ComponentAnimations.GetDisplayAttribute(definition.Name),

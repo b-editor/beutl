@@ -3,9 +3,9 @@ using FFmpeg.AutoGen.Abstractions;
 
 namespace Beutl.FFmpegWorker;
 
-// Thin FFmpeg layer over the shared Beutl.Media.BitmapColorSpaceMapping: it only converts the
-// native FFmpeg transfer/primaries tags to Beutl tags and delegates, so the HDR luminance-scaling
-// strategy lives in exactly one place across all encode/decode backends.
+// Thin FFmpeg layer over the shared Beutl.Media.BitmapColorSpaceMapping: it only converts between the
+// native FFmpeg color tags and Beutl tags and delegates, so the HDR luminance-scaling strategy lives in
+// exactly one place across all encode/decode backends.
 internal static class ColorSpaceHelper
 {
     public static bool IsHdrTransfer(AVColorTransferCharacteristic trc)
@@ -58,4 +58,35 @@ internal static class ColorSpaceHelper
             _ => BitmapColorPrimaries.Unknown
         };
     }
+
+    // Only the values VideoColorDefaults returns need a mapping; the rest stay unspecified.
+    public static AVColorTransferCharacteristic ToFFmpeg(BitmapColorTransfer transfer) => transfer switch
+    {
+        BitmapColorTransfer.Srgb => AVColorTransferCharacteristic.AVCOL_TRC_IEC61966_2_1,
+        BitmapColorTransfer.Bt709 => AVColorTransferCharacteristic.AVCOL_TRC_BT709,
+        _ => AVColorTransferCharacteristic.AVCOL_TRC_UNSPECIFIED,
+    };
+
+    public static AVColorPrimaries ToFFmpeg(BitmapColorPrimaries primaries) => primaries switch
+    {
+        BitmapColorPrimaries.Bt709 => AVColorPrimaries.AVCOL_PRI_BT709,
+        BitmapColorPrimaries.Rec2020 => AVColorPrimaries.AVCOL_PRI_BT2020,
+        _ => AVColorPrimaries.AVCOL_PRI_UNSPECIFIED,
+    };
+
+    public static AVColorSpace ToFFmpeg(VideoColorMatrix matrix) => matrix switch
+    {
+        VideoColorMatrix.Identity => AVColorSpace.AVCOL_SPC_RGB,
+        VideoColorMatrix.Bt709 => AVColorSpace.AVCOL_SPC_BT709,
+        VideoColorMatrix.Bt601 => AVColorSpace.AVCOL_SPC_SMPTE170M,
+        VideoColorMatrix.Bt2020 => AVColorSpace.AVCOL_SPC_BT2020_NCL,
+        _ => AVColorSpace.AVCOL_SPC_UNSPECIFIED,
+    };
+
+    public static AVColorRange ToFFmpeg(VideoColorRange range) => range switch
+    {
+        VideoColorRange.Limited => AVColorRange.AVCOL_RANGE_MPEG,
+        VideoColorRange.Full => AVColorRange.AVCOL_RANGE_JPEG,
+        _ => AVColorRange.AVCOL_RANGE_UNSPECIFIED,
+    };
 }

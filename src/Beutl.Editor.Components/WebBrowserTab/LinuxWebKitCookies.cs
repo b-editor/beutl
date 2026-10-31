@@ -22,12 +22,9 @@ internal static partial class LinuxWebKitCookies
     {
         try
         {
-            return handle switch
-            {
-                IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => await GetAllAsync(Api.Gtk.Value, gtk.WebKitWebView),
-                ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => await GetAllAsync(Api.Wpe.Value, wpe.WebKitWebView),
-                _ => []
-            };
+            return TryGetWebView(handle, out nint webView, out bool wpe)
+                ? await GetAllAsync((wpe ? Api.Wpe : Api.Gtk).Value, webView)
+                : [];
         }
         catch (Exception ex)
         {
@@ -65,18 +62,11 @@ internal static partial class LinuxWebKitCookies
         }
     }
 
-    private static Task UsePersistentStorageAsync(IPlatformHandle handle, string path) => handle switch
+    private static Task UsePersistentStorageAsync(IPlatformHandle handle, string path)
     {
-        IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => UsePersistentStorageAsync(Api.Gtk.Value, gtk.WebKitWebView, path),
-        ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => UsePersistentStorageAsync(Api.Wpe.Value, wpe.WebKitWebView, path),
-        _ => Task.CompletedTask
-    };
-
-    private static async Task UsePersistentStorageAsync(Api api, nint webView, string path)
-    {
-        ObjectRef(webView);
-        try { await OnGlibAsync(() => api.UsePersistentStorage(webView, path)); }
-        finally { await OnGlibAsync(() => ObjectUnref(webView)); }
+        if (!TryGetWebView(handle, out nint webView, out bool wpe)) return Task.CompletedTask;
+        Api api = (wpe ? Api.Wpe : Api.Gtk).Value;
+        return OnGlibAsync(webView, () => api.UsePersistentStorage(webView, path));
     }
 
     private static async Task<IReadOnlyList<Cookie>> GetAllAsync(Api api, nint webView)
@@ -84,19 +74,14 @@ internal static partial class LinuxWebKitCookies
         // webkit_cookie_manager_get_all_cookies exists since WebKit 2.42.
         if (!api.CanListCookies) return [];
         var completion = new TaskCompletionSource<IReadOnlyList<Cookie>>(TaskCreationOptions.RunContinuationsAsynchronously);
-        // Retain before dispatch; release on GLib too because the last unref can destroy a widget.
-        ObjectRef(webView);
-        try { await OnGlibAsync(() => api.BeginGetAllCookies(webView, completion)); }
-        finally { await OnGlibAsync(() => ObjectUnref(webView)); }
+        await OnGlibAsync(webView, () => api.BeginGetAllCookies(webView, completion));
         return await completion.Task;
     }
 
     private sealed unsafe class Api
     {
-        // WebKitGTK 4.1 and WPE 2.0 link libsoup 3, WebKitGTK 4.0 libsoup 2.4. Loading the other libsoup aborts the process.
-        internal static readonly Lazy<Api> Gtk = new(() => NativeLibrary.TryLoad("libwebkit2gtk-4.1.so.0", out nint webkit)
-            ? new(webkit, "libsoup-3.0.so.0", false) : new(LoadLibrary(GtkLibraries), "libsoup-2.4.so.1", false));
-        internal static readonly Lazy<Api> Wpe = new(() => new(LoadLibrary(WpeLibraries), "libsoup-3.0.so.0", true));
+        internal static readonly Lazy<Api> Gtk = new(() => Create(wpe: false));
+        internal static readonly Lazy<Api> Wpe = new(() => Create(wpe: true));
         // Only touched on the GLib thread. Naming the store again would drop the session cookies kept in memory.
         private static readonly HashSet<nint> s_persistentManagers = [];
         private readonly delegate* unmanaged[Cdecl]<nint, nint> _getStore, _getCookieManager;
@@ -107,9 +92,8 @@ internal static partial class LinuxWebKitCookies
         private readonly delegate* unmanaged[Cdecl]<nint, int> _getSecure, _getHttpOnly;
         private readonly delegate* unmanaged[Cdecl]<nint, void> _freeCookie;
 
-        private Api(nint webkit, string soupLibrary, bool wpe)
+        private Api(nint webkit, nint soup, bool wpe)
         {
-            nint soup = NativeLibrary.Load(soupLibrary);
             // The 2022 API keeps cookies in the network session; WebKitGTK 4.x in the website data manager.
             _getStore = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit,
                 wpe ? "webkit_web_view_get_network_session" : "webkit_web_view_get_website_data_manager");
@@ -128,6 +112,12 @@ internal static partial class LinuxWebKitCookies
             _getSecure = (delegate* unmanaged[Cdecl]<nint, int>)NativeLibrary.GetExport(soup, "soup_cookie_get_secure");
             _getHttpOnly = (delegate* unmanaged[Cdecl]<nint, int>)NativeLibrary.GetExport(soup, "soup_cookie_get_http_only");
             _freeCookie = (delegate* unmanaged[Cdecl]<nint, void>)NativeLibrary.GetExport(soup, "soup_cookie_free");
+        }
+
+        private static Api Create(bool wpe)
+        {
+            (nint webkit, nint soup) = LoadWithSoup(wpe);
+            return new Api(webkit, soup, wpe);
         }
 
         internal bool CanListCookies => _getAllCookies != null;

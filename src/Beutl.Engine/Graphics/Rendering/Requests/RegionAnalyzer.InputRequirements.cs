@@ -83,11 +83,8 @@ internal sealed partial class RegionAnalyzer
         Rect bounds = reference.Inputs[0].Bounds;
         if (bounds.Width == 0 || bounds.Height == 0) return FullInputs(reference);
         float scale = reference.EffectiveScale.Value;
-        float inputScale = reference.Inputs[0].EffectiveScale.IsUnbounded ? scale : reference.Inputs[0].EffectiveScale.Value;
-        PixelRect pixels = PixelRect.FromRect(bounds, inputScale);
-        var source = new ShaderImageFrame(bounds,
-            new Rect(pixels.X / inputScale, pixels.Y / inputScale, pixels.Width / inputScale, pixels.Height / inputScale),
-            pixels.Size, inputScale);
+        float inputScale = ShaderGraphRenderFragmentPayload.InputDensity(reference.Inputs[0], scale);
+        var source = ShaderImageFrame.FromPixels(bounds, PixelRect.FromRect(bounds, inputScale), inputScale, default);
         var regions = new ShaderGraphRegions(graph, source, scale, default, outputRequirement.Resolve(reference.Bounds));
         // A generated output still needs the incoming value's existence and complete logical bounds.
         return regions.SourceRegion.IsEmpty ? FullInputs(reference) : [RequiredRegion.Region(regions.SourceRegion)];

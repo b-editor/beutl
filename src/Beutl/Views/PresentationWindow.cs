@@ -7,6 +7,7 @@ using Avalonia.Threading;
 using Beutl.Logging;
 using Beutl.ViewModels;
 using Microsoft.Extensions.Logging;
+using Reactive.Bindings;
 using BtlSize = Beutl.Graphics.Size;
 
 namespace Beutl.Views;
@@ -65,20 +66,19 @@ internal sealed class PresentationWindow : Window
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
-        var service = _player.EditViewModel.EditorService;
-        var tab = service.SelectedTabItem.Value;
-        if (tab?.Context.Value != _player.EditViewModel)
+        var selected = _player.EditViewModel.EditorService.IsSelectedEditor(_player.EditViewModel)
+            .ToReadOnlyReactivePropertySlim();
+        if (!selected.Value)
         {
+            selected.Dispose();
             Close();
             return;
         }
 
         _started = true;
         _subscriptions.Add(_player.AcquireCleanPreview());
-        _subscriptions.Add(service.SelectedTabItem.Where(current => current != tab)
-            .Subscribe(_ => Close()));
-        _subscriptions.Add(tab.Context.Where(context => context != _player.EditViewModel)
-            .Subscribe(_ => Close()));
+        _subscriptions.Add(selected);
+        _subscriptions.Add(selected.Where(value => !value).Subscribe(_ => Close()));
         Screens.Changed += OnScreensChanged;
         UpdateSurfaceSize();
     }

@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
@@ -40,27 +41,17 @@ public sealed partial class ElementView : UserControl
     private ElementEdge? _draggingTransitionEdge;
     private double _transitionDragStartX;
     private MediaTime _transitionDragStartDuration;
-    private readonly Action<Visual, ulong> _alignmentFeedback;
     private MediaTime? _lastSnapTarget;
     private IPointer? _interactionPointer;
-    private int _runningAnimations;
-    private bool _colorPickerOpen;
-    private SaveAsTemplateFlyout? _saveTemplateFlyout;
+    private int _keepRealized;
 
-    internal bool KeepRealized => _runningAnimations > 0 || IsKeyboardFocusWithin || _colorPickerOpen
-        || _saveTemplateFlyout?.IsOpen == true
+    internal bool KeepRealized => _keepRealized > 0 || IsKeyboardFocusWithin
         || border.ContextFlyout?.IsOpen == true
         || _interactionPointer?.Captured is Visual captured
             && (ReferenceEquals(captured, this) || this.IsVisualAncestorOf(captured));
 
     public ElementView()
-        : this(NativeHapticFeedback.PerformAlignment)
     {
-    }
-
-    internal ElementView(Action<Visual, ulong> alignmentFeedback)
-    {
-        _alignmentFeedback = alignmentFeedback;
         InitializeComponent();
         AddHandler(PointerPressedEvent, (_, e) => _interactionPointer = e.Pointer, RoutingStrategies.Tunnel, true);
         LostFocus += (_, _) => _timeline?.InvalidateElementViewport();
@@ -82,8 +73,31 @@ public sealed partial class ElementView : UserControl
 
     private ElementViewModel ViewModel => (ElementViewModel)DataContext!;
 
-    internal bool HasActiveInteraction => _draggingTransitionEdge != null || border.ContextFlyout?.IsOpen == true
-        || IsKeyboardFocusWithin || IsPointerOver;
+    // Keeps the view realized while it is scrolled away, until the scope is disposed.
+    private IDisposable KeepRealizedScope()
+    {
+        _keepRealized++;
+        return Disposable.Create(() =>
+        {
+            _keepRealized--;
+            _timeline?.InvalidateElementViewport();
+        });
+    }
+
+    // A flyout the view has just shown is anchored to it, so the view stays realized until the flyout closes.
+    private void KeepRealizedWhileOpen(FlyoutBase flyout)
+    {
+        if (!flyout.IsOpen) return;
+
+        IDisposable scope = KeepRealizedScope();
+        flyout.Closed += OnClosed;
+
+        void OnClosed(object? sender, EventArgs e)
+        {
+            flyout.Closed -= OnClosed;
+            scope.Dispose();
+        }
+    }
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -273,7 +287,6 @@ public sealed partial class ElementView : UserControl
         obj.ThumbnailsClear -= OnThumbnailsClear;
         obj.WaveformChunkReady -= OnWaveformChunkReady;
         obj.WaveformClear -= OnWaveformClear;
-        obj.UpdateThumbnailsAsync();
 
         obj.SetTimelineViewAttached(false);
         thumbnailStrip.ClearThumbnails();
@@ -288,8 +301,7 @@ public sealed partial class ElementView : UserControl
         obj.InitializeViewState();
         obj.AnimationRequested = async (args, token) =>
         {
-            _runningAnimations++;
-            try
+            using (KeepRealizedScope())
             {
                 await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
@@ -304,11 +316,6 @@ public sealed partial class ElementView : UserControl
                     Task task2 = animation2.RunAsync(this, token);
                     await Task.WhenAll(task1, task2);
                 });
-            }
-            finally
-            {
-                _runningAnimations--;
-                _timeline?.InvalidateElementViewport();
             }
         };
         obj.RenameRequested = () => Rename_Click(null, null!);
@@ -416,16 +423,8 @@ public sealed partial class ElementView : UserControl
     {
         if (DataContext is not ElementViewModel viewModel) return;
 
-        _saveTemplateFlyout = TemplateSaving.ShowSaveFlyout(
-            this, viewModel.Model, TimelineTabExtension.GetDefaultTemplateName(viewModel.Model), showAtPointer: true);
-        _saveTemplateFlyout.Closed += OnSaveTemplateFlyoutClosed;
-    }
-
-    private void OnSaveTemplateFlyoutClosed(object? sender, EventArgs e)
-    {
-        _saveTemplateFlyout!.Closed -= OnSaveTemplateFlyoutClosed;
-        _saveTemplateFlyout = null;
-        _timeline?.InvalidateElementViewport();
+        KeepRealizedWhileOpen(TemplateSaving.ShowSaveFlyout(
+            this, viewModel.Model, TimelineTabExtension.GetDefaultTemplateName(viewModel.Model), showAtPointer: true));
     }
 
     private void ChangeColor_Click(object? sender, RoutedEventArgs e)
@@ -450,15 +449,13 @@ public sealed partial class ElementView : UserControl
         s_colorPickerFlyout.Closed += OnColorPickerFlyoutClosed;
 
         s_colorPickerFlyout.ShowAt(border);
-        _colorPickerOpen = s_colorPickerFlyout.IsOpen;
+        KeepRealizedWhileOpen(s_colorPickerFlyout);
     }
 
     private void OnColorPickerFlyoutClosed(object? sender, EventArgs e)
     {
         s_colorPickerFlyout!.Confirmed -= OnColorPickerFlyoutConfirmed;
         s_colorPickerFlyout.Closed -= OnColorPickerFlyoutClosed;
-        _colorPickerOpen = false;
-        _timeline?.InvalidateElementViewport();
     }
 
     private void OnColorPickerFlyoutConfirmed(ColorPickerFlyout sender, EventArgs args)
@@ -498,7 +495,7 @@ public sealed partial class ElementView : UserControl
         _lastSnapTarget = target;
         if (target.HasValue && target != previous)
         {
-            _alignmentFeedback(this, timestamp);
+            NativeHapticFeedback.PerformAlignment(this, timestamp);
         }
     }
 

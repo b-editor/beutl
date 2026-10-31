@@ -4,6 +4,10 @@
 public interface IPropertyAnimation : IExpression, ICoreObject, INotifyEdited, IHierarchical
 {
     Type ValueType { get; }
+
+    // Adopts the settings of the property holding it, such as its validator. The property calls it on attachment
+    // and whenever its validator changes.
+    void Configure(IProperty owner);
 }
 
 public interface IPropertyAnimation<T> : IPropertyAnimation, IExpression<T>
@@ -14,8 +18,6 @@ public interface IPropertyAnimation<T> : IPropertyAnimation, IExpression<T>
 public interface IComponentAnimation : IPropertyAnimation
 {
     IReadOnlyList<IProperty> Components { get; }
-
-    void Configure(IProperty owner);
 }
 
 public interface IComponentAnimation<T> : IComponentAnimation, IPropertyAnimation<T>
