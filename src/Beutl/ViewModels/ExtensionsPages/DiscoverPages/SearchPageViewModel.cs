@@ -35,6 +35,8 @@ public sealed class SearchPageViewModel : BasePageViewModel, ISupportRefreshView
 
         Kind = new PackageKindFilterViewModel(() => Refresh.Execute())
             .DisposeWith(_disposables);
+
+        Refresh.Execute();
     }
 
     public string Keyword { get; }

@@ -74,9 +74,6 @@ public class ExtensionsStoreCaptureTests
             ThemeCaptureTests.Capture(window, $"store-details-end-{suffix}.png");
 
             frame.Navigate(typeof(SearchPage), "text");
-            await HeadlessTestHelpers.WaitUntilAsync(() => frame.Content is SearchPage { DataContext: SearchPageViewModel });
-            // The search page does not query on its own yet (#3763); start the search here.
-            ((SearchPageViewModel)((SearchPage)frame.Content!).DataContext!).Refresh.Execute();
             await SettleAsync(window, () => frame.Content is SearchPage
             {
                 DataContext: SearchPageViewModel { IsBusy.Value: false } search
