@@ -227,6 +227,125 @@ public class ElementAdderTests
     }
 
     [AvaloniaTest]
+    public async Task ElementSetTemplate_AddsItsElementsTogetherWithTheirGroupAsOneStep()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-set-template");
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        ObjectTemplateItem template = CreateSetTemplate();
+        int initialUndoCount = editor.HistoryManager.UndoCount;
+
+        ElementAddResult first = await adder.AddAsync(
+            [ElementTemplateResolver.CreateDescription(template, MediaTime.FromSeconds(10), 3)],
+            CancellationToken.None);
+        // The place asked for is taken now, so the second copy goes to a free one, still in one piece.
+        ElementAddResult second = await adder.AddAsync(
+            [ElementTemplateResolver.CreateDescription(template, MediaTime.FromSeconds(10), 3)],
+            CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(first.IsSuccess, Is.True);
+            Assert.That(second.IsSuccess, Is.True);
+            Assert.That(
+                first.Elements.Select(e => (e.Name.Value, e.Start.Value, e.Length.Value, e.ZIndex.Value)),
+                Is.EquivalentTo(new[]
+                {
+                    ("Back", MediaTime.FromSeconds(10), MediaTime.FromSeconds(4), 3),
+                    ("Text", MediaTime.FromSeconds(11), MediaTime.FromSeconds(2), 5),
+                }));
+            Assert.That(first.Items.Single().PrimaryElement.Name.Value, Is.EqualTo("Back"));
+            Assert.That(Offsets(second.Elements), Is.EquivalentTo(Offsets(first.Elements)));
+            Assert.That(
+                second.Elements.Any(e => first.Elements.Any(
+                    f => f.ZIndex.Value == e.ZIndex.Value && f.Range.Intersects(e.Range))),
+                Is.False);
+            Assert.That(editor.Scene.Groups, Has.Count.EqualTo(2));
+            Assert.That(editor.Scene.Groups.Count(g => g.SetEquals(first.Elements.Select(e => e.Id.Value))), Is.EqualTo(1));
+            Assert.That(editor.Scene.Groups.Count(g => g.SetEquals(second.Elements.Select(e => e.Id.Value))), Is.EqualTo(1));
+            Assert.That(editor.HistoryManager.UndoCount, Is.EqualTo(initialUndoCount + 2));
+        }
+
+        Assert.That(editor.HistoryManager.Undo(), Is.True);
+        HeadlessTestHelpers.Settle();
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(editor.Scene.Children, Is.EquivalentTo(first.Elements));
+            Assert.That(editor.Scene.Groups, Has.Count.EqualTo(1));
+        }
+    }
+
+    [AvaloniaTest]
+    public async Task ElementSetTemplate_RefusesALockedLayerAndAnExplicitLength()
+    {
+        await TestReset.ResetShellAsync();
+        EditViewModel editor = await TestShell.OpenNewSceneEditorAsync("element-adder-set-template-refused");
+        using (editor.HistoryManager.SuppressRecording())
+        {
+            editor.Scene.Layers.Add(new TimelineLayer { ZIndex = { Value = 2 }, IsLocked = { Value = true } });
+        }
+
+        var adder = (IElementAdder)editor.GetService(typeof(IElementAdder))!;
+        ObjectTemplateItem template = CreateSetTemplate();
+
+        ElementAddResult locked = await adder.AddAsync(
+            [ElementTemplateResolver.CreateDescription(template, MediaTime.Zero, 2)],
+            CancellationToken.None);
+        ElementAddResult lengthened = await adder.AddAsync(
+            [ElementTemplateResolver.CreateDescription(template, MediaTime.Zero, 0, MediaTime.FromSeconds(1))],
+            CancellationToken.None);
+        // Its second element would land on the locked layer, so the set goes where neither does.
+        ElementAddResult moved = await adder.AddAsync(
+            [ElementTemplateResolver.CreateDescription(template, MediaTime.Zero, 0)],
+            CancellationToken.None);
+        HeadlessTestHelpers.Settle();
+
+        using (Assert.EnterMultipleScope())
+        {
+            Assert.That(locked.Failure, Is.TypeOf<LockedElementLayerFailure>());
+            Assert.That(lengthened.Failure, Is.TypeOf<ElementSourcePreflightFailure>());
+            Assert.That(moved.IsSuccess, Is.True);
+            Assert.That(moved.Elements.Select(e => e.ZIndex.Value), Has.None.EqualTo(2));
+            Assert.That(
+                Offsets(moved.Elements),
+                Is.EquivalentTo(new[] { (MediaTime.Zero, 0), (MediaTime.FromSeconds(1), 2) }));
+            Assert.That(editor.Scene.Children, Is.EquivalentTo(moved.Elements));
+        }
+    }
+
+    // A "Back" element over the whole set and a "Text" element a second in and two layers up, grouped.
+    private static ObjectTemplateItem CreateSetTemplate()
+    {
+        var back = new Element
+        {
+            Length = { Value = MediaTime.FromSeconds(4) },
+            Name = { Value = "Back" },
+        };
+        back.AddObject(new RectShape());
+        var text = new Element
+        {
+            Start = { Value = MediaTime.FromSeconds(1) },
+            Length = { Value = MediaTime.FromSeconds(2) },
+            ZIndex = { Value = 2 },
+            Name = { Value = "Text" },
+        };
+        text.AddObject(new EllipseShape());
+        var set = new ElementSet();
+        set.Elements.AddRange([back, text]);
+        set.Groups.Add([back.Id.Value, text.Id.Value]);
+        return ObjectTemplateItem.CreateFromInstance(set, "Lower third");
+    }
+
+    // Where each element starts and lies relative to the earliest and lowest of them.
+    private static (MediaTime Start, int Layer)[] Offsets(IReadOnlyList<Element> elements)
+    {
+        MediaTime start = elements.Min(e => e.Start.Value);
+        int layer = elements.Min(e => e.ZIndex.Value);
+        return [.. elements.Select(e => (e.Start.Value - start, e.ZIndex.Value - layer))];
+    }
+
+    [AvaloniaTest]
     public async Task RegisteredAsyncHandler_MaterializesGroupedElementsAndUnregistersCleanly()
     {
         await TestReset.ResetShellAsync();

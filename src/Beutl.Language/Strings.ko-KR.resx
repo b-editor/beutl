@@ -1264,6 +1264,9 @@ GetProperty&lt;T&gt;("path") 또는 GetProperty&lt;T&gt;(guid, "propertyName")
   <data name="AddFromTemplate" xml:space="preserve">
     <value>템플릿에서 추가</value>
   </data>
+  <data name="MultipleElements" xml:space="preserve">
+    <value>여러 요소</value>
+  </data>
   <data name="TemplateSaved" xml:space="preserve">
     <value>템플릿이 저장되었습니다.</value>
   </data>

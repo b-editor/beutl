@@ -1264,6 +1264,9 @@ Ejemplo: GetProperty&lt;double&gt;("{GUID}.Opacity")</value>
   <data name="AddFromTemplate" xml:space="preserve">
     <value>Agregar desde plantilla</value>
   </data>
+  <data name="MultipleElements" xml:space="preserve">
+    <value>Varios elementos</value>
+  </data>
   <data name="TemplateSaved" xml:space="preserve">
     <value>La plantilla se ha guardado.</value>
   </data>

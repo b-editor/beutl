@@ -1,6 +1,7 @@
 ﻿using Avalonia.Controls;
 using Beutl.Controls;
 using Beutl.Editor.Services;
+using Beutl.ProjectSystem;
 using Beutl.Serialization;
 using Beutl.Services;
 
@@ -9,6 +10,11 @@ namespace Beutl.Editor.Components.Helpers;
 // The "Save as template" of the timeline's elements, the element property tab and the property editors.
 internal static class TemplateSaving
 {
+    // What the timeline saves: one element as it is; several, a selection or a group, as a set that keeps their
+    // timing, layers and groups.
+    internal static ICoreSerializable CreateElementTemplate(Scene scene, IReadOnlyList<Element> elements)
+        => elements.Count == 1 ? elements[0] : ElementSetFactory.Create(scene, elements);
+
     internal static SaveAsTemplateFlyout ShowSaveFlyout(
         Control target, ICoreSerializable instance, string name, bool showAtPointer, Action? onSaved = null)
     {

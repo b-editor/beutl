@@ -33,6 +33,7 @@ internal sealed partial class ElementAdderImpl : IElementAdder, IAsyncDisposable
         [
             new ElementSourceHandlerRegistration(new EngineObjectSourceHandler(this)),
             new ElementSourceHandlerRegistration(new ElementTemplateSourceHandler(this)),
+            new ElementSourceHandlerRegistration(new ElementSetTemplateSourceHandler()),
             new ElementSourceHandlerRegistration(new FileSourceHandler(this)),
         ],
         context.ExtensionProvider,

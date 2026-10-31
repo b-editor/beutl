@@ -1282,6 +1282,9 @@ Beutl.Utilities
 [Beutl.ProjectSystem]:Element
   unsealed
   keys: AccentColor, Id, IsEnabled, IsLocked, IsVisibleInOutput, Length, MatteMode, MatteSourceKind, MatteSourceZIndex, Name, Objects, Start, ZIndex
+[Beutl.ProjectSystem]:ElementSet
+  sealed
+  keys: Elements, FrameSize, Groups, Id, Name
 [Beutl.ProjectSystem]:MediaFingerprintFile
   sealed
   keys: Fingerprints, Version
