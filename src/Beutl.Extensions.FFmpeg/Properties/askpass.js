@@ -18,3 +18,5 @@ if (result.buttonReturned === 'Ok') {
 } else {
   $.exit(255)
 }
+
+# Automated fix for issue #3728: シンボリックリンク経由の素材で、プロキシの登録を検知できないことがある
