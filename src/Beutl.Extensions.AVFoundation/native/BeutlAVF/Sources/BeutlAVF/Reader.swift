@@ -292,10 +292,10 @@ final class VideoReaderContext {
 }
 
 final class AudioReaderContext {
-    // Output is always Stereo32BitFloat interleaved; matches Beutl's Pcm<Stereo32BitFloat>.
-    static let outputChannels: Int = 2
     static let outputBitDepth: Int = 32
-    static let outputBytesPerFrame: Int = 8  // 32-bit float × 2ch
+
+    private let outputLayout: AudioOutputLayout
+    private let outputBytesPerFrame: Int
 
     private let asset: AVURLAsset
     private let track: AVAssetTrack
@@ -315,28 +315,25 @@ final class AudioReaderContext {
         self.track = track
         self.cache = AudioSampleCache(capacity: Int(options.maxAudioBufferSize))
         self.thresholdSampleCount = Int(options.thresholdSampleCount)
-        self.cache.reset(blockAlign: Self.outputBytesPerFrame)
 
-        // naturalTimeScale はトラックの最頻 timescale で、音声では多くの場合
-        // サンプルレートと一致するが保証ではない (movie track 由来で 600 等に
-        // なり得る)。誤検出時は PTS シーク失敗・高速/低速再生の原因になるため、
-        // ASBD の mSampleRate を優先し、format description が取れないときのみ
-        // naturalTimeScale にフォールバックする。
-        var codecFourCC: Int32 = 0
-        var channelCount: Int32 = Int32(Self.outputChannels)
-        var resolvedSampleRate: Double = 0
-        if let desc = track.formatDescriptions.first {
-            let handle = desc as! CMFormatDescription
-            codecFourCC = Int32(bitPattern: CMFormatDescriptionGetMediaSubType(handle))
-            if let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(handle) {
-                channelCount = Int32(asbdPtr.pointee.mChannelsPerFrame)
-                resolvedSampleRate = asbdPtr.pointee.mSampleRate
-            }
-        }
+        let formatDescription = track.formatDescriptions.first.map { $0 as! CMFormatDescription }
+        let asbd = formatDescription.flatMap { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee }
+        let codecFourCC = formatDescription.map { Int32(bitPattern: CMFormatDescriptionGetMediaSubType($0)) } ?? 0
+        var layoutSize = 0
+        let sourceLayout = formatDescription.flatMap { CMAudioFormatDescriptionGetChannelLayout($0, sizeOut: &layoutSize) }
+        let outputLayout = AudioOutputLayout(
+            channelCount: asbd.map { Int($0.mChannelsPerFrame) }, sourceLayout: sourceLayout, layoutSize: layoutSize)
+        self.outputLayout = outputLayout
+        self.outputBytesPerFrame = outputLayout.channelCount * MemoryLayout<Float>.size
+        self.cache.reset(blockAlign: outputBytesPerFrame)
+
+        // naturalTimeScale can be the movie timescale rather than the sample rate. Prefer the ASBD rate.
+        let resolvedSampleRate = asbd?.mSampleRate ?? 0
         let sampleRate = resolvedSampleRate > 0
             ? Int(resolvedSampleRate.rounded())
             : Int(track.naturalTimeScale)
-        let (reader, output) = try Self.makeReaderAndOutput(asset: asset, track: track, start: nil, sampleRate: sampleRate)
+        let (reader, output) = try Self.makeReaderAndOutput(
+            asset: asset, track: track, start: nil, sampleRate: sampleRate, layout: outputLayout)
         self.reader = reader
         self.output = output
 
@@ -348,10 +345,12 @@ final class AudioReaderContext {
 
         self.info = BeutlAudioInfo(
             sampleRate: Int32(sampleRate),
-            channelCount: channelCount,
+            channelCount: Int32(outputLayout.channelCount),
             codecFourCC: codecFourCC,
             durationNum: durationRational.num,
-            durationDen: durationRational.den)
+            durationDen: durationRational.den,
+            outputChannelCount: Int32(outputLayout.channelCount),
+            speakerMask: outputLayout.speakerMask)
 
         try calibrateFirstGap()
     }
@@ -362,7 +361,7 @@ final class AudioReaderContext {
         outBuffer: UnsafeMutableRawPointer,
         capacityBytes: Int
     ) throws -> Int {
-        let requiredBytes = length * Self.outputBytesPerFrame
+        let requiredBytes = length * outputBytesPerFrame
         guard capacityBytes >= requiredBytes else {
             throw BeutlAVFError.bufferTooSmall(required: requiredBytes, actual: capacityBytes)
         }
@@ -406,9 +405,10 @@ final class AudioReaderContext {
     }
 
     private func seek(to timestamp: CMTime) throws {
-        cache.reset(blockAlign: Self.outputBytesPerFrame)
+        cache.reset(blockAlign: outputBytesPerFrame)
         let sampleRate = Int(info.sampleRate)
-        let (newReader, newOutput) = try Self.makeReaderAndOutput(asset: asset, track: track, start: timestamp, sampleRate: sampleRate)
+        let (newReader, newOutput) = try Self.makeReaderAndOutput(
+            asset: asset, track: track, start: timestamp, sampleRate: sampleRate, layout: outputLayout)
         self.reader = newReader
         self.output = newOutput
     }
@@ -433,8 +433,23 @@ final class AudioReaderContext {
     }
 
     private func calibrateFirstGap() throws {
-        guard let _ = try readNextSample() else {
+        guard let sample = try readNextSample() else {
             throw BeutlAVFError.readerFailed("calibrateFirstGap: no samples available")
+        }
+        guard let format = CMSampleBufferGetFormatDescription(sample),
+              let delivered = CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee else {
+            throw BeutlAVFError.readerFailed("Decoded audio has no stream description.")
+        }
+        guard delivered.mChannelsPerFrame == outputLayout.channelCount,
+              delivered.mBytesPerFrame == outputBytesPerFrame,
+              delivered.mFormatID == kAudioFormatLinearPCM,
+              delivered.mBitsPerChannel == Self.outputBitDepth,
+              delivered.mFormatFlags & kAudioFormatFlagIsFloat != 0,
+              delivered.mFormatFlags & kAudioFormatFlagIsNonInterleaved == 0 else {
+            throw BeutlAVFError.readerFailed(
+                "Expected interleaved float32 audio with \(outputLayout.channelCount) channels and \(outputBytesPerFrame) bytes per frame; "
+                + "received \(delivered.mChannelsPerFrame) channels, \(delivered.mBytesPerFrame) bytes per frame, "
+                + "\(delivered.mBitsPerChannel) bits, format \(delivered.mFormatID), flags \(delivered.mFormatFlags).")
         }
         let firstAudioTimestamp = currentAudioTimestamp
         try seek(to: .zero)
@@ -446,7 +461,8 @@ final class AudioReaderContext {
         asset: AVURLAsset,
         track: AVAssetTrack,
         start: CMTime?,
-        sampleRate: Int
+        sampleRate: Int,
+        layout: AudioOutputLayout
     ) throws -> (AVAssetReader, AVAssetReaderTrackOutput) {
         let reader: AVAssetReader
         do {
@@ -458,15 +474,18 @@ final class AudioReaderContext {
             reader.timeRange = CMTimeRange(start: start, duration: .positiveInfinity)
         }
 
-        let settings: [String: Any] = [
+        var settings: [String: Any] = [
             AVFormatIDKey: kAudioFormatLinearPCM,
             AVLinearPCMBitDepthKey: outputBitDepth,
             AVLinearPCMIsBigEndianKey: false,
             AVLinearPCMIsFloatKey: true,
             AVLinearPCMIsNonInterleaved: false,
             AVSampleRateKey: sampleRate,
-            AVNumberOfChannelsKey: outputChannels,
+            AVNumberOfChannelsKey: layout.channelCount,
         ]
+        if let layoutData = layout.data {
+            settings[AVChannelLayoutKey] = layoutData
+        }
         let output = AVAssetReaderTrackOutput(track: track, outputSettings: settings)
         output.alwaysCopiesSampleData = false
 

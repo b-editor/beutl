@@ -58,6 +58,8 @@ typedef struct {
     int32_t codecFourCC;
     int64_t durationNum;
     int64_t durationDen;
+    int32_t outputChannelCount;
+    uint32_t speakerMask;         // WAVEFORMATEXTENSIBLE bits; 0 means discrete channels.
 } BeutlAudioInfo;
 
 typedef struct {
