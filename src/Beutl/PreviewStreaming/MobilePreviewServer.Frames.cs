@@ -170,10 +170,7 @@ internal sealed partial class MobilePreviewServer
 
         internal byte[] Convert(Bitmap bitmap, UIToneMappingOperator toneMapping, float exposure)
         {
-            // Both targets are raster canvases, which read the source during the draw call, so the
-            // image wraps its pixels instead of the copy SKImage.FromBitmap makes of a mutable bitmap.
-            using var pixmap = bitmap.SKBitmap.PeekPixels();
-            using var image = pixmap is not null ? SKImage.FromPixels(pixmap) : SKImage.FromBitmap(bitmap.SKBitmap);
+            using var image = bitmap.CreateImageWithoutCopy();
             if (_resized is { } resized)
             {
                 // Resize in floating-point linear light. Converting to PQ only after resizing preserves
