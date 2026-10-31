@@ -1,6 +1,7 @@
 # Test fixtures
 
-Frame timing fixtures for `FFmpegReaderVariableFrameRateTests`. Each H.264 clip (64×32) shows the index of its frame:
+Frame timing fixtures for `FFmpegReaderVariableFrameRateTests`; the AVFoundation tests' `AVFReaderVariableFrameRateTests`
+also reads the two variable frame rate clips. Each H.264 clip (64×32) shows the index of its frame:
 the left half has luma 16 + 10 × (index mod 20) and the right half 16 + 10 × (index / 20). The content is generated
 test signal only, so the files carry no extra licensing. They were generated with FFmpeg 8.1.
 

@@ -10,41 +10,39 @@ final class VideoSampleCache {
         var sample: CMSampleBuffer
     }
 
-    private let capacity: Int
+    let capacity: Int
     private var storage: [Entry] = []
 
     init(capacity: Int) {
-        self.capacity = max(1, capacity)
+        // One more slot keeps the sample after the one on screen, which tells where that one ends.
+        self.capacity = max(1, capacity) + 1
     }
 
     func reset() {
         storage.removeAll(keepingCapacity: true)
     }
 
+    // `frame` is the number the sample's timestamp rounds to. Variable frame rate media puts several samples on one
+    // number and none on others.
     func add(frame: Int, sample: CMSampleBuffer) {
-        let effectiveFrame: Int
-        if let last = storage.last?.frame {
-            // Keep monotonic ordering regardless of PTS jitter.
-            effectiveFrame = last + 1
-        } else {
-            effectiveFrame = frame
-        }
-
         if storage.count >= capacity {
             storage.removeFirst()
         }
-        storage.append(Entry(frame: effectiveFrame, sample: sample))
+        storage.append(Entry(frame: frame, sample: sample))
     }
 
     func lastFrameNumber() -> Int {
         return storage.last?.frame ?? -1
     }
 
-    func search(frame: Int) -> CMSampleBuffer? {
-        // Reverse iteration returns the most recently cached frame when there are duplicates.
-        for entry in storage.reversed() where entry.frame == frame {
-            return entry.sample
+    // The sample on screen at `frame` is the last one numbered at or before it. A later sample has to show that it
+    // ends after `frame`, unless the stream has ended; otherwise the cached samples cannot tell, and this returns nil.
+    func search(frame: Int, streamEnded: Bool) -> CMSampleBuffer? {
+        guard let index = storage.lastIndex(where: { $0.frame <= frame }),
+              index < storage.count - 1 || streamEnded
+        else {
+            return nil
         }
-        return nil
+        return storage[index].sample
     }
 }
