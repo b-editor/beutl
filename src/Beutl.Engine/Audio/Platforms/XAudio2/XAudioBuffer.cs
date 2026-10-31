@@ -24,13 +24,27 @@ public sealed unsafe class XAudioBuffer : IDisposable
     public WaveFormat? Format { get; private set; }
 
     public void BufferData(AudioBuffer audio)
+        => BufferData(audio, new WaveFormat(audio.SampleRate, 32, 2));
+
+    public void BufferData(AudioBuffer audio, AudioChannelLayout layout)
     {
-        int length = checked(audio.SampleCount * 2);
+        if (audio.ChannelCount != layout.ChannelCount)
+            throw new ArgumentException("The layout must match the buffer's channel count.", nameof(layout));
+
+        BufferData(audio, new WaveFormatExtensible(audio.SampleRate, 32, layout.ChannelCount)
+        {
+            ChannelMask = (int)layout.Speakers
+        });
+    }
+
+    private void BufferData(AudioBuffer audio, WaveFormat format)
+    {
+        int length = checked(audio.SampleCount * format.Channels);
         float[] interleaved = ArrayPool<float>.Shared.Rent(length);
         try
         {
             AudioConversion.Interleave(audio, interleaved);
-            BufferData(interleaved.AsSpan(0, length), new WaveFormat(audio.SampleRate, 32, 2));
+            BufferData(interleaved.AsSpan(0, length), format);
         }
         finally
         {

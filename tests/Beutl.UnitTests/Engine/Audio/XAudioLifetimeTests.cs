@@ -1,5 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Beutl.Audio;
 using Beutl.Audio.Platforms.XAudio2;
 using Vortice.Multimedia;
 using Vortice.XAudio2;
@@ -57,7 +58,52 @@ public class XAudioLifetimeTests
             Assert.That(new ReadOnlySpan<float>((void*)buffer.Buffer.AudioDataPointer, 4).ToArray(),
                 Is.EqualTo(new[] { 0f, 0f, 0.5f, -0.5f }));
             Assert.That(buffer.Format!.SampleRate, Is.EqualTo(48000));
+            Assert.That(buffer.Format.Encoding, Is.EqualTo(WaveFormatEncoding.IeeeFloat));
+            Assert.That(buffer.Format.Channels, Is.EqualTo(2));
         });
+    }
+
+    [TestCase(2, 0x3)]
+    [TestCase(4, 0x33)]
+    [TestCase(6, 0x3F)]
+    [TestCase(6, 0x60F)]
+    [TestCase(8, 0x63F)]
+    public unsafe void Buffer_ExplicitLayout_PreservesFloatSamplesAndSpeakerMask(int channels, int mask)
+    {
+        var layout = new AudioChannelLayout(channels, (AudioSpeakers)mask);
+        using var audio = AudioTestBuffers.CreateBuffer(channels, 3,
+            (channel, sample) => sample == 0 ? BitConverter.Int32BitsToSingle(unchecked((int)0x80000000))
+                : sample == 1 ? BitConverter.Int32BitsToSingle(0x7FC12345) : (channel + 1) * -0.125f);
+        using var buffer = new XAudioBuffer();
+
+        buffer.BufferData(audio, layout);
+
+        Assert.That(buffer.Format, Is.TypeOf<WaveFormatExtensible>());
+        var format = (WaveFormatExtensible)buffer.Format!;
+        Assert.Multiple(() =>
+        {
+            Assert.That(format.Channels, Is.EqualTo(channels));
+            Assert.That(format.ChannelMask, Is.EqualTo(mask));
+            Assert.That(format.SampleRate, Is.EqualTo(audio.SampleRate));
+            Assert.That(format.BitsPerSample, Is.EqualTo(32));
+            Assert.That(format.Encoding, Is.EqualTo(WaveFormatEncoding.Extensible));
+            Assert.That(format.GuidSubFormat, Is.EqualTo(new Guid("00000003-0000-0010-8000-00aa00389b71")));
+            Assert.That(format.BlockAlign, Is.EqualTo(channels * sizeof(float)));
+            Assert.That(buffer.SizeInBytes, Is.EqualTo(channels * audio.SampleCount * sizeof(float)));
+            Assert.That(buffer.Buffer.AudioBytes, Is.EqualTo(buffer.SizeInBytes));
+        });
+        var submitted = new ReadOnlySpan<int>((void*)buffer.Buffer.AudioDataPointer, channels * audio.SampleCount);
+        for (int sample = 0; sample < audio.SampleCount; sample++)
+        {
+            for (int channel = 0; channel < channels; channel++)
+                Assert.That(submitted[sample * channels + channel], Is.EqualTo(BitConverter.SingleToInt32Bits(audio.GetChannelData(channel)[sample])));
+        }
+        if (channels == 2)
+        {
+            using var legacy = new XAudioBuffer();
+            legacy.BufferData(audio);
+            Assert.That(submitted.ToArray(), Is.EqualTo(new ReadOnlySpan<int>((void*)legacy.Buffer.AudioDataPointer, submitted.Length).ToArray()));
+        }
     }
 
     [Test]
@@ -223,10 +269,18 @@ public class XAudioLifetimeTests
     private static void RunSourceWorker(string action)
     {
         using var nativeVoice = new NativeVoiceStub();
-        using var source = new XAudioSource(_ => nativeVoice.Voice);
+        WaveFormat? sourceFormat = null;
+        using var source = new XAudioSource(format =>
+        {
+            sourceFormat = format;
+            return nativeVoice.Voice;
+        });
         using var buffer = new XAudioBuffer();
-        buffer.BufferData<float>([0.25f, -0.25f], new WaveFormat(44100, 32, 2));
+        using var audio = AudioTestBuffers.CreateBuffer(8, 1, (channel, _) => channel * 0.125f);
+        buffer.BufferData(audio, AudioChannelLayout.Surround71);
         source.QueueBuffer(buffer);
+        Assert.That(sourceFormat, Is.SameAs(buffer.Format));
+        Assert.That(((WaveFormatExtensible)sourceFormat!).ChannelMask, Is.EqualTo(0x63F));
 
         source.Dispose();
         Assert.That(nativeVoice.DestroyCount, Is.EqualTo(1));

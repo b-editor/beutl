@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Numerics;
+using System.Runtime.InteropServices;
 using Vortice.Multimedia;
 using Vortice.XAudio2;
 
@@ -29,7 +30,11 @@ public sealed partial class XAudioContext : IDisposable
         try
         {
             Device = Vortice.XAudio2.XAudio2.XAudio2Create();
-            MasteringVoice = Device.CreateMasteringVoice(2, 44100, AudioStreamCategory.Other);
+            MasteringVoice = Device.CreateMasteringVoice(category: AudioStreamCategory.Other);
+            var speakers = (AudioSpeakers)MasteringVoice.ChannelMask;
+            DeviceLayout = speakers == AudioSpeakers.None
+                ? default
+                : new AudioChannelLayout(BitOperations.PopCount((uint)speakers), speakers);
         }
         catch
         {
@@ -46,6 +51,8 @@ public sealed partial class XAudioContext : IDisposable
     public IXAudio2 Device { get; }
 
     public IXAudio2MasteringVoice MasteringVoice { get; }
+
+    public AudioChannelLayout DeviceLayout { get; }
 
     public void Dispose()
     {

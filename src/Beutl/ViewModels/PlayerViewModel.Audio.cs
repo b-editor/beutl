@@ -225,6 +225,8 @@ public partial class PlayerViewModel
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
         cts.Token.ThrowIfCancellationRequested();
+        var (outputLayout, outputMatrix) = AudioPlaybackOutput.Create(
+            EditViewModel.Composer.Value.ChannelLayout, audioContext.DeviceLayout);
         MediaTime cur = startTime;
         MediaTime sceneEndTime = default;
         var source = new XAudioSource(audioContext);
@@ -248,9 +250,8 @@ public partial class PlayerViewModel
                     sampleRate = audio.SampleRate;
                 }
 
-                using AudioBuffer? stereo = audio.ChannelCount == 2 ? null
-                    : AudioChannelMatrix.Create(EditViewModel.Composer.Value.ChannelLayout, AudioChannelLayout.Stereo).Apply(audio);
-                buffer.BufferData(stereo ?? audio);
+                using AudioBuffer? converted = outputMatrix?.Apply(audio);
+                buffer.BufferData(converted ?? audio, outputLayout);
                 hasAudio = true;
                 _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));
             }
@@ -340,6 +341,8 @@ public partial class PlayerViewModel
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(playbackToken);
         cts.Token.ThrowIfCancellationRequested();
         audioContext.MakeCurrent();
+        var (outputLayout, outputMatrix) = AudioPlaybackOutput.Create(
+            EditViewModel.Composer.Value.ChannelLayout, audioContext.DeviceLayout);
 
         MediaTime cur = startTime;
         MediaTime sceneEndTime = default;
@@ -378,9 +381,8 @@ public partial class PlayerViewModel
                     sampleRate = audio.SampleRate;
                 }
 
-                using AudioBuffer? stereo = audio.ChannelCount == 2 ? null
-                    : AudioChannelMatrix.Create(EditViewModel.Composer.Value.ChannelLayout, AudioChannelLayout.Stereo).Apply(audio);
-                audioContext.BufferData(buffer, stereo ?? audio);
+                using AudioBuffer? converted = outputMatrix?.Apply(audio);
+                audioContext.BufferData(buffer, converted ?? audio, outputLayout);
                 fillSamples = audio.SampleCount;
                 hasAudio = true;
                 _sessionGuard.TryApply(generation, () => PublishAudioSnapshot(audio, bufferStartTime));

@@ -12,18 +12,52 @@ public sealed unsafe class AudioContext : IDisposable
 
     public AudioContext()
     {
-        _al = AL.GetApi();
-        _alc = ALContext.GetApi();
+        _al = AL.GetApi(soft: true);
+        _alc = ALContext.GetApi(soft: true);
         _device = _alc.OpenDevice(null);
         _context = _alc.CreateContext(_device, null);
         VerifyContextError();
 
         MakeCurrent();
+
+        int? outputMode = null;
+        if (_alc.IsExtensionPresent(_device, "ALC_SOFT_output_mode"))
+        {
+            int mode;
+            _alc.GetContextProperty(_device, (GetContextInteger)0x19AC, 1, &mode); // ALC_OUTPUT_MODE_SOFT
+            VerifyContextError();
+            outputMode = mode;
+        }
+
+        bool supportsMultichannel = _al.IsExtensionPresent("AL_EXT_MCFORMATS");
+        VerifyAudioError();
+        DeviceLayout = GetDeviceLayout(outputMode, supportsMultichannel);
     }
 
     public bool IsDisposed { get; private set; }
 
     public bool IsCurrent => _alc.GetCurrentContext() == _context;
+
+    public AudioChannelLayout DeviceLayout { get; }
+
+    internal static AudioChannelLayout GetDeviceLayout(int? outputMode, bool supportsMultichannel)
+        => supportsMultichannel ? outputMode switch
+        {
+            0x1504 or 0x1505 => AudioChannelLayout.Surround51, // ALC_SURROUND_5_1_SOFT / ALC_SURROUND_6_1_SOFT
+            0x1506 => AudioChannelLayout.Surround71, // ALC_SURROUND_7_1_SOFT
+            _ => AudioChannelLayout.Stereo
+        } : AudioChannelLayout.Stereo;
+
+    internal static BufferFormat GetBufferFormat(AudioChannelLayout layout)
+    {
+        if (layout == AudioChannelLayout.Stereo)
+            return BufferFormat.Stereo16;
+        if (layout == AudioChannelLayout.Surround51)
+            return (BufferFormat)0x120B; // AL_FORMAT_51CHN16
+        if (layout == AudioChannelLayout.Surround71)
+            return (BufferFormat)0x1211; // AL_FORMAT_71CHN16
+        throw new ArgumentException("Unsupported OpenAL buffer layout.", nameof(layout));
+    }
 
     public float Gain
     {
@@ -158,13 +192,20 @@ public sealed unsafe class AudioContext : IDisposable
     }
 
     public void BufferData(uint bid, AudioBuffer audio)
+        => BufferData(bid, audio, AudioChannelLayout.Stereo);
+
+    public void BufferData(uint bid, AudioBuffer audio, AudioChannelLayout layout)
     {
-        int length = checked(audio.SampleCount * 2);
+        if (audio.ChannelCount != layout.ChannelCount)
+            throw new ArgumentException("The layout must match the buffer's channel count.", nameof(layout));
+
+        BufferFormat format = GetBufferFormat(layout);
+        int length = checked(audio.SampleCount * layout.ChannelCount);
         short[] interleaved = ArrayPool<short>.Shared.Rent(length);
         try
         {
             AudioConversion.Interleave(audio, interleaved);
-            BufferData(bid, BufferFormat.Stereo16, interleaved.AsSpan(0, length), audio.SampleRate);
+            BufferData(bid, format, interleaved.AsSpan(0, length), audio.SampleRate);
         }
         finally
         {
