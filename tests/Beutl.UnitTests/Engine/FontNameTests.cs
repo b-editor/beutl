@@ -136,6 +136,20 @@ public class FontNameTests
             Is.EqualTo(expected));
     }
 
+    [TestCase("ja-JP", null)]
+    [TestCase("ar-EG", "النيل")]
+    public void Localize_LeavesAFamilyWithoutTheCultureOrUsEnglishUnnamed(string culture, string? expected)
+    {
+        // Al Nile spells its family in English only on the Unicode platform, so a Japanese UI keeps the
+        // name the font manager reports rather than showing the Arabic Windows record.
+        FontName name = Read(
+            Record(FontFamilyNameId, 0, "Al Nile", platformId: UnicodePlatformId),
+            Record(FontFamilyNameId, 0x0C01, "النيل"));
+
+        Assert.That(FontName.Localize(name.GetFamilySpellings("Al Nile"), CultureInfo.GetCultureInfo(culture)),
+            Is.EqualTo(expected));
+    }
+
     [Test]
     public void ReadFontName_DecodesWindowsNamesAsUtf16WhateverTheEncodingId()
     {

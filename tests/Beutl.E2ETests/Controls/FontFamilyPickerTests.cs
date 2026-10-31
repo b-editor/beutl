@@ -62,6 +62,17 @@ public class FontFamilyPickerTests
     }
 
     [Test]
+    public void The_fonts_macOS_keeps_for_its_own_UI_come_last()
+    {
+        var viewModel = new FontFamilyPickerFlyoutViewModel(
+            [new FontFamily(".SF NS"), new FontFamily(".LastResort"), .. s_families], TimeSpan.Zero);
+
+        string[] names = [.. viewModel.Items.Select(item => ((FontFamily)item.UserData).Name)];
+
+        Assert.That(names[^2..], Is.EquivalentTo(new[] { ".SF NS", ".LastResort" }));
+    }
+
+    [Test]
     public void Pinned_fonts_come_first_but_a_search_puts_better_matches_above_them()
     {
         var viewModel = new FontFamilyPickerFlyoutViewModel(s_families, TimeSpan.Zero);

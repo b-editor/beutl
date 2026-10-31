@@ -88,20 +88,20 @@ internal record FontName
         return [];
     }
 
-    // The spelling for the culture: its own Windows record, then US English, then the first one.
+    // The spelling for the culture: its own Windows record, then US English. Null when the table has
+    // neither, since its other spellings can be in any language: Al Nile spells its family in Arabic
+    // on Windows and in English only on the Unicode platform, which carries no language.
     public static string? Localize(IReadOnlyList<FamilyNameRecord> spellings, CultureInfo culture)
     {
         string? usEnglish = null;
-        string? firstWindows = null;
         foreach (FamilyNameRecord record in spellings)
         {
             if (record.Platform != PlatformIDs.Windows) continue;
             if (record.LanguageId == culture.LCID) return record.Value;
             if (record.LanguageId == UsEnglishLanguageId) usEnglish ??= record.Value;
-            firstWindows ??= record.Value;
         }
 
-        return usEnglish ?? firstWindows ?? spellings.FirstOrDefault().Value;
+        return usEnglish;
     }
 
     public static FontName ReadFontName(Stream stream)
