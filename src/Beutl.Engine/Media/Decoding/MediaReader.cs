@@ -58,7 +58,8 @@ public abstract class MediaReader : IDisposable
     /// <param name="start">First sample (frame) index to read, in source sample-rate units.</param>
     /// <param name="length">Number of samples (frames) requested. Passing 0 is valid and yields an empty buffer.</param>
     /// <param name="sound">
-    /// On success, a stereo <see cref="AudioBuffer"/> whatever the source channel count. A short read
+    /// On success, an <see cref="AudioBuffer"/> with <c>AudioInfo.ChannelLayout.ChannelCount</c> channels
+    /// in <see cref="AudioStreamInfo.ChannelLayout"/> order. A short read
     /// (<see cref="AudioBuffer.SampleCount"/> below <paramref name="length"/>, down to 0 at or past the end) signals
     /// end-of-stream, though a backend without a precise count may zero-fill the uncovered tail instead. Callers size
     /// copies with <c>Math.Min(audio.SampleCount, destinationLength)</c>.

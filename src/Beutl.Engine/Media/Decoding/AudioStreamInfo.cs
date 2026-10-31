@@ -1,11 +1,11 @@
-﻿namespace Beutl.Media.Decoding;
+﻿using Beutl.Audio;
+
+namespace Beutl.Media.Decoding;
 
 /// <param name="NumChannels">
-/// The source stream's native channel count, exposed as metadata (display, thumbnails). This is
-/// independent of the decode output format: <see cref="MediaReader.ReadAudio"/> always yields a stereo
-/// <see cref="Beutl.Audio.AudioBuffer"/>, so this value and <see cref="Beutl.Audio.AudioBuffer.ChannelCount"/>
-/// intentionally differ for non-stereo sources.
-/// Do not use it to size decode buffers.
+/// The source stream's native channel count, exposed as metadata. This can differ from
+/// <see cref="ChannelLayout"/>, which describes the buffers returned by <see cref="MediaReader.ReadAudio"/>.
+/// Do not use this value to size decode buffers.
 /// </param>
 public sealed record AudioStreamInfo(
     string CodecName,
@@ -15,6 +15,21 @@ public sealed record AudioStreamInfo(
     : StreamInfo(CodecName, MediaType.Audio, Duration)
 {
     private Rational? _numSamples;
+    private AudioChannelLayout _channelLayout = AudioChannelLayout.Stereo;
+
+    /// <summary>
+    /// The channel count and order returned by <see cref="MediaReader.ReadAudio"/>. Defaults to stereo
+    /// for decoders that convert their native channels before returning a buffer.
+    /// </summary>
+    public AudioChannelLayout ChannelLayout
+    {
+        get => _channelLayout;
+        init
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value.ChannelCount, nameof(value));
+            _channelLayout = value;
+        }
+    }
 
     public Rational NumSamples
     {

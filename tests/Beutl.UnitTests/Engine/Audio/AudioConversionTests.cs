@@ -43,17 +43,32 @@ public class AudioConversionTests
         });
     }
 
-    [Test]
-    public void Interleave_RejectsAMonoBufferAndAShortDestination()
+    [TestCase(1)]
+    [TestCase(2)]
+    [TestCase(6)]
+    public void Conversion_RoundTripsEveryChannelAndKeepsTheExtraDestinationTail(int channels)
     {
-        using var mono = new AudioBuffer(48000, 1, 2);
-        using AudioBuffer stereo = CreateStereo([0f, 0f], [0f, 0f]);
-
-        Assert.Multiple(() =>
+        using var source = AudioTestBuffers.CreateBuffer(channels, 4, (ch, i) => (ch * 4 + i) / 32f);
+        using var result = new AudioBuffer(source.SampleRate, channels, 4);
+        var interleaved = Enumerable.Repeat(99f, 4 * channels + 1).ToArray();
+        var pcm = new short[4 * channels];
+        AudioConversion.Interleave(source, interleaved);
+        AudioConversion.Interleave(source, pcm);
+        AudioConversion.Deinterleave(interleaved, result);
+        for (int ch = 0; ch < channels; ch++)
         {
-            Assert.That(() => AudioConversion.Interleave(mono, new float[4]), Throws.ArgumentException);
-            Assert.That(() => AudioConversion.Interleave(stereo, new float[3]), Throws.ArgumentException);
-        });
+            Assert.That(result.GetChannelData(ch).ToArray(), Is.EqualTo(source.GetChannelData(ch).ToArray()));
+            for (int i = 0; i < 4; i++)
+            {
+                float sample = source.GetChannelData(ch)[i];
+                Assert.That(interleaved[i * channels + ch], Is.EqualTo(sample));
+                Assert.That(pcm[i * channels + ch], Is.EqualTo((short)MathF.Round(sample * short.MaxValue, MidpointRounding.AwayFromZero)));
+            }
+        }
+        Assert.That(interleaved[^1], Is.EqualTo(99f));
+        Assert.Throws<ArgumentException>(() => AudioConversion.Interleave(source, new float[4 * channels - 1]));
+        Assert.Throws<ArgumentException>(() => AudioConversion.Interleave(source, new short[4 * channels - 1]));
+        Assert.Throws<ArgumentException>(() => AudioConversion.Deinterleave(new float[4 * channels - 1], result));
     }
 
     private static AudioBuffer CreateStereo(float[] left, float[] right)

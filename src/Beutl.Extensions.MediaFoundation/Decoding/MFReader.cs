@@ -1,7 +1,9 @@
 ﻿using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Runtime.Versioning;
 
+using Beutl.Audio;
 using Beutl.Logging;
 using Beutl.Media;
 using Beutl.Media.Decoding;
@@ -11,6 +13,7 @@ using Beutl.Media.Source;
 using Microsoft.Extensions.Logging;
 
 using NAudio.Wave;
+using Vortice.MediaFoundation;
 
 using static NAudio.Wave.MediaFoundationReader;
 
@@ -97,13 +100,16 @@ public class MFReader : MediaReader
                         RequestFloatOutput = true
                     });
                     _waveFormat = _audioReader.WaveFormat;
-                    _provider = _audioReader.ToSampleProvider().ToStereo();
+                    _provider = _audioReader.ToSampleProvider();
 
                     _audioInfo = new AudioStreamInfo(
                         CodecName: _waveFormat.Encoding.ToString(),
                         Duration: new Rational(_audioReader.Length, _waveFormat.AverageBytesPerSecond),
                         SampleRate: _waveFormat.SampleRate,
-                        NumChannels: _waveFormat.Channels);
+                        NumChannels: _waveFormat.Channels)
+                    {
+                        ChannelLayout = ReadChannelLayout(_file, _waveFormat)
+                    };
                     HasAudio = true;
                 }
             }
@@ -123,6 +129,39 @@ public class MFReader : MediaReader
 
     private static MediaFoundationReader CreateAudioReader(string file, MediaFoundationReaderSettings settings)
         => new(file, settings);
+
+    private static AudioChannelLayout ReadChannelLayout(string file, WaveFormat format)
+    {
+        try
+        {
+            using var attributes = MediaFactory.MFCreateAttributes(1u);
+            using var reader = MediaFactory.MFCreateSourceReaderFromURL(file, attributes);
+            reader.SetStreamSelection(SourceReaderIndex.AllStreams, false);
+            reader.SetStreamSelection(SourceReaderIndex.FirstAudioStream, true);
+            using var partialType = MediaFactory.MFCreateMediaType();
+            partialType.Set(MediaTypeAttributeKeys.MajorType, MediaTypeGuids.Audio).CheckError();
+            partialType.Set(MediaTypeAttributeKeys.Subtype, AudioFormatGuids.Float).CheckError();
+            // Match NAudio's negotiated float output, including its HE-AAC rate/channel adjustment.
+            partialType.Set(MediaTypeAttributeKeys.AudioNumChannels, (uint)format.Channels).CheckError();
+            partialType.Set(MediaTypeAttributeKeys.AudioSamplesPerSecond, (uint)format.SampleRate).CheckError();
+            reader.SetCurrentMediaType(SourceReaderIndex.FirstAudioStream, partialType);
+            using var currentType = reader.GetCurrentMediaType(SourceReaderIndex.FirstAudioStream);
+            if (currentType.GetUInt32(MediaTypeAttributeKeys.AudioChannelMask, out uint mask).Success)
+            {
+                mask &= 0x3FFFF;
+                if (BitOperations.PopCount(mask) == format.Channels)
+                    return new AudioChannelLayout(format.Channels, (AudioSpeakers)mask);
+            }
+        }
+        catch
+        {
+            // Optional channel metadata must not prevent an already-open audio stream from decoding.
+        }
+
+        return format.Channels <= 2
+            ? AudioChannelLayout.GetDefault(format.Channels)
+            : AudioChannelLayout.Discrete(format.Channels);
+    }
 
     public override VideoStreamInfo VideoInfo => _videoInfo ?? throw new NotSupportedException();
 
@@ -235,11 +274,11 @@ public class MFReader : MediaReader
         // Use the source position for EOF as well as seeking. Sample 0 is the
         // container start, like video frame zero.
         // _audioReader.Length is PCM bytes; zero can also mean an unknown duration.
-        // Like SampleProviderReader.ReadStereo, length <= 0 (a frame count) produces empty PCM.
+        // Like SampleProviderReader.Read, length <= 0 (a frame count) produces empty PCM.
         long bytePosition = checked((long)start * _waveFormat.BlockAlign);
         if (length <= 0 || (_audioReader.Length > 0 && bytePosition >= _audioReader.Length))
         {
-            sound = new AudioBuffer(_waveFormat.SampleRate, 2, 0);
+            sound = new AudioBuffer(_waveFormat.SampleRate, _waveFormat.Channels, 0);
             return true;
         }
 
@@ -250,7 +289,7 @@ public class MFReader : MediaReader
             length = (int)Math.Min(length, (_audioReader.Length - bytePosition) / _waveFormat.BlockAlign);
         }
         _audioReader.Position = bytePosition;
-        sound = SampleProviderReader.ReadStereo(_provider, _waveFormat.SampleRate, length);
+        sound = SampleProviderReader.Read(_provider, _waveFormat.SampleRate, _waveFormat.Channels, length);
         return true;
     }
 
