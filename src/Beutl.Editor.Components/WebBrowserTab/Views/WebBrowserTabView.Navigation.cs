@@ -43,7 +43,9 @@ internal partial class WebBrowserTabView
         {
             // Without a native response handler, a media request must become a download offer here,
             // even though a subframe may have made it; WebKit would otherwise play it in the page.
-            if (!_handlesMediaResponsesNatively && TryInterceptMediaNavigation(e, _pageDownloadNavigationPending)) return;
+            // Pages only start loading through the app in this mode, so loading also means the app started it.
+            if (!_handlesMediaResponsesNatively
+                && TryInterceptMediaNavigation(e, _pageDownloadNavigationPending || _viewModel?.IsLoading.Value == true)) return;
             // Expire script offers at the policy decision, but keep a captured native response
             // until the WK delegate confirms that a new main-frame navigation has started.
             if (_pendingPageDownloadRequest?.Source == null) InvalidatePageDownloadRequests();

@@ -35,7 +35,14 @@ internal partial class WebBrowserTabView
             ? await manager.GetCookiesAsync().WaitAsync(cancellation)
             : await LinuxWebKitCookies.GetAllAsync(webView?.TryGetPlatformHandle()).WaitAsync(cancellation);
     // Sites tie session cookies to the browser that received them, so a download presents the same user agent.
-    internal Func<NativeWebView?, string?> DownloadUserAgentProvider { get; set; } = static webView => webView?.UserAgent;
+    // The page reports it asynchronously. NativeWebView.UserAgent would wait on WebKitGTK's GLib thread, which may
+    // itself be waiting for this UI thread in a navigation policy decision, and WPE's adapter returns null.
+    internal Func<NativeWebView?, Task<string?>> DownloadUserAgentProvider { get; set; } = static async webView =>
+    {
+        if (webView == null) return null;
+        try { return NormalizePageTitle(await webView.InvokeScript("navigator.userAgent")); }
+        catch (Exception) { return null; }
+    };
     internal sealed record BrowserDownloadOptions(string Directory, bool AddToTimeline);
 
     internal void OnWindowsNativeDownloadRequested(Uri uri, string suggestedName, IBrowserDownloadSource source) =>
@@ -434,7 +441,7 @@ internal partial class WebBrowserTabView
                     ? [] : await DownloadCookiesProvider(initiatingWebView, cancellation.Token);
                 cancellation.Token.ThrowIfCancellationRequested();
                 file = await MediaDownloader.DownloadAsync(uri, options.Directory, suggestedName, progress, cancellation.Token, referrer, cookies, referrerPolicy,
-                    DownloadUserAgentProvider(initiatingWebView));
+                    await DownloadUserAgentProvider(initiatingWebView).WaitAsync(cancellation.Token));
             }
             if (_disposed || !ReferenceEquals(_viewModel, vm)) return;
             DownloadStatusText.Text = string.Format(Strings.WebDownloadComplete, Path.GetFileName(file));

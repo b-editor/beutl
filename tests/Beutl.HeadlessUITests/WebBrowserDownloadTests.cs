@@ -1276,6 +1276,27 @@ public class WebBrowserDownloadTests
     }
 
     [AvaloniaTest]
+    public void WithoutNativeMediaResponses_ATabsFirstNavigationRedirectedToMediaSettlesIntoADownloadOffer()
+    {
+        using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/download/1/"));
+        using var view = new WebBrowserTabView(uri => new NativeWebView { Source = uri }, () => (true, null, false),
+            navigationStartedIncludesSubframes: true, handlesMediaResponsesNatively: false)
+        { DataContext = vm };
+        Assert.That(vm.IsLoading.Value, Is.True);
+
+        var redirect = new WebViewNavigationStartingEventArgs { Request = new Uri("https://cdn.example/1.mp4") };
+        view.OnNavigationStarted(null, redirect);
+        Dispatcher.UIThread.RunJobs();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(redirect.Cancel, Is.True);
+            Assert.That(vm.IsLoading.Value, Is.False);
+            Assert.That(view.FindControl<Button>("ConfirmPageDownloadButton")!.IsVisible, Is.True);
+        });
+    }
+
+    [AvaloniaTest]
     public void WithoutNativeMediaResponses_APageWhoseTypeCannotBeReadOffersNothing()
     {
         using var vm = new WebBrowserTabViewModel(new BrowserEditorContext(new Scene()), new Uri("https://media.example/"));
@@ -1321,7 +1342,7 @@ public class WebBrowserDownloadTests
         using var client = new HttpClient(handler);
         view.MediaDownloader = new BrowserMediaDownload(client);
         view.DownloadOptionsSelector = (_, _) => Task.FromResult<WebBrowserTabView.BrowserDownloadOptions?>(new(root, false));
-        view.DownloadUserAgentProvider = _ => "Beutl WebView";
+        view.DownloadUserAgentProvider = _ => Task.FromResult<string?>("Beutl WebView");
 
         await view.DownloadMediaAsync(new Uri("https://site.example/audio.mp3"), null, page);
 

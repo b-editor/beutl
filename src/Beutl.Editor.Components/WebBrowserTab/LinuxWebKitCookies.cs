@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Text;
 
 using Avalonia.Platform;
 using Beutl.Logging;
@@ -145,12 +146,17 @@ internal static partial class LinuxWebKitCookies
                 for (nint node = list; node != 0; node = ((nint*)node)[1])
                 {
                     nint cookie = ((nint*)node)[0];
+                    // WebKit lists a cookie it cannot convert from libsoup 2.4's raw bytes as NULL.
+                    if (cookie == 0) continue;
                     try
                     {
                         string? name = Marshal.PtrToStringUTF8(_getName(cookie));
+                        string value = Marshal.PtrToStringUTF8(_getValue(cookie)) ?? "";
                         string? domain = Marshal.PtrToStringUTF8(_getDomain(cookie));
                         if (string.IsNullOrEmpty(name) || string.IsNullOrEmpty(domain)) continue;
-                        cookies.Add(new Cookie(name, Marshal.PtrToStringUTF8(_getValue(cookie)) ?? "",
+                        // HttpClient refuses a header with non-ASCII text, which would fail the whole download.
+                        if (!Ascii.IsValid(name) || !Ascii.IsValid(value)) continue;
+                        cookies.Add(new Cookie(name, value,
                             Marshal.PtrToStringUTF8(_getPath(cookie)) ?? "/", domain)
                         {
                             Secure = _getSecure(cookie) != 0,
