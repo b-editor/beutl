@@ -103,6 +103,9 @@ internal sealed class SharedMediaReaders(Func<long> clock)
     private sealed class Slot(MediaReader reader)
     {
         public MediaReader Reader { get; } = reader;
+        // Held while decoding, so readers of one file decode in parallel and a slow read stalls only its slot.
+        public Lock ReadLock { get; } = new();
+        public bool Disposed { get; set; }
         // The position the next read continues from (a frame for video, a sample for audio); unknown until read.
         public long? Position { get; set; }
         public Handle? Owner { get; set; }
@@ -119,6 +122,8 @@ internal sealed class SharedMediaReaders(Func<long> clock)
         // Reaches zero once, when the group closes; it is never revived.
         private int _handles = 1;
         private bool _closed;
+        // Readers being opened outside the lock, counted against MaxReaders.
+        private int _opening;
         private volatile Exception? _openFailure;
 
         public Key Key { get; } = key;
@@ -171,32 +176,60 @@ internal sealed class SharedMediaReaders(Func<long> clock)
 
             owner.Detach(this);
             foreach (Slot slot in closing)
-                slot.Reader.Dispose();
+            {
+                lock (slot.ReadLock)
+                {
+                    slot.Disposed = true;
+                    slot.Reader.Dispose();
+                }
+            }
         }
 
         public bool ReadVideo(Handle handle, int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
         {
-            lock (_lock)
-            {
-                image = null;
-                if (_closed || _slots.Count == 0) return false;
-                Slot slot = Choose(handle, frame, VideoContinuationFrames);
-                bool read = slot.Reader.ReadVideo(frame, out image);
-                Claim(handle, slot, frame);
-                return read;
-            }
+            image = null;
+            if (Acquire(handle, frame, VideoContinuationFrames, frame) is not { } slot) return false;
+            lock (slot.ReadLock)
+                return !slot.Disposed && slot.Reader.ReadVideo(frame, out image);
         }
 
         public bool ReadAudio(Handle handle, int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
         {
+            sound = null;
+            if (Acquire(handle, start, Math.Max(1, First.AudioInfo.SampleRate), (long)start + length) is not { } slot)
+                return false;
+            lock (slot.ReadLock)
+                return !slot.Disposed && slot.Reader.ReadAudio(start, length, out sound);
+        }
+
+        // Chooses and claims a reader under the lock. Opening another one can take long on a large file, so it
+        // runs outside the lock: other consumers of the file keep reading meanwhile.
+        private Slot? Acquire(Handle handle, long position, long continuation, long next)
+        {
             lock (_lock)
             {
-                sound = null;
-                if (_closed || _slots.Count == 0) return false;
-                Slot slot = Choose(handle, start, Math.Max(1, First.AudioInfo.SampleRate));
-                bool read = slot.Reader.ReadAudio(start, length, out sound);
-                Claim(handle, slot, (long)start + length);
-                return read;
+                if (_closed || _slots.Count == 0) return null;
+                if (Choose(handle, position, continuation) is { } chosen)
+                {
+                    Claim(handle, chosen, next);
+                    return chosen;
+                }
+                _opening++;
+            }
+
+            Slot? opened = TryOpenSlot();
+            lock (_lock)
+            {
+                _opening--;
+                if (_closed || _slots.Count == 0)
+                {
+                    opened?.Reader.Dispose();
+                    return null;
+                }
+                if (opened is not null) _slots.Add(opened);
+                Slot slot = opened ?? _slots.MinBy(slot => slot.LastUse)!;
+                Claim(handle, slot, next);
+                return slot;
             }
         }
 
@@ -210,7 +243,8 @@ internal sealed class SharedMediaReaders(Func<long> clock)
             handle.LastRead = now;
         }
 
-        private Slot Choose(Handle handle, long position, long continuation)
+        // Returns null when the handle should get a newly opened reader.
+        private Slot? Choose(Handle handle, long position, long continuation)
         {
             Slot? next = null;
             long nextGap = long.MaxValue;
@@ -233,13 +267,14 @@ internal sealed class SharedMediaReaders(Func<long> clock)
             // Every reader serves another consumer that is still reading. A consumer that already had one
             // lost it to such a consumer, so both keep running; give it a reader of its own. A newcomer
             // usually follows a consumer that just finished, such as the next piece of a split clip.
-            if (handle.Slot is not null && _slots.Count < MaxReaders && TryOpenSlot() is { } opened) return opened;
+            if (handle.Slot is not null && _slots.Count + _opening < MaxReaders) return null;
             return _slots.MinBy(slot => slot.LastUse)!;
         }
 
         private static bool IsBusy(Slot slot, Handle handle, long now)
             => slot.Owner is { } user && !ReferenceEquals(user, handle) && now - user.LastRead < BusyMilliseconds;
 
+        // Runs outside the lock; the caller adds the slot.
         private Slot? TryOpenSlot()
         {
             MediaReader reader;
@@ -261,9 +296,7 @@ internal sealed class SharedMediaReaders(Func<long> clock)
                 return null;
             }
 
-            var slot = new Slot(reader);
-            _slots.Add(slot);
-            return slot;
+            return new Slot(reader);
         }
 
         internal int ReaderCount

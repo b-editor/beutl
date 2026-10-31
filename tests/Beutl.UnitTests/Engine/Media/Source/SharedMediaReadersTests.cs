@@ -14,6 +14,9 @@ public class SharedMediaReadersTests
     private readonly List<FakeReader> _opened = [];
     private long _now;
     private SharedMediaReaders _pool = null!;
+    // When set, the next open waits for it, signalling _openEntered first.
+    private ManualResetEventSlim? _openGate;
+    private TaskCompletionSource? _openEntered;
 
     [SetUp]
     public void SetUp()
@@ -26,8 +29,13 @@ public class SharedMediaReadersTests
     private MediaReader Open(SharedMediaReaders.Key? key = null, Func<MediaReader, bool>? shareable = null)
         => _pool.Open(key ?? s_key, () =>
         {
+            if (Interlocked.Exchange(ref _openGate, null) is { } gate)
+            {
+                _openEntered?.TrySetResult();
+                gate.Wait(TimeSpan.FromSeconds(15));
+            }
             var reader = new FakeReader();
-            _opened.Add(reader);
+            lock (_opened) _opened.Add(reader);
             return reader;
         }, shareable);
 
@@ -203,6 +211,63 @@ public class SharedMediaReadersTests
         }
     }
 
+    // Top and bottom end up on separate readers: bottom took the first one, so top opened another.
+    private (MediaReader Top, MediaReader Bottom) SplitOntoTwoReaders()
+    {
+        MediaReader top = Open();
+        MediaReader bottom = Open();
+        Read(top, 0, 1);
+        Read(bottom, 5000, 1);
+        Read(top, 1, 1);
+        Assert.That(_opened, Has.Count.EqualTo(2));
+        return (top, bottom);
+    }
+
+    [Test]
+    public async Task ReadersOfOneFile_DecodeInParallel()
+    {
+        (MediaReader top, MediaReader bottom) = SplitOntoTwoReaders();
+        using (top)
+        using (bottom)
+        using (var gate = new ManualResetEventSlim())
+        {
+            FakeReader blocked = _opened[0];
+            blocked.Entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            blocked.Gate = gate;
+            Task slow = Task.Run(() => bottom.ReadVideo(5001, out _));
+            await blocked.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+            Task fast = Task.Run(() => top.ReadVideo(2, out _));
+            Assert.That(await Task.WhenAny(fast, Task.Delay(TimeSpan.FromSeconds(5))), Is.SameAs(fast),
+                "a read on another reader must not wait for a slow decode");
+            gate.Set();
+            await slow.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    [Test]
+    public async Task OpeningAnotherReader_DoesNotHoldUpReadersOfTheFile()
+    {
+        using MediaReader top = Open();
+        using MediaReader bottom = Open();
+        Read(top, 0, 1);
+        Read(bottom, 5000, 1);
+        using var gate = new ManualResetEventSlim();
+        _openEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _openGate = gate;
+
+        // Top lost its reader to bottom, which is still reading, so top opens another one.
+        Task opening = Task.Run(() => top.ReadVideo(1, out _));
+        await _openEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Task reading = Task.Run(() => bottom.ReadVideo(5001, out _));
+        Assert.That(await Task.WhenAny(reading, Task.Delay(TimeSpan.FromSeconds(5))), Is.SameAs(reading),
+            "the file's other readers keep serving while one opens");
+        gate.Set();
+        await opening.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.That(_opened, Has.Count.EqualTo(2));
+    }
+
     [Test]
     public void AnUnshareableFirstReader_ServesOnlyItsHandle()
     {
@@ -248,6 +313,11 @@ public class SharedMediaReadersTests
 
         public int Reads { get; private set; }
 
+        // When set, the next read signals Entered and waits for Gate.
+        public TaskCompletionSource? Entered { get; set; }
+
+        public ManualResetEventSlim? Gate { get; set; }
+
         public override VideoStreamInfo VideoInfo { get; } = new("fake", 100_000L, new PixelSize(16, 16), new Rational(30, 1));
 
         public override AudioStreamInfo AudioInfo { get; } = new("fake", new Rational(3600, 1), 48_000, 2);
@@ -258,6 +328,12 @@ public class SharedMediaReadersTests
 
         public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
         {
+            if (Gate is { } gate)
+            {
+                Gate = null;
+                Entered?.TrySetResult();
+                gate.Wait(TimeSpan.FromSeconds(15));
+            }
             Track(frame, frame + 1, SharedMediaReaders.VideoContinuationFrames);
             image = null;
             return false;
