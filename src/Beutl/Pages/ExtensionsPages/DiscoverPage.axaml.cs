@@ -13,6 +13,7 @@ public sealed partial class DiscoverPage : UserControl
     {
         InitializeComponent();
         AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(Button.ClickEvent, OnPackageCardClick);
     }
 
     private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
@@ -23,17 +24,11 @@ public sealed partial class DiscoverPage : UserControl
         }
     }
 
-    private void Package_Click(object? sender, RoutedEventArgs e)
+    private void OnPackageCardClick(object? sender, RoutedEventArgs e)
     {
-        if (DiscoverPageHelper.TryNavigateToPackage(this, sender))
+        if (DataContext is DiscoverPageViewModel viewModel)
         {
-            return;
-        }
-
-        if (sender is Button { DataContext: LoadMoreItem }
-            && DataContext is DiscoverPageViewModel viewModel)
-        {
-            viewModel.More.Execute();
+            DiscoverPageHelper.OnPackageCardClick(this, e, viewModel.More);
         }
     }
 }

@@ -126,9 +126,6 @@
   <data name="Left" xml:space="preserve">
     <value>左</value>
   </data>
-  <data name="Link" xml:space="preserve">
-    <value>リンク</value>
-  </data>
   <data name="Location" xml:space="preserve">
     <value>場所</value>
   </data>

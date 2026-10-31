@@ -15,6 +15,7 @@ public partial class UserProfilePage : UserControl
         InitializeComponent();
         AddHandler(FAFrame.NavigatedFromEvent, OnNavigatedFrom, RoutingStrategies.Direct);
         AddHandler(FAFrame.NavigatedToEvent, OnNavigatedTo, RoutingStrategies.Direct);
+        AddHandler(Button.ClickEvent, OnPackageCardClick);
     }
 
     private void OnNavigatedTo(object? sender, FANavigationEventArgs e)
@@ -31,16 +32,11 @@ public partial class UserProfilePage : UserControl
         DiscoverPageHelper.DestroyDataContext<UserProfilePageViewModel>(this);
     }
 
-    private void Package_Click(object? sender, RoutedEventArgs e)
+    private void OnPackageCardClick(object? sender, RoutedEventArgs e)
     {
-        if (DiscoverPageHelper.TryNavigateToPackage(this, sender))
-        {
-            return;
-        }
-
         if (DataContext is UserProfilePageViewModel viewModel)
         {
-            viewModel.More.Execute();
+            DiscoverPageHelper.OnPackageCardClick(this, e, viewModel.More);
         }
     }
 }

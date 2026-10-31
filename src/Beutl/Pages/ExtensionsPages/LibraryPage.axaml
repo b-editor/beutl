@@ -17,9 +17,9 @@
              mc:Ignorable="d">
 
     <UserControl.Styles>
-        <Style Selector="TextBlock.name">
-            <Setter Property="Theme" Value="{StaticResource BaseTextBlockStyle}" />
-            <Setter Property="FontSize" Value="16" />
+        <Style Selector="Button.action">
+            <Setter Property="MinWidth" Value="120" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
         </Style>
         <Style Selector="Button.shimmer">
             <Setter Property="IsEnabled" Value="False" />
@@ -49,73 +49,74 @@
             <ContentControl Content="{ReflectionBinding}">
                 <ContentControl.DataTemplates>
                     <DataTemplate x:DataType="viewModel:IUserPackageViewModel">
-                        <Button Padding="0"
+                        <Button Padding="12"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch"
-                                VerticalContentAlignment="Stretch"
+                                VerticalContentAlignment="Center"
                                 Click="Package_Click">
-                            <Grid Margin="16" ColumnDefinitions="Auto,16,*,16,Auto,16,Auto">
-                                <asyncImageLoader:AdvancedImage Width="48"
-                                                                Height="48"
-                                                                ImageClipping.CornerRadius="8"
-                                                                Source="{Binding LogoUrl.Value}" />
+                            <Grid ColumnDefinitions="Auto,12,*,12,Auto,4,Auto">
+                                <Panel Width="40" Height="40">
+                                    <Border Background="{DynamicResource SubtleFillColorSecondaryBrush}"
+                                            CornerRadius="6"
+                                            IsVisible="{Binding LogoUrl.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}">
+                                        <icons:FluentIcon FontSize="20"
+                                                          Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                          Icon="PuzzlePiece" />
+                                    </Border>
+                                    <asyncImageLoader:AdvancedImage ImageClipping.CornerRadius="6" Source="{Binding LogoUrl.Value}" />
+                                </Panel>
 
-                                <Grid Grid.Column="2"
-                                      Margin="0,2"
-                                      VerticalAlignment="Stretch"
-                                      ColumnDefinitions="Auto,16,Auto"
-                                      RowDefinitions="Auto,Auto,Auto">
-                                    <TextBlock Text="{Binding Name}" />
-
-                                    <TextBlock Grid.Row="1"
-                                               Classes="name"
+                                <StackPanel Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            Spacing="2">
+                                    <TextBlock FontWeight="SemiBold"
                                                IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                                               Text="{Binding DisplayName.Value}" />
+                                               Text="{Binding DisplayName.Value}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock FontWeight="SemiBold"
+                                               IsVisible="{Binding DisplayName.Value, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                                               Text="{Binding Name}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                               Text="{Binding Publisher}"
+                                               TextTrimming="CharacterEllipsis"
+                                               Theme="{StaticResource CaptionTextBlockStyle}" />
+                                </StackPanel>
 
-                                    <TextBlock Grid.Column="2"
-                                               VerticalAlignment="Top"
-                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                               Text="{Binding Publisher}" />
-                                </Grid>
-
+                                <!--  The buttons share one cell and hide with the transparent class, so the cell keeps its width as the state changes.  -->
                                 <Button Grid.Column="4"
-                                        Padding="40,5,40,6"
-                                        HorizontalAlignment="Stretch"
-                                        Classes.transparent="{Binding !IsInstallButtonVisible.Value}"
+                                        Classes="action"
                                         Classes.shimmer="{Binding IsBusy.Value}"
+                                        Classes.transparent="{Binding !IsInstallButtonVisible.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Install}"
                                         Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Install}}" />
 
                                 <Button Grid.Column="4"
-                                        Padding="40,5,40,6"
-                                        HorizontalAlignment="Stretch"
-                                        Classes.transparent="{Binding !IsUninstallButtonVisible.Value}"
+                                        Classes="action"
                                         Classes.shimmer="{Binding IsBusy.Value}"
+                                        Classes.transparent="{Binding !IsUninstallButtonVisible.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Uninstall}"
                                         Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Uninstall}}" />
 
                                 <Button Grid.Column="4"
-                                        Padding="40,5,40,6"
-                                        HorizontalAlignment="Stretch"
-                                        Classes.transparent="{Binding !IsUpdateButtonVisible.Value}"
+                                        Classes="action accent"
                                         Classes.shimmer="{Binding IsBusy.Value}"
+                                        Classes.transparent="{Binding !IsUpdateButtonVisible.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Update}"
                                         Content="{Binding StatusText.Value, TargetNullValue={x:Static lang:ExtensionsStrings.Update}}" />
 
                                 <Button Grid.Column="4"
-                                        Padding="40,5,40,6"
-                                        HorizontalAlignment="Stretch"
-                                        Classes.transparent="{Binding !IsBusy.Value}"
+                                        Classes="action"
                                         Classes.shimmer="{Binding IsBusy.Value}"
+                                        Classes.transparent="{Binding !IsBusy.Value}"
                                         Content="{Binding StatusText.Value}"
                                         IsHitTestVisible="False" />
 
                                 <Button Grid.Column="4"
-                                        Padding="40,5,40,6"
-                                        HorizontalAlignment="Stretch"
+                                        Classes="action"
                                         Classes.transparent="{Binding !CanCancel.Value}"
                                         Click="ActionButton_Click"
                                         Command="{Binding Cancel}"
@@ -127,17 +128,17 @@
                                     <Button.ContextFlyout>
                                         <ui:FAMenuFlyout>
                                             <ui:FAMenuFlyoutItem Command="{Binding Install}"
-                                                                 Text="{x:Static lang:ExtensionsStrings.Install}"
-                                                                 IsEnabled="{Binding IsInstallButtonVisible.Value}" />
+                                                                 IsEnabled="{Binding IsInstallButtonVisible.Value}"
+                                                                 Text="{x:Static lang:ExtensionsStrings.Install}" />
                                             <ui:FAMenuFlyoutItem Command="{Binding Uninstall}"
-                                                                 Text="{x:Static lang:ExtensionsStrings.Uninstall}"
-                                                                 IsEnabled="{Binding IsUninstallButtonVisible.Value}" />
+                                                                 IsEnabled="{Binding IsUninstallButtonVisible.Value}"
+                                                                 Text="{x:Static lang:ExtensionsStrings.Uninstall}" />
                                             <ui:FAMenuFlyoutItem Command="{Binding Update}"
-                                                                 Text="{x:Static lang:ExtensionsStrings.Update}"
-                                                                 IsEnabled="{Binding IsUpdateButtonVisible.Value}" />
+                                                                 IsEnabled="{Binding IsUpdateButtonVisible.Value}"
+                                                                 Text="{x:Static lang:ExtensionsStrings.Update}" />
                                             <ui:FAMenuFlyoutItem Command="{ReflectionBinding RemoveFromLibrary}"
-                                                                 Text="{x:Static lang:ExtensionsStrings.RemoveFromLibrary}"
-                                                                 IsVisible="{Binding IsRemote}" />
+                                                                 IsVisible="{Binding IsRemote}"
+                                                                 Text="{x:Static lang:ExtensionsStrings.RemoveFromLibrary}" />
                                         </ui:FAMenuFlyout>
                                     </Button.ContextFlyout>
                                     <icons:FluentIcon FontSize="20" Icon="MoreHorizontal" />
@@ -146,43 +147,31 @@
                         </Button>
                     </DataTemplate>
                     <DataTemplate x:DataType="viewModel:DummyItem">
-                        <Button Padding="0"
+                        <Button Padding="12"
                                 HorizontalAlignment="Stretch"
                                 HorizontalContentAlignment="Stretch"
-                                VerticalContentAlignment="Stretch"
+                                VerticalContentAlignment="Center"
                                 IsHitTestVisible="False">
-                            <Grid Margin="16" ColumnDefinitions="Auto,16,*">
-                                <Border Width="48"
-                                        Height="48"
+                            <Grid ColumnDefinitions="Auto,12,*">
+                                <Border Width="40"
+                                        Height="40"
                                         Classes="placeholder"
-                                        CornerRadius="8" />
+                                        CornerRadius="6" />
 
-                                <Grid Grid.Column="2"
-                                      Margin="0,2"
-                                      VerticalAlignment="Stretch"
-                                      ColumnDefinitions="Auto,16,Auto"
-                                      RowDefinitions="Auto,Auto,Auto">
-                                    <Border Width="80"
+                                <StackPanel Grid.Column="2"
+                                            VerticalAlignment="Center"
+                                            Spacing="6">
+                                    <Border Width="120"
                                             Height="14"
                                             HorizontalAlignment="Left"
                                             Classes="placeholder"
-                                            CornerRadius="8" />
-
-                                    <Border Grid.Row="1"
-                                            Width="100"
-                                            Height="16"
+                                            CornerRadius="7" />
+                                    <Border Width="72"
+                                            Height="12"
                                             HorizontalAlignment="Left"
                                             Classes="placeholder"
-                                            CornerRadius="8" />
-
-                                    <Border Grid.Column="2"
-                                            Width="60"
-                                            Height="16"
-                                            HorizontalAlignment="Left"
-                                            VerticalAlignment="Top"
-                                            Classes="placeholder"
-                                            CornerRadius="8" />
-                                </Grid>
+                                            CornerRadius="6" />
+                                </StackPanel>
                             </Grid>
                         </Button>
                     </DataTemplate>
@@ -191,43 +180,40 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <ScrollViewer Padding="18">
-        <Grid Margin="10,0" RowDefinitions="Auto,*">
-            <Button HorizontalAlignment="Right"
-                    Classes="accent"
-                    Command="{Binding CheckUpdate}"
-                    Content="{x:Static lang:ExtensionsStrings.CheckUpdate}" />
+    <Panel>
+        <ScrollViewer>
+            <StackPanel Margin="24,12,24,24" Spacing="16">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TabStrip HorizontalAlignment="Left"
+                              SelectedIndex="0"
+                              Theme="{DynamicResource SegmentedTabStrip}">
+                        <TabStripItem x:Name="packagesTab" Content="{x:Static lang:ExtensionsStrings.Search_Packages}" />
+                        <TabStripItem x:Name="localPackagesTab" Content="{x:Static lang:ExtensionsStrings.LocalPackages}" />
+                    </TabStrip>
 
-            <TabControl Grid.Row="1" Padding="0">
-                <TabControl.Styles>
-                    <Style Selector="TabItem">
-                        <Setter Property="Padding" Value="8" />
-                        <Setter Property="FontSize" Value="16" />
-                    </Style>
-                </TabControl.Styles>
-                <TabItem Header="{x:Static lang:ExtensionsStrings.Search_Packages}">
-                    <ItemsRepeater Margin="0,16,0,0"
-                                   ItemTemplate="{StaticResource UserPackageItemTemplate}"
-                                   ItemsSource="{Binding Packages}">
-                        <ItemsRepeater.Layout>
-                            <StackLayout Spacing="8" />
-                        </ItemsRepeater.Layout>
-                    </ItemsRepeater>
-                </TabItem>
-                <TabItem Header="{x:Static lang:ExtensionsStrings.LocalPackages}">
-                    <ItemsRepeater Margin="0,16,0,0"
-                                   ItemTemplate="{StaticResource UserPackageItemTemplate}"
-                                   ItemsSource="{Binding LocalPackages}">
-                        <ItemsRepeater.Layout>
-                            <StackLayout Spacing="8" />
-                        </ItemsRepeater.Layout>
-                    </ItemsRepeater>
-                </TabItem>
-            </TabControl>
+                    <Button Grid.Column="1"
+                            Command="{Binding CheckUpdate}"
+                            Content="{x:Static lang:ExtensionsStrings.CheckUpdate}" />
+                </Grid>
 
-            <ProgressRing Grid.RowSpan="2"
-                          IsIndeterminate="{CompiledBinding IsBusy.Value}"
-                          IsVisible="{CompiledBinding IsBusy.Value}" />
-        </Grid>
-    </ScrollViewer>
+                <ItemsRepeater IsVisible="{Binding #packagesTab.IsSelected}"
+                               ItemTemplate="{StaticResource UserPackageItemTemplate}"
+                               ItemsSource="{Binding Packages}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Spacing="8" />
+                    </ItemsRepeater.Layout>
+                </ItemsRepeater>
+
+                <ItemsRepeater IsVisible="{Binding #localPackagesTab.IsSelected}"
+                               ItemTemplate="{StaticResource UserPackageItemTemplate}"
+                               ItemsSource="{Binding LocalPackages}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Spacing="8" />
+                    </ItemsRepeater.Layout>
+                </ItemsRepeater>
+            </StackPanel>
+        </ScrollViewer>
+
+        <ProgressRing IsIndeterminate="{CompiledBinding IsBusy.Value}" IsVisible="{CompiledBinding IsBusy.Value}" />
+    </Panel>
 </UserControl>
