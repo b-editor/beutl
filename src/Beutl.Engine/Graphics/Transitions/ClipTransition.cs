@@ -94,18 +94,13 @@ public abstract partial class ClipTransition : EngineObject
 
         // Owns the changing outline used by geometric reveals. Each side is drawn just once, even when
         // the outline contains many tiles, and the resource version invalidates the previous frame's clip.
+        // A reveal draws a settled side itself before building its outline.
         private protected sealed class GeometryMask : IDisposable
         {
             private SKPathGeometry.Resource? _geometry;
 
             public void Draw(ClipTransitionContext context, GeometryContext path)
             {
-                if (context.Progress <= 0 || context.Progress >= 1)
-                {
-                    context.DrawClip(context.Progress <= 0 ? context.From : context.To);
-                    return;
-                }
-
                 _geometry ??= new SKPathGeometry().ToResource(CompositionContext.Default);
                 _geometry.SetSKPath(path.NativeObject, clone: true);
                 context.DrawClipped(_geometry);

@@ -2,7 +2,6 @@
 using System.Runtime.ExceptionServices;
 using Beutl.Graphics.Effects;
 using Beutl.Graphics.Rendering.Cache;
-using Beutl.Graphics.Shaders;
 using Beutl.Media;
 using SkiaSharp;
 
@@ -15,9 +14,7 @@ internal sealed partial class RenderRequestExecutor
         ImmediateCanvas destination,
         Rect replayBounds,
         Action? finalizeOutput,
-        ProgramCache<CachedSkRuntimeEffect> programCache,
-        ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-        ProgramCache<ShaderGraphPipeline> graphProgramCache,
+        RenderProgramCaches programCaches,
         ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions,
@@ -28,9 +25,7 @@ internal sealed partial class RenderRequestExecutor
             ExecuteNested(
                 nested,
                 destination,
-                programCache,
-                spirvProgramCache,
-                graphProgramCache,
+                programCaches,
                 frames,
                 cleanupFailures,
                 ref nestedRootAcquisitions,
@@ -42,9 +37,7 @@ internal sealed partial class RenderRequestExecutor
             destination,
             replayBounds,
             finalizeOutput,
-            programCache,
-            spirvProgramCache,
-            graphProgramCache,
+            programCaches,
             frames,
             cleanupFailures,
             ref nestedPreviewDropObserved);
@@ -53,9 +46,7 @@ internal sealed partial class RenderRequestExecutor
     private void ExecuteNested(
         CompiledRenderRequest request,
         ImmediateCanvas fallbackDestination,
-        ProgramCache<CachedSkRuntimeEffect> programCache,
-        ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-        ProgramCache<ShaderGraphPipeline> graphProgramCache,
+        RenderProgramCaches programCaches,
         ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref int nestedRootAcquisitions,
@@ -73,9 +64,7 @@ internal sealed partial class RenderRequestExecutor
                 fallbackDestination,
                 request.ExecutionTargetBounds,
                 finalizeOutput: null,
-                programCache,
-                spirvProgramCache,
-                graphProgramCache,
+                programCaches,
                 frames,
                 cleanupFailures,
                 ref nestedRootAcquisitions,
@@ -141,9 +130,7 @@ internal sealed partial class RenderRequestExecutor
                         canvas,
                         request.ExecutionTargetBounds,
                         finalizeOutput: null,
-                        programCache,
-                        spirvProgramCache,
-                        graphProgramCache,
+                        programCaches,
                         frames,
                         cleanupFailures,
                         ref nestedRootAcquisitions,
@@ -193,9 +180,7 @@ internal sealed partial class RenderRequestExecutor
         ImmediateCanvas destination,
         Rect replayBounds,
         Action? finalizeOutput,
-        ProgramCache<CachedSkRuntimeEffect> programCache,
-        ProgramCache<GLSLFilterPipeline> spirvProgramCache,
-        ProgramCache<ShaderGraphPipeline> graphProgramCache,
+        RenderProgramCaches programCaches,
         ICollection<RenderRequestExecutionState> frames,
         ICollection<Exception> cleanupFailures,
         ref bool nestedPreviewDropObserved)
@@ -212,13 +197,11 @@ internal sealed partial class RenderRequestExecutor
             request.PreviewDropEligibleMaterializations,
             request.CacheResolution,
             _targets,
-            programCache,
-            spirvProgramCache,
-            graphProgramCache,
+            programCaches,
             _shaderBackendPreference,
             _cancellationToken,
             (root, owner, identity, domain, scale) => ExecuteDependency(request, root, owner, identity, domain, scale,
-                destination, programCache, spirvProgramCache, graphProgramCache, frames, cleanupFailures));
+                destination, programCaches, frames, cleanupFailures));
         if (nestedPreviewDropObserved)
             state.MarkPreviewAllocationDropped();
 

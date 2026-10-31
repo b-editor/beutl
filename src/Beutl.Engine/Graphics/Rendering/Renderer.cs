@@ -538,22 +538,13 @@ public class Renderer : IRenderer
     // incoming side first, mapping the point through each side's transforms and clips.
     private Drawable? HitTestPresented(DrawableRenderNode node, Drawable.Resource? resource, Point point)
     {
-        IReadOnlyList<Drawable.Resource>[] sides;
-        switch (resource)
-        {
-            case Transitions.ClipTransitionPresenter.Resource transition:
-                sides = [transition.To, transition.From];
-                break;
-            case TrackMattePresenter.Resource matte:
-                sides = [matte.Content.Drawables];
-                break;
-            default:
-                return resource?.GetOriginal();
-        }
+        if (resource is not IContentPresenter presenter)
+            return resource?.GetOriginal();
+
         var children = new Dictionary<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)>(
             ReferenceEqualityComparer.Instance);
         CollectDrawableNodes(node, [], children);
-        foreach (IReadOnlyList<Drawable.Resource> side in sides)
+        foreach (IReadOnlyList<Drawable.Resource> side in presenter.PresentedSides)
         {
             for (int i = side.Count - 1; i >= 0; i--)
             {
@@ -571,8 +562,7 @@ public class Renderer : IRenderer
             }
         }
 
-        return resource is Transitions.ClipTransitionPresenter.Resource presenter
-            ? presenter.GetHitTestTarget() : null;
+        return presenter.UnhitTarget;
     }
 
     // Each drawable node with the container nodes above it, outermost first.
@@ -586,7 +576,7 @@ public class Renderer : IRenderer
             if (child is DrawableRenderNode { Drawable.Resource: { } resource } drawable)
             {
                 nodes.TryAdd(resource, (drawable, [.. path]));
-                if (resource is Transitions.ClipTransitionPresenter.Resource or TrackMattePresenter.Resource)
+                if (resource is IContentPresenter)
                 {
                     path.Add(drawable);
                     CollectDrawableNodes(drawable, path, nodes);
@@ -608,7 +598,7 @@ public class Renderer : IRenderer
     {
         foreach (Entry entry in _allCurrentEntries)
         {
-            if (entry.Node.Drawable?.Resource is not (Transitions.ClipTransitionPresenter.Resource or TrackMattePresenter.Resource)) continue;
+            if (entry.Node.Drawable?.Resource is not IContentPresenter) continue;
 
             var children = new Dictionary<Drawable.Resource, (DrawableRenderNode Node, RenderNode[] Path)>(
                 ReferenceEqualityComparer.Instance);
@@ -778,7 +768,7 @@ public class Renderer : IRenderer
 
         found ??= FindNestedNode(drawable);
 
-        // Drawable.Render pushes the blend mode, then the transform its content is drawn under.
+        // Drawable.Resource.RenderCore pushes the blend mode, then the transform its content is drawn under.
         if (found is not { } drawn
             || drawn.Node.Children is not [BlendModeRenderNode
             {

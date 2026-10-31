@@ -28,6 +28,8 @@ public sealed partial class CheckerboardTransition : ClipTransition
 
         public override void Draw(ClipTransitionContext context)
         {
+            if (context.DrawSettledSide()) return;
+
             using var path = new GeometryContext();
             int columns = Math.Clamp(Columns, 1, 64);
             int rows = Math.Clamp(Rows, 1, 64);
