@@ -1,4 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Buffers.Binary;
+using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 
 using Beutl.Audio;
 using Beutl.Media.Decoding;
@@ -19,14 +21,17 @@ public sealed class WaveReader : MediaReader
         try
         {
             _reader = new WaveFileReader(file);
-            _provider = _reader.ToSampleProvider().ToStereo();
+            _provider = _reader.ToSampleProvider();
             _waveFormat = _reader.WaveFormat;
 
             AudioInfo = new AudioStreamInfo(
                 CodecName: $"Wave ({_waveFormat.Encoding})",
                 Duration: new Rational(_reader.Length, _waveFormat.AverageBytesPerSecond),
                 SampleRate: _waveFormat.SampleRate,
-                NumChannels: _waveFormat.Channels);
+                NumChannels: _waveFormat.Channels)
+            {
+                ChannelLayout = GetChannelLayout(_waveFormat)
+            };
         }
         catch
         {
@@ -36,6 +41,20 @@ public sealed class WaveReader : MediaReader
             GC.SuppressFinalize(this);
             throw;
         }
+    }
+
+    private static AudioChannelLayout GetChannelLayout(WaveFormat format)
+    {
+        if (format is WaveFormatExtraData { Encoding: WaveFormatEncoding.Extensible, ExtraSize: >= 22 } extra)
+        {
+            uint mask = BinaryPrimitives.ReadUInt32LittleEndian(extra.ExtraData.AsSpan(2, 4)) & 0x3FFFF;
+            if (BitOperations.PopCount(mask) == format.Channels)
+                return new AudioChannelLayout(format.Channels, (AudioSpeakers)mask);
+        }
+
+        return format.Channels <= 2
+            ? AudioChannelLayout.GetDefault(format.Channels)
+            : AudioChannelLayout.Discrete(format.Channels);
     }
 
     public override VideoStreamInfo VideoInfo => throw new NotSupportedException();
@@ -54,7 +73,7 @@ public sealed class WaveReader : MediaReader
 
         // Seek by bytes; CurrentTime rounds through a TimeSpan and lands many offsets a frame early.
         _reader.Position = (long)start * _waveFormat.BlockAlign;
-        sound = SampleProviderReader.ReadStereo(_provider, _waveFormat.SampleRate, length);
+        sound = SampleProviderReader.Read(_provider, _waveFormat.SampleRate, _waveFormat.Channels, length);
         return true;
     }
 

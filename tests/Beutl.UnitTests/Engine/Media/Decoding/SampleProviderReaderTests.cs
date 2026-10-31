@@ -130,4 +130,39 @@ public class SampleProviderReaderTests
 
         Assert.That(result.SampleCount, Is.EqualTo(50), "a mid-stream short read must be reported as-is");
     }
+
+    [TestCase(1, 12, 10, 10)]
+    [TestCase(6, 60, 10, 10)]
+    [TestCase(6, 14, 10, 2)]
+    [TestCase(9, 20, 10, 2)]
+    [TestCase(6, 0, 10, 0)]
+    [TestCase(6, 60, 0, 0)]
+    [TestCase(6, 60, -1, 0)]
+    public void Read_NativeChannels_PreservesOrderAndReturnsOnlyWholeFrames(int channels, int elements, int length, int expectedFrames)
+    {
+        var provider = new NativeProvider(channels, elements);
+        using var result = SampleProviderReader.Read(provider, SampleRate, channels, length);
+        Assert.That(result.ChannelCount, Is.EqualTo(channels));
+        Assert.That(result.SampleRate, Is.EqualTo(SampleRate));
+        Assert.That(result.SampleCount, Is.EqualTo(expectedFrames));
+        Assert.That(provider.ReadCount, Is.EqualTo(length > 0 ? 1 : 0));
+        for (int ch = 0; ch < channels; ch++)
+            Assert.That(result.GetChannelData(ch).ToArray(), Is.EqualTo(Enumerable.Range(0, expectedFrames).Select(i => (float)(i * channels + ch))));
+    }
+
+    private sealed class NativeProvider(int channels, int elements) : ISampleProvider
+    {
+        public int ReadCount { get; private set; }
+
+        public WaveFormat WaveFormat { get; } = WaveFormat.CreateIeeeFloatWaveFormat(SampleRate, channels);
+
+        public int Read(Span<float> buffer)
+        {
+            ReadCount++;
+            int count = Math.Min(elements, buffer.Length);
+            for (int i = 0; i < count; i++) buffer[i] = i;
+            return count;
+        }
+    }
+
 }

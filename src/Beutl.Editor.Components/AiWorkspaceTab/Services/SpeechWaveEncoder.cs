@@ -62,15 +62,18 @@ internal static class SpeechWaveEncoder
 
             using (audio)
             {
-                if (audio.ChannelCount != 2)
-                    throw new SubtitleInputException(Strings.AiSubtitle_NoAudioInRange);
+                AudioChannelLayout layout = AudioChannelLayout.ForChannelCount(
+                    reader.AudioInfo.ChannelLayout, audio.ChannelCount);
+                var matrix = AudioChannelMatrix.Create(layout, AudioChannelLayout.Stereo);
+                using var converted = matrix.IsIdentity ? null : matrix.Apply(audio);
+                AudioBuffer stereo = converted ?? audio;
 
                 int decodedSamples = Math.Min(audio.SampleCount, length);
                 if (decodedSamples == 0)
                     break;
 
-                Span<float> left = audio.GetChannelData(0)[..decodedSamples];
-                Span<float> right = audio.GetChannelData(1)[..decodedSamples];
+                Span<float> left = stereo.GetChannelData(0)[..decodedSamples];
+                Span<float> right = stereo.GetChannelData(1)[..decodedSamples];
                 double blockEnd = sourceSamplesWritten + decodedSamples;
                 while (nextOutputSourcePosition < blockEnd)
                 {

@@ -1,4 +1,5 @@
-﻿using Beutl.Animation;
+﻿using System.Diagnostics.CodeAnalysis;
+using Beutl.Animation;
 using Beutl.Animation.Easings;
 using Beutl.Audio;
 using Beutl.Audio.Graph;
@@ -7,7 +8,6 @@ using Beutl.Media;
 using Beutl.Media.Decoding;
 using Beutl.Media.Source;
 using Beutl.Media.Wave;
-using NAudio.Wave;
 
 namespace Beutl.UnitTests.Engine.Audio;
 
@@ -308,19 +308,50 @@ internal static class AudioTestWaves
     public static void WithTemporaryWave(
         int sampleRate, int frames, Func<int, (float Left, float Right)> frame, Action<SoundSource> body)
     {
+        (float Left, float Right) value = default;
+        WithTemporaryWave(sampleRate, frames, (ch, i) =>
+        {
+            if (ch == 0) value = frame(i);
+            return ch == 0 ? value.Left : value.Right;
+        }, body);
+    }
+
+    /// <summary>Writes native float channels; a non-null mask selects WAVE_FORMAT_EXTENSIBLE.</summary>
+    public static void WithTemporaryWave(
+        int sampleRate, int frames, Func<int, int, float> sample, Action<SoundSource> body,
+        int channelCount = 2, AudioSpeakers? mask = null)
+    {
         string path = Path.Combine(Path.GetTempPath(), $"beutl-audio-test-{Guid.NewGuid():N}.wav");
         var decoder = new WaveDecoderInfo();
         DecoderRegistry.Register(decoder);
         try
         {
-            using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, 2)))
+            using (var writer = new BinaryWriter(File.Create(path)))
             {
-                for (int i = 0; i < frames; i++)
+                int formatSize = mask.HasValue ? 40 : 16;
+                int dataSize = frames * channelCount * sizeof(float);
+                writer.Write("RIFF"u8);
+                writer.Write(20 + formatSize + dataSize);
+                writer.Write("WAVEfmt "u8);
+                writer.Write(formatSize);
+                writer.Write((ushort)(mask.HasValue ? 0xFFFE : 3));
+                writer.Write((ushort)channelCount);
+                writer.Write(sampleRate);
+                writer.Write(sampleRate * channelCount * sizeof(float));
+                writer.Write((ushort)(channelCount * sizeof(float)));
+                writer.Write((ushort)32);
+                if (mask.HasValue)
                 {
-                    (float left, float right) = frame(i);
-                    writer.WriteSample(left);
-                    writer.WriteSample(right);
+                    writer.Write((ushort)22);
+                    writer.Write((ushort)32);
+                    writer.Write((uint)mask.Value);
+                    writer.Write(new Guid("00000003-0000-0010-8000-00aa00389b71").ToByteArray());
                 }
+                writer.Write("data"u8);
+                writer.Write(dataSize);
+                for (int i = 0; i < frames; i++)
+                    for (int ch = 0; ch < channelCount; ch++)
+                        writer.Write(sample(ch, i));
             }
 
             var source = new SoundSource();
@@ -332,5 +363,39 @@ internal static class AudioTestWaves
             DecoderRegistry.Unregister(decoder);
             File.Delete(path);
         }
+    }
+}
+
+internal sealed class AudioTestReader(AudioBuffer samples, AudioChannelLayout layout) : MediaReader
+{
+    public bool FailReads { get; set; }
+
+    public override AudioStreamInfo AudioInfo { get; } = new(
+        "test", new Rational(samples.SampleCount, samples.SampleRate), samples.SampleRate, samples.ChannelCount)
+    {
+        ChannelLayout = layout
+    };
+
+    public override VideoStreamInfo VideoInfo => throw new NotSupportedException();
+
+    public override bool HasAudio => true;
+
+    public override bool HasVideo => false;
+
+    public override bool ReadAudio(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)
+    {
+        sound = null;
+        if (FailReads) return false;
+        int count = Math.Min(length, Math.Max(0, samples.SampleCount - start));
+        sound = new AudioBuffer(samples.SampleRate, samples.ChannelCount, count);
+        for (int ch = 0; ch < samples.ChannelCount; ch++)
+            samples.GetChannelData(ch).Slice(Math.Min(start, samples.SampleCount), count).CopyTo(sound.GetChannelData(ch));
+        return true;
+    }
+
+    public override bool ReadVideo(int frame, [NotNullWhen(true)] out Ref<Bitmap>? image)
+    {
+        image = null;
+        return false;
     }
 }

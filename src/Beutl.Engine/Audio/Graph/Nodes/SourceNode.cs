@@ -55,12 +55,20 @@ public sealed class SourceNode : AudioNode
             {
                 using (audio)
                 {
-                    int copyLength = Math.Min(audio.SampleCount, buffer.SampleCount);
-                    Span<float> left = audio.GetChannelData(0)[..copyLength];
-                    // A mono decoder output plays on both sides.
-                    Span<float> right = audio.ChannelCount > 1 ? audio.GetChannelData(1)[..copyLength] : left;
-                    left.CopyTo(buffer.GetChannelData(0));
-                    right.CopyTo(buffer.GetChannelData(1));
+                    AudioChannelLayout layout = AudioChannelLayout.ForChannelCount(
+                        resource.ChannelLayout, audio.ChannelCount);
+                    var matrix = AudioChannelMatrix.Create(layout, AudioChannelLayout.Stereo);
+                    if (audio.SampleCount == buffer.SampleCount && audio.SampleRate == buffer.SampleRate)
+                    {
+                        matrix.Apply(audio, buffer);
+                    }
+                    else
+                    {
+                        using var stereo = matrix.Apply(audio);
+                        int copyLength = Math.Min(stereo.SampleCount, buffer.SampleCount);
+                        stereo.GetChannelData(0)[..copyLength].CopyTo(buffer.GetChannelData(0));
+                        stereo.GetChannelData(1)[..copyLength].CopyTo(buffer.GetChannelData(1));
+                    }
                 }
             }
             else

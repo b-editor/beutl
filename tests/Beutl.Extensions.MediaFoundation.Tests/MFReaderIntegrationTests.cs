@@ -112,7 +112,8 @@ public class MFReaderIntegrationTests
             Assert.That(pcm, Is.Not.Null);
             Assert.That(pcm!.SampleCount, Is.Zero);
             Assert.That(pcm.SampleRate, Is.EqualTo(44100));
-            Assert.That(pcm.ChannelCount, Is.EqualTo(2));
+            Assert.That(pcm.ChannelCount, Is.EqualTo(channels));
+            Assert.That(reader.AudioInfo.ChannelLayout, Is.EqualTo(AudioChannelLayout.GetDefault(channels)));
         }
 
         // An EOF request must leave the reader usable for a later in-range seek.
@@ -120,6 +121,7 @@ public class MFReaderIntegrationTests
         using (firstSamples)
         {
             Assert.That(firstSamples!.SampleCount, Is.EqualTo(1024));
+            Assert.That(firstSamples.ChannelCount, Is.EqualTo(channels));
         }
     }
 
@@ -137,6 +139,58 @@ public class MFReaderIntegrationTests
         {
             Assert.That(pcm!.SampleCount, Is.EqualTo(4410));
             Assert.That(pcm.GetChannelData(0).ToArray().Any(sample => Math.Abs(sample) > 1e-4f), Is.True);
+        }
+    }
+
+    [TestCase(4, 0x33u)]
+    [TestCase(6, 0x3Fu)]
+    [TestCase(6, 0x60Fu)]
+    public void ReadAudio_ExtensibleWavePreservesNativeChannelsAndMask(int channels, uint mask)
+    {
+        string path = Path.Combine(_workDir, "native.wav");
+        const int frames = 4800;
+        const int sampleRate = 48000;
+        using (var writer = new BinaryWriter(File.Create(path)))
+        {
+            int dataLength = frames * channels * sizeof(short);
+            writer.Write("RIFF"u8);
+            writer.Write(60 + dataLength);
+            writer.Write("WAVEfmt "u8);
+            writer.Write(40);
+            writer.Write((ushort)0xFFFE);
+            writer.Write((ushort)channels);
+            writer.Write(sampleRate);
+            writer.Write(sampleRate * channels * sizeof(short));
+            writer.Write((ushort)(channels * sizeof(short)));
+            writer.Write((ushort)16);
+            writer.Write((ushort)22);
+            writer.Write((ushort)16);
+            writer.Write(mask);
+            writer.Write(new Guid("00000001-0000-0010-8000-00aa00389b71").ToByteArray());
+            writer.Write("data"u8);
+            writer.Write(dataLength);
+            for (int i = 0; i < frames; i++)
+                for (int ch = 0; ch < channels; ch++)
+                    writer.Write((short)((ch + 1) * 1000 + i));
+        }
+        using var reader = CreateDecoderInfo().Open(path, new MediaOptions(MediaMode.Audio));
+        Assert.That(reader, Is.Not.Null);
+        Assert.That(reader!.AudioInfo.NumChannels, Is.EqualTo(channels));
+        Assert.That(reader.AudioInfo.ChannelLayout, Is.EqualTo(new AudioChannelLayout(channels, (AudioSpeakers)mask)));
+        Assert.That(reader.ReadAudio(0, 4, out var audio), Is.True);
+        using (audio)
+        {
+            Assert.That(audio!.ChannelCount, Is.EqualTo(channels));
+            Assert.That(audio.SampleCount, Is.EqualTo(4));
+            for (int ch = 0; ch < channels; ch++)
+                Assert.That(audio.GetChannelData(ch).ToArray(),
+                    Is.EqualTo(Enumerable.Range(0, 4).Select(i => ((ch + 1) * 1000 + i) / 32768f)));
+        }
+        Assert.That(reader.ReadAudio(0, 0, out var empty), Is.True);
+        using (empty)
+        {
+            Assert.That(empty!.ChannelCount, Is.EqualTo(channels));
+            Assert.That(empty.SampleCount, Is.Zero);
         }
     }
 

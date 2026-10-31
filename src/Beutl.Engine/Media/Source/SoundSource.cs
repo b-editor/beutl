@@ -47,6 +47,8 @@ public sealed class SoundSource : MediaSource
 
         public int NumChannels { get; private set; }
 
+        public AudioChannelLayout ChannelLayout => MediaReader?.AudioInfo.ChannelLayout ?? AudioChannelLayout.Stereo;
+
         public MediaReader? MediaReader => _reader;
 
         public bool Read(int start, int length, [NotNullWhen(true)] out AudioBuffer? sound)

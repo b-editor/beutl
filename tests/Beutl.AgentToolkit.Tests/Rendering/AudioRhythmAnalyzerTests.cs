@@ -1,4 +1,7 @@
 ﻿using Beutl.AgentToolkit.Rendering;
+using Beutl.Media.Decoding;
+using Beutl.Media.Wave;
+using NAudio.Wave;
 
 namespace Beutl.AgentToolkit.Tests.Rendering;
 
@@ -49,6 +52,46 @@ public sealed class AudioRhythmAnalyzerTests
             Assert.That(result.BeatTimesSeconds, Is.Empty);
             Assert.That(result.StrongOnsetTimesSeconds, Is.Empty);
         });
+    }
+
+    [TestCase(1, 0)]
+    [TestCase(2, 0)]
+    [TestCase(6, 2)]
+    [TestCase(6, 4)]
+    [TestCase(9, 0)]
+    public async Task AnalyzeFile_NativeChannelsUseTheStereoLeftFold(int channels, int signalChannel)
+    {
+        const int sampleRate = 16000;
+        float[] samples = CreateClickTrack(sampleRate, 4, 120);
+        string path = Path.Combine(Path.GetTempPath(), $"rhythm-channels-{Guid.NewGuid():N}.wav");
+        var decoder = new WaveDecoderInfo();
+        DecoderRegistry.Register(decoder);
+        try
+        {
+            using (var writer = new WaveFileWriter(path, WaveFormat.CreateIeeeFloatWaveFormat(sampleRate, channels)))
+            {
+                foreach (float sample in samples)
+                    for (int ch = 0; ch < channels; ch++)
+                        writer.WriteSample(ch == signalChannel ? sample : 0);
+            }
+            var analyzer = new AudioRhythmAnalyzer();
+            float gain = channels == 6 ? 0.70710677f : 1;
+            var expected = analyzer.AnalyzePcm(samples.Select(value => value * gain).ToArray(), sampleRate);
+            var actual = await analyzer.AnalyzeFileAsync(path, 0, 4, null, null, CancellationToken.None);
+            Assert.Multiple(() =>
+            {
+                Assert.That(actual.SampleRate, Is.EqualTo(expected.SampleRate));
+                Assert.That(actual.EstimatedBpm, Is.EqualTo(expected.EstimatedBpm));
+                Assert.That(actual.Confidence, Is.EqualTo(expected.Confidence));
+                Assert.That(actual.BeatTimesSeconds, Is.EqualTo(expected.BeatTimesSeconds));
+                Assert.That(actual.StrongOnsetTimesSeconds, Is.EqualTo(expected.StrongOnsetTimesSeconds));
+            });
+        }
+        finally
+        {
+            DecoderRegistry.Unregister(decoder);
+            File.Delete(path);
+        }
     }
 
     private static float[] CreateClickTrack(int sampleRate, double durationSeconds, double bpm)

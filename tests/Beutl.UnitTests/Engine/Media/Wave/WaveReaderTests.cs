@@ -1,5 +1,6 @@
 ﻿using Beutl.Audio;
 using Beutl.Media.Wave;
+using Beutl.UnitTests.Engine.Audio;
 
 using NAudio.Wave;
 
@@ -70,8 +71,9 @@ public class WaveReaderTests
             Span<float> left = sound.GetChannelData(0);
             Assert.That(left[0], Is.EqualTo(SampleForFrame(0)).Within(1e-3f));
             Assert.That(left[^1], Is.EqualTo(SampleForFrame(length - 1)).Within(1e-3f));
-            // Mono source is duplicated to both channels.
-            Assert.That(sound.GetChannelData(1)[^1], Is.EqualTo(left[^1]).Within(1e-6f));
+            Assert.That(sound.ChannelCount, Is.EqualTo(1));
+            Assert.That(reader.AudioInfo.NumChannels, Is.EqualTo(1));
+            Assert.That(reader.AudioInfo.ChannelLayout, Is.EqualTo(AudioChannelLayout.Mono));
         }
     }
 
@@ -138,6 +140,7 @@ public class WaveReaderTests
         using (sound)
         {
             Assert.That(sound!.SampleCount, Is.Zero);
+            Assert.That(sound.ChannelCount, Is.EqualTo(1));
         }
     }
 
@@ -150,6 +153,48 @@ public class WaveReaderTests
         using (sound)
         {
             Assert.That(sound!.SampleCount, Is.Zero);
+            Assert.That(sound.ChannelCount, Is.EqualTo(1));
         }
+    }
+
+    [TestCase(1, false, 0u, 0x4u)]
+    [TestCase(2, false, 0u, 0x3u)]
+    [TestCase(4, false, 0u, 0u)]
+    [TestCase(6, false, 0u, 0u)]
+    [TestCase(9, false, 0u, 0u)]
+    [TestCase(4, true, 0x33u, 0x33u)]
+    [TestCase(4, true, 0x603u, 0x603u)]
+    [TestCase(6, true, 0x3Fu, 0x3Fu)]
+    [TestCase(6, true, 0x60Fu, 0x60Fu)]
+    [TestCase(4, true, 0u, 0u)]
+    [TestCase(6, true, 0u, 0u)]
+    [TestCase(6, true, 0x33u, 0u)]
+    [TestCase(6, true, 0x8000003Fu, 0x3Fu)]
+    [TestCase(6, true, 0x8000001Fu, 0u)]
+    public void ReadAudio_ReturnsNativeChannelOrderAndDeclaredLayout(int channels, bool extensible, uint mask, uint expectedMask)
+    {
+        AudioTestWaves.WithTemporaryWave(SampleRate, 8, (ch, i) => (ch * 8 + i) / 128f, source =>
+        {
+            using var reader = new WaveReader(source.Uri.LocalPath);
+            Assert.That(reader.AudioInfo.NumChannels, Is.EqualTo(channels));
+            Assert.That(reader.AudioInfo.ChannelLayout, Is.EqualTo(new AudioChannelLayout(channels, (AudioSpeakers)expectedMask)));
+            Assert.That(reader.ReadAudio(2, 20, out var audio), Is.True);
+            using (audio)
+            {
+                Assert.That(audio!.ChannelCount, Is.EqualTo(channels));
+                Assert.That(audio.SampleCount, Is.EqualTo(6));
+                for (int ch = 0; ch < channels; ch++)
+                    Assert.That(audio.GetChannelData(ch).ToArray(), Is.EqualTo(Enumerable.Range(2, 6).Select(i => (ch * 8 + i) / 128f)));
+            }
+            foreach ((int start, int length) in new[] { (0, 0), (8, 4), (12, 4) })
+            {
+                Assert.That(reader.ReadAudio(start, length, out var empty), Is.True);
+                using (empty)
+                {
+                    Assert.That(empty!.ChannelCount, Is.EqualTo(channels));
+                    Assert.That(empty.SampleCount, Is.Zero);
+                }
+            }
+        }, channels, extensible ? (AudioSpeakers)mask : null);
     }
 }
