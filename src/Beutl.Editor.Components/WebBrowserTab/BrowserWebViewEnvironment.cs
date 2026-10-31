@@ -1,6 +1,4 @@
-﻿using System.Runtime.Versioning;
-
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -33,34 +31,6 @@ internal static class BrowserWebViewEnvironment
                 // Program Files cannot create, and NativeWebView rethrows that failure on the dispatcher.
                 windows.UserDataFolder = s_webView2UserDataFolder.Value;
                 break;
-        }
-    }
-
-    // WebView2 keeps cookies in its profile folder, but WebKitGTK and WPE keep them in memory unless the
-    // application names a store, so restarting Beutl would sign the user out of every site.
-    internal static void PersistCookies(object? sender, WebViewAdapterEventArgs e)
-    {
-        if (OperatingSystem.IsLinux() && e.TryGetPlatformHandle() is { } handle) _ = PersistCookiesAsync(handle);
-    }
-
-    [SupportedOSPlatform("linux")]
-    private static async Task PersistCookiesAsync(IPlatformHandle handle)
-    {
-        string path = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "WebKit", "cookies.sqlite");
-        try
-        {
-            // The store holds the user's sign-ins. Like a browser profile, only the user may enter its folder,
-            // which also covers the SQLite journal files WebKit creates beside it.
-            const UnixFileMode ownerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
-            string directory = Path.GetDirectoryName(path)!;
-            Directory.CreateDirectory(directory, ownerOnly);
-            File.SetUnixFileMode(directory, ownerOnly);
-            await LinuxWebKitCookies.UsePersistentStorageAsync(handle, path);
-        }
-        catch (Exception ex)
-        {
-            // Cookies then last until Beutl exits, as they did before.
-            Log.CreateLogger(typeof(BrowserWebViewEnvironment)).LogWarning(ex, "Could not keep WebKit cookies in {Path}.", path);
         }
     }
 

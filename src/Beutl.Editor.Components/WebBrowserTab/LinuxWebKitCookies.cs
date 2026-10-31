@@ -1,8 +1,10 @@
 ﻿using System.Net;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 
+using Avalonia.Controls;
 using Avalonia.Platform;
 using Beutl.Logging;
 using Microsoft.Extensions.Logging;
@@ -35,8 +37,35 @@ internal static partial class LinuxWebKitCookies
         }
     }
 
-    // WebKit keeps cookies in memory unless the application names a store, so a restart would sign the user out.
-    internal static Task UsePersistentStorageAsync(IPlatformHandle? handle, string path) => handle switch
+    // WebView2 keeps cookies in its profile folder, but WebKitGTK and WPE keep them in memory unless the
+    // application names a store, so restarting Beutl would sign the user out of every site.
+    internal static void PersistCookies(object? sender, WebViewAdapterEventArgs e)
+    {
+        if (OperatingSystem.IsLinux() && e.TryGetPlatformHandle() is { } handle) _ = PersistCookiesAsync(handle);
+    }
+
+    [SupportedOSPlatform("linux")]
+    private static async Task PersistCookiesAsync(IPlatformHandle handle)
+    {
+        string path = Path.Combine(BeutlEnvironment.GetHomeDirectoryPath(), "browser", "WebKit", "cookies.sqlite");
+        try
+        {
+            // The store holds the user's sign-ins. Like a browser profile, only the user may enter its folder,
+            // which also covers the SQLite journal files WebKit creates beside it.
+            const UnixFileMode ownerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            string directory = Path.GetDirectoryName(path)!;
+            Directory.CreateDirectory(directory, ownerOnly);
+            File.SetUnixFileMode(directory, ownerOnly);
+            await UsePersistentStorageAsync(handle, path);
+        }
+        catch (Exception ex)
+        {
+            // Cookies then last until Beutl exits, as they did before.
+            Log.CreateLogger(typeof(LinuxWebKitCookies)).LogWarning(ex, "Could not keep WebKit cookies in {Path}.", path);
+        }
+    }
+
+    private static Task UsePersistentStorageAsync(IPlatformHandle handle, string path) => handle switch
     {
         IGtkWebViewPlatformHandle gtk when OperatingSystem.IsLinux() => UsePersistentStorageAsync(Api.Gtk.Value, gtk.WebKitWebView, path),
         ILinuxWpePlatformHandle wpe when OperatingSystem.IsLinux() => UsePersistentStorageAsync(Api.Wpe.Value, wpe.WebKitWebView, path),
