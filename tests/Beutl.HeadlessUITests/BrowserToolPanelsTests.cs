@@ -188,7 +188,8 @@ public class BrowserToolPanelsTests
         bool closed = false;
         try
         {
-            string title = string.Join(" ", Enumerable.Repeat(Strings.WebDownloadMedia, 6));
+            // A fixed title stays long enough to wrap whichever language and wording the UI uses.
+            string title = string.Join(" ", Enumerable.Repeat("Download the requested file", 6));
             view.ShowBrowserPanel(title, new TextBlock { Text = "Content" }, () => closed = true);
             window.Show();
             Dispatcher.UIThread.RunJobs();
@@ -411,6 +412,44 @@ public class BrowserToolPanelsTests
         {
             if (Directory.Exists(root)) Directory.Delete(root, true);
         }
+    }
+
+    [AvaloniaTest]
+    public void HistoryOpensOnlyMediaDirectly()
+    {
+        using var temporary = new TemporaryDirectory();
+        Directory.CreateDirectory(temporary.Path);
+        string media = Path.Combine(temporary.Path, "clip.mp4");
+        string program = Path.Combine(temporary.Path, "Setup.exe");
+        File.WriteAllText(media, "media");
+        File.WriteAllText(program, "program");
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        profile.AddDownload(new Uri("https://files.example/clip.mp4"), media);
+        profile.AddDownload(new Uri("https://files.example/Setup.exe"), program);
+        var uri = new Uri("https://example.com/");
+        using var vm = new WebBrowserTabViewModel(CreateContext(temporary.Path), uri, profile);
+        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
+        view.DataContext = vm;
+        vm.CompleteNavigation(uri, true, false, false);
+        var window = new Window { Content = view, Width = 640, Height = 640 };
+        try
+        {
+            window.Show();
+            OpenMenu(view, Strings.BrowserDownloads);
+            Dispatcher.UIThread.RunJobs();
+            Button Find(string file, string feature) => view.GetVisualDescendants().OfType<Button>().Single(button =>
+                button.Tag is BrowserDownloadRecord record && record.FilePath == file
+                && Beutl.Editor.Components.Helpers.UsageTracking.GetFeature(button) == feature);
+
+            // Opening hands the file to the system, which would run a program; other files keep the folder button.
+            Assert.Multiple(() =>
+            {
+                Assert.That(Find(media, "WebBrowser.OpenHistoryFile").IsVisible, Is.True);
+                Assert.That(Find(program, "WebBrowser.OpenHistoryFile").IsVisible, Is.False);
+                Assert.That(Find(program, "WebBrowser.OpenHistoryFolder").IsVisible, Is.True);
+            });
+        }
+        finally { window.Close(); }
     }
 
     private static IEditorContext CreateContext(string root)

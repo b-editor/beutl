@@ -52,7 +52,8 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         _canReparentWebView = canReparentWebView ?? (static webView => webView.TryGetPlatformHandle() is not null);
         // WKWebView, WebKitGTK and WPE all report subframe navigations through NavigationStarted.
         _navigationStartedIncludesSubframes = navigationStartedIncludesSubframes ?? (OperatingSystem.IsMacOS() || OperatingSystem.IsLinux());
-        // The macOS and Windows handlers turn a main-frame media response into a download; Linux has no such handler.
+        // The macOS and Windows handlers turn a main-frame media response into a download. WebKitGTK shows media
+        // itself, so Linux checks the request or the shown page instead.
         _handlesMediaResponsesNatively = handlesMediaResponsesNatively ?? !OperatingSystem.IsLinux();
         FaviconLoader = faviconLoader;
         InitializeComponent();
@@ -223,6 +224,14 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
         else if (OperatingSystem.IsWindows())
         {
             _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload);
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            _nativeDownloadHandler = LinuxBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), (uri, name) =>
+            {
+                if (handlerVersion == _nativeDownloadHandlerVersion && ReferenceEquals(webView, _webView))
+                    OnNavigationResponseNotShown(uri, name);
+            });
         }
         ScheduleLinuxSizeRefresh(_webView);
     }

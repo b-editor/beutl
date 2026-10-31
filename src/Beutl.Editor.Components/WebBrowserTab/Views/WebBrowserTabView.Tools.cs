@@ -228,6 +228,8 @@ internal partial class WebBrowserTabView
     private void OnOpenHistoryFileClick(object? sender, RoutedEventArgs e) => WithHistoryRecord(sender, record =>
     {
         RequireHistoryFile(record);
+        // The system runs a downloaded program it is asked to open, so only media is opened; other files have their folder.
+        if (!BrowserMediaDownload.IsMediaFile(record.FilePath)) return;
         Process.Start(new ProcessStartInfo(record.FilePath) { UseShellExecute = true });
     });
 

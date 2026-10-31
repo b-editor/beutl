@@ -113,6 +113,7 @@
                                 CornerRadius="8"
                                 FontSize="13"
                                 IsEnabled="{Binding FileExists}"
+                                IsVisible="{Binding CanOpen}"
                                 Tag="{Binding Record}" />
                         <Button Grid.Column="2"
                                 usage:UsageTracking.Feature="WebBrowser.OpenHistoryFolder"

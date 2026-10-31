@@ -2715,7 +2715,7 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>{0} d ago</value>
   </data>
   <data name="WebDownloadMedia" xml:space="preserve">
-    <value>Download media</value>
+    <value>Download file</value>
   </data>
   <data name="WebDownloadProject" xml:space="preserve">
     <value>Project directory</value>
@@ -2730,10 +2730,10 @@ Resolve the conflicts with an external Git tool before editing. The project may 
     <value>Save the project first to use its directory.</value>
   </data>
   <data name="WebDownloadUnsupported" xml:space="preserve">
-    <value>Only direct HTTP(S) image, audio, or video downloads are supported.</value>
+    <value>Only direct HTTP(S) file downloads are supported.</value>
   </data>
   <data name="WebDownloadHtmlResponse" xml:space="preserve">
-    <value>This URL returned a web page instead of media. Use the file's download link.</value>
+    <value>This URL returned a web page instead of a file. Use the file's download link.</value>
   </data>
   <data name="WebDownloadIncomplete" xml:space="preserve">
     <value>The download was empty or incomplete.</value>
