@@ -188,7 +188,8 @@ public class BrowserToolPanelsTests
         bool closed = false;
         try
         {
-            string title = string.Join(" ", Enumerable.Repeat(Strings.WebDownloadMedia, 6));
+            // A fixed title stays long enough to wrap whichever language and wording the UI uses.
+            string title = string.Join(" ", Enumerable.Repeat("Download the requested file", 6));
             view.ShowBrowserPanel(title, new TextBlock { Text = "Content" }, () => closed = true);
             window.Show();
             Dispatcher.UIThread.RunJobs();
