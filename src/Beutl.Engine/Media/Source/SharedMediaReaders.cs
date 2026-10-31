@@ -20,7 +20,9 @@ internal sealed class SharedMediaReaders(Func<long> clock)
     internal const int VideoContinuationFrames = 100;
     // A consumer that read this recently is still playing; taking its reader away would make it seek.
     internal const long BusyMilliseconds = 500;
-    internal const int MaxReaders = 3;
+    // Consumers reading different parts of one file at the same time, such as layers showing it at different
+    // times, each need a reader of their own; beyond this many they share readers and seek on every read.
+    internal const int MaxReaders = 8;
 
     private readonly Lock _lock = new();
     private readonly Dictionary<Key, Group> _groups = [];

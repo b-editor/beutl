@@ -94,9 +94,9 @@ public class SharedMediaReadersTests
     }
 
     [Test]
-    public void AtMostThreeReaders_OpenForOneFile()
+    public void ReadersOfOneFile_StopAtTheLimit()
     {
-        MediaReader[] handles = Enumerable.Range(0, 5).Select(_ => Open()).ToArray();
+        MediaReader[] handles = Enumerable.Range(0, SharedMediaReaders.MaxReaders + 2).Select(_ => Open()).ToArray();
         try
         {
             for (int i = 0; i < 20; i++)
@@ -104,6 +104,31 @@ public class SharedMediaReadersTests
                     Read(handles[h], h * 10_000 + i, 1);
 
             Assert.That(_opened, Has.Count.EqualTo(SharedMediaReaders.MaxReaders));
+        }
+        finally
+        {
+            foreach (MediaReader handle in handles) handle.Dispose();
+        }
+    }
+
+    [Test]
+    public void AsManyConsumersAsTheLimit_EachKeepAReaderAndStopSeeking()
+    {
+        MediaReader[] handles = Enumerable.Range(0, SharedMediaReaders.MaxReaders).Select(_ => Open()).ToArray();
+        try
+        {
+            // The first rounds hand each consumer a reader of its own.
+            for (int i = 0; i < 2; i++)
+                for (int h = 0; h < handles.Length; h++)
+                    Read(handles[h], h * 10_000 + i, 1);
+            int warmUpSeeks = _opened.Sum(reader => reader.Seeks);
+
+            for (int i = 2; i < 20; i++)
+                for (int h = 0; h < handles.Length; h++)
+                    Read(handles[h], h * 10_000 + i, 1);
+
+            Assert.That(_opened, Has.Count.EqualTo(SharedMediaReaders.MaxReaders));
+            Assert.That(_opened.Sum(reader => reader.Seeks), Is.EqualTo(warmUpSeeks));
         }
         finally
         {
