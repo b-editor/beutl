@@ -188,6 +188,33 @@ public sealed class MobilePreviewTests
         Assert.That(server.GetClients(), Is.Empty);
     }
 
+    [Test]
+    public async Task A_viewer_whose_offer_fails_is_no_longer_encoded_for()
+    {
+        await using var host = await RelayHost.StartAsync();
+        await using var server = await MobilePreviewServer.StartAsync(host.Session);
+        var relay = await host.AcceptAsync();
+        var devices = new[] { new { id = "one", address = "Phone 1" } };
+        await SendMessage(relay, new { clients = devices, paired = devices });
+        await WaitUntil(() => server.GetClients().Length == 1);
+
+        await SendMessage(relay, new
+        {
+            type = "signal",
+            id = "one",
+            signal = new { type = "offer", connectionId = "rejected", sdp = "invalid SDP" }
+        });
+        var error = await ReadSignal(relay, m => m.GetProperty("type").GetString() == "error"
+            && m.GetProperty("connectionId").GetString() == "rejected");
+        Assert.That(error.GetProperty("message").GetString(), Is.EqualTo("negotiation-failed"));
+
+        // The encoders pick their profiles, and the audio loop decides whether to run, from these viewers.
+        var peers = (Dictionary<string, bool>)typeof(MobilePreviewServer)
+            .GetField("_peers", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(server)!;
+        await WaitUntil(() => peers.Count == 0);
+    }
+
     [TestCase(1)]
     [TestCase(2)]
     public void Audio_continues_between_low_rate_video_frames_and_stops_on_pause(int frameRate)
