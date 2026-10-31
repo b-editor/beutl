@@ -180,7 +180,7 @@ public sealed class ShaderGraphContractTests
             new(sourcePixels.X / scale, sourcePixels.Y / scale, sourcePixels.Width / scale, sourcePixels.Height / scale),
             sourcePixels.Size, scale);
         ShaderGraphExecutionStatistics statistics = ShaderGraphExecutor.Execute(graph, source, frame, output, scale, default,
-            (device, pass) => ShaderGraphPipeline.Acquire(programs, new(context, context, "test", "test"), device, pass), region);
+            (device, pass, identity) => ShaderGraphPipeline.Acquire(programs, new(context, context, "test", "test"), device, pass, identity), region);
         float[] pixels = MemoryMarshal.Cast<byte, Half>(output.DownloadPixels()).ToArray().Select(v => (float)v).ToArray();
         return (pixels, statistics);
     }

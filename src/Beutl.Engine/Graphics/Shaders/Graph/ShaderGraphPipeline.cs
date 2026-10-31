@@ -9,7 +9,7 @@ using PrimitiveTopology = Beutl.Graphics.Backend.PrimitiveTopology;
 namespace Beutl.Graphics.Shaders;
 
 internal delegate ProgramCacheLease<ShaderGraphPipeline> ShaderGraphProgramAcquirer(
-    VulkanContext context, ShaderPassDescription pass);
+    VulkanContext context, ShaderPassDescription pass, ShaderProgramIdentity identity);
 
 internal sealed unsafe class ShaderGraphPipeline : IDisposable
 {
@@ -17,6 +17,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
     private readonly Dictionary<ShaderStage, ShaderInterface> _interfaces = [];
     private readonly Dictionary<int, VulkanSampler> _samplers = [];
     private readonly PhysicalDeviceLimits _limits;
+    private readonly Silk.NET.Vulkan.DescriptorPoolSize[] _pools;
     private VulkanRenderPass3D? _renderPass;
     private VulkanPipeline3D? _graphics;
     private VulkanComputePipeline? _compute;
@@ -27,16 +28,19 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
     public static ProgramCache<ShaderGraphPipeline> CreateCache()
         => new(static program => program.RetainedByteSize, 16 * 1024 * 1024);
 
+    /// <summary>Leases the pipeline for <paramref name="pass"/> under the identity its graph computed once.</summary>
     public static ProgramCacheLease<ShaderGraphPipeline> Acquire(ProgramCache<ShaderGraphPipeline> cache,
-        ProgramCacheContextKey key, VulkanContext context, ShaderPassDescription pass)
-        => cache.GetOrCreate(ShaderGraphDescription.GetPipelineIdentity(pass), key, (context, pass),
+        ProgramCacheContextKey key, VulkanContext context, ShaderPassDescription pass, ShaderProgramIdentity identity)
+        => cache.GetOrCreate(identity, key, (context, pass),
             static state => new ShaderGraphPipeline(state.context, state.pass));
 
     public ShaderGraphPipeline(VulkanContext context, ShaderPassDescription pass)
     {
         _context = context;
-        context.Vk.GetPhysicalDeviceProperties(context.PhysicalDevice, out PhysicalDeviceProperties properties);
-        _limits = properties.Limits;
+        _limits = context.Limits;
+        // Binding types are part of the pipeline identity, so every pass leasing this pipeline needs these pools.
+        _pools = pass.Bindings.GroupBy(b => b.Type)
+            .Select(g => new Silk.NET.Vulkan.DescriptorPoolSize(VulkanFlagConverter.ToVulkan(g.Key), (uint)g.Count())).ToArray();
         var stages = new Dictionary<ShaderStage, byte[]>();
         try
         {
@@ -69,12 +73,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 .Select(b => new DescriptorBinding((uint)b.Binding, b.Type, 1, visibility)).ToArray();
             if (pass.Program!.IsCompute)
             {
-                uint count = 0;
-                context.Vk.GetPhysicalDeviceQueueFamilyProperties(context.PhysicalDevice, &count, null);
-                var families = new QueueFamilyProperties[count];
-                fixed (QueueFamilyProperties* data = families)
-                    context.Vk.GetPhysicalDeviceQueueFamilyProperties(context.PhysicalDevice, &count, data);
-                if ((families[context.GraphicsQueueFamilyIndex].QueueFlags & QueueFlags.ComputeBit) == 0)
+                if (!context.GraphicsQueueSupportsCompute)
                     throw new NotSupportedException("The rendering queue does not support compute dispatch.");
                 _compute = new VulkanComputePipeline(context, stages[ShaderStage.Compute], bindings, pass.Program.SpecializationConstants);
             }
@@ -94,11 +93,10 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 options.StencilBack = pass.DepthStencil.Back;
                 options.CullMode = pass.CullMode;
                 options.FrontFace = pass.FrontFace;
-                _graphics = new VulkanPipeline3D(context, _renderPass.Handle,
-                    stages[ShaderStage.Vertex], stages[ShaderStage.Fragment],
+                _graphics = new VulkanPipeline3D(context, _renderPass.Handle, stages,
                     VulkanFlagConverter.ToVulkan(pass.Draw.GetVertexInput()), bindings.Select(VulkanFlagConverter.ToVulkan).ToArray(),
                     pass.Program.SpecializationConstants, pass.Attachments.Length, pass.DepthAttachment is not null, VulkanPipelineFixedFunctionState.From(options),
-                    stages.Where(s => s.Key is not (ShaderStage.Vertex or ShaderStage.Fragment)).ToDictionary(), (uint)pass.PatchControlPoints);
+                    (uint)pass.PatchControlPoints);
             }
             foreach (ShaderPassBinding binding in pass.Bindings)
             {
@@ -108,7 +106,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 _samplers.Add(binding.Binding, new VulkanSampler(context, sampler.MinFilter, sampler.MagFilter,
                     sampler.AddressU, sampler.AddressV, transparentBorder: true, sampler.AddressW,
                     sampler.MipmapFilter, sampler.MinLod, sampler.MaxLod, sampler.Compare,
-                    ((ShaderImage)binding.Resource).Format.NumericCategory() != 0));
+                    ((ShaderImage)binding.Resource).Format.GetNumericType() != NumericType.Float));
             }
         }
         catch (Exception ex)
@@ -125,8 +123,9 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         {
             bool storesSupported = stage switch
             {
-                ShaderStage.Vertex or ShaderStage.Geometry or ShaderStage.TessellationControl or ShaderStage.TessellationEvaluation => _context.SupportsVertexStores,
-                ShaderStage.Fragment => _context.SupportsFragmentStores,
+                ShaderStage.Vertex or ShaderStage.Geometry or ShaderStage.TessellationControl or ShaderStage.TessellationEvaluation
+                    => _context.EnabledFeatures.VertexPipelineStoresAndAtomics,
+                ShaderStage.Fragment => _context.EnabledFeatures.FragmentStoresAndAtomics,
                 _ => true,
             };
             if (!storesSupported && shaderInterface.Bindings.Any(binding => !binding.ReadOnly))
@@ -264,9 +263,15 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
 
     private void ValidateFormat(TextureFormat format, FormatFeatureFlags required, string pass)
     {
-        _context.Vk.GetPhysicalDeviceFormatProperties(_context.PhysicalDevice, format.ToVulkanFormat(), out FormatProperties properties);
-        if ((properties.OptimalTilingFeatures & required) != required)
+        if (!SupportsOptimalTiling(_context, format, required))
             throw new NotSupportedException($"Pass '{pass}': format {format} does not support {required}.");
+    }
+
+    /// <summary>Whether optimally tiled images of <paramref name="format"/> have every <paramref name="required"/> feature.</summary>
+    internal static bool SupportsOptimalTiling(VulkanContext context, TextureFormat format, FormatFeatureFlags required)
+    {
+        context.Vk.GetPhysicalDeviceFormatProperties(context.PhysicalDevice, format.ToVulkanFormat(), out FormatProperties properties);
+        return (properties.OptimalTilingFeatures & required) == required;
     }
 
     private (uint X, uint Y, uint Z) ResolveGroups(ShaderPassDescription pass)
@@ -279,16 +284,15 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         static uint RoundUp(int value, uint divisor) => checked((uint)(((ulong)value + divisor - 1) / divisor));
     }
 
+    /// <remarks>The caller validates <paramref name="pass"/> first: runtime parameter sizes and buffer ranges are
+    /// deliberately absent from the pipeline key, so a cached pipeline has only checked the pass it was created for.</remarks>
     public void Execute(ShaderPassDescription pass, IReadOnlyDictionary<int, ITexture2D> images,
         IReadOnlyDictionary<int, IBuffer> buffers, IReadOnlyDictionary<int, ShaderImageFrame> frames, Beutl.Media.PixelRect? scissor = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Validate(pass); // Runtime parameter sizes and buffer ranges are deliberately absent from the pipeline key.
-        var pools = pass.Bindings.GroupBy(b => b.Type)
-            .Select(g => new Silk.NET.Vulkan.DescriptorPoolSize(VulkanFlagConverter.ToVulkan(g.Key), (uint)g.Count())).ToArray();
         using var descriptors = new VulkanDescriptorSet(_context,
             _compute?.DescriptorLayout ?? _graphics!.DescriptorSetLayoutHandle,
-            _compute?.Bindings ?? _graphics!.DescriptorBindings, pools);
+            _compute?.Bindings ?? _graphics!.DescriptorBindings, _pools);
         var parameterBuffers = new List<IBuffer>();
         try
         {
@@ -326,7 +330,7 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     case DescriptorType.UniformBuffer:
                         if (binding.Metadata)
                         {
-                            IBuffer parameters = _context.CreateBuffer(48, BufferUsage.UniformBuffer,
+                            IBuffer parameters = _context.CreateBuffer(ShaderImageFrame.ParameterSize, BufferUsage.UniformBuffer,
                                 MemoryProperty.HostVisible | MemoryProperty.HostCoherent);
                             parameterBuffers.Add(parameters);
                             System.Numerics.Vector4[] values = frames[binding.Resource.Id].GetParameters();
@@ -345,7 +349,13 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                 _context.Vk.CmdBindPipeline(command, PipelineBindPoint.Compute, compute.Handle);
                 DescriptorSet set = descriptors.Handle;
                 _context.Vk.CmdBindDescriptorSets(command, PipelineBindPoint.Compute, compute.Layout, 0, 1, &set, 0, null);
-                SetConstants(command, compute.Layout, ShaderStageFlags.ComputeBit, pass, frames);
+                if (!pass.Constants.IsEmpty)
+                {
+                    Span<byte> constants = stackalloc byte[pass.Constants.Length];
+                    WriteConstants(constants, pass, frames);
+                    fixed (byte* bytes = constants)
+                        _context.Vk.CmdPushConstants(command, compute.Layout, ShaderStageFlags.ComputeBit, 0, (uint)constants.Length, bytes);
+                }
                 if (pass.Draw.Indirect is { } indirect)
                     _context.Vk.CmdDispatchIndirect(command,
                         _context.RequireOwned<VulkanBuffer>(buffers[indirect.Buffer.Id], nameof(buffers)).Handle, (ulong)indirect.Offset);
@@ -369,12 +379,13 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
                     _renderPass.BindPipeline(_graphics!);
                     _renderPass.BindDescriptorSet(_graphics!, descriptors);
                     if (scissor is { } area)
+                        _renderPass.SetScissor(area);
+                    if (!pass.Constants.IsEmpty)
                     {
-                        var rectangle = new Rect2D(new Offset2D(area.X, area.Y), new Extent2D((uint)area.Width, (uint)area.Height));
-                        _context.Vk.CmdSetScissor(_context.GetRecordingCommandBuffer(), 0, 1, &rectangle);
+                        Span<byte> constants = stackalloc byte[pass.Constants.Length];
+                        WriteConstants(constants, pass, frames);
+                        _renderPass.SetPushConstants(constants);
                     }
-                    SetConstants(_context.GetRecordingCommandBuffer(), _graphics!.PipelineLayoutHandle,
-                        VulkanPipeline3D.PushConstantStages, pass, frames);
                     foreach (ShaderVertexBuffer vertex in pass.Draw.Vertices)
                         _renderPass.BindVertexBuffer((uint)vertex.Binding, buffers[vertex.Buffer.Id], (ulong)vertex.Offset);
                     if (pass.Draw.Indices is { } indices)
@@ -407,27 +418,11 @@ internal sealed unsafe class ShaderGraphPipeline : IDisposable
         }
     }
 
-    private void SetConstants(CommandBuffer command, PipelineLayout layout, ShaderStageFlags stages, ShaderPassDescription pass,
-        IReadOnlyDictionary<int, ShaderImageFrame> frames)
+    private static void WriteConstants(Span<byte> constants, ShaderPassDescription pass, IReadOnlyDictionary<int, ShaderImageFrame> frames)
     {
-        if (pass.Constants.IsEmpty)
-            return;
-        Span<byte> constants = stackalloc byte[pass.Constants.Length];
         pass.Constants.AsSpan().CopyTo(constants);
-        if (pass.ImageSizeConstants is { } size)
-        {
-            ShaderImageFrame frame = frames[size.Image.Id];
-            var value = new System.Numerics.Vector3(frame.PixelSize.Width, frame.PixelSize.Height, frame.Scale);
-            System.Runtime.InteropServices.MemoryMarshal.Write(constants[size.Offset..], in value);
-        }
-        if (pass.BoundsOriginConstants is { } origin)
-        {
-            Rect bounds = frames[0].ReferenceBounds ?? frames[0].Bounds;
-            Point value = bounds.Position + origin.Origin.ToPixels(bounds.Size);
-            System.Runtime.InteropServices.MemoryMarshal.Write(constants[origin.Offset..], in value);
-        }
-        fixed (byte* bytes = constants)
-            _context.Vk.CmdPushConstants(command, layout, stages, 0, (uint)constants.Length, bytes);
+        foreach (ShaderRuntimeConstant constant in pass.RuntimeConstants)
+            constant.Write(constants, frames);
     }
 
     internal static void SynchronizeResources(VulkanContext context)

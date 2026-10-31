@@ -331,7 +331,6 @@ internal sealed partial class RenderRequestExecutor
         private readonly RenderTargetLeaseSession _targets;
         private readonly RenderCacheDeviceContextIdentity _programCacheContext;
         private readonly RenderProgramCaches _programCaches;
-        private ProgramCache<ShaderGraphPipeline> _graphProgramCache => _programCaches.ShaderGraph;
         private readonly ShaderBackendPreference _shaderBackendPreference;
         private readonly DrawableBrushMaterializer _drawableBrushMaterializer;
         private Dictionary<RenderFragmentId, Rect>? _resolvedExecutionDomains;

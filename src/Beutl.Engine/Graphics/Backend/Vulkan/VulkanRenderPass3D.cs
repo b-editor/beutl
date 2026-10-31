@@ -25,6 +25,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
     private PipelineLayout _boundDescriptorSetPipelineLayout;
     private PipelineLayout _pushConstantLayout;
     private uint _pushConstantSize;
+    private Rect2D? _scissor;
     private bool _inRenderPass;
     private bool _suspended;
     private bool _disposed;
@@ -367,6 +368,12 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             vk.CmdBindIndexBuffer(_currentCommandBuffer, _boundIndexBuffer, _boundIndexOffset, _boundIndexType);
         }
 
+        // Resume set the full framebuffer area; a narrower scissor recorded since Begin replaces it.
+        if (_scissor is { } scissor)
+        {
+            vk.CmdSetScissor(_currentCommandBuffer, 0, 1, &scissor);
+        }
+
         if (_pushConstantSize != 0)
         {
             fixed (byte* data = _pushConstantData)
@@ -394,6 +401,7 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
         _boundDescriptorSetPipelineLayout = default;
         _pushConstantLayout = default;
         _pushConstantSize = 0;
+        _scissor = null;
     }
 
     /// <summary>Gives back the batch Begin claimed and forgets the instance, once its end has been recorded.</summary>
@@ -552,7 +560,20 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             _context.Vk.CmdDrawIndirect(_currentCommandBuffer, buffer.Handle, offset, count, stride);
     }
 
+    /// <summary>Limits rasterization to <paramref name="area"/> until the pass ends, including across a resume.</summary>
+    internal void SetScissor(PixelRect area)
+    {
+        ThrowIfNotInRenderPass();
+
+        var scissor = new Rect2D(new Offset2D(area.X, area.Y), new Extent2D((uint)area.Width, (uint)area.Height));
+        _scissor = scissor;
+        _context.Vk.CmdSetScissor(_currentCommandBuffer, 0, 1, &scissor);
+    }
+
     public void SetPushConstants<T>(T data) where T : unmanaged
+        => SetPushConstants(new ReadOnlySpan<byte>(&data, sizeof(T)));
+
+    internal void SetPushConstants(ReadOnlySpan<byte> data)
     {
         ThrowIfNotInRenderPass();
 
@@ -561,24 +582,27 @@ internal sealed unsafe class VulkanRenderPass3D : IRenderPass3D, IVulkanContextR
             throw new InvalidOperationException("No pipeline bound");
         }
 
-        var size = (uint)sizeof(T);
+        var size = (uint)data.Length;
         if (size > VulkanPipeline3D.MaxPushConstantsSize)
         {
             throw new ArgumentException(
                 $"Push constants size {size} exceeds maximum of {VulkanPipeline3D.MaxPushConstantsSize} bytes");
         }
 
-        new ReadOnlySpan<byte>(&data, (int)size).CopyTo(_pushConstantData);
+        data.CopyTo(_pushConstantData);
         _pushConstantLayout = _currentPipeline.PipelineLayoutHandle;
         _pushConstantSize = size;
 
-        _context.Vk.CmdPushConstants(
-            _currentCommandBuffer,
-            _currentPipeline.PipelineLayoutHandle,
-            VulkanPipeline3D.PushConstantStages,
-            0,
-            size,
-            &data);
+        fixed (byte* bytes = data)
+        {
+            _context.Vk.CmdPushConstants(
+                _currentCommandBuffer,
+                _currentPipeline.PipelineLayoutHandle,
+                VulkanPipeline3D.PushConstantStages,
+                0,
+                size,
+                bytes);
+        }
     }
 
     public void Dispose()
