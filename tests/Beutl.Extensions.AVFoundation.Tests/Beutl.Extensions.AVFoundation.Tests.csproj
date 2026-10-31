@@ -27,6 +27,9 @@
     <!-- Frame and sample sources shared with the FFmpeg worker encoder tests. -->
     <Compile Include="..\EncoderTestProviders.cs" Link="EncoderTestProviders.cs" />
     <None Include="..\Beutl.Extensions.MediaFoundation.Tests\Fixtures\marker-bframes.mp4" Link="Fixtures\marker-bframes.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Variable frame rate fixtures, described in the FFmpeg worker tests' Fixtures/README.md. -->
+    <None Include="..\Beutl.FFmpegWorker.Tests\Fixtures\vfr-30-60-30.mp4" Link="Fixtures\vfr-30-60-30.mp4" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Beutl.FFmpegWorker.Tests\Fixtures\vfr-screen.mp4" Link="Fixtures\vfr-screen.mp4" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <!-- Mirror the AVF dylib into this project's output (ProjectReferences don't copy native

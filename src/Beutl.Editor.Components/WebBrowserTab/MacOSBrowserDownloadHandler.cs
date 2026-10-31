@@ -8,6 +8,7 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 
 // NativeWebView does not expose navigation responses. Inspect them before WebKit discards
 // attachments, and forward all other delegate messages to Avalonia's navigation delegate.
+// Download links to files a page script generated become WebKit downloads here as well.
 [SupportedOSPlatform("macos")]
 internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
 {
@@ -17,6 +18,7 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private static readonly nint s_respondsToSelector = sel_registerName("respondsToSelector:");
     private static readonly nint s_delegateClass = CreateDelegateClass();
     private readonly Action<Uri, string, IBrowserDownloadSource> _onDownload;
+    private readonly Action<Uri?, string, IBrowserDownloadSource> _onGeneratedDownload;
     private readonly Action<Uri> _onNavigationCommitted;
     private readonly Action _onNavigationStarted;
     private readonly Action<Uri, string?> _onNewWindowRequested;
@@ -30,10 +32,12 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     private nint _delegate;
 
     private MacOSBrowserDownloadHandler(nint webView, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<Uri> onNavigationCommitted, Action onNavigationStarted, Action<Uri, string?> onNewWindowRequested)
+        Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted,
+        Action<Uri, string?> onNewWindowRequested)
     {
         _webView = webView;
         _onDownload = onDownload;
+        _onGeneratedDownload = onGeneratedDownload;
         _onNavigationCommitted = onNavigationCommitted;
         _onNavigationStarted = onNavigationStarted;
         _onNewWindowRequested = onNewWindowRequested;
@@ -44,12 +48,14 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
     }
 
     internal static MacOSBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string, IBrowserDownloadSource> onDownload,
-        Action<Uri> onNavigationCommitted, Action onNavigationStarted, Action<Uri, string?> onNewWindowRequested)
+        Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload, Action<Uri> onNavigationCommitted, Action onNavigationStarted,
+        Action<Uri, string?> onNewWindowRequested)
     {
         if (handle is not IAppleWKWebViewPlatformHandle apple) return null;
         nint webView = apple.GetWKWebViewRetained();
-        return webView == 0 ? null : new MacOSBrowserDownloadHandler(webView, onDownload, onNavigationCommitted, onNavigationStarted,
-            onNewWindowRequested);
+        return webView == 0 ? null
+            : new MacOSBrowserDownloadHandler(webView, onDownload, onGeneratedDownload, onNavigationCommitted, onNavigationStarted,
+                onNewWindowRequested);
     }
 
     public void Dispose()
@@ -82,6 +88,8 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnResponseBecameDownload, "v@:@@@");
         class_addMethod(type, sel_registerName("webView:decidePolicyForNavigationAction:decisionHandler:"),
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnNavigationAction, "v@:@@@");
+        class_addMethod(type, sel_registerName("webView:navigationAction:didBecomeDownload:"),
+            (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, nint, void>)&OnActionBecameDownload, "v@:@@@");
         class_addMethod(type, sel_registerName("webView:didCommitNavigation:"),
             (nint)(delegate* unmanaged[Cdecl]<nint, nint, nint, nint, void>)&OnNavigationCommitted, "v@:@@");
         class_addMethod(type, sel_registerName("webView:didStartProvisionalNavigation:"),
@@ -117,6 +125,13 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             try
             {
                 nint request = Send(navigationAction, sel_registerName("request"));
+                if (IsGeneratedFileDownload(navigationAction, request))
+                {
+                    // Avalonia's delegate can only allow or cancel it, and Beutl cancels these schemes.
+                    // Only this policy hands the page's file, from any frame, to a WebKit download.
+                    CompletePolicy(decisionHandler, 2); // WKNavigationActionPolicy.Download
+                    return;
+                }
                 nint targetFrame = Send(navigationAction, sel_registerName("targetFrame"));
                 bool isMainFrame = targetFrame != 0 && SendBool(targetFrame, sel_registerName("isMainFrame"));
                 if (targetFrame != 0 && !isMainFrame)
@@ -148,6 +163,67 @@ internal sealed partial class MacOSBrowserDownloadHandler : IDisposable
             SendNavigationPolicy(handler._originalDelegate, selector, webView, navigationAction, decisionHandler);
         else
             CompletePolicy(decisionHandler, 1); // WKNavigationActionPolicy.Allow
+    }
+
+    // A download link to a file the page generated. WKNavigationAction reports the download attribute since
+    // macOS 11.3, the release that added the policy which turns the action into a download.
+    private static bool IsGeneratedFileDownload(nint navigationAction, nint request)
+    {
+        nint shouldPerformDownload = sel_registerName("shouldPerformDownload");
+        return SendBoolPointer(navigationAction, s_respondsToSelector, shouldPerformDownload)
+            && SendBool(navigationAction, shouldPerformDownload)
+            && IsGeneratedFileRequest(request);
+    }
+
+    // Reads only the scheme, without copying a data: URL that holds the whole file.
+    private static bool IsGeneratedFileRequest(nint request) => BrowserMediaDownload.IsGeneratedFileAddress(
+        GetScheme(request) + ":");
+
+    private static string? GetScheme(nint request) =>
+        GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("scheme")));
+
+    // A blob: URL names the origin that created it. A data: URL names no one, so the frame whose link
+    // started the download is its creator.
+    private static Uri? GetGeneratedFileCreator(nint navigationAction, nint request)
+    {
+        if (string.Equals(GetScheme(request), "blob", StringComparison.OrdinalIgnoreCase))
+        {
+            return BrowserMediaDownload.GetGeneratedFileOrigin(
+                GetString(Send(Send(request, sel_registerName("URL")), sel_registerName("absoluteString"))));
+        }
+        nint origin = Send(Send(navigationAction, sel_registerName("sourceFrame")), sel_registerName("securityOrigin"));
+        string? protocol = GetString(Send(origin, sel_registerName("protocol")));
+        string? host = GetString(Send(origin, sel_registerName("host")));
+        nint port = Send(origin, sel_registerName("port"));
+        return protocol is "http" or "https" && !string.IsNullOrEmpty(host)
+            ? new UriBuilder(protocol, host, port == 0 ? -1 : (int)port).Uri : null;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+    private static void OnActionBecameDownload(nint self, nint selector, nint webView, nint navigationAction, nint download)
+    {
+        if (s_handlers.TryGetValue(self, out var handler))
+        {
+            NativeDownload? source = null;
+            try
+            {
+                // Only generated files are given the download policy. WebKit names the file when it asks
+                // for a destination, so the file is offered then.
+                nint request = Send(navigationAction, sel_registerName("request"));
+                if (IsGeneratedFileRequest(request))
+                {
+                    Uri? creator = GetGeneratedFileCreator(navigationAction, request);
+                    source = new NativeDownload((name, offered) => handler._onGeneratedDownload(creator, name, offered));
+                    source.Attach(download);
+                    return;
+                }
+            }
+            catch
+            {
+                source?.Dispose();
+            }
+        }
+        SendPointer(download, sel_registerName("cancel:"), 0);
     }
 
     [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]

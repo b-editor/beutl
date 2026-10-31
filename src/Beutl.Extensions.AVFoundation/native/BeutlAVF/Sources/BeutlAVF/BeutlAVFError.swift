@@ -76,10 +76,12 @@ func getLastErrorMessage() -> String {
     return lastErrorBox().message
 }
 
+// Exports are called from .NET threads, which drain no autorelease pool, so each call drains its own. Otherwise the
+// reader a seek replaces stays alive, and after a few hundred seeks AVFoundation can no longer decode.
 @discardableResult
 func withErrorHandling(_ body: () throws -> Void) -> Int32 {
     do {
-        try body()
+        try autoreleasepool(invoking: body)
         setLastErrorMessage("")
         return 0
     } catch let err as BeutlAVFError {

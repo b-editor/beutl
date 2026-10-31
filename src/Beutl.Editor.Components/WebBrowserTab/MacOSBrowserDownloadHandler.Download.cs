@@ -7,20 +7,35 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 
 internal sealed partial class MacOSBrowserDownloadHandler
 {
-    private sealed class NativeDownload(string fileName, string? charset) : IBrowserDownloadSource
+    private sealed class NativeDownload : IBrowserDownloadSource
     {
         private static readonly Dictionary<nint, NativeDownload> s_downloads = [];
         private static readonly nint s_downloadDelegateClass = CreateDownloadDelegateClass();
         private readonly TaskCompletionSource _destinationReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource _finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly CancellationTokenSource _lifetime = new();
+        private readonly Action<string, IBrowserDownloadSource>? _offerGenerated;
+        private readonly string? _charset;
+        private string? _fileName;
         private nint _download;
         private nint _delegate;
         private nint _destinationHandler;
         private DispatcherTimer? _progressTimer;
         private bool _saving;
 
+        // A response, named from its headers before WebKit turns it into a download.
+        internal NativeDownload(string fileName, string? charset)
+        {
+            _fileName = fileName;
+            _charset = charset;
+        }
+
+        // A file the page generated, which WebKit names only when it asks where to save it. It is offered then.
+        internal NativeDownload(Action<string, IBrowserDownloadSource> offerGenerated) => _offerGenerated = offerGenerated;
+
         internal bool IsDisposed { get; private set; }
+
+        public bool IsGenerated => _offerGenerated != null;
 
         internal void Attach(nint download)
         {
@@ -75,7 +90,9 @@ internal sealed partial class MacOSBrowserDownloadHandler
                 ChooseDestination(temporaryPath);
                 await _finished.Task.WaitAsync(cancellation.Token);
                 _progressTimer.Stop();
-                return await BrowserMediaDownload.ValidateAndPublishAsync(temporaryPath, directory, fileName, charset, cancellation.Token);
+                return IsGenerated
+                    ? BrowserMediaDownload.PublishGeneratedFile(temporaryPath, directory, _fileName!, cancellation.Token)
+                    : await BrowserMediaDownload.ValidateAndPublishAsync(temporaryPath, directory, _fileName!, _charset, cancellation.Token);
             }
             finally
             {
@@ -140,6 +157,11 @@ internal sealed partial class MacOSBrowserDownloadHandler
             }
             try
             {
+                if (source.IsGenerated)
+                {
+                    source._fileName = BrowserMediaDownload.CreateGeneratedFileName(GetString(name),
+                        GetString(Send(response, sel_registerName("MIMEType"))));
+                }
                 source._destinationHandler = BlockCopy(completion);
                 if (source._destinationHandler == 0) throw new IOException(Strings.WebDownloadIncomplete);
                 source._destinationReady.TrySetResult();
@@ -148,7 +170,19 @@ internal sealed partial class MacOSBrowserDownloadHandler
             {
                 CompleteDestination(completion, null);
                 source._destinationReady.TrySetException(ex);
+                // A generated file not yet offered has no one else to release it.
+                if (source.IsGenerated) Dispatcher.UIThread.Post(source.Dispose);
+                return;
             }
+            if (source._offerGenerated is not { } offer) return;
+            // Disposing replaces the download's delegate, which must not happen inside its own callback,
+            // and the view may dispose the offered source at once.
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (source.IsDisposed) return;
+                try { offer(source._fileName!, source); }
+                catch { source.Dispose(); }
+            });
         }
 
         [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -167,6 +201,8 @@ internal sealed partial class MacOSBrowserDownloadHandler
             var exception = new IOException(message);
             source._destinationReady.TrySetException(exception);
             source._finished.TrySetException(exception);
+            // A generated file that failed before WebKit named it was never offered, so no one else releases it.
+            if (source.IsGenerated && source._fileName == null) Dispatcher.UIThread.Post(source.Dispose);
         }
     }
 

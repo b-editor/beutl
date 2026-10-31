@@ -13,33 +13,39 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 // response and shows a file it cannot display, such as an archive, as text in place of the page. An emission hook
 // sees each decision before the adapter's handler: it ignores such a main-frame file, which keeps the page and
 // stops the transfer, and reports the file so that the downloader can request it instead.
+// A file a page script generated cannot be requested again, so its download is taken from WebKit instead.
 [SupportedOSPlatform("linux")]
 internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
 {
     private const int ResponseDecision = 2; // WEBKIT_POLICY_DECISION_TYPE_RESPONSE
     private static readonly Lock s_lock = new();
     private static readonly Dictionary<nint, LinuxBrowserDownloadHandler> s_handlers = [];
-    private static bool s_hookInstalled;
+    private static bool s_policyHookInstalled;
+    private static bool s_downloadHookInstalled;
     private readonly Api _api;
     private readonly nint _webView;
     private readonly Action<Uri, string?> _onDownload;
+    private readonly Action<Uri?, string, IBrowserDownloadSource> _onGeneratedDownload;
     private volatile bool _disposed;
 
-    private LinuxBrowserDownloadHandler(Api api, nint webView, Action<Uri, string?> onDownload)
+    private LinuxBrowserDownloadHandler(Api api, nint webView, Action<Uri, string?> onDownload,
+        Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload)
     {
         _api = api;
         _webView = webView;
         _onDownload = onDownload;
+        _onGeneratedDownload = onGeneratedDownload;
     }
 
-    internal static LinuxBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string?> onDownload)
+    internal static LinuxBrowserDownloadHandler? TryAttach(IPlatformHandle? handle, Action<Uri, string?> onDownload,
+        Action<Uri?, string, IBrowserDownloadSource> onGeneratedDownload)
     {
         // The WPE adapter decides responses itself.
         if (handle is not IGtkWebViewPlatformHandle { WebKitWebView: not 0 } gtk || Api.Gtk.Value is not { } api) return null;
         // Retain before dispatch; release on GLib too because the last unref can destroy a widget.
-        var handler = new LinuxBrowserDownloadHandler(api, ObjectRef(gtk.WebKitWebView), onDownload);
+        var handler = new LinuxBrowserDownloadHandler(api, ObjectRef(gtk.WebKitWebView), onDownload, onGeneratedDownload);
         lock (s_lock) s_handlers[handler._webView] = handler;
-        _ = OnGlibAsync(api.InstallHook);
+        _ = OnGlibAsync(api.InstallHooks);
         return handler;
     }
 
@@ -98,15 +104,20 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
             // Without these exports the page shows the file as before.
             catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { return null; }
         });
-        private readonly delegate* unmanaged[Cdecl]<nuint> _getWebViewType;
+        private readonly delegate* unmanaged[Cdecl]<nuint> _getWebViewType, _getWebContextType;
         private readonly delegate* unmanaged[Cdecl]<nint, int> _isMainFrameResource, _isMimeTypeSupported;
         private readonly delegate* unmanaged[Cdecl]<nint, nint> _getRequest, _getResponse, _getMethod, _getUri, _getSuggestedFilename;
         private readonly delegate* unmanaged[Cdecl]<nint, uint> _getStatusCode;
         private readonly delegate* unmanaged[Cdecl]<nint, void> _ignore;
+        private readonly delegate* unmanaged[Cdecl]<nint, nint> _getDownloadWebView, _getDownloadRequest, _getDownloadResponse, _getRequestUri, _getMimeType;
+        private readonly delegate* unmanaged[Cdecl]<nint, ulong> _getReceivedDataLength, _getContentLength;
+        private readonly delegate* unmanaged[Cdecl]<nint, nint, void> _setDestination;
+        private readonly delegate* unmanaged[Cdecl]<nint, void> _cancel;
 
         private Api(nint webkit)
         {
             _getWebViewType = (delegate* unmanaged[Cdecl]<nuint>)NativeLibrary.GetExport(webkit, "webkit_web_view_get_type");
+            _getWebContextType = (delegate* unmanaged[Cdecl]<nuint>)NativeLibrary.GetExport(webkit, "webkit_web_context_get_type");
             // Since WebKit 2.40; earlier versions cannot tell a subframe's response apart.
             _isMainFrameResource = (delegate* unmanaged[Cdecl]<nint, int>)NativeLibrary.GetExport(webkit, "webkit_response_policy_decision_is_main_frame_main_resource");
             _isMimeTypeSupported = (delegate* unmanaged[Cdecl]<nint, int>)NativeLibrary.GetExport(webkit, "webkit_response_policy_decision_is_mime_type_supported");
@@ -117,16 +128,32 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
             _getSuggestedFilename = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_uri_response_get_suggested_filename");
             _getStatusCode = (delegate* unmanaged[Cdecl]<nint, uint>)NativeLibrary.GetExport(webkit, "webkit_uri_response_get_status_code");
             _ignore = (delegate* unmanaged[Cdecl]<nint, void>)NativeLibrary.GetExport(webkit, "webkit_policy_decision_ignore");
+            _getDownloadWebView = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_download_get_web_view");
+            _getDownloadRequest = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_download_get_request");
+            _getDownloadResponse = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_download_get_response");
+            _getRequestUri = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_uri_request_get_uri");
+            _getMimeType = (delegate* unmanaged[Cdecl]<nint, nint>)NativeLibrary.GetExport(webkit, "webkit_uri_response_get_mime_type");
+            _getReceivedDataLength = (delegate* unmanaged[Cdecl]<nint, ulong>)NativeLibrary.GetExport(webkit, "webkit_download_get_received_data_length");
+            _getContentLength = (delegate* unmanaged[Cdecl]<nint, ulong>)NativeLibrary.GetExport(webkit, "webkit_uri_response_get_content_length");
+            _setDestination = (delegate* unmanaged[Cdecl]<nint, nint, void>)NativeLibrary.GetExport(webkit, "webkit_download_set_destination");
+            _cancel = (delegate* unmanaged[Cdecl]<nint, void>)NativeLibrary.GetExport(webkit, "webkit_download_cancel");
         }
 
-        // Only touched on the GLib thread. The hook serves every web view and stays for the process.
-        internal void InstallHook()
+        // Only touched on the GLib thread. The hooks serve every web view and stay for the process.
+        internal void InstallHooks()
         {
-            if (s_hookInstalled) return;
-            uint signal = SignalLookup("decide-policy", _getWebViewType());
-            if (signal == 0) return;
-            AddEmissionHook(signal, 0, (nint)(delegate* unmanaged[Cdecl]<nint, uint, nint, nint, int>)&OnDecidePolicy, 0, 0);
-            s_hookInstalled = true;
+            if (!s_policyHookInstalled)
+            {
+                uint signal = SignalLookup("decide-policy", _getWebViewType());
+                if (signal != 0) AddEmissionHook(signal, 0, (nint)(delegate* unmanaged[Cdecl]<nint, uint, nint, nint, int>)&OnDecidePolicy, 0, 0);
+                s_policyHookInstalled = signal != 0;
+            }
+            if (!s_downloadHookInstalled)
+            {
+                uint signal = SignalLookup("download-started", _getWebContextType());
+                if (signal != 0) AddEmissionHook(signal, 0, (nint)(delegate* unmanaged[Cdecl]<nint, uint, nint, nint, int>)&OnDownloadStarted, 0, 0);
+                s_downloadHookInstalled = signal != 0;
+            }
         }
 
         internal bool IsMainFrameResponse(nint decision) => _isMainFrameResource(decision) != 0;
@@ -137,6 +164,22 @@ internal sealed partial class LinuxBrowserDownloadHandler : IDisposable
         internal string? GetUri(nint response) => Marshal.PtrToStringUTF8(_getUri(response));
         internal string? GetSuggestedFilename(nint response) => Marshal.PtrToStringUTF8(_getSuggestedFilename(response));
         internal void Ignore(nint decision) => _ignore(decision);
+        internal nint GetDownloadWebView(nint download) => _getDownloadWebView(download);
+        internal string? GetDownloadUri(nint download) => Marshal.PtrToStringUTF8(_getRequestUri(_getDownloadRequest(download)));
+        internal nint GetDownloadResponse(nint download) => _getDownloadResponse(download);
+        internal string? GetMimeType(nint response) => Marshal.PtrToStringUTF8(_getMimeType(response));
+        internal ulong GetReceivedDataLength(nint download) => _getReceivedDataLength(download);
+        internal ulong GetContentLength(nint response) => _getContentLength(response);
+        internal void Cancel(nint download) => _cancel(download);
+
+        // The WebKitGTK 4.x API takes a file URI.
+        internal void SetDestination(nint download, string path)
+        {
+            nint uri = FilenameToUri(path, 0, 0);
+            if (uri == 0) throw new IOException(Strings.WebDownloadIncomplete);
+            try { _setDestination(download, uri); }
+            finally { Free(uri); }
+        }
     }
 
     [LibraryImport("libgobject-2.0.so.0", EntryPoint = "g_signal_lookup", StringMarshalling = StringMarshalling.Utf8)]

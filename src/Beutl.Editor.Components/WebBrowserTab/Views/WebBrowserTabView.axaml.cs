@@ -232,14 +232,25 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             if (OperatingSystem.IsWindows()) OnWindowsNativeDownloadRequested(uri, name, source);
             else OnNativeDownloadRequested(uri, name, source);
         }
+        void OnGeneratedDownload(Uri? creator, string name, IBrowserDownloadSource source, Uri? document = null)
+        {
+            if (handlerVersion != _nativeDownloadHandlerVersion || !ReferenceEquals(webView, _webView))
+            {
+                source.Dispose();
+                return;
+            }
+            OnGeneratedDownloadRequested(creator, name, source, document);
+        }
         if (OperatingSystem.IsMacOS())
         {
             _nativeDownloadHandler = MacOSBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
-                OnNativeNavigationCommitted, OnNativeNavigationStarted, OnNativeNewWindowRequested);
+                (creator, name, source) => OnGeneratedDownload(creator, name, source), OnNativeNavigationCommitted,
+                OnNativeNavigationStarted, OnNativeNewWindowRequested);
         }
         else if (OperatingSystem.IsWindows())
         {
-            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload);
+            _nativeDownloadHandler = WindowsBrowserDownloadHandler.TryAttach(e.TryGetPlatformHandle(), OnDownload,
+                OnGeneratedDownload);
         }
         else if (OperatingSystem.IsLinux())
         {
@@ -247,7 +258,7 @@ internal partial class WebBrowserTabView : UserControl, IDisposable, IWebViewRep
             {
                 if (handlerVersion == _nativeDownloadHandlerVersion && ReferenceEquals(webView, _webView))
                     OnNavigationResponseNotShown(uri, name);
-            });
+            }, (creator, name, source) => OnGeneratedDownload(creator, name, source));
         }
         // The download handler is in place first, so a response of this navigation can become a download.
         // With ad blocking on, the session starts it once its rules are in place.

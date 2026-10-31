@@ -13,6 +13,7 @@ namespace Beutl.Editor.Components.WebBrowserTab;
 internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
 {
     private readonly Action<Uri, string, IBrowserDownloadSource> _onDownload;
+    private readonly Action<Uri?, string, IBrowserDownloadSource, Uri?> _onGeneratedDownload;
     private readonly DownloadStartingHandler _handler;
     private readonly HashSet<NativeDownload> _downloads = [];
     private nint _webView;
@@ -20,9 +21,10 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     private bool _subscribed;
 
     private unsafe WindowsBrowserDownloadHandler(IWindowsWebView2PlatformHandle handle,
-        Action<Uri, string, IBrowserDownloadSource> onDownload)
+        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload)
     {
         _onDownload = onDownload;
+        _onGeneratedDownload = onGeneratedDownload;
         _handler = new DownloadStartingHandler(this);
         nint coreWebView = handle.CoreWebView2;
         if (coreWebView == 0) throw new InvalidOperationException("WebView2 is not available.");
@@ -57,10 +59,10 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     }
 
     internal static WindowsBrowserDownloadHandler? TryAttach(IPlatformHandle? handle,
-        Action<Uri, string, IBrowserDownloadSource> onDownload)
+        Action<Uri, string, IBrowserDownloadSource> onDownload, Action<Uri?, string, IBrowserDownloadSource, Uri?> onGeneratedDownload)
     {
         if (handle is not IWindowsWebView2PlatformHandle windows) return null;
-        try { return new WindowsBrowserDownloadHandler(windows, onDownload); }
+        try { return new WindowsBrowserDownloadHandler(windows, onDownload, onGeneratedDownload); }
         catch (Exception ex)
         {
             Trace.TraceError("WebView2 download handler could not be installed: {0}", ex);
@@ -77,19 +79,25 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         {
             operation = GetObject(args, 3);
             string? address = GetString(operation, 9);
-            if (!Uri.TryCreate(address, UriKind.Absolute, out Uri? uri)) return;
             string? mimeType = GetString(operation, 11)?.Split(';')[0].Trim();
-            string? suggestedPath = GetString(args, 6);
-            string? name = BrowserMediaDownload.GetResponseFileName(uri, Path.GetFileName(suggestedPath), mimeType);
+            string? suggestedName = Path.GetFileName(GetString(args, 6));
+            bool generated = BrowserMediaDownload.IsGeneratedFileAddress(address);
+            Uri? uri = null;
+            string? name = generated
+                ? BrowserMediaDownload.CreateGeneratedFileName(suggestedName, mimeType)
+                : Uri.TryCreate(address, UriKind.Absolute, out uri)
+                    ? BrowserMediaDownload.GetResponseFileName(uri, suggestedName, mimeType) : null;
             if (name == null) return;
 
             deferral = GetObject(args, 10);
             Marshal.AddRef(args);
-            source = new NativeDownload(this, args, operation, deferral, name);
+            source = new NativeDownload(this, args, operation, deferral, name, generated);
             operation = deferral = 0;
             source.HideDefaultDialog();
             _downloads.Add(source);
-            _onDownload(uri, name, source);
+            // DownloadStarting names no frame, so only a blob: URL tells which document created the file.
+            if (generated) _onGeneratedDownload(BrowserMediaDownload.GetGeneratedFileOrigin(address), name, source, GetDocument());
+            else _onDownload(uri!, name, source);
         }
         catch (Exception ex)
         {
@@ -106,6 +114,18 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
                 Marshal.Release(deferral);
             }
             if (operation != 0) Marshal.Release(operation);
+        }
+    }
+
+    // WebView2 reports a navigation only once its page has loaded, while scripts run from its commit. Its Source
+    // (ICoreWebView2::get_Source) changes at the commit, so it names the document on display.
+    private Uri? GetDocument()
+    {
+        try { return Uri.TryCreate(GetString(_webView, 4), UriKind.Absolute, out Uri? document) ? document : null; }
+        catch (Exception ex)
+        {
+            Trace.TraceError("WebView2 could not report its document: {0}", ex);
+            return null;
         }
     }
 
@@ -136,7 +156,8 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
     }
 
     private sealed class NativeDownload(
-        WindowsBrowserDownloadHandler owner, nint args, nint operation, nint deferral, string fileName) : IBrowserDownloadSource
+        WindowsBrowserDownloadHandler owner, nint args, nint operation, nint deferral, string fileName, bool generated)
+        : IBrowserDownloadSource
     {
         private readonly TaskCompletionSource _finished = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private nint _args = args;
@@ -146,6 +167,8 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
         private IProgress<(long Received, long? Total)>? _progress;
         private bool _saving;
         private bool _disposed;
+
+        public bool IsGenerated => generated;
 
         internal unsafe void HideDefaultDialog() =>
             Marshal.ThrowExceptionForHR(
@@ -178,8 +201,9 @@ internal sealed partial class WindowsBrowserDownloadHandler : IDisposable
                 CompleteDeferral();
                 await _finished.Task.WaitAsync(cancellationToken);
                 _progressTimer.Stop();
-                return await BrowserMediaDownload.ValidateAndPublishAsync(
-                    temporaryPath, directory, fileName, null, cancellationToken);
+                return generated
+                    ? BrowserMediaDownload.PublishGeneratedFile(temporaryPath, directory, fileName, cancellationToken)
+                    : await BrowserMediaDownload.ValidateAndPublishAsync(temporaryPath, directory, fileName, null, cancellationToken);
             }
             finally
             {

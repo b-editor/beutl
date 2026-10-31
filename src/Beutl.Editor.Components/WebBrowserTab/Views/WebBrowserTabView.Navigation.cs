@@ -145,6 +145,9 @@ internal partial class WebBrowserTabView
         if (uri == _latestNavigationRequest) _latestNavigationRequest = null;
         if (!e.IsSuccess && _mediaNavigationIntercepted) return;
 
+        // WKWebView reports a page once it has loaded, after its scripts could already generate a file. That file
+        // does not expire with the load; it is offered again below.
+        if (e.IsSuccess && _pendingPageDownloadRequest?.Source?.IsGenerated == true) PreservePendingNativeDownload();
         if (e.IsSuccess) ResetPageDownloadRequests();
         else SettleAbortedPageNavigation();
         if (e.IsSuccess && uri != WebBrowserTabViewModel.BlankPage) _openerNavigation = null;

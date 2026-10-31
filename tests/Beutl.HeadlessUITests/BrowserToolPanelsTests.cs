@@ -452,6 +452,45 @@ public class BrowserToolPanelsTests
         finally { window.Close(); }
     }
 
+    [AvaloniaTest]
+    public void HistoryOffersNoRetryForAFileThePageGenerated()
+    {
+        using var temporary = new TemporaryDirectory();
+        Directory.CreateDirectory(temporary.Path);
+        string media = Path.Combine(temporary.Path, "clip.mp4");
+        string readme = Path.Combine(temporary.Path, "README.md");
+        File.WriteAllText(media, "media");
+        File.WriteAllText(readme, "# Beutl");
+        var page = new Uri("https://github.com/b-editor/beutl/blob/main/README.md");
+        var profile = new BrowserProfile(Path.Combine(temporary.Path, "profile.json"));
+        profile.AddDownload(new Uri("https://files.example/clip.mp4"), media);
+        profile.AddDownload(page, readme, generated: true);
+        var uri = new Uri("https://example.com/");
+        using var vm = new WebBrowserTabViewModel(CreateContext(temporary.Path), uri, profile);
+        using var view = new WebBrowserTabView(url => new NativeWebView { Source = url }, () => (true, null, false));
+        view.DataContext = vm;
+        vm.CompleteNavigation(uri, true, false, false);
+        var window = new Window { Content = view, Width = 640, Height = 640 };
+        try
+        {
+            window.Show();
+            OpenMenu(view, Strings.BrowserDownloads);
+            Dispatcher.UIThread.RunJobs();
+            Button Find(string file, string feature) => view.GetVisualDescendants().OfType<Button>().Single(button =>
+                button.Tag is BrowserDownloadRecord record && record.FilePath == file
+                && Beutl.Editor.Components.Helpers.UsageTracking.GetFeature(button) == feature);
+
+            // Retrying requests the recorded address, which for a generated file is the page that made it.
+            Assert.Multiple(() =>
+            {
+                Assert.That(Find(media, "WebBrowser.RetryHistory").IsVisible, Is.True);
+                Assert.That(Find(readme, "WebBrowser.RetryHistory").IsVisible, Is.False);
+                Assert.That(Find(readme, "WebBrowser.OpenHistoryFolder").IsVisible, Is.True);
+            });
+        }
+        finally { window.Close(); }
+    }
+
     private static IEditorContext CreateContext(string root)
     {
         var project = new Project { Uri = new Uri(Path.Combine(root, "project.bep")) };

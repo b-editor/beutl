@@ -67,6 +67,18 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
         && string.IsNullOrEmpty(uri.UserInfo);
 
+    // A page script generated the file and handed it to the engine as a blob: or data: URL. No server holds it, so
+    // only the engine's own transfer can save it, and it can never be requested again.
+    internal static bool IsGeneratedFileAddress(string? address) =>
+        address != null && (address.StartsWith("blob:", StringComparison.OrdinalIgnoreCase)
+            || address.StartsWith("data:", StringComparison.OrdinalIgnoreCase));
+
+    // A blob: URL carries the origin of the document that created it; a data: URL names no one.
+    internal static Uri? GetGeneratedFileOrigin(string? address) =>
+        address != null && address.StartsWith("blob:", StringComparison.OrdinalIgnoreCase)
+        && Uri.TryCreate(address[5..], UriKind.Absolute, out Uri? creator) && IsHttpUri(creator)
+            ? new Uri(creator.GetLeftPart(UriPartial.Authority) + "/") : null;
+
     private static bool IsMediaExtension(string extension) =>
         s_mediaTypes.Values.Contains(extension, StringComparer.OrdinalIgnoreCase)
         || extension.Equals(".jpeg", StringComparison.OrdinalIgnoreCase);
@@ -206,6 +218,16 @@ internal sealed class BrowserMediaDownload(HttpClient client)
         return PublishCompletedFile(completedPath, directory, name, cancellationToken);
     }
 
+    // The HTML check keeps a server's sign-in page from passing for its file. A generated file is what its page
+    // made, HTML or empty included, so it is published as it is.
+    internal static string PublishGeneratedFile(string completedPath, string directory, string name,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Directory.CreateDirectory(directory);
+        return PublishCompletedFile(completedPath, directory, name, cancellationToken);
+    }
+
     // Fills the prefix unless the stream ends first, in which case it is trimmed to the bytes that arrived.
     private static async Task<byte[]> ReadPrefixAsync(Stream input, CancellationToken cancellationToken)
     {
@@ -311,10 +333,17 @@ internal sealed class BrowserMediaDownload(HttpClient client)
             || string.Equals(mediaType, "application/xhtml+xml", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException(Strings.WebDownloadHtmlResponse);
 
-        string name = NormalizeFileName(suggestedName)
+        return NameFile(NormalizeFileName(suggestedName)
             ?? NormalizeFileName(Uri.UnescapeDataString(Path.GetFileName(uri.AbsolutePath)))
-            ?? "download";
+            ?? "download", mediaType);
+    }
 
+    // A generated file can be an HTML document, and the path of its blob: or data: URL is no file name.
+    internal static string CreateGeneratedFileName(string? suggestedName, string? mediaType) =>
+        NameFile(NormalizeFileName(suggestedName) ?? "download", mediaType);
+
+    private static string NameFile(string name, string? mediaType)
+    {
         // Media takes the extension of its type so that it imports as what it is; other files keep their names.
         if (mediaType != null && s_mediaTypes.TryGetValue(mediaType, out string? extension))
         {

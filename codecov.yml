@@ -16,6 +16,7 @@ ignore:
   - "src/Beutl.Editor.Components/WebBrowserTab/MacOSReferrerNavigation.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxAdBlockBackend.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxBrowserDownloadHandler.cs"
+  - "src/Beutl.Editor.Components/WebBrowserTab/LinuxBrowserDownloadHandler.Download.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxReferrerNavigation.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxWebKit.cs"
   - "src/Beutl.Editor.Components/WebBrowserTab/LinuxWebKitCookies.cs"
